@@ -102,6 +102,11 @@ public interface InstallmentPlanRepo extends JpaRepository<InstallmentPlan, Long
          + "AND p.status IN ('ACTIVE','DEFAULTED') ORDER BY p.id ASC")
     List<InstallmentPlan> findLiveByAssetRef(@Param("orgId") Long orgId, @Param("assetRef") String assetRef);
 
+    /** The live plans raised against one invoice — the void guard, and the cancel that follows it. */
+    @Query("SELECT p FROM InstallmentPlan p WHERE p.organizationId = :orgId AND p.invoiceNo = :invoiceNo "
+         + "AND p.status IN ('ACTIVE','DEFAULTED')")
+    List<InstallmentPlan> findLiveByInvoiceNo(@Param("orgId") Long orgId, @Param("invoiceNo") String invoiceNo);
+
     /**
      * Plans carrying a given invoice — how the sale path finds the plan to cancel when an invoice is voided.
      * A list, not an Optional: one invoice should carry one plan, and returning a list means a data problem

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://6d0b3fb5-dae3-4567-8597-0cfc8cdd7790.frame.claudeusercontent.com/_f/1787542214-66fe/?__frame_t=1k2r8tbMWYjYn0lTUFJt-dND.960c3e7a-cec9-4cbe-878d-aa820ff776c3.484ef2ef-2ee4-4444-8576-da7dbb9a9460.1787545817&__frame_v=manifest.549c0ed89764d31f.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1787542214-66fe/">--><base href="."><script>window.__FRAME_PREAMBLE={"capabilities":{"artifact":"artifact.oqIe8shs.js","assets":"assets.BkxVItX2.js","comments":"comments.GLuHR3zP.js","db":"db.CRhVHzSt.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CZsbekoQ.js","mcp":"mcp.D3B2EyQu.js","permissions":"permissions.BNySkLV5.js","room":"room.DE7EMui-.js","sample":"sample.C7z_6W62.js","self":"artifact.oqIe8shs.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.h3_8GSUa.js","comments":"_comments.BOgkE6qU.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var Y=["light","dark","system"],X=/^[A-Za-z0-9_-]{1,64}$/,D=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,G=new Set(["class","hidden","value","checked"]);function V(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||G.has(t)}var be="http://www.w3.org/1999/xhtml",Z="http://www.w3.org/2000/svg",J=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),Q=new Set(["script","style"]);function ee(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!J.has(t):e.namespaceURI===Z?!Q.has(t):!1}var te=new Set(["html","head","body","frameset"]);function re(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&te.has(e.localName)}function ne(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!X.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[n,s]of Object.entries(t.attrsSet))if(!D.test(n)||typeof s!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const n of t.attrsRemoved)if(typeof n!="string"||!D.test(n))return!1}return!0}function se(e,t){if(e===null||typeof e!="object")return!1;const{seq:n,elements:s}=e;if(typeof n!="number"||!Number.isSafeInteger(n)||!Array.isArray(s)||s.length===0||s.length>64)return!1;for(let o=0;o<s.length;o++)if(!t(s[o]))return!1;return!0}function ae(e){return e===null||typeof e!="object"?!1:se(e.__frame_patch,ne)}function oe(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ie(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function le(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&Y.includes(n)}var O="__frame_scroll",ce=150,ue=310,fe=160,pe=3e4;function de(){let e=0,t=!1,n=!1,s=!1,o=0,l=null;const c=i=>{try{sessionStorage.setItem(O,JSON.stringify({y:i}))}catch{}},f=()=>{if(clearTimeout(e),l===null)return;const i=l;l=null,c(i)},S=()=>{if(t){t=!1;return}n=!0,l=scrollY,clearTimeout(e),e=setTimeout(f,ce)};try{addEventListener("scroll",S,{passive:!0}),addEventListener("pagehide",f)}catch{}const v=()=>{let i;try{i=sessionStorage.getItem(O)}catch{return null}if(i===null)return null;let d;try{d=JSON.parse(i)}catch{d=null}const u=d?.y;if(!(typeof u=="number"&&Number.isFinite(u)&&u>=0)){try{sessionStorage.removeItem(O)}catch{}return null}return u};let b=!1;const m=i=>{try{const d=scrollY;scrollTo({top:i,left:0,behavior:"instant"}),o=i,s=!0,clearTimeout(e),l=null,c(i);const u=scrollY;u!==d&&(t=!0),u!==i&&!b&&(b=!0,addEventListener("load",()=>{try{if(scrollY===u){const h=v();m(h!==null?h:o)}}catch{}},{once:!0}))}catch{}},y=()=>{try{return!!location.hash}catch{return!0}};let g=!1;const E=()=>{try{if(g||innerWidth>ue||innerHeight>fe)return;g=!0;const i=Date.now(),d=()=>{try{removeEventListener("resize",d)}catch{}if(Date.now()-i>pe||n||y())return;const u=v();m(u!==null?u:o)};addEventListener("resize",d)}catch{}};let r=!1,p=!1;return{restore(){if(r||(r=!0,y()))return;const i=v();i!==null&&(m(i),E())},promoted(){if(p||(p=!0,y()))return;const i=v();i!==null?(m(i),E()):s&&m(o)}}}var Ee="modulepreload",Ae=function(e){return"/"+e},Re={},me=function(t,n,s){let o=Promise.resolve();function l(c){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=c,window.dispatchEvent(f),!f.defaultPrevented)throw c}return o.then(c=>{for(const f of c||[])f.status==="rejected"&&l(f.reason);return t().catch(l)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let s=0;for(let o=0;o<n.length;o++){const l=n[o];try{e(t,l,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[l]}catch{}try{e(t,l,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[l]=="function"&&s++}if(s&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:s},"*")}catch{}})();var he=1e4,_e=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function F(e){for(const t of _e)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var M=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),j=window.__FRAME_PREAMBLE?.transforms,N=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate,L=/^[\w.-]+\.js$/;function T(e){return me(()=>import("/_runtime/"+e),void 0)}function z(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:W,pipe:()=>({wrap:(n,s)=>(...o)=>{try{return s(...o)}catch(l){return Promise.reject(l)}}})}}var P=null,w=null;function q(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var B=!1;function ve(e,t){const n=[];for(const s of e.elements){const o=document.querySelector(`[data-id="${s.target}"]`);if(!o){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}if([...Object.keys(s.attrsSet??{}),...s.attrsRemoved??[]].some(l=>!V(l))){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}if(s.text!==void 0&&(!ee(o)||re(o))){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}for(const[l,c]of Object.entries(s.attrsSet??{}))if(!$(o,l)){try{o.setAttribute(l,c)}catch{}H(o,l,c)}for(const l of s.attrsRemoved??[])$(o,l)||(o.removeAttribute(l),H(o,l,null));typeof s.text=="string"&&(o.textContent=s.text),n.push(s.target)}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function H(e,t,n){if(!(e instanceof HTMLInputElement))return;const s=t.toLowerCase();s==="checked"?e.checked=n!==null:s==="value"&&e.type!=="file"&&(e.value=n??"")}function $(e,t){const n=t.toLowerCase(),s=e;return n==="data-id"||(n==="value"||n==="checked")&&(s.__artifactSecret===!0||/^(password|hidden|file)$/.test(s.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${s.autocomplete??""}`))}function K(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,B=!0):B&&(delete t.dataset.theme,t.style.colorScheme="",B=!1)}var R=new Map;function ye(){let e;const t={u:new Promise(n=>{e=n}),r:n=>{t.done=!0,e(n)},done:!1,nulled:!1};return t}var ge=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),W=(e,t)=>{const n=R.get(e);if(!n||n.done){n?.nulled&&w&&parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},w);return}const s=typeof t=="function"?Object.setPrototypeOf(t,ge):Object.assign(Object.create(null),t);typeof s.then=="function"&&delete s.then,n.r(Object.freeze(s))},U=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(U&&U.writable===!1)){const e=j&&L.test(j)?T(j).catch(()=>{}):Promise.resolve(void 0),t=r=>{if(r.type==="auxclick"&&r.button!==1)return;const p=r.target,i=p&&p.closest?p.closest("a[href],area[href]"):null;if(!i)return;const d=i.getAttribute("href");if(!d)return;let u,h;try{u=new URL(d,document.baseURI),h=new URL(document.baseURI).origin}catch{return}if((u.protocol==="http:"||u.protocol==="https:")&&u.origin!==h){r.preventDefault();const _=(i.getAttribute("target")??"").toLowerCase(),C=r.type==="auxclick"||r.metaKey||r.ctrlKey||r.shiftKey||r.altKey||!["","_self","_top","_parent"].includes(_);parent.postMessage({__frame_nav:!0,url:u.href,newTab:C},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const n={},s=r=>{r.isTrusted&&(n.pointer=!0)},o=r=>{r.isTrusted&&(n.click=!0)};addEventListener("pointermove",s,{capture:!0,passive:!0}),addEventListener("click",o,{capture:!0,passive:!0}),e.then(r=>{r?.wireNav&&(r.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",s,!0),removeEventListener("click",o,!0),r.wireEngagement?.(n))});let l=null;try{l=de()}catch{}const c=U?.value??{};q(window,"claude",c);for(const r of Object.keys(M)){if(c[r]!==void 0){q(c,r,c[r]);continue}R.set(r,ye())}if(c.use===void 0){const r=p=>{if(typeof p!="string"||!Object.hasOwn(M,p))return Promise.resolve(null);const i=R.get(p);return i?i.u:Promise.resolve(c[p]??null)};try{Object.defineProperty(c,"use",{value:r,writable:!0,configurable:!0,enumerable:!1})}catch{}}let f=null,S=null,v=0;const b=r=>{r.source!==parent||!F(r.origin)||oe(r.data)&&(f=r.data.__frame_init,w=r.origin,removeEventListener("message",b),clearTimeout(v),S?.())};addEventListener("message",b),parent.postMessage({__frame_connect:!0},"*");const m=new Promise(r=>{S=r,v=setTimeout(()=>{removeEventListener("message",b),r()},he)}),y=document.readyState==="loading"?new Promise(r=>document.addEventListener("DOMContentLoaded",()=>r(),{once:!0})):Promise.resolve();y.then(()=>{try{l?.restore()}catch{}});const g={cb:null},E=r=>{if(!(r.source!==parent||!F(r.origin))&&ie(r.data)){try{l?.promoted()}catch{}g.cb?.()}};addEventListener("message",E),m.then(async()=>{if(!f||!w){for(const a of R.values())a.nulled=!0,a.r(null);return}K(f.theme);const r=w;let p=!1,i=!1;addEventListener("message",a=>{if(a.source!==parent||a.origin!==r)return;le(a.data)&&K(a.data.__frame_theme.theme),ae(a.data)&&ve(a.data.__frame_patch,r);const k=a.data?.__fc_mode;k&&typeof k=="object"&&!p&&N&&L.test(N)&&(p=!0,T(N).then(x=>x.install?.(r,k.on===!0)).catch(()=>{}));const A=a.data?.__ft_cmd;A&&typeof A=="object"&&!i&&I&&L.test(I)&&(i=!0,T(I).then(x=>x.install?.(r,A)).catch(()=>{}))});const d=Object.keys(f.capabilities??{}).filter(a=>Object.hasOwn(M,a)).map(a=>[a,M[a]]).filter(a=>typeof a[1]=="string"&&L.test(a[1])),u=await Promise.allSettled(d.map(([,a])=>T(a))),h=await e,_=w;if(h?.buildBoot||parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},_),h?.buildBoot)try{P=h.buildBoot(f,h.TRANSFORMS??{},{shellOrigin:_,mount:W},a=>parent.postMessage({__frame_cap_telemetry:a},_))}catch{parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},_),P=z(f,_)}else P=z(f,_);const C=a=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:a}},_),we=P;u.forEach((a,k)=>{const A=d[k][0];if(a.status!=="fulfilled"){C(A);return}try{a.value?.install?.(we)}catch{C(A)}});for(const a of R.values())a.done||(a.nulled=!0,a.r(null));await y,parent.postMessage({__frame_ready:!0},w),e.then(a=>a?.installSizeReporter?.(_,g))})}})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style><style id="_goober"> .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}</style></head><body>
+<title>Shafiq Medicine Order Run</title>
+<style>
+  :root {
+    --ground:   #F4F6F8;
+    --surface:  #FFFFFF;
+    --ink:      #16202B;
+    --muted:    #566575;
+    --faint:    #8593A2;
+    --rule:     #DCE3EA;
+    --rule-soft:#EBF0F4;
+    --accent:   #14607A;
+    --accent-bg:#E4F0F3;
+    --good:     #1B7A52;
+    --good-bg:  #E6F2EC;
+    --stop:     #A6371F;
+    --stop-bg:  #F9E9E5;
+    --hold:     #8A6114;
+    --hold-bg:  #F9F0DC;
+
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0E141A;
+      --surface:  #161F28;
+      --ink:      #E7EDF3;
+      --muted:    #9DAAB8;
+      --faint:    #74828F;
+      --rule:     #25313D;
+      --rule-soft:#1C262F;
+      --accent:   #5FB3CC;
+      --accent-bg:#122A32;
+      --good:     #57BC8E;
+      --good-bg:  #12271E;
+      --stop:     #E0765F;
+      --stop-bg:  #2B1713;
+      --hold:     #D8A557;
+      --hold-bg:  #2A2113;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #0E141A;
+    --surface:  #161F28;
+    --ink:      #E7EDF3;
+    --muted:    #9DAAB8;
+    --faint:    #74828F;
+    --rule:     #25313D;
+    --rule-soft:#1C262F;
+    --accent:   #5FB3CC;
+    --accent-bg:#122A32;
+    --good:     #57BC8E;
+    --good-bg:  #12271E;
+    --stop:     #E0765F;
+    --stop-bg:  #2B1713;
+    --hold:     #D8A557;
+    --hold-bg:  #2A2113;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+         font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+
+  .sheet { max-width:980px; margin:0 auto; padding:52px 24px 96px; display:flex; flex-direction:column; gap:38px; }
+
+  .eyebrow { font-family:var(--mono); font-size:11.5px; letter-spacing:.14em; text-transform:uppercase;
+             color:var(--accent); margin:0 0 8px; }
+  h1 { margin:0 0 10px; font-size:clamp(28px,4.3vw,38px); line-height:1.1; letter-spacing:-.02em;
+       font-weight:680; text-wrap:balance; }
+  .standfirst { margin:0; color:var(--muted); font-size:16.5px; max-width:64ch; }
+
+  h2 { margin:0; font-size:19px; font-weight:660; letter-spacing:-.01em; }
+  .lede { margin:0; color:var(--muted); max-width:72ch; }
+  section { display:flex; flex-direction:column; gap:14px; }
+
+  /* the chain */
+  .chain { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-family:var(--mono); font-size:12px; }
+  .chain span { background:var(--surface); border:1px solid var(--rule); border-radius:2px; padding:5px 9px; }
+  .chain i { color:var(--faint); font-style:normal; }
+
+  .scroller { overflow-x:auto; border:1px solid var(--rule); border-radius:3px; }
+  table { width:100%; border-collapse:collapse; background:var(--surface); min-width:520px; }
+  th { text-align:left; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);
+       font-weight:600; padding:9px 14px; border-bottom:1px solid var(--rule); white-space:nowrap; }
+  td { padding:9px 14px; border-bottom:1px solid var(--rule-soft); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  td.k { font-family:var(--mono); font-size:12.5px; white-space:nowrap; }
+  td.n { font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  td.m { color:var(--muted); font-size:14px; }
+
+  /* case cards */
+  .case { background:var(--surface); border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+  .case > header { display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; padding:13px 18px;
+                   border-bottom:1px solid var(--rule); background:var(--accent-bg); }
+  .case .no { font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent); }
+  .case h3 { margin:0; font-size:15.5px; font-weight:650; flex:1; }
+  .who { font-family:var(--mono); font-size:10.5px; letter-spacing:.05em; text-transform:uppercase;
+         padding:3px 8px; border-radius:2px; background:var(--surface); color:var(--muted); white-space:nowrap; }
+  .case > .body { padding:16px 18px; display:flex; flex-direction:column; gap:12px; }
+
+  ol.steps { margin:0; padding-left:20px; color:var(--muted); display:flex; flex-direction:column; gap:5px; }
+  ol.steps b { color:var(--ink); font-weight:620; }
+  ol.steps code { font-family:var(--mono); font-size:.86em; background:var(--rule-soft); padding:1px 5px; border-radius:2px; }
+
+  .exp { font-size:14px; padding:11px 14px; border-radius:2px; background:var(--good-bg);
+         border-left:3px solid var(--good); }
+  .exp b { color:var(--good); font-weight:640; }
+  .why { font-size:14px; padding:11px 14px; border-radius:2px; background:var(--hold-bg);
+         border-left:3px solid var(--hold); color:var(--muted); }
+  .why b { color:var(--hold); font-weight:640; }
+  .stop { font-size:14px; padding:11px 14px; border-radius:2px; background:var(--stop-bg);
+          border-left:3px solid var(--stop); color:var(--muted); }
+  .stop b { color:var(--stop); font-weight:640; }
+
+  code.inline { font-family:var(--mono); font-size:.88em; background:var(--rule-soft); padding:1px 5px; border-radius:2px; }
+  footer { border-top:1px solid var(--rule); padding-top:16px; color:var(--faint); font-size:13px; }
+</style>
+
+<div class="sheet">
+
+  <header>
+    <p class="eyebrow">OMS · distribution pre-sales · end-to-end</p>
+    <h1>One order to Shafiq Medicine, from the shop counter to the cash box</h1>
+    <p class="standfirst">
+      Fourteen cases following a single order all the way through, plus the refusals that protect it. Each one
+      names who does it, what to press, and the figure that proves it worked.
+    </p>
+  </header>
+
+  <section>
+    <h2>The chain you are testing</h2>
+    <div class="chain">
+      <span>book</span><i>→</i><span>review</span><i>→</i><span>confirm</span><i>→</i><span>pack</span>
+      <i>→</i><span>dispatch <b>= invoice</b></span><i>→</i><span>deliver</span><i>→</i><span>settle <b>= cash to AR</b></span>
+    </div>
+    <p class="lede">
+      Two things in that line are worth knowing before you start, because they are where most of the design
+      argument went. <b>The invoice is raised at DISPATCH</b>, not at booking — so a booked order can still be
+      amended or rejected without editing or voiding an issued invoice. And <b>the money reaches the ledger at
+      SETTLEMENT</b>, not when the delivery is keyed — so the day-end count is a real control rather than a
+      report nobody has to run. The cost, stated rather than hidden: the outlet's statement lags by the hours
+      between delivery and cash-up.
+    </p>
+  </section>
+
+  <section>
+    <h2>Set up once</h2>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>What</th><th>Value</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Outlet</td><td class="m">Shafiq Medicine — a TRADE customer with a credit limit of <b>50,000</b></td><td class="m">Customers → New</td></tr>
+          <tr><td class="k">Products</td><td class="m">Two medicines with stock, e.g. Panadol 200 @ 120, Brufen 100 @ 90</td><td class="m">Products</td></tr>
+          <tr><td class="k">order.booking.requireApproval</td><td class="k">true</td><td class="m">Configuration</td></tr>
+          <tr><td class="k">order.pack.scanRequired</td><td class="k">false <span style="color:var(--faint)">(true for case 12)</span></td><td class="m">Configuration</td></tr>
+          <tr><td class="k">Field rep login</td><td class="k">booker.marketplace@myplus.com</td><td class="m">seeded</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="why">
+      <b>Why a trade customer, not a walk-in:</b> credit standing, aging and the driver's collection sheet all
+      key off the account. A WALK_IN outlet prints an 80mm till slip instead of a challan and has no credit
+      position to check — which is a real trap, not a formality.
+    </div>
+  </section>
+
+  <section>
+    <h2>The main line</h2>
+
+    <div class="case">
+      <header><span class="no">1</span><h3>The rep books the order at the counter</h3><span class="who">order booker</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Log in as the <b>field rep</b>, not the owner.</li>
+          <li>Sidebar → <b>Book order</b> (it is first in that menu — for a rep it is the only entry they use).</li>
+          <li>Choose <b>Shafiq Medicine</b>. Read the credit banner that appears.</li>
+          <li>Add both products, quantities <b>10</b> and <b>5</b>. Press <b>Book</b>.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> an order number <code class="inline">SO-…</code> and status <b>PENDING_APPROVAL</b>. It appears under the rep's own recent orders. <b>No invoice exists yet.</b></div>
+        <div class="why"><b>Watch:</b> re-adding a product already on the order <b>replaces</b> the quantity rather than adding to it. "Make it six" is what a shopkeeper says; double-ordering an outlet is the worst mistake this screen could make.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">2</span><h3>The rep cannot confirm their own order</h3><span class="who">order booker</span></header>
+      <div class="body">
+        <ol class="steps"><li>Still as the rep, open <b>Orders</b> and try to confirm the order you just booked.</li></ol>
+        <div class="exp"><b>Expect</b> no confirm action available, and a <b>403</b> if you reach the endpoint directly.</div>
+        <div class="why"><b>Why it matters:</b> the booker role <i>withholds</i> authority rather than hiding a button. A rep who can approve their own orders is not a review step.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">3</span><h3>The office amends the order before approving</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Log in as the <b>owner</b>. <b>Orders</b> → open the pending order.</li>
+          <li>Change a quantity (10 → 8) and save the amendment.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> the order total to fall, and an <b>amendment audit entry</b> naming who changed what.</div>
+        <div class="why"><b>Why the trail:</b> with two people able to edit — the rep and the office — <i>"who dropped the price?"</i> is otherwise unanswerable. A price change is also re-checked against the shop's margin policy, so an amendment cannot quietly sell below cost.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">4</span><h3>Reject one, with a reason</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Book a <b>second</b> order as the rep (case 1 again, any quantity).</li>
+          <li>As the owner, <b>reject</b> it. The reason is mandatory.</li>
+          <li>Log back in as the rep and open their recent orders.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> status <b>REJECTED</b> and <b>the reason visible to the rep</b> on their own screen.</div>
+        <div class="why"><b>Why on their screen:</b> a rejection the rep learns about by phone is a rejection that gets re-booked identically tomorrow.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">5</span><h3>Confirm the good order</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps"><li>Confirm the amended order from case 3.</li></ol>
+        <div class="exp"><b>Expect</b> status <b>CONFIRMED</b>. Still <b>no invoice</b>, and the books are untouched.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">6</span><h3>Pack it at the warehouse</h3><span class="who">owner / packer</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li><b>Orders</b> → open the confirmed order → <b>Pack</b>.</li>
+          <li>The pick list shows each line and what is outstanding. Enter or scan the quantities.</li>
+          <li>Confirm the pack.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> a shipment number <code class="inline">SHP-…</code>, and the order status to move <b>by itself</b>.</div>
+        <div class="why"><b>Watch:</b> there is no manual "Dispatched" button anywhere, and that is deliberate. Shipping progress is <b>derived</b> from what was actually packed — a status you can set independently of its shipments is a status that can lie about them.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">7</span><h3>⭐ Dispatch raises the invoice</h3><span class="who">owner</span></header>
+      <div class="body">
+        <ol class="steps"><li>After the shipment, open the order and find the invoice number.</li></ol>
+        <div class="exp"><b>Expect</b> an <code class="inline">INV-…</code> now attached, for <b>what was dispatched</b>. Check the <b>trial balance still balances</b>.</div>
+        <div class="why"><b>The pivot of the whole design.</b> Invoicing at booking would mean an amendment edits an issued invoice and a rejection voids one. Invoicing at dispatch means the paperwork follows the goods.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">8</span><h3>Partial delivery — the outlet takes less than was sent</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li><b>Orders</b> → the dispatched order → <b>Delivery</b>.</li>
+          <li>Key <b>per line</b> what was delivered and what came back — deliver 8 of one line, return 2.</li>
+          <li>Settlement <b>CREDIT</b> (nothing collected yet). Submit.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> a <b>credit note</b> for the shortfall, and the outlet's balance to fall by exactly the returned value. The trial balance must still balance.</div>
+        <div class="why"><b>Watch the attribution:</b> the entry is recorded as <i>keyed from a signed invoice</i>, and the driver is a note — not the confirming party. Nobody has a device in the field, and the system must not claim a confirmation it did not get.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">9</span><h3>The driver collects cash at the next stop</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Run cases 1–8 again for a second delivery to the same outlet.</li>
+          <li>This time set settlement <b>PAID</b> and enter the amount collected.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> the collection recorded against the delivery — and, deliberately, <b>the outlet's balance NOT yet reduced</b>.</div>
+        <div class="stop"><b>This is the case most likely to look like a bug and is not.</b> The cash is with the driver, not with the company. It reaches AR at settlement (case 10). If it cleared here, the day-end count would be a report nobody had to run — which is exactly the control this design exists to create.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">10</span><h3>⭐ Day-end cash-up — the money reaches the ledger</h3><span class="who">owner / admin</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Sidebar → <b>Driver settlement</b>. The open list shows who is holding how much.</li>
+          <li>Select the driver's collections, count the cash, and settle.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> receipts posted to <b>AR</b>, the outlet's balance falling <b>now</b>, and the trial balance balanced. Re-check the customer statement.</div>
+        <div class="why"><b>The one-line invariant:</b> a collection can be remitted <b>at most once</b>. Try settling the same collection twice — the second attempt must be refused.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">11</span><h3>The round sheet and the challan</h3><span class="who">owner / cashier</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Sidebar → <b>Round sheet</b> — the sheet the salesman takes out and the cashier reconciles.</li>
+          <li>Open the per-stop <b>challan</b> for Shafiq Medicine. View and download it.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> the figures to come <b>from the books</b>, not from the order rows, and the sheet to total to what the driver should be carrying.</div>
+        <div class="why"><b>Known trap:</b> an outlet with <b>no credit cap</b> reads as null in credit standing, so it is the wrong source for a collection sheet. Give Shafiq Medicine a real limit (the setup does) or this page under-reports.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The refusals — what must NOT be allowed</h2>
+    <p class="lede">Each of these has cost a real defect somewhere, and each is quick to check.</p>
+
+    <div class="case">
+      <header><span class="no">12</span><h3>Packing the wrong thing, when the shop demands scanning</h3><span class="who">packer</span></header>
+      <div class="body">
+        <ol class="steps">
+          <li>Set <code>order.pack.scanRequired</code> = <b>true</b>.</li>
+          <li>Pack an order by <b>typing</b> quantities instead of scanning.</li>
+        </ol>
+        <div class="exp"><b>Expect</b> the dispatch refused, and the hint on screen to say every item must be scanned.</div>
+        <div class="why">Typing stays possible and is recorded <b>UNVERIFIED</b> — the system must not claim a verification it did not perform.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">13</span><h3>Booking past the credit limit</h3><span class="who">order booker</span></header>
+      <div class="body">
+        <ol class="steps"><li>As the rep, book an order for Shafiq Medicine worth more than the remaining limit.</li></ol>
+        <div class="exp"><b>Expect</b> to be stopped <b>at the counter</b>, with the outlet's standing shown — not by the warehouse a day later.</div>
+        <div class="why">The booker and the sale path use <b>one</b> credit engine. If they used separate copies, the rep would be told one thing and the invoice would enforce another.</div>
+      </div>
+    </div>
+
+    <div class="case">
+      <header><span class="no">14</span><h3>Cancelling after the goods have gone</h3><span class="who">owner</span></header>
+      <div class="body">
+        <ol class="steps"><li>Try to cancel the order from case 7, after dispatch.</li></ol>
+        <div class="exp"><b>Expect</b> a refusal — <b>409</b> at the API.</div>
+        <div class="why">Cancelling returns stock. Returning stock that is on a van invents inventory the shop does not have.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The three figures that decide whether it all worked</h2>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Check</th><th>Must be true</th></tr></thead>
+        <tbody>
+          <tr><td class="m">Trial balance, after every case</td><td class="m">balanced — debits equal credits</td></tr>
+          <tr><td class="m">Shafiq Medicine's statement closing balance</td><td class="m">equals what the Customers grid says is outstanding</td></tr>
+          <tr><td class="m">Invoiced value</td><td class="m">equals what was <b>dispatched</b>, less any credit note for what came back</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="stop">
+      <b>A balanced trial balance is not proof the numbers are right.</b> A posting can be internally consistent
+      and still be for the wrong amount — that is exactly how a customer was once left two paisa in credit here.
+      Check what the outlet <b>owes</b>, not only that the ledger is tidy.
+    </div>
+  </section>
+
+  <footer>
+    Cases 1–11 are the main line; 12–14 are the refusals. If a case fails, note the order number and the screen
+    — the order's event timeline records every transition and is the fastest way to see where it diverged.
+  </footer>
+
+</div>
+
+</body></html>

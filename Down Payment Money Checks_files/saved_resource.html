@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://aeda6c9f-cf3a-4ba6-9475-4a89fe814af3.frame.claudeusercontent.com/_f/1787491285-1920/?__frame_t=H6OmDaHuoEbONkJV5aM5lLko.960c3e7a-cec9-4cbe-878d-aa820ff776c3.484ef2ef-2ee4-4444-8576-da7dbb9a9460.1787552406&__frame_v=manifest.549c0ed89764d31f.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1787491285-1920/">--><base href="."><script>window.__FRAME_PREAMBLE={"capabilities":{"artifact":"artifact.oqIe8shs.js","assets":"assets.BkxVItX2.js","comments":"comments.GLuHR3zP.js","db":"db.CRhVHzSt.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CZsbekoQ.js","mcp":"mcp.D3B2EyQu.js","permissions":"permissions.BNySkLV5.js","room":"room.DE7EMui-.js","sample":"sample.C7z_6W62.js","self":"artifact.oqIe8shs.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.h3_8GSUa.js","comments":"_comments.BOgkE6qU.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var Y=["light","dark","system"],X=/^[A-Za-z0-9_-]{1,64}$/,D=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,G=new Set(["class","hidden","value","checked"]);function V(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||G.has(t)}var be="http://www.w3.org/1999/xhtml",Z="http://www.w3.org/2000/svg",J=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),Q=new Set(["script","style"]);function ee(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!J.has(t):e.namespaceURI===Z?!Q.has(t):!1}var te=new Set(["html","head","body","frameset"]);function re(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&te.has(e.localName)}function ne(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!X.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[n,s]of Object.entries(t.attrsSet))if(!D.test(n)||typeof s!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const n of t.attrsRemoved)if(typeof n!="string"||!D.test(n))return!1}return!0}function se(e,t){if(e===null||typeof e!="object")return!1;const{seq:n,elements:s}=e;if(typeof n!="number"||!Number.isSafeInteger(n)||!Array.isArray(s)||s.length===0||s.length>64)return!1;for(let o=0;o<s.length;o++)if(!t(s[o]))return!1;return!0}function ae(e){return e===null||typeof e!="object"?!1:se(e.__frame_patch,ne)}function oe(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ie(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function le(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const n=t.theme;return typeof n=="string"&&Y.includes(n)}var O="__frame_scroll",ce=150,ue=310,fe=160,pe=3e4;function de(){let e=0,t=!1,n=!1,s=!1,o=0,l=null;const c=i=>{try{sessionStorage.setItem(O,JSON.stringify({y:i}))}catch{}},f=()=>{if(clearTimeout(e),l===null)return;const i=l;l=null,c(i)},S=()=>{if(t){t=!1;return}n=!0,l=scrollY,clearTimeout(e),e=setTimeout(f,ce)};try{addEventListener("scroll",S,{passive:!0}),addEventListener("pagehide",f)}catch{}const v=()=>{let i;try{i=sessionStorage.getItem(O)}catch{return null}if(i===null)return null;let d;try{d=JSON.parse(i)}catch{d=null}const u=d?.y;if(!(typeof u=="number"&&Number.isFinite(u)&&u>=0)){try{sessionStorage.removeItem(O)}catch{}return null}return u};let b=!1;const m=i=>{try{const d=scrollY;scrollTo({top:i,left:0,behavior:"instant"}),o=i,s=!0,clearTimeout(e),l=null,c(i);const u=scrollY;u!==d&&(t=!0),u!==i&&!b&&(b=!0,addEventListener("load",()=>{try{if(scrollY===u){const h=v();m(h!==null?h:o)}}catch{}},{once:!0}))}catch{}},y=()=>{try{return!!location.hash}catch{return!0}};let g=!1;const E=()=>{try{if(g||innerWidth>ue||innerHeight>fe)return;g=!0;const i=Date.now(),d=()=>{try{removeEventListener("resize",d)}catch{}if(Date.now()-i>pe||n||y())return;const u=v();m(u!==null?u:o)};addEventListener("resize",d)}catch{}};let r=!1,p=!1;return{restore(){if(r||(r=!0,y()))return;const i=v();i!==null&&(m(i),E())},promoted(){if(p||(p=!0,y()))return;const i=v();i!==null?(m(i),E()):s&&m(o)}}}var Ee="modulepreload",Ae=function(e){return"/"+e},Re={},me=function(t,n,s){let o=Promise.resolve();function l(c){const f=new Event("vite:preloadError",{cancelable:!0});if(f.payload=c,window.dispatchEvent(f),!f.defaultPrevented)throw c}return o.then(c=>{for(const f of c||[])f.status==="rejected"&&l(f.reason);return t().catch(l)})};(function(){const e=Object.defineProperty,t=globalThis,n=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let s=0;for(let o=0;o<n.length;o++){const l=n[o];try{e(t,l,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[l]}catch{}try{e(t,l,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[l]=="function"&&s++}if(s&&window!==top)try{parent.postMessage({__frame_rtc_lockdown_failed:s},"*")}catch{}})();var he=1e4,_e=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function F(e){for(const t of _e)if(t.endsWith(":*"))try{const n=new URL(e);if(`${n.protocol}//${n.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var M=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),j=window.__FRAME_PREAMBLE?.transforms,N=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate,L=/^[\w.-]+\.js$/;function T(e){return me(()=>import("/_runtime/"+e),void 0)}function z(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:W,pipe:()=>({wrap:(n,s)=>(...o)=>{try{return s(...o)}catch(l){return Promise.reject(l)}}})}}var P=null,w=null;function q(e,t,n){try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:n,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var B=!1;function ve(e,t){const n=[];for(const s of e.elements){const o=document.querySelector(`[data-id="${s.target}"]`);if(!o){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}if([...Object.keys(s.attrsSet??{}),...s.attrsRemoved??[]].some(l=>!V(l))){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}if(s.text!==void 0&&(!ee(o)||re(o))){parent.postMessage({__frame_patch_miss:{seq:e.seq}},t);return}for(const[l,c]of Object.entries(s.attrsSet??{}))if(!$(o,l)){try{o.setAttribute(l,c)}catch{}H(o,l,c)}for(const l of s.attrsRemoved??[])$(o,l)||(o.removeAttribute(l),H(o,l,null));typeof s.text=="string"&&(o.textContent=s.text),n.push(s.target)}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function H(e,t,n){if(!(e instanceof HTMLInputElement))return;const s=t.toLowerCase();s==="checked"?e.checked=n!==null:s==="value"&&e.type!=="file"&&(e.value=n??"")}function $(e,t){const n=t.toLowerCase(),s=e;return n==="data-id"||(n==="value"||n==="checked")&&(s.__artifactSecret===!0||/^(password|hidden|file)$/.test(s.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${s.autocomplete??""}`))}function K(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,B=!0):B&&(delete t.dataset.theme,t.style.colorScheme="",B=!1)}var R=new Map;function ye(){let e;const t={u:new Promise(n=>{e=n}),r:n=>{t.done=!0,e(n)},done:!1,nulled:!1};return t}var ge=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),W=(e,t)=>{const n=R.get(e);if(!n||n.done){n?.nulled&&w&&parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},w);return}const s=typeof t=="function"?Object.setPrototypeOf(t,ge):Object.assign(Object.create(null),t);typeof s.then=="function"&&delete s.then,n.r(Object.freeze(s))},U=Object.getOwnPropertyDescriptor(window,"claude");if(window!==top&&!(U&&U.writable===!1)){const e=j&&L.test(j)?T(j).catch(()=>{}):Promise.resolve(void 0),t=r=>{if(r.type==="auxclick"&&r.button!==1)return;const p=r.target,i=p&&p.closest?p.closest("a[href],area[href]"):null;if(!i)return;const d=i.getAttribute("href");if(!d)return;let u,h;try{u=new URL(d,document.baseURI),h=new URL(document.baseURI).origin}catch{return}if((u.protocol==="http:"||u.protocol==="https:")&&u.origin!==h){r.preventDefault();const _=(i.getAttribute("target")??"").toLowerCase(),C=r.type==="auxclick"||r.metaKey||r.ctrlKey||r.shiftKey||r.altKey||!["","_self","_top","_parent"].includes(_);parent.postMessage({__frame_nav:!0,url:u.href,newTab:C},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const n={},s=r=>{r.isTrusted&&(n.pointer=!0)},o=r=>{r.isTrusted&&(n.click=!0)};addEventListener("pointermove",s,{capture:!0,passive:!0}),addEventListener("click",o,{capture:!0,passive:!0}),e.then(r=>{r?.wireNav&&(r.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",s,!0),removeEventListener("click",o,!0),r.wireEngagement?.(n))});let l=null;try{l=de()}catch{}const c=U?.value??{};q(window,"claude",c);for(const r of Object.keys(M)){if(c[r]!==void 0){q(c,r,c[r]);continue}R.set(r,ye())}if(c.use===void 0){const r=p=>{if(typeof p!="string"||!Object.hasOwn(M,p))return Promise.resolve(null);const i=R.get(p);return i?i.u:Promise.resolve(c[p]??null)};try{Object.defineProperty(c,"use",{value:r,writable:!0,configurable:!0,enumerable:!1})}catch{}}let f=null,S=null,v=0;const b=r=>{r.source!==parent||!F(r.origin)||oe(r.data)&&(f=r.data.__frame_init,w=r.origin,removeEventListener("message",b),clearTimeout(v),S?.())};addEventListener("message",b),parent.postMessage({__frame_connect:!0},"*");const m=new Promise(r=>{S=r,v=setTimeout(()=>{removeEventListener("message",b),r()},he)}),y=document.readyState==="loading"?new Promise(r=>document.addEventListener("DOMContentLoaded",()=>r(),{once:!0})):Promise.resolve();y.then(()=>{try{l?.restore()}catch{}});const g={cb:null},E=r=>{if(!(r.source!==parent||!F(r.origin))&&ie(r.data)){try{l?.promoted()}catch{}g.cb?.()}};addEventListener("message",E),m.then(async()=>{if(!f||!w){for(const a of R.values())a.nulled=!0,a.r(null);return}K(f.theme);const r=w;let p=!1,i=!1;addEventListener("message",a=>{if(a.source!==parent||a.origin!==r)return;le(a.data)&&K(a.data.__frame_theme.theme),ae(a.data)&&ve(a.data.__frame_patch,r);const k=a.data?.__fc_mode;k&&typeof k=="object"&&!p&&N&&L.test(N)&&(p=!0,T(N).then(x=>x.install?.(r,k.on===!0)).catch(()=>{}));const A=a.data?.__ft_cmd;A&&typeof A=="object"&&!i&&I&&L.test(I)&&(i=!0,T(I).then(x=>x.install?.(r,A)).catch(()=>{}))});const d=Object.keys(f.capabilities??{}).filter(a=>Object.hasOwn(M,a)).map(a=>[a,M[a]]).filter(a=>typeof a[1]=="string"&&L.test(a[1])),u=await Promise.allSettled(d.map(([,a])=>T(a))),h=await e,_=w;if(h?.buildBoot||parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},_),h?.buildBoot)try{P=h.buildBoot(f,h.TRANSFORMS??{},{shellOrigin:_,mount:W},a=>parent.postMessage({__frame_cap_telemetry:a},_))}catch{parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},_),P=z(f,_)}else P=z(f,_);const C=a=>parent.postMessage({__frame_cap_telemetry:{kind:"cap-load-error",cap:a}},_),we=P;u.forEach((a,k)=>{const A=d[k][0];if(a.status!=="fulfilled"){C(A);return}try{a.value?.install?.(we)}catch{C(A)}});for(const a of R.values())a.done||(a.nulled=!0,a.r(null));await y,parent.postMessage({__frame_ready:!0},w),e.then(a=>a?.installSizeReporter?.(_,g))})}})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style><style id="_goober"> .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}</style></head><body>
+<title>Down Payment Money Checks</title>
+<style>
+  :root {
+    --ground:   #F5F4F1;
+    --surface:  #FFFFFF;
+    --ink:      #1A1917;
+    --muted:    #5C5952;
+    --faint:    #8A867D;
+    --rule:     #DFDCD5;
+    --rule-soft:#ECE9E3;
+    --accent:   #1F4E8C;
+    --good:     #1B7A52;
+    --good-bg:  #E7F2EC;
+    --bad:      #A32C1F;
+    --bad-bg:   #FAEAE7;
+    --warn:     #96651A;
+    --warn-bg:  #FAF1DE;
+    --chip:     #EFEDE7;
+
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #131211;
+      --surface:  #1C1B19;
+      --ink:      #ECEAE5;
+      --muted:    #A8A49B;
+      --faint:    #827E75;
+      --rule:     #2D2B27;
+      --rule-soft:#241F1D;
+      --accent:   #7FB1EA;
+      --good:     #56BB8C;
+      --good-bg:  #13291F;
+      --bad:      #E0715F;
+      --bad-bg:   #2B1714;
+      --warn:     #D4A257;
+      --warn-bg:  #2A2114;
+      --chip:     #24221E;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:   #131211;
+    --surface:  #1C1B19;
+    --ink:      #ECEAE5;
+    --muted:    #A8A49B;
+    --faint:    #827E75;
+    --rule:     #2D2B27;
+    --rule-soft:#241F1D;
+    --accent:   #7FB1EA;
+    --good:     #56BB8C;
+    --good-bg:  #13291F;
+    --bad:      #E0715F;
+    --bad-bg:   #2B1714;
+    --warn:     #D4A257;
+    --warn-bg:  #2A2114;
+    --chip:     #24221E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .sheet { max-width: 940px; margin: 0 auto; padding: 52px 24px 90px; display: flex; flex-direction: column; gap: 38px; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 8px;
+  }
+
+  h1 {
+    margin: 0 0 10px; font-size: clamp(28px, 4.3vw, 38px); line-height: 1.1;
+    letter-spacing: -.02em; font-weight: 680; text-wrap: balance;
+  }
+
+  .standfirst { margin: 0; color: var(--muted); font-size: 16.5px; max-width: 62ch; }
+
+  h2 { margin: 0; font-size: 19px; font-weight: 660; letter-spacing: -.01em; }
+  .lede { margin: 0; color: var(--muted); max-width: 70ch; }
+  section { display: flex; flex-direction: column; gap: 14px; }
+
+  /* the two-field explainer */
+  .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+  .pair > div { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 16px 18px; }
+  .pair h3 { margin: 0 0 4px; font-size: 15px; font-weight: 640; }
+  .pair code { font-family: var(--mono); font-size: 12px; color: var(--faint); display: block; margin-bottom: 8px; }
+  .pair p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  /* verdict boxes */
+  .box { border: 1px solid var(--rule); border-left-width: 3px; border-radius: 3px; padding: 15px 18px; background: var(--surface); }
+  .box h3 { margin: 0 0 6px; font-size: 15px; font-weight: 640; }
+  .box p { margin: 0; color: var(--muted); max-width: 74ch; }
+  .box p + p { margin-top: 8px; }
+  .box.bad  { border-left-color: var(--bad); }
+  .box.warn { border-left-color: var(--warn); }
+  .box.good { border-left-color: var(--good); }
+
+  /* cases */
+  .case { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+  .case > header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 14px 18px; border-bottom: 1px solid var(--rule); background: var(--chip);
+  }
+  .case .no { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); }
+  .case h3 { margin: 0; font-size: 15.5px; font-weight: 650; flex: 1; }
+  .tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px; white-space: nowrap;
+  }
+  .tag.good { background: var(--good-bg); color: var(--good); }
+  .tag.bad  { background: var(--bad-bg);  color: var(--bad); }
+  .case > .body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+
+  ol.steps { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 5px; }
+  ol.steps b { color: var(--ink); font-weight: 620; }
+
+  .scroller { overflow-x: auto; border: 1px solid var(--rule); border-radius: 3px; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); min-width: 460px; }
+  th { text-align: left; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+       font-weight: 600; padding: 9px 14px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--rule-soft); }
+  tr:last-child td { border-bottom: none; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  td.lbl { color: var(--muted); }
+
+  .verdict { font-size: 14px; padding: 11px 14px; border-radius: 2px; }
+  .verdict.good { background: var(--good-bg); border-left: 3px solid var(--good); }
+  .verdict.bad  { background: var(--bad-bg);  border-left: 3px solid var(--bad); }
+  .verdict b.g { color: var(--good); }
+  .verdict b.b { color: var(--bad); }
+
+  code.inline { font-family: var(--mono); font-size: .88em; background: var(--chip); padding: 1px 5px; border-radius: 2px; }
+
+  footer { border-top: 1px solid var(--rule); padding-top: 16px; color: var(--faint); font-size: 13px; }
+</style>
+
+<div class="sheet">
+
+  <header>
+    <p class="eyebrow">Sale on terms · money verification</p>
+    <h1>Down payment and Amount Received — what to check by hand</h1>
+    <p class="standfirst">
+      Selling a Redmi 12 to Maaz with 5,000 down. Six cases with exact figures to compare against.
+      Your suspicion is correct: the two fields are not connected, and two of these cases put the books out.
+    </p>
+  </header>
+
+  <section>
+    <h2>They are not the same number, and that is the whole problem</h2>
+    <div class="pair">
+      <div>
+        <h3>Down payment</h3>
+        <code>#instDownPayment · on the plan panel</code>
+        <p>How much of the price is <b>not</b> being financed. It sets the schedule:
+           <code class="inline">financed = price − down payment</code>. It does not, by itself, record that
+           any money changed hands.</p>
+      </div>
+      <div>
+        <h3>Amount Received</h3>
+        <code>#sellRec · on the checkout row</code>
+        <p>What the customer actually handed over at the counter. It is what posts to Cash and what the
+           invoice records as paid. It knows nothing about the plan.</p>
+      </div>
+    </div>
+
+    <div class="box bad">
+      <h3>Nothing links them, and nothing checks them</h3>
+      <p>
+        On a financed sale these are the <b>same 5,000</b> — the money taken at the counter is the down
+        payment. But the plan reads only its own field and the invoice reads only its own, and no code
+        compares them. Type a down payment and forget the received amount, or the reverse, and the sale
+        completes with the schedule and the invoice describing different debts.
+      </p>
+      <p>
+        The design's stated invariant is that <b>the instalments must add up to what the invoice says is
+        owed</b>. That holds only when these two figures are equal, and it is currently down to the cashier
+        to remember.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Before you start</h2>
+    <p class="lede">
+      Set the item price to <b>45,000</b> so the arithmetic is easy to check by eye, and use a customer you
+      can find again. Configuration → Sale entry → <code class="inline">pos.installment.enabled</code> on.
+    </p>
+    <div class="scroller">
+      <table>
+        <thead><tr><th>Fixture</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td class="lbl">Product</td><td class="n">Redmi 12 · 45,000</td></tr>
+          <tr><td class="lbl">Customer</td><td class="n">Maaz</td></tr>
+          <tr><td class="lbl">Down payment</td><td class="n">5,000</td></tr>
+          <tr><td class="lbl">Instalments</td><td class="n">8 monthly</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>The cases</h2>
+
+    <!-- 1 -->
+    <div class="case">
+      <header>
+        <span class="no">1</span>
+        <h3>The correct way — down payment and Amount Received both 5,000</h3>
+        <span class="tag good">should pass</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>Add the Redmi 12 to the cart. Cart total <b>45,000</b>.</li>
+          <li>Name the customer <b>Maaz</b>.</li>
+          <li>Tick <b>Sell on installment</b>. Down payment <b>5,000</b>, count <b>8</b>, first due next month.</li>
+          <li>Check the previewed schedule before committing.</li>
+          <li>Payment method <b>Cash</b>. Amount Received <b>5,000</b>.</li>
+          <li>Complete the sale.</li>
+        </ol>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Check</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td class="lbl">Schedule total</td><td class="n">40,000</td></tr>
+              <tr><td class="lbl">Each instalment</td><td class="n">5,000 × 8</td></tr>
+              <tr><td class="lbl">Invoice bill</td><td class="n">45,000</td></tr>
+              <tr><td class="lbl">Invoice paid</td><td class="n">5,000</td></tr>
+              <tr><td class="lbl">Invoice due</td><td class="n">40,000</td></tr>
+              <tr><td class="lbl">Customer outstanding</td><td class="n">40,000</td></tr>
+              <tr><td class="lbl">Trial balance</td><td class="n">balanced</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict good">
+          <b class="g">The number that matters:</b> the schedule total (40,000) equals the invoice due
+          (40,000). When those two agree, everything downstream — statement, aging, chase list — agrees too.
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="case">
+      <header>
+        <span class="no">2</span>
+        <h3>Down payment 5,000, Amount Received left at 0</h3>
+        <span class="tag bad">expected to be wrong</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>Same sale, but leave <b>Amount Received</b> empty or 0.</li>
+          <li>Complete the sale.</li>
+        </ol>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Check</th><th>Expected (and wrong)</th></tr></thead>
+            <tbody>
+              <tr><td class="lbl">Schedule total</td><td class="n">40,000</td></tr>
+              <tr><td class="lbl">Invoice due</td><td class="n">45,000</td></tr>
+              <tr><td class="lbl">Gap nobody owns</td><td class="n">5,000</td></tr>
+              <tr><td class="lbl">Cash posted</td><td class="n">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict bad">
+          <b class="b">The 5,000 vanishes into a gap.</b> Maaz is billed 45,000 but only 40,000 is scheduled,
+          so the shop can never collect the difference through the plan — no instalment covers it and no
+          reminder chases it. Please confirm what you actually see.
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="case">
+      <header>
+        <span class="no">3</span>
+        <h3>Amount Received 5,000, down payment left at 0</h3>
+        <span class="tag bad">expected to be wrong</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>Same sale. Down payment <b>0</b>, Amount Received <b>5,000</b>.</li>
+          <li>Complete the sale.</li>
+        </ol>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Check</th><th>Expected (and wrong)</th></tr></thead>
+            <tbody>
+              <tr><td class="lbl">Schedule total</td><td class="n">45,000</td></tr>
+              <tr><td class="lbl">Invoice due</td><td class="n">40,000</td></tr>
+              <tr><td class="lbl">Over-scheduled by</td><td class="n">5,000</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict bad">
+          <b class="b">Maaz is asked for 5,000 he already paid.</b> The plan schedules the full price while
+          the invoice has correctly taken his money, so the instalments over-collect. Paying every instalment
+          leaves him in credit.
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="case">
+      <header>
+        <span class="no">4</span>
+        <h3>Collecting the first instalment</h3>
+        <span class="tag good">should pass</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>From case 1, open Maaz and use <b>Receive Payment</b> for <b>5,000</b>.</li>
+          <li>Open Sale → Installment plans and find his row.</li>
+        </ol>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Check</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td class="lbl">Instalment 1</td><td class="n">PAID</td></tr>
+              <tr><td class="lbl">Instalments 2–8</td><td class="n">SCHEDULED</td></tr>
+              <tr><td class="lbl">Plan remaining</td><td class="n">35,000</td></tr>
+              <tr><td class="lbl">Invoice due</td><td class="n">35,000</td></tr>
+              <tr><td class="lbl">Trial balance</td><td class="n">balanced</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict good">
+          <b class="g">Watch both figures move together.</b> A receipt that clears an instalment but leaves
+          the invoice unchanged is the defect this feature was fixed for once already.
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="case">
+      <header>
+        <span class="no">5</span>
+        <h3>Awkward arithmetic — a price that does not divide</h3>
+        <span class="tag good">should pass</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>Price the handset <b>44,999</b>. Down payment <b>5,000</b>, <b>7</b> instalments.</li>
+          <li>Read the previewed schedule carefully before committing.</li>
+        </ol>
+        <div class="scroller">
+          <table>
+            <thead><tr><th>Check</th><th>Expected</th></tr></thead>
+            <tbody>
+              <tr><td class="lbl">Financed</td><td class="n">39,999.00</td></tr>
+              <tr><td class="lbl">Instalments 1–6</td><td class="n">5,714.14</td></tr>
+              <tr><td class="lbl">Instalment 7</td><td class="n">5,714.16</td></tr>
+              <tr><td class="lbl">Sum</td><td class="n">39,999.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="verdict good">
+          <b class="g">The last instalment carries the remainder.</b> It must be 2 paisa larger, and the
+          total must be exact — not 39,998.98. A schedule that does not add up leaves the customer a
+          fraction in credit or debt forever.
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="case">
+      <header>
+        <span class="no">6</span>
+        <h3>A down payment larger than the price</h3>
+        <span class="tag good">should be refused</span>
+      </header>
+      <div class="body">
+        <ol class="steps">
+          <li>Down payment <b>50,000</b> on the 45,000 handset.</li>
+        </ol>
+        <div class="verdict good">
+          <b class="g">Refused before anything is written</b>, in words naming the field — "nothing is left
+          to finance" or "the down payment cannot be more than the price". It must not create a plan.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What I would change, once you have confirmed cases 2 and 3</h2>
+    <div class="box warn">
+      <h3>Make the down payment the money, instead of a second opinion about it</h3>
+      <p>
+        On a financed sale the down payment <b>is</b> the amount received. The fix is to stop asking twice:
+        typing a down payment sets the Amount Received, and the sale refuses to complete when the two
+        disagree — the same way it already refuses a down payment larger than the price.
+      </p>
+      <p>
+        Over-tendering still works, because that is a different question: the customer hands over 6,000 for a
+        5,000 down payment and 1,000 comes back as change. What must never differ is the amount
+        <b>applied</b> to the sale and the amount the schedule was built from.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    Cases 1, 4, 5 and 6 are what the feature is gated on and should pass. Cases 2 and 3 are the gap — please
+    confirm what you see before I change anything, because the fix touches how every financed sale is priced.
+  </footer>
+
+</div>
+
+</body></html>

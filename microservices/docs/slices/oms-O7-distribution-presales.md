@@ -1284,3 +1284,60 @@ sees the outcome and can revise a rejection. Ilyas packs it against a pick list.
 invoice from what actually went out. Ahsan delivers, records a POD with per-line quantities, and marks it paid,
 part-paid or on credit — reaching the same AR ledger the counter uses. At day end his cash reconciles. Every
 step is org-scoped, attributed to the person who performed it, and gated by a headed Cypress spec.
+
+---
+
+## D7 — dispatch on approval (no warehouse step)
+
+**Status: BUILT 2026-08-24, awaiting gate** — `order-auto-dispatch.cy.js`, 5 cases.
+
+### The requirement
+
+A small distributor loads the van from the room the order was approved in. The full round — book → review →
+pack → dispatch → deliver → settle — is right for a warehouse and is ceremony for a shop with one storeroom.
+The customer asked for **book → approve → print → deliver**.
+
+### ⚠ The step is PERFORMED, not skipped, and the distinction is the whole design
+
+A field order's invoice is raised **by the shipment**: `ShipmentService` calls `DispatchInvoiceService`. Remove
+the pack/ship step and the order is **never invoiced at all** — OMS-1, the defect this programme began with, on
+every order of every shop that took the shortcut.
+
+So `order.flow.autoDispatchOnApproval` (off by default) makes **approval record a full shipment through the
+ordinary path**. `ShipmentService` stays the only writer of shipments and the only trigger of a dispatch
+invoice; nothing downstream changes because none of it can tell who recorded the parcel:
+
+| Downstream | Why it needs no change |
+|---|---|
+| Round sheet | already selects `SHIPPED` + `PARTIALLY_SHIPPED` |
+| Challan | reads the shipment |
+| Delivery keying | already works from `SHIPPED` |
+| Short-delivery credit note | raised where the shortfall is *discovered*, at keying |
+| Driver settlement | reads collections, not parcels |
+
+### ⚠ Refused when the stock could not be held — the customer's decision, and the right one
+
+Ordinarily a failed hold is **advisory**: the admin may promise goods the shop has not got, and the warehouse
+finds out at picking. **There is no picking here**, so the same advisory would invoice and decrement stock that
+does not exist. The order is left at `NEW` to be packed by hand — *the operator loses the shortcut, not the
+order.*
+
+The approval itself always stands. Refusing an approval because a dispatch failed would discard the review
+decision the admin has just made, which is a separate and worse loss.
+
+### Two smaller calls
+
+**Scan-to-pack and auto-dispatch cannot both be on.** Nobody scans anything on this path, so a tenant with both
+has asked for a verification that cannot happen. Reported as a warning rather than resolved silently in either
+direction — choosing for them would be choosing which of their two stated intentions to ignore. (O5d withdrew a
+setting for being exactly this shape: enforced correctly, satisfiable by nothing.)
+
+**Lines are not marked `verified`.** Nobody scanned them. Claiming a verification that did not happen is the
+trap the withdrawn setting existed to avoid.
+
+### Gate
+
+`order-auto-dispatch.cy.js` — the default is unchanged (negative control); ON dispatches and **raises the
+invoice**; the round sheet picks the stop up unaided; **short stock is not dispatched**; the setting conflict is
+reported. The invoice assertion is the one that matters: an empty `invoiceNo` means goods left with nothing
+behind them.

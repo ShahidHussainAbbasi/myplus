@@ -54,6 +54,15 @@ const sellOnTerms = (buyer, price, down, received, count = 8) => {
         customer: { name: buyer, contact: `0300D${run}`, paidAmount: received, dueAmount: received - price },
         sales: [{ productId, quantity: 1, sellRate: price, totalAmount: price, netAmount: price }],
         paidAmount: received, dueAmount: received - price, grandTotal: price,
+        /*
+         * ⚠ TENDERS ARE WHAT ACTUALLY SETTLE THE INVOICE — `paidAmount` alone does not.
+         *
+         * The first version of this fixture omitted them, and every case failed with "only 0.00 was
+         * received": the deposit guard was reading an invoice that had not been settled yet, so it looked
+         * like the guard was broken when the FIXTURE was. main.js pushes one tender per payment method,
+         * and a fixture that skips them is not the caller the server actually has.
+         */
+        tenders: received > 0 ? [{ method: 'CASH', amount: received, reference: '' }] : [],
         installmentPlan: {
           cashPrice: price, downPayment: down, installmentCount: count,
           frequency: 'monthly', firstDueDate: monthsOut(1),
@@ -110,16 +119,25 @@ describe('The deposit on a financed sale', () => {
     const buyer = `No Deposit ${uniq()}`
 
     sellOnTerms(buyer, 45000, 5000, 0).then((r) => {
-      // The SALE still stands — the long-standing contract for a plan that cannot be created — so the
-      // shop is left with an invoice to reconcile rather than a silent mismatch nobody can see.
-      expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS')
-      expect(r.body.message, 'and it says why, naming both figures').to.contain('NOT created')
-      expect(r.body.message).to.contain('5000')
+      // THE WHOLE SALE IS REFUSED, and nothing is written.
+      //
+      // This used to let the sale stand and report that the plan had failed — the long-standing contract
+      // for a plan that could not be created. That contract is right for a technical hiccup and wrong
+      // here: a completed sale WITHOUT the plan it was sold under leaves the customer holding a financed
+      // handset while the books hold a small cash sale and a large unexplained balance, and nobody
+      // reconciles that from a message. Checked before the invoice is written, so refusing costs nothing.
+      expect(r.body.status, JSON.stringify(r.body)).to.eq('FAILED')
+      expect(r.body.message, 'and it names both figures').to.contain('5000')
+      expect(r.body.message.toLowerCase()).to.contain('deposit')
 
       customerNamed(buyer).then((c) => {
-        cy.request(`/installmentPlans?customerId=${c.customerId || c.id}`).then((pr) => {
-          expect(list(pr.body).length, 'no plan was written').to.eq(0)
-        })
+        // Nothing at all — not a customer with an orphan invoice, not a plan. A refusal that left debris
+        // would be the split this change exists to prevent, in a smaller costume.
+        if (c) {
+          cy.request(`/installmentPlans?customerId=${c.customerId || c.id}`).then((pr) => {
+            expect(list(pr.body).length, 'no plan was written').to.eq(0)
+          })
+        }
       })
     })
   })
@@ -171,4 +189,72 @@ describe('The deposit on a financed sale', () => {
       cy.get('#sellDueToday').should('have.value', '5000.00')
     })
   })
+
+  // ── voiding a sale that was sold on terms ─────────────────────────────────────────────────────────────
+
+  /**
+   * VOID AND REVERSE ARE DIFFERENT INSTRUMENTS, and the line between them is whether anything depends on
+   * the document yet.
+   *
+   * Found live before these cases existed: a plan financing 85,000, still ACTIVE, against an invoice
+   * already VOID. The shop went on chasing a sale that no longer existed — on the collections worklist,
+   * on the aging report and on the customer's statement, with nothing anywhere explaining why.
+   */
+  it('voiding a mis-keyed sale cancels its plan with it', () => {
+    const buyer = `Void Unpaid ${uniq()}`
+
+    sellOnTerms(buyer, 45000, 5000, 5000).then((r) => {
+      expect(r.body.status).to.eq('SUCCESS')
+      const invoiceNo = String(r.body.message).match(/INV-\d+/)[0]
+
+      cy.request({ method: 'POST', url: '/voidSell', form: true, failOnStatusCode: false,
+        body: { invoiceNo, reason: 'wrong handset' } })
+        .then((v) => expect(v.body.status, JSON.stringify(v.body)).to.eq('SUCCESS'))
+
+      customerNamed(buyer).then((c) => {
+        cy.request(`/installmentPlans?customerId=${c.customerId || c.id}`).then((pr) => {
+          const plan = list(pr.body)[0]
+          expect(plan, 'the plan row survives, as the record of what happened').to.exist
+          expect(plan.status, 'but it is cancelled').to.eq('CANCELLED')
+          expect(Number(plan.totalOutstanding), 'and owes nothing').to.eq(0)
+        })
+      })
+    })
+  })
+
+  it('⭐ a void is REFUSED once money has been collected on the plan', () => {
+    // The case that matters. Voiding here would strand collected cash on a document that no longer
+    // exists — so the sale is not a mistake any more, and void is the wrong instrument. Repossession has
+    // an explicit forfeit rule and is what the refusal points to.
+    const buyer = `Void Paid ${uniq()}`
+
+    sellOnTerms(buyer, 45000, 5000, 5000).then((r) => {
+      expect(r.body.status).to.eq('SUCCESS')
+      const invoiceNo = String(r.body.message).match(/INV-\d+/)[0]
+
+      customerNamed(buyer).then((c) => {
+        const id = c.customerId || c.id
+
+        // POSITIVE CONTROL: the void is available BEFORE the instalment is paid. Without it, "refused"
+        // could just mean voiding never works on a financed sale.
+        cy.request({ method: 'POST', url: '/receivePayment', form: true, failOnStatusCode: false,
+          body: { customerId: id, amount: 5000, method: 'CASH' } })
+          .then((p) => expect(p.body.status, JSON.stringify(p.body)).to.eq('SUCCESS'))
+
+        cy.request({ method: 'POST', url: '/voidSell', form: true, failOnStatusCode: false,
+          body: { invoiceNo, reason: 'changed my mind' } })
+          .then((v) => {
+            expect(v.body.status, JSON.stringify(v.body)).to.eq('FAILED')
+            expect(v.body.message, 'it names the plan').to.contain('PLN-')
+            expect(v.body.message, 'and says what to do instead').to.match(/repossess|credit note/i)
+          })
+
+        // And the sale is untouched — a refused void must change nothing.
+        cy.request(`/installmentPlans?customerId=${id}`).then((pr) => {
+          expect(list(pr.body)[0].status, 'the plan is still live').to.be.oneOf(['ACTIVE', 'DEFAULTED'])
+        })
+      })
+    })
+  })
+
 })

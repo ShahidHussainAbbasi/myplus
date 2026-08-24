@@ -41,6 +41,21 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
     public static final String PACK_AUTO_CONFIRM = "order.pack.autoConfirm";
 
     /**
+     * OMS O8 — collapse pack and dispatch into the approval, for a shop that does not run a warehouse step.
+     *
+     * <p>A small distributor loads the van from the same room the order was approved in. Making them walk a
+     * pick list and record a parcel for goods that never sat on a shelf is ceremony, and ceremony gets skipped
+     * — which in this system means the order is never invoiced at all, because the SHIPMENT is what raises a
+     * field order's invoice.
+     *
+     * <p>So the step is not removed, it is performed: approving records a full shipment through the ordinary
+     * {@code ShipmentService}, which stays the only writer of shipments and the only trigger of a dispatch
+     * invoice. Everything downstream — the round sheet, the challan, delivery keying, the short-delivery credit
+     * note, driver settlement — is untouched, because none of them can tell who recorded the parcel.
+     */
+    public static final String AUTO_DISPATCH_ON_APPROVAL = "order.flow.autoDispatchOnApproval";
+
+    /**
      * OMS O7 D1 — must a booked order be reviewed before it can be picked?
      *
      * <p>The approval gate was hardcoded: every order a rep books stops at {@code PENDING_APPROVAL} and waits
@@ -146,6 +161,16 @@ public class MarketplaceSettingsCatalog implements SettingsCatalogProvider {
                 // ── OMS O7 D3 — packing. Restored with the workbench that makes them honourable. ──────
                 // Both OFF by default, and for the same reason: a shop with no scanner, or one that wants a
                 // human to look in the box before it leaves, must keep working exactly as it does today.
+                SettingEntry.bool(AUTO_DISPATCH_ON_APPROVAL,
+                        "Dispatch as soon as an order is approved",
+                        "Off (default): an approved order waits to be picked and packed. On: approving it also "
+                                + "records the full quantity as dispatched and raises the invoice, so the round "
+                                + "is book → approve → print → deliver with no warehouse step. "
+                                + "Short deliveries are still handled where they are discovered — keying "
+                                + "the delivery raises the credit note. Cannot be used with scan-to-pack, and an "
+                                + "order whose stock cannot be set aside is left to be packed by hand rather "
+                                + "than dispatched short.",
+                        false, PACK_GROUP),
                 SettingEntry.bool(PACK_SCAN_REQUIRED,
                         "Require items to be scanned when packing",
                         "Off (default): a packer may type the quantities, as now. On: each item must be scanned "

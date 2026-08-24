@@ -805,6 +805,38 @@ public class SellController {
 				String serialProblem = installmentPlanService.validateSerial(
 						orgId(), dto.getInstallmentPlan().getAssetRef());
 				if (serialProblem != null) return new GenericResponse("FAILED", serialProblem);
+
+				/*
+				 * THE DEPOSIT, CHECKED BEFORE ANYTHING IS WRITTEN.
+				 *
+				 * A sale that completes WITHOUT the plan it was sold under is worse than no sale at all:
+				 * the customer leaves with the handset on terms while the books hold a small cash sale and
+				 * a large unexplained balance, and nobody reconciles that from a message. The plan-creation
+				 * guard further down still exists as a backstop, but by the time it runs the invoice is
+				 * committed and the only honest thing left is to report the split.
+				 *
+				 * Here nothing has been written yet, so the whole sale can simply be refused — the same
+				 * shape as the serial check above, and for the same reason.
+				 *
+				 * Compared against the TENDERS, not `paidAmount`: tenders are what actually settle an
+				 * invoice, which a fixture of mine learned the hard way by asserting against a figure the
+				 * server never used.
+				 */
+				java.math.BigDecimal down = dto.getInstallmentPlan().getDownPayment() == null
+						? java.math.BigDecimal.ZERO : dto.getInstallmentPlan().getDownPayment();
+				if (down.signum() > 0) {
+					java.math.BigDecimal tendered = java.math.BigDecimal.ZERO;
+					if (dto.getTenders() != null) {
+						for (com.myplus.business_service.dto.TenderDTO t : dto.getTenders()) {
+							if (t != null && t.getAmount() != null) tendered = tendered.add(t.getAmount());
+						}
+					}
+					if (down.compareTo(tendered) > 0) {
+						return new GenericResponse("FAILED", "The down payment is " + down.toPlainString()
+								+ " but only " + tendered.toPlainString() + " is being received. "
+								+ "Take the deposit before completing the sale.");
+					}
+				}
 			}
 
 			// M3c.4d (slice 86): the inventory reservation saga (catalog price + FEFO reserve/confirm) is the ONLY

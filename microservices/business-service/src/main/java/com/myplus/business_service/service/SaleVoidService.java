@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
+import com.myplus.business_service.entity.InstallmentPlan;
 import com.myplus.business_service.entity.PaymentMethod;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.repository.SaleReturnRepo;
@@ -60,6 +61,9 @@ public class SaleVoidService {
     @Autowired private AuditService auditService;
     @Autowired private PeriodLockGuard periodLockGuard;
     @Autowired private SaleReturnRepo saleReturnRepo;
+    /** Optional so a slim context still voids: a tenant with no plans must not need the repository. */
+    @Autowired(required = false)
+    private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
     @Autowired private com.myplus.commerce.contracts.client.InventoryClient inventoryClient;
 
     /** Why a void was refused. The caller turns this into its own wire shape (GenericResponse / HTTP status). */
@@ -103,6 +107,38 @@ public class SaleVoidService {
         if (saleReturnRepo.countByInvoiceScoped(ch.getInvoiceNo(), orgId, userId) > 0)
             throw new VoidRefused("A return was already recorded on this invoice; void is not allowed. Reconcile manually.");
         // Period close: a void zeroes the ORIGINAL invoice in place, so its period must still be open.
+        /*
+         * A SALE SOLD ON TERMS — void only while it is still a mistake.
+         *
+         * Void and reverse are different instruments. Void says "this never happened"; a credit note, a
+         * return or a repossession says "it happened and is now being unwound". The line between them is
+         * whether anything DEPENDS on the document yet, which is the same rule the return check above
+         * applies — and an instalment plan that has taken money is exactly such a dependant.
+         *
+         * Found live: a plan financing 85,000, still ACTIVE, against an invoice already VOID. The shop went
+         * on chasing a sale that no longer existed — on the collections worklist, on the aging report and
+         * on the customer's statement, with nothing anywhere saying why.
+         *
+         * So:
+         *   nothing collected  the plan is cancelled with the sale (below, after the reversal) — a genuine
+         *                      mis-key erases cleanly
+         *   money collected    REFUSED here, naming the amount, because voiding would strand cash on a
+         *                      document that no longer exists. Repossession is the instrument for that, and
+         *                      it has an explicit forfeit rule; this message says so rather than leaving the
+         *                      operator to guess which button was meant.
+         */
+        if (installmentPlanRepo != null && ch.getInvoiceNo() != null) {
+            for (InstallmentPlan plan : installmentPlanRepo.findLiveByInvoiceNo(
+                    ch.getOrganizationId(), ch.getInvoiceNo())) {
+                BigDecimal collected = plan.getTotalPaid() == null ? BigDecimal.ZERO : plan.getTotalPaid();
+                if (collected.signum() > 0) {
+                    throw new VoidRefused("This sale is on installment plan " + plan.getPlanNo()
+                            + " and " + collected.toPlainString() + " has already been collected against it. "
+                            + "Void is not allowed — repossess the item instead, or raise a credit note.");
+                }
+            }
+        }
+
         periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : LocalDate.now());
 
         Long chId = ch.getCustomer_history_id();
@@ -185,6 +221,39 @@ public class SaleVoidService {
                         .method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200
         } catch (Exception glEx) {
             LOG.warn("voidInvoice GL reversal enqueue failed (void applied)", glEx);
+        }
+
+        /*
+         * The sale is reversed, so the plan built on it must go too.
+         *
+         * Only reached when NOTHING was collected — the guard at the top of this method refuses the void
+         * outright once money has been taken, so by here the plan is a mis-key with no payments behind it.
+         *
+         * Cancelling rather than deleting: the row is how anyone later explains why a plan number exists and
+         * finances nothing. And CANCELLED is the status the rest of the feature already understands — the
+         * collections worklist, the aging supplier and the statement all read only ACTIVE and DEFAULTED, so
+         * they go quiet by themselves. Nothing else has to be told.
+         */
+        if (installmentPlanRepo != null && ch.getInvoiceNo() != null) {
+            try {
+                for (InstallmentPlan plan : installmentPlanRepo.findLiveByInvoiceNo(
+                        ch.getOrganizationId(), ch.getInvoiceNo())) {
+                    for (com.myplus.business_service.entity.Installment i : plan.getInstallments()) {
+                        if (i.outstanding().signum() > 0) {
+                            i.setStatus("WAIVED");   // reports zero outstanding, keeps its stored balance
+                            i.setUpdated(LocalDateTime.now());
+                        }
+                    }
+                    plan.setStatus("CANCELLED");
+                    plan.setUpdated(LocalDateTime.now());
+                    installmentPlanRepo.save(plan);
+                    LOG.info("Void cancelled installment plan {} on invoice {}", plan.getPlanNo(), ch.getInvoiceNo());
+                }
+            } catch (Exception planEx) {
+                // Best-effort, and deliberately: the invoice is already reversed. Failing here would leave a
+                // voided sale that reports as un-voided, which is worse than a plan needing a second look.
+                LOG.warn("voidInvoice could not cancel the plan on {} (void applied)", ch.getInvoiceNo(), planEx);
+            }
         }
 
         auditService.record("VOID_SALE", "INVOICE", ch.getInvoiceNo(), origGrand, reason);   // #6

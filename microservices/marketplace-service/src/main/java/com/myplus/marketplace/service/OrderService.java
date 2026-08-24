@@ -12,6 +12,7 @@ import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.dto.OrderTrackDTO;
+import com.myplus.marketplace.dto.ShipmentDTO;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.entity.Order;
 import com.myplus.marketplace.entity.OrderItem;
@@ -319,11 +320,107 @@ public class OrderService {
         // the admin is the person entitled to decide whether to promise goods the shop has not got.
         String couldNotHold = orderStockHoldService.hold(saved, orgId);
 
-        notificationService.notify(saved, FulfilmentStatus.NEW.name(), "Order confirmed — ready to pack");
+        /*
+         * OMS O8 — a shop with no warehouse step dispatches at approval.
+         *
+         * ⚠ THE PACK STEP IS PERFORMED, NOT SKIPPED, and the distinction is the whole design. A field order's
+         * invoice is raised BY the shipment (DispatchInvoiceService, called from ShipmentService). Remove the
+         * step and the order is never invoiced — OMS-1, the defect this programme began with. So this records
+         * the parcel through the ordinary path, leaving ShipmentService the only writer of shipments and the
+         * only trigger of a dispatch invoice.
+         *
+         * Everything downstream is untouched because none of it can tell who recorded the parcel: the round
+         * sheet already selects SHIPPED and PARTIALLY_SHIPPED, delivery keying already works from SHIPPED, and
+         * a short delivery still raises its credit note where the shortfall is actually discovered.
+         *
+         * ⚠ REFUSED WHEN THE STOCK COULD NOT BE HELD. Ordinarily a failed hold is advisory — the admin is
+         * entitled to promise goods the shop has not got, and the warehouse finds out at picking. There IS no
+         * picking here, so the same advisory would dispatch and invoice stock that does not exist. The order is
+         * left at NEW to be packed by hand: the operator loses the shortcut, not the order.
+         */
+        List<String> warnings = new ArrayList<>();
+        if (couldNotHold != null) {
+            warnings.add("Confirmed, but the stock could not be set aside: " + couldNotHold);
+        }
+
+        if (autoDispatchEnabled(orgId)) {
+            /*
+             * ⚠ SCAN-TO-PACK AND AUTO-DISPATCH CANNOT BOTH BE TRUE.
+             *
+             * Nobody scans anything on this path, so a tenant with both switched on has asked for a
+             * verification that cannot happen. O5d withdrew a setting for being exactly this — enforced
+             * correctly, satisfiable by nothing — so the combination is reported rather than resolved
+             * silently in either direction. Choosing for them would be choosing which of their two stated
+             * intentions to ignore.
+             */
+            if (settingsService.getBoolFor(orgId,
+                    com.myplus.marketplace.config.MarketplaceSettingsCatalog.PACK_SCAN_REQUIRED)) {
+                warnings.add("Not dispatched automatically: this shop also requires items to be scanned when "
+                        + "packing. Turn one of the two settings off.");
+            } else if (couldNotHold != null) {
+                warnings.add("Not dispatched automatically — pick and pack it by hand once the stock is in.");
+            } else {
+                String failed = autoDispatch(saved, orgId, userId);
+                if (failed != null) warnings.add("Not dispatched automatically: " + failed);
+                saved = repo.findById(saved.getId()).orElse(saved);   // re-read: the shipment moved the status
+            }
+        }
+
+        notificationService.notify(saved, saved.getFulfilmentStatus().name(),
+                saved.getFulfilmentStatus() == FulfilmentStatus.NEW
+                        ? "Order confirmed — ready to pack"
+                        : "Order confirmed and dispatched");
         OrderDTO out = toDTOWithLines(saved);
-        if (couldNotHold != null)
-            out.setPolicyWarnings(List.of("Confirmed, but the stock could not be set aside: " + couldNotHold));
+        if (!warnings.isEmpty()) out.setPolicyWarnings(warnings);
         return out;
+    }
+
+    /** Does this tenant collapse pack and dispatch into the approval? Off unless asked for. */
+    private boolean autoDispatchEnabled(Long orgId) {
+        return settingsService.getBoolFor(orgId,
+                com.myplus.marketplace.config.MarketplaceSettingsCatalog.AUTO_DISPATCH_ON_APPROVAL);
+    }
+
+    /**
+     * Record the whole order as dispatched, through the ordinary shipment path.
+     *
+     * <p>Every line at its FULL outstanding quantity — this is the flow for a shop that loads the van with the
+     * order as booked. Anything the outlet then refuses is recorded at delivery keying, which raises the credit
+     * note. That is where a short delivery is actually discovered, and recording it here instead would be the
+     * system inventing a fact nobody has observed yet.
+     *
+     * <p>Lines are NOT marked {@code verified}: nobody scanned anything. Claiming a verification that did not
+     * happen is the trap O5d's withdrawn setting was withdrawn for.
+     *
+     * @return null when the parcel was recorded, or a reason to report as a warning — the approval itself
+     *         stands either way, because refusing an approval over a failed dispatch would lose the review
+     *         decision the admin has just made
+     */
+    private String autoDispatch(Order order, Long orgId, Long userId) {
+        try {
+            List<ShipmentDTO.LineRequest> lines = new ArrayList<>();
+            for (OrderItem item : order.getItems()) {
+                int shipped = item.getQuantityShipped() == null ? 0 : item.getQuantityShipped();
+                int outstanding = (item.getQuantity() == null ? 0 : item.getQuantity()) - shipped;
+                if (outstanding <= 0) continue;
+                ShipmentDTO.LineRequest line = new ShipmentDTO.LineRequest();
+                line.setOrderItemId(item.getId());
+                line.setQuantity(outstanding);
+                lines.add(line);
+            }
+            if (lines.isEmpty()) return "there was nothing outstanding to dispatch.";
+
+            ShipmentDTO.Request req = new ShipmentDTO.Request();
+            req.setLines(lines);
+            req.setNote("Dispatched on approval (no warehouse step)");
+            shipmentService.ship(order.getId(), req, orgId, userId);
+            return null;
+        } catch (RuntimeException e) {
+            // The approval has already been saved and is not undone by this. A shop that cannot dispatch
+            // automatically still has an approved order it can pack by hand.
+            LOG.warn("Auto-dispatch on approval failed for order {}", order.getOrderNo(), e);
+            return String.valueOf(e.getMessage());
+        }
     }
 
     /**
