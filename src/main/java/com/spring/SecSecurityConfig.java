@@ -100,7 +100,18 @@ public class SecSecurityConfig {
                     "/", "/home*", "/login*", "/logout*", "/signin/**", "/signup/**",
                     "/customLogin", "/user/registration*", "/registrationConfirm*",
                     "/expiredAccount*", "/registration*", "/registerHospital*",
-                    "/appointmentReq", "appointmentDashboard", "/services",
+                    // "appointmentDashboard" was HERE, and is deliberately gone rather than corrected.
+                    //
+                    // Spring Security warns that it is missing a leading slash, and the inviting fix is to add
+                    // one. That would be a security regression: a pattern without the slash matches NOTHING, so
+                    // /appointmentDashboard has been requiring a login all along — by accident. Adding the slash
+                    // would make it genuinely public.
+                    //
+                    // It is a MODULE DASHBOARD, not a public page: its own javadoc says "its own dashboard, like
+                    // education/business — users with userType=APPOINTMENT land here via the success handler",
+                    // and no sibling dashboard (business, education, welfare, agriculture) is permitted here.
+                    // Nothing anonymous links to it. So the entry was wrong, not its spelling.
+                    "/appointmentReq", "/services",
                     "/api/demo-request",
                     "/api/live-users",   // public "users online" badge on the landing/login headers
                     "/store", "/storefront/**",
