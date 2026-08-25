@@ -24,6 +24,24 @@ public class CustomerController {
     @Autowired
     private BusinessRestClient client;
 
+    /**
+     * PERF — the customer list for a PICKER: six fields instead of the full record.
+     *
+     * <p>Proxies business-service {@code /customerOptions}. The sale screen's dropdown and the report
+     * filters read this; {@code /getUserCustomer} below is unchanged and still serves everything that
+     * needs the whole customer — forty specs and several screens depend on it.
+     */
+    @RequestMapping(value = "/customerOptions", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> customerOptions() {
+        try {
+            return client.get("/customerOptions");
+        } catch (Exception e) {
+            LOGGER.error("customerOptions proxy error", e);
+            return Collections.singletonMap("status", "ERROR");
+        }
+    }
+
     @RequestMapping(value = "/getUserCustomer", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getUserCustomer(final HttpServletRequest request) {

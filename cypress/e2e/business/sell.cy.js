@@ -96,9 +96,17 @@ describe('Sell Section — AJAX Loading', () => {
     cy.get('#sellItemDD option', { timeout: 10000 }).should('have.length.greaterThan', 1)
   })
 
-  it('customer dropdown loads from getUserCustomer (full DTO with contact)', () => {
-    // Use negative lookahead so /getUserCustomers (plural) is not matched
-    cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
+  it('customer dropdown loads from customerOptions — the LEAN projection', () => {
+    /*
+     * The dropdown used to read /getUserCustomer, the full 22-field customer record: ~196KB for 441 rows,
+     * unpaginated, on every open of the sale screen. Six of those fields are what it binds, and
+     * /customerOptions selects exactly those — same rows, same scoping, ~66KB.
+     *
+     * The intercept moved with it. A spec pinned to the old endpoint would not have failed loudly here;
+     * it would have timed out waiting for a request that no longer happens, which reads as a dead screen
+     * rather than a renamed read.
+     */
+    cy.intercept('GET', /\/customerOptions/).as('getCustomers')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
     cy.wait('@getCustomers', { timeout: 10000 }).then((interception) => {
@@ -115,7 +123,7 @@ describe('Sell Section — AJAX Loading', () => {
 describe('Sell Section — Customer Input Mode Toggle', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
+    cy.intercept('GET', /\/customerOptions/).as('getCustomers')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')
@@ -274,7 +282,7 @@ describe('Sell Section — Customer Mandatory Validation', () => {
   // case D-24 records as NOT configurable — and assert the same red border on the same elements.
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
+    cy.intercept('GET', /\/customerOptions/).as('getCustomers')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
     cy.get('#sellDiv').should('be.visible')

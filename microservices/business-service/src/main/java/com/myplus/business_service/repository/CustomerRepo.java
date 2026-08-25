@@ -67,6 +67,35 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
         + "or (c.organizationId is null and c.userId = :userId)")
    List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+   /**
+    * PERF — the picker's six fields, selected rather than the whole row.
+    *
+    * <p>A constructor projection, so Hibernate never builds a managed {@code Customer}, never walks the
+    * {@code customerHistory} association, and ModelMapper never runs. That is most of the saving; the
+    * smaller payload is the visible half.
+    *
+    * <p><b>Predicate copied character-for-character from {@link #findScoped}</b>, NULL-org fallback
+    * included. A picker that scoped differently from the master read would show a customer the operator
+    * cannot otherwise see — or hide one they can — and neither is visible on the screen itself.
+    */
+   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType) from Customer c "
+        + "where c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId) "
+        + "order by c.name asc")
+   java.util.List<com.myplus.business_service.dto.CustomerOptionDTO> findOptionsScoped(
+           @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /**
+    * The OWN-rows variant, mirroring {@link #findOwnScoped}.
+    *
+    * <p>Both variants exist because the endpoint is role-aware: a whole-org viewer sees the org, everyone
+    * else sees only what they created. Serving one projection to both roles is precisely how a read leaks.
+    */
+   @Query("select new com.myplus.business_service.dto.CustomerOptionDTO(c.customerId, c.name, c.contact, c.dueAmount, c.creditLimit, c.customerType) from Customer c "
+        + "where c.userId = :userId and (c.organizationId = :orgId or c.organizationId is null) "
+        + "order by c.name asc")
+   java.util.List<com.myplus.business_service.dto.CustomerOptionDTO> findOwnOptionsScoped(
+           @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // OWN rows only (role-aware: a non-SUPER caller sees just the customers they created).
    @Query("select c from Customer c where c.userId = :userId "
         + "and (c.organizationId = :orgId or c.organizationId is null)")

@@ -716,7 +716,8 @@ function loadPriceRuleLookups(){
 		});
 	}
 	return $.when(
-		$.get(serverContext + 'getUserCustomer', function(resp){
+		// Report filters need id + name only — the lean read more than covers them.
+		$.get(serverContext + 'customerOptions', function(resp){
 			fill($('#prCustomerId'), (resp && resp.collection) || [], 'customerId', 'name');
 		}, 'json'),
 		$.get(serverContext + 'getUserProduct', function(resp){
@@ -1432,7 +1433,10 @@ function loadUserCustomers(table) {
 function loadSellCustomers(ddId) {
 	var dd = $("#" + (ddId || "sellCustomerDD"));
 	dd.empty().append('<option value=""> Select Customer </option>');
-	$.get(serverContext + "getUserCustomer", function(res) {
+	// PERF: the LEAN read. `getUserCustomer` returns 22 fields per customer (~215KB for 441 rows,
+	// unpaginated); this dropdown uses six of them, and `customerOptions` selects exactly those. Same
+	// role-aware scoping on the server, same `collection` envelope, so nothing below changes.
+	$.get(serverContext + "customerOptions", function(res) {
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
 				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the

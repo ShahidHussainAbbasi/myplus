@@ -115,7 +115,8 @@
 		var category = add('category', 'rfCategory', t('ui.js.allCategories'));
 		var channel  = add('channel',  'rfChannel',  t('ui.js.allChannels'));
 
-		if (customer) fill(customer, 'getUserCustomer', 'customerId', 'name');
+		// PERF: id + name is all a filter needs — the lean projection, not the full customer record.
+		if (customer) fill(customer, 'customerOptions', 'customerId', 'name');
 		if (product)  fill(product,  'getUserProduct',  'id',         'name');
 		// The four values CustomerType actually has — from the ONE list in main.js, never a copy. This filter
 		// shipped with a "RETAIL" that is not one of them (a channel matching no row, ever) and with VIP

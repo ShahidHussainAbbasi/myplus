@@ -74,6 +74,16 @@ public class CustomerController {
 	@Autowired
 	ICustomerService customerService;
 
+	/*
+	 * The repository directly, for the PROJECTION read only.
+	 *
+	 * ICustomerService extends JpaRepository, not CustomerRepo, so the projection queries are not visible
+	 * through it. Everything that deals in entities still goes through the service; this is the one read
+	 * that returns a DTO straight from the result set and never builds an entity at all.
+	 */
+	@Autowired
+	com.myplus.business_service.repository.CustomerRepo customerRepo;
+
 	@Autowired
 	com.myplus.business_service.service.StoreCreditService storeCreditService;   // SF-5 Model B: store-credit balance
 
@@ -105,6 +115,42 @@ public class CustomerController {
 	private List<Customer> visibleCustomers() {
 		return seesAllOrg() ? customerService.findScoped(orgId(), userId())
 		                    : customerService.findOwnScoped(orgId(), userId());
+	}
+
+	/**
+	 * PERF — the customer list a PICKER needs: six fields, selected, not the whole record.
+	 *
+	 * <h3>Why this exists next to {@code /getUserCustomer} rather than replacing it</h3>
+	 * That read returns 22 fields for 441 rows (~215KB) on every open of the sale screen, unpaginated, and
+	 * six of those fields are what the dropdown actually uses. But it is a general-purpose read: forty
+	 * Cypress specs consume it, and screens legitimately need the rest of the record. Slimming it because
+	 * two of its callers are pickers would break the others to speed those two up — so this is added
+	 * alongside, which is the shape PERF-8 used for the product picker.
+	 *
+	 * <h3>Role-awareness is copied, not re-derived</h3>
+	 * Same {@code seesAllOrg()} branch as {@link #getUserCustomer}: a whole-org viewer gets the org's
+	 * customers, everyone else only their own. A picker that scoped differently from the master read would
+	 * show an operator a customer they cannot otherwise open, or hide one they can — and the screen itself
+	 * shows nothing to reveal either.
+	 *
+	 * <h3>Not paginated, deliberately</h3>
+	 * It fills a dropdown, which needs the whole set to be searchable. The fix for size here is projection,
+	 * not paging; paging a picker just moves the problem into the operator's way.
+	 */
+	@RequestMapping(value = "/customerOptions", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse customerOptions(final HttpServletRequest request) {
+		try {
+			List<com.myplus.business_service.dto.CustomerOptionDTO> options = seesAllOrg()
+					? customerRepo.findOptionsScoped(orgId(), userId())
+					: customerRepo.findOwnOptionsScoped(orgId(), userId());
+			// An empty list is a valid answer for a new tenant — SUCCESS with nothing, not NOT_FOUND. The
+			// dropdown renders its placeholder and the operator adds their first customer.
+			return new GenericResponse("SUCCESS", "Customer options", null, options);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > customerOptions " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not load the customers.");
+		}
 	}
 
 	@RequestMapping(value = "/getUserCustomer", method = RequestMethod.GET)
