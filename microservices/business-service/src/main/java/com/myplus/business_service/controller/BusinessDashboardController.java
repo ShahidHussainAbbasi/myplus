@@ -49,6 +49,23 @@ public class BusinessDashboardController {
     @Autowired
     private VenderRepo venderRepo;
 
+    /*
+     * Repositories, not the services, for the COUNT/SUM reads below.
+     *
+     * The services expose findScoped(...) which returns entities; there is no count on them, and adding one
+     * would be a pass-through that earns nothing. The aggregates are a repository concern — they answer with
+     * a number, never a row — so the controller reaches the repository directly for them and keeps using the
+     * services for everything that still deals in objects.
+     */
+    @Autowired
+    private com.myplus.business_service.repository.CompanyRepo companyRepo;
+
+    @Autowired
+    private com.myplus.business_service.repository.CustomerRepo customerRepo;
+
+    @Autowired
+    private com.myplus.business_service.repository.SellRepo sellRepo;
+
     @Autowired
     private ICustomerService customerService;
 
@@ -71,9 +88,22 @@ public class BusinessDashboardController {
 
             // org-scoped counts (consistent with the findScoped lists; were userId-only Example probes
             // that ignored the active tenant — wrong after an org-switch / for a teammate's rows).
-            long companyCount  = companyService.findScoped(orgId, userId).size();
-            long venderCount   = venderRepo.findScoped(orgId, userId).size();
-            long customerCount = customerService.findScoped(orgId, userId).size();
+            /*
+             * COUNT in SQL, not size() over a hydrated list.
+             *
+             * These three lines used to be findScoped(...).size() — which loads every company, vendor and
+             * customer of the tenant into JPA entities, and then discards them to keep an integer. The
+             * customer one is the same read that returns ~196KB elsewhere. That is most of why this endpoint
+             * answered in ~640ms for a 183-byte payload, repeatably, warm: nothing was cached because
+             * nothing needed to be — the work simply should not have been done.
+             *
+             * Each countScoped carries a character-for-character copy of its findScoped predicate, NULL-org
+             * fallback included. That is the whole risk here: a count scoped even slightly differently gives
+             * a plausible number that is quietly wrong on a screen nobody would think to check.
+             */
+            long companyCount  = companyRepo.countScoped(orgId, userId);
+            long venderCount   = venderRepo.countScoped(orgId, userId);
+            long customerCount = customerRepo.countScoped(orgId, userId);
             // M4e.c (slice 103): the "items" KPI now counts catalog Products (the single master), not local Items.
             long itemCount = 0;
             try { itemCount = catalogClient.countProducts(); }
@@ -81,11 +111,17 @@ public class BusinessDashboardController {
 
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
-            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
-            long sellCount = monthlySells.size();
-            double monthlyRevenue = monthlySells.stream()
-                .mapToDouble(s -> s.getNetAmount() != null ? s.getNetAmount().doubleValue() : 0.0)
-                .sum();
+            // Same again for the period figures: one aggregate row instead of every Sell in the month
+            // hydrated, counted and summed in a Java stream.
+            Object[] agg = sellRepo.sumSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
+            // A single-row aggregate arrives as Object[] or as Object[]{Object[]} depending on the provider;
+            // normalise it the way ShiftService already does rather than inventing a second idiom.
+            Object[] row = (agg != null && agg.length == 1 && agg[0] instanceof Object[]) ? (Object[]) agg[0] : agg;
+            long sellCount = (row != null && row.length > 0 && row[0] != null) ? ((Number) row[0]).longValue() : 0L;
+            // coalesce(...,0) in the query means this is never null; the guard keeps an empty period at 0.0,
+            // which is exactly what summing an empty stream used to produce.
+            double monthlyRevenue = (row != null && row.length > 1 && row[1] != null)
+                    ? ((Number) row[1]).doubleValue() : 0.0;
 
             Map<String, Object> stats = new LinkedHashMap<>();
             stats.put("companies", companyCount);

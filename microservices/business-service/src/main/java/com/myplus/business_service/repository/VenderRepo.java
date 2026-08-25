@@ -24,6 +24,23 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
         + "or (v.organizationId is null and v.userId = :userId)")
    List<Vender> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * How many, WITHOUT loading them.
+    *
+    * <p>The dashboard used to call {@code findScoped(...).size()} — which hydrates every row of the tenant's
+    * table into JPA entities and then throws them away to keep an integer. On the customer table that is the
+    * same read that returns ~196KB elsewhere, and it is why the stats endpoint answered in ~640ms for a
+    * 183-byte payload.
+    *
+    * <p><b>The predicate is a character-for-character copy of {@link #findScoped}</b>, including the NULL-org
+    * fallback, and that is the whole risk of this change: a COUNT that scopes even slightly differently
+    * returns a plausible number that is quietly wrong, and no screen would reveal it. The gate asserts the
+    * count equals the list size for the same caller.
+    */
+   @Query("select count(v) from Vender v where v.organizationId = :orgId "
+        + "or (v.organizationId is null and v.userId = :userId)")
+   long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
    /** Targeted payable update — sets ONLY due_amount, so re-writing the whole row (and its company_id FK) is avoided
     *  (a full entity save re-wrote company_id as null when the lazy company wasn't loaded). Also cheaper. */
    @Modifying

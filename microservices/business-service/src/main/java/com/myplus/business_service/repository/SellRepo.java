@@ -111,6 +111,27 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
+    /**
+     * The dashboard's two numbers for a period — count and revenue — computed in SQL.
+     *
+     * <p>Replaces loading every {@code Sell} in the range and running {@code .size()} and a
+     * {@code mapToDouble().sum()} over it in Java. At the volumes this was written against that is a thousand
+     * entities hydrated to produce two numbers.
+     *
+     * <p>Returns ONE row: {@code [count, revenue]}. {@code coalesce} so an empty period answers 0 rather than
+     * a null that the caller would have to remember to handle — the previous code summed an empty stream to
+     * 0.0, and that behaviour is preserved rather than quietly changed.
+     *
+     * <p><b>Same predicate and same column as {@link #findSellByDates}</b>, including {@code updated} rather
+     * than {@code dated}. Using the more intuitive column here would silently change which sales the
+     * dashboard reports, which is exactly the kind of difference nobody would notice until a figure was
+     * questioned.
+     */
+    @Query("SELECT count(s), coalesce(sum(s.netAmount), 0) FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+    Object[] sumSellByDates(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
+                            @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT s FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
     List<Sell> findSellByDates(

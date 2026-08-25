@@ -28,6 +28,23 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
         + "or (c.organizationId is null and c.userId = :userId)")
    List<Customer> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * How many, WITHOUT loading them.
+    *
+    * <p>The dashboard used to call {@code findScoped(...).size()} — which hydrates every row of the tenant's
+    * table into JPA entities and then throws them away to keep an integer. On the customer table that is the
+    * same read that returns ~196KB elsewhere, and it is why the stats endpoint answered in ~640ms for a
+    * 183-byte payload.
+    *
+    * <p><b>The predicate is a character-for-character copy of {@link #findScoped}</b>, including the NULL-org
+    * fallback, and that is the whole risk of this change: a COUNT that scopes even slightly differently
+    * returns a plausible number that is quietly wrong, and no screen would reveal it. The gate asserts the
+    * count equals the list size for the same caller.
+    */
+   @Query("select count(c) from Customer c where c.organizationId = :orgId "
+        + "or (c.organizationId is null and c.userId = :userId)")
+   long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // Paged overload (slice 24) — LIMIT/OFFSET via Pageable, no count query.
    @Query("select c from Customer c where c.organizationId = :orgId "
         + "or (c.organizationId is null and c.userId = :userId)")
