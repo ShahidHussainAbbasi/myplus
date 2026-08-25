@@ -110,6 +110,11 @@ public class CompanyService implements ICompanyService {
 		return companyRepo.count();
 	}
 
+	@Override
+	public long countScoped(Long orgId, Long userId) {
+		return companyRepo.countScoped(orgId, userId);
+	}
+
 	public void deleteById(Long id) {
 		// TODO Auto-generated method stub
 		companyRepo.deleteById(id);

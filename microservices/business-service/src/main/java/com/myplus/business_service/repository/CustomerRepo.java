@@ -45,6 +45,23 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
         + "or (c.organizationId is null and c.userId = :userId)")
    long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * The customers who owe the most, ordered and limited in SQL.
+    *
+    * <p>The dashboard used to load every customer of the tenant, filter the ones with a due balance, sort them
+    * in Java and keep ten. At 441 customers that is 431 rows hydrated to be discarded; the shape does not
+    * improve as a tenant grows, it worsens.
+    *
+    * <p>{@code dueAmount > 0} is applied in the query rather than after it, so the LIMIT counts rows that
+    * actually qualify. Same scoping predicate as {@link #findScoped}, NULL-org fallback included.
+    */
+   @Query("select c from Customer c where (c.organizationId = :orgId "
+        + "or (c.organizationId is null and c.userId = :userId)) "
+        + "and c.dueAmount is not null and c.dueAmount > 0 "
+        + "order by c.dueAmount desc")
+   java.util.List<Customer> findTopDueScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                             org.springframework.data.domain.Pageable pageable);
+
    // Paged overload (slice 24) — LIMIT/OFFSET via Pageable, no count query.
    @Query("select c from Customer c where c.organizationId = :orgId "
         + "or (c.organizationId is null and c.userId = :userId)")

@@ -112,6 +112,48 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
 
     // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
     /**
+     * The 6-month trend, grouped in SQL: {@code [year, month, count, revenue]} per month.
+     *
+     * <p>Replaces loading every {@code Sell} of the last six months and bucketing them with a
+     * {@code Map.merge} loop. That read is why {@code /getDashboardChartData} answered in ~2 seconds.
+     *
+     * <p><b>{@code updated}, and {@code totalAmount}</b> — matching the loop this replaces exactly. The
+     * sibling stats endpoint sums {@code netAmount} for its revenue figure; the trend chart has always used
+     * {@code totalAmount}. Quietly harmonising them here would change a number on a chart somebody reads
+     * without anything announcing it, so the difference is preserved and flagged instead.
+     */
+    @Query("SELECT year(s.updated), month(s.updated), count(s), coalesce(sum(s.totalAmount), 0) FROM Sell s "
+         + "WHERE s.updated >= :sd AND s.updated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "GROUP BY year(s.updated), month(s.updated)")
+    List<Object[]> monthlyTrendScoped(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
+                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** Revenue per DAY of a period: {@code [dayOfMonth, revenue]}. Same column and same measure as the trend. */
+    @Query("SELECT day(s.updated), coalesce(sum(s.totalAmount), 0) FROM Sell s "
+         + "WHERE s.updated >= :sd AND s.updated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "GROUP BY day(s.updated)")
+    List<Object[]> dailyRevenueScoped(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
+                                      @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Top products by quantity over a period: {@code [productId, qty]}, ordered, limited by {@code Pageable}.
+     *
+     * <p>Deliberately NOT {@link #topProductsScoped}, which looks like the same query and is not: that one
+     * filters on {@code dated} and takes an open-ended {@code since}. This endpoint has always bucketed by
+     * {@code updated} within a closed month, and reusing the other query would silently change which sales
+     * the chart counts — a different set of products, with nothing to indicate why.
+     */
+    @Query("SELECT s.productId, coalesce(sum(s.quantity), 0) FROM Sell s "
+         + "WHERE s.productId is not null AND s.updated >= :sd AND s.updated <= :ed "
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "GROUP BY s.productId ORDER BY sum(s.quantity) desc")
+    List<Object[]> topProductsByUpdated(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
+                                        @Param("orgId") Long orgId, @Param("userId") Long userId,
+                                        Pageable pageable);
+
+    /**
      * The dashboard's two numbers for a period — count and revenue — computed in SQL.
      *
      * <p>Replaces loading every {@code Sell} in the range and running {@code .size()} and a

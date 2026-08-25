@@ -25,9 +25,6 @@ import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Sell;
 import com.myplus.business_service.entity.Vender;
-import com.myplus.business_service.service.ICompanyService;
-import com.myplus.business_service.service.ICustomerService;
-import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
 import com.myplus.business_service.util.RequestUtil;
@@ -42,9 +39,6 @@ public class BusinessDashboardController {
 
     @Autowired
     private AppUtil appUtil;
-
-    @Autowired
-    private ICompanyService companyService;
 
     @Autowired
     private VenderRepo venderRepo;
@@ -65,12 +59,6 @@ public class BusinessDashboardController {
 
     @Autowired
     private com.myplus.business_service.repository.SellRepo sellRepo;
-
-    @Autowired
-    private ICustomerService customerService;
-
-    @Autowired
-    private ISellService sellService;
 
     @Autowired
     private CustomerHistoryRepo customerHistoryRepo;
@@ -161,28 +149,33 @@ public class BusinessDashboardController {
             }
             LocalDateTime sixMonthsAgoStart = now.minusMonths(5)
                 .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
-            List<Sell> trendSells = sellService.findSellByDates(sixMonthsAgoStart, appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), userId);
-            for (Sell s : trendSells) {
-                if (s.getUpdated() != null) {
-                    String key = s.getUpdated().format(monthKey);
-                    if (revenueByMonth.containsKey(key)) {
-                        revenueByMonth.merge(key, s.getTotalAmount() != null ? s.getTotalAmount().doubleValue() : 0.0, Double::sum);
-                        salesByMonth.merge(key, 1, Integer::sum);
-                    }
-                }
+            // GROUP BY in SQL instead of six months of Sell entities bucketed by a merge loop. The zeroed
+            // map above still governs which months appear, so a month with no sales stays 0 rather than
+            // vanishing from the chart.
+            for (Object[] r : sellRepo.monthlyTrendScoped(sixMonthsAgoStart, appUtil.lastDateTimeOfMonth(),
+                                                          user.getOrganizationId(), userId)) {
+                if (r == null || r.length < 4 || r[0] == null || r[1] == null) continue;
+                String key = String.format("%04d-%02d", ((Number) r[0]).intValue(), ((Number) r[1]).intValue());
+                if (!revenueByMonth.containsKey(key)) continue;   // outside the six shown — same guard as before
+                salesByMonth.put(key, r[2] == null ? 0 : ((Number) r[2]).intValue());
+                revenueByMonth.put(key, r[3] == null ? 0.0 : ((Number) r[3]).doubleValue());
             }
 
             // --- daily revenue this month ---
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
-            List<Sell> monthlySells = sellService.findSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
+            // The month's sells are no longer loaded at all: the two things built from them — daily revenue
+            // and the top-5 products — are each their own GROUP BY below.
             int daysInMonth = now.toLocalDate().lengthOfMonth();
             double[] dailyRev = new double[daysInMonth];
-            for (Sell s : monthlySells) {
-                if (s.getUpdated() != null) {
-                    int d = s.getUpdated().getDayOfMonth() - 1;
-                    dailyRev[d] += s.getTotalAmount() != null ? s.getTotalAmount().doubleValue() : 0.0;
-                }
+            for (Object[] r : sellRepo.dailyRevenueScoped(startOfMonth, endOfMonth,
+                                                          user.getOrganizationId(), userId)) {
+                if (r == null || r.length < 2 || r[0] == null) continue;
+                int d = ((Number) r[0]).intValue() - 1;
+                // Defensive: a row dated outside the array cannot land here given the range predicate, but an
+                // out-of-bounds write would take the whole dashboard down rather than lose one bar.
+                if (d < 0 || d >= daysInMonth) continue;
+                dailyRev[d] = r[1] == null ? 0.0 : ((Number) r[1]).doubleValue();
             }
             List<Integer> dayLabels = new ArrayList<>();
             List<Double> dailyRevList = new ArrayList<>();
@@ -193,15 +186,15 @@ public class BusinessDashboardController {
 
             // --- top 5 products by qty this month ---
             // M4d (slice 96): aggregate by productId and resolve names from catalog (≤5 lookups) — no reverse map, no Item load.
-            Map<Long, Double> productQtyMap = new HashMap<>();
-            for (Sell s : monthlySells) {
-                if (s.getQuantity() == null || s.getProductId() == null) continue;
-                productQtyMap.merge(s.getProductId(), s.getQuantity().doubleValue(), Double::sum);
+            // Grouped, ordered and limited to 5 in SQL — the database returns five rows, not a month of them.
+            java.util.List<Object[]> topRows = sellRepo.topProductsByUpdated(startOfMonth, endOfMonth,
+                    user.getOrganizationId(), userId, org.springframework.data.domain.PageRequest.of(0, 5));
+            List<Map.Entry<Long, Double>> topEntries = new ArrayList<>();
+            for (Object[] r : topRows) {
+                if (r == null || r.length < 2 || r[0] == null) continue;
+                topEntries.add(new java.util.AbstractMap.SimpleEntry<>(
+                        ((Number) r[0]).longValue(), r[1] == null ? 0.0 : ((Number) r[1]).doubleValue()));
             }
-            List<Map.Entry<Long, Double>> topEntries = productQtyMap.entrySet().stream()
-                .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
-                .limit(5)
-                .collect(Collectors.toList());
             java.util.List<Long> topProductIds = topEntries.stream().map(Map.Entry::getKey).collect(Collectors.toList());
             java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> topProductById;
             try {
@@ -240,15 +233,11 @@ public class BusinessDashboardController {
             }
 
             // --- top customers with outstanding dues --- (org-scoped, was userId-only Example probe)
-            List<Customer> allCustomers = customerService.findScoped(user.getOrganizationId(), userId);
+            // Filtered, sorted and limited in SQL. This used to load every customer of the tenant — 441 rows
+            // hydrated to keep ten — and the shape worsens as a tenant grows rather than improving.
+            List<Customer> allCustomers = customerRepo.findTopDueScoped(user.getOrganizationId(), userId,
+                    org.springframework.data.domain.PageRequest.of(0, 10));
             List<Map<String, Object>> dueCustomers = allCustomers.stream()
-                .filter(c -> c.getDueAmount() != null && c.getDueAmount().compareTo(java.math.BigDecimal.ZERO) > 0)
-                .sorted((a, b) -> {
-                    java.math.BigDecimal bd = b.getDueAmount() != null ? b.getDueAmount() : java.math.BigDecimal.ZERO;
-                    java.math.BigDecimal ad = a.getDueAmount() != null ? a.getDueAmount() : java.math.BigDecimal.ZERO;
-                    return bd.compareTo(ad);
-                })
-                .limit(10)
                 .map(c -> {
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("name",    c.getName());
