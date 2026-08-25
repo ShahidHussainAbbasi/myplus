@@ -9,6 +9,25 @@
   <artifactId>auth-service</artifactId>
 
   <dependencies>
+    <!--
+      Spring Cloud LoadBalancer's production cache.
+      ────────────────────────────────────────────────────────────────────────────────────────────────
+      auth-service resolves peers through Eureka and calls them with an @LoadBalanced client, so the
+      LoadBalancer instance cache is in front of real traffic. Spring calls the default implementation
+      "useful for development and tests" and warns about it on every startup.
+
+      Declared HERE rather than inherited: auth-service and api-gateway are the two runnable services
+      that do NOT extend service-parent (they extend the root aggregator directly), so the shared
+      declaration there does not reach them. eureka-server and config-server are left out on purpose —
+      neither resolves anything through LoadBalancer.
+
+      Version managed by the Spring Boot parent — no <version> on purpose.
+    -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>com.myplus</groupId>
       <artifactId>common-notify</artifactId>

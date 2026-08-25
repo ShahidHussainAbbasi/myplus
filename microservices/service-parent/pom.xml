@@ -13,6 +13,25 @@
     future servlet service trusts gateway-authenticated requests with no per-service code.</description>
 
   <dependencies>
+    <!--
+      Spring Cloud LoadBalancer's production cache.
+      ────────────────────────────────────────────────────────────────────────────────────────────────
+      Every service here resolves its peers through Eureka and calls them with @LoadBalanced clients, so
+      the LoadBalancer's instance cache sits in front of ordinary inter-service traffic. Without Caffeine
+      it falls back to a default implementation Spring itself describes as "useful for development and
+      tests" and warns about on every startup.
+
+      This was already true for six services by accident: common-settings gained Caffeine in PERF-C1, and
+      the services that consume it stopped warning. Declaring it here makes that deliberate and uniform,
+      so a service added tomorrow does not quietly ship the development cache.
+
+      Version managed by the Spring Boot parent — no <version> on purpose.
+    -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>com.myplus</groupId>
       <artifactId>common-security</artifactId>

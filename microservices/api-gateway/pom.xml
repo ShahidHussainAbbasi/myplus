@@ -9,6 +9,24 @@
   <artifactId>api-gateway</artifactId>
 
   <dependencies>
+    <!--
+      Spring Cloud LoadBalancer's production cache.
+      ────────────────────────────────────────────────────────────────────────────────────────────────
+      The gateway is the STRONGEST case in the stack. Its routes are lb:// URIs, so LoadBalancer resolves a
+      service instance on EVERY request that enters the platform — the cache is not on a background path,
+      it is on the hot path for all traffic. Spring describes the default implementation as "useful for
+      development and tests" and warns about it on every startup.
+
+      Declared separately because the gateway does not inherit service-parent, which is where the other
+      services pick this up.
+
+      Version managed by the Spring Boot parent — no <version> on purpose.
+    -->
+    <dependency>
+      <groupId>com.github.ben-manes.caffeine</groupId>
+      <artifactId>caffeine</artifactId>
+    </dependency>
+
     <!-- The WebFlux (reactive) gateway server. `spring-cloud-starter-gateway` was renamed in Spring Cloud
          2025.0.x when the gateway split into WebFlux/WebMVC/proxy-exchange flavours; the old artifact still
          resolves but logs a deprecation warning on every boot and goes away at the next major. Paired with
