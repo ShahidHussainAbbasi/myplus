@@ -43,7 +43,21 @@ public class CheckoutService {
      * Per-tenant policy cache. An INSTANCE field, not static: the bean is a singleton so it lives just as long,
      * and static mutable state shared between unit tests is how one test's tenant silently answers another's.
      */
-    private final Map<Long, CachedTaxPolicy> taxPolicyCache = new ConcurrentHashMap<>();
+    /**
+     * PERF-D5 — the shared {@link com.myplus.common.web.TenantCache}, replacing a hand-rolled
+     * {@code ConcurrentHashMap<Long, CachedTaxPolicy>} with no size bound. Keyed by organisation, that map
+     * grew with every tenant this process ever quoted for and never gave an entry back.
+     *
+     * <p>Migrates cleanly because this path never caches null: an absent or failed policy becomes the
+     * {@code TAX_OFF} sentinel, so there is always a real value to hold. Built in {@code @PostConstruct}
+     * because {@code taxPolicyTtlMs} is {@code @Value}-injected and field initialisers run first.
+     */
+    private com.myplus.common.web.TenantCache<TaxPolicyView> taxPolicyCache;
+
+    @jakarta.annotation.PostConstruct
+    void initTaxPolicyCache() {
+        this.taxPolicyCache = com.myplus.common.web.TenantCache.ofSeconds(Math.max(1, taxPolicyTtlMs / 1000));
+    }
 
     /**
      * How long a tenant's tax policy is reused before re-reading it. Same shape and default as
@@ -213,23 +227,20 @@ public class CheckoutService {
      * failed checkout.
      */
     private TaxPolicyView taxPolicyFor(Long org) {
-        long now = System.currentTimeMillis();
-        CachedTaxPolicy hit = taxPolicyCache.get(org);
-        if (hit != null && hit.expiresAt() > now) return hit.policy();
-        TaxPolicyView fetched;
-        try {
-            fetched = AsOrg.call(org, tradeClient::taxPolicy);
-            if (fetched == null) fetched = TAX_OFF;
-        } catch (RuntimeException ex) {
-            LOG.warn("Tax policy unavailable for org {} ({}: {}) — quoting with tax OFF for {}ms",
-                    org, ex.getClass().getSimpleName(), ex.getMessage(), taxPolicyTtlMs);
-            fetched = TAX_OFF;
-        }
-        taxPolicyCache.put(org, new CachedTaxPolicy(fetched, now + taxPolicyTtlMs));
-        return fetched;
+        return taxPolicyCache.get(org, o -> {
+            try {
+                TaxPolicyView fetched = AsOrg.call(o, tradeClient::taxPolicy);
+                // TAX_OFF rather than null: a null would not be recorded, so every quote during an outage
+                // would retry the failing call instead of quoting tax-off for the TTL as designed.
+                return fetched == null ? TAX_OFF : fetched;
+            } catch (RuntimeException ex) {
+                LOG.warn("Tax policy unavailable for org {} ({}: {}) — quoting with tax OFF for {}ms",
+                        o, ex.getClass().getSimpleName(), ex.getMessage(), taxPolicyTtlMs);
+                return TAX_OFF;
+            }
+        });
     }
 
-    private record CachedTaxPolicy(TaxPolicyView policy, long expiresAt) {}
 
     private CheckoutDTO.Quote assemble(Totals t, ShippingOption option, CouponService.CouponResult cr, Long org) {
         BigDecimal discount = cr.discount();

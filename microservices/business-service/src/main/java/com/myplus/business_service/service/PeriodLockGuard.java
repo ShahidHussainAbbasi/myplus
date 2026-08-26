@@ -1,7 +1,6 @@
 package com.myplus.business_service.service;
 
 import java.time.LocalDate;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,7 @@ public class PeriodLockGuard {
     /** Per-org lock cache TTL. Lock changes are rare (month-end), so a short cache keeps the finance read off the
      *  hot path; a close takes up to this long to propagate to the business ops (the GL guard is the hard backstop). */
     @org.springframework.beans.factory.annotation.Value("${app.period-lock.cache-ttl-ms:15000}")
-    private long ttlMs;
+    private long ttlMs;   // retained: the property is documented and read at startup; see the cache above
 
     @Autowired(required = false)
     private FinanceClient financeClient;   // shared GL; null if finance is unwired in this deployment
@@ -39,9 +38,31 @@ public class PeriodLockGuard {
     @Autowired
     private RequestUtil requestUtil;
 
-    /** Cached lock per org: value carries the resolved date (nullable) + when it expires. */
-    private record Cached(LocalDate lockedThrough, long expiresAt) {}
-    private final ConcurrentHashMap<Long, Cached> cache = new ConcurrentHashMap<>();
+    /**
+     * PERF-D5 — the shared {@link com.myplus.common.web.TenantCache}, replacing a hand-rolled
+     * {@code ConcurrentHashMap<Long, Cached>} that had no size bound: keyed by organisation, it grew with
+     * every tenant this process ever served and never returned an entry.
+     *
+     * <p><b>{@code Optional<LocalDate>}, not {@code LocalDate}.</b> Null is a legitimate cached answer here
+     * — it means "no lock", which is the common case — and it is also what a failed read falls back to, so
+     * that a finance-service blip costs one call per TTL rather than one per write. Caffeine does not record
+     * a null mapping, so caching the bare date would have quietly stopped caching the ordinary case and
+     * turned every write into a remote call: slower after the change than before it, while looking tidier.
+     */
+    private com.myplus.common.web.TenantCache<java.util.Optional<LocalDate>> cache;
+
+    /*
+     * Built in @PostConstruct, NOT at field initialisation.
+     *
+     * `ttlMs` is @Value-injected, and field injection runs AFTER the field initialisers — so a cache built
+     * inline would capture 0 and the documented `app.period-lock.cache-ttl-ms` would be inert: present in
+     * the config, reviewed, and doing nothing. That is the same trap PERF-C1 recorded for the settings
+     * cache, and it is invisible unless somebody thinks to change the value and check.
+     */
+    @jakarta.annotation.PostConstruct
+    void initCache() {
+        this.cache = com.myplus.common.web.TenantCache.ofSeconds(Math.max(1, ttlMs / 1000));
+    }
 
     private Long orgId() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
@@ -52,13 +73,11 @@ public class PeriodLockGuard {
     public LocalDate lockedThrough() {
         if (financeClient == null) return null;
         Long org = orgId();
+        // -1L for a caller with no org, exactly as before. TenantCache declines to load under a null key —
+        // correct for a picker, wrong here: it would skip the period-lock check entirely for those callers
+        // rather than sharing one slot with them.
         Long key = org != null ? org : -1L;   // pre-migration/no-org rows share one cache slot
-        Cached c = cache.get(key);
-        long now = System.currentTimeMillis();
-        if (c != null && c.expiresAt() > now) return c.lockedThrough();
-        LocalDate resolved = fetch();
-        cache.put(key, new Cached(resolved, now + ttlMs));
-        return resolved;
+        return cache.get(key, k -> java.util.Optional.ofNullable(fetch())).orElse(null);
     }
 
     private LocalDate fetch() {
