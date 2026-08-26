@@ -117,23 +117,28 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
      * <p>Replaces loading every {@code Sell} of the last six months and bucketing them with a
      * {@code Map.merge} loop. That read is why {@code /getDashboardChartData} answered in ~2 seconds.
      *
-     * <p><b>{@code updated}, and {@code totalAmount}</b> — matching the loop this replaces exactly. The
-     * sibling stats endpoint sums {@code netAmount} for its revenue figure; the trend chart has always used
-     * {@code totalAmount}. Quietly harmonising them here would change a number on a chart somebody reads
-     * without anything announcing it, so the difference is preserved and flagged instead.
+     * <p><b>{@code dated}, not {@code updated}.</b> {@code dated} is {@code @Column(updatable=false)} — when
+     * the sale happened, fixed for the life of the row. {@code updated} moves every time the row is touched,
+     * so filtering a monthly report by it means an edited old invoice silently leaves its month and reappears
+     * in the current one. See the note on {@link #findSellByDates}.
+     *
+     * <p><b>{@code totalAmount}</b>, deliberately: the sibling stats endpoint sums {@code netAmount} for its
+     * revenue figure while the trend chart has always used {@code totalAmount}. Quietly harmonising them
+     * would change a number on a chart somebody reads, with nothing announcing it — so the difference is
+     * preserved and flagged rather than tidied away.
      */
-    @Query("SELECT year(s.updated), month(s.updated), count(s), coalesce(sum(s.totalAmount), 0) FROM Sell s "
-         + "WHERE s.updated >= :sd AND s.updated <= :ed "
+    @Query("SELECT year(s.dated), month(s.dated), count(s), coalesce(sum(s.totalAmount), 0) FROM Sell s "
+         + "WHERE s.dated >= :sd AND s.dated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
-         + "GROUP BY year(s.updated), month(s.updated)")
+         + "GROUP BY year(s.dated), month(s.dated)")
     List<Object[]> monthlyTrendScoped(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
                                       @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /** Revenue per DAY of a period: {@code [dayOfMonth, revenue]}. Same column and same measure as the trend. */
-    @Query("SELECT day(s.updated), coalesce(sum(s.totalAmount), 0) FROM Sell s "
-         + "WHERE s.updated >= :sd AND s.updated <= :ed "
+    @Query("SELECT day(s.dated), coalesce(sum(s.totalAmount), 0) FROM Sell s "
+         + "WHERE s.dated >= :sd AND s.dated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
-         + "GROUP BY day(s.updated)")
+         + "GROUP BY day(s.dated)")
     List<Object[]> dailyRevenueScoped(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
                                       @Param("orgId") Long orgId, @Param("userId") Long userId);
 
@@ -142,14 +147,14 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
      *
      * <p>Deliberately NOT {@link #topProductsScoped}, which looks like the same query and is not: that one
      * filters on {@code dated} and takes an open-ended {@code since}. This endpoint has always bucketed by
-     * {@code updated} within a closed month, and reusing the other query would silently change which sales
-     * the chart counts — a different set of products, with nothing to indicate why.
+     * a closed month, where {@link #topProductsScoped} takes an open-ended {@code since}. Both now filter
+     * {@code dated}; the range shape is what still separates them.
      */
     @Query("SELECT s.productId, coalesce(sum(s.quantity), 0) FROM Sell s "
-         + "WHERE s.productId is not null AND s.updated >= :sd AND s.updated <= :ed "
+         + "WHERE s.productId is not null AND s.dated >= :sd AND s.dated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
          + "GROUP BY s.productId ORDER BY sum(s.quantity) desc")
-    List<Object[]> topProductsByUpdated(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
+    List<Object[]> topProductsInRange(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
                                         @Param("orgId") Long orgId, @Param("userId") Long userId,
                                         Pageable pageable);
 
@@ -164,17 +169,32 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
      * a null that the caller would have to remember to handle — the previous code summed an empty stream to
      * 0.0, and that behaviour is preserved rather than quietly changed.
      *
-     * <p><b>Same predicate and same column as {@link #findSellByDates}</b>, including {@code updated} rather
-     * than {@code dated}. Using the more intuitive column here would silently change which sales the
-     * dashboard reports, which is exactly the kind of difference nobody would notice until a figure was
-     * questioned.
+     * <p><b>Same predicate and same column as {@link #findSellByDates}</b> — {@code dated}. Two queries
+     * feeding one screen from different columns is exactly the kind of difference nobody notices until a
+     * figure is questioned.
      */
-    @Query("SELECT count(s), coalesce(sum(s.netAmount), 0) FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed "
+    @Query("SELECT count(s), coalesce(sum(s.netAmount), 0) FROM Sell s WHERE s.dated >= :sd AND s.dated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
     Object[] sumSellByDates(@Param("sd") LocalDateTime sd, @Param("ed") LocalDateTime ed,
                             @Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    @Query("SELECT s FROM Sell s WHERE s.updated >= :sd AND s.updated <= :ed "
+    /**
+     * Sales in a date range — the read behind the Sale Detail Report and the dashboard's period figures.
+     *
+     * <h3>{@code dated}, corrected 2026-08-26</h3>
+     * This filtered {@code updated} — the column that moves every time a row is touched — so an invoice
+     * edited months later silently left its own month and reappeared in the current one. {@code dated} is
+     * {@code @Column(updatable=false)}: when the sale happened, and immutable by construction.
+     *
+     * <p>The report it serves was already inconsistent with itself: {@link #findSellByStartDate} and
+     * {@link #findSellByEndDate} both filter {@code dated}, so on the same screen a start-and-end range
+     * meant one thing and a start-only range meant another. All three now agree.
+     *
+     * <p>No figure moved when this changed: at the time, zero rows in the table had {@code dated} and
+     * {@code updated} in different months — though 31 had been edited, so it was latency of luck rather
+     * than of design. That made it the cheapest possible moment to correct it.
+     */
+    @Query("SELECT s FROM Sell s WHERE s.dated >= :sd AND s.dated <= :ed "
          + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
     List<Sell> findSellByDates(
         @Param("sd") LocalDateTime sd,

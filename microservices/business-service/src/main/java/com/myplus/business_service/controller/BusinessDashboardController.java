@@ -187,7 +187,7 @@ public class BusinessDashboardController {
             // --- top 5 products by qty this month ---
             // M4d (slice 96): aggregate by productId and resolve names from catalog (≤5 lookups) — no reverse map, no Item load.
             // Grouped, ordered and limited to 5 in SQL — the database returns five rows, not a month of them.
-            java.util.List<Object[]> topRows = sellRepo.topProductsByUpdated(startOfMonth, endOfMonth,
+            java.util.List<Object[]> topRows = sellRepo.topProductsInRange(startOfMonth, endOfMonth,
                     user.getOrganizationId(), userId, org.springframework.data.domain.PageRequest.of(0, 5));
             List<Map.Entry<Long, Double>> topEntries = new ArrayList<>();
             for (Object[] r : topRows) {
