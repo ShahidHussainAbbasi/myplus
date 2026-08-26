@@ -19,7 +19,7 @@
 (function (global) {
     'use strict';
 
-    var state = { lines: [], products: [], outlet: null };
+    var state = { lines: [], products: [], outlet: null, outlets: [] };
 
     /** XSS: every value below reaches innerHTML, and outlet/product names are user data. */
     function esc(s) {
@@ -64,6 +64,10 @@
     function loadOutlets() {
         $.get(serverContext + 'outlets', function (resp) {
             var rows = (resp && (resp.collection || resp.data)) || [];
+            // KEEP the rows. /outlets already returns each shop's contact and address alongside its name, so
+            // filling those boxes on selection costs nothing — asking the server again for something it has
+            // just sent is the kind of round trip a rep on shop wifi feels.
+            state.outlets = rows;
             var html = '<option value="">' + esc(tr('ui.js.selectOutlet', 'Select the shop…')) + '</option>';
             var mine = rows.filter(function (c) { return c.assignedToMe; });
             var rest = rows.filter(function (c) { return !c.assignedToMe; });
@@ -94,9 +98,41 @@
      */
     global.bkOutletChanged = function () {
         var id = $('#bkOutlet').val();
+        var switchedShop = String(state.outlet || '') !== String(id || '');
         state.outlet = id || null;
         $('#bkCredit').hide();
-        if (!id) { return; }
+
+        /*
+         * Fill the shop's own contact and delivery address.
+         *
+         * A rep re-typing details the system already holds is slower and less accurate than the record — and a
+         * mistyped address on a field order is a van at the wrong door.
+         *
+         * ⚠ THE RULE IS "DID THE SHOP CHANGE?", NOT "IS THE BOX EMPTY?" — and my first version got that wrong
+         * in a way that was worse than not filling at all. Guarding on an empty box meant the details filled
+         * once and then never again: switching from Shafiq Medicine to Al Madina left SHAFIQ's phone number
+         * and address sitting against Al Madina's order. The rep would have had to notice and retype both.
+         *
+         * So a DIFFERENT shop always replaces both boxes — an address typed for one shop is meaningless for
+         * another. Re-selecting the SAME shop preserves whatever is there, which is what protects a deliberate
+         * one-off ("send it to the new branch this week"); the order carries its own address precisely so it
+         * can differ from the customer master.
+         */
+        var chosen = null;
+        (state.outlets || []).forEach(function (o) {
+            if (String(o.id) === String(id)) { chosen = o; }
+        });
+        if (chosen && switchedShop) {
+            $('#bkContact').val(chosen.contact || '');
+            $('#bkAddress').val(chosen.address || '');
+        }
+
+        if (!id) {
+            // Cleared the shop: clear what was filled FROM a shop, so the next selection starts honestly.
+            $('#bkContact').val('');
+            $('#bkAddress').val('');
+            return;
+        }
         $.get(serverContext + 'creditStanding?customerId=' + encodeURIComponent(id), function (resp) {
             var s = resp && resp.object;
             if (!s) { return; }                       // uncapped — nothing to say, so say nothing

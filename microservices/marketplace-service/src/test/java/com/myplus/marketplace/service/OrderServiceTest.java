@@ -1,6 +1,7 @@
 package com.myplus.marketplace.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -17,6 +18,7 @@ import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationRequest;
 import com.myplus.commerce.contracts.dto.StockReservationResponse;
 import com.myplus.commerce.contracts.dto.StockReturnRequest;
+import com.myplus.common.web.exception.ValidationException;
 import com.myplus.marketplace.dto.OrderDTO;
 import com.myplus.marketplace.entity.FulfilmentStatus;
 import com.myplus.marketplace.entity.Order;
@@ -101,6 +103,26 @@ class OrderServiceTest {
         d.setCardToken(token);
         d.setItems(List.of(line(100L, 1)));   // a cart line so the stock reservation runs
         return d;
+    }
+
+    /**
+     * Put an order into DELIVERED, for tests whose SUBJECT is what happens next.
+     *
+     * <p>It cannot be done with {@code updateStatus(id, "DELIVERED")} any more, and that is correct product
+     * behaviour, not an obstacle: OMS O2's whitelist allows {@code NEW -> {PACKED, CANCELLED}} only, and
+     * {@code PACKED -> {CANCELLED}} — the way forward from PACKED is RECORDING A SHIPMENT, which derives
+     * SHIPPED (O5b), and only SHIPPED reaches DELIVERED. So the real journey is pack, ship, deliver.
+     *
+     * <p>These two tests are about RETURNS. Dragging the shipping machinery through their arrange step would
+     * make them fail for reasons that have nothing to do with returns, so the state is seeded directly. That
+     * is not reaching around a guard under test — it is declining to re-test dispatch inside a returns test.
+     * The journey itself is covered once, deliberately, by
+     * {@link #the_real_path_to_delivered_is_pack_then_ship_then_deliver}.
+     */
+    private void seedDelivered(Long orderId) {
+        Order o = repo.findById(orderId).orElseThrow();
+        o.setFulfilmentStatus(FulfilmentStatus.DELIVERED);
+        repo.save(o);
     }
 
     @Test
@@ -247,7 +269,7 @@ class OrderServiceTest {
         OrderDTO d = storefront("Returner", "COD", null);
         d.setCustomerContact("0300RET");
         OrderDTO o = service.placePublic(d);
-        service.updateStatus(o.getId(), "DELIVERED", ORG, USER);
+        seedDelivered(o.getId());
 
         var t = service.requestReturn(o.getId(), "0300RET", "too big");
         assertThat(t.getStatus()).isEqualTo("RETURN_REQUESTED");
@@ -267,7 +289,7 @@ class OrderServiceTest {
         OrderDTO d = storefront("RMA Buyer", "CARD", "ok");   // total 20.00, PAID, reservation resv-1
         d.setCustomerContact("0300RMA");
         OrderDTO o = service.placePublic(d);
-        service.updateStatus(o.getId(), "DELIVERED", ORG, USER);
+        seedDelivered(o.getId());
 
         OrderDTO r = service.processReturn(o.getId(), ORG, USER);
 
@@ -283,8 +305,18 @@ class OrderServiceTest {
         assertThat(created.getId()).isNotNull();
         assertThat(created.getFulfilmentStatus()).isEqualTo("NEW");
 
-        OrderDTO shipped = service.updateStatus(created.getId(), "SHIPPED", ORG, USER);
-        assertThat(shipped.getFulfilmentStatus()).isEqualTo("SHIPPED");
+        // PACKED, not SHIPPED. Under O5b, SHIPPED is DERIVED from what actually went out, so it is no longer
+        // a status anything can be "advanced" to — updateStatus refuses it by name and points at Ship. PACKED
+        // is the real move out of NEW, and this test's subject is that a move happens and that the paged read
+        // stays tenant-scoped, not which state it lands in.
+        OrderDTO packed = service.updateStatus(created.getId(), "PACKED", ORG, USER);
+        assertThat(packed.getFulfilmentStatus()).isEqualTo("PACKED");
+
+        // And the refusal is worth pinning, because it is the guard that makes the header agree with the
+        // parcels: marking SHIPPED by hand would let an order claim a dispatch no shipment accounts for.
+        assertThatThrownBy(() -> service.updateStatus(created.getId(), "SHIPPED", ORG, USER))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("recording a shipment");
 
         // Tenant isolation, asserted through the PAGED read since `list()` was deleted in the 2026-08-10
         // review (it was the unbounded read OMS-7 named, left public with no callers). The assertion is the

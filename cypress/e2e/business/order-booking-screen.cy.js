@@ -13,6 +13,7 @@
 describe('OMS O7 D2b — a rep can actually book an order', () => {
   const run = String(Date.now()).slice(-6)
   const OUTLET = 'ScreenOutlet ' + run
+  const OUTLET_B = 'BookOutletB_' + run
   const PRODUCT = 'ScreenProd_' + run
 
   before(() => {
@@ -30,7 +31,15 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
     // An outlet WITH a limit, so the credit banner has something to say.
     cy.request({
       method: 'POST', url: '/addCustomer', form: true, failOnStatusCode: false,
-      body: { name: OUTLET, contact: '0300' + run, creditLimit: 5000 },
+      // An ADDRESS too: the screen fills contact and delivery address from the shop record, and a fixture
+      // with no address could not tell "filled correctly" from "left blank".
+      body: { name: OUTLET, contact: '0300' + run, address: '12 Mall Road, Lahore', creditLimit: 5000 },
+    }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
+    // A SECOND outlet with DIFFERENT details. Without one, "the details fill" cannot be told apart from
+    // "the details filled once and then stuck" — which is exactly the defect this fixture now catches.
+    cy.request({
+      method: 'POST', url: '/addCustomer', form: true, failOnStatusCode: false,
+      body: { name: OUTLET_B, contact: '0311' + run, address: '9 Khan Pur Road', creditLimit: 5000 },
     }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
   })
 
@@ -209,4 +218,54 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
       .should('contain', 'REJECTED')
       .and('contain', 'Shop already owes too much')
   })
+
+  it('choosing the shop fills its contact and delivery address', () => {
+    // A rep re-typing details the system already holds is slower and less accurate than the record — and a
+    // mistyped address on a field order is a van at the wrong door. /outlets already returns both alongside
+    // the name, so this costs no extra request.
+    cy.get('#bkContact').should('have.value', '')
+    cy.get('#bkAddress').should('have.value', '')
+
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+
+    cy.get('#bkContact').should('have.value', '0300' + run)
+    cy.get('#bkAddress').should('have.value', '12 Mall Road, Lahore')
+  })
+
+  it('⭐ switching shops replaces the details — the first shop must not stick', () => {
+    /*
+     * THE CASE THAT MATTERS, and the one my first implementation failed.
+     *
+     * Guarding the fill on "is the box empty?" meant the details filled once and then never again: switching
+     * from one shop to another left the FIRST shop's phone number and address against the second shop's
+     * order. A van at the wrong door — the precise failure this feature exists to prevent.
+     *
+     * The rule is "did the shop change?", so this asserts both directions: A → B, then B → A.
+     */
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+    cy.get('#bkContact').should('have.value', '0300' + run)
+    cy.get('#bkAddress').should('have.value', '12 Mall Road, Lahore')
+
+    cy.get('#bkOutlet').select(OUTLET_B, { force: true })
+    cy.get('#bkContact').should('have.value', '0311' + run)
+    cy.get('#bkAddress').should('have.value', '9 Khan Pur Road')
+
+    // And back again — a one-way fill would pass the check above and still be broken.
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+    cy.get('#bkContact').should('have.value', '0300' + run)
+    cy.get('#bkAddress').should('have.value', '12 Mall Road, Lahore')
+  })
+
+  it('re-selecting the SAME shop keeps a one-off address the rep typed', () => {
+    // The other half of the rule. "Send it to the new branch this week" is ordinary, and the order carries
+    // its own address precisely so it can differ from the customer master.
+    cy.get('#bkOutlet').select(OUTLET, { force: true })
+    cy.get('#bkAddress').clear().type('Warehouse gate, Ferozepur Road')
+
+    cy.get('#bkOutlet').select(OUTLET, { force: true })   // the same shop, again
+
+    cy.get('#bkAddress', { timeout: 10000 })
+      .should('have.value', 'Warehouse gate, Ferozepur Road')
+  })
+
 })

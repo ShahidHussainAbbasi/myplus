@@ -89,15 +89,49 @@ class FlywayMigrationTest {
     }
 
     @Test
-    void every_migration_applies_to_an_empty_database() {
+    void every_migration_applies_to_an_empty_database() throws java.io.IOException {
         // Booting at all is most of the assertion: ddl-auto=validate means Hibernate has already agreed that
         // what Flyway built matches every entity. This pins the set so a new migration is proven, not assumed.
+        //
+        // The expected list is DERIVED FROM THE MIGRATION FILES, not typed out. A hardcoded list asserts "there
+        // are exactly the 17 I wrote down", which is not the property worth testing and which every subsequent
+        // migration falsifies: V18-V23 were added and this test reddened with nothing wrong. Updating the
+        // literal would have been a mechanical edit carrying no verification at all.
+        //
+        // Derived, it asserts the thing that matters: EVERY migration on disk applied cleanly to an empty
+        // database, in order, none skipped and none failed. A new migration is then covered the moment it is
+        // added, and one that fails to apply still fails here.
+        //
+        // Same fix, same reason as verify-schemas.sh in the deploy scripts, where a typed expectation went
+        // stale four times before it was derived from disk instead. The sibling test below already works this
+        // way, deriving from the Java enum.
+        List<String> expected = migrationVersionsOnDisk();
+        assertThat(expected).as("no migrations found on the classpath - the test would pass vacuously")
+                .isNotEmpty();
+
         List<String> applied = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL "
                         + "ORDER BY installed_rank", String.class);
-        assertThat(applied).containsExactly(
-                "1", "2", "3", "4", "5", "6", "7", "8", "9",
-                "10", "11", "12", "13", "14", "15", "16", "17");
+        assertThat(applied)
+                .as("every migration in db/migration must apply to an empty database, in version order")
+                .containsExactlyElementsOf(expected);
+    }
+
+    /** Versions of every {@code V<n>__*.sql} in {@code db/migration}, in numeric order. */
+    private List<String> migrationVersionsOnDisk() throws java.io.IOException {
+        org.springframework.core.io.Resource[] files =
+                new org.springframework.core.io.support.PathMatchingResourcePatternResolver()
+                        .getResources("classpath*:db/migration/V*__*.sql");
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile("^V([0-9]+)__");
+        List<String> versions = new java.util.ArrayList<>();
+        for (org.springframework.core.io.Resource r : files) {
+            String name = r.getFilename();
+            if (name == null) continue;
+            java.util.regex.Matcher m = p.matcher(name);
+            if (m.find()) versions.add(m.group(1));
+        }
+        versions.sort(java.util.Comparator.comparingInt(Integer::parseInt));
+        return versions;
     }
 
     /**
