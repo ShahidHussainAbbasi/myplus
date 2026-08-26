@@ -1,6 +1,6 @@
 # PERF-D — server latency: the dashboard and the sale screen
 
-**Status:** D1–D4 DONE + GREEN 2026‑08‑25. D5–D6 open.
+**Status:** D1–D5 DONE + GREEN 2026‑08‑26. D6 closed (security). D6b open — see §10.
 **Scope:** business-service read paths + the LoadBalancer cache. No schema beyond one index.
 **Prompted by:** a production slowness report. Everything below was measured against the running stack
 before it was changed, and again after.
@@ -150,8 +150,9 @@ an absent log line could mean rotated logs; the jar is the property.
 
 | # | Item | Note |
 |---|---|---|
-| D5 | Converge the four hand-rolled caches | `PeriodLockGuard`, `CheckoutService.taxPolicyCache`, `RateLimitGlobalFilter`, `CaptchaAttemptService` — the same `ConcurrentHashMap` + timestamp written four times, **none size-bounded** |
-| D6 | ETag / `Cache-Control` on read-heavy GETs | a 304 costs a round trip but no query and no payload |
+| D5 | Converge the hand-rolled caches | ✅ **DONE** — see §9 |
+| D6 | ETag on authenticated tenant reads | ⛔ **WILL NOT IMPLEMENT** — see §10 |
+| D6b | `Cache-Control` on PUBLIC static views | 🔓 **open, and security-neutral** — see §10 |
 | — | ~~Cache the dashboard~~ | **dropped**: at 0.27 s it buys little and adds a staleness question that does not currently exist. Caching it *first* would have masked the query — which is the whole lesson of this slice |
 
 ### Not a performance question, and awaiting a decision
@@ -185,3 +186,94 @@ today each service runs a single container.
 
 **Not cached, deliberately:** stock, credit standing, balances. The books have already drifted once from a
 stale read, and milliseconds are not worth a wrong number.
+
+
+---
+
+## 9. D5 — one bounded per-tenant cache, and the maps that must not use it
+
+`PeriodLockGuard` and `CheckoutService.taxPolicyCache` were the same thing written twice: a
+`ConcurrentHashMap` keyed by organisation, holding a value beside an expiry timestamp. **Neither had a size
+bound** — keyed by organisation, they grew with every tenant the process had ever served. Both now use
+`common-web` `TenantCache` (TTL + `maximumSize` + Caffeine's W-TinyLFU admission).
+
+**The plan said "converge the four". That was wrong.** `RateLimitGlobalFilter` and `CaptchaAttemptService`
+hold superficially similar maps and are **counters, not caches**. For a cache a miss is merely slow;
+evicting a rate-limit window hands the caller a fresh quota, and evicting a failed-login counter forgives
+the attempts. Moving them would have been a security regression dressed as a tidy-up.
+
+They are bounded a different way — **pruned by the clock, never by pressure**. The size threshold decides
+only *when* to sweep; what is swept is decided purely by expiry, so a live entry can never be dropped:
+
+* `RateLimitGlobalFilter` already did this (sweep expired windows past 10,000 keys).
+* `CaptchaAttemptService` did **not**, and that was a real leak: entries were removed only when a key was
+  read again, so a username that fails once and is never retried stayed for the life of the process — the
+  credential-stuffing shape exactly. It now copies the gateway's pattern. Gate: **a live block survives a
+  sweep of 10,000+ expired entries**, which is the property an LRU would break while looking like a fix.
+
+### Two defects caught inside this slice
+
+* The cache was first built at field initialisation, where `@Value` has not yet been injected — which would
+  have made `app.period-lock.cache-ttl-ms` **inert**. That is the same trap PERF-C1 recorded, repeated
+  within the hour. Both caches are now built in `@PostConstruct`.
+* **Caffeine does not record a null mapping.** `PeriodLockGuard` caches nulls deliberately — null means "no
+  lock", the *common* answer, and it is also the fail-open fallback. A naive migration would have stopped
+  caching the common case and turned every write into a remote call: **slower after the change than before**,
+  while looking tidier. It now caches `Optional<LocalDate>`.
+
+### Final state — every cache and counter carries both bounds
+
+| | Staleness | Memory | Evicts by |
+|---|---|---|---|
+| `SettingsService` | TTL 60 s, configurable | 1,000 | W-TinyLFU |
+| `TenantCache` (period lock, tax policy) | TTL configurable | 1,000 | W-TinyLFU |
+| `RateLimitGlobalFilter` | 1 s window | sweep at >10k | **clock only** |
+| `CaptchaAttemptService` | 4 h window | sweep at >10k | **clock only** |
+
+The split is the point: **caches evict under pressure; counters prune strictly by time.**
+
+---
+
+## 10. D6 — ETags: closed for tenant reads, open for public pages
+
+### Closed, and why it is a security decision rather than a performance one
+
+An ETag only helps if the browser **stores** the response — that is what it revalidates against. Every
+authenticated response here carries Spring Security's default:
+
+```
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+```
+
+`no-store` means *never write this to cache*. **Enabling ETags therefore requires removing `no-store`** —
+there is no variant that keeps it. On a POS/ERP product that matters more than usual, because **tills are
+shared between cashiers and shifts**, and `no-store` is what stops tenant data persisting in a browser's
+disk cache after logout.
+
+The candidates settle it:
+
+| Endpoint | Size | |
+|---|---|---|
+| `/customerOptions` | **69 KB** | customer names, contacts, **due amounts** — personal *and* financial |
+| `/settings` | 24.8 KB | tenant configuration |
+
+**The only endpoint with a meaningful payoff is the one that most needs `no-store`.** Trading disk-cached
+customer balances on a shared till for 69 KB is a bad trade. Closed — recorded here rather than left as an
+open item somebody revisits later without the security context.
+
+### But the blanket close was too broad — D6b is open
+
+Checking the public surface rather than assuming, two unauthenticated pages are sent `no-store` purely
+because Spring Security applies its default globally:
+
+| Endpoint | Size | Tenant data? |
+|---|---|---|
+| `/services` | **72 KB** | **none** — `MvcConfig:92` is `addViewController("/services")`, a static view with no model |
+| `/store` | 32 KB | public storefront — needs checking before any change |
+
+`/api/live-users` already carries `Cache-Control: max-age=10`, so a per-endpoint caching decision has been
+made here before; the pattern exists.
+
+**`/services` is a genuine, security-neutral opportunity**: 72 KB of static HTML re-sent on every visit,
+with nothing to leak. It is open rather than done because it needs the same care as the rest of this slice —
+scoped to that path, not applied globally, and `/store` verified for tenant scoping before being included.
