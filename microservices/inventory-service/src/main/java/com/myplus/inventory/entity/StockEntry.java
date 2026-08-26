@@ -23,11 +23,20 @@ public class StockEntry {
     private Warehouse warehouse;
 
     @Column(nullable = false)
-    private Float quantity;
+    /**
+     * U0 — BASE UNITS, exact.
+     *
+     * <p>Was {@code Float}. Selling loose divides a pack, and a pack of 3, 6, 7 or 24 does not divide cleanly
+     * in binary floating point — the last pieces leave a residue no stock count reconciles to zero. Holding
+     * pieces rather than fractions of a pack makes the arithmetic exact; {@code DECIMAL(19,4)} rather than an
+     * integer because this column also carries genuinely continuous goods (2.5 m of cable), which an integer
+     * would round away silently.
+     */
+    private BigDecimal quantity;
 
     /** Held by open reservations (slice 33, Phase 6a). Available = quantity - reservedQuantity. */
     @Builder.Default
-    private Float reservedQuantity = 0f;
+    private BigDecimal reservedQuantity = BigDecimal.ZERO;
 
     private String batchNo;
     private String lotNo;

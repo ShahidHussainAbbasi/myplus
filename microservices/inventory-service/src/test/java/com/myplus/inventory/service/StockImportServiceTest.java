@@ -67,12 +67,12 @@ class StockImportServiceTest {
         assertThat(created).isEqualTo(1);
         var level = stockLevelRepository.findByProductScoped(10L, ORG, USER);
         assertThat(level).isPresent();
-        assertThat(level.get().getCurrentStock()).isEqualTo(25f);
+        assertThat(level.get().getCurrentStock()).isEqualByComparingTo("25");
         assertThat(level.get().getCostPrice()).isEqualByComparingTo("5.00");
         assertThat(stockEntryRepository.findAll()).singleElement()
                 .satisfies(e -> {
                     assertThat(e.getProductId()).isEqualTo(10L);
-                    assertThat(e.getQuantity()).isEqualTo(25f);
+                    assertThat(e.getQuantity()).isEqualByComparingTo("25");
                     assertThat(e.getBatchNo()).isEqualTo("B1");
                 });
     }

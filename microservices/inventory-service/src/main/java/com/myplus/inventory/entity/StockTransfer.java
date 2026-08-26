@@ -1,5 +1,6 @@
 package com.myplus.inventory.entity;
 
+import java.math.BigDecimal;
 import lombok.*;
 
 import jakarta.persistence.*;
@@ -28,7 +29,7 @@ public class StockTransfer {
     private Long productId;
 
     @Column(nullable = false)
-    private Float quantity;
+    private BigDecimal quantity;
 
     @Builder.Default
     private LocalDateTime transferDate = LocalDateTime.now();

@@ -48,15 +48,15 @@ class SweeperSelectionTest {
                 .status(status).expiresAt(expiresAt)
                 .picks(new java.util.ArrayList<>())
                 .build();
-        r.addPick(ReservationPick.builder().stockEntryId(50L).productId(9L).quantity(3f).build());
+        r.addPick(ReservationPick.builder().stockEntryId(50L).productId(9L).quantity(java.math.BigDecimal.valueOf(3)).build());
         return r;
     }
 
-    private StockEntry entry(float qty, float reserved) {
+    private StockEntry entry(double qty, double reserved) {
         StockEntry e = new StockEntry();
         e.setId(50L);
-        e.setQuantity(qty);
-        e.setReservedQuantity(reserved);
+        e.setQuantity(java.math.BigDecimal.valueOf(qty));
+        e.setReservedQuantity(java.math.BigDecimal.valueOf(reserved));
         return e;
     }
 
@@ -73,8 +73,8 @@ class SweeperSelectionTest {
         assertThat(worker.expireOne(1L, NOW)).isTrue();
 
         // The hold comes off reservedQuantity; the physical quantity is untouched, because nothing was sold.
-        assertThat(e.getReservedQuantity()).isEqualTo(0f);
-        assertThat(e.getQuantity()).as("expiry returns a HOLD, it does not move stock").isEqualTo(10f);
+        assertThat(e.getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(e.getQuantity()).as("expiry returns a HOLD, it does not move stock").isEqualByComparingTo("10");
 
         ArgumentCaptor<Reservation> saved = ArgumentCaptor.forClass(Reservation.class);
         verify(reservationRepository).save(saved.capture());
@@ -166,7 +166,7 @@ class SweeperSelectionTest {
         when(stockEntryRepository.findById(50L)).thenReturn(Optional.of(e));
 
         assertThat(worker.expireOne(1L, NOW)).isTrue();
-        assertThat(e.getReservedQuantity()).isEqualTo(0f);
+        assertThat(e.getReservedQuantity()).isEqualByComparingTo("0");
     }
 
     @Test

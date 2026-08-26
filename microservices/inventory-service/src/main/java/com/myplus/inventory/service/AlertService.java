@@ -25,7 +25,7 @@ public class AlertService {
         // Scheduled job: no security context -> deliberately cross-tenant scan of all stock levels.
         List<StockLevel> lowStock = stockLevelRepository.findLowStock();
         for (StockLevel sl : lowStock) {
-            boolean out = sl.getCurrentStock() != null && sl.getCurrentStock() <= 0;
+            boolean out = sl.getCurrentStock() != null && sl.getCurrentStock().signum() <= 0;
             StockAlert alert = StockAlert.builder()
                     .productId(sl.getProductId())
                     .alertType(out ? StockAlert.AlertType.OUT_OF_STOCK : StockAlert.AlertType.LOW_STOCK)

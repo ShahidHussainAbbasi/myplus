@@ -1,5 +1,6 @@
 package com.myplus.inventory.entity;
 
+import java.math.BigDecimal;
 import lombok.*;
 
 import jakarta.persistence.*;
@@ -21,11 +22,11 @@ public class ReservationPick {
     private Long stockEntryId;
     private Long productId;
     private String batchNo;
-    private Float quantity;
+    private BigDecimal quantity;
     private LocalDate expiryDate;
 
     /** G2 inverse saga (slice 34): how much of this pick has already been returned to stock. Caps repeated
      *  partial returns so a batch is never restored beyond what was originally picked from it. Default 0. */
     @Builder.Default
-    private Float returnedQuantity = 0f;
+    private BigDecimal returnedQuantity = BigDecimal.ZERO;
 }

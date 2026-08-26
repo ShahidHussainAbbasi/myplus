@@ -71,16 +71,18 @@ class ReservationServiceTest {
         stockLevelRepository.deleteAll();
     }
 
-    private StockEntry batch(float qty, LocalDate expiry) {
+    private StockEntry batch(double qty, LocalDate expiry) {
         StockEntry e = StockEntry.builder()
-                .productId(PRODUCT).quantity(qty).reservedQuantity(0f).expiryDate(expiry)
+                .productId(PRODUCT).quantity(java.math.BigDecimal.valueOf(qty))
+                .reservedQuantity(java.math.BigDecimal.ZERO).expiryDate(expiry)
                 .batchNo("B" + expiry).organizationId(ORG).userId(USER).build();
         return stockEntryRepository.save(e);
     }
 
-    private void stockLevel(float current) {
+    private void stockLevel(double current) {
         stockLevelRepository.save(StockLevel.builder()
-                .productId(PRODUCT).currentStock(current).organizationId(ORG).userId(USER).build());
+                .productId(PRODUCT).currentStock(java.math.BigDecimal.valueOf(current))
+                .organizationId(ORG).userId(USER).build());
     }
 
     private StockReservationRequest request(String key, float qty) {
@@ -98,16 +100,16 @@ class ReservationServiceTest {
 
         assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
         // FEFO: 30 from the earlier-expiry batch, 10 from the later one. Held, not yet decremented.
-        assertThat(stockEntryRepository.findById(early.getId()).get().getReservedQuantity()).isEqualTo(30f);
-        assertThat(stockEntryRepository.findById(late.getId()).get().getReservedQuantity()).isEqualTo(10f);
-        assertThat(stockEntryRepository.findById(early.getId()).get().getQuantity()).isEqualTo(30f);
+        assertThat(stockEntryRepository.findById(early.getId()).get().getReservedQuantity()).isEqualByComparingTo("30");
+        assertThat(stockEntryRepository.findById(late.getId()).get().getReservedQuantity()).isEqualByComparingTo("10");
+        assertThat(stockEntryRepository.findById(early.getId()).get().getQuantity()).isEqualByComparingTo("30");
 
         service.confirm(res.getReservationId(), ORG, USER);
 
-        assertThat(stockEntryRepository.findById(early.getId()).get().getQuantity()).isEqualTo(0f);
-        assertThat(stockEntryRepository.findById(late.getId()).get().getQuantity()).isEqualTo(40f);
-        assertThat(stockEntryRepository.findById(early.getId()).get().getReservedQuantity()).isEqualTo(0f);
-        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(40f);
+        assertThat(stockEntryRepository.findById(early.getId()).get().getQuantity()).isEqualByComparingTo("0");
+        assertThat(stockEntryRepository.findById(late.getId()).get().getQuantity()).isEqualByComparingTo("40");
+        assertThat(stockEntryRepository.findById(early.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualByComparingTo("40");
     }
 
     @Test
@@ -116,12 +118,12 @@ class ReservationServiceTest {
         stockLevel(30f);
 
         StockReservationResponse res = service.reserve(request("k2", 20f), ORG, USER);
-        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualTo(20f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("20");
 
         service.release(res.getReservationId(), ORG, USER);
 
-        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualTo(0f);
-        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f); // unchanged
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("30"); // unchanged
     }
 
     @Test
@@ -133,7 +135,7 @@ class ReservationServiceTest {
 
         assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
         assertThat(res.getReservationId()).isNull();
-        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualTo(0f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -146,7 +148,7 @@ class ReservationServiceTest {
 
         assertThat(second.getReservationId()).isEqualTo(first.getReservationId());
         // Held only once despite two reserve calls.
-        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualTo(10f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("10");
     }
 
     // ── G1: expired-stock exclusion (pharmacy compliance) ─────────────────────────────────────────
@@ -159,7 +161,7 @@ class ReservationServiceTest {
 
         // never allocate expired stock — it's treated as unavailable.
         assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
-        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualTo(0f);
+        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
     }
 
     @Test
@@ -171,8 +173,8 @@ class ReservationServiceTest {
         StockReservationResponse res = service.reserve(request("g1b", 30f), ORG, USER);
 
         assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
-        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualTo(0f);  // untouched
-        assertThat(stockEntryRepository.findById(fresh.getId()).get().getReservedQuantity()).isEqualTo(30f);   // from fresh
+        assertThat(stockEntryRepository.findById(expired.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");  // untouched
+        assertThat(stockEntryRepository.findById(fresh.getId()).get().getReservedQuantity()).isEqualByComparingTo("30");   // from fresh
     }
 
     // ── G2: returns -> inventory (inverse saga, slice 34) ─────────────────────────────────────────
@@ -191,15 +193,15 @@ class ReservationServiceTest {
         StockEntry b = batch(30f, SOON);
         stockLevel(30f);
         String resId = confirmedReservation("r1", 20f);   // confirm -> batch qty 10, level 10
-        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(10f);
-        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("10");
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualByComparingTo("10");
 
         service.returnPicks(resId, returnLines(20f), false, ORG, USER);
 
         // reverses the confirm exactly: the same batch is restored, real expiry retained.
-        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("30");
         assertThat(stockEntryRepository.findById(b.getId()).get().getExpiryDate()).isEqualTo(SOON);
-        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(30f);
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualByComparingTo("30");
     }
 
     @Test
@@ -212,7 +214,7 @@ class ReservationServiceTest {
         service.returnPicks(resId, returnLines(12f), false, ORG, USER);   // only 8 of pick room left -> batch capped at 30
 
         // the original batch is restored by at most what was picked from it (20); the excess 4 went to a fresh batch.
-        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(30f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("30");
         assertThat(stockEntryRepository.count()).isEqualTo(2L);    // original + one fallback batch
     }
 
@@ -222,8 +224,8 @@ class ReservationServiceTest {
         service.returnPicks("does-not-exist", returnLines(10f), false, ORG, USER);
 
         assertThat(stockEntryRepository.count()).isEqualTo(1L);    // a fallback batch was created
-        assertThat(stockEntryRepository.findAll().get(0).getQuantity()).isEqualTo(10f);
-        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+        assertThat(stockEntryRepository.findAll().get(0).getQuantity()).isEqualByComparingTo("10");
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualByComparingTo("10");
     }
 
     @Test
@@ -235,16 +237,19 @@ class ReservationServiceTest {
         service.returnPicks(resId, returnLines(8f), true, ORG, USER);   // quarantine 8 of the 20 sold
 
         // sellable on-hand is UNCHANGED (quarantined stock is not put back on the shelf)
-        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualTo(10f);
+        assertThat(stockLevelRepository.findByProductScoped(PRODUCT, ORG, USER).get().getCurrentStock()).isEqualByComparingTo("10");
         // the original sellable batch is NOT restored either
-        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualTo(10f);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("10");
         // a quarantine (restockable=false) batch was created for the returned 8...
         StockEntry q = stockEntryRepository.findAll().stream()
                 .filter(e -> Boolean.FALSE.equals(e.getRestockable())).findFirst().orElseThrow();
-        assertThat(q.getQuantity()).isEqualTo(8f);
+        assertThat(q.getQuantity()).isEqualByComparingTo("8");
         // ...and FEFO never offers it (only the 10 sellable units remain allocatable)
-        float fefoAvailable = (float) stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now())
-                .stream().mapToDouble(e -> e.getQuantity() - (e.getReservedQuantity() == null ? 0f : e.getReservedQuantity())).sum();
-        assertThat(fefoAvailable).isEqualTo(10f);
+        java.math.BigDecimal fefoAvailable = stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now())
+                .stream()
+                .map(e -> e.getQuantity().subtract(
+                        e.getReservedQuantity() == null ? java.math.BigDecimal.ZERO : e.getReservedQuantity()))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        assertThat(fefoAvailable).isEqualByComparingTo("10");
     }
 }

@@ -24,11 +24,11 @@ public class StockLevel {
     private Long productId;
 
     @Builder.Default
-    private Float currentStock = 0f;
+    private BigDecimal currentStock = BigDecimal.ZERO;
 
-    private Float minStockLevel;
-    private Float maxStockLevel;
-    private Float reorderPoint;
+    private BigDecimal minStockLevel;
+    private BigDecimal maxStockLevel;
+    private BigDecimal reorderPoint;
     private BigDecimal costPrice;
 
     // Tenant scope.

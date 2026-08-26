@@ -49,7 +49,7 @@ public class StockService {
     private StockLevel levelFor(Long productId, Long orgId, Long userId) {
         return stockLevelRepository.findByProductScoped(productId, orgId, userId)
                 .orElseGet(() -> StockLevel.builder()
-                        .productId(productId).currentStock(0f)
+                        .productId(productId).currentStock(BigDecimal.ZERO)
                         .organizationId(orgId).userId(userId).build());
     }
 
@@ -62,13 +62,13 @@ public class StockService {
                 ? warehouseRepository.findByIdScoped(dto.getWarehouseId(), orgId, userId).orElse(null) : null;
 
         StockLevel level = levelFor(dto.getProductId(), orgId, userId);
-        level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : 0f) + dto.getQuantity());
+        level.setCurrentStock(nz(level.getCurrentStock()).add(in(dto.getQuantity())));
         stockLevelRepository.save(level);
 
         StockEntry entry = StockEntry.builder()
                 .productId(dto.getProductId())
                 .warehouse(warehouse)
-                .quantity(dto.getQuantity())
+                .quantity(in(dto.getQuantity()))
                 .batchNo(dto.getBatchNo())
                 .lotNo(dto.getLotNo())
                 .expiryDate(dto.getExpiryDate())
@@ -90,10 +90,10 @@ public class StockService {
 
         // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
         // on-hand) — keeping master data consistent no matter which side edited it.
-        float qty = dto.getQuantity() != null ? dto.getQuantity() : 0f;
+        BigDecimal qty = in(dto.getQuantity());
         switch (dto.getAdjustmentType()) {
             case INCREASE -> applyStockDelta(dto.getProductId(), qty, null, null, null, orgId, userId);
-            case DECREASE -> applyStockDelta(dto.getProductId(), -qty, null, null, null, orgId, userId);
+            case DECREASE -> applyStockDelta(dto.getProductId(), qty.negate(), null, null, null, orgId, userId);
             case TRANSFER -> { /* handled via StockTransfer */ }
         }
 
@@ -101,7 +101,7 @@ public class StockService {
                 .productId(dto.getProductId())
                 .warehouse(warehouse)
                 .adjustmentType(dto.getAdjustmentType())
-                .quantity(dto.getQuantity())
+                .quantity(in(dto.getQuantity()))
                 .reason(dto.getReason())
                 .adjustedBy(dto.getAdjustedBy())
                 .notes(dto.getNotes())
@@ -122,7 +122,7 @@ public class StockService {
                 .productId(dto.getProductId())
                 .fromWarehouse(from)
                 .toWarehouse(to)
-                .quantity(dto.getQuantity())
+                .quantity(in(dto.getQuantity()))
                 .transferredBy(dto.getTransferredBy())
                 .status(StockTransfer.TransferStatus.COMPLETED)
                 .notes(dto.getNotes())
@@ -132,7 +132,7 @@ public class StockService {
 
     public Float getCurrentStock(Long productId) {
         return stockLevelRepository.findByProductScoped(productId, CurrentUser.organizationId(), CurrentUser.userId())
-                .map(StockLevel::getCurrentStock).orElse(0f);
+                .map(sl -> out(sl.getCurrentStock())).orElse(0f);
     }
 
     /** Batch on-hand for the whole tenant (slice 62, M3.1): productId → currentStock, in one query, so the Stock
@@ -140,7 +140,7 @@ public class StockService {
     public java.util.Map<Long, Float> getAllLevels() {
         java.util.Map<Long, Float> out = new java.util.HashMap<>();
         for (StockLevel sl : stockLevelRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())) {
-            out.put(sl.getProductId(), sl.getCurrentStock() == null ? 0f : sl.getCurrentStock());
+            out.put(sl.getProductId(), out(sl.getCurrentStock()));
         }
         return out;
     }
@@ -158,7 +158,7 @@ public class StockService {
         // Seed every product that has a StockLevel row with its physical on-hand (sellable/expired default 0).
         for (StockLevel sl : stockLevelRepository.findScoped(orgId, userId)) {
             java.util.Map<String, Float> m = new java.util.HashMap<>();
-            m.put("onHand", sl.getCurrentStock() == null ? 0f : sl.getCurrentStock());
+            m.put("onHand", out(sl.getCurrentStock()));
             m.put("sellable", 0f);
             m.put("expired", 0f);
             m.put("held", 0f);          // OMS O5a
@@ -192,7 +192,7 @@ public class StockService {
         java.time.LocalDate today = java.time.LocalDate.now();
         java.util.Map<String, Float> m = new java.util.HashMap<>();
         m.put("onHand", stockLevelRepository.findByProductScoped(productId, orgId, userId)
-                .map(sl -> sl.getCurrentStock() == null ? 0f : sl.getCurrentStock()).orElse(0f));
+                .map(sl -> out(sl.getCurrentStock())).orElse(0f));
         m.put("sellable", 0f);
         m.put("expired", 0f);
         m.put("held", 0f);              // OMS O5a — see getLevelDetail
@@ -211,9 +211,8 @@ public class StockService {
      *  StockLevel-vs-batch drift. Guarded: a batch can't drop below what's already reserved/sold. Returns new on-hand. */
     @Transactional
     public Float reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust adj) {
-        float delta = adj.getDelta() == null ? 0f : adj.getDelta();
-        return applyStockDelta(adj.getProductId(), delta, adj.getBatchNo(), adj.getExpiryDate(), adj.getPurchasePrice(),
-                CurrentUser.organizationId(), CurrentUser.userId());
+        return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
+                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
     /** Single source of truth for a signed stock correction: apply {@code delta} to a product's BATCHES and its
@@ -221,11 +220,11 @@ public class StockService {
      *  it (a purchase/sale edit, or a product-screen +/− adjust). INCREASE grows the named lot or adds a fresh
      *  batch; DECREASE draws down the named lot first, then newest-first across the product's other lots, guarded
      *  by unreserved availability so sold/held stock is never removed. Returns the new on-hand. */
-    private Float applyStockDelta(Long productId, float delta, String batchNo, java.time.LocalDate expiry,
+    private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
                                   java.math.BigDecimal price, Long orgId, Long userId) {
         StockLevel level = levelFor(productId, orgId, userId);
-        float curLevel = level.getCurrentStock() != null ? level.getCurrentStock() : 0f;
-        if (delta == 0f) return curLevel;
+        BigDecimal curLevel = nz(level.getCurrentStock());
+        if (delta.signum() == 0) return curLevel;
 
         // Find the caller's OWN batch when a batchNo is given (so its exact lot is adjusted).
         StockEntry exact = null;
@@ -234,16 +233,16 @@ public class StockService {
             if (!matches.isEmpty()) exact = matches.get(0);
         }
 
-        if (delta > 0f) {
+        if (delta.signum() > 0) {
             // INCREASE: grow the exact lot, or (no batchNo / no match) add a fresh batch — always +delta to a batch.
             if (exact != null) {
-                exact.setQuantity(nzf(exact.getQuantity()) + delta);
+                exact.setQuantity(nz(exact.getQuantity()).add(delta));
                 if (expiry != null) exact.setExpiryDate(expiry);
                 if (price != null) exact.setPurchasePrice(price);
                 stockEntryRepository.save(exact);
             } else {
                 stockEntryRepository.save(StockEntry.builder()
-                        .productId(productId).quantity(delta).reservedQuantity(0f)
+                        .productId(productId).quantity(delta).reservedQuantity(BigDecimal.ZERO)
                         .batchNo(batchNo).expiryDate(expiry)
                         .purchasePrice(price).restockable(true)
                         .organizationId(orgId).userId(userId).build());
@@ -252,36 +251,53 @@ public class StockService {
             // DECREASE: remove |delta| from batches — the exact lot first, then newest-first across the product's
             // other lots (reverse the most-recent receipts). This keeps batch totals in step with on-hand even when
             // the purchase had no batchNo. Guarded by unreserved availability so we never remove sold/held stock.
-            float toRemove = -delta;
+            BigDecimal toRemove = delta.negate();
             if (exact != null) {
-                float avail = Math.max(0f, nzf(exact.getQuantity()) - nzf(exact.getReservedQuantity()));
-                float take = Math.min(avail, toRemove);
-                exact.setQuantity(nzf(exact.getQuantity()) - take);
+                BigDecimal avail = nz(exact.getQuantity()).subtract(nz(exact.getReservedQuantity())).max(BigDecimal.ZERO);
+                BigDecimal take = avail.min(toRemove);
+                exact.setQuantity(nz(exact.getQuantity()).subtract(take));
                 stockEntryRepository.save(exact);
-                toRemove -= take;
+                toRemove = toRemove.subtract(take);
             }
             for (StockEntry e : stockEntryRepository.findByProductNewestFirst(productId, orgId, userId)) {
-                if (toRemove <= EPSF) break;
+                if (toRemove.signum() <= 0) break;
                 if (exact != null && e.getId().equals(exact.getId())) continue;
-                float avail = nzf(e.getQuantity()) - nzf(e.getReservedQuantity());
-                if (avail <= 0f) continue;
-                float take = Math.min(avail, toRemove);
-                e.setQuantity(nzf(e.getQuantity()) - take);
+                BigDecimal avail = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
+                if (avail.signum() <= 0) continue;
+                BigDecimal take = avail.min(toRemove);
+                e.setQuantity(nz(e.getQuantity()).subtract(take));
                 stockEntryRepository.save(e);
-                toRemove -= take;
+                toRemove = toRemove.subtract(take);
             }
-            if (toRemove > EPSF) {
+            if (toRemove.signum() > 0) {
                 throw new ValidationException("Cannot reduce below stock already reserved/sold");
             }
         }
-        float newLevel = Math.max(0f, curLevel + delta);
+        BigDecimal newLevel = curLevel.add(delta).max(BigDecimal.ZERO);
         level.setCurrentStock(newLevel);
         stockLevelRepository.save(level);
         return newLevel;
     }
 
-    private static final float EPSF = 0.0001f;
-    private static float nzf(Float f) { return f == null ? 0f : f; }
+    // EPSF (a 0.0001f tolerance) was deleted with the float arithmetic it existed for. Under DECIMAL(19,4)
+    // a drawdown either reaches zero or it does not, so the residue it forgave cannot occur — and 0.0001 is
+    // now the smallest representable quantity, i.e. a real amount of stock rather than rounding dust.
+    // The tests are exact: signum(), never a tolerance.
+    /** Absent means zero, exactly (U0). */
+    private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
+
+    /**
+     * U0 BOUNDARY — exact storage in, Float out.
+     *
+     * <p>{@code StockDTOs} and {@code InventoryClient} still speak {@code Float}, and U0 deliberately leaves
+     * that alone: converging the contract is a six-service change with its own regression surface, and this
+     * slice is already the one that can break working code. What inventory STORES is exact; what it publishes
+     * is unchanged, so no caller sees a different number today.
+     */
+    private static Float out(BigDecimal v) { return v == null ? 0f : v.floatValue(); }
+
+    /** The other direction: a Float arriving from the wire becomes exact before it touches stock. */
+    private static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : BigDecimal.valueOf(f); }
 
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {
@@ -319,11 +335,9 @@ public class StockService {
         Long userId = CurrentUser.userId();
         List<StockBatch> out = new ArrayList<>();
         for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now())) {
-            float qty = e.getQuantity() == null ? 0f : e.getQuantity();
-            float reserved = e.getReservedQuantity() == null ? 0f : e.getReservedQuantity();
-            float available = qty - reserved;
-            if (available <= 0f) continue;
-            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), BigDecimal.valueOf(available), e.getPurchasePrice()));
+            BigDecimal available = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
+            if (available.signum() <= 0) continue;
+            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), available, e.getPurchasePrice()));
         }
         return out;
     }
@@ -340,7 +354,7 @@ public class StockService {
         long outOfStockCount = stockLevelRepository.findOutOfStockScoped(orgId, userId).size();
         BigDecimal totalValue = stockLevelRepository.findScoped(orgId, userId).stream()
                 .filter(sl -> sl.getCurrentStock() != null && sl.getCostPrice() != null)
-                .map(sl -> sl.getCostPrice().multiply(BigDecimal.valueOf(sl.getCurrentStock())))
+                .map(sl -> sl.getCostPrice().multiply(nz(sl.getCurrentStock())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return StockSummaryDTO.builder()
                 .totalProducts(totalProducts)

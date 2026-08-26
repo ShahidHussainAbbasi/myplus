@@ -422,33 +422,85 @@ is off until a shop asks for it.
 | Settings | 3 keys | low |
 | **Untouched** | inventory-service, finance-service, GL contract, saga, credit, installments, aging | — |
 
-## 11. Phasing — each gated before the next
+## 11. Phasing — seven slices, each gated before the next
 
-| Slice | Scope | Gate |
+**The order is decided by ONE question: is the stock unit changing?** §12b recommends base units, and if that
+is taken it must land **first** — before a single loose sale exists, while the migration is still an identity
+(measured: 2,559 stock rows, **zero** fractional). Every slice after it is additive.
+
+### Phase 0 · U0 — the stock unit *(only if §12b option C is chosen)*
+
+| | |
+|---|---|
+| **Scope** | `stock_entries.quantity` and `stock_levels.current_stock` become **integer base units**; thresholds, reorder points, the reservation loop and every stock read follow |
+| **Data** | `quantity × packSize` where a pack size exists — an **identity today**, because no product has one yet |
+| **Gate** | on-hand before and after the migration is the **same physical stock**; a whole-pack sale still decrements one pack; FEFO still splits across batches; `EPS` comparisons are **deleted**, not loosened |
+| **Why first** | the cheapest it will ever be. Every loose sale made before it turns the migration from arithmetic into archaeology |
+
+⚠ **This is the only slice that can break something already working.** It ships alone, with the full inventory
+and sale regression suite green, and nothing else in this design starts until it is.
+
+*If option B (decimal packs) is chosen instead, U0 is a column-type change only and the `EPS` rules in §6.5
+stay load-bearing forever.*
+
+### Phase 1 · the counter — what the customer asked for
+
+| Slice | Scope | The gate case that carries it |
 |---|---|---|
-| **U1** | catalog fields + contract + product form | a product stores `packSize 10`, `looseUnit "tablet"`; `ProductRef` carries them |
-| **U2** | `buildLines` conversion + `Sell` columns + server refusals | ⭐ 5 tablets of a 120/10 pack = **60.00** and **0.5** stock; `allowLoose=false` refused |
-| **U3** | the counter toggle + derived-rate preview | the cashier types 5, taps tablet, sees 12.00 before committing |
-| **U4** | receipt + reports read `soldUnit` | the receipt says "5 tablets"; the stock ledger says 0.5 packs |
-| **U5** | purchase in boxes | 10 boxes @ 1000 → 100 packs, cost 100 |
+| **U1** | `packSize`, `looseUnit`, `looseUnitPlural`, `allowLoose`, `defaultSellUnit` on Product + Flyway + `ProductRef` + product form + **audit on the pricing controls** | a product stores pack 10 / "tablet" / "tablets"; `ProductRef` carries all five; changing `allowLoose` writes an audit row |
+| **U2** | the arithmetic: conversion in `buildLines`, `soldUnit`/`soldQuantity`/`soldRate`/`packSizeSnapshot` on `Sell` + Flyway, `looseMarkupPct`, server refusals | ⭐ 5 tablets of a 120/10 pack ⇒ **`netAmount` 60.00, `quantity` 0.5, `sellRate` 120** — and `netAmount == quantity × sellRate` to the cent |
+| **U3** | the till: `5L` suffix, segmented toggle, the live hint line, the unit chip when not in PACK | the cashier types `5L`, sees *"5 tablets · 12.00 each · uses 0.5 of a pack"* **before** committing |
+| **U4** | the receipt and the reports read `soldUnit` + plural | the receipt says **"5 tablets"** while the stock ledger says 0.5 packs — one sale, two true statements |
 
-U1–U4 deliver the counter. **U5 is separable** and answers open question 1.
+**U1–U4 is the deliverable.** After U4 a cashier can sell five tablets without arithmetic, which is the
+complaint that started this.
 
-### ⚠ Should U5 come FIRST?
+### Phase 2 · the shop around it
 
-A review argued yes: if a buyer receives *10 boxes @ 1000* and keys it as *10 @ 1000*, `lastPurchaseRate`
-records 1000 per pack instead of 100 — a tenfold cost error, and COGS and the margin guard both read that
-figure.
+| Slice | Scope | The gate case that carries it |
+|---|---|---|
+| **U5** | purchase in boxes — a unit choice on the goods-in line | 10 boxes @ 1000 ⇒ **100 packs, cost 100** — not 10 packs at 1000 |
+| **U6** | the count screen speaks the counter's language, and loose returns go to their own batch | 10.5 packs renders as **10 packs + 5 tablets**; 2 tablets back restore **0.2 packs to the batch they came from** |
+| **U7** | own-sticker barcodes — one small mapping table | scanning the shop's own `LP-4471` sells **1 tablet**, with no keystroke |
 
-**That risk is real and it is not new.** It exists today, for every product, with no loose selling anywhere
-near it — a buyer has always had to convert in their head. This design does not create it and U5 does not gate
-U2.
+### ⚠ Why U5 is Phase 2 and not Phase 1
 
-But it does make it *matter more*: a tenfold cost error is invisible while the margin is large, and loose
-selling puts thin per-piece margins next to it where it starts refusing sales. **Recommendation: U1 → U2 → U5
-→ U3 → U4** — take the counter's arithmetic first because that is the customer's actual complaint, then fix
-receiving before the screen is put in front of cashiers. If U5 slips, U2 must be gated on products whose
-`packSize` and cost were entered by hand and verified.
+A review argued it must come first: a buyer keying *10 boxes @ 1000* as *10 @ 1000* records `lastPurchaseRate`
+of 1000 per pack instead of 100 — a tenfold cost error that COGS and the margin guard both read.
+
+**The risk is real and it is not new.** It exists today, for every product, with no loose selling anywhere near
+it. This design does not create it.
+
+But loose selling *sharpens* it: a tenfold cost error is invisible behind a fat pack margin and starts refusing
+sales the moment thin per-piece margins sit beside it. So U5 lands **immediately after the counter works** —
+and if it slips, **U2 must be gated on products whose `packSize` and cost were entered by hand and verified**,
+which is a condition to state now rather than discover later.
+
+### Sequencing at a glance
+
+```
+U0  stock unit        ← only if §12b C; ships ALONE, full regression
+ └─ U1  catalog       ← additive
+     └─ U2  arithmetic ⭐ the money
+         └─ U3  till   ⭐ the time saved
+             └─ U4  receipt        ══ deliverable ══
+                 └─ U5  purchase
+                     └─ U6  count + returns
+                         └─ U7  loose barcodes
+```
+
+### What is testable at each point
+
+| After | A shop can | Still cannot |
+|---|---|---|
+| U0 | everything it does today, exactly | sell loose |
+| U1 | record that a pack holds 10 tablets | sell loose |
+| U2 | sell loose **through the API** — books correct | do it from the till |
+| U3 | sell loose **at the counter** | print it properly |
+| **U4** | **the whole job** | buy in boxes |
+| U5 | receive in boxes without mental arithmetic | count loose without mental arithmetic |
+| U6 | count and return loose | scan a loose sticker |
+| U7 | one-scan loose sales | — |
 
 ## 12. The gate
 

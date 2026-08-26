@@ -1,5 +1,6 @@
 package com.myplus.inventory.service;
 
+import java.math.BigDecimal;
 import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.entity.StockLevel;
@@ -33,14 +34,16 @@ public class StockImportService {
 
             StockLevel level = stockLevelRepository.findByProductScoped(l.getProductId(), orgId, userId)
                     .orElseGet(() -> StockLevel.builder()
-                            .productId(l.getProductId()).currentStock(0f)
+                            .productId(l.getProductId()).currentStock(BigDecimal.ZERO)
                             .organizationId(orgId).userId(userId).build());
-            level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : 0f) + qty);
+            // U0 boundary — see ReservationService: the import contract is still Float, inventory stores exact.
+            BigDecimal add = BigDecimal.valueOf(qty);
+            level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : BigDecimal.ZERO).add(add));
             if (l.getCostPrice() != null) level.setCostPrice(l.getCostPrice());
             stockLevelRepository.save(level);
 
             StockEntry entry = StockEntry.builder()
-                    .productId(l.getProductId()).quantity(qty).reservedQuantity(0f)
+                    .productId(l.getProductId()).quantity(add).reservedQuantity(BigDecimal.ZERO)
                     .batchNo(l.getBatchNo()).expiryDate(l.getExpiryDate()).purchasePrice(l.getPurchasePrice())
                     .organizationId(orgId).userId(userId).build();
             stockEntryRepository.save(entry);

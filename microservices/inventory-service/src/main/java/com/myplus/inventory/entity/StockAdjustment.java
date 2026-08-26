@@ -1,5 +1,6 @@
 package com.myplus.inventory.entity;
 
+import java.math.BigDecimal;
 import lombok.*;
 
 import jakarta.persistence.*;
@@ -28,7 +29,7 @@ public class StockAdjustment {
     private AdjustmentType adjustmentType;
 
     @Column(nullable = false)
-    private Float quantity;
+    private BigDecimal quantity;
 
     private String reason;
     private Long adjustedBy;

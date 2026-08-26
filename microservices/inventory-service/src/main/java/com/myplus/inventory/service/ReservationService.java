@@ -37,8 +37,16 @@ public class ReservationService {
     /** OMS O5a — how long this tenant's holds live. */
     private final ReservationPolicy reservationPolicy;
 
-    private static float nz(Float f) { return f == null ? 0f : f; }
-    private static final float EPS = 0.0001f;
+    /** U0: absent means zero, exactly. */
+    private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
+    /*
+     * U0 — the epsilon is GONE, deliberately.
+     *
+     * It existed because float subtraction never lands on zero, so a loop had to stop "close enough". With
+     * exact decimals every comparison is true, and keeping a tolerance would now HIDE a real shortfall of up
+     * to one epsilon rather than absorb a rounding artefact. A tolerance that no longer has anything to
+     * tolerate is a silent allowance for being wrong.
+     */
 
     /**
      * O7 D1c — release a hold addressed by the CALLER'S OWN KEY rather than our reservation id.
@@ -63,8 +71,11 @@ public class ReservationService {
     }
 
     /** Trim a whole-number quantity to "7" instead of "7.0" for user-facing messages. */
-    private static String fmtQty(float q) {
-        return (q == Math.rint(q)) ? String.valueOf((long) q) : String.valueOf(q);
+    /** "7" not "7.0000" — the message is read by a cashier, so trailing zeros are noise. */
+    private static String fmtQty(BigDecimal q) {
+        if (q == null) return "0";
+        BigDecimal t = q.stripTrailingZeros();
+        return t.scale() <= 0 ? t.toBigInteger().toString() : t.toPlainString();
     }
 
     @Transactional
@@ -98,12 +109,15 @@ public class ReservationService {
 
         // Pass 1 — verify EVERY line is fully satisfiable before holding anything (no partial holds).
         for (StockReservationLine line : req.getLines()) {
-            float need = line.getQuantity().floatValue();
-            float available = 0f;
+            BigDecimal need = nz(line.getQuantity());
+            BigDecimal available = BigDecimal.ZERO;
             for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
-                available += Math.max(0f, nz(e.getQuantity()) - nz(e.getReservedQuantity()));
+                available = available.add(nz(e.getQuantity()).subtract(nz(e.getReservedQuantity())).max(BigDecimal.ZERO));
             }
-            if (available + EPS < need) {
+            // U0: exact. The epsilon that used to pad this comparison existed only because float subtraction
+            // never lands on zero — it also meant a shop was told it had stock it did not have, by up to one
+            // epsilon. Exact decimals need no allowance and give no false yes.
+            if (available.compareTo(need) < 0) {
                 // Carry the numbers + productId so the sell orchestrator can render a friendly, name-resolved
                 // message ("Not enough sellable stock for 'X': 7 sellable, 10 requested") instead of a raw 500.
                 return outOfStock("product " + line.getItemId() + ": only " + fmtQty(available)
@@ -142,19 +156,31 @@ public class ReservationService {
         }
 
         for (StockReservationLine line : req.getLines()) {
-            float remaining = line.getQuantity().floatValue();
+            /*
+             * U0 — exact allocation, in BASE UNITS.
+             *
+             * ⚠ THE `.floatValue()` HERE WAS THROWING PRECISION AWAY AT THE BOUNDARY. The request already
+             * arrives as BigDecimal; converting to float on entry and comparing with an epsilon on every
+             * iteration was the only reason the tolerance existed. With exact decimals the loop terminates on
+             * a true zero, so `remaining.signum() <= 0` says what it means and no residue can accumulate
+             * across batches.
+             *
+             * That matters most exactly where loose selling will land: a pack of 3, 6 or 7 leaves a float
+             * remainder that never reaches zero, so the last pieces of a batch could never be allocated.
+             */
+            BigDecimal remaining = nz(line.getQuantity());
             for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
-                if (remaining <= EPS) break;
-                float avail = nz(e.getQuantity()) - nz(e.getReservedQuantity());
-                if (avail <= 0f) continue;
-                float take = Math.min(avail, remaining);
-                e.setReservedQuantity(nz(e.getReservedQuantity()) + take);
+                if (remaining.signum() <= 0) break;
+                BigDecimal avail = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
+                if (avail.signum() <= 0) continue;
+                BigDecimal take = avail.min(remaining);
+                e.setReservedQuantity(nz(e.getReservedQuantity()).add(take));
                 stockEntryRepository.save(e);
                 resv.addPick(ReservationPick.builder()
                         .stockEntryId(e.getId()).productId(line.getItemId())
                         .batchNo(e.getBatchNo()).quantity(take).expiryDate(e.getExpiryDate())
                         .build());
-                remaining -= take;
+                remaining = remaining.subtract(take);
             }
         }
         reservationRepository.save(resv);
@@ -182,12 +208,12 @@ public class ReservationService {
         // returned the stock (status EXPIRED, above) must confirm fail.
         for (ReservationPick p : resv.getPicks()) {
             stockEntryRepository.findById(p.getStockEntryId()).ifPresent(e -> {
-                e.setQuantity(nz(e.getQuantity()) - p.getQuantity());
-                e.setReservedQuantity(Math.max(0f, nz(e.getReservedQuantity()) - p.getQuantity()));
+                e.setQuantity(nz(e.getQuantity()).subtract(nz(p.getQuantity())));
+                e.setReservedQuantity(nz(e.getReservedQuantity()).subtract(nz(p.getQuantity())).max(BigDecimal.ZERO));
                 stockEntryRepository.save(e);
             });
             stockLevelRepository.findByProductScoped(p.getProductId(), orgId, userId).ifPresent(sl -> {
-                sl.setCurrentStock(nz(sl.getCurrentStock()) - p.getQuantity());
+                sl.setCurrentStock(nz(sl.getCurrentStock()).subtract(nz(p.getQuantity())));
                 stockLevelRepository.save(sl);
             });
         }
@@ -205,7 +231,7 @@ public class ReservationService {
         }
         for (ReservationPick p : resv.getPicks()) {
             stockEntryRepository.findById(p.getStockEntryId()).ifPresent(e -> {
-                e.setReservedQuantity(Math.max(0f, nz(e.getReservedQuantity()) - p.getQuantity()));
+                e.setReservedQuantity(nz(e.getReservedQuantity()).subtract(nz(p.getQuantity())).max(BigDecimal.ZERO));
                 stockEntryRepository.save(e);
             });
         }
@@ -226,69 +252,72 @@ public class ReservationService {
     public StockReturnResponse returnPicks(String reservationId, List<StockReturnLine> lines, boolean quarantine,
                                            Long orgId, Long userId) {
         Reservation resv = reservationRepository.findByReservationIdScoped(reservationId, orgId, userId).orElse(null);
-        float total = 0f;
+        BigDecimal total = BigDecimal.ZERO;
 
         for (StockReturnLine line : lines) {
             if (line == null || line.getProductId() == null) continue;
-            float qty = nz(line.getQty());
-            if (qty <= EPS) continue;
-            float remaining = qty;
+            // U0 boundary: the CONTRACT still carries Float (StockReturnLine.qty) and U0 deliberately does
+            // not change it — that is a six-service change with its own regression surface. Inventory converts
+            // at its own edge, so what it STORES is exact even while what it is TOLD is not yet.
+            BigDecimal qty = line.getQty() == null ? BigDecimal.ZERO : BigDecimal.valueOf(line.getQty());
+            if (qty.signum() <= 0) continue;
+            BigDecimal remaining = qty;
 
             if (resv != null) {
                 for (ReservationPick p : resv.getPicks()) {
-                    if (remaining <= EPS) break;
+                    if (remaining.signum() <= 0) break;
                     if (!line.getProductId().equals(p.getProductId())) continue;
-                    float room = nz(p.getQuantity()) - nz(p.getReturnedQuantity());
-                    if (room <= 0f) continue;
-                    float take = Math.min(room, remaining);
+                    BigDecimal room = nz(p.getQuantity()).subtract(nz(p.getReturnedQuantity()));
+                    if (room.signum() <= 0) continue;
+                    BigDecimal take = room.min(remaining);
                     if (quarantine) {
                         // P11: returned med is NOT re-sellable — park it in a quarantine batch (keep lot/expiry).
                         createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId, false);
                     } else {
                         StockEntry e = stockEntryRepository.findById(p.getStockEntryId()).orElse(null);
                         if (e != null) {                   // restore to the exact original batch
-                            e.setQuantity(nz(e.getQuantity()) + take);
+                            e.setQuantity(nz(e.getQuantity()).add(take));
                             stockEntryRepository.save(e);
                         } else {                           // original batch gone -> fresh batch, keep its lot/expiry
                             createReturnEntry(line.getProductId(), take, p.getBatchNo(), p.getExpiryDate(), orgId, userId, true);
                         }
                     }
-                    p.setReturnedQuantity(nz(p.getReturnedQuantity()) + take);
-                    remaining -= take;
+                    p.setReturnedQuantity(nz(p.getReturnedQuantity()).add(take));
+                    remaining = remaining.subtract(take);
                 }
             }
 
-            if (remaining > EPS) {                          // fallback: no picks / exhausted / beyond picked
+            if (remaining.signum() > 0) {                   // fallback: no picks / exhausted / beyond picked
                 createReturnEntry(line.getProductId(), remaining, null, null, orgId, userId, !quarantine);
-                remaining = 0f;
+                remaining = BigDecimal.ZERO;
             }
 
             // Quarantined stock is physically present but NOT sellable, so it does not raise sellable on-hand.
             if (!quarantine) bumpLevel(line.getProductId(), qty, orgId, userId);
-            total += qty;
+            total = total.add(qty);
         }
 
         if (resv != null) reservationRepository.save(resv);   // persist the per-pick returnedQuantity
-        return new StockReturnResponse(reservationId, BigDecimal.valueOf(total), quarantine ? "QUARANTINED" : "RETURNED");
+        return new StockReturnResponse(reservationId, total, quarantine ? "QUARANTINED" : "RETURNED");
     }
 
     /** A fresh StockEntry for a return: carries the original lot/expiry when known; {@code restockable=false}
      *  quarantines it (P11) so FEFO/availability never re-sell it. */
-    private void createReturnEntry(Long productId, float qty, String batchNo, java.time.LocalDate expiry,
+    private void createReturnEntry(Long productId, BigDecimal qty, String batchNo, java.time.LocalDate expiry,
                                    Long orgId, Long userId, boolean restockable) {
         stockEntryRepository.save(StockEntry.builder()
-                .productId(productId).quantity(qty).reservedQuantity(0f)
+                .productId(productId).quantity(nz(qty)).reservedQuantity(BigDecimal.ZERO)
                 .batchNo(batchNo).expiryDate(expiry).restockable(restockable)
                 .organizationId(orgId).userId(userId).build());
     }
 
     /** Make the product's on-hand whole again: StockLevel += qty, creating a zero level for the tenant if missing. */
-    private void bumpLevel(Long productId, float qty, Long orgId, Long userId) {
+    private void bumpLevel(Long productId, BigDecimal qty, Long orgId, Long userId) {
         StockLevel level = stockLevelRepository.findByProductScoped(productId, orgId, userId)
                 .orElseGet(() -> StockLevel.builder()
-                        .productId(productId).currentStock(0f)
+                        .productId(productId).currentStock(BigDecimal.ZERO)
                         .organizationId(orgId).userId(userId).build());
-        level.setCurrentStock(nz(level.getCurrentStock()) + qty);
+        level.setCurrentStock(nz(level.getCurrentStock()).add(nz(qty)));
         stockLevelRepository.save(level);
     }
 
@@ -304,7 +333,7 @@ public class ReservationService {
     private StockReservationResponse toResponse(Reservation resv) {
         List<StockPick> picks = new ArrayList<>();
         for (ReservationPick p : resv.getPicks()) {
-            picks.add(new StockPick(p.getProductId(), p.getBatchNo(), BigDecimal.valueOf(p.getQuantity()), p.getExpiryDate()));
+            picks.add(new StockPick(p.getProductId(), p.getBatchNo(), nz(p.getQuantity()), p.getExpiryDate()));
         }
         return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null,
                 resv.getExpiresAt());

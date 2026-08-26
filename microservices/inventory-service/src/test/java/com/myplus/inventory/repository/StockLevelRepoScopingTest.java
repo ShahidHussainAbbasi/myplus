@@ -44,8 +44,8 @@ class StockLevelRepoScopingTest {
     @Autowired
     private TestEntityManager em;
 
-    private StockLevel persist(Long productId, Float qty, Long org, Long user) {
-        StockLevel sl = StockLevel.builder().productId(productId).currentStock(qty)
+    private StockLevel persist(Long productId, double qty, Long org, Long user) {
+        StockLevel sl = StockLevel.builder().productId(productId).currentStock(java.math.BigDecimal.valueOf(qty))
                 .organizationId(org).userId(user).build();
         return em.persistAndFlush(sl);
     }
@@ -67,8 +67,11 @@ class StockLevelRepoScopingTest {
         persist(100L, 7f, 1L, 1L);
         persist(100L, 99f, 2L, 3L);   // another tenant's level for the same product id
 
-        assertThat(repo.findByProductScoped(100L, 1L, 1L))
-                .isPresent()
-                .get().extracting(StockLevel::getCurrentStock).isEqualTo(7f);
+        // Asserted through get() rather than extracting(): extracting() yields an ObjectAssert, whose equals
+        // is scale-SENSITIVE, so it would compare 7.0000 (what DECIMAL(19,4) returns) against 7 and fail.
+        // isEqualByComparingTo uses compareTo, which is the only scale-safe way to assert a decimal quantity.
+        assertThat(repo.findByProductScoped(100L, 1L, 1L)).isPresent();
+        assertThat(repo.findByProductScoped(100L, 1L, 1L).get().getCurrentStock())
+                .isEqualByComparingTo("7");
     }
 }

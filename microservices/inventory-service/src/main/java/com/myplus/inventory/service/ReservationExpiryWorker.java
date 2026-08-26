@@ -1,5 +1,6 @@
 package com.myplus.inventory.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
@@ -55,10 +56,11 @@ public class ReservationExpiryWorker {
 
         for (ReservationPick p : resv.getPicks()) {
             stockEntryRepository.findById(p.getStockEntryId()).ifPresent(e -> {
-                float held = e.getReservedQuantity() == null ? 0f : e.getReservedQuantity();
+                BigDecimal held = e.getReservedQuantity() == null ? BigDecimal.ZERO : e.getReservedQuantity();
+                BigDecimal took = p.getQuantity() == null ? BigDecimal.ZERO : p.getQuantity();
                 // Floored at zero: this only ever gives stock back, so a double-subtraction from some earlier
                 // inconsistency must not become a negative hold, which would inflate availability instead.
-                e.setReservedQuantity(Math.max(0f, held - p.getQuantity()));
+                e.setReservedQuantity(held.subtract(took).max(BigDecimal.ZERO));
                 stockEntryRepository.save(e);
             });
         }
