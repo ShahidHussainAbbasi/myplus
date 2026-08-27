@@ -38,7 +38,83 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
+    /** What a PRICE refers to — "pack", "box", "pcs". Free text, and unchanged in meaning by U1. */
     private String unit;
+
+    // ── U1: selling by the piece ────────────────────────────────────────────────────────────────────────
+    // docs/pack-and-loose-selling-design.md. `unit` above is a LABEL; these make it computable.
+
+    /**
+     * How many sellable pieces one priced unit contains — 10 tablets in a pack, 24 bottles in a crate.
+     *
+     * <p>{@code null} or {@code 1} means not divisible, which is every product today. One level only: a
+     * conversion graph would buy generality nothing in these verticals needs and charge for it on every read.
+     */
+    @Column(name = "pack_size")
+    private Integer packSize;
+
+    /** What ONE piece is called — "tablet". */
+    @Column(name = "loose_unit", length = 32)
+    private String looseUnit;
+
+    /**
+     * The plural — "tablets".
+     *
+     * <p>⚠ A second column rather than an appended "s", because "5 tablet" is wrong in every language this
+     * platform ships in and no rule covers Urdu, Arabic and Hindi alike. Tenant data, not an i18n key: a shop
+     * names its own units.
+     */
+    @Column(name = "loose_unit_plural", length = 32)
+    private String looseUnitPlural;
+
+    /**
+     * May this be broken open at all?
+     *
+     * <p>⚠ Deliberately separate from {@link #packSize}. A pharmacy knows an antibiotic course holds 10
+     * tablets — worth recording for stock counts — and must still refuse to split it. Collapsing the two would
+     * force a shop to misstate the pack in order to enforce the rule.
+     */
+    // ⚠ @Builder.Default, or the initialiser is IGNORED when Lombok's builder constructs the object and a
+    // NOT NULL column takes a null. Caught by ProductRepoScopingTest — the same shape as INST-1's defect #2,
+    // where an absent value reached a NOT NULL column and the row died AFTER the caller had committed.
+    @Builder.Default
+    @Column(name = "allow_loose", nullable = false)
+    private Boolean allowLoose = Boolean.FALSE;
+
+    /**
+     * Which unit a sale line starts in: {@code PACK} or {@code LOOSE}.
+     *
+     * <p>The biggest time saving in the design — a shop selling loose nine times in ten should not press the
+     * loose key nine times in ten. Per product, because the same shop sells strips loose and bottles whole.
+     *
+     * <p>⚠ When this is not {@code PACK} the till must show the unit INSIDE the quantity box: a default that
+     * silently changes what a familiar keystroke means is worse than no default.
+     */
+    @Builder.Default
+    @Column(name = "default_sell_unit", nullable = false, length = 8)
+    private String defaultSellUnit = "PACK";
+
+    /**
+     * WHO last changed a pack rule, and WHEN.
+     *
+     * <p>{@code packSize} and {@code allowLoose} decide what a customer is charged and whether a sealed course
+     * may be split. The standards require pricing controls to be auditable, and this table records only
+     * {@code createdBy} today — so "who allowed this to be split?" had no answer at all.
+     *
+     * <p>Stamped on the product rather than sent to audit-service: catalog holds no audit client, and adding a
+     * cross-service dependency for two fields is a larger change than the thing being audited. If catalog ever
+     * gains one, these become the fallback rather than the record.
+     */
+    @Column(name = "pack_changed_by")
+    private Long packChangedBy;
+
+    @Column(name = "pack_changed_at")
+    private LocalDateTime packChangedAt;
+
+    /** True when this product can actually be sold loose — both a pack size AND permission. */
+    public boolean isLooseSellable() {
+        return Boolean.TRUE.equals(allowLoose) && packSize != null && packSize > 1;
+    }
 
     /** Brand/manufacturer (slice 33, U1 — parity with business Item.company for the item→product migration). */
     private String manufacturer;

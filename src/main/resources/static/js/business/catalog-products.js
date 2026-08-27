@@ -218,10 +218,31 @@
         openModal('ProductModal');
     };
 
+    /**
+     * U1 — show the loose fields only when the unit actually holds more than one piece.
+     *
+     * Asking what one tablet is called, on a product nobody sells by the tablet, is four boxes of noise on
+     * the most-used screen in the app. A shop that never breaks a pack sees the form it has always seen.
+     */
+    global.prodPackSizeChanged = function () {
+        var n = Number($('#prodPackSize').val());
+        var divisible = n > 1;
+        $('#prodLooseWrap').toggle(divisible);
+        if (!divisible) {
+            // Cleared with the pack size, not left behind: a product that is no longer divisible must not
+            // keep a permission to split it, and "may be sold by the piece" on a pack of one is nonsense
+            // the server would then have to refuse.
+            $('#prodAllowLoose').prop('checked', false);
+            $('#prodDefaultSellUnit').val('PACK');
+        }
+    };
+
     function resetProductForm() {
         var f = document.getElementById('Product');
         if (f) f.reset();
         $('#productId').val('');
+        // form.reset() does not fire change, so the loose row would stay open from the last product edited.
+        prodPackSizeChanged();
         $('#prodCategory').val('');
         $('#prodCategoryNew').val('');
         // form.reset() restores a <select> to its FIRST option, not to blank, so clear it explicitly —
@@ -457,6 +478,15 @@
             $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
             loadTaxCodes(p.taxCodeId != null ? p.taxCodeId : '');
             $('#prodUnit').val(p.unit || '');
+            // U1 — the pack rules. Read back so the form ROUND-TRIPS: without this an edit would post null
+            // for every one of them, and only the server's "null means not supplied" guard would stand
+            // between saving a phone number and wiping the product's pack configuration.
+            $('#prodPackSize').val(p.packSize != null ? p.packSize : '');
+            $('#prodLooseUnit').val(p.looseUnit || '');
+            $('#prodLooseUnitPlural').val(p.looseUnitPlural || '');
+            $('#prodAllowLoose').prop('checked', p.allowLoose === true);
+            $('#prodDefaultSellUnit').val(p.defaultSellUnit || 'PACK');
+            prodPackSizeChanged();
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
             loadCategories(p.categoryId != null ? p.categoryId : '');
             // Pass the value INTO the loader rather than setting it afterwards: the option may not exist yet
@@ -555,6 +585,14 @@
             taxCodeId: codeId ? Number(codeId) : null,
             taxRate: codeId ? null : s2n($('#prodTax').val()),
             unit: $('#prodUnit').val(),
+            // U1. packSize null = "this product is not divisible"; the server treats null as NOT SUPPLIED,
+            // so clearing the box leaves the old value — see the note in ProductService.applyDto. Sending 0
+            // rather than null would be read as a pack of nothing.
+            packSize: s2n($('#prodPackSize').val()) || null,
+            looseUnit: $('#prodLooseUnit').val() || null,
+            looseUnitPlural: $('#prodLooseUnitPlural').val() || null,
+            allowLoose: $('#prodAllowLoose').is(':checked'),
+            defaultSellUnit: $('#prodDefaultSellUnit').val() || 'PACK',
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
         };

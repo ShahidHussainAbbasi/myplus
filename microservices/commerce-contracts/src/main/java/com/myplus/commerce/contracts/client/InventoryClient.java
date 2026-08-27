@@ -71,6 +71,27 @@ public interface InventoryClient {
     @GetExchange("/stock/levels")
     java.util.Map<Long, Float> getStockLevels();
 
+    /*
+     * ⚠ U1 BOUNDARY OBLIGATION — read this before a product is given a pack size.
+     *
+     * Stock is stored in BASE UNITS (U0). While every product has packSize null or 1, a base unit IS a
+     * selling unit and everything below answers in the same numbers it always did.
+     *
+     * The moment a shop sets packSize = 10, that stops being true for THAT product: on-hand of one pack
+     * becomes 10 base units, and a caller that renders the figure as-is shows "10" where the shelf holds one
+     * pack. The two callers today are:
+     *
+     *   business-service  StockController      — the Stock screen's on-hand
+     *   marketplace       BackorderPolicy      — sellable, for the shortfall split
+     *
+     * Neither converts yet, and neither needs to until a pack size exists. U2 owns the conversion, because
+     * U2 is where packSize first reaches the sale path — and doing it here, before anything can set one,
+     * would be a conversion with nothing to convert and no way to test that it works.
+     *
+     * Recorded rather than left to be discovered: a stock grid that quietly starts counting tablets is the
+     * kind of defect a shopkeeper reports as "the numbers went mad", weeks later.
+     */
+
     /**
      * OMS O5c — per-product {@code {onHand, sellable, expired, held}} for the whole tenant, in one call.
      *

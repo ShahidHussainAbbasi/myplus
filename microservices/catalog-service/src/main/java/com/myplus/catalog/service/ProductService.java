@@ -242,6 +242,12 @@ public class ProductService {
                 // B1: the sell guard reads these off the ref it already fetches — no extra call at checkout.
                 .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
                 .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
+                // U1: carried on the ref the sale already fetches, so no extra call at checkout.
+                .packSize(p.getPackSize())
+                .looseUnit(p.getLooseUnit())
+                .looseUnitPlural(p.getLooseUnitPlural())
+                .allowLoose(Boolean.TRUE.equals(p.getAllowLoose()))
+                .defaultSellUnit(p.getDefaultSellUnit())
                 .build();
     }
 
@@ -255,6 +261,14 @@ public class ProductService {
                 .categoryId(p.getCategory() != null ? p.getCategory().getId() : null)
                 .categoryName(p.getCategory() != null ? p.getCategory().getName() : null)
                 .unit(p.getUnit())
+                // U1 — read back so the product form ROUND-TRIPS. Without these the form would post null on
+                // every save and the "null means not supplied" guard above would be the only thing standing
+                // between an edit and silently clearing the pack rules.
+                .packSize(p.getPackSize())
+                .looseUnit(p.getLooseUnit())
+                .looseUnitPlural(p.getLooseUnitPlural())
+                .allowLoose(Boolean.TRUE.equals(p.getAllowLoose()))
+                .defaultSellUnit(p.getDefaultSellUnit())
                 .manufacturer(p.getManufacturer())
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
@@ -290,6 +304,38 @@ public class ProductService {
             p.setCategory(findOrCreateCategory(dto.getCategoryName().trim()));
         }
         p.setUnit(dto.getUnit());
+
+        /*
+         * U1 — the pack fields.
+         *
+         * ⚠ NULL MEANS "NOT SUPPLIED", NOT "CLEAR IT". Every other setter here overwrites unconditionally,
+         * which is right for fields the form always posts. These are new, so a caller written before U1 — the
+         * CSV import, the storefront admin, any integration — omits them entirely, and treating that silence
+         * as "set pack size to null" would strip the configuration off every product it touched.
+         *
+         * ⚠ PRICING CONTROLS ARE AUDITED. packSize and allowLoose decide what a customer is charged and
+         * whether a sealed course may be split, so a change to either is recorded with WHO and WHEN. Written
+         * onto the product itself rather than through audit-service: catalog has no audit client, and adding
+         * a cross-service dependency for one field is a larger change than the thing being audited.
+         */
+        if (dto.getPackSize() != null) {
+            if (!java.util.Objects.equals(p.getPackSize(), dto.getPackSize())) {
+                p.setPackChangedBy(dto.getUpdatedBy());
+                p.setPackChangedAt(java.time.LocalDateTime.now());
+            }
+            p.setPackSize(dto.getPackSize());
+        }
+        if (dto.getLooseUnit() != null) p.setLooseUnit(dto.getLooseUnit());
+        if (dto.getLooseUnitPlural() != null) p.setLooseUnitPlural(dto.getLooseUnitPlural());
+        if (dto.getAllowLoose() != null) {
+            if (!Boolean.valueOf(Boolean.TRUE.equals(p.getAllowLoose())).equals(dto.getAllowLoose())) {
+                p.setPackChangedBy(dto.getUpdatedBy());
+                p.setPackChangedAt(java.time.LocalDateTime.now());
+            }
+            p.setAllowLoose(dto.getAllowLoose());
+        }
+        if (dto.getDefaultSellUnit() != null) p.setDefaultSellUnit(dto.getDefaultSellUnit());
+
         p.setManufacturer(dto.getManufacturer());
         p.setSellingPrice(dto.getSellingPrice());
         p.setTaxRate(dto.getTaxRate());

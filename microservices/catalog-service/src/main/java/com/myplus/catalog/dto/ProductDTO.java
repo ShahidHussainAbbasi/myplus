@@ -23,6 +23,14 @@ public class ProductDTO {
     private Long categoryId;
     private String categoryName;
     private String unit;
+
+    // U1 — selling by the piece. All optional; a form that omits them leaves the product as it is.
+    private Integer packSize;
+    private String looseUnit;
+    private String looseUnitPlural;
+    private Boolean allowLoose;
+    private String defaultSellUnit;
+
     private String manufacturer;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
@@ -41,6 +49,8 @@ public class ProductDTO {
     private Boolean controlledSubstance;
     private String imageUrl;
     private Long createdBy;
+    /** U1 — who is making this change, for the pack-rule audit stamp. */
+    private Long updatedBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

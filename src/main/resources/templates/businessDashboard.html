@@ -2714,7 +2714,21 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodUnit" th:text="#{ui.unit}">Unit</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodUnit" placeholder="pcs" th:placeholder="#{ui.pcs}"></div>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="prodUnit" placeholder="pcs" th:placeholder="#{ui.pcs}">
+							<!--
+								U1 — how many pieces this unit holds. Blank or 1 = not divisible, which is every
+								product until a shop says otherwise. The loose row below stays HIDDEN until this
+								has a value: asking what one tablet is called, on a product nobody sells by the
+								tablet, is four boxes of noise on the most-used screen in the app.
+							-->
+							<div class="input-group input-group-sm" style="margin-top:6px">
+								<span class="input-group-addon" th:text="#{ui.js.packHolds}">Holds</span>
+								<input type="number" min="0" step="1" class="form-control" id="prodPackSize"
+									placeholder="10" onchange="prodPackSizeChanged()" onkeyup="prodPackSizeChanged()">
+								<span class="input-group-addon" th:text="#{ui.js.piecesPerUnit}">pieces</span>
+							</div>
+						</div>
 						<label class="control-label col-sm-2" for="prodCategory" th:text="#{ui.category}">Category</label>
 						<div class="col-sm-4">
 							<select class="form-control" id="prodCategory"></select>
@@ -2726,6 +2740,43 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
+					<!--
+						U1 — selling by the piece. Hidden entirely unless the unit holds more than one, so a shop
+						that never breaks a pack sees the form it has always seen.
+					-->
+					<div class="form-group" id="prodLooseWrap" style="display:none">
+						<label class="control-label col-sm-2" for="prodLooseUnit" th:text="#{ui.js.looseUnit}">One piece is a</label>
+						<div class="col-sm-4">
+							<div class="row">
+								<div class="col-xs-6">
+									<input type="text" class="form-control" id="prodLooseUnit" placeholder="tablet"
+										th:placeholder="#{ui.js.looseUnitEg}">
+								</div>
+								<div class="col-xs-6">
+									<!-- Two words, not an appended "s": "5 tablet" is wrong in every language this
+									     platform ships in, and no rule covers Urdu, Arabic and Hindi alike. -->
+									<input type="text" class="form-control" id="prodLooseUnitPlural" placeholder="tablets"
+										th:placeholder="#{ui.js.looseUnitPluralEg}">
+								</div>
+							</div>
+						</div>
+						<label class="control-label col-sm-2" th:text="#{ui.js.looseSelling}">Loose selling</label>
+						<div class="col-sm-4">
+							<div class="checkbox" style="margin-top:0">
+								<label>
+									<input type="checkbox" id="prodAllowLoose">
+									<span th:text="#{ui.js.allowLoose}">May be sold by the piece</span>
+								</label>
+							</div>
+							<!-- Separate from the pack size on purpose: a pharmacy knows a course holds 10 tablets
+							     and must still refuse to split it. -->
+							<select class="form-control input-sm" id="prodDefaultSellUnit" style="margin-top:4px">
+								<option value="PACK" th:text="#{ui.js.startsAsPack}">Sales start as whole units</option>
+								<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
+							</select>
+						</div>
+					</div>
+
 					<div class="form-group">
 						<!-- Manufacturer mirrors the Category control above: pick one already in use, or type a new
 						     one. It is NOT backed by a master table — the options are the distinct manufacturers

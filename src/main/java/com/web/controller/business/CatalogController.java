@@ -160,6 +160,23 @@ public class CatalogController {
                     row.put("lastPurchaseRate", p.get("lastPurchaseRate"));
                     row.put("lastSaleRate", p.get("lastSaleRate"));
                     row.put("lastRateAt", p.get("lastRateAt"));
+                    /*
+                     * U1 — the pack rules.
+                     *
+                     * ⚠ THIS PROJECTION IS AN ALLOW-LIST: every field is copied by hand, so anything not named
+                     * here is SILENTLY DROPPED on the way to the browser. The columns existed, the entity
+                     * carried them, the DTO exposed them and catalog returned them — and the product form
+                     * still saw nothing, because this loop never mentioned them.
+                     *
+                     * Same shape as the gl_outbox defect: a new field needs every copy point or it vanishes,
+                     * and nothing errors when one is missed. If a later slice adds a product field, it must be
+                     * added HERE too.
+                     */
+                    row.put("packSize", p.get("packSize"));
+                    row.put("looseUnit", p.get("looseUnit"));
+                    row.put("looseUnitPlural", p.get("looseUnitPlural"));
+                    row.put("allowLoose", p.get("allowLoose"));
+                    row.put("defaultSellUnit", p.get("defaultSellUnit"));
                     row.put("taxRate", p.get("taxRate"));
                     row.put("categoryName", p.get("categoryName"));
                     row.put("manufacturer", p.get("manufacturer"));

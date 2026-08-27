@@ -32,6 +32,24 @@ public class ProductRef {
      * ref it ALREADY fetches per line — the same reason {@code taxRate} rides along. Null on refs built by older
      * callers/tests; treat null as false.
      */
+    /**
+     * U1 — selling by the piece. See {@code docs/pack-and-loose-selling-design.md}.
+     *
+     * <p>These travel on the ref the sale ALREADY fetches, so the loose rate is derived where the price
+     * already comes from — server-side in {@code buildLines} — and never in the browser. A rate computed in
+     * JavaScript and posted back would arrive looking like a cashier discounting below catalog, tripping the
+     * margin guard on the shop's most ordinary transaction.
+     *
+     * <p>All optional. A caller that ignores them behaves exactly as before, which is what lets the order and
+     * storefront pipelines carry on untouched.
+     */
+    private Integer packSize;
+    private String looseUnit;
+    private String looseUnitPlural;
+    private Boolean allowLoose;
+    /** {@code PACK} or {@code LOOSE} — which unit a line starts in. */
+    private String defaultSellUnit;
+
     private Boolean rxRequired;
     private Boolean controlledSubstance;
 
