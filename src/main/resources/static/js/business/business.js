@@ -172,6 +172,9 @@ $(document).ready(function() {
         //If all form's required fields are filled
     	validateForm();
         if(formValidated){
+        	// U3: a fractional piece count is refused here, mirroring the server's rule rather than
+        	// replacing it. The server still refuses it too — this only saves the cashier a round trip.
+        	if (window.LooseSell && !LooseSell.validate()) return false;
         	var obj  = formToJSON("Sell");
 //        	obj = populateFormData();
         	obj.itemName = $( "#sellItemDD :selected" ).text();
@@ -180,6 +183,9 @@ $(document).ready(function() {
 			obj.productId = pickVal;            // cart key + productId-native submission
 			obj.itemId = pickVal;               // back-compat field (ignored once productId present; removed in M4e.5)
 			obj.stock.itemId = obj.itemId;
+			// U3: on a LOOSE line this sets soldUnit/soldQuantity and converts `quantity` to packs.
+			// A no-op on every ordinary line, which is every line until a shop switches loose selling on.
+			if (window.LooseSell) LooseSell.decorate(obj);
 			obj.stock.itemName = obj.itemName;
 			// The rate this line SOLD at = the cashier's #sellSellRate (bound to stock.bsellRate). Surface it as
 			// line.sellRate so the /addSell submission carries it â†’ SagaSellService records the actual sold rate
@@ -277,19 +283,41 @@ function parseScanEntry(raw){
 	if(!s) return { error: 'empty' };
 
 	var star = s.indexOf('*');
-	if(star < 0) return { qty: 1, code: s };            // no multiplier => today's behaviour, exactly
+	if(star < 0) return { qty: 1, code: s, unit: 'PACK' };   // no multiplier => today's behaviour, exactly
 
 	var qtyPart = s.substring(0, star).trim();
 	var code    = s.substring(star + 1).trim();
 
 	if(!qtyPart) return { error: 'noQty' };             // "*ABC" — a star with nothing in front
 	if(!code)    return { error: 'noCode' };            // "12*"  — a count with nothing to count
+
+	/*
+	 * U3 — one optional suffix, not a second grammar.
+	 *
+	 *     12*CODE   twelve packs   (unchanged)
+	 *     5L*CODE   five loose pieces
+	 *
+	 * The multiplier is still digits-only; `L` is a single reserved marker on the END of it. Extending the
+	 * existing parser rather than adding a second one matters because this function is the ONLY place the
+	 * scan box is interpreted — a second parser would disagree with this one on some input nobody thought to
+	 * test, and the symptom would be a mis-priced line rather than an error.
+	 *
+	 * ⚠ A scanned MANUFACTURER barcode always means the pack. A GTIN is printed on the pack by whoever made
+	 * it and cannot mean "one tablet" — so LOOSE is only ever reached when the operator typed the marker.
+	 */
+	var unit = 'PACK';
+	if(/[Ll]$/.test(qtyPart)){
+		unit = 'LOOSE';
+		qtyPart = qtyPart.slice(0, -1);
+		if(!qtyPart) return { error: 'noQty' };         // "L*ABC" — a marker with no count
+	}
+
 	// Digits only: parseInt('12abc') would happily return 12 and sell twelve of the wrong thing.
 	if(!/^\d+$/.test(qtyPart)) return { error: 'badQty', qtyText: qtyPart };
 
 	var qty = parseInt(qtyPart, 10);
 	if(!(qty > 0)) return { error: 'badQty', qtyText: qtyPart };
-	return { qty: qty, code: code };
+	return { qty: qty, code: code, unit: unit };
 }
 window.parseScanEntry = parseScanEntry;
 
@@ -306,7 +334,7 @@ function sellScanAdd(){
 
 	// The multiplier is part of P2 (pos.keyboard.shortcuts.enabled). With it off, a '*' is just another
 	// character in the code — which is what a shop that has never used the idiom expects.
-	var qty = 1, code = raw;
+	var qty = 1, code = raw, unit = 'PACK';
 	if(window.posShortcutsEnabled === true){
 		var parsed = parseScanEntry(raw);
 		if(parsed.error){
@@ -320,13 +348,30 @@ function sellScanAdd(){
 		}
 		qty = parsed.qty;
 		code = parsed.code;
+		unit = parsed.unit || 'PACK';
 	}
 
 	$in.val('');
 	$.get(serverContext + 'lookupProduct', { code: code }, function(resp){
 		var ref = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
 		if(!ref || ref.id == null){ sellScanMsg('No product for "' + code + '"', true); $in.focus(); return; }
-		scanAddToCart(ref, qty);
+		// A loose scan needs the SCANNED product's pack rules. One extra call, only on a `5L*` scan, which
+		// is the rare path — an ordinary scan is untouched and still costs exactly one request.
+		if(unit === 'LOOSE'){
+			$.get(serverContext + 'looseInfo', { productId: ref.id })
+				.done(function(lr){
+					var li = (typeof apiOk === 'function' && apiOk(lr)) ? apiData(lr) : null;
+					if(!li || !li.allowLoose){
+						sellScanMsg(t('ui.js.looseNotAllowed'), true); $in.focus(); return;
+					}
+					scanAddToCart(ref, qty, 'LOOSE', li);
+					sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
+					$in.focus();
+				})
+				.fail(function(){ sellScanMsg(t('ui.js.looseUnavailable'), true); $in.focus(); });
+			return;
+		}
+		scanAddToCart(ref, qty, 'PACK', null);
 		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
 		$in.focus();
 	}, 'json').fail(function(){ sellScanMsg('Lookup failed (is catalog-service up?).', true); $in.focus(); });
@@ -335,7 +380,15 @@ function sellScanMsg(msg, err){ $('#sellScanMsg').text(msg).css('color', err ? '
 function cartQty(pid){ var d = data.find(function(x){ return String(x.productId) === String(pid); }); return d ? d.quantity : 1; }
 
 /** @param qty units to add (default 1). The `12*CODE` multiplier passes it; every other caller omits it. */
-function scanAddToCart(ref, qty){
+/**
+ * @param unit 'LOOSE' for a `5L*CODE` scan, else packs.
+ * @param li   the SCANNED product's pack rules ({packSize, looseRate, allowLoose}), or null.
+ *
+ * ⚠ `li` is passed in rather than read from LooseSell, because LooseSell holds the rules for the product on
+ * the LINE — which on a scan is usually a different product entirely. Reading it here would price the scanned
+ * item using another product's pack size.
+ */
+function scanAddToCart(ref, qty, unit, li){
 	var pid = ref.id;
 	var price = (ref.sellingPrice != null) ? Number(ref.sellingPrice) : 0;
 	var name = ref.name || ref.sku || ('#' + pid);
@@ -380,6 +433,15 @@ function scanAddToCart(ref, qty){
 			autoRate: Number(price),
 			stock: { itemId: pid, itemName: name, bsellRate: price, bsellDiscount: '', bsellDiscountType: '0' }
 		};
+		// U3: a `5L*CODE` scan is a LOOSE line. The server derives quantity and rate from soldQuantity, so
+		// what the browser computes here is DISPLAY only — it cannot mis-sell, only mis-show.
+		if(unit === 'LOOSE' && li && li.allowLoose && li.packSize > 0){
+			obj.soldUnit = 'LOOSE';
+			obj.soldQuantity = n;
+			obj.quantity = Math.round((n / li.packSize) * 10000) / 10000;
+			obj.sellRate = Number(li.packRate) || price;
+			obj.stock.bsellRate = obj.sellRate;
+		}
 		data.push(obj);
 		tablesi.row.add([pid, name, n, price, '', m.receivable,
 			"<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
@@ -1998,6 +2060,9 @@ function loadStock(label,value){
 	
     // M4e.1b (slice 98): the picker value is a productId now â†’ pre-fill from productStock (on-hand + price + FEFO
     // batches + description, by productId) instead of getStock(itemId).
+    // U3: fetch this product's pack rules ONCE (cached per product) so the unit toggle and the live
+    // per-piece hint can appear. Fire-and-forget: a failure leaves the line pack-only, exactly as today.
+    if (window.LooseSell) LooseSell.onProductPicked(Number($('#sellItemDD').val()) || null);
     var catalogSellPrice = $("#"+(tableV?tableV.toLowerCase():'')+"ItemDD :selected").attr('data-price');
 		// Fill the sell rate IMMEDIATELY from the catalog price (data-price on the option), independent of the async
 		// on-hand/batch fetch below — so it shows on select even if /productStock is slow or unavailable.
@@ -2298,6 +2363,10 @@ function calculateNetSell(){
 
 	$("#sellTotalAmount").val(m.total);
 	$("#sellrm").val(m.receivable);
+	// U3: the hint line is live — it redraws on every keystroke in the quantity box, because
+	// calculateNetSell is already bound to onkeyup. The cashier sees what they are about to charge
+	// BEFORE committing, which is the whole point of the slice.
+	if (window.LooseSell) LooseSell.render();
 }
 
 // function calculateNetSell(){

@@ -320,6 +320,69 @@ public class SellController {
 		}
 	}
 
+	/**
+	 * U3 - everything the till needs to offer a product by the piece.
+	 *
+	 * <pre>
+	 *   GET /looseInfo?productId=88
+	 *   -> { allowLoose, packSize, looseUnit, looseUnitPlural, looseRate, packRate }
+	 * </pre>
+	 *
+	 * <h3>Why this exists rather than the browser doing the arithmetic</h3>
+	 *
+	 * The sale screen shows the per-piece price LIVE, before the line is committed - that hint line is the
+	 * feature, because it is what stops the cashier doing arithmetic at the counter. The number has to come
+	 * from somewhere, and there were three candidates:
+	 *
+	 * <ul>
+	 *   <li><b>Recompute in JavaScript</b> - rejected. It is a second implementation of the CEILING rule and
+	 *       the markup, and it drifts from this one the day either changes. The visible symptom is a shop
+	 *       quoting one price on screen and charging another on the receipt.</li>
+	 *   <li><b>Call the server per keystroke</b> - rejected. A remote call on the hot path, per character.</li>
+	 *   <li><b>Fetch the RATE once per product, multiply in the browser</b> - chosen. The browser does
+	 *       {@code pieces x rate}, which is a multiplication, not a pricing rule.</li>
+	 * </ul>
+	 *
+	 * <p>Called once when a product is picked, alongside the calls the screen already makes, and cached per
+	 * product for the rest of the session.
+	 *
+	 * <p><b>Advisory, and the till must present it that way.</b> For a customer on a contract price the sale
+	 * path derives the loose rate from THAT price, which this endpoint does not know - so the hint may differ
+	 * from the final line. That is already true of pack lines, whose rate the quote adjusts after the line is
+	 * added. {@link SagaSellService#looseLine} at submit remains authoritative.
+	 */
+	@RequestMapping(value = "/looseInfo", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse looseInfo(@RequestParam Long productId) {
+		try {
+			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
+			java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+			boolean loose = p != null && Boolean.TRUE.equals(p.getAllowLoose())
+					&& p.getPackSize() != null && p.getPackSize() > 1;
+			out.put("allowLoose", loose);
+			if (!loose) {
+				// An ordinary product answers plainly. The till hides its unit toggle on this, so the
+				// commonest sale screen in the country looks exactly as it does today.
+				return new GenericResponse("SUCCESS", "", out);
+			}
+			java.math.BigDecimal packRate = p.getSellingPrice() != null
+					? p.getSellingPrice() : java.math.BigDecimal.ZERO;
+			java.math.BigDecimal markup = settingsService.getDecimal("pos.sale.looseMarkupPct",
+					java.math.BigDecimal.ZERO);
+			out.put("packSize", p.getPackSize());
+			out.put("looseUnit", p.getLooseUnit());
+			out.put("looseUnitPlural", p.getLooseUnitPlural());
+			out.put("packRate", packRate);
+			out.put("looseRate", com.myplus.business_service.service.SagaSellService.looseRateOf(packRate, p.getPackSize(), markup));
+			return new GenericResponse("SUCCESS", "", out);
+		} catch (Exception e) {
+			LOGGER.error("looseInfo failed for product {}", productId, e);
+			// A failure here must NOT block the sale: the till falls back to pack-only, which is what it
+			// does today. Losing a hint is a degraded screen; refusing the line would be a stopped counter.
+			return new GenericResponse("ERROR", "Could not read the pack rules for this product.");
+		}
+	}
+
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserSell(@RequestParam(required=false) Integer page,

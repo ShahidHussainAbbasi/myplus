@@ -1740,7 +1740,37 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity" inputmode="decimal"
 								 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 							</div>
+							<!--
+							  U3 - the unit this line is sold in. HIDDEN unless the picked product may be split,
+							  so the commonest till in the country looks exactly as it does today.
+
+							  Deliberately NOT an <input>: the quantity box stays a pure number. It is read
+							  numerically in seven places, every one shaped `val()*1 > 0 ? val() : 1`, so a
+							  letter in it would become NaN and the line would SILENTLY become one pack.
+							  The unit lives here instead - one place, set by the toggle, F7/Alt+L, or a scan.
+							-->
+							<div class="col-sm-4 sell-unit-wrap" id="sellUnitWrap" style="display:none">
+								<div class="btn-group btn-group-sm sell-unit-toggle" role="group" aria-label="Unit">
+									<button type="button" class="btn btn-default active" id="sellUnitPack"
+									        onclick="setSellUnit('PACK')" th:text="#{ui.pack}">Pack</button>
+									<button type="button" class="btn btn-default" id="sellUnitLoose"
+									        onclick="setSellUnit('LOOSE')">Piece</button>
+								</div>
+							</div>
 						</div>
+						<!--
+						  U3 - THE HINT LINE, AND IT IS THE FEATURE.
+
+						  "5 tablets - 12.00 each - uses 0.5 of a pack", live, before the line is committed.
+						  The cashier never does arithmetic and always sees exactly what they are about to
+						  charge. Everything else in this slice is just a fast way to reach this line.
+
+						  The per-piece RATE comes from the server (/looseInfo), fetched once per product and
+						  cached; the browser only multiplies. A second implementation of the rounding rule in
+						  JavaScript would drift from the server's, and the shop would quote one price here and
+						  charge another on the receipt.
+						-->
+						<div class="pos-cell sell-loose-hint" id="sellLooseHint" style="display:none"></div>
 						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
 						     Optional; blank means no bonus and the column prints nothing. Deliberately NOT
 						     wired into calculateNetSell: bonus stock is given away, so it must not move the
@@ -3426,6 +3456,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- Keyboard contract for the sale screen (design P1). Inert unless the org turned on
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->
     <script th:src="@{/js/business/pos-keyboard.js}"></script>
+    <script th:src="@{/js/business/loose-sell.js}"></script>
     <!-- INST-1: selling on terms. Its own file, like order-booking.js — a distinct surface with a
          distinct audience. Inert unless the tenant turned on pos.installment.enabled. -->
     <script th:src="@{/js/business/installment.js}"></script>

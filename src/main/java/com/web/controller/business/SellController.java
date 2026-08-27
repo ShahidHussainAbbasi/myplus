@@ -238,6 +238,25 @@ public class SellController {
      * That ordering is the point — the order is derived from a sale that already exists, so closing the tab or
      * losing the network can no longer lose it, and a failure to record it cannot fail the sale.
      */
+    /**
+     * U3 — the pack rules for one product, for the till's unit toggle and its live per-piece hint.
+     *
+     * <p>A straight pass-through: the body is business-service's {@code GenericResponse} with a MAP in
+     * {@code object}, so there is no field-by-field projection here and therefore nothing to forget. That is
+     * deliberate — {@link CatalogController#getUserProduct} builds its rows by hand, and U1 lost a whole gate
+     * run to exactly that: the columns existed everywhere and the browser still saw nothing.
+     */
+    @GetMapping("/looseInfo")
+    @ResponseBody
+    public Map<String, Object> looseInfo(final HttpServletRequest request) {
+        try {
+            return client.get("/looseInfo", "productId=" + request.getParameter("productId"));
+        } catch (Exception e) {
+            LOGGER.error("looseInfo proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {

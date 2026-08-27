@@ -775,12 +775,7 @@ public class SagaSellService {
         }
 
         BigDecimal ps = BigDecimal.valueOf(packSize);
-        // ceilToCents(packRate x (1 + markup/100) / packSize). CEILING, and it must be: 100/3 = 33.33 means
-        // three sold singly return 99.99 for goods priced 100 - a loss on EVERY broken pack, invisible, on
-        // the fastest-moving lines in the shop. The rate stays editable, so a shop can still absorb it.
-        BigDecimal looseRate = packRate
-                .multiply(BigDecimal.ONE.add(nzDec(markupPct).movePointLeft(2)))
-                .divide(ps, 2, java.math.RoundingMode.CEILING);
+        BigDecimal looseRate = looseRateOf(packRate, packSize, markupPct);
 
         BigDecimal[] split = pieces.divideAndRemainder(ps);
         BigDecimal wholePacks = split[0];
@@ -797,6 +792,25 @@ public class SagaSellService {
         BigDecimal perPiece = lineTotal.divide(pieces, 2, java.math.RoundingMode.HALF_UP);
 
         return new LooseLine(quantity, lineTotal, lineRate, piecesF, perPiece, packSize);
+    }
+
+    /**
+     * The price of ONE piece: {@code ceilToCents(packRate x (1 + markup/100) / packSize)}.
+     *
+     * <p><b>CEILING, and it must be.</b> 100/3 = 33.33 means three sold singly return 99.99 for goods priced
+     * 100 - a loss on EVERY broken pack, invisible, on the fastest-moving lines in the shop. The rate stays
+     * editable on the line, so a shop that wants to absorb the paisa still can.
+     *
+     * <p><b>THIS IS THE ONLY IMPLEMENTATION OF THIS RULE, AND IT MUST STAY THAT WAY.</b> U3's till shows the
+     * per-piece price live, before the line is committed, and it gets that number from HERE (via
+     * {@code /looseInfo}) rather than recomputing it in JavaScript. A second copy of a rounding rule drifts
+     * from the first the day either changes - and the visible symptom is a shop quoting one price on screen
+     * and charging another on the receipt.
+     */
+    public static BigDecimal looseRateOf(BigDecimal packRate, int packSize, BigDecimal markupPct) {
+        return nzDec(packRate)
+                .multiply(BigDecimal.ONE.add(nzDec(markupPct).movePointLeft(2)))
+                .divide(BigDecimal.valueOf(packSize), 2, java.math.RoundingMode.CEILING);
     }
 
     /** "tablets" / "pieces" - what this product's pieces are called, for a message a shopkeeper can act on. */
