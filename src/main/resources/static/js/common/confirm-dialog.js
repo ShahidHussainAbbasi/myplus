@@ -68,6 +68,26 @@
     }
 
     /**
+     * The dialog's own chrome, translated.
+     *
+     * <p>Every caller may pass its own {@code confirmText}/{@code cancelText}, and most do. What was never
+     * translated is the DEFAULT — so any dialog that did not name its buttons rendered "Cancel", "OK",
+     * "Confirm" and "Please confirm" in English no matter which language the operator had chosen. That is
+     * the shared dialog behind every confirmation in the product, so the gap showed up everywhere at once
+     * and nowhere in particular.
+     *
+     * <p>Same {@code tHas}-then-{@code t} shape the other common modules use: ask whether the bundle
+     * actually has the key before looking it up, so a missing key falls back to readable English instead of
+     * rendering the key itself at the user.
+     */
+    function msg(key, fallback) {
+        if (typeof global.tHas === 'function' && typeof global.t === 'function' && global.tHas(key)) {
+            return global.t(key);
+        }
+        return fallback;
+    }
+
+    /**
      * The one implementation behind uiConfirm/uiPromptConfirm/uiAlert.
      * Resolves: false (cancelled) | true (confirmed) | the entered string when `input` is configured.
      */
@@ -99,7 +119,7 @@
         var title = document.createElement('h3');
         title.className = 'uiC-title';
         title.id = 'uiC-title';
-        title.textContent = opts.title || 'Please confirm';
+        title.textContent = opts.title || msg('ui.js.dlgConfirmTitle', 'Please confirm');
         head.appendChild(badge);
         head.appendChild(title);
         card.appendChild(head);
@@ -143,7 +163,7 @@
             cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.className = 'uiC-btn uiC-cancel';
-            cancelBtn.textContent = opts.cancelText || 'Cancel';
+            cancelBtn.textContent = opts.cancelText || msg('ui.js.dlgCancel', 'Cancel');
             foot.appendChild(cancelBtn);
         }
         /*
@@ -167,7 +187,8 @@
         okBtn.type = 'button';
         okBtn.className = 'uiC-btn uiC-ok';
         okBtn.style.background = tone.solid;
-        okBtn.textContent = opts.confirmText || (alertOnly ? 'OK' : 'Confirm');
+        okBtn.textContent = opts.confirmText
+                || (alertOnly ? msg('ui.js.dlgOk', 'OK') : msg('ui.js.dlgConfirm', 'Confirm'));
         okBtn.setAttribute('data-ui-confirm', 'ok');   // stable hook for tests
         foot.appendChild(okBtn);
         card.appendChild(foot);
@@ -202,7 +223,7 @@
                 if (hasInput) {
                     var v = input.value.trim();
                     if (opts.input.required && !v) {
-                        err.textContent = opts.input.requiredMessage || 'This is required.';
+                        err.textContent = opts.input.requiredMessage || msg('ui.js.dlgRequired', 'This is required.');
                         input.focus();
                         return;
                     }
