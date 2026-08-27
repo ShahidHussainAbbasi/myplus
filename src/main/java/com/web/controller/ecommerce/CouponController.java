@@ -1,6 +1,6 @@
 package com.web.controller.ecommerce;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -30,7 +30,7 @@ public class CouponController {
     @ResponseBody
     public Map<String, Object> getCoupons() {
         try { return client.get("/coupons"); }
-        catch (Exception e) { LOGGER.error("getCoupons proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("getCoupons proxy error", e); return ProxyErrors.failure(e); }
     }
 
     @RequestMapping(value = "/addCoupon", method = RequestMethod.POST)
@@ -51,7 +51,7 @@ public class CouponController {
             return out;
         } catch (Exception e) {
             LOGGER.error("addCoupon proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 }

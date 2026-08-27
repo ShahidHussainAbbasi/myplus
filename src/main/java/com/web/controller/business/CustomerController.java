@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,7 +38,7 @@ public class CustomerController {
             return client.get("/customerOptions");
         } catch (Exception e) {
             LOGGER.error("customerOptions proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -49,7 +49,7 @@ public class CustomerController {
             return client.get("/getUserCustomer");
         } catch (Exception e) {
             LOGGER.error("getUserCustomer proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -71,7 +71,7 @@ public class CustomerController {
             return client.get("/getAllCustomer");
         } catch (Exception e) {
             LOGGER.error("getAllCustomer proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -84,7 +84,7 @@ public class CustomerController {
             return client.postForm("/addCustomer", params);
         } catch (Exception e) {
             LOGGER.error("addCustomer proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -97,7 +97,7 @@ public class CustomerController {
             return client.get("/customerCredit", "customerId=" + (id == null ? "" : id));
         } catch (Exception e) {
             LOGGER.error("customerCredit proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -114,7 +114,7 @@ public class CustomerController {
             return client.get("/outlets", "");
         } catch (Exception e) {
             LOGGER.error("outlets proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -133,7 +133,7 @@ public class CustomerController {
             return client.get("/creditStanding", "customerId=" + (id == null ? "" : id));
         } catch (Exception e) {
             LOGGER.error("creditStanding proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -148,7 +148,7 @@ public class CustomerController {
             return client.postForm("/receivePayment", params);
         } catch (Exception e) {
             LOGGER.error("receivePayment proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -166,7 +166,7 @@ public class CustomerController {
             return client.get("/outletAssignments", "");
         } catch (Exception e) {
             LOGGER.error("outletAssignments proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -187,7 +187,7 @@ public class CustomerController {
             return client.postForm("/assignOutlets", params);
         } catch (Exception e) {
             LOGGER.error("assignOutlets proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -204,7 +204,7 @@ public class CustomerController {
             return client.postForm("/setCustomerAccountParent", params);
         } catch (Exception e) {
             LOGGER.error("setCustomerAccountParent proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -217,7 +217,7 @@ public class CustomerController {
             return client.get("/customerAccountGroup", "customerId=" + (id == null ? "" : id));
         } catch (Exception e) {
             LOGGER.error("customerAccountGroup proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -229,7 +229,7 @@ public class CustomerController {
             return client.get("/unbridgedCustomers");
         } catch (Exception e) {
             LOGGER.error("unbridgedCustomers proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

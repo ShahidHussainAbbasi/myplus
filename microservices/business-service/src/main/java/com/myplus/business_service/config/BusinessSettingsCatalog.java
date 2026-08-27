@@ -418,6 +418,23 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // Defaults to WARN, and an unreadable value also resolves to WARN (standard C3: a safety flag
                 // fails ON). "block" is offered for shops that want it enforced, but is not the default —
                 // refusing a sale outright at the counter is the shopkeeper's call, not ours.
+                // U2 - the uplift for breaking a pack. Design: docs/slices/u2-loose-sale-arithmetic.md 4.1.
+                //
+                // DEFAULT 0, so a shop that has not asked for this sees no change at all: a tablet costs
+                // exactly the pack price divided. It ships in the same slice as loose selling rather than
+                // later because every trade that sells loose prices it above the pack rate - breaking a pack
+                // destroys the ability to sell it sealed - and a first release without it is a feature shops
+                // decline to switch on.
+                //
+                // MONEY rather than INT because 2.5% is a real answer.
+                SettingEntry.money("pos.sale.looseMarkupPct",
+                        "Extra % when a pack is broken",
+                        "Applies only to the loose part of a line. 0 (default): a piece costs the pack price "
+                                + "divided by the pack size. 10: a piece costs 10% more than that. Whole packs "
+                                + "are always charged at the pack price, so ten tablets out of a pack of ten "
+                                + "never costs more than the sealed pack beside it. The rate is rounded UP to "
+                                + "the nearest paisa - rounding down would lose money on every broken pack.",
+                        "0", "Point of Sale"),
                 SettingEntry.select("pos.sale.marginPolicy",
                         "When a sale makes no profit",
                         "Checks the WHOLE invoice at Complete Sale, after discounts. Warn (default): the sale is "

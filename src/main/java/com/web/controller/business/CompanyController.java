@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class CompanyController {
             return client.get("/getUserCompany");
         } catch (Exception e) {
             LOGGER.error("getUserCompany proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -53,7 +53,7 @@ public class CompanyController {
             return client.get("/getAllCompany");
         } catch (Exception e) {
             LOGGER.error("getAllCompany proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -66,7 +66,7 @@ public class CompanyController {
             return client.postForm("/addCompany", params);
         } catch (Exception e) {
             LOGGER.error("addCompany proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

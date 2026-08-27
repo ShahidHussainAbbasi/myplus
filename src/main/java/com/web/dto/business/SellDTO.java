@@ -1,6 +1,7 @@
 package com.web.dto.business;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
@@ -37,6 +38,30 @@ public class SellDTO implements Serializable {
 	// private String customerName;
 
 	private Float quantity=1F;
+
+	/*
+	 * U2 - a broken pack. Design: microservices/docs/slices/u2-loose-sale-arithmetic.md
+	 *
+	 * ⚠ THIS CLASS IS A TYPED ALLOW-LIST. It is annotated @JsonIgnoreProperties(ignoreUnknown = true), so a
+	 * field the browser posts that is NOT declared here is dropped in silence on its way to business-service.
+	 * Nothing errors. The sale simply prices as a whole pack, and the only symptom is a customer charged 120
+	 * for five tablets.
+	 *
+	 * That is the THIRD time this shape has cost this programme a defect - after the monolith's product row
+	 * projection (U1) and gl_outbox before it. When a field must travel, count the copy points; the compiler
+	 * checks none of them.
+	 *
+	 * soldUnit + soldQuantity travel INBOUND (what the customer asked for);
+	 * soldRate + packSizeSnapshot come back OUTBOUND, server-populated, so a receipt can print "5 tablets @
+	 * 12.00" without recomputing anything.
+	 */
+	private String soldUnit;
+
+	private Float soldQuantity;
+
+	private BigDecimal soldRate;
+
+	private Integer packSizeSnapshot;
 
 	/**
 	 * B2B-P3g: free goods issued with this line ("Bon." on a trade invoice) — 20 billed, 2 free.

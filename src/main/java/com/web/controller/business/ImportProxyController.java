@@ -1,5 +1,6 @@
 package com.web.controller.business;
 
+import com.web.util.ProxyErrors;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -146,7 +147,7 @@ public class ImportProxyController {
                     : business.postJson(path, body);
         } catch (Exception e) {
             LOGGER.error("import proxy error for {}", path, e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

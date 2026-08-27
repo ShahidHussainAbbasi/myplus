@@ -1,6 +1,6 @@
 package com.web.controller.abbasiWelfare;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,7 +37,7 @@ public class DonationController {
             return client.get("/getUserDonations");
         } catch (Exception e) {
             LOGGER.error("getUserDonations proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -48,7 +48,7 @@ public class DonationController {
             return client.get("/getUserDonation");
         } catch (Exception e) {
             LOGGER.error("getUserDonation proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -59,7 +59,7 @@ public class DonationController {
             return client.get("/getUserDonator");
         } catch (Exception e) {
             LOGGER.error("getUserDonator proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -81,7 +81,7 @@ public class DonationController {
             return client.postForm("/addDonator", params(request));
         } catch (Exception e) {
             LOGGER.error("addDonator proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -92,7 +92,7 @@ public class DonationController {
             return client.postForm("/addDonation", params(request));
         } catch (Exception e) {
             LOGGER.error("addDonation proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

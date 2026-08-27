@@ -165,7 +165,7 @@
 								.done(function (r) {
 									// FAILED carries a reason a family can act on (slot taken, evening
 									// closed) — shown rather than swallowed.
-									if (!r || r.status !== 'SUCCESS') { uiAlert((r && r.message) || ''); }
+									if (!r || r.status !== 'SUCCESS') { uiAlert(apiMessage(r, '')); }
 									loadMeetings();
 								})
 								.fail(function () { $b.prop('disabled', false); });

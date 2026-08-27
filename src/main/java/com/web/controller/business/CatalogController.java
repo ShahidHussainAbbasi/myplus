@@ -1,5 +1,6 @@
 package com.web.controller.business;
 
+import com.web.util.ProxyErrors;
 import java.util.Collections;
 import java.util.Map;
 
@@ -46,26 +47,15 @@ public class CatalogController {
      * 4xx/5xx with a {message:...} body (e.g. "Product SKU already exists: 001"), relay that real reason instead of
      * a blank failure so the UI can tell the user what went wrong.
      */
-    @SuppressWarnings("unchecked")
+    /**
+     * Kept as a one-line delegation so the ~40 call sites in this class stay unchanged.
+     *
+     * <p>This method used to hold the logic itself, and was the ONLY place in the monolith that relayed a
+     * downstream reason or let the trial/demo upsell through. That is now {@link ProxyErrors}, shared by
+     * every proxy controller — this class had the right behaviour and 20 others did not.
+     */
     private Map<String, Object> failure(Exception e) {
-        // The demo free-trial cap (403 DEMO_LIMIT) arrives as a DemoLimitException, which is NOT an
-        // HttpStatusCodeException — so it used to fall straight through to the bare {success:false} below and the
-        // "register at maxtheservice.com" upsell was lost. Worse, a capped write then looked like an unexplained
-        // failure: two rounds of pharmacy test triage were spent on one. Let it reach DemoLimitAdvice, which
-        // renders the upsell uniformly for every dashboard.
-        if (e instanceof com.web.error.DemoLimitException dle) throw dle;
-
-        if (e instanceof HttpStatusCodeException he) {
-            try {
-                Map<String, Object> body = objectMapper.readValue(he.getResponseBodyAsString(), Map.class);
-                if (body.get("message") != null) {
-                    return Map.of("success", false, "message", body.get("message"));
-                }
-            } catch (Exception ignore) {
-                // fall through to the generic failure below
-            }
-        }
-        return Collections.singletonMap("success", false);
+        return ProxyErrors.failure(e);
     }
 
     /** Catalog products for the picker. Pass-through of paging params, e.g. /catalogProducts?size=1000. */
@@ -76,7 +66,7 @@ public class CatalogController {
             return catalog.get("/products", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("catalogProducts proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -95,7 +85,7 @@ public class CatalogController {
             return catalog.get("/products/picker", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("catalogProductPicker proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -192,7 +182,7 @@ public class CatalogController {
             return out;
         } catch (Exception e) {
             LOGGER.error("getUserProduct proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -259,7 +249,7 @@ public class CatalogController {
             return out;
         } catch (Exception e) {
             LOGGER.error("productNameCheck proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -410,7 +400,7 @@ public class CatalogController {
             return Map.of("success", true, "categories", cats);
         } catch (Exception e) {
             LOGGER.error("getUserCategories proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -434,7 +424,7 @@ public class CatalogController {
             return catalog.get("/products/" + request.getParameter("id"));
         } catch (Exception e) {
             LOGGER.error("getCatalogProduct proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -456,7 +446,7 @@ public class CatalogController {
             return Map.of("success", true, "created", count);
         } catch (Exception e) {
             LOGGER.error("addProductStock proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -502,7 +492,7 @@ public class CatalogController {
             return Map.of("success", true, "levels", levels != null ? levels : Collections.emptyMap());
         } catch (Exception e) {
             LOGGER.error("productStockLevels proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -522,7 +512,7 @@ public class CatalogController {
             return inventory.postJson("/reservations/sweep", Collections.emptyMap());
         } catch (Exception e) {
             LOGGER.error("sweepStockHolds proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -537,7 +527,7 @@ public class CatalogController {
             return out;
         } catch (Exception e) {
             LOGGER.error("productStock proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -555,7 +545,7 @@ public class CatalogController {
             return out;
         } catch (Exception e) {
             LOGGER.error("productSellable proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -568,7 +558,7 @@ public class CatalogController {
             return resp != null ? resp : Collections.singletonMap("items", java.util.Collections.emptyList());
         } catch (Exception e) {
             LOGGER.error("quarantineList proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -580,7 +570,7 @@ public class CatalogController {
             return inventory.postJson("/stock/quarantine/" + body.get("id") + "/dispose", Collections.emptyMap());
         } catch (Exception e) {
             LOGGER.error("disposeQuarantine proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 }

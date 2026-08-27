@@ -35,6 +35,29 @@ public class SellDTO implements Serializable {
 
 	private Float quantity=1F;
 
+	/*
+	 * U2 — how a caller asks for a BROKEN PACK. Design: docs/slices/u2-loose-sale-arithmetic.md §3, §5.
+	 *
+	 * ON THE WAY IN, only these two are read, and only when soldUnit is LOOSE:
+	 *
+	 *   soldUnit      "LOOSE"  — absent or "PACK" means an ordinary line, priced exactly as it is today
+	 *   soldQuantity  5        — how many PIECES; `quantity` is then IGNORED and derived server-side
+	 *
+	 * soldRate and packSizeSnapshot are SERVER-POPULATED and ignored on the way in: a caller does not get to
+	 * choose what a piece costs or claim what a pack held. buildLines derives both from the product, and both
+	 * come back out so a receipt can print them.
+	 */
+	private String soldUnit;
+
+	/** PIECES the customer asked for (LOOSE lines only). When set, {@link #quantity} is derived, not read. */
+	private Float soldQuantity;
+
+	/** Per piece. <b>Server-populated; ignored on the way in.</b> */
+	private BigDecimal soldRate;
+
+	/** The pack size at the moment of sale. <b>Server-populated; ignored on the way in.</b> */
+	private Integer packSizeSnapshot;
+
 	/**
 	 * B2B-P2 (#10): WHY this line is priced the way it is — e.g. "Wholesale price −12%" or "Contract price".
 	 * Server-populated on the way out; ignored on the way in.

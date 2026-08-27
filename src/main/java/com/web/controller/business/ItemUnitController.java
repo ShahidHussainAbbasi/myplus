@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class ItemUnitController {
             return client.get("/getUserItemUnit");
         } catch (Exception e) {
             LOGGER.error("getUserItemUnit proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -53,7 +53,7 @@ public class ItemUnitController {
             return client.get("/getAllItemUnit");
         } catch (Exception e) {
             LOGGER.error("getAllItemUnit proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -66,7 +66,7 @@ public class ItemUnitController {
             return client.postForm("/addItemUnit", params);
         } catch (Exception e) {
             LOGGER.error("addItemUnit proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

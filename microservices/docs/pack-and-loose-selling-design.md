@@ -315,6 +315,12 @@ allocation terminates cleanly. Two rules make the rest safe:
 mixing packs with tablets would be unreadable. Selling 5 tablets decrements **0.5 packs** — representable
 today, no migration to `StockEntry` or `Reservation`.
 
+> ⚠ **This paragraph and U0 §3.1 ("stock stored in BASE UNITS, always") contradicted each other** for two
+> slices, harmlessly, because until U1 no product had a pack size and the two readings gave the same number.
+> **[U2 §2](slices/u2-loose-sale-arithmetic.md) settles it in favour of this paragraph** and states what U0
+> actually shipped: the column type changed, the stored values never did. `EPS`-era wording in §6.5 above also
+> predates U0's move to `BigDecimal` — the tolerance is gone, and derivation is exact.
+
 ⚠ **Nothing downstream learns a new concept.** Tax, COGS, GL, credit, aging, statements and installment plans
 see a line with a quantity and a rate, as now. **No new `PostingEventRequest` field — and a design that adds no
 field cannot reproduce the 4200 defect**, where a new posting field needed five copy points and silently

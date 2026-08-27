@@ -1,5 +1,6 @@
 package com.web.controller;
 
+import com.web.util.ProxyErrors;
 import java.util.Collections;
 import java.util.Map;
 
@@ -49,10 +50,10 @@ public class TeamController {
                     new HttpEntity<>(headers), Object.class).getBody();
         } catch (HttpStatusCodeException e) {
             LOGGER.warn("listTeam {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         } catch (Exception e) {
             LOGGER.error("listTeam proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 

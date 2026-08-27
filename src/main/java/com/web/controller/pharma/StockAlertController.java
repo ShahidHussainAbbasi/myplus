@@ -1,6 +1,6 @@
 package com.web.controller.pharma;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,6 +31,6 @@ public class StockAlertController {
     @ResponseBody
     public Map<String, Object> getStockAlerts(final HttpServletRequest request) {
         try { return inventory.get("/alerts"); }
-        catch (Exception e) { LOGGER.error("getStockAlerts proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("getStockAlerts proxy error", e); return ProxyErrors.failure(e); }
     }
 }

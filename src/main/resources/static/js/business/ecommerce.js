@@ -524,7 +524,7 @@
                         openOrderDetail(id);
                     } else {
                         // e.g. "a COD order cannot be card-refunded" — the server's reason, not ours.
-                        showFormError((resp && resp.message) || 'Could not refund the order.');
+                        showFormError(apiMessage(resp, 'Could not refund the order.'));
                     }
                 },
                 error: function (xhr) {
@@ -608,7 +608,7 @@
                     openOrderDetail(id);
                 } else {
                     // e.g. "Cannot ship 6 of Widget — only 5 still to go" — the server's own wording.
-                    showFormError((resp && resp.message) || 'Could not record the shipment.');
+                    showFormError(apiMessage(resp, 'Could not record the shipment.'));
                 }
             },
             error: function (xhr) {

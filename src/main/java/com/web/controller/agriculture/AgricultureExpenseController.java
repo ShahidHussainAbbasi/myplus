@@ -1,6 +1,6 @@
 package com.web.controller.agriculture;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,7 +38,7 @@ public class AgricultureExpenseController {
             return client.postForm("/addAgricultureExpense", params(request));
         } catch (Exception e) {
             LOGGER.error("addAgricultureExpense proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -49,7 +49,7 @@ public class AgricultureExpenseController {
             return client.get("/getUserAgricultureExpense");
         } catch (Exception e) {
             LOGGER.error("getUserAgricultureExpense proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -60,7 +60,7 @@ public class AgricultureExpenseController {
             return client.get("/expense/loadLastCropAttached", "landId=" + landId);
         } catch (Exception e) {
             LOGGER.error("expense loadLastCropAttached proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -73,7 +73,7 @@ public class AgricultureExpenseController {
             return client.postForm("/deleteAgricultureExpense", params);
         } catch (Exception e) {
             LOGGER.error("deleteAgricultureExpense proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

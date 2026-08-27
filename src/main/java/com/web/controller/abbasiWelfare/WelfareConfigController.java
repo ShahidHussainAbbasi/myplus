@@ -1,6 +1,6 @@
 package com.web.controller.abbasiWelfare;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,7 +38,7 @@ public class WelfareConfigController {
             return client.get("/getConfig");
         } catch (Exception e) {
             LOGGER.error("welfare getConfig proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -51,7 +51,7 @@ public class WelfareConfigController {
             return client.postForm("/saveConfig", params);
         } catch (Exception e) {
             LOGGER.error("welfare saveConfig proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

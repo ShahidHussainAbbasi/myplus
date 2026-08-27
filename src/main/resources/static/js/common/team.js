@@ -96,7 +96,7 @@ function editTeamAccess(user) {
 					cancelTeamAccessEdit();
 					loadTeamUsers();
 				} else {
-					teamMsg((res && res.message) || 'Could not update access.', true);
+					teamMsg(apiMessage(res, 'Could not update access.'), true);
 				}
 			},
 			error: function () { teamMsg('Could not update access.', true); }
@@ -228,7 +228,7 @@ function addTeamUser() {
 				renderTeamLocations();
 				loadTeamUsers();
 			} else {
-				teamMsg((resp && resp.message) || 'Could not add the team member.', true);
+				teamMsg(apiMessage(resp, 'Could not add the team member.'), true);
 			}
 		},
 		error: function (xhr) {

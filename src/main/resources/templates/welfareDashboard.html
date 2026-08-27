@@ -241,6 +241,7 @@ var serverContext = [[@{/}]];
 	<!-- header-js loads jQuery + shared libs; must come before dom-safe.js / welfare.js which use $ -->
 	<th:block th:replace="~{fragments/header :: header-js}"></th:block>
 	<script th:src="@{/js/common/dom-safe.js}"></script>
+	<script th:src="@{/js/common/api-response.js}"></script>
 	<script th:src="@{/js/welfare/welfare.js}"></script>
 	<script th:src="@{/js/business/sidebar.js}"></script>
 	<!-- Shared CRUD modal layer (openModal/closeModal/newEntity/bulk-select) — same as businessDashboard. -->

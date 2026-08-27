@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,7 +36,7 @@ public class BusinessConfigController {
             return client.get("/settings");
         } catch (Exception e) {
             LOGGER.error("getBusinessConfig proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -52,7 +52,7 @@ public class BusinessConfigController {
             return client.postJson("/settings?" + qs, java.util.Map.of());
         } catch (Exception e) {
             LOGGER.error("saveBusinessConfig proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 

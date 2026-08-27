@@ -807,7 +807,7 @@
         if (!invoiceNo) { if (global.showFormError) showFormError(t('ui.js.noInvoiceToPrint')); return; }
         $.get(serverContext + 'getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo), function (resp) {
             if (!resp || resp.status !== 'SUCCESS' || !resp.object) {
-                if (global.showFormError) showFormError((resp && resp.message) || 'Could not load the receipt.');
+                if (global.showFormError) showFormError(apiMessage(resp, 'Could not load the receipt.'));
                 return;
             }
             printInvoiceObject(resp.object, profile);

@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,34 +34,34 @@ public class ShiftController {
     @ResponseBody
     public Map<String, Object> openShift(final HttpServletRequest request) {
         try { return client.postForm("/openShift", formParams(request)); }
-        catch (Exception e) { LOGGER.error("openShift proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("openShift proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/currentShift", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> currentShift(final HttpServletRequest request) {
         try { return client.get("/currentShift"); }
-        catch (Exception e) { LOGGER.error("currentShift proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("currentShift proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/cashMovement", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> cashMovement(final HttpServletRequest request) {
         try { return client.postForm("/cashMovement", formParams(request)); }
-        catch (Exception e) { LOGGER.error("cashMovement proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("cashMovement proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/shiftReport", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> shiftReport(final HttpServletRequest request) {
         try { return client.get("/shiftReport"); }
-        catch (Exception e) { LOGGER.error("shiftReport proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("shiftReport proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/closeShift", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> closeShift(final HttpServletRequest request) {
         try { return client.postForm("/closeShift", formParams(request)); }
-        catch (Exception e) { LOGGER.error("closeShift proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("closeShift proxy error", e); return ProxyErrors.statusError(e); }
     }
 }

@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,7 +42,7 @@ public class SalesQuoteController {
             return business.get("/getUserQuotes");
         } catch (Exception e) {
             LOGGER.error("getUserQuotes proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -53,7 +53,7 @@ public class SalesQuoteController {
             return business.get("/getQuote", "id=" + nz(request.getParameter("id")));
         } catch (Exception e) {
             LOGGER.error("getQuote proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -65,7 +65,7 @@ public class SalesQuoteController {
             return business.postJson("/addQuote", body);
         } catch (Exception e) {
             LOGGER.error("addQuote proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -114,7 +114,7 @@ public class SalesQuoteController {
             return business.postForm(path, params);
         } catch (Exception e) {
             LOGGER.error("{} proxy error", path, e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

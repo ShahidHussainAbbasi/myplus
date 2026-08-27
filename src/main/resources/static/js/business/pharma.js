@@ -76,7 +76,7 @@
                     showSaleSuccess(t('ui.js.prescriptionRecorded'));
                     $('#Prescription')[0].reset(); rxItems = []; renderRxItems();
                     loadPrescriptions();
-                } else { showFormError((resp && resp.message) || 'Could not save the prescription.'); }
+                } else { showFormError(apiMessage(resp, 'Could not save the prescription.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotSaveThePrescription')); }
         });
@@ -222,7 +222,7 @@
                 rxRequired: $('#clRx').is(':checked'), controlledSubstance: $('#clControlled').is(':checked') }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess(t('ui.js.flagsSaved')); $('#clRx,#clControlled').prop('checked', false); loadClinical(); }
-                else showFormError((resp && resp.message) || 'Could not save flags.');
+                else showFormError(apiMessage(resp, 'Could not save flags.'));
             },
             error: function () { showFormError(t('ui.js.couldNotSaveFlags')); }
         });
@@ -236,7 +236,7 @@
             data: JSON.stringify({ productId1: Number(a), productId2: Number(b), severity: $('#clSeverity').val(), description: $('#clInterDesc').val() }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess(t('ui.js.interactionAdded')); $('#clInterDesc').val(''); }
-                else showFormError((resp && resp.message) || 'Could not add interaction.');
+                else showFormError(apiMessage(resp, 'Could not add interaction.'));
             },
             error: function () { showFormError(t('ui.js.couldNotAddInteraction')); }
         });
@@ -301,7 +301,7 @@
                 data: JSON.stringify({ prescriptionId: id }),
                 success: function (resp) {
                     if (resp && resp.success) { showSaleSuccess(t('ui.js.prescriptionCancelled')); loadPrescriptions(); }
-                    else showFormError((resp && resp.message) || 'Could not cancel the prescription.');
+                    else showFormError(apiMessage(resp, 'Could not cancel the prescription.'));
                 },
                 error: function () { showFormError(t('ui.js.couldNotCancelThePrescription')); }
             });
@@ -332,7 +332,7 @@
                     if (warnings.length) showFormError(warnings.join('  '));
                     loadPrescriptions();
                 } else {
-                    showFormError((resp && resp.message) || 'Could not record the dispense.');
+                    showFormError(apiMessage(resp, 'Could not record the dispense.'));
                 }
             },
             error: function () { showFormError(t('ui.js.couldNotRecordTheDispense')); },

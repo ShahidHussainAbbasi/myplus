@@ -43,6 +43,59 @@ reinvent.**
    and `SagaSellServiceTest` kept stubbing the old arity, so **business-service's unit suite failed to compile
    for two whole phases** while those phases were reported green on Cypress alone. Run the owning service's
    `mvn test` in the gate, not just the spec._
+7. **Industry-grade by default — benchmark, name the pattern, state performance and security.** Adopted
+   2026-08-27, at the owner's direction, because **this codebase is heading for many domains on one core** and
+   a shortcut that is invisible in one becomes structural when the next five sit on top of it. Every design
+   document from here carries four things, by name:
+
+   * **7a · The benchmark, BEFORE the decision.** Name the established systems that already solved this
+     problem — SAP, Odoo, NetSuite, Dynamics, Square/Shopify for commerce; the leaders of whatever domain
+     otherwise — say what was taken from each, **and where we deliberately differ and why**. Neither
+     re-invent nor cargo-cult. _The ordering is load-bearing: in U2 the benchmark **changed the answer**._
+     _→ `slices/u2-loose-sale-arithmetic.md` §10 is the reference shape._
+   * **7b · The pattern, named, with its SOLID/DRY consequence.** Not "we used a service" — *"Value Object +
+     Strategy at the pricing seam; Open/Closed, because the next caller adds no branch here."* A pattern you
+     cannot name is a shape you cannot reuse in the next domain.
+   * **7c · Performance, on the HOT path specifically.** New remote calls (ideally none — ride the fetch that
+     already happens), new queries, per-request vs per-line reads, indexes added **or deliberately not**, and
+     the net effect on a tenant who never switches the feature on. _→ perf-priority feedback._
+   * **7d · Security.** Where the control is **enforced server-side** (a UI that does not offer it has never
+     been a control), what the client is trusted for and what it is not, tenancy, and what the refusal path
+     does to the surrounding transaction.
+
+   **And prefer the current ecosystem** — supported library and platform features over hand-rolled
+   equivalents; say why when choosing otherwise.
+8. **Every response is parsed and displayed the same way.** Adopted 2026-08-27, at the owner's direction,
+   after users reported that server messages — the free-trial notice among them — never reached the screen.
+
+   **The platform answers in two envelopes** and will for some time:
+
+   ```
+   ApiResponse       { success: true,     message, data,   statusCode }     65 files
+   GenericResponse   { status: "SUCCESS", message, object, collection }     71 files
+   ```
+
+   * **8a · Server side — a refusal is an ANSWER, not a failure.** A proxy must never reduce a downstream
+     response to a bare status. `com.web.util.ProxyErrors` relays the downstream `message` and lets
+     user-facing exceptions (`DemoLimitException`) reach their `@ControllerAdvice`. **Before this, 108 proxy
+     methods returned `{"status":"ERROR"}` with the reason discarded** — the service had explained itself and
+     the monolith threw the sentence away.
+   * **8b · Both envelopes answer both questions.** `GenericResponse` exposes a derived `success`
+     (`status == SUCCESS`), so `body.success` means the same thing on every endpoint. Derived, never stored —
+     one source of truth, two ways to read it.
+   * **8c · Client side — never read the envelope by hand.** `/js/common/api-response.js` is the only
+     reader: `apiOk(resp)`, `apiMessage(resp, fallback)`, `apiFailMessage(jqXHR, fallback)`,
+     `apiData(resp)`, `apiList(resp)`, `apiHandle(resp, {...})`. Loaded on every dashboard.
+   * **8d · The server's sentence wins.** A hard-coded failure message is a FALLBACK for when the server sent
+     none — never the default. `apiFailMessage` exists because jQuery routes non-2xx to `error`/`fail`, where
+     the body sits unread in `responseJSON`: handlers were telling users *"Network error, check your
+     connection"* when the connection was fine and the response said their trial had ended.
+
+   ⚠ **The failure mode that makes this a standard rather than a preference: reading the wrong field never
+   throws.** It silently reports "failed" for a call that worked, or "fine" for one that failed. In tests it
+   is worse still — `expect(body.success).to.not.eq(true)` against an envelope with no `success` field
+   **passes for every possible outcome**, and three refusal tests reported green while asserting nothing at
+   all. _→ `slices/u2-loose-sale-arithmetic.md` §13.4b._
 
 ---
 

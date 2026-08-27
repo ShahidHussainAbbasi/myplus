@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,7 +29,7 @@ public class BusinessDashboardController {
             return client.get("/getBusinessDashboardStats");
         } catch (Exception e) {
             LOGGER.error("getBusinessDashboardStats proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -40,7 +40,7 @@ public class BusinessDashboardController {
             return client.get("/getDashboardChartData");
         } catch (Exception e) {
             LOGGER.error("getDashboardChartData proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

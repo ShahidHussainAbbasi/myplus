@@ -201,6 +201,13 @@ public class SagaSaleWriter {
             sell.setDiscount(l.discount());
             sell.setBonusQuantity(l.bonusQuantity()); // B2B-P3g: free goods on this line ("Bon." on a trade
                                                       // invoice). Printed, not priced — see decision D-2.
+            // U2: the broken-pack record. All four are null on an ordinary line, which is every line until a
+            // shop switches loose selling on for a product. THE MONEY IS ALREADY ABOVE — quantity x sellRate;
+            // these are the sale as the customer experienced it, and nothing prices from them.
+            sell.setSoldUnit(l.soldUnit());
+            sell.setSoldQuantity(l.soldQuantity());
+            sell.setSoldRate(l.soldRate());
+            sell.setPackSizeSnapshot(l.packSizeSnapshot());
             sell.setDt(l.discountType());            // persist the discount type ("%" / "Amount") for the sell history table
             sell.setTotalAmount(l.totalAmount());
             sell.setNetAmount(l.netAmount());

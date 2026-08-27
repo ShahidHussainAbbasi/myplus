@@ -37,7 +37,7 @@
     global.openShift = function () {
         $.post(serverContext + 'openShift', { openingFloat: $('#tillFloat').val() || '0' }, function (resp) {
             if (resp && resp.status === 'SUCCESS') { showSaleSuccess(t('ui.js.shiftOpened')); $('#tillFloat').val(''); loadCurrentShift(); }
-            else { showFormError((resp && resp.message) || 'Could not open the shift.'); }
+            else { showFormError(apiMessage(resp, 'Could not open the shift.')); }
         }, 'json').fail(function () { showFormError(t('ui.js.couldNotOpenTheShift')); });
     };
 
@@ -51,14 +51,14 @@
                     showSaleSuccess(t('ui.js.cashMovementRecorded'));
                     $('#tillMoveAmount').val(''); $('#tillMoveReason').val('');
                     loadShiftReport();
-                } else { showFormError((resp && resp.message) || 'Could not record the movement.'); }
+                } else { showFormError(apiMessage(resp, 'Could not record the movement.')); }
             }, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordTheMovement')); });
     };
 
     global.loadShiftReport = function () {
         $.get(serverContext + 'shiftReport', function (resp) {
             if (resp && resp.status === 'SUCCESS' && resp.object) renderShiftReport(resp.object, false);
-            else showFormError((resp && resp.message) || 'No open shift.');
+            else showFormError(apiMessage(resp, 'No open shift.'));
         }).fail(function () { showFormError(t('ui.js.couldNotLoadTheReport')); });
     };
 
@@ -70,7 +70,7 @@
                     renderShiftReport(resp.object, true);
                     $('#tillCounted').val(''); $('#tillCloseNotes').val('');
                     loadCurrentShift();
-                } else { showFormError((resp && resp.message) || 'Could not close the shift.'); }
+                } else { showFormError(apiMessage(resp, 'Could not close the shift.')); }
             }, 'json').fail(function () { showFormError(t('ui.js.couldNotCloseTheShift')); });
     };
 

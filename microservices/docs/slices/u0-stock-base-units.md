@@ -126,6 +126,21 @@ and this document states the obligation rather than leaving it to be discovered:
 > explicitly asks for base units. The sale path already converts at `buildLines`; the *display* paths — stock
 > grids, low-stock alerts, the picker's on-hand — must not silently start showing tablets.
 
+> ### ✅ SETTLED IN [U2 §2](u2-loose-sale-arithmetic.md) — there is no conversion
+>
+> ⚠ **Read this before trusting the paragraph above.** U0 changed the column TYPE and described base units,
+> but it multiplied nothing: every `packSize` was null, so the migration was an identity and **every stock row
+> in the database is in SELLING UNITS to this day.**
+>
+> U2 faced the fork for real and chose to keep it that way — a loose sale of 5 tablets decrements **0.5
+> packs**, exact in `DECIMAL(19,4)` for the pack sizes that dominate retail. Converting to true base units
+> would mean multiplying every live stock row and changing every purchase, adjustment, transfer, import and
+> count in the same deploy; its failure mode is a shop's on-hand out by a factor of `packSize`, against a
+> bounded fraction-of-a-pack drift for the alternative.
+>
+> **So the obligation is closed, not deferred.** What this slice really delivered is *exact decimal quantities
+> in selling units* — which is what makes 0.5 of a pack safe to store, and is the part that mattered.
+
 ## 5. Migration — `V8__stock_base_units.sql` (inventory-service)
 
 ```sql

@@ -1,6 +1,6 @@
 package com.web.controller.ecommerce;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,7 +55,7 @@ public class DriverSettlementController {
             return relayError(e, "Could not load the driver's collections.");
         } catch (Exception e) {
             LOGGER.error("getDriverCollections proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -69,7 +69,7 @@ public class DriverSettlementController {
             return relayError(e, "Could not settle the driver.");
         } catch (Exception e) {
             LOGGER.error("settleDriver proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -84,7 +84,7 @@ public class DriverSettlementController {
             return relayError(e, "Could not load the settlements.");
         } catch (Exception e) {
             LOGGER.error("getDriverSettlements proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -102,7 +102,7 @@ public class DriverSettlementController {
             return relayError(e, "Could not load the settlement.");
         } catch (Exception e) {
             LOGGER.error("getDriverSettlement proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 

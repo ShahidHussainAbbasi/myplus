@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class TaxSettingController {
             return client.get("/getTaxSetting");
         } catch (Exception e) {
             LOGGER.error("getTaxSetting proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -44,7 +44,7 @@ public class TaxSettingController {
             return client.postForm("/saveTaxSetting", params);
         } catch (Exception e) {
             LOGGER.error("saveTaxSetting proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

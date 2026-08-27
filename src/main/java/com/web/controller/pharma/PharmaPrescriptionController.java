@@ -1,6 +1,6 @@
 package com.web.controller.pharma;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,14 +30,14 @@ public class PharmaPrescriptionController {
     @ResponseBody
     public Map<String, Object> getPrescriptions(final HttpServletRequest request) {
         try { return client.get("/prescriptions"); }
-        catch (Exception e) { LOGGER.error("getPrescriptions proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("getPrescriptions proxy error", e); return ProxyErrors.failure(e); }
     }
 
     @RequestMapping(value = "/getPrescription", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getPrescription(final HttpServletRequest request) {
         try { return client.get("/prescriptions/" + request.getParameter("id")); }
-        catch (Exception e) { LOGGER.error("getPrescription proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("getPrescription proxy error", e); return ProxyErrors.failure(e); }
     }
 
     // The service's validation messages are the whole point of these screens' error handling ("this prescription

@@ -67,7 +67,7 @@
             data: JSON.stringify({ id: id }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess(t('ui.js.lotDisposed')); loadQuarantine(); }
-                else showFormError((resp && resp.message) || 'Could not dispose the lot.');
+                else showFormError(apiMessage(resp, 'Could not dispose the lot.'));
             },
             error: function () { showFormError(t('ui.js.couldNotDisposeTheLot')); }
         });

@@ -1,5 +1,6 @@
 package com.web.controller.business;
 
+import com.web.util.ProxyErrors;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class StoreController {
                     new HttpEntity<>(bearer()), Object.class).getBody();
         } catch (Exception e) {
             LOGGER.error("getStores proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -67,10 +68,10 @@ public class StoreController {
             return result;
         } catch (HttpStatusCodeException e) {
             LOGGER.warn("addStore {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         } catch (Exception e) {
             LOGGER.error("addStore proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -78,7 +79,7 @@ public class StoreController {
     @ResponseBody
     public Object updateStore(@RequestBody Map<String, Object> body) {
         try { return post("/api/business/updateStore", body); }
-        catch (Exception e) { LOGGER.error("updateStore proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("updateStore proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     /** P5b — the stores the logged-in user may work at (their grants; an owner gets all). Feeds the switcher. */
@@ -90,7 +91,7 @@ public class StoreController {
                     new HttpEntity<>(bearer()), Object.class).getBody();
         } catch (Exception e) {
             LOGGER.error("getMyStores proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -117,10 +118,10 @@ public class StoreController {
             return Collections.singletonMap("status", "FAILED");
         } catch (HttpStatusCodeException e) {
             LOGGER.warn("switchStore {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         } catch (Exception e) {
             LOGGER.error("switchStore proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -129,7 +130,7 @@ public class StoreController {
     @ResponseBody
     public Object assignStores(@RequestBody Map<String, Object> body) {
         try { return post("/api/auth/org/locations/grant", body); }
-        catch (Exception e) { LOGGER.error("assignStores proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("assignStores proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

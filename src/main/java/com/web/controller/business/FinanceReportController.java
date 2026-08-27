@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,14 +28,14 @@ public class FinanceReportController {
     @ResponseBody
     public Map<String, Object> customerAging(final HttpServletRequest request) {
         try { return client.get("/customerAging"); }
-        catch (Exception e) { LOGGER.error("customerAging proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("customerAging proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/vendorAging", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> vendorAging(final HttpServletRequest request) {
         try { return client.get("/vendorAging"); }
-        catch (Exception e) { LOGGER.error("vendorAging proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("vendorAging proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/customerStatement", method = RequestMethod.GET)
@@ -44,7 +44,7 @@ public class FinanceReportController {
         try {
             String id = request.getParameter("customerId");
             return client.get("/customerStatement", "customerId=" + (id == null ? "" : id));
-        } catch (Exception e) { LOGGER.error("customerStatement proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        } catch (Exception e) { LOGGER.error("customerStatement proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     /**
@@ -90,7 +90,7 @@ public class FinanceReportController {
         try {
             String id = request.getParameter("venderId");
             return client.get("/vendorStatement", "venderId=" + (id == null ? "" : id));
-        } catch (Exception e) { LOGGER.error("vendorStatement proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        } catch (Exception e) { LOGGER.error("vendorStatement proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     /** Audit #4: read the GL posting outbox (delivery status) for the tenant. */
@@ -98,7 +98,7 @@ public class FinanceReportController {
     @ResponseBody
     public Map<String, Object> getGlOutbox(final HttpServletRequest request) {
         try { return client.get("/getGlOutbox"); }
-        catch (Exception e) { LOGGER.error("getGlOutbox proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("getGlOutbox proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     /** Multi-rate tax: per-rate taxable/tax breakdown over [from,to] (output=sales, input=purchases). */
@@ -111,6 +111,6 @@ public class FinanceReportController {
             if (from != null && !from.isEmpty()) q.append("from=").append(from);
             if (to != null && !to.isEmpty()) q.append(q.length() > 0 ? "&" : "").append("to=").append(to);
             return client.get("/taxBreakdown", q.toString());
-        } catch (Exception e) { LOGGER.error("taxBreakdown proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        } catch (Exception e) { LOGGER.error("taxBreakdown proxy error", e); return ProxyErrors.statusError(e); }
     }
 }

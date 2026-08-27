@@ -2904,7 +2904,7 @@ function saveConfigToggle(el){
 		var ok = res && (res.status === 'SUCCESS');
 		$('#configMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
-			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+			.text(ok ? 'Saved.' : (apiMessage(res, 'Save failed'))).show();
 		if(!ok){ el.checked = !el.checked; }   // revert the toggle if the save failed
 	}).fail(function(){
 		el.checked = !el.checked;
@@ -3122,7 +3122,7 @@ function saveAcademicYear() {
 			$('#ayName, #ayStart, #ayEnd').val('');
 			loadAcademicYears();
 		} else {
-			ayNotify((res && res.message) || 'Could not save the academic year');
+			ayNotify(apiMessage(res, 'Could not save the academic year'));
 		}
 	});
 }
@@ -3143,7 +3143,7 @@ function saveTerm() {
 			$('#ayTermName, #ayTermStart, #ayTermEnd').val('');
 			loadAcademicYears();
 		} else {
-			ayNotify((res && res.message) || 'Could not save the term');
+			ayNotify(apiMessage(res, 'Could not save the term'));
 		}
 	});
 }
@@ -3152,7 +3152,7 @@ function saveTerm() {
 function pinTerm(id, pin) {
 	$.post(serverContext + 'pinCurrentTerm', { id: id, pinned: pin ? 'true' : 'false' }, function (res) {
 		if (res && res.status === 'SUCCESS') loadAcademicYears();
-		else ayNotify((res && res.message) || 'Could not change the pinned term');
+		else ayNotify(apiMessage(res, 'Could not change the pinned term'));
 	});
 }
 
@@ -3254,7 +3254,7 @@ function examActions(e) {
 function setExamStatus(id, status) {
 	$.post(serverContext + 'setExamStatus', { id: id, status: status }, function (res) {
 		if (res && res.status === 'SUCCESS') loadExams();
-		else ayNotify((res && res.message) || 'Could not change the exam status');
+		else ayNotify(apiMessage(res, 'Could not change the exam status'));
 	});
 }
 
@@ -3275,7 +3275,7 @@ function saveExam() {
 			if (res.message && res.message.indexOf('total') > -1) ayNotify(res.message);
 			loadExams();
 		} else {
-			ayNotify((res && res.message) || 'Could not save the exam');
+			ayNotify(apiMessage(res, 'Could not save the exam'));
 		}
 	});
 }
@@ -3297,7 +3297,7 @@ function saveExamPaper() {
 			loadExams();
 		} else {
 			// A locked exam answers FAILED with a message naming the fix — show it verbatim.
-			ayNotify((res && res.message) || 'Could not save the paper');
+			ayNotify(apiMessage(res, 'Could not save the paper'));
 		}
 	});
 }
@@ -3351,7 +3351,7 @@ function loadMarksSheet() {
 	if (!paperId) { ayNotify('Select an exam and paper first'); return; }
 	$.get(serverContext + 'getMarksSheet', { examPaperId: paperId }, function (res) {
 		if (!res || res.status !== 'SUCCESS' || !res.object) {
-			ayNotify((res && res.message) || 'Could not load the marksheet');
+			ayNotify(apiMessage(res, 'Could not load the marksheet'));
 			return;
 		}
 		var sheet = res.object;
@@ -3431,7 +3431,7 @@ function saveMarks() {
 				loadMarksSheet();
 				loadMarksExams();   // the first mark may have LOCKED the exam (D4)
 			} else {
-				ayNotify((res && res.message) || 'Could not save the marks');
+				ayNotify(apiMessage(res, 'Could not save the marks'));
 			}
 		},
 		error: function (xhr) {
@@ -3488,7 +3488,7 @@ function saveGradeBand() {
 			loadGradingScale();
 		} else {
 			// The server names the overlapping pair or the uncovered range — show it as-is.
-			ayNotify((res && res.message) || 'Could not save the band');
+			ayNotify(apiMessage(res, 'Could not save the band'));
 		}
 	});
 }
@@ -3499,7 +3499,7 @@ function deleteGradeBand(id, name) {
 	var go = function () {
 		$.post(serverContext + 'deleteGradeBand', { checked: id }, function (res) {
 			if (res && res.status === 'SUCCESS') loadGradingScale();
-			else ayNotify((res && res.message) || 'Could not delete the band');
+			else ayNotify(apiMessage(res, 'Could not delete the band'));
 		});
 	};
 	if (typeof uiConfirm === 'function') { uiConfirm(msg, go); return; }
@@ -3509,7 +3509,7 @@ function deleteGradeBand(id, name) {
 function applyGradingPreset() {
 	$.post(serverContext + 'applyGradingPreset', {}, function (res) {
 		if (res && res.status === 'SUCCESS') loadGradingScale();
-		else ayNotify((res && res.message) || 'Could not apply the preset');
+		else ayNotify(apiMessage(res, 'Could not apply the preset'));
 	});
 }
 
@@ -3911,7 +3911,7 @@ function saveHomeworkSheet() {
 		success: function (res) {
 			// PARTIAL is not SUCCESS — per-row problems are named rather than rounded up (1.3 D3).
 			var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
-			var msg = (res && res.message) || '';
+			var msg = apiMessage(res, '');
 			var problems = res && res.object && res.object.problems;
 			if (problems && problems.length) msg += ' — ' + problems.join('; ');
 			hwMessage(msg, cls);
@@ -4022,7 +4022,7 @@ function saveStaffRegister() {
 		success: function (res) {
 			// PARTIAL is not SUCCESS — if a row could not be read, say so rather than implying a clean save.
 			var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
-			srMessage((res && res.message) || '', cls);
+			srMessage(apiMessage(res, ''), cls);
 			loadStaffRegister();
 		},
 		error: function (xhr) {
@@ -4730,10 +4730,10 @@ function runPromotion() {
 				// PARTIAL is not SUCCESS: if anything was skipped the message says so rather than
 				// letting the screen imply a clean run.
 				var cls = res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning';
-				prMessage((res && res.message) || '', cls);
+				prMessage(apiMessage(res, ''), cls);
 				var problems = res && res.object && res.object.problems;
 				if (problems && problems.length) {
-					prMessage(((res && res.message) || '') + ' — ' + problems.join('; '), 'alert-warning');
+					prMessage((apiMessage(res, '')) + ' — ' + problems.join('; '), 'alert-warning');
 				}
 				loadPromotionPlan();
 				loadPromotionHistory();
@@ -5029,7 +5029,7 @@ function saveNotice() {
 		pinnedUntilStr: $('#ntPinned').val()
 	};
 	$.post(serverContext + 'saveNotice', data).done(function (res) {
-		if (!res || res.status !== 'SUCCESS') { uiAlert((res && res.message) || 'Could not save'); return; }
+		if (!res || res.status !== 'SUCCESS') { uiAlert(apiMessage(res, 'Could not save')); return; }
 		clearNoticeForm();
 		loadNotices();
 	});
@@ -5041,7 +5041,7 @@ function publishNotice() {
 	uiConfirm(t('ui.js.ntConfirmPublish'), function () {
 		var go = function (id) {
 			$.post(serverContext + 'publishNotice', { id: id }).done(function (res) {
-				uiAlert((res && res.message) || '');
+				uiAlert(apiMessage(res, ''));
 				clearNoticeForm();
 				loadNotices();
 			});
@@ -5055,7 +5055,7 @@ function publishNotice() {
 			gradeId: $('#ntAudience').val() === 'ONE_CLASS' ? ($('#ntGrade').val() || '') : '',
 			pinnedUntilStr: $('#ntPinned').val()
 		}).done(function (res) {
-			if (!res || res.status !== 'SUCCESS') { uiAlert((res && res.message) || 'Could not save'); return; }
+			if (!res || res.status !== 'SUCCESS') { uiAlert(apiMessage(res, 'Could not save')); return; }
 			go(res.object.id);
 		});
 	});
@@ -5140,7 +5140,7 @@ function saveMeetingEvent() {
 		eventDateStr: $('#meDate').val(),
 		notes: $('#meNotes').val()
 	}).done(function (res) {
-		if (!res || res.status !== 'SUCCESS') { meetingMsg((res && res.message) || 'Could not save', 'alert-danger'); return; }
+		if (!res || res.status !== 'SUCCESS') { meetingMsg(apiMessage(res, 'Could not save'), 'alert-danger'); return; }
 		currentMeetingEventId = res.object.id;
 		meetingMsg(t('ui.js.meSaved'), 'alert-success');
 		loadMeetingEvents();
@@ -5181,7 +5181,7 @@ function selectMeetingEvent(e) {
 function toggleMeetingEvent(e) {
 	var next = e.status === 'OPEN' ? 'CLOSED' : 'OPEN';
 	$.post(serverContext + 'setMeetingEventStatus', { id: e.id, status: next })
-		.done(function (res) { meetingMsg((res && res.message) || '', 'alert-info'); loadMeetingEvents(); });
+		.done(function (res) { meetingMsg(apiMessage(res, ''), 'alert-info'); loadMeetingEvents(); });
 }
 
 function publishMeetingSlots() {
@@ -5194,7 +5194,7 @@ function publishMeetingSlots() {
 		minutes: $('#meMinutes').val()
 	}).done(function (res) {
 		// PARTIAL/FAILED carry a message the school can act on (a bad window, the core unreachable).
-		meetingMsg((res && res.message) || '', res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning');
+		meetingMsg(apiMessage(res, ''), res && res.status === 'SUCCESS' ? 'alert-success' : 'alert-warning');
 		loadMeetingSlots();
 	});
 }

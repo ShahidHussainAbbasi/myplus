@@ -70,6 +70,47 @@ public class Sell implements Serializable {
 	@Column(name = "sell_rate", precision = 19, scale = 2)
 	private BigDecimal sellRate;
 
+	/*
+	 * U2 — the four columns that record a BROKEN PACK. Design: docs/slices/u2-loose-sale-arithmetic.md §3.
+	 *
+	 * THE DIVISION OF LABOUR HERE IS THE WHOLE DESIGN, so it is worth stating once:
+	 *
+	 *   quantity + sellRate  are the MONEY and the STOCK. 5 tablets of a 120.00 pack of 10 store
+	 *                        quantity = 0.5 and sellRate = 120.00, because `total = quantity x rate` is the
+	 *                        identity every report, invoice, tax return and export in this system sums. An
+	 *                        earlier draft stored 0.5 with a rate of 12.00 — a TENFOLD variance in all of them.
+	 *
+	 *   the four below       are the SALE AS THE CUSTOMER EXPERIENCED IT: five tablets, at twelve rupees each,
+	 *                        out of a pack of ten. The receipt and the return read these; nothing prices from
+	 *                        them.
+	 *
+	 * Neither set is derived from the other at read time. Both are written once, at the sale.
+	 *
+	 * NULL sold_unit = an ordinary line, which is every row written before U2. It is deliberately NOT
+	 * defaulted to PACK: that would rewrite history into a claim nobody made.
+	 */
+	@Column(name = "sold_unit", length = 8)
+	private String soldUnit;
+
+	/** What the customer asked for — 5 (tablets). A quantity, so it follows {@link #quantity}'s {@code Float}. */
+	@Column(name = "sold_quantity")
+	private Float soldQuantity;
+
+	/** Per loose piece, for the receipt. DISPLAY ONLY — the line's money is {@link #sellRate} x {@link #quantity}. */
+	@Column(name = "sold_rate", precision = 19, scale = 2)
+	private BigDecimal soldRate;
+
+	/**
+	 * The pack size FROZEN at the moment of sale.
+	 *
+	 * <p>{@code quantity = 0.5} and {@code soldQuantity = 5} agree only while the product's pack size is 10.
+	 * Edit the product to 12 tomorrow and that historical 0.5 silently becomes SIX tablets — on the receipt,
+	 * on the return, and in every report that re-reads a finished sale. Stamped at write, joining
+	 * {@link #costPrice} and {@code order_items.product_name}. <b>Stamp at write, never derive on read.</b>
+	 */
+	@Column(name = "pack_size_snapshot")
+	private Integer packSizeSnapshot;
+
 	// The catalog master price snapshot at the moment this line was sold (reports: catalog price vs sold rate).
 	@Column(name = "catalog_price", precision = 19, scale = 2)
 	private BigDecimal catalogPrice;

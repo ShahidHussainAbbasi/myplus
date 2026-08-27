@@ -60,7 +60,8 @@ class PolicyCheckTest {
                 BigDecimal.valueOf(net), BigDecimal.valueOf(net),
                 null, null, null, null, null, null,
                 cost == null ? null : BigDecimal.valueOf(cost),
-                null, null);
+                null, null,
+                null, null, null, null);   // U2: soldUnit/soldQuantity/soldRate/packSizeSnapshot
     }
 
     /**

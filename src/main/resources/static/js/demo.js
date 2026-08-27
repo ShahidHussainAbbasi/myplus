@@ -36,7 +36,7 @@
       if (!ok) return;
       jQuery.post('/demo/reset')
         .done(function (d) {
-          if (window.toast) { toast((d && d.message) || 'Demo reset.'); }
+          if (window.toast) { toast(apiMessage(d, 'Demo reset.')); }
           setTimeout(function () { window.location.reload(); }, 900);
         })
         .fail(function () {

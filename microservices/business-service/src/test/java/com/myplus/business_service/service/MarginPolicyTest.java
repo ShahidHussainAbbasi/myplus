@@ -82,7 +82,14 @@ class MarginPolicyTest {
                 null,                                 // discountType
                 cost == null ? null : BigDecimal.valueOf(cost),   // costPrice — null = uncosted line
                 null,                                 // priceReason (B2B-P2) — null = priced at catalog
-                null);                                // bonusQuantity (B2B-P3g) — null = no free goods
+                null,                                 // bonusQuantity (B2B-P3g) — null = no free goods
+                // U2 — a broken pack. Null here on purpose: the margin guard compares MONEY to MONEY
+                // (netAmount vs costPrice x quantity), so a loose line needs no special case. See the
+                // dedicated loose case below, which asserts exactly that.
+                null,                                 // soldUnit
+                null,                                 // soldQuantity
+                null,                                 // soldRate
+                null);                                // packSizeSnapshot
     }
 
     private void policy(String value) {

@@ -107,8 +107,10 @@ at the wrong layer.* Same rule as `GenericResponse.collection`: assert the respo
 
 ## 6. Outstanding
 
-* **§4's boundary obligation** (parent design) — recorded at the seam in `InventoryClient` and **assigned to
-  U2**. While every `packSize` is null a base unit *is* a selling unit, so today's two callers
-  (`StockController` on-hand, `BackorderPolicy` sellable) are correct as they stand; the conversion becomes
-  real the moment U2 gives a product a pack size, and writing it now would be a conversion with nothing to
-  convert and no way to prove it works.
+* ~~**§4's boundary obligation**~~ — **CLOSED by [U2 §2](u2-loose-sale-arithmetic.md), by decision rather
+  than by code.** U2 settled the question U0 and U1 both deferred: stock stays in **selling units**, so a
+  loose sale of 5 tablets decrements 0.5 packs and `InventoryClient`'s level reads need no conversion at all.
+  Stock grids, low-stock alerts and the picker stay in packs, exactly as today.
+
+  Recorded here rather than deleted, because *an obligation that quietly evaporates is how a real one gets
+  missed later*. The comment at the seam in `InventoryClient` now points at U2 §2 for the reasoning.

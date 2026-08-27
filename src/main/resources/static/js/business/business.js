@@ -999,7 +999,7 @@ function saveStore(){
 				$('#storeName,#storeCode,#storeAddress,#storePhone').val('');
 				loadStores();
 				loadMyStores();   // a second store makes the switcher relevant — show it without a re-login
-			} else { storeMsg((resp && resp.message) || 'Could not create the store.', true); }
+			} else { storeMsg(apiMessage(resp, 'Could not create the store.'), true); }
 		},
 		error:function(){ storeMsg('Could not create the store.', true); }
 	});
@@ -1032,7 +1032,7 @@ function switchStore(){
 		success:function(res){
 			// The session token now carries the new active store — reload so every list refetches under it.
 			if(res && res.status === 'SUCCESS'){ window.location.reload(); }
-			else { alert((res && res.message) || 'Could not switch store.'); loadMyStores(); }
+			else { alert(apiMessage(res, 'Could not switch store.')); loadMyStores(); }
 		},
 		error:function(){ alert(t('ui.js.couldNotSwitchStore')); loadMyStores(); }
 	});
@@ -3037,7 +3037,7 @@ function submitReceivePayment() {
 			closeModal('ReceivePaymentModal');
 			loadDataTable();   // refresh the customer list — due is updated
 		} else {
-			showFormError((resp && resp.message) || 'Could not record the payment.');
+			showFormError(apiMessage(resp, 'Could not record the payment.'));
 		}
 	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._rcvBusy = false; });
@@ -3082,7 +3082,7 @@ function submitPayVendor() {
 			closeModal('PayVendorModal');
 			loadDataTable();   // refresh the vendor list — due is updated
 		} else {
-			showFormError((resp && resp.message) || 'Could not record the payment.');
+			showFormError(apiMessage(resp, 'Could not record the payment.'));
 		}
 	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._pvBusy = false; });
@@ -3105,7 +3105,7 @@ function openVoidSell(btn){
 		if(reason === null) return;
 		$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
 			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.invoiceVoided')); try { loadDataTable(); } catch(e){} }
-			else { uiAlert({ title: t('ui.js.voidFailed'), message: (resp && resp.message) || 'The invoice could not be voided.', tone: 'danger' }); }
+			else { uiAlert({ title: t('ui.js.voidFailed'), message: apiMessage(resp, 'The invoice could not be voided.'), tone: 'danger' }); }
 		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theInvoiceCouldNotBeVoided'), tone: 'danger' }); });
 	});
 }
@@ -3125,7 +3125,7 @@ $(document).on('click', '.purchase-void-btn', function (e) {
 		if(reason === null) return;
 		$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
 			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.billVoided')); try { loadDataTable(); } catch(e){} }
-			else { uiAlert({ title: t('ui.js.voidFailed'), message: (resp && resp.message) || 'The bill could not be voided.', tone: 'danger' }); }
+			else { uiAlert({ title: t('ui.js.voidFailed'), message: apiMessage(resp, 'The bill could not be voided.'), tone: 'danger' }); }
 		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theBillCouldNotBeVoided'), tone: 'danger' }); });
 	});
 });
@@ -3170,7 +3170,7 @@ function submitPurchaseReturn(){
 	if(qty > sold){ err.textContent = t('ui.js.cannotReturnMoreThanPurchased') + sold + ').'; return; }
 	$.post(serverContext + 'purchaseReturn', { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value }, function(resp){
 		if(resp && resp.status === 'SUCCESS'){ d.style.display='none'; if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.purchaseReturnedToVendor')); loadDataTable(); }
-		else { err.textContent = (resp && resp.message) || 'Return failed.'; }
+		else { err.textContent = apiMessage(resp, 'Return failed.'); }
 	}, 'json').fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
 }
 
@@ -3917,7 +3917,7 @@ function saveBusinessConfigToggle(el){
 		if (typeof markSettingSaved === 'function') markSettingSaved(el, ok);
 		$('#businessConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
-			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+			.text(ok ? 'Saved.' : (apiMessage(res, 'Save failed'))).show();
 		if(!ok){ if(el.type === 'checkbox'){ el.checked = !el.checked; } }   // revert the toggle if the save failed
 		else {
 			// Re-read the WHOLE catalog and re-apply, instead of naming each key here.
@@ -3976,7 +3976,7 @@ function saveOrderConfigField(el){
 		if (typeof markSettingSaved === 'function') markSettingSaved(el, ok);
 		$('#orderConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
-			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+			.text(ok ? 'Saved.' : (apiMessage(res, 'Save failed'))).show();
 		// A rejected value must not stay on screen pretending to be in force — re-read the effective values.
 		if(!ok){ loadOrderConfig(); }
 	});

@@ -1,6 +1,6 @@
 package com.web.controller.agriculture;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,7 +37,7 @@ public class LandController {
             return client.postForm("/addLand", params(request));
         } catch (Exception e) {
             LOGGER.error("addLand proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -48,7 +48,7 @@ public class LandController {
             return client.get("/getUserLand");
         } catch (Exception e) {
             LOGGER.error("getUserLand proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -70,7 +70,7 @@ public class LandController {
             return client.get("/getAllLand");
         } catch (Exception e) {
             LOGGER.error("getAllLand proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -83,7 +83,7 @@ public class LandController {
             return client.postForm("/deleteLand", params);
         } catch (Exception e) {
             LOGGER.error("deleteLand proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

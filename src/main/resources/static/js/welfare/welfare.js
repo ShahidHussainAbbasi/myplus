@@ -267,7 +267,7 @@ function saveConfigToggle(el){
 		var ok = res && (res.status === 'SUCCESS');
 		$('#welfareConfigMsg').removeClass('alert-success alert-danger')
 			.addClass(ok ? 'alert-success' : 'alert-danger')
-			.text(ok ? 'Saved.' : ((res && res.message) || 'Save failed')).show();
+			.text(ok ? 'Saved.' : (apiMessage(res, 'Save failed'))).show();
 		if(!ok){ el.checked = !el.checked; }
 	}).fail(function(){
 		el.checked = !el.checked;

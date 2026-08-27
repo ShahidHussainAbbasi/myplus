@@ -1,5 +1,6 @@
 package com.web.controller.ecommerce;
 
+import com.web.util.ProxyErrors;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -51,7 +52,7 @@ public class OrderController {
                     "page", "size", "status", "paymentStatus", "source", "from", "to", "q", "late", "mine"));
         } catch (Exception e) {
             LOGGER.error("getOrders proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -75,7 +76,7 @@ public class OrderController {
             return relayError(e, "Could not load the order.");
         } catch (Exception e) {
             LOGGER.error("getOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -99,7 +100,7 @@ public class OrderController {
             return relayError(e, "Could not record the shipment.");
         } catch (Exception e) {
             LOGGER.error("shipOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -119,7 +120,7 @@ public class OrderController {
             return client.get("/orders/backorders" + relayQuery(request, "ready", "page", "size"));
         } catch (Exception e) {
             LOGGER.error("getBackorders proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -144,7 +145,7 @@ public class OrderController {
             return relayError(e, "Could not produce the round sheet.");
         } catch (Exception e) {
             LOGGER.error("roundSheet proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -164,7 +165,7 @@ public class OrderController {
             return relayError(e, "Could not key the round.");
         } catch (Exception e) {
             LOGGER.error("keyRound proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -194,7 +195,7 @@ public class OrderController {
     public Map<String, Object> bookOrder(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/orders/booking", body); }
         catch (HttpStatusCodeException e) { return relayError(e, "Could not book the order."); }
-        catch (Exception e) { LOGGER.error("bookOrder proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("bookOrder proxy error", e); return ProxyErrors.failure(e); }
     }
 
     /**
@@ -214,7 +215,7 @@ public class OrderController {
             return relayError(e, "Could not amend the order.");
         } catch (Exception e) {
             LOGGER.error("amendOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -228,7 +229,7 @@ public class OrderController {
             return relayError(e, "Could not confirm the order.");
         } catch (Exception e) {
             LOGGER.error("confirmOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -244,7 +245,7 @@ public class OrderController {
             return relayError(e, "Could not reject the order.");
         } catch (Exception e) {
             LOGGER.error("rejectOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -258,7 +259,7 @@ public class OrderController {
             return relayError(e, "Could not resubmit the order.");
         } catch (Exception e) {
             LOGGER.error("resubmitOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -278,7 +279,7 @@ public class OrderController {
             return relayError(e, "Could not record the delivery.");
         } catch (Exception e) {
             LOGGER.error("recordDelivery proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -293,7 +294,7 @@ public class OrderController {
             return relayError(e, "Could not load the delivery history.");
         } catch (Exception e) {
             LOGGER.error("getDeliveries proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -308,7 +309,7 @@ public class OrderController {
             return relayError(e, "Could not load the amendment history.");
         } catch (Exception e) {
             LOGGER.error("getOrderAmendments proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -320,7 +321,7 @@ public class OrderController {
     @ResponseBody
     public Map<String, Object> recordOrder(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/orders", body); }
-        catch (Exception e) { LOGGER.error("recordOrder proxy error", e); return Collections.singletonMap("success", false); }
+        catch (Exception e) { LOGGER.error("recordOrder proxy error", e); return ProxyErrors.failure(e); }
     }
 
     @RequestMapping(value = "/updateOrderStatus", method = RequestMethod.POST)
@@ -337,7 +338,7 @@ public class OrderController {
             return relayError(e, "Could not update the order status.");
         } catch (Exception e) {
             LOGGER.error("updateOrderStatus proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -353,7 +354,7 @@ public class OrderController {
             return relayError(e, "Could not refund the order.");
         } catch (Exception e) {
             LOGGER.error("refundOrder proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 
@@ -368,7 +369,7 @@ public class OrderController {
             return relayError(e, "Could not process the return.");
         } catch (Exception e) {
             LOGGER.error("processReturn proxy error", e);
-            return Collections.singletonMap("success", false);
+            return ProxyErrors.failure(e);
         }
     }
 

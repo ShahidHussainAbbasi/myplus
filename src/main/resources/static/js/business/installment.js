@@ -460,7 +460,7 @@
 						// The server's OWN words: "goods are protected at 66%" tells the shopkeeper why, which
 						// a generic failure never could.
 						global.uiAlert({ title: tr('ui.js.instRepossessFailed', 'Not repossessed'),
-							message: (resp && resp.message) || '', tone: 'danger' });
+							message: apiMessage(resp, ''), tone: 'danger' });
 					}
 				})
 				.fail(function () {
@@ -590,7 +590,7 @@
 				.done(function (resp) {
 					if (resp && resp.status === 'SUCCESS') loadCollections();
 					else global.uiAlert({ title: tr('ui.js.instChaseFailed', 'Not saved'),
-						message: (resp && resp.message) || 'That could not be saved.', tone: 'danger' });
+						message: apiMessage(resp, 'That could not be saved.'), tone: 'danger' });
 				})
 				.fail(function () {
 					global.uiAlert({ title: tr('ui.js.instChaseFailed', 'Not saved'),

@@ -1,5 +1,6 @@
 package com.web.controller.business;
 
+import com.web.util.ProxyErrors;
 import java.util.Collections;
 import java.util.Map;
 
@@ -42,7 +43,7 @@ public class SellController {
             return client.get("/getUserSell", q != null ? "q=" + q : "");
         } catch (Exception e) {
             LOGGER.error("getUserSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -86,7 +87,7 @@ public class SellController {
             return client.get("/getSellInvoice", "sellId=" + sellId);
         } catch (Exception e) {
             LOGGER.error("getSellInvoice proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -119,7 +120,7 @@ public class SellController {
             return client.postForm("/loadSR", params);
         } catch (Exception e) {
             LOGGER.error("loadSR proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -130,7 +131,7 @@ public class SellController {
             return client.get("/getAllSell");
         } catch (Exception e) {
             LOGGER.error("getAllSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -144,7 +145,7 @@ public class SellController {
                     invoiceNo == null ? "" : invoiceNo, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             LOGGER.error("getReceipt proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -164,7 +165,7 @@ public class SellController {
             return client.get("/documentTemplates", "");
         } catch (Exception e) {
             LOGGER.error("documentTemplates proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -177,7 +178,7 @@ public class SellController {
                     id == null ? "" : id, java.nio.charset.StandardCharsets.UTF_8));
         } catch (Exception e) {
             LOGGER.error("documentTemplate proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -188,7 +189,7 @@ public class SellController {
             return client.get("/documentFields", "");
         } catch (Exception e) {
             LOGGER.error("documentFields proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -199,7 +200,7 @@ public class SellController {
             return client.postJson("/saveDocumentTemplate", body);
         } catch (Exception e) {
             LOGGER.error("saveDocumentTemplate proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -212,7 +213,7 @@ public class SellController {
             return client.postForm("/deleteDocumentTemplate", params);
         } catch (Exception e) {
             LOGGER.error("deleteDocumentTemplate proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -224,7 +225,7 @@ public class SellController {
             return client.get("/getSaleReturns", "");
         } catch (Exception e) {
             LOGGER.error("getSaleReturns proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -246,7 +247,7 @@ public class SellController {
             return response;
         } catch (Exception e) {
             LOGGER.error("addSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -269,7 +270,7 @@ public class SellController {
             return client.get("/installmentPlans", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("installmentPlans proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -281,7 +282,7 @@ public class SellController {
             return client.get("/installmentPreview", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("installmentPreview proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -305,7 +306,7 @@ public class SellController {
             return client.postForm("/repossessPlan", params);
         } catch (Exception e) {
             LOGGER.error("repossessPlan proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -317,7 +318,7 @@ public class SellController {
             return client.get("/installmentReminders", request.getQueryString());
         } catch (Exception e) {
             LOGGER.error("installmentReminders proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -331,7 +332,7 @@ public class SellController {
             return client.postForm("/installmentReminderAction", params);
         } catch (Exception e) {
             LOGGER.error("installmentReminderAction proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -343,7 +344,7 @@ public class SellController {
             return client.postForm("/scanInstallmentReminders", new java.util.HashMap<>());
         } catch (Exception e) {
             LOGGER.error("scanInstallmentReminders proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -355,7 +356,7 @@ public class SellController {
             return client.get("/installmentPlansOpen");
         } catch (Exception e) {
             LOGGER.error("installmentPlansOpen proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -366,7 +367,7 @@ public class SellController {
             return client.postJson("/updateSell", dto);
         } catch (Exception e) {
             LOGGER.error("updateSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -377,7 +378,7 @@ public class SellController {
             return client.postJson("/addSelling", dtos);
         } catch (Exception e) {
             LOGGER.error("addSelling proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -390,7 +391,7 @@ public class SellController {
             return client.postForm("/revertSell", params);
         } catch (Exception e) {
             LOGGER.error("revertSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -416,7 +417,7 @@ public class SellController {
             return client.postForm("/saleReturn", params);
         } catch (Exception e) {
             LOGGER.error("saleReturn proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -430,7 +431,7 @@ public class SellController {
             return client.postForm("/voidSell", params);
         } catch (Exception e) {
             LOGGER.error("voidSell proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 }

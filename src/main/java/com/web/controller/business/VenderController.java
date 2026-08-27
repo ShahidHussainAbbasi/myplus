@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class VenderController {
             return client.get("/getUserVender");
         } catch (Exception e) {
             LOGGER.error("getUserVender proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -53,7 +53,7 @@ public class VenderController {
             return client.get("/getAllVender");
         } catch (Exception e) {
             LOGGER.error("getAllVender proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -66,7 +66,7 @@ public class VenderController {
             return client.postForm("/addVender", params);
         } catch (Exception e) {
             LOGGER.error("addVender proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -81,7 +81,7 @@ public class VenderController {
             return client.postForm("/payVendor", params);
         } catch (Exception e) {
             LOGGER.error("payVendor proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

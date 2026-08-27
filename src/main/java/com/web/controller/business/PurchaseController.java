@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class PurchaseController {
             return client.get("/getUserPurchase");
         } catch (Exception e) {
             LOGGER.error("getUserPurchase proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -42,7 +42,7 @@ public class PurchaseController {
             return client.get("/getAllPurchase");
         } catch (Exception e) {
             LOGGER.error("getAllPurchase proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -55,7 +55,7 @@ public class PurchaseController {
             return client.postForm("/addPurchase", params);
         } catch (Exception e) {
             LOGGER.error("addPurchase proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -70,7 +70,7 @@ public class PurchaseController {
             return client.postForm("/updatePurchase", params);
         } catch (Exception e) {
             LOGGER.error("updatePurchase proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -84,7 +84,7 @@ public class PurchaseController {
             return client.postForm("/purchaseReturn", params);
         } catch (Exception e) {
             LOGGER.error("purchaseReturn proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 
@@ -98,7 +98,7 @@ public class PurchaseController {
             return client.postForm("/voidPurchase", params);
         } catch (Exception e) {
             LOGGER.error("voidPurchase proxy error", e);
-            return Collections.singletonMap("status", "ERROR");
+            return ProxyErrors.statusError(e);
         }
     }
 

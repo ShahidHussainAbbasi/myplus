@@ -22,12 +22,27 @@ public record SagaLine(
         String discountType,     // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
         BigDecimal costPrice,    // SF-10: unit COGS snapshot (latest purchase rate) for per-line margin
         String priceReason,      // B2B-P2 (#10): why this price applied; null when priced at catalog
-        Float bonusQuantity) {   // B2B-P3g: free goods on this line ("Bon."); presentation only — see D-2
+        Float bonusQuantity,     // B2B-P3g: free goods on this line ("Bon."); presentation only — see D-2
+
+        /*
+         * U2 — the broken-pack record. Design: docs/slices/u2-loose-sale-arithmetic.md §3.
+         *
+         * `quantity` above stays in SELLING units (0.5 of a pack) and `sellRate` per selling unit, because
+         * `total = quantity x rate` is the identity every report sums. These four carry the sale as the
+         * CUSTOMER experienced it — 5 tablets at 12.00 out of a pack of 10 — and nothing prices from them.
+         *
+         * All four are null on an ordinary line, which is every line until a shop switches loose selling on.
+         */
+        String soldUnit,         // "LOOSE" or null; PACK is written only when a caller says so explicitly
+        Float soldQuantity,      // pieces
+        BigDecimal soldRate,     // per piece, for the receipt
+        Integer packSizeSnapshot) {   // frozen — §3.2: a later pack-size edit must not re-interpret this sale
 
     /*
      * NOTE for whoever widens this record next: every component is spelled out positionally in
      * MarginPolicyTest's `line()` helper, so adding one here BREAKS that test's compilation. It has happened
-     * three times now (SF-10 costPrice, B2B-P2 priceReason, and this). Update the helper in the same commit —
+     * four times now (SF-10 costPrice, B2B-P2 priceReason, B2B-P3g bonusQuantity, and U2's four). Update the
+     * helper in the same commit —
      * a test that does not compile is a test that does not run, and business-service's unit suite silently
      * did not run for three phases the last time that was missed.
      */

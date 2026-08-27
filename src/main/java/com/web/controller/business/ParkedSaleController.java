@@ -1,6 +1,6 @@
 package com.web.controller.business;
 
-import java.util.Collections;
+import com.web.util.ProxyErrors;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,21 +29,21 @@ public class ParkedSaleController {
     @ResponseBody
     public Map<String, Object> parkSale(@RequestBody final Map<String, Object> body) {
         try { return client.postJson("/parkSale", body); }
-        catch (Exception e) { LOGGER.error("parkSale proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("parkSale proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/parkedSales", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> parkedSales(final HttpServletRequest request) {
         try { return client.get("/parkedSales"); }
-        catch (Exception e) { LOGGER.error("parkedSales proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("parkedSales proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/resumeParked", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> resumeParked(final HttpServletRequest request) {
         try { return client.get("/resumeParked", "id=" + request.getParameter("id")); }
-        catch (Exception e) { LOGGER.error("resumeParked proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        catch (Exception e) { LOGGER.error("resumeParked proxy error", e); return ProxyErrors.statusError(e); }
     }
 
     @RequestMapping(value = "/deleteParked", method = RequestMethod.POST)
@@ -53,6 +53,6 @@ public class ParkedSaleController {
             Map<String, String> params = new java.util.HashMap<>();
             params.put("id", request.getParameter("id"));
             return client.postForm("/deleteParked", params);
-        } catch (Exception e) { LOGGER.error("deleteParked proxy error", e); return Collections.singletonMap("status", "ERROR"); }
+        } catch (Exception e) { LOGGER.error("deleteParked proxy error", e); return ProxyErrors.statusError(e); }
     }
 }

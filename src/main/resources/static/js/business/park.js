@@ -35,7 +35,7 @@
                     showSaleSuccess(t('ui.js.saleParked'));
                     if (typeof resetCart === 'function') resetCart();
                     else { data.length = 0; if (typeof tablesi !== 'undefined' && tablesi) tablesi.clear().draw(); }
-                } else { showFormError((resp && resp.message) || 'Could not park the sale.'); }
+                } else { showFormError(apiMessage(resp, 'Could not park the sale.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotParkTheSale')); }
         });
@@ -76,14 +76,14 @@
                 rebuildCartFromResumed(resp.object);
                 discardParked(id, true);                            // it's back in the cart now
                 showSaleSuccess(t('ui.js.parkedSaleResumed'));
-            } else { showFormError((resp && resp.message) || 'Could not resume the parked sale.'); }
+            } else { showFormError(apiMessage(resp, 'Could not resume the parked sale.')); }
         }).fail(function () { showFormError(t('ui.js.couldNotResumeTheParkedSale')); });
     };
 
     global.discardParked = function (id, silent) {
         $.post(serverContext + 'deleteParked', { id: id }, function (resp) {
             if (resp && resp.status === 'SUCCESS') { if (!silent) { showSaleSuccess(t('ui.js.parkedSaleDiscarded')); loadParkedSales(); } }
-            else if (!silent) { showFormError((resp && resp.message) || 'Could not discard.'); }
+            else if (!silent) { showFormError(apiMessage(resp, 'Could not discard.')); }
         }, 'json').fail(function () { if (!silent) showFormError(t('ui.js.couldNotDiscardTheParkedSale')); });
     };
 

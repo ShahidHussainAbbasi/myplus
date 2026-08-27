@@ -72,24 +72,30 @@ public interface InventoryClient {
     java.util.Map<Long, Float> getStockLevels();
 
     /*
-     * ⚠ U1 BOUNDARY OBLIGATION — read this before a product is given a pack size.
+     * U1's BOUNDARY OBLIGATION - CLOSED by U2, and closed by a DECISION rather than by code.
+     * Design: docs/slices/u2-loose-sale-arithmetic.md section 2.
      *
-     * Stock is stored in BASE UNITS (U0). While every product has packSize null or 1, a base unit IS a
-     * selling unit and everything below answers in the same numbers it always did.
+     * The obligation recorded here was: "stock is stored in BASE UNITS (U0), so the moment a shop sets
+     * packSize = 10, on-hand of one pack becomes 10 base units and every caller below must convert or start
+     * showing tablets where the shelf holds packs."
      *
-     * The moment a shop sets packSize = 10, that stops being true for THAT product: on-hand of one pack
-     * becomes 10 base units, and a caller that renders the figure as-is shows "10" where the shelf holds one
-     * pack. The two callers today are:
+     * IT WAS BUILT ON A PREMISE THAT WAS NEVER TRUE. U0 changed the column TYPE (Float -> DECIMAL(19,4)) and
+     * multiplied nothing: at the time every packSize was null, so the migration was an identity and every
+     * stock row in the database is in SELLING UNITS to this day.
      *
-     *   business-service  StockController      — the Stock screen's on-hand
-     *   marketplace       BackorderPolicy      — sellable, for the shortfall split
+     * U2 faced the fork for real - it is the first code that sends a quantity to inventory for a product with
+     * a pack size - and chose to keep it that way. Selling 5 tablets of a 10-pack decrements 0.5 PACKS.
+     * So there is nothing to convert here, and the two callers below are correct exactly as they stand:
      *
-     * Neither converts yet, and neither needs to until a pack size exists. U2 owns the conversion, because
-     * U2 is where packSize first reaches the sale path — and doing it here, before anything can set one,
-     * would be a conversion with nothing to convert and no way to test that it works.
+     *   business-service  StockController      - the Stock screen's on-hand      (packs, as always)
+     *   marketplace       BackorderPolicy      - sellable, for the shortfall split (packs, as always)
      *
-     * Recorded rather than left to be discovered: a stock grid that quietly starts counting tablets is the
-     * kind of defect a shopkeeper reports as "the numbers went mad", weeks later.
+     * ⚠ IF A LATER SLICE MOVES STOCK TO TRUE BASE UNITS - which is where SAP and Odoo both sit, and remains
+     * open because Sell.packSizeSnapshot keeps historical lines interpretable across the change - then this
+     * obligation comes BACK, and it must land in the same deploy as the purchase, adjustment, transfer,
+     * import and count conversions. Its failure mode is a shop's on-hand out by a factor of packSize.
+     *
+     * Kept rather than deleted, because an obligation that quietly evaporates is how a real one gets missed.
      */
 
     /**

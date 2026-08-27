@@ -383,7 +383,7 @@
                     showSaleSuccess(t('ui.js.categoryAdded'));
                     $('#prodCategoryNew').val('');
                     loadCategories(resp.data.id);
-                } else { showFormError((resp && resp.message) || 'Could not add the category.'); }
+                } else { showFormError(apiMessage(resp, 'Could not add the category.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotAddTheCategory')); }
         });
@@ -411,7 +411,7 @@
                     showSaleSuccess(t('ui.js.added') + qty + ' to stock.');
                     $('#addstk_' + productId).val('');
                     refreshStock(productId);
-                } else { showFormError((resp && resp.message) || 'Could not add stock.'); }
+                } else { showFormError(apiMessage(resp, 'Could not add stock.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotAddStock')); },
             complete: function () { $btn.prop('disabled', false); }
@@ -433,7 +433,7 @@
                     showSaleSuccess((t === 'DECREASE' ? 'Removed ' : 'Added ') + qty + (t === 'DECREASE' ? ' from' : ' to') + ' stock.');
                     $('#addstk_' + productId).val('');
                     refreshStock(productId);
-                } else { showFormError((resp && resp.message) || 'Could not correct stock (not enough on hand?).'); }
+                } else { showFormError(apiMessage(resp, 'Could not correct stock (not enough on hand?).')); }
             },
             error: function () { showFormError(t('ui.js.couldNotCorrectStock')); },
             complete: function () { $btn.prop('disabled', false); }
@@ -617,7 +617,7 @@
                     closeModal('ProductModal');
                     loadDataTable();
                     if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
-                } else { showFormError((resp && resp.message) || 'Could not save the product.'); }
+                } else { showFormError(apiMessage(resp, 'Could not save the product.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotSaveTheProduct')); }
         });
@@ -637,7 +637,7 @@
                 if (resp && resp.success) {
                     showSaleSuccess(t('ui.js.productSRemoved')); resetProductForm(); loadDataTable();
                     if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
-                } else { showFormError((resp && resp.message) || 'Could not remove the product(s).'); }
+                } else { showFormError(apiMessage(resp, 'Could not remove the product(s).')); }
             },
             error: function () { showFormError(t('ui.js.couldNotRemoveTheProductS')); }
         });
@@ -661,7 +661,7 @@
             data: JSON.stringify({ id: productId }),
             success: function (resp) {
                 if (resp && resp.success) { showSaleSuccess(t('ui.js.productReactivated')); loadDataTable(); }
-                else { showFormError((resp && resp.message) || 'Could not reactivate the product.'); }
+                else { showFormError(apiMessage(resp, 'Could not reactivate the product.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotReactivateTheProduct')); }
         });

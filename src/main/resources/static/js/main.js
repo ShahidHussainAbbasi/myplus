@@ -937,7 +937,7 @@ $(document).ready(function() {
 				return false;
 			}, fail: function(data, textStatus, errorThrown) {
 				hideWait();
-			showFormError('Network error. Please check your connection and try again.');
+			showFormError(apiFailMessage(data, 'Network error. Please check your connection and try again.'));
 			}, error: function(data, textStatus, errorThrown) {
 				hideWait();
 				resetGlobalError();
@@ -992,7 +992,7 @@ $(document).ready(function() {
             }
 		}).fail(function(data) {
 			hideWait();
-			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
+			showFormError(apiFailMessage(data, 'Request failed. Please recheck inputs or contact the system administrator.'));
 		});
 		if(tableV=="Purchase"){	
 			resetPurchaseForm();
@@ -1124,13 +1124,13 @@ function jsonPost(method,data) {
 			loadDataTable();
 			resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
-			showFormError('Network error. Please check your connection and try again.');
+			showFormError(apiFailMessage(data, 'Network error. Please check your connection and try again.'));
 		}, error: function(data, textStatus, errorThrown) {
 			resetGlobalError();
         	handleAjaxFailure(data, errorThrown, "jsonPost");   // was: unconditional redirect to /login
        	}
 	}).fail(function(data) {
-			showFormError('Request failed. Please recheck inputs or contact the system administrator.');
+			showFormError(apiFailMessage(data, 'Request failed. Please recheck inputs or contact the system administrator.'));
 	});
 	edit = false;// when add/update & delete done
 }

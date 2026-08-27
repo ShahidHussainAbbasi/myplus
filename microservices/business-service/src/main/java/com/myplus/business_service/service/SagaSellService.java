@@ -582,6 +582,9 @@ public class SagaSellService {
         // B1: read the pharmacy policy ONCE per sale, not per line. Inert for a non-pharmacy tenant — no product
         // of theirs carries the flag, so the check below never fires.
         boolean requireRx = settingsService.getBool("pharmacy.rx.requirePrescription");
+        // U2: the uplift for breaking a pack, read ONCE per sale for the same reason as the line above.
+        // Default 0 leaves a shop that has not asked for it selling loose at exactly the pack rate divided.
+        BigDecimal looseMarkupPct = settingsService.getDecimal("pos.sale.looseMarkupPct", BigDecimal.ZERO);
         // B2B-P2 (#10): resolve contract/tier prices for the WHOLE basket in ONE call, before the line loop.
         // Per-line would double the catalog round trips this method already makes, on every sale.
         java.util.Map<Long, com.myplus.commerce.contracts.dto.PriceQuoteLine> quoted = quoteBasket(dto);
@@ -615,7 +618,10 @@ public class SagaSellService {
                     ? product.getSellingPrice() : BigDecimal.ZERO;
             // The rate this line SOLD at = the cashier's rate (may override catalog); fall back to catalog. The
             // catalog price is snapshotted separately so reports show BOTH "catalog price" and "sold at".
-            BigDecimal soldRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
+            // Renamed from `soldRate` in U2: that name now belongs to the per-PIECE rate on a broken pack, and
+            // two different rates called the same thing three lines apart is how a tenfold pricing error gets
+            // written. This one is per SELLING unit — the rate that goes to Sell.sellRate.
+            BigDecimal lineRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
                     ? s.getSellRate() : catalogPrice;
             BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
             // The line total is DERIVED here — qty × the rate this line sold at — never taken from the client.
@@ -623,7 +629,28 @@ public class SagaSellService {
             // with total=850 (the cashier's real price): two numbers from different sources, contradicting each
             // other, and no way for the row to be right. Derive it and the contradiction cannot be persisted.
             BigDecimal qty = s.getQuantity() != null ? BigDecimal.valueOf(s.getQuantity()) : BigDecimal.ONE;
-            BigDecimal lineTotal = soldRate.multiply(qty).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal lineTotal = lineRate.multiply(qty).setScale(2, java.math.RoundingMode.HALF_UP);
+
+            // ── U2 · a broken pack ────────────────────────────────────────────────────────────────────────
+            // Design: docs/slices/u2-loose-sale-arithmetic.md §3-§5. Everything above stands for an ordinary
+            // line; a LOOSE line recomputes qty, lineTotal and lineRate, and records what the customer asked
+            // for. `loose` is false on every line until a shop switches the feature on for a product.
+            String soldUnitOut = normaliseSoldUnit(s.getSoldUnit());
+            Float soldQtyOut = null;
+            BigDecimal soldRateOut = null;
+            Integer packSnapOut = null;
+            if ("LOOSE".equals(soldUnitOut)) {
+                LooseLine ll = looseLine(s, product, pName, lineRate, looseMarkupPct);
+                qty = ll.quantity();
+                lineTotal = ll.lineTotal();
+                lineRate = ll.lineRate();
+                soldQtyOut = ll.pieces();
+                soldRateOut = ll.perPiece();
+                packSnapOut = ll.packSize();
+            } else if (soldUnitOut != null) {
+                // An explicit PACK. Priced exactly as it always was — the columns are a record, not a rule.
+                packSnapOut = (product != null) ? product.getPackSize() : null;
+            }
             BigDecimal discount = resolveDiscount(s, lineTotal);
             String discountType = resolveDiscountType(s, discount);
             BigDecimal base = lineTotal.subtract(discount);
@@ -640,17 +667,149 @@ public class SagaSellService {
             // posts its "Net Amount" box, which actually holds PROFIT (total − cost×qty − discount); persisting
             // that made Sell.netAmount mean three different things and made the margin report — which computes
             // netAmount − cost×qty — subtract the cost twice whenever a purchase rate was present.
-            lines.add(new SagaLine(productId, s.getQuantity(), soldRate, discount,
+            lines.add(new SagaLine(productId, qty.floatValue(), lineRate, discount,
                     lineTotal, tax.gross(), s.getSrp(),
                     tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice,
                     (q != null && q.getRuleId() != null) ? q.getReason() : null,
                     // B2B-P3g: free goods ride through untouched — they are printed, not priced. Bonus takes
                     // no part in lineTotal, tax or margin, which is exactly why it can be carried safely
                     // before decision D-2 settles whether it should also move stock.
-                    s.getBonusQuantity()));
+                    s.getBonusQuantity(),
+                    soldUnitOut, soldQtyOut, soldRateOut, packSnapOut));
         }
         return lines;
     }
+
+    /* == U2 . breaking a pack =============================================================================
+     *
+     * Design: docs/slices/u2-loose-sale-arithmetic.md. Two rules carry everything below.
+     *
+     * 1 . THE MONEY IS COMPUTED IN THE UNIT THE CUSTOMER BOUGHT.
+     *
+     *     The obvious implementation converts first and multiplies second - 5/10 = 0.5, then 0.5 x 120.00.
+     *     That is right for a pack of ten and wrong for a pack of three, where 0.3333... x 120 is 39.999...
+     *     and only becomes 40.00 because something rounds it afterwards. The line's total would depend on a
+     *     rounding step rather than on the sale.
+     *
+     *     So: total = pieces x rate-per-piece, exact for any pack size. `quantity` is then derived FOR THE
+     *     SHELF, and carries whatever residue the division leaves - instead of the customer's bill carrying
+     *     it. (INST-5a: a total is allocated, never derived by rounding a proportion.)
+     *
+     * 2 . WHOLE PACKS ARE PRICED AS PACKS.
+     *
+     *     Ten tablets out of a pack of ten is a pack. Left as ten loose pieces with a markup set, it would
+     *     cost MORE than the sealed pack sitting beside it on the shelf - and the customer can see both
+     *     prices. Splitting pieces into whole packs + remainder makes that a consequence of the arithmetic
+     *     rather than a special case bolted on: 25 pieces of a 10-pack is 2 packs and 5 loose, which is
+     *     exactly what the counter would do by hand.
+     */
+
+    /** A pack this large would round `quantity` away to nothing at scale 4; refuse rather than sell 0.0000. */
+    private static final int MAX_PACK_SIZE = 10_000;
+
+    /** The result of pricing a broken pack - see {@link #looseLine}. */
+    record LooseLine(BigDecimal quantity,   // SELLING units for stock + the money identity (0.5)
+                             BigDecimal lineTotal,  // what the customer pays for this line
+                             BigDecimal lineRate,   // per selling unit, so lineTotal == quantity x lineRate
+                             Float pieces,          // what the customer asked for (5)
+                             BigDecimal perPiece,   // effective rate per piece, for the receipt
+                             Integer packSize) {}   // frozen at the sale
+
+    /** {@code null}/blank = an ordinary line. Anything other than PACK/LOOSE is a caller bug, not a default. */
+    private static String normaliseSoldUnit(String raw) {
+        if (raw == null) return null;
+        String u = raw.trim().toUpperCase(java.util.Locale.ROOT);
+        if (u.isEmpty()) return null;
+        if (!"PACK".equals(u) && !"LOOSE".equals(u)) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    "Unknown sale unit '" + raw + "' - expected PACK or LOOSE.");
+        }
+        return u;
+    }
+
+    /**
+     * Price a line the customer asked for in pieces.
+     *
+     * <p><b>Every refusal here is server-side on purpose.</b> The till is one caller, and the screen that
+     * makes this convenient (U3) is not written yet - an API caller, an import or a future integration must
+     * meet the same rules, and "the UI does not offer it" has never been a control.
+     *
+     * @param packRate the rate per SELLING unit already resolved for this line - catalog price, contract
+     *                 price, or the cashier's override. The loose rate derives from whichever applied, so a
+     *                 customer on a contract price gets their contract price divided, not the list price.
+     */
+    // STATIC and package-private so the arithmetic can be tested as pure logic on every `mvn test`, instead
+    // of only against a deployed stack. It reads no field of this service — the whole point of passing the
+    // resolved packRate in — so nothing is lost by making that explicit. (Standard D2.)
+    static LooseLine looseLine(SellDTO s, ProductRef product, String pName,
+                               BigDecimal packRate, BigDecimal markupPct) {
+        if (product == null) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    pName + " could not be read from the catalogue, so it cannot be split.");
+        }
+        if (!Boolean.TRUE.equals(product.getAllowLoose())) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    pName + " is not sold by the piece. Switch on 'may be sold loose' for this product first.");
+        }
+        Integer packSize = product.getPackSize();
+        if (packSize == null || packSize <= 1) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    pName + " has no pack size, so there is nothing to divide.");
+        }
+        if (packSize > MAX_PACK_SIZE) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    pName + " has a pack size of " + packSize + ", which is too large to sell by the piece.");
+        }
+        Float piecesF = s.getSoldQuantity();
+        if (piecesF == null || piecesF <= 0f) {
+            throw new com.myplus.common.web.exception.ValidationException(
+                    "How many " + looseNoun(product) + " of " + pName + "? Enter a quantity above zero.");
+        }
+        BigDecimal pieces = BigDecimal.valueOf(piecesF);
+        if (pieces.stripTrailingZeros().scale() > 0) {
+            // Half a tablet is not a thing this feature sells. Silently rounding it would be worse: the
+            // customer would be charged for a piece they did not get, or the shop would give one away.
+            throw new com.myplus.common.web.exception.ValidationException(
+                    pName + " is sold in whole " + looseNoun(product) + " - " + trim(pieces)
+                            + " is not a whole number.");
+        }
+
+        BigDecimal ps = BigDecimal.valueOf(packSize);
+        // ceilToCents(packRate x (1 + markup/100) / packSize). CEILING, and it must be: 100/3 = 33.33 means
+        // three sold singly return 99.99 for goods priced 100 - a loss on EVERY broken pack, invisible, on
+        // the fastest-moving lines in the shop. The rate stays editable, so a shop can still absorb it.
+        BigDecimal looseRate = packRate
+                .multiply(BigDecimal.ONE.add(nzDec(markupPct).movePointLeft(2)))
+                .divide(ps, 2, java.math.RoundingMode.CEILING);
+
+        BigDecimal[] split = pieces.divideAndRemainder(ps);
+        BigDecimal wholePacks = split[0];
+        BigDecimal remainder = split[1];
+        BigDecimal lineTotal = wholePacks.multiply(packRate)
+                .add(remainder.multiply(looseRate))
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+
+        BigDecimal quantity = pieces.divide(ps, 4, java.math.RoundingMode.HALF_UP);
+        // Derived so that lineTotal == quantity x lineRate to the cent, whatever the pack size and markup.
+        // Deriving the RATE rather than the TOTAL is what keeps the customer's bill exact: the residue of an
+        // awkward division lands here, where nothing is charged from it, instead of on the invoice.
+        BigDecimal lineRate = lineTotal.divide(quantity, 2, java.math.RoundingMode.HALF_UP);
+        BigDecimal perPiece = lineTotal.divide(pieces, 2, java.math.RoundingMode.HALF_UP);
+
+        return new LooseLine(quantity, lineTotal, lineRate, piecesF, perPiece, packSize);
+    }
+
+    /** "tablets" / "pieces" - what this product's pieces are called, for a message a shopkeeper can act on. */
+    private static String looseNoun(ProductRef p) {
+        if (p == null) return "pieces";
+        if (p.getLooseUnitPlural() != null && !p.getLooseUnitPlural().isBlank()) return p.getLooseUnitPlural();
+        if (p.getLooseUnit() != null && !p.getLooseUnit().isBlank()) return p.getLooseUnit();
+        return "pieces";
+    }
+
+    private static String trim(BigDecimal v) { return v.stripTrailingZeros().toPlainString(); }
+
+    private static BigDecimal nzDec(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 
     /** The line's discount as an absolute amount. A "%"/"1" type is a percent of the line total; anything else is
      *  already an amount. Read from the line's stock (bsellDiscount + bsellDiscountType) — where the sell form binds
