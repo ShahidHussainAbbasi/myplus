@@ -13,6 +13,23 @@
  * The dashboards keep identical element ids (#TeamDiv, #teamStores, #tableTeam …) so this file needs no
  * per-vertical branching.
  */
+/**
+ * Translate, with a readable English fallback.
+ *
+ * Same tHas-then-t shape the other shared modules use. This file's button and empty-state labels were
+ * hardcoded, so the Team screen stayed English in all six languages — and it is the screen every vertical
+ * shares, so the gap appeared on business, education, pharmacy and e-commerce at once.
+ *
+ * Named tMsg, not msg: this file is NOT wrapped in an IIFE, so anything declared here is global and a name
+ * as common as `msg` would collide with the next module that wants one.
+ */
+function tMsg(key, fallback) {
+	if (typeof window.tHas === 'function' && typeof window.t === 'function' && window.tHas(key)) {
+		return window.t(key);
+	}
+	return fallback;
+}
+
 function showTeam() {
 	$('.formDiv').hide();
 	$('#TeamDiv').show();
@@ -42,7 +59,7 @@ function loadTeamUsers() {
 			$tr.append($('<td>').text(teamLocationNames(u.locationIds)));
 			$tr.append($('<td>').append(
 				$('<button type="button" class="btn btn-xs btn-default">')
-					.text('Edit access')
+					.text(tMsg('ui.js.teamEditAccess', 'Edit access'))
 					.on('click', function () { editTeamAccess(u); })
 			));
 			$tb.append($tr);
@@ -81,7 +98,7 @@ function editTeamAccess(user) {
 		$save = $('<button type="button" id="saveTeamAccess" class="btn btn-primary" style="margin-left:6px">')
 			.insertAfter('#addTeamUser');
 	}
-	$save.text('Save access').off('click').on('click', function () {
+	$save.text(tMsg('ui.js.teamSaveAccess', 'Save access')).off('click').on('click', function () {
 		$.ajax({
 			type: 'POST', url: serverContext + 'assignStores', contentType: 'application/json',
 			data: JSON.stringify({
@@ -164,13 +181,13 @@ function renderTeamLocations(filter) {
 		  : ('No ' + noun + ' selected — they will inherit (owner = all, admin = their own)')));
 
 	var $actions = $('<span class="locpick__actions">');
-	$('<button type="button" class="locpick__action">').text('Select all')
+	$('<button type="button" class="locpick__action">').text(tMsg('ui.js.teamSelectAll', 'Select all'))
 		.prop('disabled', n === teamLocations.length)
 		.on('click', function () {
 			teamLocations.forEach(function (l) { teamSelectedLocations.add(l.id); });
 			renderTeamLocations(filter);
 		}).appendTo($actions);
-	$('<button type="button" class="locpick__action">').text('Clear')
+	$('<button type="button" class="locpick__action">').text(tMsg('ui.js.teamClear', 'Clear'))
 		.prop('disabled', n === 0)
 		.on('click', function () { teamSelectedLocations.clear(); renderTeamLocations(filter); })
 		.appendTo($actions);
@@ -202,7 +219,7 @@ function renderTeamLocations(filter) {
 		$chips.append($chip);
 	});
 	if (!shown.length) {
-		$chips.append($('<div class="locpick__empty">').text('No ' + noun + ' matches that.'));
+		$chips.append($('<div class="locpick__empty">').text(tMsg('ui.js.teamNoMatch', 'No {0} matches that.').replace('{0}', noun)));
 	}
 	$box.append($chips);
 }

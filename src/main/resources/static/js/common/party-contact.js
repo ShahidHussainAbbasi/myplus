@@ -18,6 +18,22 @@
 (function (global) {
     'use strict';
 
+    /**
+     * Translate, with a readable English fallback.
+     *
+     * <p>Same {@code tHas}-then-{@code t} shape the other shared modules use: ask whether the bundle has the
+     * key before looking it up, so a missing key shows English rather than rendering the key itself at the
+     * user. This file's user-visible strings were hardcoded, so the panel stayed English in all six
+     * languages.
+     */
+    function msg(key, fallback) {
+        if (typeof global.tHas === 'function' && typeof global.t === 'function' && global.tHas(key)) {
+            return global.t(key);
+        }
+        return fallback;
+    }
+
+
     var MODULES = {
         business:    { label: 'Point of Sale', color: '#1565C0' },
         education:   { label: 'Education',     color: '#2E7D32' },
@@ -83,7 +99,7 @@
         var head = document.createElement('div');
         head.className = 'c360-head';
         var h = document.createElement('h3');
-        h.textContent = 'Contact across modules';
+        h.textContent = msg('ui.js.pcTitle', 'Contact across modules');
         var x = document.createElement('button');
         x.type = 'button';
         x.className = 'c360-x';
@@ -94,7 +110,7 @@
 
         var body = document.createElement('div');
         body.className = 'c360-body';
-        body.textContent = 'Loading…';
+        body.textContent = msg('ui.js.pcLoading', 'Loading…');
 
         card.appendChild(head);
         card.appendChild(body);
@@ -122,12 +138,13 @@
                 // 404/{} — not bridged yet, or not visible to this tenant. Not an error worth alarming anyone.
                 var none = document.createElement('div');
                 none.className = 'c360-empty';
-                none.textContent = 'No shared contact record yet. It is created the next time this record is saved.';
+                none.textContent = msg('ui.js.pcNoRecord',
+                    'No shared contact record yet. It is created the next time this record is saved.');
                 body.appendChild(none);
                 return;
             }
 
-            h.textContent = 'Contact across modules — ' + (p.name || ('#' + p.id));
+            h.textContent = msg('ui.js.pcTitle', 'Contact across modules') + ' — ' + (p.name || ('#' + p.id));
 
             var dl = document.createElement('dl');
             dl.className = 'c360-id';
@@ -140,13 +157,14 @@
 
             var sec = document.createElement('p');
             sec.className = 'c360-sec';
-            sec.textContent = 'Roles across modules';
+            sec.textContent = msg('ui.js.pcRoles', 'Roles across modules');
             body.appendChild(sec);
 
             if (!roles.length) {
                 var e = document.createElement('div');
                 e.className = 'c360-empty';
-                e.textContent = 'No module roles recorded yet — they are indexed as each module saves this contact.';
+                e.textContent = msg('ui.js.pcNoRoles',
+                    'No module roles recorded yet — they are indexed as each module saves this contact.');
                 body.appendChild(e);
                 return;
             }
@@ -171,7 +189,7 @@
             var err = document.createElement('div');
             err.className = 'c360-empty';
             err.style.color = '#DC2626';
-            err.textContent = 'Could not load the contact view.';
+            err.textContent = msg('ui.js.pcLoadFailed', 'Could not load the contact view.');
             body.appendChild(err);
         });
     };

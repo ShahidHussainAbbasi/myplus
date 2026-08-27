@@ -182,6 +182,55 @@ describe('Multilingual', () => {
     });
   });
 
+  describe('Shared JS chrome — the defaults nobody passes explicitly', () => {
+    beforeEach(() => cy.loginAsBusiness());
+
+    /*
+     * The gap this closes.
+     *
+     * confirm-dialog.js is the ONE dialog behind every confirmation in the product — uiConfirm, uiAlert,
+     * uiPromptConfirm. Callers may name their own buttons and most do, so the labels looked translated.
+     * What was never translated is the DEFAULT: any dialog that did not name its buttons rendered
+     * "Cancel", "OK", "Confirm" and "Please confirm" in English whatever language the operator had picked.
+     *
+     * Because it is shared, the gap appeared everywhere at once and therefore nowhere in particular —
+     * which is exactly why a page-level "no English on the dashboard" scan never caught it. The dialog is
+     * built in JS at the moment it opens, so the strings are not in the served HTML to be scanned.
+     */
+    it("the confirm dialog's DEFAULT labels translate", () => {
+      cy.visit('/businessDashboard?lang=ur');
+      cy.window().then((w) => {
+        expect(w.uiConfirm, 'the shared dialog is loaded').to.be.a('function');
+        // Deliberately no confirmText/cancelText — the defaults are the thing under test.
+        w.uiConfirm({ message: 'gate' });
+      });
+
+      cy.get('.uiC-foot [data-ui-confirm="ok"]', { timeout: 10000 })
+        .should('be.visible')
+        .and('not.have.text', 'Confirm');
+      cy.get('.uiC-foot .uiC-cancel').should('not.have.text', 'Cancel');
+      cy.get('#uiC-title').should('not.have.text', 'Please confirm');
+
+      // POSITIVE CONTROL: in English they ARE those words. Without this, a dialog that rendered empty
+      // buttons — or failed to open at all — would satisfy every assertion above.
+      cy.get('.uiC-foot .uiC-cancel').click();
+      cy.visit('/businessDashboard?lang=en');
+      // BRACES, not an implicit return. uiConfirm resolves only when a button is CLICKED, so returning
+      // its promise makes Cypress wait for a click that has not happened yet and time out at 5s — which
+      // reads as "the dialog never opened" rather than "the test handed Cypress a pending promise".
+      cy.window().then((w) => { w.uiConfirm({ message: 'gate' }); });
+      cy.get('.uiC-foot [data-ui-confirm="ok"]', { timeout: 10000 }).should('have.text', 'Confirm');
+      cy.get('.uiC-foot .uiC-cancel').should('have.text', 'Cancel');
+    });
+
+    it('an explicit label still wins over the translation', () => {
+      // Every existing caller passes its own text; this change must not have taken that away.
+      cy.visit('/businessDashboard?lang=ur');
+      cy.window().then((w) => { w.uiConfirm({ message: 'gate', confirmText: 'ZZ_EXPLICIT' }); });
+      cy.get('.uiC-foot [data-ui-confirm="ok"]', { timeout: 10000 }).should('have.text', 'ZZ_EXPLICIT');
+    });
+  });
+
   describe('Region auto-detection', () => {
     // Before this, CookieLocaleResolver had a hardcoded ENGLISH default: a first-time visitor in
     // Lahore or Cairo got English no matter what their browser asked for.
