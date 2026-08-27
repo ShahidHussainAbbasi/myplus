@@ -208,7 +208,10 @@ $(document).ready(function() {
         	// (cart insert handled below: append, or replace-in-place when editing)
 			var arr = [
 				// SF-9: show the discount WITH its type so "10" is unambiguous — "10%" (percent) vs "10 (Amt)" (fixed).
-				obj.productId,obj.itemName,obj.quantity,obj.stock.bsellRate,
+				// U4: "5 tablets" on a loose line, obj.quantity on every other. Before this, the manual add
+				// showed 0.5 while a `5L*CODE` scan of the SAME product showed 5 — two unlabelled numbers
+				// for one sale, on the screen a cashier watches while ringing up.
+				obj.productId,obj.itemName,looseQtyText(obj),obj.stock.bsellRate,
 				(obj.stock && obj.stock.bsellDiscount ? (Number(obj.stock.bsellDiscount) + ((obj.stock.bsellDiscountType==='1'||obj.stock.bsellDiscountType==='%') ? '%' : ' (Amt)')) : (obj.stock ? obj.stock.bsellDiscount : '')),
 				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
 				];
@@ -443,7 +446,8 @@ function scanAddToCart(ref, qty, unit, li){
 			obj.stock.bsellRate = obj.sellRate;
 		}
 		data.push(obj);
-		tablesi.row.add([pid, name, n, price, '', m.receivable,
+		// U4: the same formatter as the manual path, so the two can no longer disagree.
+		tablesi.row.add([pid, name, looseQtyText(obj), price, '', m.receivable,
 			"<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
 	}
 	// A scanned line must be priced for the buyer exactly like a manually added one.
@@ -581,7 +585,22 @@ function loadCartLineIntoForm(line){
 		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
 		var sel = $dd.val();
 		if(sel && /^\d+$/.test(sel)) loadStock($dd.find(':selected').text(), sel);   // sel is a productId now
-		$('#sellItems').val(line.quantity);                   // keep the line's qty (loadStock won't override >0)
+		/*
+		 * U4 — THE EDIT PATH IS THE ONE THAT CAN LOSE MONEY.
+		 *
+		 * `line.quantity` on a loose line is 0.5. Put that in this box and the cashier reads it as PIECES
+		 * while the seven numeric readers treat it as PACKS — so editing a sale of five tablets and clicking
+		 * Update would re-submit half a pack of packs, silently, at the pack rate.
+		 *
+		 * So the box is loaded with what was actually sold, and the unit toggle is set to match. U3's
+		 * decorate() then re-derives the conversion on submit, and the edit round-trips.
+		 */
+		var d = (typeof looseDisplay === 'function') ? looseDisplay(line) : null;
+		$('#sellItems').val(d && d.isLoose ? d.qty : line.quantity);   // loadStock won't override >0
+		if (d && d.isLoose && window.LooseSell) {
+			// After loadStock's async /looseInfo settles, or the toggle would be re-drawn as PACK over it.
+			setTimeout(function () { LooseSell.setUnit('LOOSE'); }, 600);
+		}
 		$dd.prop('disabled', true);                           // lock the item while editing
 		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
 	});
@@ -2341,6 +2360,16 @@ function calculateNetSell(){
 	var s= $("#sellSellRate").val()*ONE;
 	$("#sellItems").removeClass("alert-danger");
 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+	/*
+	 * U4 — on a LOOSE line the box holds PIECES and the rate box holds the PACK price, so the maths below
+	 * would compute 5 x 120 = 600.00 for five tablets that cost 60.00 — and the stock guard would compare
+	 * 5 pieces against an on-hand counted in packs and refuse a sale the shop can make.
+	 *
+	 * Substituting packs + the effective pack rate mirrors what the server stores, so the cart row, the
+	 * running total, the stock check and the invoice all agree. Null on every ordinary line.
+	 */
+	var looseOv = (window.LooseSell && LooseSell.lineOverride) ? LooseSell.lineOverride() : null;
+	if(looseOv){ qty = looseOv.qty; s = looseOv.rate; }
 	discountType = $("#sellDiscountTypeDD :selected").val();
 	// editing an existing sale â†’ trust the displayed stock; key on editingInvoice, not the shared `edit`
 	// global (which resetBSDD flips off after every cart add).
@@ -2636,7 +2665,8 @@ function renderSRGroups(groups){
 	groups.forEach(function(g){
 		h += '<tr><td>' + escHtml(g.label || '') + '</td>'
 			+ '<td class="text-right">' + (g.invoices != null ? g.invoices : '') + '</td>'
-			+ '<td class="text-right">' + (g.quantity != null ? Number(g.quantity) : '') + '</td>'
+			+ '<td class="text-right">' + escHtml(g.soldUnit ? looseQtyText(g)
+					: (g.quantity != null ? String(Number(g.quantity)) : '')) + '</td>'
 			+ '<td class="text-right">' + (g.total != null ? Number(g.total).toFixed(2) : '') + '</td>'
 			+ '<td class="text-right">' + (g.tax != null ? Number(g.tax).toFixed(2) : '') + '</td>'
 			+ '<td class="text-right"><b>' + (g.gross != null ? Number(g.gross).toFixed(2) : '') + '</b></td></tr>';
@@ -2710,7 +2740,8 @@ function loadSR(){
 					escSR(o.dated || ''),
 					'<span class="sr-inv">' + escSR(o.invoiceNo || '—') + '</span>',
 					product,
-					srNum(o.quantity),
+					// U4: pieces on a loose line, packs on every other. The row's money is untouched.
+					(o.soldUnit ? looseQtyText(o) : srNum(o.quantity)),
 					srMoneyCell(o.catalogPrice),
 					srMoneyCell(o.sellRate),
 					srMoneyCell(o.totalAmount),

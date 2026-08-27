@@ -75,15 +75,37 @@
     // Sell.discount, so every discounted line printed MORE than the customer was charged and the line amounts
     // did not add up to the TOTAL at the foot of the same document.
     function lineMath(s) {
-        var qty = num(s.quantity);
         var value = num(s.totalAmount);
         var disc = num(s.discount);
         var tax = num(s.taxAmount);
-        var rate = (s.sellRate != null) ? num(s.sellRate)
-            : (s.stock && s.stock.bsellRate != null) ? num(s.stock.bsellRate)
-                : (qty ? value / qty : 0);
+
+        /*
+         * U4 — PRINT WHAT THE CUSTOMER BOUGHT.
+         *
+         * A loose line stores quantity 0.5 and sellRate 120.00, because `total = quantity x rate` is the
+         * identity every report sums. Printed as-is the customer reads "0.5 x 120.00" for five tablets they
+         * are holding, at a rate they never agreed to.
+         *
+         * `looseDisplay` swaps in the pair the customer recognises — 5 and 12.00 — WHICH STILL MULTIPLY TO
+         * THE SAME LINE TOTAL. That is not cosmetic: a tax inspector reconciles quantity x rate against the
+         * line total, so "5 tablets" beside 120.00 would fail an audit while 5 x 12.00 = 60.00 passes. U2
+         * stored soldRate for precisely this moment rather than deriving it here.
+         *
+         * On an ordinary line — every row written before U2, and every pack sale since — this is an exact
+         * identity and the document is byte-for-byte what it is today.
+         */
+        var d = (typeof looseDisplay === 'function')
+            ? looseDisplay(s)
+            : { isLoose: false, qty: num(s.quantity), unit: '', rate: num(s.sellRate) };
+
+        var qty = d.qty;
+        var rate = d.rate || ((s.stock && s.stock.bsellRate != null) ? num(s.stock.bsellRate)
+                : (qty ? value / qty : 0));
         return {
             qty: qty,
+            unit: d.unit || '',            // "tablets" on a loose line, '' otherwise
+            isLoose: !!d.isLoose,
+            packs: d.packs,                // what left the shelf, for a stock-minded column
             bonus: num(s.bonusQuantity),
             rate: rate,
             value: value,
@@ -211,7 +233,9 @@
         packing:       { key: 'ui.js.docPacking',  align: 'left',  resolve: function (c) { return c.s.packing || ''; } },
         batchNo:       { key: 'ui.js.docBatchNo',  align: 'left',  resolve: function (c) { return batchText(c.s, 'batchNo'); } },
         expiryDate:    { key: 'ui.js.docExpiry',   align: 'left',  resolve: function (c) { return batchText(c.s, 'expiryDate'); } },
-        quantity:      { key: 'ui.js.docQty',      align: 'right', sum: 'qty',      resolve: function (c) { return money(c.m.qty); } },
+        // U4: a loose line prints "5 tablets"; an ordinary line prints exactly what it printed before.
+        quantity:      { key: 'ui.js.docQty',      align: 'right', sum: 'qty',      resolve: function (c) {
+                             return c.m.isLoose ? (c.m.qty + ' ' + c.m.unit) : money(c.m.qty); } },
         bonusQty:      { key: 'ui.js.docBonus',    align: 'right', sum: 'bonus',    resolve: function (c) { return money(c.m.bonus); } },
         tradePrice:    { key: 'ui.js.docTradePrice', align: 'right',                resolve: function (c) { return money(c.m.rate); } },
         lineValue:     { key: 'ui.js.docValue',    align: 'right', sum: 'value',    resolve: function (c) { return money(c.m.value); } },

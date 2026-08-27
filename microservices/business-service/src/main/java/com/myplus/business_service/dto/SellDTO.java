@@ -58,6 +58,16 @@ public class SellDTO implements Serializable {
 	/** The pack size at the moment of sale. <b>Server-populated; ignored on the way in.</b> */
 	private Integer packSizeSnapshot;
 
+	/*
+	 * U4 - what a piece is CALLED, so a receipt can print "5 tablets" rather than "5".
+	 *
+	 * NOT columns on `sell`: derived on read from the product, exactly as itemName/itemCode/description
+	 * already are. Outbound only.
+	 */
+	private String looseUnit;
+
+	private String looseUnitPlural;
+
 	/**
 	 * B2B-P2 (#10): WHY this line is priced the way it is — e.g. "Wholesale price −12%" or "Contract price".
 	 * Server-populated on the way out; ignored on the way in.

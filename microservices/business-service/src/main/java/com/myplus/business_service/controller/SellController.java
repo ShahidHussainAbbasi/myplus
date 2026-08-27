@@ -424,6 +424,24 @@ public class SellController {
 						dto.setItemName(p.getName());
 						dto.setItemCode(p.getSku());
 						dto.setDescription(p.getDescription());
+						/*
+						 * U4 - the NOUN a receipt prints: "5 tablets", not "5".
+						 *
+						 * The line stores soldUnit/soldQuantity/soldRate/packSizeSnapshot, but not what a
+						 * piece is CALLED - so a stored loose line read back could only say "5".
+						 *
+						 * Derived on read from the product, deliberately, and NOT stamped on the row:
+						 * itemName, sku and description on the two lines above are already derived exactly
+						 * this way, so a product rename already changes what an old receipt says. Making the
+						 * unit noun stricter than the product NAME would be inconsistent, and two extra
+						 * varchars on the highest-volume table in the system is a real cost for a purely
+						 * cosmetic fidelity gain.
+						 *
+						 * The QUANTITY is a different matter and is frozen on the row (packSizeSnapshot,
+						 * U2 3.2) - because a wrong number is wrong, while a renamed noun is merely dated.
+						 */
+						dto.setLooseUnit(p.getLooseUnit());
+						dto.setLooseUnitPlural(p.getLooseUnitPlural());
 					}
 
 					if (o.getCustomerHistory() != null) {

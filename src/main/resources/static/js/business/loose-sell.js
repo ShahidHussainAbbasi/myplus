@@ -156,7 +156,39 @@
         line.soldUnit = 'LOOSE';
         line.soldQuantity = n;
         line.quantity = packsFor(n);
+        line.soldRate = Number(current.looseRate);
+        line.packSizeSnapshot = current.packSize;
+        // The NOUN, so the cart grid can say "5 tablets" without a second lookup. The stored row gets it
+        // from the product on read (getUserSell enriches itemName the same way); a cart line has not been
+        // stored yet, so it carries its own.
+        line.looseUnit = current.looseUnit;
+        line.looseUnitPlural = current.looseUnitPlural;
         return line;
+    }
+
+    /**
+     * What the TILL's own line maths must use for a loose line.
+     *
+     * <p>⚠ THE DEFECT THIS FIXES. `sellLineMath` computes `qty x rate`, and the quantity box on a loose line
+     * holds PIECES while the rate box holds the PACK price — so five tablets of a 120.00 pack computed as
+     * 5 x 120 = <b>600.00</b>. The hint line said 60.00 and the cart row said 600.00, on the same screen, at
+     * the same moment. The stock guard was wrong the same way: it compared 5 PIECES against an on-hand
+     * figure counted in PACKS and refused sales the shop could make.
+     *
+     * <p>The substitution mirrors the server exactly — quantity becomes packs, and the rate becomes
+     * `lineTotal / packs` — so the cart, the running total and the stock check all agree with the invoice
+     * the server will write.
+     *
+     * @return {{qty:number, rate:number}} or null when this is an ordinary line
+     */
+    function lineOverride() {
+        if (!isLoose()) return null;
+        var n = pieces();
+        if (!(n > 0)) return null;
+        var packs = packsFor(n);
+        if (!(packs > 0)) return null;
+        var total = lineTotal(n);
+        return { qty: packs, rate: total / packs };
     }
 
     /** A whole number of pieces, mirroring the server's refusal rather than replacing it. */
@@ -205,6 +237,7 @@
         setUnit: setUnit,
         toggle: toggleUnit,
         decorate: decorate,
+        lineOverride: lineOverride,
         validate: validate,
         reset: reset,
         render: render,
