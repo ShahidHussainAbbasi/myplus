@@ -2,6 +2,9 @@ package com.web.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.DisplayName;
@@ -56,10 +59,35 @@ class ModuleRouterTest {
         }
 
         @Test
-        @DisplayName("an UNKNOWN org type falls back to the landing page, never a 404 route")
+        @DisplayName("C2 — an UNKNOWN org type reaches a WORKING dashboard, never a guessed route")
         void unknownOrgTypeIsSafe() {
-            // A module with no monolith dashboard yet is a normal state. It must not become "/logisticsDashboard".
-            assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardFor(user("BUSINESS", "LOGISTICS")));
+            /*
+             * The original intent survives and is asserted below: the router must never build
+             * "/logisticsDashboard" from the type, because that route does not exist and would 404.
+             *
+             * What changed is the destination. This used to answer LANDING, and Organization.type is a
+             * free-text column with no enum and no allow-list — so a tenant onboarded as MOBILE, exactly the
+             * mobile shop this product means to serve, had every login silently bounced to "/". Nothing
+             * failed and nothing logged; they simply never reached a dashboard.
+             *
+             * A fixed fallback to a dashboard that certainly exists is better than a landing page AND better
+             * than a guess. Routing is not authorization — every section on that page stays gated by
+             * privilege, org scope and capability.
+             */
+            String dest = ModuleRouter.dashboardFor(user("BUSINESS", "LOGISTICS"));
+
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, dest, "an unknown type lands somewhere that works");
+            assertNotEquals(ModuleRouter.LANDING, dest, "and is no longer bounced to the landing page");
+            // The original guarantee, unchanged: never a route derived from the type itself.
+            assertFalse(dest.toLowerCase().contains("logistics"), "never a guessed /<type>Dashboard");
+        }
+
+        @Test
+        @DisplayName("C2 — a real mobile shop: type MOBILE now reaches the trade dashboard")
+        void mobileShopReachesADashboard() {
+            // The case that prompted C2. Shahzad Mobile Shop is onboarded as MOBILE; before this it saw the
+            // landing page on every login.
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardFor(user("BUSINESS", "MOBILE")));
         }
 
         @Test
@@ -126,11 +154,16 @@ class ModuleRouterTest {
         }
 
         @Test
-        @DisplayName("null/unknown module → landing, never a null path")
+        @DisplayName("blank → landing; unknown → a working dashboard; never a null path")
         void unknownModule() {
+            // C2 splits what used to be one answer. BLANK means we do not know who this user is, and saying
+            // so is honest. An unknown-but-PRESENT type means somebody onboarded a business the router has
+            // not heard of — they get a dashboard that exists rather than the landing page.
             assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardForModule(null));
-            assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardForModule("NOPE"));
             assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardForModule(""));
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardForModule("NOPE"));
+            // The original guarantee, unchanged.
+            assertNotNull(ModuleRouter.dashboardForModule("NOPE"));
         }
     }
 
@@ -154,7 +187,8 @@ class ModuleRouterTest {
             // screen do we have for it". Collapsing an unknown module to null here would lose information
             // a caller may legitimately want (logging, a future per-module feature check).
             assertEquals("LOGISTICS", ModuleRouter.moduleOf(user("BUSINESS", "LOGISTICS")));
-            assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardFor(user("BUSINESS", "LOGISTICS")));
+            // C2: the lookup still falls back — to a working dashboard now, not the landing page.
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardFor(user("BUSINESS", "LOGISTICS")));
         }
     }
 
@@ -203,13 +237,20 @@ class ModuleRouterTest {
         }
 
         @Test
-        @DisplayName("an unregistered org type is skinned POS — the MOBILE trap, stated as a test")
+        @DisplayName("an unregistered org type is skinned POS — and now ROUTES somewhere too")
         void unregisteredTypeIsSkinnedPos() {
-            // INST-8 note: Organization.type is free text, so 'MOBILE' can be stored today. Until it is
-            // registered in DASHBOARD_BY_TYPE it routes to LANDING, and until it is in COMMERCE_TYPES it is
-            // skinned POS. Both halves must be added together — this pins the second half.
-            assertEquals("BUSINESS", skinFor(user("BUSINESS", "MOBILE")));
-            assertEquals(ModuleRouter.LANDING, ModuleRouter.dashboardFor(user("BUSINESS", "MOBILE")));
+            /*
+             * This test already described the MOBILE trap before C2 existed: Organization.type is free text,
+             * so 'MOBILE' can be stored today, and it used to route to LANDING and skin as POS. C2 fixes the
+             * ROUTING half — the trap was that a real mobile shop never reached a dashboard at all.
+             *
+             * The SKINNING half is deliberately unchanged and is not a trap: POS wording is the correct
+             * default for a trade business the router has not been taught about, and CommerceDashboardController
+             * renders it for exactly that reason. Words are a profile question (shape), not a routing one.
+             */
+            assertEquals("BUSINESS", skinFor(user("BUSINESS", "MOBILE")), "still skinned POS, correctly");
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardFor(user("BUSINESS", "MOBILE")),
+                    "and no longer stranded on the landing page");
         }
     }
 }

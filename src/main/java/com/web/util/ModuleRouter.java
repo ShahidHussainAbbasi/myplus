@@ -51,14 +51,38 @@ public final class ModuleRouter {
     private static final Set<String> COMMERCE_TYPES = Set.of("BUSINESS", "PHARMA", "MARKETPLACE");
 
     /**
-     * Every module that owns a dashboard in the monolith UI. A type absent from this map falls back to the
-     * landing page rather than a {@code /<type>Dashboard} guess that would 404 — a microservice-only module
-     * with no monolith UI yet is a normal state, not an error.
+     * The dashboard a KNOWN module owns in the monolith UI.
+     *
+     * <h3>C2 — an unknown type no longer bounces to the landing page</h3>
+     * {@code Organization.type} is a free-text column with no enum, no validation and no allow-list, while
+     * this map has seven entries. So a tenant onboarded as {@code MOBILE} — a mobile shop, which the product
+     * is expressly meant to serve — was silently sent to {@code /} on <b>every login</b>. Nothing failed,
+     * nothing logged, and the shop simply never reached a dashboard. Free text at the column, enumerated at
+     * the router: that mismatch is the bug.
+     *
+     * <p>The old javadoc defended {@code /} as better than a {@code /<type>Dashboard} guess that would 404,
+     * and that much is right — a guess built from the type would 404. But those are not the only two options:
+     * a FIXED fallback to a dashboard that certainly exists is better than both.
+     *
+     * <p>So the rule is now:
+     * <pre>
+     *   blank / no type   -> LANDING     we genuinely do not know who this is; saying so is honest
+     *   known type        -> its own dashboard
+     *   unknown type      -> commerce    somebody DID set a type, so this is a business; show them one
+     * </pre>
+     *
+     * <p>Commerce is the right fallback rather than a neutral page because every non-education vertical the
+     * product has ever onboarded is a trade business, and {@code CommerceDashboardController} already renders
+     * POS wording for any module it does not recognise. Routing is not authorization: every section on that
+     * page stays gated by privilege, org scope and — from C1 — capability.
      */
+    /** The dashboard every trade vertical shares, and the safe landing place for an unrecognised type. */
+    public static final String COMMERCE_DASHBOARD = "/businessDashboard";
+
     private static final Map<String, String> DASHBOARD_BY_TYPE = Map.of(
-            "BUSINESS",    "/businessDashboard",
-            "PHARMA",      "/businessDashboard",
-            "MARKETPLACE", "/businessDashboard",
+            "BUSINESS",    COMMERCE_DASHBOARD,
+            "PHARMA",      COMMERCE_DASHBOARD,
+            "MARKETPLACE", COMMERCE_DASHBOARD,
             "EDUCATION",   "/educationDashboard",
             "WELFARE",     "/welfareDashboard",
             "AGRICULTURE", "/agricultureDashboard",
@@ -122,13 +146,20 @@ public final class ModuleRouter {
         return dashboardForModule(moduleOf(user));
     }
 
-    /** The dashboard for an already-resolved module name. Null/unknown &rarr; {@link #LANDING}. */
+    /**
+     * The dashboard for an already-resolved module name.
+     *
+     * <p>Blank &rarr; {@link #LANDING}. Unknown-but-present &rarr; {@link #COMMERCE_DASHBOARD}; see the
+     * {@code DASHBOARD_BY_TYPE} javadoc for why those two cases answer differently.
+     */
     public static String dashboardForModule(final String module) {
         String key = normalize(module);
         if (key == null) {
+            // No type at all. We do not know what this user is, and guessing a business dashboard for a
+            // module that may have no monolith UI would be a different kind of wrong.
             return LANDING;
         }
-        return DASHBOARD_BY_TYPE.getOrDefault(key, LANDING);
+        return DASHBOARD_BY_TYPE.getOrDefault(key, COMMERCE_DASHBOARD);
     }
 
     /** True when the module is one of the commerce verticals sharing {@code /businessDashboard}. */
