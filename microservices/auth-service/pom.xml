@@ -38,6 +38,50 @@
       <artifactId>common-captcha</artifactId>
       <version>1.0.0-SNAPSHOT</version>
     </dependency>
+    <!-- C3c: auth-service OWNS tenant capabilities and stamps them into the JWT, so every service reads one
+         answer with no remote call on any hot path. Needs common-web too (ApiResponse / ValidationException),
+         which common-settings declares as `provided`.
+
+         common-security for the same reason, and it is the easy one to miss: common-settings declares it
+         `provided` as well, so it does NOT arrive transitively either. JwtAuthFilter now uses
+         AuthenticatedUser and CurrentUser directly, and without this the module fails with the misleading
+         "package com.myplus.common.security does not exist" - misleading because the package built fine one
+         module earlier in the same reactor; it simply was not on THIS module's classpath. -->
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-security</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <!--
+      OpenTelemetry API — required BECAUSE of common-security, not for tracing.
+
+      common-security ships TenantTelemetryFilter and declares opentelemetry-api as `provided`, on the stated
+      assumption that "every instrumented consumer supplies it via opentelemetry-spring-boot-starter; API calls
+      are safe no-ops when no SDK is present". That assumption holds for every service-parent child, which
+      inherits the starter. auth-service extends the ROOT aggregator instead, so it inherits neither the starter
+      nor the API — and an absent class is not a no-op: the context died with
+      ClassNotFoundException: io.opentelemetry.context.ImplicitContextKeyed.
+
+      The API alone, deliberately, NOT the full starter: it satisfies the filter and keeps the no-op behaviour
+      the library was designed around, without switching on trace export for auth-service as a side effect of a
+      capabilities change. Adding the starter is a separate, deliberate decision about observability.
+
+      Version managed by opentelemetry-instrumentation-bom in the root pom — no <version> on purpose.
+    -->
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-settings</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-web</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>

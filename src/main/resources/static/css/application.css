@@ -72,3 +72,15 @@ body {
 .bgrnd-clr{
 	background-color: #90caf9;
 } */
+/* ── C3: capability visibility ──────────────────────────────────────────────────────────────────
+   Set by /js/common/capabilities.js on anything the tenant's capabilities exclude.
+
+   !important is deliberate and load-bearing. module-theme.js walks [data-vertical-only] and writes
+   el.style.display = '' on whatever its (client-side, hardcoded) vertical allows. An inline hide from
+   capabilities.js would be silently undone on any element carrying both attributes — visible, with no
+   error, in exactly the case where the two mechanisms disagree. Inline styles beat normal rules but lose
+   to !important, so this makes the SERVER's answer the one that survives the collision.
+
+   This hides. It never grants: an element without the class is simply not hidden here, and every guarded
+   endpoint refuses on its own regardless of what the DOM shows. */
+.cap-off { display: none !important; }

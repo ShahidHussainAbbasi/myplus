@@ -39,6 +39,23 @@ public class SagaSellService {
     private final RequestUtil requestUtil;
     private final TaxService taxService;
     private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;   // SF-3 dedup
+
+    /**
+     * C3b — what this tenant is allowed to do. Guards the loose-selling path below.
+     *
+     * <p>Field-injected rather than joining {@code @RequiredArgsConstructor} so that tests constructing this
+     * service directly keep their fixed argument list — field injection is simply absent there, and those
+     * tests never reach the guarded branch.
+     *
+     * <p><b>REQUIRED, deliberately.</b> The obvious choice is {@code required = false} "in case the context is
+     * slim", and that is precisely how OMS O3 shipped a settings resolver that silently did nothing: catalog,
+     * migration and resolver all present, no {@code SettingsStore}, optional injection — so every tenant kept
+     * the platform default and nothing anywhere said so. A security guard that disables itself when a bean is
+     * missing is worse than no guard, because it reads as protection. business-service ships a
+     * {@code SettingsStore}, so if this cannot be satisfied the service must fail to start and say why.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.common.settings.CapabilityService capabilityService;                        // C3b
     private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;                 // SF-10 line cost
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -640,6 +657,20 @@ public class SagaSellService {
             BigDecimal soldRateOut = null;
             Integer packSnapOut = null;
             if ("LOOSE".equals(soldUnitOut)) {
+                /*
+                 * C3b — the TENANT must be allowed to sell loose, not just the product.
+                 *
+                 * Two switches, two different questions, and both are needed: `allowLoose` on the product says
+                 * THIS item may be split (checked inside looseLine); the capability says this business does
+                 * part-pack trade at all. A pharmacy splits strips and a mobile shop does not, whatever any
+                 * individual product row happens to say.
+                 *
+                 * Guarded HERE rather than inside looseLine because that method is deliberately static and
+                 * pure — it reads no field of this service so the arithmetic can be unit-tested on every
+                 * `mvn test` instead of only against a deployed stack (Standard D2). Reaching into a capability
+                 * lookup from there would trade that away for nothing; the caller is the one with context.
+                 */
+                capabilityService.assertEnabled(com.myplus.common.settings.Capability.LOOSE_SELLING);
                 LooseLine ll = looseLine(s, product, pName, lineRate, looseMarkupPct);
                 qty = ll.quantity();
                 lineTotal = ll.lineTotal();

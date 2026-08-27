@@ -136,7 +136,22 @@ public class ShipmentService {
         // ENTIRE LIFE of the order, so this is strictly better rather than perfect.
         orderStockHoldService.release(order, orgId);
 
-        String dispatchInvoice = dispatchInvoiceService.invoiceForDispatch(order, requested);
+        // The dispatch invoice goes through the normal SELL path, which enforces sellable stock. When it
+        // refuses it says exactly why and what to do — naming the product and the shortfall. Letting the
+        // HttpServerErrorException escape turned that into a 500 and told the packer "Something went wrong.
+        // Please try again.", which is worse than useless: retrying fails identically until the stock is
+        // fixed, and nothing on screen says stock is the problem (production, 2026-08-27, order 8).
+        //
+        // Relayed as a ValidationException so it leaves as a 400 carrying the downstream's own sentence. The
+        // rollback is unchanged - both are RuntimeExceptions, so the parcel still does not exist if the
+        // invoice could not be raised, which is the guarantee this ordering exists to give.
+        String dispatchInvoice;
+        try {
+            dispatchInvoice = dispatchInvoiceService.invoiceForDispatch(order, requested);
+        } catch (org.springframework.web.client.RestClientResponseException downstream) {
+            throw new ValidationException(com.myplus.marketplace.support.DownstreamMessage.orElse(downstream,
+                    "This order could not be invoiced for dispatch. Check stock for its items and try again."));
+        }
         if (dispatchInvoice != null) {
             order.setInvoiceNo(dispatchInvoice);
             order.setBooksStatus("POSTED");

@@ -21,7 +21,22 @@ import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AuthService {
+
+    /**
+     * C3c — resolves the tenant's capabilities while minting a token.
+     *
+     * <p>Field-injected rather than a constructor argument so the several tests that build this service
+     * directly keep their argument lists; {@code @Autowired} without {@code required = false} so a real
+     * context that cannot supply it fails at startup instead of quietly minting tokens with no capability
+     * claim for the rest of the deployment's life.
+     *
+     * <p>The {@code != null} check at the call site therefore guards only direct construction in tests, not a
+     * missing bean in production.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.common.settings.CapabilityService capabilityService;
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -689,6 +704,35 @@ public class AuthService {
             }
             if (activeOrg.getEntryCap() != null) {
                 claims.put("entryCap", activeOrg.getEntryCap());
+            }
+        }
+        /*
+         * C3c — the tenant's CAPABILITIES, resolved once here and carried to every service.
+         *
+         * Why the token rather than a lookup in each service: org_setting is per-SERVICE but a capability is
+         * per-TENANT, so the old arrangement gave N answers to one question. An owner switched rxRequired off,
+         * the row landed in business-service's table, pharma read its own, found nothing, defaulted to ON and
+         * never refused — correct code that could not fire.
+         *
+         * And it must not become a remote call. V44 already settled that argument for the sale path: asking
+         * another service mid-sale "would fail OPEN the moment it is slow or down — the guarantee would be
+         * worth nothing precisely when the shop is busiest". Resolving at mint costs one cached read per login.
+         *
+         * The honest cost is STALENESS: switching a capability off takes effect at the tenant's next login (or
+         * token refresh). Acceptable for a switch an owner touches during onboarding, and the trade was made
+         * deliberately rather than discovered.
+         *
+         * Fails OPEN by OMITTING the claim: a downstream service that receives no claim falls back to its own
+         * store, which is exactly the behaviour before this change. A settings hiccup must never cost a tenant
+         * its screens, and it cannot grant anything either — every guarded endpoint still refuses on its own.
+         */
+        if (activeOrg != null && capabilityService != null) {
+            try {
+                claims.put("caps", capabilityService.encodeFor(activeOrg.getId()));
+            } catch (RuntimeException capsUnavailable) {
+                log.warn("Could not resolve capabilities for org {} while minting a token; the claim is "
+                        + "omitted and services will fall back to their own settings store.",
+                        activeOrg.getId(), capsUnavailable);
             }
         }
         // Free-trial demo account: the gateway caps writes (50/module) and the UI shows the upsell.

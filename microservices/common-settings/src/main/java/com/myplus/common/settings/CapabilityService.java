@@ -56,12 +56,89 @@ public class CapabilityService {
     public boolean isEnabledFor(Long organizationId, Capability capability) {
         if (capability == null) return true;              // nothing asked for, nothing to refuse
         try {
-            // getBoolFor already applies the catalog default (true) when a tenant has no override.
-            return settings.getBoolFor(organizationId, capability.settingKey());
+            return resolveEffective(organizationId, capability);
         } catch (RuntimeException settingsUnavailable) {
             // Fail OPEN: a settings outage must not take away screens that worked a minute ago.
             return true;
         }
+    }
+
+    /**
+     * C3c — the token first, the local store second. <b>One method, so the render side and the refusal side
+     * cannot answer differently.</b>
+     *
+     * <h3>Why the token wins</h3>
+     * {@code org_setting} is per-SERVICE but a capability is per-TENANT, which gave N answers to one question:
+     * an owner switched {@code rxRequired} off, the row landed in business-service's table, pharma read its own
+     * table, found nothing and defaulted to ON. auth-service now resolves capabilities once at mint and every
+     * service reads that same answer — with no remote call on any hot path, which V44 settled as a hard
+     * requirement when it refused a cross-service check on the sale path.
+     *
+     * <h3>Only for the CALLER'S OWN tenant, and this guard is not optional</h3>
+     * The claim describes the tenant the token was minted for. Applying it to a question about a DIFFERENT org
+     * would let one tenant's capabilities decide another's — a cross-tenant leak in the one component whose
+     * job is to refuse things. Background scanners and storefront readers legitimately ask about an org they
+     * are not "in"; those fall through to the local store, exactly as before.
+     *
+     * <h3>A null claim is not an empty one</h3>
+     * null means unresolved (an older token, or auth could not read its store) and falls back. An empty set
+     * means resolved-with-nothing-enabled and is authoritative. Merging the two would blank every screen for
+     * every tenant still holding a pre-C3c token.
+     */
+    private boolean resolveEffective(Long organizationId, Capability capability) {
+        java.util.Set<String> fromToken = CurrentUser.capabilities();
+        if (fromToken != null
+                && organizationId != null
+                && organizationId.equals(CurrentUser.organizationId())) {
+            return fromToken.contains(capability.code());
+        }
+        return resolve(organizationId, capability);
+    }
+
+    /**
+     * C4 — the resolution order, in one place so the rendering side and the refusal side cannot disagree.
+     *
+     * <pre>
+     *   1. explicit tenant override   what this tenant actually chose   ← WINS
+     *   2. shape preset               what this KIND of business uses
+     * </pre>
+     *
+     * <h3>Why the override has to be read RAW</h3>
+     * {@code getBoolFor} folds the catalog default in, so it cannot tell "the owner switched this off" from
+     * "the owner said nothing and the default is off". A preset must fill the second case and lose the first.
+     * Reading the raw row is what separates them — and a saved value that merely equals the default still
+     * counts as a choice, because the owner said it.
+     *
+     * <p>Without that, picking a shape would silently wipe out deliberate settings and the only safe advice
+     * would be "never change your profile", which is a trap rather than a setting.
+     *
+     * <h3>Why this deploy changes nothing</h3>
+     * A tenant with no {@code org.shape} row resolves to {@link Shape#GENERAL}, whose preset is every
+     * capability. So step 2 returns true for everything, which is exactly the behaviour before C4. A tenant
+     * narrows only by explicitly choosing a shape.
+     */
+    private boolean resolve(Long organizationId, Capability capability) {
+        java.util.Optional<String> chosen = settings.overrideFor(organizationId, capability.settingKey());
+        if (chosen.isPresent()) {
+            return "true".equalsIgnoreCase(chosen.get().trim());
+        }
+        return shapeFor(organizationId).includes(capability);
+    }
+
+    /** The caller's tenant's shape. {@link Shape#GENERAL} when none has been chosen. */
+    public Shape shape() {
+        return shapeFor(CurrentUser.organizationId());
+    }
+
+    /**
+     * A named tenant's shape, or {@link Shape#GENERAL}.
+     *
+     * <p>Reads the raw override for the same reason {@link #resolve} does: the catalog default IS
+     * {@code general}, so folding it in would be harmless here — but going through one accessor keeps the
+     * two paths from drifting the day the default changes.
+     */
+    public Shape shapeFor(Long organizationId) {
+        return Shape.byCode(settings.overrideFor(organizationId, Shape.settingKey()).orElse(null));
     }
 
     /**
@@ -82,7 +159,12 @@ public class CapabilityService {
         if (capability == null) return;
         Long org = CurrentUser.organizationId();
         // No tenant identity => cannot prove the capability => refuse. This is the CLOSED half.
-        boolean allowed = org != null && settings.getBoolFor(org, capability.settingKey());
+        //
+        // Goes through the SAME resolver the rendering side uses (C4). Two code paths reading the same
+        // question two ways is how a screen ends up hidden while its endpoint still answers — the precise
+        // defect this service exists to close. The difference between the halves is what they do when they
+        // cannot tell, never how they work it out.
+        boolean allowed = org != null && resolveEffective(org, capability);
         if (!allowed) {
             throw new com.myplus.common.web.exception.ValidationException(
                     "This is not switched on for your business.");
@@ -97,11 +179,51 @@ public class CapabilityService {
      * {@code [data-capability]} carries in the markup.
      */
     public Map<String, Boolean> enabledMap() {
-        Long org = CurrentUser.organizationId();
+        return enabledMapFor(CurrentUser.organizationId());
+    }
+
+    /**
+     * The same map for an explicitly named tenant.
+     *
+     * <p>C3c needs this because the most important caller has no security context at all: auth-service resolves
+     * a tenant's capabilities while MINTING its token, before there is a {@code CurrentUser} to read. Same
+     * reason {@link #isEnabledFor} and {@code SettingsService.effectiveFor} take an org parameter.
+     */
+    public Map<String, Boolean> enabledMapFor(Long organizationId) {
         Map<String, Boolean> out = new LinkedHashMap<>();
         for (Capability c : Capability.values()) {
-            out.put(c.code(), isEnabledFor(org, c));
+            out.put(c.code(), isEnabledFor(organizationId, c));
         }
         return out;
     }
+
+    /**
+     * The enabled capabilities as the compact wire form the JWT claim and {@code X-Org-Caps} header carry.
+     *
+     * <p>Only the ENABLED codes travel, comma-separated, because that is the short list in every realistic
+     * tenant and tokens are sent on every request.
+     *
+     * <p><b>{@link #NONE_SENTINEL} when a tenant has nothing enabled</b>, and that is not fussiness. An empty
+     * string cannot survive the trip: HTTP stacks routinely drop a header with an empty value, so "resolved,
+     * nothing enabled" would arrive indistinguishable from "never resolved" — and those two must mean opposite
+     * things. Absent = fall back to the local store; present = authoritative.
+     */
+    public String encodeFor(Long organizationId) {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Boolean> e : enabledMapFor(organizationId).entrySet()) {
+            if (Boolean.TRUE.equals(e.getValue())) {
+                if (sb.length() > 0) sb.append(',');
+                sb.append(e.getKey());
+            }
+        }
+        return sb.length() == 0 ? NONE_SENTINEL : sb.toString();
+    }
+
+    /**
+     * Marks "resolved: this tenant has no capabilities enabled", as distinct from an absent claim.
+     *
+     * <p>A single {@code -} rather than the empty string, so the value survives header transport. See
+     * {@link #encodeFor}.
+     */
+    public static final String NONE_SENTINEL = "-";
 }

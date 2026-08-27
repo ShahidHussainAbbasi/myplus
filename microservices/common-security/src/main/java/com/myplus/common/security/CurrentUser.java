@@ -41,6 +41,22 @@ public final class CurrentUser {
         return get().map(AuthenticatedUser::getOrganizationId).orElse(null);
     }
 
+    /**
+     * C3c — the tenant's enabled capabilities as resolved when the token was minted, or {@code null} when
+     * they were not resolved for this request.
+     *
+     * <p><b>{@code null} and an empty set mean opposite things.</b> null = unresolved, so a caller must fall
+     * back to its own settings store (pre-C3c behaviour). Empty = resolved and nothing is enabled. Anything
+     * treating "no capabilities" as one case will either blank every screen for tenants on older tokens or
+     * quietly permit everything for an all-off tenant.
+     *
+     * <p>Read {@code CapabilityService.isEnabledFor} rather than this directly: it applies the fallback and
+     * the shape preset. This accessor exists for the resolver and for tests that need the raw answer.
+     */
+    public static java.util.Set<String> capabilities() {
+        return get().map(AuthenticatedUser::getCapabilities).orElse(null);
+    }
+
     /** Caller user id (audit + NULL-fallback scoping), or {@code null} when unauthenticated. */
     public static Long userId() {
         return get().map(AuthenticatedUser::getUserId).orElse(null);

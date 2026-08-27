@@ -11,6 +11,10 @@
 
   <dependencies>
     <dependency><groupId>com.myplus</groupId><artifactId>common-web</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- C3b: the shared settings/capability engine. Needed so prescriptions can be REFUSED server-side for a
+         tenant without the rxRequired capability, not merely hidden from its menu. Inert without a
+         SettingsStore bean (@ConditionalOnBean) — this service supplies one in config/JpaSettingsStore. -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-settings</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- P0a (slice 41): pharma composes the shared core — catalog (product master/price) + inventory (stock/FEFO). -->
     <dependency><groupId>com.myplus</groupId><artifactId>commerce-contracts</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>

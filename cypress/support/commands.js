@@ -604,3 +604,88 @@ Cypress.Commands.add('visitSaleScreen', () => {
   // Resolves for an error response too — the point is that the handler has finished writing.
   cy.wait('@posFeatureFlags', { timeout: 30000 })
 })
+
+// ── C3: capabilities ──────────────────────────────────────────────────────────────────────────────
+/**
+ * Switch one capability on or off for the LOGGED-IN owner's tenant.
+ *
+ * A capability is an org_setting under the reserved `org.cap.*` namespace, so this goes through the same
+ * owner-gated endpoint the Configuration screen uses. Deliberately the product's own path rather than a
+ * direct DB write: a fixture that takes a shortcut proves the shortcut works, and this codebase has been
+ * caught by that before — rows written by a reflective fixture that no scoped query could then see.
+ *
+ * ASSERTS the response. `/saveBusinessConfig` returns 200 with an error body when the key is unknown or the
+ * caller is not owner/admin, so a silent failure here would leave the capability at its previous value and
+ * the assertions downstream would test nothing at all.
+ *
+ * @param code    short capability code, e.g. 'installments' (NOT the full org.cap.* key)
+ * @param enabled true / false
+ */
+Cypress.Commands.add('setCapability', (code, enabled) => {
+  return cy
+    .request({
+      method: 'POST',
+      url: '/saveBusinessConfig',
+      form: true,
+      body: { key: 'org.cap.' + code, value: String(enabled) },
+    })
+    .then((res) => {
+      expect(res.status, `setCapability(${code}) HTTP`).to.eq(200)
+      /*
+       * Assert on `success`, which is the field this envelope actually carries.
+       *
+       * The app has TWO envelopes: the monolith's own GenericResponse uses {status:"SUCCESS"}, while this
+       * route proxies business-service's ApiResponse straight through, which uses {success:true}. Reading
+       * `status` here yielded undefined and the assertion failed against a save that had worked perfectly.
+       *
+       * `success` discriminates both outcomes on this route: ProxyErrors.failure deliberately keeps the
+       * {success:false} shape, so a proxy-level error is caught by the same check as a service-level refusal.
+       *
+       * The HTTP code cannot carry this on its own — the refusal that started all this was 200 with
+       * {success:false, message:"Unknown setting: org.cap.installments"}. A fixture that treats 200 as
+       * success would have sailed past it and left every assertion downstream testing nothing.
+       */
+      expect(res.body && res.body.success, `setCapability(${code}) body: ${JSON.stringify(res.body)}`)
+        .to.eq(true)
+    })
+})
+
+/** Read this tenant's capability map. Fails loudly rather than yielding undefined into an assertion. */
+Cypress.Commands.add('getCapabilities', () => {
+  return cy.request('/getCapabilities').then((res) => {
+    expect(res.status, 'getCapabilities HTTP').to.eq(200)
+    const caps = res.body && res.body.data
+    expect(caps, `getCapabilities payload: ${JSON.stringify(res.body)}`).to.be.an('object')
+    return caps
+  })
+})
+
+// ── C4: per-shape tenants ─────────────────────────────────────────────────────────────────────────
+/**
+ * Mobile shop and pesticide dealer. Both are userType BUSINESS with their OWN organizations — they differ
+ * by SHAPE and capabilities, not by module, which is the whole point of the two-axis model. A separate
+ * userType per trade would hardcode a customer into the platform.
+ *
+ * Own orgs, deliberately: capability gating cannot be proven on a single tenant. "Turning it off for A does
+ * not affect B" has no meaning without a B, and a bug that hid a section for EVERY tenant would pass a
+ * one-tenant suite perfectly.
+ *
+ * They validate through the same business endpoint every BUSINESS tenant does.
+ */
+Cypress.Commands.add('loginAsMobileOwner', (email = 'owner.mobile@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+Cypress.Commands.add('loginAsPesticideOwner', (email = 'owner.pesticide@myplus.com', password = DEMO_PW) => {
+  cy.loginAs(email, password, '/getBusinessDashboardStats')
+})
+
+/** Set the logged-in tenant's SHAPE. Seeds capability defaults; explicit overrides still win. */
+Cypress.Commands.add('setShape', (code) => {
+  return cy
+    .request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: 'org.shape', value: code } })
+    .then((res) => {
+      expect(res.status, `setShape(${code}) HTTP`).to.eq(200)
+      // Same envelope note as setCapability: this route proxies ApiResponse ({success}), not GenericResponse.
+      expect(res.body && res.body.success, `setShape(${code}) body: ${JSON.stringify(res.body)}`).to.eq(true)
+    })
+})

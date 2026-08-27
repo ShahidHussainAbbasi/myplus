@@ -132,6 +132,22 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.InstallmentPlanService installmentPlanService;   // INST-1
 
+	/**
+	 * C3 — what this tenant is allowed to do. Guards the installment write below.
+	 *
+	 * <p><b>REQUIRED, deliberately</b> — this was written as {@code required = false} first, which is exactly
+	 * how OMS O3 shipped a settings resolver that silently did nothing: catalog, migration and resolver all
+	 * present, no {@code SettingsStore}, optional injection, so every tenant quietly kept the platform default
+	 * and nothing anywhere said so. A guard that disables itself when a bean is missing is worse than no guard,
+	 * because it reads as protection.
+	 *
+	 * <p>business-service ships a {@code SettingsStore} and serves the Configuration screen from it — the very
+	 * condition the auto-configuration keys on. If this cannot be satisfied, the right outcome is a service
+	 * that refuses to start and says why.
+	 */
+	@Autowired
+	com.myplus.common.settings.CapabilityService capabilityService;                      // C3
+
 	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
@@ -883,6 +899,27 @@ public class SellController {
 			// during plan creation arrives after the handset is already sold. A serial financed to somebody
 			// else is not a technical hiccup the sale should survive — it is a sale that should not happen.
 			if (dto.getInstallmentPlan() != null) {
+				/*
+				 * C3 — the tenant must actually HAVE installments before one can be sold.
+				 *
+				 * Hiding the plan block on the sale screen is not what stops this: the screen is the client's
+				 * copy and the endpoint answered whoever posted to it. This is the refusal, and it sits here
+				 * for the same reason the serial check below does — BEFORE anything is written, so a tenant
+				 * without the capability gets a refused sale rather than a committed invoice with no plan
+				 * against it.
+				 *
+				 * assertEnabled fails CLOSED (no tenant on the request => refuse), which is right for a write
+				 * that creates a receivable schedule. The rendering side fails open; money does not.
+				 */
+				try {
+					capabilityService.assertEnabled(com.myplus.common.settings.Capability.INSTALLMENTS);
+				} catch (RuntimeException notAllowed) {
+					// Caught rather than propagated because this endpoint answers in the monolith's
+					// GenericResponse envelope, which the sale screen reads. Letting it reach the global
+					// handler would return the service's ApiResponse shape and the cashier would see a
+					// generic failure instead of the reason.
+					return new GenericResponse("FAILED", notAllowed.getMessage());
+				}
 				String serialProblem = installmentPlanService.validateSerial(
 						orgId(), dto.getInstallmentPlan().getAssetRef());
 				if (serialProblem != null) return new GenericResponse("FAILED", serialProblem);

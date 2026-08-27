@@ -130,6 +130,16 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 String locIds = locIdsObj != null ? locIdsObj.toString() : "";
                 Object locRoleObj = claims.get("roleAtLocation");
                 String locRole = locRoleObj != null ? String.valueOf(locRoleObj) : "";
+                /*
+                 * C3c: the tenant's capabilities, resolved by auth-service when the token was minted.
+                 *
+                 * ABSENT means "not resolved" and the callee falls back to its own settings store — which is
+                 * why this stays null rather than becoming "" when the claim is missing. A tenant with nothing
+                 * enabled sends the "-" sentinel instead, so "resolved: none" and "never resolved" stay
+                 * distinguishable. They mean opposite things.
+                 */
+                Object capsObj = claims.get("caps");
+                String caps = capsObj != null ? String.valueOf(capsObj) : null;
 
                 ServerHttpRequest.Builder builder = request.mutate()
                         // F3: drop ALL client-supplied identity/secret headers before stamping our
@@ -144,6 +154,13 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             h.remove("X-Location-Id");
                             h.remove("X-Location-Ids");
                             h.remove("X-Loc-Role");
+                            // C3c — REMOVED UNCONDITIONALLY, and this line is the security of the whole
+                            // feature. Capabilities decide what the server will REFUSE, so a client able to
+                            // send its own X-Org-Caps could grant itself prescriptions, field collections or
+                            // selling on terms simply by naming them in a header. It is stripped here even
+                            // when no claim replaces it below, so an unresolved capability set can never be
+                            // supplied by the caller it is about.
+                            h.remove("X-Org-Caps");
                         })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
@@ -153,6 +170,12 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         .header("X-Location-Id", activeLoc)
                         .header("X-Location-Ids", locIds)
                         .header("X-Loc-Role", locRole);
+                // C3c: stamped ONLY when the token actually carried a capability claim. Sending "" for a
+                // missing claim would tell the callee "resolved, nothing enabled" and hide every screen for
+                // tenants on tokens minted before this shipped — a self-inflicted outage on deploy day.
+                if (caps != null && !caps.isEmpty()) {
+                    builder.header("X-Org-Caps", caps);
+                }
                 if (internalSecret != null && !internalSecret.isEmpty()) {
                     builder.header("X-Internal-Secret", internalSecret);
                 }

@@ -44,6 +44,22 @@ public class DriverSettlementController {
     private final DriverSettlementService service;
 
     /**
+     * C3b — what this tenant is allowed to do.
+     *
+     * <p>Field-injected rather than joining {@code @RequiredArgsConstructor} so tests constructing this
+     * controller directly keep their argument list.
+     *
+     * <p><b>REQUIRED, deliberately.</b> {@code required = false} is exactly how OMS O3 shipped a settings
+     * resolver that silently did nothing — catalog, migration and resolver present, no {@code SettingsStore},
+     * optional injection — so every tenant kept the platform default and nothing anywhere said so. A guard
+     * that disables itself when a bean is missing is worse than no guard, because it reads as protection.
+     * marketplace-service ships a {@code SettingsStore}; if this cannot be satisfied the service must fail to
+     * start and say why.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.common.settings.CapabilityService capabilityService;
+
+    /**
      * Cash keyed as collected and not yet handed over — the day-end worklist, oldest first.
      *
      * <p>{@code driver} narrows to one person's round. It is a FILTER within a tenant the caller can already
@@ -68,6 +84,17 @@ public class DriverSettlementController {
      */
     @PostMapping
     public ApiResponse<DriverSettlementDTO> settle(@RequestBody DriverSettlementDTO body) {
+        /*
+         * C3b — the tenant must actually run field collections before cash can be settled against them.
+         *
+         * The nav entry is hidden for a tenant without the capability (C3), but a hidden menu stops nobody
+         * who has the URL, and this endpoint posts receipts to AR. `assertEnabled` fails CLOSED, which is the
+         * right side to err on for a write that moves money.
+         *
+         * BEFORE the service call, so nothing is written on the way to the refusal — the ordering lesson from
+         * the installment guard, where a check placed after the commit could only report the damage.
+         */
+        capabilityService.assertEnabled(com.myplus.common.settings.Capability.COLLECTIONS);
         return ApiResponse.success(service.settle(body,
                 CurrentUser.organizationId(), CurrentUser.userId(), CurrentUser.email()), "Driver settled");
     }

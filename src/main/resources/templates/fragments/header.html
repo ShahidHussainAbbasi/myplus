@@ -72,6 +72,9 @@
         <script th:src="@{/bootstrap/js/bootstrap-datetimepicker.js}"></script>
         <script th:src="@{/bootstrap/js/bootstrap-select.min.js}"></script>
         <script th:src="@{/jQExp/dataTables.buttons.min.js}"></script>
+        <!-- Rows-per-page for every grid. AFTER jquery.dataTables (it extends its defaults) and BEFORE any
+             module script builds a table (defaults are read at construction, so later would be inert). -->
+        <script th:src="@{/js/common/datatable-defaults.js}"></script>
         <script th:src="@{/jQExp/buttons.flash.min.js}"></script>
         <!-- PERF-4b: jszip.min.js, pdfmake.min.js and vfs_fonts.js NO LONGER LOAD HERE.
              They were 2,121,616 bytes raw / 932,627 gzipped — after PERF-1 that was ~70% of the compressed
@@ -112,6 +115,10 @@
         <!-- App-themed confirm/prompt/alert (uiConfirm/uiPromptConfirm/uiAlert) — replaces the browser's
              unstyled window.confirm. Must load before the module scripts that call it. -->
         <script th:src="@{/js/common/confirm-dialog.js}"></script>
+        <!-- C3: ask the SERVER what this tenant may do, and hide the sections it may not. Supersedes the
+             hardcoded client-side VERTICALS map in module-theme.js as the source of that decision. Renders
+             only — the refusal that matters lives on the write paths (CapabilityService.assertEnabled). -->
+        <script th:src="@{/js/common/capabilities.js}"></script>
         <!-- Contact-360 (cross-module contact view) — shared by business/education/welfare/pharmacy rows. -->
         <script th:src="@{/js/common/party-contact.js}"></script>
         <!-- Focus flow: on these long dashboards, bring a revealed section / opened record / rejected field

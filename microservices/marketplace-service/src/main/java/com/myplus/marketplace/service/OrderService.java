@@ -901,20 +901,12 @@ public class OrderService {
      * available" alone tells the shopper nothing.
      */
     private String checkoutFailureMessage(RuntimeException failure) {
-        if (failure instanceof org.springframework.web.client.RestClientResponseException http) {
-            try {
-                String body = http.getResponseBodyAsString();
-                if (body != null && !body.isBlank()) {
-                    com.fasterxml.jackson.databind.JsonNode node =
-                            new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
-                    String msg = node.path("message").asText(null);
-                    if (msg != null && !msg.isBlank()) return "Sorry — " + msg;
-                }
-            } catch (Exception ignored) {
-                // A non-JSON body is not worth failing over; fall through to the generic wording.
-            }
-        }
-        return "Sorry, an item in your cart is out of stock or unavailable.";
+        // Extraction lives in DownstreamMessage so the dispatch path relays refusals the same way this one
+        // always has. The WORDING stays here: a shopper and a packer need different sentences around the same
+        // downstream reason, and only the caller knows which it is talking to.
+        String reason = com.myplus.marketplace.support.DownstreamMessage.of(failure);
+        return reason != null ? "Sorry — " + reason
+                : "Sorry, an item in your cart is out of stock or unavailable.";
     }
 
     /**

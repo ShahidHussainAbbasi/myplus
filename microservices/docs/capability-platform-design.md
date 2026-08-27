@@ -325,3 +325,466 @@ two items on this list that are defects rather than improvements:
   landing page on every login, and `Organization.type` accepts any string.
 
 Everything after that is improvement rather than repair, and can be scheduled by value.
+
+---
+
+## 11. Delivery log
+
+### C1 — shipped, and then found to be **inert** (corrected in C3)
+
+`Capability`, `CapabilityService`, `CapabilityCatalog` and their unit tests all landed and all passed. They
+were also **unreachable**: no controller served `enabledMap()`, no call site called `assertEnabled`, and
+because `common-settings` is deliberately `@Import`-wired rather than component-scanned, the `@Service`
+annotation on `CapabilityService` registered **nothing**. It was a correct, tested library that no request
+could touch — the "shipped unreachable" failure `CapabilityCatalog`'s own javadoc warns about, one level up.
+
+A passing unit test proves the class works. It does not prove the class is *wired*, and nothing in C1
+asserted that it was. This is the same shape as PERF-4 (implemented, never gated) and the signup password
+meter (shipped, never once executed).
+
+### C3 — shipped
+
+| Piece | File |
+|---|---|
+| `GET /capabilities` — the map for the caller's tenant | `common-settings/CapabilityController.java` |
+| Registration of both C1 beans | `CommonSettingsAutoConfiguration.java` (`@Import` extended) |
+| Monolith proxy `GET /getCapabilities` | `web/controller/business/BusinessConfigController.java` |
+| The rendering shell | `static/js/common/capabilities.js` |
+| `.cap-off { display:none !important }` | `static/css/application.css` |
+| 19 `data-capability` attributes (9 nav entries + 10 sections) | `templates/businessDashboard.html` |
+| **Server refusal** on the installment write | `SellController.java` (pre-write, before `addSell`) |
+| Gate | `cypress/e2e/business/capability-gating.cy.js` |
+
+**`!important` is load-bearing.** `module-theme.js` walks `[data-vertical-only]` and writes
+`el.style.display = ''` on whatever its client-side vertical allows. An inline hide from `capabilities.js`
+would be silently undone on any element carrying both attributes — visible, no error, in exactly the case
+where the two mechanisms disagree. A class beats an inline style only with `!important`, so this is what
+makes the server's answer the one that survives.
+
+**Tagging is inert on deploy.** Every capability defaults ON, so a `data-capability` attribute makes a
+section *hideable*; it hides nothing until an owner switches the capability off.
+
+### Defect found while wiring C3 — `pos.installment.enabled` refuses too late
+
+Pre-existing, not introduced here. `SellController.createInstallmentPlan` checks the flag like this:
+
+```java
+if (!settingsService.getBool("pos.installment.enabled")) {
+    return "Installment plan NOT created: selling on installment is switched off for this shop.";
+}
+```
+
+That check runs **after** `SagaSellService` has committed the invoice in its own `REQUIRES_NEW` transaction.
+So for a tenant with installments switched off whose client posts a plan block:
+
+* the sale is committed,
+* the plan is silently not created,
+* **the customer owes the full amount immediately, with no schedule against it.**
+
+The code acknowledges this itself — *"the plan-creation guard further down still exists as a backstop, but by
+the time it runs the invoice is committed and the only honest thing left is to report the split."* A refusal
+that arrives after the money moves is not a refusal.
+
+C3's `assertEnabled(INSTALLMENTS)` sits **before** the sale is written, which is where this class of check
+belongs. It does not change the old flag's behaviour, deliberately — see the open question below.
+
+### Open — two switches for one feature
+
+`pos.installment.enabled` and `org.cap.installments` now both describe whether a tenant sells on terms. That
+is the "two places to look, two answers the day they disagree" problem §4a argues against, and it should
+converge on the capability.
+
+It is **not** converged here because doing so changes behaviour for tenants that have the old flag off: they
+currently get a committed sale with a dropped plan, and would instead get a refused sale. That is a fix, but
+it is a change, and the standing constraint on this work is that nothing currently working may break without
+being asked for. **Proposed as its own slice, with its own gate.**
+
+### C3 correction — the catalog bean was missed on the first pass
+
+The first C3 build registered `CapabilityService` and `CapabilityController` but **not `CapabilityCatalog`**.
+Same root cause as C1's, one bean further on: the module is not component-scanned, so `@Component` registered
+nothing.
+
+Consequence: the capability keys were absent from the settings catalog, so `SettingsService.set` refused every
+one of them — `Unknown setting: org.cap.installments`. **No owner could switch a capability off at all**, which
+is most of the feature.
+
+What makes this worth writing down is that **the read path hid it completely**. `isEnabledFor` catches the
+lookup failure and fails OPEN, so `/capabilities` returned every capability as `true` and the dashboard
+rendered exactly right. The gate's "everything defaults ON" assertion passed too — and would pass with no
+catalog registered at all, because through that endpoint *absent* and *defaulted to true* are the same answer.
+
+Only a WRITE revealed it, and only because `cy.setCapability` asserts its response instead of assuming a 200
+meant success.
+
+The gate now asserts the capability keys are genuinely present in the settings catalog, rather than inferring
+it from a value a failure would have produced anyway. **Fail-open is right for rendering and wrong for a test:
+anything that degrades silently needs an assertion aimed at the degradation, not at the happy value.**
+
+### C3 — ✅ GREEN
+
+`cypress/e2e/business/capability-gating.cy.js`, headed, confirmed by the user. Six cases:
+
+1. every capability is a real entry in the settings catalog (not a fail-open default);
+2. the map defaults every capability ON for an unconfigured tenant;
+3. **ON** — the section is not hidden AND a sale on terms really creates a plan (`PLN-`);
+4. **OFF** — the section and its nav entry are hidden, asserted on visibility, not on the class alone;
+5. **OFF** — the API REFUSES the sale, with `FAILED` specifically, and without naming the tenant's config;
+6. restoring the capability brings both the section and the plan back.
+
+**Two vacuous assertions were found and removed while getting here**, both of which would have passed against
+a broken build:
+
+* *"everything defaults ON"* passes identically when the catalog is **not registered at all**, because the read
+  path fails open — which is exactly the bug it was sitting next to. Replaced by asserting the keys are really
+  in the catalog.
+* *"the sale succeeds"* passes when installments are switched **off**, because a sale with a dropped plan still
+  returns SUCCESS and only a message says otherwise. Replaced by asserting the plan exists.
+
+The second is worth remembering: **the positive control was passing through the very defect the slice
+documents.** A test that asserts the happy status rather than the happy *outcome* will do that every time.
+
+---
+
+## 12. C4 — shape presets (implemented, awaiting gate)
+
+### The model, as built
+
+```
+1. explicit tenant override   what this tenant actually chose   ← WINS
+2. shape preset               what this KIND of business uses
+```
+
+Step 1 winning is what makes a shape safe to offer. Without it, choosing "Pharmacy" would silently destroy a
+deliberate setting and the only safe advice would be *"never change your profile"* — a trap, not a setting.
+
+Reading the override **raw** is what makes step 1 possible: `getBoolFor` folds the catalog default in, so it
+cannot tell *"the owner switched this off"* from *"the owner said nothing and the default is off"*. A new
+`SettingsService.overrideFor` returns the explicit row only, off the same cached map, so it costs no query.
+
+### Why this deploy changes nothing
+
+`Shape.GENERAL`'s preset is **every capability**, and it is the fallback for a missing, blank or unreadable
+`org.shape`. Every existing tenant has no such row, so every one resolves GENERAL and behaves exactly as it did
+before C4 existed. A tenant narrows only by explicitly picking a shape, on its own Configuration screen,
+reversibly.
+
+`byCode` falls back to GENERAL rather than throwing, and deliberately to the **permissive** option: a typo or a
+value from a newer build must not strip a working tenant of its screens. Guessing wrong costs a support call
+either way; this direction does not stop a shop trading.
+
+### Shapes and their presets
+
+| Shape | Capabilities seeded ON |
+|---|---|
+| `general` *(default)* | **all twelve** — the migration state |
+| `retail` | installments, dealerPricing |
+| `pharmacy` | batch, expiry, FEFO, looseSelling, rxRequired |
+| `distribution` | batch, expiry, FEFO, fieldSales, journeyPlanning, collections, dealerPricing |
+| `storefront` | dealerPricing |
+
+**"Mobile shop" is not a shape.** It is `retail` plus serial tracking, condition grading and installments —
+which is the entire reason for having two axes. A shape per trade would hardcode a customer into the platform;
+`if ("MOBILE".equals(type))` is `if (organizationId == 24)` one level of indirection away.
+
+### Per-domain test tenants
+
+Both are **userType BUSINESS with their own organizations**, differing only by shape and capabilities:
+
+| Account | Shape used in the gate |
+|---|---|
+| `owner.mobile@myplus.com` (+ `admin.` / `user.`) | `retail` |
+| `owner.pesticide@myplus.com` (+ `admin.` / `user.`) | `pharmacy`, with `rxRequired` overridden OFF |
+
+Own orgs deliberately: **capability gating cannot be proven on one tenant.** A bug that hid a section for every
+tenant would pass a single-tenant suite perfectly, and *"turning it off for A does not affect B"* has no meaning
+without a B. Seeded behind `app.seed-test-fixtures` (dev default true, prod false) **and** the independent
+`isProd()` hard block.
+
+### Gates
+
+* `CapabilityServiceTest` — six new cases on `mvn test`: the migration promise, preset seeding, override beats
+  preset **in both directions**, unreadable shape falls back permissive, the refusal path uses the same
+  resolver as the rendering path, and the shape chooser is published in the catalog.
+* `cypress/e2e/business/capability-shapes.cy.js` — per-domain screens, override-beats-preset on a real tenant,
+  and **cross-tenant isolation**, which is the assertion a single-tenant suite cannot make.
+
+### A test this slice broke, and why that was right
+
+`catalog_publishes_every_capability` asserted `entries()` had exactly `Capability.values().length` members and
+looped a `defaultValue == "true"` check over all of them. Adding the shape chooser broke both — and neither
+failure would have meant a capability was missing. Rewritten to look each capability up **by key**, which
+asserts the property that matters (every capability has a switch an owner can reach) instead of the shape of
+the list it happens to sit in.
+
+### C4 — ✅ GREEN
+
+`cypress/e2e/business/capability-shapes.cy.js` and `capability-gating.cy.js`, both headed, confirmed by the
+user. Across two tenants (`owner.mobile@`, `owner.pesticide@`) plus `owner.marketplace@`:
+
+* a tenant with no shape chosen still sees **everything** — the migration promise, on a real tenant;
+* mobile (`retail`) keeps installments and loses pharmacy + distribution screens;
+* pesticide (`pharmacy`) gains batch screens, and an explicit `rxRequired=false` **beats the preset** — and
+  still beats it after the shape is re-applied;
+* marketplace (`distribution`) gains field sales / journeys / collections and is denied rx + serial;
+* **one tenant's shape does not reach another** — the assertion a single-tenant suite cannot make.
+
+#### A false alarm worth recording
+
+The first run failed on the C3 `before` hook with `login?error=true` on an account that had been green an hour
+earlier. Every persistent cause was ruled out by direct inspection rather than by guessing: the accounts were
+`enabled=1 / unlocked / 0 fails` with valid bcrypt hashes, seeding had completed without exception, the session
+cap is `maximumSessions(-1)`, and a curl login returned 302 to `/businessDashboard`.
+
+The cause was timing. **auth-service reports "Started" and opens its port at 13:22:34, while `SetupDataLoader`
+is still re-encoding user passwords until 13:22:45.** The gate ran in that gap.
+
+> **After restarting auth-service, "healthy" is not the same as "seeded".** A container health check that
+> passes while fixtures are still being written will fail a suite for reasons that have nothing to do with the
+> code under test.
+
+---
+
+## 13. Where enforcement actually stands
+
+**Be precise about this, because "the menu is gone" reads like a guarantee and is not one.**
+
+| Layer | Status |
+|---|---|
+| Capability map served per tenant, shape-aware | ✅ every capability |
+| UI hiding (`[data-capability]`, `.cap-off`) | ✅ 19 nav entries + sections |
+| **Server refusal (`assertEnabled`)** | ⚠️ **ONE write path — the installment sale** |
+
+The mechanism is proven end to end, but it guards a single endpoint. Every other capability — `rxRequired`,
+`fieldSales`, `collections`, `batchTracking`, `dealerPricing` — is currently **hidden but not refused**. A
+caller who knows the URL still reaches those endpoints, which is the original defect, merely narrowed.
+
+Two things are needed to close it:
+
+1. An `assertEnabled` at the entry point of each capability-touching write — **before** anything is committed,
+   for the reason §11 records about refusals that arrive after the money moves.
+2. **pharma-service cannot do this yet.** It has no `common-settings` dependency, so `CapabilityService` is not
+   on its classpath; adding it also requires that service to supply a `SettingsStore` bean, or the
+   `@ConditionalOnBean` leaves the auto-configuration inert and startup fails at injection. Prescriptions —
+   the most obviously capability-gated write in the product — sit behind exactly that gap.
+
+**Proposed as C3b**, sized per service, each with a gate of the same shape as `capability-gating.cy.js`.
+
+---
+
+## 14. C3b — and the architectural gap it exposed
+
+### Guards added
+
+| Capability | Write | Service | Effective today? |
+|---|---|---|---|
+| `INSTALLMENTS` | sale on terms, pre-write | business | ✅ yes (C3, green) |
+| `LOOSE_SELLING` | loose sale line | business | ✅ yes |
+| `COLLECTIONS` | driver settlement (posts to AR) | marketplace | ⚠️ see below |
+| `RX_REQUIRED` | prescription create + dispense | pharma | ❌ **inert** — see below |
+
+`LOOSE_SELLING` is guarded at the **caller** of `looseLine`, not inside it: that method is deliberately static
+and pure so the arithmetic unit-tests on every `mvn test` (Standard D2), and reaching into a capability lookup
+from there would trade that away for nothing.
+
+pharma-service was unblocked properly rather than half-wired: `common-settings` in the pom, an `OrgSetting`
+entity + repository, a `JpaSettingsStore`, and `V7__org_setting.sql`. Without the store the auto-configuration
+is `@ConditionalOnBean`-inert and there is no `CapabilityService` to inject at all.
+
+**All capability injections were changed from `required = false` to REQUIRED.** `JpaSettingsStore`'s own javadoc
+records why: OMS O3 shipped a settings resolver with catalog, migration and resolver all present, no store, and
+*optional* injection — so every tenant silently kept the platform default and nothing said so. **A guard that
+disables itself when a bean is missing is worse than no guard, because it reads as protection.**
+
+### ⚠️ The gap: `org_setting` is per-SERVICE, and a capability is per-TENANT
+
+Every service owns its own `org_setting` table — correctly, by the microservice standard. But that means:
+
+* an owner switches `rxRequired` off on the Configuration screen → written to **business-service's** table;
+* pharma-service reads **its own** table → no row → catalog default → **ON**;
+* **the guard never refuses.**
+
+The monolith exposes settings proxies for business-service (`/getBusinessConfig`) and marketplace
+(`OrderConfigController`) only. **There is no pharma settings screen at all**, so the switch is not merely in
+the wrong table — it is unreachable. The `RX_REQUIRED` guard is therefore correct code that cannot currently
+fire, which is precisely the "shipped unreachable" failure this slice has now hit three times.
+
+`COLLECTIONS` in marketplace is the milder version: marketplace *does* have its own settings screen, so the
+switch exists — but on a different screen from the business capabilities, and the two stores can disagree.
+
+**A capability is a property of the TENANT, not of a service.** Storing it per-service means N answers to one
+question, and the day they disagree there is no right one.
+
+### Three ways to close it — needs a decision
+
+| | Approach | For | Against |
+|---|---|---|---|
+| **A** | Each service keeps its own copy; add a Configuration screen per service | No new infrastructure | An owner sets the same switch in N places; they WILL drift. Rejected by §4a's own argument. |
+| **B** | One authoritative store (business-service); other services read via a cached client | One answer; one screen | A cross-service call, and pharma/inventory would depend on business-service — a dependency inversion |
+| **C** | Capabilities travel in the **JWT**, like `activeOrgId` today | Zero remote calls on any hot path; one answer everywhere; the pattern already exists in this codebase | Stale until re-login; enlarges the token |
+
+**Recommendation: C**, with B's endpoint kept for the Configuration screen itself. The `activeOrgId` →
+`X-Org-Id` → `AuthenticatedUser.organizationId` path already proves the mechanism here, capabilities change
+rarely (an owner's deliberate act, not a hot setting), and it is the only option that puts no call on a sale
+path — the standing performance rule, and the reason V44 refused a remote check in the first place.
+
+Staleness is the honest cost: a capability switched off would take effect on next login. For a switch an owner
+touches during onboarding that is acceptable; if it is not, B is the fallback.
+
+---
+
+## 15. C3c — capabilities travel in the JWT (option C)
+
+### The chain
+
+```mermaid
+flowchart LR
+    A["auth-service<br/>org_setting (OWNER)"] -->|"resolve at mint<br/>shape preset + overrides"| B["JWT claim<br/>caps=a,b,c"]
+    B --> C["gateway<br/>strip + stamp"]
+    C -->|"X-Org-Caps"| D["HeaderAuthFilter<br/>AuthenticatedUser.capabilities"]
+    D --> E["CapabilityService<br/>resolveEffective"]
+    E --> F["assertEnabled / isEnabled"]
+    style C fill:#fdeceb,stroke:#b42318
+```
+
+The red box is the security of the whole feature: the gateway **removes any client-supplied `X-Org-Caps`
+before stamping its own**, unconditionally. Capabilities decide what the server refuses, so a caller able to
+send its own header could grant itself prescriptions, field collections or selling on terms by naming them.
+
+### Why auth-service owns the store
+
+A capability is a property of the TENANT, and auth-service already owns the tenant — `Organization` carries
+type, plan, trial and entry cap, and every one of those already reaches other services as a claim. Capabilities
+now take the same road: **resolved once per token mint, with no remote call on any hot path.** That constraint
+is not a preference; V44 settled it when it refused a cross-service check on the sale path because it "would
+fail OPEN the moment inventory-service is slow or down".
+
+`app.capabilities.owner=true` publishes the capability catalog in auth-service **and nowhere else**. The catalog
+is what `SettingsService.set` validates against, so it is also what decides which service will ACCEPT a
+capability write. Setting it in a second service would put capability rows in two stores again — the exact
+defect this replaced.
+
+### Three distinctions that are load-bearing
+
+1. **`null` ≠ empty capability set.** null = never resolved (an older token, or auth could not read its store)
+   → fall back to the local store, which is pre-C3c behaviour. Empty = resolved, nothing enabled →
+   authoritative. Merging them would either blank every screen for every tenant still holding a pre-C3c token
+   — a self-inflicted outage on deploy day — or make an all-off tenant silently permissive.
+2. **The `"-"` sentinel exists because an empty header value does not survive transport.** Without it,
+   "resolved: none" is indistinguishable from "not resolved", and those mean opposite things.
+3. **The claim is applied ONLY to the caller's own tenant.** It describes the org the token was minted for;
+   using it to answer about a different org would let one tenant's capabilities decide another's — a
+   cross-tenant leak in the component whose entire job is refusing things. Background scanners and storefront
+   readers legitimately ask about an org they are not in, and fall through to the local store.
+
+### A blocker found on the way: `CurrentUser` never worked inside auth-service
+
+Every other service sits behind the gateway, which stamps `X-User-*` headers that `HeaderAuthFilter` turns into
+an `AuthenticatedUser`. auth-service validates the Bearer token itself and sets a `UserDetails` principal, so
+`CurrentUser.organizationId()` had always been null there — `OrgUserController` works around it by re-reading
+`activeOrgId` from the token by hand.
+
+That workaround does not survive auth-service sharing code with other services: the common-settings
+`SettingsController` resolves the tenant through `CurrentUser`, so **every capability row would have been
+written against a null organization — silently, because nothing throws on a null org.** `JwtAuthFilter` now
+also publishes the identity as the request attribute `CurrentUser` reads, leaving the existing `UserDetails`
+principal untouched.
+
+### The Configuration screen stays one screen
+
+The monolith merges two catalogs (business-service's trade settings + auth-service's capabilities) and routes
+each write by key ownership — `org.cap.*` and `org.shape` to auth, everything else to business. The owner sees
+one screen; the split is an implementation detail. If auth's half fails the business half still renders: a
+degraded screen beats no screen.
+
+### ⚠ Migration note
+
+Capability rows written into **business-service's** `org_setting` before this change are now **orphaned** —
+they are no longer read. In practice only the C3/C4 gates ever wrote any, so nothing real is lost, but a tenant
+that had been configured there would appear reset to defaults (all ON). Worth a cleanup script if any real
+tenant is found to have them.
+
+### Build order
+
+`common-security` and `common-settings` are libraries and must be **installed**, not packaged, or the services
+link against stale jars:
+
+```
+mvn -pl common-security -am clean install -DskipTests
+mvn -pl common-settings -am clean install -DskipTests
+mvn -pl auth-service,api-gateway,business-service,marketplace-service,pharma-service -am clean package -DskipTests
+# then the monolith
+```
+
+auth-service, pharma-service each carry a new `V7__org_setting.sql`.
+
+### C3c deployment — three dependency failures, one root cause
+
+auth-service and api-gateway are the only runnable services that extend the **root aggregator** rather than
+`service-parent`. Everything `service-parent` declares — `common-security`, `common-service`, `caffeine`, the
+OpenTelemetry starter — therefore does NOT reach them. And the shared libraries declare their own dependencies
+`provided`, on the reasonable assumption that every consumer inherits them.
+
+Pulling `common-settings` into auth-service broke that assumption three times in a row:
+
+| Failure | Cause | Fix |
+|---|---|---|
+| `package com.myplus.common.security does not exist` | common-settings declares common-security `provided`; auth inherits it from neither | declare `common-security` |
+| `bean 'globalExceptionHandler' … already been defined` | `common-web` (needed for `ApiResponse`) auto-registers a handler auth has owned for years | `@SpringBootApplication(exclude = CommonWebAutoConfiguration.class)`, as business-service already does |
+| `ClassNotFoundException: io.opentelemetry.context.ImplicitContextKeyed` | common-security's `TenantTelemetryFilter` needs `opentelemetry-api`, declared `provided` because "every instrumented consumer supplies it via the starter" — true of every service-parent child, false here | declare `opentelemetry-api` (the API only, not the starter — no trace export switched on as a side effect) |
+
+**The lesson is about `provided` scope, not about these three jars.** A `provided` dependency is a claim that
+somebody else will supply it, and that claim is invisible until a consumer appears who does not. The compile
+error in the first case was actively misleading: the package had built fine one module earlier in the same
+reactor — it simply was not on *that* module's classpath.
+
+**Before adding a shared library to auth-service or api-gateway, read the library's pom for `provided` scopes
+and supply each one explicitly.** Neither service inherits them.
+
+#### Fourth deployment failure: the gateway route
+
+`No static resource api/auth/settings.` — the call reached auth-service with the prefix still attached.
+
+auth-service maps its own controllers at the **full** `/api/auth/...` path, so its gateway route has no
+`StripPrefix`. The shared common-settings controllers are mapped at `/settings` and `/capabilities`, because
+they live in a library and cannot know any one service's prefix.
+
+`inventory-settings` in the gateway config was written for exactly this and says so: *"Any FULL-PATH service
+that later adopts common-settings needs a route like this one."* Added `auth-settings` and `auth-capabilities`
+with `StripPrefix=2`, **placed before** the general `auth-service` route — Spring Cloud Gateway evaluates
+routes in order, so a more specific route that comes second never matches.
+
+Gateway routes live in `api-gateway/src/main/resources/application.yml`; config-server serves no gateway
+config, so that file is authoritative and a change needs the gateway rebuilt and restarted.
+
+### C3b + C3c — ✅ GREEN
+
+`capability-gating.cy.js` 6/6 and `capability-shapes.cy.js` 5/5, headed, after the five-hop deployment above.
+
+Enforcement now stands at:
+
+| Capability | Write | Service | Refuses? |
+|---|---|---|---|
+| `INSTALLMENTS` | sale on terms, pre-write | business | ✅ gated |
+| `LOOSE_SELLING` | loose sale line | business | ✅ |
+| `COLLECTIONS` | driver settlement (posts to AR) | marketplace | ✅ |
+| `RX_REQUIRED` | prescription create + dispense | pharma | ✅ (was structurally impossible before C3c) |
+
+And the answer is now the SAME everywhere, because every service reads one claim rather than its own table.
+
+#### The staleness trade-off, and where it actually bit
+
+Option C resolves capabilities at token mint, so an owner who switches one off keeps the old answer until their
+token changes. The gate found this immediately: the OFF cases failed with the capability correctly saved and
+the session's JWT still carrying the previous set.
+
+**Fixed in the product, not in the test.** A forced re-login in the spec would have made it pass while hiding a
+real defect: the owner who just used the switch is exactly the person who would see nothing happen — screen
+unchanged, endpoint still accepting — and would report it as broken. `saveBusinessConfig` now re-mints that
+session's token straight after a capability write (`AuthService.refreshToken` rebuilds claims from scratch).
+Only the acting session is re-minted; other sessions of the tenant pick it up on their next refresh, which is
+the eventual consistency this option was chosen with. Best-effort, because the setting is saved either way and
+a failed refresh must not turn a successful write into an error.
+
+> A test that has to be weakened to pass is usually reporting something true. The question to ask first is what
+> a real user would experience at that exact point.

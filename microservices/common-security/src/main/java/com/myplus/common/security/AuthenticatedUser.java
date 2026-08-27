@@ -32,10 +32,29 @@ public class AuthenticatedUser {
     private String roleAtLocation;
 
     /**
+     * C3c — the tenant's enabled capabilities, resolved by auth-service when the token was minted
+     * (gateway {@code X-Org-Caps}).
+     *
+     * <h3>null and empty mean OPPOSITE things, deliberately</h3>
+     * <ul>
+     *   <li><b>{@code null}</b> — not resolved. The token predates C3c, or auth could not read the settings
+     *       store. Callers must fall back to their own settings store, which is the behaviour before this
+     *       existed. Failing open here is why a settings hiccup cannot take a tenant's screens away.</li>
+     *   <li><b>empty set</b> — resolved, and this tenant has nothing enabled. Authoritative.</li>
+     * </ul>
+     * Collapsing the two would either hide every screen for tenants on older tokens, or make an all-off
+     * tenant silently permissive. The {@code "-"} sentinel on the wire exists to keep them apart, because an
+     * empty header value does not reliably survive transport.
+     */
+    private Set<String> capabilities;
+
+    /**
      * Legacy constructor (pre multi-location). Keeps existing call sites working; the location fields
      * default to unset, so behaviour is unchanged until the gateway stamps X-Location-* headers.
      */
     public AuthenticatedUser(Long userId, String email, List<SimpleGrantedAuthority> authorities, Long organizationId) {
-        this(userId, email, authorities, organizationId, null, Collections.emptySet(), null);
+        // capabilities = NULL, not an empty set: an identity built without the gateway's header has not
+        // resolved them, and must fall back rather than assert that nothing is enabled. See the field javadoc.
+        this(userId, email, authorities, organizationId, null, Collections.emptySet(), null, null);
     }
 }

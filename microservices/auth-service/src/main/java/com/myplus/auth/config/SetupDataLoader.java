@@ -488,6 +488,23 @@ public class SetupDataLoader {
                     {"owner.marketplace@myplus.com",  "Marketplace", "MARKETPLACE"},
                     {"owner.campaign@myplus.com",     "Campaign",    "CAMPAIGN"},
                     {"owner.analytics@myplus.com",    "Analytics",   "ANALYTICS"},
+
+                    // ── C4: two more TENANTS on the business module, not two more modules ──────────────────
+                    //
+                    // A mobile shop and a pesticide dealer are both userType BUSINESS. They differ by SHAPE
+                    // and CAPABILITIES (org.shape + org.cap.*), which is the entire point of having two axes:
+                    // a mobile shop is retail + serial/condition/installments, a pesticide dealer is closer to
+                    // pharmacy — batch, expiry, FEFO, loose selling — with prescriptions switched off.
+                    //
+                    // Giving either its own userType would hardcode a customer's trade into the platform, which
+                    // is the failure the capability design exists to prevent. `if ("MOBILE".equals(type))` is
+                    // the same mistake as `if (organizationId == 24)`, one level of indirection away.
+                    //
+                    // They get their OWN ORGS deliberately: capability gating cannot be proven on one tenant.
+                    // "Turning it off for A does not affect B" is unprovable without a B, and a spec that hides
+                    // a section for everybody would pass a single-tenant suite perfectly.
+                    {"owner.mobile@myplus.com",       "Mobile",      "BUSINESS"},
+                    {"owner.pesticide@myplus.com",    "Pesticide",   "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);
@@ -522,6 +539,10 @@ public class SetupDataLoader {
                     {"marketplace",  "Marketplace", "MARKETPLACE", "ROLE_MARKETPLACE_SELLER"},
                     {"campaign",     "Campaign",    "CAMPAIGN",    "ROLE_CAMPAIGN_USER"},
                     {"analytics",    "Analytics",   "ANALYTICS",   "ROLE_ANALYTICS_USER"},
+                    // C4 tenants — BUSINESS userType and the business USER role, because that is what they are.
+                    // Only their shape and capabilities differ. See the note on moduleOwners above.
+                    {"mobile",       "Mobile",      "BUSINESS",    "ROLE_BUSINESS_USER"},
+                    {"pesticide",    "Pesticide",   "BUSINESS",    "ROLE_BUSINESS_USER"},
             };
             Role genericAdminRole = roleRepository.findByName("ADMIN_ROLE")
                     .orElseThrow(() -> new IllegalStateException("ADMIN_ROLE not seeded"));

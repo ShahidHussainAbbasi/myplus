@@ -27,7 +27,20 @@ const MODULES = [
 ];
 
 const DEVICES = [
+  /*
+   * 360 is the NARROWEST device this suite tests, and it was added because the phones the shops actually
+   * carry are narrower than the iPhone this matrix started with.
+   *
+   * Infinix Hot 40 and Vivo Y400 both report ~360 CSS pixels — their 1080-pixel panels are 3x, so the
+   * layout viewport is 360, not 1080. Testing at 390 leaves a 30px band untested, and 30px is exactly the
+   * width at which a padded two-column row stops fitting. Android at 360 is the single most common
+   * viewport in this product's market, so it belongs at the top of the list rather than as an edge case.
+   */
+  { label: 'Android 360 (Infinix Hot 40, Vivo Y400)', w: 360, h: 800, mobile: true },
   { label: 'iPhone 13 (390×844)',  w: 390,  h: 844,  mobile: true  },
+  // A large Android — the other end of the phone band, where a layout that only ever saw 390 can start
+  // stretching controls rather than filling the row.
+  { label: 'Android 412 (Pixel-class)', w: 412, h: 915, mobile: true },
   { label: 'iPad (768×1024)',      w: 768,  h: 1024, mobile: true  },   // ≤991 ⇒ off-canvas
   // 960 sat in the old 900–991 dead-zone: drawer nav had NOT kicked in (rail still took 238px)
   // while col-sm-* was already in its cramped band, so the content had neither the rail's room

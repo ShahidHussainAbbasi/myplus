@@ -192,6 +192,26 @@ public class SettingsService {
     }
 
     /**
+     * The tenant's EXPLICIT override for a key, or empty when they have never saved one.
+     *
+     * <h3>Why this is different from {@link #effectiveFor} and why C4 needs it</h3>
+     * {@code effectiveFor} folds the catalog default in, so it cannot tell "the owner chose false" from "the
+     * owner chose nothing and the default is false". Shape presets make that distinction load-bearing: a
+     * preset must fill in for a tenant who has expressed no opinion, and must lose to one who has.
+     *
+     * <p>Without it, picking a shape would silently overwrite deliberate choices, and the only safe advice
+     * would be "never change your profile" — which is not a setting, it is a trap. {@code pos.entry.preset}
+     * already ships this exact rule, including the subtlety that <b>a saved value merely equal to the default
+     * still counts as a choice</b>: the owner said it, so it wins.
+     *
+     * <p>Costs nothing extra — it reads the same cached override map every other accessor uses.
+     */
+    public java.util.Optional<String> overrideFor(Long org, String key) {
+        if (org == null) return java.util.Optional.empty();
+        return java.util.Optional.ofNullable(overridesFor(org).get(key));
+    }
+
+    /**
      * This org's overrides, from cache or from one query.
      *
      * <p>Returns an EMPTY map for a tenant that has overridden nothing, and caches that too — otherwise

@@ -37,6 +37,18 @@ jwt:
   refresh-token-expiration-ms: 604800000
 
 app:
+  # C3c — auth-service is the OWNER of tenant capabilities (org.cap.*) and the tenant shape (org.shape).
+  #
+  # A capability is a property of the TENANT, and auth-service already owns the tenant: Organization carries
+  # its type, plan, trial and entry cap, and all of those already reach every service as JWT claims.
+  # Capabilities now take the same road, resolved once at token mint.
+  #
+  # This flag publishes the capability CATALOG here and ONLY here. The catalog is what SettingsService.set
+  # validates against, so it is also what decides which service will ACCEPT a capability write — set it in a
+  # second service and capability rows start landing in two stores again, which is the exact defect this
+  # replaced (owner switches rxRequired off in business-service, pharma reads its own table, never refuses).
+  capabilities:
+    owner: true
   base-url: ${APP_BASE_URL:http://localhost:8765}
   verification-token-expiry-hours: 24
   password-reset-token-expiry-hours: 1

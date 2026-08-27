@@ -78,6 +78,114 @@ class CapabilityServiceTest {
                 .as("switching one off leaves the others alone").isTrue();
     }
 
+    // ── C4: shape presets ───────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("C4 MIGRATION — a tenant with no shape still gets every capability")
+    void no_shape_means_everything_on() {
+        /*
+         * The same promise as everything_defaults_on, now that a second resolution step exists between the
+         * question and the answer. Every existing organization has no org.shape row, so every one resolves to
+         * GENERAL, whose preset is every capability.
+         *
+         * If this breaks, the deploy that introduces shapes silently narrows every tenant on the platform.
+         */
+        CapabilityService svc = svc(new FakeStore());
+        assertThat(svc.shapeFor(7L)).isEqualTo(Shape.GENERAL);
+        for (Capability c : Capability.values()) {
+            assertThat(svc.isEnabledFor(7L, c)).as("%s with no shape chosen", c.code()).isTrue();
+        }
+    }
+
+    @Test
+    @DisplayName("a shape seeds its own capabilities and leaves the rest off")
+    void shape_seeds_its_preset() {
+        FakeStore store = new FakeStore();
+        store.upsert(1L, 1L, Shape.settingKey(), "pharmacy");
+
+        CapabilityService svc = svc(store);
+        assertThat(svc.isEnabledFor(1L, Capability.BATCH_TRACKING)).as("pharmacy tracks batches").isTrue();
+        assertThat(svc.isEnabledFor(1L, Capability.RX_REQUIRED)).as("and dispenses on prescription").isTrue();
+        // The other half: a preset that simply granted everything would satisfy the two above.
+        assertThat(svc.isEnabledFor(1L, Capability.FIELD_SALES)).as("but does not run a field force").isFalse();
+    }
+
+    @Test
+    @DisplayName("⭐ an explicit override BEATS the shape preset, in both directions")
+    void override_beats_preset() {
+        /*
+         * The rule that makes shapes safe to offer at all. Without it, choosing a shape would silently
+         * destroy a tenant's deliberate settings, and the only safe advice would be "never change your
+         * profile" — which is not a setting, it is a trap.
+         *
+         * Both directions matter. Off-over-on is the pesticide dealer on the pharmacy shape who is not
+         * prescription-controlled; on-over-off is the mobile shop on retail that does want batch tracking.
+         */
+        FakeStore store = new FakeStore();
+        store.upsert(1L, 1L, Shape.settingKey(), "pharmacy");
+        store.upsert(1L, 1L, Capability.RX_REQUIRED.settingKey(), "false");     // off, against the preset
+        store.upsert(1L, 1L, Capability.FIELD_SALES.settingKey(), "true");      // on, against the preset
+
+        CapabilityService svc = svc(store);
+        assertThat(svc.isEnabledFor(1L, Capability.RX_REQUIRED)).as("owner switched it OFF").isFalse();
+        assertThat(svc.isEnabledFor(1L, Capability.FIELD_SALES)).as("owner switched it ON").isTrue();
+        assertThat(svc.isEnabledFor(1L, Capability.BATCH_TRACKING))
+                .as("untouched capabilities still follow the preset").isTrue();
+    }
+
+    @Test
+    @DisplayName("an unreadable shape falls back to GENERAL, not to nothing")
+    void unknown_shape_is_permissive() {
+        /*
+         * A typo, a value written by a newer build, a shape this version has dropped. Guessing wrong here
+         * costs a support call either way — but resolving to "no capabilities" would stop a shop trading,
+         * while resolving to GENERAL merely shows screens it may not use.
+         */
+        FakeStore store = new FakeStore();
+        store.upsert(1L, 1L, Shape.settingKey(), "wholesale-fish-market");
+
+        CapabilityService svc = svc(store);
+        assertThat(svc.shapeFor(1L)).isEqualTo(Shape.GENERAL);
+        assertThat(svc.isEnabledFor(1L, Capability.LOOSE_SELLING)).isTrue();
+    }
+
+    @Test
+    @DisplayName("the refusal path uses the SAME resolver as the rendering path")
+    void assert_enabled_honours_the_shape() {
+        /*
+         * Two code paths answering the same question two ways is how a screen ends up hidden while its
+         * endpoint still answers — the precise defect this service exists to close. assertEnabled must see
+         * the shape preset exactly as isEnabledFor does; only their behaviour when they CANNOT tell differs.
+         */
+        FakeStore store = new FakeStore();
+        store.upsert(1L, 1L, Shape.settingKey(), "retail");
+
+        CapabilityService svc = svc(store);
+        // Retail has no field sales, so the render side hides it...
+        assertThat(svc.isEnabledFor(1L, Capability.FIELD_SALES)).isFalse();
+        // ...and the write side must refuse it. (No CurrentUser in a unit test, so assertEnabled refuses
+        // here for the fail-closed reason too — the point asserted is that they do not DISAGREE.)
+        assertThatThrownBy(() -> svc.assertEnabled(Capability.FIELD_SALES))
+                .isInstanceOf(com.myplus.common.web.exception.ValidationException.class);
+    }
+
+    @Test
+    @DisplayName("every shape is offered on the Configuration screen")
+    void catalog_publishes_the_shape_chooser() {
+        // A shape with no catalog option is a shape no owner can pick — the "shipped unreachable" failure
+        // that left C1's CapabilityCatalog registered nowhere for a whole build.
+        List<SettingEntry> entries = new CapabilityCatalog().entries();
+        SettingEntry shape = entries.stream()
+                .filter(e -> Shape.settingKey().equals(e.key()))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("org.shape is not published in the catalog"));
+
+        assertThat(shape.options()).hasSize(Shape.values().length);
+        assertThat(shape.defaultValue())
+                .as("the default shape must be the permissive one, or the deploy narrows every tenant")
+                .isEqualTo(Shape.GENERAL.code());
+    }
+
     // ── tenancy ─────────────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -164,8 +272,18 @@ class CapabilityServiceTest {
         // A capability with no catalog entry is a capability no owner can turn off — the "shipped
         // unreachable" failure this codebase has hit before.
         List<SettingEntry> entries = new CapabilityCatalog().entries();
-        assertThat(entries).hasSize(Capability.values().length);
-        for (SettingEntry e : entries) {
+
+        // Keyed lookup per capability rather than a count over every entry. The catalog also publishes the
+        // C4 shape chooser, whose default is "general" rather than "true" — a size assertion and a blanket
+        // defaultValue loop both broke the moment that arrived, and neither failure would have meant a
+        // capability was missing. Assert the property (every capability has a reachable switch), not the
+        // shape of the list it happens to sit in.
+        for (Capability c : Capability.values()) {
+            SettingEntry e = entries.stream()
+                    .filter(x -> c.settingKey().equals(x.key()))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError(
+                            c.code() + " has no catalog entry — no owner can switch it off"));
             assertThat(e.defaultValue()).as("%s must default ON", e.key()).isEqualTo("true");
             assertThat(e.label()).isNotBlank();
             assertThat(e.help()).as("%s needs owner-facing help", e.key()).isNotBlank();

@@ -62,6 +62,9 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                 principal.setActiveLocationId(parseLongOrNull(request.getHeader("X-Location-Id")));
                 principal.setAccessibleLocationIds(parseLongSet(request.getHeader("X-Location-Ids")));
                 principal.setRoleAtLocation(cleanHeader(request.getHeader("X-Loc-Role")));
+                // C3c: the tenant's capabilities as resolved at token mint. Absent header => stays null =>
+                // the callee falls back to its own settings store (pre-C3c behaviour). See parseCapabilities.
+                principal.setCapabilities(parseCapabilities(request.getHeader("X-Org-Caps")));
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
                 // Also store in request attributes as a reliable fallback (read by CurrentUser.get()).
@@ -80,6 +83,36 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
     }
 
     /** Parse a comma-separated list of ids (e.g. "3,7,12") into a Long set; empty when absent/blank. */
+    /**
+     * C3c — the {@code X-Org-Caps} header into a capability set.
+     *
+     * <p><b>Returns null for an absent header and an EMPTY SET for {@code "-"}, and the difference is the
+     * whole point.</b> null means the capabilities were never resolved — an older token, or auth-service
+     * unable to read its settings store — and the callee must fall back to its own store, which is exactly
+     * the behaviour before C3c. An empty set means auth resolved them and this tenant has none enabled, which
+     * is authoritative.
+     *
+     * <p>Collapsing the two would either blank every screen for every tenant still holding a pre-C3c token —
+     * a self-inflicted outage on deploy day — or make a genuinely all-off tenant silently permissive. The
+     * sentinel exists because an empty header value does not reliably survive HTTP transport, so "resolved,
+     * nothing enabled" could not otherwise be expressed at all.
+     *
+     * <p>Trusting this header is safe only because the gateway strips any client-supplied copy before
+     * stamping its own; see {@code JwtAuthenticationFilter}. Without that removal a caller could grant itself
+     * any capability by naming it here.
+     */
+    private Set<String> parseCapabilities(String header) {
+        if (header == null || header.isBlank()) return null;          // unresolved -> fall back
+        String cleaned = header.replaceAll("[\\[\\]\"]", "").trim();
+        Set<String> out = new LinkedHashSet<>();
+        if ("-".equals(cleaned)) return out;                          // resolved, nothing enabled
+        for (String part : cleaned.split(",")) {
+            String code = part.trim();
+            if (!code.isEmpty()) out.add(code);
+        }
+        return out;
+    }
+
     private Set<Long> parseLongSet(String header) {
         Set<Long> out = new LinkedHashSet<>();
         if (header == null || header.isBlank()) return out;

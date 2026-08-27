@@ -45,6 +45,38 @@ spring:
           # Each route carries its OWN CircuitBreaker (per-service name) so one failing service can't trip
           # the others; all share fallbackUri /fallback. (slice 27 / tech-debt #14)
           routes:
+            # C3c: auth-service OWNS tenant capabilities (org.cap.*) and the shape, so it now serves the SHARED
+            # common-settings controllers — which are mapped at /settings and /capabilities because they live in
+            # a library and cannot know any one service's prefix. auth-service maps its own controllers at the
+            # full /api/auth/... path and therefore has no StripPrefix, so /api/auth/settings arrived unchanged
+            # and answered "No static resource api/auth/settings".
+            #
+            # This is exactly the case `inventory-settings` below was written for, whose comment says: "Any
+            # FULL-PATH service that later adopts common-settings needs a route like this one."
+            #
+            # BOTH MUST PRECEDE the general auth-service route to win the match — routes are evaluated in order.
+            - id: auth-settings
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/settings/**,/api/auth/settings
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: auth-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
+            - id: auth-capabilities
+              uri: lb://auth-service
+              predicates:
+                - Path=/api/auth/capabilities/**,/api/auth/capabilities
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: auth-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
+                - StripPrefix=2
             - id: auth-service
               uri: lb://auth-service
               predicates:

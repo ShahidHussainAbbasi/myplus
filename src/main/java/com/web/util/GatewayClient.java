@@ -283,6 +283,26 @@ public class GatewayClient {
      * A session that cannot refresh is the single most common cause of "the app randomly stopped
      * working", so it has to say so.
      */
+    /**
+     * Mint a fresh access token for this session, on purpose rather than in response to a 401.
+     *
+     * <h3>Why a capability change needs this</h3>
+     * C3c resolves a tenant's capabilities when its token is minted and carries them as a claim, so that no
+     * service has to make a remote call to ask. The cost is staleness: an owner who switches a capability off
+     * would keep the old answer until their token next changed — the screen would not update, the endpoint
+     * would not refuse, and the switch would look broken.
+     *
+     * <p>Refreshing immediately after the write closes that window for the person who made the change, which
+     * is the only session where the delay would be noticed as a bug rather than as eventual consistency.
+     * {@code AuthService.refreshToken} rebuilds the claims from scratch, so the new token carries the new
+     * capabilities.
+     *
+     * @return true if a new token was obtained
+     */
+    public boolean refreshNow() {
+        return refreshAccessToken();
+    }
+
     private boolean refreshAccessToken() {
         String refreshToken = tokenStore.getRefreshToken();
         if (refreshToken == null || refreshToken.isEmpty()) {
