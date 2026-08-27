@@ -788,3 +788,98 @@ a failed refresh must not turn a successful write into an error.
 
 > A test that has to be weakened to pass is usually reporting something true. The question to ask first is what
 > a real user would experience at that exact point.
+
+---
+
+## 16. C5 — the dashboard as a widget registry (implemented, awaiting gate)
+
+### What it adds, and what it deliberately does not
+
+Hiding was already solved: `capabilities.js` (C3) removes any `[data-capability]` element, and a widget carries
+that attribute like any other section. Re-implementing hiding in the registry would be a second mechanism for
+one job. So C5 owns the three things that were actually missing:
+
+1. **An inventory** — one list of what the dashboard contains. Before this the answer was "read 3,500 lines of
+   template and hope you found them all".
+2. **Order** — a tenant that deliberately switched a capability on cares about it more than a generic count.
+   A mobile shop should not find "On terms" seventh, behind Companies.
+3. **An extension point** — `DashboardWidgets.register()` adds a widget without editing the template.
+
+**It reorders existing nodes; it does not render them.** Labels stay server-rendered through Thymeleaf, so the
+six i18n bundles remain the single source of truth for wording — a registry rendering its own labels would fork
+2,000+ keys by accident. Reordering uses `appendChild`, which MOVES nodes, so no listener is lost and no
+Chart.js canvas is re-instantiated.
+
+**Order keys on CAPABILITIES, never on a shape name.** `if (shape === 'distribution')` is
+`if (organizationId === 24)` one indirection away. A distributor is recognised by having field sales and
+collections, not by being called one.
+
+### The first real widget: "On terms"
+
+`installmentsDue` — plans currently running — gated on `INSTALLMENTS`. **The query is gated too, not just the
+tile:** `BusinessDashboardController` skips the COUNT entirely for a tenant without the capability, so the key
+is ABSENT from the payload rather than zero.
+
+That distinction is the whole point. A hidden tile whose data was fetched anyway gates only the appearance, and
+on this screen it is also a regression — the dashboard was brought from ~3s to ~0.27s by removing exactly that
+kind of unconditional work. It also makes the capability observable from the payload rather than only from the
+DOM, which is what the gate asserts.
+
+`countOpenForOrg` is a COUNT, not a list-and-size, for the same reason. ACTIVE **and** DEFAULTED both count —
+a defaulted plan is the one a shop most needs to see, so excluding it would hide the number the widget exists
+for.
+
+### Gate — `cypress/e2e/business/dashboard-widgets.cy.js`
+
+| Case | Asserts |
+|---|---|
+| inventory | every `[data-widget]` in the markup is registered — catches a tile that silently never participates in ordering |
+| ON | shown, carries a real number (`/^\d+$/`, not `-` or `undefined`), **leads its row**, and the payload has the key |
+| OFF | hidden, **and the payload has no key at all** — the tenant is not paying for a widget they cannot see |
+
+Both OFF assertions are paired with a positive control on the same payload and the same row, so a build that
+broke the endpoint or hid everything cannot pass.
+
+### Build
+
+business-service (new repo query + gated stat) and the monolith (template, registry JS, `kpi-indigo`, and
+`ui.onTerms` across all six bundles).
+
+### C5 — ✅ GREEN
+
+`dashboard-widgets.cy.js` 3/3, with `capability-gating.cy.js` 6/6 and `capability-shapes.cy.js` 5/5 re-run
+alongside it — C5 changes the dashboard those two also visit, so a regression there would be invisible to C5's
+own spec.
+
+The load-bearing assertion is the OFF case's `expect(s).to.not.have.property('installmentsDue')`: the tenant is
+not merely prevented from SEEING the widget, they are not paying for it. The tile and the query are gated
+together.
+
+**Deployment note.** The first run failed with `DashboardWidgets` undefined and no `[data-widget]` in the DOM —
+the whole slice missing. Not a code fault: the monolith container was still running a jar built five hours
+earlier while a newer one sat in `target/`. Same shape as the "start-all runs prebuilt JARs" trap, in its
+Docker form. Two curls settle it in seconds and are worth running before blaming the code:
+
+```
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/js/common/dashboard-widgets.js   # 404 = stale jar
+curl -s http://localhost:8080/css/theme.css | grep -c kpi-indigo                                # 0   = stale jar
+```
+
+---
+
+## 17. Where the capability platform stands
+
+| Slice | State |
+|---|---|
+| C1 capability service + catalog | ✅ green |
+| C2 ModuleRouter keys on shape | ✅ green |
+| C3 `[data-capability]` + map endpoint + first server guard | ✅ green |
+| C3b `assertEnabled` on 4 writes across 3 services | ✅ green |
+| C3c capabilities in the JWT, auth-service owns the store | ✅ green |
+| C4 shape presets | ✅ green |
+| C5 dashboard widget registry | ✅ green |
+| **C6 per-product policies** | open — partly in flight as pack-and-loose U0/U2/U4 |
+
+**Still hidden but not refused:** `batchTracking`, `expiryTracking`, `fefoAllocation`, `journeyPlanning`,
+`dealerPricing`. Cheap now that the mechanism is proven end to end — each is one `assertEnabled` at the entry
+point of the write, placed before any commit.

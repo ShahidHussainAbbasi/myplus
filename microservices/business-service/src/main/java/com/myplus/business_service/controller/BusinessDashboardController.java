@@ -63,6 +63,20 @@ public class BusinessDashboardController {
     @Autowired
     private CustomerHistoryRepo customerHistoryRepo;
 
+    /** C5 — the "On terms" widget's count. A repository for the same reason the others are: it answers a number. */
+    @Autowired
+    private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
+
+    /**
+     * C5 — decides whether the installments widget (and its query) is worth running for this tenant.
+     *
+     * <p>REQUIRED, like every other capability injection: an optional one silently skips the check, which for
+     * a rendering decision would mean quietly running a query for tenants that cannot use its result. See
+     * {@code JpaSettingsStore}'s javadoc for the OMS O3 precedent.
+     */
+    @Autowired
+    private com.myplus.common.settings.CapabilityService capabilityService;
+
     @Autowired
     private com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: top-item names from catalog
 
@@ -118,6 +132,25 @@ public class BusinessDashboardController {
             stats.put("items", itemCount);
             stats.put("monthlySales", sellCount);
             stats.put("monthlyRevenue", String.format("%.0f", monthlyRevenue));
+
+            /*
+             * C5 — a capability-gated widget, and the QUERY is gated too, not just the tile.
+             *
+             * A shop that does not sell on terms should not pay for a count of installment plans it can never
+             * have. This screen was brought from ~3s to ~0.27s by removing exactly this kind of unconditional
+             * work, so adding a query every tenant runs to serve a tile most of them cannot see would spend
+             * that back — and on the busiest screen in the product.
+             *
+             * It also makes the capability observable from the payload rather than only from the DOM: the key
+             * is ABSENT for a tenant without the capability, which is what the gate asserts. A hidden tile
+             * whose data was fetched anyway is a weaker claim than one whose data was never asked for.
+             *
+             * isEnabled (not assertEnabled) because this is a rendering decision: it fails OPEN, and the worst
+             * case is a tenant seeing a number they have no plans behind — never a refusal of real work.
+             */
+            if (capabilityService.isEnabled(com.myplus.common.settings.Capability.INSTALLMENTS)) {
+                stats.put("installmentsDue", installmentPlanRepo.countOpenForOrg(orgId));
+            }
 
             return new GenericResponse("SUCCESS", "stats", stats);
         } catch (Exception e) {

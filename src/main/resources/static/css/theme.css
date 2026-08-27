@@ -744,6 +744,13 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   background: linear-gradient(135deg, #311B92 0%, #4527A0 50%, #512DA8 100%);
   box-shadow: 0 14px 40px rgba(49,27,146,.55);
 }
+/* C5 — "On terms" (installment plans running). Indigo sits between the purple and blue tiles it neighbours,
+   so the row still reads as one family rather than as a tile bolted on afterwards. Same gradient geometry and
+   shadow ratio as its siblings; only the hue changes. */
+.kpi-indigo {
+  background: linear-gradient(135deg, #0D47A1 0%, #1565C0 50%, #1976D2 100%);
+  box-shadow: 0 14px 40px rgba(13,71,161,.55);
+}
 
 /* ── CHART PANELS — elevated glass card ─────────────────── */
 .chart-panel {

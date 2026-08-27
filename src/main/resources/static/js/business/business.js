@@ -1719,6 +1719,14 @@ function getDashboardData() {
             $('#dashItems').text(s.items);
             $('#dashMonthlySales').text(s.monthlySales);
             $('#dashMonthlyRevenue').text(s.monthlyRevenue);
+            // C5 — present only when the tenant has the installments capability: the server skips the COUNT
+            // entirely for everyone else, so the key is ABSENT rather than zero. Guarded on that, because
+            // writing an undefined would print "undefined" in the tile for every other tenant — and the tile
+            // is hidden for them, which is exactly the kind of bug nobody sees until the capability is
+            // switched on and the number is wrong from the first render.
+            if (s.installmentsDue !== undefined && s.installmentsDue !== null) {
+                $('#dashInstallmentsDue').text(s.installmentsDue);
+            }
         }
     }).fail(function() {
         console.log('Error loading dashboard stats');

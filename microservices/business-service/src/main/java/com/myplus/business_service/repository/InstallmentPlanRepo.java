@@ -124,6 +124,21 @@ public interface InstallmentPlanRepo extends JpaRepository<InstallmentPlan, Long
     long countOpenForCustomer(@Param("orgId") Long orgId, @Param("customerId") Long customerId);
 
     /**
+     * C5 — how many plans this tenant currently has running. Backs the "On terms" dashboard widget.
+     *
+     * <p>A COUNT, not a list-and-size. The dashboard was brought from ~3s to ~0.27s by replacing exactly that
+     * pattern with aggregates, and a widget that quietly loads every open plan to display one number would put
+     * the regression back on the busiest screen in the product.
+     *
+     * <p>Same status set as {@link #countOpenForCustomer}: ACTIVE and DEFAULTED are both live money owed.
+     * A defaulted plan is the one a shop most needs to see, so excluding it would hide the very number the
+     * widget exists for.
+     */
+    @Query("SELECT COUNT(p) FROM InstallmentPlan p WHERE p.organizationId = :orgId "
+         + "AND p.status IN ('ACTIVE','DEFAULTED')")
+    long countOpenForOrg(@Param("orgId") Long orgId);
+
+    /**
      * The reminder scanner's window (INST-3): plans with an installment falling due in a date range.
      *
      * <p>Kept as a plan-level read so the scanner can apply plan-level rules — stop reminding a

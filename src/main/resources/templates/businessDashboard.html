@@ -280,7 +280,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 				<!-- KPI stat cards -->
 				<div class="row" style="margin-bottom:22px">
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="companies" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-blue">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
 							<div class="kpi-body">
@@ -289,7 +289,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="venders" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-green">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-grain"></span></div>
 							<div class="kpi-body">
@@ -298,7 +298,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="customers" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-teal">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-user"></span></div>
 							<div class="kpi-body">
@@ -307,7 +307,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="products" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-list-alt"></span></div>
 							<div class="kpi-body">
@@ -316,7 +316,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlySales" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-purple">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
 							<div class="kpi-body">
@@ -325,7 +325,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlyRevenue" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-red">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
 							<div class="kpi-body">
@@ -334,11 +334,33 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
+					<!--
+						C5 — the first capability-gated WIDGET, not just a capability-gated screen.
+
+						Shown only to a tenant that sells on terms. The server also skips the COUNT that feeds
+						it (BusinessDashboardController), so a shop without installments pays nothing for a
+						tile it cannot see — this dashboard was brought from ~3s to ~0.27s by removing exactly
+						that kind of unconditional work.
+
+						Label is server-rendered like every sibling: the i18n bundles are the source of truth
+						for wording, and a widget registry that rendered its own labels in JS would quietly
+						create a second one.
+					-->
+					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px"
+					     data-widget="installmentsDue" data-capability="installments">
+						<div class="kpi-card kpi-indigo">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-calendar"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashInstallmentsDue">-</div>
+								<div class="kpi-label" th:text="#{ui.onTerms}">On Terms</div>
+							</div>
+						</div>
+					</div>
 				</div>
 
 				<!-- Charts row 1: trend + top items -->
 				<div class="row" style="margin-bottom:18px">
-					<div class="col-xs-12 col-sm-8" style="margin-bottom:12px">
+					<div data-widget="chartTrend" class="col-xs-12 col-sm-8" style="margin-bottom:12px">
 						<div class="chart-panel">
 							<div class="chart-panel-head">
 								<span class="glyphicon glyphicon-signal"></span>
@@ -349,7 +371,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div class="col-xs-12 col-sm-4" style="margin-bottom:12px">
+					<div data-widget="chartTopItems" class="col-xs-12 col-sm-4" style="margin-bottom:12px">
 						<div class="chart-panel">
 							<div class="chart-panel-head">
 								<span class="glyphicon glyphicon-th-list"></span>
@@ -364,7 +386,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 				<!-- Charts row 2: daily revenue -->
 				<div class="row" style="margin-bottom:18px">
-					<div class="col-sm-12">
+					<div data-widget="chartDaily" class="col-sm-12">
 						<div class="chart-panel">
 							<div class="chart-panel-head">
 								<span class="glyphicon glyphicon-stats"></span>
@@ -379,7 +401,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 				<!-- Charts row 3: sales by customer + due payments table -->
 				<div class="row" style="margin-bottom:8px">
-					<div class="col-xs-12 col-sm-5" style="margin-bottom:12px">
+					<div data-widget="chartCustSales" class="col-xs-12 col-sm-5" style="margin-bottom:12px">
 						<div class="chart-panel">
 							<div class="chart-panel-head">
 								<span class="glyphicon glyphicon-user"></span>
