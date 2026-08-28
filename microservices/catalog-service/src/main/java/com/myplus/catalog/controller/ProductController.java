@@ -99,6 +99,26 @@ public class ProductController {
         return productService.updateClinicalFlags(id, rxRequired, controlledSubstance);
     }
 
+    /**
+     * C6: set the per-product TRACKING policy — serial/IMEI and batch.
+     *
+     * <p>Sibling of {@code /clinical-flags} and ADMIN-gated for the same reason: turning {@code requiresSerial}
+     * on governs whether the tills demand an IMEI before a handset can be sold, which is not a setting for
+     * whoever happens to be at the counter.
+     *
+     * <p>Two gates, two questions. {@code @PreAuthorize} asks whether this USER may write; the service asks
+     * whether this TENANT has the capability at all. A mobile shop's admin has every write privilege and still
+     * cannot mark a product batch-tracked if the business does not do batch trade.
+     */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PutMapping("/{id}/tracking-flags")
+    public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(
+            @PathVariable Long id,
+            @RequestParam(required = false) Boolean requiresSerial,
+            @RequestParam(required = false) Boolean tracksBatch) {
+        return productService.updateTrackingFlags(id, requiresSerial, tracksBatch);
+    }
+
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI — GET /products/count. */
     @GetMapping("/count")
     public long count() {

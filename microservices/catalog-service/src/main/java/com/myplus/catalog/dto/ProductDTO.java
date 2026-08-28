@@ -47,6 +47,15 @@ public class ProductDTO {
      *  product list can mark a medicine "Rx" without a second round trip. */
     private Boolean rxRequired;
     private Boolean controlledSubstance;
+    /** C6 tracking flags — read-only here, exactly as the clinical flags above are; set via
+     *  PUT /products/{id}/tracking-flags, which is ADMIN-gated AND capability-checked.
+     *
+     *  <p>Deliberately NOT mapped in {@code fromDto}. Reading them costs nothing and saves the product list a
+     *  round trip; WRITING them from an ordinary product save would route a gated flag around its own gate,
+     *  and a form that simply omitted the field would silently clear it. Same rule, same reason, as
+     *  {@code rxRequired}: one writer, and it is the endpoint that checks the capability. */
+    private Boolean requiresSerial;
+    private Boolean tracksBatch;
     private String imageUrl;
     private Long createdBy;
     /** U1 — who is making this change, for the pack-rule audit stamp. */

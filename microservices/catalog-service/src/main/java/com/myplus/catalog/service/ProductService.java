@@ -206,10 +206,71 @@ public class ProductService {
     public com.myplus.commerce.contracts.dto.ProductRef updateClinicalFlags(Long id, Boolean rxRequired,
                                                                             Boolean controlledSubstance) {
         Product p = getEntity(id);
+        /*
+         * C6 — a tenant that does not have the capability may not set the product policy.
+         *
+         * This was an open gap: ADMIN_PRIVILEGE alone let any tenant mark a product prescription-only,
+         * including a hardware shop whose tills would then refuse to sell it for a reason nobody could
+         * explain from the product screen. Privilege answers "may this USER write?"; capability answers
+         * "does this TENANT do prescription trade at all?" — different questions, both needed.
+         *
+         * Only checked when the flag is actually BEING SET. An admin editing an unrelated field passes
+         * nulls here, and refusing those would make an existing product uneditable the moment a capability
+         * was switched off — punishing the tenant for tidying their configuration.
+         */
+        requireCapability(rxRequired, "rxRequired",
+                "Prescription control is not switched on for your business.");
         if (rxRequired != null) p.setRxRequired(rxRequired);
         if (controlledSubstance != null) p.setControlledSubstance(controlledSubstance);
         productRepository.save(p);
         return toRef(p, orgCodeRates());
+    }
+
+    /**
+     * C6 — set the per-product tracking policy: serial/IMEI and batch.
+     *
+     * <p>Sibling of {@link #updateClinicalFlags}, deliberately: same shape, same guard, same reasoning. Both
+     * are per-product policies whose enforcement is <b>tenant capability AND product policy</b>.
+     *
+     * <p>Null means "leave alone", so a caller can set one flag without restating the other.
+     */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
+                                                                           Boolean tracksBatch) {
+        Product p = getEntity(id);
+        requireCapability(requiresSerial, "serialTracking",
+                "Serial / IMEI tracking is not switched on for your business.");
+        requireCapability(tracksBatch, "batchTracking",
+                "Batch tracking is not switched on for your business.");
+        if (requiresSerial != null) p.setRequiresSerial(requiresSerial);
+        if (tracksBatch != null) p.setTracksBatch(tracksBatch);
+        productRepository.save(p);
+        return toRef(p, orgCodeRates());
+    }
+
+    /**
+     * Refuse a policy change the tenant's capabilities do not allow.
+     *
+     * <p>Reads the capability from the JWT claim (C3c) via {@code CurrentUser}, not from a settings store:
+     * catalog-service holds no {@code SettingsStore}, and adding a settings table purely to ask a question the
+     * token already answers would be a schema created for nothing.
+     *
+     * <p><b>Permissive when capabilities were never resolved</b> — a token minted before C3c. Refusing there
+     * would break tenants holding older tokens for a reason they could neither see nor fix, and the residual
+     * gap closes by itself as tokens refresh. This is a CONFIGURATION write; the guards on stock, ledger and
+     * tax use {@code assertEnabled}, which fails closed.
+     *
+     * <p>The message names the capability in owner-facing words and never the settings key — same rule the
+     * anti-IDOR reads follow, where the refusal does not describe the tenant's configuration.
+     */
+    private void requireCapability(Boolean beingSet, String capabilityCode, String message) {
+        // Only a request to switch something ON needs the capability. Turning a policy OFF must stay possible
+        // even after the capability is withdrawn, or a product would be stuck requiring a serial the tenant
+        // is no longer allowed to record — unsellable, with no way back.
+        if (!Boolean.TRUE.equals(beingSet)) return;
+        if (!com.myplus.common.security.CurrentUser.capabilityAllowed(capabilityCode)) {
+            throw new com.myplus.common.web.exception.ValidationException(message);
+        }
     }
 
     /** Barcode-first sell: resolve a scanned code (barcode or sku, active, scoped) to a ProductRef, or 404. */
@@ -242,6 +303,10 @@ public class ProductService {
                 // B1: the sell guard reads these off the ref it already fetches — no extra call at checkout.
                 .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
                 .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
+                // C6: per-product tracking policy, carried for the same reason as the flags above — the
+                // sell and purchase paths already hold this ref and must not call catalog again to decide.
+                .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
+                .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
                 // U1: carried on the ref the sale already fetches, so no extra call at checkout.
                 .packSize(p.getPackSize())
                 .looseUnit(p.getLooseUnit())
@@ -279,6 +344,11 @@ public class ProductService {
                 .lastRateAt(p.getLastRateAt())
                 .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
                 .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
+                // C6 — kept in step with the other toRef builder above. Two builders for one type is a
+                // standing drift risk: a field added to one and not the other is invisible until a caller
+                // reads a ref that happens to come from the wrong path.
+                .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
+                .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
                 .createdAt(p.getCreatedAt())

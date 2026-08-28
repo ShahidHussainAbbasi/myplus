@@ -883,3 +883,111 @@ curl -s http://localhost:8080/css/theme.css | grep -c kpi-indigo                
 **Still hidden but not refused:** `batchTracking`, `expiryTracking`, `fefoAllocation`, `journeyPlanning`,
 `dealerPricing`. Cheap now that the mechanism is proven end to end — each is one `assertEnabled` at the entry
 point of the write, placed before any commit.
+
+---
+
+## 18. C6 — per-product policies (implemented, awaiting gate)
+
+### The two-level rule, made real
+
+```
+tenant capability   org.cap.serialTracking     may this shop use serial tracking at all?
+product policy      products.requires_serial   does THIS product require it?
+enforcement         capability AND policy
+```
+
+One level cannot express what a shop does: a mobile shop sells handsets that are IMEI-tracked **and** chargers
+that are not; Zubair stocks pesticides needing batch/expiry beside tools needing neither.
+
+`products.requires_serial` and `products.tracks_batch` (V12), both defaulting **0**, both carried on
+`ProductRef` so the sell and purchase paths enforce without a second call — the same reason `allowLoose`,
+`rxRequired` and `controlledSubstance` are already there.
+
+### The new enforcement, and a gap it closed on the way
+
+`PUT /products/{id}/tracking-flags` is ADMIN-gated **and** capability-gated. Two gates because they answer two
+questions: privilege asks *may this USER write*, capability asks *does this TENANT do this kind of trade at
+all*. A mobile shop's admin has every write privilege and still has no business marking a product batch-tracked.
+
+**`/clinical-flags` had no capability check** — any tenant with `ADMIN_PRIVILEGE` could mark a product
+prescription-only, including a hardware shop whose tills would then refuse to sell it for a reason nothing on
+the product screen explained. §4c's rule says a tenant without the capability cannot set the policy; C6 applies
+it to both endpoints.
+
+**Only switching a policy ON is guarded.** Turning one off must stay possible after a capability is withdrawn,
+or a product is stuck demanding a serial the tenant is no longer allowed to record — unsellable, with no way
+back except a DBA.
+
+### C6 proves C3c across a service boundary
+
+catalog-service has **no settings store**. It answers "does this tenant have serialTracking?" from the JWT
+claim alone, through `CurrentUser.capabilityAllowed` — a new helper in common-security for services that hold
+no `common-settings`. Giving catalog a settings table purely to ask a question the token already answers would
+be a schema created for nothing.
+
+That helper is **permissive when capabilities were never resolved** (a pre-C3c token) and is documented as
+such: it guards CONFIGURATION writes, where being wrong means a policy flag the tills decline to honour —
+visible, reversible, self-correcting on the next token refresh. It is explicitly **not** the equivalent of
+`assertEnabled`, which fails closed and guards money.
+
+### C6 is also SER-1
+
+`requiresSerial` is exactly the per-product flag `serial-condition-tracking-design.md` specifies for the Mobile
+Shop requirement, and it needs no ruling on §3 — that question is about where the serial REGISTER lives
+(SER-2), not the policy. **SER-2 is now unblocked apart from that one decision.**
+
+### Gate — `cypress/e2e/business/product-policies.cy.js`
+
+default off · ON can set · **OFF is refused** · OFF can still CLEAR · and a positive control that an ordinary
+edit still works, so a build refusing every write to the product cannot pass.
+
+### Build
+
+`common-security` and `commerce-contracts` are libraries — **install**, not package. Rebuild
+**business-service** as well even though its code is unchanged: it deserializes `ProductRef` from catalog, and
+an old class meeting the two new fields is an unknown-property risk not worth taking.
+
+### C6 — ✅ GREEN
+
+`product-policies.cy.js` 5/5, with the other three re-run alongside (6/5/3) because C6 changed `ProductRef` and
+`common-security`, which they all sit on. **19 tests across the platform.**
+
+#### Two assertion bugs the gate caught in itself
+
+Both were mine, and both are the same species: an assertion that could not distinguish the two outcomes it was
+supposed to separate.
+
+1. **Asserting the HTTP status instead of the envelope.** A refusal arrives as **200 with `success:false`** —
+   `ProxyErrors`' documented rule, "a refusal is an ANSWER, not a failure". The first version checked
+   `status !== 200` and failed against a refusal that was working perfectly; worse, the "can still clear" case
+   checked only `status === 200` and would have **passed on a refusal**. This is the second time this envelope
+   has caught me out — the first was `setCapability` in C3, and it was a 200 there too.
+2. **An after-state assertion with the wrong before-state.** "The refused write was not applied" was checked
+   against a product the previous test had already set to `true`, so it read the same whether the write was
+   refused or applied. It now clears the flag while the capability is ON, confirms it is false, and only then
+   attempts the refused write.
+
+> An after-state assertion is only evidence when the before-state is the opposite. Otherwise it passes on the
+> bug it exists to catch.
+
+---
+
+## 19. The capability platform is complete
+
+| Slice | State |
+|---|---|
+| C1 capability service + catalog | ✅ |
+| C2 ModuleRouter keys on shape | ✅ |
+| C3 `[data-capability]` + map endpoint + first server guard | ✅ |
+| C3b `assertEnabled` on 4 writes across 3 services | ✅ |
+| C3c capabilities in the JWT; auth-service owns the store | ✅ |
+| C4 shape presets | ✅ |
+| C5 dashboard widget registry | ✅ |
+| C6 per-product policies | ✅ |
+
+**Remaining, and neither is C-work:**
+
+* Five capabilities are still *hidden but not refused* — `batchTracking`, `expiryTracking`, `fefoAllocation`,
+  `journeyPlanning`, `dealerPricing`. Each is one `assertEnabled` at the entry point of its write.
+* **SER-2** (the serial register) is unblocked apart from the §3 ruling: business-service (recommended) or
+  inventory-service as `InstallmentPlan.serialUnitId`'s comment intended. C6 already shipped SER-1.

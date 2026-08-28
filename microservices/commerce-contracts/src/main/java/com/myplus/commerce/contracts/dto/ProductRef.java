@@ -53,6 +53,19 @@ public class ProductRef {
     private Boolean rxRequired;
     private Boolean controlledSubstance;
 
+    /**
+     * C6 — per-product tracking policy, carried on the ref so a caller can enforce without a second lookup.
+     *
+     * <p>Same reason {@code allowLoose} and {@code rxRequired} are here: the sell path already holds a
+     * ProductRef when it needs to decide, and asking catalog again mid-sale would put a remote call on the
+     * hot path — the thing V44 refused for the serial check and the performance standard forbids generally.
+     *
+     * <p>Boxed Booleans, like their neighbours: an older catalog that does not populate them sends null, and
+     * a caller can tell "not set" from "explicitly false". A primitive would silently read as false.
+     */
+    private Boolean requiresSerial;
+    private Boolean tracksBatch;
+
     /** Back-compat constructor for price-focused callers (sell saga, tests) written before M4d added display fields. */
     public ProductRef(Long id, String sku, String name, String unit, BigDecimal sellingPrice, BigDecimal taxRate) {
         this.id = id;

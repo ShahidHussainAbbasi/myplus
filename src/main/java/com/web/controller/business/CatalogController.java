@@ -198,6 +198,45 @@ public class CatalogController {
         }
     }
 
+    /**
+     * C6: set the per-product TRACKING policy — serial/IMEI and batch → catalog PUT
+     * {@code /products/{id}/tracking-flags}.
+     *
+     * <p>Its own endpoint rather than fields on {@code /updateProduct}, mirroring how the clinical flags are
+     * handled: these are POLICY, not product data. They are ADMIN-gated and capability-gated downstream, and
+     * folding them into the general update would mean every ordinary product edit carried a payload that can
+     * be refused for a reason unrelated to what the operator changed.
+     *
+     * <p>The refusal is NOT produced here. catalog-service decides, because it is the single writer and the
+     * only place that can enforce "tenant capability AND product policy" without a race. This proxy just
+     * carries the answer back — including the 400 an unentitled tenant gets, whose message is written for a
+     * shopkeeper.
+     */
+    @PostMapping("/setProductTracking")
+    @ResponseBody
+    public Map<String, Object> setProductTracking(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            StringBuilder qs = new StringBuilder();
+            appendFlag(qs, "requiresSerial", request.getParameter("requiresSerial"));
+            appendFlag(qs, "tracksBatch", request.getParameter("tracksBatch"));
+            // Flags are @RequestParam upstream, and an OMITTED one means "leave this policy alone" — so a
+            // blank must not be sent as an empty string, which would bind as null and read the same but
+            // relies on Spring's coercion rather than saying it.
+            return catalog.putJson("/products/" + id + "/tracking-flags"
+                    + (qs.length() > 0 ? "?" + qs : ""), java.util.Map.of());
+        } catch (Exception e) {
+            LOGGER.error("setProductTracking proxy error", e);
+            return failure(e);
+        }
+    }
+
+    private static void appendFlag(StringBuilder qs, String name, String value) {
+        if (value == null || value.isBlank()) return;
+        if (qs.length() > 0) qs.append('&');
+        qs.append(name).append('=').append("true".equalsIgnoreCase(value));
+    }
+
     /** Barcode-first sell: resolve a scanned code (barcode or sku) to a ProductRef → catalog /products/lookup.
      *  A miss (404) or downstream hiccup returns {} so the sell screen shows "not found" without a scary error. */
     @GetMapping(value = "/lookupProduct", produces = "application/json")

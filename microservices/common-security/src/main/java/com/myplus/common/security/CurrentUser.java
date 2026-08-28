@@ -57,6 +57,36 @@ public final class CurrentUser {
         return get().map(AuthenticatedUser::getCapabilities).orElse(null);
     }
 
+    /**
+     * C6 — may the caller's tenant use this capability, judged from the token alone?
+     *
+     * <h3>When to use this instead of {@code CapabilityService}</h3>
+     * {@code CapabilityService} is the real resolver: it consults the token AND falls back to the settings
+     * store, and it applies the shape preset. Prefer it wherever it exists. But it lives in
+     * {@code common-settings}, which is only on the classpath of services that own a {@code SettingsStore} —
+     * catalog-service does not, and giving it a settings table purely to ask a question the token already
+     * answers would be a schema added for nothing.
+     *
+     * <p>Since C3c the claim is authoritative for the caller's own tenant, so a service holding only
+     * {@code common-security} can answer correctly from it.
+     *
+     * <h3>Permissive when it cannot tell, and that is a deliberate limit</h3>
+     * Returns {@code true} when capabilities were never resolved ({@code null} — a token minted before C3c, or
+     * auth unable to read its store). Refusing there would break tenants holding older tokens for a reason
+     * they could neither see nor fix.
+     *
+     * <p>So this is <b>not</b> the equivalent of {@code assertEnabled}, which fails CLOSED and guards money.
+     * It is for CONFIGURATION writes, where the cost of being wrong is a policy flag set by an admin that the
+     * tills then decline to honour — visible, reversible, and self-correcting as soon as the token refreshes.
+     * Do not reach for it to guard stock, ledger or tax.
+     */
+    public static boolean capabilityAllowed(String code) {
+        if (code == null) return true;                 // nothing asked for, nothing to refuse
+        java.util.Set<String> caps = capabilities();
+        if (caps == null) return true;                 // unresolved — see the javadoc
+        return caps.contains(code);
+    }
+
     /** Caller user id (audit + NULL-fallback scoping), or {@code null} when unauthenticated. */
     public static Long userId() {
         return get().map(AuthenticatedUser::getUserId).orElse(null);

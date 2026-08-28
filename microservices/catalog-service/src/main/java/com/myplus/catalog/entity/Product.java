@@ -166,6 +166,36 @@ public class Product {
     @Column(name = "controlled_substance", nullable = false)
     private Boolean controlledSubstance = false;
 
+    /**
+     * C6 — does THIS product need an individual serial / IMEI recorded?
+     *
+     * <h3>Two levels, because one is not enough</h3>
+     * A mobile shop sells handsets that are IMEI-tracked <b>and</b> chargers that are not. So the tenant
+     * capability {@code org.cap.serialTracking} says whether the shop may ask at all, and this says whether
+     * this particular product requires it. Enforcement is capability AND policy — exactly the rule
+     * {@code allowLoose} already follows, and the one {@code Capability.SERIAL_TRACKING}'s javadoc describes.
+     *
+     * <p>Defaults FALSE, so every product already in every tenant is untracked until an owner says otherwise.
+     * That is what makes this deploy inert.
+     */
+    @Builder.Default
+    @Column(name = "requires_serial", nullable = false)
+    private Boolean requiresSerial = false;
+
+    /**
+     * C6 — does THIS product arrive and move in identified batches?
+     *
+     * <p>The same two-level rule. Zubair Traders stocks pesticides that need batch and expiry alongside tools
+     * that need neither; a single tenant-wide switch would force the tools to carry batch numbers nobody has.
+     *
+     * <p>Distinct from {@code requiresSerial}: a batch identifies a DELIVERY of many units, a serial
+     * identifies ONE unit. A product is realistically one or the other, but nothing here forbids both — that
+     * judgement belongs to the shop, not to a constraint that would have to guess.
+     */
+    @Builder.Default
+    @Column(name = "tracks_batch", nullable = false)
+    private Boolean tracksBatch = false;
+
     private String imageUrl;
     private Long createdBy;
 
