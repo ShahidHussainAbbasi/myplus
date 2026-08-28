@@ -74,6 +74,16 @@ public class CustomerController {
 	@Autowired
 	ICustomerService customerService;
 
+	/**
+	 * C3d — what this tenant is allowed to do. Guards the territory assignment below.
+	 *
+	 * <p>REQUIRED, like every other capability injection in this codebase: {@code required = false} is how
+	 * OMS O3 shipped a resolver that silently did nothing, and a guard that disables itself when a bean is
+	 * missing is worse than no guard because it reads as protection.
+	 */
+	@Autowired
+	private com.myplus.common.settings.CapabilityService capabilityService;
+
 	/*
 	 * The repository directly, for the PROJECTION read only.
 	 *
@@ -459,6 +469,25 @@ public class CustomerController {
 		try {
 			if (!seesAllOrg())
 				return new GenericResponse("ERROR", "Only an owner or admin can assign territories.");
+			/*
+			 * C3d — a territory is field sales, so the tenant must actually have it.
+			 *
+			 * The privilege check above answers "may this USER assign?"; this answers "does this business run
+			 * a field force at all?". A counter-only retailer's owner has every privilege there is and still
+			 * has no reps to assign outlets to — and an assignment made anyway would narrow what those
+			 * outlets' own users can see, for a reason nothing on their screen explains.
+			 *
+			 * Before the write, so a refusal costs nothing: assignOutlets is a BULK update, and refusing
+			 * halfway would leave a territory partly applied.
+			 */
+			try {
+				capabilityService.assertEnabled(com.myplus.common.settings.Capability.FIELD_SALES);
+			} catch (RuntimeException notAllowed) {
+				// Caught rather than propagated because this endpoint answers in GenericResponse, which the
+				// territory screen reads; letting it reach the global handler would swap the envelope and
+				// the operator would see a generic failure instead of the reason.
+				return new GenericResponse("ERROR", notAllowed.getMessage());
+			}
 			if (customerIds == null || customerIds.isEmpty())
 				return new GenericResponse("ERROR", "Choose at least one outlet.");
 

@@ -621,3 +621,49 @@ so they are not lost.
    `"/images/**"`. Needs consent — `SecSecurityConfig` is outside this slice.
 2. **`islamicChannels.html:260`** uses `src="@{/img/ic-logo.gif}"` — a plain `src`, not `th:src`, so the
    literal string `@{/img/ic-logo.gif}` is emitted as the URL and the logo can never load.
+
+---
+
+## Responsiveness — controls off the LEFT edge on 360px phones (✅ FIXED)
+
+**Symptom.** On the sale screen at 360px (Infinix Hot 40, Vivo Y400 — the phones these shops actually carry),
+fifteen controls rendered at `left:-5px`: `sellScan`, `sellItems`, `sellItemDesc`, `sellBonus`, the item
+picker. Five pixels outside the viewport and unreachable.
+
+**Cause**, read off the live DOM rather than inferred:
+
+```
+#content      padding-left  10px
+.form-group   margin-left  -15px   ← Bootstrap's gutter margin
+.col-*        padding-left    0    ← no gutter for it to cancel
+                            = -5px
+```
+
+A `.form-group` acts as a `.row`, and a row's negative margins exist to cancel the 15px gutter padding on its
+columns. These columns have none, so the margin cancels nothing and drags the row outward. `#content`'s 10px
+absorbs two thirds of it; the rest leaves the screen.
+
+**Fix** — `responsive.css` §4 (≤767px only): zero the row's horizontal margins inside `.formDiv` /
+`.crud-body`. Chosen over widening `#content`'s padding to 15px, which would spend usable width on a 360px
+screen to compensate for a margin that should not apply. Safe in both directions: a row whose columns kept
+their gutter simply indents by 15px — ordinary padding on a stacked phone form — rather than breaking.
+
+### ⚠ Why the suite was 49/49 green while this was broken
+
+`assertNoHorizontalOverflow` compares `scrollWidth` to `clientWidth`, and **that only ever detects overflow to
+the RIGHT**. Content pushed off the LEFT is clipped and contributes nothing to `scrollWidth`. The check was
+not weak — it was measuring a different thing than the one that was wrong. The suite also never opened
+`#sellDiv` at all: the densest layout in the product and the one a shop uses all day.
+
+> Assert the property the operator experiences — *every control is inside the screen* — not a proxy that
+> happens to correlate with it.
+
+### The gate
+
+`responsive.cy.js` now opens the sale screen at 360 / 390 / 412 and asserts every visible control's rect lies
+within the viewport, plus a separate internal-overflow check so a failure says which edge broke. **53 passing**
+(49 existing + 4 new).
+
+It also asserts it **inspected more than ten controls**. Without that, an empty list reads exactly like a clean
+one: a renamed `#sellDiv`, a screen that failed to open or a selector that stopped matching would all pass
+while testing nothing.

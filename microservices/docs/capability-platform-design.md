@@ -991,3 +991,74 @@ supposed to separate.
   `journeyPlanning`, `dealerPricing`. Each is one `assertEnabled` at the entry point of its write.
 * **SER-2** (the serial register) is unblocked apart from the §3 ruling: business-service (recommended) or
   inventory-service as `InstallmentPlan.serialUnitId`'s comment intended. C6 already shipped SER-1.
+
+---
+
+## 20. C3d — finishing enforcement on the five stragglers
+
+§19 listed five capabilities as *hidden but not refused*. Reviewing each against the code turned three of them
+into findings rather than work:
+
+| Capability | Write behind it | Outcome |
+|---|---|---|
+| `dealerPricing` | price rule create / update (catalog) | ✅ **guarded** |
+| `fieldSales` | `assignOutlets` — territory assignment (business) | ✅ **guarded** |
+| `journeyPlanning` | — | ⚠ **no controller exists anywhere.** The capability is in the enum; the feature is not built. Nothing to refuse. |
+| `fefoAllocation` | — | Allocation BEHAVIOUR, not a user write. Nobody posts "do FEFO"; the reservation path either picks nearest-expiry or does not. |
+| `batchTracking` / `expiryTracking` | ordinary purchase path | **Deliberately not bolted on.** A batch number arrives on the normal purchase and is carried forward from previous stock (`business.js` pre-fills it), so a blind refusal risks breaking purchases. Needs the purchase flow examined on its own terms. |
+
+**Two of five is the honest number.** Reporting five guards would have meant inventing writes for a feature
+that does not exist and gating a code path nobody posts to.
+
+### Where the guards sit
+
+`PriceRuleService.create/update` rather than the controller: one check covers both write paths and sits inside
+the transaction it protects. `assignOutlets` is guarded before the bulk write, so a refusal cannot leave a
+territory half applied.
+
+Both refusals carry an operator-facing sentence and never the settings key — the anti-IDOR rule, applied to
+configuration.
+
+### `CapabilityGuard`
+
+catalog-service now has two services asking "may this tenant configure this?", so the rule moved into one
+class rather than being copied. The property most likely to drift if duplicated is the
+permissive-when-unresolved decision — the one that matters most.
+
+### Gate — `cypress/e2e/business/capability-enforcement.cy.js`
+
+Four cases, ON/OFF for each capability. Notes worth keeping:
+
+* **The price-rule body has to be genuinely valid.** The capability guard runs *before* `validate()`, so the
+  OFF case would pass with any payload — but the ON case would report "refused" from validation while proving
+  nothing about the capability. A positive control must be able to succeed for the right reason.
+* **Two envelopes in one spec.** `/savePriceRule` proxies ApiResponse (`success:false`); `/assignOutlets`
+  answers GenericResponse (`status:"ERROR"`). Neither uses a non-2xx status. This is the third time this has
+  mattered.
+
+### Build
+
+catalog-service (`CapabilityGuard`, `PriceRuleService`, `ProductService`) and business-service
+(`CustomerController`). No migrations, no library changes.
+
+### C3d — ✅ GREEN
+
+`capability-enforcement.cy.js` 4/4 first run, with all four existing gates re-run alongside
+(6 / 5 / 3 / 5). **23 tests across the capability platform.**
+
+Server-side refusal now covers six writes across four services:
+
+| Capability | Write | Service |
+|---|---|---|
+| `INSTALLMENTS` | sale on terms | business |
+| `LOOSE_SELLING` | loose sale line | business |
+| `FIELD_SALES` | territory assignment | business |
+| `COLLECTIONS` | driver settlement | marketplace |
+| `RX_REQUIRED` | prescription create + dispense | pharma |
+| `DEALER_PRICING` | price rule create + update | catalog |
+
+plus the per-product policy writes (`tracking-flags`, `clinical-flags`) in catalog.
+
+**Three capabilities remain unguarded, each for a stated reason** — `journeyPlanning` (feature not built),
+`fefoAllocation` (behaviour, not a write), `batchTracking`/`expiryTracking` (needs the purchase flow examined
+first). Those are recorded findings, not omissions.

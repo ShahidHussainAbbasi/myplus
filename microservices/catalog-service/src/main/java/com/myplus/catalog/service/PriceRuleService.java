@@ -113,6 +113,18 @@ public class PriceRuleService {
 
     @Transactional
     public PriceRuleDTO create(PriceRuleDTO dto) {
+        /*
+         * C3d — tiered / dealer pricing is a capability, and a price rule is how a tenant uses it.
+         *
+         * Hiding the Price Rules screen never stopped a caller with the URL, and a rule written without the
+         * capability quietly changes what customers are charged: the pricing path applies whatever rules
+         * exist, with no second opinion about whether the tenant was entitled to create them.
+         *
+         * Guarded in the SERVICE rather than the controller so both write paths are covered by one check,
+         * and so it sits inside the same transaction as the write it protects.
+         */
+        com.myplus.catalog.config.CapabilityGuard.require("dealerPricing",
+                "Dealer and tier pricing is not switched on for your business.");
         validate(dto);
         PriceRuleEntity e = new PriceRuleEntity();
         apply(dto, e);
@@ -125,6 +137,10 @@ public class PriceRuleService {
 
     @Transactional
     public PriceRuleDTO update(Long id, PriceRuleDTO dto) {
+        // Guarded like create(): editing an existing rule changes prices just as effectively as adding one,
+        // and a tenant whose capability was withdrawn must not keep tuning the rules it left behind.
+        com.myplus.catalog.config.CapabilityGuard.require("dealerPricing",
+                "Dealer and tier pricing is not switched on for your business.");
         validate(dto);
         // Anti-IDOR: scoped by-id read, so an edit can never reach another tenant's rule.
         PriceRuleEntity e = repo.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())

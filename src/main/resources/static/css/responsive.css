@@ -212,6 +212,41 @@ html[lang="hi"] .table > thead > tr > th{ line-height:1.8; }
     width:100%;
     margin:6px 0 0;
   }
+
+  /* ── Controls hanging off the LEFT edge of the screen ────────────────────────
+     Measured on the sale screen at 360px (Infinix Hot 40, Vivo Y400): fifteen
+     controls — sellScan, sellItems, sellItemDesc, sellBonus, the item picker —
+     rendered at left:-5px, i.e. 5px outside the viewport and unreachable.
+
+     The chain, read off the live DOM:
+
+         #content      padding-left  10px
+         .form-group   margin-left  -15px   ← Bootstrap's gutter margin
+         .col-*        padding-left    0    ← no gutter for it to cancel
+         = -5px
+
+     A .form-group acts as a .row, and a row's negative margins exist to cancel
+     the 15px gutter padding on its columns. These columns have none, so the
+     margin cancels nothing and simply drags the row outward. Ten pixels of
+     #content padding absorbs two thirds of it; the remaining five leave the
+     screen.
+
+     Fixed by removing the margin rather than by padding #content further: the
+     padding is a deliberate 10px on a 360px screen, and widening it to 15px to
+     hide a negative margin would spend usable width to cancel something that
+     should not be there at all.
+
+     ⚠ WHY THE EXISTING SUITE NEVER SAW THIS. responsive.cy.js asserted no
+     horizontal overflow — and a scrollWidth check only detects overflow to the
+     RIGHT. Content pushed off the LEFT is clipped silently and adds nothing to
+     scrollWidth, so the suite ran 49/49 green with the sale screen broken. The
+     gate now asserts every control's rect lies within the viewport, which is the
+     property an operator actually experiences. */
+  .formDiv .form-horizontal .form-group,
+  .crud-body .form-horizontal .form-group{
+    margin-left:0;
+    margin-right:0;
+  }
 }
 
 

@@ -264,13 +264,10 @@ public class ProductService {
      * anti-IDOR reads follow, where the refusal does not describe the tenant's configuration.
      */
     private void requireCapability(Boolean beingSet, String capabilityCode, String message) {
-        // Only a request to switch something ON needs the capability. Turning a policy OFF must stay possible
-        // even after the capability is withdrawn, or a product would be stuck requiring a serial the tenant
-        // is no longer allowed to record — unsellable, with no way back.
-        if (!Boolean.TRUE.equals(beingSet)) return;
-        if (!com.myplus.common.security.CurrentUser.capabilityAllowed(capabilityCode)) {
-            throw new com.myplus.common.web.exception.ValidationException(message);
-        }
+        // C3d: moved to CapabilityGuard once PriceRuleService needed the same rule. Two copies of "may this
+        // tenant configure this?" would drift the first time one was edited alone — and the property most
+        // likely to drift is the permissive-when-unresolved decision, which is the one that matters.
+        com.myplus.catalog.config.CapabilityGuard.requireIfSetting(beingSet, capabilityCode, message);
     }
 
     /** Barcode-first sell: resolve a scanned code (barcode or sku, active, scoped) to a ProductRef, or 404. */

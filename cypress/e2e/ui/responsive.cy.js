@@ -360,3 +360,88 @@ describe('Responsive app-shell across dashboards & devices', () => {
     });
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════
+   THE SALE SCREEN AT PHONE WIDTHS
+   ══════════════════════════════════════════════════════════════════════════════════════════════════
+   The suite above never opened #sellDiv — the densest layout in the product and the one a shop lives in
+   all day. It also asserted the wrong property.
+
+   ⚠ assertNoHorizontalOverflow compares scrollWidth to clientWidth, which only ever sees overflow to the
+   RIGHT. Content pushed off the LEFT is clipped and contributes nothing to scrollWidth. So this suite ran
+   49/49 green while fifteen controls on the sale screen — sellScan, sellItems, sellItemDesc, sellBonus,
+   the item picker — sat at left:-5px, five pixels outside the viewport and unreachable on a 360px phone.
+
+   Cause: a .form-group carries Bootstrap's -15px gutter margin, its columns have no gutter padding for it
+   to cancel, and #content's 10px absorbs only two thirds of it. Fixed in responsive.css §4.
+
+   The assertion below is the PROPERTY an operator experiences: every control the cashier must reach lies
+   inside the screen. A container-relative or scrollWidth check cannot express that. */
+
+const PHONES = [
+  { label: 'Android 360 (Infinix Hot 40, Vivo Y400)', w: 360, h: 800 },
+  { label: 'iPhone 13 (390×844)', w: 390, h: 844 },
+  { label: 'Android 412 (Pixel-class)', w: 412, h: 915 },
+];
+
+describe('Sale screen — every control is reachable on a phone', () => {
+  beforeEach(() => {
+    // testIsolation clears the session between tests, so the login belongs here.
+    cy.loginAsOwner('owner.business@myplus.com');
+  });
+
+  PHONES.forEach((dev) => {
+    it(`${dev.label}: no control sits outside the viewport`, () => {
+      cy.viewport(dev.w, dev.h);
+      cy.visitSaleScreen();
+
+      cy.window().then((w) => {
+        const vw = w.innerWidth;
+        const offscreen = [];
+        let inspected = 0;
+
+        w.document.querySelectorAll('#sellDiv input, #sellDiv select, #sellDiv button, #sellDiv .bootstrap-select')
+          .forEach((el) => {
+            const r = el.getBoundingClientRect();
+            // Zero-size elements are hidden rows and the selects bootstrap-select replaces — neither is
+            // something an operator can reach, so neither is evidence either way.
+            if (r.width <= 0 || r.height <= 0) return;
+            inspected++;
+            // 1px of tolerance for sub-pixel rounding, the same allowance the overflow check uses.
+            if (r.left < -1 || r.right > vw + 1) {
+              offscreen.push({
+                id: el.id || String(el.className).slice(0, 32),
+                left: Math.round(r.left),
+                right: Math.round(r.right),
+              });
+            }
+          });
+
+        /*
+         * ⚠ NOT VACUOUS. An empty list has length 0, so "nothing is off-screen" reads identically to
+         * "nothing was looked at" — a renamed #sellDiv, a screen that failed to open, or a selector that
+         * stopped matching would all pass silently while testing nothing.
+         *
+         * The sale screen carries dozens of controls; 10 is a floor low enough to survive layout changes and
+         * high enough that an empty or half-rendered form cannot clear it.
+         */
+        expect(inspected, 'the sale screen actually rendered controls to measure').to.be.greaterThan(10);
+
+        expect(offscreen, `controls outside the ${vw}px viewport: ${JSON.stringify(offscreen)}`)
+          .to.have.length(0);
+      });
+    });
+  });
+
+  it('360: the sale form still has no INTERNAL overflow either', () => {
+    // The right-hand half of the same problem. Kept separate so a failure says which edge broke: the
+    // check above catches content leaving the screen, this one catches a row wider than its container.
+    cy.viewport(360, 800);
+    cy.visitSaleScreen();
+    cy.window().then((w) => {
+      const host = w.document.querySelector('#sellDiv');
+      expect(host.scrollWidth, '#sellDiv does not overflow its own box')
+        .to.be.at.most(host.clientWidth + 2);
+    });
+  });
+});
