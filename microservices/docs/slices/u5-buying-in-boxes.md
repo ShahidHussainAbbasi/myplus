@@ -1,6 +1,6 @@
 # U5 — buying in boxes
 
-**Status: DESIGN — awaiting consent.** Branch: `feature/pack-loose-selling`.
+**Status: DONE + GREEN 2026-08-29 — Cypress gate 9/9, `BoxConversionTest` 11/11 including a ~3,000-combination rounding sweep verified non-vacuous.** Branch: `feature/pack-loose-selling`.
 Parent: `../pack-and-loose-selling-design.md` §11. Predecessors: U1–U4 (complete and shippable).
 
 A shop buys a **box of 10 packs for 1000**. The form asks for a quantity and a rate, so the buyer types
@@ -160,3 +160,39 @@ default is the very error being prevented.
   and it should be designed as one.
 * **No purchase returns in boxes** — the return screen keeps its own units.
 * **No third level.** A box of cartons of packs is not this system, per §4.
+
+---
+
+## 12. Implementation log
+
+| | |
+|---|---|
+| `PurchaseDTO` | `purchaseUnit` + `packsPerBox` — **inbound only**, converted and cleared at the door |
+| `PurchaseService.convertBoxesToPacks` | static, package-private, called first thing in `addPurchase` |
+| `BoxConversionTest` | **new**, 11 cases, pure logic, no Docker |
+| `businessDashboard.html` | pack/box toggle, packs-per-box, conversion hint |
+| `business.js` | `setPurchaseUnit`, `renderPurchaseBoxHint`, hooked into `calculateNetPurchase` |
+| six i18n bundles | +3 keys each, **1861 `ui.*` in lockstep** |
+| **monolith DTO** | **none needed** — `/addPurchase` forwards every request parameter as a form, so there is no typed allow-list to widen. Checked, because that trap has cost this programme three defects |
+
+### 12.1 Rounding a COST goes UP
+
+`bpurchase_rate` is `DECIMAL(19,2)`, so a box price that does not divide leaves a residue — 1000 ÷ 3 is
+333.33…, and the bill total is what the supplier actually charged.
+
+Resolved with **CEILING**, and the direction is the point: **an understated cost silently overstates every
+margin report**, and the margin guard reads exactly this number to decide whether to refuse a sale. The sale
+side rounds up so the shop never loses on a broken pack; the cost side rounds up so the shop never flatters
+its own margin. *Same principle, opposite arithmetic.*
+
+Verified non-vacuous the same way U2's sweep was: switching `CEILING` to `HALF_UP` produced **2 failures**,
+first at a box of 3 at 80.20. Restored, 11/11.
+
+### 12.2 The conversion happens at the door
+
+`convertBoxesToPacks` is the **first** statement in `addPurchase` — before the idempotency check, before the
+period lock, before the entity mapping. Every downstream consumer (stock-in, the payable, the cost stamp on
+the product) therefore sees packs and a per-pack cost, and **none of them needs to know a box was involved**.
+
+That ordering is what makes §2's claim true rather than aspirational: nothing downstream hears the word, so
+deleting this feature tomorrow leaves every stored row meaning exactly what it means today.

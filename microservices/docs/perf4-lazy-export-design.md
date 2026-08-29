@@ -2,7 +2,10 @@
 
 **Date:** 2026-08-14
 **Parent:** `frontend-performance-audit.md` finding F3
-**Status:** IMPLEMENTED (4a + 4b) — awaiting rebuild + gate.
+**Status:** ✅ **SHIPPED AND GREEN (4a + 4b).** `cypress/e2e/ui/perf-lazy-export.cy.js` 9/9 — the gate was
+written with the slice and, until now, had never been RUN. All nine cases passed first execution, including
+the two that matter most: pdfmake/vfs_fonts/jszip are absent on page load, and a PDF click still produces a
+PDF. Implemented code with an unrun gate is untested code that merely looks tested.
 
 **Files changed**
 

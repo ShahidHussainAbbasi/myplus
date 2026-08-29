@@ -1570,6 +1570,35 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="number" step="any" min="1" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="purchaseQuantity" 
 							name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
 						</div>
+						<!--
+						  U5 - what the buyer is counting. A shop buys a BOX of 10 packs for 1000; the form asks
+						  for a quantity and a rate, so "10" and "1000" records a pack cost of 1000 instead of
+						  100 - a tenfold error in the number COGS and the margin guard read.
+
+						  Choosing BOX converts on the SERVER: quantity x packsPerBox, cost / packsPerBox.
+						  Nothing downstream ever hears the word "box".
+
+						  `packs per box` is typed EVERY TIME and never defaulted from the product: box sizes
+						  vary by shipment, and a stale default would be silently wrong for this delivery with
+						  the confidence of a pre-filled field behind it.
+						-->
+						<div class="col-sm-2 purchase-unit-wrap">
+							<div class="btn-group btn-group-sm purchase-unit-toggle" role="group" aria-label="Purchase unit">
+								<button type="button" class="btn btn-default active" id="purchaseUnitPack"
+								        onclick="setPurchaseUnit('PACK')" th:text="#{ui.pack}">Pack</button>
+								<button type="button" class="btn btn-default" id="purchaseUnitBox"
+								        onclick="setPurchaseUnit('BOX')" th:text="#{ui.box}">Box</button>
+							</div>
+						</div>
+						<input type="hidden" id="purchaseUnit" name="purchaseUnit" value="PACK"/>
+						<div class="col-sm-2 purchase-ppb-wrap" id="purchasePpbWrap" style="display:none">
+							<input type="number" step="1" min="1" class="form-control" id="purchasePacksPerBox"
+							       name="packsPerBox" th:placeholder="#{ui.packsPerBox}" placeholder="Packs per box"
+							       onkeyup="calculateNetPurchase()" onblur="calculateNetPurchase()"/>
+						</div>
+						<!-- U5: the buyer sees what will actually be stored, before saving, so a wrong box
+						     size is caught by the person who knows the answer. -->
+						<div class="pos-cell purchase-box-hint" id="purchaseBoxHint" style="display:none"></div>
 						<label class="control-label col-sm-2" for="purchaseStock" th:text="#{ui.stockInHand}">Stock In Hand</label>
 						<div class="col-lg-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
@@ -1741,6 +1770,60 @@ tr.row-voided .js-edit-row{display:none !important}
 				       • enctype removed — "utf8" was never a legal value (only urlencoded / multipart /
 				         text-plain exist), so it was ignored and merely advertised an intent that was untrue.
 				     Enter is separately preventDefault()-ed in pos-keyboard.js; this is the backstop. -->
+				<!--
+				    WHO IS BUYING — moved ABOVE the line entry (task #13).
+				
+				    It used to sit below the cart, as part of checkout. That was defensible for a walk-in, but wrong
+				    for everyone else: the customer decides contract and tier pricing, the credit limit and any store
+				    credit — so choosing them last means every line was priced against a customer the system did not
+				    know it had, and then re-priced. Choosing first makes the first price the right price.
+				
+				    STILL OUTSIDE <form id="Sell">, deliberately. The line form is serialised field-by-field to build
+				    a cart LINE; a customer is not a line. Moving these controls inside would put them in that
+				    payload and in the line Enter-chain, which is why the block sits here rather than a few lines
+				    lower.
+				
+				    A walk-in is not slowed down: the picker may be left blank and pos-keyboard.js skips it on a
+				    double Enter, which is the rule that makes customer-first safe to impose at all.
+				-->
+						<!-- Customer mode toggle -->
+						<div class="form-group" style="padding-top: 15px;">
+							<div class="col-sm-12">
+								<div class="cmode-toggle btn-group" data-toggle="buttons" role="group" aria-label="Customer input mode" th:aria-label="#{ui.customerInputMode}">
+									<label class="cmode-btn active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
+										<input type="radio" name="customerInputMode" value="select" checked>
+										<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.selectCustomer2}">Select Customer</span>
+									</label>
+									<label class="cmode-btn" id="btnModeManual" onclick="onCustomerModeChange('manual')">
+										<input type="radio" name="customerInputMode" value="manual">
+										<span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.enterManually}">Enter Manually</span>
+									</label>
+								</div>
+
+								<div class="form-group" id="customerSelectMode">
+									<div class="col-xs-12 col-sm-4 col-md-3">
+										<span class="field-label" th:text="#{ui.customer}">Customer</span>
+										<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
+											<option value="" th:text="#{ui.selectCustomer}">-- Select Customer --</option>
+										</select>
+									</div>
+								</div>
+								<!-- Manual mode: type name + contact -->
+								<div class="form-group" id="customerManualMode" style="display: none;">
+									<div class="col-xs-12 col-sm-4">
+										<span class="field-label" th:text="#{ui.customerName}">Customer Name</span>
+										<input type="text" class="form-control" id="sellCN"
+											name="cn" placeholder=" Customer name " th:placeholder="#{ui.customerName2}"
+											oninput="this.style.removeProperty('border-color')">
+									</div>
+									<div class="col-xs-12 col-sm-3">
+										<span class="field-label" th:text="#{ui.mobile2}">Mobile</span>
+										<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number" th:placeholder="#{ui.mobileNumber2}"/>
+									</div>
+								</div>								
+							</div>
+						</div>
+
 				<form action="/" method="POST" onsubmit="return false" class="form-horizontal" role="form"
 					id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -2031,43 +2114,6 @@ tr.row-voided .js-edit-row{display:none !important}
 					        </tfoot>
 						</table>
 						</div><!-- /sellCartScroll -->
-						<!-- Customer mode toggle -->
-						<div class="form-group" style="padding-top: 15px;">
-							<div class="col-sm-12">
-								<div class="cmode-toggle btn-group" data-toggle="buttons" role="group" aria-label="Customer input mode" th:aria-label="#{ui.customerInputMode}">
-									<label class="cmode-btn active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
-										<input type="radio" name="customerInputMode" value="select" checked>
-										<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.selectCustomer2}">Select Customer</span>
-									</label>
-									<label class="cmode-btn" id="btnModeManual" onclick="onCustomerModeChange('manual')">
-										<input type="radio" name="customerInputMode" value="manual">
-										<span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.enterManually}">Enter Manually</span>
-									</label>
-								</div>
-
-								<div class="form-group" id="customerSelectMode">
-									<div class="col-xs-12 col-sm-4 col-md-3">
-										<span class="field-label" th:text="#{ui.customer}">Customer</span>
-										<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
-											<option value="" th:text="#{ui.selectCustomer}">-- Select Customer --</option>
-										</select>
-									</div>
-								</div>
-								<!-- Manual mode: type name + contact -->
-								<div class="form-group" id="customerManualMode" style="display: none;">
-									<div class="col-xs-12 col-sm-4">
-										<span class="field-label" th:text="#{ui.customerName}">Customer Name</span>
-										<input type="text" class="form-control" id="sellCN"
-											name="cn" placeholder=" Customer name " th:placeholder="#{ui.customerName2}"
-											oninput="this.style.removeProperty('border-color')">
-									</div>
-									<div class="col-xs-12 col-sm-3">
-										<span class="field-label" th:text="#{ui.mobile2}">Mobile</span>
-										<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number" th:placeholder="#{ui.mobileNumber2}"/>
-									</div>
-								</div>								
-							</div>
-						</div>
 						<!-- Select mode: pick from existing customers -->
 
 						<!-- INST-1 — selling on installment. HIDDEN unless the tenant turned on
@@ -2880,6 +2926,35 @@ tr.row-voided .js-edit-row{display:none !important}
 									<input type="text" class="form-control" id="prodLooseUnitPlural" placeholder="tablets"
 										th:placeholder="#{ui.js.looseUnitPluralEg}">
 								</div>
+						<!--
+						  U7 — the shop's OWN sticker codes. A pharmacy prints "LP-4471", sticks it on the strip
+						  holder, and scanning it sells ONE TABLET with no keystroke.
+
+						  Lives here, under the pack rules, because it is the same decision expressed for the
+						  scanner: an owner who has just said what a pack holds and whether it may be split is
+						  in exactly the right place to say what a label means.
+
+						  Hidden until the product is saved — a sticker needs a product to point at.
+						-->
+						<div class="form-group" id="prodStickerWrap" style="display:none">
+							<label class="control-label col-sm-2" th:text="#{ui.ownStickers}">Own stickers</label>
+							<div class="col-sm-10">
+								<div id="prodStickerList" class="table-scroll"></div>
+								<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+									<input type="text" class="form-control" id="prodStickerCode" style="max-width:170px"
+									       th:placeholder="#{ui.stickerCode}" placeholder="Code on the label"/>
+									<select class="form-control" id="prodStickerUnit" style="max-width:130px">
+										<option value="LOOSE" th:text="#{ui.piece}">Piece</option>
+										<option value="PACK" th:text="#{ui.pack}">Pack</option>
+									</select>
+									<input type="number" min="1" step="1" class="form-control" id="prodStickerQty"
+									       style="max-width:110px" value="1" th:placeholder="#{ui.howMany}" placeholder="How many"/>
+									<button type="button" class="btn btn-sm btn-default" id="prodStickerAdd"
+									        onclick="addProductSticker()" th:text="#{ui.add}">Add</button>
+								</div>
+							</div>
+						</div>
+
 							</div>
 						</div>
 						<label class="control-label col-sm-2" th:text="#{ui.js.looseSelling}">Loose selling</label>

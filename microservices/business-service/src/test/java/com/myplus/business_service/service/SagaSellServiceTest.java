@@ -80,6 +80,11 @@ class SagaSellServiceTest {
      * no amount of @Mock fixes it. They have to be set explicitly, below.
      */
     @Mock private PeriodLockGuard periodLockGuard;
+    /** SER-3: field-injected like its neighbours, so @InjectMocks leaves it null and buildLines NPEs. */
+    @Mock private SerialUnitService serialUnitService;
+    /** C3b: also field-injected, also never wired here. Found by the guard below before any test reached it —
+     *  which is the whole point: it was one new code path away from being the next production NPE. */
+    @Mock private com.myplus.common.settings.CapabilityService capabilityService;
     @InjectMocks private SagaSellService service;
 
     @BeforeEach
@@ -92,6 +97,48 @@ class SagaSellServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "settingsService", settingsService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "customerRepo", customerRepo);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "creditStandingService", creditStandingService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "serialUnitService", serialUnitService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "capabilityService", capabilityService);
+
+        // Then PROVE it, rather than trusting that the list above kept up. Every dependency Spring would
+        // inject - constructor-injected (final) and @Autowired field alike - must be non-null before any test
+        // runs. serialUnitService is the SIXTH dependency to reach production with its @Mock missing, and the
+        // third on this class alone; each time the symptom was an NPE deep inside a business method, naming a
+        // field but not the reason. This turns that into one failure here that says exactly what to add.
+        assertEveryDependencyWired(service);
+    }
+
+    /**
+     * Fail loudly when @InjectMocks has left a collaborator null.
+     *
+     * <p>Checks both injection styles because this service mixes them: {@code final} fields (constructor) and
+     * {@code @Autowired} fields (set explicitly above). A field in neither category - a constant, a cache, a
+     * lazily built value - is ignored, so this cannot false-positive on ordinary state.
+     *
+     * <p>Reports every missing collaborator at once, not the first: being told about one, adding it, re-running
+     * and being told about the next is a bad way to spend an afternoon.
+     */
+    private static void assertEveryDependencyWired(Object target) {
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        for (Class<?> c = target.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                if (f.getType().isPrimitive()) continue;
+                boolean injected = java.lang.reflect.Modifier.isFinal(f.getModifiers())
+                        || f.isAnnotationPresent(org.springframework.beans.factory.annotation.Autowired.class);
+                if (!injected) continue;
+                f.setAccessible(true);
+                try {
+                    if (f.get(target) == null) missing.add(f.getType().getSimpleName() + " " + f.getName());
+                } catch (IllegalAccessException e) {
+                    throw new AssertionError("Cannot read " + f.getName(), e);
+                }
+            }
+        }
+        if (!missing.isEmpty())
+            throw new AssertionError(target.getClass().getSimpleName() + " has unwired collaborators — any path "
+                    + "touching one will NPE with no explanation. Add a @Mock (and, for an @Autowired field, a "
+                    + "ReflectionTestUtils.setField above) for each:\n  - " + String.join("\n  - ", missing));
     }
 
     private CustomerHistoryDTO dtoWithOneLine() {

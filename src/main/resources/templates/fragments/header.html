@@ -118,6 +118,11 @@
         <!-- C3: ask the SERVER what this tenant may do, and hide the sections it may not. Supersedes the
              hardcoded client-side VERTICALS map in module-theme.js as the source of that decision. Renders
              only — the refusal that matters lives on the write paths (CapabilityService.assertEnabled). -->
+        <!-- Real-user monitoring. Every performance decision so far rested on localhost numbers, where the
+             page loads in 1.2s and nine parallel API calls finish in 730ms — a shop on a congested mobile
+             link is a different system. DEFERRED so measurement can never be the thing that slows a till. -->
+        <script defer th:src="@{/js/web-vitals.iife.js}"></script>
+        <script defer th:src="@{/js/common/rum.js}"></script>
         <script th:src="@{/js/common/capabilities.js}"></script>
         <!-- C5: the dashboard grid as a declared widget set — inventory, order and an extension point.
              AFTER capabilities.js, which it listens to: ordering depends on the capability answer, and a

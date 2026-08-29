@@ -1,3 +1,14 @@
+
+
+> ## ✅ PROGRAMME COMPLETE — U0 to U7, all green (2026-08-29)
+>
+> A shop can buy by the box, record what a pack holds, sell five tablets at the counter, print a
+> receipt that says so, take three back, count the shelf as *9 + 5 tablets*, and scan its own
+> sticker to sell one. Slice docs: `slices/u0-…` through `slices/u7-…`, each with its own gate
+> and its own implementation log.
+>
+> **Deliberately not built:** batch-level loose returns, a count-and-adjust workflow, label
+> printing. Each is recorded in the slice that declined it, with the reason.
 # Selling by the pack and by the piece
 
 **Status: DESIGN — awaiting confirmation. No code written.**

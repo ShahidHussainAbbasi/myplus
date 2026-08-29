@@ -59,7 +59,8 @@
 		if (SPECS) { return $.Deferred().resolve(SPECS).promise(); }
 		if (loading) { return loading; }
 
-		loading = $.get(ctx() + 'import/entities').then(function (resp) {
+		// Tier 1: the import-entity list is chrome loaded on every page — never worth blocking a till for.
+		loading = bgGet(ctx() + 'import/entities').then(function (resp) {
 			var list = (resp && (resp.collection || resp.object)) || [];
 			SPECS = {};
 			for (var i = 0; i < list.length; i++) {

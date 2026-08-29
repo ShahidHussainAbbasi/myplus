@@ -11,6 +11,43 @@
 		
 	</appender>
 
+	<!--
+	    Real-user timing beacons (RumController → /js/common/rum.js).
+
+	    Its OWN file, and additive="false" so the lines do not also flood the application log. A beacon fires
+	    on every page hide, so at any real traffic this would drown the log it shares — and the whole point of
+	    collecting it is to be able to read a few days of it in one place.
+
+	    One JSON-ish line per beacon: greppable now, and shippable to the existing OTel/Grafana pipeline later
+	    without changing the producer.
+	-->
+	<!--
+	    STDOUT, not a file — and that was a real mistake worth recording.
+
+	    This first shipped as a RollingFileAppender on `logs/rum.log`. The container's working directory is
+	    `/`, so that resolved to `/logs/rum.log`, which it cannot create — and Logback treats a broken
+	    appender as fatal, so the MONOLITH CRASH-LOOPED on start. A monitoring feature took the application
+	    down, which is the one thing monitoring must never do.
+
+	    The deeper error was choosing a file at all. In a container a log file is lost on restart, invisible
+	    to `docker logs`, and unreachable by the OTel/Grafana pipeline that already collects stdout. The
+	    greppable place here IS stdout:
+
+	        docker logs myplus-monolith | grep '^RUM '
+
+	    The `RUM ` prefix keeps the lines filterable, and additivity="false" on the logger below keeps them
+	    out of the ordinary application pattern so they stay one-per-line and machine-readable.
+	-->
+	<appender name="RUM_OUT" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>RUM %date{ISO8601} %message%n</pattern>
+		</encoder>
+	</appender>
+
+	<logger name="RUM" level="INFO" additivity="false">
+		<appender-ref ref="RUM_OUT" />
+	</logger>
+
 	<logger name="org.baeldung" level="DEBUG" />
 
 	<!-- to view SQL statements, change to DEBUG -->

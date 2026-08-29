@@ -98,6 +98,15 @@ public class SecSecurityConfig {
                 // Public Endpoint Rules
                 .requestMatchers(
                     "/", "/home*", "/login*", "/logout*", "/signin/**", "/signup/**",
+                    // RUM beacon. Permitted because of WHEN it fires, not because it is unimportant: it is
+                    // sent from `visibilitychange`/`pagehide` as the page goes away, by which point the
+                    // session may already be gone — and a beacon that 302s to the login page is a lost
+                    // measurement with no way to know it was lost.
+                    //
+                    // Safe to open because of what it accepts: RumController takes a small fixed map, logs
+                    // one truncated line and always answers 204. It reads nothing, writes to no table, and
+                    // the payload carries a tenant id and timings — never a user, a customer or a product.
+                    "/rum",
                     "/customLogin", "/user/registration*", "/registrationConfirm*",
                     "/expiredAccount*", "/registration*", "/registerHospital*",
                     // "appointmentDashboard" was HERE, and is deliberately gone rather than corrected.

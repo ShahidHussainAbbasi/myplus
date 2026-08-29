@@ -337,7 +337,7 @@ function sellScanAdd(){
 
 	// The multiplier is part of P2 (pos.keyboard.shortcuts.enabled). With it off, a '*' is just another
 	// character in the code — which is what a shop that has never used the idiom expects.
-	var qty = 1, code = raw, unit = 'PACK';
+	var qty = 1, code = raw, unit = 'PACK', typedMarker = false;
 	if(window.posShortcutsEnabled === true){
 		var parsed = parseScanEntry(raw);
 		if(parsed.error){
@@ -352,12 +352,32 @@ function sellScanAdd(){
 		qty = parsed.qty;
 		code = parsed.code;
 		unit = parsed.unit || 'PACK';
+		// U7: the operator stated a quantity/unit explicitly. A sticker must not override or multiply it.
+		typedMarker = (raw.indexOf('*') >= 0);
 	}
 
 	$in.val('');
-	$.get(serverContext + 'lookupProduct', { code: code }, function(resp){
-		var ref = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
+	/*
+	 * U7 — /scanProduct answers what the CODE means, not merely which product it is:
+	 *
+	 *     { product: {...}, soldUnit: "LOOSE", quantity: 1, ownSticker: true }
+	 *
+	 * A manufacturer barcode answers PACK x 1 — the same behaviour the till has always had, now stated by
+	 * the server rather than assumed by this function.
+	 *
+	 * ⚠ A TYPED MARKER OUTRANKS THE STICKER. If the operator wrote `5L*LP-4471`, they said "five loose" and
+	 * meant it; the sticker's own quantity must not multiply on top of that, or one deliberate keystroke
+	 * silently becomes five. The typed form wins, and the sticker supplies only what was not typed.
+	 */
+	$.get(serverContext + 'scanProduct', { code: code }, function(resp){
+		var res = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : null) : resp;
+		if(res && res.error){ sellScanMsg(res.error, true); $in.focus(); return; }
+		var ref = res ? (res.product || res) : null;
 		if(!ref || ref.id == null){ sellScanMsg('No product for "' + code + '"', true); $in.focus(); return; }
+		if(res && res.ownSticker && !typedMarker){
+			unit = res.soldUnit || 'PACK';
+			qty  = (Number(res.quantity) > 0) ? Number(res.quantity) : 1;
+		}
 		// A loose scan needs the SCANNED product's pack rules. One extra call, only on a `5L*` scan, which
 		// is the rare path — an ordinary scan is untouched and still costs exactly one request.
 		if(unit === 'LOOSE'){
@@ -1098,7 +1118,8 @@ function saveStore(){
 // switching means asking auth-service for a fresh token, then reloading so every section refetches
 // through the new scope. Hidden entirely for a single-store business (nothing to switch between).
 function loadMyStores(){
-	$.get(serverContext + 'getMyStores', function(resp){
+	// Tier 1: reference data for the store picker — populate in the background.
+	 bgGet(serverContext + 'getMyStores', function(resp){
 		var rows = (resp && (resp.collection || resp.data)) || [];
 		if(rows.length < 2){ $('#storeSwitcherWrap').hide(); return; }
 		var $s = $('#storeSwitcher').empty();
@@ -1479,7 +1500,21 @@ function loadDataTable(){
 							var sellable = (typeof d === 'object') ? Number(d.sellable || 0) : Number(d);
 							var expired  = (typeof d === 'object') ? Number(d.expired  || 0) : 0;
 							var onHand   = (typeof d === 'object') ? Number(d.onHand   || 0) : sellable;
-							var html = "<span title='" + onHand + " physical on-hand'>" + sellable + "</span>";
+							/*
+							 * U6 — say it in the language of the person counting the shelf.
+							 *
+							 * 9.5 is arithmetically true and operationally useless: nobody counts half a
+							 * pack. It means nine sealed packs and five loose tablets, and until the screen
+							 * says so the shop cannot reconcile what it holds against what we claim.
+							 *
+							 * An ordinary product has no pack size, so shelfText returns the plain number and
+							 * this row renders exactly as it does today.
+							 */
+							var shelf = (typeof shelfText === 'function')
+								? shelfText(sellable, obj.packSize, obj.looseUnitPlural || obj.looseUnit)
+								: { text: String(sellable) };
+							var html = "<span title='" + onHand + " physical on-hand'>"
+								+ escHtml(shelf.text) + "</span>";
 							if (expired > 0) {
 								html += " <span class='label label-danger' style='margin-left:4px' title='" + expired
 									+ " unit(s) in expired batches — physically present but not sellable'>" + expired + " expired</span>";
@@ -1718,7 +1753,9 @@ function onCustomerModeChange(mode) {
 }
 
 function getDashboardData() {
-    $.getJSON(serverContext + 'getBusinessDashboardStats', function(res) {
+    // Tier 1: the dashboard TILES are background population — they must not hold the blocking overlay
+    // while a cashier is trying to open the till. See bgJson in js/common/ajax-overlay.js.
+    bgJson(serverContext + 'getBusinessDashboardStats', function(res) {
         if (res.status === 'SUCCESS' && res.object) {
             var s = res.object;
             $('#dashCompanies').text(s.companies);
@@ -1745,7 +1782,9 @@ function getDashboardData() {
 var _chartTrend = null, _chartDaily = null, _chartTopItems = null, _chartCustSales = null;
 
 function loadDashboardCharts() {
-    $.getJSON(serverContext + 'getDashboardChartData', function(res) {
+    // Tier 1: the CHARTS were the slowest call on the page (~970ms measured) and blocked every other
+    // screen behind them. Nothing a cashier does depends on a chart having rendered.
+    bgJson(serverContext + 'getDashboardChartData', function(res) {
         if (res.status !== 'SUCCESS' || !res.object) return;
         var d = res.object;
 
@@ -2318,10 +2357,52 @@ function updatePurchaseProjectedOnHand(){
 	}
 }
 
+/**
+ * U5 — the buyer says whether they are counting PACKS or BOXES.
+ *
+ * The conversion itself happens on the SERVER (PurchaseService.convertBoxesToPacks); this only shows the
+ * buyer what will be stored, before they save, so a wrong box size is caught by the person who knows the
+ * answer. Nothing here decides anything.
+ */
+function setPurchaseUnit(unit){
+	var box = (unit === 'BOX');
+	$('#purchaseUnit').val(box ? 'BOX' : 'PACK');
+	$('#purchaseUnitBox').toggleClass('active', box);
+	$('#purchaseUnitPack').toggleClass('active', !box);
+	$('#purchasePpbWrap').toggle(box);
+	if(!box){
+		// Leaving box mode clears the factor, so a stale number can never ride along with a pack purchase.
+		$('#purchasePacksPerBox').val('');
+	}
+	calculateNetPurchase();
+}
+
+/** "10 boxes = 100 packs · 100.00 per pack · 10,000.00" — or hidden, on an ordinary purchase. */
+function renderPurchaseBoxHint(){
+	var $hint = $('#purchaseBoxHint');
+	if(!$hint.length) return;
+	if($('#purchaseUnit').val() !== 'BOX'){ $hint.hide().empty(); return; }
+
+	var boxes = Number($('#purchaseQuantity').val());
+	var ppb   = Number($('#purchasePacksPerBox').val());
+	var cost  = Number($('#purchasePurchaseRate').val());
+	if(!(boxes > 0) || !(ppb > 0)){
+		$hint.text(t('ui.js.boxesNeedPacksPerBox')).show();
+		return;
+	}
+	var packs = boxes * ppb;
+	// Math.ceil to the paisa — the SERVER rounds a cost UP so it can never be understated, and a hint that
+	// rounded the other way would promise a lower cost than the one actually recorded.
+	var perPack = cost > 0 ? Math.ceil((cost / ppb) * 100) / 100 : 0;
+	$hint.text(boxes + ' × ' + ppb + ' = ' + packs + ' · ' + perPack.toFixed(2) + ' · '
+			+ (boxes * cost).toFixed(2)).show();
+}
+
 function calculateNetPurchase(){
 	var p = $("#purchasePurchaseRate").val()*ONE;
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
+	renderPurchaseBoxHint();
 	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();

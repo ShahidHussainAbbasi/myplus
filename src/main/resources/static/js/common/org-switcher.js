@@ -29,7 +29,8 @@ function orgLabel(org) {
 }
 
 function loadMyOrganizations() {
-	$.get(serverContext + 'getMyOrganizations', function (res) {
+	// Tier 1: the org switcher is chrome, not the task — it must never hold the overlay.
+	 bgGet(serverContext + 'getMyOrganizations', function (res) {
 		var $sel = $('#orgSwitcher');
 		if (!res || res.status !== 'SUCCESS' || !res.collection || res.collection.length === 0) {
 			// No tenant context (legacy mode / no orgs) — nothing to show.

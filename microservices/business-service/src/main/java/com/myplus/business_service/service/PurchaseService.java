@@ -288,6 +288,10 @@ public class PurchaseService implements IPurchaseService{
 	@Override
 	@Transactional
 	public Purchase addPurchase(PurchaseDTO dto) throws Exception {
+		// U5: BEFORE anything else reads a quantity or a rate. Converting here means every downstream
+		// consumer - stock-in, the payable, the cost stamp on the product - sees packs and a per-pack cost,
+		// and none of them needs to know a box was involved.
+		convertBoxesToPacks(dto);
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		dto.setUserId(user.getUserId());
 		periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new bill is a today-dated entry
@@ -300,6 +304,64 @@ public class PurchaseService implements IPurchaseService{
 			if (prior.isPresent()) return replayPurchase(prior.get());   // sequential double-submit → same bill
 		}
 		return doAddPurchase(dto, user, org, idemKey);
+	}
+
+	/** A box holding more packs than this is a typo, not a delivery. Mirrors MAX_PACK_SIZE on the sale side. */
+	static final int MAX_PACKS_PER_BOX = 10_000;
+
+	/**
+	 * U5 - turn "10 boxes at 1000.00" into "100 packs at 100.00 each", in place.
+	 *
+	 * <p><b>Server-side, because the browser proposes and the server decides.</b> A browser that converted
+	 * wrongly would write wrong stock AND wrong cost, and the result would be indistinguishable from a typo.
+	 *
+	 * <h3>What is deliberately NOT converted</h3>
+	 * The SELLING price ({@code stock.bsellRate}). A shop prices its shelf in packs whatever it bought in,
+	 * and nobody types a box's retail price. This matters more than it looks: {@code stampRatesOnProduct}
+	 * pushes {@code bsellRate} onto the product as its selling price, so converting it would silently reprice
+	 * the product to a tenth of its shelf price - the same class of error this method exists to prevent,
+	 * running the other way.
+	 *
+	 * <h3>Rounding</h3>
+	 * The BILL TOTAL is what the supplier charged and is authoritative; the per-pack cost is derived from it,
+	 * and {@code bpurchase_rate} is {@code DECIMAL(19,2)}, so a box price that does not divide leaves a
+	 * residue. It is resolved with CEILING - <b>never understate a cost</b>, because an understated cost
+	 * silently overstates every margin report and the margin guard reads exactly this number.
+	 */
+	static void convertBoxesToPacks(PurchaseDTO dto) {
+		if (dto == null) return;
+		String unit = dto.getPurchaseUnit();
+		if (unit == null || !"BOX".equalsIgnoreCase(unit.trim())) return;   // every ordinary purchase stops here
+
+		Integer packsPerBox = dto.getPacksPerBox();
+		if (packsPerBox == null || packsPerBox <= 0) {
+			throw new com.myplus.common.web.exception.ValidationException(
+					"How many packs are in a box? Enter that before saving a purchase in boxes.");
+		}
+		if (packsPerBox > MAX_PACKS_PER_BOX) {
+			throw new com.myplus.common.web.exception.ValidationException(
+					packsPerBox + " packs in a box looks like a typo - it would create "
+							+ "far more stock than any delivery contains.");
+		}
+		Float boxes = dto.getQuantity();
+		if (boxes == null || boxes <= 0f) {
+			throw new com.myplus.common.web.exception.ValidationException(
+					"Enter how many boxes were delivered.");
+		}
+		java.math.BigDecimal boxCost = (dto.getStock() != null) ? dto.getStock().getBpurchaseRate() : null;
+		if (boxCost == null || boxCost.signum() <= 0) {
+			// A zero box cost stamps a zero unit cost onto the product, and a zero cost makes every later
+			// sale of it look like pure profit. Free goods have their own field.
+			throw new com.myplus.common.web.exception.ValidationException(
+					"Enter the cost of one box.");
+		}
+
+		dto.setQuantity(boxes * packsPerBox);
+		dto.getStock().setBpurchaseRate(
+				boxCost.divide(java.math.BigDecimal.valueOf(packsPerBox), 2, java.math.RoundingMode.CEILING));
+		// Converted. Nothing downstream hears "box" - see the class note on why that keeps this an input aid.
+		dto.setPurchaseUnit("PACK");
+		dto.setPacksPerBox(null);
 	}
 
 	/** A replay for an already-recorded purchase (the same bill), by its stored purchaseId; null if not yet visible. */

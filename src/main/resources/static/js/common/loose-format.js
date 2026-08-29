@@ -101,6 +101,46 @@
         return (l.packSizeSnapshot != null) ? num(l.packSizeSnapshot) : null;
     }
 
+    /**
+     * U6 — a shelf quantity in the language of the person counting it.
+     *
+     *     9.5 packs of 10   ->  { packs: 9, pieces: 5, text: "9 packs + 5 tablets" }
+     *     10                ->  { packs: 10, pieces: 0, text: "10" }        an ordinary product
+     *
+     * <p><b>Why 9.5 is not good enough.</b> It is arithmetically true and operationally useless: nobody
+     * counts half a pack. It means nine sealed packs and five loose tablets, and until the screen says so a
+     * shop cannot reconcile what it holds against what the system claims.
+     *
+     * <h3>⚠ The residue must not become a phantom tablet</h3>
+     * Stock is kept in SELLING units, which accepts a bounded drift: one third of a pack stores as 0.3333, so
+     * three single sales from a pack of three leave 0.0001 behind rather than exactly zero. Rendered naively
+     * that reads "0 packs + 0.0003 tablets" — worse than the number it replaces, because it looks like a
+     * defect and invites someone to go looking for one.
+     *
+     * <p>So the piece count is ROUNDED TO WHOLE PIECES and a remainder under half a piece shows nothing. The
+     * stored number is untouched; only the reading changes. <i>A display that invents precision the data does
+     * not have is a lie told confidently.</i>
+     *
+     * @param onHand   the stored quantity, in packs
+     * @param packSize pieces per pack, or null/1 for an ordinary product
+     * @param unit     what one piece is called, e.g. "tablets"
+     */
+    function shelfText(onHand, packSize, unit) {
+        var qty = num(onHand);
+        var size = num(packSize);
+        if (!(size > 1)) return { packs: qty, pieces: 0, text: String(qty) };
+
+        var whole = Math.floor(qty + 1e-9);              // 9.9999 is nine packs and a rounding artefact
+        var pieces = Math.round((qty - whole) * size);
+
+        if (pieces >= size) { whole += 1; pieces = 0; }  // 9.99999 x 10 rounds to 10 pieces = one more pack
+        if (pieces <= 0) return { packs: whole, pieces: 0, text: String(whole) };
+
+        var noun = unit || 'pcs';
+        return { packs: whole, pieces: pieces, text: whole + ' + ' + pieces + ' ' + noun };
+    }
+
+    global.shelfText = shelfText;
     global.looseDisplay = looseDisplay;
     global.looseQtyText = looseQtyText;
     global.loosePacks = loosePacks;

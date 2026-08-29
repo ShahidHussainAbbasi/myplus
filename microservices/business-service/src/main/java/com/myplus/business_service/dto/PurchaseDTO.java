@@ -96,6 +96,26 @@ public class PurchaseDTO implements Serializable {
 	@ValidateEmpty
 	private Float quantity;
 
+	/*
+	 * U5 - buying in BOXES. Design: docs/slices/u5-buying-in-boxes.md
+	 *
+	 * A shop buys a box of 10 packs for 1000. The form asks for a quantity and a rate, so the buyer types
+	 * 10 and 1000 - and the system believes a pack costs 1000 instead of 100. A TENFOLD error in the number
+	 * COGS, the margin guard and every profit report read from.
+	 *
+	 * These two are INPUT ONLY. `purchaseUnit=BOX` plus `packsPerBox` are converted to packs and a per-pack
+	 * cost on the way in, and NOTHING downstream ever hears the word "box": not the purchase row, not the
+	 * stock entry, not the product. That is what keeps this an input aid rather than a second unit of
+	 * measure - the design (parent 4) rejects a UoM engine, and this does not become one.
+	 *
+	 * packsPerBox is deliberately NOT stored on the product: box sizes vary by SHIPMENT, and a stale default
+	 * would be silently wrong for this delivery, with the confidence of a pre-filled field behind it. The
+	 * slice exists to prevent a unit mistake; it must not institutionalise one.
+	 */
+	private String purchaseUnit;
+
+	private Integer packsPerBox;
+
 	/**
 	 * SER-2 — the serial / IMEI of each unit received on this line.
 	 *

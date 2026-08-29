@@ -4,8 +4,8 @@
 **Scope:** monolith UI delivery (Thymeleaf templates + `src/main/resources/static`), measured against `businessDashboard.html`
 **Status:** **PARTLY SHIPPED.** PERF-1 / PERF-3 / PERF-3b shipped; PERF-8 (lean cached product picker,
 618KB → 77KB) shipped; the **responsiveness fix is shipped and green** (see the section at the end —
-`responsive.cy.js` 53 passing). ⚠ **PERF-4 is implemented but has never been gated**, and `@EnableWebMvc`
-makes `cache.period` inert — both still open.
+`responsive.cy.js` 53 passing). **PERF-4 ✅ gated and green** — `perf-lazy-export.cy.js` 9/9 (the ~903KB pdfmake payload no longer loads on
+any dashboard). ⚠ Still open: `@EnableWebMvc` makes `cache.period` inert (PERF-2), plus PERF-5/6/7.
 
 *(The audit body below is the original review, kept as written. Findings are tracked to closure in the
 sections appended at the end, not by editing the findings in place.)*
@@ -169,7 +169,7 @@ Each slice is independently shippable and gated by a headed Cypress run, per the
 | **PERF-1** | Enable `server.compression` (monolith) — **✅ DONE, 6/6 green** | Very low | `application.properties` |
 | **PERF-2** | Fix F1: set an explicit cache period + `resourceChain` with `VersionResourceResolver` on the `/**` handler, so assets can be cached **immutably** and still bust on deploy. Re-evaluate whether `@EnableWebMvc` is needed at all | Low–medium | `MvcConfig.java`, `application*.properties` |
 | **PERF-3** | Drop jQuery 1.11.2; point at `jquery-3.3.1.min.js` — **✅ DONE, 6/6 green** | Low | `fragments/header.html`, `login.html` |
-| **PERF-4** | Lazy-load pdfmake/vfs_fonts/jszip + delete dead jsPDF — **IMPLEMENTED, awaiting rebuild + gate**. Split into 4a (dead jsPDF, 88KB gz) + 4b (lazy pdfmake, 903KB gz). Design: `perf4-lazy-export-design.md` | Medium | `fragments/header.html`, `business/education/agriculture.js`, **new** `common/lazy-export.js` |
+| **PERF-4** | Lazy-load pdfmake/vfs_fonts/jszip + delete dead jsPDF — **✅ DONE, 9/9 green**. Split into 4a (dead jsPDF, 88KB gz) + 4b (lazy pdfmake, 903KB gz). Design: `perf4-lazy-export-design.md` | Medium | `fragments/header.html`, `business/education/agriculture.js`, **new** `common/lazy-export.js` |
 | **PERF-5** | Self-host the 3 Inter weights actually used; drop the Google Fonts hop | Low | `fragments/header.html`, `static/fonts/` |
 | **PERF-6** | Delete `b.jpg`, `jsPDF-1.3.2/`, and the `js/business/` ↔ `jQExp/` duplicates | Low | `static/` |
 | **PERF-7** | Replace `catalogProducts?size=2000` with a server-side typeahead | Medium–high | `business.js`, `searchable-selects.js`, catalog-service |

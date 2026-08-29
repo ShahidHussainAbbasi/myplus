@@ -23,6 +23,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    private final com.myplus.catalog.service.ProductBarcodeService productBarcodeService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductDTO>>> getAll(Pageable pageable) {
@@ -72,6 +73,53 @@ public class ProductController {
 
     /** Barcode-first sell: resolve a scanned code (barcode or sku) to a ProductRef — GET /products/lookup?code=X.
      *  404 when nothing matches (tenant-scoped, active only). */
+    /**
+     * U7 — resolve a scanned code to <b>this many of this product, in this unit</b>.
+     *
+     * <p>Separate from {@link #lookup} deliberately: {@code /lookup} answers "which product" and is read by
+     * callers that have no notion of a quantity. Changing its answer would change theirs. This endpoint is
+     * the scan path's own question, and the scan path is its only caller.
+     *
+     * <p>A manufacturer barcode resolves here to {@code PACK × 1} — the answer the till has always acted on,
+     * now stated rather than assumed.
+     */
+    @GetMapping("/scan")
+    public com.myplus.commerce.contracts.dto.ScanResolution scan(@RequestParam("code") String code) {
+        return productBarcodeService.scan(code);
+    }
+
+    /** U7 — the shop's own stickers on one product, for the product form. */
+    @GetMapping("/{id}/barcodes")
+    public ResponseEntity<ApiResponse<java.util.List<com.myplus.catalog.entity.ProductBarcode>>> barcodes(
+            @PathVariable Long id) {
+        /*
+         * ⚠ WRAPPED, and it must be. A bare JSON ARRAY cannot be deserialised into the Map<String,Object>
+         * the monolith's catalog client reads, so returning the list raw made every read throw and the proxy
+         * answer {success:false} with no rows — a list that was never empty looking empty.
+         *
+         * Every other endpoint on this controller answers in ApiResponse; this one was the outlier, which is
+         * the whole argument for having a house envelope (governing standard 8).
+         */
+        return ResponseEntity.ok(ApiResponse.success(productBarcodeService.forProduct(id)));
+    }
+
+    /** U7 — register a sticker. Refuses a code that would shadow a real product barcode; see the service. */
+    @PostMapping("/{id}/barcodes")
+    public com.myplus.catalog.entity.ProductBarcode addBarcode(@PathVariable Long id,
+                                                               @RequestBody java.util.Map<String, Object> body) {
+        Object qty = body.get("quantity");
+        return productBarcodeService.register(id,
+                body.get("barcode") == null ? null : String.valueOf(body.get("barcode")),
+                body.get("soldUnit") == null ? null : String.valueOf(body.get("soldUnit")),
+                qty == null ? null : Integer.valueOf(String.valueOf(qty).trim()));
+    }
+
+    /** U7 — remove a sticker. Ordinary lookup for that code resumes immediately. */
+    @DeleteMapping("/barcodes/{barcodeId}")
+    public void removeBarcode(@PathVariable Long barcodeId) {
+        productBarcodeService.remove(barcodeId);
+    }
+
     @GetMapping("/lookup")
     public com.myplus.commerce.contracts.dto.ProductRef lookup(@RequestParam("code") String code) {
         return productService.lookup(code);

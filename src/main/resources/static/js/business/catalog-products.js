@@ -224,6 +224,81 @@
      * Asking what one tablet is called, on a product nobody sells by the tablet, is four boxes of noise on
      * the most-used screen in the app. A shop that never breaks a pack sees the form it has always seen.
      */
+    /*
+     * U7 — the shop's own sticker codes for this product.
+     *
+     * A sticker needs a product to point at, so the panel appears only on an EXISTING product. On a new one
+     * the fields would have nowhere to save to, and an input that silently discards what you type is worse
+     * than one that is not there.
+     */
+    global.loadProductStickers = function (productId) {
+        var $wrap = $('#prodStickerWrap');
+        if (!productId) { $wrap.hide(); $('#prodStickerList').empty(); return; }
+        $wrap.show();
+        $.get(serverContext + 'productBarcodes', { productId: productId })
+            .done(function (resp) {
+                var rows = (typeof apiList === 'function') ? apiList(resp)
+                    : (resp && resp.data) || resp || [];
+                if (!rows.length) {
+                    $('#prodStickerList').html('<div class="help-block" style="margin:0">'
+                        + t('ui.js.noStickersYet') + '</div>');
+                    return;
+                }
+                var html = '<table class="table table-condensed" style="margin:0"><tbody>';
+                rows.forEach(function (b) {
+                    // escHtml: the code is operator-authored text reaching the DOM.
+                    html += '<tr><td>' + escHtml(String(b.barcode || '')) + '</td>'
+                        + '<td>' + escHtml(String(b.quantity || 1)) + ' '
+                        + escHtml(String(b.soldUnit || '')) + '</td>'
+                        + '<td style="text-align:right"><button type="button" class="btn btn-xs btn-warning" '
+                        + 'onclick="removeProductSticker(' + Number(b.id) + ')">&times;</button></td></tr>';
+                });
+                $('#prodStickerList').html(html + '</tbody></table>');
+            })
+            .fail(function () { $('#prodStickerList').empty(); });
+    };
+
+    global.addProductSticker = function () {
+        var productId = $('#productId').val();
+        if (!productId) return;
+        var code = ($('#prodStickerCode').val() || '').trim();
+        if (!code) { showFormError(t('ui.js.enterStickerCode')); return; }
+        $.ajax({
+            type: 'POST', url: serverContext + 'addProductBarcode', contentType: 'application/json',
+            dataType: 'json',
+            data: JSON.stringify({
+                productId: Number(productId), barcode: code,
+                soldUnit: $('#prodStickerUnit').val(),
+                quantity: Number($('#prodStickerQty').val()) || 1
+            }),
+            success: function (resp) {
+                // The refusals that keep a sticker from shadowing a real barcode come back as a MESSAGE from
+                // catalog-service. Showing our own sentence instead would hide the one that explains why.
+                if (typeof apiOk === 'function' && !apiOk(resp)) {
+                    showFormError(apiMessage(resp, t('ui.js.couldNotAddSticker')));
+                    return;
+                }
+                $('#prodStickerCode').val('');
+                $('#prodStickerQty').val(1);
+                loadProductStickers(productId);
+            },
+            error: function (xhr) {
+                showFormError(typeof apiFailMessage === 'function'
+                    ? apiFailMessage(xhr, t('ui.js.couldNotAddSticker'))
+                    : t('ui.js.couldNotAddSticker'));
+            }
+        });
+    };
+
+    global.removeProductSticker = function (id) {
+        var productId = $('#productId').val();
+        $.ajax({
+            type: 'POST', url: serverContext + 'removeProductBarcode', contentType: 'application/json',
+            dataType: 'json', data: JSON.stringify({ id: id }),
+            success: function () { loadProductStickers(productId); }
+        });
+    };
+
     global.prodPackSizeChanged = function () {
         var n = Number($('#prodPackSize').val());
         var divisible = n > 1;
@@ -540,6 +615,7 @@
             $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
             $('#prodTracksBatch').prop('checked', p.tracksBatch === true);
             prodPackSizeChanged();
+            loadProductStickers(p.id);   // U7: a sticker needs a product to point at
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
             loadCategories(p.categoryId != null ? p.categoryId : '');
             // Pass the value INTO the loader rather than setting it afterwards: the option may not exist yet

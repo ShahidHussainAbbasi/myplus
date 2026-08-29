@@ -74,3 +74,45 @@
     $(document).ajaxError(hide); // belt-and-suspenders: never strand the overlay on an error
   });
 })();
+
+/*
+ * ── Background reads: fetch WITHOUT holding the blocking overlay ──────────────────────────────────
+ *
+ * THE DEFECT THIS EXISTS FOR
+ * jQuery fires `ajaxStart` on the FIRST request and `ajaxStop` only when the LAST one finishes, so the
+ * overlay stays up for the slowest call in flight. On a dashboard load that is nine parallel requests, and
+ * measurement put the slowest at ~970ms — meaning a cashier could not type for about a second while the
+ * DASHBOARD CHARTS loaded. A customer is standing at the counter for that second.
+ *
+ * A blocking spinner belongs on an action the USER started — saving a sale, running a report — where the
+ * answer is the point and there is nothing sensible to do until it arrives. It does not belong on the
+ * background population of a screen: the right behaviour there is to show the screen and fill it in.
+ *
+ * WHAT `global: false` DOES
+ * It excludes the request from jQuery's ajaxStart/ajaxStop lifecycle entirely, so it neither raises the
+ * overlay nor holds one raised by something else. The request is otherwise completely normal.
+ *
+ * WHEN TO USE IT
+ *   YES — populating a picker, tiles, charts, feature flags, reference lists on page load.
+ *   NO  — anything the user just clicked and is waiting on, and NEVER a write. If an operator pressed a
+ *         button, blocking is honest: it stops them pressing it twice.
+ */
+(function (global) {
+    'use strict';
+    var $ = global.jQuery;
+    if (!$) return;
+
+    /**
+     * A GET that does not block the UI. Same signature as $.getJSON(url, success).
+     *
+     * Returns the jqXHR, so callers that chain .then()/.fail() keep working unchanged.
+     */
+    global.bgJson = function (url, success) {
+        return $.ajax({ url: url, dataType: 'json', global: false, success: success });
+    };
+
+    /** As above for callers that do not want JSON parsing forced (mirrors $.get). */
+    global.bgGet = function (url, success) {
+        return $.ajax({ url: url, global: false, success: success });
+    };
+})(window);

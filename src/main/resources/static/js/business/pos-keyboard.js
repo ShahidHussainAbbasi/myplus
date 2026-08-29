@@ -35,7 +35,24 @@
 
     /* The commit chain, in the order a cashier fills it. Ids only — the DOM is
      * the single source of truth for whether each one currently applies. */
-    var CHAIN = ['sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscountTypeDD', 'sellDiscount'];
+    /*
+     * The line chain, now opening with WHO IS BUYING (task #13).
+     *
+     * The customer used to be the first stop of CHECKOUT, i.e. after every line was rung. That is
+     * defensible for a walk-in and wrong for everyone else: the customer decides contract and tier
+     * pricing, the credit limit and any store credit, so choosing them last meant each line was priced
+     * against a customer the system did not know it had, and then re-priced once it did. Choosing first
+     * makes the first price the right price.
+     *
+     * `sellCN` / `sellCC` are the manual-entry pair and are hidden in select mode (and vice versa);
+     * usable() filters whichever is off-screen, so exactly one of the two appears in the walk.
+     *
+     * A walk-in is NOT slowed down. The picker may be left blank and the double-Enter escape below skips
+     * it — which is the rule that makes putting it first safe to impose at all. Without that escape this
+     * change would put a mandatory stop in front of every cash sale.
+     */
+    var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC',
+                 'sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscountTypeDD', 'sellDiscount'];
 
     /** Every dropdown the chain walks. These are bootstrap-select widgets, so they need the
      *  selection hook below rather than a keystroke handler — see D-23 in the P5 design. */
@@ -44,8 +61,11 @@
     /**
      * A sale has TWO phases, and until now only the first had a keyboard.
      *
-     *   LINES     scan box / item → qty → price → discount → commit  (repeat)
-     *   CHECKOUT  who is buying → how they pay → how much → complete
+     *   LINES     who is buying → scan box / item → qty → price → discount → commit  (repeat)
+     *   CHECKOUT  how they pay → how much → complete
+     *
+     * "Who is buying" moved from the head of CHECKOUT to the head of LINES in task #13 — see the CHAIN
+     * comment above for why. The two-phase shape is unchanged; only the customer crossed the line.
      *
      * The checkout controls live OUTSIDE <form id="Sell"> — they are assembled separately by main.js —
      * so the line chain could never reach them. A cashier could ring every line without touching the
@@ -59,8 +79,9 @@
      * otherwise. Same rule as the line chain: configuration drives the keyboard for free.
      */
     var CHECKOUT = [
-        'sellCustomerDD',      // select mode
-        'sellCN', 'sellCC',    // manual mode (hidden in select mode, and vice versa)
+        // sellCustomerDD / sellCN / sellCC deliberately NOT here any more — they moved to the head of
+        // CHAIN (task #13). Leaving them in both would make the cashier name the customer twice per sale:
+        // once before the lines and again on the way to payment.
         'sellPayMethod',
         'sellTradeDiscount',
         'sellStoreCredit',
@@ -262,6 +283,22 @@
 
     /** Where the cashier starts the next line: the scan box when the org uses barcodes, else the
      *  item picker. Called after every commit so the till is always ready for the next scan. */
+    /**
+     * Where the cursor lands when the sale screen opens.
+     *
+     * <h3>NOT the customer, even though the customer is now first in CHAIN (task #13)</h3>
+     * Putting it there would add a stop to EVERY sale, and the overwhelming majority are walk-ins who have
+     * no customer to name. The cashier would open the till and immediately have to escape a field they did
+     * not want — on the screen whose whole complaint was that a queue forms while it loads.
+     *
+     * So: the customer is the first thing on the screen and the first link in the chain, reachable with one
+     * Shift+Enter from the item box, and the cursor still starts where the goods are typed. A shop selling
+     * on account chooses the customer and walks forward; a shop taking cash never touches it.
+     *
+     * <p>If a tenant genuinely wants customer-first as the default — a wholesaler where every sale is on
+     * account — that is a per-tenant setting, not a change here. Hard-coding it would slow the common case
+     * to serve the uncommon one.
+     */
     function focusEntryPoint() {
         if (global.posBarcodeEnabled !== false && $('#sellScan').is(':visible')) {
             focusField('sellScan');
@@ -644,7 +681,9 @@
              * EVERY picker on the sale screen, line form AND checkout — one rule of thumb.
              *
              * This used to require membership of CHAIN, which quietly excluded the checkout pickers:
-             * #sellCustomerDD and #sellPayMethod live in CHECKOUT. So the double-Enter escape below —
+             * #sellCustomerDD and #sellPayMethod both lived in CHECKOUT at the time. (#sellCustomerDD has
+             * since moved to CHAIN — task #13 — which changes nothing here, and that is the point of the
+             * paragraph below.) So the double-Enter escape below —
              * "open it, and if I press again with nothing chosen, move on" — worked on the item picker
              * and existed nowhere else. On a walk-in cash sale the cursor landed on the customer list
              * and no keystroke would leave it.

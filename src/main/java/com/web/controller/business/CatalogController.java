@@ -239,6 +239,72 @@ public class CatalogController {
 
     /** Barcode-first sell: resolve a scanned code (barcode or sku) to a ProductRef → catalog /products/lookup.
      *  A miss (404) or downstream hiccup returns {} so the sell screen shows "not found" without a scary error. */
+    /**
+     * U7 — resolve a scanned code to this many of this product, in this unit.
+     *
+     * <p>A raw pass-through of catalog's {@code /products/scan}, deliberately: the body is a
+     * {@code ScanResolution} whose shape the till reads directly, and a field-by-field projection here would
+     * be the fourth instance of the allow-list defect this codebase has already paid for three times
+     * (gl_outbox, the product row projection, the monolith SellDTO).
+     *
+     * <p>An empty object on failure, exactly like {@code lookupProduct}: a mis-scan is normal and must not
+     * log an error or stop the till.
+     */
+    @GetMapping(value = "/scanProduct", produces = "application/json")
+    @ResponseBody
+    public String scanProduct(final HttpServletRequest request) {
+        String code = request.getParameter("code");
+        if (code == null || code.isBlank()) return "{}";
+        try {
+            return catalog.getString("/products/scan?code="
+                    + java.net.URLEncoder.encode(code.trim(), java.nio.charset.StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            // A refusal (e.g. a sticker for a product no longer sold loose) arrives here as a 4xx. Relay the
+            // service's sentence rather than an empty object, or the cashier is told nothing at all.
+            String message = com.web.util.ProxyErrors.statusError(e).get("message") instanceof String m ? m : null;
+            return message == null ? "{}" : "{\"error\":\"" + message.replace("\"", "'") + "\"}";
+        }
+    }
+
+    /** U7 — the shop's own stickers on one product. */
+    @GetMapping(value = "/productBarcodes", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> productBarcodes(final HttpServletRequest request) {
+        try {
+            return catalog.get("/products/" + request.getParameter("productId") + "/barcodes");
+        } catch (Exception e) {
+            LOGGER.error("productBarcodes proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** U7 — register a sticker. The refusals that keep it from shadowing a real barcode live in catalog. */
+    @PostMapping("/addProductBarcode")
+    @ResponseBody
+    public Map<String, Object> addProductBarcode(@RequestBody final Map<String, Object> body) {
+        try {
+            Object pid = body.get("productId");
+            Map<String, Object> resp = catalog.postJson("/products/" + pid + "/barcodes", body);
+            return Map.of("success", true, "data", resp == null ? Map.of() : resp);
+        } catch (Exception e) {
+            LOGGER.error("addProductBarcode proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** U7 — remove a sticker. */
+    @PostMapping("/removeProductBarcode")
+    @ResponseBody
+    public Map<String, Object> removeProductBarcode(@RequestBody final Map<String, Object> body) {
+        try {
+            catalog.delete("/products/barcodes/" + body.get("id"));
+            return Map.of("success", true);
+        } catch (Exception e) {
+            LOGGER.error("removeProductBarcode proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     @GetMapping(value = "/lookupProduct", produces = "application/json")
     @ResponseBody
     public String lookupProduct(final HttpServletRequest request) {

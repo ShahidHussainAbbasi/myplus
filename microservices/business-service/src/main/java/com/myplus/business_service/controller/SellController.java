@@ -1077,6 +1077,92 @@ public class SellController {
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
+			/*
+			 * U6 §4 #3 — a sealed pack cannot be given back as loose pieces.
+			 *
+			 * A return here is an EDIT: the line is reduced and the difference becomes a credit note. So a
+			 * line originally sold as a PACK, re-submitted as LOOSE, is a refund of pieces against goods
+			 * bought sealed - and the arithmetic favours the customer every time:
+			 *
+			 *     buy a sealed pack of 10           pay        120.00
+			 *     hand back 7 tablets "loose"       refund   7 x 13.20 = 92.40
+			 *     ...keeping 3 tablets for 27.60, which the shop itself sells for 39.60.
+			 *
+			 * The gap is the shop's loss, on every such transaction, and nothing on the invoice looks wrong.
+			 * A shop that WANTS to accept it still can - as a fresh sale of the remainder, priced deliberately.
+			 *
+			 * Deliberately strict: correcting a genuinely mis-keyed unit means voiding and re-ringing. On a
+			 * path that moves money out of the till, refusing an ambiguous edit is the safe default.
+			 */
+			if (dto.getSales() != null) {
+				for (SellDTO line : dto.getSales()) {
+					if (line == null || line.getProductId() == null) continue;
+					if (!"LOOSE".equalsIgnoreCase(String.valueOf(line.getSoldUnit()))) continue;
+					for (Sell prior : oldLines) {
+						if (!line.getProductId().equals(prior.getProductId())) continue;
+						if (!"LOOSE".equalsIgnoreCase(String.valueOf(prior.getSoldUnit()))) {
+							throw new com.myplus.common.web.exception.ValidationException(
+									"This line was sold as a whole pack, so it cannot be returned by the piece. "
+									+ "Take the pack back, or sell the remainder as a new sale.");
+						}
+					}
+				}
+			}
+			/*
+			 * U6 ⭐ — DERIVE `quantity` FOR A LOOSE LINE BEFORE THE DELTA IS COMPUTED.
+			 *
+			 * The delta below reads `s.getQuantity()` off the RAW DTO, and `SellDTO.quantity` DEFAULTS TO 1.
+			 * So a loose line carrying only `soldQuantity` contributed −1 PACK instead of −0.2:
+			 *
+			 *     old 0.5  −  new 1.0  =  −0.5     the edit TOOK another half pack
+			 *     on-hand  9.5 → 9.0              instead of 9.5 → 9.8
+			 *
+			 * The invoice money was right the whole time — buildLines re-prices correctly — so ONLY THE SHELF
+			 * WAS WRONG, which is the kind of error a shop finds weeks later at a stock count.
+			 *
+			 * <h3>Why it was invisible</h3>
+			 * U3's browser code sets `quantity` before posting, so from the sale screen the DTO arrives
+			 * already converted. The server was therefore TRUSTING THE BROWSER to do a conversion it had
+			 * promised to do itself: U2 states that "the server ignores quantity on a LOOSE line and derives
+			 * it, so a browser that gets the conversion wrong cannot mis-sell". True in addSell. It was not
+			 * true here, and nothing said so — it worked from the screen and was wrong from every other caller.
+			 *
+			 * <h3>Which pack size</h3>
+			 * `packSizeSnapshot` FROM THE LINE BEING RETURNED — the size in force when it was sold. Using the
+			 * product's current value would mis-restock every historical return the day a shop changes its
+			 * pack size, which is exactly why U2 froze it on the line. The product is consulted only for a
+			 * loose line newly ADDED during an edit, which has no prior to inherit from.
+			 */
+			if (dto.getSales() != null) {
+				for (SellDTO line : dto.getSales()) {
+					if (line == null || line.getProductId() == null) continue;
+					if (!"LOOSE".equalsIgnoreCase(String.valueOf(line.getSoldUnit()))) continue;
+					Float pieces = line.getSoldQuantity();
+					if (pieces == null || pieces <= 0f) continue;   // buildLines refuses these, with a reason
+
+					Integer packSize = null;
+					for (Sell prior : oldLines) {
+						if (line.getProductId().equals(prior.getProductId())
+								&& prior.getPackSizeSnapshot() != null) {
+							packSize = prior.getPackSizeSnapshot();
+							break;
+						}
+					}
+					if (packSize == null) {
+						try {
+							com.myplus.commerce.contracts.dto.ProductRef ref =
+									catalogClient.getProduct(line.getProductId());
+							if (ref != null) packSize = ref.getPackSize();
+						} catch (Exception catalogUnavailable) {
+							LOGGER.warn("U6: could not read pack size for product {}; the stock delta for this "
+									+ "loose line may be wrong", line.getProductId(), catalogUnavailable);
+						}
+					}
+					if (packSize != null && packSize > 1) {
+						line.setQuantity(pieces / (float) packSize);
+					}
+				}
+			}
 			// M3c.3b (slice 80): net per-PRODUCT delta = old sold qty − new sold qty. Adjust INVENTORY (not local
 			// Stock): a positive delta returns the excess (importStock); a negative delta takes more via one
 			// reservation+confirm (reject the edit if out of stock). Edits become inventory-correct and Stock-free.
