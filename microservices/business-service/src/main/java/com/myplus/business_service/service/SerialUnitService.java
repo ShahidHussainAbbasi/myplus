@@ -179,6 +179,91 @@ public class SerialUnitService {
         return rows.size();
     }
 
+    // ── SER-3: consuming a unit at the till ─────────────────────────────────────────────────────────
+
+    /**
+     * Check the serials a SALE names, before the invoice is written.
+     *
+     * @return the normalised serials, in the order given
+     * @throws ValidationException with an operator-readable reason — every one of these happens before the
+     *         sale commits, so the cashier can fix it with the customer still standing there.
+     */
+    public List<String> validateForSale(String serials, boolean requiresSerial, float quantity,
+                                        Long productId, Long orgId) {
+        List<String> clean = split(serials);
+
+        // The ordinary line: no serials named, none required. Costs nothing.
+        if (clean.isEmpty() && !requiresSerial) return clean;
+
+        capabilityService.assertEnabled(Capability.SERIAL_TRACKING);
+
+        if (requiresSerial && clean.isEmpty()) {
+            throw new ValidationException(
+                    "This item is tracked by serial number — scan or enter the one being sold.");
+        }
+
+        Set<String> seen = new LinkedHashSet<>();
+        for (String n : clean) {
+            if (!seen.add(n)) {
+                throw new ValidationException("Serial \"" + n + "\" was entered twice.");
+            }
+        }
+
+        if (requiresSerial) {
+            int expected = Math.round(quantity);
+            if (expected > 0 && clean.size() != expected) {
+                throw new ValidationException("This line is for " + expected + " unit(s) but "
+                        + clean.size() + " serial number(s) were entered.");
+            }
+        }
+
+        /*
+         * Each named unit must be in stock AND be this product.
+         *
+         * The product check is not pedantry: selling handset A's IMEI on a line for handset B would mark the
+         * wrong unit sold, and the shop would find out when the real one came back under warranty. The serial
+         * is the customer's evidence, so it has to point at what they were actually given.
+         */
+        for (String n : clean) {
+            SerialUnit unit = serialUnitRepo.findLive(orgId, n).orElse(null);
+            if (unit == null) {
+                throw new ValidationException("Serial \"" + n + "\" is not in stock.");
+            }
+            if (productId != null && !productId.equals(unit.getProductId())) {
+                throw new ValidationException("Serial \"" + n + "\" belongs to a different product.");
+            }
+        }
+        return clean;
+    }
+
+    /**
+     * Mark the named units sold. Call AFTER the invoice exists.
+     *
+     * <h3>Returns the serials it could NOT claim, rather than throwing</h3>
+     * The invoice is already committed by the time this runs — {@code SagaSellService} writes it in its own
+     * {@code REQUIRES_NEW} transaction — so throwing here would abandon a sale that has already happened.
+     * That is the trap {@code createInstallmentPlan} fell into, and the reason its refusal had to be moved
+     * before the write.
+     *
+     * <p>{@link SerialUnitRepo#markSold} is a compare-and-set on {@code status = 'IN_STOCK'}: exactly one of
+     * two tills selling the same handset wins. The loser gets the serial back in this list and the caller
+     * reports it on the receipt message — the sale stands, and the discrepancy is visible rather than silent.
+     * Validation above catches this in every case except a genuine race.
+     */
+    @Transactional
+    public List<String> consumeForSale(List<String> serials, String invoiceNo, Long orgId) {
+        List<String> notClaimed = new ArrayList<>();
+        if (serials == null || serials.isEmpty()) return notClaimed;
+
+        LocalDateTime now = LocalDateTime.now();
+        for (String serial : serials) {
+            if (serialUnitRepo.markSold(orgId, serial, invoiceNo, now) != 1) {
+                notClaimed.add(serial);
+            }
+        }
+        return notClaimed;
+    }
+
     /**
      * SER-4 — accept only the grades the register knows, defaulting to NEW.
      *

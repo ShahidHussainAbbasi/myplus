@@ -176,6 +176,19 @@ public class CustomerHistoryDTO {
     private java.util.List<String> warnings = new java.util.ArrayList<>();
 
     /**
+     * SER-3 — the serials this sale claimed, gathered while the lines were built.
+     *
+     * <p><b>An out-parameter, not client input.</b> {@code buildLines} validates each line's serials against
+     * the register while it already holds the ProductRef — asking catalog again per line would put a remote
+     * call on the sale path — but it returns {@code List<SagaLine>} and has nowhere to hand them back. They
+     * ride here to {@code addSell}, which marks them sold once the invoice exists.
+     *
+     * <p>Same shape and the same reason as {@link #warnings} directly above: something discovered during the
+     * sale that the caller needs after it.
+     */
+    private java.util.List<String> serialsClaimed = new java.util.ArrayList<>();
+
+    /**
      * INST-1 — present only when the cashier sold this item on terms; null on every ordinary sale.
      *
      * ⚠ This field exists in BOTH CustomerHistoryDTOs (monolith + business-service) and must stay that way.

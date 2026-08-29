@@ -438,3 +438,29 @@ School Management (education ✅) · Inventory (inventory ✅) · **ERP (⬜ pla
 - **party/contact master service** = the shared CRM/identity spine. ~~**Decision: defer**~~ — **BUILT** (`party-service`, 8096). A thin party master + `partyId` bridge exactly as planned (like Item→Product), *not* a customer god-service. **All five module bridges are live**: business Customer/Vender, education Student, welfare Donator, pharmacy prescription-patient, marketplace shopper — each a best-effort `PartyBridgeService` upsert after commit, so the bridge can never fail a save. The shared `SubledgerService`/`OpenDoc` was the enabler, as predicted.
 
 **Standing constraint — performance is a priority** in every design/impl choice: set-based over per-row queries (watch N+1), index scoped/FIFO columns via Flyway, keep inter-service calls off hot paths (best-effort like the finance ledger call), reuse shared components. Raise perf/architecture concerns **early**, before a design ships.
+
+---
+
+## Gating standard — see `GATE-RUNBOOK.md`
+
+**A slice is not done until it is gated as the tenant that needs it, across the privilege level that uses it.**
+
+The full procedure lives in [`GATE-RUNBOOK.md`](GATE-RUNBOOK.md). The five rules in short:
+
+1. **Log in as the feature's own tenant** — `owner.mobile@` for a mobile shop, `owner.pesticide@` for
+   agri-chem, `owner.pharma@` for pharmacy, `owner.marketplace@` for distribution, `owner.business@` for POS.
+   Never whichever account the previous spec happened to use.
+2. **Set the tenant up as its owner would** — shape first, then the capabilities the preset does not grant.
+3. **Add the cross-tenant case** — a different tenant on the *same shape* must not see the feature.
+4. **Walk the ladder** — `owner.` / `admin.` / `user.`, asserting both that **data populates** and that
+   **UI privileges differ**.
+5. **Restore tenant state in `after()`**, especially on `owner.business@`.
+
+Why this is a standard and not a preference: gating serial/IMEI as the POS owner passed cleanly while
+concealing that the `retail` preset does not grant `serialTracking` — a real mobile shop had its headline
+feature switched off and no test could tell. A convenient account proves the mechanism and nothing about the
+business.
+
+**Keep this document, `GATE-RUNBOOK.md` and the relevant design doc updated as part of the slice** — not
+afterwards. A standard that lags the code is a standard nobody can trust, and the next person reads the doc
+before they read the diff.

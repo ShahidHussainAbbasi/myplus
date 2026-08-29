@@ -16,7 +16,16 @@
  * 200. This has caught me three times on this codebase.
  */
 
-const OWNER = 'owner.business@myplus.com'
+/**
+ * The MOBILE SHOP tenant, not the POS one.
+ *
+ * Serial/IMEI tracking is a mobile-shop concern, and testing it as owner.business@ proved the mechanism while
+ * proving nothing about the business that needs it. It also hid a real fact: the `retail` shape preset does
+ * NOT include serialTracking or conditionGrading, so a mobile shop switches them on deliberately — exactly
+ * what this spec now does, in the order a new shop would.
+ */
+const MOBILE = 'owner.mobile@myplus.com'
+const POS = 'owner.business@myplus.com'
 const uniq = () => Date.now().toString().slice(-8) + Math.floor(Math.random() * 900 + 100)
 
 /** The units of a product currently on the shelf, straight from the register. */
@@ -39,7 +48,19 @@ describe('SER-2 — the serial register', () => {
   let plain = null        // one that does not — the control
 
   before(() => {
-    cy.loginAsOwner(OWNER)
+    cy.loginAsMobileOwner()
+    /*
+     * The mobile shop's day-one setup, in the order a real owner does it.
+     *
+     * `retail` is the shape — a counter selling finished goods. Its preset brings installments and dealer
+     * pricing and NOT serial tracking, because a furniture showroom is the same shape and has no IMEIs. So a
+     * mobile shop switches serial and condition on itself, which is the two-axis model working: the shape says
+     * what kind of counter this is, the capabilities say what this particular shop does.
+     *
+     * Setting the shape first also proves the ordering matters the way the design claims — an explicit
+     * capability override survives a shape that does not include it.
+     */
+    cy.setShape('retail')
     cy.setCapability('serialTracking', true)
     cy.setCapability('conditionGrading', true)
 
@@ -58,10 +79,10 @@ describe('SER-2 — the serial register', () => {
     cy.seedProduct({ name: `SER_PLAIN_${uniq()}` }).then((p) => { plain = p.productId })
   })
 
-  beforeEach(() => cy.loginAsOwner(OWNER))
+  beforeEach(() => cy.loginAsMobileOwner())
 
   after(() => {
-    cy.loginAsOwner(OWNER)
+    cy.loginAsMobileOwner()
     cy.setCapability('serialTracking', true)
     cy.setCapability('conditionGrading', true)
   })
@@ -82,6 +103,38 @@ describe('SER-2 — the serial register', () => {
     cy.get('#purchaseSerials').should('exist').and('not.have.class', 'cap-off')
     cy.get('#purchaseCondition').should('exist')
       .find('option').should('have.length.at.least', 3)   // NEW / USED / REFURBISHED
+  })
+
+  it('⭐ a POS shop on the SAME shape does not see the serial fields', () => {
+    /*
+     * The cross-tenant proof, and the one this suite could not make while it ran as a single account.
+     *
+     * owner.business@ is retail too — same shape, same dashboard, same screens. What differs is that it never
+     * switched serial tracking on. So this asserts the thing the whole capability platform is for: two shops
+     * of the same KIND see different tills, decided by what each does rather than by what either is called.
+     *
+     * If this ever fails, a hardware counter is being asked for an IMEI, and the two-axis model has collapsed
+     * back into "one vertical, one screen".
+     */
+    cy.loginAsOwner(POS)
+    cy.setShape('retail')
+    cy.setCapability('serialTracking', false)
+    cy.visit('/businessDashboard')
+    /*
+     * `not.be.visible`, NOT `have.class('cap-off')`.
+     *
+     * The capability attribute sits on the WRAPPER, so the input itself never carries the class — the first
+     * version of this assertion failed for that reason while the feature was working correctly. Visibility is
+     * also the property that actually matters: whether the operator can reach the field. A class check would
+     * additionally break the day the markup is restructured, for no gain.
+     */
+    cy.get('#purchaseSerials').should('exist').and('not.be.visible')
+    cy.get('#sellSerials').should('exist').and('not.be.visible')
+
+    // Leave the POS tenant as it was found — it is the account most other specs log in as, and a capability
+    // left off here would redden them for a reason nothing in those files could explain.
+    cy.setCapability('serialTracking', true)
+    cy.setShape('general')
   })
 
   it('and the fields disappear for a shop that does not track serials', () => {
@@ -185,5 +238,139 @@ describe('SER-2 — the serial register', () => {
     buy(tracked, 1, {}).then((r) => {
       expect(String(r.body.status), `must be REFUSED: ${JSON.stringify(r.body)} (${before})`).to.eq('ERROR')
     })
+  })
+})
+
+/**
+ * SER-3 — the till consumes a unit.
+ *
+ * SER-2 recorded what ARRIVED. This is the half that answers the question the register exists for: **who did
+ * we sell this handset to?** A unit that is sold must stop being sellable, and must carry the invoice a
+ * customer can quote.
+ *
+ * ⚠ `/addSell` answers GenericResponse, so a refusal is `status:"ERROR"` with HTTP 200.
+ */
+describe('SER-3 — selling a tracked unit', () => {
+  let tracked = null
+  let other = null
+
+  const uniqS = () => Date.now().toString().slice(-8) + Math.floor(Math.random() * 900 + 100)
+
+  /** Receive one unit of `productId` under `serial`, so there is something real to sell. */
+  const receive = (productId, serial) =>
+    cy.request({
+      method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+      body: {
+        productId, quantity: 1, serials: serial,
+        purchaseRate: 100, 'stock.bpurchaseRate': 100, 'stock.bsellRate': 150,
+        totalAmount: 100, netAmount: 100, paidAmount: 100, purchaseInvoiceNo: 'SER-' + uniqS(),
+      },
+    }).then((r) => {
+      expect(String(r.body.status), `receiving ${serial}: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+    })
+
+  const sell = (productId, serials, qty) =>
+    cy.request({
+      method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+      failOnStatusCode: false,
+      body: {
+        customer: { name: `SER Buyer ${uniqS()}`, contact: '0300' + uniqS(), paidAmount: 150, dueAmount: 0 },
+        sales: [{ productId, quantity: qty || 1, sellRate: 150, totalAmount: 150, netAmount: 150,
+                  serials: serials }],
+        paidAmount: 150, dueAmount: 0, grandTotal: 150,
+      },
+    })
+
+  const historyOf = (serial) =>
+    cy.request(`/serialHistory?serial=${serial}`).then((r) => (r.body && r.body.collection) || [])
+
+  before(() => {
+    cy.loginAsMobileOwner()
+    cy.setCapability('serialTracking', true)
+    cy.seedProduct({ name: `SER3_TRACKED_${uniqS()}`, sellingPrice: 150, stock: 50 }).then((p) => {
+      tracked = p.productId
+      cy.request({ method: 'POST', url: '/setProductTracking', form: true,
+                   body: { id: tracked, requiresSerial: true } })
+    })
+    // A SECOND tracked product, so "this serial belongs to something else" can be tested at all.
+    cy.seedProduct({ name: `SER3_OTHER_${uniqS()}`, sellingPrice: 150, stock: 50 }).then((p) => {
+      other = p.productId
+      cy.request({ method: 'POST', url: '/setProductTracking', form: true,
+                   body: { id: other, requiresSerial: true } })
+    })
+  })
+
+  beforeEach(() => cy.loginAsMobileOwner())
+
+  after(() => {
+    cy.loginAsMobileOwner()
+    cy.setCapability('serialTracking', true)
+  })
+
+  it('⭐ selling a handset marks THAT unit sold and records the invoice', () => {
+    const serial = `IMEI${uniqS()}S`
+    receive(tracked, serial)
+
+    sell(tracked, serial).then((r) => {
+      expect(String(r.body.status), JSON.stringify(r.body)).to.eq('SUCCESS')
+    })
+
+    historyOf(serial).then((rows) => {
+      expect(rows.length, 'the unit is in the register').to.eq(1)
+      expect(rows[0].status, 'and it is no longer on the shelf').to.eq('SOLD')
+      // The invoice is the whole point: a customer with a receipt can be matched to this handset.
+      expect(rows[0].invoiceNo, 'the unit knows which sale took it out').to.match(/INV-/)
+    })
+  })
+
+  it('the same unit cannot be sold twice', () => {
+    /*
+     * The register's reason to exist. Without it a shop can sell one physical handset to two customers and
+     * only discover it when the second one comes to collect.
+     */
+    const serial = `IMEI${uniqS()}T`
+    receive(tracked, serial)
+    sell(tracked, serial).then((r) => expect(String(r.body.status), 'first sale').to.eq('SUCCESS'))
+    sell(tracked, serial).then((r) => {
+      expect(String(r.body.status), `the second sale must be REFUSED: ${JSON.stringify(r.body)}`).to.eq('ERROR')
+    })
+  })
+
+  it('a serial that was never received cannot be sold', () => {
+    sell(tracked, `IMEI${uniqS()}NOPE`).then((r) => {
+      expect(String(r.body.status), `must be REFUSED: ${JSON.stringify(r.body)}`).to.eq('ERROR')
+    })
+  })
+
+  it("⭐ a serial belonging to a DIFFERENT product is refused", () => {
+    /*
+     * Selling handset A's IMEI on a line for handset B would mark the wrong unit sold, and the shop would
+     * find out when the real one came back under warranty. The serial is the customer's evidence, so it has
+     * to point at what they were actually handed.
+     */
+    const serial = `IMEI${uniqS()}X`
+    receive(other, serial)
+    sell(tracked, serial).then((r) => {
+      expect(String(r.body.status), `wrong-product serial must be REFUSED: ${JSON.stringify(r.body)}`)
+        .to.eq('ERROR')
+    })
+    // And it is untouched — still on the shelf under its real product.
+    historyOf(serial).then((rows) => {
+      expect(rows[0].status, 'a refused sale does not consume the unit').to.eq('IN_STOCK')
+    })
+  })
+
+  it('a tracked product cannot be sold without naming the unit', () => {
+    sell(tracked, '').then((r) => {
+      expect(String(r.body.status), `must be REFUSED: ${JSON.stringify(r.body)}`).to.eq('ERROR')
+    })
+  })
+
+  it('the serial box is on the sale screen for a shop that tracks serials', () => {
+    // The reachability assertion. Every case above drives cy.request, which reaches the endpoint whether the
+    // till has a field or not — the blind spot that let C6 ship a policy no shopkeeper could set.
+    cy.setCapability('serialTracking', true)
+    cy.visit('/businessDashboard')
+    cy.get('#sellSerials').should('exist').and('have.attr', 'name', 'serials')
   })
 })

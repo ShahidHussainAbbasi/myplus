@@ -59,6 +59,17 @@ public class SellDTO implements Serializable {
 
 	private Float soldQuantity;
 
+	/**
+	 * SER-3 — the serial / IMEI of each unit sold on this line.
+	 *
+	 * <p><b>Declared here as well as in business-service's SellDTO, and that is not duplication for its own
+	 * sake.</b> The sale posts through this monolith DTO on its way to the service, and a field missing from
+	 * this side is silently dropped in transit: the JSON arrives, Jackson finds no property, and the sale
+	 * succeeds having quietly forgotten which handset went out. That failure has bitten this path before,
+	 * which is why the rule is written down — a new nested sale field needs the monolith DTO too.
+	 */
+	private String serials;
+
 	private BigDecimal soldRate;
 
 	private Integer packSizeSnapshot;

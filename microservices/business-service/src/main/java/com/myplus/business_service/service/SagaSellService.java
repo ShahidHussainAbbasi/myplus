@@ -77,6 +77,17 @@ public class SagaSellService {
     @org.springframework.beans.factory.annotation.Autowired
     private com.myplus.common.settings.SettingsService settingsService;   // B1: per-org pharmacy rx policy
 
+    /**
+     * SER-3 — the per-unit register. Validates the serials a line names while the ProductRef is already in
+     * hand, and marks them sold once the invoice exists.
+     *
+     * <p>Field-injected for the same reason as the neighbours above: {@code MarginPolicyTest} and friends
+     * construct this service with an exact argument list, and widening the constructor would break passing
+     * tests that never reach this path.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    private SerialUnitService serialUnitService;
+
     // B2B-P1 (#9): the customer's running balance + credit limit. A FIELD, not a constructor argument —
     // MarginPolicyTest constructs this service with an exact list of nulls, and widening the constructor
     // would break a passing test for no benefit.
@@ -199,6 +210,32 @@ public class SagaSellService {
         } catch (RuntimeException confirmFailure) {
             LOG.warn("Saga confirm failed for reservation {} (invoice {}); left PENDING for the recovery relay",
                     reservationId, ch.getInvoiceNo(), confirmFailure);
+        }
+
+        /*
+         * SER-3 — mark the named handsets sold, now that there is an invoice to record against.
+         *
+         * Best-effort in the same sense as the store-credit redemption below and the GL post further down: the
+         * sale is already written, so this cannot throw. buildLines already refused anything not in stock or
+         * belonging to another product, with the customer still at the counter.
+         *
+         * What can still fail is a genuine race — two tills selling the same handset in the same second.
+         * markSold is a compare-and-set on status='IN_STOCK', so exactly one wins; the loser gets the serial
+         * back and it goes on the sale message. The alternative, a silent mismatch between what the shop
+         * believes it holds and what it sold, is the failure this whole register exists to end.
+         */
+        if (!dto.getSerialsClaimed().isEmpty()) {
+            try {
+                List<String> notClaimed = serialUnitService.consumeForSale(
+                        dto.getSerialsClaimed(), ch.getInvoiceNo(), user.getOrganizationId());
+                if (!notClaimed.isEmpty()) {
+                    dto.getWarnings().add("These serial numbers could not be marked sold (another till may have "
+                            + "taken them): " + String.join(", ", notClaimed) + ". The sale is recorded.");
+                }
+            } catch (RuntimeException ex) {
+                LOG.warn("Could not mark serials sold for invoice {} (sale recorded)", ch.getInvoiceNo(), ex);
+                dto.getWarnings().add("The sale is recorded, but the serial numbers could not be updated.");
+            }
         }
 
         // Store credit (SF-5 Model B): redeem the capped amount from the customer's balance now that the sale is
@@ -640,6 +677,24 @@ public class SagaSellService {
             // written. This one is per SELLING unit — the rate that goes to Sell.sellRate.
             BigDecimal lineRate = (s.getSellRate() != null && s.getSellRate().compareTo(BigDecimal.ZERO) > 0)
                     ? s.getSellRate() : catalogPrice;
+            /*
+             * SER-3 — which physical units this line is selling.
+             *
+             * Validated HERE because the ProductRef is already in hand: asking catalog again for
+             * `requiresSerial` would put a remote call on the sale path for every line, which is the standing
+             * performance rule and the reason V44 refused a cross-service check mid-sale in the first place.
+             *
+             * Before the write, so a refusal — "not in stock", "belongs to a different product", a miscount —
+             * reaches the cashier with the customer still at the counter, rather than after an invoice exists.
+             */
+            java.util.List<String> lineSerials = serialUnitService.validateForSale(
+                    s.getSerials(),
+                    product != null && Boolean.TRUE.equals(product.getRequiresSerial()),
+                    s.getQuantity() != null ? s.getQuantity() : 1f,
+                    productId,
+                    orgId);
+            if (!lineSerials.isEmpty()) dto.getSerialsClaimed().addAll(lineSerials);
+
             BigDecimal productTaxRate = product != null ? product.getTaxRate() : null;
             // The line total is DERIVED here — qty × the rate this line sold at — never taken from the client.
             // Trusting the submitted totalAmount is how a line came to be stored as rate=1000 (catalog fallback)

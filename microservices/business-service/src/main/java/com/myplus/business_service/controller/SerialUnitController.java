@@ -78,6 +78,16 @@ public class SerialUnitController {
         m.put("status", u.getStatus());
         m.put("purchaseId", u.getPurchaseId());
         m.put("sellId", u.getSellId());
+        /*
+         * SER-3 — the invoice the unit left on.
+         *
+         * Omitted on the first pass because the field was added to the entity after this projection was
+         * written, and nothing complained: the register was recording the answer correctly and the API simply
+         * did not return it. The gate caught it only because it asserted the VALUE a caller receives rather
+         * than the row in the table — "status is SOLD" passed happily while the question the whole register
+         * exists to answer, WHICH SALE, came back undefined.
+         */
+        m.put("invoiceNo", u.getInvoiceNo());
         m.put("dated", u.getDated() != null ? u.getDated().toString() : null);
         return m;
     }

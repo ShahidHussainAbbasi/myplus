@@ -41,6 +41,37 @@ public interface SerialUnitRepo extends JpaRepository<SerialUnit, Long> {
          + "AND s.status = 'IN_STOCK'")
     long countInStock(@Param("orgId") Long orgId, @Param("productId") Long productId);
 
+    /**
+     * SER-3 — claim a unit for a sale. Returns the number of rows changed: <b>1 won, 0 lost.</b>
+     *
+     * <h3>Why the WHERE clause carries {@code status = 'IN_STOCK'}</h3>
+     * Marking a unit sold is an UPDATE, and no unique index can referee an update the way one referees the
+     * insert that V52 protects. Two tills selling the same handset in the same second would both read
+     * "in stock" and both write "sold", and the shop would have sold one phone twice.
+     *
+     * <p>Making the status part of the WHERE turns it into a compare-and-set: the database decides the winner,
+     * and the loser gets 0 rows back and can say so. A read-then-write in application code cannot close that
+     * window, which is the same argument V44 makes for the insert side.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE SerialUnit s SET s.status = 'SOLD', s.invoiceNo = :invoiceNo, s.updated = :now "
+         + "WHERE s.organizationId = :orgId AND s.serialNo = :serialNo AND s.status = 'IN_STOCK'")
+    int markSold(@Param("orgId") Long orgId, @Param("serialNo") String serialNo,
+                 @Param("invoiceNo") String invoiceNo, @Param("now") java.time.LocalDateTime now);
+
+    /**
+     * SER-3 — put a unit back on the shelf (a sale return or a repossession).
+     *
+     * <p>Guarded on {@code status = 'SOLD'} for the mirror-image reason: restocking a unit that is already in
+     * stock would create a second live row for the same serial, which is precisely what V52's unique index
+     * exists to prevent — and it would surface as a constraint error on an unrelated write later.
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE SerialUnit s SET s.status = 'IN_STOCK', s.invoiceNo = null, s.updated = :now "
+         + "WHERE s.organizationId = :orgId AND s.serialNo = :serialNo AND s.status = 'SOLD'")
+    int markReturned(@Param("orgId") Long orgId, @Param("serialNo") String serialNo,
+                     @Param("now") java.time.LocalDateTime now);
+
     /** The units a given purchase brought in — used when a purchase is edited or reversed. */
     @Query("SELECT s FROM SerialUnit s WHERE s.organizationId = :orgId AND s.purchaseId = :purchaseId")
     List<SerialUnit> findByPurchase(@Param("orgId") Long orgId, @Param("purchaseId") Long purchaseId);

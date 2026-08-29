@@ -1,6 +1,19 @@
 # Serial / IMEI tracking and condition grading — design for review
 
-**Slice family:** SER-1 … SER-4  ·  **Branch:** `feature/UI-UX`  ·  **Status:** DESIGN, awaiting consent
+**Slice family:** SER-1 … SER-4  ·  **Branch:** `feature/UI-UX`
+
+**Status:** **SER-1 ✅ shipped** (as C6 — `products.requires_serial` / `tracks_batch`, catalog V12).
+**SER-2 ✅ green** — the register, capture on purchase, read API and UI; `serial-register.cy.js`.
+**SER-3 ✅ green** — consumption at the till (V53 `invoice_no`, compare-and-set claim); 15/15 on
+`owner.mobile@myplus.com`, plus a cross-tenant case proving a POS shop on the same shape sees no serial fields.
+**SER-4 partial** — condition is captured and stored on purchase; it is not yet shown on the sale screen.
+
+**§3's ruling was taken: the register lives in business-service**, not inventory-service as
+`InstallmentPlan.serialUnitId`'s comment intended. The reasoning and the user's approval are recorded there and
+in the SER-2 delivery log below.
+
+*(Sections 1–5 are the original review and design, kept verbatim as the record of why. The delivery logs at the
+end carry what actually shipped and where it diverged.)*
 **Capabilities:** `SERIAL_TRACKING`, `CONDITION_GRADING` (both defined in C1, both default ON)
 **Raised by:** Shahzad Mobile Shop — *"purchase form: purchase imei/serial number, mobile condition type (used/new); sale form: imei/serial"*
 
@@ -244,3 +257,83 @@ refused.
 Two cases assert the **screen**, not the API: the serials textarea and condition select are on the purchase
 form, and they disappear for a shop without the capability. Every other case drives `cy.request`, which reaches
 an endpoint whether a UI exists or not — the precise blind spot that let C6 ship unusable.
+
+---
+
+## SER-3 — the till consumes a unit (implemented, awaiting build + gate)
+
+SER-2 recorded what ARRIVED. This is the half that answers the register's reason to exist: **who did we sell
+this handset to?**
+
+| Piece | Where |
+|---|---|
+| `invoice_no` on the register + index | `V53__serial_unit_invoice.sql` |
+| Compare-and-set claim / release | `SerialUnitRepo.markSold` / `markReturned` |
+| Sale validation + consumption | `SerialUnitService.validateForSale` / `consumeForSale` |
+| Wiring | `SagaSellService` — validate in `buildLines`, consume in `addSell` |
+| DTO | `SellDTO.serials` on **both** sides + `CustomerHistoryDTO.serialsClaimed` carrier |
+| UI | sale form `#sellSerials` (`name="serials"`), capability-gated; scan path too |
+
+### Three decisions worth keeping
+
+**1. `invoice_no`, not `sell_id`.** V52 provisioned `sell_id` for a per-line link, but the sale path never
+exposes one — `SagaSaleWriter` returns the invoice and writes the lines inside it. Storing an invoice id in a
+column named `sell_id` would read correctly and mean something else. The invoice NUMBER is also what a warranty
+claim actually quotes.
+
+**2. Validation lives in `buildLines`, not the controller.** The `ProductRef` is already in hand there, so
+reading `requiresSerial` costs nothing; asking catalog per line would put a remote call on the sale path — the
+standing performance rule, and the reason V44 refused a cross-service check mid-sale. It also runs before the
+write, so "not in stock" or "belongs to a different product" reaches the cashier with the customer still there.
+
+**3. `markSold` is a COMPARE-AND-SET, and that is the whole race story.** Marking a unit sold is an UPDATE, and
+no unique index referees an update the way one referees V52's insert. Two tills selling the same handset would
+both read "in stock" and both write "sold". Putting `status = 'IN_STOCK'` in the WHERE makes the database pick
+the winner; the loser gets 0 rows and says so.
+
+### The honest limit
+
+Consumption runs AFTER the invoice commits, because `SagaSellService` writes it in its own `REQUIRES_NEW`
+transaction — so it cannot throw without abandoning a sale that already happened (the trap
+`createInstallmentPlan` fell into). Validation catches every case except a genuine race; a lost race appends a
+warning to the sale message rather than failing silently. **A visible discrepancy beats an invisible one.**
+
+`CustomerHistoryDTO.serialsClaimed` is an out-parameter carrying the validated serials from `buildLines` to
+`addSell` — the same shape and reason as the `warnings` list directly above it.
+
+### Build
+
+business-service (V53 + register changes) and the monolith (`SellDTO`, sale form, `business.js`, 1 i18n key ×
+6 bundles).
+
+### SER-3 — ✅ GREEN, and re-gated on the RIGHT tenant
+
+`serial-register.cy.js` **15/15** (SER-2's 8 + SER-3's 6 + the cross-tenant case), with
+`capability-gating` 6/6, `product-policies` 7/7 and `credit-limit` 14/14 as regression — every sale and
+purchase in the product now passes through serial validation, so those staying green is the evidence that
+ordinary trade is undisturbed.
+
+#### The spec now logs in as `owner.mobile@myplus.com`
+
+It ran as `owner.business@` — the POS tenant — which proved the mechanism and nothing about the business that
+needs it. Worse, it **concealed a real fact**: the `retail` shape preset does not grant `serialTracking` or
+`conditionGrading`, so a genuine mobile shop has its headline feature switched off until an owner turns it on.
+The spec now performs that day-one setup in order — `setShape('retail')`, then the two capabilities the preset
+omits — which also proves the design's claim that an explicit override survives a shape that does not include
+it.
+
+It adds the assertion a single-account suite could never make: **a POS shop on the SAME shape does not see the
+serial fields.** Two shops of the same kind, different tills, decided by what each does rather than what either
+is called. See `GATE-RUNBOOK.md`.
+
+#### Two of my own assertions were wrong, both the same way
+
+* `invoiceNo` came back `undefined` — the register was recording it correctly and `SerialUnitController.row()`
+  simply never returned it, because the field was added to the entity after the projection was written.
+  `status === 'SOLD'` passed happily while the question the register exists to answer did not.
+* `have.class('cap-off')` on `#purchaseSerials` failed while the feature worked: the capability attribute is on
+  the WRAPPER, so the input never carries the class. Replaced with `not.be.visible`.
+
+Both are the same mistake — **asserting the artefact instead of the property**. The first checked a stored row
+instead of the value a caller receives; the second checked a specific node's class instead of whether the
+operator can reach the field.

@@ -52,6 +52,18 @@ public class SellDTO implements Serializable {
 	/** PIECES the customer asked for (LOOSE lines only). When set, {@link #quantity} is derived, not read. */
 	private Float soldQuantity;
 
+	/**
+	 * SER-3 — the serial / IMEI of each unit being sold on this line.
+	 *
+	 * <p>Newline- or comma-separated in ONE string, matching the purchase side. Kept a String rather than a
+	 * List so the same {@code SerialUnitService.split} parses both, and so the field survives whichever
+	 * transport a caller uses — the purchase proxy collapses repeated parameters, and a shape that only works
+	 * over JSON is one refactor away from losing every serial but the first.
+	 *
+	 * <p>Empty for the overwhelming majority of lines: most products have no serial and never will.
+	 */
+	private String serials;
+
 	/** Per piece. <b>Server-populated; ignored on the way in.</b> */
 	private BigDecimal soldRate;
 

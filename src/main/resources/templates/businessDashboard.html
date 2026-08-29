@@ -1835,6 +1835,24 @@ tr.row-voided .js-edit-row{display:none !important}
 								       placeholder="0" th:title="#{ui.bonusHelp}"/>
 							</div>
 						</div>
+						<!--
+							SER-3 — the serial / IMEI of the unit being sold.
+
+							`name="serials"` is what wires it: formToJSON("Sell") reads the form by name, so the
+							value lands on the cart line with no extra JavaScript and travels to the server as
+							SellDTO.serials. A field wired by hand instead would be one more place to forget.
+
+							Capability-gated, and the SERVER still decides per product — a handset on the line
+							demands a serial, a charger on the next line does not (ProductRef.requiresSerial).
+						-->
+						<div class="pos-cell pos-more" data-pos-field="serial" data-capability="serialTracking">
+							<label class="control-label col-sm-2" for="sellSerials"
+							       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
+							<div class="col-sm-2">
+								<input type="text" class="form-control" id="sellSerials" name="serials"
+								       th:placeholder="#{ui.js.serialScanHint}" placeholder="Scan or type the IMEI"/>
+							</div>
+						</div>
 						<div class="pos-cell" data-pos-field="stock">
 							<label class="control-label col-sm-2" for="sellStock" th:text="#{ui.stock}">Stock</label>
 							<div class="col-sm-2">

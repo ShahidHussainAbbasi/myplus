@@ -1,6 +1,17 @@
 # Onboarding any business, part 2 — capabilities, entitlements and the assembled dashboard
 
-**Status:** REVIEW + DESIGN — no code written. Awaiting consent per review → consent → design → implement → gate.
+**Status:** ✅ **SHIPPED AND GREEN — C1, C2, C3, C3b, C3c, C3d, C4, C5, C6 all complete.** 23 tests across
+`capability-gating.cy.js` (6), `capability-shapes.cy.js` (5), `dashboard-widgets.cy.js` (3),
+`product-policies.cy.js` (7), `capability-enforcement.cy.js` (4). Refusal is enforced server-side on six writes
+across four services. The delivery log is §11 onward; §17 and §19 carry the slice-by-slice state.
+
+**Still open, and neither is C-work:** `journeyPlanning` has no controller anywhere (the capability exists, the
+feature was never built); `fefoAllocation` is allocation behaviour rather than a user write; and
+`batchTracking`/`expiryTracking` ride the ordinary purchase path, so guarding them needs that flow reviewed on
+its own terms — see §20.
+
+*(The sections below are the original review and design, kept verbatim as the record of why each decision was
+made. Where implementation diverged, the delivery log says so and why.)*
 **Raised:** 2026‑08‑27, from the question *"Shahzad Mobile Shop, Farooq Veterinary & Medicos, Shafiq Medicine
 Company and Zubair Traders all share one `businessDashboard.html` — how do we accommodate any business without
 re‑architecting?"*

@@ -436,6 +436,14 @@ function scanAddToCart(ref, qty, unit, li){
 			autoRate: Number(price),
 			stock: { itemId: pid, itemName: name, bsellRate: price, bsellDiscount: '', bsellDiscountType: '0' }
 		};
+		// SER-3: carry the serial box onto a SCANNED line too.
+		//
+		// The manual Add-to-Cart path gets this free — formToJSON("Sell") reads the form by name — but this
+		// path builds its line object by hand, so without this a scanned handset would arrive with no serial
+		// and the server would refuse it. The operator would then be told to enter an IMEI they had already
+		// typed, with no way to make the scan work at all.
+		var scannedSerial = $.trim($('#sellSerials').val() || '');
+		if (scannedSerial !== '') obj.serials = scannedSerial;
 		// U3: a `5L*CODE` scan is a LOOSE line. The server derives quantity and rate from soldQuantity, so
 		// what the browser computes here is DISPLAY only — it cannot mis-sell, only mis-show.
 		if(unit === 'LOOSE' && li && li.allowLoose && li.packSize > 0){

@@ -75,9 +75,25 @@ public class SerialUnit {
     @Column(name = "purchase_id")
     private Long purchaseId;
 
-    /** The sale that took it out. Null while in stock. */
+    /**
+     * Reserved for a per-LINE link to a {@code Sell} row. Unused today.
+     *
+     * <p>The sale path does not expose a line id — {@code SagaSaleWriter} returns the invoice and writes the
+     * lines inside it — so {@link #invoiceNo} carries the answer instead. Storing an invoice id in a column
+     * named {@code sell_id} would read correctly and mean something else, which is the kind of mismatch that
+     * costs an afternoon two years later.
+     */
     @Column(name = "sell_id")
     private Long sellId;
+
+    /**
+     * SER-3 — the invoice this unit left on. Null while in stock.
+     *
+     * <p>The invoice NUMBER rather than an id, because it is what a warranty claim, a return or a police
+     * enquiry actually quotes, and it is what the shop can read off the customer's receipt.
+     */
+    @Column(name = "invoice_no", length = 32)
+    private String invoiceNo;
 
     @Column(name = "dated")
     private LocalDateTime dated;
