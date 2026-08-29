@@ -2,7 +2,13 @@
 
 **Date:** 2026-08-13
 **Scope:** monolith UI delivery (Thymeleaf templates + `src/main/resources/static`), measured against `businessDashboard.html`
-**Status:** REVIEW — no code changed. Awaiting consent per the review→consent→design→implement→test rule.
+**Status:** **PARTLY SHIPPED.** PERF-1 / PERF-3 / PERF-3b shipped; PERF-8 (lean cached product picker,
+618KB → 77KB) shipped; the **responsiveness fix is shipped and green** (see the section at the end —
+`responsive.cy.js` 53 passing). ⚠ **PERF-4 is implemented but has never been gated**, and `@EnableWebMvc`
+makes `cache.period` inert — both still open.
+
+*(The audit body below is the original review, kept as written. Findings are tracked to closure in the
+sections appended at the end, not by editing the findings in place.)*
 
 ---
 

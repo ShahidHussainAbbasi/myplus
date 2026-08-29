@@ -1845,12 +1845,35 @@ tr.row-voided .js-edit-row{display:none !important}
 							Capability-gated, and the SERVER still decides per product — a handset on the line
 							demands a serial, a charger on the next line does not (ProductRef.requiresSerial).
 						-->
-						<div class="pos-cell pos-more" data-pos-field="serial" data-capability="serialTracking">
+						<!--
+							NOT `pos-more`. That class puts a field off the compact row entirely
+							(`.pos-rowentry #Sell .pos-more{display:none}`) until the "More ▾" popover is
+							built, which it is not yet — so marking it optional made the serial box invisible
+							on the sale screen for every tenant that tracks serials. It is not an optional
+							extra: for a serial-tracked product the sale is REFUSED without it.
+
+							`data-pos-field="serial"` stays, so a tenant can still switch it off through the
+							sale-screen configuration; an absent setting means shown, which is the right
+							default for a field the server may demand.
+						-->
+						<div class="pos-cell" data-pos-field="serial" data-capability="serialTracking">
 							<label class="control-label col-sm-2" for="sellSerials"
 							       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
 							<div class="col-sm-2">
 								<input type="text" class="form-control" id="sellSerials" name="serials"
 								       th:placeholder="#{ui.js.serialScanHint}" placeholder="Scan or type the IMEI"/>
+								<!--
+									SER-4 — what the register knows about the unit just entered: its condition,
+									or that it is not on the shelf.
+
+									Read-only and beside the input on purpose. A cashier selling a used handset
+									must see that it is used BEFORE taking the money — the grade was recorded at
+									intake and then lived only in the database, which made it a fact the shop
+									owned and could not act on.
+
+									Filled by /js/business/serial-sell.js; empty until a serial is entered.
+								-->
+								<div id="sellSerialInfo" class="serial-info" style="display:none"></div>
 							</div>
 						</div>
 						<div class="pos-cell" data-pos-field="stock">
@@ -3559,6 +3582,10 @@ tr.row-voided .js-edit-row{display:none !important}
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->
     <script th:src="@{/js/business/pos-keyboard.js}"></script>
     <script th:src="@{/js/business/loose-sell.js}"></script>
+    <!-- SER-4: shows what the register knows about the unit being sold — its condition, or that it is not on
+         the shelf. Its own file for the same reason loose-sell.js is: a distinct surface with distinct rules.
+         Inert for a tenant without serial tracking, since the input it binds to is not rendered. -->
+    <script th:src="@{/js/business/serial-sell.js}"></script>
     <!-- INST-1: selling on terms. Its own file, like order-booking.js — a distinct surface with a
          distinct audience. Inert unless the tenant turned on pos.installment.enabled. -->
     <script th:src="@{/js/business/installment.js}"></script>

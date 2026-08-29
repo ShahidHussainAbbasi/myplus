@@ -374,3 +374,87 @@ describe('SER-3 — selling a tracked unit', () => {
     cy.get('#sellSerials').should('exist').and('have.attr', 'name', 'serials')
   })
 })
+
+/**
+ * SER-4 — the till shows what the unit actually is.
+ *
+ * SER-2 recorded a condition grade at intake. Until this slice it lived only in the database: a cashier
+ * selling a second-hand handset saw exactly the screen of one selling a new handset. The grade was a fact the
+ * shop owned and could not act on, and the moment it matters is BEFORE the money is taken.
+ *
+ * Advisory by design — nothing here blocks a sale. `SagaSellService` is the control; this is a courtesy in
+ * front of it, so the assertions are about what the cashier SEES.
+ */
+describe('SER-4 — condition at the till', () => {
+  const uniq4 = () => Date.now().toString().slice(-8) + Math.floor(Math.random() * 900 + 100)
+  let tracked = null
+
+  const receiveGraded = (serial, grade) =>
+    cy.request({
+      method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+      body: {
+        productId: tracked, quantity: 1, serials: serial, conditionGrade: grade,
+        purchaseRate: 100, 'stock.bpurchaseRate': 100, 'stock.bsellRate': 150,
+        totalAmount: 100, netAmount: 100, paidAmount: 100, purchaseInvoiceNo: 'SER4-' + uniq4(),
+      },
+    }).then((r) => {
+      expect(String(r.body.status), `receiving ${grade} ${serial}: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+    })
+
+  /** Type a serial into the sale screen and wait for the register lookup to answer. */
+  const enterSerial = (serial) => {
+    cy.visitSaleScreen()
+    cy.get('#sellSerials').should('be.visible').clear().type(serial).blur()
+  }
+
+  before(() => {
+    cy.loginAsMobileOwner()
+    cy.setShape('retail')
+    cy.setCapability('serialTracking', true)
+    cy.setCapability('conditionGrading', true)
+    cy.seedProduct({ name: `SER4_${uniq4()}`, sellingPrice: 150, stock: 20 }).then((p) => {
+      tracked = p.productId
+      cy.request({ method: 'POST', url: '/setProductTracking', form: true,
+                   body: { id: tracked, requiresSerial: true } })
+    })
+  })
+
+  beforeEach(() => cy.loginAsMobileOwner())
+
+  it('⭐ a USED handset says so before the money is taken', () => {
+    /*
+     * The case the slice exists for. A shop that grades stock at intake and then cannot see the grade at the
+     * counter has bought itself a record and no benefit.
+     */
+    const serial = `IMEI${uniq4()}U`
+    receiveGraded(serial, 'USED')
+    enterSerial(serial)
+    cy.get('#sellSerialInfo').should('be.visible')
+      .and('have.class', 'serial-info-warn')     // colour carries meaning on a busy counter
+      .invoke('text').should('match', /used|usado|occasion|इस्तेमाल|مستعمل|استعمال/i)
+  })
+
+  it('a NEW handset is confirmed, and quietly — it is the ordinary case', () => {
+    // The positive control. Without it, a build that showed "Used" for everything would pass the case above.
+    const serial = `IMEI${uniq4()}N`
+    receiveGraded(serial, 'NEW')
+    enterSerial(serial)
+    cy.get('#sellSerialInfo').should('be.visible').and('have.class', 'serial-info-ok')
+  })
+
+  it('a serial that is not on the shelf says so as it is typed', () => {
+    /*
+     * The server already refuses this — but only at submit, after the basket is built and the customer is
+     * waiting. Saying it while the cashier is still typing turns a refusal into something they can fix
+     * cheaply. It does NOT replace the server check, which is why nothing here blocks the sale.
+     */
+    enterSerial(`IMEI${uniq4()}GHOST`)
+    cy.get('#sellSerialInfo').should('be.visible').and('have.class', 'serial-info-miss')
+  })
+
+  after(() => {
+    cy.loginAsMobileOwner()
+    cy.setCapability('serialTracking', true)
+    cy.setCapability('conditionGrading', true)
+  })
+})

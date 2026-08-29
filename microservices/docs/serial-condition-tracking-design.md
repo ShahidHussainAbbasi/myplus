@@ -6,7 +6,7 @@
 **SER-2 ✅ green** — the register, capture on purchase, read API and UI; `serial-register.cy.js`.
 **SER-3 ✅ green** — consumption at the till (V53 `invoice_no`, compare-and-set claim); 15/15 on
 `owner.mobile@myplus.com`, plus a cross-tenant case proving a POS shop on the same shape sees no serial fields.
-**SER-4 partial** — condition is captured and stored on purchase; it is not yet shown on the sale screen.
+**SER-4 ✅ green** — condition shown at the till as a serial is entered (New / Used / Refurbished / Not in stock).
 
 **§3's ruling was taken: the register lives in business-service**, not inventory-service as
 `InstallmentPlan.serialUnitId`'s comment intended. The reasoning and the user's approval are recorded there and
@@ -337,3 +337,34 @@ is called. See `GATE-RUNBOOK.md`.
 Both are the same mistake — **asserting the artefact instead of the property**. The first checked a stored row
 instead of the value a caller receives; the second checked a specific node's class instead of whether the
 operator can reach the field.
+
+### SER-4 — ✅ GREEN
+
+`serial-register.cy.js` **18/18** on `owner.mobile@myplus.com`, with `privilege-ladder` 7/7,
+`capability-gating` 6/6 and `capability-shapes` 5/5 alongside.
+
+The till now answers as a serial is typed or scanned: **New** (quiet), **Used / Refurbished** (amber — it
+changes what the customer is buying), or **Not in stock** (red). Advisory only; `SagaSellService` remains the
+control, a failed lookup shows nothing rather than an error, and the live row is used rather than the newest —
+a serial sold and bought back has history, and the unit being sold is the one on the shelf.
+
+#### ⚠ The bug this gate caught, which no API test could
+
+The sale-screen serial field was marked `pos-more`. That class takes a field **off the compact row entirely**
+(`.pos-rowentry #Sell .pos-more{display:none}`) until the "More ▾" popover is built — which it is not. So a
+mobile shop could never see the serial box, while the server refused every sale without one: the cashier would
+be told to enter a serial with no field to enter it in.
+
+Two mechanisms overlap on that row and I conflated them:
+
+| | Means | Default |
+|---|---|---|
+| `data-pos-field="serial"` | the tenant's configurable field set | absent ⇒ **shown** (fail open) |
+| `pos-more` | off the compact row, pending a UI that does not exist | **hidden** |
+
+The serial box is not an optional extra — for a serial-tracked product the sale is refused without it. `pos-more`
+removed; `data-pos-field` kept, so a tenant can still switch it off deliberately.
+
+**All 15 server-side cases passed while the field was unreachable.** That is the fourth time in this programme
+that a screen-level assertion caught something green everywhere else, and it is why "gate the screen, not just
+the API" is rule 4 in `GATE-RUNBOOK.md`.

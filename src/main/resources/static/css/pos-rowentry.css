@@ -423,3 +423,23 @@
   .pos-rowentry #sellTotalAmount{ width:100%; }
   .pos-rowentry #addInviceItem{ margin-left:2px; }
 }
+
+/* ── SER-4: what the register knows about the unit being sold ──────────────────────────────────
+   Sits under the serial input on the sale screen. Three states, and the colours carry meaning
+   rather than decoration: a USED handset changes what the customer is buying, so it must not look
+   the same as a new one at a glance on a busy counter. */
+.serial-info {
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  display: inline-block;
+}
+/* NEW — confirmation, not an alert. Quiet on purpose: it is the ordinary case. */
+.serial-info-ok   { background: #e8f5e9; color: #1B5E20; border: 1px solid #a5d6a7; }
+/* USED / REFURBISHED — the cashier must register this BEFORE taking the money. */
+.serial-info-warn { background: #fff3e0; color: #E65100; border: 1px solid #ffcc80; }
+/* Not on the shelf. Advisory: the server is what actually refuses the sale. */
+.serial-info-miss { background: #fdecea; color: #B71C1C; border: 1px solid #ef9a9a; }
