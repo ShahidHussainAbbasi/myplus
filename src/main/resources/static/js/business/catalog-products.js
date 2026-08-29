@@ -237,6 +237,55 @@
         }
     };
 
+    /**
+     * C6 — save the per-product tracking policy (serial/IMEI, batch).
+     *
+     * <h3>Only sends a flag the tenant is actually allowed to set</h3>
+     * A capability the tenant does not have hides its checkbox (`[data-capability]` → `.cap-off`), and an
+     * unchecked hidden box would otherwise be sent as an explicit `false` — quietly clearing a policy the
+     * operator never saw, on every ordinary product edit. Omitting it means "leave alone", which is what the
+     * server reads a missing parameter as.
+     *
+     * <h3>Separate call, deliberately</h3>
+     * Same shape as the clinical flags: this is POLICY, and it is ADMIN- and capability-gated server-side.
+     * Folding it into the general product save would make every product edit refusable for a reason unrelated
+     * to what the operator changed.
+     *
+     * <p>Failures surface rather than being swallowed: the product HAS been saved by this point, so silence
+     * would leave the operator believing a policy was applied when it was not.
+     */
+    function saveProductTracking(productId) {
+        if (!productId) return;
+        var body = { id: productId };
+        // hasCapability() is defined by /js/common/capabilities.js and returns TRUE when the map is unknown,
+        // so a page that could not load capabilities behaves as it did before C6 rather than silently
+        // dropping the flags.
+        if (global.hasCapability('serialTracking')) {
+            body.requiresSerial = $('#prodRequiresSerial').is(':checked');
+        }
+        if (global.hasCapability('batchTracking')) {
+            body.tracksBatch = $('#prodTracksBatch').is(':checked');
+        }
+        // Nothing this tenant may set — no call worth making.
+        if (body.requiresSerial === undefined && body.tracksBatch === undefined) return;
+
+        $.ajax({
+            type: 'POST', url: serverContext + 'setProductTracking', dataType: 'json', data: body,
+            success: function (resp) {
+                // A refusal arrives as 200 with success:false — the app's envelope carries the reason rather
+                // than flattening it into a status code, so a status-only check would miss it entirely.
+                if (resp && resp.success === false && global.showFormError) {
+                    global.showFormError(resp.message || 'The tracking policy could not be saved.');
+                }
+            },
+            error: function () {
+                if (global.showFormError) {
+                    global.showFormError('The tracking policy could not be saved.');
+                }
+            }
+        });
+    }
+
     function resetProductForm() {
         var f = document.getElementById('Product');
         if (f) f.reset();
@@ -486,6 +535,10 @@
             $('#prodLooseUnitPlural').val(p.looseUnitPlural || '');
             $('#prodAllowLoose').prop('checked', p.allowLoose === true);
             $('#prodDefaultSellUnit').val(p.defaultSellUnit || 'PACK');
+            // C6 — per-product tracking policy. Read from the ref so the form shows what the TILLS will
+            // enforce, not a separate copy that could disagree with it.
+            $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
+            $('#prodTracksBatch').prop('checked', p.tracksBatch === true);
             prodPackSizeChanged();
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
             loadCategories(p.categoryId != null ? p.categoryId : '');
@@ -603,6 +656,10 @@
             data: JSON.stringify(body),
             success: function (resp) {
                 if (resp && resp.success) {
+                    // C6 — the tracking policy is saved through its OWN endpoint, like the clinical flags,
+                    // because it is policy rather than product data. Fired after the product exists so a
+                    // newly created product has an id to attach it to.
+                    saveProductTracking(id || (resp.data && resp.data.id));
                     showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
                     // Consume the intent exactly once, whatever we decide below, so it can never leak
                     // into a later save (the same rule afterSavePurchase follows).

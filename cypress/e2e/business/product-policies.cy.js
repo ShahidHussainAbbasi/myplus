@@ -94,6 +94,36 @@ describe('C6 — per-product tracking policy', () => {
     })
   })
 
+  // ── reachability ────────────────────────────────────────────────────────────────────────────────
+
+  it('⭐ an owner can actually REACH the policy — the checkbox is on the product form', () => {
+    /*
+     * This case exists because C6 shipped without it and nobody would have noticed.
+     *
+     * The column, the endpoint, the guard and the API gate were all correct and all green — and there was no
+     * checkbox anywhere in the product form, so no shopkeeper could set the policy at all. A capability with
+     * no reachable control is the same "shipped unreachable" failure that hit C1 (a service nothing wired),
+     * C3 (a catalog nothing registered) and the settings resolver before them.
+     *
+     * An API-driven gate cannot catch it: cy.request reaches the endpoint whether a UI exists or not. The
+     * assertion has to be about the SCREEN.
+     */
+    cy.setCapability(CAP, true)
+    cy.visit('/businessDashboard')
+    cy.get('#prodRequiresSerial').should('exist').and('not.have.class', 'cap-off')
+    // The row wrapping it is capability-gated too — if that were hidden, the box would be unreachable even
+    // though the box itself is not marked.
+    cy.get('[data-capability="serialTracking"]').should('exist').and('not.have.class', 'cap-off')
+  })
+
+  it('the control disappears for a tenant without the capability', () => {
+    // The other half. Without this, a build that showed the checkbox to everyone would pass the case above,
+    // and a hardware shop would be offered an IMEI setting it has no use for.
+    cy.setCapability(CAP, false)
+    cy.visit('/businessDashboard')
+    cy.get('[data-capability="serialTracking"]').should('have.class', 'cap-off').and('not.be.visible')
+  })
+
   // ── capability ON: the policy can be set ────────────────────────────────────────────────────────
 
   it('ON — a tenant with the capability can mark a product serial-tracked', () => {

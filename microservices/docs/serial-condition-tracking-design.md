@@ -153,3 +153,94 @@ The standing constraint was *"no break of current implementation of maxtheservic
 ## 8. Not in scope
 
 Warranty periods, unit-level cost, IMEI validation by checksum (the Luhn check on a 15-digit IMEI is real and cheap — worth its own slice once capture exists), and any bulk import of an existing handset register.
+
+---
+
+## SER-2 — the register (implemented, awaiting build + gate)
+
+**Ruling taken: the register lives in business-service.** `InstallmentPlan.serialUnitId`'s comment intended
+inventory-service; the evidence went the other way and the user approved the recommendation:
+
+1. V44 already settled the principle — asking another service mid-sale "would fail OPEN the moment it is slow
+   or down, and the guarantee would be worth nothing precisely when the shop is busiest";
+2. `Purchase` and `Sell` are both business-service entities, so creation and consumption on one side with the
+   register on the other puts a remote call on the sale path;
+3. inventory-service holds no unit or batch identity at all — `stock_entries` is `product_id` + `warehouse_id`.
+
+**inventory-service owns quantities; business-service owns which unit.**
+
+### What shipped
+
+| Piece | Where |
+|---|---|
+| `serial_unit` table + partial-unique emulation | `V52__serial_unit.sql` |
+| Entity / repository | `SerialUnit`, `SerialUnitRepo` (every query tenant-scoped) |
+| Validation + registration | `SerialUnitService` |
+| Capture on purchase | `PurchaseService` — validate BEFORE the write, register after |
+| Read API | `SerialUnitController` — in-stock by product, and full HISTORY by serial |
+| Monolith proxies | `PurchaseController` — `/serialUnits`, `/serialHistory` |
+| Capture UI | purchase form: serials textarea + condition select, capability-gated |
+| Parsing tests | `SerialUnitParsingTest` (runs on `mvn test`) |
+
+Uniqueness reuses V44's proven technique: a STORED generated column that is NULL unless `IN_STOCK`, so
+`UNIQUE (organization_id, live_serial_no)` means **"not in stock twice"**, never "never twice" — a bought-back
+handset returning to the shelf is the whole point of a register. Being STORED and derived from `status`, it
+re-computes on UPDATE: selling a unit frees its serial with nothing to remember.
+
+### ⚠ A transport constraint found while wiring the UI
+
+The monolith's purchase proxy collapses repeated parameters:
+
+```java
+request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+```
+
+So `serials=A&serials=B` would have arrived as **A alone** — a shop receiving ten handsets registering one,
+silently, with the purchase reporting success. The serials therefore travel as ONE newline-separated parameter
+and are split server-side, which keeps the list intact without changing a proxy every purchase field flows
+through. `SerialUnitParsingTest` covers the split, including blank lines: a trailing newline is unavoidable in
+a textarea, and counting it as a unit would refuse a correct purchase for an invisible reason.
+
+### Deliberate limits
+
+* `productRequiresSerial` **fails OPEN** if catalog-service is unreachable — a shop must not be unable to
+  receive stock because a catalogue read is down. Serials that WERE supplied are still validated and
+  registered, and the uniqueness guarantee is untouched; only the obligation relaxes.
+* **SER-3 (consumption at sale) is not in this slice.** The register records what arrived; marking a unit SOLD
+  belongs with the sale path and its own gate.
+
+### Build
+
+business-service (new migration V52, entity, repo, service, controller, purchase wiring) and the monolith
+(purchase form, `main.js`, proxies, 6 i18n keys × 6 bundles).
+
+### SER-2 — ✅ GREEN
+
+`serial-register.cy.js` **8/8**, plus `credit-limit.cy.js` 14/14 and `b2b-customer-type.cy.js` 13/13 re-run as
+regression: **every purchase in the product now passes through serial validation**, so 27 purchase-heavy tests
+staying green is the evidence that ordinary receiving is undisturbed.
+
+#### The guarantee, proved at the database before any test was written
+
+```
+1. INSERT IMEI-TEST-1 IN_STOCK                     → OK
+2. INSERT IMEI-TEST-1 IN_STOCK again               → Duplicate entry for key 'uq_serial_unit_live'
+3. UPDATE → SOLD  (live_serial_no auto-becomes NULL)
+   INSERT IMEI-TEST-1 IN_STOCK again               → OK
+```
+
+That is "not in stock twice", never "never twice", with the generated column re-computing on UPDATE exactly as
+designed — a sold unit frees its serial with nothing to remember. Checking the property directly against MySQL
+is stronger than any assertion through the app, and it cost one query.
+
+#### What the gate asserts, and what it deliberately does not
+
+Not "the purchase succeeded" — that was already true while serials were being silently dropped. It asserts the
+**register**: that three handsets produce three units each carrying its *own* IMEI (a length check alone would
+pass the collapsing-proxy bug, which produced three rows all holding the first serial), that history answers
+for a unit that has left, that a duplicate is refused **and leaves nothing behind**, and that a miscount is
+refused.
+
+Two cases assert the **screen**, not the API: the serials textarea and condition select are on the purchase
+form, and they disappear for a shop without the capability. Every other case drives `cy.request`, which reaches
+an endpoint whether a UI exists or not — the precise blind spot that let C6 ship unusable.

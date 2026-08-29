@@ -114,4 +114,45 @@ public class PurchaseController {
             return false;
         }
     }
+
+    /**
+     * SER-2 — the units of a product currently on the shelf → business-service {@code /serialUnits}.
+     *
+     * <p>Ships WITH the register rather than after it. A register nobody can query is a table, not a feature:
+     * C6 shipped a per-product policy with no control on any screen, and every API test passed while the thing
+     * was unusable. A shop recording IMEIs it can never look up is the same mistake with worse consequences —
+     * "who did we sell this handset to?" is where a warranty claim, a return and a police enquiry all start.
+     */
+    @RequestMapping(value = "/serialUnits", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> serialUnits(final HttpServletRequest request) {
+        try {
+            return client.get("/serialUnits", "productId=" + enc(request.getParameter("productId")));
+        } catch (Exception e) {
+            LOGGER.error("serialUnits proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * SER-2 — everything ever recorded under one serial → business-service {@code /serialHistory}.
+     *
+     * <p>The HISTORY, not the live row. A unit that has already left the shop is exactly the one somebody is
+     * asking about, and a query restricted to what is in stock could never answer it — the specific gap
+     * {@code InstallmentPlan.assetRef} left, since it held a serial only while a finance plan was running.
+     */
+    @RequestMapping(value = "/serialHistory", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> serialHistory(final HttpServletRequest request) {
+        try {
+            return client.get("/serialHistory", "serial=" + enc(request.getParameter("serial")));
+        } catch (Exception e) {
+            LOGGER.error("serialHistory proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    private static String enc(String v) {
+        return v == null ? "" : java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8);
+    }
 }

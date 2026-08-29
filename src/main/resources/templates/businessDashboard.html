@@ -1573,7 +1573,36 @@ tr.row-voided .js-edit-row{display:none !important}
 						<label class="control-label col-sm-2" for="purchaseStock" th:text="#{ui.stockInHand}">Stock In Hand</label>
 						<div class="col-lg-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
-						</div>						
+						</div>
+					</div>
+
+					<!--
+						SER-2 — the serial / IMEI of each unit received, and the condition they arrived in.
+
+						Capability-gated, so a shop that does not track serials never sees the row. Within a shop
+						that does, the SERVER still decides per product: a handset requires serials, a charger on
+						the same receipt does not (ProductRef.requiresSerial).
+
+						One per line rather than a comma list: an IMEI is 15 digits transcribed off a box, and a
+						separator is one more thing to get wrong when the count must match the quantity exactly.
+					-->
+					<div class="form-group" data-capability="serialTracking,conditionGrading">
+						<label class="control-label col-sm-2" for="purchaseSerials"
+						       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
+						<div class="col-sm-4" data-capability="serialTracking">
+							<textarea class="form-control" id="purchaseSerials" rows="3"
+							          th:placeholder="#{ui.js.serialNumbersHint}"
+							          placeholder="One serial or IMEI per line — one for each unit received"></textarea>
+						</div>
+						<label class="control-label col-sm-2" for="purchaseCondition"
+						       data-capability="conditionGrading" th:text="#{ui.js.condition}">Condition</label>
+						<div class="col-sm-4" data-capability="conditionGrading">
+							<select class="form-control" id="purchaseCondition">
+								<option value="NEW" th:text="#{ui.js.conditionNew}">New</option>
+								<option value="USED" th:text="#{ui.js.conditionUsed}">Used</option>
+								<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
+							</select>
+						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</label>
@@ -2826,6 +2855,38 @@ tr.row-voided .js-edit-row{display:none !important}
 								<option value="PACK" th:text="#{ui.js.startsAsPack}">Sales start as whole units</option>
 								<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
 							</select>
+						</div>
+					</div>
+
+					<!--
+						C6 — per-product TRACKING policy.
+
+						Each control carries its own data-capability, so a tenant without the capability never
+						sees the box at all. That is the two-level rule expressed in the UI: the capability
+						decides whether the shop may ask, the checkbox decides whether THIS product does.
+						The server enforces the same rule independently (ProductService.requireCapability) —
+						hiding the box is convenience, not the control.
+
+						Its own row rather than fields on the general product save: these are POLICY, written
+						through /setProductTracking, exactly as the clinical flags are. Folding them into the
+						ordinary update would mean every product edit carried a payload that can be refused for
+						a reason unrelated to what the operator changed.
+					-->
+					<div class="form-group" data-capability="serialTracking,batchTracking">
+						<label class="control-label col-sm-2" th:text="#{ui.js.tracking}">Tracking</label>
+						<div class="col-sm-4">
+							<div class="checkbox" style="margin-top:0" data-capability="serialTracking">
+								<label>
+									<input type="checkbox" id="prodRequiresSerial">
+									<span th:text="#{ui.js.requiresSerial}">Needs a serial / IMEI</span>
+								</label>
+							</div>
+							<div class="checkbox" style="margin-top:0" data-capability="batchTracking">
+								<label>
+									<input type="checkbox" id="prodTracksBatch">
+									<span th:text="#{ui.js.tracksBatch}">Arrives in batches</span>
+								</label>
+							</div>
 						</div>
 					</div>
 

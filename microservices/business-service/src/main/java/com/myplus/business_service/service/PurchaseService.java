@@ -129,6 +129,16 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.common.settings.SettingsService settingsService;     // B2B-P1 (#9): the purchase-side policy
 
+    /**
+     * SER-2 — the per-unit register. Validates the serials on a receipt before the write and records the
+     * units after it.
+     *
+     * <p>REQUIRED, like every capability-adjacent injection here: an optional one would silently skip the
+     * check, and a purchase that quietly recorded no units is exactly the failure this slice exists to end.
+     */
+    @Autowired
+    SerialUnitService serialUnitService;
+
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
     ModelMapper modelMapper = new ModelMapper();
@@ -350,7 +360,23 @@ public class PurchaseService implements IPurchaseService{
 		// `warn` asks while the decision is still reversible. Inert unless the vendor has a limit set.
 		assertVendorCreditPolicy(obj, bill.subtract(paid), Boolean.TRUE.equals(dto.getCreditAcknowledged()));
 
+		/*
+		 * SER-2 — check the serials BEFORE the write, in the same place and for the same reason as the vendor
+		 * credit check above: a refusal here has changed nothing. Validating after the purchase was saved
+		 * would leave a committed receipt whose units are missing, which is precisely the shape of defect the
+		 * installment guard had to be moved to avoid.
+		 */
+		java.util.List<String> serials = serialUnitService.validateForPurchase(
+				dto.getSerials(),
+				productRequiresSerial(dto.getProductId()),
+				dto.getQuantity() == null ? 0f : dto.getQuantity(),
+				org);
+
 		Purchase saved = this.save(obj);
+		// The units this delivery brought in. Same transaction as the purchase: a unit without its purchase,
+		// or a purchase whose units were silently dropped, are both worse than the whole receipt failing.
+		serialUnitService.registerForPurchase(saved.getPurchaseId(), saved.getProductId(), serials,
+				dto.getConditionGrade(), user);
 		if (saved.getVenderId() != null) venderService.recomputePayable(saved.getVenderId());   // F1 (AP)
 		pushPurchaseToInventory(saved, dto, user);        // dual-write stock-in to inventory (authoritative)
 
@@ -390,6 +416,32 @@ public class PurchaseService implements IPurchaseService{
 	 * master. Best-effort by design: the stock is already in and the bill already recorded, so a catalog outage
 	 * degrades the Product screen's rate columns, never the purchase itself.
 	 */
+	/**
+	 * SER-2 — does this product require a serial per unit?
+	 *
+	 * <h3>Fails OPEN, and the limit is worth stating</h3>
+	 * If catalog-service cannot be reached this answers {@code false}, so a receipt is not blocked by a
+	 * service that has nothing to do with the goods arriving. The cost is that the "you must supply serials"
+	 * rule is not enforced during a catalog outage.
+	 *
+	 * <p>What does NOT degrade: serials the operator actually supplied are still validated and still
+	 * registered, and the database's uniqueness guarantee is untouched. Only the obligation relaxes, never the
+	 * correctness of what is recorded — which is the right way round, because the alternative is a shop unable
+	 * to receive stock while a catalogue read is down.
+	 */
+	private boolean productRequiresSerial(Long productId) {
+		if (productId == null) return false;
+		try {
+			com.myplus.commerce.contracts.dto.ProductRef ref = catalogClient.getProduct(productId);
+			return ref != null && Boolean.TRUE.equals(ref.getRequiresSerial());
+		} catch (RuntimeException catalogUnavailable) {
+			LOG.warn("Could not read the serial policy for product {} — the purchase proceeds without "
+					+ "enforcing it. Serials that WERE supplied are still validated and registered.",
+					productId, catalogUnavailable);
+			return false;
+		}
+	}
+
 	private void stampRatesOnProduct(Purchase saved, String phase) {
 		if (saved == null || saved.getProductId() == null) return;
 		// Read the SAVED BILL, not the incoming DTO: these are the very fields tablePurchase renders, so the

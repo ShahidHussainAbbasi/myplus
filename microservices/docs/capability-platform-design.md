@@ -1062,3 +1062,43 @@ plus the per-product policy writes (`tracking-flags`, `clinical-flags`) in catal
 **Three capabilities remain unguarded, each for a stated reason** — `journeyPlanning` (feature not built),
 `fefoAllocation` (behaviour, not a write), `batchTracking`/`expiryTracking` (needs the purchase flow examined
 first). Those are recorded findings, not omissions.
+
+---
+
+## 21. End-to-end review — one real gap, and it was the same failure again
+
+Reviewed the platform against the running system rather than the source.
+
+**Confirmed reachable** (probed live on the Configuration screen as `owner.business@`): the capability group
+"What this business does" renders, the C4 shape group renders, "Type of business" is a working dropdown, the
+serial switch is present — 45 checkboxes and 10 selects in total. So C3c and C4 are real for an owner, not just
+for a test.
+
+**The gap: C6's product policy had NO UI.** The column, the endpoint, the guard and a green API gate all
+existed — and there was no checkbox anywhere in the product form, so no shopkeeper could set `requiresSerial`
+at all.
+
+That is the **fourth** instance of one failure mode in this work:
+
+| | Shipped | Unreachable because |
+|---|---|---|
+| C1 | `CapabilityService` | nothing wired it — `@Import`, not component scan |
+| C3 | `CapabilityCatalog` | same, one bean further on |
+| C6 | `requires_serial` | no control on any screen |
+| (earlier) | PERF-4, the signup password meter | implemented, never executed |
+
+**An API-driven gate cannot catch it.** `cy.request` reaches an endpoint whether a UI exists or not, so every
+assertion passed while the feature was unusable. The gate now asserts the checkbox is on the product form and
+that it disappears for a tenant without the capability — an assertion about the SCREEN, which is the only kind
+that can fail this way.
+
+### What was added
+
+Product form gains a "Tracking" row: `prodRequiresSerial` and `prodTracksBatch`, each carrying its own
+`data-capability` so a tenant without the capability never sees the box. Saved through `/setProductTracking`
+after the product save, like the clinical flags — policy, not product data.
+
+`saveProductTracking` **omits a flag whose capability is off** rather than sending `false`. An unchecked hidden
+box sent as an explicit false would quietly clear a policy the operator never saw, on every ordinary edit.
+
+Three keys added across all six i18n bundles (`ui.js.tracking`, `.requiresSerial`, `.tracksBatch`).

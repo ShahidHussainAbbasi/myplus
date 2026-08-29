@@ -655,6 +655,35 @@ $(document).ready(function() {
 						// full quantity (which double-counted stock). Keyed on the readonly #purchaseId.
 						var pIdVal = $("#purchaseId").val();
 						if(pIdVal && pIdVal*1 > 0) action = "updatePurchase";
+
+						/*
+						 * SER-2 — the serials of the units received, and the condition they arrived in.
+						 *
+						 * APPENDED for the same reason productId is: populateFormData() returns a URL-encoded
+						 * STRING, so assigning a property to it is a silent no-op — the mistake that made
+						 * productId null on every purchase until it was found.
+						 *
+						 * ⚠ ONE parameter carrying ALL the serials, newline-separated — NOT one `serials=`
+						 * per unit. The monolith's purchase proxy collapses repeated parameters:
+						 *
+						 *     request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+						 *
+						 * so `serials=A&serials=B` would arrive as A alone, and a shop receiving ten handsets
+						 * would register one — silently, with the purchase reporting success. The server
+						 * splits the text (SerialUnitService), which keeps the whole list intact without
+						 * changing a proxy that every purchase field flows through.
+						 *
+						 * Sent only when the tenant HAS the capability: the row is hidden without it, and
+						 * posting a field the shop does not use only invites the server to reason about it.
+						 */
+						if (typeof hasCapability !== 'function' || hasCapability('serialTracking')) {
+							var rawSerials = $.trim($("#purchaseSerials").val() || '');
+							if (rawSerials !== '') fd += "&serials=" + encodeURIComponent(rawSerials);
+						}
+						if (typeof hasCapability !== 'function' || hasCapability('conditionGrading')) {
+							var grade = $("#purchaseCondition").val();
+							if (grade) fd += "&conditionGrade=" + encodeURIComponent(grade);
+						}
 					}
 					$(this).callAjax(action, fd);
 			    }else{

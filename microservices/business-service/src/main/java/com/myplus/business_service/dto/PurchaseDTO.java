@@ -96,6 +96,32 @@ public class PurchaseDTO implements Serializable {
 	@ValidateEmpty
 	private Float quantity;
 
+	/**
+	 * SER-2 — the serial / IMEI of each unit received on this line.
+	 *
+	 * <p>One per LINE in a single string, not a list, and that is forced by the transport: the monolith's
+	 * purchase proxy collapses repeated parameters ({@code params.put(k, v[0])}), so {@code serials=A&serials=B}
+	 * would arrive as A alone and a shop receiving ten handsets would register one — silently. Splitting here
+	 * keeps the whole list intact without changing a proxy every purchase field flows through.
+	 *
+	 * <p>Empty or absent for the ordinary case, which is most products in most shops: a charger has no serial
+	 * and never will.
+	 *
+	 * <p><b>Not mapped onto {@link com.myplus.business_service.entity.Purchase}.</b> A purchase row describes a
+	 * DELIVERY; the units it brought in are their own records with their own lifecycle (in stock → sold →
+	 * returned). Flattening them onto the purchase is what {@code InstallmentPlan.assetRef} did, and it could
+	 * hold exactly one serial for exactly one financed handset.
+	 */
+	private String serials;
+
+	/**
+	 * SER-4 — the condition of the units received: NEW, USED or REFURBISHED.
+	 *
+	 * <p>Per LINE rather than per unit, because a delivery is normally graded as a lot. A mixed intake is
+	 * entered as two lines, which is also how it is priced.
+	 */
+	private String conditionGrade;
+
 	private StockDTO stock;
 
 	private String purchaseInvoiceNo;
