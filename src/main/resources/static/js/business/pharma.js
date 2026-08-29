@@ -319,7 +319,28 @@
         var id = window.dispensingPrescriptionId;
         if (!id) return;
         // M5 (slice 100): the cart line keys by productId now; dispense records against the catalog Product.
-        var items = (window.data || []).map(function (d) { return { productId: Number(d.productId), quantity: Number(d.quantity) || 0 }; });
+        /*
+         * ⚠ A DISPENSE IS RECORDED IN PIECES, BECAUSE A PRESCRIPTION IS WRITTEN IN PIECES.
+         *
+         * `d.quantity` on a LOOSE cart line is PACKS — 1.5 for fifteen tablets. The register's
+         * `dispensedQuantity` is an `int` and the server does `min(room, line.quantity)`, so 1.5 arrived as
+         * 1: a script for 15 tablets recorded ONE, left 14 apparently owed, and stayed open for a repeat
+         * dispense. The stock and the money were both correct; only the clinical record was wrong — and for
+         * a controlled substance that is a register understating what left the counter.
+         *
+         * `soldQuantity` is what the customer actually received, in the unit the script is written in.
+         *
+         * ⚠ PACK LINES ARE DELIBERATELY UNCHANGED HERE. Two packs of ten against a 15-tablet script still
+         * record 2, not 20 — a pre-existing mismatch that predates loose selling and depends on whether this
+         * shop writes scripts in tablets or in packs. Changing it needs that answer, and guessing would
+         * corrupt the register in the opposite direction. Raised, not silently "fixed".
+         */
+        var items = (window.data || []).map(function (d) {
+            var pieces = (String(d.soldUnit || '').toUpperCase() === 'LOOSE' && Number(d.soldQuantity) > 0)
+                ? Number(d.soldQuantity)
+                : Number(d.quantity) || 0;
+            return { productId: Number(d.productId), quantity: pieces };
+        });
         $.ajax({
             type: 'POST', url: serverContext + 'dispensePrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),

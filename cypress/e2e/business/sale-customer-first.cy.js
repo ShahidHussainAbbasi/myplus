@@ -66,30 +66,39 @@ describe('Sale screen — customer first, keyboard only', () => {
     })
   })
 
-  it('⭐ a walk-in is not slowed down — the cursor still starts at the goods', () => {
+  it('⭐ opening a new sale puts the cursor ON the customer', () => {
     /*
-     * The regression this guards against is the obvious over-correction: making the customer the entry point.
-     * That would add a stop to every cash sale on the very screen whose complaint was that a queue forms.
-     * The customer being FIRST IN THE CHAIN and being WHERE THE CURSOR LANDS are different things, and only
-     * the first was asked for.
+     * The ruling: a sale starts by naming who is buying.
+     *
+     * A sale is priced by the customer — contract and tier prices, credit limit, store credit — so a cashier
+     * who rings lines first has been pricing against a customer the system did not know it had. Starting here
+     * makes the first price the right price rather than relying on somebody remembering to scroll down.
+     *
+     * This test previously asserted the OPPOSITE (cursor on the goods, customer merely reachable). That was
+     * my reading of the trade-off and it was overruled; the assertion is inverted rather than deleted so the
+     * file records that the entry point is a decision, not an accident.
      */
     cy.visitSaleScreen()
     cy.window().then((w) => {
-      if (typeof w.posFocusEntryPoint !== 'function') return
+      expect(typeof w.posFocusEntryPoint, 'the keyboard exposes its entry point').to.eq('function')
       w.posFocusEntryPoint()
-    })
-    /*
-     * Asserted as "NOT the customer", rather than as "equals sellItemDD".
-     *
-     * These pickers are bootstrap-select widgets: focusing one lands on the widget's BUTTON, which carries no
-     * id of its own. An id-equality check therefore reads `undefined` and fails against a product that is
-     * behaving perfectly — which is exactly what it did on the first run. The claim this test makes is that a
-     * walk-in is not forced through the customer field, so that is the claim it should assert.
-     */
-    cy.focused().then(($el) => {
-      const onCustomer = $el.attr('id') === 'sellCustomerDD'
-        || $el.closest('[id="sellCustomerDD"]').length > 0
-      expect(onCustomer, 'the cursor must NOT start on the customer picker').to.eq(false)
+      /*
+       * Resolved with the APP'S OWN idiom, not one invented here.
+       *
+       * A bootstrap-select puts focus on its BUTTON, which carries no id — so `activeElement.id` reads
+       * undefined against a product working perfectly, which is how this assertion failed twice. The widget
+       * keeps the original <select> as the wrapper's previous sibling, and `pos-keyboard.js` resolves a
+       * focused button back to its picker with exactly this expression:
+       *
+       *     $(this).closest('.bootstrap-select').prev('select')
+       *
+       * Using the same expression means the test cannot disagree with the code it is testing. A parallel
+       * rule invented in a spec is a second definition of "which picker is this", and the two drift.
+       */
+      const active = w.document.activeElement
+      const $picker = w.jQuery(active).closest('.bootstrap-select').prev('select')
+      const focusedId = $picker.attr('id') || (active && active.id)
+      expect(focusedId, 'a new sale starts on the customer picker').to.eq('sellCustomerDD')
     })
   })
 
@@ -106,14 +115,20 @@ describe('Sale screen — customer first, keyboard only', () => {
      * scrolling list nobody can operate from a keyboard, which would defeat the point of moving it here.
      */
     cy.visitSaleScreen()
-    cy.get('#sellCustomerDD', { timeout: 15000 }).should('exist')
+    /*
+     * A RETRYING assertion, because the customer list arrives after the screen does.
+     *
+     * The first version read options.length once, immediately, and found 1 — the placeholder. Probing showed
+     * the real list (837 rows) lands a few seconds later, so the test was failing on timing while the feature
+     * worked. cy.get retries; a plain expect() inside cy.window() does not.
+     */
+    cy.get('#sellCustomerDD option', { timeout: 20000 })
+      .should('have.length.greaterThan', 1)
     cy.window().then((w) => {
       const $sel = w.jQuery('#sellCustomerDD')
       expect($sel.data('selectpicker'), 'the picker is a real searchable widget, not a bare <select>')
         .to.not.eq(undefined)
       expect(String($sel.attr('data-live-search')), 'type-to-search is enabled').to.eq('true')
-      expect($sel[0].options.length, 'and it is populated — an empty picker proves nothing')
-        .to.be.greaterThan(1)
     })
   })
 })

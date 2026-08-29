@@ -266,7 +266,10 @@
      * items are typed.
      */
     function goToCheckout() {
-        if (!global.data || global.data.length === 0) { focusEntryPoint(); return false; }
+        // Empty cart: back to the GOODS, not to the entry point. Since the entry point became the customer,
+        // routing here would bounce customer → item → customer and trap the cashier in a loop with no way
+        // forward. "Leave them where the items are typed" is what this line has always meant.
+        if (!global.data || global.data.length === 0) { focusGoodsEntry(); return false; }
         for (var i = 0; i < CHECKOUT.length; i++) {
             if (usable(CHECKOUT[i])) { focusField(CHECKOUT[i]); return true; }
         }
@@ -284,22 +287,46 @@
     /** Where the cashier starts the next line: the scan box when the org uses barcodes, else the
      *  item picker. Called after every commit so the till is always ready for the next scan. */
     /**
-     * Where the cursor lands when the sale screen opens.
+     * Where the cursor lands when the sale screen opens: <b>the customer</b>.
      *
-     * <h3>NOT the customer, even though the customer is now first in CHAIN (task #13)</h3>
-     * Putting it there would add a stop to EVERY sale, and the overwhelming majority are walk-ins who have
-     * no customer to name. The cashier would open the till and immediately have to escape a field they did
-     * not want — on the screen whose whole complaint was that a queue forms while it loads.
+     * <h3>A decision taken deliberately, against my first instinct</h3>
+     * This originally landed on the scan box, on the reasoning that most sales are walk-ins and starting on
+     * the customer would add a stop to every one of them. The product owner's ruling was the opposite, and
+     * the ruling is right for a reason the reasoning missed: a sale is priced by WHO is buying — contract and
+     * tier prices, credit limit, store credit — so a cashier who rings lines first has been pricing against a
+     * customer the system did not know it had. Starting here makes the first price the right price, every
+     * time, instead of relying on somebody remembering to look down the screen.
      *
-     * So: the customer is the first thing on the screen and the first link in the chain, reachable with one
-     * Shift+Enter from the item box, and the cursor still starts where the goods are typed. A shop selling
-     * on account chooses the customer and walks forward; a shop taking cash never touches it.
+     * <h3>The walk-in still is not slowed down</h3>
+     * The picker is in PICKERS, so it behaves exactly like the item picker: a blank one is skipped with the
+     * same double Enter a cashier already knows. One familiar keystroke, not a new rule to learn — which is
+     * what makes customer-first affordable on a busy counter.
      *
-     * <p>If a tenant genuinely wants customer-first as the default — a wholesaler where every sale is on
-     * account — that is a per-tenant setting, not a change here. Hard-coding it would slow the common case
-     * to serve the uncommon one.
+     * <p>Order of preference, so the entry point degrades sensibly rather than landing nowhere: the customer
+     * picker, then the manual-name field when the operator is in manual mode (the picker is hidden then), and
+     * only then the goods — for a tenant whose customer block is switched off entirely.
      */
     function focusEntryPoint() {
+        if (usable('sellCustomerDD')) { focusField('sellCustomerDD'); return; }
+        if (usable('sellCN')) { focusField('sellCN'); return; }
+        focusGoodsEntry();
+    }
+
+    /**
+     * Where the GOODS are typed — the scan box, or the item picker when scanning is off.
+     *
+     * <h3>Why this is separate from focusEntryPoint()</h3>
+     * They used to be the same function, and separating them fixes a loop that appeared the moment the entry
+     * point moved to the customer:
+     *
+     *   empty item picker + double Enter → goToCheckout() → cart is empty, so fall back to the entry point
+     *   → which is now the CUSTOMER → skip the customer → back to the item picker → round again.
+     *
+     * The cashier could not leave. {@code goToCheckout}'s own comment already said what the fallback meant —
+     * "leave them where the items are typed" — and that stopped being true when the entry point changed
+     * underneath it. Two callers wanted two different answers from one function, which is the whole bug.
+     */
+    function focusGoodsEntry() {
         if (global.posBarcodeEnabled !== false && $('#sellScan').is(':visible')) {
             focusField('sellScan');
         } else {
