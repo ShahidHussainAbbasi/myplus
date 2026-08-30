@@ -103,6 +103,18 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productBarcodeService.forProduct(id)));
     }
 
+    /**
+     * U12 — every sticker in the shop, for the label sheet.
+     *
+     * <p>U7 exposed stickers one product at a time, which is right for the product form and wrong for a
+     * screen that prints a shelf's worth: a 1,200-product catalogue would have meant 1,200 requests to find
+     * the handful of products that actually carry a sticker.
+     */
+    @GetMapping("/barcodes")
+    public ResponseEntity<ApiResponse<java.util.List<com.myplus.catalog.entity.ProductBarcode>>> allBarcodes() {
+        return ResponseEntity.ok(ApiResponse.success(productBarcodeService.forOrg()));
+    }
+
     /** U7 — register a sticker. Refuses a code that would shadow a real product barcode; see the service. */
     @PostMapping("/{id}/barcodes")
     public com.myplus.catalog.entity.ProductBarcode addBarcode(@PathVariable Long id,

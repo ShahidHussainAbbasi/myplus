@@ -32,7 +32,8 @@ const list = (body) => {
 const report = (body) => (body && body.object) || null
 
 const HEADERS =
-  'sku,name,description,categoryName,unit,manufacturer,sellingPrice,taxRate,barcode,rxRequired,controlledSubstance'
+  'sku,name,description,categoryName,unit,manufacturer,sellingPrice,taxRate,barcode,rxRequired,controlledSubstance,'
+  + 'packSize,looseUnit,looseUnitPlural,allowLoose'
 
 /** One CSV line with everything after `name` blank. */
 const row = (sku, name, rest = ',,,,,,,,,') => `${sku},${name}${rest}`
@@ -367,5 +368,101 @@ describe('I2 — Product CSV import', () => {
     cy.openSection('VenderDiv')
     cy.get('.btn-import-template').should('not.exist')
     cy.get('.btn-import-csv').should('not.exist')
+  })
+
+  // ── U9: the pack rules are importable ────────────────────────────────────────────────────────────────
+
+  it('⭐ a pack-rule row creates a product the till can split', () => {
+    /*
+     * The reason this slice exists: a pharmacy switching loose selling on must say what a pack holds for
+     * every medicine it splits. By hand, on 1,200 products, that is why a shop does not adopt the feature.
+     */
+    const name = 'PackImp_' + uniq()
+    const csv = csvOf(`,${name},,,pack,,120,,,,,10,tablet,tablets,true`)
+
+    commit(csv).then((r) => {
+      expect(report(r.body).rows.filter((x) => x.status === 'ERROR'), JSON.stringify(r.body).slice(0, 250))
+        .to.have.length(0)
+    })
+    products().then((ps) => {
+      const p = ps.find((x) => x.name === name)
+      expect(p, 'the product landed').to.exist
+      expect(p.packSize, 'a pack holds ten').to.eq(10)
+      expect(p.looseUnit).to.eq('tablet')
+      expect(p.looseUnitPlural, '"5 tablet" is wrong in every language here').to.eq('tablets')
+      expect(p.allowLoose, 'and it may be split').to.eq(true)
+    })
+  })
+
+  it('⭐ allowLoose without a pack size is REFUSED, with the reason', () => {
+    // A contradiction the product form cannot produce — it hides the loose fields until a pack size above 1
+    // is entered. An import must not be a way around that, or the till refuses to split products the
+    // catalogue says are splittable and nothing explains why.
+    const name = 'BadLoose_' + uniq()
+    const csv = csvOf(`,${name},,,pack,,120,,,,,,tablet,tablets,true`)
+
+    validate(csv).then((r) => {
+      const bad = report(r.body).rows.find((x) => x.status === 'ERROR')
+      expect(bad, 'the row is refused: ' + JSON.stringify(r.body).slice(0, 250)).to.exist
+      expect(bad.message).to.match(/allowLoose is true but packSize is missing/i)
+    })
+  })
+
+  it('a pack size of 1 is refused for the same reason', () => {
+    const name = 'PackOne_' + uniq()
+    const csv = csvOf(`,${name},,,pack,,120,,,,,1,tablet,tablets,true`)
+
+    validate(csv).then((r) => {
+      const bad = report(r.body).rows.find((x) => x.status === 'ERROR')
+      expect(bad, 'a pack of one is not divisible').to.exist
+      expect(bad.message).to.match(/more than one/i)
+    })
+  })
+
+  it("⭐ a file WITHOUT the pack columns does not strip a product's pack rules", () => {
+    /*
+     * THE PROPERTY THAT PROTECTS EXISTING DATA. A blank packSize means "not supplied", never "make this
+     * indivisible" — the same rule the product form follows. Without it, re-importing last year's file over
+     * a configured catalogue would quietly un-split every medicine in it, and the failure would surface at
+     * the counter as "this product is not sold by the piece".
+     */
+    const name = 'Keep_' + uniq()
+
+    // 1) create it WITH pack rules
+    commit(csvOf(`,${name},,,pack,,120,,,,,10,tablet,tablets,true`))
+    products().then((ps) => {
+      const p = ps.find((x) => x.name === name)
+      expect(p, 'created with pack rules').to.exist
+      expect(p.packSize).to.eq(10)
+
+      // 2) now re-import the SAME product from an old-style file that has no pack columns at all
+      const oldStyleHeader = 'sku,name,description,categoryName,unit,manufacturer,sellingPrice,taxRate,'
+        + 'barcode,rxRequired,controlledSubstance'
+      const oldCsv = [oldStyleHeader, `,${name},,,pack,,130,,,,`].join('\n') + '\n'
+      commit(oldCsv).then((r) => cy.log('old-style re-import: ' + JSON.stringify(r.body).slice(0, 200)))
+
+      products().then((after) => {
+        const q = after.find((x) => x.name === name)
+        expect(q, 'still there').to.exist
+        expect(q.packSize, 'the pack rules survived a file that never mentioned them').to.eq(10)
+        expect(q.allowLoose, 'and it can still be split').to.eq(true)
+      })
+    })
+  })
+
+  it('an ordinary row is completely unaffected by the new columns', () => {
+    // Most of the catalogue is not divisible, and importing it must look exactly as it did before U9.
+    const name = 'PlainImp_' + uniq()
+    const csv = csvOf(`,${name},,,pcs,,50,,,,`)
+
+    commit(csv).then((r) => {
+      expect(report(r.body).rows.filter((x) => x.status === 'ERROR')).to.have.length(0)
+    })
+    products().then((ps) => {
+      const p = ps.find((x) => x.name === name)
+      expect(p, 'imported').to.exist
+      expect(p.packSize, 'no pack size').to.be.oneOf([null, undefined])
+      expect(p.allowLoose, 'and not splittable').to.eq(false)
+    })
   })
 })

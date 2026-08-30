@@ -152,6 +152,33 @@ public class PurchaseController {
         }
     }
 
+    /** Task #21 — the debit-note register, so a purchase return can be found and reprinted later. */
+    @RequestMapping(value = "/getPurchaseReturns", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getPurchaseReturns(final HttpServletRequest request) {
+        try {
+            return client.get("/getPurchaseReturns", "");
+        } catch (Exception e) {
+            LOGGER.error("getPurchaseReturns proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * Task #15 — one debit note, resolved for printing. Straight proxy; the tenant and store checks that make
+     * this safe live in business-service, which is the only side that can see the row's org and store.
+     */
+    @RequestMapping(value = "/debitNote", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> debitNote(final HttpServletRequest request) {
+        try {
+            return client.get("/debitNote", "no=" + enc(request.getParameter("no")));
+        } catch (Exception e) {
+            LOGGER.error("debitNote proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     private static String enc(String v) {
         return v == null ? "" : java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8);
     }

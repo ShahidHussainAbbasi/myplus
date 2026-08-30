@@ -139,6 +139,12 @@ public class ImportEngine {
                 String problem = col.validate(row.get(col.getHeader()));
                 if (problem != null) problems.add(problem);
             }
+            // Cross-field rules, once every cell has passed on its own. A contradiction between two valid
+            // cells is still a row the operator did not mean to write.
+            if (problems.isEmpty()) {
+                String rowProblem = spec.validateRow(row);
+                if (rowProblem != null) problems.add(rowProblem);
+            }
             if (problems.isEmpty()) valid.add(row);
             else c.results.add(RowResult.error(row.getLineNumber(), String.join(" ", problems)));
         }

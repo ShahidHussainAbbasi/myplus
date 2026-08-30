@@ -46,6 +46,7 @@ import com.myplus.business_service.service.IPurchaseService;
 import com.myplus.business_service.service.ISellService;
 import com.myplus.business_service.dto.CustomerDTO;
 import com.myplus.business_service.dto.CustomerHistoryDTO;
+import com.myplus.business_service.dto.ReturnDocumentDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
@@ -1182,6 +1183,48 @@ public class SellController {
 				if (d < 0f) takeLines.add(new com.myplus.commerce.contracts.dto.StockReservationLine(e.getKey(), java.math.BigDecimal.valueOf(-d)));
 				else if (d > 0f) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d).build());
 			}
+			/*
+			 * U10 ⭐ — RETURN TO THE BATCH THE SALE TOOK FROM.
+			 *
+			 * There are two ways stock comes back, and only one of them was batch-aware:
+			 *
+			 *   the dedicated return   -> inventoryClient.returnStock(reservationId, ...)
+			 *                             ReservationService.returnPicks restores each unit to its ORIGINAL
+			 *                             batch, capped per pick, keeping the real expiry so FEFO stays right
+			 *
+			 *   an EDIT of the invoice -> importStock(bare line, no batch)
+			 *                             a FRESH StockEntry with no lot and no expiry
+			 *
+			 * And an edit is how a loose return happens (U6): the cashier reduces the line and the difference
+			 * becomes a credit note. So every returned tablet re-entered stock as an untraceable, undated
+			 * entry — the quantity right, the LOT WRONG. FEFO would then sell the returned units after the
+			 * near-dated batch they actually came from, and a recall could not find them.
+			 *
+			 * Routing an edit's return through the same reservation makes both paths identical. Inventory
+			 * already caps per pick, so an edit that returns more than this reservation took is handled there
+			 * rather than guessed at here.
+			 */
+			if (!returnLines.isEmpty() && ch.getReservationId() != null && !ch.getReservationId().isBlank()) {
+				java.util.List<com.myplus.commerce.contracts.dto.StockReturnLine> byBatch =
+						new java.util.ArrayList<>();
+				for (com.myplus.commerce.contracts.dto.StockImportLine l : returnLines) {
+					// StockReturnLine.qty is Float (the contract inconsistency U0 2.3 recorded and left alone).
+					byBatch.add(new com.myplus.commerce.contracts.dto.StockReturnLine(
+							l.getProductId(), l.getQuantity()));
+				}
+				try {
+					// The 1-arg form is a plain restock (quarantine=false) — an edit that reduces a line is a
+					// customer changing their mind, not a clinical return, so the goods go back on the shelf.
+					inventoryClient.returnStock(ch.getReservationId(),
+							new com.myplus.commerce.contracts.dto.StockReturnRequest(byBatch));
+					returnLines.clear();   // handled by the reservation; do not import a second, batchless copy
+				} catch (Exception batchReturnFailed) {
+					// Fall through to the flat import below rather than lose the stock. A returned unit in the
+					// wrong batch is a traceability problem; a returned unit in NO batch is a missing one.
+					LOGGER.warn("Batch-aware return failed for reservation {}; falling back to a flat restock",
+							ch.getReservationId(), batchReturnFailed);
+				}
+			}
 			if (!takeLines.isEmpty()) {
 				com.myplus.commerce.contracts.dto.StockReservationResponse resp = inventoryClient.reserve(
 						new com.myplus.commerce.contracts.dto.StockReservationRequest(java.util.UUID.randomUUID().toString(), takeLines));
@@ -1595,10 +1638,147 @@ public class SellController {
 	@ResponseBody
 	public GenericResponse getSaleReturns(final HttpServletRequest request) {
 		try {
-			return new GenericResponse("SUCCESS", "Sale returns loaded", saleReturnRepo.findScoped(orgId(), userId()));
+			/*
+			 * Task #21: returned as the SAME ReturnDocumentDTO the printable note uses, not as raw rows.
+			 *
+			 * A raw SaleReturn carries a productId and no customer at all, so a register built from it would
+			 * be a table of ids — technically a successful response and useless to the person reading it.
+			 * Sharing the document's shape also means the screen reads one set of field names for both the
+			 * list and the note, instead of a second vocabulary that drifts from the first.
+			 *
+			 * BATCHED, not per row: two lookups for the whole page regardless of its length. Resolving names
+			 * inside the loop would be an N+1 on a screen that lists a shop's entire return history.
+			 */
+			java.util.List<com.myplus.business_service.entity.SaleReturn> rows =
+					saleReturnRepo.findScoped(orgId(), userId());
+
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
+					rows.stream().map(com.myplus.business_service.entity.SaleReturn::getProductId)
+							.filter(java.util.Objects::nonNull).distinct()
+							.collect(java.util.stream.Collectors.toList()));
+
+			// The customer is not on the return — it lives on the original sale. One batched read, then a
+			// sellId -> name map.
+			java.util.List<Long> sellIds = rows.stream()
+					.map(com.myplus.business_service.entity.SaleReturn::getSellId)
+					.filter(java.util.Objects::nonNull).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			java.util.Map<Long, String> customerBySellId = new java.util.HashMap<>();
+			java.util.Map<Long, java.math.BigDecimal> rateBySellId = new java.util.HashMap<>();
+			if (!sellIds.isEmpty()) {
+				sellService.findAllById(sellIds).forEach(s -> {
+					rateBySellId.put(s.getSellId(), s.getSellRate());
+					if (s.getCustomerHistory() != null && s.getCustomerHistory().getCustomer() != null)
+						customerBySellId.put(s.getSellId(), s.getCustomerHistory().getCustomer().getName());
+				});
+			}
+
+			java.util.List<ReturnDocumentDTO> out = rows.stream()
+					.map(r -> toCreditNoteDto(r, productById.get(r.getProductId()),
+							customerBySellId.get(r.getSellId()), rateBySellId.get(r.getSellId())))
+					.collect(java.util.stream.Collectors.toList());
+
+			return new GenericResponse("SUCCESS", "Sale returns loaded", out);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getSaleReturns " + e.getMessage(), e);
 			return new GenericResponse("FAILED", "Could not load sale returns.");
+		}
+	}
+
+	/**
+	 * Task #15/#21 — one {@code SaleReturn} row, resolved into the credit-note shape.
+	 *
+	 * <p>Defined once and used by BOTH the single-note read and the register, so the list and the printed
+	 * document can never disagree about what a return says. The resolved values are passed IN rather than
+	 * looked up here: the register resolves them in batch for a whole page, and a helper that fetched its own
+	 * would silently turn that into an N+1.
+	 *
+	 * <p>Amount is {@code creditAmount} — the FACE VALUE (goods + tax) — and never {@code refundAmount}, which
+	 * is only the cash handed back and is zero on a credit sale. Null on returns that predate V34, where the
+	 * value is genuinely unrecoverable; the register shows those rows with no amount rather than inventing a
+	 * zero, and the document read refuses to print them at all.
+	 */
+	private ReturnDocumentDTO toCreditNoteDto(com.myplus.business_service.entity.SaleReturn r,
+			com.myplus.commerce.contracts.dto.ProductRef p, String customerName, java.math.BigDecimal rate) {
+		return ReturnDocumentDTO.builder()
+				.documentType("CREDIT_NOTE")
+				.documentNo(r.getCreditNoteNo())
+				.referenceNo(r.getInvoiceNo())
+				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.partyName(customerName)
+				.reason(r.getReason())
+				.totalAmount(r.getCreditAmount())
+				.refundedCash(r.getRefundAmount())
+				.storeId(r.getStoreId())
+				.lines(java.util.List.of(ReturnDocumentDTO.Line.builder()
+						.productId(r.getProductId())
+						.productName(p != null ? p.getName() : null)
+						.sku(p != null ? p.getSku() : null)
+						.quantity(r.getQuantity() != null ? java.math.BigDecimal.valueOf(r.getQuantity()) : null)
+						.rate(rate)
+						.amount(r.getCreditAmount())
+						.build()))
+				.build();
+	}
+
+	/**
+	 * Task #15 — ONE credit note, assembled into something a document can draw.
+	 *
+	 * <p>This is the "future printable credit note" {@link #getSaleReturns} above anticipated. The row on its
+	 * own is not printable: it holds a {@code productId} but no product name, and no customer at all — the
+	 * customer lives on the original {@code Sell} → {@code CustomerHistory}. So the work here is resolving what
+	 * the row only points at, which is why a repository method could not have answered this.
+	 *
+	 * <p><b>Keyed on the note NUMBER</b>, which is the document's identity — what the operator is shown after
+	 * taking a return, and what a customer quotes back. It is also the only key the caller has: the return
+	 * dialog is told "Credit note CRN-000007", not a row id.
+	 *
+	 * <p><b>Anti-IDOR</b> is the SCOPE PREDICATE, not the choice of key. A row id would be no harder to guess
+	 * than {@code CRN-000007}; what makes another tenant's note unreachable is that the org/user filter lives
+	 * inside the query, plus the per-record store re-check below — the list queries filter by store, but this
+	 * endpoint takes its key from the client, so without it an admin at Store B could read a Store-A note.
+	 *
+	 * <p><b>⚠ Refuses to print a value it cannot recover.</b> The document's face value is {@code creditAmount}
+	 * (returned goods + tax), never {@code refundAmount} — refundAmount is only the cash handed back and is
+	 * zero on a credit sale. A null creditAmount means the return predates V34 and its value is genuinely
+	 * unrecoverable (a full return deleted the sell row). This REFUSES rather than printing 0.00 onto a
+	 * customer-facing note, which is the same call the statement already makes: it omits the line instead of
+	 * inventing a number.
+	 */
+	@RequestMapping(value = "/creditNote", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse creditNote(@RequestParam(name = "no") final String noteNo,
+			final HttpServletRequest request) {
+		try {
+			if (appUtil.isEmptyOrNull(noteNo)) return new GenericResponse("NOT_FOUND");
+
+			com.myplus.business_service.entity.SaleReturn r =
+					saleReturnRepo.findByCreditNoteNoScoped(noteNo.trim(), orgId(), userId()).orElse(null);
+			// One combined not-found for "absent" and "not yours": distinguishing them would tell a prober
+			// which notes exist in other tenants, which is the whole thing the scoped query is closing.
+			if (r == null || !myStore(r.getStoreId()))
+				return new GenericResponse("NOT_FOUND");
+
+			if (r.getCreditAmount() == null)
+				return new GenericResponse("FAILED",
+						"This return predates credit-note values and cannot be printed — its amount is not recoverable.");
+
+			// The original line: the unit rate the goods were sold at, and the customer who bought them.
+			Sell sold = r.getSellId() != null ? sellService.findById(r.getSellId()).orElse(null) : null;
+			String customerName = null;
+			if (sold != null && sold.getCustomerHistory() != null
+					&& sold.getCustomerHistory().getCustomer() != null)
+				customerName = sold.getCustomerHistory().getCustomer().getName();
+
+			// Same catalog resolve the sell grid does — one batched call, not a lookup per field.
+			com.myplus.commerce.contracts.dto.ProductRef p = r.getProductId() != null
+					? productRefs(java.util.List.of(r.getProductId())).get(r.getProductId()) : null;
+
+			return new GenericResponse("SUCCESS", "Credit note loaded",
+					toCreditNoteDto(r, p, customerName, sold != null ? sold.getSellRate() : null));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > creditNote " + e.getMessage(), e);
+			return new GenericResponse("FAILED", "Could not load the credit note.");
 		}
 	}
 

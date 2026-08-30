@@ -15,6 +15,22 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 		+ "order by r.dated desc")
 	List<SaleReturn> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+	/**
+	 * Task #15: ONE credit note by its own number, tenant-scoped — the row a printable document is built from.
+	 *
+	 * <p>Keyed on the note number rather than the row id because that is the document's identity: it is what
+	 * the operator sees after taking a return, what a customer quotes back, and what a future returns list
+	 * would show. {@code UNIQUE(organization_id, credit_note_seq)} makes it unique within a tenant.
+	 *
+	 * <p>Safety comes from the SCOPE PREDICATE here, not from the key being hard to guess — a row id is just
+	 * as guessable as {@code CRN-000007}. The org/user filter is what makes another tenant's note return
+	 * nothing, and it is inside the query so no caller can forget it.
+	 */
+	@Query("select r from SaleReturn r where r.creditNoteNo = :noteNo "
+		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")
+	java.util.Optional<SaleReturn> findByCreditNoteNoScoped(@Param("noteNo") String noteNo,
+			@Param("orgId") Long orgId, @Param("userId") Long userId);
+
 	/** Audit #3: has any return already been recorded against this invoice? (void is blocked if so). */
 	@Query("select count(r) from SaleReturn r where r.invoiceNo = :invoiceNo "
 		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")

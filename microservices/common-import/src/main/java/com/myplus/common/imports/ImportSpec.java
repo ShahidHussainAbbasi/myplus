@@ -32,6 +32,20 @@ public interface ImportSpec<T> {
      * The value that decides whether this row already exists, normalised (trimmed, case-folded as the entity
      * requires). Null means the row cannot be duplicate-checked and is treated as new.
      */
+    /**
+     * A rule that spans more than one column, checked after every column has validated on its own.
+     *
+     * <p>{@link ColumnSpec} can say "required", "a number", "one of these" — all of which are statements
+     * about ONE cell. Some rules are about the row: <i>"may be sold loose" needs a pack size to divide.</i>
+     * Without a hook, a spec's only options are to silently coerce the contradiction away or to accept it,
+     * and both leave the operator believing a file imported as written when it did not.
+     *
+     * <p>Default: no cross-field rules, so every existing spec is unaffected.
+     *
+     * @return the reason to refuse this row, or {@code null} to accept it
+     */
+    default String validateRow(CsvReader.Row row) { return null; }
+
     String duplicateKey(CsvReader.Row row);
 
     /**

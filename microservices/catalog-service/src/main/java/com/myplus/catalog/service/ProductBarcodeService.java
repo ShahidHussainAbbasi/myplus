@@ -82,6 +82,14 @@ public class ProductBarcodeService {
         return ScanResolution.builder().product(ref).soldUnit("PACK").quantity(1f).ownSticker(false).build();
     }
 
+    /** U12 — every sticker this shop has registered, for the label sheet. Org-scoped, like every read here. */
+    @Transactional(readOnly = true)
+    public List<ProductBarcode> forOrg() {
+        Long orgId = CurrentUser.organizationId();
+        if (orgId == null) return List.of();
+        return barcodeRepo.findByOrganizationIdOrderByBarcodeAsc(orgId);
+    }
+
     /** The stickers on one product, for the product form. */
     @Transactional(readOnly = true)
     public List<ProductBarcode> forProduct(Long productId) {

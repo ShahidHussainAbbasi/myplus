@@ -56,6 +56,21 @@
     }
 
     /**
+     * The catalogue read, WITHOUT the blocking overlay.
+     *
+     * <p>Populating a picker is background work: the screen should appear and fill in, not hold a spinner
+     * over a till while a cashier waits. This was the largest single contributor left on the sale screen —
+     * jQuery raises the overlay on the first request and drops it only when the LAST one finishes, so the
+     * whole screen was gated on the slowest catalogue page.
+     *
+     * <p>{@code global: false} also excludes these from `ajaxComplete`, so callers MUST refresh their own
+     * picker — {@link loadUserItems} and {@link loadCartLineIntoForm} both do.
+     */
+    function get(page) {
+        return $.ajax({ url: url(page), global: false });
+    }
+
+    /**
      * The active products for this tenant, as [{id, name, sellingPrice}].
      *
      * @param onDone  called with the list — from cache when warm, so possibly synchronously
@@ -66,7 +81,7 @@
         if (cache) { onDone(cache.slice()); return; }
 
         if (!inFlight) {
-            inFlight = $.get(url(0)).then(function (first) {
+            inFlight = get(0).then(function (first) {
                 var head = unwrap(first);
                 if ((head.totalPages || 1) <= 1) return head.list;
 
@@ -75,7 +90,7 @@
                 // it happens, because silently serving the first page is how a product becomes
                 // unsellable with nothing anywhere reporting a problem.
                 var rest = [];
-                for (var p = 1; p < head.totalPages; p++) rest.push($.get(url(p)));
+                for (var p = 1; p < head.totalPages; p++) rest.push(get(p));
                 return $.when.apply($, rest).then(function () {
                     var results = (rest.length === 1) ? [arguments]
                         : Array.prototype.slice.call(arguments);

@@ -82,6 +82,43 @@
 
     window.applySearchableSelects = applySearchableSelects;
 
+    /**
+     * Never touch a picker the operator is USING — see the long note on the ajaxComplete hook below for
+     * what refreshing an open picker does to a cashier mid-selection.
+     */
+    function isBusy($bs) {
+        if (!$bs.length) return false;
+        if ($bs.hasClass('open')) return true;
+        return !!($bs[0].contains && $bs[0].contains(document.activeElement));
+    }
+
+    /**
+     * Refresh ONE picker, honouring the busy guard — deferring to `hidden.bs.dropdown` if it is open.
+     *
+     * <p>Exposed because of a trap that pairs with background loading. The ajaxComplete hook below is what
+     * keeps AJAX-populated pickers in sync, and several populate helpers rely on it instead of refreshing
+     * themselves. But a background read is sent with jQuery's {@code global: false}, which excludes it from
+     * <b>every</b> global AJAX handler — {@code ajaxComplete} included, not just the overlay's
+     * ajaxStart/ajaxStop. So the moment a picker's loader stops blocking the UI, that hook stops firing for
+     * it: the &lt;option&gt;s land in the DOM and the widget never redraws, leaving a cashier looking at an
+     * empty "Select Customer" that will never fill.
+     *
+     * <p>A background loader must therefore refresh explicitly — and must do it THROUGH here rather than
+     * calling {@code selectpicker('refresh')} inline, or the busy guard exists in one code path and not the
+     * other, which is the bug it was written to prevent.
+     *
+     * @param sel  a <select> id, element, or jQuery object
+     */
+    function refreshSearchableSelect(sel) {
+        var $s = (typeof sel === 'string') ? $('#' + sel) : $(sel);
+        if (!$s.length || !$s.data('selectpicker')) return;
+        var $bs = $s.next('.bootstrap-select');
+        if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
+        try { $s.selectpicker('refresh'); } catch (e) {}
+    }
+
+    window.refreshSearchableSelect = refreshSearchableSelect;
+
     $(function () {
         applySearchableSelects();
 
@@ -104,19 +141,11 @@
         //
         // So: never touch a picker the operator is USING. Refresh it when they close it instead — the
         // options cannot be stale on screen, because the screen is not showing them.
-        function isBusy($bs) {
-            if (!$bs.length) return false;
-            if ($bs.hasClass('open')) return true;
-            return !!($bs[0].contains && $bs[0].contains(document.activeElement));
-        }
-
+        // ⚠ This fires only for requests that participate in jQuery's global AJAX events. A loader that
+        // uses `global: false` to stay off the blocking overlay is excluded from THIS hook too, and must
+        // call refreshSearchableSelect() itself — see that function for the full trap.
         $(document).ajaxComplete(function () {
-            $('.selectpicker').each(function () {
-                var $s = $(this);
-                var $bs = $s.next('.bootstrap-select');
-                if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
-                try { $s.selectpicker('refresh'); } catch (e) {}
-            });
+            $('.selectpicker').each(function () { refreshSearchableSelect($(this)); });
         });
 
         // The deferred half. Bootstrap 3 fires this on the dropdown's parent when the menu closes.

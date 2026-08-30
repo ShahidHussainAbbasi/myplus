@@ -198,6 +198,26 @@
         time:           { key: 'ui.js.docTime',          resolve: function (c) { return timeOnly(c.inv.dated); } },
         dueDate:        { key: 'ui.js.docDueDate',       resolve: function (c) { return dateOnly(c.inv.dueDate); } },
         paymentMode:    { key: 'ui.js.docPaymentMode',   resolve: function (c) { return c.inv.paymentMode || ''; } },
+
+        /*
+         * Task #15 — return documents (credit note / debit note).
+         *
+         * These deliberately do NOT reuse `invoiceNo`, even though they resolve the same underlying string.
+         * The LABEL is the entire point: a credit note printed under an "Invoice #" heading is precisely the
+         * confusion the note numbers were introduced to end — before them a return carried only the invoice
+         * number, which made a credit note indistinguishable from the invoice it cancelled.
+         *
+         * Two number fields rather than one generic "Note #" for the same reason. A field exists here to
+         * carry a label, so a preset that knows it is a debit note should say Debit note.
+         */
+        creditNoteNo:   { key: 'ui.js.docCreditNoteNo',  resolve: function (c) { return c.inv.documentNo || ''; } },
+        debitNoteNo:    { key: 'ui.js.docDebitNoteNo',   resolve: function (c) { return c.inv.documentNo || ''; } },
+        /* Neutral on purpose: the reference is a sale invoice on one side and a purchase bill on the other,
+         * and "Reference: INV-000123" under a heading that already says Credit note is unambiguous. */
+        referenceNo:    { key: 'ui.js.docReference',     resolve: function (c) { return c.inv.referenceNo || ''; } },
+        returnReason:   { key: 'ui.js.docReturnReason',  resolve: function (c) { return c.inv.reason || ''; } },
+        /* The debit note's party is a supplier, not a customer — same slot, honest label. */
+        supplierName:   { key: 'ui.js.docSupplier',      resolve: function (c) { return c.inv.supplierName || ''; } },
         storeName:      { key: 'ui.js.docStore',         resolve: function (c) { return (c.inv.letterhead || {}).storeName || ''; } },
         // Seller-side licence — settings-sourced, so a pharmacy can print its drug licence with no schema.
         licenseNo:      { key: 'ui.js.docLicenseNo',     resolve: function (c) { return (c.inv.letterhead || {}).licenseNo || ''; } },
@@ -322,6 +342,76 @@
             ],
             totals: ['itemCount', 'tradeDiscount', 'grandTotal', 'amountInWords',
                 'previousBalance', 'currentBalance'],
+            footer: { text: '', showSignature: true }
+        },
+
+        /*
+         * Task #15 — THE CREDIT NOTE. A sale return, as the document a customer keeps.
+         *
+         * A credit note is NOT an invoice and must not look like one: one supply may produce only one taxable
+         * invoice, and a return that printed as a second invoice would create a second record of the same
+         * supply. It says Credit note on its face and REFERENCES the invoice it reverses — the same rule the
+         * delivery challan follows above, and the reason both are presets rather than new renderers.
+         *
+         * Its value is the note's FACE VALUE (goods + tax), which the server sends as the line total. Cash
+         * refunded is deliberately not a column: on a credit sale nothing was handed back, and a column that
+         * printed 0.00 there would read as "you were refunded nothing" rather than "your balance moved".
+         */
+        CREDIT_NOTE_A4: {
+            id: 'CREDIT_NOTE_A4',
+            name: 'Credit note (A4)',
+            titleKey: 'ui.js.docCreditNote',
+            paper: 'A4',
+            channel: 'B2B',
+            numberSystem: 'indian',
+            showDrCr: false,
+            header: {
+                titleStyle: 'boxed',
+                showLogo: true,
+                columns: [
+                    ['creditNoteNo', 'dated'],
+                    ['referenceNo', 'returnReason'],
+                    ['customerName', 'customerAddress', 'customerMobile']
+                ]
+            },
+            lines: [
+                col('lineNo', 5, 'left'), col('itemCode', 12, 'left'), col('itemName', 41, 'left'),
+                col('quantity', 12, 'right'), col('tradePrice', 14, 'right'), col('lineTotal', 16, 'right')
+            ],
+            totals: ['itemCount', 'grandTotal', 'amountInWords'],
+            footer: { text: '', showSignature: true }
+        },
+
+        /*
+         * Task #15 — THE DEBIT NOTE. A purchase return, as the document a supplier reconciles against.
+         *
+         * The mirror of the credit note, and the reason the supplier side needed a document at all: before the
+         * debit note the supplier had NO record of your return — only a stock and payable adjustment on your
+         * side, plus a GL line referencing their bill. A supplier reconciling against their own credit note
+         * needs a number that is yours.
+         */
+        DEBIT_NOTE_A4: {
+            id: 'DEBIT_NOTE_A4',
+            name: 'Debit note (A4)',
+            titleKey: 'ui.js.docDebitNote',
+            paper: 'A4',
+            channel: 'B2B',
+            numberSystem: 'indian',
+            showDrCr: false,
+            header: {
+                titleStyle: 'boxed',
+                showLogo: true,
+                columns: [
+                    ['debitNoteNo', 'dated'],
+                    ['referenceNo', 'returnReason'],
+                    ['supplierName']
+                ]
+            },
+            lines: [
+                col('lineNo', 5, 'left'), col('itemCode', 12, 'left'), col('itemName', 41, 'left'),
+                col('quantity', 12, 'right'), col('tradePrice', 14, 'right'), col('lineTotal', 16, 'right')
+            ],
+            totals: ['itemCount', 'grandTotal', 'amountInWords'],
             footer: { text: '', showSignature: true }
         },
 
@@ -837,6 +927,72 @@
             printInvoiceObject(resp.object, profile);
         }).fail(function () { if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReceipt')); });
     };
+
+    /**
+     * Task #15 — fetch ONE return document and shape it into what the renderer already understands.
+     *
+     * <p>Unlike {@code printChallan}, which is a one-line wrapper because only the profile differs, a return
+     * document also differs in the FETCH: it is read by row id from its own endpoint, not by invoice number
+     * from {@code getReceipt}. This function is that difference and nothing more.
+     *
+     * <h4>Why it adapts rather than adding line fields</h4>
+     * {@code lineMath} reads {@code quantity}, {@code sellRate} and {@code totalAmount} off a line. Shaping
+     * return lines with those three names makes every existing column — itemName, quantity, tradePrice,
+     * lineTotal — resolve unchanged, so the credit note needs no new LINE fields at all. Adding parallel
+     * return-only line fields would have been a second definition of "what a quantity column shows", and the
+     * two would drift the first time either changed.
+     *
+     * @param kind 'credit' or 'debit'
+     * @param id   the return row's id — NOT the note number. The server refuses a lookup by number because a
+     *             sequential, guessable document number is an IDOR; it re-checks tenant and store per record.
+     */
+    global.printReturnDocument = function (kind, noteNo) {
+        var debit = (kind === 'debit');
+        if (!noteNo) {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReturnDocument'));
+            return;
+        }
+        $.get(serverContext + (debit ? 'debitNote' : 'creditNote') + '?no=' + encodeURIComponent(noteNo),
+            function (resp) {
+                // The monolith answers 200 with an error ENVELOPE on a refusal (including the anti-IDOR
+                // not-found), so the HTTP status proves nothing — read the envelope.
+                var doc = resp && resp.object;
+                if (!resp || resp.status !== 'SUCCESS' || !doc) {
+                    if (global.showFormError)
+                        showFormError(apiMessage(resp, t('ui.js.couldNotLoadTheReturnDocument')));
+                    return;
+                }
+                printInvoiceObject(toInvoiceShape(doc), debit ? PRESETS.DEBIT_NOTE_A4 : PRESETS.CREDIT_NOTE_A4);
+            }
+        ).fail(function () {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReturnDocument'));
+        });
+    };
+
+    /** ReturnDocumentDTO → the invoice-shaped object the renderer and lineMath already consume. */
+    function toInvoiceShape(doc) {
+        return {
+            documentNo: doc.documentNo,
+            referenceNo: doc.referenceNo,
+            reason: doc.reason,
+            dated: doc.dated,
+            // Both slots filled from the one party: the credit note preset binds customerName, the debit note
+            // preset binds supplierName, and each prints the label its reader expects.
+            customerName: doc.partyName,
+            supplierName: doc.partyName,
+            lines: (doc.lines || []).map(function (l) {
+                return {
+                    itemCode: l.sku,
+                    itemName: l.productName,
+                    // The three names lineMath reads. Nothing else is needed for these columns.
+                    quantity: l.quantity,
+                    sellRate: l.rate,
+                    totalAmount: l.amount
+                };
+            }),
+            totalAmount: doc.totalAmount
+        };
+    }
 
     /*
      * The renderer's public surface. 3g-4's designer renders its live preview through THIS buildHtml — the

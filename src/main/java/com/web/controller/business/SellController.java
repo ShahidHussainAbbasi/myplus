@@ -230,6 +230,21 @@ public class SellController {
     }
 
     /**
+     * Task #15 — one credit note, resolved for printing. Straight proxy; the tenant and store checks that
+     * make this safe live in business-service, which is the only side that can see the row's org and store.
+     */
+    @RequestMapping(value = "/creditNote", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> creditNote(final HttpServletRequest request) {
+        try {
+            return client.get("/creditNote", "no=" + enc(request.getParameter("no")));
+        } catch (Exception e) {
+            LOGGER.error("creditNote proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
      * OMS O5e step 3 — a Store-vertical sale creates its order here, server-side, instead of the browser
      * posting {@code /recordOrder} after the fact.
      *

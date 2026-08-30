@@ -13,6 +13,21 @@ import java.util.List;
 public interface PurchaseReturnRepo extends JpaRepository<PurchaseReturn, Long> {
 
     /**
+     * Task #15: ONE debit note by its own number, tenant-scoped — the row a printable document is built from.
+     *
+     * <p>Keyed on the note number because that is the document's identity: it is what the operator sees after
+     * taking a return and what the SUPPLIER reconciles against. {@code UNIQUE(organization_id, debit_note_seq)}
+     * makes it unique within a tenant.
+     *
+     * <p>Safety is the SCOPE PREDICATE, not an unguessable key — a row id is just as guessable as
+     * {@code DBN-000012}. No userId fallback here, unlike the sale side, and that is correct rather than an
+     * omission: V33 CREATED this table, so no pre-migration org-NULL rows exist for a fallback to rescue.
+     */
+    @Query("SELECT r FROM PurchaseReturn r WHERE r.debitNoteNo = :noteNo AND r.organizationId = :orgId")
+    java.util.Optional<PurchaseReturn> findByDebitNoteNoScoped(@Param("noteNo") String noteNo,
+            @Param("orgId") Long orgId);
+
+    /**
      * Next debit-note sequence for this org. MAX+1 inside the return's transaction, exactly as invoice
      * numbers have worked since slice 22 — {@code UNIQUE(organization_id, debit_note_seq)} is what actually
      * guarantees two concurrent returns cannot commit the same number.

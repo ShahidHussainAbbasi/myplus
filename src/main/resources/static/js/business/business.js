@@ -807,6 +807,91 @@ function priceRuleState(r){
 	return 'LIVE';
 }
 
+/*
+ * ── Task #21: the returns register ───────────────────────────────────────────────────────────────────
+ *
+ * ONE screen for both sides. A credit note and a debit note differ in exactly three things — the endpoint,
+ * the party column and the document's name — while the table, the empty state, the reprint action and the
+ * scoping are identical. Two screens would be two copies of "render a list of returns", and the second would
+ * drift from the first the moment either changed.
+ *
+ * Why this screen had to exist at all: before it, a note could only be printed in the seconds after the
+ * return was taken. Dismiss that prompt and the document was unreachable — `getSaleReturns` had been sitting
+ * in business-service and the monolith proxy since SF-11 with nothing in the UI ever calling it.
+ *
+ * Both endpoints answer with the SAME ReturnDocumentDTO the printed note uses, so this screen reads one set
+ * of field names for either mode — documentNo / referenceNo / partyName / totalAmount. That is why the config
+ * below carries only what genuinely differs: the source, the title, and what the party column is CALLED.
+ */
+var RETURN_MODES = {
+	credit: { url: 'getSaleReturns',     title: 'ui.creditNotes', party: 'ui.customer' },
+	debit:  { url: 'getPurchaseReturns', title: 'ui.debitNotes',  party: 'ui.supplier' }
+};
+
+function showReturns(mode){
+	var cfg = RETURN_MODES[mode] || RETURN_MODES.credit;
+	window.returnsMode = (RETURN_MODES[mode] ? mode : 'credit');
+	$('.formDiv').hide();
+	$('#ReturnsDiv').show();
+	$('#returnsTitle').text(t(cfg.title));
+	$('#returnsPartyHead').text(t(cfg.party));
+	$('#tableReturns tbody').empty();
+	loadReturns();
+}
+
+function loadReturns(){
+	var mode = window.returnsMode || 'credit';
+	var cfg = RETURN_MODES[mode];
+	// A register is background population of a screen, not an action the operator is waiting on — same rule
+	// tier-1b applied to the pickers, so it must not raise the blocking overlay.
+	bgJson(serverContext + cfg.url, function(resp){
+		renderReturns(mode, (resp && resp.collection) || []);
+	}).fail(function(){
+		$('#tableReturns tbody').html('<tr><td colspan="8" class="text-danger">'
+			+ escHtml(t('ui.js.couldNotLoadReturns')) + '</td></tr>');
+	});
+}
+
+function renderReturns(mode, rows){
+	var $tb = $('#tableReturns tbody').empty();
+	if (!rows.length){
+		$tb.append('<tr><td colspan="8" class="text-muted">' + escHtml(t('ui.js.noReturnsYet')) + '</td></tr>');
+		return;
+	}
+	rows.forEach(function(r){
+		var noteNo = r.documentNo;
+		var amt = r.totalAmount;
+		var qty = (r.lines && r.lines.length) ? r.lines[0].quantity : null;
+		/*
+		 * A row with NO note number predates the note series and has no printable document — the same reason
+		 * the counter prompt stays silent for one. It still LISTS, because it is a real return and hiding it
+		 * would misstate history; it simply offers no action, which is honest where a button that always
+		 * fails is not.
+		 */
+		var action = noteNo
+			? "<button type='button' class='btn btn-xs btn-default rtn-print' data-note='" + escHtml(noteNo)
+				+ "'><span class='glyphicon glyphicon-print'></span> " + escHtml(t('ui.js.reprint')) + "</button>"
+			: '';
+		$tb.append('<tr>'
+			+ '<td>' + escHtml(noteNo || '—') + '</td>'
+			+ '<td>' + escHtml(r.dated ? String(r.dated).substring(0, 10) : '') + '</td>'
+			// Resolved server-side in batch — the return row itself holds only ids.
+			+ '<td>' + escHtml(r.partyName || '—') + '</td>'
+			+ '<td>' + escHtml(r.referenceNo || '') + '</td>'
+			+ '<td style="text-align:right">' + escHtml(qty != null ? String(qty) : '') + '</td>'
+			+ '<td style="text-align:right">' + escHtml(amt != null ? Number(amt).toFixed(2) : '—') + '</td>'
+			+ '<td>' + escHtml(r.reason || '') + '</td>'
+			+ '<td>' + action + '</td>'
+			+ '</tr>');
+	});
+}
+
+// Reprint goes through the SAME function the counter prompt calls — one print path, and the reason task #15
+// keyed the documents on the note number rather than a row id.
+$(document).on('click', '.rtn-print', function(){
+	printReturnDocument(window.returnsMode || 'credit', $(this).data('note'));
+});
+
 function showPriceRules(){
 	$('.formDiv').hide();
 	$('#PriceRuleDiv').show();
@@ -1187,6 +1272,44 @@ function lastRateCell(rate, stampedAt, label){
 		+ Number(rate).toFixed(2) + "</div>";
 }
 
+/**
+ * TIER-1c — the section's dropdowns, started as soon as the section opens.
+ *
+ * <p>These calls used to live inside the grid's AJAX success handler, which chained them behind the whole
+ * record list: on the sale screen the customer picker could not BEGIN loading until every sale line the
+ * tenant had ever recorded ("getUserSell?q=-1", uncapped) had finished downloading. Tier-1b made the picker
+ * reads non-blocking, but a non-blocking read that has not been ISSUED yet buys nothing — the pickers were
+ * still serialised behind the grid.
+ *
+ * <p>They belong to the SECTION, not to the grid, so they start with the section. The two now load in
+ * parallel and the till is typeable in about picker time instead of grid time plus picker time.
+ *
+ * <p>The `pickerPreloadPending` flag this replaces existed only to fake "once per section open" from inside
+ * a handler that also runs on every `datatable.ajax.reload()` — P6 rapid entry reloads the grid after every
+ * saved line, which re-fetched the catalogue and rebuilt the pickers underneath the operator mid-entry.
+ * Called from here that problem cannot arise: loadDataTable() IS "a section was opened", so the flag is
+ * gone rather than left behind as a guard against something that can no longer happen.
+ *
+ * <p>Unchanged trade-off, restated because it still applies: a product or vendor created in ANOTHER section
+ * does not appear in these pickers until this section is re-opened. That is already the documented behaviour
+ * of the grid itself ("re-open the section to refresh from DB").
+ */
+function preloadSectionPickers(){
+	var table = tableV.toLowerCase();
+	if (getAll == "Vender") {
+		loadUserCompanies(table);
+	} else if (getAll == "Item") {
+		loadUserCompanies(table);
+		loadUserVenders(table);
+	} else if (getAll == "Purchase") {
+		loadUserItems(table);
+		loadUserVenders(table);   // F1 (AP): populate the purchase form's Vendor select
+	} else if (getAll == "Sell") {
+		loadUserItems(table);
+		loadSellCustomers();
+	}
+}
+
 function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
@@ -1200,8 +1323,9 @@ function loadDataTable(){
 		datatable.destroy();
 		datatable = null;
 	}
-	// The associated dropdowns belong to the SECTION, not to a grid refresh — see the success handler.
-	pickerPreloadPending = true;
+	// The associated dropdowns belong to the SECTION, not to a grid refresh — so they start HERE, in
+	// parallel with the grid, instead of waiting for it to finish. See preloadSectionPickers().
+	preloadSectionPickers();
 	datatable = $("#table" + tableV).DataTable({
 		lengthMenu: [[5, 20, 50, 100, -1], ['5', '20', '50', '100', 'All']],
 		"iDisplayLength": offset,
@@ -1242,35 +1366,34 @@ function loadDataTable(){
 			// Search: DataTables filters the loaded set first; re-open the section to refresh from DB.
 			"url": serverContext + "getUser" + getAll + "?q=-1" + ((getAll === "Product" && window.productShowInactive) ? "&includeInactive=true" : ""),
 			"type": "GET",
+			/*
+			 * TIER-1c — the grid does NOT hold the blocking overlay.
+			 *
+			 * This is what makes the preload split above worth anything. The overlay covers the whole
+			 * viewport, so pickers that are loaded and ready are still unreachable while it is up: with the
+			 * grid left blocking, starting the pickers earlier would have changed nothing a cashier could
+			 * feel.
+			 *
+			 * And the wait is genuinely open-ended. `q=-1` is uncapped — every branch of the server's
+			 * visibleSells() returns the full scoped list, and Sell rows are per LINE, not per invoice, so a
+			 * shop at 100 sales a day of 5 lines accumulates ~180k rows a year. Freezing the counter behind
+			 * the shop's entire trading history to ring up the next sale is the wrong trade at any size, and
+			 * it gets worse every day the tenant uses the product.
+			 *
+			 * The section's own record list is background work, exactly like the pickers: show the screen and
+			 * fill it in. DataTables still renders its own in-table loading text, so the grid area keeps its
+			 * local feedback — a blocking modal spinner was never the honest indicator for it.
+			 *
+			 * ⚠ `global: false` also excludes this from ajaxComplete. Nothing here depends on that hook: the
+			 * pickers refresh themselves (see refreshSearchableSelect) and this handler builds its own rows.
+			 */
+			"global": false,
 			"success": function(data) {
 				if(reload != tableV) reload = tableV;
 
-				// Preload associated dropdowns ONCE per section open — which is what the comment here
-				// always claimed, but not what the code did: this success handler runs on every
-				// datatable.ajax.reload() too, and P6 rapid entry reloads the grid after EVERY saved
-				// line while the purchase modal stays open. So each line re-fetched 2000 catalog
-				// products and rebuilt the pickers underneath the operator mid-entry.
-				//
-				// The flag is set in loadDataTable(), which is the one thing that means "a section was
-				// opened". Trade-off, deliberate: a product or vendor created in ANOTHER section no
-				// longer appears in these pickers until this section is re-opened. That was already the
-				// documented behaviour of the grid itself ("re-open the section to refresh from DB"),
-				// and the pickers now simply agree with it.
-				if (pickerPreloadPending) {
-					pickerPreloadPending = false;
-					if (getAll == "Vender") {
-						loadUserCompanies(table);
-					} else if (getAll == "Item") {
-						loadUserCompanies(table);
-						loadUserVenders(table);
-					} else if (getAll == "Purchase") {
-						loadUserItems(table);
-						loadUserVenders(table);   // F1 (AP): populate the purchase form's Vendor select
-					} else if (getAll == "Sell") {
-						loadUserItems(table);
-						loadSellCustomers();
-					}
-				}
+				// (The dropdown preload that used to sit here now runs from loadDataTable() — see
+				//  preloadSectionPickers(). It was never grid work; chaining it here made the pickers
+				//  wait for the entire record list before they could even be requested.)
 
 				var collections = data.collection;
 				if(!collections || collections.length <= 0){
@@ -1558,11 +1681,28 @@ function loadUserCustomers(table) {
 // credit limit and customer type the pricing/credit rules need) into a second place.
 function loadSellCustomers(ddId) {
 	var dd = $("#" + (ddId || "sellCustomerDD"));
-	dd.empty().append('<option value=""> Select Customer </option>');
+	/*
+	 * TIER-1b — a LOADING placeholder, not an empty one.
+	 *
+	 * The read below no longer blocks, so the till is typeable while this list is still arriving. That
+	 * makes the picker's own text the only thing telling the cashier which state they are in, and
+	 * "Select Customer" over an empty list is a lie: it reads as "this shop has no customers" exactly
+	 * when the truth is "not here yet". It is replaced the moment the rows land.
+	 *
+	 * The picker is deliberately left ENABLED. `EnterChain.usable()` treats a disabled control as
+	 * skippable, so disabling it while loading would send the new-sale cursor straight past the customer
+	 * to #sellCN — silently undoing the entry point, and only on slow connections, which is precisely
+	 * where nobody would be watching for it.
+	 */
+	dd.empty().append($('<option>').val('').text(t('ui.js.loadingCustomers')));
 	// PERF: the LEAN read. `getUserCustomer` returns 22 fields per customer (~215KB for 441 rows,
 	// unpaginated); this dropdown uses six of them, and `customerOptions` selects exactly those. Same
 	// role-aware scoping on the server, same `collection` envelope, so nothing below changes.
-	$.get(serverContext + "customerOptions", function(res) {
+	//
+	// bgJson = `global: false`: populating a picker is background work and must not hold the blocking
+	// overlay over a counter. The explicit refresh at the end is NOT optional — see refreshSearchableSelect.
+	bgJson(serverContext + "customerOptions", function(res) {
+		dd.empty().append('<option value=""> Select Customer </option>');
 		if (res && res.collection) {
 			$.each(res.collection, function(i, c) {
 				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the
@@ -1573,8 +1713,15 @@ function loadSellCustomers(ddId) {
 				dd.append('<option value="' + c.customerId + '" data-contact="' + escHtml(c.contact || '') + '" data-due="' + (c.dueAmount != null ? c.dueAmount : 0) + '" data-credit-limit="' + (c.creditLimit != null ? c.creditLimit : '') + '" data-customer-type="' + escHtml(c.customerType || '') + '">' + escHtml(c.name) + '</option>');
 			});
 		}
+		// The widget will NOT redraw on its own: a `global: false` request is excluded from the
+		// ajaxComplete hook that normally keeps every AJAX-filled picker in sync. Without this the
+		// options exist in the DOM and the cashier sees an empty list forever.
+		refreshSearchableSelect(dd);
 	}).fail(function() {
 		console.log("Error loading customers for sell dropdown");
+		// Say so, rather than leaving the loading text sitting there forever on a dead request.
+		dd.empty().append($('<option>').val('').text(t('ui.js.couldNotLoadCustomers')));
+		refreshSearchableSelect(dd);
 	});
 }
 
@@ -3176,6 +3323,11 @@ function submitSaleReturn(){
 				// for. That preload is now correctly tied to opening a section, so the refresh has to
 				// be stated — by the writer, at the point of the change, and for that list only.
 				if (typeof loadSellCustomers === 'function') loadSellCustomers();
+				// Task #15: offer the CREDIT NOTE while the customer is still at the counter — that is the
+				// moment the paper is wanted, and it is the only place the note number surfaces today (there
+				// is no returns list screen to reprint from yet). Offered, not auto-printed: a shop that does
+				// not hand out credit notes should not get a print dialog on every return.
+				offerReturnDocument('credit', data && data.object);
 			} else {
 				err.textContent = (data && data.status ? data.status : 'Return failed') + (data && data.message ? ': ' + data.message : '.');
 			}
@@ -3187,6 +3339,29 @@ function submitSaleReturn(){
 	});
 }
 
+
+/**
+ * Task #15 — after a return is taken, offer to print its note.
+ *
+ * <p>Shared by both sides so the sale and purchase flows cannot drift into two different behaviours, and so
+ * the "is there a number to print?" guard exists once. A return whose note number is missing predates the
+ * note series entirely and has no printable document — silently offering nothing is correct there, because
+ * the alternative is a button that always fails.
+ *
+ * @param kind   'credit' (sale return) or 'debit' (purchase return)
+ * @param noteNo the note number the server just allocated and returned
+ */
+function offerReturnDocument(kind, noteNo) {
+	if (!noteNo || typeof printReturnDocument !== 'function') return;
+	var debit = (kind === 'debit');
+	uiConfirm({
+		title: t(debit ? 'ui.js.docDebitNote' : 'ui.js.docCreditNote') + ' ' + noteNo,
+		message: t('ui.js.printThisReturnDocument'),
+		confirmText: t('ui.js.print')
+	}).then(function (ok) {
+		if (ok) printReturnDocument(kind, noteNo);
+	});
+}
 
 // â”€â”€â”€ Receive Payment (AR subledger) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // A "Receive" action on each customer row opens the modal; submit FIFO-allocates the receipt to the customer's
@@ -3368,7 +3543,14 @@ function submitPurchaseReturn(){
 	if(!qty || qty <= 0){ err.textContent = t('ui.js.enterAQuantityGreaterThan0'); return; }
 	if(qty > sold){ err.textContent = t('ui.js.cannotReturnMoreThanPurchased') + sold + ').'; return; }
 	$.post(serverContext + 'purchaseReturn', { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value }, function(resp){
-		if(resp && resp.status === 'SUCCESS'){ d.style.display='none'; if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.purchaseReturnedToVendor')); loadDataTable(); }
+		if(resp && resp.status === 'SUCCESS'){
+			d.style.display='none';
+			if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.purchaseReturnedToVendor'));
+			loadDataTable();
+			// Task #15: the DEBIT NOTE the supplier reconciles against. Unlike the sale side the number is
+			// nested — purchaseReturn answers with a result map, not the bare number.
+			offerReturnDocument('debit', resp.object && resp.object.debitNoteNo);
+		}
 		else { err.textContent = apiMessage(resp, 'Return failed.'); }
 	}, 'json').fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
 }

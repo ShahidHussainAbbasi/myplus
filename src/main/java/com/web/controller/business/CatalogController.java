@@ -266,6 +266,18 @@ public class CatalogController {
         }
     }
 
+    /** U12 — every sticker in the shop, for the label sheet. One request, not one per product. */
+    @GetMapping(value = "/allProductBarcodes", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> allProductBarcodes() {
+        try {
+            return catalog.get("/products/barcodes");
+        } catch (Exception e) {
+            LOGGER.error("allProductBarcodes proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** U7 — the shop's own stickers on one product. */
     @GetMapping(value = "/productBarcodes", produces = "application/json")
     @ResponseBody

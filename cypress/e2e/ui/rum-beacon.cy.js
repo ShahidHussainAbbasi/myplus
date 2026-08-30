@@ -73,16 +73,26 @@ describe('RUM — the beacon actually fires', () => {
      * Core Web Vitals does not measure this. LCP says when the page LOOKED loaded; this says when the cashier
      * could actually start selling, which is the number the original "customer is waiting" complaint meant.
      */
-    cy.intercept('POST', '**/rum').as('tillBeacon')
+    /*
+     * Collect ALL beacons and pick the PAGE one — cy.wait yields the FIRST match, and since each vital now
+     * beacons as it finalises, the first POST /rum is usually TTFB, which carries no marks. The earlier
+     * version waited on any /rum and asserted `marks.tillReady`, so it failed against a working collector
+     * for the same reason the collector itself was fixed: several small beacons, not one big one.
+     */
+    const pageBeacons = []
+    cy.intercept('POST', '**/rum', (req) => {
+      if (req.body && req.body.marks) pageBeacons.push(req.body)
+    }).as('tillBeacon')
 
     cy.visitSaleScreen()
     cy.get('#sellItems', { timeout: 30000 }).should('be.visible')
     cy.visit('/businessDashboard?rumProbe=2')
 
-    cy.wait('@tillBeacon', { timeout: 20000 }).then((i) => {
-      const marks = i.request.body.marks || {}
-      expect(marks.tillReady, 'the till-ready mark is present').to.be.a('number')
-      expect(marks.tillReady, 'and is a plausible elapsed time from navigation start').to.be.greaterThan(0)
+    cy.wrap(null, { timeout: 20000 }).should(() => {
+      const withMark = pageBeacons.find((b) => b.marks && b.marks.tillReady != null)
+      expect(withMark, `page beacons seen: ${pageBeacons.length}`).to.not.eq(undefined)
+      expect(withMark.marks.tillReady, 'a plausible elapsed time from navigation start')
+        .to.be.greaterThan(0)
     })
   })
 

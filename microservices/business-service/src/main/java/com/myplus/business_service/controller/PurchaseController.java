@@ -19,6 +19,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.myplus.common.security.AuthenticatedUser;
@@ -29,6 +30,7 @@ import com.myplus.business_service.service.IItemUnitService;
 import com.myplus.business_service.service.IPurchaseService;
 import com.myplus.business_service.service.IVenderService;
 import com.myplus.business_service.dto.PurchaseDTO;
+import com.myplus.business_service.dto.ReturnDocumentDTO;
 import com.myplus.business_service.dto.StockDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
@@ -58,6 +60,9 @@ public class PurchaseController {
 
 	@Autowired
 	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line names from catalog
+
+	@Autowired
+	com.myplus.business_service.repository.PurchaseReturnRepo purchaseReturnRepo;   // task #15: debit-note document
 
 	/** M4d (slice 96): batch-resolve catalog ProductRef by productId for the read grid (name/sku); best-effort. */
 	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
@@ -285,6 +290,133 @@ public class PurchaseController {
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > purchaseReturn " + e.getCause(), e);
 			return new GenericResponse("FAILED", e.getMessage() != null ? e.getMessage() : "An unexpected error occurred. Please contact support.");
+		}
+	}
+
+	/**
+	 * Task #15/#21 — one {@code PurchaseReturn} row, resolved into the debit-note shape.
+	 *
+	 * <p>Shared by the single-note read and the register so the two can never disagree. Resolved values are
+	 * passed IN because the register batches them for a whole page; a helper that fetched its own would turn
+	 * that into an N+1.
+	 *
+	 * <p>{@code rate} is null from the register: it lives on the original bill, and loading every reversed
+	 * bill to fill a column the list does not show would be work for nothing. The single-note read passes it.
+	 */
+	private ReturnDocumentDTO toDebitNoteDto(com.myplus.business_service.entity.PurchaseReturn r,
+			com.myplus.commerce.contracts.dto.ProductRef p, String venderName, java.math.BigDecimal rate) {
+		return ReturnDocumentDTO.builder()
+				.documentType("DEBIT_NOTE")
+				.documentNo(r.getDebitNoteNo())
+				.referenceNo(r.getPurchaseInvoiceNo())
+				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.partyName(venderName)
+				.reason(r.getReason())
+				.totalAmount(r.getAmount())
+				.storeId(r.getStoreId())
+				.lines(java.util.List.of(ReturnDocumentDTO.Line.builder()
+						.productId(r.getProductId())
+						.productName(p != null ? p.getName() : null)
+						.sku(p != null ? p.getSku() : null)
+						.quantity(r.getQuantity())
+						.rate(rate)
+						.amount(r.getAmount())
+						.build()))
+				.build();
+	}
+
+	/**
+	 * Task #21 — the debit-note register for this tenant, newest first.
+	 *
+	 * <p>The mirror of {@code /getSaleReturns}, which has existed since SF-11 while the purchase side had no
+	 * list at all — the asymmetry that left a debit note unreachable the moment its print prompt was dismissed.
+	 *
+	 * <p>Flat rows, no lazy relations, org-scoped. No {@code userId} fallback, unlike the sale side, and that
+	 * is correct rather than an omission: V33 CREATED {@code purchase_return}, so no pre-migration org-NULL
+	 * rows exist for a fallback to rescue.
+	 */
+	@RequestMapping(value = "/getPurchaseReturns", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse getPurchaseReturns(final HttpServletRequest request) {
+		try {
+			/*
+			 * Returned as the SAME ReturnDocumentDTO the printable note uses — see the sale side for why a
+			 * register of raw rows would be a table of ids. Names resolved in TWO batched lookups for the
+			 * whole page, never per row.
+			 */
+			List<com.myplus.business_service.entity.PurchaseReturn> rows = purchaseReturnRepo.findScoped(orgId());
+
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
+					rows.stream().map(com.myplus.business_service.entity.PurchaseReturn::getProductId)
+							.filter(java.util.Objects::nonNull).distinct()
+							.collect(java.util.stream.Collectors.toList()));
+
+			java.util.Map<Long, String> venderNameById = new java.util.HashMap<>();
+			List<Long> venderIds = rows.stream()
+					.map(com.myplus.business_service.entity.PurchaseReturn::getVenderId)
+					.filter(java.util.Objects::nonNull).distinct()
+					.collect(java.util.stream.Collectors.toList());
+			if (!venderIds.isEmpty())
+				venderService.findAllById(venderIds).forEach(v -> venderNameById.put(v.getId(), v.getName()));
+
+			return new GenericResponse("SUCCESS", "Purchase returns loaded", rows.stream()
+					.map(r -> toDebitNoteDto(r, productById.get(r.getProductId()),
+							venderNameById.get(r.getVenderId()), null))
+					.collect(java.util.stream.Collectors.toList()));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > getPurchaseReturns " + e.getMessage(), e);
+			return new GenericResponse("FAILED", "Could not load purchase returns.");
+		}
+	}
+
+	/**
+	 * Task #15 — ONE debit note, assembled into something a document can draw.
+	 *
+	 * <p>The mirror of {@code /creditNote} on the sale side, and it exists for the same reason: a
+	 * {@code PurchaseReturn} row holds a {@code productId} and a {@code venderId} but neither name, so it
+	 * cannot draw itself. A debit note is what a supplier reconciles your return against — the number is
+	 * already allocated ({@code debitNoteNo}, serialised per org), only the document was missing.
+	 *
+	 * <p><b>Keyed on the note NUMBER</b> — the document's identity, and what the supplier reconciles against.
+	 * <b>Anti-IDOR is the scope predicate inside the query</b>, not the key: a row id would be no harder to
+	 * guess than {@code DBN-000012}. The store rule is re-applied per record through the shared
+	 * {@code requestUtil.canAccessStore(...)} because the list queries filter by store while this endpoint
+	 * takes its key from the client — without it an admin at Store B could read a Store-A debit note.
+	 *
+	 * <p>Unlike the sale side there is no unrecoverable-value case to guard: {@code PurchaseReturn.amount} has
+	 * been written since the table was created in V33, so a debit note always knows what it is worth.
+	 */
+	@RequestMapping(value = "/debitNote", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse debitNote(@RequestParam(name = "no") final String noteNo,
+			final HttpServletRequest request) {
+		try {
+			if (appUtil.isEmptyOrNull(noteNo)) return new GenericResponse("NOT_FOUND");
+
+			com.myplus.business_service.entity.PurchaseReturn r =
+					purchaseReturnRepo.findByDebitNoteNoScoped(noteNo.trim(), orgId()).orElse(null);
+			// One combined not-found for "absent" and "not yours" — distinguishing them would tell a prober
+			// which notes exist in other tenants, which is what the scoped query is closing.
+			if (r == null || !requestUtil.canAccessStore(r.getStoreId()))
+				return new GenericResponse("NOT_FOUND");
+
+			String venderName = r.getVenderId() != null
+					? venderService.findById(r.getVenderId())
+							.map(com.myplus.business_service.entity.Vender::getName).orElse(null)
+					: null;
+
+			com.myplus.commerce.contracts.dto.ProductRef p = r.getProductId() != null
+					? productRefs(java.util.List.of(r.getProductId())).get(r.getProductId()) : null;
+
+			// The rate the goods were bought at, from the bill this return reverses.
+			Purchase bought = r.getPurchaseId() != null
+					? purchaseService.findById(r.getPurchaseId()).orElse(null) : null;
+
+			return new GenericResponse("SUCCESS", "Debit note loaded",
+					toDebitNoteDto(r, p, venderName, bought != null ? bought.getBpurchaseRate() : null));
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > debitNote " + e.getMessage(), e);
+			return new GenericResponse("FAILED", "Could not load the debit note.");
 		}
 	}
 

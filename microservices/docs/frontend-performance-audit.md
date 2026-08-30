@@ -724,3 +724,152 @@ wrapper that does not exist until the list populates. The fix each time was to a
 experiences, and for the focused-picker case to reuse the app's own idiom
 (`closest('.bootstrap-select').prev('select')`) rather than invent a second definition of "which picker is
 this".
+
+---
+
+## Sale screen — tier 1b: the lists load in the background (task #12, ✅ green 5/5)
+
+Raised from the counter, not from a profiler: *"on the sale form it takes time to load the products/stock, and
+the customer waiting in the row will not have patience."*
+
+### What was wrong
+
+jQuery raises the global overlay on the **first** request and drops it only when the **last** one finishes, so
+the sale screen was frozen for the slowest call in its load wave. Two reads were still in that wave:
+
+| Read | Cost | Why it was in the wave |
+|---|---|---|
+| `catalogProductPicker` | ~850 ms, paginated | `product-picker.js` used plain `$.get` |
+| `customerOptions` | ~800 rows | `loadSellCustomers` used plain `$.get` |
+
+Neither is work the operator asked for. A blocking spinner belongs on an action a user *started* — saving a
+sale, running a report — not on the background population of a screen.
+
+### The fix
+
+Both now use `global: false` (`bgJson`, and a local `get()` wrapper in `product-picker.js`), which excludes
+them from the ajaxStart/ajaxStop lifecycle entirely.
+
+### ⚠ The trap, and why it is the important half of this slice
+
+**`global: false` excludes a request from *every* global jQuery AJAX handler — not just the overlay's.**
+
+`searchable-selects.js` keeps AJAX-filled pickers in sync with a single `ajaxComplete` hook, and several
+populate helpers rely on it rather than refreshing themselves. So making a picker's loader non-blocking
+**silently stops its widget from redrawing**: ~800 `<option>` elements land in the DOM and the cashier looks at
+an empty "Select Customer" that will never fill. A DOM assertion (`option` count) passes the whole time.
+
+Two rules follow, and they are general — they apply to the next loader anyone makes non-blocking:
+
+1. **A background loader must refresh its own picker**, through the new `refreshSearchableSelect()` exported
+   from `searchable-selects.js`. That function carries the busy-guard (never refresh a picker the operator has
+   open), and the `ajaxComplete` hook now calls the same function — one rule, not two definitions that drift.
+2. **Gate the widget, not the DOM.** The spec asserts `.bootstrap-select .filter-option` — the text the cashier
+   actually reads — because only that proves a repaint happened.
+
+### ⚠ A loading picker must stay ENABLED
+
+The tempting way to show a loading state is to disable the control. `EnterChain.usable()` treats a disabled
+control as skippable, so disabling `sellCustomerDD` would send the new-sale cursor straight past the customer
+to `#sellCN` — silently undoing the entry point ruled on in task #13, **and only on slow connections**, which
+is precisely where nobody is watching. Placeholder text instead: `ui.js.loadingCustomers`, in all six locales.
+(`LocaleInterceptor` ships the whole `ui.js.*` prefix, so there is no whitelist to update.)
+
+An empty picker also had to stop reading as "this shop has no customers" when the truth is "not here yet" —
+that is a worse lie than the spinner it replaced.
+
+### Gate — `cypress/e2e/business/sale-nonblocking-load.cy.js` (5/5)
+
+Every list response is **deliberately delayed** by the spec via `cy.intercept` + `res.setDelay()`. On localhost
+these calls return in milliseconds, so a spec that merely opened the screen would pass with or without the fix
+— it would be measuring the developer's machine rather than the change.
+
+Item box typeable mid-load · loading placeholder · **widget really redraws** · item dropdown fills · cursor
+still lands on the customer while the list loads.
+
+### Two corrections to earlier claims in this programme
+
+- The spec blast radius was **10 files / 14 occurrences** of `#appAjaxOverlay`, not the ~100 first estimated,
+  and none asserted the placeholder text. The inflated figure would have justified a far more cautious plan.
+- **The pickers were never the ceiling.** Both are called from inside the DataTables success handler for
+  `getUserSell?q=-1`, which loads the tenant's **entire sales history** and still blocks. Tier 1b stopped the
+  pickers *extending* the overlay past that grid load; the grid itself is now the limit.
+
+### NEXT — tier 1c, and it is a bigger win than 1b
+
+`getUserSell?q=-1` is the remaining blocking read on Sell open. It is the same species as **F7** above
+(full-catalog fetches on the hot path): the whole table pulled into the browser so DataTables can paginate and
+search locally. The counter does not need the shop's entire sales history to ring up the next sale.
+
+---
+
+## Sale screen — tier 1c: the pickers stop queueing behind the record list (task #12) — ⏳ IMPLEMENTED, **AWAITING GATE**
+
+> **Status is deliberate.** Nothing here is proven until `cypress/e2e/business/sale-picker-chain.cy.js` has
+> actually run against a rebuilt monolith. PERF-4 in this same programme sat as "implemented" with a spec
+> that had never been executed — implemented code with an unrun gate is untested code that looks tested.
+
+### The finding tier-1b exposed
+
+Tier-1b made the picker reads non-blocking, and that bought less than it looked like it did. The pickers were
+called from **inside the grid's AJAX success handler**, so on the sale screen `loadSellCustomers()` could not
+even be *issued* until `getUserSell?q=-1` had come back. A non-blocking request that has not been sent yet is
+just a request that has not happened.
+
+And the thing it waited for has no ceiling:
+
+- `q=-1` is **uncapped** — every branch of the server's `visibleSells()` returns the full scoped list.
+- `Sell` rows are **per line, not per invoice**. A shop at 100 sales/day × 5 lines accumulates ~180k rows a year.
+
+So the counter froze behind the shop's entire trading history in order to ring up the next sale, and it got
+worse every day the tenant used the product.
+
+### The change (client-only, ruled by the user)
+
+1. **`preloadSectionPickers()`** — the dropdown preload moved out of the grid's success handler and into
+   `loadDataTable()`. The pickers belong to the SECTION, so they start with the section, in parallel with the
+   grid.
+2. **The grid takes `global: false`.** This is what makes (1) worth anything: the overlay covers the whole
+   viewport, so pickers that are loaded and ready are still unreachable while it is up. Breaking the chain
+   without this would have changed nothing a cashier could feel.
+3. **`pickerPreloadPending` deleted** (uses + the `main.js` declaration).
+
+### ⚠ A deleted guard has to be re-proven, not argued
+
+That flag existed for a real defect: the grid's success handler *also* runs on every `datatable.ajax.reload()`,
+and P6 rapid entry reloads after **every saved line** with the form still open — so the pickers were rebuilt
+underneath the operator mid-entry, wiping the selection they were using.
+
+The flag is safe to delete only because the preload now runs from `loadDataTable()` (which is what "a section
+was opened" means) and never from the reload path. That is a claim about behaviour, so the gate asserts it
+directly: **a grid reload must produce zero new picker requests.**
+
+### ⚠ Blast radius — the overlay was doing unadvertised work
+
+**12 specs use `#appAjaxOverlay` / `.ao-box` clearing as a proxy for "the data has arrived."** For grid loads
+that wait now passes immediately.
+
+Nothing breaks outright — Cypress satisfies `not.be.visible` for an absent element, and most grid-row
+assertions retry — but a spec that raced ahead would fail *intermittently*, which is the worst way to find
+out. The business suite must be run before this is committed. Most exposed:
+`purchase-rapid-entry.cy.js` (the P6 path the deleted flag protected), `pos-checkout-chain.cy.js`,
+`pos-keyboard.cy.js`, `sell.cy.js`.
+
+This is a general lesson about the overlay, not a one-off: a global blocking spinner doubles as accidental
+test synchronisation, so every slice that removes blocking also removes a wait somebody was relying on.
+
+### Gate — `cypress/e2e/business/sale-picker-chain.cy.js`
+
+Ordering is asserted **directly** (which request was issued before which response landed), not inferred from a
+stopwatch — a timing version would pass or fail on machine speed and prove nothing about the chain.
+
+Picker requested before the grid responds · till typeable during a 6s grid delay · grid still fills ·
+**reload does not rebuild the pickers**.
+
+### Still true after tier-1c
+
+The full history is still downloaded, just no longer in the operator's way. Removing that download is
+server-side paging — `getUserSell` already accepts `page`+`size` (slice 24) and the client never uses it,
+but the server only pages when `pagedWholeOrg` holds (owner/super with no store constraint), so store-scoped
+users would still get everything. Widening that gate means re-reasoning role×location scoping, which is why
+it was split out rather than bundled here.

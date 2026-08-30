@@ -21,6 +21,9 @@ public interface ProductBarcodeRepository extends JpaRepository<ProductBarcode, 
     /** The scan path's whole query: one indexed probe on (organization_id, barcode). */
     Optional<ProductBarcode> findByOrganizationIdAndBarcode(Long organizationId, String barcode);
 
+    /** U12 — every sticker in the org, for the label sheet. */
+    List<ProductBarcode> findByOrganizationIdOrderByBarcodeAsc(Long organizationId);
+
     /** The stickers registered against one product, for the product form's list. */
     List<ProductBarcode> findByOrganizationIdAndProductIdOrderByBarcodeAsc(Long organizationId, Long productId);
 

@@ -83,6 +83,26 @@ const returnPieces = (invoiceNo, productId, keepPieces, newTotal) =>
     })
   })
 
+/** Stock in against a NAMED batch, so a return can be traced back to it. */
+const stockInBatch = (productId, qty, batch) =>
+  cy.request({
+    method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+    body: { productId, quantity: qty, 'stock.batchNo': batch,
+      'stock.bpurchaseRate': 100, 'stock.bsellRate': 120,
+      totalAmount: qty * 100, netAmount: qty * 100, purchaseInvoiceNo: `BR-${uniq()}` },
+  }).then((r) => expect(r.body.status, `stock in: ${JSON.stringify(r.body).substring(0, 200)}`).to.eq('SUCCESS'))
+
+/**
+ * On-hand for ONE batch — the whole point of U10.
+ *
+ * Total on-hand cannot see this defect: a returned unit lands in *a* batch either way, so the total is right
+ * whether the lot is right or not. Only a per-batch read distinguishes "back where it came from" from "in a
+ * fresh, undated entry".
+ */
+const batchOnHand = (productId, batch) =>
+  cy.request(`/getStockByBatch?batchNo=${batch}&productId=${productId}`)
+    .then((r) => Number((r.body && r.body.stock) || 0))
+
 const onHand = (productId) =>
   cy.request('/productStockLevels').then((r) => {
     expect(r.body.success, 'productStockLevels').to.eq(true)
@@ -287,6 +307,126 @@ describe('U6 — counting the shelf, and taking tablets back', () => {
           }).then((u) => {
             expect(u.body.status, `an ordinary pack return: ${JSON.stringify(u.body).slice(0, 220)}`)
               .to.eq('SUCCESS')
+          })
+        })
+      })
+    })
+  })
+
+  // ── U10: a returned tablet goes back to the batch it came from ───────────────────────────────────────
+
+  it('⭐ a loose return restocks the ORIGINAL batch, not a fresh one', () => {
+    /*
+     * Before U10 an edit-based return called importStock with a bare line — a new StockEntry with no lot and
+     * no expiry. The QUANTITY was right, which is why nothing looked wrong; what was lost was FEFO order and
+     * recall traceability.
+     *
+     * Total on-hand cannot prove this. Only the batch can.
+     */
+    const name = `BatchRet_${uniq()}`
+    const batch = `BA${uniq()}`
+    setConfig('pos.sale.looseMarkupPct', '0')
+
+    packProduct(name, 120, 10).then((p) => {
+      stockInBatch(p.id, 10, batch)
+      batchOnHand(p.id, batch).then((before) => {
+        expect(before, 'ten packs in this batch').to.be.closeTo(10, 0.0001)
+
+        sellLoose(p.id, 5, 60).then((invoiceNo) => {
+          batchOnHand(p.id, batch).then((afterSale) => {
+            expect(afterSale, 'half a pack came out of THIS batch').to.be.closeTo(9.5, 0.0001)
+
+            returnPieces(invoiceNo, p.id, 2, 24).then((r) => {
+              expect(r.body.status, JSON.stringify(r.body).slice(0, 220)).to.eq('SUCCESS')
+              batchOnHand(p.id, batch).then((afterReturn) => {
+                expect(afterReturn, 'three tablets went BACK INTO THE SAME BATCH — 9.5 + 0.3')
+                  .to.be.closeTo(9.8, 0.0001)
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+
+  it('repeated partial returns never over-restore the batch', () => {
+    // Inventory caps each return at `picked − alreadyReturned`. Asserted through the EDIT path, because that
+    // is the path U10 changed and the cap lives somewhere else.
+    const name = `BatchCap_${uniq()}`
+    const batch = `BC${uniq()}`
+    setConfig('pos.sale.looseMarkupPct', '0')
+
+    packProduct(name, 120, 10).then((p) => {
+      stockInBatch(p.id, 10, batch)
+      sellLoose(p.id, 5, 60).then((invoiceNo) => {
+        returnPieces(invoiceNo, p.id, 3, 36)
+          .then((r) => expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.eq('SUCCESS'))
+        returnPieces(invoiceNo, p.id, 1, 12)
+          .then((r) => expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.eq('SUCCESS'))
+
+        // Sold 5, kept 1 -> 4 returned. The batch can never hold more than the 10 it started with.
+        batchOnHand(p.id, batch).then((after) => {
+          expect(after, 'never more than the batch ever held').to.be.lte(10.0001)
+          expect(after, 'four tablets back out of five sold').to.be.closeTo(9.9, 0.0001)
+        })
+      })
+    })
+  })
+
+  it('the TOTAL on-hand is unchanged by any of this', () => {
+    // The regression: U10 moved where stock lands, not how much. If the total ever differs from U6's
+    // behaviour, the batch routing has created or destroyed stock.
+    const name = `BatchTotal_${uniq()}`
+    const batch = `BT${uniq()}`
+    setConfig('pos.sale.looseMarkupPct', '0')
+
+    packProduct(name, 120, 10).then((p) => {
+      stockInBatch(p.id, 10, batch)
+      sellLoose(p.id, 5, 60).then((invoiceNo) => {
+        onHand(p.id).then((afterSale) => {
+          returnPieces(invoiceNo, p.id, 2, 24).then(() => {
+            onHand(p.id).then((afterReturn) => {
+              expect(afterReturn - afterSale, 'three tablets, wherever they landed').to.be.closeTo(0.3, 0.0001)
+            })
+          })
+        })
+      })
+    })
+  })
+
+  it('a PACK return also goes back to its batch — this is not loose-specific', () => {
+    const name = `BatchPack_${uniq()}`
+    const batch = `BP${uniq()}`
+
+    packProduct(name, 120, 10).then((p) => {
+      stockInBatch(p.id, 10, batch)
+      cy.request({
+        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+        failOnStatusCode: false,
+        body: {
+          customer: { name: `BP_${uniq()}`, contact: '03009999999' },
+          sales: [{ productId: p.id, quantity: 3, sellRate: 120, totalAmount: 360, netAmount: 360 }],
+          tenders: [{ method: 'CASH', amount: 360 }],
+          paidAmount: 360, grandTotal: 360, idempotencyKey: `cy-bp-${uniq()}`,
+        },
+      }).then((sr) => {
+        expect(sr.body.status, JSON.stringify(sr.body).slice(0, 200)).to.eq('SUCCESS')
+        batchOnHand(p.id, batch).then((afterSale) => {
+          expect(afterSale, 'three packs out').to.be.closeTo(7, 0.0001)
+          invoiceOf(sr.body.object).then((rows) => {
+            const ch = rows[0].customerHistory
+            cy.request({
+              method: 'POST', url: '/updateSell', headers: { 'Content-Type': 'application/json' },
+              failOnStatusCode: false,
+              body: {
+                customer_history_id: ch.customer_history_id, customer: ch.customer,
+                sales: [{ productId: p.id, quantity: 1, sellRate: 120, totalAmount: 120, netAmount: 120 }],
+                tenders: [{ method: 'CASH', amount: 120 }], paidAmount: 120, grandTotal: 120,
+              },
+            }).then((u) => expect(u.body.status, JSON.stringify(u.body).slice(0, 220)).to.eq('SUCCESS'))
+            batchOnHand(p.id, batch).then((afterReturn) => {
+              expect(afterReturn, 'two packs back into the same batch').to.be.closeTo(9, 0.0001)
+            })
           })
         })
       })

@@ -67,6 +67,20 @@ public class ProductImportSpec implements ImportSpec<Product> {
     static final String BARCODE = "barcode";
     static final String RX_REQUIRED = "rxRequired";
     static final String CONTROLLED = "controlledSubstance";
+    /*
+     * U9 - the pack rules, importable.
+     *
+     * A pharmacy switching on loose selling has to say what a pack holds for every medicine it splits.
+     * Doing that by hand on a 1,200-product catalogue is the reason a shop does not adopt the feature at
+     * all - so the columns that decide it belong in the file that creates the products.
+     *
+     * `defaultSellUnit` is deliberately NOT importable: it is a per-till preference with a safe default
+     * (PACK) and one more column to get wrong on the sheet that matters most.
+     */
+    static final String PACK_SIZE = "packSize";
+    static final String LOOSE_UNIT = "looseUnit";
+    static final String LOOSE_UNIT_PLURAL = "looseUnitPlural";
+    static final String ALLOW_LOOSE = "allowLoose";
 
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
@@ -88,7 +102,11 @@ public class ProductImportSpec implements ImportSpec<Product> {
                 ColumnSpec.number(TAX_RATE, false, "17"),
                 ColumnSpec.text(BARCODE, false, 255, "8964000123456"),
                 ColumnSpec.oneOf(RX_REQUIRED, false, "true", "false"),
-                ColumnSpec.oneOf(CONTROLLED, false, "true", "false"));
+                ColumnSpec.oneOf(CONTROLLED, false, "true", "false"),
+                ColumnSpec.integer(PACK_SIZE, false, "10"),
+                ColumnSpec.text(LOOSE_UNIT, false, 32, "tablet"),
+                ColumnSpec.text(LOOSE_UNIT_PLURAL, false, 32, "tablets"),
+                ColumnSpec.oneOf(ALLOW_LOOSE, false, "true", "false"));
     }
 
     /**
@@ -144,6 +162,13 @@ public class ProductImportSpec implements ImportSpec<Product> {
                 .category(resolveCategory(row.get(CATEGORY), orgId, userId))
                 .rxRequired(bool(row.get(RX_REQUIRED)))
                 .controlledSubstance(bool(row.get(CONTROLLED)))
+                // U9. A blank packSize is NOT "make this indivisible" - it is "not supplied", which is the
+                // same rule the product form follows so that a file written before this feature existed
+                // cannot strip the pack rules off the products it touches.
+                .packSize(intOrNull(row.get(PACK_SIZE)))
+                .looseUnit(trimToNull(row.get(LOOSE_UNIT)))
+                .looseUnitPlural(trimToNull(row.get(LOOSE_UNIT_PLURAL)))
+                .allowLoose(bool(row.get(ALLOW_LOOSE)))
                 // Every imported product is sellable from the moment it lands. Deactivation is an action about
                 // a product that exists, not a state to seed.
                 .isActive(true)
@@ -158,6 +183,41 @@ public class ProductImportSpec implements ImportSpec<Product> {
     /** Blank means false — the safe default for both flags: nothing becomes prescription-only by omission. */
     private static Boolean bool(String v) {
         return v != null && Boolean.parseBoolean(v.trim());
+    }
+
+    private static Integer intOrNull(String v) {
+        if (v == null || v.isBlank()) return null;
+        try { return Integer.valueOf(v.trim()); } catch (NumberFormatException e) { return null; }
+    }
+
+    private static String trimToNull(String v) {
+        if (v == null) return null;
+        String t = v.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
+     * U9 — the one rule that spans two columns: <b>"may be sold loose" needs something to divide.</b>
+     *
+     * <p>{@code allowLoose=true} with no pack size is a contradiction the product form cannot produce — it
+     * hides the loose fields until a pack size above 1 is entered, and unticks the box when one is cleared.
+     * An import must not be a way around that, or a shop ends up with products marked splittable that the
+     * till then refuses to split, and nothing explains why.
+     *
+     * <p><b>Refused with a reason rather than silently coerced.</b> Quietly turning the flag off would import
+     * the file "successfully" and leave the operator believing 1,200 products were configured when some were
+     * not — and the engine refuses the whole file on any bad row, so they are told before anything is written.
+     */
+    @Override
+    public String validateRow(CsvReader.Row row) {
+        boolean wantsLoose = bool(row.get(ALLOW_LOOSE));
+        if (!wantsLoose) return null;
+        Integer packSize = intOrNull(row.get(PACK_SIZE));
+        if (packSize == null || packSize <= 1) {
+            return "allowLoose is true but packSize is " + (packSize == null ? "missing" : packSize)
+                    + " — a product can only be sold by the piece if a pack holds more than one.";
+        }
+        return null;
     }
 
     /**
