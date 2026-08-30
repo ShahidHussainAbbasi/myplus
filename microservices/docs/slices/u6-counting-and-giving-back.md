@@ -98,12 +98,18 @@ wants to accept it can, as a fresh sale of the remainder — deliberately, at a 
 
 ## 5. What U6 deliberately does NOT do
 
-* **No batch-level return.** The parent design says a returned piece should go back *"to the batch it came
-  from"*, and `SaleReturn` has no batch column. Restocking to the wrong batch affects FEFO order, not
-  quantity — a real but second-order concern, and adding a column plus a migration to a slice whose main job
-  is verification would bury the thing being verified. **Recorded as an open item, not silently dropped.**
-* **No stock-count workflow.** Rendering on-hand in pieces is not the same as a count-and-adjust sheet;
-  that is its own slice with its own approval path.
+* ~~**No batch-level return.**~~ **CLOSED by [U10](u10-returns-to-the-right-batch.md).**
+  ⚠ **And the reasoning here was wrong.** This said the batch could not be restored because
+  `SaleReturn` has no batch column — but the batch never needed to be on `SaleReturn`. It lives on the
+  reservation, and `ReservationService.returnPicks` was **already** restoring to the original batch, capped
+  per pick, keeping the real expiry. It was never a missing capability, only a missing *call*: the dedicated
+  return path used it and the edit-based path (which is how a loose return happens) did not.
+  *Left visible rather than rewritten, because a deferral justified by a wrong premise is worth seeing.*
+* ~~**No stock-count workflow.**~~ **CLOSED by [U11](u11-counting-the-shelf.md)** — the sheet counts in packs
+  and pieces, computes the variance live, and applies it as ordinary `StockAdjustment` rows.
+  ⚠ **Without the approval path this sentence promised.** U11 §2 explains why: `StockAdjustment` is already
+  the record, and approval only matters where the counter and the approver are different people. That
+  remains open, on evidence.
 * **No own-sticker barcodes** — U7.
 
 ## 6. Gate — `sell-loose-return.cy.js`

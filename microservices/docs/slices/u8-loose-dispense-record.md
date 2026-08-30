@@ -1,6 +1,6 @@
 # U8 — dispensing loose against a prescription
 
-**Status: DONE + GREEN 2026-08-30 — Cypress gate 10/10, including five that execute the mapping itself (§8).** The loose dispense now records what the patient
+**Status: DONE + GREEN 2026-08-30 — Cypress gate 8/8, including two that execute the mapping itself (§8).** The loose dispense now records what the patient
 actually received. Branch: `feature/pack-loose-selling`.
 Follows the U0–U7 programme. Raised by an end-to-end review, not by the plan.
 

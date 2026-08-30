@@ -969,6 +969,123 @@
         });
     };
 
+    /**
+     * Task #16 — print MANY return documents as ONE job.
+     *
+     * <h4>Why not just call printReturnDocument in a loop</h4>
+     * Each call writes a document into the frame and fires {@code window.print()}. Twenty notes would be
+     * twenty print dialogs stacked on the operator, and the browser would drop most of them — a feature that
+     * appears to work on three rows and fails on a real supplier's month.
+     *
+     * <h4>How one job is assembled</h4>
+     * {@code buildHtml} returns a COMPLETE document, so the strings cannot simply be concatenated — the second
+     * one's `<head>` would land inside the first one's body. Each is parsed, its body lifted out, and the set
+     * re-wrapped in the first document's head so every style still applies. A page break between them makes it
+     * paginate the way a stack of notes should.
+     *
+     * <p>Fetched in parallel and then ordered by the request array, not by whichever response arrived first —
+     * a supplier's notes printing in random order would be a poor document to hand over.
+     */
+    global.printReturnDocuments = function (kind, noteNos) {
+        var debit = (kind === 'debit');
+        var list = (noteNos || []).filter(function (n) { return !!n; });
+        if (!list.length) {
+            if (global.showFormError) showFormError(t('ui.js.nothingToPrint'));
+            return;
+        }
+        var url = serverContext + (debit ? 'debitNote' : 'creditNote') + '?no=';
+        var profile = debit ? PRESETS.DEBIT_NOTE_A4 : PRESETS.CREDIT_NOTE_A4;
+
+        $.when.apply($, list.map(function (no) {
+            // `global: false` — a bulk print is background fetching; it must not sit behind the blocking
+            // overlay while a shop waits on a dozen round trips.
+            return $.ajax({ url: url + encodeURIComponent(no), dataType: 'json', global: false });
+        })).done(function () {
+            // jQuery hands ONE argument for a single deferred and an array-per-deferred for several.
+            var results = (list.length === 1) ? [[arguments[0]]] : Array.prototype.slice.call(arguments);
+            var htmls = [];
+            results.forEach(function (r) {
+                var resp = r[0];
+                if (resp && resp.status === 'SUCCESS' && resp.object)
+                    htmls.push(buildHtml(toInvoiceShape(resp.object), profile));
+            });
+            if (!htmls.length) {
+                if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReturnDocument'));
+                return;
+            }
+            printCombined(htmls);
+        }).fail(function () {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReturnDocument'));
+        });
+    };
+
+    /**
+     * Task #19 — print MANY sale invoices as ONE job, from the Sale Detail Report.
+     *
+     * <h4>The unit is an INVOICE, not a report row</h4>
+     * The report lists sale LINES, so one invoice appears once per line it contains. Printing per row would
+     * hand the operator the same invoice three times for a three-line sale. The caller therefore passes
+     * DISTINCT invoice numbers, and this de-duplicates again rather than trusting it — a duplicated invoice in
+     * a stack handed to a customer is worse than a missing one, because it looks like a second charge.
+     *
+     * <h4>Each invoice keeps its OWN layout</h4>
+     * No profile is forced: {@code buildHtml} resolves one per invoice, so a trade account still prints its A4
+     * invoice and a walk-in still prints the slip it has always printed. Forcing one paper size here would
+     * quietly make the bulk copy differ from the single copy of the same document, which is exactly the drift
+     * document-pdf.js exists to avoid.
+     */
+    global.printInvoices = function (invoiceNos) {
+        var seen = {};
+        var list = (invoiceNos || []).filter(function (n) {
+            if (!n || seen[n]) return false;
+            seen[n] = true;
+            return true;
+        });
+        if (!list.length) {
+            if (global.showFormError) showFormError(t('ui.js.nothingToPrint'));
+            return;
+        }
+        $.when.apply($, list.map(function (no) {
+            // Background: a bulk print must not sit behind the blocking overlay while a manager waits on a
+            // dozen round trips.
+            return $.ajax({
+                url: serverContext + 'getReceipt?invoiceNo=' + encodeURIComponent(no),
+                dataType: 'json', global: false
+            });
+        })).done(function () {
+            var results = (list.length === 1) ? [[arguments[0]]] : Array.prototype.slice.call(arguments);
+            var htmls = [];
+            results.forEach(function (r) {
+                var resp = r[0];
+                if (resp && resp.status === 'SUCCESS' && resp.object) htmls.push(buildHtml(resp.object));
+            });
+            if (!htmls.length) {
+                if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReceipt'));
+                return;
+            }
+            printCombined(htmls);
+        }).fail(function () {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReceipt'));
+        });
+    };
+
+    /** Several complete documents → one paginated print job. See printReturnDocuments for why. */
+    function printCombined(htmls) {
+        var parser = new DOMParser();
+        var docs = htmls.map(function (h) { return parser.parseFromString(h, 'text/html'); });
+        var head = docs[0].head ? docs[0].head.innerHTML : '';
+        var pages = docs.map(function (d) {
+            return '<div class="dc-sheet">' + (d.body ? d.body.innerHTML : '') + '</div>';
+        }).join('');
+        var combined = '<!doctype html><html><head>' + head
+            + '<style>.dc-sheet{page-break-after:always}.dc-sheet:last-child{page-break-after:auto}</style>'
+            + '</head><body>' + pages + '</body></html>';
+        var frame = writeToFrame(combined, 'receiptFrame');
+        setTimeout(function () {
+            try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { /* ignore */ }
+        }, 300);
+    }
+
     /** ReturnDocumentDTO → the invoice-shaped object the renderer and lineMath already consume. */
     function toInvoiceShape(doc) {
         return {

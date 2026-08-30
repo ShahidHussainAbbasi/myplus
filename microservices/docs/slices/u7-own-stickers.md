@@ -154,10 +154,13 @@ is simply the case where that means "one of the selling unit".
 
 ## 11. What U7 deliberately does NOT do
 
-* **No label printing**, no barcode image generation.
+* ~~**No label printing**, no barcode image generation.~~ **CLOSED by
+  [U12](u12-printing-labels.md)** — JsBarcode vendored, sheet presets, and the code printed as text beneath
+  the bars so a bad print is still keyable.
 * **No multi-level packaging.** A sticker carries a quantity; it does not introduce a unit hierarchy —
-  parent design §4 still holds.
-* **No bulk import of stickers.** If a shop needs hundreds, that is the CSV import slice's job.
+  parent design §4 still holds. **Unchanged and still true.**
+* **No bulk import of stickers.** [U9](u9-importable-pack-rules.md) made the PACK RULES importable, not the
+  stickers — a shop needing hundreds of codes still has no bulk path. **Open.**
 
 ---
 

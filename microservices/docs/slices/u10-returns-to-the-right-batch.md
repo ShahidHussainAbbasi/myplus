@@ -1,6 +1,6 @@
 # U10 — a returned tablet goes back to the batch it came from
 
-**Status: DONE + GREEN 2026-08-30 — sell-loose-return.cy.js 16/16, including four that read PER-BATCH on-hand.** Branch: `feature/pack-loose-selling`.
+**Status: DONE + GREEN 2026-08-30 — sell-loose-return.cy.js 13/13 (U6's nine plus U10's four), the last four reading PER-BATCH on-hand.** Branch: `feature/pack-loose-selling`.
 Closes the open item U6 §5 deferred.
 
 ---

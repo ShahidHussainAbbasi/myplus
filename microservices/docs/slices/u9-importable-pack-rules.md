@@ -1,6 +1,6 @@
 # U9 — the pack rules, importable
 
-**Status: DONE + GREEN 2026-08-30 — `product-import.cy.js` 37/37, catalog-service 50/50.**
+**Status: DONE + GREEN 2026-08-30 — `product-import.cy.js` 20/20 (15 pre-existing plus U9's five), catalog-service 50/50.**
 Branch: `feature/pack-loose-selling`.
 
 A pharmacy switching loose selling on has to say what a pack holds for **every medicine it splits**. By hand,

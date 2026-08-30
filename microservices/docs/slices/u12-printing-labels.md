@@ -1,6 +1,6 @@
 # U12 — printing the shop's own labels
 
-**Status: DONE + GREEN 2026-08-30 — label-print.cy.js 10/10, with the barcode asserted as DRAWN (rect/path children), not merely present.** Branch: `feature/pack-loose-selling`.
+**Status: DONE + GREEN 2026-08-30 — label-print.cy.js 8/8, with the barcode asserted as DRAWN (rect/path children), not merely present.** Branch: `feature/pack-loose-selling`.
 The last of the items U6/U7 declined.
 
 U7 lets a shop register `LP-4471` to mean *one tablet*. **Nothing in the system can produce that label.** A
@@ -127,3 +127,17 @@ for the prescription-unit question: the test tells you what to change when the a
 | Present at `js/business/JsBarcode.all.min.js` | 66 420 bytes |
 | Loads and exports `JsBarcode` | as a function, checked outside a browser |
 | Advertises `CODE128` | the format `labels.js` requests |
+
+---
+
+## 12. ⚠ A note on the case counts in these documents
+
+Several slice documents originally overstated their gate size — U8 as 10, U10 as 16, U12 as 10, U9 as 37.
+The counts came from `grep -c "it("`, which also matches **comm`it(`**, **subm`it(`** and **awa`it(`**, all
+of which appear in these specs.
+
+Corrected against `grep -cE "^\s*it\("`. The real totals are U8 **8**, U10 **13**, U12 **8**, U9 **20**.
+
+*A number produced by a pattern that matches more than it means is a number that will be repeated in a
+status report until someone counts by hand. It cost nothing here — every gate genuinely passed — but the
+figures quoted upward were wrong, and that is worth correcting rather than quietly restating.*

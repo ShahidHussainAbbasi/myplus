@@ -1,14 +1,19 @@
 
 
-> ## ✅ PROGRAMME COMPLETE — U0 to U7, all green (2026-08-29)
+> ## ✅ PROGRAMME COMPLETE — U0 to U12, thirteen slices, all green (2026-08-30)
 >
 > A shop can buy by the box, record what a pack holds, sell five tablets at the counter, print a
 > receipt that says so, take three back, count the shelf as *9 + 5 tablets*, and scan its own
 > sticker to sell one. Slice docs: `slices/u0-…` through `slices/u7-…`, each with its own gate
 > and its own implementation log.
 >
-> **Deliberately not built:** batch-level loose returns, a count-and-adjust workflow, label
-> printing. Each is recorded in the slice that declined it, with the reason.
+> **The three items U6 and U7 declined were later built**, each as its own slice on the owner's
+> instruction: batch-level returns (**U10**), count and adjust (**U11**), label printing (**U12**),
+> plus importable pack rules (**U9**). *A deferral is a decision with a date on it, not a refusal.*
+>
+> **Still deliberately not built:** an approval step before a count is applied (U11 §2 — it needs a
+> shop where the counter and the approver are different people), a label designer, and direct
+> printer integration.
 # Selling by the pack and by the piece
 
 **Status: DESIGN — awaiting confirmation. No code written.**
@@ -496,15 +501,24 @@ which is a condition to state now rather than discover later.
 ### Sequencing at a glance
 
 ```
-U0  stock unit        ← only if §12b C; ships ALONE, full regression
+U0  stock unit        ← ships ALONE, full regression
  └─ U1  catalog       ← additive
      └─ U2  arithmetic ⭐ the money
          └─ U3  till   ⭐ the time saved
              └─ U4  receipt        ══ deliverable ══
-                 └─ U5  purchase
-                     └─ U6  count + returns
-                         └─ U7  loose barcodes
+                 └─ U5  purchase in boxes
+                     └─ U6  count display + loose returns
+                         └─ U7  own-sticker barcodes
+                             └─ U8   the dispense RECORD          ← found by review, not planned
+                             └─ U9   pack rules importable
+                             └─ U10  returns to the ORIGINAL batch
+                             └─ U11  count and adjust
+                             └─ U12  label printing
 ```
+
+**U8 to U12 were not in the original plan.** U8 came out of an end-to-end review; U9–U12 were the items U6
+and U7 had declined, built later on the owner's instruction. They are drawn as siblings because each depends
+only on U7 and none on the others — *which is why they could be taken in any order, and were.*
 
 ### What is testable at each point
 
@@ -517,7 +531,12 @@ U0  stock unit        ← only if §12b C; ships ALONE, full regression
 | **U4** | **the whole job** | buy in boxes |
 | U5 | receive in boxes without mental arithmetic | count loose without mental arithmetic |
 | U6 | count and return loose | scan a loose sticker |
-| U7 | one-scan loose sales | — |
+| U7 | one-scan loose sales | print the sticker it just registered |
+| U8 | dispense loose against a script, recorded in tablets | — |
+| U9 | set pack rules for 1,200 products from one file | — |
+| U10 | return a tablet to the batch it came from | — |
+| U11 | count the shelf in packs and pieces, and apply it | have a second person approve the count |
+| **U12** | **print its own labels** | — |
 
 ## 12. The gate
 

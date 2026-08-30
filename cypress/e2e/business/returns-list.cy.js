@@ -103,7 +103,7 @@ describe('Returns register — credit notes and debit notes', () => {
     // browsing its returns must not have the whole page frozen behind the read.
     cy.intercept({ method: 'GET', url: '**/getSaleReturns*' }, (req) => {
       req.on('response', (res) => res.setDelay(3000))
-    }).as('slow')
+    }).as('slowReturns')
 
     cy.visit('/businessDashboard')
     cy.get('#sellType', { timeout: 30000 }).should('exist')
@@ -111,7 +111,7 @@ describe('Returns register — credit notes and debit notes', () => {
 
     cy.get('#appAjaxOverlay').should('not.be.visible')
     cy.get('.ao-box').should('not.be.visible')
-    cy.wait('@slow', { timeout: 20000 })
+    cy.wait('@slowReturns', { timeout: 20000 })
   })
 
   it('both nav entries reach the register', () => {

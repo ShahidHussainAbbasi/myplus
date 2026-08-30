@@ -337,14 +337,27 @@ public class PurchaseController {
 	 */
 	@RequestMapping(value = "/getPurchaseReturns", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getPurchaseReturns(final HttpServletRequest request) {
+	public GenericResponse getPurchaseReturns(
+			@RequestParam(name = "venderId", required = false) final Long venderId,
+			final HttpServletRequest request) {
 		try {
 			/*
 			 * Returned as the SAME ReturnDocumentDTO the printable note uses — see the sale side for why a
 			 * register of raw rows would be a table of ids. Names resolved in TWO batched lookups for the
 			 * whole page, never per row.
 			 */
-			List<com.myplus.business_service.entity.PurchaseReturn> rows = purchaseReturnRepo.findScoped(orgId());
+			/*
+			 * Task #16 — optional supplier filter.
+			 *
+			 * Filtered in SQL, never in Java: "show me this supplier's debit notes" on a distributor with
+			 * years of returns must not load every row to discard most of them. findDebitNotesForVender was
+			 * already written for the AP statement and carries the same org + user NULL-fallback scoping, so
+			 * this is a reuse rather than a new query — and a filter that cannot be pointed at another
+			 * tenant's supplier, because the scope predicate sits inside it.
+			 */
+			List<com.myplus.business_service.entity.PurchaseReturn> rows = (venderId != null)
+					? purchaseReturnRepo.findDebitNotesForVender(venderId, orgId(), userId())
+					: purchaseReturnRepo.findScoped(orgId());
 
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
 					rows.stream().map(com.myplus.business_service.entity.PurchaseReturn::getProductId)

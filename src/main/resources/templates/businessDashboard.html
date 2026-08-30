@@ -804,6 +804,18 @@ tr.row-voided .js-edit-row{display:none !important}
 					Every return that has been taken, newest first. Reprint a note to hand the customer or supplier
 					a copy — the document is generated fresh, so it always reflects the return as recorded.
 				</p>
+				<!--
+					Task #16 — the supplier filter. Debit-note mode only: a credit note's party is a customer,
+					and offering a supplier picker over a list of customer returns would be a control that
+					cannot match anything.
+				-->
+				<div id="returnsFilterBar" class="form-inline" style="display:none;margin-bottom:12px">
+					<label for="returnsVenderDD" style="margin-right:8px" th:text="#{ui.supplier}">Supplier</label>
+					<select id="returnsVenderDD" class="form-control" style="min-width:220px"></select>
+					<button type="button" id="returnsPrintAll" class="btn btn-default" style="margin-left:8px">
+						<span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.js.printAll}">Print all</span>
+					</button>
+				</div>
 				<table class="table table-condensed" id="tableReturns" style="width:100%">
 					<thead>
 						<tr>
@@ -3644,6 +3656,25 @@ tr.row-voided .js-edit-row{display:none !important}
 					<!-- B2B-P3e-1 (#6): the SHARED filter rail mounts here (customer/product/category/channel +
 					     Export CSV). Every future report attaches the same component instead of growing its own. -->
 					<span id="srFilterRail" style="display:contents"></span>
+					<!--
+						Task #19 — the INVOICES behind the report. The grid's own Print/PDF buttons export the
+						TABLE; these produce the actual invoice documents for the sales listed. They act on the
+						DISTINCT invoices in the filtered set, because the report lists lines and one invoice
+						appears once per line it contains.
+					-->
+					<div class="sr-field">
+						<label>&nbsp;</label>
+						<div>
+							<button type="button" id="srPrintInvoices" class="btn btn-default">
+								<span class="glyphicon glyphicon-print"></span>
+								<span th:text="#{ui.js.printInvoices}">Print invoices</span>
+							</button>
+							<button type="button" id="srDownloadInvoices" class="btn btn-default">
+								<span class="glyphicon glyphicon-download-alt"></span>
+								<span th:text="#{ui.js.downloadInvoices}">Download PDF</span>
+							</button>
+						</div>
+					</div>
 				</form>
 
 				<!-- KPI summary — filled by renderSRKpis() after a successful load -->

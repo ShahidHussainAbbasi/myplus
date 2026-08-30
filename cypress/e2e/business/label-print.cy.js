@@ -6,10 +6,15 @@
  * U7 lets a shop register `LP-4471` to mean "one tablet". Nothing could PRINT that label, so the code had to
  * be written by hand — and a hand-written code cannot be scanned, which was the whole point of it.
  *
- * ⚠ THE BARCODE ENCODER IS VENDORED SEPARATELY (`js/business/JsBarcode.all.min.js`). Until that file is in
- * place the screen must REFUSE to print rather than render empty boxes — a shop that printed a sheet of
- * blank-barcode stickers would discover it at the counter. The case below asserts exactly that, and it is
- * the one that changes meaning once the file lands.
+ * THE BARCODE ENCODER IS VENDORED (`js/business/JsBarcode.all.min.js`, 66 KB, CODE128).
+ *
+ * ⚠ Before it landed, the second case asserted that the screen REFUSED to print — because rendering empty
+ * barcode boxes would let a shop spend a sheet of stationery on stickers that cannot be scanned, and find
+ * out at the counter. That case was PINNED at the behaviour of the day with a comment saying it would flip.
+ *
+ * It has flipped, and it now asserts the barcode is DRAWN — `svg.lbl-code` with `rect, path` children.
+ * An empty `<svg>` satisfies "the element exists" and prints as a blank box, which is precisely the failure
+ * the refusal existed to prevent: **asserting an element is present is not asserting the encoder ran.**
  *
  * Run headed:
  *   npx cypress run --spec cypress/e2e/business/label-print.cy.js --headed --no-exit

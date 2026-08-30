@@ -3,12 +3,18 @@
  *
  * Design: microservices/docs/slices/u6-counting-and-giving-back.md
  *
- * ⚠ THIS GATE IS WRITTEN TO DISCOVER, NOT TO CONFIRM.
+ * ⚠ WRITTEN TO DISCOVER, NOT TO CONFIRM — AND IT FOUND SOMETHING.
  *
- * The review found that loose returns are probably ALREADY working: a return here is an edit of the invoice,
- * `updateSell` shares `buildLines`, and U2 put the loose conversion there. If that chain holds, cases 1–4
- * pass without a line of new return code — which is the outcome the slice is hoping for, because building a
- * second implementation of something that already works is how two implementations come to disagree.
+ * U6's review predicted loose returns already worked: a return is an edit of the invoice, `updateSell`
+ * shares `buildLines`, and U2 put the loose conversion there. **It was half right.**
+ *
+ * The MONEY was already correct — the credit note, the refund, the invoice total, all of them, first run.
+ * The STOCK was not: the delta was computed from the raw DTO, where `SellDTO.quantity` defaults to 1F, so a
+ * loose return took −1 PACK instead of −0.2 and on-hand went 9.5 → 9.0 instead of 9.8. Only the shelf was
+ * wrong, which is the kind of error a shop finds weeks later at a count with no way to trace it.
+ *
+ * The last four cases are U10's: they read PER-BATCH on-hand, because total on-hand cannot see a lot defect —
+ * a returned unit lands in *a* batch either way.
  *
  * Run headed:
  *   npx cypress run --spec cypress/e2e/business/sell-loose-return.cy.js --headed --no-exit

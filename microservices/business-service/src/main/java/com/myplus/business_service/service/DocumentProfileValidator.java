@@ -45,7 +45,11 @@ public class DocumentProfileValidator {
             "invoiceNo", "dated", "datedTime", "time", "dueDate", "paymentMode", "storeName",
             "licenseNo", "licenseExpiry", "bookedBy",
             "customerName", "customerCode", "customerAddress", "customerMobile", "customerCity",
-            "customerCnic", "customerLicenseNo", "customerLicenseExpiry");
+            "customerCnic", "customerLicenseNo", "customerLicenseExpiry",
+            // Task #15 — return documents (credit note / debit note). These do NOT reuse invoiceNo even
+            // though they resolve the same kind of string: the LABEL is the point, and a credit note printed
+            // under an "Invoice #" heading is the confusion the note numbers exist to end.
+            "creditNoteNo", "debitNoteNo", "referenceNo", "returnReason", "supplierName");
 
     /** Mirrors LINE_FIELDS in receipt.js. */
     private static final Set<String> LINE_FIELDS = Set.of(

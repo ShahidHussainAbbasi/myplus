@@ -262,3 +262,124 @@ more sensitive than the invoice it reverses.
   or the fetch fires, not merely that a button is drawn.
 - A row without a note number shows no reprint action.
 - Scoping: a plain user does not see another user's returns.
+
+---
+
+## ⚠ Defect found by the suite: a whitelist entry needs TWO files
+
+`document-designer.cy.js` ("the browser renderer and the server validator agree on every field key") failed
+after part 1: the five new header keys existed in `receipt.js` `FIELD_WHITELIST` and **not** in
+`DocumentProfileValidator.java` (`HEADER_FIELDS`).
+
+**Real consequence:** an owner designing a document with a credit-note field would have had the layout
+**rejected on save** — the server validates against its own list, so the template silently fails to persist.
+
+The validator states the rule in bold in its own javadoc:
+
+> *"KEEP IN STEP WITH THE RENDERER … Adding a field means editing both, and each file carries a comment
+> pointing at the other."*
+
+The duplication is deliberate — *"a server that trusts the client's list is not validating anything"* — which
+is correct, and is exactly why a cross-checking gate exists. Fixed; the five keys are now in both.
+
+**Rule for any future field:** `receipt.js` FIELD_WHITELIST **and** `DocumentProfileValidator` HEADER_FIELDS /
+LINE_FIELDS / TOTAL_ROWS, in the same change, or `document-designer.cy.js` fails.
+
+---
+
+# Part 3 — supplier filter and bulk print (task #16)
+
+**Status:** IMPLEMENTED, awaiting gate — `cypress/e2e/business/debit-note-supplier-filter.cy.js`.
+
+## S1. Mostly reuse, by design
+
+`PurchaseReturnRepo.findDebitNotesForVender(venderId, orgId, userId)` already existed for the AP statement,
+with the same org + user NULL-fallback scoping. So the filter is a **reuse**, not a new query — and one that
+cannot be pointed at another tenant's supplier, because the scope predicate lives inside it.
+
+`GET /getPurchaseReturns` now takes an optional `venderId`. Filtered **in SQL**: "this supplier's debit notes"
+on a distributor with years of returns must not load every row to discard most of them.
+
+The supplier picker reads `getUserVenders` — the same list the purchase form uses. One definition of "which
+suppliers does this tenant have".
+
+⚠ `getUserVenders` answers with **`<option>` markup, not JSON**. Use `bgGet`, not `bgJson`: forcing a JSON
+parse on markup yields nothing and fails silently. (Caught during implementation — the first version called a
+non-existent `getUserVender` and expected `{collection}`.)
+
+## S2. Bulk print is ONE job, not N dialogs
+
+**The trap:** calling `printReturnDocument` in a loop fires `window.print()` per document. Twenty notes would
+stack twenty dialogs on the operator and the browser would drop most of them — it works on three rows and
+fails on a real supplier's month.
+
+`buildHtml` returns a COMPLETE document, so the strings cannot simply be concatenated (the second document's
+`<head>` would land inside the first one's body). `printCombined` parses each, lifts its body out, and
+re-wraps the set in the first document's head with a page break between them. One print dialog, N pages.
+
+Fetched in parallel but **ordered by the request array**, not by whichever response arrived first — a
+supplier's notes printing in random order is a poor document to hand over.
+
+**This settles the bulk question left open in tasks #16 and #19:** combine into one job client-side. Task #19
+(bulk from the Sale Report) should follow this rather than inventing a second answer. A server-side document
+job is still the right move past a few hundred documents; nothing here needs it yet.
+
+## S3. ⚠ Gate corrections against GATE-RUNBOOK
+
+Reviewing the runbook exposed two faults in this cluster's earlier gates:
+
+1. **Wrong tenant.** #15 and #21 ran only as `owner.business@` (POS). Supplier returns are a DISTRIBUTION
+   concern, so this gate runs as `owner.marketplace@` via `cy.loginAsMarketplaceOwner()` — which also
+   validates against `/getOrders`, the endpoint that tenant actually owns.
+2. **No privilege ladder (rule 4).** Added. ⚠ `user.marketplace@` **does not exist** — the marketplace org's
+   non-owner member is `booker.marketplace@myplus.com` (`ROLE_ORDER_BOOKER`, no `ADMIN_PRIVILEGE`), which is
+   the stronger fixture anyway: it proves a rep with no admin rights can still read the register.
+   *Existence is not eligibility — check `commands.js` for the account before writing the ladder case.*
+
+**Still owed on #15/#21:** a privilege-ladder pass of their own.
+
+---
+
+# Part 4 — invoice documents from the Sale Detail Report (task #19)
+
+**Status:** IMPLEMENTED, awaiting gate — `cypress/e2e/business/sale-report-invoices.cy.js`.
+
+## I1. The distinction that defines the slice
+
+The report already had Print / Excel / PDF buttons. **Those are DataTables exports: they dump the TABLE.**
+What was missing is the invoice DOCUMENT for the sales listed — tenant header, customer, lines, totals,
+document number — produced by `receipt.js` / `document-pdf.js`.
+
+Restyling a table export would have looked finished and shipped the wrong artifact, so the gate asserts
+`getReceipt` is called and returns an invoice, which a grid export would never touch.
+
+## I2. ⚠ The unit is an INVOICE, not a report row
+
+The report lists sale **lines**, so a three-line sale appears three times. `srVisibleInvoiceNos()` takes the
+DISTINCT invoice numbers from the rows **currently rendered** — so the buttons follow the DataTable's own
+search/filter state, and cannot produce a document the operator was not shown.
+
+De-duplication is the strongest assertion in the gate: handing someone the same invoice three times is worse
+than missing one, because a duplicate in a stack reads as a second charge.
+
+## I3. ⚠ A fifth unreachable feature found
+
+`downloadInvoicePdf()` and `downloadChallan()` have existed in `document-pdf.js` **with no caller anywhere in
+the codebase**. This screen is the first to reach `downloadInvoicePdf`. The gate asserts it is *invoked with a
+real invoice number*, not that a button renders.
+
+Running tally of "shipped but unreachable" in this codebase: C1's inert service · C3's unregistered catalog ·
+C6's invisible policy · PERF-4's never-run gate · `getSaleReturns` with no screen · now `downloadInvoicePdf`.
+**A capability with no caller is the default failure mode here, not an anomaly.**
+
+## I4. Bulk decisions, and why they differ between print and download
+
+| | Choice | Why |
+|---|---|---|
+| Print | ONE job, N pages (`printCombined`) | N calls to `window.print()` stack N dialogs and the browser drops most — works on 3 rows, fails on a real month |
+| Download | ONE PDF per invoice, sequential (400ms apart) | a merged PDF needs pdfmake concatenation, and the per-invoice file is what a manager attaches to an email; a simultaneous burst gets throttled or silently dropped |
+| Confirm | print always; download at ≥10 files | N files is N browser downloads — a manager who meant to print should not receive two hundred |
+
+Each invoice keeps its **own** resolved profile: a trade account still prints A4, a walk-in still prints the
+slip. Forcing one paper size would make the bulk copy differ from the single copy of the same document —
+exactly the drift `document-pdf.js` exists to prevent.

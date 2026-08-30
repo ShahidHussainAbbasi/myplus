@@ -808,6 +808,70 @@ function priceRuleState(r){
 }
 
 /*
+ * -- Task #19: the INVOICES behind the Sale Detail Report ---------------------------------------------
+ *
+ * The report already had Print and PDF buttons, but those are DataTables exports: they dump the TABLE -- a
+ * grid of rows. What was missing is the actual invoice DOCUMENT for the sales listed, which is a different
+ * artifact from a different pipeline (receipt.js / document-pdf.js).
+ *
+ * The unit is an INVOICE, not a report row. The report lists sale LINES, so a three-line sale appears three
+ * times; printing per row would hand the operator the same invoice three times over. The distinct set is
+ * taken from the invoice column of the rows CURRENTLY RENDERED -- what the operator filtered to and can
+ * see -- so these buttons cannot produce something they were not shown.
+ */
+function srVisibleInvoiceNos(){
+	var seen = {}, out = [];
+	$('#tableSellReport tbody .sr-inv').each(function(){
+		var no = $.trim($(this).text());
+		if (!no || no === '—' || seen[no]) return;
+		seen[no] = true;
+		out.push(no);
+	});
+	return out;
+}
+
+$(document).on('click', '#srPrintInvoices', function(){
+	var nos = srVisibleInvoiceNos();
+	if (!nos.length) { if (window.showFormError) showFormError(t('ui.js.nothingToPrint')); return; }
+	uiConfirm({
+		title: t('ui.js.printInvoices'),
+		message: t('ui.js.printNDocuments', nos.length),
+		confirmText: t('ui.js.print')
+	}).then(function(ok){
+		if (ok) printInvoices(nos);
+	});
+});
+
+/*
+ * Download: ONE PDF per invoice, deliberately. A merged PDF would need pdfmake concatenation, and the
+ * per-invoice file is what a manager actually attaches to an email or files against an account.
+ *
+ * downloadInvoicePdf() already existed in document-pdf.js with NO caller anywhere -- this is the first
+ * screen to reach it. Confirmed above a small threshold, because N files is N browser downloads and a
+ * manager who meant to print should not receive two hundred of them.
+ */
+var SR_DOWNLOAD_WARN_AT = 10;
+
+$(document).on('click', '#srDownloadInvoices', function(){
+	var nos = srVisibleInvoiceNos();
+	if (!nos.length) { if (window.showFormError) showFormError(t('ui.js.nothingToPrint')); return; }
+	var go = function(){
+		// Sequential, not all at once: browsers throttle or silently drop a burst of simultaneous downloads,
+		// which would look like the feature half-working.
+		nos.forEach(function(no, i){
+			setTimeout(function(){ downloadInvoicePdf(no); }, i * 400);
+		});
+	};
+	if (nos.length < SR_DOWNLOAD_WARN_AT) { go(); return; }
+	uiConfirm({
+		title: t('ui.js.downloadInvoices'),
+		message: t('ui.js.downloadNFiles', nos.length),
+		confirmText: t('ui.js.download')
+	}).then(function(ok){ if (ok) go(); });
+});
+
+
+/*
  * ── Task #21: the returns register ───────────────────────────────────────────────────────────────────
  *
  * ONE screen for both sides. A credit note and a debit note differ in exactly three things — the endpoint,
@@ -836,15 +900,72 @@ function showReturns(mode){
 	$('#returnsTitle').text(t(cfg.title));
 	$('#returnsPartyHead').text(t(cfg.party));
 	$('#tableReturns tbody').empty();
+
+	/*
+	 * Task #16 — the supplier filter belongs to the DEBIT side only. A credit note's party is a customer, so
+	 * offering a supplier picker over customer returns would be a control that can never match anything.
+	 */
+	if (window.returnsMode === 'debit') {
+		$('#returnsFilterBar').show();
+		loadReturnsVenders();
+	} else {
+		$('#returnsFilterBar').hide();
+		$('#returnsVenderDD').val('');
+	}
 	loadReturns();
 }
+
+/*
+ * The supplier list for the filter.
+ *
+ * Reuses the SAME lean read the purchase form's vendor picker uses rather than adding a second vendor
+ * endpoint — one definition of "which suppliers does this tenant have". Background, so the register is
+ * usable while the list fills.
+ */
+function loadReturnsVenders(){
+	var $dd = $('#returnsVenderDD');
+	if ($dd.data('loaded')) return;             // once per session; the list changes rarely
+	$dd.empty().append($('<option>').val('').text(t('ui.js.allSuppliers')));
+	// `getUserVenders` (plural) answers with <option> MARKUP, not JSON — the same response loadUserVenders
+	// appends. bgGet, not bgJson, because forcing a JSON parse on markup yields nothing and fails silently.
+	bgGet(serverContext + 'getUserVenders', function(html){
+		$dd.append(html);
+		$dd.data('loaded', true);
+		// `global:false` skips the ajaxComplete hook that redraws pickers — refresh explicitly. See
+		// refreshSearchableSelect for the full trap.
+		refreshSearchableSelect($dd);
+	});
+}
+
+// Re-read on change. Filtering in SQL, not by hiding rows: a distributor's register is not a page.
+$(document).on('change', '#returnsVenderDD', function(){ loadReturns(); });
+
+/*
+ * Print every note currently listed, as ONE job.
+ *
+ * Deliberately prints what is ON SCREEN rather than re-querying: the operator filtered to a supplier and can
+ * see exactly what they are about to hand over, so the button cannot print something they were not shown.
+ */
+$(document).on('click', '#returnsPrintAll', function(){
+	var notes = $('#tableReturns tbody .rtn-print').map(function(){ return $(this).data('note'); }).get();
+	if (!notes.length) { if (window.showFormError) showFormError(t('ui.js.nothingToPrint')); return; }
+	uiConfirm({
+		title: t('ui.js.printAll'),
+		message: t('ui.js.printNDocuments', notes.length),
+		confirmText: t('ui.js.print')
+	}).then(function(ok){
+		if (ok) printReturnDocuments(window.returnsMode || 'credit', notes);
+	});
+});
 
 function loadReturns(){
 	var mode = window.returnsMode || 'credit';
 	var cfg = RETURN_MODES[mode];
 	// A register is background population of a screen, not an action the operator is waiting on — same rule
 	// tier-1b applied to the pickers, so it must not raise the blocking overlay.
-	bgJson(serverContext + cfg.url, function(resp){
+	// Task #16: the supplier filter is applied in SQL, so it travels with the read.
+	var vid = (mode === 'debit') ? ($('#returnsVenderDD').val() || '') : '';
+	bgJson(serverContext + cfg.url + (vid ? '?venderId=' + encodeURIComponent(vid) : ''), function(resp){
 		renderReturns(mode, (resp && resp.collection) || []);
 	}).fail(function(){
 		$('#tableReturns tbody').html('<tr><td colspan="8" class="text-danger">'
