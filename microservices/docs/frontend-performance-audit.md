@@ -673,3 +673,54 @@ within the viewport, plus a separate internal-overflow check so a failure says w
 It also asserts it **inspected more than ten controls**. Without that, an empty list reads exactly like a clean
 one: a renamed `#sellDiv`, a screen that failed to open or a selector that stopped matching would all pass
 while testing nothing.
+
+---
+
+## Sale screen — customer first (task #13, ✅ green)
+
+**What moved.** The customer block moved from below the cart to above `<form id="Sell">`, and
+`sellCustomerDD` / `sellCN` / `sellCC` moved from the head of `CHECKOUT` to the head of `CHAIN`. The cursor now
+lands on the customer when a new sale opens.
+
+**Why, in the product owner's words and not mine.** A sale is priced by WHO is buying — contract and tier
+prices, credit limit, store credit. Ringing lines first prices against a customer the system does not know it
+has, and then re-prices. Starting there makes the first price the right price.
+
+> I argued the opposite: that most sales are walk-ins and starting on the customer adds a stop to every one.
+> That was overruled, and the ruling was right — the pricing argument outranks the keystroke. The gate's
+> assertions were **inverted rather than deleted**, so the file records that the entry point is a decision.
+
+**It costs a walk-in nothing** because the picker is in `PICKERS`: a blank one is skipped with the same double
+Enter a cashier already uses on the item picker. One familiar keystroke, not a new rule.
+
+**The block stayed OUTSIDE the line form.** That form is serialised field-by-field to build a cart LINE, and a
+customer is not a line — moving the controls inside would have put them in that payload and in the line's own
+Enter chain.
+
+### ⚠ The regression this introduced, and the shape of it
+
+`skipAhead('sellItemDD')` already routed an empty item picker to `goToCheckout()`. But `goToCheckout()` refuses
+an empty cart and fell back to `focusEntryPoint()` — which had just become the customer:
+
+```
+customer → skip → item → skip → customer → …    (no way out)
+```
+
+The cause is worth naming: **one function had two callers who wanted different answers.** `goToCheckout`'s own
+comment said the fallback meant "leave them where the items are typed", and that quietly stopped being true
+when the entry point moved underneath it. Split into `focusEntryPoint()` (a new sale → the customer) and
+`focusGoodsEntry()` (the empty-cart fallback → the goods).
+
+### Gate — `cypress/e2e/business/sale-customer-first.cy.js` (7/7)
+
+Document order (not pixels — a CSS reorder would look right and leave the tab order wrong) · outside the line
+form · chain order · cursor on the customer · type-to-search with a populated list · empty picker → payment ·
+**empty cart → goods, explicitly not the customer**.
+
+Three of my own assertions failed against a correct product before this went green, all the same species —
+**asserting the artefact instead of the property**: `activeElement.id` on a widget that focuses a button with
+no id; `options.length` read once when the 837 customers arrive seconds later; and a `.bootstrap-select`
+wrapper that does not exist until the list populates. The fix each time was to assert what the operator
+experiences, and for the focused-picker case to reuse the app's own idiom
+(`closest('.bootstrap-select').prev('select')`) rather than invent a second definition of "which picker is
+this".

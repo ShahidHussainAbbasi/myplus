@@ -43,9 +43,21 @@
                    'catalogProductPicker', 'productStock', 'addSell', 'addPurchase'];
 
     var sampled = Math.random() < SAMPLE_RATE;
+    /** Joins the page beacon and the per-metric beacons into one page view, server-side. Random, not
+     *  identifying — it exists to correlate a handful of rows, and dies with the page. */
+    var pid = Math.random().toString(36).slice(2, 10);
     var vitals = {};
     var marks = {};
     var sent = false;
+
+    /** Post a payload without blocking. The ONLY transport — see report() for why there is no XHR fallback. */
+    function send(payload) {
+        safe(function () {
+            if (!navigator.sendBeacon) return;
+            navigator.sendBeacon((global.serverContext || '/') + 'rum',
+                new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        });
+    }
 
     function safe(fn) {
         try { fn(); } catch (ignored) { /* monitoring must never break the page */ }
@@ -103,6 +115,8 @@
         sent = true;
         safe(function () {
             var payload = {
+                // Correlates this row with the per-metric rows sent as each vital finalised.
+                pid: pid,
                 page: location.pathname,
                 /*
                  * Segment, not identity. `module` is the vertical (BUSINESS / PHARMA / MARKETPLACE …), which
@@ -122,14 +136,13 @@
                 marks: marks,
                 vitals: vitals
             };
-            var body = JSON.stringify(payload);
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon((global.serverContext || '/') + 'rum',
-                    new Blob([body], { type: 'application/json' }));
-            }
+            // Through the shared transport, so the page beacon and the per-metric beacons cannot drift apart
+            // — two copies of "how do we post telemetry" is how one of them quietly stops working.
+            //
             // No XHR fallback on purpose: a browser without sendBeacon would need a synchronous request
             // during unload, which blocks the very navigation the operator is trying to make. A missing
             // sample is cheaper than a stalled page.
+            send(payload);
         });
     }
 
@@ -137,8 +150,21 @@
         if (!sampled) return;
 
         if (global.webVitals) {
-            // The attribution build reports WHICH element caused a slow LCP/INP, so a bad number points at a
-            // culprit instead of starting an investigation.
+            /*
+             * Each metric is sent WHEN IT FINALISES, not gathered into the page beacon.
+             *
+             * The first version collected them into one payload sent on page-hide, and measurement showed
+             * exactly which half of that works: TTFB and FCP arrived (they settle early), while
+             * LCP, CLS and INP produced ZERO beacons across every page load — those three are finalised BY
+             * the page hiding, so a single end-of-page beacon races the very event that produces them.
+             *
+             * Reporting per metric is what the library is built for and removes the race entirely. The cost
+             * is several small beacons instead of one; they are a few hundred bytes each, fire-and-forget,
+             * and never block. `pid` lets the server stitch them back into one page view.
+             *
+             * The attribution build also names WHICH element caused a slow LCP or INP, so a bad number points
+             * at a culprit rather than starting an investigation.
+             */
             var record = function (metric) {
                 vitals[metric.name] = {
                     value: Math.round(metric.value),
@@ -146,6 +172,16 @@
                     target: (metric.attribution && (metric.attribution.interactionTarget
                              || metric.attribution.element)) || undefined
                 };
+                send({
+                    pid: pid,
+                    page: location.pathname,
+                    module: global.MODULE || null,
+                    vital: metric.name,
+                    value: Math.round(metric.value),
+                    rating: metric.rating,
+                    target: (metric.attribution && (metric.attribution.interactionTarget
+                             || metric.attribution.element)) || undefined
+                });
             };
             ['onTTFB', 'onFCP', 'onLCP', 'onCLS', 'onINP'].forEach(function (fn) {
                 if (typeof global.webVitals[fn] === 'function') global.webVitals[fn](record);

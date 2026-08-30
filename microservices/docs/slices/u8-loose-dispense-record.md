@@ -1,6 +1,7 @@
 # U8 — dispensing loose against a prescription
 
-**Status: FIXED, gate outstanding.** Branch: `feature/pack-loose-selling`.
+**Status: DONE + GREEN 2026-08-30 — Cypress gate 10/10, including five that execute the mapping itself (§8).** The loose dispense now records what the patient
+actually received. Branch: `feature/pack-loose-selling`.
 Follows the U0–U7 programme. Raised by an end-to-end review, not by the plan.
 
 ---
@@ -58,25 +59,33 @@ var pieces = (soldUnit === 'LOOSE' && soldQuantity > 0) ? soldQuantity : quantit
 No server change: `DispenseService` already caps at what the script can account for, and now receives a
 number in the same unit the script is written in.
 
-## 4. ⚠ What is deliberately NOT fixed — and why it is a question, not an omission
+## 4. ✅ ANSWERED — a script can only be in tablets, by construction
 
-**Two packs of ten against a 15-tablet script still record `2`, not `20`.**
+The open question was *"is `rxQty` written in tablets or in packs?"*. The owner settled it on 2026-08-30, and
+the answer removes the question rather than choosing a side:
 
-That mismatch **predates loose selling entirely** and turns on something only the shop can answer: *is
-`rxQty` written in tablets or in packs?* Every clinical convention says tablets — a script reads "30 tablets,
-1 BD × 15 days" — and the screen's own `dosage` / `frequency` / `duration` fields say the same. But:
+> "prescriptions never explain tablets or packs. A doctor always writes medicine names and dose duration."
 
-* for a product with **no pack size** — which is most of the catalogue and every product before U1 — pieces
-  and packs are the same number and nothing is ambiguous;
-* for a **divisible** product it diverges, and changing it would rewrite how every pack dispense is recorded.
+A doctor writes *"Panadol 500mg, 1 tablet twice daily × 7 days"*. The quantity is therefore **derived** —
+dose × frequency × duration — and that arithmetic can only ever produce a **count of tablets**. It cannot
+produce a count of packs. The screen's own `dosage` / `frequency` / `duration` fields exist for exactly that
+calculation.
 
-**Guessing would corrupt the register in the opposite direction** — over-recording a dispense is as wrong as
-under-recording one, and harder to spot. So the loose case (created by this programme, and unambiguous) is
-fixed now, and the pack case is raised for a decision.
+**So there was never a shop-by-shop convention to respect.** There is one unit a prescription can be in, and
+the pack case was simply wrong in the same direction as the loose one:
 
-> **The question for the shop:** when your pharmacist writes a quantity on a prescription, is that a count of
-> tablets or a count of packs? If tablets, the pack case needs the same conversion and the cart line needs to
-> carry `packSize` to do it.
+| dispensed | recorded before | recorded now |
+|---|---|---|
+| 15 tablets loose | 1 | **15** |
+| 2 packs of 10 | 2 | **20**, capped at the 15 prescribed |
+
+⚠ **Converting a pack line needs its pack size on the cart line**, which only LOOSE lines carried. Both add
+paths now stamp `packSizeSnapshot` for a divisible product — the manual add from the till's cached pack
+rules, the scan from the `ProductRef` the lookup already returns. Harmless on the way to the server:
+`packSizeSnapshot` is server-populated and ignored inbound, so this is a record aid, never a trusted input.
+
+*A question that looked like a preference turned out to have an arithmetic answer. Asking was still right —
+guessing "tablets" for the wrong reason would have produced the same code with none of the confidence.*
 
 ## 5. Gate — to add to `sell-loose.cy.js` or its own spec
 
@@ -95,3 +104,45 @@ after `addSell` succeeds, by a screen that was never in the loose feature's scop
 
 *A feature is finished when everything that reads its output is right — not when everything that writes it
 is.*
+
+---
+
+## 7. Gate result
+
+**6/6 green**, including the two that matter clinically: a 15-tablet script records **15** and closes, and a
+filled script **cannot be dispensed a second time** — the repeat this defect permitted.
+
+The pack case was gated at today's behaviour with a comment saying it was a question, not an endorsement —
+and when the answer came (§4) that pinned case was the thing that flipped, deliberately and in one place.
+
+*That is how to hold an undecided question: pin it, label it, do not pretend it is settled. Then when it is
+settled, the test tells you exactly what to change.*
+
+---
+
+## 8. ⚠ The gate was testing the wrong layer
+
+Run 2 failed on the pack case: it recorded **2** where 20 was expected. The fix was correct; **the gate could
+not reach it.**
+
+Every case posted straight to `/dispensePrescription` with a hand-written `quantity`. That proves the SERVER
+records and caps what it is told, and says nothing about whether the till tells it the right thing — and the
+defect lived in the browser's mapping. My test sent `quantity: 2` and the server faithfully recorded 2.
+
+**So the six "green" cases of run 1 proved less than they appeared to.** They were real assertions about real
+behaviour; they simply were not assertions about the thing that was broken.
+
+The mapping is now extracted as `dispenseItemsFrom(cart)` and exported, and the gate asserts it directly:
+
+| cart line | recorded |
+|---|---|
+| `{quantity: 1.5, soldUnit: LOOSE, soldQuantity: 15, packSizeSnapshot: 10}` | **15** |
+| `{quantity: 2, packSizeSnapshot: 10}` | **20** |
+| `{quantity: 6}` — indivisible | **6** |
+| `{productId: 9}` — malformed | **0**, never `NaN` on a clinical record |
+
+The API cases are kept, relabelled for what they actually prove: that the server caps 20 at the 15 prescribed.
+
+> **The lesson, and it is the sharpest one in the programme:** *a gate that cannot execute the code you
+> changed is asserting the artefact, not the property.* U8's first gate was written against the endpoint
+> because the endpoint was easy to call — and the fix was three layers away from it.

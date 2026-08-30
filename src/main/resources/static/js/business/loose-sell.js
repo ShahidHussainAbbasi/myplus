@@ -90,6 +90,24 @@
 
     function toggleUnit() { return setUnit(unit === 'LOOSE' ? 'PACK' : 'LOOSE'); }
 
+    /**
+     * U8b — stamp `packSizeSnapshot` on a cart line even when it is sold as a PACK.
+     *
+     * <p>A prescription's quantity is DERIVED — dose x frequency x duration — so it can only ever be a count
+     * of TABLETS. Two packs of ten dispensed against a fifteen-tablet script is therefore twenty tablets, and
+     * recording "2" understates the register exactly as the loose bug did.
+     *
+     * <p>Converting needs the pack size on the line, and until now only LOOSE lines carried it. Harmless on
+     * the way to the server: `packSizeSnapshot` is server-populated and ignored inbound (see SellDTO), so
+     * this is a display/record aid, never an input the server trusts.
+     */
+    function stampPackSize(line) {
+        if (line && current && current.allowLoose && current.packSize > 1 && line.packSizeSnapshot == null) {
+            line.packSizeSnapshot = current.packSize;
+        }
+        return line;
+    }
+
     /* ── the hint line — the feature ──────────────────────────────────────────────────────────────────── */
 
     function pieces() {
@@ -237,6 +255,7 @@
         setUnit: setUnit,
         toggle: toggleUnit,
         decorate: decorate,
+        stampPackSize: stampPackSize,
         lineOverride: lineOverride,
         validate: validate,
         reset: reset,

@@ -313,6 +313,36 @@
         $('#dispenseBanner').hide();
     };
 
+    /**
+     * ⭐ Cart lines → what to record against the prescription, IN TABLETS.
+     *
+     * <p>Extracted and exported so it can be tested directly. The first version of U8's gate posted straight
+     * to {@code /dispensePrescription}, which proved the SERVER records what it is told and never that the
+     * till tells it the right thing — and the defect was here, in this mapping. A gate that cannot reach the
+     * code under test is asserting the artefact, not the property.
+     *
+     * <h3>Why tablets</h3>
+     * A doctor writes a medicine, a dose and a duration, so a script's quantity is DERIVED —
+     * dose x frequency x duration — and can only ever be a count of tablets. Never a count of packs.
+     *
+     *   sold 15 loose                  -> 15   (soldQuantity is already tablets)
+     *   sold 2 packs of 10             -> 20   (the server caps at what the script allows)
+     *   sold 6 of an indivisible item  -> 6    (pieces ARE the unit)
+     */
+    global.dispenseItemsFrom = function (cart) {
+        return (cart || []).map(function (d) {
+            var pieces;
+            if (String(d.soldUnit || '').toUpperCase() === 'LOOSE' && Number(d.soldQuantity) > 0) {
+                pieces = Number(d.soldQuantity);
+            } else if (Number(d.packSizeSnapshot) > 1) {
+                pieces = (Number(d.quantity) || 0) * Number(d.packSizeSnapshot);
+            } else {
+                pieces = Number(d.quantity) || 0;
+            }
+            return { productId: Number(d.productId), quantity: pieces };
+        });
+    };
+
     // Called by main.js after a successful addSell when a dispense is in progress. Records the dispense (the cart
     // items that were actually sold) against the prescription, linked to the sale invoice.
     global.dispensePrescription = function (invoiceNo) {
@@ -335,12 +365,7 @@
          * shop writes scripts in tablets or in packs. Changing it needs that answer, and guessing would
          * corrupt the register in the opposite direction. Raised, not silently "fixed".
          */
-        var items = (window.data || []).map(function (d) {
-            var pieces = (String(d.soldUnit || '').toUpperCase() === 'LOOSE' && Number(d.soldQuantity) > 0)
-                ? Number(d.soldQuantity)
-                : Number(d.quantity) || 0;
-            return { productId: Number(d.productId), quantity: pieces };
-        });
+        var items = dispenseItemsFrom(window.data || []);
         $.ajax({
             type: 'POST', url: serverContext + 'dispensePrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),

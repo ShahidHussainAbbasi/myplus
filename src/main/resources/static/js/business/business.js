@@ -185,7 +185,7 @@ $(document).ready(function() {
 			obj.stock.itemId = obj.itemId;
 			// U3: on a LOOSE line this sets soldUnit/soldQuantity and converts `quantity` to packs.
 			// A no-op on every ordinary line, which is every line until a shop switches loose selling on.
-			if (window.LooseSell) LooseSell.decorate(obj);
+			if (window.LooseSell) { LooseSell.decorate(obj); LooseSell.stampPackSize(obj); }   // U8b: a PACK line of a divisible product carries its pack size too
 			obj.stock.itemName = obj.itemName;
 			// The rate this line SOLD at = the cashier's #sellSellRate (bound to stock.bsellRate). Surface it as
 			// line.sellRate so the /addSell submission carries it â†’ SagaSellService records the actual sold rate
@@ -466,6 +466,8 @@ function scanAddToCart(ref, qty, unit, li){
 		if (scannedSerial !== '') obj.serials = scannedSerial;
 		// U3: a `5L*CODE` scan is a LOOSE line. The server derives quantity and rate from soldQuantity, so
 		// what the browser computes here is DISPLAY only — it cannot mis-sell, only mis-show.
+		// U8b: the scanned ProductRef carries packSize, so a PACK line of a divisible product records it too.
+		if(ref && ref.packSize > 1 && obj.packSizeSnapshot == null) obj.packSizeSnapshot = ref.packSize;
 		if(unit === 'LOOSE' && li && li.allowLoose && li.packSize > 0){
 			obj.soldUnit = 'LOOSE';
 			obj.soldQuantity = n;

@@ -199,14 +199,63 @@ describe('U8 — what a loose dispense records against the script', () => {
     })
   })
 
-  it('⚠ a PACK dispense records packs — the case still awaiting a decision', () => {
+  // ── ⭐ THE MAPPING ITSELF — where the defect actually lived ──────────────────────────────────────────
+
+  it('⭐ the till converts every cart line to TABLETS before recording it', () => {
     /*
-     * Two packs of ten against a 15-tablet script record 2, NOT 20.
+     * ⚠ THE CASES ABOVE POST STRAIGHT TO /dispensePrescription, so they prove the SERVER records and caps
+     * what it is told — and nothing about whether the till tells it the right thing. The defect was in the
+     * browser's mapping, and no amount of API testing could have reached it.
      *
-     * This predates loose selling and turns on whether this shop writes scripts in tablets or in packs.
-     * The gate asserts TODAY'S behaviour so the answer is visible and any future change is deliberate — it
-     * is NOT an endorsement. See u8-loose-dispense-record.md §4.
+     * `dispenseItemsFrom` is that mapping, exported so this can assert it directly.
      */
+    cy.visit('/businessDashboard')
+    cy.waitForAppReady()
+    cy.window().then((w) => {
+      expect(w.dispenseItemsFrom, 'the mapper is exported').to.be.a('function')
+
+      // 15 tablets sold loose out of packs of 10 -> the cart holds quantity 1.5
+      expect(w.dispenseItemsFrom([
+        { productId: 7, quantity: 1.5, soldUnit: 'LOOSE', soldQuantity: 15, packSizeSnapshot: 10 },
+      ])[0].quantity, 'fifteen tablets, not one').to.eq(15)
+
+      // 2 packs of 10 -> twenty tablets. THIS is the case that was recording 2.
+      expect(w.dispenseItemsFrom([
+        { productId: 7, quantity: 2, packSizeSnapshot: 10 },
+      ])[0].quantity, 'two packs of ten is twenty tablets').to.eq(20)
+
+      // An indivisible product: pieces ARE the unit, so nothing changes.
+      expect(w.dispenseItemsFrom([
+        { productId: 8, quantity: 6 },
+      ])[0].quantity, 'unchanged for most of the catalogue').to.eq(6)
+
+      // A divisible product sold as a single pack.
+      expect(w.dispenseItemsFrom([
+        { productId: 7, quantity: 1, packSizeSnapshot: 10 },
+      ])[0].quantity).to.eq(10)
+
+      // Defensive: a malformed line must not become NaN on a clinical record.
+      expect(w.dispenseItemsFrom([{ productId: 9 }])[0].quantity, 'no NaN reaches the register').to.eq(0)
+    })
+  })
+
+  it('a mixed cart maps each line in its own unit', () => {
+    cy.visit('/businessDashboard')
+    cy.waitForAppReady()
+    cy.window().then((w) => {
+      const items = w.dispenseItemsFrom([
+        { productId: 7, quantity: 1.5, soldUnit: 'LOOSE', soldQuantity: 15, packSizeSnapshot: 10 },
+        { productId: 8, quantity: 2, packSizeSnapshot: 10 },
+        { productId: 9, quantity: 4 },
+      ])
+      expect(items.map((i) => i.quantity), 'loose, packs, indivisible').to.deep.eq([15, 20, 4])
+    })
+  })
+
+  // ── the server, given a correct number ───────────────────────────────────────────────────────────────
+
+  it('the server records what the till now sends for a pack sale', () => {
+    // The other half: 20 tablets against a 15-tablet script is capped at 15 and closes it.
     const name = `PackDsp_${uniq()}`
 
     packProduct(name).then((p) => {
@@ -214,13 +263,12 @@ describe('U8 — what a loose dispense records against the script', () => {
       prescribe(p.id, name, 15).then((rxId) => {
         post('/dispensePrescription', {
           prescriptionId: rxId, invoiceNo: `INV-PK-${uniq()}`,
-          items: [{ productId: p.id, quantity: 2 }],   // the till sends packs on a PACK line
+          items: [{ productId: p.id, quantity: 20 }],   // what dispenseItemsFrom produces for 2 packs of 10
         }).then((d) => expect(d.body.success, JSON.stringify(d.body).slice(0, 200)).to.eq(true))
 
         readRx(rxId).then((rx) => {
           expect(Number(itemOf(rx, p.id).dispensedQuantity),
-            'records 2 today; if scripts are written in tablets this should be 20 — an open question')
-            .to.eq(2)
+            'capped at the 15 prescribed; the extra 5 tablets are an ordinary sale').to.eq(15)
         })
       })
     })

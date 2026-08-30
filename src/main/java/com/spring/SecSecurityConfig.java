@@ -81,6 +81,21 @@ public class SecSecurityConfig {
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                 .ignoringRequestMatchers(
+                    /*
+                     * RUM beacon — CSRF-exempt because `navigator.sendBeacon` CANNOT set request headers.
+                     *
+                     * That is the API's design, not a limitation to work around: a beacon is queued by the
+                     * browser and sent after the page is gone, so there is no document left to read a token
+                     * from. With CSRF enforced the POST was rejected and REDIRECTED TO LOGIN — a 302 the
+                     * beacon discards, so telemetry silently produced nothing. `permitAll` alone was not
+                     * enough; the CSRF filter runs first and does not care that the endpoint is public.
+                     *
+                     * The exemption is safe because of what the endpoint IS: RumController accepts a small
+                     * fixed map, truncates it, writes one log line and always answers 204. It reads nothing,
+                     * writes to no table, and changes no state — so a forged POST can at worst add a junk
+                     * line to a log, which is the same thing an honest client can do.
+                     */
+                    "/rum",
                     "/login",
                     "/user/registration*", "/user/registrationCaptcha*", "/old/user/registration*",
                     "/user/resetPassword*", "/user/savePassword*", "/user/resendRegistrationToken*",
