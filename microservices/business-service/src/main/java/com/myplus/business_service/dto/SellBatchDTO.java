@@ -20,4 +20,7 @@ public class SellBatchDTO {
     private String batchNo;
     private LocalDate expiryDate;
     private BigDecimal quantity;
+
+    /** #17 P3: what one unit of this batch cost — the basis of the sale COGS. */
+    private BigDecimal unitCost;
 }

@@ -75,6 +75,7 @@ public class RepossessionService {
     @Autowired private DocumentNumberService documentNumberService;
     @Autowired private SettingsService settingsService;
     @Autowired private ISellService sellService;
+    @Autowired private SaleCosting saleCosting;                    // #17 P3: one cost definition
     @Autowired private com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
     @Autowired private ICustomerService customerService;
     @Autowired private GlOutboxService glOutboxService;
@@ -198,11 +199,15 @@ public class RepossessionService {
         BigDecimal retTax = split[1];
 
         List<Sell> lines = sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId, null);
-        BigDecimal cost = BigDecimal.ZERO;
-        for (Sell s : lines) {
-            cost = cost.add(nz(s.getCostPrice()).multiply(BigDecimal.valueOf(s.getQuantity() == null ? 0f : s.getQuantity())));
-        }
-        cost = cost.setScale(2, RoundingMode.HALF_UP);
+        /*
+         * #17 P3 — the repossessed goods reverse at what they COST WHEN THEY LEFT, from the batches the sale
+         * consumed. A repossession can be months after the sale, so recomputing from a current rate would
+         * reverse a cost the sale never posted and leave the books unbalanced by the difference.
+         *
+         * SaleCosting falls back to the per-line snapshot for a sale written before P3 — which is what this
+         * loop did, and remains the only figure such a sale has.
+         */
+        BigDecimal cost = saleCosting.cogsFromSells(lines);
 
         // Same allocation the return path uses, so the document row and the GL line carry the SAME number.
         // Serialised counter, not MAX+1 — same reasoning as the ordinary return path.

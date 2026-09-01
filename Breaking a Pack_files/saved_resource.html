@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://6c29b624-9fa2-499f-b797-4401aa21d5a2.frame.claudeusercontent.com/_f/1787804466-f9ff/?__frame_t=fAxLgVFoeRzsQX2hyVYfdIHm.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788234329&__frame_v=manifest.aecc8e7118d82208.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.DF6_9MzE.js","assets":"assets.8Gk803W0.js","comments":"comments.vw5vQdGA.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.DF6_9MzE.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.C6E0cR5g.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Breaking a Pack</title>
+<style>
+  :root {
+    --ground:      #F6F7F9;
+    --surface:     #FFFFFF;
+    --surface-2:   #EDEFF3;
+    --ink:         #12161C;
+    --ink-2:       #454C57;
+    --ink-3:       #6E7683;
+    --rule:        #D9DDE4;
+    --rule-2:      #C3C9D2;
+    --accent:      #14548A;
+    --accent-ink:  #FFFFFF;
+    --accent-soft: #E3EDF6;
+    --loose:       #9A4A0B;
+    --loose-soft:  #FBEBDD;
+    --good:        #1F6B4A;
+    --good-soft:   #E0F0E8;
+    --bad:         #93231F;
+    --bad-soft:    #FAE6E4;
+    --till-bg:     #10151C;
+    --till-ink:    #E6EAF0;
+    --till-rule:   #2A323D;
+    --shadow:      0 1px 2px rgba(18,22,28,.06), 0 8px 24px -12px rgba(18,22,28,.18);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0C0F14;
+      --surface:     #151A21;
+      --surface-2:   #1D242D;
+      --ink:         #E8EBF0;
+      --ink-2:       #B2BAC6;
+      --ink-3:       #838C99;
+      --rule:        #262E38;
+      --rule-2:      #333C48;
+      --accent:      #6BA9DA;
+      --accent-ink:  #0C0F14;
+      --accent-soft: #16283A;
+      --loose:       #E8A268;
+      --loose-soft:  #33220F;
+      --good:        #7DC9A4;
+      --good-soft:   #12271D;
+      --bad:         #E88F89;
+      --bad-soft:    #2C1614;
+      --till-bg:     #05070A;
+      --till-ink:    #E6EAF0;
+      --till-rule:   #232B35;
+      --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #0C0F14;
+    --surface:     #151A21;
+    --surface-2:   #1D242D;
+    --ink:         #E8EBF0;
+    --ink-2:       #B2BAC6;
+    --ink-3:       #838C99;
+    --rule:        #262E38;
+    --rule-2:      #333C48;
+    --accent:      #6BA9DA;
+    --accent-ink:  #0C0F14;
+    --accent-soft: #16283A;
+    --loose:       #E8A268;
+    --loose-soft:  #33220F;
+    --good:        #7DC9A4;
+    --good-soft:   #12271D;
+    --bad:         #E88F89;
+    --bad-soft:    #2C1614;
+    --till-bg:     #05070A;
+    --till-ink:    #E6EAF0;
+    --till-rule:   #232B35;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 40px 24px 96px; }
+  @media (max-width: 700px) { .wrap { padding: 28px 16px 64px; } }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 5vw, 46px); line-height: 1.08; letter-spacing: -.025em;
+    font-weight: 700; text-wrap: balance; margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(20px, 3vw, 26px); letter-spacing: -.018em; font-weight: 680;
+    text-wrap: balance; margin-bottom: 8px;
+  }
+  h3 { font-size: 16px; font-weight: 650; letter-spacing: -.008em; margin-bottom: 6px; }
+  p { color: var(--ink-2); max-width: 68ch; }
+  .lede { font-size: 18px; color: var(--ink-2); max-width: 64ch; }
+  strong { color: var(--ink); font-weight: 640; }
+  section { margin-top: 56px; }
+  .stack > * + * { margin-top: 14px; }
+
+  .num { font-variant-numeric: tabular-nums; }
+  code, .mono { font-family: var(--mono); font-size: .88em; }
+  code {
+    background: var(--surface-2); border: 1px solid var(--rule);
+    border-radius: 4px; padding: 1px 5px;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 10px; padding: 20px; box-shadow: var(--shadow);
+  }
+
+  /* ── the till ──────────────────────────────────────────────── */
+  .till {
+    background: var(--till-bg); color: var(--till-ink);
+    border-radius: 12px; padding: 22px; font-family: var(--mono);
+    border: 1px solid var(--till-rule);
+  }
+  .till-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+    color: #7C8796; border-bottom: 1px solid var(--till-rule);
+    padding-bottom: 10px; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+  }
+  .line-grid {
+    display: grid; grid-template-columns: 1fr 96px auto 96px 104px;
+    gap: 12px; align-items: center;
+  }
+  @media (max-width: 760px) {
+    .line-grid { grid-template-columns: 1fr 1fr; }
+    .line-grid .prod { grid-column: 1 / -1; }
+    .line-grid .amt  { grid-column: 1 / -1; text-align: left; }
+  }
+  .prod { font-size: 15px; font-weight: 600; }
+  .prod small { display: block; color: #7C8796; font-weight: 400; font-size: 11px; letter-spacing: .06em; }
+
+  #qty {
+    width: 100%; background: #1B222C; color: var(--till-ink);
+    border: 1px solid #3A4552; border-radius: 6px; padding: 9px 10px;
+    font-family: var(--mono); font-size: 20px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  #qty:focus { outline: 2px solid #6BA9DA; outline-offset: 1px; border-color: transparent; }
+  #qty.flash { animation: flash .45s ease; }
+  @keyframes flash { 0%,100% { background:#1B222C; } 35% { background:#3A2A16; } }
+
+  .toggle { display: inline-flex; border: 1px solid #3A4552; border-radius: 999px; overflow: hidden; }
+  .toggle button {
+    font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+    padding: 7px 15px; background: transparent; color: #97A1AE;
+    border: 0; cursor: pointer; text-transform: uppercase;
+  }
+  .toggle button[aria-pressed="true"] { background: #E8A268; color: #10151C; font-weight: 700; }
+  .toggle button:first-child[aria-pressed="true"] { background: #6BA9DA; }
+  .toggle[hidden] { display: none; }
+  .rate, .amt { font-size: 17px; text-align: right; font-variant-numeric: tabular-nums; }
+  .amt { font-weight: 700; }
+
+  .hint {
+    margin-top: 16px; border: 1px dashed #4A5563; border-radius: 8px;
+    padding: 11px 14px; font-size: 13.5px; color: #E8A268;
+    background: rgba(232,162,104,.07);
+  }
+  .hint.none { color: #6C7684; border-style: solid; border-color: var(--till-rule); background: transparent; }
+
+  .payload {
+    margin-top: 14px; font-size: 12px; color: #8B95A3; line-height: 1.75;
+    border-top: 1px solid var(--till-rule); padding-top: 12px;
+    overflow-x: auto; white-space: pre;
+  }
+  .payload b { color: #E8A268; font-weight: 700; }
+
+  /* ── controls ──────────────────────────────────────────────── */
+  .switcher { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .switcher button {
+    font: inherit; font-size: 13.5px; font-weight: 560;
+    padding: 9px 15px; border-radius: 999px; cursor: pointer;
+    background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule-2);
+  }
+  .switcher button[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+  }
+  .switcher button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .prodpick { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; align-items: center; }
+  .prodpick span {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  .prodpick button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    background: var(--surface); color: var(--ink-2); border: 1px solid var(--rule-2);
+  }
+  .prodpick button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); border-color: var(--rule-2); font-weight: 600; }
+
+  .try {
+    margin-top: 14px; font-size: 13.5px; color: var(--ink-2);
+    background: var(--accent-soft); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 11px 14px;
+  }
+  .try b { color: var(--ink); }
+  kbd {
+    font-family: var(--mono); font-size: .82em; font-weight: 600;
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--rule-2); border-bottom-width: 2px;
+    border-radius: 5px; padding: 2px 6px; white-space: nowrap;
+  }
+
+  /* ── key inspector ─────────────────────────────────────────── */
+  .inspector { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .insp-cell { background: var(--surface); padding: 12px 14px; }
+  .insp-cell dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+  .insp-cell dd { font-family: var(--mono); font-size: 17px; font-weight: 600; }
+  .insp-cell.warn dd { color: var(--loose); }
+
+  /* ── option cards ──────────────────────────────────────────── */
+  .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+  .opt { display: flex; flex-direction: column; }
+  .opt-tag {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+  }
+  .opt.pick { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+  .opt.pick .opt-tag { color: var(--accent); }
+  .verdict {
+    margin-top: auto; padding-top: 14px; font-size: 13px;
+    border-top: 1px solid var(--rule); color: var(--ink-2);
+  }
+  ul.tight { list-style: none; font-size: 14px; color: var(--ink-2); }
+  ul.tight li { padding-left: 20px; position: relative; margin-top: 7px; }
+  ul.tight li::before { position: absolute; left: 0; font-family: var(--mono); font-weight: 700; }
+  ul.tight li.y::before { content: "+"; color: var(--good); }
+  ul.tight li.n::before { content: "\2212"; color: var(--bad); }
+
+  /* ── table ─────────────────────────────────────────────────── */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 620px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 600;
+    background: var(--surface-2);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.y { color: var(--good); font-weight: 600; }
+  td.n { color: var(--bad); font-weight: 600; }
+  th[scope="row"] { font-weight: 600; color: var(--ink); }
+
+  .callout {
+    border-left: 3px solid var(--loose); background: var(--loose-soft);
+    padding: 16px 18px; border-radius: 0 10px 10px 0;
+  }
+  .callout p { color: var(--ink-2); }
+  .callout h3 { color: var(--loose); }
+
+  .grammar { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+  .grammar div { background: var(--surface); padding: 11px 14px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  .grammar .g-in { font-family: var(--mono); font-weight: 700; min-width: 108px; color: var(--ink); }
+  .grammar .g-out { font-size: 14px; color: var(--ink-2); }
+
+  .ask { border: 1px solid var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 22px; }
+  .ask ol { margin-left: 20px; color: var(--ink-2); }
+  .ask li { margin-top: 8px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">U3 · loose selling at the counter · for review</p>
+  <h1>Breaking a Pack</h1>
+  <p class="lede">
+    A customer wants <strong>5 tablets</strong>. The shelf holds <strong>packs of 10 at 120.00</strong>.
+    The cashier must not do arithmetic. The question is only <em>how they tell the till</em> — and three
+    mechanisms are on the table. Try each one below before choosing.
+  </p>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>Try it</h2>
+    <p>This is a working mock of the sale line. Pick a mechanism, click into the quantity box, and use it for real.</p>
+
+    <div class="switcher" role="group" aria-label="Mechanism">
+      <button type="button" data-mech="fkey" aria-pressed="true">A · F7 or Alt+L</button>
+      <button type="button" data-mech="shift" aria-pressed="false">B · Shift+L in the box</button>
+      <button type="button" data-mech="touch" aria-pressed="false">C · Toggle only, no key</button>
+    </div>
+
+    <div class="prodpick" role="group" aria-label="Product">
+      <span>Product</span>
+      <button type="button" data-prod="0" aria-pressed="true">Panadol · 10 per pack · 120.00</button>
+      <button type="button" data-prod="1" aria-pressed="false">Brufen · 3 per pack · 100.00</button>
+      <button type="button" data-prod="2" aria-pressed="false">Shampoo · not divisible</button>
+    </div>
+
+    <div class="till">
+      <div class="till-head">
+        <span>Sale line</span>
+        <span id="mechLabel">mechanism a</span>
+      </div>
+      <div class="line-grid">
+        <div class="prod">
+          <span id="pName">Panadol 500mg</span>
+          <small id="pMeta">pack of 10 · may be sold loose</small>
+        </div>
+        <input id="qty" inputmode="decimal" value="5" aria-label="Quantity" autocomplete="off">
+        <div class="toggle" id="toggle" role="group" aria-label="Unit">
+          <button type="button" data-unit="PACK" aria-pressed="true">pack</button>
+          <button type="button" data-unit="LOOSE" aria-pressed="false" id="looseBtn">tablets</button>
+        </div>
+        <div class="rate" id="rate">120.00</div>
+        <div class="amt" id="amt">600.00</div>
+      </div>
+
+      <div class="hint none" id="hint">Selling whole packs — switch the unit to break one.</div>
+
+      <div class="payload" id="payload">sales[0] = { productId, quantity: 5, sellRate: 120.00 }
+            soldUnit absent — exactly what the till sends today</div>
+    </div>
+
+    <div class="try" id="tryText">Click the quantity box, then press <b>F7</b> — or <b>Alt+L</b> if your browser eats F7. Watch the value: it stays a number.</div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>What your keyboard actually sends</h2>
+    <p>
+      Press any key while the quantity box has focus. Every browser reports two different things, and the
+      difference is the whole reason a letter shortcut is risky.
+    </p>
+    <dl class="inspector">
+      <div class="insp-cell"><dt>event.key</dt><dd id="kKey">—</dd></div>
+      <div class="insp-cell"><dt>event.code</dt><dd id="kCode">—</dd></div>
+      <div class="insp-cell"><dt>modifiers</dt><dd id="kMod">—</dd></div>
+      <div class="insp-cell warn"><dt>landed in box?</dt><dd id="kLanded">—</dd></div>
+    </dl>
+    <div class="callout" style="margin-top:16px">
+      <h3>This is a live bug in your till today</h3>
+      <p>
+        <code>pos-keyboard.js</code> matches shortcuts on <strong>event.key</strong>, which is the
+        <em>character the layout produces</em>. On an Arabic or Urdu keyboard the physical
+        <kbd>S</kbd> key sends <span class="mono">س</span>, so <kbd>Alt</kbd>+<kbd>S</kbd> —
+        Complete Sale — matches nothing and silently does nothing. Same for park, resume, exact cash and
+        clear cart. <strong>event.code</strong> says <span class="mono">KeyS</span> on every layout on earth.
+      </p>
+      <p style="margin-top:10px">
+        This platform ships in six languages including ar/ur. Whether it matters depends on something only
+        you know: does any tenant <em>type</em> on a non-Latin layout, or only read a translated screen?
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>The three mechanisms</h2>
+    <div class="options">
+
+      <div class="card opt pick">
+        <p class="opt-tag">Option A · recommended</p>
+        <h3>F7, with Alt+L as an alias</h3>
+        <p style="font-size:14px">
+          A function key toggles the unit on the current line. <kbd>Alt</kbd>+<kbd>L</kbd> does the same for
+          tills whose F-row is missing or captured by the OS.
+        </p>
+        <ul class="tight">
+          <li class="y">Matches the app's existing table — F2 complete, F3 park, F4 resume, F8 exact cash, F9 clear</li>
+          <li class="y">Layout independent: no letter, and the alias reads the physical key</li>
+          <li class="y">No character can reach the quantity box, so the seven numeric readers stay untouched</li>
+          <li class="n">Needs an F-row, or the alias, on the actual till hardware</li>
+        </ul>
+        <p class="verdict"><strong>Safest.</strong> It is the only option that adds no new idiom to a keyboard file that has broken twice.</p>
+      </div>
+
+      <div class="card opt">
+        <p class="opt-tag">Option B · your suggestion</p>
+        <h3>Shift+L inside the quantity box</h3>
+        <p style="font-size:14px">
+          The cashier stays in the box: type <span class="mono">5</span>, then
+          <kbd>Shift</kbd>+<kbd>L</kbd>. Intercepted on keydown, so no character lands.
+        </p>
+        <ul class="tight">
+          <li class="y">Fewest hand movements — the hand never leaves the number pad area</li>
+          <li class="y">Reads naturally: "five, loose"</li>
+          <li class="n">The only letter shortcut in an app that otherwise uses F-keys</li>
+          <li class="n">Must be matched on <span class="mono">event.code</span> or it dies on ar/ur layouts</li>
+          <li class="n">If the interception ever regresses, <span class="mono">"5L"</span> parses as
+            <span class="mono">NaN</span> and the line silently becomes <strong>1 pack</strong></li>
+        </ul>
+        <p class="verdict"><strong>Fastest.</strong> Real risk is the failure mode: it is silent and it overcharges.</p>
+      </div>
+
+      <div class="card opt">
+        <p class="opt-tag">Option C · smallest</p>
+        <h3>Touch toggle only</h3>
+        <p style="font-size:14px">
+          Ship the segmented control and the hint line. No keyboard shortcut at all in this slice.
+        </p>
+        <ul class="tight">
+          <li class="y">Nothing to learn, nothing to document, nothing to collide</li>
+          <li class="y">Zero changes to <code>pos-keyboard.js</code></li>
+          <li class="y">A keyboard shortcut can still be added later without redesign</li>
+          <li class="n">A busy counter — the case this feature exists for — reaches for the mouse</li>
+        </ul>
+        <p class="verdict"><strong>Least risk, least benefit.</strong> Sound if your tills are touch-first.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>Side by side</h2>
+    <div class="tbl-scroll">
+      <table>
+        <thead>
+          <tr><th scope="col">&nbsp;</th><th scope="col">A · F7 + Alt+L</th><th scope="col">B · Shift+L</th><th scope="col">C · Toggle only</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Keystrokes to sell loose</th><td class="num">1</td><td class="num">1</td><td>mouse / tap</td></tr>
+          <tr><th scope="row">Hand leaves the numpad</th><td class="y">no</td><td class="y">no</td><td class="n">yes</td></tr>
+          <tr><th scope="row">Works on ar / ur layouts</th><td class="y">yes</td><td>only via event.code</td><td class="y">yes</td></tr>
+          <tr><th scope="row">Can a letter reach the qty box</th><td class="y">never</td><td>only if interception regresses</td><td class="y">never</td></tr>
+          <tr><th scope="row">Failure mode if it breaks</th><td>toggle does nothing — visible</td><td class="n">sells 1 pack silently</td><td>—</td></tr>
+          <tr><th scope="row">Touches pos-keyboard.js</th><td>one new binding</td><td>one new handler</td><td class="y">none</td></tr>
+          <tr><th scope="row">Consistent with F2/F3/F4/F8/F9</th><td class="y">yes</td><td class="n">no</td><td>n/a</td></tr>
+          <tr><th scope="row">Discoverable without training</th><td>via the toggle</td><td>via the toggle</td><td class="y">yes</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px; font-size:14px">
+      All three ship the <strong>touch toggle</strong> and the <strong>hint line</strong>. They differ only in
+      whether a keyboard path exists beside them, and which key it uses.
+    </p>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>The scanner is the same in all three</h2>
+    <p>The scan box already parses a multiplier. It gains one optional suffix — no new grammar to learn.</p>
+    <div class="grammar">
+      <div><span class="g-in">CODE</span><span class="g-out">1 pack — unchanged</span></div>
+      <div><span class="g-in">12*CODE</span><span class="g-out">12 packs — unchanged</span></div>
+      <div><span class="g-in">5L*CODE</span><span class="g-out">5 loose pieces — new</span></div>
+    </div>
+    <div class="callout" style="margin-top:16px">
+      <h3>A scanned manufacturer barcode always means the pack</h3>
+      <p>
+        A GTIN is printed on the pack by whoever made it and cannot mean "one tablet". Treating a scan as
+        loose because the shop happens to sell loose would mis-price the commonest transaction there is.
+        Shop-printed stickers that mean "one tablet" are a later slice.
+      </p>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────────────────────────────────── -->
+  <section>
+    <h2>What I need from you</h2>
+    <div class="ask">
+      <ol>
+        <li><strong>Which mechanism</strong> — A, B or C. If your tills are touch-first or the keyboards have no usable F-row, that decides it.</li>
+        <li><strong>Does any tenant type on a non-Latin keyboard layout</strong>, or is it only the interface that is translated? If nobody does, the Alt-shortcut bug is worth logging rather than fixing mid-slice.</li>
+      </ol>
+      <p style="margin-top:14px; font-size:14px">
+        Everything else in U3 is settled and does not depend on this: the toggle, the hint line, the scanner
+        suffix, and the rule that <strong>the browser never computes a price</strong> — it multiplies a rate
+        the server derived, so the shop can never quote one figure and charge another.
+      </p>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var PRODUCTS = [
+    { name: 'Panadol 500mg', pack: 10, price: 120, unit: 'tablet', plural: 'tablets', loose: true },
+    { name: 'Brufen 400mg',  pack: 3,  price: 100, unit: 'tablet', plural: 'tablets', loose: true },
+    { name: 'Shampoo 200ml', pack: 1,  price: 450, unit: '',       plural: '',        loose: false }
+  ];
+
+  var state = { mech: 'fkey', prod: 0, unit: 'PACK', qty: 5 };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var qty = $('qty'), toggle = $('toggle'), looseBtn = $('looseBtn');
+
+  function money(n) { return n.toFixed(2); }
+
+  /* The server's rule, mirrored exactly: ceil to cents. The browser NEVER invents this in production —
+     it receives the rate. Reproduced here only so the mock behaves like the real thing. */
+  function looseRate(p) { return Math.ceil((p.price / p.pack) * 100) / 100; }
+
+  function compute() {
+    var p = PRODUCTS[state.prod];
+    var n = parseFloat(qty.value);
+    if (!(n > 0)) n = 0;
+
+    if (state.unit === 'LOOSE' && p.loose) {
+      var whole = Math.floor(n / p.pack), rem = n % p.pack;
+      var lr = looseRate(p);
+      var total = whole * p.price + rem * lr;
+      var packs = n / p.pack;
+      return { total: total, perPiece: n ? total / n : 0, packs: packs, pieces: n, lr: lr, loose: true, p: p };
+    }
+    return { total: n * p.price, packs: n, pieces: 0, loose: false, p: p };
+  }
+
+  function render() {
+    var p = PRODUCTS[state.prod], r = compute();
+
+    $('pName').textContent = p.name;
+    $('pMeta').textContent = p.loose
+      ? 'pack of ' + p.pack + ' · may be sold loose'
+      : 'single unit · not divisible';
+
+    toggle.hidden = !p.loose;
+    if (!p.loose && state.unit === 'LOOSE') state.unit = 'PACK';
+
+    toggle.querySelectorAll('button').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.unit === state.unit));
+    });
+    if (p.loose) looseBtn.textContent = p.plural;
+
+    $('rate').textContent = r.loose ? money(r.perPiece) : money(p.price);
+    $('amt').textContent  = money(r.total);
+
+    var hint = $('hint');
+    if (r.loose && r.pieces > 0) {
+      hint.className = 'hint';
+      hint.textContent = r.pieces + ' ' + (r.pieces === 1 ? p.unit : p.plural) + ' · '
+        + money(r.perPiece) + ' each · uses ' + (+r.packs.toFixed(4)) + ' of a pack';
+    } else {
+      hint.className = 'hint none';
+      hint.textContent = p.loose
+        ? 'Selling whole packs — switch the unit to break one.'
+        : 'This product is not sold in pieces.';
+    }
+
+    $('payload').innerHTML = r.loose
+      ? 'sales[0] = { productId, quantity: <b>' + (+r.packs.toFixed(4)) + '</b>,'
+        + ' soldUnit: <b>"LOOSE"</b>, soldQuantity: <b>' + r.pieces + '</b> }\n'
+        + '            server derives quantity + rate; the browser only displays'
+      : 'sales[0] = { productId, quantity: ' + r.packs + ', sellRate: ' + money(p.price) + ' }\n'
+        + '            soldUnit absent — exactly what the till sends today';
+
+    var t = { fkey: 'mechanism a', shift: 'mechanism b', touch: 'mechanism c' };
+    $('mechLabel').textContent = t[state.mech];
+
+    var tryText = {
+      fkey:  'Click the quantity box, then press <b>F7</b> — or <b>Alt+L</b> if your browser eats F7. '
+           + 'Watch the value: it stays a number.',
+      shift: 'Click the quantity box and press <b>Shift+L</b>. The character is swallowed on keydown. '
+           + 'Now imagine that interception regressing: the box would read <span class="mono">5L</span>, '
+           + 'and the till would sell <b>one pack</b> without a word.',
+      touch: 'No key is bound. Tap the <b>pack / tablet</b> toggle. Try the keyboard — nothing happens, '
+           + 'which is the point of this option.'
+    };
+    $('tryText').innerHTML = tryText[state.mech];
+  }
+
+  function setUnit(u) {
+    var p = PRODUCTS[state.prod];
+    if (u === 'LOOSE' && !p.loose) {
+      qty.classList.add('flash');
+      setTimeout(function () { qty.classList.remove('flash'); }, 460);
+      return;
+    }
+    state.unit = u;
+    render();
+  }
+
+  /* ── the mechanisms ─────────────────────────────────────── */
+  qty.addEventListener('keydown', function (e) {
+    var landed = 'yes';
+
+    if (state.mech === 'fkey') {
+      if (e.key === 'F7' || (e.altKey && e.code === 'KeyL')) {
+        e.preventDefault();
+        setUnit(state.unit === 'LOOSE' ? 'PACK' : 'LOOSE');
+        landed = 'no — intercepted';
+      }
+    } else if (state.mech === 'shift') {
+      if (e.shiftKey && e.code === 'KeyL') {
+        e.preventDefault();
+        setUnit(state.unit === 'LOOSE' ? 'PACK' : 'LOOSE');
+        landed = 'no — intercepted';
+      }
+    }
+
+    if (e.key.length > 1) landed = 'n/a';
+    $('kKey').textContent  = e.key === ' ' ? 'Space' : e.key;
+    $('kCode').textContent = e.code || '—';
+    var mods = [];
+    if (e.altKey) mods.push('Alt'); if (e.shiftKey) mods.push('Shift');
+    if (e.ctrlKey) mods.push('Ctrl'); if (e.metaKey) mods.push('Meta');
+    $('kMod').textContent  = mods.length ? mods.join(' + ') : 'none';
+    $('kLanded').textContent = landed;
+  });
+
+  qty.addEventListener('input', render);
+
+  toggle.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b) setUnit(b.dataset.unit);
+  });
+
+  document.querySelector('.switcher').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    state.mech = b.dataset.mech;
+    this.querySelectorAll('button').forEach(function (x) {
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+    render();
+    qty.focus();
+  });
+
+  document.querySelector('.prodpick').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    state.prod = Number(b.dataset.prod);
+    this.querySelectorAll('button').forEach(function (x) {
+      x.setAttribute('aria-pressed', String(x === b));
+    });
+    render();
+  });
+
+  render();
+})();
+</script>
+
+</body></html>

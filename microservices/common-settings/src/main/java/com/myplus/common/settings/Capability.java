@@ -85,7 +85,17 @@ public enum Capability {
 
     /** Price tiers per customer class — dealer, wholesale, retail. */
     DEALER_PRICING("dealerPricing", "Dealer and tier pricing",
-            "Different price lists for dealers, wholesale and retail customers.");
+            "Different price lists for dealers, wholesale and retail customers."),
+
+    /**
+     * Free-goods offers — "buy 10, get 1 free" — from suppliers and to customers.
+     *
+     * <p>ONE capability for one engine, deliberately, rather than separate supplier and customer switches:
+     * they are the same rule resolved against a different party, and two flags would let a tenant end up in a
+     * state where an offer can be authored but never applied.
+     */
+    BONUS_SCHEMES("bonusSchemes", "Bonus and free-goods offers",
+            "Buy-and-get offers from suppliers and to customers, with the free goods counted in stock.");
 
     private final String code;
     private final String label;

@@ -929,7 +929,17 @@ function loadReturnsVenders(){
 	// `getUserVenders` (plural) answers with <option> MARKUP, not JSON — the same response loadUserVenders
 	// appends. bgGet, not bgJson, because forcing a JSON parse on markup yields nothing and fails silently.
 	bgGet(serverContext + 'getUserVenders', function(html){
-		$dd.append(html);
+		/*
+		 * Drop the endpoint's OWN placeholder before appending.
+		 *
+		 * getUserVenders emits "<option value=''>Nothing Selected</option>" as its first row — the purchase
+		 * form wants that, but this picker already has "All suppliers" above it, so appending the markup raw
+		 * gave the filter TWO blank options, the second of them hardcoded English in a six-locale product.
+		 *
+		 * Filtered on "has a value" rather than on the placeholder's text, so it stays correct if that
+		 * wording is ever translated or changed.
+		 */
+		$dd.append($('<select>').html(html).find('option').filter(function(){ return $(this).val(); }));
 		$dd.data('loaded', true);
 		// `global:false` skips the ajaxComplete hook that redraws pickers — refresh explicitly. See
 		// refreshSearchableSelect for the full trap.
@@ -1012,6 +1022,226 @@ function renderReturns(mode, rows){
 $(document).on('click', '.rtn-print', function(){
 	printReturnDocument(window.returnsMode || 'credit', $(this).data('note'));
 });
+
+/*
+ * ── #17 P1: bonus / free-goods schemes ──────────────────────────────────────────────────────────────
+ *
+ * The register for buy-and-get offers, in all three directions: what a SUPPLIER gives us, what we give a
+ * named CUSTOMER, and what we give a customer TYPE. One engine, three scopes — the same shape price rules
+ * already use, and resolved by the same specificity-and-priority idea.
+ *
+ * Ships WITH P1 on purpose. A scheme master with no screen would be the eighth capability in this codebase
+ * that works at the API and cannot be reached by a person. See docs/slices/bonus-schemes.md.
+ */
+function showBonusSchemes(){
+	$('.formDiv').hide();
+	$('#BonusSchemeDiv').show();
+	resetBonusSchemeForm();
+	// Pickers BEFORE the list, for the same reason the price-rule screen loads them first: the table names a
+	// supplier and a product by reading the pickers, so an unpopulated picker prints "#12" and only corrects
+	// itself on the next save.
+	loadBonusSchemeLookups().always(loadBonusSchemes);
+}
+
+/** Suppliers, customers and products for the pickers. Returns a promise of all three. */
+function loadBonusSchemeLookups(){
+	function fillSel($sel, rows, valueKey, labelKey, blank){
+		$sel.empty().append($('<option>').val('').text(blank));
+		(rows || []).forEach(function(r){
+			if (r[valueKey] == null) return;
+			$sel.append($('<option>').val(r[valueKey]).text(String(r[labelKey] == null ? r[valueKey] : r[labelKey])));
+		});
+	}
+	return $.when(
+		bgGet(serverContext + 'getUserVenders', function(html){
+			// getUserVenders answers with <option> MARKUP and carries its own blank placeholder — drop it,
+			// this picker supplies its own. Filtered on "has a value" so it survives a wording change.
+			$('#bsVendorId').empty().append($('<option>').val('').text(t('ui.js.selectOne')))
+				.append($('<select>').html(html).find('option').filter(function(){ return $(this).val(); }));
+		}),
+		bgJson(serverContext + 'customerOptions', function(resp){
+			fillSel($('#bsCustomerId'), (resp && resp.collection) || [], 'customerId', 'name', t('ui.js.selectOne'));
+		}),
+		bgJson(serverContext + 'getUserProduct', function(resp){
+			var rows = (resp && resp.collection) || [];
+			fillSel($('#bsTriggerProductId'), rows, 'id', 'name', t('ui.js.selectOne'));
+			// Blank on the reward means "the same product as the trigger" — the common case, and it must not
+			// require picking the same thing twice.
+			fillSel($('#bsRewardProductId'), rows, 'id', 'name', t('ui.js.sameProduct'));
+		})
+	);
+}
+
+/** Show only the party control the chosen scope can actually use. */
+function onBonusSchemeScope(){
+	var scope = $('#bsScope').val();
+	$('#bsVendorId').toggle(scope === 'VENDOR');
+	$('#bsCustomerId').toggle(scope === 'CUSTOMER');
+	$('#bsCustomerType').toggle(scope === 'CUSTOMER_TYPE');
+}
+
+/**
+ * Live entitlement preview — "30 paid earns 6 free".
+ *
+ * Asks the SERVER rather than repeating the arithmetic here. The same sum decides what goes on a delivery,
+ * what a return claws back and what a report shows, so a second copy in the browser is a second answer
+ * waiting to disagree with the first.
+ */
+function previewBonusScheme(){
+	var paid = Number($('#bsPaidQuantity').val());
+	var bonus = Number($('#bsBonusQuantity').val());
+	if (!paid || !bonus){ $('#bsPreview').text(''); return; }
+	var probe = paid * 3;   // a quantity that makes the ONE_TIME / REPEATING difference visible
+	$.ajax({
+		url: serverContext + 'bonusScheme/preview', type: 'POST', global: false,
+		contentType: 'application/json', dataType: 'json',
+		data: JSON.stringify({
+			qualificationMode: $('#bsQualificationMode').val(),
+			paidQuantity: paid, bonusQuantity: bonus, quantity: probe
+		})
+	}).done(function(res){
+		var d = res && (res.data || res.object);
+		if (!d) { $('#bsPreview').text(''); return; }
+		$('#bsPreview').text(t('ui.js.previewEarns', probe, d.bonusQuantity));
+	});
+}
+
+function resetBonusSchemeForm(){
+	$('#bsId').val('');
+	if ($('#BonusSchemeForm')[0]) $('#BonusSchemeForm')[0].reset();
+	$('#bsPriority').val(100);
+	$('#bsError').text('');
+	$('#bsPreview').text('');
+	$('#bsFormTitle').text(t('ui.addOffer'));
+	$('#bsSaveLabel').text(t('ui.addOffer'));
+	onBonusSchemeScope();
+}
+
+function saveBonusScheme(){
+	var scope = $('#bsScope').val();
+	var body = {
+		code: $.trim($('#bsCode').val()),
+		scope: scope,
+		vendorId:     scope === 'VENDOR'        ? ($('#bsVendorId').val()   || null) : null,
+		customerId:   scope === 'CUSTOMER'      ? ($('#bsCustomerId').val() || null) : null,
+		customerType: scope === 'CUSTOMER_TYPE' ? ($('#bsCustomerType').val() || null) : null,
+		triggerTarget: 'PRODUCT',
+		triggerProductId: $('#bsTriggerProductId').val() || null,
+		rewardProductId:  $('#bsRewardProductId').val()  || null,
+		paidQuantity:  $('#bsPaidQuantity').val()  || null,
+		bonusQuantity: $('#bsBonusQuantity').val() || null,
+		bonusType: $('#bsBonusType').val(),
+		qualificationMode: $('#bsQualificationMode').val(),
+		startsOn: $('#bsStartsOn').val() || null,
+		endsOn:   $('#bsEndsOn').val()   || null,
+		status:   $('#bsStatus').val(),
+		priority: Number($('#bsPriority').val()) || 0
+	};
+	var id = $('#bsId').val();
+	$.ajax({
+		url: serverContext + 'bonusScheme' + (id ? ('/' + id) : ''),
+		type: id ? 'PUT' : 'POST',
+		contentType: 'application/json', dataType: 'json', data: JSON.stringify(body)
+	}).done(function(res){
+		// The SERVER owns what a valid scheme is — a refusal arrives as success:false, NOT as an HTTP error,
+		// so the envelope is what decides here. Re-validating in the browser would be a second rulebook.
+		if (res && res.success === false){
+			$('#bsError').text(res.message || t('ui.js.couldNotSaveOffer'));
+			return;
+		}
+		resetBonusSchemeForm();
+		loadBonusSchemes();
+		if (typeof showSaleSuccess === 'function') showSaleSuccess(t('ui.js.offerSaved'));
+	}).fail(function(){
+		$('#bsError').text(t('ui.js.couldNotSaveOffer'));
+	});
+}
+
+/** Load one scheme back into the form for editing. */
+function editBonusScheme(btn){
+	var r = $(btn).data('row');
+	if (!r) return;
+	$('#bsId').val(r.id);
+	$('#bsCode').val(r.code);
+	$('#bsScope').val(r.scope);
+	onBonusSchemeScope();
+	$('#bsVendorId').val(r.vendorId || '');
+	$('#bsCustomerId').val(r.customerId || '');
+	$('#bsCustomerType').val(r.customerType || 'WALK_IN');
+	$('#bsTriggerProductId').val(r.triggerProductId || '');
+	$('#bsRewardProductId').val(r.rewardProductId || '');
+	$('#bsPaidQuantity').val(r.paidQuantity);
+	$('#bsBonusQuantity').val(r.bonusQuantity);
+	$('#bsBonusType').val(r.bonusType);
+	$('#bsQualificationMode').val(r.qualificationMode);
+	$('#bsStartsOn').val(r.startsOn || '');
+	$('#bsEndsOn').val(r.endsOn || '');
+	$('#bsStatus').val(r.status || 'ACTIVE');
+	$('#bsPriority').val(r.priority);
+	$('#bsFormTitle').text(t('ui.editOffer'));
+	$('#bsSaveLabel').text(t('ui.editOffer'));
+	previewBonusScheme();
+	$('#bsCode').focus();
+}
+
+function deleteBonusScheme(btn){
+	var r = $(btn).data('row');
+	if (!r) return;
+	uiConfirm({
+		title: t('ui.js.deleteThisOffer'),
+		message: r.code,
+		confirmText: t('ui.js.delete'),
+		tone: 'danger'
+	}).then(function(ok){
+		if (!ok) return;
+		$.ajax({ url: serverContext + 'bonusScheme/' + r.id, type: 'DELETE' })
+			.always(function(){ loadBonusSchemes(); });
+	});
+}
+
+function loadBonusSchemes(){
+	// Background: a register is screen population, not an action the operator is waiting on.
+	bgJson(serverContext + 'bonusSchemes', function(resp){
+		renderBonusSchemes((resp && (resp.data || resp.collection)) || []);
+	}).fail(function(){
+		$('#tableBonusScheme tbody').html('<tr><td colspan="7" class="text-danger">'
+			+ escHtml(t('ui.js.couldNotLoadBonusSchemes')) + '</td></tr>');
+	});
+}
+
+/** "10 + 1 free" — the offer as an operator states it, from the two quantities the scheme stores. */
+function bonusOfferText(r){
+	var paid = (r.paidQuantity != null) ? Number(r.paidQuantity) : '';
+	var bon  = (r.bonusQuantity != null) ? Number(r.bonusQuantity) : '';
+	var lead = ('REPEATING' === r.qualificationMode) ? t('ui.js.everyN') : t('ui.js.buyN');
+	return lead + ' ' + paid + ' + ' + bon;
+}
+
+function renderBonusSchemes(rows){
+	var $tb = $('#tableBonusScheme tbody').empty();
+	if(!rows.length){
+		$tb.append('<tr><td colspan="7" class="text-muted">' + escHtml(t('ui.js.noBonusSchemesYet')) + '</td></tr>');
+		return;
+	}
+	rows.forEach(function(r){
+		// The reward SKU is what a bare bonus QUANTITY could not express, so it is shown when it differs —
+		// otherwise "buy a machine get a coffee pack" reads identically to "buy a machine get a machine".
+		var reward = (r.rewardProductId != null && r.rewardProductId !== r.triggerProductId)
+			? (' → #' + r.rewardProductId) : '';
+		var valid = (r.startsOn || r.endsOn)
+			? escHtml((r.startsOn || '') + ' – ' + (r.endsOn || ''))
+			: escHtml(t('ui.js.always'));
+		$tb.append('<tr>'
+			+ '<td>' + escHtml(r.code || '') + '</td>'
+			+ '<td>' + escHtml(r.scope || '') + '</td>'
+			+ '<td>' + escHtml(r.triggerProductId != null ? ('#' + r.triggerProductId) : (r.triggerCategoryId != null ? ('cat #' + r.triggerCategoryId) : '')) + escHtml(reward) + '</td>'
+			+ '<td>' + escHtml(bonusOfferText(r)) + '</td>'
+			+ '<td>' + escHtml(r.bonusType || '') + '</td>'
+			+ '<td>' + valid + '</td>'
+			+ '<td>' + escHtml(r.status || '') + '</td>'
+			+ '</tr>');
+	});
+}
 
 function showPriceRules(){
 	$('.formDiv').hide();
@@ -2032,6 +2262,12 @@ function getDashboardData() {
             $('#dashVenders').text(s.venders);
             $('#dashCustomers').text(s.customers);
             $('#dashItems').text(s.items);
+            /*
+             * Task #20 — stock value. ABSENT rather than zero when inventory-service could not answer: the
+             * dashboard omits the key entirely in that case, and printing 0 for "we could not reach the
+             * service" would be a lie about the shop's stock being worthless.
+             */
+            $('#dashStockValue').text(s.stockValue != null ? s.stockValue : '—');
             $('#dashMonthlySales').text(s.monthlySales);
             $('#dashMonthlyRevenue').text(s.monthlyRevenue);
             // C5 — present only when the tenant has the installments capability: the server skips the COUNT
@@ -2414,7 +2650,16 @@ function loadStock(label,value){
 			if (tableV=="Purchase") $("#purchaseSellRate").val(catalogSellPrice);
 			else if (tableV=="Sell") $("#sellSellRate").val(catalogSellPrice);
 		}
-	    $.get(serverContext+ "productStock?productId="+value,function(data){
+	    /*
+	     * #22 — NON-BLOCKING. This fires on EVERY item selection, and it was a plain $.get, so the global
+	     * overlay covered the till on every line a cashier rang. Behind it sat three chained cross-service
+	     * calls, which is why picking an item could cost the better part of a second.
+	     *
+	     * Safe to background because the rate the cashier needs is ALREADY on screen: the block above fills
+	     * it from the picker's own data-price before this request is even sent. What arrives here is on-hand
+	     * and batch detail, which refine the line rather than gate typing it.
+	     */
+	    bgJson(serverContext+ "productStock?productId="+value,function(data){
     	if(data){
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
@@ -2439,7 +2684,10 @@ function loadStock(label,value){
         		var sdt = (discountType == "1" || discountType == "%") ? "1" : "0";
         		$("#sellDiscountTypeDD").val(sdt);
         		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
-	    		if(batchStock <= 0){
+	    		// #23: blocking here is OPT-IN. Off (default) the count is shown for information and the
+	    		// cashier carries on — refusing would not stop goods already on the counter leaving, it would
+	    		// only stop them being recorded. resetBSDD() in particular threw away the entry mid-sale.
+	    		if(batchStock <= 0 && window.posValidateStockOnSelect === true){
 	    			$("#sellItems").addClass("alert-danger");
  	    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 	    			resetBSDD('sellItemDD');
@@ -2468,7 +2716,10 @@ function loadStock(label,value){
 			    	// Sellable guard: re-key the qty guard to SELLABLE stock (non-expired, non-held) — what a sale can
 			    	// actually reserve — so the cashier can't over-sell into expired/held stock the server would reject.
 			    	// Also surfaces "Sellable: N (+ expired)" on the form.
-			    	$.get(serverContext+"productSellable?productId="+value, function(sd){
+			    	// #22/#23 — background. This is a SECOND round trip chained after /productStock, on the
+			    	// hot path, and with blocking checks now opt-in its only job is to fill an informational
+			    	// badge. It must never hold the till.
+			    	bgJson(serverContext+"productSellable?productId="+value, function(sd){
 			    		var sellable = (sd && sd.success && sd.sellable!=null) ? Number(sd.sellable) : Number(batchStock||0);
 			    		var expired  = (sd && sd.success && sd.expired!=null)  ? Number(sd.expired)  : 0;
 			    		batchStock = sellable;
@@ -2477,9 +2728,11 @@ function loadStock(label,value){
 			    		if(expired>0) badge += ' <span class="label label-danger" title="expired stock is not sellable">'+expired+' expired</span>';
 			    		$("#sellSellableInfo").html(badge).show();
 				syncSellNoticeRow();
-			    		if(sellable <= 0){
+			    		// #23: the badge above still SAYS "Sellable: 0 (+2 expired)" — the cashier is told.
+			    		// What is opt-in is refusing the line and discarding their selection.
+			    		if(sellable <= 0 && window.posValidateStockOnSelect === true){
 			    			$("#sellItems").addClass("alert-danger");
-			    			showFormError(expired>0 ? 'All stock for this item is expired — not sellable. Add a fresh batch to sell.' : 'No sellable stock. Please purchase this item first.');
+			    			showFormError(expired>0 ? t('ui.js.allStockExpired') : t('ui.js.noSellableStock'));
 			    			resetBSDD('sellItemDD');
 			    			$("#sellSellableInfo").hide();
 				syncSellNoticeRow();
@@ -2568,7 +2821,8 @@ function getStockByBatch(batchNo){
 	        		var sdt2 = (discountType == "1" || discountType == "%") ? "1" : "0";
 	        		$("#sellDiscountTypeDD").val(sdt2);
 	        		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
-		    		if(batchStock <= 0){
+		    		// #23: same rule as the sell path above — opt-in, and off by default.
+		    		if(batchStock <= 0 && window.posValidateStockOnSelect === true){
 		    			$("#sellItems").addClass("alert-danger");
  		    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 		    			resetBSDD('sellItemDD');
@@ -2602,7 +2856,9 @@ function refreshPurchaseOnHand(){
 	var dd = document.getElementById("purchaseItemDD");
 	var pid = dd ? dd.value : '';
 	if(!pid || pid === 'default'){ $("#purchaseStock").val(''); window.purchaseEdit = null; return; }
-	$.get(serverContext + "productStock?productId=" + encodeURIComponent(pid), function(data){
+	// #22 — background: this fills a READ-ONLY display field, and P6 rapid entry re-selects a product on
+	// every saved line, so a blocking overlay here interrupts the operator once per bill line.
+	bgJson(serverContext + "productStock?productId=" + encodeURIComponent(pid), function(data){
 		var onHand = (data && data.stock != null) ? Number(data.stock) : 0;
 		batchStock = onHand;
 		// In EDIT mode the live on-hand ALREADY includes this purchase's old qty, so the on-hand that will
@@ -2744,7 +3000,18 @@ function calculateNetSell(){
 		batchStock = $("#sellStock").val()*ONE;
 	}
 	$("#sellStock").val(batchStock);
-	if(batchStock < qty){
+	/*
+	 * #23 — the QUANTITY guard, opt-in like the three selection guards.
+	 *
+	 * This one is the guard a cashier actually hits: it fires on every keystroke in the quantity box, and it
+	 * `return false`s BEFORE the line math, so the totals stop updating too — the line simply refuses to
+	 * price itself. At a counter that is the wrong answer: the customer is holding the goods, so the quantity
+	 * is a fact being recorded, not a request to be approved.
+	 *
+	 * Off (default) the line prices normally and the sellable badge still tells the cashier where stock
+	 * stands. The server's FEFO reservation at submit remains the real gate.
+	 */
+	if(batchStock < qty && window.posValidateStockOnSelect === true){
 		$("#sellItems").addClass("alert-danger");
  		showFormError(t('ui.js.quantityExceedsAvailableStockPleaseReduceThe'));
 		return false;
@@ -3046,7 +3313,7 @@ function mountSRFilters(){
 	if (window.srFilters || typeof mountReportFilters !== 'function') return;
 	window.srFilters = mountReportFilters({
 		container : 'srFilterRail',
-		dimensions: ['groupBy','customer','product','category','channel'],
+		dimensions: ['groupBy','customer','product','category','company','channel'],
 		onApply   : function(){ loadSR(); },
 		exportUrl : function(v){
 			var q = 'rp=' + encodeURIComponent($('#dateRangeDDSR').val() || '0')
@@ -3055,6 +3322,7 @@ function mountSRFilters(){
 				+ '&customerId=' + encodeURIComponent(v.customerId || '')
 				+ '&productId=' + encodeURIComponent(v.productId || '')
 				+ '&category=' + encodeURIComponent(v.category || '')
+				+ '&manufacturer=' + encodeURIComponent(v.manufacturer || '')
 				+ '&customerType=' + encodeURIComponent(v.customerType || '')
 				+ '&groupBy=' + encodeURIComponent(v.groupBy || '');
 			return serverContext + 'saleReport.csv?' + q;
@@ -3095,6 +3363,7 @@ function loadSR(){
 			}
 			clearFormError();
 			if (window.srFilters) window.srFilters.categoriesFrom(rows);   // B2B-P3e-1: real categories only
+			if (window.srFilters) window.srFilters.companiesFrom(rows);    // #18: real companies only
 			renderSRGroups(data.object);   // B2B-P3e-2 (#6): subtotals, from the same response
 			rows.forEach(function(o){
 				var product = escSR((o.itemCode ? o.itemCode + ' — ' : '') + (o.itemName || ''));
@@ -4073,6 +4342,13 @@ function loadPosFeatureFlags(){
 		// flags above, because the risk is opposite: a stray function key on a till can complete a
 		// sale, whereas Enter moving to the next box does nothing Tab could not.
 		window.kbdFormNavEnabled = ('ui.keyboard.formNav.enabled' in byKey) ? byKey['ui.keyboard.formNav.enabled'] : true;
+		/*
+		 * #23 — check stock when an item is selected. Fails CLOSED-TO-BLOCKING, i.e. absent => FALSE => the
+		 * till does NOT block. The direction is inverted from its neighbours on purpose: for them a config
+		 * hiccup must not ARM behaviour, whereas here a config hiccup must not STOP a sale. At a counter the
+		 * goods are already in the customer's hands, so the till keeps selling.
+		 */
+		window.posValidateStockOnSelect = byKey['pos.stock.validateOnSelect'] === true;
 		window.kbdEnterSubmits   = ('ui.keyboard.enterSubmits' in byKey) ? byKey['ui.keyboard.enterSubmits'] : true;
 		// The compact ROW is a SEPARATE setting from the keyboard flow. pos-keyboard.js addresses
 		// fields by id, so Enter walks the sale on the stacked layout too. Fails closed.

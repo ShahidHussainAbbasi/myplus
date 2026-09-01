@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://6d6fa393-1832-404e-b7e9-a01770e88819.frame.claudeusercontent.com/_f/1787984803-258f/?__frame_t=Cihj2vCnZaRlSaysUZ6VkrFm.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788128783&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1787984803-258f/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Mobile Shop Walkthrough</title>
+<style>
+  /* ── Tokens: complete LIGHT palette on bare :root, so the un-stamped "system" state is always defined ── */
+  :root{
+    --paper:#f6f7f9;
+    --card:#ffffff;
+    --ink:#15202b;
+    --ink-soft:#4a5766;
+    --ink-faint:#6f7c8b;
+    --rule:#dfe4ea;
+    --rule-soft:#eceff3;
+    --accent:#1565C0;          /* the product's own Bold Corporate Blue */
+    --accent-soft:#e8f0fb;
+    --pass:#1B5E20;  --pass-bg:#e8f5e9;  --pass-line:#a5d6a7;
+    --warn:#E65100;  --warn-bg:#fff3e0;  --warn-line:#ffcc80;
+    --stop:#B71C1C;  --stop-bg:#fdecea;  --stop-line:#ef9a9a;
+    --code-bg:#f0f2f5;
+    --shadow:0 1px 2px rgba(16,32,52,.06), 0 8px 24px rgba(16,32,52,.06);
+    --display:"Segoe UI Semibold","SF Pro Display",Inter,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  /* Default OS dark — only redefines tokens, guarded so an explicit light choice wins */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e141b; --card:#161e27; --ink:#e6ecf3; --ink-soft:#a9b6c4; --ink-faint:#8493a3;
+      --rule:#26313d; --rule-soft:#1d262f; --accent:#6BA7E8; --accent-soft:#16283c;
+      --pass:#8fd694; --pass-bg:#13291a; --pass-line:#2c5b34;
+      --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+      --stop:#ff9c96; --stop-bg:#2c1414; --stop-line:#6b2a26;
+      --code-bg:#1b242e;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  /* Explicit dark toggle wins in the other direction */
+  :root[data-theme="dark"]{
+    --paper:#0e141b; --card:#161e27; --ink:#e6ecf3; --ink-soft:#a9b6c4; --ink-faint:#8493a3;
+    --rule:#26313d; --rule-soft:#1d262f; --accent:#6BA7E8; --accent-soft:#16283c;
+    --pass:#8fd694; --pass-bg:#13291a; --pass-line:#2c5b34;
+    --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+    --stop:#ff9c96; --stop-bg:#2c1414; --stop-line:#6b2a26;
+    --code-bg:#1b242e;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:var(--body); font-size:16px; line-height:1.6;
+    margin:0; padding:40px 20px 80px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px; margin:0 auto}
+
+  header{margin-bottom:38px}
+  .eyebrow{
+    font-size:12px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; margin-bottom:10px;
+  }
+  h1{
+    font-family:var(--display); font-size:clamp(30px,5vw,42px); line-height:1.12;
+    margin:0 0 12px; letter-spacing:-.02em; text-wrap:balance;
+  }
+  .lede{font-size:17px; color:var(--ink-soft); margin:0; max-width:62ch}
+
+  h2{
+    font-family:var(--display); font-size:22px; letter-spacing:-.01em;
+    margin:44px 0 14px; padding-bottom:8px; border-bottom:2px solid var(--rule);
+    text-wrap:balance;
+  }
+  h3{font-family:var(--display); font-size:16px; margin:26px 0 8px}
+  p{margin:0 0 14px; max-width:68ch}
+
+  code{
+    font-family:var(--mono); font-size:.88em;
+    background:var(--code-bg); padding:2px 6px; border-radius:4px;
+  }
+  .path{font-family:var(--mono); font-size:.88em; font-weight:600; color:var(--accent)}
+
+  /* ── Step cards. Numbered because this IS a sequence — each step depends on the last. ── */
+  .step{
+    background:var(--card); border:1px solid var(--rule); border-radius:12px;
+    padding:22px 24px; margin:16px 0; box-shadow:var(--shadow);
+  }
+  .step-head{display:flex; gap:14px; align-items:baseline; margin-bottom:6px}
+  .num{
+    flex:0 0 auto; font-family:var(--mono); font-size:13px; font-weight:700;
+    color:#fff; background:var(--accent); border-radius:6px;
+    padding:3px 9px; letter-spacing:.02em;
+  }
+  :root[data-theme="dark"] .num, :root:not([data-theme="light"]) .num{color:#0e141b}
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) .num{color:#fff} }
+  .step-title{font-family:var(--display); font-size:18px; margin:0; letter-spacing:-.01em}
+  .step-why{color:var(--ink-faint); font-size:14px; margin:2px 0 14px}
+
+  ol.do{margin:0 0 4px; padding-left:22px}
+  ol.do li{margin-bottom:7px}
+  ul.tight{margin:6px 0 0; padding-left:20px}
+  ul.tight li{margin-bottom:5px}
+
+  .expect{
+    border-left:3px solid var(--pass-line); background:var(--pass-bg);
+    padding:12px 16px; border-radius:0 8px 8px 0; margin-top:14px;
+  }
+  .expect .label{
+    font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+    font-weight:700; color:var(--pass); display:block; margin-bottom:4px;
+  }
+  .expect p{margin:0; color:var(--ink)}
+
+  .refuse{
+    border-left:3px solid var(--stop-line); background:var(--stop-bg);
+    padding:12px 16px; border-radius:0 8px 8px 0; margin-top:10px;
+  }
+  .refuse .label{
+    font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+    font-weight:700; color:var(--stop); display:block; margin-bottom:4px;
+  }
+  .refuse p{margin:0; color:var(--ink)}
+
+  .note{
+    border-left:3px solid var(--warn-line); background:var(--warn-bg);
+    padding:12px 16px; border-radius:0 8px 8px 0; margin:14px 0;
+  }
+  .note .label{
+    font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+    font-weight:700; color:var(--warn); display:block; margin-bottom:4px;
+  }
+  .note p{margin:0}
+
+  .tablewrap{overflow-x:auto; margin:14px 0}
+  table{border-collapse:collapse; width:100%; font-size:14.5px; min-width:460px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+  th{
+    font-size:11.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint); font-weight:700; border-bottom:2px solid var(--rule);
+  }
+  td.mono{font-family:var(--mono); font-size:13px; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+
+  .pill{
+    display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px;
+    border-radius:999px; letter-spacing:.02em; white-space:nowrap;
+  }
+  .pill-new{background:var(--pass-bg); color:var(--pass); border:1px solid var(--pass-line)}
+  .pill-used{background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-line)}
+  .pill-miss{background:var(--stop-bg); color:var(--stop); border:1px solid var(--stop-line)}
+
+  footer{
+    margin-top:52px; padding-top:20px; border-top:1px solid var(--rule);
+    color:var(--ink-faint); font-size:13.5px;
+  }
+  a{color:var(--accent)}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Acceptance walkthrough</div>
+  <h1>Mobile Shop — test it step by step</h1>
+  <p class="lede">Six requirements, in the order a real shop would meet them: set the business up, mark a
+  handset as serial-tracked, receive stock with IMEIs, and sell one. Each step says what to expect, and what
+  should be <em>refused</em> — a refusal is a result too.</p>
+</header>
+
+<h2>Before you start</h2>
+
+<p>Everything below is on <span class="path">http://localhost:8080</span>. All accounts use the password
+<code>Demo@2025!</code>.</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Log in as</th><th>Role</th><th>Use it for</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">owner.mobile@myplus.com</td><td>Owner</td><td>Steps 1–7 — the mobile shop</td></tr>
+    <tr><td class="mono">admin.mobile@myplus.com</td><td>Admin</td><td>Step 9 — privilege check</td></tr>
+    <tr><td class="mono">user.mobile@myplus.com</td><td>User</td><td>Step 9 — privilege check</td></tr>
+    <tr><td class="mono">owner.business@myplus.com</td><td>Owner (POS)</td><td>Step 8 — a shop that should see none of this</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="note">
+  <span class="label">Worth knowing before step 1</span>
+  <p>A mobile shop is <strong>retail plus serial tracking</strong> — it is not its own business type. That is
+  why step 1 exists: the <em>Retail</em> profile deliberately does not switch IMEI tracking on, because a
+  furniture showroom is also retail and has no IMEIs. You turn it on yourself, and that is a one-time act.</p>
+</div>
+
+<h2>Set the shop up</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">1</span><h3 class="step-title">Tell the system what kind of shop this is</h3></div>
+  <p class="step-why">Log in as <code>owner.mobile@myplus.com</code>.</p>
+  <ol class="do">
+    <li>Sidebar → <strong>Settings</strong> → <strong>Configuration</strong>.</li>
+    <li>Find <strong>“What kind of business this is”</strong> → set <strong>Type of business</strong> to
+        <em>Retail counter / POS</em>.</li>
+    <li>Find <strong>“What this business does”</strong> → switch ON:
+      <ul class="tight">
+        <li><em>Track individual serial / IMEI numbers</em></li>
+        <li><em>Record item condition (new / used)</em></li>
+      </ul>
+    </li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Each switch saves on the spot. Nothing else on the screen changes yet — the switches decide what the
+    shop <em>may</em> do; the next steps decide which products actually use it.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">2</span><h3 class="step-title">Mark a handset as serial-tracked</h3></div>
+  <p class="step-why">A shop sells handsets that need an IMEI <em>and</em> chargers that never will. This is
+  set per product, not for the whole shop.</p>
+  <ol class="do">
+    <li>Sidebar → <strong>Register</strong> → <strong>Product</strong>.</li>
+    <li>Add a product — e.g. name <code>Redmi Note 13</code>, a selling price, unit <code>pcs</code>.</li>
+    <li>On the <strong>Tracking</strong> row, tick <strong>“Needs a serial / IMEI”</strong>.</li>
+    <li>Save. Then add a second product — e.g. <code>USB-C Charger</code> — and leave Tracking unticked.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Both save normally. The Tracking row is only visible because you switched the capability on in step 1 —
+    that is the two-level rule working.</p>
+  </div>
+</div>
+
+<h2>Receive stock</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">3</span><h3 class="step-title">Buy three handsets, with their IMEIs</h3></div>
+  <ol class="do">
+    <li>Sidebar → <strong>Purchase</strong>.</li>
+    <li>Choose <code>Redmi Note 13</code>, quantity <strong>3</strong>, fill in the rates.</li>
+    <li>In <strong>Serial / IMEI</strong>, enter three numbers — <em>one per line</em>:
+        <code>111111111111111</code>, <code>222222222222222</code>, <code>333333333333333</code>.</li>
+    <li>Set <strong>Condition</strong> to <em>New</em>. Save.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>The purchase saves. Three individual units are now on the shelf — not just “quantity 3”.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">4</span><h3 class="step-title">Now try to get it wrong — on purpose</h3></div>
+  <p class="step-why">These are the checks that make the register trustworthy. Each should be refused
+  <em>before</em> anything is saved.</p>
+  <ol class="do">
+    <li><strong>Too few IMEIs:</strong> quantity <strong>3</strong>, but enter only two numbers. Save.</li>
+    <li><strong>A duplicate:</strong> quantity <strong>1</strong>, IMEI <code>111111111111111</code> — one you
+        already received. Save.</li>
+    <li><strong>None at all:</strong> quantity <strong>1</strong>, leave Serial / IMEI empty. Save.</li>
+  </ol>
+  <div class="refuse">
+    <span class="label">Expect refusals</span>
+    <p>1 — “This purchase is for 3 unit(s) but 2 serial number(s) were entered.”<br>
+       2 — “Serial "111111111111111" is already in stock.”<br>
+       3 — “This product is tracked by serial number, so each unit received needs one.”</p>
+  </div>
+  <div class="expect">
+    <span class="label">Also check</span>
+    <p>Buy the <code>USB-C Charger</code>, quantity 10, with no serials at all. It saves normally — a product
+    that needs no IMEI is completely unaffected.</p>
+  </div>
+</div>
+
+<h2>Sell one</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">5</span><h3 class="step-title">Sell a handset by its IMEI</h3></div>
+  <ol class="do">
+    <li>Sidebar → <strong>Sell</strong> → <strong>Sale</strong>.</li>
+    <li>Pick <code>Redmi Note 13</code>, quantity <strong>1</strong>.</li>
+    <li>In <strong>Serial / IMEI</strong>, type <code>111111111111111</code> and tab out.</li>
+    <li>Add to cart, then complete the sale.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>As you leave the field, a small badge appears under it: <span class="pill pill-new">New</span> — the
+    condition recorded when that unit was received. The sale then completes normally.</p>
+  </div>
+  <div class="refuse">
+    <span class="label">Then try to sell it twice</span>
+    <p>Start another sale with the <em>same</em> IMEI. It is refused: “Serial "111111111111111" is
+    not in stock.” One physical handset cannot be sold to two customers.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">6</span><h3 class="step-title">A used handset says so, before the money is taken</h3></div>
+  <p class="step-why">The grade is recorded at intake. It has to be visible at the counter, not in a report
+  afterwards.</p>
+  <ol class="do">
+    <li>Go to <strong>Purchase</strong>, receive one more <code>Redmi Note 13</code> —
+        IMEI <code>444444444444444</code>, <strong>Condition: Used</strong>. Save.</li>
+    <li>Go to <strong>Sell → Sale</strong>, pick the product, and type <code>444444444444444</code>.</li>
+    <li>Then clear it and type something that was never received, e.g. <code>999999999999999</code>.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect three different badges</span>
+    <p><span class="pill pill-new">New</span> for a new unit &nbsp;·&nbsp;
+       <span class="pill pill-used">Used</span> in amber, because it changes what the customer is buying
+       &nbsp;·&nbsp; <span class="pill pill-miss">Not in stock</span> in red for an unknown IMEI.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">7</span><h3 class="step-title">Ask the register where a handset went</h3></div>
+  <p class="step-why">This is the question the whole feature exists for — a warranty claim, a return, or a
+  police enquiry all start here.</p>
+  <ol class="do">
+    <li>While still logged in, open this in the same browser:<br>
+        <span class="path">http://localhost:8080/serialHistory?serial=111111111111111</span></li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>JSON showing that unit: <code>status: "SOLD"</code>, the <code>invoiceNo</code> it left on, and the
+    <code>purchaseId</code> that brought it in. Before this feature existed, an IMEI was only ever recorded
+    when a handset was sold on instalments — a cash sale recorded nothing.</p>
+  </div>
+  <div class="note">
+    <span class="label">Known gap</span>
+    <p>There is no <em>screen</em> for browsing the register yet — only this address. Worth deciding whether
+    you want one (a “find a handset” search on the dashboard) as a follow-up.</p>
+  </div>
+</div>
+
+<h2>The checks that prove it is per-shop, not global</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">8</span><h3 class="step-title">A POS shop sees none of this</h3></div>
+  <p class="step-why">Same software, same screens, different business. If a hardware counter is asked for an
+  IMEI, the design has failed.</p>
+  <ol class="do">
+    <li>Log out. Log in as <code>owner.business@myplus.com</code>.</li>
+    <li>Open <strong>Purchase</strong>, then <strong>Sell → Sale</strong>.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>No Serial / IMEI field and no Condition selector on either screen. Open <strong>Register →
+    Product</strong> and the Tracking row is gone too — a shop without the capability cannot even mark a
+    product as serial-tracked.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">9</span><h3 class="step-title">Owner, admin and user see different things</h3></div>
+  <ol class="do">
+    <li>Log in as each of the three <code>*.mobile@myplus.com</code> accounts in turn.</li>
+    <li>Each time, check the sidebar for <strong>Finance</strong> and for <strong>Settings →
+        Configuration</strong>.</li>
+  </ol>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Account</th><th>Finance reports</th><th>Configuration</th><th>Sale screen</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">owner.mobile@</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td class="mono">admin.mobile@</td><td><strong>No</strong></td><td>Yes</td><td>Yes</td></tr>
+      <tr><td class="mono">user.mobile@</td><td><strong>No</strong></td><td><strong>No</strong></td><td>Yes</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Each level is strictly narrower than the one above, and every level can still reach the sale screen and
+    load its data — a cashier who cannot sell is not a working permission model.</p>
+  </div>
+</div>
+
+<h2>The other two requirements</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">10</span><h3 class="step-title">Grids show 50 rows, and the phone layout fits</h3></div>
+  <ol class="do">
+    <li>Open <strong>Register → Product</strong>. Check the rows-per-page selector.</li>
+    <li>Open the <strong>Sale</strong> screen on an actual phone, or in the browser’s device mode at
+        <strong>360 × 800</strong> (Infinix Hot 40 / Vivo Y400 both report 360).</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Grids open on <strong>50 rows</strong>, with 10 / 25 / 50 / 100 / Show all available.<br>
+    On the 360-wide sale screen, every field sits fully on screen — nothing clipped at the left edge, and no
+    sideways scrolling.</p>
+  </div>
+</div>
+
+<h2>What is <em>not</em> covered</h2>
+
+<p>Stated plainly so you are not surprised while testing:</p>
+<ul class="tight">
+  <li><strong>No register browse screen.</strong> Serial history is reachable only by the address in step 7.</li>
+  <li><strong>Condition is per delivery, not per unit.</strong> A mixed intake — three new, two used, one
+      price — is entered as two purchase lines.</li>
+  <li><strong>A sale return does not yet put the unit back on the shelf.</strong> The mechanism exists in the
+      database; it is not wired to the returns screen.</li>
+  <li><strong>The condition does not print on the receipt.</strong> It is shown at the till only.</li>
+</ul>
+
+<footer>
+  <p>Automated coverage behind this: <code>serial-register.cy.js</code> (18 cases),
+  <code>privilege-ladder.cy.js</code> (7), <code>capability-gating.cy.js</code> (6),
+  <code>capability-shapes.cy.js</code> (5), <code>product-policies.cy.js</code> (7),
+  <code>responsive.cy.js</code> (53). Design notes:
+  <code>docs/serial-condition-tracking-design.md</code> · testing standard:
+  <code>docs/GATE-RUNBOOK.md</code>.</p>
+</footer>
+
+</div>
+
+</body></html>

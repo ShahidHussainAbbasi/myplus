@@ -32,6 +32,9 @@ public class StockController {
 	@Autowired
 	private AppUtil appUtil;
 
+	@Autowired
+	private com.myplus.common.settings.CapabilityService capabilityService;   // #22: skip the FEFO call off-vertical
+
 	/**
 	 * The sell/dispense screen pre-fill, keyed by the catalog productId: on-hand + FEFO batches from inventory,
 	 * sell price + description from the catalog Product master. Same StockDTO shape the sell handler reuses.
@@ -56,13 +59,32 @@ public class StockController {
 				if (p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());   // sell price
 				dto.setIDesc(p.getDescription() != null ? p.getDescription() : "");        // description
 			}
-			// FEFO batch/expiry for the dispense screen; first batch is the next dispensed.
-			java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
-			dto.setBatches(batches);
-			if (batches != null && !batches.isEmpty()) {
-				com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
-				dto.setBatchNo(first.getBatchNo());
-				dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
+			/*
+			 * #22 — the FEFO batch read is SKIPPED for a tenant that tracks neither batches nor expiry.
+			 *
+			 * This is a per-item-selection call on the till's hot path: a cashier ringing ten lines pays it
+			 * ten times, and it was a THIRD cross-service round trip after the stock level and the catalog
+			 * read. A mobile shop or a general POS has no batches and no expiry dates, so every one of those
+			 * trips returned data the screen could not use.
+			 *
+			 * Gated on the CAPABILITY rather than on a flag the client sends, so it is decided by the tenant's
+			 * configuration and cannot be turned on by a caller. The pharmacy and distribution verticals, which
+			 * genuinely dispense by batch, are unaffected.
+			 *
+			 * Correctness is untouched either way: FEFO allocation happens server-side at submit. This is the
+			 * screen's PRE-FILL hint, not the rule that decides which batch leaves the shelf.
+			 */
+			boolean tracksBatches =
+					capabilityService.isEnabled(com.myplus.common.settings.Capability.BATCH_TRACKING)
+					|| capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
+			if (tracksBatches) {
+				java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+				dto.setBatches(batches);
+				if (batches != null && !batches.isEmpty()) {
+					com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);
+					dto.setBatchNo(first.getBatchNo());
+					dto.setBexpDate(first.getExpiryDate() != null ? first.getExpiryDate().toString() : null);
+				}
 			}
 		} catch (Exception e) {
 			LOGGER.warn("productStock lookup failed for product {}", productId, e);

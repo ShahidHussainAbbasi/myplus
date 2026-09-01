@@ -122,6 +122,27 @@
 }
 .cfg-row__control input[type="checkbox"]:disabled{ opacity:.5; cursor:not-allowed; }
 
+/* ── E1: a setting the tenant's plan does not include ──────────────────────
+ * LOCKED, not hidden. An owner looking at this row is deciding whether to ask
+ * for the feature; removing the row would answer a question they never got to
+ * ask, and a shop that cannot see what it is missing never upgrades.
+ *
+ * The LABEL dims and the HELP TEXT does not — the explanation is the part that
+ * is still worth reading. Dimming both would turn "here is what this does" into
+ * visual noise at exactly the moment it matters most.
+ */
+.cfg-row--locked .cfg-row__label{ color:#8a97aa; }
+.cfg-row--locked .cfg-row__control{ opacity:.55; }
+.cfg-row__locked{
+  grid-column:2; justify-self:end;
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; font-weight:700; letter-spacing:.03em; white-space:nowrap;
+  color:#8a5b00; background:#fdf3e0; border:1px solid #d9a441;
+  border-radius:999px; padding:1px 9px; margin-top:6px;
+  cursor:help;   /* the server's own sentence is in title= */
+}
+.cfg-row__locked .glyphicon{ font-size:10px; }
+
 /* ── Empty state for the search ────────────────────────────────────────────*/
 .cfg-empty{ padding:22px; text-align:center; color:#7a889c; font-size:13px; }
 
@@ -133,6 +154,7 @@
   .cfg-row{ grid-template-columns:1fr; gap:8px; }
   .cfg-row__control{ justify-self:start; text-align:left; max-width:100%; }
   .cfg-row__saved{ grid-column:1; justify-self:start; }
+  .cfg-row__locked{ grid-column:1; justify-self:start; margin-top:0; }
 }
 
 /* ==========================================================================

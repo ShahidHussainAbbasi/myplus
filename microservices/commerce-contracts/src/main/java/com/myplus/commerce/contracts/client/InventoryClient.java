@@ -28,6 +28,19 @@ import java.util.List;
 public interface InventoryClient {
 
     /** Saga step 1 — hold stock (FEFO). Returns RESERVED + picks, or OUT_OF_STOCK (nothing held). */
+    /**
+     * Task #20 — the tenant's stock valued at cost, for the dashboard KPI.
+     *
+     * <p>Returns the whole summary rather than a bare number so the dashboard can grow the low-stock and
+     * out-of-stock counts onto the same call later instead of opening a second round trip for each.
+     *
+     * <p>⚠ The value is stock at LAST PURCHASE RATE — {@code StockLevel.costPrice} is stamped from
+     * {@code bpurchaseRate} by the purchase path. It is not a weighted average and it is not the GL
+     * inventory balance, so whatever displays it must say which number it is.
+     */
+    @GetExchange("/stock/summary")
+    java.util.Map<String, Object> stockSummary();
+
     @PostExchange("/reservations")
     StockReservationResponse reserve(@RequestBody StockReservationRequest request);
 

@@ -379,6 +379,7 @@ public class PurchaseService implements IPurchaseService{
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 		obj.setStoreId(user.getActiveLocationId());       // multi-location: store this purchase was recorded at
 
+
 		// M3c.4b (slice 84): the purchase is self-describing — copy its batch/rate snapshot straight off the DTO
 		// (StockDTO scalar types already match Purchase; bexpDate parsed via AppUtil) instead of going through a local
 		// Stock entity. Inventory stays authoritative for on-hand (pushed below).
@@ -395,6 +396,25 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBpurchaseDiscountType(snap.getBpurchaseDiscountType());
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
+		}
+
+		/*
+		 * #17 P2 — stamp what was PAID, once, at the moment of receipt.
+		 *
+		 * MONEY FOLLOWS THE INVOICE: the supplier billed for `quantity` at `bpurchaseRate`, and the free units
+		 * add nothing to that. So payable, input tax and the GL are untouched by a bonus — which is exactly why
+		 * P2 is safe to ship ahead of the sale side.
+		 *
+		 * ⚠ AFTER the snapshot block above, deliberately. bpurchaseRate arrives NESTED (the form posts
+		 * stock.bpurchaseRate) and is only copied onto the entity there, so stamping any earlier reads a null
+		 * rate, skips silently, and leaves the batch with no total to allocate from.
+		 *
+		 * Recorded rather than derived later because a scheme can be edited or expire tomorrow, and what this
+		 * delivery cost must not change when it does.
+		 */
+		if (obj.getBpurchaseRate() != null && obj.getQuantity() != null) {
+			obj.setPaidTotal(obj.getBpurchaseRate()
+					.multiply(java.math.BigDecimal.valueOf(obj.getQuantity())));
 		}
 		// F1 (AP): the bill's payment position. The vendor bill = totalAmount (qty × purchase rate = what we owe);
 		// NOTE netAmount here is the sell-vs-cost PROFIT, not the payable. paidAmount defaults to the full bill
@@ -641,6 +661,27 @@ public class PurchaseService implements IPurchaseService{
 		return p.getOrganizationId() == null && user.getUserId() != null && user.getUserId().equals(p.getUserId());
 	}
 
+	/**
+	 * #17 P2 (D7) — how much bonus a RETAINED paid quantity still earns.
+	 *
+	 * <p>Derived from the receipt itself rather than by re-reading the scheme, deliberately: the offer that
+	 * produced this delivery may since have been edited or expired, and a return must settle against the deal
+	 * that was actually struck. The receipt records what was paid for and what came free, which is enough.
+	 *
+	 * <p>Treated as REPEATING blocks — "every N paid earns M free" — because that is what the received pair
+	 * describes, and it degrades correctly for a one-time offer: retaining the full paid quantity keeps the
+	 * whole bonus, and dropping below the threshold loses all of it, which is the ONE_TIME answer too.
+	 */
+	private float bonusEntitlement(Purchase p, float retainedPaid, float bonusHeld) {
+		float paidOriginal = p.getQuantity() != null ? p.getQuantity() : 0f;
+		if (bonusHeld <= 0f || paidOriginal <= 0f) return 0f;
+		if (retainedPaid <= 0f) return 0f;
+		// Blocks of (paidOriginal / bonusHeld) paid units each earned one free unit.
+		float perBonus = paidOriginal / bonusHeld;
+		if (perBonus <= 0f) return 0f;
+		return (float) Math.floor(retainedPaid / perBonus);
+	}
+
 	private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 
 	/**
@@ -676,12 +717,32 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal returnedTax = partial ? tax.multiply(frac).setScale(2, java.math.RoundingMode.HALF_UP) : tax;
 		java.math.BigDecimal returnedGross = returnedNet.add(returnedTax);
 
+		/*
+		 * #17 P2 (D7) — BONUS CLAWBACK.
+		 *
+		 * A bonus is conditional on the paid quantity that EARNED it. Return the goods and the entitlement is
+		 * recomputed from what is retained: keep 5 of a "buy 10 get 1" and the retained 5 no longer qualifies,
+		 * so the free unit goes back too. Without this a buyer returns the goods and keeps the gift.
+		 *
+		 * Recomputed from the scheme's own arithmetic rather than pro-rated, because entitlement is a step
+		 * function, not a proportion: under "every 5 get 1", returning 5 of 20 drops the bonus from 4 to 3,
+		 * not to 3.2.
+		 *
+		 * The clawback is stock-only. The bonus unit never had a supplier payable — money follows the invoice —
+		 * so the bill reconciliation below is untouched by it.
+		 */
+		float bonusHeld = p.getBonusQuantity() != null ? p.getBonusQuantity() : 0f;
+		float retainedPaid = soldQty - rq;
+		float bonusStillEarned = bonusEntitlement(p, retainedPaid, bonusHeld);
+		float bonusClawback = Math.max(0f, bonusHeld - bonusStillEarned);
+
 		// 1) reverse the stock-in for this batch (negative delta). A guard rejection rolls the whole return back.
 		if (tradeSagaProperties.isEnabled() && p.getProductId() != null) {
 			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(-rq)
+					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(-(rq + bonusClawback))
 					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate()).build());
 		}
+		if (bonusClawback > 0f) p.setBonusQuantity(bonusStillEarned);
 
 		// 2) reconcile the bill (mirror SF-5 for AP) on the GROSS bill: reduce it by the returned gross; the vendor
 		//    refunds any resulting overpayment; dueAmount = paid − remaining gross.
@@ -809,14 +870,39 @@ public class PurchaseService implements IPurchaseService{
 		try {
 			Long productId = obj.getProductId();          // M3b: mapped once in addPurchase
 			if (productId == null) return;
+			/*
+			 * #17 P2 — STOCK FOLLOWS PHYSICAL MOVEMENT.
+			 *
+			 * A "buy 10, get 1" delivery puts ELEVEN units on the shelf against an invoice for ten. Sending
+			 * the billed quantity here is what made the shelf and the system diverge by one on every bonus
+			 * delivery — permanently, and compounding.
+			 *
+			 * COST FOLLOWS THE GOODS. The same money now covers more units, so the effective unit cost falls:
+			 * 5,000 for 11 is 454.545..., not the 500 on the invoice line. `paidTotal` carries what was
+			 * actually paid so consumption can allocate it EXACTLY, rather than trusting a rounded per-unit
+			 * figure that multiplies back to 4,999.94.
+			 *
+			 * costPrice is still sent for the callers and screens that read a per-unit figure, but it is now
+			 * the EFFECTIVE cost, not the headline rate — otherwise every margin downstream is overstated by
+			 * the size of the bonus.
+			 */
+			float received = obj.receivedQuantity() > 0 ? obj.receivedQuantity() : dto.getQuantity();
+			java.math.BigDecimal paidTotal = obj.getPaidTotal();
+			java.math.BigDecimal effectiveCost = obj.getBpurchaseRate();
+			if (paidTotal != null && received > 0) {
+				effectiveCost = paidTotal.divide(java.math.BigDecimal.valueOf(received), 6,
+						java.math.RoundingMode.HALF_UP);
+			}
+
 			inventoryClient.importStock(List.of(
 					com.myplus.commerce.contracts.dto.StockImportLine.builder()
 							.productId(productId)
-							.quantity(dto.getQuantity())
+							.quantity(received)
 							.batchNo(obj.getBatchNo())
 							.expiryDate(obj.getBexpDate())
-							.purchasePrice(obj.getBpurchaseRate())
-							.costPrice(obj.getBpurchaseRate())
+							.purchasePrice(obj.getBpurchaseRate())   // what the supplier billed, unchanged
+							.costPrice(effectiveCost)                // what the goods actually cost us
+							.paidTotal(paidTotal)                    // the exact figure, for allocation
 							.build()));
 		} catch (Exception ex) {
 			LOG.warn("M3b: inventory stock-in failed for product {} (purchase recorded locally; reconcile later)",

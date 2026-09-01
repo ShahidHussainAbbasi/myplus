@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://a2a28f13-6634-40cf-895e-d2a684da33a9.frame.claudeusercontent.com/_f/1788163607-b40e/?__frame_t=ntfNX4uowXEm0vkN0Tw80f6-.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788167209&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1788163607-b40e/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>Bonus Offers Test Run</title>
+<link rel="stylesheet" href="./css2">
+<style>
+  :root{
+    --paper:#f6f7fb; --card:#ffffff; --ink:#141c2b; --ink-2:#48546b;
+    --line:#dde3ee; --line-2:#c7d0e0;
+    --accent:#1f4e8c; --accent-2:#2f6bbd; --accent-wash:#eaf1fa;
+    --good:#106b46; --good-wash:#e6f3ec;
+    --warn:#8a5200; --warn-wash:#fdf1de;
+    --bad:#a52017;  --bad-wash:#fbeae8;
+    --mono-bg:#f0f3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e131c; --card:#151d29; --ink:#e6ecf6; --ink-2:#9dabc2;
+      --line:#25303f; --line-2:#33415500;
+      --accent:#7fb0ec; --accent-2:#a6c8f4; --accent-wash:#17243a;
+      --good:#67c79b; --good-wash:#122a20;
+      --warn:#e0a860; --warn-wash:#2c2113;
+      --bad:#ef8d84;  --bad-wash:#2e1815;
+      --mono-bg:#101823;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e131c; --card:#151d29; --ink:#e6ecf6; --ink-2:#9dabc2;
+    --line:#25303f; --line-2:#334155;
+    --accent:#7fb0ec; --accent-2:#a6c8f4; --accent-wash:#17243a;
+    --good:#67c79b; --good-wash:#122a20;
+    --warn:#e0a860; --warn-wash:#2c2113;
+    --bad:#ef8d84;  --bad-wash:#2e1815;
+    --mono-bg:#101823;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"Source Serif 4",Georgia,serif; font-size:17px; line-height:1.62;
+    margin:0; padding:40px 20px 90px;
+  }
+  .wrap{max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:34px}
+
+  header{display:flex; flex-direction:column; gap:10px; padding-bottom:22px; border-bottom:2px solid var(--ink)}
+  .eyebrow{
+    font-family:"JetBrains Mono",ui-monospace,monospace; font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--accent); font-weight:600;
+  }
+  h1{
+    font-family:Archivo,system-ui,sans-serif; font-weight:700; font-size:clamp(30px,5vw,42px);
+    line-height:1.08; margin:0; text-wrap:balance; letter-spacing:-.02em;
+  }
+  .standfirst{margin:0; color:var(--ink-2); max-width:62ch}
+
+  h2{
+    font-family:Archivo,system-ui,sans-serif; font-weight:600; font-size:24px; letter-spacing:-.01em;
+    margin:0 0 4px; text-wrap:balance; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+  }
+  h2 .tag{
+    font-family:"JetBrains Mono",monospace; font-size:11px; font-weight:600; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 9px; border-radius:3px;
+    background:var(--accent-wash); color:var(--accent); border:1px solid var(--line-2);
+  }
+  h3{font-family:Archivo,system-ui,sans-serif; font-weight:600; font-size:17px; margin:0 0 6px}
+  p{margin:0 0 12px}
+  p:last-child{margin-bottom:0}
+
+  section{display:flex; flex-direction:column; gap:18px}
+  .phase{border-top:1px solid var(--line); padding-top:26px}
+
+  ol.steps{list-style:none; counter-reset:s; margin:0; padding:0; display:flex; flex-direction:column; gap:16px}
+  ol.steps > li{
+    counter-increment:s; position:relative; padding-left:46px;
+  }
+  ol.steps > li::before{
+    content:counter(s); position:absolute; left:0; top:1px;
+    width:30px; height:30px; border-radius:50%;
+    background:var(--card); border:1.5px solid var(--accent); color:var(--accent);
+    font-family:"JetBrains Mono",monospace; font-size:13px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  .expect{
+    background:var(--mono-bg); border-left:3px solid var(--good);
+    border-radius:0 5px 5px 0; padding:12px 15px; margin-top:9px;
+    font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13.5px; line-height:1.65;
+    color:var(--ink); overflow-x:auto; white-space:pre;
+  }
+  .expect .lbl{
+    display:block; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--good); font-weight:600; margin-bottom:5px; white-space:normal;
+  }
+
+  code{
+    font-family:"JetBrains Mono",ui-monospace,monospace; font-size:.87em;
+    background:var(--mono-bg); padding:1.5px 5px; border-radius:3px; border:1px solid var(--line);
+  }
+  pre{
+    background:var(--mono-bg); border:1px solid var(--line); border-radius:6px;
+    padding:14px 16px; overflow-x:auto; margin:10px 0 0;
+    font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px; line-height:1.6;
+  }
+  pre code{background:none; border:none; padding:0; font-size:inherit}
+
+  .note{
+    border-radius:6px; padding:14px 17px; border:1px solid var(--line-2);
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .note .hd{
+    font-family:Archivo,sans-serif; font-weight:600; font-size:13px;
+    letter-spacing:.05em; text-transform:uppercase;
+  }
+  .note p{font-size:15.5px}
+  .note.warn{background:var(--warn-wash)} .note.warn .hd{color:var(--warn)}
+  .note.stop{background:var(--bad-wash)}  .note.stop .hd{color:var(--bad)}
+  .note.info{background:var(--accent-wash)} .note.info .hd{color:var(--accent)}
+
+  table{width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums}
+  .tscroll{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--card)}
+  th,td{text-align:left; padding:9px 13px; border-bottom:1px solid var(--line)}
+  th{
+    font-family:Archivo,sans-serif; font-weight:600; font-size:12px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-2); background:var(--mono-bg);
+  }
+  tr:last-child td{border-bottom:none}
+  td.num{font-family:"JetBrains Mono",monospace; font-size:13.5px; text-align:right}
+
+  .ck{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px}
+  .ck li{display:flex; gap:11px; align-items:flex-start; font-size:16px}
+  .ck li::before{
+    content:"☐"; font-family:"JetBrains Mono",monospace; color:var(--accent);
+    font-size:17px; line-height:1.4; flex:none;
+  }
+  footer{border-top:1px solid var(--line); padding-top:18px; color:var(--ink-2); font-size:15px}
+  a{color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent-2); outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Task #17 · Manual verification</div>
+    <h1>Bonus Offers Test Run</h1>
+    <p class="standfirst">Walk P1 and P2 by hand before P3 changes the books. Every step lists the number you
+      should see — if a figure differs, stop there and note it rather than continuing.</p>
+  </header>
+
+  <section>
+    <h2>Before you start</h2>
+    <p>Three services carry new migrations. All four must be rebuilt, not just restarted — a restart re-launches
+      the old jar and the new tables never appear.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Service</th><th>Migration</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>catalog-service</td><td><code>V14</code></td><td>the <code>bonus_scheme</code> table</td></tr>
+          <tr><td>business-service</td><td><code>V54</code></td><td><code>bonus_quantity</code>, <code>paid_total</code> on purchases</td></tr>
+          <tr><td>inventory-service</td><td><code>V9</code></td><td><code>paid_total</code> on the batch</td></tr>
+          <tr><td>monolith</td><td>—</td><td>screens, proxies, six locale files</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note warn">
+      <span class="hd">Wait for registration</span>
+      <p>After a rebuild each service takes roughly 40 seconds to register with Eureka. Test inside that window
+        and every call returns <code>503</code>, which looks exactly like a broken feature.</p>
+    </div>
+    <p>Sign in as the distribution tenant — <code>owner.marketplace@myplus.com</code> / <code>Demo@2025!</code>.
+      Bonus offers are gated to that shape, so a POS tenant will correctly see nothing.</p>
+  </section>
+
+  <section class="phase">
+    <h2>P1 — the scheme master <span class="tag">no money moves</span></h2>
+
+    <ol class="steps">
+      <li>
+        <h3>Open the register</h3>
+        <p>Sidebar → <strong>Settings</strong> → <strong>Bonus Offers</strong>.</p>
+        <div class="expect"><span class="lbl">Expect</span>The screen opens with the empty state: "No bonus offers yet."</div>
+      </li>
+
+      <li>
+        <h3>Create a supplier offer</h3>
+        <p>The authoring form is not built yet (see the gap below), so create it through the API. Open your
+          browser's DevTools console <em>on the dashboard page</em> so the session cookie travels with it:</p>
+<pre><code>await (await fetch('/bonusScheme', {
+  method:'POST', headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({
+    code:'SUP-OIL-10-1', scope:'VENDOR',
+    triggerProductId: 1, paidQuantity: 10, bonusQuantity: 1,
+    bonusType:'EXCLUSIVE', qualificationMode:'ONE_TIME',
+    priority: 100, status:'ACTIVE'
+  })})).json()</code></pre>
+        <p>Use a real product id from your catalogue in place of <code>1</code>.</p>
+        <div class="expect"><span class="lbl">Expect</span>success: true — then reopen Bonus Offers and the row is listed:
+SUP-OIL-10-1 · VENDOR · Buy 10 + 1 · EXCLUSIVE · Always · ACTIVE</div>
+      </li>
+
+      <li>
+        <h3>Try to save an ambiguous offer</h3>
+        <p>Repeat the call with <code>bonusType</code> removed, and again with <code>qualificationMode</code>
+          removed.</p>
+        <div class="expect"><span class="lbl">Expect — both refused</span>"Bonus type is required and must be INCLUSIVE or EXCLUSIVE."
+"Qualification mode is required and must be ONE_TIME or REPEATING."</div>
+        <p>This is the point of the whole model: <em>10+1</em> means a different delivered quantity, invoice,
+          cost and tax depending on which it is, so a scheme that cannot say is refused rather than guessed at.</p>
+      </li>
+
+      <li>
+        <h3>Check the entitlement arithmetic</h3>
+        <p>Run each of these in the console and compare against the table:</p>
+<pre><code>await (await fetch('/bonusScheme/preview', {
+  method:'POST', headers:{'Content-Type':'application/json'},
+  body: JSON.stringify({ qualificationMode:'REPEATING',
+                         paidQuantity:5, bonusQuantity:1, quantity:15 })})).json()</code></pre>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>Mode</th><th>Offer</th><th class="num">Paid</th><th class="num">Bonus earned</th></tr></thead>
+            <tbody>
+              <tr><td>ONE_TIME</td><td>buy 10 get 1</td><td class="num">15</td><td class="num">1</td></tr>
+              <tr><td>REPEATING</td><td>every 10 get 1</td><td class="num">15</td><td class="num">1</td></tr>
+              <tr><td>REPEATING</td><td>every 5 get 1</td><td class="num">15</td><td class="num">3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The third row is the one that matters — a build that ignores the mode returns 1 there.</p>
+      </li>
+
+      <li>
+        <h3>Confirm an expired offer stays out</h3>
+        <p>Create one with <code>startsOn:'2020-01-01'</code> and <code>endsOn:'2020-01-31'</code>, then fetch
+          <code>/bonusSchemes?activeOnly=true</code>.</p>
+        <div class="expect"><span class="lbl">Expect</span>The expired scheme is absent from the active list, present in the full list.</div>
+      </li>
+
+      <li>
+        <h3>Confirm it does not leak between tenants</h3>
+        <p>Sign out, sign in as <code>owner.business@myplus.com</code>, open Bonus Offers.</p>
+        <div class="expect"><span class="lbl">Expect</span>SUP-OIL-10-1 is not listed. The POS tenant may not see the menu entry at all —
+that is the capability gate, and it is also correct.</div>
+      </li>
+    </ol>
+
+    <div class="note warn">
+      <span class="hd">Known gap in P1</span>
+      <p>The register lists and the API authors, but there is no <strong>create form</strong> on the screen yet —
+        which is why step 2 uses the console. Say the word and I will add it before P3; it is a form over an
+        endpoint that already validates.</p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <h2>P2 — supplier bonus on goods-in <span class="tag">stock moves, money does not</span></h2>
+
+    <p>The whole of P2 is one sentence: <strong>eleven bottles arrive against an invoice for ten, so stock must
+      rise by eleven and the money must not change.</strong></p>
+
+    <ol class="steps">
+      <li>
+        <h3>Note the starting stock</h3>
+        <p>Open <strong>Register → Product</strong> and write down the on-hand figure for your test product.</p>
+        <div class="expect"><span class="lbl">Example</span>Cooking Oil 1L — on hand: 50</div>
+      </li>
+
+      <li>
+        <h3>Receive a bonus delivery</h3>
+        <p><strong>Purchase → New Purchase</strong>. Enter the product, then:</p>
+        <div class="tscroll">
+          <table>
+            <thead><tr><th>Field</th><th class="num">Value</th></tr></thead>
+            <tbody>
+              <tr><td>QTY</td><td class="num">10</td></tr>
+              <tr><td>Bonus <em>(new box, beside QTY)</em></td><td class="num">1</td></tr>
+              <tr><td>Purchase rate</td><td class="num">500.00</td></tr>
+              <tr><td>Batch no</td><td class="num">TEST-BONUS-1</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Save the purchase.</p>
+        <div class="expect"><span class="lbl">Expect</span>Bill total unchanged by the bonus:  10 × 500 = 5,000
+The Bonus box is only visible for a tenant with the capability.</div>
+      </li>
+
+      <li>
+        <h3>Check the shelf and the system agree</h3>
+        <p>Return to <strong>Register → Product</strong> and read on-hand again.</p>
+        <div class="expect"><span class="lbl">Expect</span>50 → 61     (+11, not +10)</div>
+        <p>A <code>+10</code> here is the original defect: the shelf holds 61 while the system says 60, on every
+          bonus delivery, forever.</p>
+      </li>
+
+      <li>
+        <h3>Check the cost was spread across what arrived</h3>
+        <p>In the console: <code>await (await fetch('/productStock?productId=<em>ID</em>')).json()</code> and find
+          the <code>TEST-BONUS-1</code> batch.</p>
+        <div class="expect"><span class="lbl">Expect</span>quantity   : 11
+paidTotal  : 5000.00        ← reconciles exactly
+unit cost  : 454.545…       ← not the 500 on the invoice line</div>
+        <p>A <code>paidTotal</code> of <code>5500</code> means the bonus reached stock but not costing, and every
+          margin on this product is then overstated by roughly nine percent.</p>
+      </li>
+
+      <li>
+        <h3>Check the money did not move</h3>
+        <p>Open the vendor's account, or the purchase record itself.</p>
+        <div class="expect"><span class="lbl">Expect</span>Payable    : 5,000.00   (+ tax exactly as invoiced)
+Input tax  : unchanged — no tax is invented for the free unit
+Trial balance still balances</div>
+      </li>
+
+      <li>
+        <h3>Return five, and watch the bonus go back too</h3>
+        <p>On the purchase row, click <strong>Return</strong> and return a quantity of <code>5</code>.</p>
+        <div class="expect"><span class="lbl">Expect</span>Retained paid : 5   — no longer qualifies for "buy 10 get 1"
+Bonus clawed  : 1
+On hand       : 61 → 55     (−5 paid, −1 bonus)</div>
+        <p>Without the clawback the buyer returns the goods that earned the gift and keeps the gift.</p>
+      </li>
+
+      <li>
+        <h3>Confirm an ordinary purchase is untouched</h3>
+        <p>Record a purchase of <code>7</code> with the Bonus box left empty.</p>
+        <div class="expect"><span class="lbl">Expect</span>On hand rises by exactly 7. Nothing about a no-bonus purchase has changed.</div>
+      </li>
+    </ol>
+  </section>
+
+  <section class="phase">
+    <h2>Sign-off before P3</h2>
+    <ul class="ck">
+      <li>Every P1 step matched, including the <code>every 5 get 1 → 3</code> row.</li>
+      <li>Stock rose by 11, not 10.</li>
+      <li>The batch reconciles to exactly 5,000.00.</li>
+      <li>Payable and input tax are exactly as invoiced.</li>
+      <li>The partial return took the bonus unit back.</li>
+      <li>A purchase with no bonus behaves as it always did.</li>
+    </ul>
+
+    <div class="note stop">
+      <span class="hd">Do not start P3 until this is done</span>
+      <p>P3 makes the sale side deduct bonus units, and it <strong>changes COGS and margin</strong> from the day
+        it goes live. Any tenant that has used the <code>Bon.</code> column already carries a stock
+        overstatement, and enabling P3 will surface it — users will believe the new feature caused it.</p>
+      <p>So for each such tenant: run a physical stock count, post the variance as an adjustment reasoned
+        <em>"historical bonus-sale stock variance correction"</em>, record a cutover date, and only then switch
+        the capability on. A tenant that has never used bonus quantities needs none of this.</p>
+    </div>
+  </section>
+
+  <footer>
+    Design and decisions: <code>microservices/docs/slices/bonus-schemes.md</code> ·
+    Automated gates: <code>bonus-schemes-p1.cy.js</code>, <code>bonus-schemes-p2.cy.js</code>
+  </footer>
+
+</div>
+
+</body></html>

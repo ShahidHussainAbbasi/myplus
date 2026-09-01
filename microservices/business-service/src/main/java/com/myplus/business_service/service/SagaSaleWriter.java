@@ -250,7 +250,14 @@ public class SagaSaleWriter {
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
                 if (p == null || p.getItemId() == null || !p.getItemId().equals(line.productId())) continue;
-                if (p.getBatchNo() == null && p.getExpiryDate() == null) continue;   // nothing to trace
+                /*
+                 * #17 P3 — a pick with a COST is never skipped, even with no batch number.
+                 *
+                 * This row used to be traceability only, so a pick with nothing to trace was dropped. It is
+                 * now also the COGS source, and dropping one loses its cost — the sale would then expense
+                 * less than the goods that left it, silently.
+                 */
+                if (p.getBatchNo() == null && p.getExpiryDate() == null && p.getUnitCost() == null) continue;
                 sellBatchRepo.save(com.myplus.business_service.entity.SellBatch.builder()
                         .sellId(sell.getSellId())
                         .organizationId(user.getOrganizationId())
@@ -258,6 +265,7 @@ public class SagaSaleWriter {
                         .batchNo(p.getBatchNo())
                         .expiryDate(p.getExpiryDate())
                         .quantity(p.getQuantity())
+                        .unitCost(p.getUnitCost())   // #17 P3: the cost of what actually left
                         .createdAt(now)
                         .build());
             }

@@ -595,6 +595,30 @@ Cypress.Commands.add('ensureCompany', () => {
  *
  * Each spec keeps its own module assertions and its own flag pinning — only the racy part is shared.
  */
+/**
+ * Visit the business dashboard and wait until it has stopped MOVING.
+ *
+ * <h4>The failure this exists for</h4>
+ * The KPI tiles and the charts load in the BACKGROUND — tier-1a/1b made them non-blocking deliberately, so
+ * the screen is usable while they arrive. They render at the TOP of the page, so each one that lands pushes
+ * everything below it down. A click aimed at anything further down then fails with "could not determine the
+ * actionability of this element" (`ensureNotAnimating`) — Cypress is right: the button really is moving.
+ *
+ * Waiting the two reads out is the honest fix. It is also the moment a real operator can reliably hit a
+ * control, whereas `{force: true}` would paper over layout instability a person would feel as a misclick.
+ *
+ * Registering the intercepts BEFORE the visit is what makes the waits reliable — a load-time request issued
+ * before the intercept exists is simply missed.
+ */
+Cypress.Commands.add('visitDashboardSettled', () => {
+  cy.intercept('GET', '**/getBusinessDashboardStats*').as('dashStatsSettle')
+  cy.intercept('GET', '**/getDashboardChartData*').as('dashChartsSettle')
+  cy.visit('/businessDashboard')
+  cy.get('#sellType', { timeout: 30000 }).should('exist')
+  cy.wait('@dashStatsSettle', { timeout: 30000 })
+  cy.wait('@dashChartsSettle', { timeout: 30000 })
+})
+
 Cypress.Commands.add('visitSaleScreen', () => {
   // Registered BEFORE the visit, or the load-time request is missed entirely.
   cy.intercept('GET', '**/getBusinessConfig').as('posFeatureFlags')
@@ -648,6 +672,41 @@ Cypress.Commands.add('setCapability', (code, enabled) => {
       expect(res.body && res.body.success, `setCapability(${code}) body: ${JSON.stringify(res.body)}`)
         .to.eq(true)
     })
+})
+
+/**
+ * CLEAR a tenant's explicit capability overrides, so the SHAPE PRESET decides again.
+ *
+ * -- Why this exists ----------------------------------------------------------------------------
+ * `CapabilityService.resolve` gives an explicit tenant override precedence over the shape preset -- by
+ * design, so that picking a profile never destroys a deliberate choice. The consequence for tests is that
+ * `cy.setShape('general')` does NOT restore a pristine tenant: any `org.cap.*` row an earlier spec wrote
+ * still wins.
+ *
+ * That is exactly what made capability-shapes.cy.js fail. `owner.mobile@` had eleven leftover rows --
+ * serialTracking/conditionGrading true from serial-register.cy.js, the rest false -- so "a tenant that has
+ * chosen no shape still sees everything" was asserting the GENERAL preset against a tenant that had
+ * overridden most of it. Green or red depending on what had run before, which is not a gate.
+ *
+ * -- WARNING: the value must be ABSENT, not empty -----------------------------------------------
+ * Sending `value=''` stores an empty string, and `resolve` reads it as `"true".equalsIgnoreCase("")` = FALSE.
+ * That would switch every capability OFF while looking like a reset. Omitting the parameter entirely makes
+ * the monolith proxy leave `&value=` off the query string, auth stores NULL, and `overrideFor` yields
+ * Optional.empty() -- the only thing that hands the decision back to the preset.
+ */
+Cypress.Commands.add('clearCapabilityOverrides', () => {
+  return cy.getCapabilities().then((caps) => {
+    Object.keys(caps).forEach((code) => {
+      cy.request({
+        method: 'POST',
+        url: '/saveBusinessConfig',
+        form: true,
+        body: { key: 'org.cap.' + code },   // NO value -- see the warning above
+      }).then((res) => {
+        expect(res.body && res.body.success, `clear ${code}: ${JSON.stringify(res.body)}`).to.eq(true)
+      })
+    })
+  })
 })
 
 /** Read this tenant's capability map. Fails loudly rather than yielding undefined into an assertion. */

@@ -26,7 +26,11 @@
 
 	function controlFor(it, prefix, onChangeFn) {
 		var id = fieldId(prefix, it.key);
+		// E1 — a setting the tenant is not entitled to is DISABLED, not merely refused on click. The owner
+		// should never meet a control that fails when they use it; the refusal still happens server-side and
+		// the gate asserts both, because a disabled attribute is a courtesy and not a control.
 		var common = ' id="' + esc(id) + '" data-key="' + esc(it.key) + '"'
+		           + (it.locked ? ' disabled' : '')
 		           + ' onchange="' + onChangeFn + '(this)"';
 
 		if (it.type === 'SELECT') {
@@ -152,12 +156,29 @@
 					// substring test rather than work repeated on every keystroke. The KEY is included: an
 					// owner reading a support note looks up "pos.keyboard.shortcuts", not a prose label.
 					var hay = ((it.label || '') + ' ' + (it.help || '') + ' ' + (it.key || '')).toLowerCase();
-					html += '<div class="cfg-row" data-search="' + esc(hay) + '">'
+					/*
+					 * E1 — the LOCKED row: a setting this tenant's plan does not include.
+					 *
+					 * The help text stays at full strength while the label dims. An owner looking at a locked
+					 * row is deciding whether to ask for it, and hiding the row entirely would answer a
+					 * question they never got to ask — the reason this is a lock rather than a filter.
+					 *
+					 * `lockedReason` is the SERVER's sentence, carried verbatim into the tooltip (standard 8d).
+					 * The badge label is the only hard-coded copy, and it goes through ui.js.* like every other
+					 * string JavaScript reads.
+					 */
+					var locked = !!it.locked;
+					var badge = locked
+						? '<span class="cfg-row__locked" title="' + esc(it.lockedReason || '') + '">'
+							+ '<span class="glyphicon glyphicon-lock"></span> ' + esc(t('ui.js.notInPlan')) + '</span>'
+						: '';
+					html += '<div class="cfg-row' + (locked ? ' cfg-row--locked' : '') + '" data-search="' + esc(hay) + '">'
 						+ '<div class="cfg-row__text">'
 						+ '<label class="cfg-row__label" for="' + esc(id) + '">' + esc(it.label) + '</label>'
 						+ '<span class="cfg-row__help">' + esc(it.help || '') + '</span>'
 						+ '</div>'
 						+ '<div class="cfg-row__control">' + controlFor(it, opts.fieldPrefix, opts.onChangeFn) + '</div>'
+						+ badge
 						+ '<span class="cfg-row__saved" id="' + esc(id) + '_saved"></span>'
 						+ '</div>';
 				});

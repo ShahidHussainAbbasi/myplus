@@ -23,8 +23,7 @@ const OWNER = 'owner.business@myplus.com'
 
 /** Open the Sale Detail Report and run it, so the grid holds real rows. */
 function openReportWithRows() {
-  cy.visit('/businessDashboard')
-  cy.get('#sellType', { timeout: 30000 }).should('exist')
+  cy.visitDashboardSettled()
   cy.get('#sellType').select('SRDiv', { force: true })
   cy.get('#SRDiv').should('be.visible')
   // Selected by the handler the app binds — the View report button carries no id, and its label is

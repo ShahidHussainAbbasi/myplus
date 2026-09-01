@@ -10,7 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -407,6 +409,59 @@ public class CatalogController {
     // ── B2B-P2 (#10): contract & tier price rules ────────────────────────────────────────────────────
 
     /** The tenant's price rules → catalog GET /price-rules (raw JSON array for the Price Rules screen). */
+    /*
+     * ── Bonus / free-goods schemes (task #17 P1) ──────────────────────────────────────────────────────
+     *
+     * Straight proxies. Tenant scoping, the ADMIN_PRIVILEGE bar on authoring, and the mandatory-field rules
+     * all live in catalog-service, which is the only side that can see the caller's org — the monolith must
+     * not re-implement any of them, or the two will disagree about what a valid scheme is.
+     */
+    @GetMapping("/bonusSchemes")
+    @ResponseBody
+    public Map<String, Object> bonusSchemes(final HttpServletRequest request) {
+        try {
+            String q = request.getQueryString();
+            return catalog.get("/bonus-schemes", q == null ? "" : q);
+        } catch (Exception e) {
+            LOGGER.error("bonusSchemes proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    @PostMapping("/bonusScheme")
+    @ResponseBody
+    public Map<String, Object> createBonusScheme(@RequestBody Map<String, Object> body) {
+        try {
+            return catalog.postJson("/bonus-schemes", body);
+        } catch (Exception e) {
+            LOGGER.error("createBonusScheme proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    @PutMapping("/bonusScheme/{id}")
+    @ResponseBody
+    public Map<String, Object> updateBonusScheme(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        try {
+            return catalog.putJson("/bonus-schemes/" + id, body);
+        } catch (Exception e) {
+            LOGGER.error("updateBonusScheme proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** The entitlement calculator — one definition of "what does this paid quantity earn". */
+    @PostMapping("/bonusScheme/preview")
+    @ResponseBody
+    public Map<String, Object> previewBonusScheme(@RequestBody Map<String, Object> body) {
+        try {
+            return catalog.postJson("/bonus-schemes/preview", body);
+        } catch (Exception e) {
+            LOGGER.error("previewBonusScheme proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     @GetMapping("/priceRules")
     @ResponseBody
     public String priceRules() {

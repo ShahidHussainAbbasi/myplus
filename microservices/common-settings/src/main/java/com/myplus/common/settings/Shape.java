@@ -60,7 +60,9 @@ public enum Shape {
     DISTRIBUTION("distribution", "Distribution / wholesale",
             EnumSet.of(Capability.BATCH_TRACKING, Capability.EXPIRY_TRACKING, Capability.FEFO_ALLOCATION,
                     Capability.FIELD_SALES, Capability.JOURNEY_PLANNING, Capability.COLLECTIONS,
-                    Capability.DEALER_PRICING)),
+                    // Free goods are how distribution actually trades — a distributor without bonus offers
+                    // is the exception, not the default.
+                    Capability.DEALER_PRICING, Capability.BONUS_SCHEMES)),
 
     /** Selling to the public online. Orders arrive without anybody at a till. */
     STOREFRONT("storefront", "Online storefront",

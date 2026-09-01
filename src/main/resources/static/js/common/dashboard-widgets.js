@@ -41,6 +41,9 @@
         { name: 'venders',        order: 20 },
         { name: 'customers',      order: 30 },
         { name: 'products',       order: 40 },
+        // Task #20 — the VALUE of the stock, immediately after the COUNT of it. The two answer one question
+        // ("what is on my shelves?") and reading them apart is what makes a count feel like an answer.
+        { name: 'stockValue',     order: 45 },
         { name: 'monthlySales',   order: 50 },
         { name: 'monthlyRevenue', order: 60 },
         { name: 'installmentsDue', order: 70, capability: 'installments' },

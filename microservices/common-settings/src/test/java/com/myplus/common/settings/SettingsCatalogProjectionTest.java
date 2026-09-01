@@ -45,7 +45,7 @@ class SettingsCatalogProjectionTest {
                                 new SettingEntry.Option("warn", "Warn"),
                                 new SettingEntry.Option("block", "Block"))),
                 SettingEntry.bool(BOOL_KEY, "Flag", "On or off", true, "Policy"));
-        return new SettingsService(emptyStore, List.of(provider), 60L);
+        return new SettingsService(emptyStore, List.of(provider), Guards.none(), 60L);
     }
 
     private static Map<String, Object> entry(List<Map<String, Object>> catalog, String key) {

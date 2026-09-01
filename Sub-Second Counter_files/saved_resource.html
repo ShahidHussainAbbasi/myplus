@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://5c540def-57f0-42e3-ab9a-94dc202f5e73.frame.claudeusercontent.com/_f/1787989647-3098/?__frame_t=WkAg1zaa3E0ZCD2ZcQ8etiRu.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788167327&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1787989647-3098/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Sub-Second Counter</title>
+<style>
+  :root{
+    --paper:#f7f8fa; --card:#fff; --ink:#141b24; --ink-soft:#495767; --ink-faint:#6e7c8c;
+    --rule:#dee3e9; --rule-soft:#edf0f4;
+    --accent:#00695C;                 /* teal — measurement/infrastructure, distinct from the other two docs */
+    --accent-soft:#e0f0ed;
+    --good:#1B5E20; --good-bg:#e8f5e9; --good-line:#a5d6a7;
+    --warn:#E65100; --warn-bg:#fff3e0; --warn-line:#ffcc80;
+    --bad:#B71C1C;  --bad-bg:#fdecea;  --bad-line:#ef9a9a;
+    --code-bg:#eef1f4;
+    --shadow:0 1px 2px rgba(16,32,52,.06), 0 8px 24px rgba(16,32,52,.06);
+    --display:"Segoe UI Semibold","SF Pro Display",Inter,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0d1218; --card:#151d25; --ink:#e6ecf3; --ink-soft:#a8b5c3; --ink-faint:#8392a2;
+      --rule:#253039; --rule-soft:#1c242c; --accent:#5FD3C0; --accent-soft:#0f2b28;
+      --good:#8fd694; --good-bg:#13291a; --good-line:#2c5b34;
+      --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+      --bad:#ff9c96; --bad-bg:#2c1414; --bad-line:#6b2a26;
+      --code-bg:#1a232b; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0d1218; --card:#151d25; --ink:#e6ecf3; --ink-soft:#a8b5c3; --ink-faint:#8392a2;
+    --rule:#253039; --rule-soft:#1c242c; --accent:#5FD3C0; --accent-soft:#0f2b28;
+    --good:#8fd694; --good-bg:#13291a; --good-line:#2c5b34;
+    --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+    --bad:#ff9c96; --bad-bg:#2c1414; --bad-line:#6b2a26;
+    --code-bg:#1a232b; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); font-family:var(--body); font-size:16px;
+       line-height:1.62; margin:0; padding:40px 20px 80px; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px; margin:0 auto}
+  header{margin-bottom:34px}
+  .eyebrow{font-size:12px; letter-spacing:.13em; text-transform:uppercase; color:var(--accent);
+           font-weight:700; margin-bottom:10px}
+  h1{font-family:var(--display); font-size:clamp(29px,5vw,41px); line-height:1.12; margin:0 0 12px;
+     letter-spacing:-.02em; text-wrap:balance}
+  .lede{font-size:17px; color:var(--ink-soft); margin:0; max-width:66ch}
+  h2{font-family:var(--display); font-size:22px; margin:44px 0 14px; padding-bottom:8px;
+     border-bottom:2px solid var(--rule); letter-spacing:-.01em; text-wrap:balance}
+  h3{font-family:var(--display); font-size:16.5px; margin:26px 0 8px}
+  p{margin:0 0 14px; max-width:72ch}
+  code{font-family:var(--mono); font-size:.87em; background:var(--code-bg); padding:2px 6px; border-radius:4px}
+
+  /* Measurement strip — the numbers everything else argues from */
+  .metrics{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:20px 0 8px}
+  @media (max-width:720px){ .metrics{grid-template-columns:repeat(2,1fr)} }
+  .metric{background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:16px 16px 14px;
+          box-shadow:var(--shadow)}
+  .metric .v{font-family:var(--display); font-size:26px; line-height:1.1; letter-spacing:-.02em;
+             font-variant-numeric:tabular-nums}
+  .metric .k{font-size:12px; color:var(--ink-faint); margin-top:5px; line-height:1.35}
+  .metric.hot .v{color:var(--bad)} .metric.ok .v{color:var(--good)}
+
+  .card{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:22px 24px;
+        margin:16px 0; box-shadow:var(--shadow)}
+  .card h3{margin-top:0}
+
+  .box{padding:12px 16px; border-radius:0 8px 8px 0; margin:14px 0}
+  .box .label{font-size:11px; letter-spacing:.11em; text-transform:uppercase; font-weight:700;
+              display:block; margin-bottom:4px}
+  .box p{margin:0}
+  .b-good{border-left:3px solid var(--good-line); background:var(--good-bg)} .b-good .label{color:var(--good)}
+  .b-warn{border-left:3px solid var(--warn-line); background:var(--warn-bg)} .b-warn .label{color:var(--warn)}
+  .b-bad{border-left:3px solid var(--bad-line); background:var(--bad-bg)} .b-bad .label{color:var(--bad)}
+
+  .tablewrap{overflow-x:auto; margin:14px 0}
+  table{border-collapse:collapse; width:100%; font-size:14.5px; min-width:540px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+  th{font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);
+     font-weight:700; border-bottom:2px solid var(--rule)}
+  td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+  td.mono{font-family:var(--mono); font-size:13px}
+  tbody tr:last-child td{border-bottom:none}
+
+  .tier{display:flex; gap:14px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--rule-soft)}
+  .tier:last-child{border-bottom:none}
+  .tier .badge{flex:0 0 auto; font-family:var(--mono); font-size:12px; font-weight:700; color:#fff;
+               background:var(--accent); border-radius:6px; padding:4px 9px; margin-top:2px}
+  :root[data-theme="dark"] .tier .badge{color:#0d1218}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .tier .badge{color:#0d1218} }
+  .tier .t-body{flex:1 1 auto}
+  .tier h4{font-family:var(--display); font-size:15.5px; margin:0 0 4px}
+  .tier p{margin:0; font-size:14.5px; color:var(--ink-soft)}
+
+  ul.tight{margin:8px 0 0; padding-left:20px} ul.tight li{margin-bottom:6px}
+  footer{margin-top:52px; padding-top:20px; border-top:1px solid var(--rule); color:var(--ink-faint); font-size:13.5px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">R &amp; D proposal · caching, async and the sale path</div>
+  <h1>Getting the counter under one second — at 1,000 tenants</h1>
+  <p class="lede">Measured first, then proposed. The headline finding is that the current latency is
+  <strong>not bandwidth and not database volume</strong> — it is the number of network hops per read, and the
+  fact that the hottest read on the sale path has no cache anywhere.</p>
+</header>
+
+<h2>1 · What I measured</h2>
+
+<p>Business dashboard, sale screen, one tenant, small data, on localhost — so these are
+<em>best-case</em> numbers. A real deployment adds network latency to every one of them.</p>
+
+<div class="metrics">
+  <div class="metric ok"><div class="v">1.25 s</div><div class="k">page load (was ~35 s at audit — the perf slices worked)</div></div>
+  <div class="metric ok"><div class="v">550 KB</div><div class="k">script, compressed &amp; hashed (audit measured 4.05 MB)</div></div>
+  <div class="metric hot"><div class="v">87</div><div class="k">requests per page load — the remaining cost</div></div>
+  <div class="metric hot"><div class="v">~900 ms</div><div class="k">for an 8 KB JSON read. This is the real problem.</div></div>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Call on opening the dashboard</th><th class="num">Time</th><th class="num">Payload</th><th>What it is</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">/getUserProduct</td><td class="num">972 ms</td><td class="num">13 KB</td><td>product list</td></tr>
+    <tr><td class="mono">/getDashboardChartData</td><td class="num">973 ms</td><td class="num">1 KB</td><td>charts — not needed to sell</td></tr>
+    <tr><td class="mono">/customerOptions</td><td class="num">556 ms</td><td class="num">10 KB</td><td>customer picker</td></tr>
+    <tr><td class="mono">/getBusinessConfig</td><td class="num">721 ms</td><td class="num">8 KB</td><td>settings + capabilities</td></tr>
+    <tr><td class="mono">/getBusinessDashboardStats</td><td class="num">671 ms</td><td class="num">0 KB</td><td>tiles — not needed to sell</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="box b-bad">
+  <span class="label">The diagnosis, in one line</span>
+  <p><strong>900 ms to move 8 KB is not a data problem.</strong> Every read crosses browser → monolith →
+  gateway → service → MySQL, and each hop re-serialises JSON. The payload is irrelevant; the <em>hops</em> are
+  the cost. Caching a payload that is already only 8 KB saves nothing. Removing a hop saves everything.</p>
+</div>
+
+<h2>2 · What already exists — and the hole in it</h2>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Layer</th><th>State today</th></tr></thead>
+  <tbody>
+    <tr><td>Caffeine, per-tenant, bounded</td><td>✅ In <code>SettingsService</code>, <code>TenantCache</code>, <code>PeriodLockGuard</code>, capabilities</td></tr>
+    <tr><td>Redis</td><td>⚠️ <strong>Deployed and healthy for 8 days</strong> — declared in the gateway, effectively unused</td></tr>
+    <tr><td>Transactional outbox (async writes)</td><td>✅ GL posting and audit already go through it</td></tr>
+    <tr><td>HTTP compression + immutable hashed assets</td><td>✅ PERF-1/2 green</td></tr>
+    <tr><td><strong>Catalogue / customer / stock reads</strong></td><td>❌ <strong>No cache anywhere</strong> — not in the proxy, not in catalog-service</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="box b-warn">
+  <span class="label">The hole</span>
+  <p>The hottest read on the sale path — the product picker — goes to MySQL on every single screen open, and
+  again on <em>every line edit</em>. There is no cache in front of it at any level. At 10,000 products per
+  tenant this does not degrade gracefully; it stops working.</p>
+</div>
+
+<h2>3 · The scale you named, as arithmetic</h2>
+
+<p>1,000 tenants × 10,000 records. Two numbers decide the design:</p>
+
+<ul class="tight">
+  <li><strong>10 million product rows in total, but a counter touches perhaps 200 a day.</strong> Retail access
+  is heavily skewed — the same fast-movers, all day. That single fact is what makes caching work here, and it
+  determines <em>which</em> caching.</li>
+  <li><strong>Shipping a 10,000-row catalogue to a browser is indefensible</strong> at any cache level. The
+  current picker asks for <code>size=2000</code>, which is already both too large to be fast and too small to
+  be correct.</li>
+</ul>
+
+<h2>4 · Proposal — four tiers, in value order</h2>
+
+<div class="card">
+  <div class="tier">
+    <span class="badge">T1</span>
+    <div class="t-body">
+      <h4>Stop the sale screen paying for the dashboard</h4>
+      <p>Opening the till fires <code>getDashboardChartData</code> and <code>getBusinessDashboardStats</code> —
+      ~1.6 s of work for charts and tiles a cashier is not looking at. Load them when the Dashboard section is
+      actually shown. <strong>No new technology, no new failure mode, and it is the single biggest win
+      available.</strong></p>
+    </div>
+  </div>
+  <div class="tier">
+    <span class="badge">T2</span>
+    <div class="t-body">
+      <h4>Two-level cache on the hot reads: Caffeine (L1) + Redis (L2)</h4>
+      <p>Products, customers and stock levels, keyed <code>tenant:entity:id</code>. L1 Caffeine in-process
+      answers in microseconds and removes the hops entirely; L2 Redis — <em>already running</em> — means a
+      restarted or scaled-out instance warms instantly instead of stampeding MySQL. Spring's
+      <code>CacheManager</code> supports exactly this composition, so it is configuration rather than a new
+      framework.</p>
+    </div>
+  </div>
+  <div class="tier">
+    <span class="badge">T3</span>
+    <div class="t-body">
+      <h4>Replace the catalogue dump with a server-side typeahead</h4>
+      <p>The picker should ask for what the cashier typed, not for everything. A prefix search over an indexed
+      column, capped at ~20 rows, cached per tenant. This is the only tier that <em>must</em> happen before
+      10,000 records — the others make things faster, this one keeps them possible.</p>
+    </div>
+  </div>
+  <div class="tier">
+    <span class="badge">T4</span>
+    <div class="t-body">
+      <h4>Push non-essential work off the sale, using the outbox that already exists</h4>
+      <p>A sale must persist the invoice, move stock and take the money. It does <em>not</em> need to wait for
+      GL posting, audit trails, notifications or analytics — and the transactional outbox already carries
+      several of those. Extend the pattern; do not introduce a message broker to do what it already does.</p>
+    </div>
+  </div>
+</div>
+
+<h2>5 · What I would <em>not</em> do</h2>
+
+<div class="box b-bad">
+  <span class="label">Not this</span>
+  <p><strong>Redis as the primary cache for everything.</strong> A Redis GET is a network round trip — about
+  1 ms locally, more across a network. That is a thousand times slower than an in-process hit, and it would
+  put a new hop on the path whose hops are already the problem. Redis belongs <em>behind</em> Caffeine as the
+  shared warm tier, not in front of it.</p>
+</div>
+
+<div class="box b-bad">
+  <span class="label">Nor this</span>
+  <p><strong>A message queue for reads.</strong> Kafka, RabbitMQ and friends make writes durable and decouple
+  producers from consumers. They do not make a read faster, and adding one here would buy operational weight
+  against a latency problem it cannot address. Async is the right answer for T4's writes and the wrong answer
+  for T1–T3's reads.</p>
+</div>
+
+<div class="box b-warn">
+  <span class="label">And a caution on cache keys</span>
+  <p>Every key must carry the tenant. A shared cache without <code>org_id</code> in the key is a cross-tenant
+  data leak with good performance — the worst possible outcome, because it looks like success. The existing
+  <code>TenantCache</code> already enforces this shape and should be the only way a cache is created.</p>
+</div>
+
+<h2>6 · Does this reach &lt;1 second?</h2>
+
+<p>Breaking the target into the two things a cashier actually waits for:</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Moment</th><th class="num">Now</th><th class="num">After T1–T3</th><th>What carries it</th></tr></thead>
+  <tbody>
+    <tr><td>Till is ready to type into</td><td class="num">~2.4 s</td><td class="num">&lt; 0.5 s</td><td>T1 removes ~1.6 s of dashboard work; T2 removes the DB hop</td></tr>
+    <tr><td>Product found while typing</td><td class="num">~1.0 s</td><td class="num">&lt; 0.1 s</td><td>T3 typeahead + T2 L1 hit</td></tr>
+    <tr><td>Sale confirmed</td><td class="num">not yet measured</td><td class="num">target &lt; 0.5 s</td><td>T4 — needs measurement before promising</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="box b-good">
+  <span class="label">Honest about the third row</span>
+  <p>I measured the read path, not the write path. Before committing to a sub-second <em>confirm</em>, the next
+  step is to measure what <code>addSell</code> does synchronously — inventory reserve and confirm, credit
+  checks, document numbering, serial claims — and which of those genuinely must block the receipt. Proposing a
+  fix for an unmeasured number is how a performance project spends effort in the wrong place.</p>
+</div>
+
+<h2>7 · Suggested order</h2>
+
+<p>Each is independently shippable and independently gated, per the standing cadence:</p>
+
+<ul class="tight">
+  <li><strong>T1 first</strong> — largest measured win, no new technology, essentially no risk.</li>
+  <li><strong>T3 second</strong> — the only item that is a correctness requirement at 10,000 records, not just a speed one.</li>
+  <li><strong>T2 third</strong> — real work, and worth doing once T1/T3 have removed the calls that should not exist at all. Caching a call you deleted is wasted effort.</li>
+  <li><strong>T4 last</strong> — after the write path is measured, so the decision rests on numbers rather than on the assumption that it is slow.</li>
+</ul>
+
+<footer>
+  <p>Measurements taken 2026-08-29 against the running stack via the browser performance timeline. Existing
+  audit: <code>docs/frontend-performance-audit.md</code> (F7 / PERF-7 covers the catalogue dump).
+  Related shipped work: PERF-1/2/3/4 green (35 tests), PERF-8 lean picker projection.</p>
+</footer>
+
+</div>
+
+</body></html>

@@ -154,6 +154,14 @@
       <groupId>org.jboss.aerogear</groupId>
       <artifactId>aerogear-otp-java</artifactId>
     </dependency>
+    <!-- E1: auth-service had no test source root at all. The entitlement resolver is the one place in this
+         service where being wrong is silent and expensive — it decides what a paying customer may do — so it
+         ships with unit coverage that runs on the ordinary `mvn test`, per the tests-on-build standard. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

@@ -272,6 +272,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
+								<!-- #17 P1: bonus schemes sit beside price rules because they ARE the same engine —
+								     one resolver, one precedence model, one screen pattern. -->
+								<li data-capability="bonusSchemes" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a id="navBonusSchemes" onclick="showBonusSchemes();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-gift"></span> <span th:text="#{ui.bonusSchemes}">Bonus Offers</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navDocumentDesigner" onclick="showDocumentDesigner();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.documentDesigner}">Document Designer</span></a></li>
 								<li><a id="navConfiguration" onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 							</ul>
@@ -339,6 +342,22 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashItems">-</div>
 								<div class="kpi-label" th:text="#{ui.products}">Products</div>
+							</div>
+						</div>
+					</div>
+					<!--
+						Task #20 — the VALUE of what those products are worth, beside the count.
+						The label carries "at last purchase rate" deliberately: StockLevel.costPrice is stamped
+						from the latest purchase, so this is not a weighted average and not the GL inventory
+						balance. An unqualified "stock value" is the kind of figure people trust without
+						checking, and it would disagree with the books the moment a buying price moves.
+					-->
+					<div data-widget="stockValue" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+						<div class="kpi-card kpi-amber">
+							<div class="kpi-icon"><span class="glyphicon glyphicon-scale"></span></div>
+							<div class="kpi-body">
+								<div class="kpi-value" id="dashStockValue">-</div>
+								<div class="kpi-label" th:text="#{ui.stockValueAtCost}">Stock value (at last purchase rate)</div>
 							</div>
 						</div>
 					</div>
@@ -831,6 +850,146 @@ tr.row-voided .js-edit-row{display:none !important}
 					</thead>
 					<tbody></tbody>
 				</table>
+			</div>
+
+			<!--
+				#17 P1 — the bonus / free-goods scheme register.
+				Ships WITH P1 deliberately: a scheme master nothing can reach would be the eighth
+				"working but unreachable" capability in this codebase. See docs/slices/bonus-schemes.md.
+			-->
+			<div id="BonusSchemeDiv" data-capability="bonusSchemes" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.bonusSchemes}">Bonus Offers</h4>
+				<p class="help-block" th:text="#{ui.bonusSchemesHelp}">
+					Buy-and-get offers, from suppliers and to customers. Free goods are counted in stock, so what
+					the shelf holds and what the system says stay in step.
+				</p>
+				<table class="table table-condensed" id="tableBonusScheme" style="width:100%">
+					<thead>
+						<tr>
+							<th style="width:160px" th:text="#{ui.code}">Code</th>
+							<th style="width:120px" th:text="#{ui.appliesTo}">Applies to</th>
+							<th th:text="#{ui.forItem}">For</th>
+							<th style="width:150px" th:text="#{ui.offer}">Offer</th>
+							<th style="width:110px" th:text="#{ui.bonusType}">Type</th>
+							<th style="width:110px" th:text="#{ui.validity}">Valid</th>
+							<th style="width:90px" th:text="#{ui.status}">Status</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+
+				<!--
+					#17 P1 — the authoring form. Mirrors the Price Rules form field-for-field because a bonus
+					scheme IS a rule on the same engine; an operator who can write one should recognise the other.
+				-->
+				<div style="max-width:900px;margin-top:22px">
+					<h4 style="font-weight:700;color:#1f4e8c" id="bsFormTitle" th:text="#{ui.addOffer}">Add offer</h4>
+					<form class="form-horizontal" role="form" id="BonusSchemeForm" autocomplete="off" onsubmit="return false;">
+						<input type="hidden" id="bsId">
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsCode" th:text="#{ui.code}">Code</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="bsCode" maxlength="64" placeholder="SUP-OIL-10-1">
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsScope" th:text="#{ui.appliesTo}">Applies to</label>
+							<div class="col-sm-4">
+								<select class="form-control" id="bsScope" onchange="onBonusSchemeScope()">
+									<option value="VENDOR" th:text="#{ui.aSupplierOffer}">A supplier's offer to us</option>
+									<option value="CUSTOMER" th:text="#{ui.oneCustomer}">One customer</option>
+									<option value="CUSTOMER_TYPE" th:text="#{ui.aCustomerType}">A customer type</option>
+								</select>
+							</div>
+							<div class="col-sm-5">
+								<select class="form-control" id="bsVendorId"></select>
+								<select class="form-control" id="bsCustomerId" style="display:none"></select>
+								<select class="form-control" id="bsCustomerType" style="display:none">
+									<option value="WALK_IN" th:text="#{ui.custTypeWalkIn}">Walk-in (retail)</option>
+									<option value="RETAILER" th:text="#{ui.custTypeRetailer}">Retailer (trade)</option>
+									<option value="WHOLESALE" th:text="#{ui.custTypeWholesale}">Wholesale (trade)</option>
+									<option value="VIP" th:text="#{ui.custTypeVip}">VIP (retail)</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsTriggerProductId" th:text="#{ui.buyThis}">Buy this</label>
+							<div class="col-sm-4"><select class="form-control" id="bsTriggerProductId"></select></div>
+							<label class="control-label col-sm-2" for="bsRewardProductId" th:text="#{ui.getThis}">Get this</label>
+							<div class="col-sm-3">
+								<!-- Blank = the same product. The reward SKU is what a bare bonus QUANTITY cannot
+								     express: "buy a machine, get a coffee pack". -->
+								<select class="form-control" id="bsRewardProductId"></select>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsPaidQuantity" th:text="#{ui.offer}">Offer</label>
+							<div class="col-sm-2">
+								<input type="number" step="any" min="0" class="form-control" id="bsPaidQuantity"
+								       placeholder="10" onkeyup="previewBonusScheme()" onchange="previewBonusScheme()">
+							</div>
+							<div class="col-sm-1" style="padding-top:7px;text-align:center">+</div>
+							<div class="col-sm-2">
+								<input type="number" step="any" min="0" class="form-control" id="bsBonusQuantity"
+								       placeholder="1" onkeyup="previewBonusScheme()" onchange="previewBonusScheme()">
+							</div>
+							<div class="col-sm-4" style="padding-top:7px">
+								<span id="bsPreview" class="text-muted"></span>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsBonusType" th:text="#{ui.bonusType}">Type</label>
+							<div class="col-sm-4">
+								<!-- MANDATORY. "10+1" means a different delivered quantity, invoice, cost and tax
+								     depending on which of these it is. -->
+								<select class="form-control" id="bsBonusType">
+									<option value="EXCLUSIVE" th:text="#{ui.bonusExclusive}">Exclusive — 11 delivered, 10 billed</option>
+									<option value="INCLUSIVE" th:text="#{ui.bonusInclusive}">Inclusive — 10 delivered, 9 billed</option>
+								</select>
+							</div>
+							<label class="control-label col-sm-2" for="bsQualificationMode" th:text="#{ui.counts}">Counts</label>
+							<div class="col-sm-3">
+								<select class="form-control" id="bsQualificationMode" onchange="previewBonusScheme()">
+									<option value="ONE_TIME" th:text="#{ui.qualOneTime}">Once — buy 10, get 1</option>
+									<option value="REPEATING" th:text="#{ui.qualRepeating}">Every block — every 10, get 1</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsStartsOn" th:text="#{ui.validity}">Valid</label>
+							<div class="col-sm-3"><input type="text" class="form-control datetimepicker" id="bsStartsOn" th:placeholder="#{ui.startDate}" placeholder="Start date"></div>
+							<div class="col-sm-3"><input type="text" class="form-control datetimepicker" id="bsEndsOn" th:placeholder="#{ui.endDate}" placeholder="End date"></div>
+							<div class="col-sm-3">
+								<select class="form-control" id="bsStatus">
+									<option value="ACTIVE" th:text="#{ui.statusActive}">Active</option>
+									<option value="DRAFT" th:text="#{ui.statusDraft}">Draft</option>
+									<option value="DISABLED" th:text="#{ui.statusDisabled}">Disabled</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="form-group">
+							<label class="control-label col-sm-3" for="bsPriority" th:text="#{ui.priority}">Priority</label>
+							<div class="col-sm-2"><input type="number" class="form-control" id="bsPriority" value="100"></div>
+						</div>
+
+						<div class="form-group">
+							<div class="col-sm-9 col-sm-offset-3">
+								<div id="bsError" class="text-danger" style="margin-bottom:8px"></div>
+								<button type="button" class="btn btn-success" onclick="saveBonusScheme()">
+									<span class="glyphicon glyphicon-floppy-disk"></span> <span id="bsSaveLabel" th:text="#{ui.addOffer}">Add offer</span>
+								</button>
+								<button type="button" class="btn btn-default" onclick="resetBonusSchemeForm()" th:text="#{ui.clear}">Clear</button>
+							</div>
+						</div>
+					</form>
+				</div>
 			</div>
 
 			<div id="PriceRuleDiv" data-capability="dealerPricing" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
@@ -1636,6 +1795,18 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-lg-4">
 							<input type="number" step="any" min="1" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="purchaseQuantity" 
 							name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
+						</div>
+						<!--
+							#17 P2 — FREE units received on top of the billed quantity.
+							Entered separately, never folded into QTY: the supplier bills for one number and
+							delivers another, and an operator must be able to see why stock rose by 11 on an
+							invoice for 10. A merged figure is unauditable and reads as a typo.
+							Capability-gated: a shop that receives no bonus offers should not see the box.
+						-->
+						<label class="control-label col-sm-2" for="purchaseBonusQuantity" data-capability="bonusSchemes" th:text="#{ui.bonusQty}">Bonus</label>
+						<div class="col-lg-4" data-capability="bonusSchemes">
+							<input type="number" step="any" min="0" class="form-control" id="purchaseBonusQuantity"
+							name="bonusQuantity" th:placeholder="#{ui.freeUnitsReceived}" placeholder="Free units received"/>
 						</div>
 						<!--
 						  U5 - what the buyer is counting. A shop buys a BOX of 10 packs for 1000; the form asks

@@ -106,6 +106,42 @@ public class Purchase implements Serializable {
 
 	private Float quantity;
 
+	/**
+	 * #17 P2 — FREE units received on top of the billed quantity ("buy 10, get 1").
+	 *
+	 * <p>A fact of THIS delivery, stamped at write, not a re-computation of the supplier's current offer: a
+	 * scheme can be edited or expire tomorrow, and what physically arrived today must not change when it does.
+	 *
+	 * <p>Null on every purchase that carried no bonus, which is most of them.
+	 */
+	@Column(name = "bonus_quantity")
+	private Float bonusQuantity;
+
+	/**
+	 * #17 P2 — what was actually PAID for this line, so cost can be allocated across the units RECEIVED.
+	 *
+	 * <p>Stored rather than derived because the derivation loses money: 5,000 over 11 units is 454.54 a unit,
+	 * and 454.54 x 11 is 4,999.94. Keeping the total lets consumption allocate exactly instead of rounding a
+	 * per-unit figure and hoping the pieces add up.
+	 *
+	 * <p>Null on historical rows, where it means "rate x quantity" — which is precisely what those rows have
+	 * always meant.
+	 */
+	@Column(name = "paid_total", precision = 19, scale = 2)
+	private java.math.BigDecimal paidTotal;
+
+	/** #17 P2 — the scheme that produced the bonus, for traceability. Opaque: bonus_scheme lives in catalog. */
+	@Column(name = "bonus_scheme_code", length = 64)
+	private String bonusSchemeCode;
+
+	/**
+	 * Units that actually entered stock = billed + free. The single definition, so goods-in, the return
+	 * clawback and any report cannot each compute it differently.
+	 */
+	public float receivedQuantity() {
+		return (quantity != null ? quantity : 0f) + (bonusQuantity != null ? bonusQuantity : 0f);
+	}
+
 //	@Column(name = "purchase_rate")
 //	@Getter@Setter
 //	private Float purchaseRate;

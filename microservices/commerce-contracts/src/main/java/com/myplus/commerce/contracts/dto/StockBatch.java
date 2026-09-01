@@ -19,4 +19,15 @@ public class StockBatch {
     private LocalDate expiryDate;
     private BigDecimal available;
     private BigDecimal purchasePrice;   // the batch's last purchase price (slice M3a) — pre-fills the purchase form
+
+    /**
+     * #17 P2 — the exact amount paid for the whole batch.
+     *
+     * <p>Read side of the allocation: {@code purchasePrice} is per unit and therefore a rounding whenever a
+     * supplier bonus made the received quantity differ from the billed one. A caller that needs the batch to
+     * reconcile — COGS, a stock valuation, a gate — must use this, not quantity x unit price.
+     *
+     * <p>Null on batches received before the field existed, where quantity x purchasePrice IS the total.
+     */
+    private BigDecimal paidTotal;
 }

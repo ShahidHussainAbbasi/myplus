@@ -40,8 +40,10 @@ describe('C4 — shape presets give each domain its own screens', () => {
      * failure with a different switch.
      */
     cy.loginAsMobileOwner()
+    cy.clearCapabilityOverrides()
     cy.setShape('general')
     cy.loginAsPesticideOwner()
+    cy.clearCapabilityOverrides()
     cy.setShape('general')
     cy.setCapability('rxRequired', true)
     cy.loginAsMarketplaceOwner()
@@ -59,6 +61,16 @@ describe('C4 — shape presets give each domain its own screens', () => {
      * If this fails, tenants lose screens they were using on the deploy that introduces shapes.
      */
     cy.loginAsMobileOwner()
+    /*
+     * ESTABLISH THE PRECONDITION, do not assume it.
+     *
+     * This asserts what the GENERAL PRESET gives a tenant, and an explicit override BEATS the preset by
+     * design (CapabilityService.resolve). setShape does not clear overrides, so without this the test is
+     * asserting the preset against whatever the last spec to touch this tenant left behind — and
+     * serial-register.cy.js leaves serialTracking/conditionGrading on. It passed only when it happened to
+     * run first, which is not a gate.
+     */
+    cy.clearCapabilityOverrides()
     cy.setShape('general')
     cy.getCapabilities().then((caps) => {
       Object.entries(caps).forEach(([code, on]) => {
@@ -149,10 +161,14 @@ describe('C4 — shape presets give each domain its own screens', () => {
      *
      * The per-tenant Caffeine cache in SettingsService makes that a live risk rather than a theoretical one.
      */
+    // Same precondition as the migration test: these assert PRESETS, so leftover explicit overrides from
+    // any earlier spec would decide the answer instead.
     cy.loginAsMobileOwner()
+    cy.clearCapabilityOverrides()
     cy.setShape('retail')
 
     cy.loginAsPesticideOwner()
+    cy.clearCapabilityOverrides()
     cy.setShape('pharmacy')
 
     // Pesticide is on pharmacy: batch tracking on, and the retail shape next door has not leaked in.

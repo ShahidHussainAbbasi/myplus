@@ -40,6 +40,26 @@ import org.springframework.context.annotation.Import;
 public class CommonSettingsAutoConfiguration {
 
     /**
+     * E1 — the entitlement ceiling's default, so {@link CapabilityService}'s injection can stay REQUIRED.
+     *
+     * <h3>Why a published default rather than an optional injection</h3>
+     * Only auth-service owns an entitlement store; every other service reads the ceiling's result from the JWT
+     * {@code caps} claim. The obvious shortcut is {@code @Autowired(required = false)} and a null check — and
+     * that is exactly the shape {@code JpaSettingsStore}'s javadoc records as a defect: OMS O3 shipped a
+     * resolver with optional injection and no store, and it silently did nothing for a whole slice. <b>A guard
+     * that disables itself when a bean is missing is worse than no guard, because it reads as protection.</b>
+     * With a real bean here the injection is required, a wiring mistake fails at startup, and the fallback
+     * behaviour is a deliberate declaration rather than an accident of the classpath.
+     *
+     * <p>{@code @ConditionalOnMissingBean} so auth-service's {@code JpaEntitlementSource} simply replaces it.
+     */
+    @org.springframework.context.annotation.Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(EntitlementSource.class)
+    public EntitlementSource permissiveEntitlementSource() {
+        return EntitlementSource.PERMISSIVE;
+    }
+
+    /**
      * C3c — the capability CATALOG is published by exactly one service: whoever owns the store of record.
      *
      * <h3>Why it cannot be registered everywhere any more</h3>

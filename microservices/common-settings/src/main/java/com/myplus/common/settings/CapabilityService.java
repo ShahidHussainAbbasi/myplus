@@ -33,8 +33,20 @@ public class CapabilityService {
 
     private final SettingsService settings;
 
-    public CapabilityService(SettingsService settings) {
+    /**
+     * E1 — the entitlement CEILING over {@link #resolve}.
+     *
+     * <p>REQUIRED injection against a bean that {@code CommonSettingsAutoConfiguration} always publishes
+     * ({@link EntitlementSource#PERMISSIVE} under {@code @ConditionalOnMissingBean}). Not optional, and the
+     * distinction matters: an {@code @Autowired(required = false)} ceiling that silently disappeared would
+     * leave a class that reads as protection and is not — the exact failure {@code JpaSettingsStore}'s javadoc
+     * records from OMS O3.
+     */
+    private final EntitlementSource entitlements;
+
+    public CapabilityService(SettingsService settings, EntitlementSource entitlements) {
         this.settings = settings;
+        this.entitlements = entitlements;
     }
 
     /**
@@ -118,6 +130,29 @@ public class CapabilityService {
      * narrows only by explicitly choosing a shape.
      */
     private boolean resolve(Long organizationId, Capability capability) {
+        /*
+         * E1 — the CEILING, applied first and able only to SUBTRACT.
+         *
+         *     effective = NOT REVOKED (the platform withdrew it) AND ENABLED (what the owner chose)
+         *
+         * ⭐ It asks `revoked`, NOT "is this in the plan". That distinction is the whole correction, and
+         * getting it wrong is what broke capability-shapes.cy.js: every legacy tenant carries
+         * `plan = FREE` from @Builder.Default — a value nothing had ever read for capability — so measuring a
+         * read against the plan silently stripped ten capabilities from tenants that were trading fine.
+         *
+         * The rule that replaced it: only POSITIVE EVIDENCE of a decision may subtract. An operator's
+         * SUSPENDED row, or a grant that has run out. Silence is not evidence. The commercial bound lives on
+         * the WRITE path (EntitlementWriteGuard → grantable), where a refusal reaches a person who can be told
+         * which plan they are on — rather than on the read path, where being wrong takes a shop's screens away
+         * with no message at all.
+         *
+         * Placed HERE rather than at each enforcement point so the six `assertEnabled` guards, the
+         * `[data-capability]` hiding and the JWT `caps` claim all inherit it with no edit. In every service
+         * except auth this is the permissive default, and correctly so: those services read the ceiling's
+         * RESULT from the token and are not the authority on the question.
+         */
+        if (entitlements.revoked(organizationId, capability)) return false;
+
         java.util.Optional<String> chosen = settings.overrideFor(organizationId, capability.settingKey());
         if (chosen.isPresent()) {
             return "true".equalsIgnoreCase(chosen.get().trim());

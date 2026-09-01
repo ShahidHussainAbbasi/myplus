@@ -1,0 +1,358 @@
+
+<!-- saved from url=(0158)file:///C:/Users/HP/AppData/Local/Temp/claude/C-%2DUsers-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/capability-walkthrough.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>Capability Platform Walkthrough</title>
+<style>
+  :root{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#15202b; --ink-soft:#4a5766; --ink-faint:#6f7c8b;
+    --rule:#dfe4ea; --rule-soft:#eceff3;
+    --accent:#4527A0;            /* indigo — the platform layer, distinct from the shop-floor blue */
+    --accent-soft:#efeaf9;
+    --pass:#1B5E20; --pass-bg:#e8f5e9; --pass-line:#a5d6a7;
+    --warn:#E65100; --warn-bg:#fff3e0; --warn-line:#ffcc80;
+    --stop:#B71C1C; --stop-bg:#fdecea; --stop-line:#ef9a9a;
+    --code-bg:#f0f2f5;
+    --shadow:0 1px 2px rgba(16,32,52,.06), 0 8px 24px rgba(16,32,52,.06);
+    --display:"Segoe UI Semibold","SF Pro Display",Inter,"Helvetica Neue",Arial,sans-serif;
+    --body:"Segoe UI","SF Pro Text",Inter,"Helvetica Neue",Arial,sans-serif;
+    --mono:"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e131a; --card:#161d26; --ink:#e6ecf3; --ink-soft:#a9b6c4; --ink-faint:#8493a3;
+      --rule:#26313d; --rule-soft:#1d262f; --accent:#B39DFF; --accent-soft:#221a3a;
+      --pass:#8fd694; --pass-bg:#13291a; --pass-line:#2c5b34;
+      --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+      --stop:#ff9c96; --stop-bg:#2c1414; --stop-line:#6b2a26;
+      --code-bg:#1b242e; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e131a; --card:#161d26; --ink:#e6ecf3; --ink-soft:#a9b6c4; --ink-faint:#8493a3;
+    --rule:#26313d; --rule-soft:#1d262f; --accent:#B39DFF; --accent-soft:#221a3a;
+    --pass:#8fd694; --pass-bg:#13291a; --pass-line:#2c5b34;
+    --warn:#ffb570; --warn-bg:#2e1d0d; --warn-line:#6b4218;
+    --stop:#ff9c96; --stop-bg:#2c1414; --stop-line:#6b2a26;
+    --code-bg:#1b242e; --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); font-family:var(--body); font-size:16px;
+       line-height:1.6; margin:0; padding:40px 20px 80px; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:880px; margin:0 auto}
+
+  header{margin-bottom:36px}
+  .eyebrow{font-size:12px; letter-spacing:.13em; text-transform:uppercase; color:var(--accent);
+           font-weight:700; margin-bottom:10px}
+  h1{font-family:var(--display); font-size:clamp(29px,5vw,41px); line-height:1.12; margin:0 0 12px;
+     letter-spacing:-.02em; text-wrap:balance}
+  .lede{font-size:17px; color:var(--ink-soft); margin:0; max-width:64ch}
+
+  h2{font-family:var(--display); font-size:22px; letter-spacing:-.01em; margin:44px 0 14px;
+     padding-bottom:8px; border-bottom:2px solid var(--rule); text-wrap:balance}
+  h3{font-family:var(--display); font-size:16px; margin:24px 0 8px}
+  p{margin:0 0 14px; max-width:70ch}
+  code{font-family:var(--mono); font-size:.88em; background:var(--code-bg); padding:2px 6px; border-radius:4px}
+  .path{font-family:var(--mono); font-size:.88em; font-weight:600; color:var(--accent); word-break:break-all}
+
+  /* The two axes — the idea everything else depends on */
+  .axes{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:18px 0 6px}
+  @media (max-width:640px){ .axes{grid-template-columns:1fr} }
+  .axis{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:18px 20px;
+        box-shadow:var(--shadow)}
+  .axis h4{font-family:var(--display); font-size:15px; margin:0 0 6px; color:var(--accent)}
+  .axis p{font-size:14.5px; color:var(--ink-soft); margin:0}
+
+  .step{background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:22px 24px;
+        margin:16px 0; box-shadow:var(--shadow)}
+  .step-head{display:flex; gap:14px; align-items:baseline; margin-bottom:6px}
+  .num{flex:0 0 auto; font-family:var(--mono); font-size:13px; font-weight:700; color:#fff;
+       background:var(--accent); border-radius:6px; padding:3px 9px}
+  :root[data-theme="dark"] .num{color:#0e131a}
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .num{color:#0e131a} }
+  .step-title{font-family:var(--display); font-size:18px; margin:0; letter-spacing:-.01em}
+  .step-why{color:var(--ink-faint); font-size:14px; margin:2px 0 14px}
+
+  ol.do{margin:0 0 4px; padding-left:22px} ol.do li{margin-bottom:7px}
+  ul.tight{margin:6px 0 0; padding-left:20px} ul.tight li{margin-bottom:5px}
+
+  .expect,.refuse,.note{padding:12px 16px; border-radius:0 8px 8px 0; margin-top:14px}
+  .expect{border-left:3px solid var(--pass-line); background:var(--pass-bg)}
+  .refuse{border-left:3px solid var(--stop-line); background:var(--stop-bg)}
+  .note{border-left:3px solid var(--warn-line); background:var(--warn-bg); margin:16px 0}
+  .expect .label,.refuse .label,.note .label{font-size:11px; letter-spacing:.11em; text-transform:uppercase;
+       font-weight:700; display:block; margin-bottom:4px}
+  .expect .label{color:var(--pass)} .refuse .label{color:var(--stop)} .note .label{color:var(--warn)}
+  .expect p,.refuse p,.note p{margin:0; color:var(--ink)}
+
+  .tablewrap{overflow-x:auto; margin:14px 0}
+  table{border-collapse:collapse; width:100%; font-size:14.5px; min-width:520px}
+  th,td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+  th{font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);
+     font-weight:700; border-bottom:2px solid var(--rule)}
+  td.mono{font-family:var(--mono); font-size:13px; white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  .yes{color:var(--pass); font-weight:700} .no{color:var(--stop); font-weight:700}
+
+  footer{margin-top:52px; padding-top:20px; border-top:1px solid var(--rule);
+         color:var(--ink-faint); font-size:13.5px}
+</style>
+
+</head><body><div class="wrap">
+
+<header>
+  <div class="eyebrow">Onboarding any business · part 2</div>
+  <h1>Capabilities, entitlements and the assembled dashboard</h1>
+  <p class="lede">One codebase, many kinds of shop. This walks you through proving that — set two tenants up
+  differently, watch their screens diverge, then try to get past the screens with the API and be refused.</p>
+</header>
+
+<h2>The idea in one screen</h2>
+
+<p>A tenant is <strong>one shape × a set of capabilities</strong>. Everything you test below rests on keeping
+those two separate.</p>
+
+<div class="axes">
+  <div class="axis">
+    <h4>Shape — what kind of counter</h4>
+    <p>Retail, pharmacy, distribution, storefront. Decides wording and which dashboard, and <em>seeds</em>
+    sensible starting capabilities. Never has the last word.</p>
+  </div>
+  <div class="axis">
+    <h4>Capability — what this shop actually does</h4>
+    <p>Twelve switches: batches, expiry, FEFO, serial/IMEI, condition, loose selling, prescriptions, field
+    sales, journeys, collections, instalments, dealer pricing.</p>
+  </div>
+</div>
+
+<div class="note">
+  <span class="label">Why two axes and not one list</span>
+  <p>A mobile shop and a furniture showroom are the same <em>shape</em> and differ only by capability. Two
+  distributors, one selling on terms and one not, are also the same shape. If shape and capability were one
+  list, every new customer would need a new business type — which is exactly what this design exists to
+  avoid.</p>
+</div>
+
+<h2>Before you start</h2>
+
+<p>All on <span class="path">http://localhost:8080</span>, password <code>Demo@2025!</code> for every account.
+You will use two tenants, because <strong>the interesting claims cannot be proven with one</strong> — “this
+shop sees it and that one does not” needs a that-one.</p>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Account</th><th>Represents</th><th>Used in</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">owner.mobile@myplus.com</td><td>Mobile shop</td><td>Steps 1–5, 8</td></tr>
+    <tr><td class="mono">owner.pesticide@myplus.com</td><td>Agri-chem dealer</td><td>Steps 6–7</td></tr>
+    <tr><td class="mono">owner.business@myplus.com</td><td>Plain POS counter</td><td>Step 8 (the contrast)</td></tr>
+    <tr><td class="mono">admin.mobile@ / user.mobile@</td><td>Staff, same tenant</td><td>Step 9</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Shape and capabilities</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">1</span><h3 class="step-title">Find the switches</h3></div>
+  <p class="step-why">Log in as <code>owner.mobile@myplus.com</code>.</p>
+  <ol class="do">
+    <li>Sidebar → <strong>Settings</strong> → <strong>Configuration</strong>.</li>
+    <li>Look for two groups: <strong>“What kind of business this is”</strong> and
+        <strong>“What this business does”</strong>.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>A <em>Type of business</em> dropdown, and twelve labelled switches below it — “Track stock in batches”,
+    “Track individual serial / IMEI numbers”, “Sell on installments”, and so on. Each has a plain-English
+    explanation written for a shopkeeper, not an engineer.</p>
+  </div>
+  <div class="note">
+    <span class="label">Worth noticing</span>
+    <p>These two groups come from a <em>different service</em> than the settings below them — capabilities are
+    owned centrally so every part of the system gets the same answer. You should not be able to tell from the
+    screen, and that is the point.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">2</span><h3 class="step-title">Pick a shape and watch it seed</h3></div>
+  <ol class="do">
+    <li>Set <strong>Type of business</strong> to <em>Retail counter / POS</em>.</li>
+    <li>Reload the Configuration screen and read the twelve switches.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Retail turns on <strong>Sell on installments</strong> and <strong>Dealer and tier pricing</strong>, and
+    leaves batches, expiry, FEFO, serial and prescriptions off — a retail counter is not a pharmacy.</p>
+  </div>
+  <div class="note">
+    <span class="label">This surprises people, so it is worth stating</span>
+    <p>Retail does <strong>not</strong> switch serial/IMEI on, because a furniture showroom is also retail. A
+    mobile shop turns it on itself. That is deliberate: the shape is a starting point, never a decision.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">3</span><h3 class="step-title">Prove your own choice beats the profile</h3></div>
+  <p class="step-why">This is the rule that makes shapes safe to offer at all.</p>
+  <ol class="do">
+    <li>Switch <strong>Track individual serial / IMEI numbers</strong> ON.</li>
+    <li>Now change <strong>Type of business</strong> to <em>Pharmacy / dispensing</em> — a profile that does
+        <em>not</em> include serial tracking.</li>
+    <li>Reload and look at the serial switch again.</li>
+    <li>Set the shape back to <em>Retail counter / POS</em>.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Serial tracking stays <strong>ON</strong> throughout. A profile fills in what you have not decided; it
+    never overwrites what you have. If changing a profile could destroy your settings, the only safe advice
+    would be “never change your profile” — which is a trap, not a setting.</p>
+  </div>
+</div>
+
+<h2>What the switches actually do</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">4</span><h3 class="step-title">Switch something off and watch it leave</h3></div>
+  <ol class="do">
+    <li>Still as the mobile owner, switch <strong>Sell on installments</strong> <em>off</em>.</li>
+    <li>Open <strong>Sell</strong> in the sidebar.</li>
+    <li>Open the <strong>Dashboard</strong> and look at the tiles across the top.</li>
+    <li>Switch it back on and re-check both.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>With it off: no <em>Installment plans</em> entry in the Sell menu, and no <strong>On Terms</strong> tile
+    on the dashboard. With it on: both return, and the tile sorts to the <em>front</em> of the row — a
+    capability you deliberately switched on matters more than a generic count.</p>
+  </div>
+  <div class="note">
+    <span class="label">The part you cannot see, which matters more</span>
+    <p>With the capability off, the server also stops <em>calculating</em> the tile’s number. You are not
+    paying for a feature you cannot see — the tile and the query are switched off together.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">5</span><h3 class="step-title">⭐ Try to get past the screen</h3></div>
+  <p class="step-why">The one test that separates this from cosmetics. Hiding a menu stops nobody who knows
+  the address.</p>
+  <ol class="do">
+    <li>Switch <strong>Sell on installments</strong> <em>off</em> again.</li>
+    <li>Go to <strong>Sell → Sale</strong> and try to record a sale on instalment terms — or, if the panel is
+        hidden, simply confirm it is gone and read the note below.</li>
+  </ol>
+  <div class="refuse">
+    <span class="label">Expect a refusal, not a missing button</span>
+    <p>The server refuses with <em>“This is not switched on for your business.”</em> — and refuses
+    <strong>before</strong> the sale is written, so nothing is half-recorded. It also never names the setting,
+    because a message describing your configuration would tell anyone probing what a tenant has.</p>
+  </div>
+  <div class="expect">
+    <span class="label">Six writes are protected this way</span>
+    <p>Selling on terms · selling loose from a pack · assigning a territory · settling a driver’s cash ·
+    recording or dispensing a prescription · creating a price rule. Each refuses on the server, not just in
+    the menu.</p>
+  </div>
+</div>
+
+<h2>A second shop, so the claims mean something</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">6</span><h3 class="step-title">Set up an agri-chem dealer</h3></div>
+  <p class="step-why">Log out; log in as <code>owner.pesticide@myplus.com</code>.</p>
+  <ol class="do">
+    <li><strong>Settings → Configuration</strong> → set <strong>Type of business</strong> to
+        <em>Pharmacy / dispensing</em>.</li>
+    <li>Reload and read the switches.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Batches, expiry, sell-nearest-expiry-first, loose selling <em>and</em> prescriptions all switch on
+    together — the pharmacy profile.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">7</span><h3 class="step-title">Correct the profile for this business</h3></div>
+  <p class="step-why">A pesticide counter needs batch and expiry, but is not prescription-controlled. Same
+  shape, different shop.</p>
+  <ol class="do">
+    <li>Switch <strong>Require a prescription for controlled items</strong> <em>off</em>.</li>
+    <li>Check the sidebar for a <strong>Pharmacy</strong> group.</li>
+    <li>Confirm batch-related screens are still there.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Prescription screens go; batch and expiry stay. The dealer keeps exactly the parts of “pharmacy” that
+    describe their trade — which is the two-axis model doing the work a vertical never could.</p>
+  </div>
+</div>
+
+<h2>The two contrasts</h2>
+
+<div class="step">
+  <div class="step-head"><span class="num">8</span><h3 class="step-title">Two shops, same shape, different tills</h3></div>
+  <ol class="do">
+    <li>Log in as <code>owner.business@myplus.com</code> (plain POS). Set its shape to
+        <em>Retail counter / POS</em> — the same shape the mobile shop uses.</li>
+    <li>Open <strong>Purchase</strong>, <strong>Sell → Sale</strong>, and <strong>Register →
+        Product</strong>.</li>
+  </ol>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>No Serial / IMEI field, no Condition selector, no Tracking row on the product form — while the mobile
+    shop, <em>on the identical shape</em>, has all three. The difference is what each shop <em>does</em>, not
+    what either is called.</p>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-head"><span class="num">9</span><h3 class="step-title">Staff see less than owners</h3></div>
+  <ol class="do">
+    <li>Log in as each of <code>owner.mobile@</code>, <code>admin.mobile@</code>,
+        <code>user.mobile@</code>.</li>
+    <li>Each time check the sidebar for <strong>Finance</strong> and
+        <strong>Settings → Configuration</strong>, and confirm the sale screen still loads.</li>
+  </ol>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Account</th><th>Finance reports</th><th>Configuration</th><th>Sale screen</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">owner.mobile@</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      <tr><td class="mono">admin.mobile@</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+      <tr><td class="mono">user.mobile@</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="expect">
+    <span class="label">Expect</span>
+    <p>Each level strictly narrower than the one above — <em>and</em> every level still able to sell. A cashier
+    who cannot reach the till is not a working permission model, so both halves matter.</p>
+  </div>
+</div>
+
+<h2>Known limits</h2>
+
+<p>Stated so nothing surprises you mid-test:</p>
+<ul class="tight">
+  <li><strong>A capability change applies to your session immediately, other sessions on their next login.</strong>
+      Capabilities travel in the sign-in token, which is what keeps them off every hot path. A colleague
+      already signed in sees the change when they next sign in.</li>
+  <li><strong>Three capabilities are not yet enforced on the server</strong> — journey planning (the feature
+      does not exist yet), sell-nearest-expiry-first (a behaviour rather than an action), and batch/expiry
+      (they ride the ordinary purchase path and need that flow reviewed first). They still hide their screens.</li>
+  <li><strong>Shape presets are starting points only.</strong> Nothing re-applies a preset behind you; if you
+      want a switch changed, change it.</li>
+</ul>
+
+<footer>
+  <p>Automated coverage: <code>capability-gating.cy.js</code> (6) · <code>capability-shapes.cy.js</code> (5) ·
+  <code>capability-enforcement.cy.js</code> (4) · <code>dashboard-widgets.cy.js</code> (3) ·
+  <code>product-policies.cy.js</code> (7) · <code>privilege-ladder.cy.js</code> (7) — 32 cases.
+  Design: <code>docs/capability-platform-design.md</code> · testing standard:
+  <code>docs/GATE-RUNBOOK.md</code>.</p>
+</footer>
+
+</div>
+</body></html>

@@ -58,6 +58,7 @@ public class OrganizationService {
         return org;
     }
 
+
     /** Look up an organization by id (used to enrich JWT claims with plan/trial). */
     public Organization findById(Long id) {
         return organizationRepository.findById(id).orElse(null);

@@ -30,6 +30,14 @@ public enum SaleReportGrouping {
 
     CATEGORY(row -> blankToDash(row.getCategory())),
 
+    /**
+     * #18 — subtotals per manufacturer/COMPANY.
+     *
+     * <p>One enum constant, exactly as this type promises: the manufacturer already rides on every enriched
+     * row from ProductRef, so grouping by it needs no new query and no join.
+     */
+    COMPANY(row -> blankToDash(row.getManufacturer())),
+
     /** B2B vs B2C — the channel split Phase 0 introduced. */
     CHANNEL(row -> blankToDash(row.getCustomerType()));
 

@@ -97,6 +97,9 @@ public class SellDTO implements Serializable {
 	private Long customerId;
 	private String customerType;   // WALK_IN | RETAIL | WHOLESALE | RETAILER (Phase 0 channel)
 	private String category;       // catalog category name, via ProductRef
+	// #18: the manufacturer/BRAND behind the line, via ProductRef. A report dimension exactly like category —
+	// which is why this is a mapped field and not a join: the catalog already resolves it for every line.
+	private String manufacturer;   // catalog manufacturer (company), via ProductRef
 	/** B2B-P3e-2 (#6): DAY | MONTH | CUSTOMER | PRODUCT | CATEGORY | CHANNEL. Absent = ungrouped detail. */
 	private String groupBy;
 

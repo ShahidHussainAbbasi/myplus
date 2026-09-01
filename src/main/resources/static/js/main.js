@@ -599,9 +599,17 @@ $(document).ready(function() {
 								title: t ? t('ui.js.completeSaleTitle') : 'Complete this sale?',
 								message: (t ? t('ui.js.completeSaleAmount') : 'Total') + ' ' +
 									($('#sellTotal').text() || '').trim(),
-								confirmText: t ? t('ui.completeSale') : 'Complete Sale',
-								altText: t ? t('ui.park') : 'Park',
-								cancelText: t ? t('ui.cancel2') : 'Cancel'
+								/*
+								 * ⚠ ui.js.* — NOT ui.*. LocaleInterceptor ships only the `ui.js.` prefix to
+								 * the browser, and t() returns the KEY when it is missing, so these three
+								 * previously rendered the literal strings "ui.completeSale", "ui.park" and
+								 * "ui.cancel2" on the cashier's confirm dialog, in every language including
+								 * English. A label used from JavaScript must live under ui.js.*.
+								 * `ui.js.cancel` already existed, so Cancel needed no new key.
+								 */
+								confirmText: t ? t('ui.js.completeSale') : 'Complete Sale',
+								altText: t ? t('ui.js.park') : 'Park',
+								cancelText: t ? t('ui.js.cancel') : 'Cancel'
 							}).then(function (answer) {
 								if (answer === true) { jsonPost("addSell", customerHistory); return; }
 								if (answer === 'alt' && typeof parkCurrentSale === 'function') parkCurrentSale();

@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://99d2d886-7d35-4287-ab2b-91234fa62192.frame.claudeusercontent.com/_f/1788173553-5cd8/?__frame_t=8zrvp2PiQpbJIxhUWIORkLX_.960c3e7a-cec9-4cbe-878d-aa820ff776c3.484ef2ef-2ee4-4444-8576-da7dbb9a9460.1788177157&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1788173553-5cd8/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style><style id="_goober"> .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}</style></head><body>
+<title>Clinic Programme</title>
+<link rel="stylesheet" href="./css2(1)">
+<style>
+  :root {
+    --ground: #eff2f7;
+    --surface: #ffffff;
+    --sunk: #e5eaf1;
+    --line: #ccd5e0;
+    --line-soft: #dde4ec;
+    --ink: #12151d;
+    --ink-soft: #4b5468;
+    --ink-faint: #79839a;
+    --accent: #2a3a78;
+    --accent-soft: #dfe4f4;
+    --rule: #ab4327;
+    --rule-soft: #f6e4de;
+    --good: #1c6350;
+    --good-soft: #dcece6;
+    --warn: #8a5a09;
+    --warn-soft: #f7ecd7;
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans: "Karla", "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --shadow: 0 1px 2px rgba(18,21,29,.05), 0 10px 28px -20px rgba(18,21,29,.45);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d0f15;
+      --surface: #151923;
+      --sunk: #10141c;
+      --line: #2b3242;
+      --line-soft: #212736;
+      --ink: #e0e5ef;
+      --ink-soft: #a6afc2;
+      --ink-faint: #7b8499;
+      --accent: #8fa2e6;
+      --accent-soft: #1b2140;
+      --rule: #e0937c;
+      --rule-soft: #33201a;
+      --good: #6ec3a5;
+      --good-soft: #16281f;
+      --warn: #d5a552;
+      --warn-soft: #2e2415;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 34px -24px #000;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d0f15;
+    --surface: #151923;
+    --sunk: #10141c;
+    --line: #2b3242;
+    --line-soft: #212736;
+    --ink: #e0e5ef;
+    --ink-soft: #a6afc2;
+    --ink-faint: #7b8499;
+    --accent: #8fa2e6;
+    --accent-soft: #1b2140;
+    --rule: #e0937c;
+    --rule-soft: #33201a;
+    --good: #6ec3a5;
+    --good-soft: #16281f;
+    --warn: #d5a552;
+    --warn-soft: #2e2415;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 12px 34px -24px #000;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px 100px; }
+  @media (max-width: 640px) { .wrap { padding: 0 16px 72px; } }
+
+  code, .mono { font-family: var(--mono); font-size: .84em; }
+  code {
+    background: var(--sunk); border: 1px solid var(--line-soft); border-radius: 3px;
+    padding: .05em .3em; overflow-wrap: anywhere;
+  }
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* masthead */
+  header.top { padding: 48px 0 0; }
+  .kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--rule); margin: 0 0 14px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 6vw, 58px);
+    line-height: 1.02; letter-spacing: -.015em; margin: 0 0 18px; text-wrap: balance;
+  }
+  h1 em { font-style: italic; color: var(--accent); }
+  .standfirst {
+    font-family: var(--serif); font-size: clamp(18px, 2.4vw, 21px); line-height: 1.5;
+    color: var(--ink-soft); max-width: 60ch; margin: 0 0 30px;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 6px 26px; padding: 14px 0 0;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--ink-faint);
+  }
+
+  /* stat band */
+  .band {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; margin: 40px 0 56px;
+  }
+  .band div { background: var(--surface); padding: 18px 20px; }
+  .band .n {
+    font-family: var(--serif); font-size: 34px; line-height: 1; color: var(--accent);
+    display: block; margin-bottom: 6px; font-variant-numeric: tabular-nums;
+  }
+  .band .l { font-size: 13.5px; color: var(--ink-soft); }
+
+  /* sections */
+  section { margin: 0 0 60px; scroll-margin-top: 16px; }
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: 12px; letter-spacing: .2em;
+    text-transform: uppercase; color: var(--ink-faint);
+    margin: 0 0 18px; padding-bottom: 9px; border-bottom: 1px solid var(--line);
+  }
+  h3 {
+    font-family: var(--serif); font-weight: 600; font-size: 24px; letter-spacing: -.01em;
+    margin: 34px 0 10px; text-wrap: balance;
+  }
+  h3:first-of-type { margin-top: 0; }
+  p { margin: 0 0 14px; max-width: 70ch; }
+  ul, ol { margin: 0 0 16px; padding-left: 1.3em; max-width: 70ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 700; }
+
+  /* verdict */
+  .verdict {
+    background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0; padding: 20px 24px; box-shadow: var(--shadow); margin-bottom: 26px;
+  }
+  .verdict p:last-child { margin-bottom: 0; }
+
+  /* tables */
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 0 0 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 13px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; background: var(--sunk); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.id { font-family: var(--mono); font-size: 12px; white-space: nowrap; color: var(--ink-faint); }
+
+  .tag {
+    display: inline-block; font-family: var(--mono); font-size: 9.5px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; white-space: nowrap;
+  }
+  .t-yes { background: var(--good-soft); color: var(--good); }
+  .t-part { background: var(--warn-soft); color: var(--warn); }
+  .t-no { background: var(--rule-soft); color: var(--rule); }
+
+  /* the four rules */
+  .rules { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 0 0 20px; }
+  .rules article {
+    background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--rule);
+    border-radius: 0 0 8px 8px; padding: 15px 17px;
+  }
+  .rules h4 {
+    font-family: var(--sans); font-weight: 700; font-size: 15px; margin: 0 0 6px;
+  }
+  .rules .num {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--rule);
+    display: block; margin-bottom: 5px;
+  }
+  .rules p { font-size: 14.5px; margin: 0; color: var(--ink-soft); }
+
+  /* phase spine */
+  .spine { position: relative; padding-left: 46px; }
+  .spine::before {
+    content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--line));
+  }
+  @media (max-width: 640px) { .spine { padding-left: 0; } .spine::before { display: none; } }
+  .phase {
+    position: relative; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow);
+  }
+  .phase::before {
+    content: attr(data-n); position: absolute; left: -46px; top: 20px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  @media (max-width: 640px) {
+    .phase::before { position: static; margin-bottom: 10px; }
+  }
+  .phase[data-tone="later"]::before { background: var(--ink-faint); }
+  .phase h3 { margin: 0 0 4px; font-size: 21px; }
+  .phase .role {
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    letter-spacing: .04em; margin: 0 0 12px;
+  }
+  .cycle {
+    background: var(--accent-soft); border-radius: 6px; padding: 12px 15px; margin: 0 0 14px;
+    font-family: var(--serif); font-size: 16.5px; line-height: 1.5;
+  }
+  .cycle b { font-family: var(--sans); font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent); display: block; margin-bottom: 4px; font-weight: 700; }
+  .phase h5 {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 14px 0 6px; font-weight: 500;
+  }
+  .phase ul { margin-bottom: 0; font-size: 15px; }
+  .gate {
+    margin-top: 14px; padding-top: 12px; border-top: 1px dotted var(--line);
+    font-size: 14.5px; color: var(--ink-soft);
+  }
+  .gate b { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--good); }
+
+  .callout {
+    background: var(--rule-soft); border-left: 3px solid var(--rule);
+    padding: 14px 17px; border-radius: 0 6px 6px 0; margin: 0 0 22px; font-size: 15.5px;
+  }
+  .callout p:last-child { margin-bottom: 0; }
+
+  footer {
+    margin-top: 60px; padding-top: 18px; border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 8px 26px; justify-content: space-between;
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="top">
+    <p class="kicker">Analysis &amp; phased plan · awaiting consent</p>
+    <h1>Extending the pharmacy into a <em>clinic</em></h1>
+    <p class="standfirst">
+      Reception takes the patient in, the queue forms, the doctor consults and prescribes, and the medicine is
+      waiting at the counter before the patient walks over. Here is what the platform already does, what is
+      genuinely missing, and the order to build it in so that every phase ships something a clinic can run on.
+    </p>
+    <div class="meta">
+      <span>myplus · commerce &amp; health</span>
+      <span>Reviewed: 11 services, 4 design docs</span>
+      <span>No code written</span>
+    </div>
+  </header>
+
+  <div class="band">
+    <div><span class="n">~58%</span><span class="l">of the requested system already exists and is shipped</span></div>
+    <div><span class="n">8</span><span class="l">phases, each a complete working cycle</span></div>
+    <div><span class="n">7</span><span class="l">gaps in the reused parts to close first</span></div>
+    <div><span class="n">2</span><span class="l">phases deliver the client's whole description</span></div>
+  </div>
+
+  <section>
+    <h2>The verdict</h2>
+    <div class="verdict">
+      <p><strong>This is an extension, not a new product.</strong> A clinic-shaped scheduling service, a
+      prescription and dispensing chain, a drug-safety engine, a shared party master that already knows the
+      word <code>PATIENT</code>, per-tenant capabilities, audit, notifications and money are all built and in
+      front of users. The new work is <strong>the clinical record and the consultation itself</strong> —
+      encounter, vitals, diagnosis, allergies, orders, results — plus a workspace to run it from.</p>
+      <p>Three things need settling before any code, because they change the <em>shape</em> of the build
+      rather than its size.</p>
+    </div>
+
+    <h3>1. The clinical domain must not go into <code>appointment-service</code></h3>
+    <p>That service was <em>just</em> generalised out of being a clinic — slice SCHED-1 turned
+      Hospital/Doctor/Patient into Venue/Provider/Attendee so a school could book a parents' evening without
+      becoming a hospital, and education now depends on it. Putting encounters and diagnoses back in
+      re-creates the exact defect that slice paid to remove. A new <code>clinical-service</code> on
+      <code>:8097</code> owns the record; the scheduling core keeps owning time.</p>
+
+    <h3>2. The AI recommendation is a regulated feature, not a convenience</h3>
+    <p>Software that recommends a specific treatment is, in the EU, a Class IIa medical device under MDR Rule
+      11; in the US it escapes device regulation under the Cures Act CDS carve-out <em>only</em> if the
+      clinician can independently review the basis of the recommendation. The difference between a shippable
+      feature and a certification programme is entirely in the design — the four rules are below.</p>
+
+    <h3>3. Staff names are not a design input</h3>
+    <p>"Mr Irshad at reception" is <strong>a user holding the RECEPTIONIST role</strong>; "Dr Shahid Iqbal" is
+      <strong>a user holding DOCTOR plus a provider record</strong>. The platform already forbids
+      <code>if (organizationId == 24)</code> by name in its own capability design; the same rule applies to
+      people. Everything below is built for any clinic, then configured for this one.</p>
+  </section>
+
+  <section>
+    <h2>What the clinic reuses instead of building</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Requirement</th><th>Already exists</th><th>Reuse</th></tr></thead>
+        <tbody>
+          <tr><td>Clinic / hospital</td><td><code>Venue</code> in appointment-service</td><td><span class="tag t-yes">As is</span></td></tr>
+          <tr><td>Doctor</td><td><code>Provider</code> — speciality, fee, schedule, capacity</td><td><span class="tag t-yes">+ reg. no.</span></td></tr>
+          <tr><td>Patient identity</td><td><code>Party</code> already supports <code>partyType = PATIENT</code>, de-duped per tenant on phone</td><td><span class="tag t-part">Consolidate</span></td></tr>
+          <tr><td>Patient queue</td><td><code>Booking</code> with a nullable slot, documented "for a clinic QUEUE booking"</td><td><span class="tag t-no">Designed, not built</span></td></tr>
+          <tr><td>Follow-up booking</td><td><code>/api/scheduling</code> — neutral, idempotent, unique-constrained</td><td><span class="tag t-yes">As is</span></td></tr>
+          <tr><td>Prescription</td><td><code>Prescription</code> + items with dose, frequency, duration</td><td><span class="tag t-part">Change author</span></td></tr>
+          <tr><td>Dispensing</td><td><code>Dispensing</code> → POS sale, batch, FEFO, expiry, invoice</td><td><span class="tag t-yes">Untouched</span></td></tr>
+          <tr><td>Drug safety</td><td><code>/safety/check</code>, interactions, rx-required, controlled flags</td><td><span class="tag t-yes">Extend</span></td></tr>
+          <tr><td>Medicine master</td><td>catalog <code>Product</code> — the formulary is the product master</td><td><span class="tag t-yes">As is</span></td></tr>
+          <tr><td>Feature switches</td><td>Capability × Shape, <code>[data-capability]</code>, server-enforced</td><td><span class="tag t-yes">Add clinic</span></td></tr>
+          <tr><td>Audit trail</td><td><code>audit-service</code></td><td><span class="tag t-yes">Becomes the PHI log</span></td></tr>
+          <tr><td>Money</td><td>finance-service AR/GL + the POS invoice path</td><td><span class="tag t-yes">As is</span></td></tr>
+          <tr><td>Multi-branch</td><td>role × location grants already ride in the JWT</td><td><span class="tag t-yes">Solved</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>Missing entirely:</strong> encounter, vitals, diagnosis coding, allergies, chronic conditions,
+      risk factors, clinical notes, examination findings, orders (lab / imaging / procedure / blood), results,
+      referral, oncology, document attachments, prescription templates, any AI call, consent, retention, and a
+      clinical UI. That is the build.</p>
+  </section>
+
+  <section>
+    <h2>Gaps in the reused parts — closed inside Phase 1, not "later"</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th class="id">#</th><th>Gap</th><th>Why it blocks the clinic</th></tr></thead>
+        <tbody>
+          <tr><td class="id">G-1</td><td>appointment-service still reads the monolith <code>user</code> table</td><td>A clinical service cannot inherit a cross-database read</td></tr>
+          <tr><td class="id">G-2</td><td>No role model — booking deletes are open</td><td>Reception and the doctor need different permissions on day one</td></tr>
+          <tr><td class="id">G-3</td><td>Not on <code>common-settings</code></td><td>Clinic hours and queue policy have nowhere to live</td></tr>
+          <tr><td class="id">G-4</td><td>3 Cypress specs on the whole vertical; no lifecycle gate</td><td>A regression in the queue would be invisible</td></tr>
+          <tr><td class="id">G-5</td><td><code>booking.dateTime</code> is a <code>VARCHAR</code> from the legacy schema</td><td>"Today's list" and queue order cannot be done reliably on strings</td></tr>
+          <tr><td class="id">G-6</td><td>The controlled-drugs register lacks prescriber, Rx id and batch</td><td>Closes as a by-product — the clinic finally knows all three</td></tr>
+          <tr><td class="id">G-7</td><td>Reads are frequently ungated across the platform</td><td>For patient data an ungated read is a reportable breach, not a code smell</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Standards that change the design</h2>
+
+    <h3>Coded fields carry their code system — decided now, or migrated later</h3>
+    <p>ICD-10 for diagnoses (ICD-11 ready), LOINC for lab tests, ATC plus the national registration number for
+      drugs, SNOMED for findings and allergy substances, CPT or the local schedule for procedures.
+      <strong>Every coded field stores <code>(code_system, code, display_text)</code>, never a bare string</strong>
+      — a code without its system is unusable the first time a second system appears.</p>
+
+    <h3>Design to FHIR R4 now, expose it later</h3>
+    <p>Do not build FHIR internally. Do map every clinical table to its resource from day one — Patient,
+      Encounter, Condition, AllergyIntolerance, Observation, MedicationRequest, MedicationDispense,
+      ServiceRequest, DiagnosticReport, DocumentReference — so a façade is later a translation, not a rewrite.
+      HL7 v2 ORM/ORU remains the real interface to a lab analyser, and that is a Phase 5 option.</p>
+
+    <h3>Patient data raises the cost of every shortcut</h3>
+    <ul>
+      <li><strong>Every read is audited</strong>, not only writes — who, what, when, why.</li>
+      <li><strong>Minimum necessary:</strong> reception sees demographics and the queue, never clinical notes.
+        A named break-glass path exists, is loud, and is reviewed.</li>
+      <li><strong>The record is append-only.</strong> A note is never edited in place — an amendment is a new
+        version with author, timestamp and reason. Same for a signed prescription.</li>
+      <li><strong>Retention class on the row from day one</strong> (typically 7–10 years; to age 25 for
+        minors). The purge job is later; the column cannot be.</li>
+      <li><strong>Two identifiers before any clinical act</strong> — the doctor's "call next" screen shows
+        name, MRN and date of birth. A queue token alone is never sufficient.</li>
+    </ul>
+
+    <h3>The AI recommendation — four rules, and they are build constraints</h3>
+    <div class="rules">
+      <article>
+        <span class="num">Rule 01</span>
+        <h4>Advisory and inert</h4>
+        <p>A suggestion is never a prescription. Nothing is written until the doctor accepts each line, and
+          nothing is pre-ticked.</p>
+      </article>
+      <article>
+        <span class="num">Rule 02</span>
+        <h4>Show the basis</h4>
+        <p>Every line displays why — indication, class, dose rationale, the patient factors considered. A
+          recommendation the doctor cannot interrogate is what makes this a device.</p>
+      </article>
+      <article>
+        <span class="num">Rule 03</span>
+        <h4>The model never has the last word on safety</h4>
+        <p>After the doctor builds the final list, from any source, the deterministic engine runs: allergy,
+          interaction, duplicate therapy, rx-required, controlled. Skipping it would be the most dangerous
+          thing in this build.</p>
+      </article>
+      <article>
+        <span class="num">Rule 04</span>
+        <h4>Constrained to the tenant's formulary</h4>
+        <p>The model may only return product ids from this shop's own catalog, and every id is re-checked
+          server-side. An invented product yields nothing, not a plausible line.</p>
+      </article>
+    </div>
+    <p>Plus: <strong>de-identify before the call</strong> — age band, sex, weight, renal and hepatic flags,
+      allergies, current medicines, symptoms, working diagnosis; never name, MRN, phone or address. Log the
+      request and response against the encounter for medico-legal traceability, and record what was
+      <em>suggested</em> versus what was <em>prescribed</em> — the only honest measure of whether the feature
+      earns its cost.</p>
+    <p>All model calls live in a single <code>assistant-service</code>, which a prior design doc already
+      proposed for the command palette: one place for the credential, the rate limit, the redaction, the cost
+      and the audit. The clinic never holds an API key, and if the model is slow or down the consultation
+      screen still works — templates and manual entry are unaffected.</p>
+  </section>
+
+  <section>
+    <h2>The programme</h2>
+    <p>Every phase is a complete cycle a real user can run end to end, ships with a passing headed Cypress
+      gate, and leaves the system releasable. No phase needs a later one to be useful.</p>
+
+    <div class="spine">
+
+      <article class="phase" data-n="01">
+        <h3>Reception → queue → consultation → closed visit</h3>
+        <p class="role">The spine. After this, the clinic genuinely runs — on paper prescriptions.</p>
+        <p class="cycle"><b>The cycle</b>Reception registers a patient, or finds an existing one by phone,
+          takes the consultation fee, and the patient joins the doctor's queue with a token. The doctor opens
+          the queue, calls the next token, verifies name + MRN + date of birth, records the complaint and a
+          note, and closes the visit. It appears in that patient's history. Reception watches the queue
+          advance.</p>
+        <h5>Build</h5>
+        <ul>
+          <li><code>clinical-service</code> on <code>:8097</code>, bootstrapped to the platform standard —
+            Flyway, org scoping, method authz, settings, audit, tracing.</li>
+          <li>Tables: patient (MRN, dob, sex, blood group, next of kin, consent, retention class), encounter,
+            versioned clinical note, department.</li>
+          <li>The queue becomes real: queue number, a status state machine
+            (<code>WAITING → CALLED → IN_CONSULT → COMPLETED / NO_SHOW</code>), and real timestamps.</li>
+          <li>Roles: receptionist, doctor, nurse, clinic admin. A <code>CLINIC</code> shape and its
+            capabilities.</li>
+          <li>The consultation fee goes through the existing invoice path — no new money code.</li>
+          <li>A new <code>clinicDashboard</code>: a fast reception intake and queue board, and the doctor's
+            own queue and consultation screen.</li>
+          <li><strong>Closes G-1, G-2, G-3, G-5 and G-7.</strong></li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;Queue spec run as the clinic's own tenant and across the
+          receptionist / doctor / admin ladder, plus a cross-tenant case. Reception must be <em>unable</em> to
+          open a clinical note; the doctor unable to change the fee.</p>
+      </article>
+
+      <article class="phase" data-n="02">
+        <h3>Prescription → print → the connected pharmacy dispenses</h3>
+        <p class="role">The headline: the medicine is waiting before the patient walks over.</p>
+        <p class="cycle"><b>The cycle</b>The doctor picks medicines from the pharmacy's own catalog, sets dose,
+          frequency, duration and quantity, signs, and prints or downloads a PDF. The prescription lands in the
+          pharmacy queue electronically. The patient walks to the counter, the pharmacist opens the waiting Rx
+          and dispenses through the existing sale — batch, FEFO, expiry, stock and invoice unchanged.</p>
+        <h5>Build</h5>
+        <ul>
+          <li>The prescription gains an encounter, a prescriber and a registration number, a signature
+            timestamp and a version.</li>
+          <li><strong>Immutable once signed</strong> — an amendment is version <em>n+1</em> with a reason, and
+            the pharmacy is told.</li>
+          <li>The PDF carries clinic letterhead, patient identifiers, prescriber and registration number, every
+            item's dose and duration, a signature block, and a QR code that resolves to the Rx.</li>
+          <li>A "prescriptions waiting" queue on the trade dashboard, one click to dispense.</li>
+          <li>Safety runs at signing; a contraindication is a hard stop with a recorded override reason.</li>
+          <li><strong>Closes G-6</strong> — the controlled register finally records prescriber, Rx id and
+            batch.</li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;Sign → appears in the pharmacy queue → dispense → stock falls and
+          an invoice is raised. An unsigned Rx is not dispensable; a signed one cannot be edited; a
+          contraindicated pair is refused — asserted on the response envelope, since refusals arrive as
+          HTTP 200.</p>
+      </article>
+
+      <article class="phase" data-n="03">
+        <h3>The clinical record — vitals, allergies, conditions, history, follow-up</h3>
+        <p class="role">Makes the second visit better than the first, which is the whole argument for a record.</p>
+        <p class="cycle"><b>The cycle</b>The nurse records vitals at intake, range-checked, with BMI computed.
+          The doctor sees the patient's timeline — previous visits, diagnoses, medicines, allergies, chronic
+          conditions, risk factors — before saying a word, records a coded ICD-10 diagnosis, and books a
+          follow-up that sends the patient a reminder.</p>
+        <h5>Build</h5>
+        <ul>
+          <li>Vitals, allergy (substance, reaction, severity, criticality — shown everywhere, permanently),
+            chronic condition, risk factor, coded diagnosis.</li>
+          <li>The timeline is one call and one screen — no request per row.</li>
+          <li>Follow-up reuses the scheduling core and the notification service.</li>
+          <li>Allergy feeds the Phase 2 safety check; a hard allergy is a hard stop.</li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;An out-of-range vital is refused; an allergy recorded in visit one
+          blocks the contraindicated prescription in visit two; the follow-up reminder is queued.</p>
+      </article>
+
+      <article class="phase" data-n="04">
+        <h3>Prescribing accelerators — templates first, then AI</h3>
+        <p class="role">The client's three sources, built in order of risk: the deterministic ones first.</p>
+        <p class="cycle"><b>The cycle</b>The doctor saves a set he prescribes together as a named template.
+          Next time, the screen offers his matching templates, the patient's current medicines to continue,
+          and — where the capability is on — an AI list with each line's basis shown. He accepts, edits, adds
+          or removes freely. The final list goes through the same safety engine as every other prescription.</p>
+        <h5>Build</h5>
+        <ul>
+          <li>Templates per doctor, shareable to the clinic, versioned. <strong>Ships and gates on their
+            own</strong> — deterministic, offline, useful whether or not the AI is ever built.</li>
+          <li><code>assistant-service</code>: redaction, formulary injection with prompt caching, structured
+            output, server-side formulary validation, per-tenant rate and cost limits, full audit against the
+            encounter.</li>
+          <li>Three clearly labelled sources in one picker, nothing pre-selected, a one-tap "why this?" on
+            every AI line.</li>
+          <li>The capability is <strong>off by default</strong>, owner-enabled, with the disclaimer recorded
+            per tenant.</li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;A template loads and is editable. With the capability off the panel
+          is hidden <em>and</em> the endpoint refuses. A fabricated product id in a stubbed response is
+          dropped, not rendered. An unreachable model leaves the screen fully usable. No patient identifier
+          appears in the outbound payload — asserted against the recorded request.</p>
+      </article>
+
+      <article class="phase" data-n="05">
+        <h3>Orders and results — lab, X-ray and imaging, procedures</h3>
+        <p class="cycle"><b>The cycle</b>The doctor orders from the consultation screen. The order prints with
+          the patient's identifiers and a barcode. The lab or radiology desk works a worklist, marks the sample
+          collected, enters the result or attaches the report, and it lands back on the encounter — flagged
+          when out of range, with the doctor notified.</p>
+        <h5>Build</h5>
+        <ul>
+          <li>Order and order items (LOINC / CPT coded, priority, clinical indication), result with unit,
+            reference range, abnormal flag and a named verifier, specimen tracking.</li>
+          <li>Panels — an "LFT" that expands into its constituent tests.</li>
+          <li>Optional HL7 v2 interface to an analyser; for imaging, store the accession number and a
+            pointer — never the pixels.</li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;Order → worklist → result → back on the encounter with an abnormal
+          flag and a notification. An unverified result is visibly marked as such.</p>
+      </article>
+
+      <article class="phase" data-n="06">
+        <h3>The specialty tail — blood bank, referral, records, oncology</h3>
+        <p class="role">Each a self-contained cycle. Build only what is actually asked for, in the order asked.</p>
+        <ul>
+          <li><strong>Blood bank:</strong> request → crossmatch → issue → transfusion outcome, with mandatory
+            two-person verification before issue and full traceability from unit to patient.</li>
+          <li><strong>Referral:</strong> outbound with a clinical summary, inbound, status tracked.</li>
+          <li><strong>Medical records:</strong> typed, versioned, access-audited, virus-scanned documents that
+            are never served from a guessable URL.</li>
+          <li><strong>Oncology — be honest about this one.</strong> Protocol regimens, cycle scheduling,
+            BSA-based dosing and cumulative-dose tracking are a specialist product, not a screen. Build the
+            record-keeping subset first, and only when there is a real oncology user.</li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;One spec per sub-domain, each proving its full cycle.</p>
+      </article>
+
+      <article class="phase" data-n="07">
+        <h3>Money, panels and statutory reporting</h3>
+        <p class="cycle"><b>The cycle</b>Consultation fees, procedure and lab charges and the pharmacy sale all
+          reconcile. Panel patients are billed to the panel with a co-pay at the counter. Day-end closes. The
+          registers a regulator can ask for print.</p>
+        <h5>Build</h5>
+        <ul>
+          <li>Charge master, encounter charge capture, panel master and claim, co-pay split, day-end
+            reconciliation.</li>
+          <li>Statutory outputs: controlled-drugs register, notifiable-disease report, patient-data access
+            report, prescriber activity.</li>
+          <li>Ledger posting through the outbox — minding the standing trap that a new posting field must be
+            added in five places or it vanishes silently. <strong>Gate the trial balance.</strong></li>
+        </ul>
+        <p class="gate"><b>Gate</b> &nbsp;The day-end equals the sum of the encounters plus the pharmacy
+          invoices, with a panel patient in the set.</p>
+      </article>
+
+      <article class="phase" data-n="08" data-tone="later">
+        <h3>Demand-led — FHIR façade, patient portal, teleconsult, inpatient</h3>
+        <p><strong>Admission, beds and inpatient care are a second product, not a phase of this one.</strong>
+          An outpatient clinic and an inpatient hospital differ far more than the words suggest, and promising
+          inpatient inside this programme is how these builds fail. Say it early, in writing.</p>
+      </article>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Rules every phase obeys</h2>
+    <ol>
+      <li>Tenant isolation on every clinical table — scoped reads, stamped writes, no reachable-by-id holes.</li>
+      <li>Every read of patient data is audited, not only writes.</li>
+      <li>Coded fields store the system, the code and the display text.</li>
+      <li>Clinical data is append-only. Amend, never overwrite; every row carries an author and a timestamp.</li>
+      <li>The deterministic safety engine runs last, on the final list, whatever produced it.</li>
+      <li>Capability and shape gating, enforced on the server independently of the screen.</li>
+      <li>Document numbers from the per-org sequence, allocated late.</li>
+      <li>Every slice ships a passing headed test, run as the clinic's own tenant, across the privilege ladder,
+        with a cross-tenant negative case.</li>
+      <li>Flyway per service, deploy-reproducible, no manual step.</li>
+      <li>No client name and no organisation id in any branch.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Eight questions before Phase 1</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th class="id">#</th><th>Question</th><th>Why it blocks</th></tr></thead>
+        <tbody>
+          <tr><td class="id">Q-1</td><td>One organisation for pharmacy + clinic, or two linked ones?</td><td>Decides whether the prescription hand-off is in-tenant or a consented cross-tenant share — a different security model</td></tr>
+          <tr><td class="id">Q-2</td><td>Country and regulator</td><td>Fixes the prescription's legal content, the controlled register format and retention periods</td></tr>
+          <tr><td class="id">Q-3</td><td>MRN format — per clinic, per organisation, or national ID?</td><td>Cannot change after the first patient without a migration</td></tr>
+          <tr><td class="id">Q-4</td><td>Panels and insurers, or cash only?</td><td>Moves Phase 7 earlier if panels are day-one</td></tr>
+          <tr><td class="id">Q-5</td><td>ICD-10 licensing and the code set to load</td><td>Phase 3 needs the file</td></tr>
+          <tr><td class="id">Q-6</td><td>Is AI wanted at launch, and is the advisory-only constraint accepted?</td><td>Decides whether Phase 4 is one slice or two</td></tr>
+          <tr><td class="id">Q-7</td><td>How many doctors and rooms — does more than one doctor share a queue?</td><td>Queue policy and the "call next" rules</td></tr>
+          <tr><td class="id">Q-8</td><td>Data residency — is hosting outside the country acceptable for patient data?</td><td>Affects hosting and the AI call</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Risks worth naming now</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          <tr><td>"HMS" is often heard as including inpatient</td><td>Phase 8 states it is a separate product. Agree that in writing before Phase 1</td></tr>
+          <tr><td>The AI feature drags the product into device regulation</td><td>The four rules are build constraints, and the gate asserts them</td></tr>
+          <tr><td>A patient-data breach through an ungated read</td><td>Audited reads plus the audit gate; G-7 closes in Phase 1</td></tr>
+          <tr><td>appointment-service holds live data — 14 venues across 2 organisations at last count</td><td>The same staged approach SCHED-1 used: additive columns, no behaviour change, count before acting</td></tr>
+          <tr><td>Clinical safety — a wrong dose or a missed allergy</td><td>The deterministic engine is mandatory and last; a hard stop needs a recorded override reason</td></tr>
+          <tr><td>The doctor's screen is too slow for a six-minute consultation</td><td>The timeline is one call; the AI is off the critical path with a hard timeout</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <p><strong>Recommended: build and ship Phases 1 and 2, then stop and look.</strong> Together they are the
+        entire requirement as it was described — reception, queue, consultation, prescription, pharmacy.
+        Everything after that is depth, and it is better chosen from real use in a real clinic than from a
+        document written before the first patient walks in.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>myplus · clinic programme · analysis only</span>
+    <span>No code written · no schema changed</span>
+  </footer>
+</div>
+
+</body></html>

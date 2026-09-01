@@ -96,6 +96,12 @@ public class PurchaseDTO implements Serializable {
 	@ValidateEmpty
 	private Float quantity;
 
+	/** #17 P2: free units received on top of the billed quantity. Null/absent on an ordinary purchase. */
+	private Float bonusQuantity;
+
+	/** #17 P2: the scheme that produced the bonus, for traceability. */
+	private String bonusSchemeCode;
+
 	/*
 	 * U5 - buying in BOXES. Design: docs/slices/u5-buying-in-boxes.md
 	 *

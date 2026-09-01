@@ -873,3 +873,128 @@ server-side paging — `getUserSell` already accepts `page`+`size` (slice 24) an
 but the server only pages when `pagedWholeOrg` holds (owner/super with no store constraint), so store-scoped
 users would still get everything. Widening that gate means re-reasoning role×location scoping, which is why
 it was split out rather than bundled here.
+
+---
+
+## `/productStock` — the per-item-selection call on the till's hot path (#22)
+
+**Status:** two fixes IMPLEMENTED, awaiting gate. A third is DESIGNED and deliberately **not** built — see §3.
+
+Raised from the counter: *"calling `productStock?productId=2980` takes time and we cannot make a sale per
+second."*
+
+### 1. What it actually does
+
+`StockController.productStock` makes **three CHAINED cross-service calls**, one after another:
+
+| # | Call | Service |
+|---|---|---|
+| 1 | `inventoryClient.getStockLevel(productId)` | inventory-service |
+| 2 | `catalogClient.getProduct(productId)` | catalog-service |
+| 3 | `inventoryClient.getBatches(productId)` | inventory-service |
+
+…behind browser → monolith proxy → gateway → business-service. And the client called it with a plain
+`$.get`, so **the global blocking overlay covered the till on every line a cashier rang**.
+
+### 2. Fixed
+
+**(a) Non-blocking on the client.** Both call sites now use `bgJson`. Safe because the rate the cashier needs
+is already on screen before the request is sent — it is filled from the picker's own `data-price`. What
+arrives late is on-hand and batch detail, which refine the line rather than gate typing it.
+
+**(b) The FEFO batch call is skipped for tenants that track neither batches nor expiry.** That third round
+trip returned data a mobile shop or general POS screen cannot use. Gated on the CAPABILITY
+(`BATCH_TRACKING` / `EXPIRY_TRACKING`), not on a client flag, so the tenant's configuration decides and a
+caller cannot switch it on. Pharmacy and distribution are unaffected. Correctness is untouched either way:
+**FEFO allocation happens server-side at submit** — this is the screen's pre-fill hint, not the rule deciding
+which batch leaves the shelf.
+
+### 3. ⚠ NOT done: parallelising the three calls — and why
+
+Calls 2 and 3 do not depend on 1, so the obvious fix is to run them concurrently. **Do not do this naively.**
+
+`CurrentUser` reads `SecurityContextHolder` and `RequestContextHolder`, both **ThreadLocal-backed**. A
+`CompletableFuture.supplyAsync` would run on a pool thread with neither, so the downstream clients would lose
+the org/actor headers — the calls would be refused, or worse, run unscoped. **A tenancy leak is not worth a
+few hundred milliseconds.**
+
+Doing it safely means propagating context deliberately (`DelegatingSecurityContextExecutor` plus
+`RequestContextHolder.setRequestAttributes` on the worker, cleared in a `finally`), with a gate that asserts a
+second tenant's data can never come back. That is its own slice.
+
+The better fix may not be parallelism at all: **one inventory endpoint returning level + batches together**
+removes a round trip outright rather than overlapping it. Note that on-hand and sellable are genuinely
+different numbers (expired and quarantined stock inflate on-hand), so the two values cannot simply be derived
+from one another — the endpoint has to return both.
+
+---
+
+## #23 — stock checking at item selection becomes a setting, OFF by default
+
+**Status:** IMPLEMENTED, awaiting gate — `cypress/e2e/business/stock-check-setting.cy.js`.
+
+Raised by the user: *"a counter sale occurs only when items are collected on the counter and the cashier then
+starts entry — why do we validate stock on item selection?"*
+
+### The review agreed, and found it worse than described
+
+Selecting one item cost **two chained browser requests and ~4 service calls**: `/productStock` (three chained
+cross-service calls) and then `/productSellable`. Both blocked the till, and **three separate sites** refused
+on `≤ 0` — each showing an error and calling `resetBSDD('sellItemDD')`, which **discards the cashier's
+selection** with a customer standing there.
+
+It also fires wrongly by construction. Sellable EXCLUDES expired and quarantined batches, so a product with
+16 on hand can read 0 sellable while the customer is holding one (a real case, recorded in
+`stock: sellable vs on-hand`).
+
+**Refusing does not prevent the sale — it prevents RECORDING it.** The goods leave the shop either way, so the
+outcome is unbooked revenue on top of stock that is still wrong.
+
+### ⚠ FOUR guards, and the fourth is the one that matters
+
+Three fire on item SELECTION. The fourth lives in `calculateNetSell()`, runs on every keystroke in the
+quantity box, and `return false`s **before the line math** — so the line stops pricing itself. That is the one
+a cashier meets ("Quantity exceeds available stock…") when the customer is holding four of something the
+system thinks it has one of, and it was missed on the first pass because the other three are clustered
+together in the selection handler.
+
+**Audit method that found the complete set** (all four, no others on the counter path):
+
+```bash
+grep -nE "batchStock *[<>]|sellable *<=|stock *<" src/main/resources/static/js/business/business.js
+grep -rniE "exceeds available|no stock|insufficient stock|not sellable|out of stock" src/main/resources/static/js/
+```
+
+The remaining hits are informational badges, order-booking (B2B pre-sales, where refusing IS correct — the
+shop is promising future delivery) and catalog stock adjustment.
+
+### The setting
+
+`pos.stock.validateOnSelect` — **default FALSE**, category "Sale entry", self-rendered by the Configuration
+screen like every other business setting.
+
+⚠ **The default direction is inverted from its neighbours, deliberately.** `pos.keyboard.*` fail CLOSED
+because a config hiccup must not arm behaviour a till was not trained for. Here a config hiccup must not
+BLOCK a sale, so the safe direction is the opposite: absent ⇒ the till keeps selling.
+
+ON suits a shop selling against a stock position it is promising to fulfil later — B2B orders, pre-sales.
+OFF suits a counter, where stock is a description of what has already been picked up.
+
+### What did NOT change, and why the gate asserts it
+
+**The submit-time FEFO reservation is untouched.** `SagaSellService` still reserves and rejects OUT_OF_STOCK
+("nothing held, nothing written"). This slice governs the pre-fill guard, not the rule that allocates stock,
+and the gate asserts that so "the till stopped nagging" is never mistaken for "stock control was removed".
+
+⚠ **Server-side overselling was considered and NOT built.** The reservation is not merely a check: it returns
+the `reservationId` and the `picks` (which batches were taken) that `writePending` and the confirm step both
+depend on. Letting a sale proceed without one is an inventory-service change — reserve-what-you-can, allow the
+remainder negative, still return a reservation — not a flag flip. If a till should be able to complete a sale
+that takes stock negative, that is its own slice, with its own decision about how negative stock reaches
+valuation and the GL.
+
+### Also fixed here
+
+- `/productSellable` is now a background read (it only fills an informational badge).
+- Two hardcoded English strings on the sale screen ("All stock for this item is expired…", "No sellable
+  stock…") became `ui.js.*` keys in all six locales.

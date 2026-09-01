@@ -15,10 +15,19 @@
 
 const OWNER = 'owner.business@myplus.com'
 
-/** Open the register in one of its two modes and wait for rows (or the empty state) to settle. */
+/**
+ * Open the register in one of its two modes, and wait until the page has stopped MOVING.
+ *
+ * ⚠ Waiting for rows is not enough. The dashboard's KPI tiles and charts load in the background (tier-1a/1b
+ * made them non-blocking on purpose) and they render ABOVE this table, so each one that lands pushes the rows
+ * down. Cypress then refuses a click with "could not determine the actionability of this element" —
+ * `ensureNotAnimating` — because the button genuinely is still moving.
+ *
+ * Waiting those reads out is the honest fix: it is also the moment a real operator can reliably hit the
+ * button. Forcing the click instead would paper over layout instability a person would feel as a misclick.
+ */
 function openReturns(mode) {
-  cy.visit('/businessDashboard')
-  cy.get('#sellType', { timeout: 30000 }).should('exist')
+  cy.visitDashboardSettled()
   cy.window().then((w) => w.showReturns(mode))
   cy.get('#ReturnsDiv').should('be.visible')
   cy.get('#tableReturns tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 0)

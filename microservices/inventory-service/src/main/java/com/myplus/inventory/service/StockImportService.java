@@ -42,7 +42,11 @@ public class StockImportService {
             if (l.getCostPrice() != null) level.setCostPrice(l.getCostPrice());
             stockLevelRepository.save(level);
 
+            // #17 P2: carry the exact amount paid onto the BATCH. Without this the field exists on the
+            // contract and dies at the seam — the same way a new GL outbox field vanishes unless every hop
+            // both populates and reads it. Consumption allocates from this, never from a rounded unit cost.
             StockEntry entry = StockEntry.builder()
+                    .paidTotal(l.getPaidTotal())
                     .productId(l.getProductId()).quantity(add).reservedQuantity(BigDecimal.ZERO)
                     .batchNo(l.getBatchNo()).expiryDate(l.getExpiryDate()).purchasePrice(l.getPurchasePrice())
                     .organizationId(orgId).userId(userId).build();

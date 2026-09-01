@@ -56,6 +56,12 @@ public class SagaSellService {
      */
     @org.springframework.beans.factory.annotation.Autowired
     private com.myplus.common.settings.CapabilityService capabilityService;                        // C3b
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private SaleCosting saleCosting;                                                               // #17 P3
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.business_service.repository.SellRepo sellRepo;                              // #17 P3
     private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;                 // SF-10 line cost
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -112,6 +118,53 @@ public class SagaSellService {
     }
 
     /** @return the invoice number of the recorded sale. */
+    /**
+     * #17 P3 — the persisted sell ids of an invoice, so COGS can read the batches they consumed.
+     *
+     * <p>Returns empty rather than null when the lines are not yet persisted; SaleCosting then falls back to
+     * the per-line snapshot, which is the correct answer at that point.
+     */
+    /**
+     * #17 P3 (D11) — the same lines, with their bonus removed.
+     *
+     * <p>Used when short stock forced the free goods to be withheld. Every downstream consumer reads
+     * {@code bonusQuantity} — the receipt prints it, the batches record it, the cost covers it — so leaving it
+     * set after the units were never reserved would promise a customer goods they did not get and expense
+     * stock that never left.
+     *
+     * <p>A record carries no setters, so the line is rebuilt. Verbose, and deliberately so: a copy that
+     * silently dropped a field would be a worse bug than the one this fixes.
+     */
+    private List<SagaLine> stripBonus(List<SagaLine> lines) {
+        List<SagaLine> out = new ArrayList<>();
+        for (SagaLine l : lines) {
+            out.add(new SagaLine(l.productId(), l.quantity(), l.sellRate(), l.discount(),
+                    l.totalAmount(), l.netAmount(), l.srp(),
+                    l.taxRate(), l.taxAmount(), l.lineGross(), l.catalogPrice(), l.discountType(),
+                    l.costPrice(), l.priceReason(),
+                    null,                       // the bonus that was NOT issued
+                    l.soldUnit(), l.soldQuantity(), l.soldRate(), l.packSizeSnapshot()));
+        }
+        return out;
+    }
+
+    private java.util.List<Long> sellIdsOf(com.myplus.business_service.entity.CustomerHistory ch,
+                                           AuthenticatedUser user) {
+        if (ch == null || ch.getCustomer_history_id() == null) return java.util.List.of();
+        try {
+            return sellRepo.findByInvoiceScoped(ch.getCustomer_history_id(),
+                            user.getOrganizationId(), user.getUserId()).stream()
+                    .map(com.myplus.business_service.entity.Sell::getSellId)
+                    .filter(java.util.Objects::nonNull)
+                    .collect(java.util.stream.Collectors.toList());
+        } catch (Exception e) {
+            // Never fail a sale to compute its cost basis: SaleCosting falls back to the line snapshot.
+            LOG.warn("Could not resolve sell ids for invoice {}; COGS uses the line snapshot",
+                    ch.getInvoiceNo(), e);
+            return java.util.List.of();
+        }
+    }
+
     public String addSell(CustomerHistoryDTO dto) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new sale is a today-dated entry
@@ -150,18 +203,65 @@ public class SagaSellService {
         // nothing has been written, so cancelling costs nothing and holds no stock.
         assertCreditPolicy(dto, lines, null);
 
+        /*
+         * #17 P3 — STOCK FOLLOWS PHYSICAL MOVEMENT. Reserve what LEAVES, not what is billed.
+         *
+         * Bonus units were never in this list, so a 10+1 sale held 10 and shipped 11: one phantom unit per
+         * bonus sale, permanently, compounding, feeding the stock-value tile and causing false out-of-stock
+         * refusals. b2b-P3g D-2 called bonus "presentation only" — true of the INVOICE, never of the shelf.
+         *
+         * Reserving the full issued quantity is also what makes COGS correct with no special case: the picks
+         * cover 11 units, so the batches recorded cover 11, so the cost covers 11.
+         */
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SagaLine l : lines) {
-            reservationLines.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity())));
+            BigDecimal issued = BigDecimal.valueOf(l.quantity())
+                    .add(BigDecimal.valueOf(l.bonusQuantity() != null ? l.bonusQuantity() : 0f));
+            reservationLines.add(new StockReservationLine(l.productId(), issued));
         }
 
         // 3: reserve (FEFO). OUT_OF_STOCK -> reject the sale (nothing held, nothing written).
         StockReservationResponse reservation =
                 inventoryClient.reserve(new StockReservationRequest(idempotencyKey, reservationLines));
+
+        /*
+         * #17 P3 (D11) — SHORT STOCK REDUCES THE BONUS. IT NEVER BLOCKS THE PAID LINE.
+         *
+         * Reserving paid + bonus made a free unit able to refuse a sale the shop can actually make: 280 on the
+         * shelf, a customer buying 280, and the reservation asks for 281. The customer is holding the goods.
+         * Refusing there is the counter defect (#23) returning by another route — and it would refuse over
+         * stock that is being GIVEN AWAY.
+         *
+         * So on OUT_OF_STOCK, retry with the PAID quantities only. The paid line is what the customer came
+         * for; the bonus is a courtesy the shop can withhold when the shelf cannot cover it. The lines are
+         * rebuilt without their bonus so nothing downstream believes free goods were issued: no phantom
+         * decrement, no cost for units that never left, and a receipt that does not promise what was not given.
+         *
+         * A genuinely short PAID quantity still fails, on the retry, exactly as before.
+         */
+        boolean bonusWithheld = false;
+        if ((reservation == null || reservation.getStatus() != ReservationStatus.RESERVED)
+                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
+            List<StockReservationLine> paidOnly = new ArrayList<>();
+            for (SagaLine l : lines)
+                paidOnly.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity())));
+
+            StockReservationResponse retry =
+                    inventoryClient.reserve(new StockReservationRequest(idempotencyKey + "-nobonus", paidOnly));
+            if (retry != null && retry.getStatus() == ReservationStatus.RESERVED) {
+                reservation = retry;
+                bonusWithheld = true;
+                lines = stripBonus(lines);
+                dto.getWarnings().add("Not enough stock for the free goods — the sale was completed without them.");
+            }
+        }
+
         if (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED) {
             String reason = (reservation != null) ? reservation.getMessage() : null;
             throw new InsufficientStockException(friendlyOutOfStock(reason, productNames));
         }
+        if (bonusWithheld) LOG.info("Bonus withheld on {} — insufficient stock for the free goods",
+                dto.getIdempotencyKey());
         String reservationId = reservation.getReservationId();
 
         // 4: write the PENDING sale (its own committed tx). On failure, release the hold and abort.
@@ -182,10 +282,14 @@ public class SagaSellService {
                 // each attempt gets a genuinely new transaction; retrying inside the poisoned one cannot work.
                 final CustomerHistoryDTO retryDto = dto;
                 final String retryReservationId = reservationId;
+                // #17 P3 made `lines` and `reservation` reassignable (the bonus-withheld retry above rewrites
+                // both), so neither can be captured directly any more. Snapshot them like the two fields above.
+                final List<SagaLine> retryLines = lines;
+                final List<StockPick> retryPicks = reservation.getPicks();
                 try {
                     ch = com.myplus.business_service.util.SequenceRetry.withRetry("invoice", () ->
-                            saleWriter.writePending(retryDto, retryReservationId, idempotencyKey, user, lines,
-                                    reservation.getPicks()));
+                            saleWriter.writePending(retryDto, retryReservationId, idempotencyKey, user, retryLines,
+                                    retryPicks));
                 } catch (RuntimeException stillColliding) {
                     safeRelease(retryReservationId);
                     throw stillColliding;
@@ -248,9 +352,15 @@ public class SagaSellService {
         // F3b: auto-post the sale to the General Ledger (Dr Cash/AR, Cr Sales+Tax; + COGS from the line cost).
         // Best-effort — a GL hiccup must never fail the sale (reconcile later). Only on a NEW sale (not edits).
         try {
-            BigDecimal cost = BigDecimal.ZERO;
-            for (SagaLine l : lines)
-                if (l.costPrice() != null) cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+            /*
+             * #17 P3 — COST FOLLOWS THE GOODS. One definition, in SaleCosting: the cost of the batches this
+             * sale actually consumed, falling back to the per-line snapshot for anything with no batch
+             * record. Previously this was costPrice x quantity inline here, and in four other places.
+             */
+            // From the PICKS, not by re-reading sell_batch: the rows were written a moment ago and are not
+            // reliably visible here, which made this silently fall back and post a cost that disagreed with
+            // the sale own record. The picks ARE that record.
+            BigDecimal cost = saleCosting.cogsFromPicks(reservation.getPicks(), lines);
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
                     .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
                     .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())

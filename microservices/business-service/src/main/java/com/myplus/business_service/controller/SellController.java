@@ -150,6 +150,9 @@ public class SellController {
 	com.myplus.common.settings.CapabilityService capabilityService;                      // C3
 
 	@Autowired
+	com.myplus.business_service.service.SaleCosting saleCosting;                         // #17 P3
+
+	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
 	@Autowired
@@ -540,7 +543,7 @@ public class SellController {
 					for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
 						batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
 								.add(new com.myplus.business_service.dto.SellBatchDTO(
-										b.getBatchNo(), b.getExpiryDate(), b.getQuantity()));
+										b.getBatchNo(), b.getExpiryDate(), b.getQuantity(), b.getUnitCost()));
 					}
 				}
 			} catch (Exception e) {
@@ -666,7 +669,7 @@ public class SellController {
 					for (com.myplus.business_service.entity.SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
 						batchesBySell.computeIfAbsent(b.getSellId(), k -> new java.util.ArrayList<>())
 								.add(new com.myplus.business_service.dto.SellBatchDTO(
-										b.getBatchNo(), b.getExpiryDate(), b.getQuantity()));
+										b.getBatchNo(), b.getExpiryDate(), b.getQuantity(), b.getUnitCost()));
 					}
 				}
 			} catch (Exception e) {
@@ -733,6 +736,7 @@ public class SellController {
 					dtotemp.setItemCode(p.getSku());
 					dtotemp.setDescription(p.getDescription());
 					dtotemp.setCategory(p.getCategory());   // B2B-P3e-1 (#6): report dimension
+					dtotemp.setManufacturer(p.getManufacturer());   // #18: report dimension (company/brand)
 				}
 				// Sale report: flatten the invoice (CustomerHistory) + Customer onto the line so the UI can show
 				// invoice #, who bought, how they paid and what's still owed without a second round-trip.
@@ -765,6 +769,7 @@ public class SellController {
 					com.myplus.business_service.dto.SaleReportFilter.builder()
 							.customerId(dto.getCustomerId()).productId(dto.getProductId())
 							.category(dto.getCategory()).customerType(dto.getCustomerType())
+							.manufacturer(dto.getManufacturer())   // #18
 							.build();
 			// Filtered into its own variable: `dtos` is captured by the mapping lambda above, so reassigning
 			// it here would make it not effectively final and fail to compile.
@@ -1291,9 +1296,15 @@ public class SellController {
 			// GL: reverse the old posting + repost the new (net = the edit's delta) so the books never drift on an
 			// edit. The unchanged paid portion cancels between the two. Best-effort — never fail the edit.
 			try {
-				java.math.BigDecimal newCost = java.math.BigDecimal.ZERO;
-				for (com.myplus.business_service.service.SagaLine l : lines)
-					if (l.costPrice() != null) newCost = newCost.add(l.costPrice().multiply(java.math.BigDecimal.valueOf(l.quantity())));
+				/*
+				 * #17 P3 — ONE cost definition. The edit reposts what the sale actually cost, from the
+				 * batches it consumed; SaleCosting falls back to the line snapshot for a sale written
+				 * before P3, so a historical edit still reposts the figure it originally posted.
+				 */
+				java.math.BigDecimal newCost = saleCosting.cogs(lines,
+						sellService.findByInvoiceScoped(ch.getCustomer_history_id(), orgId(), userId())
+								.stream().map(Sell::getSellId).filter(java.util.Objects::nonNull)
+								.collect(java.util.stream.Collectors.toList()));
 				String mode = ch.getPaymentMode();
 				if (oldGrand.signum() > 0)
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
@@ -1435,7 +1446,17 @@ public class SellController {
 			java.math.BigDecimal retSub = nzbd(existingSell.getNetAmount()).subtract(nzbd(existingSell.getTaxAmount()))
 					.multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
 			java.math.BigDecimal retTax = nzbd(existingSell.getTaxAmount()).multiply(java.math.BigDecimal.valueOf(retFrac)).setScale(2, java.math.RoundingMode.HALF_UP);
-			java.math.BigDecimal retCost = nzbd(existingSell.getCostPrice()).multiply(java.math.BigDecimal.valueOf(retQty)).setScale(2, java.math.RoundingMode.HALF_UP);
+			/*
+			 * #17 P3 — the returned goods are credited at what they COST WHEN THEY LEFT, allocated from the
+			 * batch cost recorded on the sale, not recomputed from a current rate. Returning three of eleven
+			 * units must reverse three units of the original cost; anything else moves margin on a sale that
+			 * already happened.
+			 *
+			 * Falls back to the line snapshot (the pre-P3 formula) when the sale recorded no batch costs.
+			 */
+			java.math.BigDecimal retCost = saleCosting.cogsForPortionOfSell(
+					existingSell.getSellId(), java.math.BigDecimal.valueOf(retQty),
+					java.math.BigDecimal.valueOf(soldQty), nzbd(existingSell.getCostPrice()));
 			String retInvoiceNo = ch != null ? ch.getInvoiceNo() : null;
 			// B2B-P3c (#1): allocate the CREDIT NOTE number here, before either use, so the document row and the
 			// GL line carry the SAME number. MAX+1 per org inside this transaction; the ledger line then names

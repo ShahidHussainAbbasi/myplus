@@ -337,7 +337,14 @@ public class StockService {
         for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now())) {
             BigDecimal available = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
             if (available.signum() <= 0) continue;
-            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), available, e.getPurchasePrice()));
+            // #17 P2: paidTotal rides along so a caller can reconcile the batch exactly. Falls back to
+            // unit price x quantity for batches received before the column existed — which is what those
+            // batches have always meant, and is exact for them because no bonus was involved.
+            java.math.BigDecimal paid = e.getPaidTotal();
+            if (paid == null && e.getPurchasePrice() != null && e.getQuantity() != null)
+                paid = e.getPurchasePrice().multiply(e.getQuantity());
+            out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), available,
+                    e.getPurchasePrice(), paid));
         }
         return out;
     }
@@ -352,10 +359,17 @@ public class StockService {
         long totalProducts = stockLevelRepository.countScoped(orgId, userId);
         long lowStockCount = stockLevelRepository.findLowStockScoped(orgId, userId).size();
         long outOfStockCount = stockLevelRepository.findOutOfStockScoped(orgId, userId).size();
-        BigDecimal totalValue = stockLevelRepository.findScoped(orgId, userId).stream()
-                .filter(sl -> sl.getCurrentStock() != null && sl.getCostPrice() != null)
-                .map(sl -> sl.getCostPrice().multiply(nz(sl.getCurrentStock())))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        /*
+         * Task #20 — summed in SQL, not by loading every StockLevel to multiply in Java.
+         *
+         * This used to hydrate every stock row of the tenant and discard them all to keep one BigDecimal —
+         * the same shape of work the business dashboard was brought from ~640ms down by simply not doing.
+         * The predicate is a character-for-character match of the filter it replaces (currentStock and
+         * costPrice both non-null), because a total scoped even slightly differently gives a plausible
+         * number that is quietly wrong on a screen nobody would think to check.
+         */
+        BigDecimal totalValue = stockLevelRepository.sumStockValueScoped(orgId, userId);
+        if (totalValue == null) totalValue = BigDecimal.ZERO;
         return StockSummaryDTO.builder()
                 .totalProducts(totalProducts)
                 .lowStockCount(lowStockCount)

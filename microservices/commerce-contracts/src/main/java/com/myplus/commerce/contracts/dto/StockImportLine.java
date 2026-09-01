@@ -20,4 +20,16 @@ public class StockImportLine {
     private LocalDate expiryDate;
     private BigDecimal purchasePrice;
     private BigDecimal costPrice;
+
+    /**
+     * #17 P2 — what was actually PAID for this delivery line, across ALL units received.
+     *
+     * <p>Carried in addition to the per-unit figures because a bonus delivery breaks the assumption that
+     * cost = rate x quantity: 5,000 buys 11 units under "buy 10, get 1", and any per-unit cost is then a
+     * rounding of 454.545... Storing the total lets consumption allocate it exactly, so a batch expenses
+     * precisely what was paid for it rather than 4,999.94 of it.
+     *
+     * <p>Null for every ordinary delivery, where rate x quantity IS the total and always was.
+     */
+    private BigDecimal paidTotal;
 }

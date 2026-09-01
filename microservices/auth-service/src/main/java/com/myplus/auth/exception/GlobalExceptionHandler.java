@@ -66,6 +66,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message, 400));
     }
 
+    /**
+     * E1 — bad INPUT is a 400 with the reason, not a 500 with "Internal server error".
+     *
+     * <p>Added with the entitlement admin API, whose refusals are all of this kind: an unknown capability
+     * code, an unknown status, a malformed expiry date. Without it an operator typing {@code instalments}
+     * would get a 500 and be told the server had failed, which sends them to the logs instead of to the
+     * spelling. Standard 8d — the server's own sentence is what should reach the caller.
+     *
+     * <p>Scoped to {@code IllegalArgumentException} deliberately: it is the type this codebase already uses
+     * for "the caller asked for something that is not valid" ({@code SettingsService.set} throws it for an
+     * unknown key), so this changes no existing behaviour except the status those already-explicit messages
+     * arrive with.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage(), 400));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

@@ -69,6 +69,40 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // UI/UX P2. Fails CLOSED for the same reason as pos.keyboard.enabled: a config-read
                 // hiccup must never arm function keys on a till nobody has trained for them, nor make
                 // a '*' in a barcode suddenly mean "multiply".
+                /*
+                 * #23 — stock checking at ITEM SELECTION, off by default.
+                 *
+                 * At a counter the customer has already collected the goods: they are physically on the
+                 * counter before the cashier types anything. A stock check at selection therefore prevents
+                 * nothing — the goods are leaving either way — while costing a round trip per line and, when
+                 * it fired, showing "No stock available, please purchase this item" AND RESETTING the item
+                 * picker, throwing away the cashier's entry in front of the customer.
+                 *
+                 * It also fires wrongly by design: sellable EXCLUDES expired and quarantined batches, so a
+                 * product with 16 on hand can read 0 sellable while the customer is holding one.
+                 *
+                 * Refusing does not prevent the sale. It prevents RECORDING it — which leaves the revenue
+                 * unbooked and the stock still wrong, a strictly worse outcome.
+                 *
+                 * DEFAULT FALSE, deliberately, and note this is the opposite of the fail-closed convention
+                 * used by the keyboard settings above. Those fail closed because a config hiccup must not arm
+                 * behaviour a till was not trained for. Here a config hiccup must not BLOCK a sale, so the
+                 * safe direction is inverted: the till keeps selling.
+                 *
+                 * ON is for shops that promise future delivery — B2B orders and pre-sales — where the stock
+                 * position is a commitment rather than a description of what is already on the counter.
+                 *
+                 * The SUBMIT-time FEFO reservation is unaffected either way. This governs the pre-fill guard,
+                 * not the rule that allocates stock.
+                 */
+                SettingEntry.bool("pos.stock.validateOnSelect",
+                        "Check stock when an item is selected",
+                        "Off (default): the till never blocks on stock while items are being entered — the "
+                                + "sellable count is shown for information and the cashier carries on. Suits a "
+                                + "counter, where the goods are already in the customer's hands. On: selecting "
+                                + "an item with no sellable stock is refused at entry — for a shop that sells "
+                                + "against a stock position it is promising to fulfil later.",
+                        false, "Sale entry"),
                 SettingEntry.bool("pos.sale.confirmOnComplete",
                         "Ask before completing a sale",
                         "On (default): Complete Sale asks first, and offers to PARK the sale instead — for "

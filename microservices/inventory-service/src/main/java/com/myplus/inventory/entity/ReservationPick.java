@@ -25,6 +25,10 @@ public class ReservationPick {
     private BigDecimal quantity;
     private LocalDate expiryDate;
 
+    /** #17 P3: unit cost of the batch this pick took, stamped at reserve time. */
+    @Column(name = "unit_cost", precision = 19, scale = 6)
+    private BigDecimal unitCost;
+
     /** G2 inverse saga (slice 34): how much of this pick has already been returned to stock. Caps repeated
      *  partial returns so a batch is never restored beyond what was originally picked from it. Default 0. */
     @Builder.Default

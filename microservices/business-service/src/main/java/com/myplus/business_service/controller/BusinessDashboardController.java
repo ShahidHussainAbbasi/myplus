@@ -80,6 +80,9 @@ public class BusinessDashboardController {
     @Autowired
     private com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: top-item names from catalog
 
+    @Autowired
+    private com.myplus.commerce.contracts.client.InventoryClient inventoryClient;   // #20: stock value KPI
+
     @GetMapping("/getBusinessDashboardStats")
     @ResponseBody
     public GenericResponse getBusinessDashboardStats(HttpServletRequest request) {
@@ -132,6 +135,31 @@ public class BusinessDashboardController {
             stats.put("items", itemCount);
             stats.put("monthlySales", sellCount);
             stats.put("monthlyRevenue", String.format("%.0f", monthlyRevenue));
+
+            /*
+             * Task #20 — the value of stock in hand, beside the item COUNT.
+             *
+             * ⚠ WHAT THIS NUMBER IS: stock valued at LAST PURCHASE RATE. inventory-service holds
+             * StockLevel.costPrice, which the purchase path stamps from bpurchaseRate, so the whole shelf is
+             * revalued at the newest price paid. It is NOT a weighted average and NOT the GL inventory
+             * balance, and it will drift from both whenever a buying price moves. The tile is labelled with
+             * that qualification, because an unqualified "stock value" is exactly the figure people trust
+             * without checking.
+             *
+             * Best-effort, like the catalog product count above it: a dashboard tile must never be able to
+             * fail the whole stats call. A tenant whose inventory-service is unreachable sees every other KPI
+             * and simply no value, rather than an empty dashboard.
+             */
+            try {
+                java.util.Map<String, Object> summary = inventoryClient.stockSummary();
+                Object data = (summary != null) ? summary.get("data") : null;
+                if (data instanceof java.util.Map) {
+                    Object v = ((java.util.Map<?, ?>) data).get("totalInventoryValue");
+                    if (v != null) stats.put("stockValue", String.format("%.0f", Double.parseDouble(v.toString())));
+                }
+            } catch (Exception ex) {
+                LOGGER.warn("#20: stock value unavailable; the KPI is omitted", ex);
+            }
 
             /*
              * C5 — a capability-gated widget, and the QUERY is gated too, not just the tile.

@@ -43,6 +43,19 @@ public class StockEntry {
     private LocalDate expiryDate;
     private BigDecimal purchasePrice;
 
+    /**
+     * #17 P2 — the exact amount paid for this batch, across all units it holds.
+     *
+     * <p>The batch is where allocation must happen: `purchasePrice` is per unit and therefore a rounding
+     * whenever a bonus made the received quantity differ from the billed one. COGS on a partial consumption
+     * is then `paidTotal x consumed / quantity`, which reconciles to the penny, instead of a rounded unit
+     * cost multiplied back.
+     *
+     * <p>Null on every batch received before this existed, where `purchasePrice x quantity` is the total.
+     */
+    @Column(name = "paid_total", precision = 19, scale = 2)
+    private BigDecimal paidTotal;
+
     /** P11 (slice 55): false = quarantined (e.g. a pharmacy return) — excluded from FEFO/availability so it is
      *  never re-sold/dispensed. null or true = sellable (back-compat for pre-P11 rows). */
     private Boolean restockable;

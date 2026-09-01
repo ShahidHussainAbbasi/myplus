@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/?__frame_t=CXasbIsHxXEVE5KoEYABEmar.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788167371&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1787820361-33ad/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Loose Selling Walkthrough</title>
+<style>
+  :root {
+    --ground:    #F4F6F8;
+    --surface:   #FFFFFF;
+    --surface-2: #EAEEF2;
+    --ink:       #111519;
+    --ink-2:     #4A525C;
+    --ink-3:     #79828E;
+    --rule:      #DCE1E7;
+    --rule-2:    #C4CCD4;
+    --accent:    #0F5C7A;
+    --accent-2:  #E2EEF3;
+    --pass:      #1B6B45;
+    --pass-2:    #E2F0E9;
+    --fail:      #9C2B25;
+    --fail-2:    #F8E7E5;
+    --watch:     #8A5A08;
+    --watch-2:   #FBF0DC;
+    --tape:      #14181C;
+    --tape-ink:  #E9EDF1;
+    --shadow:    0 1px 2px rgba(17,21,25,.05), 0 10px 26px -16px rgba(17,21,25,.28);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:    #0B0E12; --surface: #141920; --surface-2: #1C232B;
+      --ink:       #E9EDF1; --ink-2: #B0B9C3; --ink-3: #7F8894;
+      --rule:      #242C35; --rule-2: #323C47;
+      --accent:    #62AFC9; --accent-2: #14303C;
+      --pass:      #74C79E; --pass-2: #12291F;
+      --fail:      #E08A83; --fail-2: #2C1614;
+      --watch:     #D9A64A; --watch-2: #2C2413;
+      --tape:      #05070A; --tape-ink: #E9EDF1;
+      --shadow:    0 1px 2px rgba(0,0,0,.5), 0 10px 26px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:    #0B0E12; --surface: #141920; --surface-2: #1C232B;
+    --ink:       #E9EDF1; --ink-2: #B0B9C3; --ink-3: #7F8894;
+    --rule:      #242C35; --rule-2: #323C47;
+    --accent:    #62AFC9; --accent-2: #14303C;
+    --pass:      #74C79E; --pass-2: #12291F;
+    --fail:      #E08A83; --fail-2: #2C1614;
+    --watch:     #D9A64A; --watch-2: #2C2413;
+    --tape:      #05070A; --tape-ink: #E9EDF1;
+    --shadow:    0 1px 2px rgba(0,0,0,.5), 0 10px 26px -16px rgba(0,0,0,.8);
+  }
+
+  body { background: var(--ground); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 40px 24px 100px; }
+  @media (max-width: 700px) { .wrap { padding: 26px 15px 60px; } }
+
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .17em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 12px; }
+  h1 { font-size: clamp(28px, 4.6vw, 42px); line-height: 1.1; letter-spacing: -.025em; font-weight: 700; text-wrap: balance; margin-bottom: 14px; }
+  h2 { font-size: clamp(19px, 2.6vw, 23px); letter-spacing: -.016em; font-weight: 670; margin-bottom: 6px; text-wrap: balance; }
+  h3 { font-size: 15.5px; font-weight: 650; margin-bottom: 4px; }
+  p { color: var(--ink-2); max-width: 70ch; }
+  .lede { font-size: 17.5px; color: var(--ink-2); max-width: 66ch; }
+  strong { color: var(--ink); font-weight: 640; }
+  section { margin-top: 46px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  code { font-size: .87em; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; color: var(--ink); }
+  kbd { font-family: var(--mono); font-size: .82em; font-weight: 600; background: var(--surface); color: var(--ink); border: 1px solid var(--rule-2); border-bottom-width: 2px; border-radius: 5px; padding: 2px 7px; white-space: nowrap; }
+
+  /* ── contents ─────────────────────────────────────────── */
+  .toc { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .toc ol { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 20px; }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--ink-2); text-decoration: none; display: flex; gap: 9px; align-items: baseline; padding: 3px 0; }
+  .toc a:hover, .toc a:focus-visible { color: var(--accent); }
+  .toc .pt { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: .08em; }
+
+  /* ── a step ───────────────────────────────────────────── */
+  .step { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; box-shadow: var(--shadow); margin-top: 14px; }
+  .step-head { display: flex; gap: 13px; align-items: baseline; margin-bottom: 12px; }
+  .badge { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent-2); background: var(--accent); border-radius: 6px; padding: 3px 9px; flex: none; }
+  .step.regression .badge { background: var(--ink-3); color: var(--surface); }
+  .step.regression { border-left: 3px solid var(--ink-3); }
+  .step.key { border-left: 3px solid var(--accent); }
+
+  .do-expect { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .do-expect { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; background: var(--surface); }
+  .panel h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; font-weight: 600; }
+  .panel.expect { background: var(--pass-2); border-color: color-mix(in srgb, var(--pass) 26%, transparent); }
+  .panel.expect h4 { color: var(--pass); }
+  .panel ul { list-style: none; font-size: 14.5px; color: var(--ink-2); }
+  .panel li { padding-left: 16px; position: relative; margin-top: 5px; }
+  .panel li:first-child { margin-top: 0; }
+  .panel li::before { content: "·"; position: absolute; left: 4px; color: var(--ink-3); font-weight: 700; }
+  .panel .v { font-family: var(--mono); font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .warn { margin-top: 12px; border-left: 3px solid var(--watch); background: var(--watch-2); border-radius: 0 7px 7px 0; padding: 10px 13px; font-size: 14px; color: var(--ink-2); }
+  .warn b { color: var(--watch); }
+
+  /* ── receipt tape ─────────────────────────────────────── */
+  .tape { background: var(--tape); color: var(--tape-ink); font-family: var(--mono); font-size: 13px; border-radius: 8px; padding: 15px 17px; line-height: 1.75; overflow-x: auto; white-space: pre; }
+  .tape .hi { color: #E8A268; font-weight: 700; }
+
+  /* ── table ────────────────────────────────────────────── */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 560px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.v, th.v { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  th[scope="row"] { font-weight: 600; color: var(--ink); }
+
+  .gap { border-left: 3px solid var(--fail); background: var(--fail-2); border-radius: 0 9px 9px 0; padding: 16px 18px; }
+  .gap h3 { color: var(--fail); }
+  .setup { border-left: 3px solid var(--accent); background: var(--accent-2); border-radius: 0 9px 9px 0; padding: 16px 18px; }
+  .setup h3 { color: var(--accent); }
+
+  @media print {
+    body { background: #fff; }
+    .step, .toc, .tbl-scroll { box-shadow: none; break-inside: avoid; }
+    .tape { background: #fff; color: #000; border: 1px solid #999; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Manual test script · U0 – U4 · pack &amp; loose selling</p>
+  <h1>Loose Selling Walkthrough</h1>
+  <p class="lede">
+    Twenty-two checks, in the order a shopkeeper would actually do them: record a pack, buy stock, sell five
+    tablets, read the receipt. Every expected value below is exact — if a number differs, that is a defect,
+    not a rounding difference.
+  </p>
+
+  <section>
+    <div class="setup">
+      <h3>Before you start</h3>
+      <p style="margin-top:6px">
+        Log in as the business owner. You need the <strong>Products</strong>, <strong>Purchase</strong>,
+        <strong>Sale</strong>, <strong>Reports</strong> and <strong>Configuration</strong> screens. Nothing
+        needs to be reset first — every step creates its own data, so the script is safe to re-run.
+      </p>
+      <p style="margin-top:9px">
+        Menu labels vary a little by vertical (Business / Pharmacy / Store). Where this script names a screen,
+        use whichever menu item opens it in your build.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="toc">
+      <ol>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#a"><span class="pt">A</span> Record the pack rules</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#b"><span class="pt">B</span> Put stock in</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#c"><span class="pt">C</span> Sell five tablets</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#d"><span class="pt">D</span> The receipt and the report</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#e"><span class="pt">E</span> Rounding — the pack of 3</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#f"><span class="pt">F</span> The broken-pack markup</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#g"><span class="pt">G</span> What must be refused</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#h"><span class="pt">H</span> The scanner</a></li>
+        <li><a href="https://2a60f72a-03f0-4f54-a2c5-4bfebe8b0926.frame.claudeusercontent.com/_f/1787820361-33ad/#i"><span class="pt">I</span> Nothing else changed</a></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ══ A ══════════════════════════════════════════════════ -->
+  <section id="a">
+    <h2>A · Record the pack rules</h2>
+    <p>A product has to know that its pack holds ten tablets before anything can be sold by the tablet.</p>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">1</span><h3>Create a product that can be split</h3></div>
+      <div class="do-expect">
+        <div class="panel">
+          <h4>Do</h4>
+          <ul>
+            <li>Products → <strong>New Product</strong></li>
+            <li>Name <span class="v">Panadol 500mg</span></li>
+            <li>Price <span class="v">120</span></li>
+            <li>Unit <span class="v">pack</span></li>
+            <li>Pack size <span class="v">10</span></li>
+            <li>Then: piece name <span class="v">tablet</span>, plural <span class="v">tablets</span></li>
+            <li>Tick <strong>may be sold loose</strong></li>
+            <li>Submit</li>
+          </ul>
+        </div>
+        <div class="panel expect">
+          <h4>Expect</h4>
+          <ul>
+            <li>The loose fields <strong>appear only after</strong> you type a pack size above 1</li>
+            <li>Saves without complaint</li>
+            <li>Reopening the product shows <span class="v">10 / tablet / tablets</span>, ticked, with the loose row already open</li>
+          </ul>
+        </div>
+      </div>
+      <div class="warn"><b>Why this one matters:</b> if the form failed to read the values back, every later
+        edit would post blanks and the screen would quietly drift from what the product actually holds.</div>
+    </div>
+
+    <div class="step regression">
+      <div class="step-head"><span class="badge">2</span><h3>Clearing the pack size withdraws permission</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Edit the product, clear <strong>Pack size</strong></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The loose fields disappear</li>
+          <li><strong>may be sold loose</strong> unticks itself</li>
+        </ul></div>
+      </div>
+      <p style="margin-top:10px;font-size:14px">Put the pack size back to <span class="mono">10</span> and re-tick before moving on.</p>
+    </div>
+  </section>
+
+  <!-- ══ B ══════════════════════════════════════════════════ -->
+  <section id="b">
+    <h2>B · Put stock in</h2>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">3</span><h3>Buy 10 packs</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Purchase → product <span class="v">Panadol 500mg</span></li>
+          <li>Qty <span class="v">10</span></li>
+          <li>Purchase rate <span class="v">100</span></li>
+          <li>Sell rate <span class="v">120</span></li>
+          <li>Batch number: anything</li>
+          <li>Save</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>On-hand becomes <span class="v">10</span> packs</li>
+        </ul></div>
+      </div>
+      <div class="warn"><b>Keep the sell rate at 120.</b> A purchase <strong>restamps the product's selling
+        price</strong> from this box. Typing anything else here silently reprices the product, and every
+        expected figure below changes with it.</div>
+    </div>
+  </section>
+
+  <!-- ══ C ══════════════════════════════════════════════════ -->
+  <section id="c">
+    <h2>C · Sell five tablets</h2>
+    <p>This is the whole feature. A customer asks for five tablets; the cashier does no arithmetic.</p>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">4</span><h3>Pick the product</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Sale screen → choose <span class="v">Panadol 500mg</span></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>A toggle appears beside the quantity box reading <span class="v">pack │ tablets</span></li>
+          <li>It says <strong>tablets</strong>, not "loose" or "piece" — the shop's own word</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">5</span><h3>Type 5, switch to tablets</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Quantity <span class="v">5</span></li>
+          <li>Then <em>any one of</em>: press <kbd>F7</kbd>, press <kbd>Alt</kbd>+<kbd>L</kbd>, or tap <strong>tablets</strong></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The hint line reads exactly:</li>
+        </ul>
+        <div class="tape" style="margin-top:9px">5 tablets · <span class="hi">12.00</span> each · 0.5 of a pack · <span class="hi">60.00</span></div>
+        <ul style="margin-top:9px">
+          <li>The quantity box still shows <span class="v">5</span> — <strong>no letter appears in it</strong></li>
+        </ul>
+        </div>
+      </div>
+      <div class="warn"><b>Check the box carefully.</b> It is read as a number in seven places. If a letter
+        ever lands there it becomes <span class="mono">NaN</span>, and the line silently turns into
+        <strong>one pack</strong> — the customer charged 120.00 for five tablets, with no error shown.</div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">6</span><h3>Add it to the cart</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Click <strong>Add to Cart</strong></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The cart row says <span class="v">5 tablets</span> — not <span class="mono">0.5</span>, not <span class="mono">5</span> alone</li>
+          <li>The line amount is <span class="v">60.00</span></li>
+          <li>The running total is <span class="v">60.00</span> — <strong>not 600.00</strong></li>
+        </ul></div>
+      </div>
+      <div class="warn"><b>600.00 here was a real bug</b>, found and fixed during U4. If you ever see it
+        return, the till is multiplying pieces by the pack price.</div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">7</span><h3>Complete the sale, then check the shelf</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Take cash <span class="v">60</span> and complete</li>
+          <li>Reopen the product's stock</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Invoice total <span class="v">60.00</span></li>
+          <li>On-hand is now <span class="v">9.5</span> packs — half a pack gone, <strong>not five</strong></li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ D ══════════════════════════════════════════════════ -->
+  <section id="d">
+    <h2>D · The receipt and the report</h2>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">8</span><h3>Print or preview the receipt</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Open the sale and print / preview it</li>
+          <li>Try the A4 invoice too, if your shop uses one</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The line reads <span class="v">5 tablets</span> at <span class="v">12.00</span></li>
+          <li>Line total <span class="v">60.00</span></li>
+        </ul></div>
+      </div>
+      <div class="tape" style="margin-top:12px">Panadol 500mg      <span class="hi">5 tablets</span>   <span class="hi">12.00</span>    60.00</div>
+      <div class="warn"><b>The multiplication must work on paper.</b> 5 × 12.00 = 60.00. A receipt showing
+        "5 tablets" beside a rate of 120.00 would not reconcile, and a tax inspector checks exactly that.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">9</span><h3>Sale detail report</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Reports → Sale Detail → find the invoice</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Quantity shows <span class="v">5 tablets</span></li>
+          <li>Amount <span class="v">60.00</span></li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ E ══════════════════════════════════════════════════ -->
+  <section id="e">
+    <h2>E · Rounding — the pack of 3</h2>
+    <p>
+      A pack of three at 100.00 does not divide. This is where a shop quietly loses money, so the rounding
+      goes in the shop's favour and is visible on the receipt.
+    </p>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">10</span><h3>Set up an awkward pack</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>New product <span class="v">Brufen 400mg</span>, price <span class="v">100</span>, pack size <span class="v">3</span></li>
+          <li>Piece <span class="v">tablet</span> / <span class="v">tablets</span>, may be sold loose</li>
+          <li>Purchase 10 at rate <span class="v">80</span>, sell rate <span class="v">100</span></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul><li>Saves; on-hand 10 packs</li></ul></div>
+      </div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">11</span><h3>Sell one tablet</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Quantity <span class="v">1</span>, switch to tablets</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Per tablet <span class="v">33.34</span> — <strong>rounded up</strong>, not 33.33</li>
+          <li>Line total <span class="v">33.34</span></li>
+        </ul></div>
+      </div>
+      <div class="warn"><b>Why up:</b> 100 ÷ 3 = 33.33, and three sold singly would return 99.99 for goods
+        priced 100.00 — a loss on <em>every</em> broken pack, invisible, on the fastest-moving lines.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">12</span><h3>Three tablets on ONE line is a whole pack</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Quantity <span class="v">3</span>, tablets</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Line total <span class="v">100.00</span> exactly — the pack price</li>
+          <li><strong>Not</strong> 100.02</li>
+        </ul></div>
+      </div>
+      <div class="warn">Three <em>separate</em> single sales come to 100.02, and that is correct — each broke
+        a pack. Three on one line did not.</div>
+    </div>
+  </section>
+
+  <!-- ══ F ══════════════════════════════════════════════════ -->
+  <section id="f">
+    <h2>F · The broken-pack markup</h2>
+    <p>Most trades charge more per piece, because breaking a pack destroys the ability to sell it sealed.</p>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">13</span><h3>Turn it on</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Configuration → <strong>Point of Sale</strong></li>
+          <li><em>Extra % when a pack is broken</em> → <span class="v">10</span></li>
+          <li>Save</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul><li>Saves; default was <span class="v">0</span></li></ul></div>
+      </div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">14</span><h3>Five tablets now cost more</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Panadol, quantity <span class="v">5</span>, tablets</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Per tablet <span class="v">13.20</span>, not 12.00</li>
+          <li>Line total <span class="v">66.00</span></li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="step key">
+      <div class="step-head"><span class="badge">15</span><h3>But ten tablets is a pack, and a pack is 120</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Panadol, quantity <span class="v">10</span>, tablets</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Line total <span class="v">120.00</span> — the markup is <strong>not</strong> applied</li>
+          <li><strong>Not</strong> 132.00</li>
+        </ul></div>
+      </div>
+      <div class="warn"><b>The case a customer would notice:</b> ten loose tablets must never cost more than
+        the sealed pack sitting beside them on the shelf. Try <span class="mono">25</span> too — expect
+        <span class="mono">306.00</span>: two packs at 120 plus five tablets at 13.20.</div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">16</span><h3>Put it back</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Set the markup back to <span class="v">0</span></li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul><li>Tablets return to <span class="v">12.00</span></li></ul></div>
+      </div>
+      <div class="warn"><b>This setting is shop-wide.</b> Leaving it at 10 changes every loose price for
+        everyone, so do not skip this step.</div>
+    </div>
+  </section>
+
+  <!-- ══ G ══════════════════════════════════════════════════ -->
+  <section id="g">
+    <h2>G · What must be refused</h2>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">17</span><h3>A product that may not be split</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Create a plain product — no pack size (e.g. <span class="v">Shampoo 200ml</span> at 450)</li>
+          <li>Pick it on the sale screen, press <kbd>F7</kbd></li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li><strong>No toggle at all</strong> — absent, not greyed out</li>
+          <li><kbd>F7</kbd> does nothing</li>
+          <li>The screen is exactly as it was before this feature existed</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">18</span><h3>Half a tablet</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul><li>Panadol, quantity <span class="v">2.5</span>, tablets, Add to Cart</li></ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Refused, with a reason</li>
+          <li>Nothing is added to the cart</li>
+        </ul></div>
+      </div>
+      <div class="warn">Rounding it silently would be worse than refusing: either the customer pays for a
+        piece they did not get, or the shop gives one away — and neither is visible afterwards.</div>
+    </div>
+  </section>
+
+  <!-- ══ H ══════════════════════════════════════════════════ -->
+  <section id="h">
+    <h2>H · The scanner</h2>
+    <p>Only if your shop uses the scan box. Type into it by hand if you have no scanner.</p>
+
+    <div class="step">
+      <div class="step-head"><span class="badge">19</span><h3>One suffix, nothing else changed</h3></div>
+      <div class="tbl-scroll" style="margin-top:4px">
+        <table>
+          <thead><tr><th scope="col">Type into the scan box</th><th scope="col">Expect</th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="v">CODE</th><td>1 pack — exactly as today</td></tr>
+            <tr><th scope="row" class="v">12*CODE</th><td>12 packs — exactly as today</td></tr>
+            <tr><th scope="row" class="v">5L*CODE</th><td><strong>5 tablets</strong></td></tr>
+            <tr><th scope="row" class="v">5l*CODE</th><td>5 tablets — lower case works too</td></tr>
+            <tr><th scope="row" class="v">L*CODE</th><td>refused — a marker with no count</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warn"><b>A scanned manufacturer barcode always means the pack.</b> The barcode is printed on
+        the pack by whoever made it, so it can never mean "one tablet". The <span class="mono">5L*</span>
+        marker has to be typed deliberately.</div>
+    </div>
+  </section>
+
+  <!-- ══ I ══════════════════════════════════════════════════ -->
+  <section id="i">
+    <h2>I · Nothing else changed</h2>
+    <p>
+      These are the checks that protect every shop that never breaks a pack. <strong>They are the most
+      important part of this script</strong> — a new feature that quietly alters ordinary selling is a far
+      worse outcome than one that does not work.
+    </p>
+
+    <div class="step regression">
+      <div class="step-head"><span class="badge">20</span><h3>An ordinary sale, start to finish</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Sell 2 packs of Panadol the way you always have</li>
+          <li>Complete it and print</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>Cart shows <span class="v">2</span></li>
+          <li>Total <span class="v">240.00</span></li>
+          <li>Receipt identical to one printed before this feature — no unit word anywhere</li>
+          <li>On-hand falls by exactly <span class="v">2</span></li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="step regression">
+      <div class="step-head"><span class="badge">21</span><h3>Editing a loose sale</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Open the five-tablet invoice from step 7 for editing</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The quantity box shows <span class="v">5</span> — <strong>not 0.5</strong></li>
+          <li>The toggle is on <strong>tablets</strong></li>
+        </ul></div>
+      </div>
+      <div class="warn"><b>0.5 here would be dangerous:</b> the cashier reads that box as tablets and the
+        system reads it as packs, so saving would re-submit half a pack of packs.</div>
+    </div>
+
+    <div class="step regression">
+      <div class="step-head"><span class="badge">22</span><h3>The keyboard chain still runs</h3></div>
+      <div class="do-expect">
+        <div class="panel"><h4>Do</h4><ul>
+          <li>Ring a line entirely on the keyboard: item → <kbd>Enter</kbd> → qty → <kbd>Enter</kbd> → rate → <kbd>Enter</kbd></li>
+          <li>Press <kbd>F7</kbd> somewhere in the middle</li>
+        </ul></div>
+        <div class="panel expect"><h4>Expect</h4><ul>
+          <li>The chain moves exactly as it always did</li>
+          <li><kbd>F2</kbd>, <kbd>F3</kbd>, <kbd>F8</kbd>, <kbd>F9</kbd> still do what they did</li>
+        </ul></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ gaps ══════════════════════════════════════════════ -->
+  <section>
+    <h2>Known gaps — not defects</h2>
+    <div class="gap">
+      <h3>Do not report these; they are the next slices</h3>
+      <div class="tbl-scroll" style="margin-top:12px; background:transparent; border:0; box-shadow:none">
+        <table style="background:var(--surface); border:1px solid var(--rule); border-radius:8px">
+          <thead><tr><th scope="col">Missing</th><th scope="col">What happens today</th><th scope="col">Slice</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Buying in boxes</th><td>A box of 10 packs must be entered as 10 packs at the per-pack cost. Entering it as 1 box records a tenfold cost error.</td><td class="v">U5</td></tr>
+            <tr><th scope="row">Returning loose pieces</th><td>A customer bringing back 3 tablets has no path — returns are in packs.</td><td class="v">U6</td></tr>
+            <tr><th scope="row">Counting in pieces</th><td>A stock count shows 9.5 packs, not "9 packs + 5 tablets".</td><td class="v">U6</td></tr>
+            <tr><th scope="row">Shop-printed stickers</th><td>A sticker meaning "one tablet" cannot be scanned; use <span class="mono">5L*</span>.</td><td class="v">U7</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>If something fails</h2>
+    <p>
+      The most useful thing you can send is <strong>the exact number you saw beside the number this script
+      expected</strong>, and which step it was. A wrong figure on a receipt and a wrong figure in the cart
+      have completely different causes, so saying which screen showed it narrows the search immediately.
+    </p>
+  </section>
+</div>
+
+</body></html>

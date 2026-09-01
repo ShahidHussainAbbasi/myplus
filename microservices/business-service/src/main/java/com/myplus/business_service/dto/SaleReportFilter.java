@@ -30,10 +30,12 @@ public class SaleReportFilter {
     private String category;
     /** WALK_IN | RETAIL | WHOLESALE | RETAILER — the B2B/B2C channel from Phase 0. */
     private String customerType;
+    /** #18: the manufacturer/company behind the product, from ProductRef. */
+    private String manufacturer;
 
     public boolean isEmpty() {
         return customerId == null && productId == null
-                && isBlank(category) && isBlank(customerType);
+                && isBlank(category) && isBlank(customerType) && isBlank(manufacturer);
     }
 
     /**
@@ -45,7 +47,7 @@ public class SaleReportFilter {
      */
     public Predicate<SellDTO> asPredicate() {
         return row -> matchesCustomer(row) && matchesProduct(row)
-                && matchesCategory(row) && matchesCustomerType(row);
+                && matchesCategory(row) && matchesCustomerType(row) && matchesManufacturer(row);
     }
 
     private boolean matchesCustomer(SellDTO row) {
@@ -62,6 +64,10 @@ public class SaleReportFilter {
 
     private boolean matchesCustomerType(SellDTO row) {
         return isBlank(customerType) || customerType.equalsIgnoreCase(row.getCustomerType());
+    }
+
+    private boolean matchesManufacturer(SellDTO row) {
+        return isBlank(manufacturer) || manufacturer.equalsIgnoreCase(row.getManufacturer());
     }
 
     private static boolean isBlank(String s) {

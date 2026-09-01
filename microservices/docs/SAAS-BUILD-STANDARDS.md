@@ -464,3 +464,69 @@ business.
 **Keep this document, `GATE-RUNBOOK.md` and the relevant design doc updated as part of the slice** — not
 afterwards. A standard that lags the code is a standard nobody can trust, and the next person reads the doc
 before they read the diff.
+
+---
+
+## i18n: a label read by JavaScript must live under `ui.js.*`
+
+`LocaleInterceptor` ships **only the `ui.js.` prefix** into `window.__MSG` — server-only copy (validation
+text, emails) deliberately never crosses to the browser. And `t()` in `i18n.js` **returns the key itself**
+when it is missing: no exception, no console warning.
+
+The two facts together make a silent failure. `t('ui.completeSale')` printed the literal string
+`ui.completeSale` onto the checkout confirm dialog in every language — while the key existed, was correctly
+translated in all six locales, and rendered perfectly through `th:text` elsewhere on the same page.
+
+| Context | Correct namespace |
+|---|---|
+| `th:text="#{...}"` in a template | any (`ui.*`, `message.*`, …) |
+| `t('...')` in JavaScript | **`ui.js.*` only** |
+
+**Detector** — must return nothing:
+
+```bash
+grep -rhoE "t\('ui\.[a-zA-Z0-9_]+'\)" src/main/resources/static/js/ | grep -v "t('ui.js."
+```
+
+**Gate:** `cypress/e2e/ui/i18n-js-prefix.cy.js`.
+
+---
+
+## A slice is not done until something CALLS it
+
+Seven capabilities have shipped in this codebase working, tested at the API level, and **unreachable** —
+no screen, menu entry or caller anywhere:
+
+| Capability | How it surfaced |
+|---|---|
+| C1 `CapabilityService` | `@Service` on an `@Import`-wired module registered nothing |
+| C3 `CapabilityCatalog` | unregistered; the read path failed OPEN so nothing complained |
+| C6 per-product policy | shipped with no control on any screen |
+| PERF-4 | spec written with the slice and never executed |
+| `getSaleReturns` | endpoint + proxy since SF-11, no UI ever called it |
+| `downloadInvoicePdf` / `downloadChallan` | in `document-pdf.js`, zero callers |
+| `stock/summary` `totalInventoryValue` | computed (in Java, over every row) and displayed nowhere |
+
+**This is the default failure mode here, not an anomaly.** API tests pass in every one of these cases,
+because the endpoint genuinely works — what is missing is the path a person takes to it.
+
+**Rule:** every slice ships a caller, and its gate asserts the *screen-level* route, not only the endpoint.
+`cy.request` reaches an endpoint whether or not a UI exists.
+
+
+---
+
+## The gate is written BEFORE the implementation
+
+**Analyze docs + standards → share the analysis for review → Document → Design → write the Cypress cases →
+Implement → Test → Commit.**
+
+A gate written *after* the code lets the implementation decide what is asserted: the spec describes what was
+built rather than what was required, and it passes because it was shaped to fit. Written first, the cases are
+the requirement, and the implementation is what turns them green.
+
+It also forces the expensive questions early — which tenant owns the feature, which rung of the privilege
+ladder, what the refusal ENVELOPE looks like, what regression each case guards — while they are still cheap
+to answer.
+
+The standards analysis is shared for review **before** documenting or designing, not alongside it.

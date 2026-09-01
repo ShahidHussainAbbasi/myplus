@@ -9,7 +9,7 @@
  * CONTRACT
  *   mountReportFilters({
  *     container : element or id to render into
- *     dimensions: subset of ['groupBy','customer','product','category','channel']  (default: the four filters)
+ *     dimensions: subset of ['groupBy','customer','product','category','company','channel']  (default: the four filters)
  *     onApply   : function(values) — called when the user applies; run your existing load with `values`
  *     exportUrl : function(values) -> string — the CSV href; omit to hide the Export button
  *   })
@@ -99,7 +99,8 @@
 		if (dims.indexOf('groupBy') !== -1) {
 			groupBy = select('rfGroupBy', t('ui.js.noGrouping'));
 			[['DAY','ui.js.groupDay'],['MONTH','ui.js.groupMonth'],['CUSTOMER','ui.js.groupCustomer'],
-			 ['PRODUCT','ui.js.groupProduct'],['CATEGORY','ui.js.groupCategory'],['CHANNEL','ui.js.groupChannel']]
+			 ['PRODUCT','ui.js.groupProduct'],['CATEGORY','ui.js.groupCategory'],
+			 ['COMPANY','ui.js.groupCompany'],['CHANNEL','ui.js.groupChannel']]
 				.forEach(function(pair){
 					var o = document.createElement('option');
 					o.value = pair[0];
@@ -113,6 +114,9 @@
 		var customer = add('customer', 'rfCustomer', t('ui.js.allCustomers'));
 		var product  = add('product',  'rfProduct',  t('ui.js.allProducts'));
 		var category = add('category', 'rfCategory', t('ui.js.allCategories'));
+		// #18: the manufacturer/COMPANY behind the product. Sourced from the returned rows like category,
+		// not from a master list — so the filter can only offer companies the report actually contains.
+		var company  = add('company',  'rfCompany',  t('ui.js.allCompanies'));
 		var channel  = add('channel',  'rfChannel',  t('ui.js.allChannels'));
 
 		// PERF: id + name is all a filter needs — the lean projection, not the full customer record.
@@ -136,6 +140,7 @@
 				customerId  : customer && customer.value ? customer.value : '',
 				productId   : product  && product.value  ? product.value  : '',
 				category    : category && category.value ? category.value : '',
+				manufacturer: company  && company.value  ? company.value  : '',
 				customerType: channel  && channel.value  ? channel.value  : '',
 				groupBy     : groupBy  && groupBy.value  ? groupBy.value  : ''
 			};
@@ -169,7 +174,9 @@
 			values: values,
 			refreshExport: refreshExport,
 			/** Populate the category list from the rows a report just loaded. */
-			categoriesFrom: function (rows) { fillFromRows(category, rows, 'category'); }
+			categoriesFrom: function (rows) { fillFromRows(category, rows, 'category'); },
+			// #18: same mechanism, same reason — only companies present in the data are offered.
+			companiesFrom : function (rows) { fillFromRows(company,  rows, 'manufacturer'); }
 		};
 	}
 

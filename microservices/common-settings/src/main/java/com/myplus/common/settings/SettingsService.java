@@ -51,6 +51,24 @@ public class SettingsService {
     private final Cache<Long, Map<String, String>> overridesByOrg;
 
     /**
+     * E1 — the write rules, in declaration order. Empty in every service that registers none.
+     *
+     * <p><b>Why {@code ObjectProvider} and not {@code List}.</b> Constructor injection of a {@code List<T>}
+     * with no {@code T} beans is an UNSATISFIED dependency in Spring, not an empty list — so a plain
+     * {@code List<SettingWriteGuard>} would stop business, education, welfare and agriculture from booting the
+     * moment this parameter appeared, none of which owns an entitlement store. {@code ObjectProvider} is the
+     * idiomatic "zero or more beans" injection and is <b>not</b> the {@code required = false} anti-pattern the
+     * {@code JpaSettingsStore} javadoc warns about: that one hides a MISSING collaborator behind a silently
+     * inert guard, whereas this one is a stream over however many rules a service chose to publish.
+     *
+     * <p>And the guard chain is not the only enforcement. If auth's entitlement guard were ever unwired, the
+     * READ ceiling in {@link CapabilityService} still resolves the capability off, so the write would be
+     * accepted and then have no effect — visible and wrong rather than invisible and wrong. The gate asserts
+     * the refusal message, which is what fails loudly if this is missing.
+     */
+    private final org.springframework.beans.factory.ObjectProvider<SettingWriteGuard> guards;
+
+    /**
      * Backstop only; correctness comes from {@link #set(String, String)} invalidating on write.
      *
      * <p>It exists for one reason: if a service ever runs more than one replica, an eviction on instance
@@ -61,8 +79,10 @@ public class SettingsService {
      */
     public SettingsService(SettingsStore store,
                            List<SettingsCatalogProvider> providers,
+                           org.springframework.beans.factory.ObjectProvider<SettingWriteGuard> guards,
                            @Value("${app.settings.cache-ttl-seconds:60}") long cacheTtlSeconds) {
         this.store = store;
+        this.guards = guards;
         // Injected through the CONSTRUCTOR, not a @Value field. Field injection happens AFTER the
         // constructor runs, so a field here would still be 0 while the cache was being built — the knob
         // would appear in the config, be documented, and do nothing. A setting that cannot change
@@ -284,9 +304,54 @@ public class SettingsService {
             // tell "warn because that is the default" from "warn because someone set it", and any test of
             // the default has to depend on no other actor having changed it.
             m.put("defaultValue", e.defaultValue());
+            /*
+             * E1 — would ENABLING this be refused? Rendered as a locked row rather than a control that fails
+             * when the owner uses it.
+             *
+             * DERIVED BY ASKING THE GUARD CHAIN, never by a second rule that mirrors it. The lock the owner
+             * sees and the refusal the server issues are then the same code, so they cannot drift — the
+             * failure this codebase has already met as a hidden menu whose endpoint still answered.
+             *
+             * "true" is the probe because every guard here bounds the ENABLING direction: withdrawing a
+             * capability must never freeze the switch that turns it off, or a tenant is left with a policy it
+             * can neither use nor clear. A non-BOOL setting is probed the same way and simply is not refused.
+             */
+            String lockedReason = refusalFor(org, e.key(), "true");
+            m.put("locked", lockedReason != null);
+            m.put("lockedReason", lockedReason);
             out.add(m);
         }
         return out;
+    }
+
+    /**
+     * Run every registered {@link SettingWriteGuard}. Throws the first refusal, unchanged.
+     *
+     * <p>The exception is relayed rather than wrapped so the guard's own owner-facing sentence reaches the
+     * screen verbatim — standard 8d, the server's sentence wins.
+     */
+    private void runGuards(Long org, String key, String value) {
+        guards.orderedStream().forEach(g -> g.check(org, key, value));
+    }
+
+    /**
+     * The reason this write would be refused, or null when it would be allowed.
+     *
+     * <p>Deliberately a "would this be allowed" question answered by RUNNING the rules, not by a parallel
+     * predicate each guard would also have to implement and keep in step. Guards are pure checks over cached
+     * state, so asking is cheap; the alternative is a second source of truth for every rule ever added.
+     */
+    private String refusalFor(Long org, String key, String value) {
+        try {
+            runGuards(org, key, value);
+            return null;
+        } catch (IllegalArgumentException refused) {
+            return refused.getMessage();
+        } catch (RuntimeException unavailable) {
+            // A guard that could not answer must not cost the owner the whole Configuration screen. The WRITE
+            // path still refuses if it genuinely cannot tell — this one only decides how a row is painted.
+            return null;
+        }
     }
 
     /** Upsert an override for the caller's org. Rejects keys not in the catalog (no free-form settings). */
@@ -294,6 +359,10 @@ public class SettingsService {
         if (!catalog.containsKey(key))
             throw new IllegalArgumentException("Unknown setting: " + key);
         Long org = CurrentUser.organizationId();
+        // E1 — every registered rule runs BEFORE the upsert, so a refusal cannot leave a half-applied state.
+        // Inside the caller's transaction on purpose: the throw rolls back anything the caller had already
+        // written in the same unit of work, rather than committing half a configuration change.
+        runGuards(org, key, value);
         try {
             store.upsert(org, CurrentUser.userId(), key, value);
         } finally {

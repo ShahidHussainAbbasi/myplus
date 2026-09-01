@@ -20,8 +20,9 @@
 
 
 function openDebitRegister() {
-  cy.visit('/businessDashboard')
-  cy.get('#sellType', { timeout: 30000 }).should('exist')
+  // Settled first: the KPI tiles and charts land above the register and would push the reprint buttons
+  // out from under a click. See cy.visitDashboardSettled().
+  cy.visitDashboardSettled()
   cy.window().then((w) => w.showReturns('debit'))
   cy.get('#ReturnsDiv').should('be.visible')
 }
@@ -40,8 +41,12 @@ describe('Debit notes — supplier filter and bulk print', () => {
     // The picker fills in the background; wait for a real supplier rather than reading it once.
     cy.get('#returnsVenderDD option', { timeout: 30000 }).should('have.length.greaterThan', 1)
 
-    cy.get('#returnsVenderDD option').eq(1).then(($o) => {
-      const id = $o.val()
+    // The first option with a VALUE — not "index 1". The list begins with the "All suppliers" placeholder,
+    // and reading a fixed index silently depends on how many valueless rows happen to precede the data.
+    cy.get('#returnsVenderDD option').then(($opts) => {
+      const $real = $opts.filter((i, o) => !!Cypress.$(o).val())
+      expect($real.length, 'the tenant has at least one supplier').to.be.greaterThan(0)
+      const id = Cypress.$($real[0]).val()
       expect(id, 'a real supplier id').to.match(/^\d+$/)
       cy.get('#returnsVenderDD').select(id)
 
@@ -76,7 +81,16 @@ describe('Debit notes — supplier filter and bulk print', () => {
     openDebitRegister()
     cy.get('#tableReturns tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 0)
 
-    cy.get('#tableReturns tbody .rtn-print').then(($btns) => {
+    /*
+     * Cypress.$ — a SYNCHRONOUS jQuery query, not cy.get().
+     *
+     * cy.get() FAILS when nothing matches; it never yields an empty set. A first version wrote the
+     * no-printable-rows branch behind cy.get(...).then(($btns) => if (!$btns.length)), where that branch was
+     * unreachable dead code and the test threw instead of taking it. Reading the DOM directly is what makes
+     * "there might legitimately be none" expressible.
+     */
+    cy.document().then((doc) => {
+      const $btns = Cypress.$(doc).find('#tableReturns tbody .rtn-print')
       if (!$btns.length) {
         // Nothing printable (every row predates the note series) — the button must refuse, not half-print.
         cy.get('#returnsPrintAll').click()

@@ -39,8 +39,8 @@ class CapabilityServiceTest {
     }
 
     private static CapabilityService svc(FakeStore store) {
-        SettingsService settings = new SettingsService(store, List.of(new CapabilityCatalog()), 60L);
-        return new CapabilityService(settings);
+        SettingsService settings = new SettingsService(store, List.of(new CapabilityCatalog()), Guards.none(), 60L);
+        return new CapabilityService(settings, EntitlementSource.PERMISSIVE);
     }
 
     // ── the migration promise ───────────────────────────────────────────────────────────────────

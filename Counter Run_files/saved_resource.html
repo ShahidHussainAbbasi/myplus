@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/?__frame_t=iwfeGcb8BIx3z0wlB-UxU2IU.47d8f814-cf33-411d-a2ce-e2e7c15cc711.ce3e8ce1-8dd8-4cb2-ade7-b5c0b862f897.1788159405&__frame_v=manifest.155e997702a4b8fc.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><!--<base href="/_f/1788155803-124c/">--><base href="."><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.D_F1mx8d.js","assets":"assets.8Gk803W0.js","comments":"comments.GLuHR3zP.js","db":"db.h-3sndFg.js","downloads":"downloads.C3GSvEDP.js","embed":"embed.CxGAyc-v.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","notifications":"notifications.ssU4jy7G.js","permissions":"permissions.BNySkLV5.js","room":"room.BMMoe2BY.js","sample":"sample.BW2Uysoh.js","self":"artifact.D_F1mx8d.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.BoakUwmM.js","translate":"_translate.5HCW4BJh.js"}</script><script>(function(){"use strict";var te=["light","dark","system"],re=/^[A-Za-z0-9_-]{1,64}$/,$=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ne=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function oe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ne.has(t)}var Be="http://www.w3.org/1999/xhtml",se="http://www.w3.org/2000/svg",ae=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),ie=new Set(["script","style"]);function ce(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!ae.has(t):e.namespaceURI===se?!ie.has(t):!1}function M(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function le(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&M(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&M(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ue(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=le(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const h=r.data,p=e.ownerDocument.getSelection?.()??null,w=p!==null&&p.rangeCount>0&&(p.anchorNode===r||p.focusNode===r)?{anchor:p.anchorNode,anchorOffset:p.anchorOffset,focus:p.focusNode,focusOffset:p.focusOffset}:null;let m=-1,g=-1;for(let f=0;f<h.length&&f<t.length;f++){const v=h.charCodeAt(f),b=t.charCodeAt(f);v!==b&&M(v,b)&&(m<0&&(m=f),g=f)}const a=m>=0;if(a&&r.replaceData(m,g-m+1,t.slice(m,g+1)),a&&w!==null&&w.anchor!==null&&w.focus!==null)try{p.setBaseAndExtent(w.anchor,w.anchorOffset,w.focus,w.focusOffset)}catch{}}var fe=new Set(["html","head","body","frameset"]);function de(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&fe.has(e.localName)}function pe(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!re.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!$.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!$.test(r))return!1}return!0}function me(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function he(e){return e===null||typeof e!="object"?!1:me(e.__frame_patch,pe)}function _e(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function ve(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function ye(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&te.includes(r)}var A=/^[\w.-]+\.js$/;function we(e,t,r){return r?"inert":typeof t=="string"&&A.test(t)?e?[t]:"inert":e?"inert":"framed"}function ge(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function be(){return{post:()=>{},on:()=>()=>{}}}var j="__frame_scroll",Ee=150,Ae=310,Se=160,Te=3e4;function ke(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=l=>{try{sessionStorage.setItem(j,JSON.stringify({y:l}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const l=o;o=null,i(l)},h=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Ee)};try{addEventListener("scroll",h,{passive:!0}),addEventListener("pagehide",c)}catch{}const p=()=>{let l;try{l=sessionStorage.getItem(j)}catch{return null}if(l===null)return null;let _;try{_=JSON.parse(l)}catch{_=null}const d=_?.y;if(!(typeof d=="number"&&Number.isFinite(d)&&d>=0)){try{sessionStorage.removeItem(j)}catch{}return null}return d};let w=!1;const m=l=>{try{const _=scrollY;scrollTo({top:l,left:0,behavior:"instant"}),s=l,n=!0,clearTimeout(e),o=null,i(l);const d=scrollY;d!==_&&(t=!0),d!==l&&!w&&(w=!0,addEventListener("load",()=>{try{if(scrollY===d){const T=p();m(T!==null?T:s)}}catch{}},{once:!0}))}catch{}},g=()=>{try{return!!location.hash}catch{return!0}};let a=!1;const f=()=>{try{if(a||innerWidth>Ae||innerHeight>Se)return;a=!0;const l=Date.now(),_=()=>{try{removeEventListener("resize",_)}catch{}if(Date.now()-l>Te||r||g())return;const d=p();m(d!==null?d:s)};addEventListener("resize",_)}catch{}};let v=!1,b=!1;return{restore(){if(v||(v=!0,g()))return;const l=p();l!==null&&(m(l),f())},promoted(){if(b||(b=!0,g()))return;const l=p();l!==null?(m(l),f()):n&&m(s)}}}function Re(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:h=>h})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(h=>h?.bootTopLevel?h.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var De="modulepreload",Ie=function(e){return"/"+e},Ue={},Le=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},Oe=window===top,q=Object.getOwnPropertyDescriptor(window,"claude"),k=we(Oe,window.__FRAME_PREAMBLE?.topLevel,q?.writable===!1),N=typeof k=="object"&&k[0],y=N?be():ge();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&k==="framed")try{y.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Pe=1e4,Y=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function X(e){for(const t of Y)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var R=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),B=window.__FRAME_PREAMBLE?.transforms,D=window.__FRAME_PREAMBLE?.comments,I=window.__FRAME_PREAMBLE?.translate;function S(e){return Le(()=>import("/_runtime/"+e),void 0)}function G(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:x,hooks:O,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var L=null,E=null;function V(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var U=!1,O={editBefore:null,edit:null};function Ce(e,t,r=!1){const n=[];let s;if(r)try{O.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!oe(c))){s=o.target;break}if(o.text!==void 0&&(!ce(i)||de(i))){s=o.target;break}for(const[c,h]of Object.entries(o.attrsSet??{}))if(!J(i,c)){try{i.setAttribute(c,h)}catch{}Z(i,c,h)}for(const c of o.attrsRemoved??[])J(i,c)||(i.removeAttribute(c),Z(i,c,null));typeof o.text=="string"&&ue(i,o.text),n.push(o.target)}if(r)try{O.edit?.(e.seq,n,s)}catch{}if(s!==void 0){y.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function Z(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function J(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function Q(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,U=!0):U&&(delete t.dataset.theme,t.style.colorScheme="",U=!1)}var P=new Map;function Me(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function F(){for(const e of P.values())e.done||(e.nulled=!0,e.r(null))}var je=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),x=(e,t)=>{const r=P.get(e);if(!r||r.done){r?.nulled&&E&&y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},E);return}const n=typeof t=="function"?Object.setPrototypeOf(t,je):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ee(){const e=q?.value??{};V(window,"claude",e);for(const t of Object.keys(R)){if(e[t]!==void 0){V(e,t,e[t]);continue}P.set(t,Me())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(R,r))return Promise.resolve(null);const n=P.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(k==="framed"){const e=B&&A.test(B)?S(B).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,v=f&&f.closest?f.closest("a[href],area[href]"):null;if(!v)return;const b=v.getAttribute("href");if(!b)return;let l;try{l=new URL(b,document.baseURI)}catch{return}if((l.protocol==="http:"||l.protocol==="https:")&&l.origin!==location.origin){a.preventDefault();const _=(v.getAttribute("target")??"").toLowerCase(),d=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(_);y.post({__frame_nav:!0,url:l.href,newTab:d},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=ke()}catch{}ee();let i=null,c=null,h=0;const p=y.on((a,f)=>{X(f)&&_e(a)&&(i=a.__frame_init,E=f,p(),clearTimeout(h),c?.())});y.post({__frame_connect:!0},"*");const w=new Promise(a=>{c=a,h=setTimeout(()=>{p(),a()},Pe)}),m=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();m.then(()=>{try{o?.restore()}catch{}});const g={cb:null};y.on((a,f)=>{if(X(f)&&ve(a)){try{o?.promoted()}catch{}g.cb?.()}}),w.then(async()=>{if(!i||!E){F();return}Q(i.theme);const a=E;let f=!1,v=!1;y.on((u,z,C)=>{if(z!==a)return;ye(u)&&Q(u.__frame_theme.theme),he(u)&&Ce(u.__frame_patch,a,C);const H=u?.__fc_mode;H&&typeof H=="object"&&!f&&D&&A.test(D)&&(f=!0,S(D).then(K=>K.install?.(a,H.on===!0)).catch(()=>{}));const W=u?.__ft_cmd;W&&typeof W=="object"&&!v&&I&&A.test(I)&&(v=!0,S(I).then(K=>K.install?.(a,W)).catch(()=>{}))});const b=Object.keys(i.capabilities??{}).filter(u=>Object.hasOwn(R,u)).map(u=>[u,R[u]]).filter(u=>typeof u[1]=="string"&&A.test(u[1])),l=await Promise.allSettled(b.map(([,u])=>S(u))),_=await e,d=E;if(_?.buildBoot||y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),_?.buildBoot)try{L=_.buildBoot(i,_.TRANSFORMS??{},{shellOrigin:d,mount:x,hooks:O},u=>y.post({__frame_cap_telemetry:u},d))}catch{y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},d),L=G(i,d)}else L=G(i,d);const T=u=>y.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:u}},d),Ne=L;l.forEach((u,z)=>{const C=b[z][0];if(u.status!=="fulfilled"){T(C);return}try{u.value?.install?.(Ne)}catch{T(C)}}),F(),await m,y.post({__frame_ready:!0},E),e.then(u=>u?.installSizeReporter?.(d,g))})}else N&&(ee(),Re(N,Y,S,{settle:F,mount:x}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style></head><body>
+<title>Counter Run</title>
+<link rel="stylesheet" href="./css2">
+<style>
+  :root {
+    --ground: #f4f6f5;
+    --surface: #ffffff;
+    --surface-sunk: #eceff0;
+    --line: #d5dbdb;
+    --line-soft: #e4e9e9;
+    --ink: #15201f;
+    --ink-soft: #4c5a59;
+    --ink-faint: #75817f;
+    --accent: #12484e;
+    --accent-soft: #dceaea;
+    --high: #a52f22;
+    --high-soft: #f6e2df;
+    --med: #8c5306;
+    --med-soft: #f7ebd9;
+    --info: #2f5f7d;
+    --info-soft: #dfeaf1;
+    --pass: #1f6b45;
+    --pass-soft: #dcece3;
+    --shadow: 0 1px 2px rgba(21,32,31,.06), 0 8px 24px -18px rgba(21,32,31,.5);
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1415;
+      --surface: #151d1e;
+      --surface-sunk: #101718;
+      --line: #2a3737;
+      --line-soft: #202b2c;
+      --ink: #dde5e4;
+      --ink-soft: #a3b1b0;
+      --ink-faint: #7d8b8a;
+      --accent: #58b6b0;
+      --accent-soft: #16302f;
+      --high: #e08a7d;
+      --high-soft: #34201d;
+      --med: #d9a45e;
+      --med-soft: #302517;
+      --info: #8fb9d2;
+      --info-soft: #172730;
+      --pass: #74c39a;
+      --pass-soft: #16281f;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -22px #000;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1415;
+    --surface: #151d1e;
+    --surface-sunk: #101718;
+    --line: #2a3737;
+    --line-soft: #202b2c;
+    --ink: #dde5e4;
+    --ink-soft: #a3b1b0;
+    --ink-faint: #7d8b8a;
+    --accent: #58b6b0;
+    --accent-soft: #16302f;
+    --high: #e08a7d;
+    --high-soft: #34201d;
+    --med: #d9a45e;
+    --med-soft: #302517;
+    --info: #8fb9d2;
+    --info-soft: #172730;
+    --pass: #74c39a;
+    --pass-soft: #16281f;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px -22px #000;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  code, kbd, .mono { font-family: var(--mono); font-size: .86em; }
+  code {
+    background: var(--surface-sunk);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: .06em .32em;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  kbd {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: .05em .38em;
+  }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  /* ---------- shell ---------- */
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: grid;
+    grid-template-columns: 218px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .shell { grid-template-columns: minmax(0,1fr); gap: 0; padding: 0 18px 72px; } }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    grid-column: 1 / -1;
+    border-bottom: 2px solid var(--ink);
+    padding: 40px 0 18px;
+    margin-bottom: 34px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 18px 32px;
+  }
+  .masthead h1 {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: clamp(28px, 4.4vw, 44px);
+    letter-spacing: -.02em;
+    line-height: 1.04;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .masthead h1 span { display: block; color: var(--accent); }
+  .stamp {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    text-align: right;
+    line-height: 1.9;
+  }
+  .lede {
+    grid-column: 1 / -1;
+    max-width: 66ch;
+    font-size: 18px;
+    color: var(--ink-soft);
+    margin: -14px 0 34px;
+  }
+
+  /* ---------- rail ---------- */
+  .rail { position: sticky; top: 22px; font-family: var(--sans); font-size: 13px; }
+  @media (max-width: 900px) {
+    .rail { position: static; margin: 0 0 32px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; background: var(--surface); }
+  }
+  .rail-title {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 0 0 10px;
+  }
+  .rail ol { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rail a { display: block; padding: 3px 0; color: var(--ink-soft); text-decoration: none; }
+  .rail a:hover { color: var(--accent); }
+  .rail .n { font-family: var(--mono); color: var(--ink-faint); margin-right: 8px; font-size: 11px; }
+  .tally {
+    border-top: 1px solid var(--line); padding-top: 14px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .04em; color: var(--ink-faint);
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .tally b { font-weight: 600; color: var(--ink); }
+  .tally button {
+    margin-top: 6px; align-self: flex-start;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase;
+    background: none; border: 1px solid var(--line); border-radius: 4px; color: var(--ink-faint);
+    padding: 4px 9px; cursor: pointer;
+  }
+  .tally button:hover { color: var(--high); border-color: var(--high); }
+
+  /* ---------- main flow ---------- */
+  main { min-width: 0; display: flex; flex-direction: column; gap: 56px; }
+  section { scroll-margin-top: 18px; }
+  h2 {
+    font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--accent);
+    margin: 0 0 4px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .sec-sub { margin: 0 0 26px; color: var(--ink-faint); font-size: 15px; max-width: 62ch; }
+  h3 {
+    font-family: var(--sans); font-weight: 600; font-size: 20px; letter-spacing: -.01em;
+    margin: 0 0 10px; text-wrap: balance;
+  }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  main > section > p { max-width: 68ch; }
+
+  /* ---------- tables ---------- */
+  .scroller { overflow-x: auto; margin: 0 0 26px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--ink-faint); font-weight: 500; background: var(--surface-sunk); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.mono, th.mono { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+
+  /* ---------- chips ---------- */
+  .chip {
+    display: inline-block; font-family: var(--mono); font-size: 10px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; white-space: nowrap;
+  }
+  .chip-high { background: var(--high-soft); color: var(--high); }
+  .chip-med  { background: var(--med-soft);  color: var(--med); }
+  .chip-info { background: var(--info-soft); color: var(--info); }
+  .chip-low  { background: var(--surface-sunk); color: var(--ink-faint); }
+
+  /* ---------- case cards ---------- */
+  .cases { display: flex; flex-direction: column; gap: 16px; }
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--line);
+    border-radius: 7px;
+    padding: 18px 20px 16px;
+    box-shadow: var(--shadow);
+  }
+  .case[data-flag="fail"] { border-left-color: var(--med); }
+  .case-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; margin-bottom: 4px; }
+  .case-id {
+    font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .06em;
+    color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 3px;
+  }
+  .case h4 {
+    font-family: var(--sans); font-weight: 600; font-size: 17px; letter-spacing: -.005em;
+    margin: 0; flex: 1 1 260px; text-wrap: balance;
+  }
+  .who {
+    font-family: var(--mono); font-size: 11.5px; color: var(--ink-faint);
+    margin: 0 0 12px; letter-spacing: .01em;
+  }
+  .case ol { margin: 0 0 14px; padding-left: 1.35em; display: flex; flex-direction: column; gap: 5px; }
+  .case ol li { padding-left: 3px; }
+  .case ol li::marker { font-family: var(--mono); font-size: .8em; color: var(--ink-faint); }
+  .note { display: flex; gap: 10px; padding: 9px 0 0; border-top: 1px dotted var(--line); margin-top: 2px; }
+  .note + .note { margin-top: 8px; }
+  .note .lbl {
+    flex: 0 0 96px; font-family: var(--mono); font-size: 10px; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--ink-faint); padding-top: 5px;
+  }
+  .note .bd { flex: 1 1 auto; margin: 0; font-size: 15.5px; }
+  .note.watch .lbl { color: var(--med); }
+  .note.expect .lbl { color: var(--pass); }
+
+  /* ---------- status control ---------- */
+  .status { display: flex; gap: 4px; margin-left: auto; }
+  .status button {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-faint);
+    padding: 3px 8px; border-radius: 4px; cursor: pointer; transition: background .12s, color .12s, border-color .12s;
+  }
+  .status button:hover { border-color: var(--ink-faint); color: var(--ink); }
+  .status button[aria-pressed="true"][data-v="pass"] { background: var(--pass-soft); border-color: var(--pass); color: var(--pass); }
+  .status button[aria-pressed="true"][data-v="fail"] { background: var(--high-soft); border-color: var(--high); color: var(--high); }
+  .status button[aria-pressed="true"][data-v="skip"] { background: var(--surface-sunk); border-color: var(--ink-faint); color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ---------- thread ---------- */
+  .thread { counter-reset: step; display: flex; flex-direction: column; gap: 0; }
+  .thread li {
+    list-style: none; position: relative; padding: 12px 0 12px 46px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .thread li:last-child { border-bottom: 0; }
+  .thread li::before {
+    counter-increment: step; content: counter(step, decimal-leading-zero);
+    position: absolute; left: 0; top: 13px;
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; background: var(--surface);
+  }
+  .thread b { font-family: var(--sans); font-weight: 600; }
+
+  .callout {
+    background: var(--med-soft); border-left: 3px solid var(--med);
+    padding: 13px 16px; border-radius: 0 6px 6px 0; font-size: 15.5px; margin: 0 0 26px;
+  }
+  .callout strong { font-family: var(--sans); }
+  hr.rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
+  footer {
+    grid-column: 1 / -1; margin-top: 64px; padding-top: 18px; border-top: 2px solid var(--ink);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--ink-faint);
+    display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between;
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <h1>Counter Run<span>product · purchase · sale</span></h1>
+    <div class="stamp">
+      Manual regression script<br>
+      44 cases · 4 known defects<br>
+      myplus commerce
+    </div>
+  </header>
+
+  <p class="lede">
+    A field-level walk of the three screens that carry the whole commerce story — the product master, goods in,
+    and the till. Part one is what the registration form actually does today, defects included. Part two is the
+    script. Tick each case as you go; the marks are kept in this browser.
+  </p>
+
+  <nav class="rail" aria-label="Sections">
+    <p class="rail-title">Contents</p>
+    <ol>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#setup"><span class="n">00</span>Accounts</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#review"><span class="n">01</span>Form review</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#findings"><span class="n">02</span>Findings</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#pr"><span class="n">03</span>Registration</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#pu"><span class="n">04</span>Purchase</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#sa"><span class="n">05</span>Sale</a></li>
+      <li><a href="https://c5498dcf-4f6e-4d38-bac3-1f25b7e7a084.frame.claudeusercontent.com/_f/1788155803-124c/#thread"><span class="n">06</span>Golden thread</a></li>
+    </ol>
+    <div class="tally">
+      <span><b id="tPass">0</b> passed</span>
+      <span><b id="tFail">0</b> failed</span>
+      <span><b id="tSkip">0</b> skipped</span>
+      <span><b id="tLeft">44</b> untouched</span>
+      <button type="button" id="clearAll">Clear marks</button>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="setup">
+      <h2>Accounts and setup</h2>
+      <p class="sec-sub">Gate each feature as the tenant that needs it. A convenient account proves the
+        mechanism and nothing about the business.</p>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Tenant</th><th>Account</th><th>Password</th><th>Why this one</th></tr></thead>
+          <tbody>
+            <tr><td>POS counter</td><td class="mono">owner.business@myplus.com</td><td class="mono">Demo@2025!</td><td>plain <code>retail</code> shape — the baseline form</td></tr>
+            <tr><td>Pharmacy</td><td class="mono">owner.pharma@myplus.com</td><td class="mono">Demo@2025!</td><td>pack/loose, batch + expiry, FEFO</td></tr>
+            <tr><td>Mobile shop</td><td class="mono">owner.mobile@myplus.com</td><td class="mono">Demo@2025!</td><td>serial / IMEI and condition grading</td></tr>
+            <tr><td>Privilege ladder</td><td class="mono">admin.business@ · user.business@</td><td class="mono">Demo@2025!</td><td>members of the owner's org — proves the privilege gate, not org scoping</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Before filing a missing field as a bug:</strong> capabilities are per tenant.
+        <code>serialTracking</code>, <code>batchTracking</code>, <code>bonusSchemes</code> and
+        <code>conditionGrading</code> hide their own controls (<code>[data-capability]</code> →
+        <code>.cap-off</code>) when the tenant lacks them. Check Configuration first.</p>
+    </section>
+
+    <section id="review">
+      <h2>01 — What the registration form does</h2>
+      <p class="sec-sub">
+        <code>#ProductDiv</code> opens a full-viewport overlay driven by <code>catalog-products.js</code>,
+        writing to catalog-service through the monolith proxies. Beside the form sits the
+        <em>Already registered</em> panel — the tenant's whole catalogue, deactivated products included,
+        narrowed live by what is typed into Name / SKU / Barcode, with an <em>edit this one</em> link on every
+        row. It exists so a near-miss is corrected instead of duplicated.
+      </p>
+      <div class="scroller">
+        <table>
+          <thead><tr><th>Field</th><th class="mono">id</th><th>Client rule</th><th>Server rule</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Name</strong> — required</td><td class="mono">#prodName</td><td>non-blank or an inline error; on blur <code>/productNameCheck</code> <em>advises</em> on a namesake</td><td><code>@NotBlank</code>; the name check reports, never rejects</td></tr>
+            <tr><td>SKU / Code</td><td class="mono">#prodSku</td><td>blocked on blur and on save against the loaded index; blank sent as <code>null</code></td><td>blank stored as <code>NULL</code>, so many products may share "no code"; a real duplicate is refused</td></tr>
+            <tr><td>Barcode</td><td class="mono">#prodBarcode</td><td>narrows the panel, nothing more</td><td>trimmed to null — <strong>no uniqueness check</strong> (F1)</td></tr>
+            <tr><td>Sell price</td><td class="mono">#prodPrice</td><td><code>s2n()</code> — blank becomes <code>0</code></td><td>stored as given</td></tr>
+            <tr><td>Tax</td><td class="mono">#prodTaxCode</td><td>a chosen code hides the % box and sends <code>taxCodeId</code> with <code>taxRate:null</code>; "Custom rate…" sends the reverse</td><td>the code's rate wins in <code>resolveRate()</code></td></tr>
+            <tr><td>Unit + pack size</td><td class="mono">#prodPackSize</td><td><code>&gt;1</code> reveals the loose row; dropping below 2 clears <em>allow loose</em> and forces <code>PACK</code></td><td><code>null</code> means <em>not supplied</em>, never <em>clear it</em>; a change stamps <code>packChangedBy/At</code></td></tr>
+            <tr><td>Loose selling</td><td class="mono">#prodAllowLoose</td><td>always posted — <code>false</code> / <code>PACK</code> when hidden</td><td>audited alongside pack size</td></tr>
+            <tr><td>Tracking</td><td class="mono">#prodRequiresSerial</td><td>its own call to <code>/setProductTracking</code>, and only for capabilities the tenant holds</td><td>ADMIN-gated <em>and</em> capability-gated; a refusal is HTTP 200 with <code>success:false</code></td></tr>
+            <tr><td>Category</td><td class="mono">#prodCategory</td><td>inline add POSTs <code>/addCategory</code></td><td>id resolved scoped; a free-text name is find-or-create</td></tr>
+            <tr><td>Manufacturer</td><td class="mono">#prodManufacturer</td><td>no master table — the options are brands already on this org's products; an inline add is local until save</td><td>a plain string on the product</td></tr>
+            <tr><td>Own stickers</td><td class="mono">#prodStickerWrap</td><td>only on a saved product</td><td>a sticker may not shadow a real barcode</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="findings">
+      <h2>02 — Findings</h2>
+      <p class="sec-sub">Four of these are reproducible from the script below. Two are notes, so nobody files
+        them twice.</p>
+      <div class="scroller">
+        <table>
+          <thead><tr><th class="mono">#</th><th>Severity</th><th>Finding</th><th class="mono">Case</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="mono">F1</td><td><span class="chip chip-high">High</span></td>
+              <td><strong>Barcode uniqueness is enforced nowhere.</strong> The client duplicate check covers SKU
+                only, and <code>ProductService.create/update</code> check only <code>existsBySkuScoped</code> —
+                there is no <code>existsByBarcode</code> in the repository. Two active products can carry the
+                same EAN, after which <code>/products/lookup</code> and <code>/products/scan</code> resolve
+                whichever the query returns first.</td>
+              <td class="mono">PR-7</td>
+            </tr>
+            <tr>
+              <td class="mono">F2</td><td><span class="chip chip-med">Medium</span></td>
+              <td><strong>A pack size cannot be un-set.</strong> <code>fromDto</code> reads
+                <code>packSize == null</code> as "not supplied" — right for CSV and integration callers — and the
+                form posts <code>null</code> for an emptied box. Clearing <em>Holds N pieces</em> hides the loose
+                row for the session but leaves the product divisible in the database, while
+                <code>allowLoose</code> does clear. The product ends up with a pack size and no permission to
+                split it.</td>
+              <td class="mono">PR-11</td>
+            </tr>
+            <tr>
+              <td class="mono">F3</td><td><span class="chip chip-med">Medium</span></td>
+              <td><strong>The own-stickers panel is nested inside the loose row.</strong>
+                <code>#prodStickerWrap</code> sits inside <code>#prodLooseWrap</code>'s
+                <code>.col-sm-4 &gt; .row</code>, so <code>loadProductStickers()</code> shows it into a hidden
+                ancestor. On a saved product with <code>packSize ≤ 1</code> the panel never appears; when it does
+                appear it is squeezed into a one-third-width column. A shop printing PACK stickers for
+                non-divisible goods cannot reach the feature.</td>
+              <td class="mono">PR-14</td>
+            </tr>
+            <tr>
+              <td class="mono">F4</td><td><span class="chip chip-med">Medium</span></td>
+              <td><strong>A product cannot be renamed.</strong> <code>editProduct()</code> ends with
+                <code>updateReadOnly(true)</code>, which disables <code>#prodName</code>. Nothing in the product
+                path ever calls <code>updateReadOnly(false)</code> — only the global <code>[id^="reset"]</code>
+                handler does — so Name stays disabled on the next product too.</td>
+              <td class="mono">PR-16</td>
+            </tr>
+            <tr>
+              <td class="mono">F5</td><td><span class="chip chip-low">Low</span></td>
+              <td>A blank sell price is stored as <code>0</code>, not <code>null</code>
+                (<code>s2n('') → 0</code>), so an unpriced product reads as free in pickers and reports rather
+                than "no price set".</td>
+              <td class="mono">PR-1</td>
+            </tr>
+            <tr>
+              <td class="mono">F6</td><td><span class="chip chip-info">Note</span></td>
+              <td>The client SKU check reads a <em>snapshot</em> taken when the form opened, so a colleague
+                registering the same code a minute ago is invisible to it. The server is the real gate — and a
+                failed index load must render the panel's error state, never an empty list that reads as
+                "nothing is registered".</td>
+              <td class="mono">PR-5 · PR-8</td>
+            </tr>
+            <tr>
+              <td class="mono">F7</td><td><span class="chip chip-info">Note</span></td>
+              <td>Duplicate <em>names</em> are legal by design — same product, different pack or maker. The blur
+                check advises and highlights the namesake row. Do not file it.</td>
+              <td class="mono">PR-6</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pr">
+      <h2>03 — Product registration</h2>
+      <p class="sec-sub">Twenty cases. Four are expected to fail on today's build and are marked as such — a
+        pass there is news, not a mistake.</p>
+      <div class="cases">
+
+        <article class="case" data-case="PR-1">
+          <div class="case-head"><span class="case-id">PR-1</span><h4>Bare minimum: name only</h4><div class="status" role="group" aria-label="Result for PR-1"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">owner.business@ · Registration → Product → New Product</p>
+          <ol>
+            <li>Type a name only (<code>Manual Test Widget</code>). Leave SKU, barcode, price, tax, unit, category and manufacturer blank.</li>
+            <li>Submit.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Saves. The row appears in the grid with an empty SKU, and the product is offered in the purchase and sell pickers.</p></div>
+          <div class="note watch"><span class="lbl">Watch — F5</span><p class="bd">The price column shows <code>0.00</code>, not blank. Note whether that is acceptable for the shop.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-2">
+          <div class="case-head"><span class="case-id">PR-2</span><h4>Name is mandatory on both sides</h4><div class="status" role="group" aria-label="Result for PR-2"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>New Product → leave Name empty → Submit.</li>
+            <li>Enter only spaces → Submit.</li>
+            <li>By API: <code>POST /addProduct</code> with <code>{"name":""}</code>.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Steps 1 and 2 give an inline error with no request sent. Step 3 is refused by <code>@NotBlank</code>: <em>"Product name is required"</em>. A nameless product cannot be created by either route.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-3">
+          <div class="case-head"><span class="case-id">PR-3</span><h4>Two products with no SKU</h4><div class="status" role="group" aria-label="Result for PR-3"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Register <code>Widget A</code> with no SKU.</li>
+            <li>Register <code>Widget B</code> with no SKU.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Both save.</p></div>
+          <div class="note watch"><span class="lbl">Watch</span><p class="bd"><em>"Product SKU already exists: "</em> is the old blank-collides-with-blank bug — a blank is reaching the column as <code>''</code> instead of <code>NULL</code>.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-4">
+          <div class="case-head"><span class="case-id">PR-4</span><h4>Duplicate SKU is refused</h4><div class="status" role="group" aria-label="Result for PR-4"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Register <code>Widget A</code> with SKU <code>MT-100</code>.</li>
+            <li>New Product → SKU <code>MT-100</code> → <strong>tab out of the field</strong>.</li>
+            <li>Correct it to <code>MT-101</code> and save.</li>
+            <li>Repeat step 2 with <code>mt-100</code> — different case.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Step 2 turns the box red immediately with the reason and blocks Submit; step 3 saves; step 4 is also blocked, because the client compares lower-cased.</p></div>
+          <div class="note watch"><span class="lbl">Watch</span><p class="bd">What the <em>server</em> does with <code>mt-100</code> if the client check is bypassed — the query is an exact match, so case-folding depends on the column collation. Record the answer.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-5">
+          <div class="case-head"><span class="case-id">PR-5</span><h4>A duplicate created in another session</h4><div class="status" role="group" aria-label="Result for PR-5"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Two browsers, both owner.business@ — the stale-index case</p>
+          <ol>
+            <li>Browser A: open New Product (the index snapshot is taken now) and leave it open.</li>
+            <li>Browser B: register <code>SKU-DUP</code>.</li>
+            <li>Browser A: enter the same <code>SKU-DUP</code> and Submit.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The client lets it through — its snapshot predates B — and the <strong>server refuses</strong> with <em>"Product SKU already exists: SKU-DUP"</em> surfaced in the form. Nothing is created.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-6">
+          <div class="case-head"><span class="case-id">PR-6</span><h4>A duplicate name advises, and offers the fix</h4><div class="status" role="group" aria-label="Result for PR-6"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Register <code>Panadol 500mg</code>.</li>
+            <li>New Product → type <code>panadol 500mg</code> → tab out.</li>
+            <li>Now type into SKU, then into Barcode.</li>
+            <li>Click <em>edit this one</em> on the highlighted row.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Step 2 warns and highlights the existing row without blocking the save (F7). Step 3 repaints the panel and the highlight <strong>survives</strong>. Step 4 loads that product into the form and clears the warning — no twin is created.</p></div>
+        </article>
+
+        <article class="case" data-flag="fail" data-case="PR-7">
+          <div class="case-head"><span class="case-id">PR-7</span><h4>Duplicate barcode</h4><span class="chip chip-high">Expected fail · F1</span><div class="status" role="group" aria-label="Result for PR-7"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Register <code>Widget A</code> with barcode <code>8901234567890</code>.</li>
+            <li>Register <code>Widget B</code> with the same barcode. Record whether it saves.</li>
+            <li>Sell → type <code>8901234567890</code> into <code>#sellScan</code> → Enter.</li>
+          </ol>
+          <div class="note"><span class="lbl">Today</span><p class="bd">Step 2 saves, because no check exists. Step 3 resolves to one of the two, arbitrarily.</p></div>
+          <div class="note expect"><span class="lbl">Wanted</span><p class="bd">A refusal at step 2, mirroring the SKU rule. File against F1.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-8">
+          <div class="case-head"><span class="case-id">PR-8</span><h4>The panel must never lie about an empty catalogue</h4><div class="status" role="group" aria-label="Result for PR-8"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Stop catalog-service, or block <code>/getUserProduct</code> in devtools.</li>
+            <li>Open New Product.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The red <em>could not load the registered products</em> message.</p></div>
+          <div class="note watch"><span class="lbl">Fail if</span><p class="bd">It shows "no products registered yet", or an empty list — a false all-clear given directly before the operator registers a duplicate.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-9">
+          <div class="case-head"><span class="case-id">PR-9</span><h4>Inline category and manufacturer</h4><div class="status" role="group" aria-label="Result for PR-9"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Type a new category name → <strong>+</strong>.</li>
+            <li>Type a new manufacturer name → <strong>+</strong>.</li>
+            <li>Save, then reopen New Product.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Both are added, selected, and the <strong>visible button text updates</strong>. The category persists as a real entity; the manufacturer appears in the dropdown only after the product carrying it was saved (F7 — there is no master table).</p></div>
+          <div class="note watch"><span class="lbl">Watch</span><p class="bd">A button still reading "— none —" while the hidden <code>&lt;select&gt;</code> holds the value: the bootstrap-select refresh regression.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-10">
+          <div class="case-head"><span class="case-id">PR-10</span><h4>Editing must not rewrite the manufacturer</h4><div class="status" role="group" aria-label="Result for PR-10"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Setup: a product whose brand is on no other product</p>
+          <ol>
+            <li>Open it for edit.</li>
+            <li>Change only the description, and save.</li>
+            <li>Reopen it.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The manufacturer is unchanged.</p></div>
+          <div class="note watch"><span class="lbl">Fail if</span><p class="bd">It has become the alphabetically-first brand — a <code>.val()</code> on a missing option falling back to option 0.</p></div>
+        </article>
+
+        <article class="case" data-flag="fail" data-case="PR-11">
+          <div class="case-head"><span class="case-id">PR-11</span><h4>Pack rules, and un-setting them</h4><span class="chip chip-med">Expected fail · F2</span><div class="status" role="group" aria-label="Result for PR-11"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>New product, unit <code>strip</code>, <strong>Holds</strong> <code>10</code> — the loose row appears. Fill <code>tablet</code> / <code>tablets</code>, tick <em>may be sold by the piece</em>, set <em>sales start as pieces</em>. Save.</li>
+            <li>Reopen: every value must round-trip.</li>
+            <li>Clear the Holds box — the loose row hides and the tick clears. Save.</li>
+            <li>Reopen.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect 1–2</span><p class="bd">An exact round-trip, and the audit stamp <code>packChangedBy</code> / <code>packChangedAt</code> moves on both step 1 and step 3.</p></div>
+          <div class="note"><span class="lbl">Today at 4</span><p class="bd">The loose row is back, still showing pack size 10, with <em>may be sold by the piece</em> now off. Clearing the box should make the product non-divisible. File against F2.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-12">
+          <div class="case-head"><span class="case-id">PR-12</span><h4>Tax code versus custom rate</h4><div class="status" role="group" aria-label="Result for PR-12"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Configuration → Tax codes: ensure <code>GST 17%</code> and <code>Zero 0%</code> exist.</li>
+            <li>New product → pick <code>GST 17%</code> — the custom % box hides → save.</li>
+            <li>Reopen: the code is preselected and the % box is still hidden.</li>
+            <li>Switch to <em>Custom rate…</em>, enter <code>5</code>, save, reopen.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The list shows 17% at step 3 and 5% at step 4. A chosen code sends <code>taxRate:null</code>; "Custom rate…" sends <code>taxCodeId:null</code>.</p></div>
+          <div class="note watch"><span class="lbl">Watch</span><p class="bd">Switching to Custom and leaving the box empty — record whether the product silently lands at 0%.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-13">
+          <div class="case-head"><span class="case-id">PR-13</span><h4>Tracking flags are policy, gated twice</h4><div class="status" role="group" aria-label="Result for PR-13"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>As owner.mobile@ (has <code>serialTracking</code>): tick <em>needs a serial / IMEI</em> → save → reopen → still ticked.</li>
+            <li>As owner.business@ (retail, no serial capability): the checkbox carries <code>cap-off</code> or is absent.</li>
+            <li>On a serial-tracked product, edit any <em>other</em> field as a user whose tenant lacks the capability, and save.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Step 3 must not clear <code>requiresSerial</code> — the flag is omitted from the payload, and omitted means leave alone.</p></div>
+          <div class="note watch"><span class="lbl">Watch</span><p class="bd">A refusal arrives as <strong>HTTP 200 with <code>success:false</code></strong>. Assert the envelope, not the status.</p></div>
+        </article>
+
+        <article class="case" data-flag="fail" data-case="PR-14">
+          <div class="case-head"><span class="case-id">PR-14</span><h4>The shop's own stickers</h4><span class="chip chip-med">Expected fail · F3</span><div class="status" role="group" aria-label="Result for PR-14"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">owner.pharma@</p>
+          <ol>
+            <li>Open a <strong>saved</strong> product with Holds = 10 — the panel is visible. Add code <code>LP-4471</code>, unit Piece, qty 1. It lists; remove it; it goes.</li>
+            <li>Open a saved product with <strong>no pack size</strong> — a shampoo bottle, say.</li>
+            <li>Confirm the panel is absent on a new, unsaved product.</li>
+          </ol>
+          <div class="note"><span class="lbl">Today at 2</span><p class="bd">No sticker panel at all, because it is nested inside the loose row. File against F3.</p></div>
+          <div class="note expect"><span class="lbl">Expect 3</span><p class="bd">Absent, and rightly so — a sticker needs a product to point at.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-15">
+          <div class="case-head"><span class="case-id">PR-15</span><h4>Save &amp; Add Another</h4><div class="status" role="group" aria-label="Result for PR-15"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>New product: set manufacturer, category, tax code and unit, plus name / SKU / price → Save &amp; Add Another.</li>
+            <li>Enter a second product's name / SKU / price → Save &amp; Add Another.</li>
+            <li>Submit the third.</li>
+            <li>Open an <strong>existing</strong> product for edit and press Save &amp; Add Another.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The modal stays open. Manufacturer, category, tax and unit persist; name, SKU, barcode, price and description clear; focus lands on Name; the counter reads <em>2 products added</em> after step 2. Step 3 saves and closes, and the grid refreshes without resetting the retained dropdowns. Step 4 behaves as a plain save-and-close — there is nothing to add another of.</p></div>
+        </article>
+
+        <article class="case" data-flag="fail" data-case="PR-16">
+          <div class="case-head"><span class="case-id">PR-16</span><h4>Rename an existing product</h4><span class="chip chip-med">Expected fail · F4</span><div class="status" role="group" aria-label="Result for PR-16"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Open a product for edit.</li>
+            <li>Try to change the Name.</li>
+            <li>Close it, open a different product, try again.</li>
+          </ol>
+          <div class="note"><span class="lbl">Today</span><p class="bd">The field is disabled, so a rename is impossible from the UI — and it stays disabled on the next product too. A typo in a product name is not correctable by the person who made it. File against F4.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-17">
+          <div class="case-head"><span class="case-id">PR-17</span><h4>Deactivate, show inactive, reactivate</h4><div class="status" role="group" aria-label="Result for PR-17"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Tick a product → Delete → confirm.</li>
+            <li>Check the purchase and sell pickers.</li>
+            <li>Tick <em>show inactive</em> → Reactivate.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Step 1 deactivates — history intact, never a hard delete — and the product leaves both pickers. It still <strong>owns its SKU</strong>, so registering a new product with that code is still refused. Step 3 restores it to the list and to both pickers.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-18">
+          <div class="case-head"><span class="case-id">PR-18</span><h4>Operator text is escaped</h4><div class="status" role="group" aria-label="Result for PR-18"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Register a product named <code>&lt;img src=x onerror=alert(1)&gt;</code>.</li>
+            <li>View it in the grid, the already-registered panel, the purchase picker and a receipt.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Literal text everywhere. No alert.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-19">
+          <div class="case-head"><span class="case-id">PR-19</span><h4>The privilege ladder</h4><div class="status" role="group" aria-label="Result for PR-19"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Repeat PR-1 and PR-17 as admin.business@.</li>
+            <li>Repeat both as user.business@.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd"><code>user.</code> may register but is refused the deactivate; <code>admin.</code> may do both. A refusal must be a readable message, never a silent no-op.</p></div>
+        </article>
+
+        <article class="case" data-case="PR-20">
+          <div class="case-head"><span class="case-id">PR-20</span><h4>Tenant isolation</h4><div class="status" role="group" aria-label="Result for PR-20"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Note a product id created under owner.pharma@.</li>
+            <li>Log in as owner.business@ and request <code>/getCatalogProduct?id=&lt;that id&gt;</code>.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Not found or refused, and absent from this org's list, panel and pickers.</p></div>
+        </article>
+
+      </div>
+    </section>
+
+    <section id="pu">
+      <h2>04 — Purchase, goods in</h2>
+      <p class="sec-sub">Where stock, cost and the vendor's balance all move at once. Every figure here is read
+        again by COGS, the margin guard and the statement.</p>
+      <div class="cases">
+
+        <article class="case" data-case="PU-1">
+          <div class="case-head"><span class="case-id">PU-1</span><h4>First receipt: stock in, rates stamped</h4><div class="status" role="group" aria-label="Result for PU-1"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Setup: the PR-1 widget, on hand 0</p>
+          <ol>
+            <li>New Purchase → invoice <code>PINV-001</code>, the widget, QTY <code>10</code>, P/U <code>80</code>, S/U <code>120</code>, date today → Save &amp; Close.</li>
+            <li>Read the product row: on hand, last purchase, last sale, price.</li>
+            <li>Record a second purchase with <strong>P/U 85 and the S/U box left blank</strong>.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">At step 2: on hand 10, last purchase 80, last sale 120, and the catalog sell price becomes <strong>120</strong> — re-price on receive. At step 3 last purchase becomes 85 while last sale and the selling price are unchanged: a cost-only receipt must never re-price what the shop charges.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-2">
+          <div class="case-head"><span class="case-id">PU-2</span><h4>Batch and expiry</h4><div class="status" role="group" aria-label="Result for PU-2"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">owner.pharma@ · needs batchTracking</p>
+          <ol>
+            <li>Receive product X: batch <code>B-1</code>, expiry <strong>next month</strong>, qty 10.</li>
+            <li>Receive X again: batch <code>B-2</code>, expiry <strong>next year</strong>, qty 10.</li>
+            <li>Go to Sell and pick X.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The banner names <strong>B-1</strong> — earliest expiry, FEFO — not the newest receipt. On hand is 20.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-3">
+          <div class="case-head"><span class="case-id">PU-3</span><h4>Buying by the box</h4><div class="status" role="group" aria-label="Result for PU-3"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>New purchase, product X, toggle <strong>Box</strong>, packs per box <code>10</code>, QTY <code>2</code>, P/U <code>1000</code>.</li>
+            <li>Read the hint line before saving.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The hint states what will actually be stored: <strong>20 packs at 100 each</strong>. On hand rises by 20 and the last purchase rate is 100, not 1000. Nothing downstream mentions "box".</p></div>
+        </article>
+
+        <article class="case" data-case="PU-4">
+          <div class="case-head"><span class="case-id">PU-4</span><h4>Box with no packs-per-box</h4><div class="status" role="group" aria-label="Result for PU-4"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Repeat PU-3 but leave packs per box empty, then save.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">A refusal, or an explicit prompt.</p></div>
+          <div class="note watch"><span class="lbl">Fail if</span><p class="bd">It silently assumes 1 — the tenfold costing error the toggle exists to prevent. Record the behaviour either way.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-5">
+          <div class="case-head"><span class="case-id">PU-5</span><h4>Bonus units</h4><div class="status" role="group" aria-label="Result for PU-5"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Needs bonusSchemes</p>
+          <ol>
+            <li>Receive QTY <code>10</code>, bonus <code>2</code>, P/U <code>80</code>.</li>
+            <li>Repeat as a tenant without the capability.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">On hand rises by <strong>12</strong>; the bill totals 10 × 80 = 800; the bonus shows as its own figure on the row, never folded into QTY. At step 2 the box is not shown at all.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-6">
+          <div class="case-head"><span class="case-id">PU-6</span><h4>Credit purchase and the vendor's prior balance</h4><div class="status" role="group" aria-label="Result for PU-6"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Pick a vendor — the <em>outstanding due</em> box appears with what they were already owed.</li>
+            <li>Receive 10 × 100 = 1000 with <strong>amount paid 400</strong>, and save.</li>
+            <li>Open a new purchase for the same vendor.</li>
+            <li>Repeat with amount paid left blank.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The payable rises by 600 and the outstanding-due box reflects it at step 3. A blank amount paid means paid in full and must create no payable.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-7">
+          <div class="case-head"><span class="case-id">PU-7</span><h4>The rate floor</h4><div class="status" role="group" aria-label="Result for PU-7"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Try to save with P/U <code>0</code>, then <code>-5</code>, then blank.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">All three refused — <code>min=0.01</code> plus the submit guard. A zero-cost bill must never reach COGS.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-8">
+          <div class="case-head"><span class="case-id">PU-8</span><h4>Serial / IMEI on receipt</h4><div class="status" role="group" aria-label="Result for PU-8"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">owner.mobile@ · on a product flagged needs-a-serial</p>
+          <ol>
+            <li>QTY 3, two IMEIs → <em>"…is for 3 unit(s) but 2 serial number(s) were entered."</em></li>
+            <li>QTY 3, the same IMEI twice plus one more → <em>"…was entered twice."</em></li>
+            <li>QTY 3, three IMEIs, one already in stock → <em>"…is already in stock."</em></li>
+            <li>QTY 3, three good IMEIs, condition <strong>Used</strong> → saves; the register holds three units graded <code>USED</code>.</li>
+            <li>Paste three IMEIs comma-separated instead of line-separated → accepted.</li>
+            <li>Leave a trailing blank line → still accepted; blank lines are dropped, not counted.</li>
+            <li>On a product without the flag, leave the box empty → saves normally.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Every refusal happens <strong>before</strong> anything is written — no half-saved purchase to unpick.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-9">
+          <div class="case-head"><span class="case-id">PU-9</span><h4>One delivery, many lines</h4><div class="status" role="group" aria-label="Result for PU-9"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Line 1 with vendor, invoice # and date → Save &amp; Add Another.</li>
+            <li>Line 2, then line 3 → Save &amp; Close.</li>
+            <li>Repeat using <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to save and <kbd>Esc</kbd> to cancel.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Vendor, invoice # and date persist across lines; the line counter increments; all three lines land on the same purchase invoice.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-10">
+          <div class="case-head"><span class="case-id">PU-10</span><h4>The purchase-tax row</h4><div class="status" role="group" aria-label="Result for PU-10"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Turn the org's <em>purchase tax</em> setting off — the row is hidden.</li>
+            <li>Turn it on — the row appears, a blank rate falls back to the org default, and input tax is added to the bill.</li>
+          </ol>
+          <div class="note watch"><span class="lbl">Then</span><p class="bd">Leave the setting as you found it. A server-wide switch must not be left flipped for the next tester.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-11">
+          <div class="case-head"><span class="case-id">PU-11</span><h4>Edit a purchase</h4><div class="status" role="group" aria-label="Result for PU-11"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Open an existing purchase for edit.</li>
+            <li>Change QTY from 10 to 8 and save.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The invoice # and product picker are read-only. Stock moves by the <strong>delta</strong> — minus 2 — never by re-adding 8. Rates re-stamp per PU-1's rule.</p></div>
+        </article>
+
+        <article class="case" data-case="PU-12">
+          <div class="case-head"><span class="case-id">PU-12</span><h4>A deactivated product</h4><div class="status" role="group" aria-label="Result for PU-12"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Deactivate a product, then open New Purchase.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">It is not in the picker.</p></div>
+        </article>
+
+      </div>
+    </section>
+
+    <section id="sa">
+      <h2>05 — Sale</h2>
+      <p class="sec-sub">The till is where every earlier decision is spent: the pack rule, the batch, the serial,
+        the contract price.</p>
+      <div class="cases">
+
+        <article class="case" data-case="SA-1">
+          <div class="case-head"><span class="case-id">SA-1</span><h4>Barcode-first selling</h4><div class="status" role="group" aria-label="Result for SA-1"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Sell → focus <code>#sellScan</code> → type the PU-1 widget's barcode → Enter.</li>
+            <li>Scan an unknown code.</li>
+            <li>Scan a deactivated product's barcode.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Step 1 adds the line at qty 1 and the catalog price, then clears the box and keeps focus. Step 2 gives a readable message and adds no line. Step 3 is refused with a reason.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-2">
+          <div class="case-head"><span class="case-id">SA-2</span><h4>The shop's own sticker</h4><div class="status" role="group" aria-label="Result for SA-2"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Needs the sticker added in PR-14</p>
+          <ol>
+            <li>Scan <code>LP-4471</code> — Piece × 1.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The line is added as <strong>one piece</strong>, not one pack, at the per-piece price.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-3">
+          <div class="case-head"><span class="case-id">SA-3</span><h4>Selling loose</h4><div class="status" role="group" aria-label="Result for SA-3"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Setup: Holds 10, may be sold by the piece, pack price 120, 5 packs on hand</p>
+          <ol>
+            <li>Pick it — the Pack / Piece toggle appears. Press <strong>Piece</strong>, or <kbd>F7</kbd> / <kbd>Alt</kbd>+<kbd>L</kbd>.</li>
+            <li>Enter qty <code>5</code>.</li>
+            <li>Complete the sale.</li>
+            <li>Try the same on a product that may not be split.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The hint reads <em>5 tablets · 12.00 each · uses 0.5 of a pack</em>, with the per-piece price from the server rather than arithmetic in the browser. On hand falls from 5 to <strong>4.5</strong>; the receipt shows pieces and its total equals what the hint quoted. At step 4 the toggle does not appear at all.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-4">
+          <div class="case-head"><span class="case-id">SA-4</span><h4>Sellable versus on hand</h4><div class="status" role="group" aria-label="Result for SA-4"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">Setup: 10 on hand, of which a batch of 4 is expired</p>
+          <ol>
+            <li>Open the product on the sell screen and ask for 8.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The screen offers <strong>6</strong>, and 8 is refused with a reason naming <em>sellable</em> stock — not a bare "insufficient stock" sitting next to an on-hand figure of 10.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-5">
+          <div class="case-head"><span class="case-id">SA-5</span><h4>A serial-tracked sale</h4><div class="status" role="group" aria-label="Result for SA-5"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <p class="who">owner.mobile@</p>
+          <ol>
+            <li>Add a serial-tracked handset with the IMEI box empty → the sale is refused by the server.</li>
+            <li>Enter an IMEI that is in stock and graded <strong>USED</strong> → the condition shows beside the box before payment.</li>
+            <li>Enter an IMEI that is not in stock → refused.</li>
+            <li>Complete the sale, then try to sell the same IMEI again → refused; it has left the shelf.</li>
+            <li>A charger on the same cart demands no serial.</li>
+          </ol>
+        </article>
+
+        <article class="case" data-case="SA-6">
+          <div class="case-head"><span class="case-id">SA-6</span><h4>Batch traceability</h4><div class="status" role="group" aria-label="Result for SA-6"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Sell the PU-2 product.</li>
+            <li>Exhaust B-1, then sell again.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The invoice line records <strong>B-1</strong> and the sale detail report can show which batch left the building. The next sale draws from B-2.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-7">
+          <div class="case-head"><span class="case-id">SA-7</span><h4>Customer-first pricing</h4><div class="status" role="group" aria-label="Result for SA-7"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Add a product to the cart <strong>with no customer selected</strong> — note the plain catalog rate.</li>
+            <li>Now select the wholesale customer who has a contract price.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The line re-prices and <code>#sellPriceReason</code> states why. Rules never stack — the most specific live rule wins alone.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-8">
+          <div class="case-head"><span class="case-id">SA-8</span><h4>Credit limit</h4><div class="status" role="group" aria-label="Result for SA-8"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Sell to a customer beyond their limit.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">A warning that asks for a decision — not a silent block, and not a silent pass.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-9">
+          <div class="case-head"><span class="case-id">SA-9</span><h4>Edit an invoice</h4><div class="status" role="group" aria-label="Result for SA-9"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Open a saved invoice for edit — the customer is locked.</li>
+            <li>Change a line quantity and save.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The <strong>same</strong> invoice is updated — no second invoice, no duplicated row — and stock moves by the delta.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-10">
+          <div class="case-head"><span class="case-id">SA-10</span><h4>Void</h4><div class="status" role="group" aria-label="Result for SA-10"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Void an invoice as admin.business@.</li>
+            <li>Attempt the same as user.business@.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Stock returns, the document is marked void with a trail, and the reversal reaches the ledger. The user account is refused.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-11">
+          <div class="case-head"><span class="case-id">SA-11</span><h4>Tax on the line</h4><div class="status" role="group" aria-label="Result for SA-11"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Sell the PR-12 product.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">The line tax uses the <strong>tax code's</strong> rate, and the same figure appears on the receipt and in the tax register.</p></div>
+        </article>
+
+        <article class="case" data-case="SA-12">
+          <div class="case-head"><span class="case-id">SA-12</span><h4>Split tender and change</h4><div class="status" role="group" aria-label="Result for SA-12"><button type="button" data-v="pass" aria-pressed="false">Pass</button><button type="button" data-v="fail" aria-pressed="false">Fail</button><button type="button" data-v="skip" aria-pressed="false">Skip</button></div></div>
+          <ol>
+            <li>Take part cash, part card, and over-tender the cash portion.</li>
+          </ol>
+          <div class="note expect"><span class="lbl">Expect</span><p class="bd">Change is computed and the invoice balances.</p></div>
+        </article>
+
+      </div>
+    </section>
+
+    <section id="thread">
+      <h2>06 — The golden thread</h2>
+      <p class="sec-sub">One product, registration to statement, run in a single sitting. It doubles as the
+        recording script.</p>
+      <ol class="thread">
+        <li><b>Register</b> <code>Golden Widget</code> — SKU <code>GW-1</code>, barcode <code>8909998887776</code>, unit <code>pack</code>, Holds 10, loose unit <code>piece</code> / <code>pieces</code>, may be sold by the piece, tax code <code>GST 17%</code>.</li>
+        <li><b>Purchase</b> 10 packs at 80, S/U 120, batch <code>GW-B1</code>, expiry next year, vendor on credit, paid 400.</li>
+        <li><b>Product list</b> reads: on hand 10, last purchase 80, last sale 120, price 120.</li>
+        <li><b>Sell</b> 2 packs and 5 pieces to a walk-in customer.</li>
+        <li><b>On hand</b> is now 10 − 2 − 0.5 = <strong>7.5</strong>.</li>
+        <li><b>The invoice</b> shows 2 × 120 plus 5 × 12, tax at 17%, and batch <code>GW-B1</code> on both lines.</li>
+        <li><b>Sale detail report</b> lists the invoice with the right customer, tax and margin — 120 − 80 per pack, 12 − 8 per piece.</li>
+        <li><b>Vendor statement</b> shows 600 outstanding from step 2.</li>
+      </ol>
+      <p class="callout"><strong>Any figure that disagrees at step 5, 6 or 7 is a stop-and-report, not a
+        retry.</strong> Capture the request, the response envelope and the on-hand reading before touching
+        anything else.</p>
+      <p>Expected failures on today's build are <code>PR-7</code>, <code>PR-11</code> step 4,
+        <code>PR-14</code> step 2 and <code>PR-16</code>. Anything else that fails is new.</p>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>myplus · commerce · manual regression</span>
+    <span>Marks are stored in this browser only</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = 'counter-run-marks-v1';
+    var marks = {};
+    try { marks = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { marks = {}; }
+
+    var cases = Array.prototype.slice.call(document.querySelectorAll('.case'));
+    var VALUES = [['pass', 'Pass'], ['fail', 'Fail'], ['skip', 'Skip']];
+
+    function save() {
+      try { localStorage.setItem(KEY, JSON.stringify(marks)); } catch (e) { /* private mode — marks stay in memory */ }
+    }
+
+    function tally() {
+      var n = { pass: 0, fail: 0, skip: 0 };
+      cases.forEach(function (c) {
+        var v = marks[c.dataset.case];
+        if (v && n[v] !== undefined) n[v]++;
+      });
+      document.getElementById('tPass').textContent = n.pass;
+      document.getElementById('tFail').textContent = n.fail;
+      document.getElementById('tSkip').textContent = n.skip;
+      document.getElementById('tLeft').textContent = cases.length - n.pass - n.fail - n.skip;
+    }
+
+    cases.forEach(function (card) {
+      var id = card.dataset.case;
+      var group = document.createElement('div');
+      group.className = 'status';
+      group.setAttribute('role', 'group');
+      group.setAttribute('aria-label', 'Result for ' + id);
+
+      VALUES.forEach(function (pair) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.v = pair[0];
+        btn.textContent = pair[1];
+        btn.setAttribute('aria-pressed', marks[id] === pair[0] ? 'true' : 'false');
+        btn.addEventListener('click', function () {
+          marks[id] = (marks[id] === pair[0]) ? undefined : pair[0];
+          if (!marks[id]) delete marks[id];
+          Array.prototype.forEach.call(group.children, function (b) {
+            b.setAttribute('aria-pressed', marks[id] === b.dataset.v ? 'true' : 'false');
+          });
+          save();
+          tally();
+        });
+        group.appendChild(btn);
+      });
+
+      card.querySelector('.case-head').appendChild(group);
+    });
+
+    document.getElementById('clearAll').addEventListener('click', function () {
+      marks = {};
+      save();
+      document.querySelectorAll('.status button').forEach(function (b) {
+        b.setAttribute('aria-pressed', 'false');
+      });
+      tally();
+    });
+
+    tally();
+  })();
+</script>
+
+</body></html>

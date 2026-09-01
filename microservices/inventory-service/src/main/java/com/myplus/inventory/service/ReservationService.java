@@ -179,6 +179,9 @@ public class ReservationService {
                 resv.addPick(ReservationPick.builder()
                         .stockEntryId(e.getId()).productId(line.getItemId())
                         .batchNo(e.getBatchNo()).quantity(take).expiryDate(e.getExpiryDate())
+                        // #17 P3: stamp what this batch cost, HERE, where the batch is already in hand.
+                        // Resolving it later would be a read per pick on the sale path.
+                        .unitCost(unitCostOf(e))
                         .build());
                 remaining = remaining.subtract(take);
             }
@@ -330,10 +333,28 @@ public class ReservationService {
         return new StockReservationResponse(null, ReservationStatus.OUT_OF_STOCK, List.of(), message);
     }
 
+    /**
+     * #17 P3 — what one unit of a batch cost.
+     *
+     * <p>ALLOCATED from the batch total where P2 recorded one, because that is the only figure that
+     * reconciles when a supplier bonus made the received quantity differ from the billed one: 5,000 paid for
+     * 11 units is 454.5454..., not the 500 on the invoice line.
+     *
+     * <p>Falls back to the unit purchase price for batches received before P2, where quantity x price IS the
+     * total and always was — no bonus was involved, so the identity holds exactly.
+     */
+    private BigDecimal unitCostOf(StockEntry e) {
+        if (e == null) return null;
+        if (e.getPaidTotal() != null && e.getQuantity() != null && e.getQuantity().signum() > 0)
+            return e.getPaidTotal().divide(e.getQuantity(), 6, java.math.RoundingMode.HALF_UP);
+        return e.getPurchasePrice();
+    }
+
     private StockReservationResponse toResponse(Reservation resv) {
         List<StockPick> picks = new ArrayList<>();
         for (ReservationPick p : resv.getPicks()) {
-            picks.add(new StockPick(p.getProductId(), p.getBatchNo(), nz(p.getQuantity()), p.getExpiryDate()));
+            picks.add(new StockPick(p.getProductId(), p.getBatchNo(), nz(p.getQuantity()), p.getExpiryDate(),
+                    p.getUnitCost()));
         }
         return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null,
                 resv.getExpiresAt());

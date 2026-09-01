@@ -47,6 +47,18 @@ public class SellBatch {
     @Column(name = "quantity", precision = 19, scale = 3)
     private BigDecimal quantity;
 
+    /**
+     * #17 P3 — what one unit of this batch cost, stamped from the reservation that picked it.
+     *
+     * <p>This is what makes COGS the cost of the goods that actually LEFT. Stamped at write and never
+     * re-derived: a purchase next week must not change last week's margin, which is exactly what
+     * reading a current rate at report time would do.
+     *
+     * <p>Null for sales written before P3, where COGS falls back to the line's own cost snapshot.
+     */
+    @Column(name = "unit_cost", precision = 19, scale = 6)
+    private BigDecimal unitCost;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }

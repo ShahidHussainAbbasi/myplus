@@ -57,7 +57,7 @@ class SettingsCacheTest {
     }
 
     private static SettingsService svc(CountingStore store) {
-        return new SettingsService(store, List.of(catalog()), 60L);
+        return new SettingsService(store, List.of(catalog()), Guards.none(), 60L);
     }
 
     // ── the property that matters most ──────────────────────────────────────────────────────────
