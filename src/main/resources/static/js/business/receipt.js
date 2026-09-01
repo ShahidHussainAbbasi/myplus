@@ -255,7 +255,22 @@
         expiryDate:    { key: 'ui.js.docExpiry',   align: 'left',  resolve: function (c) { return batchText(c.s, 'expiryDate'); } },
         // U4: a loose line prints "5 tablets"; an ordinary line prints exactly what it printed before.
         quantity:      { key: 'ui.js.docQty',      align: 'right', sum: 'qty',      resolve: function (c) {
-                             return c.m.isLoose ? (c.m.qty + ' ' + c.m.unit) : money(c.m.qty); } },
+                             /*
+                              * #17 P3 — FREE GOODS APPEAR ON THE DOCUMENT THE CUSTOMER KEEPS.
+                              *
+                              * Only the two A4 presets carry a dedicated Bon. column, so a walk-in handed the
+                              * 80mm slip saw ten units for a sale that put eleven in their bag. The goods now
+                              * genuinely leave stock and carry cost, so a receipt that omits them understates
+                              * what was supplied — and a customer cannot check what they were given.
+                              *
+                              * Appended to the quantity cell rather than added as a column: an 80mm slip has
+                              * no width to spare for a column that is empty on almost every line, and this
+                              * reaches EVERY preset — including an owner-designed one — instead of the two
+                              * that happen to list bonusQty today. Same mechanism U4 uses to print '5
+                              * tablets' on a loose line.
+                              */
+                             var q = c.m.isLoose ? (c.m.qty + ' ' + c.m.unit) : money(c.m.qty);
+                             return (c.m.bonus > 0) ? (q + ' + ' + money(c.m.bonus) + ' ' + t('ui.js.free')) : q; } },
         bonusQty:      { key: 'ui.js.docBonus',    align: 'right', sum: 'bonus',    resolve: function (c) { return money(c.m.bonus); } },
         tradePrice:    { key: 'ui.js.docTradePrice', align: 'right',                resolve: function (c) { return money(c.m.rate); } },
         lineValue:     { key: 'ui.js.docValue',    align: 'right', sum: 'value',    resolve: function (c) { return money(c.m.value); } },
@@ -796,11 +811,34 @@
         return frame;
     }
 
+    /**
+     * Print as soon as the frame is actually ready, instead of after a fixed wait.
+     *
+     * <p>Both print paths used a blind {@code setTimeout(..., 300)}. A receipt is small and its document is
+     * usually complete within a few milliseconds of {@code doc.close()}, so that was a third of a second of
+     * dead time on every print — with a cashier watching a screen that appeared to have ignored their click.
+     *
+     * <p>This polls {@code readyState} on a short interval and prints the moment the document is complete,
+     * keeping 300ms only as the CEILING for the rare case where a logo or webfont is still resolving. Never
+     * slower than before, usually far faster.
+     */
+    function printWhenReady(frame) {
+        var started = Date.now();
+        var CEILING = 300, STEP = 16;
+        (function attempt() {
+            var ready = false;
+            try { ready = frame.contentWindow.document.readyState === 'complete'; } catch (e) { ready = true; }
+            if (ready || (Date.now() - started) >= CEILING) {
+                try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { /* ignore */ }
+                return;
+            }
+            setTimeout(attempt, STEP);
+        })();
+    }
+
     function printInvoiceObject(inv, profile) {
         var frame = writeToFrame(buildHtml(inv, profile), 'receiptFrame');
-        setTimeout(function () {
-            try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { /* ignore */ }
-        }, 300);
+        printWhenReady(frame);
     }
 
     // Fetch the authoritative document by invoice number, then print.
@@ -952,6 +990,12 @@
             if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheReturnDocument'));
             return;
         }
+        /*
+         * The fetch DOES hold the blocking overlay, deliberately — the opposite of the tier-1b rule for
+         * pickers, and for the opposite reason. This is an action the operator just started and is waiting
+         * on: without it the click appears to do nothing until the print dialog opens, and a cashier presses
+         * Reprint again. Blocking here is honest, and it stops the double press.
+         */
         $.get(serverContext + (debit ? 'debitNote' : 'creditNote') + '?no=' + encodeURIComponent(noteNo),
             function (resp) {
                 // The monolith answers 200 with an error ENVELOPE on a refusal (including the anti-IDOR
@@ -1081,9 +1125,7 @@
             + '<style>.dc-sheet{page-break-after:always}.dc-sheet:last-child{page-break-after:auto}</style>'
             + '</head><body>' + pages + '</body></html>';
         var frame = writeToFrame(combined, 'receiptFrame');
-        setTimeout(function () {
-            try { frame.contentWindow.focus(); frame.contentWindow.print(); } catch (e) { /* ignore */ }
-        }, 300);
+        printWhenReady(frame);
     }
 
     /** ReturnDocumentDTO → the invoice-shaped object the renderer and lineMath already consume. */
@@ -1097,7 +1139,15 @@
             // preset binds supplierName, and each prints the label its reader expects.
             customerName: doc.partyName,
             supplierName: doc.partyName,
-            lines: (doc.lines || []).map(function (l) {
+            /*
+             * `sales`, NOT `lines`.
+             *
+             * buildContext reads `inv.sales` — that is the collection every document in this renderer is
+             * built from. Handing it `lines` produced a credit note with a correct header, correct totals and
+             * NOT ONE ROW: the customer got a blank document. It shipped that way because the #15 gate
+             * asserted the API response rather than the rendered page, so nothing ever looked at the paper.
+             */
+            sales: (doc.lines || []).map(function (l) {
                 return {
                     itemCode: l.sku,
                     itemName: l.productName,

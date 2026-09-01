@@ -388,19 +388,55 @@ public class AppUtil {
 		log.warn(c.getName()+"  >>>  "+s);
     }
     
+    /**
+     * ⚠ CARRIES THE SAME DEFECT as the month helpers below once did: it keeps the CURRENT TIME OF DAY, so it
+     * is NOT the start of that day. Currently unused. If you need a day boundary, use
+     * {@code LocalDate...atStartOfDay()} or {@link #endOfDay}, not this.
+     */
     public LocalDateTime dateTimeByDay(int day) {
     	return LocalDateTime.now().withDayOfMonth(day);
 //    	return (LocalDateTime) dateTimeFormatter.parse(dateTimeFormatter.format(LocalDateTime.now().withDayOfMonth(day)));
     }
     
+    /**
+     * The FIRST INSTANT of the current month.
+     *
+     * <p>Was {@code now().withDayOfMonth(1)}, which kept the CURRENT TIME OF DAY — so on the 1st of the month
+     * at 09:15 the range began at 09:15 and every sale rung earlier that day was excluded. "Current month"
+     * returned nothing at all on a shop's first morning of the month, and the dashboard's monthly revenue
+     * and sales count silently under-reported for the same reason.
+     */
     public LocalDateTime firstDateTimeOfMonth() {
-    	return LocalDateTime.now().withDayOfMonth(1);
+    	return LocalDate.now().withDayOfMonth(1).atStartOfDay();
     }
     
+    /**
+     * A report's END date, as an INCLUSIVE upper bound.
+     *
+     * <p>The date pickers send a date-only selection as midnight, so "1 Sep to 1 Sep" arrived as
+     * {@code 00:00:00 .. 00:00:00} and matched only a sale rung at exactly midnight — i.e. nothing. A user
+     * picking today for both ends saw an empty report and reasonably concluded their sales were missing.
+     *
+     * <p>Rolled to the last instant of that day so the bound means what the operator selected: the whole day.
+     * A caller that genuinely supplied a time keeps it — only a midnight value (a date-only pick) is rolled,
+     * so "up to 09:00" still means 09:00.
+     */
+    public LocalDateTime endOfDay(LocalDateTime dt) {
+        if (dt == null) return null;
+        return dt.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)
+                ? dt.toLocalDate().atTime(java.time.LocalTime.MAX)
+                : dt;
+    }
+
+    /**
+     * The LAST INSTANT of the current month.
+     *
+     * <p>Same defect as {@link #firstDateTimeOfMonth}, at the other end: this kept the current time of day, so
+     * on the last day of the month every sale rung after "now" fell outside the month it belongs to.
+     */
     public LocalDateTime lastDateTimeOfMonth() {
-    	Calendar calendar = Calendar.getInstance();
-    	int LAST_DAY_OF_MONTH = calendar.getActualMaximum(Calendar.DAY_OF_MONTH);
-    	return LocalDateTime.now().withDayOfMonth(LAST_DAY_OF_MONTH);
+    	LocalDate today = LocalDate.now();
+    	return today.withDayOfMonth(today.lengthOfMonth()).atTime(java.time.LocalTime.MAX);
     }
 
     public LocalDate firstDateOfMonth() {

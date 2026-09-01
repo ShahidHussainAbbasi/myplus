@@ -105,6 +105,19 @@ public class EntitlementService {
     public void set(Long organizationId, String capabilityCode, String status, String source,
                     LocalDateTime startsAt, LocalDateTime endsAt, String reason, Long grantedBy) {
         if (organizationId == null) throw new IllegalArgumentException("organizationId is required");
+        /*
+         * E2 — a REASON is required, by the API and not merely by the form.
+         *
+         * A UI-only requirement is not a requirement: the endpoint is reachable without the screen, and the
+         * half of the callers that skip it are the ones nobody remembers writing. This is also what makes
+         * E4 a listener rather than a retrofit — an audit trail of unexplained revocations answers "who"
+         * and "when" and not the only question anybody ever asks, which is "why".
+         *
+         * Enforced on EVERY status, grants included. "Why does this customer have a capability their plan
+         * excludes?" is exactly as expensive to answer six months later as "why did they lose one".
+         */
+        if (reason == null || reason.isBlank())
+            throw new IllegalArgumentException("A reason is required for an entitlement change.");
         Capability capability = Capability.byCode(capabilityCode);
         if (capability == null) throw new IllegalArgumentException("Unknown capability: " + capabilityCode);
         String st = status == null ? "ACTIVE" : status.trim().toUpperCase();

@@ -79,6 +79,14 @@ public final class ModuleRouter {
     /** The dashboard every trade vertical shares, and the safe landing place for an unrecognised type. */
     public static final String COMMERCE_DASHBOARD = "/businessDashboard";
 
+    /**
+     * E2 — the platform operator's console. Not a tenant dashboard, and that is the point.
+     *
+     * <p>Its own constant because {@code ADMIN} is the one entry in the map below that is NOT a business
+     * type: every other key names a kind of customer, this one names the people who run the platform.
+     */
+    public static final String PLATFORM_DASHBOARD = "/platformDashboard";
+
     private static final Map<String, String> DASHBOARD_BY_TYPE = Map.of(
             "BUSINESS",    COMMERCE_DASHBOARD,
             "PHARMA",      COMMERCE_DASHBOARD,
@@ -86,7 +94,19 @@ public final class ModuleRouter {
             "EDUCATION",   "/educationDashboard",
             "WELFARE",     "/welfareDashboard",
             "AGRICULTURE", "/agricultureDashboard",
-            "APPOINTMENT", "/appointmentDashboard");
+            "APPOINTMENT", "/appointmentDashboard",
+            /*
+             * E2 — the MaxTheService operator.
+             *
+             * Without this entry `ADMIN` is an unknown type, so the fallback above sends the platform
+             * operator to COMMERCE_DASHBOARD: a shopkeeper's till, scoped to the operator's own accidental
+             * organization. Not a security hole — org scoping holds and every read is that org's — but
+             * comprehensively the wrong product, and the reason the operator portal had nowhere to live.
+             *
+             * The commerce fallback stays exactly as it is for everything else. It was the right call for an
+             * unrecognised BUSINESS type; it was never meant to answer for a user who is not a customer.
+             */
+            "ADMIN",       PLATFORM_DASHBOARD);
 
     /**
      * Slice 3.3 — the PORTAL audiences, routed by ROLE and not by module.

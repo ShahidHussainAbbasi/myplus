@@ -506,6 +506,7 @@ no screen, menu entry or caller anywhere:
 | `getSaleReturns` | endpoint + proxy since SF-11, no UI ever called it |
 | `downloadInvoicePdf` / `downloadChallan` | in `document-pdf.js`, zero callers |
 | `stock/summary` `totalInventoryValue` | computed (in Java, over every row) and displayed nowhere |
+|  (P3) | the box existed but sat inside , which  sets to  — nine server cases passed while a cashier could not give free goods |
 
 **This is the default failure mode here, not an anomaly.** API tests pass in every one of these cases,
 because the endpoint genuinely works — what is missing is the path a person takes to it.
@@ -519,7 +520,7 @@ because the endpoint genuinely works — what is missing is the path a person ta
 ## The gate is written BEFORE the implementation
 
 **Analyze docs + standards → share the analysis for review → Document → Design → write the Cypress cases →
-Implement → Test → Commit.**
+Implement → Test until green → write MANUAL test cases and share them → then ask for commit.**
 
 A gate written *after* the code lets the implementation decide what is asserted: the spec describes what was
 built rather than what was required, and it passes because it was shaped to fit. Written first, the cases are
@@ -530,3 +531,75 @@ ladder, what the refusal ENVELOPE looks like, what regression each case guards �
 to answer.
 
 The standards analysis is shared for review **before** documenting or designing, not alongside it.
+
+And a green gate is not the end. **Manual test cases are written after green and before the commit request** —
+automated green proves the code does what the spec says; the manual pass is how the person who asked for the
+feature sees it working, on their own screens, in their own language. Each step carries the exact figure to
+expect, so a deviation is obvious rather than a judgement call.
+
+### ⚠ `.pos-more` has now hidden TWO fields on the sale screen
+
+`pos-rowentry.css` contains:
+
+```css
+.pos-rowentry #Sell .pos-more { display: none; }
+```
+
+It waits on a "More" popover that was never built, so **anything placed in that class on the sale screen is
+invisible to the cashier**. It has now swallowed two controls:
+
+| Field | Consequence |
+|---|---|
+| `#sellSerial` (SER-3) | all 15 server cases passed while the field was unreachable |
+| `#sellBonus` (#17 P3) | nine server cases passed while a cashier could not give free goods at all |
+
+Both were found by a person opening the screen, not by a suite.
+
+**Before adding a control to the sale row, check whether it is reachable.** And assert
+`should('be.visible')` plus a real `.type()` — never merely that the element exists in the DOM. An element
+can be present, correct, bound to working code, and still hidden.
+
+---
+
+## Every slice needs at least one case that drives the REAL UI end to end
+
+An API-only gate answers "does the server do the right thing". It does **not** answer "can a person do this",
+and the two have diverged repeatedly in this codebase.
+
+### The case that proved it
+
+#17 P3 shipped with nine passing cases. Every one posted JSON to `/addSell` through `cy.request`. They found
+four genuine defects — the phantom-stock reservation, a write-then-read-back COGS bug, a missing D11 fallback,
+and a skipped batch record — so they were far from worthless.
+
+But the Bonus box on the till was **invisible** (inside `.pos-more`, which is `display:none`), and all nine
+still passed. A person opening the screen found it in seconds.
+
+The sharper failure is in how the helper worked:
+
+```js
+if (bonus) line.bonusQuantity = bonus     // the test BUILDS the payload a working UI would send
+```
+
+A test that constructs the request itself cannot detect a broken UI, because it has replaced the UI.
+
+### The rule
+
+**Every slice's gate includes at least one case that drives the screen a person actually uses**: click the
+control, type the value, submit the form, and assert the outcome. No hand-built request bodies on that path.
+
+API cases stay — they are faster, they isolate server behaviour, and they caught four real defects here. The
+end-to-end case is what makes them trustworthy as a whole.
+
+### What "end to end" means concretely
+
+| Not end to end | End to end |
+|---|---|
+| `cy.request('POST', '/addSell', {…})` | select the product, type the quantity, click Add to Cart, click Complete Sale |
+| `expect(el).to.exist` | `should('be.visible')` **and** `.type()` — an element can exist, be correctly bound, and still be hidden |
+| asserting the response body | asserting what the shop sees afterwards: stock, the invoice, the ledger |
+
+### Where to put it
+
+**First case in the file, not last.** It is the one that answers "does this feature exist for a user"; the
+rest answer "is it correct". Ordering them that way makes a red run tell you which question failed.

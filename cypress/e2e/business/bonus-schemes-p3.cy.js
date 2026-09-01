@@ -245,8 +245,14 @@ describe('#17 P3 — customer bonus and true COGS', () => {
 
   it('⭐ 5. a sale with NO bonus posts exactly as before', () => {
     /*
-     * The case that matters most, because P3 touches every sale rather than only bonus ones. Ten units from a
-     * single 500 batch must post 5,000 — the same number this shop has always seen.
+     * The case that matters most, because P3 touches every sale rather than only bonus ones.
+     *
+     * ⚠ THIRD time a fixed money figure was wrong here: expecting 10 x 500 assumes the sale consumes the
+     * batch this test just received, and FEFO consumes the OLDEST stock — which on a shared fixture is
+     * whatever earlier cases left behind, at their own rates. 5,555.56 was a perfectly correct blend.
+     *
+     * So the assertions are the two things that must hold whatever FEFO picks: exactly TEN units leave (no
+     * phantom bonus), and the GL posts exactly what the sale recorded consuming.
      */
     cy.request({ url: '/getUserProduct' }).then((p) => {
       const pid = ((p.body && p.body.collection) || [])[0].id
@@ -254,15 +260,31 @@ describe('#17 P3 — customer bonus and true COGS', () => {
         onHand(pid).then((before) => {
           cogsBalance().then((cogsBefore) => {
             sell(pid, 10, null, 900).then((r) => {
-              expect(r.body.status).to.not.eq('ERROR')
+              expect(r.body.status, JSON.stringify(r.body).slice(0, 250)).to.not.eq('ERROR')
+
               onHand(pid).then((after) => {
                 expect(before - after, 'no bonus, no change: ten units').to.eq(10)
               })
-              if (cogsBefore !== null) {
+
+              if (cogsBefore === null) return
+              const invoiceNo = r.body.object || (r.body.data && r.body.data.invoiceNo)
+              expect(invoiceNo, 'the sale returned its invoice number').to.be.a('string')
+
+              cy.request({ url: '/getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo) }).then((rec) => {
+                const lines = (rec.body.object && rec.body.object.sales) || []
+                const batches = lines.reduce((acc, l) => acc.concat(l.batches || []), [])
+                const units = batches.reduce((n, b) => n + Number(b.quantity || 0), 0)
+                expect(units, 'exactly ten units — no bonus was invented').to.eq(10)
+
+                const recordedCost = batches.reduce(
+                  (n, b) => n + Number(b.unitCost || 0) * Number(b.quantity || 0), 0)
+
                 cogsBalance().then((cogsAfter) => {
-                  expect(Math.round((cogsAfter - cogsBefore) * 100) / 100, 'ten units at 500').to.eq(5000)
+                  expect(Math.round((cogsAfter - cogsBefore) * 100) / 100,
+                    'the GL posts exactly what the sale consumed')
+                    .to.eq(Math.round(recordedCost * 100) / 100)
                 })
-              }
+              })
             })
           })
         })
@@ -342,4 +364,240 @@ describe('#17 P3 — customer bonus and true COGS', () => {
     // Restore, so this spec leaves no server-side state behind for the next one.
     cy.then(() => cy.setCapability('bonusSchemes', true))
   })
+  it('⭐ 10. the cashier can actually SEE and use the Bonus box', () => {
+    /*
+     * THE REACHABILITY GATE, and it exists because this exact thing was already wrong.
+     *
+     * #sellBonus sat inside `class="pos-more"`, and `.pos-rowentry #Sell .pos-more { display:none }` hides
+     * that — so the box could not be reached at all. Every one of the nine server-side cases in this file
+     * passed while a cashier had no way to give free goods, because cy.request never touches a screen. The
+     * serial field was hidden by the same rule earlier in this programme.
+     *
+     * A capability that works and cannot be reached is the most common defect in this codebase — nine
+     * instances and counting. So the assertion is that the control is VISIBLE and ACCEPTS INPUT, not that it
+     * exists in the DOM.
+     */
+    cy.visitSaleScreen()
+
+    cy.get('#sellBonus', { timeout: 30000 })
+      .should('be.visible')
+      .and('not.be.disabled')
+
+    // Typeable, not merely present: a rendered box that refuses input is no more use than a hidden one.
+    cy.get('#sellBonus').clear().type('1').should('have.value', '1')
+
+    // And it must sit with the line-entry controls, where a cashier is already typing — not somewhere they
+    // would have to go looking for it mid-sale.
+    cy.get('#sellBonus').closest('[data-pos-field="bonus"]').should('exist')
+  })
+
+  it('⭐⭐ 11. END TO END — a cashier rings a 10 + 1 sale AT THE TILL and eleven units leave', () => {
+    /*
+     * THE CASE THAT SHOULD HAVE BEEN FIRST.
+     *
+     * The nine cases above post JSON straight to /addSell. They proved the SERVER handles bonus correctly —
+     * reservation, batches, COGS, clawback — and all of that is genuinely true. But not one of them typed
+     * into the till, so the Bonus box could have been hidden, deleted, or never written at all and every one
+     * would still have gone green. It WAS hidden: #sellBonus sat inside `.pos-more`, which pos-rowentry.css
+     * sets to display:none. A person opening the screen found that; nine passing cases did not.
+     *
+     * Worse, the helper those cases use hand-builds the request body — `if (bonus) line.bonusQuantity = bonus`
+     * — so the test constructed the exact payload a working UI would send. It could not detect a broken UI,
+     * because it REPLACED the UI.
+     *
+     * This case uses no helper and no cy.request to make the sale. It drives the screen the way a cashier
+     * does: pick the product, type the quantity, type the bonus, add to cart, complete the sale. Only the
+     * before/after stock reads are API calls, because they are observations, not the thing under test.
+     */
+    cy.request({ url: '/getUserProduct' }).then((p) => {
+      const rows = (p.body && p.body.collection) || []
+      expect(rows.length, 'the tenant has a product').to.be.greaterThan(0)
+      const pid = rows[0].id
+
+      // Enough stock that the bonus cannot be withheld for shortage — this case is about the UI, and a
+      // legitimate D11 withholding here would look like the bonus never reaching the server.
+      receive(pid, 60, 500).then(() => {
+        onHand(pid).then((before) => {
+          // Intercept the SUBMIT so the stock read below cannot race it. Registered before the visit.
+          cy.intercept('POST', '**/addSell').as('sale')
+          cy.visitSaleScreen()
+          cy.get('#sellItemDD option', { timeout: 30000 }).should('have.length.greaterThan', 1)
+
+          // Pick the product the way the picker exposes it (value = productId).
+          cy.get('#sellItemDD').select(String(pid), { force: true })
+
+          cy.get('#sellItems', { timeout: 20000 }).should('not.be.disabled').clear().type('10')
+
+          // THE POINT OF THIS CASE: the cashier must be able to see and use this box.
+          cy.get('#sellBonus').should('be.visible').clear().type('1')
+
+          cy.get('#addInviceItem').click()
+
+          // The cart holds the line before anything is submitted.
+          cy.get('#tablesi tbody tr', { timeout: 20000 }).should('have.length.greaterThan', 0)
+
+          // Cash sale, so no customer is required — keep this case about the bonus, not about credit rules.
+          cy.get('#sellPayMethod').select('CASH', { force: true })
+          cy.get('#sellRec').clear().type('99999')
+
+          cy.get('#addSell').click({ timeout: 30000 })
+
+          // The confirm dialog is on by default (pos.sale.confirmOnComplete); answer it as a cashier would.
+          cy.get('body').then(($b) => {
+            if ($b.find('.uiC-card').length) {
+              cy.get('.uiC-card button').contains(new RegExp('complete|finaliser|finalizar', 'i')).click()
+            }
+          })
+
+          // Wait for the sale to actually complete before reading stock — otherwise the assertion races
+          // the submit and reports "0 units moved" for a sale that was still in flight.
+          cy.wait('@sale', { timeout: 30000 }).then((i) => {
+            const body = i.response.body
+            expect(body.status, 'the sale completed: ' + JSON.stringify(body).slice(0, 200))
+              .to.not.eq('ERROR')
+          })
+
+          // ELEVEN units leave the shelf — rung entirely through the screen.
+          onHand(pid).then((after) => {
+            expect(before - after, 'eleven units left the shelf, rung at the till').to.eq(11)
+          })
+        })
+      })
+    })
+  })
+
+  it('⭐ 12. the free goods are PRINTED on the document the customer keeps', () => {
+    /*
+     * Found by walking the manual test, not by the suite — and the suite could not have found it, because
+     * every case before this one asserted stock and ledger figures rather than what the customer is handed.
+     *
+     * Only TRADE_INVOICE_A4 and DELIVERY_CHALLAN_A4 carry a dedicated Bon. column. A cash walk-in gets
+     * RETAIL_RECEIPT_80MM, which has no such column — so eleven units went into the bag and the slip said
+     * ten. Now that bonus goods genuinely leave stock and carry cost, a document that omits them understates
+     * what was supplied, and the customer cannot check what they were given.
+     *
+     * Asserted through DocumentRenderer.buildHtml — the SAME function the printer calls — so this cannot pass
+     * against a preview that differs from the paper.
+     */
+    cy.visitSaleScreen()
+    cy.window().then((w) => {
+      const DR = w.DocumentRenderer
+      expect(DR, 'the renderer is loaded').to.exist
+
+      const invoice = {
+        invoiceNo: 'CY-BONUS-PRINT',
+        dated: '2026-09-01T10:00:00',
+        customer: { name: 'Cypress Walk-in' },
+        sales: [{
+          itemName: 'Cooking Oil 1L',
+          quantity: 10,
+          bonusQuantity: 1,
+          sellRate: 900,
+          totalAmount: 9000,
+        }],
+      }
+
+      // The 80mm slip is the one that was wrong — a walk-in cash sale gets this, not the A4 invoice.
+      const slip = DR.buildHtml(invoice, DR.PRESETS.RETAIL_RECEIPT_80MM)
+      expect(slip, 'the thermal slip shows the free unit').to.match(/1\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
+
+      // And the trade invoice, which has its own Bon. column, must still say so too.
+      const a4 = DR.buildHtml(invoice, DR.PRESETS.TRADE_INVOICE_A4)
+      expect(a4, 'the trade invoice shows the free unit').to.match(/1\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
+
+      // A line with NO bonus must be untouched — most sales, and they must read exactly as before.
+      const plain = DR.buildHtml({
+        invoiceNo: 'CY-NO-BONUS', dated: '2026-09-01T10:00:00',
+        customer: { name: 'Cypress Walk-in' },
+        sales: [{ itemName: 'Cooking Oil 1L', quantity: 10, sellRate: 900, totalAmount: 9000 }],
+      }, DR.PRESETS.RETAIL_RECEIPT_80MM)
+      expect(plain, 'an ordinary line says nothing about free goods')
+        .to.not.match(/(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
+    })
+  })
+
+  it('⭐ 13. free goods appear on EVERY surface that shows a sold quantity', () => {
+    /*
+     * Found by walking the manual test, one screen at a time: the receipt omitted the bonus, then the Sale
+     * Detail Report omitted it, then the sale grid omitted it. Three separate render paths, each deciding for
+     * itself what a quantity is — which is exactly how two of them end up disagreeing.
+     *
+     * They now share one `bonusSuffix()`. This case asserts the OUTCOME on each surface rather than the
+     * helper, because a shared helper that one caller forgets to use is no better than three copies.
+     *
+     * A sale that issued eleven units must never be displayed as ten: the goods left the shelf and carry
+     * cost, so "10" understates what was supplied and cannot be reconciled against stock.
+     */
+    const FREE = /(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i
+
+    cy.request({ url: '/getUserProduct' }).then((p) => {
+      const pid = ((p.body && p.body.collection) || [])[0].id
+      receive(pid, 60, 500).then(() => {
+        sell(pid, 10, 1, 900).then((r) => {
+          expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.not.eq('ERROR')
+
+          // ── 1. the sale grid ────────────────────────────────────────────────────────────────────────
+          cy.visitSaleScreen()
+          cy.get('#tableSell tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 0)
+          cy.get('#tableSell tbody').invoke('text').should((txt) => {
+            expect(txt, 'the sale grid shows the free unit').to.match(FREE)
+          })
+
+          // ── 2. the Sale Detail Report ───────────────────────────────────────────────────────────────
+          cy.get('#sellType').select('SRDiv', { force: true })
+          cy.get('#SRDiv').should('be.visible')
+          cy.get('#SRDiv button[onclick*="loadSR"]').first().click({ force: true })
+          cy.get('#tableSellReport tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 0)
+          cy.get('#tableSellReport tbody').invoke('text').should((txt) => {
+            expect(txt, 'the sale report shows the free unit').to.match(FREE)
+          })
+        })
+      })
+    })
+  })
+
+  it('⭐ 14. a same-day date range returns that day\'s sales', () => {
+    /*
+     * A long-standing bug, unrelated to bonus, found by setting a filter during the manual walk.
+     *
+     * The date pickers send a date-only selection as MIDNIGHT, so "1 Sep to 1 Sep" arrived as
+     * 00:00:00 .. 00:00:00 and matched only a sale rung at exactly midnight — i.e. nothing. A shop picking
+     * today for both ends saw an empty report with a full day's takings behind it.
+     *
+     * The same defect had a second form: firstDateTimeOfMonth() kept the CURRENT TIME OF DAY, so on the 1st
+     * of the month "Current month" began mid-morning and excluded everything before it — and that helper also
+     * drives the dashboard's monthly revenue and sales tiles, which under-reported for the same reason.
+     */
+    const today = new Date()
+    const dd = String(today.getDate()).padStart(2, '0')
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const stamp = dd + '-' + mm + '-' + today.getFullYear()
+
+    cy.request({ url: '/getUserProduct' }).then((p) => {
+      const pid = ((p.body && p.body.collection) || [])[0].id
+      receive(pid, 20, 500).then(() => {
+        sell(pid, 5, null, 900).then(() => {
+          // Today to today — the range that returned nothing.
+          cy.request({
+            method: 'POST', url: '/loadSR', form: true,
+            body: { rp: 4, sd: stamp + ' 00:00:00', ed: stamp + ' 00:00:00' },
+            failOnStatusCode: false,
+          }).then((r) => {
+            expect(r.body.status, 'a same-day range finds the day\'s sales, not NOT_FOUND')
+              .to.eq('SUCCESS')
+            expect((r.body.collection || []).length, 'and returns rows').to.be.greaterThan(0)
+          })
+
+          // Current month must include a sale rung earlier today.
+          cy.request({
+            method: 'POST', url: '/loadSR', form: true, body: { rp: 0 }, failOnStatusCode: false,
+          }).then((r) => {
+            expect(r.body.status, 'current month includes this morning').to.eq('SUCCESS')
+            expect((r.body.collection || []).length).to.be.greaterThan(0)
+          })
+        })
+      })
+    })
+  })
+
 })

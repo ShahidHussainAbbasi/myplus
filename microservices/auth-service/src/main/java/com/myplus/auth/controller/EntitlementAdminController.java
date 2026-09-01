@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -40,6 +41,38 @@ public class EntitlementAdminController {
 
     private final EntitlementService entitlements;
     private final JwtService jwtService;
+
+    private final com.myplus.auth.service.OrganizationAdminService organizationsAdmin;
+
+    /**
+     * E2 — one page of TENANTS. <b>The platform's first deliberate cross-tenant read.</b>
+     *
+     * <p>Gated on {@code ROLE_ADMIN} like everything else here, and that is the single most important line in
+     * the slice: an owner holds {@code ADMIN_PRIVILEGE} inside their own org, so a privilege gate would hand
+     * every customer the list of every other customer.
+     */
+    @GetMapping("/organizations")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> organizations(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "25") int size) {
+        return ResponseEntity.ok(ApiResponse.success(organizationsAdmin.search(q, page, size), "Tenants"));
+    }
+
+    /**
+     * E2 — change a tenant's PLAN. The only place an operator writes {@code organizations.plan}, so it is
+     * where the {@code Plan} enum is enforced (finding F2 — the column is free text).
+     */
+    @PostMapping("/organizations/{id}/plan")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> changePlan(@PathVariable("id") Long id,
+                                                        @RequestBody Map<String, Object> body,
+                                                        @RequestHeader("Authorization") String auth) {
+        Long actor = jwtService.extractUserId(bearer(auth));
+        organizationsAdmin.changePlan(id, str(body.get("plan")), str(body.get("reason")), actor);
+        return ResponseEntity.ok(ApiResponse.success(null, "Plan updated"));
+    }
 
     /** Every capability for one tenant: in-plan, row status, and the effective answer. */
     @GetMapping("/entitlements")

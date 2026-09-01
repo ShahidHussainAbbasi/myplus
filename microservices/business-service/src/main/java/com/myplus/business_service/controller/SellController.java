@@ -708,11 +708,13 @@ public class SellController {
 	        if(dto.getRp() == CURRENT_MONTH) {
 	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
 	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
-	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getDateTime(dto.getEd()), user.getOrganizationId(), user.getUserId());
+	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
+	        	// for both ends returned nothing at all.
+	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
 	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd())) {
 	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
 	        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
-	        	objs = sellService.findSellByEndDate(appUtil.getDateTime(dto.getEd()), user.getOrganizationId(), user.getUserId());
+	        	objs = sellService.findSellByEndDate(appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
 //	        }else {
 //	        	//current month
 //	        	

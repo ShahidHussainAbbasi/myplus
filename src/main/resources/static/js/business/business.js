@@ -1891,7 +1891,8 @@ function loadDataTable(){
 							"<div id=sellInvoiceNo>"+escHtml(ch ? (ch.invoiceNo || '') : '')+"</div>",
 							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
-							"<div id=sellItems>"+obj.quantity+"</div>",
+							// #17 P3: the grid shows what LEFT, free goods included — see bonusSuffix.
+							"<div id=sellItems>"+obj.quantity+bonusSuffix(obj)+"</div>",
 							// The rate the line SOLD at. Read obj.sellRate FIRST: it is the server's authoritative
 							// value; stock.bsellRate is the form's echo and is not what was persisted.
 							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
@@ -3285,6 +3286,28 @@ function renderSRKpis(rows){
  * B2B-P3e-2 (#6): render the subtotals the server aggregated. Shown ABOVE the detail table, because the
  * grouped view is the answer and the detail is the evidence. Hidden entirely when nothing is grouped.
  */
+/**
+ * #17 P3 — " + 1 free", or nothing at all.
+ *
+ * ONE definition, used by every place a sold quantity is displayed: the sale grid, the Sale Detail Report and
+ * the printed document. Free goods leave the shelf and carry cost, so a screen showing 10 for a sale that
+ * issued 11 understates what was supplied — and three screens each deciding that for themselves is how two of
+ * them end up disagreeing.
+ *
+ * Returns '' on an ordinary line, so the overwhelming majority of rows render exactly as they always did.
+ */
+function bonusSuffix(o){
+	var bonus = Number(o && o.bonusQuantity);
+	if (!bonus || bonus <= 0) return '';
+	return ' + ' + bonus + ' ' + escHtml(t('ui.js.free'));
+}
+
+/** The quantity a Sale Detail Report row shows, free goods included. */
+function srQtyText(o){
+	var base = o.soldUnit ? looseQtyText(o) : srNum(o.quantity);
+	return base + bonusSuffix(o);
+}
+
 function renderSRGroups(groups){
 	var host = document.getElementById('srGroups');
 	if (!host) return;
@@ -3377,7 +3400,11 @@ function loadSR(){
 					'<span class="sr-inv">' + escSR(o.invoiceNo || '—') + '</span>',
 					product,
 					// U4: pieces on a loose line, packs on every other. The row's money is untouched.
-					(o.soldUnit ? looseQtyText(o) : srNum(o.quantity)),
+					// #17 P3: free goods are shown here too. They left the shelf and carry cost, so a report
+					// that says 10 for a sale that issued 11 understates what was supplied — the same reason
+					// the receipt now prints "10 + 1 free". The money columns are unaffected: a bonus unit is
+					// not charged, so revenue and tax stay exactly as they were.
+					srQtyText(o),
 					srMoneyCell(o.catalogPrice),
 					srMoneyCell(o.sellRate),
 					srMoneyCell(o.totalAmount),

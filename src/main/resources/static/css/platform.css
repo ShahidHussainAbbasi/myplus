@@ -1,0 +1,126 @@
+/* ============================================================================
+ * platform.css — E2, the operator console.
+ *
+ * Scoped under .plat so nothing here can leak into a tenant dashboard. The two
+ * screens share a design language (the Bold Corporate Blue of the UI redesign)
+ * and nothing else: an operator console is a working tool for a handful of
+ * people, not a customer-facing dashboard, so there are no KPI tiles and no
+ * charts. An operator arrives looking for ONE customer, so the screen opens on
+ * search and everything else is secondary.
+ * ========================================================================== */
+
+.plat{ min-height:100vh; background:#f4f6fa; }
+
+/* ── The top bar. Visually distinct from a tenant dashboard ON PURPOSE: an
+ * operator must never be in doubt about whether they are looking at the
+ * platform or at somebody's shop. Dark slate, not the tenant blue. */
+.plat__top{
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+  padding:12px 22px; background:#16202e; color:#fff;
+  box-shadow:0 2px 10px rgba(10,20,40,.25);
+}
+.plat__brand{ display:flex; align-items:center; gap:9px; font-size:15px; font-weight:700; letter-spacing:.3px; }
+.plat__brand .glyphicon{ font-size:15px; opacity:.85; }
+.plat__who{ display:flex; align-items:center; gap:14px; font-size:12.5px; color:#b8c4d4; }
+.plat__logout{ color:#fff; text-decoration:underline; }
+.plat__logout:hover,.plat__logout:focus{ color:#fff; }
+
+.plat__body{ max-width:1000px; margin:0 auto; padding:22px 18px 60px; }
+.plat__panel{ background:transparent; }
+
+/* ── Toolbar: search is the primary action, so it gets the width ───────────── */
+.plat__toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+.plat__search{ position:relative; flex:1 1 260px; }
+.plat__search .glyphicon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#8a97aa; font-size:12px; }
+.plat__search input{
+  width:100%; height:40px; padding:0 14px 0 34px;
+  border:1px solid #d8dee9; border-radius:10px; background:#fff; font-size:13.5px;
+}
+.plat__search input:focus{ outline:none; border-color:#1565C0; box-shadow:0 0 0 3px rgba(21,101,192,.15); }
+.plat__count{ font-size:12px; color:#7a889c; white-space:nowrap; }
+.plat__provision{ border-radius:10px; }
+
+/* ── A tenant row. One line per customer, scannable ────────────────────────── */
+.plat__list{ background:#fff; border:1px solid #e2e7ef; border-radius:12px; overflow:hidden;
+             box-shadow:0 3px 14px rgba(20,40,80,.05); }
+.plat-row{
+  display:flex; align-items:center; gap:14px; padding:14px 18px;
+  border-bottom:1px solid #eef2f7; cursor:pointer; transition:background .12s;
+}
+.plat-row:last-child{ border-bottom:0; }
+.plat-row:hover{ background:#f7faff; }
+.plat-row__main{ flex:1 1 auto; min-width:0; }
+.plat-row__name{ font-size:14px; font-weight:650; color:#22303f; }
+.plat-row__meta{ font-size:12px; color:#7a889c; margin-top:2px;
+                 overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.plat-row__tags{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
+.plat-row__go{ color:#b8c2d0; font-size:12px; }
+
+/* ── Badges ────────────────────────────────────────────────────────────────── */
+.plat-badge{
+  display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+  font-size:11px; font-weight:700; letter-spacing:.03em;
+  border-radius:999px; padding:2px 9px; border:1px solid;
+}
+.plat-badge--plan{ color:#0D3B8C; background:#e8f0fd; border-color:#9dbdf0; }
+/* THE badge that matters. 14 of 20 trials are lapsed right now and nothing
+ * surfaces it; if this screen makes one thing obvious, it is this one. */
+.plat-badge--lapsed{ color:#8a5b00; background:#fdf3e0; border-color:#d9a441; }
+.plat-badge--ok{ color:#0f6e56; background:#e3f3ee; border-color:#0f6e56; }
+.plat-badge--revoked{ color:#c0392b; background:#fdecea; border-color:#c0392b; }
+.plat-badge--notinplan{ color:#7a889c; background:#f0f2f6; border-color:#c9d1dd; }
+.plat-badge .glyphicon{ font-size:10px; }
+
+.plat__pager{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:14px; }
+.plat__pageno{ font-size:12px; color:#7a889c; }
+.plat__loading,.plat__empty{ padding:26px; text-align:center; color:#7a889c; font-size:13px; }
+
+/* ── Detail ────────────────────────────────────────────────────────────────── */
+.plat__back{
+  display:inline-flex; align-items:center; gap:6px; margin-bottom:14px;
+  background:none; border:0; padding:0; color:#1565C0; font-size:13px; font-weight:600;
+}
+.plat-detail__name{ margin:0 0 14px; font-size:18px; font-weight:700; color:#16202e; }
+.plat-card{ background:#fff; border:1px solid #e2e7ef; border-radius:12px; margin-bottom:16px;
+            overflow:hidden; box-shadow:0 3px 14px rgba(20,40,80,.05); }
+.plat-card__head{ display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+                  padding:12px 18px; background:#f7f9fc; border-bottom:1px solid #e6ebf3; }
+.plat-card__head h4{ margin:0; font-size:14px; font-weight:700; color:#0D3B8C; letter-spacing:.2px; }
+.plat-card__n{ font-size:11px; color:#8a97aa; }
+.plat-card__body{ padding:16px 18px; }
+/* The staleness note. Stated where the operator ACTS — an operator who does not
+ * know a change takes up to 15 minutes reports a working system as broken. */
+.plat-card__note{ margin:0; padding:10px 18px; font-size:12px; color:#7a889c;
+                  background:#fbfcfe; border-bottom:1px solid #eef2f7; }
+
+.plat-plan{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.plat-plan select{ max-width:200px; }
+.plat-plan__trial{ font-size:12px; color:#7a889c; }
+
+.plat-cap{ display:flex; align-items:center; gap:14px; padding:13px 18px; border-bottom:1px solid #eef2f7; }
+.plat-cap:last-child{ border-bottom:0; }
+.plat-cap__text{ flex:1 1 auto; min-width:0; }
+.plat-cap__label{ font-size:13.5px; font-weight:650; color:#22303f; }
+.plat-cap__help{ font-size:12px; line-height:1.5; color:#7a889c; max-width:64ch; }
+/* The operator's own note from a previous decision — the "why", which is the
+ * only question anybody actually asks six months later. */
+.plat-cap__reason{ font-size:11.5px; color:#8a5b00; margin-top:3px; font-style:italic; }
+.plat-cap__actions{ display:flex; gap:6px; }
+
+/* ── Provision form ────────────────────────────────────────────────────────── */
+.plat__hint{ font-size:12.5px; color:#7a889c; margin-bottom:16px; }
+.plat__form{ background:#fff; border:1px solid #e2e7ef; border-radius:12px; padding:18px; max-width:520px; }
+.plat__form label{ display:block; font-size:12px; font-weight:650; color:#5a6677; margin:12px 0 4px; }
+.plat__form label:first-child{ margin-top:0; }
+.plat__form .btn{ margin-top:18px; }
+
+/* ── Phones. The app's existing 991 breakpoint (responsive contract) ───────── */
+@media (max-width:991px){
+  .plat__body{ padding:16px 12px 48px; }
+  .plat-row{ flex-wrap:wrap; gap:8px; }
+  .plat-row__tags{ justify-content:flex-start; width:100%; }
+  .plat-row__go{ display:none; }
+  .plat-cap{ flex-wrap:wrap; }
+  .plat-cap__actions{ width:100%; }
+  .plat__provision{ width:100%; }
+}

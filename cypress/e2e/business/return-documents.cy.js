@@ -174,4 +174,58 @@ describe('Return documents — credit note and debit note', () => {
       expect(typeof w.printReturnDocument, 'the print entry point is exposed').to.eq('function')
     })
   })
+  it('⭐ the credit note RENDERS its lines — not a blank page', () => {
+    /*
+     * THE DEFECT THIS EXISTS FOR, found by a user printing CRN-000054 and getting a document with no data.
+     *
+     * `toInvoiceShape()` handed the renderer a `lines` collection. `buildContext` reads `inv.sales`. So the
+     * note printed with a correct header, correct totals and NOT ONE ROW — a blank document handed to a
+     * customer as the record of what they returned.
+     *
+     * It shipped that way because this file only asserted `typeof printReturnDocument === 'function'`. The
+     * endpoint was tested, the entry point was tested, and the PAGE was never looked at.
+     *
+     * Rendered through DocumentRenderer.buildHtml — the same function the printer calls — so this cannot pass
+     * against a preview that differs from the paper.
+     */
+    cy.loginAsOwner(OWNER)
+    cy.visitSaleScreen()
+
+    seedCreditNote().then((noteNo) => {
+      cy.request({ url: `/creditNote?no=${encodeURIComponent(noteNo)}` }).then((r) => {
+        expect(r.body.status, r.body.message).to.eq('SUCCESS')
+        const doc = r.body.object
+
+        cy.window().then((w) => {
+          const DR = w.DocumentRenderer
+          expect(DR, 'the renderer is loaded').to.exist
+          expect(DR.PRESETS.CREDIT_NOTE_A4, 'the credit note preset').to.exist
+
+          // Shape it exactly as the print path does, then render it.
+          const html = DR.buildHtml({
+            documentNo: doc.documentNo,
+            referenceNo: doc.referenceNo,
+            reason: doc.reason,
+            dated: doc.dated,
+            customerName: doc.partyName,
+            sales: (doc.lines || []).map((l) => ({
+              itemCode: l.sku, itemName: l.productName,
+              quantity: l.quantity, sellRate: l.rate, totalAmount: l.amount,
+            })),
+            totalAmount: doc.totalAmount,
+          }, DR.PRESETS.CREDIT_NOTE_A4)
+
+          // The number, so we know we rendered THIS note.
+          expect(html, 'the note carries its own number').to.contain(doc.documentNo)
+
+          // THE ASSERTION THAT WAS MISSING: the product name from the line must appear on the page. A blank
+          // document still contains the header and the totals — only a row proves the lines rendered.
+          const name = (doc.lines && doc.lines[0] && doc.lines[0].productName) || ''
+          expect(name, 'the note has a line with a product name').to.not.be.empty
+          expect(html, 'the product line appears on the printed page').to.contain(name)
+        })
+      })
+    })
+  })
+
 })

@@ -2146,10 +2146,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- B2B-P3g: free goods on this line ("Bon." on a trade invoice) — 20 billed, 2 free.
 						     Optional; blank means no bonus and the column prints nothing. Deliberately NOT
 						     wired into calculateNetSell: bonus stock is given away, so it must not move the
-						     line total, the tax or the margin. It is also PRESENTATION ONLY for now — it does
-						     not decrement inventory (decision D-2) — so a shop that needs the stock to move
-						     should record the free units as a normal line instead. -->
-						<div class="pos-cell pos-more" data-pos-field="bonus">
+						     line total, the tax or the margin.
+						     #17 P3 SUPERSEDES the old note here: bonus units DO now decrement inventory and
+						     DO carry cost, because they physically leave the shop. The previous advice — to
+						     record free units as a normal line instead — is no longer correct and would
+						     double-count them. -->
+						<!--
+							#17 P3: VISIBLE, and capability-gated instead of hidden behind .pos-more.
+							.pos-rowentry #Sell .pos-more is display:none, so this box could not be reached at
+							all — the same trap that hid the serial field. A cashier cannot give free goods
+							through a control they cannot see, and every server-side case can pass while that
+							is true.
+						-->
+						<div class="pos-cell" data-pos-field="bonus" data-capability="bonusSchemes">
 							<label class="control-label col-sm-2" for="sellBonus" th:text="#{ui.docBonus}">Bonus</label>
 							<div class="col-sm-2">
 								<input type="number" step="any" min="0" class="form-control" id="sellBonus"

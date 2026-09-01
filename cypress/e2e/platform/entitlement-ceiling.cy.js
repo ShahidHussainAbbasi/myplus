@@ -84,7 +84,11 @@ const setEntitlement = (token, body) =>
 
 /** Grant / revoke helpers, so the intent reads at the call site. */
 const grant = (token, orgId, capability, extra) =>
-  setEntitlement(token, Object.assign({ organizationId: orgId, capability, status: 'ACTIVE' }, extra || {}))
+  // `reason` is REQUIRED by the API as of E2 — an unexplained entitlement change is unauditable, and the
+  // rule is enforced server-side rather than by the operator form. A helper that omitted it would fail
+  // every grant in this spec with a message about reasons, which reads like a ceiling bug and is not one.
+  setEntitlement(token, Object.assign(
+    { organizationId: orgId, capability, status: 'ACTIVE', reason: 'E1 gate' }, extra || {}))
 const revoke = (token, orgId, capability) =>
   setEntitlement(token, { organizationId: orgId, capability, status: 'SUSPENDED', reason: 'E1 gate' })
 

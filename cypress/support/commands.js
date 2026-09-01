@@ -719,6 +719,27 @@ Cypress.Commands.add('getCapabilities', () => {
   })
 })
 
+// ── E2: the PLATFORM OPERATOR ──────────────────────────────────────────────────
+/**
+ * Log in as MaxTheService's own operator — NOT a tenant account.
+ *
+ * `admin@myplus.com` holds ROLE_ADMIN and userType ADMIN. It is deliberately absent from the per-module
+ * `demo./user./admin./owner.` ladder in dev-test-accounts.md, because that ladder is four privilege TIERS
+ * INSIDE a customer's organization and this account is not a customer at all. `loginAsTier('admin', ...)`
+ * yields `admin.<module>@` — a tenant admin — which is the opposite of what an operator test needs.
+ *
+ * The validate path is a PLATFORM endpoint on purpose. Validating against a tenant path (say
+ * /getBusinessDashboardStats) would appear to work — the operator has an accidental org from
+ * getOrCreatePrimaryOrg's legacy path — and would prove nothing about operator access.
+ *
+ * The password comes from APP_ADMIN_PASSWORD; the dev default is Admin@2025!. Override with
+ *   npx cypress run --env adminPassword=...
+ */
+Cypress.Commands.add('loginAsOperator', (email = 'admin@myplus.com', password) => {
+  const pw = password || Cypress.env('adminPassword') || 'Admin@2025!'
+  cy.loginAs(email, pw, '/platform/organizations')
+})
+
 // ── C4: per-shape tenants ─────────────────────────────────────────────────────────────────────────
 /**
  * Mobile shop and pesticide dealer. Both are userType BUSINESS with their OWN organizations — they differ

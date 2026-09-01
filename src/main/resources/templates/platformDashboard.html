@@ -1,0 +1,110 @@
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      th:lang="${htmlLang}" th:dir="${htmlDir}">
+<head>
+<link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+<title th:text="#{ui.platformConsole}">Platform — MaxTheService</title>
+    <th:block th:replace="~{fragments/header :: header-css}"></th:block>
+    <link rel="stylesheet" th:href="@{/css/platform.css}"/>
+</head>
+<body>
+<!--
+  E2 — the MaxTheService OPERATOR console.
+
+  Deliberately NOT businessDashboard.html. That page is 3,947 lines and 36 .formDiv sections shipped to every
+  tenant; putting a surface that lists every CUSTOMER inside a page every customer loads is one CSS mistake
+  away from a shopkeeper seeing the tenant list. Separate page, separate route, separate gate.
+
+  And deliberately not shaped like a dashboard: no KPI tiles, no charts. An operator arrives looking for one
+  customer, so the screen opens on search.
+
+  Gating here is belt-and-braces only. PlatformDashboardController refuses the GET without ROLE_ADMIN, and
+  every endpoint this page calls is independently gated in auth-service. Hiding a screen has never been the
+  control — see the E1/E2 design docs.
+-->
+<div class="plat">
+
+    <header class="plat__top">
+        <div class="plat__brand">
+            <span class="glyphicon glyphicon-globe"></span>
+            <span th:text="#{ui.platformConsole}">Platform</span>
+        </div>
+        <div class="plat__who">
+            <span sec:authentication="name">operator</span>
+            <a th:href="@{/logout}" class="plat__logout" th:text="#{ui.logout}">Logout</a>
+        </div>
+    </header>
+
+    <main class="plat__body">
+
+        <!-- ── Tenants ────────────────────────────────────────────────────────────────────────── -->
+        <section id="platTenants" class="plat__panel">
+            <div class="plat__toolbar">
+                <div class="plat__search">
+                    <span class="glyphicon glyphicon-search"></span>
+                    <!-- No autofocus: focus-flow's rule is no auto-focus on touch / below 992px, and a search
+                         box that grabs a phone keyboard on open is hostile. platform.js focuses conditionally. -->
+                    <input type="text" id="platSearch" autocomplete="off"
+                           th:placeholder="#{ui.searchTenants}" placeholder="Search tenants…"/>
+                </div>
+                <span class="plat__count" id="platCount" data-testid="tenant-count"></span>
+                <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
+                        th:text="#{ui.provisionTenant}">+ Provision tenant</button>
+            </div>
+
+            <div id="platTenantList" class="plat__list"></div>
+            <div id="platPager" class="plat__pager"></div>
+        </section>
+
+        <!-- ── One tenant ─────────────────────────────────────────────────────────────────────── -->
+        <section id="platDetail" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back" id="platBack">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <div id="platDetailBody"></div>
+        </section>
+
+        <!-- ── Provision ──────────────────────────────────────────────────────────────────────── -->
+        <section id="platProvision" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back" id="platProvisionBack">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.provisionTenant}">Provision tenant</h3>
+            <!-- No password field, on purpose: provisionTenant emails the owner a reset link so no
+                 operator-known credential for a customer's account ever exists. -->
+            <p class="plat__hint" th:text="#{ui.provisionHint}">
+                The owner receives an email to set their own password. No password is issued here.</p>
+            <div class="plat__form">
+                <label th:text="#{ui.organizationName}">Business name</label>
+                <input type="text" id="provOrgName" class="form-control"/>
+                <label th:text="#{ui.email}">Owner email</label>
+                <input type="email" id="provEmail" class="form-control"/>
+                <label th:text="#{ui.firstName}">First name</label>
+                <input type="text" id="provFirstName" class="form-control"/>
+                <label th:text="#{ui.lastName}">Last name</label>
+                <input type="text" id="provLastName" class="form-control"/>
+                <label th:text="#{ui.plan}">Plan</label>
+                <select id="provPlan" class="form-control">
+                    <option value="TRIAL">TRIAL</option>
+                    <option value="FREE">FREE</option>
+                    <option value="PRO" selected="selected">PRO</option>
+                </select>
+                <button type="button" class="btn btn-primary" id="provSubmit"
+                        th:text="#{ui.provisionTenant}">Provision tenant</button>
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<script th:inline="javascript">
+    var serverContext = [[@{/}]];
+</script>
+
+<th:block th:replace="~{fragments/header :: header-js}"></th:block>
+<script th:src="@{/js/common/dom-safe.js}"></script>
+<script th:src="@{/js/common/api-response.js}"></script>
+<script th:src="@{/js/platform/platform.js}"></script>
+</body>
+</html>
