@@ -1,6 +1,6 @@
 # SaaS control plane — review of the four-layer proposal
 
-**Status:** REVIEWED AND ACCEPTED (owner, 2026-08-31). Rulings D-1..D-4 taken as recommended. **E1 is ✅ SHIPPED AND GREEN** — see [`slices/e1-entitlement-ceiling.md`](slices/e1-entitlement-ceiling.md).
+**Status:** REVIEWED AND ACCEPTED (owner, 2026-08-31). Rulings D-1..D-4 taken as recommended. **E1 and E2 are ✅ SHIPPED AND GREEN** — see [`slices/e1-entitlement-ceiling.md`](slices/e1-entitlement-ceiling.md).
 Raised 2026-08-31 from the proposal
 *"platform master admin creates organizations and assigns licensed capabilities; the org owner configures only
 what is enabled; a user sees only what their role and branch allow."*
@@ -145,7 +145,7 @@ flowchart TD
 |---|---|---|
 | **E0** | this review → agree the §5 rejections and the §6 rulings | ✅ accepted 2026-08-31 |
 | **E1** | **entitlement ceiling.** Plan→capability map (code-defined, beside `Capability`) + `org_entitlement` table in auth-service (which already owns the capability store per C3c) + `EntitlementService.entitled(org, cap)`. `SettingsService.set` refuses `org.cap.X = true` when not entitled; **switching OFF stays allowed** (the C6 rule: a withdrawn capability must not strand a tenant). Seeded from current state ⇒ inert deploy | ✅ **green** — the only 🔴 with a live licensing cost |
-| **E2** | **operator portal screen** — organizations list, provision tenant (endpoint exists), change plan, grant/revoke a capability with source, reason and dates. `ROLE_ADMIN` only | makes E1 operable; without it entitlements are curl-only |
+| **E2** | **operator portal screen** — organizations list, provision tenant, change plan, grant/revoke with a required reason. `ROLE_ADMIN` only | ✅ **green** — makes E1 operable; entitlements were curl-only |
 | **E3** | **freshness** — implement whichever D-1 option is chosen | a ceiling a stale token bypasses is decoration |
 | **E4** | **audit the control plane** — entitlement grant/revoke, plan change, shape change, capability toggle → `AuditEvent` via the existing outbox | F5; cheap once E1/E2 name the events |
 | **E5** | **support session** — reason required, time-boxed, read-only, audited, visible to the tenant | F3 |

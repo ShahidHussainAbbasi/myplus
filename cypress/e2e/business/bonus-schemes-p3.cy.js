@@ -499,11 +499,11 @@ describe('#17 P3 — customer bonus and true COGS', () => {
 
       // The 80mm slip is the one that was wrong — a walk-in cash sale gets this, not the A4 invoice.
       const slip = DR.buildHtml(invoice, DR.PRESETS.RETAIL_RECEIPT_80MM)
-      expect(slip, 'the thermal slip shows the free unit').to.match(/1\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
+      expect(slip, 'the thermal slip shows the free unit').to.match(/1(\.\d+)?\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
 
       // And the trade invoice, which has its own Bon. column, must still say so too.
       const a4 = DR.buildHtml(invoice, DR.PRESETS.TRADE_INVOICE_A4)
-      expect(a4, 'the trade invoice shows the free unit').to.match(/1\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
+      expect(a4, 'the trade invoice shows the free unit').to.match(/1(\.\d+)?\s*(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i)
 
       // A line with NO bonus must be untouched — most sales, and they must read exactly as before.
       const plain = DR.buildHtml({

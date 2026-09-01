@@ -1,6 +1,9 @@
 # E2 — the operator portal: design
 
-**Status:** DESIGN. Gate written before the implementation, per `SAAS-BUILD-STANDARDS.md`.
+**Status:** ✅ **SHIPPED AND GREEN** (2026-09-01). Gate written before the implementation, per
+`SAAS-BUILD-STANDARDS.md`. `operator-portal.cy.js` 10/10, with `entitlement-ceiling.cy.js` re-run alongside
+(E2 made `reason` mandatory on entitlement writes). Manual cases:
+[`manual-test-platform-operator.md`](../manual-test-platform-operator.md).
 **Analysis:** [`e2-operator-portal-analysis.md`](e2-operator-portal-analysis.md) — read first; every finding
 below is evidenced there.
 **Programme:** [`saas-control-plane-review.md`](../saas-control-plane-review.md) · **Predecessor:**
@@ -250,3 +253,61 @@ on, and a suspended entitlement left behind would fail them somewhere else entir
 * **Usage metering.** Salesforce shows licences *used*; we do not collect per-capability usage, and inventing
   a number would be worse than omitting one.
 * **Billing.** Entitlement records what was sold; nothing here charges anyone.
+
+---
+
+## 10. What the gate found (delivery log)
+
+Four failures on the first headed run. **Two were one real defect; two were the spec's own assumptions.**
+
+### 10a. 🔴 Every `@PreAuthorize` refusal in the monolith answered 500
+
+`RestResponseEntityExceptionHandler` has `@ExceptionHandler({Exception.class})` → 500 `InternalError`, and
+`AccessDeniedException` fell into it. Spring Security's `ExceptionTranslationFilter` would normally produce the
+403, but a `@ControllerAdvice` catching `Exception` intercepts it first — which is why the fix belongs in the
+advice and not in the security config.
+
+Three things wrong, in increasing order of seriousness:
+
+1. It contradicts standard 8a — the server knew exactly why it refused and threw the reason away.
+2. A caller cannot tell *"you may not"* from *"we fell over"*, so a client retries a refusal.
+3. **A security event was being logged and reported as a server error.** Every unauthorised attempt looked like
+   a bug, and any real bug hid among them.
+
+Fixed with an explicit `AccessDeniedException` → **403** handler, logged at `warn` rather than `error`: a
+refused request is the control working. **Pre-existing and platform-wide** — E2's gate is simply the first
+thing that ever asserted the status of a monolith authz refusal.
+
+### 10b. The spec asserted through a cached session
+
+Case 8 revoked a capability and then checked the tenant with `cy.loginAsOwner` — which goes through
+`cy.session` with `cacheAcrossSpecs` and therefore **restores** a session rather than logging in again. That
+session's JWT still carried the pre-revoke capability set, so a working ceiling reported as broken.
+
+The product was right: capabilities travel in the token by design (E1 ruling D-1) and land at the next mint,
+within the 15-minute access-token lifetime. The spec now asserts through `gwLogin`, which genuinely
+re-authenticates, and reads the `caps` claim — **the guarantee asserted at the point it is made**.
+
+> A test that needs the product to be more eager than its design is testing the wrong thing.
+
+### 10c. The spec assumed a tenant was on page 1
+
+Case 10 looked for `owner.business@`'s org in the first page of the list. There are 40 organizations, the page
+size is 25 and the order is newest-first, so it was not there. Now reads the plan from
+`/platform/entitlements?organizationId=`, which returns it.
+
+> A test that depends on where a row lands in a pager breaks every time somebody signs up.
+
+### 10d. Two things fixed on the way, both self-inflicted
+
+* **The N+1 I had just warned about.** `memberCountsFor`'s javadoc claimed a bulk read while the code looped a
+  query per row. Replaced with a `GROUP BY` count over the whole page.
+* **`:q IS NULL` in JPQL.** Hibernate 6 cannot infer a bound parameter's type from `IS NULL` alone and fails at
+  *runtime*. A blank search now normalises to `%`, pinned by a unit test so it cannot regress silently.
+
+### 10e. Found but NOT fixed — reported instead
+
+The i18n detector returns four violations from the already-committed bonus-schemes work: `t('ui.addOffer')` ×2
+and `t('ui.editOffer')` ×2. `LocaleInterceptor` ships only the `ui.js.*` prefix, so those render the raw key in
+every language and `i18n-js-prefix.cy.js` should be failing on master. Two keys plus two JS edits — **another
+slice's work, raised rather than folded into this diff.**

@@ -79,6 +79,35 @@ public class RestResponseEntityExceptionHandler extends ResponseEntityExceptionH
         return new ResponseEntity<Object>(bodyOfResponse, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    /**
+     * 403 — an authorization refusal is an ANSWER, not a server failure.
+     *
+     * <h3>The defect this closes, found by E2's gate</h3>
+     * Without this handler, {@code AccessDeniedException} fell through to {@code handleInternal} below and
+     * every {@code @PreAuthorize} refusal in the monolith came back as <b>500 "InternalError"</b>. Three
+     * things were wrong with that, in increasing order of seriousness:
+     * <ol>
+     *   <li>It contradicts standard 8a — the server knew exactly why it refused and threw the reason away.</li>
+     *   <li>A caller cannot tell "you may not do this" from "we fell over", so a client retries a refusal.</li>
+     *   <li><b>A security event was being logged and reported as a server error.</b> Every unauthorised
+     *       attempt looked like a bug, and any real bug hid among them.</li>
+     * </ol>
+     *
+     * <p>Spring Security's {@code ExceptionTranslationFilter} would normally turn this into a 403, but a
+     * {@code @ControllerAdvice} catching {@code Exception} intercepts it first — which is why the fix belongs
+     * here and not in the security config.
+     *
+     * <p>Deliberately NOT logged at {@code error}: a refused request is the control working. It is logged at
+     * {@code warn} with the path, because a burst of them is worth noticing.
+     */
+    @ExceptionHandler({ org.springframework.security.access.AccessDeniedException.class })
+    public ResponseEntity<Object> handleAccessDenied(final RuntimeException ex, final WebRequest request) {
+        logger.warn("403 Access denied: " + request.getDescription(false));
+        final GenericResponse bodyOfResponse = new GenericResponse(
+                messages.getMessage("message.unauth", null, "Access denied", request.getLocale()), "AccessDenied");
+        return new ResponseEntity<Object>(bodyOfResponse, new HttpHeaders(), HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler({ Exception.class })
     public ResponseEntity<Object> handleInternal(final RuntimeException ex, final WebRequest request) {
         logger.error("500 Status Code", ex);

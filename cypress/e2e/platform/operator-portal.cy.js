@@ -221,11 +221,22 @@ describe('E2 — the operator portal', () => {
       expect(r.body && r.body.success, `revoke: ${JSON.stringify(r.body)}`).to.eq(true)
     })
 
-    // The tenant's own view. A fresh login re-mints the token, which is how a revoke reaches a session
-    // before the 15-minute access-token lifetime elapses.
-    cy.loginAsOwner(OWNER)
-    cy.getCapabilities().then((caps) => {
-      expect(caps[CAP], 'the revoked capability must be OFF for the tenant').to.eq(false)
+    /*
+     * ⚠ ASSERT THROUGH A GENUINELY FRESH LOGIN, NOT cy.loginAsOwner.
+     *
+     * `loginAsOwner` goes through cy.session with cacheAcrossSpecs, so it RESTORES a session rather than
+     * logging in again — and that session's JWT still carries the capability set minted before the revoke.
+     * The first version of this test asserted against that stale token and failed, reporting a working
+     * ceiling as broken. Capabilities travel in the token by design (E1 ruling D-1); the documented cost is
+     * that a change lands at the next mint, within the 15-minute access-token lifetime.
+     *
+     * gwLogin POSTs /api/auth/login every time, so the claim it returns is what auth resolves NOW — which is
+     * exactly the property the ceiling guarantees, asserted at the point the guarantee is made.
+     */
+    gwLogin(OWNER, DEMO_PW).then((token) => {
+      const caps = String(claims(token).caps || '')
+      expect(caps, `a freshly minted token must not carry the revoked capability: "${caps}"`)
+        .to.not.contain(CAP)
     })
   })
 
@@ -245,10 +256,21 @@ describe('E2 — the operator portal', () => {
      * operator writes it, so it is where the Plan enum has to be enforced.
      */
     cy.loginAsOperator()
-    listOrgs().then((r) => {
-      const row = r.body.data.rows.find((o) => o.id === ownerOrgId)
-      expect(row, 'the owner tenant is in the list').to.be.an('object')
-      originalPlan = row.plan
+    /*
+     * Read the current plan from the TENANT endpoint, not from page 0 of the list.
+     *
+     * There are 40 organizations and the list is paged at 25, newest first — so this tenant is simply not on
+     * the first page, and the first version of this test failed looking for it there. A test that depends on
+     * where a row lands in a pager is a test that breaks every time somebody signs up.
+     */
+    cy.request({
+      method: 'GET',
+      url: `/platform/entitlements?organizationId=${ownerOrgId}`,
+      failOnStatusCode: false,
+    }).then((r) => {
+      expect(r.body && r.body.success, `tenant read: ${JSON.stringify(r.body)}`).to.eq(true)
+      originalPlan = r.body.data.plan
+      expect(originalPlan, 'the tenant has a plan to restore afterwards').to.be.a('string')
     })
 
     setPlan({ organizationId: ownerOrgId, plan: 'PRO', reason: 'E2 gate' }).then((r) => {

@@ -89,7 +89,14 @@ public class SaleCosting {
      */
     public BigDecimal cogsFromPicks(List<com.myplus.commerce.contracts.dto.StockPick> picks,
                                     List<SagaLine> lines) {
-        if (picks == null || picks.isEmpty()) return snapshotCogs(lines);
+        if (picks == null || picks.isEmpty()) {
+            // LOUD. A reservation with no picks means the sale costed itself from the line snapshot and
+            // recorded no batches at all — the receipt then shows no traceability and COGS is an
+            // approximation. This case was silent while the "picks without cost" case warned, so an empty
+            // picks list looked identical to a correct sale.
+            log.warn("COGS: the reservation returned NO PICKS; using the line snapshot and recording no batches");
+            return snapshotCogs(lines);
+        }
         BigDecimal cost = BigDecimal.ZERO;
         boolean any = false;
         for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
