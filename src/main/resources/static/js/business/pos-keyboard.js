@@ -327,7 +327,7 @@
      * underneath it. Two callers wanted two different answers from one function, which is the whole bug.
      */
     function focusGoodsEntry() {
-        if (global.posBarcodeEnabled !== false && $('#sellScan').is(':visible')) {
+        if (global.posBarcodeEnabled === true && $('#sellScan').is(':visible')) {
             focusField('sellScan');
         } else {
             focusField('sellItemDD');

@@ -20,6 +20,28 @@ public interface SalesQuoteRepo extends JpaRepository<SalesQuote, Long> {
     List<SalesQuote> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /** Anti-IDOR read: a quote from another tenant is indistinguishable from one that does not exist. */
+    /**
+     * #27 — the caller's OWN quotes.
+     *
+     * <p>A quote is a rep's working document: it records what discount they offered which account, before any
+     * of it is agreed. {@link #findScoped} is TENANT-wide, so every user with {@code dealerPricing} could read
+     * every rep's pricing. This is the same "own rows" narrowing {@code SellRepo.findOwnScoped} already
+     * applies to sales — the policy existed, this screen was simply never brought under it.
+     */
+    @Query("SELECT q FROM SalesQuote q WHERE q.userId = :userId AND " + SCOPE + " ORDER BY q.id DESC")
+    List<SalesQuote> findOwnScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * #27 — one quote by id, only if the caller RAISED it.
+     *
+     * <p>Separate from {@link #findByIdScoped} deliberately. Filtering a list while leaving the by-id read
+     * open is not a restriction — ids are sequential and anyone can count. The predicate has to be in every
+     * read, not the one that happens to render a screen.
+     */
+    @Query("SELECT q FROM SalesQuote q WHERE q.id = :id AND q.userId = :userId AND " + SCOPE)
+    Optional<SalesQuote> findOwnByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                           @Param("userId") Long userId);
+
     @Query("SELECT q FROM SalesQuote q WHERE q.id = :id AND " + SCOPE)
     Optional<SalesQuote> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
 

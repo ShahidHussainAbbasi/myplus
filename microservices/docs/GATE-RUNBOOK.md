@@ -88,3 +88,68 @@ the right role and absent for the wrong one.
 payload has no key, so the tenant is not paying for what they cannot see. "Status is SOLD" passed while the
 invoice number the register exists to record came back `undefined`. And a `scrollWidth` check only ever detects
 overflow to the RIGHT — fifteen controls sat off the LEFT edge of a phone screen through 49 green runs.
+
+## 6. Add the slice's manual cases to the Test Book
+
+**A slice is not done when Cypress is green. It is done when the Test Book can walk it by hand.**
+
+**The Test Book:** <https://claude.ai/code/artifact/84fdaeff-84bb-4427-9e37-5f1c3ba845a3>
+
+One page, always the same page. Not a new document per slice and not an appendix — the whole point is a single
+place to walk the product end to end, so a second page defeats it.
+
+### What every slice adds
+
+| Add | Why |
+|---|---|
+| What a person should **see**, in their words | "Print and PDF appear on every quote row", not "`printQuote` is exposed" |
+| Every **⚠ case** that records something actually found broken | These are the ones worth repeating after any change near them |
+| Anything the slice **could not close**, into *Not yet verified* | An unlisted known defect is one someone rediscovers as a surprise |
+
+### And correct what the slice made wrong
+
+A slice that changes behaviour must fix the existing wording it invalidates. **A page that quietly contradicts
+the product is worse than no page, because it is trusted.**
+
+### Why this rule exists
+
+The automated gates have been green through: a credit note that printed no lines; the same note printing no
+customer name for every tenant since #15; a scan box that appeared for shops that had switched it off; quote
+settings no one could set, leaving the approval step unreachable; and nine features that shipped where nobody
+could click them.
+
+**Every one of those was found by a person looking at the screen.** An automated case asserts what someone
+thought to assert; the manual walk is what finds what nobody thought of. That is not an argument for fewer
+Cypress cases — it is why the two are both required, and why neither closes a slice alone.
+
+## 7. A fixture must pick an ELIGIBLE row, not the first one
+
+`collection[0]` is not a fixture. It is whatever the database happened to return first, and long-lived tenants
+accumulate rows that satisfy no requirement.
+
+**What this cost:** `quote-document.cy.js` took `customers[0]` and drew customer **4663 — a legacy row with a
+blank name**. Eleven cases went red reporting that the quote had stamped no customer. The product was correct
+throughout; the fixture had handed it a customer no document could print. Blank names are no longer creatable
+(`/addCustomer` is `@Validated` with `@NotBlank`), so that row will sit at the top of that tenant's list
+permanently, waiting for the next fixture that assumes row 0 is usable.
+
+**The rule:** filter for what the feature actually needs, then seed if nothing qualifies.
+
+```js
+const usable = (list) => (list || []).filter((c) => c && c.name && String(c.name).trim())
+```
+
+### Seeding has its own two traps
+
+1. **The seed must survive a SECOND run.** Unique columns and duplicate-name checks make a fixed name or phone
+   number work exactly once; the next run fails with a duplicate message that has nothing to do with the
+   feature. Suffix with a timestamp.
+2. **Assert the seed took.** A create that silently failed leaves the next read empty and every assertion
+   downstream testing nothing — while still passing.
+
+### And its own failure mode
+
+A fixture that asserts existence turns an environment problem into a red feature. Three cases of this same
+spec failed on an empty customer list while later cases in the same run raised quotes perfectly well — a
+service that had only just restarted was answering early reads with an empty collection. **Seed, never
+assert-or-skip.**

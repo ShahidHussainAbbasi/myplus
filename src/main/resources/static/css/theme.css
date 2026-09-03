@@ -699,6 +699,24 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 }
 .kpi-card:hover { transform: translateY(-5px); }
 
+/*
+ * A KPI card that drills into its list must LOOK clickable. The lift on hover was always there, which made
+ * the tiles read as interactive before any of them were — the cursor is what settles it.
+ *
+ * Scoped to [data-drill] so a tile with no destination keeps the default cursor rather than promising a
+ * navigation that will not happen.
+ */
+[data-drill] .kpi-card { cursor: pointer; }
+[data-drill]:focus { outline: none; }
+[data-drill]:focus .kpi-card {
+  /* Keyboard users get the same affordance a mouse user gets from hover. Two rings so it stays visible on
+     both the light page and the saturated card fills. */
+  box-shadow: 0 0 0 2px #fff, 0 0 0 5px rgba(31,78,140,.85);
+}
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card, .kpi-card:hover { transition: none; transform: none; }
+}
+
 .kpi-icon {
   width: 52px; height: 52px;
   border-radius: 13px;

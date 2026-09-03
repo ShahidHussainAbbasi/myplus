@@ -139,6 +139,36 @@
         }
 
         DR.withInvoice(invoiceNo, function (inv) {
+            emitPdf(inv, profile, prefix, invoiceNo);
+        });
+    };
+
+    /**
+     * Emit a PDF from an ALREADY-RESOLVED document object (#28).
+     *
+     * <p>{@code downloadDocumentPdf} above fetches by invoice number, which a sales quote does not have — it
+     * carries a QTE- number and is not an invoice at all. Rather than write a second emitter that would drift
+     * from this one (the drift the toPrintModel comment warns about, where a customer ends up holding two
+     * versions of the same document), the fetch and the emit are separated and both callers share the emit.
+     *
+     * @param inv       the renderer's invoice-shaped object, already resolved
+     * @param profile   the preset to draw with
+     * @param prefix    filename prefix, e.g. 'quote'
+     * @param nameHint  what to append to the filename — the document's own number
+     */
+    global.downloadDocumentPdfFromObject = function (inv, profile, prefix, nameHint) {
+        var DR = global.DocumentRenderer;
+        if (!DR || typeof DR.toPrintModel !== 'function'
+            || !global.LazyExport || typeof global.LazyExport.ensurePdfMake !== 'function') {
+            return fail('ui.js.pdfUnavailable', 'PDF export is not available.');
+        }
+        emitPdf(inv, profile, prefix, nameHint);
+    };
+
+    /** The ONE pdfmake emitter. Both entry points above end here. */
+    function emitPdf(inv, profile, prefix, nameHint) {
+        var DR = global.DocumentRenderer;
+        {
             var model = DR.toPrintModel(inv, profile || null);
             global.LazyExport.ensurePdfMake().then(function () {
                 var content = [];
@@ -162,12 +192,12 @@
                         th: { bold: true, fillColor: '#eeeeee', fontSize: 8 },
                         foot: { fontSize: 8, alignment: 'center', margin: [0, 10, 0, 0] }
                     }
-                }).download((prefix || 'document') + '-' + (model.invoiceNo || invoiceNo) + '.pdf');
+                }).download((prefix || 'document') + '-' + (model.invoiceNo || nameHint || '') + '.pdf');
             }).catch(function () {
                 fail('ui.js.pdfUnavailable', 'PDF export is not available.');
             });
-        });
-    };
+        }
+    }
 
     /** The per-stop slip the shop signs for. Same renderer, same data — only the profile differs. */
     global.downloadChallan = function (invoiceNo) {

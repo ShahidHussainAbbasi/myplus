@@ -57,6 +57,23 @@ public class SalesQuoteController {
         }
     }
 
+    /**
+     * The quote assembled for printing (#28) — quote + customer contact details + the DERIVED status.
+     *
+     * <p>Pure proxy, like {@code /getQuote} above: scope and the print-at-any-stage rule both live in
+     * business-service, and re-deciding either here would give the app two answers to the same question.
+     */
+    @GetMapping("/quoteDocument")
+    @ResponseBody
+    public Map<String, Object> document(final HttpServletRequest request) {
+        try {
+            return business.get("/quoteDocument", "id=" + nz(request.getParameter("id")));
+        } catch (Exception e) {
+            LOGGER.error("quoteDocument proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     /** Raise a quote. JSON body (lines + customer + PO); business-service computes every total. */
     @PostMapping("/addQuote")
     @ResponseBody

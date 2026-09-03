@@ -52,6 +52,29 @@ public class SalesQuoteController {
         }
     }
 
+    /**
+     * The quote as a PRINTABLE DOCUMENT — task #28.
+     *
+     * <p>Available at EVERY stage, deliberately: there is no status filter here. The stage decides how the
+     * sheet is MARKED (status band, and a watermark for anything that is not a live offer), not whether it
+     * can be produced. See {@code microservices/docs/slices/quote-document.md}.
+     *
+     * <p>Not gated beyond the service's own scope: {@code document()} goes through the same scoped
+     * {@code load()} that {@code /getQuote} uses, so a booker gets their own quotes and a foreign id reads as
+     * not-found. Adding a second, different access rule on this route is exactly how the two drift apart.
+     */
+    @GetMapping("/quoteDocument")
+    public GenericResponse document(@RequestParam Long id) {
+        try {
+            return new GenericResponse("SUCCESS", "Quote document", quoteService.document(id));
+        } catch (SalesQuoteService.QuoteRefused refused) {
+            return new GenericResponse("NOT_FOUND", refused.getMessage());
+        } catch (Exception e) {
+            LOGGER.error("quoteDocument failed", e);
+            return new GenericResponse("ERROR", "Could not build the quote document.");
+        }
+    }
+
     /** Raise a quote. Totals are computed server-side from the lines — the caller never states a total. */
     @PostMapping(value = "/addQuote", consumes = "application/json")
     public GenericResponse create(@RequestBody SalesQuote body) {

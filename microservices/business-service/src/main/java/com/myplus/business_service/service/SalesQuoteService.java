@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.myplus.business_service.dto.CustomerHistoryDTO;
+import com.myplus.business_service.dto.QuoteDocumentDTO;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.QuoteStatus;
 import com.myplus.business_service.entity.SalesQuote;
@@ -296,13 +297,87 @@ public class SalesQuoteService {
     // â”€â”€ reads â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Transactional(readOnly = true)
+    /**
+     * #27 — whose quotes the caller sees.
+     *
+     * <p>Owner and admin see the whole organisation; anyone else — a booker, a counter user — sees only what
+     * they raised. Decided by {@code callerSeesWholeOrg()}, the same helper {@code visibleSells()} and
+     * {@code visiblePurchases()} use, so a tenant's answer to "who sees everything" is given in ONE place
+     * rather than re-decided per screen.
+     */
     public List<SalesQuote> list() {
-        return quoteRepo.findScoped(orgId(), userId());
+        return requestUtil.callerSeesWholeOrg()
+                ? quoteRepo.findScoped(orgId(), userId())
+                : quoteRepo.findOwnScoped(orgId(), userId());
     }
 
     @Transactional(readOnly = true)
     public SalesQuote get(Long id) {
         return load(id);
+    }
+
+    /**
+     * Assemble a quote as a PRINTABLE DOCUMENT — task #28.
+     *
+     * <h3>No status filter, deliberately</h3>
+     * Every stage prints. The user's ruling was *"user should be able to print or download at any stage with
+     * status and details"*, and it is the right one: a rep prints a DRAFT to check it, sends the SENT one,
+     * files the ACCEPTED one against the customer's PO, and reprints the CONVERTED one when the invoice is
+     * queried months later. What the stage changes is how the sheet is MARKED, not whether it exists.
+     *
+     * <h3>⚠ Goes through {@link #load(Long)}, which is scoped</h3>
+     * NOT through the repository directly. Quote ids are sequential, so a document endpoint reading by id
+     * would reopen the exact IDOR that #27 closed — and this is the worst route to leave open, because it
+     * returns the whole quote laid out for reading. {@code load} answers "not found" for a foreign quote,
+     * which is also why this method needs no access check of its own.
+     *
+     * <h3>⚠ Publishes {@code getEffectiveStatus()}, never {@code getStatus()}</h3>
+     * EXPIRED is derived. Printing the stored field would put SENT on a sheet the server refuses every action
+     * on. See {@link com.myplus.business_service.dto.QuoteDocumentDTO}.
+     */
+    @Transactional(readOnly = true)
+    public QuoteDocumentDTO document(Long id) {
+        SalesQuote q = load(id);
+
+        // The customer is resolved for CONTACT DETAILS only — the NAME still comes off the quote, which
+        // stamped it at creation so the document reads correctly even if the customer was renamed since.
+        String address = null, mobile = null;
+        if (q.getCustomerId() != null) {
+            Customer c = customerRepo.findById(q.getCustomerId()).orElse(null);
+            if (c != null && inMyTenant(c)) {          // a renamed/moved customer must not leak across tenants
+                address = c.getAddress();
+                mobile = c.getContact();
+            }
+        }
+
+        List<QuoteDocumentDTO.Line> lines = q.getLines().stream()
+                .map(l -> QuoteDocumentDTO.Line.builder()
+                        .productId(l.getProductId())
+                        .productName(l.getProductName())
+                        .quantity(l.getQuantity() == null ? null : BigDecimal.valueOf(l.getQuantity()))
+                        .unitPrice(l.getUnitPrice())
+                        .discount(l.getDiscount())
+                        .lineTotal(l.getLineTotal())
+                        .build())
+                .toList();
+
+        return QuoteDocumentDTO.builder()
+                .quoteNo(q.getQuoteNo())
+                .dated(q.getDated() == null ? null : q.getDated().toLocalDate().toString())
+                .validUntil(q.getValidUntil() == null ? null : q.getValidUntil().toString())
+                .effectiveStatus(q.getEffectiveStatus() == null ? null : q.getEffectiveStatus().name())
+                .customerName(q.getCustomerName())
+                .customerAddress(address)
+                .customerMobile(mobile)
+                .customerPoNumber(q.getCustomerPoNumber())
+                .convertedInvoiceNo(q.getConvertedInvoiceNo())
+                .notes(q.getNotes())
+                .lines(lines)
+                .subTotal(q.getSubTotal())
+                .tradeDiscount(q.getTradeDiscount())
+                .taxTotal(q.getTaxTotal())
+                .grandTotal(q.getGrandTotal())
+                .build();
     }
 
     // â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -357,8 +432,23 @@ public class SalesQuoteService {
                 .max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * One quote, or a refusal indistinguishable from absence.
+     *
+     * <p>#27: the same visibility rule as {@link #list()}. A booker reading another rep's quote by id would
+     * make the list filter cosmetic — ids are sequential, so an unfiltered by-id read is an open door with a
+     * tidy front room.
+     *
+     * <p>"Not found" for a quote that exists but is not the caller's, deliberately: distinguishing the two
+     * would tell a prober which ids are real.
+     */
     SalesQuote load(Long id) {
-        SalesQuote q = (id == null) ? null : quoteRepo.findByIdScoped(id, orgId(), userId()).orElse(null);
+        SalesQuote q = null;
+        if (id != null) {
+            q = requestUtil.callerSeesWholeOrg()
+                    ? quoteRepo.findByIdScoped(id, orgId(), userId()).orElse(null)
+                    : quoteRepo.findOwnByIdScoped(id, orgId(), userId()).orElse(null);
+        }
         if (q == null) throw new QuoteRefused("Quote not found: " + id);   // anti-IDOR: foreign == missing
         return q;
     }

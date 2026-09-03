@@ -125,7 +125,18 @@ describe('Return documents — credit note and debit note', () => {
      * skips voided invoices for free — a voided row renders a VOID badge and no Return button at all, so
      * `.first()` here can only land on a returnable row.
      */
+    /*
+     * A row that can actually give back ONE unit.
+     *
+     * `.first()` was wrong: the grid's first returnable row is often a LOOSE sale — half a pack, sold as five
+     * tablets — and returning 1 of 0.5 is correctly refused ("Cannot return more than the sold quantity
+     * (0.5)"). The dialog then stays open with an error and no print offer, which read as a missing feature
+     * when the product was right and the fixture was not.
+     *
+     * The button carries the sold quantity, so the row is chosen on that rather than on position.
+     */
     cy.get('#tableSell tbody button[onclick*="openSaleReturn"]', { timeout: 30000 })
+      .filter((i, el) => Number(Cypress.$(el).attr('data-qty')) >= 1)
       .first()
       .click()
 
@@ -201,19 +212,19 @@ describe('Return documents — credit note and debit note', () => {
           expect(DR, 'the renderer is loaded').to.exist
           expect(DR.PRESETS.CREDIT_NOTE_A4, 'the credit note preset').to.exist
 
-          // Shape it exactly as the print path does, then render it.
-          const html = DR.buildHtml({
-            documentNo: doc.documentNo,
-            referenceNo: doc.referenceNo,
-            reason: doc.reason,
-            dated: doc.dated,
-            customerName: doc.partyName,
-            sales: (doc.lines || []).map((l) => ({
-              itemCode: l.sku, itemName: l.productName,
-              quantity: l.quantity, sellRate: l.rate, totalAmount: l.amount,
-            })),
-            totalAmount: doc.totalAmount,
-          }, DR.PRESETS.CREDIT_NOTE_A4)
+          /*
+           * ⚠ RENDERED THROUGH PRODUCTION'S OWN SHAPING, not a copy of it.
+           *
+           * This block used to rebuild the `doc → invoice shape` mapping here, inside the test. That is a
+           * gate that cannot fail: when production's mapping was wrong, the test's own correct mapping still
+           * rendered a perfect page. It is why this case was green on the day CRN-000054 printed blank, and
+           * green again while every credit note printed with no customer name.
+           *
+           * `buildReturnDocumentHtml` is the function the Print button calls. Assert on that, and a mapping
+           * mistake fails here instead of on a customer's desk.
+           */
+          expect(typeof w.buildReturnDocumentHtml, 'production exposes the shared shaping').to.eq('function')
+          const html = w.buildReturnDocumentHtml(doc, false)
 
           // The number, so we know we rendered THIS note.
           expect(html, 'the note carries its own number').to.contain(doc.documentNo)
@@ -223,6 +234,25 @@ describe('Return documents — credit note and debit note', () => {
           const name = (doc.lines && doc.lines[0] && doc.lines[0].productName) || ''
           expect(name, 'the note has a line with a product name').to.not.be.empty
           expect(html, 'the product line appears on the printed page').to.contain(name)
+
+          /*
+           * ⭐ AND THE CUSTOMER — a SEPARATE failure mode, and one that was live on every credit note this
+           * app has ever printed.
+           *
+           * `toInvoiceShape` set a flat `customerName`. `buildContext` does `var cust = inv.customer || {}`
+           * and the resolver reads `c.cust.name`, so the flat property was silently dropped and the note
+           * printed with an empty party block. The debit note's supplier was fine — `supplierName` resolves
+           * flat off `c.inv` — which is exactly why nobody noticed: the two documents are asymmetric.
+           *
+           * Found in #28 when the quote document reproduced the identical empty block. Same root as the
+           * `lines`/`sales` defect this case already guards: the renderer's contract is a SHAPE, and a
+           * property in the wrong place fails silently instead of loudly.
+           *
+           * ⚠ This case previously asserted the product line and never the party, which is the only reason
+           * it stayed green while a customer-facing document went out unnamed.
+           */
+          expect(doc.partyName, 'the note names a party').to.not.be.empty
+          expect(html, 'the customer appears on the printed credit note').to.contain(doc.partyName)
         })
       })
     })

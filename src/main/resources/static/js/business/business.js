@@ -3360,9 +3360,22 @@ function loadSR(){
 	clearFormError();
 	// Self-contained params (the report bypasses the shared form-scan machinery): rp = period,
 	// sd/ed = custom range. Backend contract unchanged.
+	/*
+	 * Default to the CURRENT MONTH (0) when the control has not answered.
+	 *
+	 * `.val()` yields undefined if the select is not in the DOM yet — the report can be opened from a nav
+	 * entry, a deep link or a back-button restore, and the screen is not always built by then. jQuery then
+	 * omits the field, `rp` binds as null on the server, and what the operator gets is either a bare error or
+	 * "no sales found" for a shop that has plenty.
+	 *
+	 * The dropdown ships with "Current month" selected, so sending 0 is the same question the screen appears
+	 * to be asking. The server defaults the same way, deliberately: neither side should depend on the other
+	 * remembering.
+	 */
 	var rp = $('#dateRangeDDSR').val();
-	var sd = $('#srsd').val();
-	var ed = $('#sred').val();
+	if (rp === undefined || rp === null || rp === '') rp = '0';
+	var sd = $('#srsd').val() || '';
+	var ed = $('#sred').val() || '';
 	if (rp === '4' && !sd && !ed){
 		showFormError(t('ui.js.pleasePickAStartAndOrEnd'));
 		return;
@@ -4333,7 +4346,9 @@ function openAuditLog(){ showFinance('auditLog'); }
 // ===== Owner-configurable POS feature flags (common-settings) applied to the UI =====
 // Some Configuration toggles change what the POS UI shows (not just server behaviour). We read them once on load
 // from the same /getBusinessConfig catalog and apply them. Defaults are ON, so a fresh org / a config-read hiccup
-// leaves every feature visible (fail-open). Currently: pos.barcode.enabled â†’ the scan box + product Barcode field.
+// leaves every feature visible (fail-open) -- EXCEPT pos.barcode.enabled, which fails CLOSED. A shop without a
+// scanner should never be shown a scan box, and that box is the first field on the sale screen and the first
+// place focus lands, so guessing wrong costs a keystroke on every sale. A shop that scans turns it on once.
 function loadPosFeatureFlags(){
 	$.get(serverContext + 'getBusinessConfig', function(res){
 		var items = (res && res.data) || [];
@@ -4348,7 +4363,11 @@ function loadPosFeatureFlags(){
 			if (it.isDefault === false) { chosen[it.key] = true; }
 		});
 		// absent key â†’ default ON (the feature ships enabled)
-		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : true;
+		// Barcode absent = OFF. The catalog default is now false, so an absent key means "this tenant has
+		// never chosen", and the answer for a tenant that has never chosen is no scan box. Reading it as ON
+		// put a scanner field at the top of the sale screen -- and the first focus stop -- for every shop
+		// that does not own a scanner.
+		window.posBarcodeEnabled = ('pos.barcode.enabled' in byKey) ? byKey['pos.barcode.enabled'] : false;
 		window.posAutoPrintReceipt = ('pos.receipt.autoPrint' in byKey) ? byKey['pos.receipt.autoPrint'] : true;
 		// UI/UX P1 — the line-entry ROW. The CATALOG default is now ON, so the normal response carries
 		// "true" and the compact row is what a tenant gets without configuring anything.
@@ -4417,7 +4436,8 @@ function loadPosFeatureFlags(){
 		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
 		if (typeof renderQuickPick === 'function') renderQuickPick();
 	}, 'json').fail(function(){
-		window.posBarcodeEnabled = true; window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
+		window.posBarcodeEnabled = false;       // fail CLOSED — a config hiccup must not conjure a scan box
+		window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
 		window.posKeyboardEnabled = false;      // fail CLOSED — see above
 		window.kbdFormNavEnabled = true;        // fail OPEN — losing form nav to a hiccup is the worse outcome
 		window.kbdEnterSubmits = true;
@@ -4482,7 +4502,10 @@ function syncSellNoticeRow(){
 }
 
 function applyPosBarcodeVisibility(){
-	var on = window.posBarcodeEnabled !== false;
+	// === true, not !== false: an UNSET flag (config not loaded yet, or a screen reached before the settings
+	// call returned) must read as OFF. `!== false` treated undefined as ON, which is why the scan box appeared
+	// on tenants that had barcode scanning switched off.
+	var on = window.posBarcodeEnabled === true;
 	$('#sellScanRow').toggle(on);          // sell screen scan box
 	$('#prodBarcodeLabel').toggle(on);     // product form Barcode label
 	$('#prodBarcodeWrap').toggle(on);      // product form Barcode input
@@ -4699,6 +4722,55 @@ function showBusinessConfig(){
 	loadBusinessConfig();
 }
 
+/**
+ * ONB-1 — change the tenant's business type, with a confirmation that names what changes.
+ *
+ * Reverts the select on cancel or on failure: a dropdown left showing a value that was never saved is how an
+ * owner comes to believe their shop is configured one way while the till behaves another.
+ */
+function saveBusinessShape(el){
+	// NL, rather than a \n escape: see platform.js. A \n in this
+	// position reached the built copy as a real line break and broke the whole file in the browser.
+	var NL = String.fromCharCode(10);
+	var shape = el.value;
+	var previous = el.getAttribute('data-previous') || '';
+
+	$.get(serverContext + 'getBusinessShapePreview', { shape: shape })
+		.done(function(res){
+			if(!apiOk(res)){ uiAlert(apiMessage(res, t('ui.js.saveFailed','Save failed'))); revert(); return; }
+			var p = apiData(res) || {};
+			var on = p.turningOn || [], off = p.turningOff || [];
+
+			var lines = [];
+			if(off.length) lines.push(t('ui.js.turningOff','Turning OFF') + ': ' + off.join(' · '));
+			if(on.length)  lines.push(t('ui.js.turningOn','Turning ON')  + ': ' + on.join(' · '));
+			// Says so plainly when nothing changes. A dialog that always warns is one nobody reads.
+			if(!lines.length) lines.push(t('ui.js.noSwitchesChange','No switches change for this business.'));
+
+			uiConfirm({
+				title: t('ui.js.changeBusinessType','Change business type'),
+				message: t('ui.js.shapeResetsSwitches',
+					'This resets the switches under "What this business does" to the defaults for the new '
+					+ 'business type.') + '\n\n' + lines.join('\n')
+			}).then(function(ok){
+				if(!ok){ revert(); return; }
+				$.post(serverContext + 'saveBusinessShape', { shape: shape }, function(res2){
+					var saved = res2 && res2.success;
+					if (typeof markSettingSaved === 'function') markSettingSaved(el, saved);
+					if(!saved){ uiAlert(apiMessage(res2, t('ui.js.saveFailed','Save failed'))); revert(); return; }
+					el.setAttribute('data-previous', shape);
+					// Re-read the screen AND the capability map: the switches below have just been reset and
+					// the sections this page hides are decided by capabilities.js.
+					loadBusinessConfig();
+					if (typeof reloadCapabilities === 'function') reloadCapabilities();
+				}).fail(function(xhr){ uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed','Save failed'))); revert(); });
+			});
+		})
+		.fail(function(xhr){ uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed','Save failed'))); revert(); });
+
+	function revert(){ if(previous) el.value = previous; }
+}
+
 function loadBusinessConfig(){
 	// Rendering lives in /js/common/settings-form.js — one renderer for all four dashboards, so a new
 	// setting TYPE is added once rather than four times (this file used to carry its own copy).
@@ -4712,6 +4784,20 @@ function loadBusinessConfig(){
 
 function saveBusinessConfigToggle(el){
 	var key = el.getAttribute('data-key');
+
+	/*
+	 * ONB-1 — the business type is not an ordinary setting, so it does not take the ordinary path.
+	 *
+	 * Every other switch on this screen is one row: post it, done. Changing the business type RE-APPLIES that
+	 * shape's defaults, which means clearing every capability override the owner has set — so it is confirmed
+	 * first, and the dialog names the switches that will change rather than asking "are you sure?".
+	 *
+	 * ⚠ This deliberately reverses C4's "an explicit override always wins". The objection to re-applying was
+	 * that it would happen SILENTLY; naming the changes removes it. What C4 produced instead was a shape
+	 * change that appeared to do nothing — a pesticide dealer picked "Pharmacy" and went on seeing
+	 * installments, which is the complaint that started this slice.
+	 */
+	if (key === 'org.shape') { saveBusinessShape(el); return; }
 	// Read the control BY TYPE. This used to be `el.checked ? 'true':'false'` unconditionally, which saved
 	// "false" for every SELECT/INT/TEXT/MONEY entry in the catalog — a non-checkbox has no .checked.
 	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
@@ -4800,6 +4886,75 @@ function openPeriodClose(){ showFinance('periodClose'); }
  */
 var quoteLines = [];
 
+/*
+ * ── Dashboard KPI cards drill through to their list ───────────────────────────────────────────────────────
+ *
+ * Asked for by the user: *"by clicking on kpi-card user should be redirected to the detail list — click on
+ * dashVenders or Vendors it should land on vendor list"*.
+ *
+ * A KPI card states a number a person immediately wants to interrogate: 43 vendors — WHICH forty-three? Until
+ * now the answer meant reading the number, then finding the same thing again in a menu. The card was a
+ * dead end that looked like a link.
+ *
+ * <h3>Why the target lives in the MARKUP</h3>
+ * Each card column carries `data-drill="<selectId>:<sectionValue>"`, and this is the only handler. The
+ * alternative — a lookup table in JS keyed by widget name — puts the card and its destination in two files
+ * that have to be kept in step, and the next person to add a tile updates one of them.
+ *
+ * <h3>Two selects, because there are two kinds of section</h3>
+ * Most cards land on a top-level section (`#registrationType`). Sales and Revenue land on the Sale Detail
+ * Report, which is a sale SUB-section on `#sellType`. Both are driven by `.val(...).trigger('change')` —
+ * the same thing `snavGo()` does — so a card arrives exactly as the menu does, and any wiring that hangs off
+ * the change event (focus, lazy loads, report defaults) fires for both.
+ */
+function dashDrill(spec) {
+	if (!spec) return;
+	var parts = String(spec).split(':');
+	if (parts.length !== 2) return;
+
+	/*
+	 * TWO navigation kinds, because the app genuinely has two.
+	 *
+	 * Most sections are options on a select. Products and Installment plans are opened by a function
+	 * (showProducts / showInstallments) and have no option at all — a drill that only knew about selects
+	 * would have silently done nothing on exactly the card the user named first.
+	 */
+	if (parts[0] === 'fn') {
+		var fn = window[parts[1]];
+		if (typeof fn !== 'function') return;     // screen not loaded for this user — see the note below
+		fn();
+	} else {
+		var $sel = $('#' + parts[0]);
+		// A capability-gated or privilege-gated section may not be on the page at all for this user. Silently
+		// do nothing rather than half-navigating: the card is a shortcut, never the only route.
+		if (!$sel.length || !$sel.find('option[value="' + parts[1] + '"]').length) return;
+		$sel.val(parts[1]).trigger('change');
+	}
+	// The sections live above the fold on a tall dashboard; without this the screen changes off-screen and
+	// the click reads as having done nothing.
+	$('html, body').animate({ scrollTop: 0 }, 200);
+}
+
+$(document).on('click', '[data-drill]', function () {
+	dashDrill($(this).data('drill'));
+});
+
+/*
+ * Keyboard parity. A control that only a mouse can reach is not a control — and this app already ships a
+ * keyboard-first POS, so a tile that swallows Enter would be the odd one out. `role`/`tabindex` are set here
+ * rather than in the template so the affordance cannot exist without the handler that honours it.
+ */
+$(function () {
+	$('[data-drill]').attr('role', 'button').attr('tabindex', '0');
+});
+
+$(document).on('keydown', '[data-drill]', function (e) {
+	if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+		e.preventDefault();                       // Space would otherwise scroll the page
+		dashDrill($(this).data('drill'));
+	}
+});
+
 function showQuotes() {
 	$('.formDiv').hide();
 	$('#QuoteDiv').show();
@@ -4847,15 +5002,32 @@ function quoteActions(q) {
 		return "<button type=button class='btn btn-xs btn-" + style + "' style='margin-right:4px' onclick=\""
 			+ fn + '(' + id + ')">' + escHtml(label) + '</button>';
 	};
-	if (s === 'DRAFT') return btn('sendQuote', t('ui.js.qtSend'), 'primary')
+	/*
+	 * Task #28 — Print and Download are on EVERY row, whatever the state.
+	 *
+	 * Unlike the moves below, these are not transitions: they produce the document. A rep prints a DRAFT to
+	 * check it, sends the SENT one, files the ACCEPTED one against the customer's PO, and reprints the
+	 * CONVERTED one when the invoice is queried months later. Offering them only in one state would mean the
+	 * document exists only at the moment nobody needs it.
+	 *
+	 * The sheet is MARKED with its status (header band + watermark) so a printed DRAFT can never be mistaken
+	 * for a firm offer — that marking, not a missing button, is what makes printing at every stage safe.
+	 */
+	var always = btn('printQuote', t('ui.js.qtPrint'), 'default')
+		+ btn('downloadQuote', t('ui.js.qtDownload'), 'default');
+
+	if (s === 'DRAFT') return always + btn('sendQuote', t('ui.js.qtSend'), 'primary')
 		+ btn('submitQuoteForApproval', t('ui.js.qtSubmitApproval'), 'warning');
-	if (s === 'PENDING_APPROVAL') return btn('approveQuote', t('ui.js.qtApprove'), 'success')
+	if (s === 'PENDING_APPROVAL') return always + btn('approveQuote', t('ui.js.qtApprove'), 'success')
 		+ btn('rejectQuote', t('ui.js.qtReject'), 'danger');
-	if (s === 'SENT') return btn('acceptQuote', t('ui.js.qtAccept'), 'success')
+	if (s === 'SENT') return always + btn('acceptQuote', t('ui.js.qtAccept'), 'success')
 		+ btn('rejectQuote', t('ui.js.qtReject'), 'danger');
-	if (s === 'ACCEPTED') return btn('convertQuote', t('ui.js.qtConvert'), 'primary');
-	if (s === 'CONVERTED') return '<span class="text-muted">' + escHtml(q.convertedInvoiceNo || '') + '</span>';
-	return '';
+	if (s === 'ACCEPTED') return always + btn('convertQuote', t('ui.js.qtConvert'), 'primary');
+	if (s === 'CONVERTED') return always
+		+ '<span class="text-muted">' + escHtml(q.convertedInvoiceNo || '') + '</span>';
+	// REJECTED / EXPIRED: no moves left, but the document still prints — a rejected offer is a record of what
+	// was offered, and someone will ask what the price was.
+	return always;
 }
 
 function quoteAction(url, id, okKey) {

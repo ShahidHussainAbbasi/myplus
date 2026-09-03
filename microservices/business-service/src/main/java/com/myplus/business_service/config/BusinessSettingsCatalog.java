@@ -22,11 +22,46 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Show tax breakdown on receipts",
                         "On (default): the receipt lists tax per rate. Off: a single tax total.",
                         true, "Receipts"),
+                // Defaults OFF. Most tenants — a corner shop, a pesticide dealer, a mobile shop keying IMEIs —
+                // do not own a scanner, and a scan box they cannot use is the first field on the sale screen and
+                // the first thing focus lands in. A shop that HAS a scanner turns this on once; a shop that does
+                // not should never have had to find the switch. Tenants who already enabled it explicitly keep
+                // it: an org_setting override outranks this catalog default.
                 SettingEntry.bool("pos.barcode.enabled",
                         "Barcode scanning",
-                        "On (default): the sell screen shows a scan box and the product form a Barcode field. "
-                                + "Off: both are hidden for shops that don't use barcodes.",
-                        true, "Point of Sale"),
+                        "Off (default): the sell screen has no scan box and the product form no Barcode field. "
+                                + "On: both appear, for shops that scan.",
+                        false, "Point of Sale"),
+
+                // ─── Sales quotes (B2B-P4b) ────────────────────────────────────────────────────────────
+                // ⚠ BOTH OF THESE WERE READ BUT NEVER REGISTERED. SalesQuoteService named them as org
+                // settings and read them through SettingsService, but SettingsService.set() rejects any key
+                // not in this catalog ("Unknown setting: ..."), so no tenant could ever write either one and
+                // both silently sat on their hardcoded fallback forever.
+                //
+                // The validity one was merely inert — every quote fixed at 30 days. The threshold one was
+                // worse: discountThreshold() always returned null, null means "no gate", so PENDING_APPROVAL
+                // could never trigger for ANY tenant. The whole internal approval step — the reason
+                // approveQuote is owner/admin-gated — was unreachable, guarding a door that never opened.
+                //
+                // Found by cypress/e2e/business/quote-document.cy.js case 3, which tried to seed an expired
+                // quote through the setting and was refused.
+                //
+                // Defaults below are EXACTLY the fallbacks the code already used, so registering them
+                // changes nothing for any existing tenant — it only makes them settable for the first time.
+                SettingEntry.intOf("sales.quote.validityDays",
+                        "Quote validity (days)",
+                        "How long a new quote stands before it expires. 30 by default. Expiry is derived "
+                                + "from this at read time, so changing it affects quotes raised from now on.",
+                        30, "Sales quotes"),
+                // MONEY, not INT, because a threshold of 12.5% has to be expressible — MONEY is the
+                // decimal-capable type in this catalog. It is a PERCENT of the pre-discount value, which the
+                // label says because the type cannot.
+                SettingEntry.money("sales.quote.discountApprovalThreshold",
+                        "Discount needing approval (%)",
+                        "A quote discounted by more than this percentage cannot be sent until an owner or "
+                                + "admin approves it. 0 (default) means no approval step at all.",
+                        "0", "Sales quotes"),
                 // ─── Sale entry ────────────────────────────────────────────────────────────────
                 // The sell screen serves a corner shop, a wholesale distributor and a pharmacy from
                 // ONE form, so which fields belong on it is a per-tenant answer, not ours. Every

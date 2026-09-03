@@ -218,6 +218,28 @@
         returnReason:   { key: 'ui.js.docReturnReason',  resolve: function (c) { return c.inv.reason || ''; } },
         /* The debit note's party is a supplier, not a customer — same slot, honest label. */
         supplierName:   { key: 'ui.js.docSupplier',      resolve: function (c) { return c.inv.supplierName || ''; } },
+        /*
+         * Task #28 — THE QUOTE. Its own number field for the same reason the notes have theirs: a quote
+         * printed under an "Invoice #" heading is an invoice, and a customer who reads it as one has been
+         * billed for an offer they never accepted.
+         */
+        quoteNo:        { key: 'ui.js.docQuoteNo',       resolve: function (c) { return c.inv.documentNo || ''; } },
+        /*
+         * Always printed, never blank-skipped. A quote with no expiry reads as an open-ended promise, and
+         * prices move — the EXPIRED state exists precisely because they do.
+         */
+        quoteValidUntil:{ key: 'ui.js.docValidUntil',    resolve: function (c) { return c.inv.validUntil || ''; } },
+        /*
+         * ⚠ THE SAFETY FIELD OF THE WHOLE SLICE. Paper outlives the screen it came from, and a quote is a
+         * priced commitment: a printed DRAFT that does not say DRAFT is a firm offer. Resolves the DERIVED
+         * status the server sent (getEffectiveStatus), so an expired quote cannot print as SENT.
+         */
+        quoteStatus:    { key: 'ui.js.docQuoteStatus',   resolve: function (c) { return c.inv.quoteStatus || ''; } },
+        /* The customer's own reference, so their purchasing team can match it to their paperwork. */
+        quotePoNumber:  { key: 'ui.js.docCustomerPo',    resolve: function (c) { return c.inv.customerPoNumber || ''; } },
+        /* Set only once the quote became a sale, so a converted sheet explains itself rather than reading
+         * like a live offer someone could try to order from a second time. */
+        quoteInvoiceNo: { key: 'ui.js.docBecameInvoice', resolve: function (c) { return c.inv.convertedInvoiceNo || ''; } },
         storeName:      { key: 'ui.js.docStore',         resolve: function (c) { return (c.inv.letterhead || {}).storeName || ''; } },
         // Seller-side licence — settings-sourced, so a pharmacy can print its drug licence with no schema.
         licenseNo:      { key: 'ui.js.docLicenseNo',     resolve: function (c) { return (c.inv.letterhead || {}).licenseNo || ''; } },
@@ -395,6 +417,52 @@
             ],
             totals: ['itemCount', 'grandTotal', 'amountInWords'],
             footer: { text: '', showSignature: true }
+        },
+
+        /*
+         * Task #28 — THE SALES QUOTE, as a document a customer can hold.
+         *
+         * <h3>Why this preset exists</h3>
+         * The quote lifecycle was complete except for the half the customer participates in: `sendQuote` set a
+         * status and transmitted nothing, and there was no print or download at all. So a rep could mark a
+         * quote "sent" that had never been sent, because there was nothing to send.
+         *
+         * <h3>The status is in the header AND as a watermark</h3>
+         * Deliberately twice. The header line is the record; the watermark is what stops a DRAFT or an EXPIRED
+         * sheet being mistaken for a live offer at arm's length, across a counter, in a folder of paperwork.
+         * A quote is a priced commitment — the one failure this document must not have is being read as firm
+         * when it is not.
+         *
+         * <h3>No `showDrCr`, no tax-invoice framing</h3>
+         * A quote is an OFFER, not a demand for payment. It carries no invoice number and posts nothing to the
+         * ledger, which is exactly why it gets its own number series (QTE-) and its own heading.
+         */
+        QUOTE_A4: {
+            id: 'QUOTE_A4',
+            name: 'Sales quote (A4)',
+            titleKey: 'ui.js.docQuote',
+            paper: 'A4',
+            channel: 'B2B',
+            numberSystem: 'indian',
+            showDrCr: false,
+            header: {
+                titleStyle: 'boxed',
+                showLogo: true,
+                columns: [
+                    ['quoteNo', 'dated', 'quoteValidUntil'],
+                    ['quoteStatus', 'quotePoNumber', 'quoteInvoiceNo'],
+                    ['customerName', 'customerAddress', 'customerMobile']
+                ]
+            },
+            lines: [
+                col('lineNo', 5, 'left'), col('itemName', 47, 'left'),
+                col('quantity', 12, 'right'), col('tradePrice', 16, 'right'), col('lineTotal', 20, 'right')
+            ],
+            totals: ['itemCount', 'grandTotal', 'amountInWords'],
+            // "Prepared by / Accepted by", not "Received by": nothing has been received. The second box is
+            // where a customer signs their acceptance, which is the whole point of handing this over.
+            footer: { text: '', showSignature: true,
+                      signature: ['ui.js.docPreparedBy', 'ui.js.docAcceptedBy'] }
         },
 
         /*
@@ -706,6 +774,18 @@
             ? 'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11px;padding:0}'
             : 'body{font-family:"Courier New",monospace;color:#000;width:80mm;padding:6mm 4mm;font-size:12px}';
         return page + '*{margin:0;padding:0;box-sizing:border-box}' + body
+            /*
+             * The status watermark (#28). Fixed, centred, rotated, BEHIND the content (z-index:-1) and
+             * pointer-events:none so it can never sit over a figure or intercept a click in the preview.
+             *
+             * `print-color-adjust` is the line that makes it work on paper: browsers strip background and
+             * light greys when printing to save ink, and a watermark that vanishes on the printout is worse
+             * than none — the screen would say DRAFT and the sheet in the customer's hand would not.
+             */
+            + '.dc-wm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-35deg);'
+            + 'font-size:' + (a4 ? '96px' : '40px') + ';font-weight:700;letter-spacing:6px;'
+            + 'color:rgba(0,0,0,.10);white-space:nowrap;z-index:-1;pointer-events:none;'
+            + '-webkit-print-color-adjust:exact;print-color-adjust:exact}'
             + '.dc-c{text-align:center}.dc-right{text-align:right}.dc-left{text-align:left}.dc-sm{font-size:10px}'
             + '.dc-brand{font-size:' + (a4 ? '22px' : '16px') + ';font-weight:700;text-align:center;letter-spacing:.5px}'
             + '.dc-addr{text-align:center;font-size:' + (a4 ? '11px' : '10px') + ';margin-top:2px}'
@@ -776,6 +856,16 @@
         return '<!doctype html><html><head><meta charset="utf-8"><title>'
             + escHtml(title + ' ' + (inv.invoiceNo || '')) + '</title><style>' + css(profile) + '</style>'
             + '</head><body>'
+            /*
+             * The WATERMARK (#28). Driven by data, not by the preset: any document can set `inv.watermark` and
+             * get it, and no document gets one unless something deliberately asked.
+             *
+             * It exists because a printed quote in a non-live state — DRAFT, PENDING_APPROVAL, REJECTED,
+             * EXPIRED — is indistinguishable from a firm offer once it is on paper and the screen is gone.
+             * A header line states the status; only this makes it unmissable across a counter.
+             */
+            + (inv.watermark
+                ? '<div class="dc-wm">' + escHtml(inv.watermark) + '</div>' : '')
             + renderLetterhead(inv, profile)
             + '<div class="dc-title' + boxed + '"><span>' + escHtml(title) + '</span></div>'
             + renderHeaderFields(profile, ctx)
@@ -984,6 +1074,130 @@
      * @param id   the return row's id — NOT the note number. The server refuses a lookup by number because a
      *             sequential, guessable document number is an IDOR; it re-checks tenant and store per record.
      */
+    /*
+     * ── Task #28: the sales quote as a document ────────────────────────────────────────────────────────────
+     */
+
+    /** States that are NOT a live offer, and so must be watermarked. */
+    var QUOTE_NOT_LIVE = { DRAFT: 1, PENDING_APPROVAL: 1, REJECTED: 1, EXPIRED: 1, CONVERTED: 1 };
+
+    /**
+     * The quote document → the renderer's invoice shape. THE one mapping, shared by print and download.
+     *
+     * <h3>⚠ Why this is exposed rather than inlined in printQuote</h3>
+     * `return-documents.cy.js` renders the credit note by re-doing this mapping INSIDE the test, which cannot
+     * catch the defect it was written for: when production's mapping was wrong, the test's own correct mapping
+     * still rendered a perfect page. It was green on the day CRN-000054 printed blank in a user's hands.
+     *
+     * With one exposed function, print, download and the gate all go through the same code — a mapping
+     * mistake fails the gate instead of reaching a customer, and paper and PDF cannot drift apart.
+     *
+     * <h3>⚠ `sales`, not `lines`</h3>
+     * {@code buildContext} reads {@code inv.sales}. Handing it {@code lines} produces a document with a
+     * correct header, correct totals and NOT ONE ROW — which is exactly what shipped in #15.
+     */
+    function toQuoteShape(doc) {
+        var status = doc.effectiveStatus || '';
+        return {
+            documentNo: doc.quoteNo,
+            dated: doc.dated,
+            validUntil: doc.validUntil,
+            quoteStatus: status,
+            customerPoNumber: doc.customerPoNumber,
+            convertedInvoiceNo: doc.convertedInvoiceNo,
+            /*
+             * ⚠ `customer: {…}`, NOT flat customerName/customerAddress/customerMobile.
+             *
+             * The SAME class of mistake as `sales` vs `lines`, one field along. `buildContext` does
+             * `var cust = inv.customer || {}`, and the resolvers read `c.cust.name` / `.address` / `.contact`.
+             * Flat properties are silently ignored — the document rendered with a correct number, correct
+             * lines, correct totals, and an EMPTY customer block. A quote with no customer on it is not a
+             * quote; it is a price list.
+             *
+             * Note the key names are the CUSTOMER RECORD's (`contact`, not `mobile`), because that is what
+             * the resolvers read — this object stands in for a Customer, so it is shaped like one.
+             */
+            customer: {
+                name: doc.customerName,
+                address: doc.customerAddress,
+                contact: doc.customerMobile
+            },
+            footerText: doc.notes || '',
+            // A live offer prints clean; everything else is marked. CONVERTED is watermarked too — it is the
+            // state most likely to be re-read as an open offer, because it looks exactly like one.
+            watermark: QUOTE_NOT_LIVE[status] ? status.replace('_', ' ') : '',
+            sales: (doc.lines || []).map(function (l) {
+                return {
+                    itemName: l.productName,
+                    quantity: l.quantity,
+                    sellRate: l.unitPrice,
+                    totalAmount: l.lineTotal
+                };
+            }),
+            totalAmount: doc.grandTotal
+        };
+    }
+
+    /** Render a quote document to HTML. The seam the gate asserts on. */
+    global.buildQuoteDocumentHtml = function (doc) {
+        return buildHtml(toQuoteShape(doc), PRESETS.QUOTE_A4);
+    };
+
+    /** Fetch the quote document by id, asserting the ENVELOPE — a refusal arrives as HTTP 200. */
+    function withQuoteDocument(id, then) {
+        if (!id) {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheQuote'));
+            return;
+        }
+        $.get(serverContext + 'quoteDocument?id=' + encodeURIComponent(id), function (resp) {
+            var doc = resp && resp.object;
+            if (!resp || resp.status !== 'SUCCESS' || !doc) {
+                if (global.showFormError) showFormError(apiMessage(resp, t('ui.js.couldNotLoadTheQuote')));
+                return;
+            }
+            then(doc);
+        }).fail(function () {
+            if (global.showFormError) showFormError(t('ui.js.couldNotLoadTheQuote'));
+        });
+    }
+
+    /**
+     * Print a quote — at ANY stage.
+     *
+     * <p>No status check here or on the server. A rep prints a DRAFT to check it, sends the SENT one, files
+     * the ACCEPTED one against the customer's PO, and reprints the CONVERTED one when the invoice is queried
+     * months later. The stage decides how the sheet is MARKED, not whether it can be produced.
+     */
+    global.printQuote = function (id) {
+        withQuoteDocument(id, function (doc) {
+            printInvoiceObject(toQuoteShape(doc), PRESETS.QUOTE_A4);
+        });
+    };
+
+    /** The same document as a PDF — same shaping, same preset, so the two can never disagree. */
+    global.downloadQuote = function (id) {
+        withQuoteDocument(id, function (doc) {
+            if (typeof global.downloadDocumentPdfFromObject !== 'function') {
+                if (global.showFormError) showFormError(t('ui.js.pdfUnavailable'));
+                return;
+            }
+            global.downloadDocumentPdfFromObject(
+                toQuoteShape(doc), PRESETS.QUOTE_A4, 'quote', doc.quoteNo);
+        });
+    };
+
+    /**
+     * Render a return document to HTML through the PRODUCTION shaping. The seam the #15 gate asserts on.
+     *
+     * <p>Exposed for the same reason {@code buildQuoteDocumentHtml} is: the gate used to re-do the
+     * {@code doc → invoice shape} mapping inside the test, so it validated the TEST's mapping and never the
+     * one that prints. That is how a blank credit note shipped (CRN-000054), and how every credit note came
+     * to print without the customer's name — twice the same lesson, both times invisible to a green gate.
+     */
+    global.buildReturnDocumentHtml = function (doc, isDebit) {
+        return buildHtml(toInvoiceShape(doc), isDebit ? PRESETS.DEBIT_NOTE_A4 : PRESETS.CREDIT_NOTE_A4);
+    };
+
     global.printReturnDocument = function (kind, noteNo) {
         var debit = (kind === 'debit');
         if (!noteNo) {
@@ -1135,9 +1349,23 @@
             referenceNo: doc.referenceNo,
             reason: doc.reason,
             dated: doc.dated,
-            // Both slots filled from the one party: the credit note preset binds customerName, the debit note
-            // preset binds supplierName, and each prints the label its reader expects.
-            customerName: doc.partyName,
+            /*
+             * Both slots filled from the one party: the credit note preset binds customerName, the debit note
+             * preset binds supplierName, and each prints the label its reader expects.
+             *
+             * ⚠ THEY ARE NOT SHAPED THE SAME, because the two resolvers do not read the same place:
+             *   supplierName → c.inv.supplierName   (flat — works)
+             *   customerName → c.cust.name          (nested under inv.customer)
+             *
+             * This asymmetry cost a live defect. `customerName: doc.partyName` was flat, so it was silently
+             * ignored and EVERY CREDIT NOTE PRINTED WITHOUT THE CUSTOMER'S NAME — while the debit note's
+             * supplier printed correctly, which is why nobody spotted it. Found in #28 when the quote
+             * document reproduced the same empty party block.
+             *
+             * Same root as the `lines`/`sales` defect on this very function: the renderer's contract is a
+             * shape, and a property in the wrong place fails silently rather than loudly.
+             */
+            customer: { name: doc.partyName },
             supplierName: doc.partyName,
             /*
              * `sales`, NOT `lines`.

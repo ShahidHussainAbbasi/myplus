@@ -455,6 +455,16 @@ The full procedure lives in [`GATE-RUNBOOK.md`](GATE-RUNBOOK.md). The five rules
 4. **Walk the ladder** — `owner.` / `admin.` / `user.`, asserting both that **data populates** and that
    **UI privileges differ**.
 5. **Restore tenant state in `after()`**, especially on `owner.business@`.
+6. **Add the slice's manual cases to the Test Book** — one page for the whole product, always the same page:
+   <https://claude.ai/code/artifact/84fdaeff-84bb-4427-9e37-5f1c3ba845a3>. A green Cypress run does not close a
+   slice on its own; a person must be able to walk it by hand. Correct any existing wording the slice
+   invalidates, because a page that quietly contradicts the product is worse than no page — it is trusted.
+
+Why rule 6 is not paperwork: the automated gates have been green through a credit note that printed no
+lines, the same note printing **no customer name** for every tenant since #15, a scan box appearing for shops
+that had switched it off, quote settings nobody could set (leaving the approval step unreachable), and nine
+features that shipped where nobody could click them. Every one was found by a person looking at the screen.
+An automated case asserts what someone thought to assert; the manual walk finds what nobody thought of.
 
 Why this is a standard and not a preference: gating serial/IMEI as the POS owner passed cleanly while
 concealing that the `retail` preset does not grant `serialTracking` — a real mobile shop had its headline

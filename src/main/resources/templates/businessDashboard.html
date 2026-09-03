@@ -309,7 +309,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 				<!-- KPI stat cards -->
 				<div class="row" style="margin-bottom:22px">
-					<div data-widget="companies" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="companies" data-drill="registrationType:CompanyDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-blue">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
 							<div class="kpi-body">
@@ -318,7 +318,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="venders" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="venders" data-drill="registrationType:VenderDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-green">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-grain"></span></div>
 							<div class="kpi-body">
@@ -327,7 +327,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="customers" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="customers" data-drill="registrationType:CustomerDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-teal">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-user"></span></div>
 							<div class="kpi-body">
@@ -336,7 +336,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="products" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="products" data-drill="fn:showProducts" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-list-alt"></span></div>
 							<div class="kpi-body">
@@ -352,7 +352,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						balance. An unqualified "stock value" is the kind of figure people trust without
 						checking, and it would disagree with the books the moment a buying price moves.
 					-->
-					<div data-widget="stockValue" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="stockValue" data-drill="fn:showProducts" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-scale"></span></div>
 							<div class="kpi-body">
@@ -361,7 +361,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="monthlySales" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlySales" data-drill="sellType:SRDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-purple">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
 							<div class="kpi-body">
@@ -370,7 +370,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="monthlyRevenue" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlyRevenue" data-drill="sellType:SRDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
 						<div class="kpi-card kpi-red">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
 							<div class="kpi-body">
@@ -392,7 +392,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						create a second one.
 					-->
 					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px"
-					     data-widget="installmentsDue" data-capability="installments">
+					     data-widget="installmentsDue" data-drill="fn:showInstallments" data-capability="installments">
 						<div class="kpi-card kpi-indigo">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-calendar"></span></div>
 							<div class="kpi-body">
@@ -1734,8 +1734,12 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="text" placeholder="Purchase Invoice #" th:placeholder="#{ui.purchaseInvoice}" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
 						</div>
-						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
-						<div class="col-sm-4">
+						<!-- ONB-2 R1a: a mobile shop has a purchase form and no batches. The SECTION is shared by
+						     every tenant, so the gate belongs on the field. The write is already refused
+						     server-side; this stops the field being offered at all. -->
+						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}"
+						       data-capability="batchTracking">Batch #</label>
+						<div class="col-sm-4" data-capability="batchTracking">
 							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
 							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
 							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
@@ -1901,7 +1905,9 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="text" placeholder="Purchase Date" th:placeholder="#{ui.purchaseDate}" class="form-control datePicker" id="purchaseDate" name="updated" required="required"/> 
 						</div>
-						<label class="control-label col-sm-2" for="purchaseExpiry" th:text="#{ui.expireDate}">Expire Date</label>
+						<!-- ONB-2 R1a: same rule as Batch # above. -->
+						<label class="control-label col-sm-2" for="purchaseExpiry" th:text="#{ui.expireDate}"
+						       data-capability="expiryTracking">Expire Date</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control datePicker" id="purchaseExpiry"
 							name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
@@ -1972,7 +1978,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="purchaseQuantity" th:text="#{ui.qty2}">QTY</th>
 							<!-- Stock column removed: it duplicated QTY (the purchase line's stored 'stock' = purchased qty).
 							     Live on-hand now lives on the purchase FORM's "Stock In Hand" field instead. -->
-							<th data-field="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</th>
+							<th data-field="purchaseBatchNo" th:text="#{ui.batchNo}"
+							    data-capability="batchTracking">Batch #</th>
 							<th data-field="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</th>
 							<th data-field="purchaseSellRate" th:text="#{ui.sUPrice}">S/U Price</th>
 							<!-- <th data-field="purchaseDiscountTypeDD">P/U Disc Type</th> -->
@@ -1984,7 +1991,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="purchaseDue" th:text="#{ui.due}">Due</th>
 							<!-- No "Profit" column: profit is realized on SALE, not on a purchase. A purchase records what
 							     you paid the vendor (P/U Price â†’ Total); margin lives on the Sale Detail Report. -->
-						 	<th data-field="purchaseExpiry" th:text="#{ui.expireDate}">Expire Date</th>
+							<th data-field="purchaseExpiry" th:text="#{ui.expireDate}"
+							    data-capability="expiryTracking">Expire Date</th>
 							<th data-field="purchaseDate" th:text="#{ui.datetime}">DateTime</th>
 						</tr>
 					</thead>
@@ -2071,7 +2079,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<!-- Barcode-first sell: scan a product's barcode/SKU (a wedge scanner types the code + Enter) â†’ the
 					     matching product is auto-added to the cart at its list price. Server validates stock at submit. -->
-					<div class="form-group pos-fullrow" id="sellScanRow">
+					<div class="form-group pos-fullrow" id="sellScanRow" style="display:none">
 						<label class="control-label col-sm-2" for="sellScan"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.scan}">Scan</span></label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellScan" placeholder="Scan or type barcode / SKU, then Enter" th:placeholder="#{ui.scanOrTypeBarcodeSkuThen}" autocomplete="off"
@@ -2099,7 +2107,8 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<!-- <div class="form-group">
-						<label class="control-label col-sm-2" for="sellBatchNo">New Batch</label>
+						<label class="control-label col-sm-2" for="sellBatchNo"
+						       data-capability="batchTracking">New Batch</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="sellBatchNo" 
 							name="stock.batchNo" placeholder="Batch number"/>
@@ -3183,8 +3192,8 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
 						<label class="control-label col-sm-2" for="prodSku" th:text="#{ui.skuCode}">SKU / Code</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodSku"></div>
-						<label class="control-label col-sm-2" for="prodBarcode" id="prodBarcodeLabel" th:text="#{ui.barcode}">Barcode</label>
-						<div class="col-sm-4" id="prodBarcodeWrap"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)" th:placeholder="#{ui.eanUpcScannable}"></div>
+						<label class="control-label col-sm-2" for="prodBarcode" id="prodBarcodeLabel" style="display:none" th:text="#{ui.barcode}">Barcode</label>
+						<div class="col-sm-4" id="prodBarcodeWrap" style="display:none"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)" th:placeholder="#{ui.eanUpcScannable}"></div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodPrice" th:text="#{ui.sellPrice}">Sell Price</label>
@@ -3230,7 +3239,8 @@ tr.row-voided .js-edit-row{display:none !important}
 						U1 — selling by the piece. Hidden entirely unless the unit holds more than one, so a shop
 						that never breaks a pack sees the form it has always seen.
 					-->
-					<div class="form-group" id="prodLooseWrap" style="display:none">
+					<div class="form-group" id="prodLooseWrap" style="display:none"
+					     data-capability="looseSelling">
 						<label class="control-label col-sm-2" for="prodLooseUnit" th:text="#{ui.js.looseUnit}">One piece is a</label>
 						<div class="col-sm-4">
 							<div class="row">
@@ -4053,7 +4063,7 @@ tr.row-voided .js-edit-row{display:none !important}
         if (val === 'sellDiv') setTimeout(function(){
             if (typeof posFocusEntryPoint === 'function') { posFocusEntryPoint(); return; }
             var s = document.getElementById('sellScan');
-            if (s && window.posBarcodeEnabled !== false) s.focus();
+            if (s && window.posBarcodeEnabled === true) s.focus();
         }, 150);
         // Sync the Amount Received visibility to the current payment method (a prior Credit sale may have hidden it).
         if (val === 'sellDiv' && typeof onSellPayMethodChange === 'function') onSellPayMethodChange();
