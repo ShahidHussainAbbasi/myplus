@@ -62,6 +62,8 @@ public class PlatformAdminController {
             StringBuilder qs = new StringBuilder("?page=").append(page == null ? "0" : enc(page))
                     .append("&size=").append(size == null ? "25" : enc(size));
             if (q != null && !q.isBlank()) qs.append("&q=").append(enc(q));
+            // ONB-2 — the remediation worklist: tenants with no business type, or parked on `general`.
+            if ("true".equals(request.getParameter("needsType"))) qs.append("&needsType=true");
             return authGet("/admin/organizations" + qs);
         } catch (Exception e) {
             LOGGER.error("platform organizations proxy error", e);
@@ -130,6 +132,61 @@ public class PlatformAdminController {
     }
 
     /**
+     * E3 — start or stop a tenant trading.
+     *
+     * <p>Nothing is validated here: auth-service refuses an unknown status, a missing reason and an operator's
+     * attempt to suspend their own organization. Duplicating any of that would create a second place for the
+     * rule to drift, and the second place is always the one that goes stale.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/status", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> changeStatus(final HttpServletRequest request) {
+        try {
+            String orgId = request.getParameter("organizationId");
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("status", request.getParameter("status"));
+            body.put("reason", request.getParameter("reason"));
+            return authPost("/admin/organizations/" + enc(orgId) + "/status", body);
+        } catch (Exception e) {
+            LOGGER.error("platform status proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** ONB-1 — change a tenant's business type. Validated in auth-service, not here. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/shape", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> changeShape(final HttpServletRequest request) {
+        try {
+            String orgId = request.getParameter("organizationId");
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("shape", request.getParameter("shape"));
+            body.put("reason", request.getParameter("reason"));
+            return authPost("/admin/organizations/" + enc(orgId) + "/shape", body);
+        } catch (Exception e) {
+            LOGGER.error("platform shape proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** ONB-1 — what a shape change would turn on and off, so the console can name it before doing it. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/shapePreview", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> previewShape(final HttpServletRequest request) {
+        try {
+            String orgId = request.getParameter("organizationId");
+            String shape = request.getParameter("shape");
+            return authGet("/admin/organizations/" + enc(orgId) + "/shape-preview?shape=" + enc(shape));
+        } catch (Exception e) {
+            LOGGER.error("platform shape preview proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
      * Provision a new tenant — the endpoint that has existed since slice 32 with no UI.
      *
      * <p>No password is ever issued: {@code AuthService.provisionTenant} sends the owner a password-reset
@@ -148,6 +205,8 @@ public class PlatformAdminController {
             body.put("organizationName", request.getParameter("organizationName"));
             body.put("userType", request.getParameter("userType"));
             body.put("plan", request.getParameter("plan"));
+            // ONB-1 — mandatory. auth-service refuses a blank or unrecognised value.
+            body.put("shape", request.getParameter("shape"));
             return authPost("/admin/provision-tenant", body);
         } catch (Exception e) {
             LOGGER.error("platform provisionTenant proxy error", e);

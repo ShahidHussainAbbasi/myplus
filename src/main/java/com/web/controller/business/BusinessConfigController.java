@@ -153,6 +153,55 @@ public class BusinessConfigController {
         }
     }
 
+    /**
+     * ONB-1 — the tenant changes its own business type.
+     *
+     * <p>A distinct path from {@code /saveBusinessConfig} because this is not a settings write: it CLEARS the
+     * tenant's capability overrides so the new shape's preset applies. Routing it through the ordinary
+     * settings save would change the fallback and leave every override standing, which is the defect this
+     * closes — an owner picks "Pharmacy" and watches nothing happen.
+     */
+    @RequestMapping(value = "/saveBusinessShape", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveBusinessShape(final HttpServletRequest request) {
+        try {
+            Map<String, Object> body = java.util.Map.of("shape",
+                    request.getParameter("shape") == null ? "" : request.getParameter("shape"));
+            Map<String, Object> saved = gateway.forMap(AUTH_PREFIX, authDirectUrl, "/org/shape",
+                    org.springframework.http.HttpMethod.POST, body,
+                    org.springframework.http.MediaType.APPLICATION_JSON);
+            /*
+             * Re-mint THIS session's token, exactly as a capability write does (C3c).
+             *
+             * Capabilities are resolved at mint and carried as a claim, so without this the owner who just
+             * changed their business type keeps the old set until their token next refreshes — the screen
+             * would not update and the change would look broken. Best-effort: the shape IS saved either way.
+             */
+            try {
+                gateway.refreshNow();
+            } catch (Exception refreshFailed) {
+                LOGGER.warn("Business type saved but this session's token could not be re-minted; the change "
+                        + "will apply on its next refresh.", refreshFailed);
+            }
+            return saved;
+        } catch (Exception e) {
+            LOGGER.error("saveBusinessShape proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** ONB-1 — what changing business type would turn on and off, so the confirmation can name it. */
+    @RequestMapping(value = "/getBusinessShapePreview", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getBusinessShapePreview(final HttpServletRequest request) {
+        try {
+            return authGet("/org/shape-preview?shape=" + enc(request.getParameter("shape")));
+        } catch (Exception e) {
+            LOGGER.error("getBusinessShapePreview proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     private static String enc(String s) {
         return s == null ? "" : java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
     }

@@ -85,6 +85,10 @@ class SagaSellServiceTest {
     /** C3b: also field-injected, also never wired here. Found by the guard below before any test reached it —
      *  which is the whole point: it was one new code path away from being the next production NPE. */
     @Mock private com.myplus.common.settings.CapabilityService capabilityService;
+    /** #17 P3: COGS moved out to SaleCosting, and the sell ids it costs come from SellRepo. Field-injected
+     *  like their neighbours, so @InjectMocks leaves both null — the guard below caught them here. */
+    @Mock private SaleCosting saleCosting;
+    @Mock private com.myplus.business_service.repository.SellRepo sellRepo;
     @InjectMocks private SagaSellService service;
 
     @BeforeEach
@@ -99,6 +103,8 @@ class SagaSellServiceTest {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "creditStandingService", creditStandingService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "serialUnitService", serialUnitService);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "capabilityService", capabilityService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "saleCosting", saleCosting);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "sellRepo", sellRepo);
 
         // Then PROVE it, rather than trusting that the list above kept up. Every dependency Spring would
         // inject - constructor-injected (final) and @Autowired field alike - must be non-null before any test
@@ -172,6 +178,11 @@ class SagaSellServiceTest {
                 .thenReturn(TaxSetting.builder().enabled(false).build());
         org.mockito.Mockito.lenient().when(taxService.taxForLine(any(), any(), any()))
                 .thenReturn(new TaxResult(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
+        // #17 P3: the COGS figure feeds the GL post, which is deliberately best-effort (try/caught, "sale
+        // recorded"). An unstubbed mock returns null there and the resulting NPE would be SWALLOWED — the
+        // test would pass having proved nothing about the cost basis. Give it a real one.
+        org.mockito.Mockito.lenient().when(saleCosting.cogs(anyList(), anyList()))
+                .thenReturn(new BigDecimal("12.00"));
     }
 
     @Test

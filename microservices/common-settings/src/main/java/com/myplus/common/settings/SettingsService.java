@@ -251,6 +251,26 @@ public class SettingsService {
         if (org != null) overridesByOrg.invalidate(org);
     }
 
+    /**
+     * ONB-1 — evict a tenant's cached overrides after someone wrote {@code org_setting} rows directly.
+     *
+     * <h3>Why this escape hatch exists, and when NOT to use it</h3>
+     * {@link #set(String, String)} is the one writer and invalidates its own cache, which is why the eviction
+     * above is package-private. But two operations legitimately write rows for an org that is <b>not the
+     * caller's own</b>, which {@code set} cannot express because it scopes to {@code CurrentUser}:
+     * provisioning a tenant (writing its shape at creation) and an operator re-applying a shape to somebody
+     * else's tenant.
+     *
+     * <p>Without this, those writes would sit behind a stale cache for up to the TTL — the operator changes a
+     * business type, watches nothing happen, and reports it as broken.
+     *
+     * <p><b>Anything that writes settings for the CALLER's own org must still use {@code set}</b>, which
+     * validates against the catalog. This method only drops a cache; it grants nothing and validates nothing.
+     */
+    public void evictOrganization(Long organizationId) {
+        invalidate(organizationId);
+    }
+
     /** {@link #getBool(String)} for an explicitly named org — see {@link #effectiveFor(Long, String)}. */
     public boolean getBoolFor(Long org, String key) {
         return "true".equalsIgnoreCase(effectiveFor(org, key));

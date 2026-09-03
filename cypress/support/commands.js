@@ -769,3 +769,36 @@ Cypress.Commands.add('setShape', (code) => {
       expect(res.body && res.body.success, `setShape(${code}) body: ${JSON.stringify(res.body)}`).to.eq(true)
     })
 })
+
+/**
+ * Seed ONE sale return, and yield its credit-note number.
+ *
+ * Promoted here from return-documents.cy.js when returns-parity.cy.js needed the same thing (#24). Two
+ * copies of "make a credit note" would drift the moment the return path changes, and both specs assert
+ * against what it produces.
+ *
+ * SEEDS, never asserts-or-skips: a gate that quietly passes on an empty shop tests nothing. Every step
+ * asserts its own envelope, because GenericResponse answers a refusal with HTTP 200 and status ERROR.
+ */
+Cypress.Commands.add('seedCreditNote', () => {
+  return cy
+    .request({ method: 'GET', url: '/getUserSell?q=-1' })
+    .then((r) => {
+      const rows = (r.body && r.body.collection) || []
+      expect(rows.length, 'the tenant has at least one sale to return').to.be.greaterThan(0)
+
+      // A line with quantity > 1 so returning 1 cannot exceed what was sold.
+      const line = rows.find((s) => Number(s.quantity) > 1) || rows[0]
+      return cy.request({
+        method: 'POST',
+        url: '/saleReturn',
+        form: true,
+        body: { sellId: line.sellId, quantity: 1, reason: 'cypress: returns gate' },
+      })
+    })
+    .then((r) => {
+      expect(r.body.status, `saleReturn: ${r.body.message}`).to.eq('SUCCESS')
+      expect(r.body.object, 'the server allocates a credit note number').to.be.a('string')
+      return cy.wrap(r.body.object)
+    })
+})

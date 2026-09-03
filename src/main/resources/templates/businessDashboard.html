@@ -828,9 +828,42 @@ tr.row-voided .js-edit-row{display:none !important}
 					and offering a supplier picker over a list of customer returns would be a control that
 					cannot match anything.
 				-->
-				<div id="returnsFilterBar" class="form-inline" style="display:none;margin-bottom:12px">
-					<label for="returnsVenderDD" style="margin-right:8px" th:text="#{ui.supplier}">Supplier</label>
-					<select id="returnsVenderDD" class="form-control" style="min-width:220px"></select>
+				<!--
+					#24 — the filter bar, restructured.
+
+					⚠ Print all used to live INSIDE this bar, and showReturns() hid the whole bar on the credit
+					side. The button was built, wired and mode-aware the entire time, and unreachable on the
+					register that needed it — read for months as "sale returns have no Print all".
+
+					So the bar now separates MODE-CONFIGURED controls (which party picker) from
+					MODE-INDEPENDENT ones (dates, product, Print all, Clear). Print all acts on whatever is
+					listed, in any mode, filtered or not — it was never a property of the supplier filter.
+				-->
+				<div id="returnsFilterBar" class="form-inline" style="margin-bottom:12px">
+					<!-- The party. One slot, two controls: a credit note's party is a customer and a debit
+					     note's is a supplier, so a single picker could only ever be wrong on one side. -->
+					<span id="returnsPartyVender">
+						<label for="returnsVenderDD" style="margin-right:8px" th:text="#{ui.supplier}">Supplier</label>
+						<select id="returnsVenderDD" class="form-control" style="min-width:200px"></select>
+					</span>
+					<span id="returnsPartyCustomer">
+						<label for="returnsCustomerDD" style="margin-right:8px" th:text="#{ui.customer}">Customer</label>
+						<select id="returnsCustomerDD" class="form-control" style="min-width:200px"></select>
+					</span>
+
+					<label for="returnsFrom" style="margin:0 8px" th:text="#{ui.from}">From</label>
+					<!-- .datePicker writes dd-MM-yyyy, which is the wire format AppUtil parses. The class is
+					     the contract — see /js/common/date-picker.js. -->
+					<input type="text" id="returnsFrom" class="form-control datePicker" style="width:130px" autocomplete="off">
+					<label for="returnsTo" style="margin:0 8px" th:text="#{ui.to}">To</label>
+					<input type="text" id="returnsTo" class="form-control datePicker" style="width:130px" autocomplete="off">
+
+					<label for="returnsProductDD" style="margin:0 8px" th:text="#{ui.product}">Product</label>
+					<select id="returnsProductDD" class="form-control" style="min-width:180px"></select>
+
+					<button type="button" id="returnsClearFilters" class="btn btn-default" style="margin-left:8px">
+						<span th:text="#{ui.js.clear}">Clear</span>
+					</button>
 					<button type="button" id="returnsPrintAll" class="btn btn-default" style="margin-left:8px">
 						<span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.js.printAll}">Print all</span>
 					</button>
@@ -1908,7 +1941,10 @@ tr.row-voided .js-edit-row{display:none !important}
 						<!-- ONB-2 R1a: same rule as Batch # above. -->
 						<label class="control-label col-sm-2" for="purchaseExpiry" th:text="#{ui.expireDate}"
 						       data-capability="expiryTracking">Expire Date</label>
-						<div class="col-sm-4">
+						<!-- The INPUT's column needs the gate too, not only the label. Gating the label alone
+						     left a retail tenant with an unlabelled date box - which is worse than the
+						     original bug, because there is nothing left on screen to say what it is for. -->
+						<div class="col-sm-4" data-capability="expiryTracking">
 							<input type="text" class="form-control datePicker" id="purchaseExpiry"
 							name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
 						</div>

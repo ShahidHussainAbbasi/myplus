@@ -542,4 +542,29 @@ public class AppUtil {
 		return date;
 		}
 		};*/
+
+    /**
+     * Build a proxy query string from whichever of {@code names} the caller actually sent (#24).
+     *
+     * <p>Every returns/report proxy in this app forwards optional filters, and each was doing it by hand:
+     * read the parameter, test it for blank, concatenate, remember to URL-encode. That is four chances to be
+     * inconsistent per filter, and the inconsistency that matters is the blank one — forwarding
+     * {@code customerId=} makes Spring's {@code Long} binding reject the whole request with a 400, so a
+     * cleared filter breaks the screen instead of removing the narrowing.
+     *
+     * <p>BLANK IS OMITTED, not forwarded empty. That is the entire point of centralising this.
+     *
+     * @return {@code "a=1&b=2"}, or {@code ""} when the caller sent none of them
+     */
+    public static String passThroughQuery(jakarta.servlet.http.HttpServletRequest request, String... names) {
+        StringBuilder qs = new StringBuilder();
+        for (String name : names) {
+            String v = request.getParameter(name);
+            if (v == null || v.isBlank()) continue;
+            if (qs.length() > 0) qs.append('&');
+            qs.append(name).append('=')
+              .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8));
+        }
+        return qs.toString();
+    }
 }

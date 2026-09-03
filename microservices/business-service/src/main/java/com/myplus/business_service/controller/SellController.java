@@ -705,7 +705,28 @@ public class SellController {
 		try {
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 	        List<Sell> objs=null;
-	        if(dto.getRp() == CURRENT_MONTH) {
+
+	        /*
+	         * WHICH PERIOD, decided once and safely.
+	         *
+	         * `rp` is an Integer, and this used to read `dto.getRp() == CURRENT_MONTH` — an Integer compared to
+	         * an int, which UNBOXES. A request that carried no `rp` at all therefore threw a
+	         * NullPointerException, which the catch below turned into a bare "could not load" with nothing to
+	         * act on.
+	         *
+	         * The second failure was quieter and worse: a period with no dates matched NO branch, so `objs`
+	         * stayed null and the caller got NOT_FOUND — "you have no sales" — when the truth was "you did not
+	         * tell me when". A report that answers a malformed question with an empty result teaches an
+	         * operator that their data is missing.
+	         *
+	         * So: absent or unparseable period means CURRENT MONTH, which is what the screen shows selected by
+	         * default. The report now answers the question the screen appears to be asking.
+	         */
+	        Integer rp = dto.getRp();
+	        boolean noRange = appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd());
+	        boolean currentMonth = (rp == null) ? noRange : (rp.intValue() == CURRENT_MONTH);
+
+	        if(currentMonth) {
 	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
 	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
@@ -715,10 +736,14 @@ public class SellController {
 	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
 	        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
 	        	objs = sellService.findSellByEndDate(appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
-//	        }else {
-//	        	//current month
-//	        	
-//				objs = sellService.findAll(example);
+	        }
+
+	        if(objs == null) {
+	            // Nothing matched — a period was named but no usable range came with it. Fall back to the
+	            // month rather than reporting an empty shop, and say so in the message so the operator knows
+	            // WHICH period they are looking at.
+	            objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),
+	                    appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
 	        }
 	        
 			if(appUtil.isEmptyOrNull(objs))
@@ -1659,7 +1684,12 @@ public class SellController {
 	 *  printable credit note. Flat records — no lazy relations. Org-scoped with NULL-fallback. */
 	@RequestMapping(value = "/getSaleReturns", method = RequestMethod.GET)
 	@ResponseBody
-	public GenericResponse getSaleReturns(final HttpServletRequest request) {
+	public GenericResponse getSaleReturns(
+			@RequestParam(name = "customerId", required = false) final Long fCustomer,
+			@RequestParam(name = "productId", required = false) final Long fProduct,
+			@RequestParam(name = "from", required = false) final String fromStr,
+			@RequestParam(name = "to", required = false) final String toStr,
+			final HttpServletRequest request) {
 		try {
 			/*
 			 * Task #21: returned as the SAME ReturnDocumentDTO the printable note uses, not as raw rows.
@@ -1672,8 +1702,25 @@ public class SellController {
 			 * BATCHED, not per row: two lookups for the whole page regardless of its length. Resolving names
 			 * inside the loop would be an N+1 on a screen that lists a shop's entire return history.
 			 */
+			/*
+			 * #24 — the register's filters.
+			 *
+			 * Date and product narrow in SQL because they are columns on the row. The CUSTOMER cannot:
+			 * SaleReturn records no customer at all, so it is applied in memory further down, after the
+			 * enrichment that resolves one. See docs/slices/returns-register-parity.md §3.
+			 *
+			 * ⚠ endOfDay on the upper bound. The picker sends a date as midnight, so a same-day range read
+			 * literally is 00:00:00..00:00:00 and matches only a return recorded at exactly midnight — the
+			 * report-date-bounds defect, which is reproduced by every new date filter that parses its own
+			 * bounds instead of using this helper.
+			 */
+			java.time.LocalDate fromD = appUtil.toLocalDateOrNull(fromStr);
+			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
+			java.time.LocalDateTime from = fromD == null ? null : fromD.atStartOfDay();
+			java.time.LocalDateTime to = toD == null ? null : appUtil.endOfDay(toD.atStartOfDay());
+
 			java.util.List<com.myplus.business_service.entity.SaleReturn> rows =
-					saleReturnRepo.findScoped(orgId(), userId());
+					saleReturnRepo.findScopedFiltered(orgId(), userId(), fProduct, from, to);
 
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
 					rows.stream().map(com.myplus.business_service.entity.SaleReturn::getProductId)
@@ -1687,13 +1734,36 @@ public class SellController {
 					.filter(java.util.Objects::nonNull).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, String> customerBySellId = new java.util.HashMap<>();
+			// #24: the ID as well as the name. Filtering on the NAME would fold two customers who happen to
+			// share one into a single filter result — a register quietly showing someone else's returns is
+			// worse than no filter at all.
+			java.util.Map<Long, Long> customerIdBySellId = new java.util.HashMap<>();
 			java.util.Map<Long, java.math.BigDecimal> rateBySellId = new java.util.HashMap<>();
 			if (!sellIds.isEmpty()) {
 				sellService.findAllById(sellIds).forEach(s -> {
 					rateBySellId.put(s.getSellId(), s.getSellRate());
-					if (s.getCustomerHistory() != null && s.getCustomerHistory().getCustomer() != null)
+					if (s.getCustomerHistory() != null && s.getCustomerHistory().getCustomer() != null) {
 						customerBySellId.put(s.getSellId(), s.getCustomerHistory().getCustomer().getName());
+						customerIdBySellId.put(s.getSellId(),
+								s.getCustomerHistory().getCustomer().getCustomerId());
+					}
 				});
+			}
+
+			/*
+			 * The CUSTOMER filter, applied here because this is the first point at which a customer is known.
+			 *
+			 * ⚠ This narrows AFTER a full scoped read, so it does not scale — a distributor with years of
+			 * returns pays for every row before any are discarded. It is the deliberate choice for today's
+			 * volumes (and matches how SaleReportFilter narrows the sale report); the right answer once that
+			 * hurts is a join through Sell in findScopedFiltered. Recorded so whoever hits the wall finds the
+			 * reason rather than rediscovering it.
+			 */
+			if (fCustomer != null) {
+				final Long want = fCustomer;
+				rows = rows.stream()
+						.filter(r -> want.equals(customerIdBySellId.get(r.getSellId())))
+						.collect(java.util.stream.Collectors.toList());
 			}
 
 			java.util.List<ReturnDocumentDTO> out = rows.stream()

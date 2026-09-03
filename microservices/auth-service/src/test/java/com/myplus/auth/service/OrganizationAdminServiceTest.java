@@ -68,7 +68,19 @@ class OrganizationAdminServiceTest {
         when(members.countByOrganizationIds(anyCollection()))
                 .thenReturn(List.<Object[]>of(new Object[]{ 1L, 3L }));
 
-        return new Fixture(new OrganizationAdminService(orgs, members, users), orgs);
+        com.myplus.auth.config.JpaEntitlementSource source = mock(com.myplus.auth.config.JpaEntitlementSource.class);
+        com.myplus.auth.repository.OrgSettingRepository orgSettings =
+                mock(com.myplus.auth.repository.OrgSettingRepository.class);
+        com.myplus.common.settings.SettingsService settings =
+                mock(com.myplus.common.settings.SettingsService.class);
+        com.myplus.common.settings.CapabilityService caps =
+                mock(com.myplus.common.settings.CapabilityService.class);
+        when(orgSettings.findByOrganizationIdAndSettingKeyStartingWith(any(), any())).thenReturn(List.of());
+        when(orgSettings.findByOrganizationIdAndSettingKey(any(), any())).thenReturn(Optional.empty());
+        when(caps.shapeFor(any())).thenReturn(com.myplus.common.settings.Shape.GENERAL);
+
+        return new Fixture(
+                new OrganizationAdminService(orgs, members, users, source, orgSettings, settings, caps), orgs);
     }
 
     @SuppressWarnings("unchecked")
@@ -226,5 +238,116 @@ class OrganizationAdminServiceTest {
         assertThatThrownBy(() -> svc.changePlan(999L, "PRO", "because", 9L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("No such organization");
+    }
+
+    // ── E3: status changes ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("⭐ an unknown status is REFUSED, not stored")
+    void unknown_status_is_refused() {
+        // `status` is free text on the column, exactly as `plan` was before E2 closed F2. An operator typing
+        // "SUSPEND" must be told — otherwise they believe a customer is stopped while that customer trades on.
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Shop", "PRO", null))).service();
+        assertThatThrownBy(() -> svc.changeStatus(1L, "SUSPEND", "non-payment", 9L, 2L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown status");
+    }
+
+    @Test
+    @DisplayName("a status change without a reason is refused")
+    void status_reason_is_required() {
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Shop", "PRO", null))).service();
+        assertThatThrownBy(() -> svc.changeStatus(1L, "SUSPENDED", "  ", 9L, 2L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reason");
+    }
+
+    @Test
+    @DisplayName("⭐ an operator cannot suspend their OWN organization")
+    void self_suspension_is_refused() {
+        /*
+         * A console that can lock its own operator out of the console that would undo it is a foot-gun with
+         * no undo. This is the first of two independent guards; AuthService also exempts ROLE_ADMIN at the
+         * door, so even a suspension that arrived by another route cannot lock the operator out.
+         */
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Operator org", "PRO", null))).service();
+        assertThatThrownBy(() -> svc.changeStatus(1L, "SUSPENDED", "oops", 9L, 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("your own organization");
+    }
+
+    @Test
+    @DisplayName("...but an operator CAN reactivate their own organization")
+    void self_reactivation_is_allowed() {
+        // The guard is about locking yourself OUT. Refusing the way back would be the same foot-gun pointed
+        // the other way — and reactivation is the action a mistaken suspension needs.
+        Organization o = org(1L, "Operator org", "PRO", null);
+        o.setStatus("SUSPENDED");
+        OrganizationAdminService svc = fixture(List.of(o)).service();
+
+        assertThatCode(() -> svc.changeStatus(1L, "ACTIVE", "restoring", 9L, 1L)).doesNotThrowAnyException();
+        assertThat(o.getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("suspending another tenant writes the status")
+    void suspending_another_tenant_works() {
+        Organization o = org(1L, "Delinquent shop", "PRO", null);
+        OrganizationAdminService svc = fixture(List.of(o)).service();
+
+        assertThatCode(() -> svc.changeStatus(1L, "suspended", "invoice 4471", 9L, 2L)).doesNotThrowAnyException();
+        assertThat(o.getStatus()).as("stored in the enum's canonical casing").isEqualTo("SUSPENDED");
+    }
+
+    @Test
+    @DisplayName("a plan change does NOT touch the status")
+    void plan_and_status_are_separate_axes() {
+        /*
+         * An operator upgrading a suspended customer's plan in preparation for their return must not silently
+         * let them back in before payment has cleared. An implicit reactivation is the kind of side effect
+         * nobody predicts and nobody tests for until it has already happened.
+         */
+        Organization o = org(1L, "Suspended shop", "FREE", null);
+        o.setStatus("SUSPENDED");
+        OrganizationAdminService svc = fixture(List.of(o)).service();
+
+        svc.changePlan(1L, "PRO", "prepared for return", 9L);
+
+        assertThat(o.getPlan()).isEqualTo("PRO");
+        assertThat(o.getStatus()).as("the tenant is still stopped").isEqualTo("SUSPENDED");
+    }
+
+    // ── ONB-1: the business type ────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("⭐ an unknown business type is REFUSED, not resolved to 'everything on'")
+    void unknown_shape_is_refused() {
+        /*
+         * Shape.byCode falls back PERMISSIVELY to GENERAL, whose preset is every capability. That is right for
+         * a READ — an unreadable stored value must never strip a working tenant's screens — and exactly wrong
+         * here, where it would turn an operator's typo into "show this customer the entire product". Which is
+         * the defect this slice closes.
+         */
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Shop", "PRO", null))).service();
+        assertThatThrownBy(() -> svc.changeShape(1L, "chemist", "corrected trade", 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown business type");
+    }
+
+    @Test
+    @DisplayName("a business-type change without a reason is refused")
+    void shape_reason_is_required() {
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Shop", "PRO", null))).service();
+        assertThatThrownBy(() -> svc.changeShape(1L, "pharmacy", "   ", 9L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reason");
+    }
+
+    @Test
+    @DisplayName("a valid business type is accepted, case-insensitively")
+    void shape_is_accepted() {
+        OrganizationAdminService svc = fixture(List.of(org(1L, "Shop", "PRO", null))).service();
+        assertThatCode(() -> svc.changeShape(1L, " Pharmacy ", "corrected trade", 9L))
+                .doesNotThrowAnyException();
     }
 }

@@ -26,6 +26,14 @@ public class OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final MembershipRepository membershipRepository;
+    /**
+     * ONB-1 — the tenant's business type is written with the tenant itself.
+     *
+     * <p>In the SAME transaction as the organization, so a tenant can never exist in the window where it has
+     * no shape and therefore resolves to {@code GENERAL} — every capability on. That window would be short,
+     * silent, and reachable only by a crash between two commits, which is the worst combination.
+     */
+    private final com.myplus.auth.repository.OrgSettingRepository orgSettingRepository;
 
     @Value("${app.trial-days:14}")
     private int trialDays;
@@ -36,8 +44,22 @@ public class OrganizationService {
      * get a 50/module cap; FREE/PRO are uncapped with no expiry. This is the signup/provisioning path —
      * {@link #getOrCreatePrimaryOrg} remains only as a legacy safety net.
      */
+    /** Back-compatible overload: no shape stated. See the {@code shape} parameter's javadoc below. */
     @Transactional
     public Organization createTenant(User owner, String name, String type, String plan) {
+        return createTenant(owner, name, type, plan, null);
+    }
+
+    /**
+     * @param shape ONB-1 — the tenant's business type ({@code Shape} code), written as {@code org.shape}.
+     *
+     * <p>Null is accepted here and refused at the OPERATOR path ({@code provisionTenant}), which is where the
+     * ruling applies. <b>Self-signup still creates a {@code GENERAL} tenant</b> — the registration form has no
+     * business-type question yet, so a trial user meets every capability. That is a known follow-on, recorded
+     * rather than silently half-fixed: it is the same defect on a different door.
+     */
+    @Transactional
+    public Organization createTenant(User owner, String name, String type, String plan, String shape) {
         LocalDateTime trialEnds = "TRIAL".equals(plan) ? LocalDateTime.now().plusDays(trialDays) : null;
         Integer entryCap = "DEMO".equals(plan) ? 50 : null;
         Organization org = organizationRepository.save(Organization.builder()
@@ -55,6 +77,14 @@ public class OrganizationService {
                 .role("OWNER")
                 .status("ACTIVE")
                 .build());
+        if (shape != null && !shape.isBlank()) {
+            orgSettingRepository.save(com.myplus.auth.entity.OrgSetting.builder()
+                    .organizationId(org.getId())
+                    .settingKey(com.myplus.common.settings.Shape.settingKey())
+                    .settingValue(com.myplus.common.settings.Shape.byCode(shape).code())
+                    .updated(LocalDateTime.now())
+                    .build());
+        }
         return org;
     }
 

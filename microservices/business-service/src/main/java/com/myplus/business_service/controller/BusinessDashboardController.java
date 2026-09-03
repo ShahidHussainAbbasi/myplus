@@ -176,8 +176,26 @@ public class BusinessDashboardController {
              * isEnabled (not assertEnabled) because this is a rendering decision: it fails OPEN, and the worst
              * case is a tenant seeing a number they have no plans behind — never a refusal of real work.
              */
-            if (capabilityService.isEnabled(com.myplus.common.settings.Capability.INSTALLMENTS)) {
-                stats.put("installmentsDue", installmentPlanRepo.countOpenForOrg(orgId));
+            /*
+             * ONB-2 - NOT capability-gated, and that is the fix.
+             *
+             * This used to run only when INSTALLMENTS was enabled. InstallmentController's seven endpoints
+             * gate on nothing, deliberately: a customer's debt does not evaporate because a shop changed
+             * trade. So the two halves disagreed, and the disagreement cost money - a shop that switched away
+             * from installments kept collectable plans while the amount outstanding vanished from its
+             * dashboard, with nothing left to remind it.
+             *
+             * THE RULE: a capability governs what a tenant may DO NEXT, never what they may SEE about what
+             * they have already done.
+             *
+             * This is not the opposite mistake either. C5 established that a hidden tile must not fetch its
+             * data - that screen was tuned 3s -> 0.27s by removing exactly this kind of work - so the count is
+             * emitted only when there is something to count. A tenant that never sold on terms still gets
+             * nothing, and the tile keeps its own data-capability so it never renders for them.
+             */
+            long openPlans = installmentPlanRepo.countOpenForOrg(orgId);
+            if (openPlans > 0) {
+                stats.put("installmentsDue", openPlans);
             }
 
             return new GenericResponse("SUCCESS", "stats", stats);

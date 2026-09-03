@@ -46,6 +46,12 @@
                     <input type="text" id="platSearch" autocomplete="off"
                            th:placeholder="#{ui.searchTenants}" placeholder="Search tenants…"/>
                 </div>
+                <!-- ONB-2: the remediation worklist. `general` counts as "needs a type" - it is a legitimate
+                     answer AND how a tenant ends up shown every vertical, and only a person can tell which. -->
+                <div class="plat-seg" id="platNeedsType" role="group">
+                    <button type="button" data-mode="all" class="is-on" th:text="#{ui.allTenants}">All</button>
+                    <button type="button" data-mode="needs" th:text="#{ui.needsBusinessType}">Needs a business type</button>
+                </div>
                 <span class="plat__count" id="platCount" data-testid="tenant-count"></span>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
@@ -84,6 +90,20 @@
                 <input type="text" id="provFirstName" class="form-control"/>
                 <label th:text="#{ui.lastName}">Last name</label>
                 <input type="text" id="provLastName" class="form-control"/>
+                <!--
+                  ONB-1 — REQUIRED. Without it the tenant has no org.shape row, resolves to GENERAL, and
+                  GENERAL presets every capability: the customer meets the whole product and has to subtract.
+                  A pesticide dealer was shown installments and serial/IMEI for exactly this reason.
+                -->
+                <label th:text="#{ui.businessType}">Business type</label>
+                <select id="provShape" class="form-control" required="required">
+                    <option value="retail">Retail counter / POS</option>
+                    <option value="pharmacy">Pharmacy / dispensing</option>
+                    <option value="distribution">Distribution / wholesale</option>
+                    <option value="storefront">Online storefront</option>
+                    <option value="general">General - show every feature</option>
+                </select>
+                <span class="plat__hint" th:text="#{ui.businessTypeHelp}">Sets which features this business starts with. It can be changed later.</span>
                 <label th:text="#{ui.plan}">Plan</label>
                 <select id="provPlan" class="form-control">
                     <option value="TRIAL">TRIAL</option>

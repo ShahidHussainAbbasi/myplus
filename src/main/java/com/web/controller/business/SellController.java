@@ -222,7 +222,11 @@ public class SellController {
     @ResponseBody
     public Map<String, Object> getSaleReturns(final HttpServletRequest request) {
         try {
-            return client.get("/getSaleReturns", "");
+            // #24: customer, product and date ride along; business-service scopes and applies them. Blank
+            // values are OMITTED rather than forwarded empty — `customerId=` would fail Long binding with a
+            // 400, so a CLEARED filter would break the register instead of widening it.
+            return client.get("/getSaleReturns",
+                    com.web.util.AppUtil.passThroughQuery(request, "customerId", "productId", "from", "to"));
         } catch (Exception e) {
             LOGGER.error("getSaleReturns proxy error", e);
             return ProxyErrors.statusError(e);

@@ -28,6 +28,7 @@ public class SetupDataLoader {
     private final PrivilegeRepository privilegeRepository;
     private final PasswordEncoder passwordEncoder;
     private final OrganizationService organizationService;
+    private final com.myplus.auth.repository.OrgSettingRepository orgSettingRepository;
 
     // F15: never seed a known-password admin in prod. Override via env: APP_SEED_ADMIN=false (prod),
     // or APP_ADMIN_PASSWORD=<strong> if you do seed one.
@@ -100,6 +101,52 @@ public class SetupDataLoader {
             return null;
         }
         return DEV_DEMO_PASSWORD;
+    }
+
+    /**
+     * ONB-1/ONB-2 — give a seeded tenant its business type. <b>Enforced, not skipped.</b>
+     *
+     * <h3>ONB-1 skipped when a row existed, and that was wrong</h3>
+     * It was written as "self-healing without being bossy". The consequence was visible immediately:
+     * {@code owner.pesticide@} sat on {@code general} — left there by a test cleanup — so the seeder skipped
+     * it and would never have corrected it to {@code pharmacy}. That was the exact tenant whose wrong screens
+     * started this whole line of work.
+     *
+     * <p>These are FIXTURES, defined by this loader, and {@code SetupDataLoader}'s contract is already
+     * "self-healing on every startup so a restart always yields a working login". A fixture's shape is part of
+     * its definition, not a user preference to preserve. Real tenants are untouched: this runs only inside
+     * {@code fixturesAllowed()}, which hard-blocks under the prod profile.
+     *
+     * <p>Writes {@code org.shape} directly rather than through {@code SettingsService}, which scopes to
+     * {@code CurrentUser} and has no caller during startup seeding.
+     */
+    private void ensureShape(String email, String shapeCode) {
+        userRepository.findByEmail(email).ifPresent(u -> {
+            Long orgId = organizationService.getOrCreatePrimaryOrg(u).getId();
+            String key = com.myplus.common.settings.Shape.settingKey();
+            String want = com.myplus.common.settings.Shape.byCode(shapeCode).code();
+            com.myplus.auth.entity.OrgSetting row = orgSettingRepository
+                    .findByOrganizationIdAndSettingKey(orgId, key)
+                    .orElseGet(() -> com.myplus.auth.entity.OrgSetting.builder()
+                            .organizationId(orgId).settingKey(key).build());
+            if (want.equals(row.getSettingValue())) return;   // already correct; no write, no log noise
+            row.setSettingValue(want);
+            row.setUpdated(java.time.LocalDateTime.now());
+            orgSettingRepository.save(row);
+            log.info("Business type for {} set to '{}'", email, want);
+        });
+    }
+
+    /** ONB-1 — switch one capability on for a seeded tenant, unless it already has an opinion. */
+    private void ensureCapability(String email, String settingKey) {
+        userRepository.findByEmail(email).ifPresent(u -> {
+            Long orgId = organizationService.getOrCreatePrimaryOrg(u).getId();
+            if (orgSettingRepository.findByOrganizationIdAndSettingKey(orgId, settingKey).isPresent()) return;
+            orgSettingRepository.save(com.myplus.auth.entity.OrgSetting.builder()
+                    .organizationId(orgId).settingKey(settingKey).settingValue("true")
+                    .updated(java.time.LocalDateTime.now())
+                    .build());
+        });
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -505,10 +552,49 @@ public class SetupDataLoader {
                     // a section for everybody would pass a single-tenant suite perfectly.
                     {"owner.mobile@myplus.com",       "Mobile",      "BUSINESS"},
                     {"owner.pesticide@myplus.com",    "Pesticide",   "BUSINESS"},
+
+                    // ── E3: the SACRIFICIAL tenant. Exists to be SUSPENDED, and nothing else. ─────────────
+                    //
+                    // The tenant-lifecycle gate has to prove that a suspended organization cannot obtain a
+                    // token — which means actually suspending one, which locks out every user in it. Running
+                    // that against any tenant another spec uses would break the rest of the suite for the
+                    // remainder of the run, and would leave it broken if the spec crashed before its cleanup.
+                    //
+                    // The obvious alternative — provisioning a throwaway tenant from the spec itself — does
+                    // NOT work, and the reason is worth recording because it produces a test that PASSES for
+                    // the wrong reason: `provisionTenant` deliberately issues no password (the owner sets
+                    // their own via a reset email), so a login attempt fails on CREDENTIALS long before the
+                    // status check is reached. The gate would go green against a tenant that was never
+                    // actually suspended.
+                    //
+                    // ⚠ NO OTHER SPEC MAY USE THIS ACCOUNT. It is routinely locked out on purpose.
+                    {"owner.lifecycle@myplus.com",    "Lifecycle",   "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);
             }
+
+            /*
+             * ONB-1 — the demo tenants are seeded as the businesses they REPRESENT.
+             *
+             * owner.mobile@ and owner.pesticide@ exist to be a mobile shop and an agri-chem counter — the C4
+             * comment above says exactly that. Until now both were left on `general`, whose preset is EVERY
+             * capability, so neither had ever looked like the business it stands for: the pesticide dealer was
+             * shown installments and serial/IMEI in every demo and every screenshot.
+             *
+             * Seeded ONLY when the tenant has no shape yet, so an operator's or a test's deliberate change is
+             * never overwritten on the next restart. Self-healing without being bossy.
+             */
+            ensureShape("owner.mobile@myplus.com", "retail");
+            ensureShape("owner.pesticide@myplus.com", "pharmacy");
+            /*
+             * A mobile shop is RETAIL **plus** serial and condition tracking — the C4 comment above says so in
+             * as many words, and it is the whole argument for two axes: "Mobile shop" is not a shape, it is a
+             * shape plus capabilities. The retail preset deliberately excludes serial tracking (a furniture
+             * showroom is retail too), so the handset-specific switches are seeded on top of it.
+             */
+            ensureCapability("owner.mobile@myplus.com", "org.cap.serialTracking");
+            ensureCapability("owner.mobile@myplus.com", "org.cap.conditionGrading");
             log.info("Module OWNER test users ensured ({}, ROLE_OWNER, demo=false, own org): {}",
                     moduleOwners.length,
                     Arrays.stream(moduleOwners).map(o -> o[0]).collect(java.util.stream.Collectors.joining(", ")));

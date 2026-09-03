@@ -128,6 +128,15 @@
             });
     }
 
+    /**
+     * ONB-1 — re-fetch and re-apply, for a screen that has just CHANGED the tenant's capabilities.
+     *
+     * <p>`applyCapabilities` re-applies the map already held; this replaces it. Changing the business type
+     * resets every switch server-side, so re-applying a stale map would leave the page showing sections the
+     * tenant no longer has — the change would look half-done, which is worse than not applying at all.
+     */
+    global.reloadCapabilities = function () { load(); };
+
     /** Ask about one capability. Returns true when unknown, matching the fail-open rule above. */
     global.hasCapability = function (code) {
         if (!global.CAPS) return true;

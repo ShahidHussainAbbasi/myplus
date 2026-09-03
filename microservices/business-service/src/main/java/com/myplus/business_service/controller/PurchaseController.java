@@ -339,6 +339,9 @@ public class PurchaseController {
 	@ResponseBody
 	public GenericResponse getPurchaseReturns(
 			@RequestParam(name = "venderId", required = false) final Long venderId,
+			@RequestParam(name = "productId", required = false) final Long productId,
+			@RequestParam(name = "from", required = false) final String fromStr,
+			@RequestParam(name = "to", required = false) final String toStr,
 			final HttpServletRequest request) {
 		try {
 			/*
@@ -355,9 +358,23 @@ public class PurchaseController {
 			 * this is a reuse rather than a new query — and a filter that cannot be pointed at another
 			 * tenant's supplier, because the scope predicate sits inside it.
 			 */
-			List<com.myplus.business_service.entity.PurchaseReturn> rows = (venderId != null)
-					? purchaseReturnRepo.findDebitNotesForVender(venderId, orgId(), userId())
-					: purchaseReturnRepo.findScoped(orgId());
+			/*
+			 * #24 — supplier, product and date, all in SQL and all in ONE query.
+			 *
+			 * Every filter on this side is a column on the row, so unlike the sale register nothing needs
+			 * narrowing in memory. The two-branch form above (filtered query or unfiltered) is gone: nullable
+			 * parameters mean the scope predicate is written once instead of once per combination, which is
+			 * where a filtered read normally loses its tenancy check.
+			 *
+			 * ⚠ endOfDay on the upper bound — a same-day range is otherwise 00:00:00..00:00:00 and matches
+			 * only a return recorded at exactly midnight. See docs/slices/report-date-bounds.md.
+			 */
+			java.time.LocalDate fromD = appUtil.toLocalDateOrNull(fromStr);
+			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
+			List<com.myplus.business_service.entity.PurchaseReturn> rows =
+					purchaseReturnRepo.findDebitNotesFiltered(orgId(), userId(), venderId, productId,
+							fromD == null ? null : fromD.atStartOfDay(),
+							toD == null ? null : appUtil.endOfDay(toD.atStartOfDay()));
 
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
 					rows.stream().map(com.myplus.business_service.entity.PurchaseReturn::getProductId)

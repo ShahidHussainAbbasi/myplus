@@ -157,10 +157,10 @@ public class PurchaseController {
     @ResponseBody
     public Map<String, Object> getPurchaseReturns(final HttpServletRequest request) {
         try {
-            // Task #16: the optional supplier filter rides along; business-service scopes it.
-            String vid = request.getParameter("venderId");
+            // Task #16 + #24: supplier, product and date ride along; business-service scopes and applies
+            // them. Blank values are OMITTED, not forwarded empty — see AppUtil.passThroughQuery.
             return client.get("/getPurchaseReturns",
-                    (vid == null || vid.isBlank()) ? "" : "venderId=" + enc(vid));
+                    com.web.util.AppUtil.passThroughQuery(request, "venderId", "productId", "from", "to"));
         } catch (Exception e) {
             LOGGER.error("getPurchaseReturns proxy error", e);
             return ProxyErrors.statusError(e);

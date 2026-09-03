@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,6 +32,35 @@ public class OrgUserController {
 
     private final AuthService authService;
     private final JwtService jwtService;
+    private final com.myplus.auth.service.OrganizationAdminService organizationAdminService;
+
+    /**
+     * ONB-1 — the tenant changes its OWN business type, from its Configuration screen.
+     *
+     * <h3>Why this is not just a settings write</h3>
+     * The Configuration screen posts every switch through {@code /settings}, which upserts one row. For
+     * {@code org.shape} that would change the FALLBACK and leave every {@code org.cap.*} override standing —
+     * so an owner picking "Pharmacy" would watch nothing happen. That is the complaint that started this
+     * slice, and re-applying the preset is more than one row.
+     *
+     * <p>Gated like {@code SettingsController.save}: owner or admin. Scoped to the caller's own organization
+     * by {@code CurrentUser}, so there is no id to tamper with.
+     */
+    @PostMapping("/shape")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')")
+    public ResponseEntity<ApiResponse<Void>> changeOwnShape(@RequestBody Map<String, Object> body) {
+        organizationAdminService.changeOwnShape(body.get("shape") == null ? null : String.valueOf(body.get("shape")));
+        return ResponseEntity.ok(ApiResponse.success(null, "Business type updated"));
+    }
+
+    /** ONB-1 — what changing to this business type would turn on and off, for the confirmation. */
+    @GetMapping("/shape-preview")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewOwnShape(@RequestParam String shape) {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        return ResponseEntity.ok(ApiResponse.success(
+                organizationAdminService.previewShape(org, shape), "Preview"));
+    }
 
     @PostMapping("/users")
     @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")

@@ -13,6 +13,10 @@
     "test:e2e:auth": "cypress run --spec 'cypress/e2e/auth/**/*.cy.js'",
     "pretest:e2e:pages": "npm run e2e:clean --silent",
     "test:e2e:pages": "cypress run --spec 'cypress/e2e/pages/**/*.cy.js'",
+    "pretest:e2e:platform": "npm run e2e:clean --silent",
+    "test:e2e:platform": "cypress run --spec 'cypress/e2e/platform/**/*.cy.js'",
+    "pretest:e2e:platform:headed": "npm run e2e:clean --silent",
+    "test:e2e:platform:headed": "cypress run --headed --spec 'cypress/e2e/platform/**/*.cy.js'",
     "pretest:e2e:education:demo": "npm run e2e:clean --silent",
     "test:e2e:education:demo": "cypress run --browser chrome --headed --config video=true --spec cypress/e2e/education/demo.cy.js"
   },

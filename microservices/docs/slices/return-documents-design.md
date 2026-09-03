@@ -383,3 +383,189 @@ C6's invisible policy · PERF-4's never-run gate · `getSaleReturns` with no scr
 Each invoice keeps its **own** resolved profile: a trade account still prints A4, a walk-in still prints the
 slip. Forcing one paper size would make the bulk copy differ from the single copy of the same document —
 exactly the drift `document-pdf.js` exists to prevent.
+
+---
+
+# Part 5 — filter + Print all on BOTH return registers (task #24)
+
+**Status:** ANALYSIS — awaiting review. Nothing implemented.
+Raised by the user: *"purchase returns and sale returns must have print all and filter options (main parameters)"*.
+
+## 5.1 What exists today, and the mistake in it
+
+Part 3 (#16) added a supplier filter and **Print all** to the register — but the whole bar is gated to debit
+mode:
+
+```js
+if (window.returnsMode === 'debit') { $('#returnsFilterBar').show(); ... }
+```
+
+The supplier picker being debit-only is correct: a credit note's party is a customer, so a supplier picker
+there could never match anything.
+
+**Print all is not supplier-specific, and hiding it with the picker was an error.** Sale returns have no bulk
+print at all, for no reason other than sharing a container with a control that did need gating.
+
+## 5.2 The parity gap
+
+| | Filter | Print all |
+|---|---|---|
+| Purchase returns (debit) | supplier ✅ | ✅ |
+| Sale returns (credit) | **none** | **none** |
+
+## 5.3 What "main parameters" should mean on each side
+
+The two registers answer different questions, so the filters are not symmetrical:
+
+| Parameter | Credit notes | Debit notes | Why |
+|---|---|---|---|
+| **Party** | Customer | Supplier | who the note is for — the one filter each side already implies |
+| **Date range** | ✅ | ✅ | "this month's returns" is the commonest question either side is asked, and neither can answer it today |
+| **Product** | ✅ | ✅ | "what keeps coming back" — the question that finds a quality problem |
+| Reason | later | later | free text today; useful only once it is a chosen value |
+
+⚠ **The date range must use `AppUtil.endOfDay`.** The report-date-bounds defects (a same-day range returning
+nothing, a month starting at the current clock time) are fixed in `loadSR` only. Any new date-filtered read
+that parses its own bounds will reproduce them — see `docs/slices/report-date-bounds.md`.
+
+## 5.4 Reuse, not new machinery
+
+- **Customer picker** — `customerOptions`, the lean read the till already uses. Not `getUserCustomer`.
+- **Supplier picker** — `getUserVenders`, already wired here. ⚠ it answers with `<option>` MARKUP and carries
+  its own blank placeholder, which must be stripped (Part 3 §S1).
+- **Product picker** — `ProductPicker`, the cached lean projection.
+- **Filtering** — in SQL, like the supplier filter. A register on a distributor with years of returns is not
+  a page to filter in the browser.
+- **Print all** — the existing `printReturnDocuments(kind, noteNos)`, which already combines N documents into
+  ONE print job. It takes a kind, so it works unchanged for credit notes.
+
+## 5.5 The server side is half built
+
+| Query | Exists? |
+|---|---|
+| `findDebitNotesForVender(venderId, orgId, userId)` | ✅ used by Part 3 |
+| Credit notes by customer | ❌ — `SaleReturn` has **no customerId**; the customer lives on the original `Sell` |
+| Either side by date / product | ❌ |
+
+⚠ **The credit-note party filter is the real work.** `SaleReturn` records no customer, which is why the
+document resolves one by walking `sellId → Sell → CustomerHistory → Customer`. Filtering a LIST that way means
+either a join through `Sell`, or filtering in memory after the enrichment the register already does.
+
+In-memory is honest at today's volumes and matches how `SaleReportFilter` already narrows the sale report —
+but it does not scale, and it should be written knowing that. A join is the right answer if a tenant's return
+history is large.
+
+## 5.6 Cypress cases (to write BEFORE implementing)
+
+1. Both registers show a filter bar and a Print all button.
+2. The party filter narrows the list, and an impossible value returns nothing rather than everything.
+3. The party control is a CUSTOMER picker on credit notes and a SUPPLIER picker on debit notes.
+4. A date range covering today returns today's returns — the `endOfDay` regression, on this screen.
+5. Print all fetches every listed note and combines them into ONE job, on both sides.
+6. Print all with nothing listed refuses rather than opening an empty job.
+7. Filters survive a mode switch without leaking — a supplier filter must not still be applied after
+   switching to credit notes.
+8. Cross-tenant: another tenant's notes never appear, whatever the filter.
+
+## 5.7 Open question for the user
+
+**Should the two registers stay one screen in two modes, or become two screens?**
+
+They are diverging: different party, different filters, different documents. One screen kept them consistent
+while they were nearly identical. If credit notes gain a customer filter and debit notes a supplier one, the
+shared code shrinks to the table and the reprint action.
+
+Recommendation: **keep one screen**. The divergence is in the CONFIGURATION (which picker, which endpoint),
+not the behaviour, and `RETURN_MODES` already expresses exactly that.
+
+### ✅ RULED, 3 Sep 2026: **one screen**
+
+The user ruled *"keep? one screen"*. So the filter bar is MODE-CONFIGURED, not duplicated: `RETURN_MODES` gains
+the party picker and the endpoint per mode, and the bar renders from that. Two screens would have meant two
+copies of the table, the reprint action and the cross-tenant scoping — three things that must not diverge.
+
+---
+
+# Part 6 — Download PDF does not work (task #25)
+
+**Status:** REPORTED, cause not yet identified. Nothing changed.
+Raised by the user: *"print invoice should print all fetched by view report and/or download pdf should work
+the same, but download pdf is not working"*.
+
+## 6.1 The intent, restated
+
+Both buttons on the Sale Detail Report act on **the invoices behind the rows currently listed** — whatever the
+filter and date range produced. Print and Download must cover the same set; only the output differs.
+
+`srVisibleInvoiceNos()` already reads the rendered rows and de-duplicates, so both share one definition of
+"which invoices". Print is wired to it and is believed to work; **Download is reported broken.**
+
+## 6.2 What has been ruled out
+
+| Hypothesis | Checked |
+|---|---|
+| `downloadInvoicePdf` missing | ❌ exists in `document-pdf.js`, delegates to `downloadDocumentPdf` |
+| Wrong asset path — `lazy-export.js` loads `/jQExp/pdfmake.min.js` while the copies sit under `js/business/` | ❌ **both** locations hold the files; `/jQExp/` is served and permitted in `SecSecurityConfig` |
+| The guard clauses refusing early | unlikely — they call `fail(...)`, which surfaces a message rather than doing nothing |
+
+## 6.3 What has NOT been ruled out
+
+1. **`LazyExport.ensurePdfMake()` never resolving.** Two files totalling ~2MB raw are fetched on first click.
+   If either 404s or the promise rejects, the `.then()` body never runs and **nothing at all happens** — no
+   error, no file. That matches "not working" exactly.
+2. **Load ORDER.** `vfs_fonts.js` assigns into `pdfMake.vfs` and must land AFTER `pdfmake.min.js`; reversed,
+   the font table is lost. `lazy-export.js` documents this as a correctness requirement, so it is a known
+   fragility on this path.
+3. **The burst.** #19 fires `downloadInvoicePdf` per invoice, 400ms apart. Browsers throttle or silently drop
+   repeated programmatic downloads — a single one may work while a set does not.
+4. **⚠ It has never had a caller.** `downloadInvoicePdf` sat in the codebase with NO call site until #19
+   wired it. It may simply never have worked; nothing would have revealed that.
+
+## 6.3b ✅ EVIDENCE, 3 Sep 2026 — the loader is NOT the fault
+
+`quote-document.cy.js` case 8 calls `LazyExport.ensurePdfMake()` and asserts `window.pdfMake` exists
+afterwards. **It passes** (11/11). Checked alongside it:
+
+| Hypothesis | Now |
+|---|---|
+| 1. `ensurePdfMake()` never resolves | **RULED OUT** — it resolves and `pdfMake` is defined |
+| 2. Load order / `vfs_fonts.js` not assigning `pdfMake.vfs` | **RULED OUT** — pdfmake **v0.1.53** paired with a `vfs_fonts.js` whose first line is `this.pdfMake.vfs = {…}`; the 0.2.x breaking change does not apply |
+| 3. The BURST — N programmatic downloads 400ms apart | **still open** |
+| 4. Something inside `downloadDocumentPdf` | **still open** |
+
+⚠ **A likely cause of the original report, now gone:** `business.js` carried an unterminated string
+literal, which kills the entire file — and `downloadInvoicePdf`'s only caller lives in `business.js`. A dead
+`business.js` looks exactly like "Download PDF does nothing". Fixed 3 Sep. Hypothesis, not conclusion.
+
+**What is still unproven is that a FILE ARRIVES.** Case 8 proves the library loads, and §6.5 explains why no
+Cypress case can go further. One manual click settles the rest — see below.
+
+## 6.4 The diagnostic that settles it
+
+In the browser console **on the dashboard**, with the report loaded:
+
+```js
+// A. does the lazy loader resolve at all?
+await LazyExport.ensurePdfMake().then(() => 'loaded').catch(e => 'FAILED: ' + e)
+
+// B. is pdfmake actually usable afterwards?
+[typeof window.pdfMake, window.pdfMake && Object.keys(window.pdfMake.vfs || {}).length]
+
+// C. one invoice, on its own — isolates the burst from the mechanism
+downloadInvoicePdf(srVisibleInvoiceNos()[0])
+```
+
+- **A fails** → the assets are not loading; check the network tab for the two `/jQExp/` requests.
+- **A resolves, B shows 0 vfs keys** → load order or a truncated font file.
+- **A and B fine, C downloads one file** → the mechanism works and the BURST is the defect: switch to a
+  server-side or merged document rather than N browser downloads.
+- **C also does nothing** → the fault is inside `downloadDocumentPdf`, and the model or content build is next.
+
+## 6.5 Cypress cannot answer this one
+
+A headless browser does not perform a real download, so a gate can assert `downloadInvoicePdf` is CALLED (case
+in `sale-report-invoices.cy.js` does) but not that a file arrives. **This needs the console output above**, and
+then a fix whose gate asserts whatever the actual cause turns out to be.
+
+That is worth stating plainly: this is a class of defect the suite structurally cannot catch, like the hidden
+Bonus box and the blank credit note before it.

@@ -32,7 +32,32 @@
 		return (!v || v === key) ? fallback : v;
 	}
 
-	var state = { page: 0, size: 25, q: '', total: 0 };
+	/*
+	 * NL, rather than a \n escape inside these concatenated strings.
+	 *
+	 * A \n written here reached target/classes as a REAL line break inside a
+	 * single-quoted string literal, so the browser refused the whole file with "Invalid or unexpected
+	 * token" and every screen that loads it went blank. Cypress reported it as an application error
+	 * during session setup, which points at the app rather than at the edit that caused it.
+	 *
+	 * fromCharCode(10) cannot be rewritten by anything that processes escape sequences, so the class of
+	 * failure is removed rather than guarded against.
+	 */
+	var NL = String.fromCharCode(10);
+
+
+	/** Shape code -> the words an owner sees on their own Configuration screen. One vocabulary, both screens. */
+	function shapeLabel(code) {
+		return {
+			retail:       t('ui.js.shapeRetail', 'Retail counter / POS'),
+			pharmacy:     t('ui.js.shapePharmacy', 'Pharmacy / dispensing'),
+			distribution: t('ui.js.shapeDistribution', 'Distribution / wholesale'),
+			storefront:   t('ui.js.shapeStorefront', 'Online storefront'),
+			general:      t('ui.js.shapeGeneral', 'General - show every feature')
+		}[String(code || '').toLowerCase()] || code;
+	}
+
+	var state = { page: 0, size: 25, q: '', total: 0, needsType: false };
 
 	// ── the tenants list ────────────────────────────────────────────────────────────────────────
 
@@ -43,7 +68,8 @@
 	 */
 	function loadTenants() {
 		var url = serverContext + 'platform/organizations?page=' + state.page + '&size=' + state.size
-			+ (state.q ? '&q=' + encodeURIComponent(state.q) : '');
+			+ (state.q ? '&q=' + encodeURIComponent(state.q) : '')
+			+ (state.needsType ? '&needsType=true' : '');
 
 		$('#platTenantList').html('<div class="plat__loading">' + esc(t('ui.js.loading', 'Loading…')) + '</div>');
 
@@ -92,6 +118,48 @@
 					+ esc(t('ui.js.trialLapsed', 'Trial lapsed')) + '</span>'
 				: '';
 
+			/*
+			 * E3 — a stopped customer must be visible at a glance. This is the whole reason `status` is on
+			 * the row: E2 printed the field while nothing enforced it, which is worse than not showing it.
+			 */
+			var stopped = (o.status && String(o.status).toUpperCase() !== 'ACTIVE')
+				? '<span class="plat-badge plat-badge--stopped" data-testid="status-' + esc(String(o.status).toLowerCase()) + '">'
+					+ '<span class="glyphicon glyphicon-ban-circle"></span> '
+					+ esc(t('ui.js.status' + String(o.status).charAt(0) + String(o.status).slice(1).toLowerCase(),
+						String(o.status))) + '</span>'
+				: '';
+
+			/*
+			 * ONB-1 — the remediation worklist.
+			 *
+			 * A tenant that has never been asked what it is resolves to GENERAL, whose preset is EVERY
+			 * capability — so it sees the whole product. Nothing backfills those, and nothing safely could:
+			 * the platform cannot know what trade a customer is in, and guessing would put a pharmacy on
+			 * retail and hide their expiry tracking.
+			 *
+			 * `shapeSet` is the RAW answer — whether anybody ever chose — which is the only one that makes a
+			 * worklist. The effective answer says GENERAL for "never asked" and for "deliberately chose
+			 * General business" alike, and an operator working through these needs to tell them apart.
+			 */
+			var noShape = (o.shapeSet === false)
+				? '<span class="plat-badge plat-badge--noshape" data-testid="no-business-type">'
+					+ '<span class="glyphicon glyphicon-question-sign"></span> '
+					+ esc(t('ui.js.noBusinessType', 'No business type')) + '</span>'
+				: '';
+
+			/*
+			 * ONB-2 — WHAT this business is, on the row.
+			 *
+			 * Without it an operator cannot tell org 20 from org 44 without opening both, and at 39 tenants that
+			 * is the difference between reading a list and clicking through 39 pages. Shown only when a type was
+			 * actually chosen: an unset tenant already carries the "No business type" badge, and two badges saying
+			 * the same thing is noise.
+			 */
+			var shapeBadge = (o.shapeSet !== false && o.shape)
+				? '<span class="plat-badge plat-badge--shape" data-testid="tenant-shape">'
+					+ esc(shapeLabel(o.shape)) + '</span>'
+				: '';
+
 			html += '<div class="plat-row" data-testid="tenant-row" data-org="' + esc(o.id) + '">'
 				+   '<div class="plat-row__main">'
 				+     '<div class="plat-row__name">' + esc(o.name) + '</div>'
@@ -101,6 +169,9 @@
 				+   '</div>'
 				+   '<div class="plat-row__tags">'
 				+     '<span class="plat-badge plat-badge--plan">' + esc(o.plan) + '</span>'
+				+     shapeBadge
+				+     stopped
+				+     noShape
 				+     lapsed
 				+   '</div>'
 				+   '<span class="glyphicon glyphicon-chevron-right plat-row__go"></span>'
@@ -148,7 +219,39 @@
 			return '<option value="' + p + '"' + (p === d.plan ? ' selected' : '') + '>' + p + '</option>';
 		}).join('');
 
+		var currentStatus = String(d.status || 'ACTIVE').toUpperCase();
+		var statusOptions = ['ACTIVE', 'SUSPENDED', 'CLOSED'].map(function (st) {
+			return '<option value="' + st + '"' + (st === currentStatus ? ' selected' : '') + '>' + st + '</option>';
+		}).join('');
+
+		var currentShape = String(d.shape || 'general').toLowerCase();
+		var shapeOptions = [
+			['retail', t('ui.js.shapeRetail', 'Retail counter / POS')],
+			['pharmacy', t('ui.js.shapePharmacy', 'Pharmacy / dispensing')],
+			['distribution', t('ui.js.shapeDistribution', 'Distribution / wholesale')],
+			['storefront', t('ui.js.shapeStorefront', 'Online storefront')],
+			['general', t('ui.js.shapeGeneral', 'General business')]
+		].map(function (o) {
+			return '<option value="' + o[0] + '"' + (o[0] === currentShape ? ' selected' : '') + '>'
+				+ esc(o[1]) + '</option>';
+		}).join('');
+
 		var html = '<h3 class="plat-detail__name">' + esc(d.organizationName || '') + '</h3>'
+			/*
+			 * ONB-1 — the business type comes FIRST, above plan and status.
+			 *
+			 * It is the question that decides what the customer sees at all; plan and status decide what they
+			 * may do and whether they may trade. An operator correcting a wrongly-onboarded tenant is looking
+			 * for this, and it used to be reachable only from the tenant's own Configuration screen.
+			 */
+			+ '<section class="plat-card">'
+			+   '<header class="plat-card__head"><h4>' + esc(t('ui.js.businessType', 'Business type')) + '</h4></header>'
+			+   '<div class="plat-card__body plat-plan">'
+			+     '<select class="form-control" id="platShapeSelect">' + shapeOptions + '</select>'
+			+     '<button type="button" class="btn btn-default" id="platShapeSave">'
+			+       esc(t('ui.js.changeBusinessType', 'Change business type')) + '</button>'
+			+   '</div>'
+			+ '</section>'
 			+ '<section class="plat-card">'
 			+   '<header class="plat-card__head"><h4>' + esc(t('ui.js.plan', 'Plan')) + '</h4></header>'
 			+   '<div class="plat-card__body plat-plan">'
@@ -158,6 +261,19 @@
 			+     (d.trialEndsAt ? '<span class="plat-plan__trial">'
 					+ esc(t('ui.js.trialEnds', 'Trial ends')) + ' ' + esc(String(d.trialEndsAt).substring(0, 10))
 					+ '</span>' : '')
+			+   '</div>'
+			/*
+			 * E3 — status sits in the PLAN card because plan and status are the two commercial facts and an
+			 * operator reasons about them together: "are they paying, and are they trading?"
+			 */
+			+   '<div class="plat-card__body plat-plan plat-plan--status">'
+			+     '<select class="form-control" id="platStatusSelect">' + statusOptions + '</select>'
+			+     '<button type="button" class="btn btn-default" id="platStatusSave">'
+			+       esc(t('ui.js.updateStatus', 'Update status')) + '</button>'
+			+     (currentStatus !== 'ACTIVE'
+					? '<span class="plat-badge plat-badge--stopped"><span class="glyphicon glyphicon-ban-circle"></span> '
+						+ esc(currentStatus) + '</span>'
+					: '')
 			+   '</div>'
 			+ '</section>'
 
@@ -259,6 +375,20 @@
 			}, 250);
 		});
 
+		/*
+		 * ONB-2 — the worklist filter. A segmented control rather than a dropdown: three states, one click, and
+		 * the current one visible without opening anything. `general` counts as "needs a type" per the ruling —
+		 * it is a legitimate answer AND an unanswered question, and only a person can tell which.
+		 */
+		$('#platNeedsType').on('click', 'button', function () {
+			var mode = this.getAttribute('data-mode');
+			$('#platNeedsType button').removeClass('is-on');
+			$(this).addClass('is-on');
+			state.needsType = (mode === 'needs');
+			state.page = 0;
+			loadTenants();
+		});
+
 		$('#platPager').on('click', '#platPrev', function () { state.page--; loadTenants(); });
 		$('#platPager').on('click', '#platNext', function () { state.page++; loadTenants(); });
 
@@ -297,6 +427,84 @@
 			});
 		});
 
+		/*
+		 * E3 — start or stop a tenant trading.
+		 *
+		 * The confirm text says the BLAST RADIUS plainly, because an operator must not discover it afterwards:
+		 * everyone at that business is signed out and cannot log back in. And it states the timing, which
+		 * differs from an entitlement change — immediate at the door, up to 15 minutes for anyone already
+		 * signed in. An operator who assumes otherwise suspends a tenant and watches them keep working.
+		 */
+		$('#platDetailBody').on('click', '#platStatusSave', function () {
+			var orgId = $('#platDetailBody').data('org');
+			var status = $('#platStatusSelect').val();
+			var stopping = status !== 'ACTIVE';
+			global.uiPromptConfirm({
+				title: t('ui.js.updateStatus', 'Update status'),
+				message: stopping
+					? t('ui.js.suspendWarning',
+						'Everyone at this business will be signed out and unable to log in. Anyone already '
+						+ 'signed in loses access within 15 minutes.')
+					: t('ui.js.reactivateNote', 'Access is restored immediately.'),
+				input: { label: t('ui.js.reason', 'Reason') },
+				confirmText: status
+			}).then(function (reason) {
+				if (reason === null) return;
+				$.post(serverContext + 'platform/status', { organizationId: orgId, status: status, reason: reason })
+					.done(function (res) {
+						if (!apiOk(res)) { global.uiAlert(apiMessage(res, '')); return; }
+						openTenant(orgId);
+					})
+					.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+			});
+		});
+
+		/*
+		 * ONB-1 — change the business type, RE-APPLYING that shape's defaults.
+		 *
+		 * This is a deliberate reversal of C4's "an explicit override always wins", and the confirmation is
+		 * the entire reason it is safe: the objection to re-applying was that it would happen SILENTLY. So the
+		 * dialog names the switches that will change, computed server-side from THIS tenant's current state —
+		 * generic prose would be the "are you sure?" that teaches operators to click through.
+		 */
+		$('#platDetailBody').on('click', '#platShapeSave', function () {
+			var orgId = $('#platDetailBody').data('org');
+			var shape = $('#platShapeSelect').val();
+
+			$.get(serverContext + 'platform/shapePreview?organizationId=' + encodeURIComponent(orgId)
+					+ '&shape=' + encodeURIComponent(shape))
+				.done(function (res) {
+					if (!apiOk(res)) { global.uiAlert(apiMessage(res, '')); return; }
+					var p = apiData(res) || {};
+					var on = p.turningOn || [], off = p.turningOff || [];
+
+					var lines = [];
+					if (off.length) lines.push(t('ui.js.turningOff', 'Turning OFF') + ': ' + off.join(' · '));
+					if (on.length) lines.push(t('ui.js.turningOn', 'Turning ON') + ': ' + on.join(' · '));
+					// A dialog that lists nothing when nothing changes is far more useful than one that
+					// always warns — an operator learns to read it because it is not always the same.
+					if (!lines.length) lines.push(t('ui.js.noSwitchesChange', 'No switches change for this business.'));
+
+					global.uiPromptConfirm({
+						title: t('ui.js.changeBusinessType', 'Change business type'),
+						message: t('ui.js.shapeResetsSwitches',
+							'This resets the switches under "What this business does" to the defaults for the '
+							+ 'new business type.') + '\n\n' + lines.join('\n'),
+						input: { label: t('ui.js.reason', 'Reason') }
+					}).then(function (reason) {
+						if (reason === null) return;
+						$.post(serverContext + 'platform/shape',
+								{ organizationId: orgId, shape: shape, reason: reason })
+							.done(function (r2) {
+								if (!apiOk(r2)) { global.uiAlert(apiMessage(r2, '')); return; }
+								openTenant(orgId);
+							})
+							.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+					});
+				})
+				.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+		});
+
 		// ── provisioning ────────────────────────────────────────────────────────────────────────
 		$('#platProvisionBtn').on('click', function () {
 			$('#platTenants').hide();
@@ -315,6 +523,7 @@
 				firstName: $('#provFirstName').val(),
 				lastName: $('#provLastName').val(),
 				plan: $('#provPlan').val(),
+				shape: $('#provShape').val(),
 				userType: 'BUSINESS'
 			}).done(function (res) {
 				if (!apiOk(res)) { global.uiAlert(apiMessage(res, '')); return; }

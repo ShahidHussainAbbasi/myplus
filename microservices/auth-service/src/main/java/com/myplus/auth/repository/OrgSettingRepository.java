@@ -13,4 +13,13 @@ public interface OrgSettingRepository extends JpaRepository<OrgSetting, Long> {
     Optional<OrgSetting> findByOrganizationIdAndSettingKey(Long organizationId, String settingKey);
 
     List<OrgSetting> findByOrganizationId(Long organizationId);
+
+    /**
+     * ONB-1 — the rows a shape change clears.
+     *
+     * <p>Deleting them, rather than setting each to NULL, is what hands the decision back to the shape
+     * preset: {@code SettingsService.overrideFor} returns {@code Optional.empty()} for a missing row exactly
+     * as it does for a null one, and deleting leaves nothing behind for the next shape change to reason about.
+     */
+    List<OrgSetting> findByOrganizationIdAndSettingKeyStartingWith(Long organizationId, String prefix);
 }

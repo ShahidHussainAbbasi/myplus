@@ -5,6 +5,8 @@ import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.MembershipRepository;
 import com.myplus.auth.repository.OrganizationRepository;
 import com.myplus.auth.repository.UserRepository;
+import com.myplus.auth.config.JpaEntitlementSource;
+import com.myplus.common.settings.OrganizationStatus;
 import com.myplus.common.settings.Plan;
 
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,10 @@ public class OrganizationAdminService {
     private final OrganizationRepository organizations;
     private final MembershipRepository memberships;
     private final UserRepository users;
+    private final JpaEntitlementSource source;
+    private final com.myplus.auth.repository.OrgSettingRepository orgSettings;
+    private final com.myplus.common.settings.SettingsService settings;
+    private final com.myplus.common.settings.CapabilityService capabilities;
 
     /** Bound the page size whatever the caller asks for — an operator typo must not become a table scan. */
     private static final int MAX_PAGE_SIZE = 100;
@@ -58,6 +64,26 @@ public class OrganizationAdminService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> search(String q, int page, int size) {
+        return search(q, page, size, false);
+    }
+
+    /**
+     * ONB-2 — the same page, optionally narrowed to tenants that still need a business type.
+     *
+     * <h3>Filtered in JAVA, and stated plainly rather than hidden</h3>
+     * "Needs a type" is {@code shapeSet == false || shape == general}, and both halves live in
+     * {@code org_setting} — a different table, keyed by a string, with no row at all for the common case. A
+     * SQL predicate over that is an outer join on a magic key returning a magic value: harder to read than the
+     * rule it implements, and no faster at this size.
+     *
+     * <p><b>The cost is honest and bounded.</b> The filter reads every match and pages in memory, so its total
+     * is a real count an operator can work down to zero rather than a page-local number that shrinks as they
+     * fix things without ever finishing. At 41 tenants that is one extra pass. If this ever runs at thousands
+     * the answer is a materialised {@code shape} column on {@code organizations} — a migration, not a cleverer
+     * query here.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> search(String q, int page, int size, boolean needsTypeOnly) {
         int safeSize = size <= 0 ? 25 : Math.min(size, MAX_PAGE_SIZE);
         int safePage = Math.max(page, 0);
 
@@ -66,10 +92,23 @@ public class OrganizationAdminService {
         // `:q IS NULL` branch cannot infer the parameter's type in Hibernate 6 and fails at runtime.
         String like = (q == null || q.isBlank()) ? "%" : "%" + q.trim().toLowerCase() + "%";
 
-        Page<Organization> found = organizations.searchForOperator(
-                like, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "id")));
-
-        List<Organization> rows = found.getContent();
+        List<Organization> rows;
+        long total;
+        if (needsTypeOnly) {
+            List<Organization> matching = organizations.searchForOperator(
+                            like, PageRequest.of(0, Integer.MAX_VALUE, Sort.by(Sort.Direction.DESC, "id")))
+                    .getContent().stream()
+                    .filter(this::needsBusinessType)
+                    .toList();
+            total = matching.size();
+            int from = Math.min(safePage * safeSize, matching.size());
+            rows = matching.subList(from, Math.min(from + safeSize, matching.size()));
+        } else {
+            Page<Organization> found = organizations.searchForOperator(
+                    like, PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "id")));
+            rows = found.getContent();
+            total = found.getTotalElements();
+        }
         Map<Long, String> ownerEmails = ownerEmailsFor(rows);
         Map<Long, Integer> memberCounts = memberCountsFor(rows);
         LocalDateTime now = LocalDateTime.now();
@@ -92,17 +131,45 @@ public class OrganizationAdminService {
              */
             m.put("trialLapsed", isTrialLapsed(o, now));
             m.put("status", o.getStatus());
+            // ONB-1 — so the console can show what kind of business this is without a second call.
+            m.put("shape", capabilities.shapeFor(o.getId()).code());
+            /*
+             * ⭐ RAW, not effective — the two answer different questions and only the raw one is a worklist.
+             *
+             * `shapeFor` returns GENERAL for a tenant that has never been asked, exactly as it does for one
+             * that deliberately chose "General business". An operator remediating 37 unset tenants needs to
+             * tell those apart, and the effective answer cannot. Same distinction C4 drew between
+             * `overrideFor` (what was chosen) and `getBoolFor` (what applies).
+             */
+            m.put("shapeSet", settings
+                    .overrideFor(o.getId(), com.myplus.common.settings.Shape.settingKey())
+                    .isPresent());
             m.put("ownerEmail", ownerEmails.get(o.getOwnerUserId()));
             m.put("memberCount", memberCounts.getOrDefault(o.getId(), 0));
             out.add(m);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("total", found.getTotalElements());
+        result.put("total", total);
         result.put("page", safePage);
         result.put("size", safeSize);
         result.put("rows", out);
         return result;
+    }
+
+    /**
+     * ONB-2 — does this tenant still need a business type?
+     *
+     * <p>True when nobody has ever chosen one, <b>and also when the choice was {@code general}</b>. The second
+     * half is the owner's ruling and not an oversight: {@code general} is the honest answer for a genuinely
+     * general trader AND it is how a tenant ends up shown every vertical at once. The two are
+     * indistinguishable in the data, so both go on the worklist and a person decides.
+     */
+    private boolean needsBusinessType(Organization o) {
+        java.util.Optional<String> chosen =
+                settings.overrideFor(o.getId(), com.myplus.common.settings.Shape.settingKey());
+        return chosen.isEmpty()
+                || com.myplus.common.settings.Shape.GENERAL.code().equalsIgnoreCase(chosen.get().trim());
     }
 
     /**
@@ -177,5 +244,177 @@ public class OrganizationAdminService {
         // read as a lapsed trial on the very screen an operator uses to decide who to chase.
         if (plan != Plan.TRIAL) org.setTrialEndsAt(null);
         organizations.save(org);
+    }
+
+    /**
+     * E3 — start or stop a tenant trading. <b>The most destructive action in the operator console.</b>
+     *
+     * <p>Guarded three ways, and each guards a different mistake:
+     * <ol>
+     *   <li>{@code ROLE_ADMIN} at the controller — a customer cannot reach it at all;</li>
+     *   <li>an unknown status is REFUSED rather than stored — {@code status} is free text on the column, and
+     *       an operator typing {@code SUSPEND} must be told, not left believing a customer is stopped while
+     *       they carry on selling;</li>
+     *   <li>the operator cannot suspend <b>their own</b> tenant — a console that locks its own operator out
+     *       of the console that would undo it is a foot-gun with no undo.</li>
+     * </ol>
+     *
+     * <p>The third is belt-and-braces: {@code AuthService} also exempts {@code ROLE_ADMIN} at the door. Two
+     * independent guards, because there is no way back from this one without a DBA.
+     *
+     * <p><b>Reactivation is the same call</b>, deliberately. A lever that only goes one way is an accident
+     * waiting to happen, and a wrong suspension stops a real business trading.
+     *
+     * @param actorOrgId the operator's OWN organization, so self-suspension can be refused
+     */
+    @Transactional
+    public void changeStatus(Long organizationId, String statusCode, String reason,
+                             Long actorUserId, Long actorOrgId) {
+        if (organizationId == null) throw new IllegalArgumentException("organizationId is required");
+        if (reason == null || reason.isBlank())
+            throw new IllegalArgumentException("A reason is required for a status change.");
+
+        // parse(), not byCode(): reads fall back permissively so a bad value can never shut a shop, while a
+        // WRITE must refuse what it does not recognise. One method doing both is how a silent fallback ends
+        // up applied to an operator's typo.
+        OrganizationStatus status = OrganizationStatus.parse(statusCode);
+        if (status == null) throw new IllegalArgumentException("Unknown status: " + statusCode);
+
+        if (status != OrganizationStatus.ACTIVE
+                && actorOrgId != null && actorOrgId.equals(organizationId)) {
+            throw new IllegalArgumentException(
+                    "You cannot suspend or close your own organization.");
+        }
+
+        Organization org = organizations.findById(organizationId)
+                .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
+        org.setStatus(status.code());
+        organizations.save(org);
+        // No cache to invalidate: the status is read from the Organization row on the login/refresh path,
+        // which loads it fresh every time. Deliberately NOT cached — this is a cold path, and a cached
+        // suspension would be the one kind of staleness that lets a stopped tenant keep trading.
+    }
+
+    /**
+     * ONB-1 — change a tenant's business type, RE-APPLYING that shape's defaults.
+     *
+     * <h3>This deliberately reverses a C4 rule, and the confirmation is why it is safe</h3>
+     * {@code Shape}'s javadoc says a shape "never has the last word — an explicit tenant override always
+     * wins", so that picking a profile could never <i>silently</i> destroy a deliberate choice. The whole
+     * objection was that word. The console now names what will change before it changes it, so the trap C4
+     * feared is closed — while the trap C4 <i>created</i>, a shape change that appears to do nothing, is the
+     * one an owner actually hit: a pesticide dealer picked "Pharmacy" and went on seeing installments.
+     *
+     * <h3>Re-apply means CLEAR the overrides, not write thirteen rows</h3>
+     * Deleting every {@code org.cap.*} row hands the decision back to the preset through the resolution order
+     * exactly as documented — {@code overrideFor} returns empty for a missing row, so
+     * {@code resolve} falls through to {@code shape.includes(capability)}. Writing the preset out as explicit
+     * rows would reach the same answer today and leave every capability an override for ever, so the next
+     * shape change would have to clear them anyway.
+     *
+     * <h3>The entitlement ceiling still wins</h3>
+     * Clearing rows GRANTS nothing: {@code resolve} consults {@code revoked} first, so a capability the
+     * platform withdrew stays off whatever the new shape's preset includes. That is asserted by the gate,
+     * because a "re-apply" that could out-rank a revocation would be a back door around E1.
+     */
+    @Transactional
+    public void changeShape(Long organizationId, String shapeCode, String reason, Long actorUserId) {
+        if (organizationId == null) throw new IllegalArgumentException("organizationId is required");
+        // The OPERATOR path records why. The tenant changing its OWN type does not — see changeOwnShape.
+        if (reason == null || reason.isBlank())
+            throw new IllegalArgumentException("A reason is required for a business-type change.");
+        applyShape(organizationId, shapeCode, actorUserId);
+    }
+
+    /**
+     * ONB-1 — a tenant changing its OWN business type, from its Configuration screen.
+     *
+     * <h3>Why this exists rather than routing the Configuration screen through {@code SettingsService.set}</h3>
+     * {@code set} upserts one row. It would change the FALLBACK and leave every {@code org.cap.*} override in
+     * place — so an owner picking "Pharmacy" would watch nothing happen, which is the exact complaint that
+     * started this slice. Re-applying is the point, and it is more than one row.
+     *
+     * <h3>No reason required, deliberately</h3>
+     * A reason is an audit artefact for an action taken on somebody ELSE'S tenant. Demanding one from an owner
+     * describing their own business is bureaucracy that teaches people to type "x".
+     *
+     * <p>Scoped to {@code CurrentUser}: an owner can only ever change their own organization, so there is no
+     * id parameter to tamper with.
+     */
+    @Transactional
+    public void changeOwnShape(String shapeCode) {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        if (org == null) throw new IllegalArgumentException("No active organization");
+        applyShape(org, shapeCode, com.myplus.common.security.CurrentUser.userId());
+    }
+
+    /** The shared core: validate, clear the overrides, state the shape, evict. */
+    private void applyShape(Long organizationId, String shapeCode, Long actorUserId) {
+        // Validated here rather than through Shape.byCode, which falls back permissively to GENERAL. That
+        // fallback is right for a READ — an unreadable stored value must never strip a working tenant's
+        // screens — and wrong at a WRITE, where it would turn a typo into "show this customer everything".
+        com.myplus.common.settings.Shape shape = null;
+        for (com.myplus.common.settings.Shape candidate : com.myplus.common.settings.Shape.values()) {
+            if (candidate.code().equalsIgnoreCase(shapeCode == null ? null : shapeCode.trim())) shape = candidate;
+        }
+        if (shape == null) throw new IllegalArgumentException("Unknown business type: " + shapeCode);
+
+        organizations.findById(organizationId)
+                .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
+
+        // Clear every capability override, then state the shape. Order matters only for readability: both
+        // land in one transaction, and the cache is evicted after both.
+        List<com.myplus.auth.entity.OrgSetting> overrides =
+                orgSettings.findByOrganizationIdAndSettingKeyStartingWith(organizationId, "org.cap.");
+        if (overrides != null && !overrides.isEmpty()) orgSettings.deleteAll(overrides);
+
+        com.myplus.auth.entity.OrgSetting shapeRow = orgSettings
+                .findByOrganizationIdAndSettingKey(organizationId, com.myplus.common.settings.Shape.settingKey())
+                .orElseGet(() -> com.myplus.auth.entity.OrgSetting.builder()
+                        .organizationId(organizationId)
+                        .settingKey(com.myplus.common.settings.Shape.settingKey())
+                        .build());
+        shapeRow.setSettingValue(shape.code());
+        shapeRow.setUserId(actorUserId);
+        shapeRow.setUpdated(LocalDateTime.now());
+        orgSettings.save(shapeRow);
+
+        // The rows were written outside SettingsService.set, so nothing has evicted its cache. Without this
+        // the operator changes a business type, watches nothing happen, and reports it as broken.
+        settings.evictOrganization(organizationId);
+    }
+
+    /**
+     * ONB-1 — what a shape change would DO, so the confirmation can name it instead of asking "are you sure?".
+     *
+     * <p>Computed from the tenant's CURRENT effective map against the target preset, so the two lists are true
+     * for this tenant rather than generic prose. A dialog that lists nothing when nothing would change is far
+     * more useful than one that always warns.
+     *
+     * @return {@code {turningOn: [...], turningOff: [...]}}, capability labels
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> previewShape(Long organizationId, String shapeCode) {
+        com.myplus.common.settings.Shape target = com.myplus.common.settings.Shape.byCode(shapeCode);
+        List<String> on = new ArrayList<>();
+        List<String> off = new ArrayList<>();
+        for (com.myplus.common.settings.Capability c : com.myplus.common.settings.Capability.values()) {
+            boolean now = capabilities.isEnabledFor(organizationId, c);
+            // What the preset alone would give, bounded by what the platform still allows: a capability the
+            // tenant is not entitled to must never be advertised as "turning on".
+            boolean next = target.includes(c) && !entitlementBlocks(organizationId, c);
+            if (next && !now) on.add(c.label());
+            if (!next && now) off.add(c.label());
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("shape", target.code());
+        out.put("turningOn", on);
+        out.put("turningOff", off);
+        return out;
+    }
+
+    /** True when the platform has withdrawn this capability, whatever a preset says. */
+    private boolean entitlementBlocks(Long organizationId, com.myplus.common.settings.Capability c) {
+        return source.revoked(organizationId, c);
     }
 }

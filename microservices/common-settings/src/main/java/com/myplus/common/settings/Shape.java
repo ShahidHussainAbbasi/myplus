@@ -38,7 +38,7 @@ public enum Shape {
      * <p>Deliberately first, so a corrupt or unrecognised stored value resolving to the fallback lands on the
      * permissive option rather than silently stripping a tenant's screens.
      */
-    GENERAL("general", "General business (everything available)",
+    GENERAL("general", "General - show every feature",
             EnumSet.allOf(Capability.class)),
 
     /** A counter that sells finished goods one at a time. Handsets, furniture, hardware, clothing. */

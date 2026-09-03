@@ -887,10 +887,44 @@ $(document).on('click', '#srDownloadInvoices', function(){
  * of field names for either mode — documentNo / referenceNo / partyName / totalAmount. That is why the config
  * below carries only what genuinely differs: the source, the title, and what the party column is CALLED.
  */
+/*
+ * #24 — the party is now CONFIGURED per mode, not branched on.
+ *
+ * `partyWrap` is the slot to show, `partyDD` the control to read, `partyParam` the query key it becomes.
+ * Adding a third register would be a third entry here rather than a third `if`. The user ruled ONE SCREEN
+ * (Part 5 §5.7): the two registers differ in configuration, not behaviour, and this is where that difference
+ * is allowed to live.
+ */
 var RETURN_MODES = {
-	credit: { url: 'getSaleReturns',     title: 'ui.creditNotes', party: 'ui.customer' },
-	debit:  { url: 'getPurchaseReturns', title: 'ui.debitNotes',  party: 'ui.supplier' }
+	credit: {
+		url: 'getSaleReturns', title: 'ui.creditNotes', party: 'ui.customer',
+		partyWrap: '#returnsPartyCustomer', partyDD: '#returnsCustomerDD', partyParam: 'customerId'
+	},
+	debit: {
+		url: 'getPurchaseReturns', title: 'ui.debitNotes', party: 'ui.supplier',
+		partyWrap: '#returnsPartyVender', partyDD: '#returnsVenderDD', partyParam: 'venderId'
+	}
 };
+
+/** Every filter control on the register, so "clear them all" is one list rather than four selectors. */
+var RETURN_FILTER_FIELDS = ['#returnsCustomerDD', '#returnsVenderDD', '#returnsFrom', '#returnsTo',
+	'#returnsProductDD'];
+
+/**
+ * Reset every filter.
+ *
+ * ⚠ Called on EVERY mode switch. A supplier filter left applied after switching to credit notes would narrow
+ * customer returns by a supplier id, match nothing, and read as "this shop has never had a sale return" —
+ * a filter leak that looks like missing data, which is the worst way for one to fail.
+ */
+function clearReturnFilters(){
+	RETURN_FILTER_FIELDS.forEach(function(sel){
+		var $el = $(sel);
+		if (!$el.length) return;
+		$el.val('');
+		if ($el.is('select')) refreshSearchableSelect($el);
+	});
+}
 
 function showReturns(mode){
 	var cfg = RETURN_MODES[mode] || RETURN_MODES.credit;
@@ -902,16 +936,23 @@ function showReturns(mode){
 	$('#tableReturns tbody').empty();
 
 	/*
-	 * Task #16 — the supplier filter belongs to the DEBIT side only. A credit note's party is a customer, so
-	 * offering a supplier picker over customer returns would be a control that can never match anything.
+	 * #24 — the bar is ALWAYS shown; only the party slot changes.
+	 *
+	 * Task #16 hid the whole bar on the credit side because the only filter in it was a supplier one, and a
+	 * supplier picker over customer returns is a control that can never match anything. That reasoning was
+	 * right about the PICKER and wrong about the BAR — it took Print all down with it.
 	 */
-	if (window.returnsMode === 'debit') {
-		$('#returnsFilterBar').show();
-		loadReturnsVenders();
-	} else {
-		$('#returnsFilterBar').hide();
-		$('#returnsVenderDD').val('');
-	}
+	$('#returnsFilterBar').show();
+	clearReturnFilters();
+
+	var other = RETURN_MODES[window.returnsMode === 'credit' ? 'debit' : 'credit'];
+	$(other.partyWrap).hide();
+	$(cfg.partyWrap).show();
+
+	if (window.returnsMode === 'debit') loadReturnsVenders();
+	else loadReturnsCustomers();
+	loadReturnsProducts();
+
 	loadReturns();
 }
 
@@ -968,14 +1009,78 @@ $(document).on('click', '#returnsPrintAll', function(){
 	});
 });
 
+/*
+ * The customer list for the credit-side filter (#24).
+ *
+ * `customerOptions`, the LEAN read the till already uses — not `getUserCustomer`, which returns the full
+ * record for every customer a distributor has. A filter picker needs an id and a name.
+ */
+function loadReturnsCustomers(){
+	var $dd = $('#returnsCustomerDD');
+	if (!$dd.length || $dd.data('loaded')) return;
+	bgJson(serverContext + 'customerOptions', function(resp){
+		var rows = (resp && resp.collection) || [];
+		$dd.empty().append($('<option>').val('').text(t('ui.js.allCustomers')));
+		rows.forEach(function(c){
+			$dd.append($('<option>').val(c.customerId).text(c.name || ('#' + c.customerId)));
+		});
+		$dd.data('loaded', true);
+		// bgJson sets global:false, which skips the ajaxComplete hook that redraws pickers — refresh
+		// explicitly. See refreshSearchableSelect for the full trap.
+		refreshSearchableSelect($dd);
+	});
+}
+
+/** The product list, from the cached lean projection both registers can share (PERF-8). */
+function loadReturnsProducts(){
+	var $dd = $('#returnsProductDD');
+	if (!$dd.length || $dd.data('loaded')) return;
+	ProductPicker.load(function(list){
+		$dd.empty().append($('<option>').val('').text(t('ui.js.allProducts')))
+			.append($('<select>').html(ProductPicker.optionsHtml(list))
+				.find('option').filter(function(){ return $(this).val(); }));
+		$dd.data('loaded', true);
+		refreshSearchableSelect($dd);
+	});
+}
+
+/** Re-read on any filter change. In SQL, not by hiding rows — a distributor's register is not a page. */
+$(document).on('change', '#returnsCustomerDD, #returnsProductDD, #returnsFrom, #returnsTo', function(){
+	loadReturns();
+});
+
+$(document).on('click', '#returnsClearFilters', function(){
+	clearReturnFilters();
+	loadReturns();
+});
+
 function loadReturns(){
 	var mode = window.returnsMode || 'credit';
 	var cfg = RETURN_MODES[mode];
 	// A register is background population of a screen, not an action the operator is waiting on — same rule
 	// tier-1b applied to the pickers, so it must not raise the blocking overlay.
 	// Task #16: the supplier filter is applied in SQL, so it travels with the read.
-	var vid = (mode === 'debit') ? ($('#returnsVenderDD').val() || '') : '';
-	bgJson(serverContext + cfg.url + (vid ? '?venderId=' + encodeURIComponent(vid) : ''), function(resp){
+	/*
+	 * #24 — the filters travel with the read, applied server-side.
+	 *
+	 * ⚠ A BLANK filter is OMITTED, never sent as `customerId=`. An empty value fails Spring's Long binding
+	 * with a 400, so clearing a filter would break the register rather than widen it. The monolith proxy
+	 * drops blanks too (AppUtil.passThroughQuery) — belt and braces, because either side alone leaves the
+	 * other free to reintroduce it.
+	 *
+	 * Only the CURRENT mode's party is read, so a stale value in the other mode's picker cannot travel.
+	 */
+	var params = [];
+	var add = function(key, val){
+		if (val !== undefined && val !== null && String(val).trim() !== '')
+			params.push(key + '=' + encodeURIComponent(String(val).trim()));
+	};
+	add(cfg.partyParam, $(cfg.partyDD).val());
+	add('productId', $('#returnsProductDD').val());
+	add('from', $('#returnsFrom').val());
+	add('to', $('#returnsTo').val());
+
+	bgJson(serverContext + cfg.url + (params.length ? '?' + params.join('&') : ''), function(resp){
 		renderReturns(mode, (resp && resp.collection) || []);
 	}).fail(function(){
 		$('#tableReturns tbody').html('<tr><td colspan="8" class="text-danger">'

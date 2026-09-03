@@ -1,4 +1,4 @@
-# Manual test & demo use cases — the platform control plane (E1 + E2)
+# Manual test & demo use cases — the platform control plane (E1 + E2 + E3)
 
 **Purpose.** The same two jobs as `manual-test-use-cases.md`, for a different audience: a **manual regression
 script** for the operator console, and the **shot list** for showing a prospective customer — or an investor —
@@ -19,6 +19,7 @@ recording.
 | `owner.business@myplus.com` | `Demo@2025!` | a tenant OWNER — every privilege inside their own org |
 | `admin.business@myplus.com` | `Demo@2025!` | a tenant ADMIN — same org, fewer rights |
 | `user.business@myplus.com` | `Demo@2025!` | a tenant USER — same org again |
+| `owner.lifecycle@myplus.com` | `Demo@2025!` | ⚠️ **the sacrificial tenant** — seeded to be suspended by §F. **Do not use it for anything else**; it is routinely locked out on purpose |
 
 > ⚠️ **Two caveats to read before testing, or you will file a bug that is not one.**
 >
@@ -233,14 +234,101 @@ own sentence. If it is switched on by other means, the server **refuses** the wr
 > session** (E5, not yet built). A "just peek at their products" shortcut is how a support backdoor gets built
 > by accident.
 
+### D5 ⭐ — The operator cannot lock themselves out
+**Persona:** platform operator · **Proves:** E3 (cases 7, 8)
+
+1. As operator, open **your own** organization from the tenant list and try to set it to `SUSPENDED`.
+
+**Expected:** **refused** — *"You cannot suspend or close your own organization."* The console keeps working.
+
+> Guarded twice, deliberately: this refusal, **and** `ROLE_ADMIN` being exempt at the login door. A console
+> that can lock its own operator out of the console that would undo it is a foot-gun with no undo, and there
+> is no way back from it without a database edit.
+
 ---
 
-## E. Known limits — do not file these as bugs
+## F. Stopping and restarting a customer (E3)
+
+> ⚠️ **Use `owner.lifecycle@myplus.com` and nothing else.** Suspending a tenant locks out *every* user in that
+> organization. Suspending `owner.business@` would break most of §A–§D and the whole commerce script with it.
+
+### F1 🎬 ⭐ — Stop a customer who has not paid
+**Persona:** platform operator · **Proves:** E3 (`tenant-lifecycle.cy.js` case 1)
+
+1. As operator, search for **Lifecycle** and open that tenant.
+2. In the **Plan** card, set the lower dropdown to `SUSPENDED` and press **Update status**.
+3. Read the confirmation dialog before confirming. Type a reason — e.g. *"non-payment, invoice 4471"*.
+4. In a private window, try to log in as `owner.lifecycle@myplus.com` / `Demo@2025!`.
+
+**Expected:** login is **refused**, with *"This account is suspended. Please contact MaxTheService to restore
+access."* The tenant list shows a red **Suspended** badge on that row.
+
+> **Read the dialog aloud in a demo — it is the interesting part.** It states the blast radius (*everyone at
+> this business is signed out*) and the timing (*anyone already signed in loses access within 15 minutes*). An
+> operator must not discover either of those afterwards.
+
+### F2 ⭐ — Start them again
+**Persona:** platform operator · **Proves:** E3 (case 2)
+
+1. Set the same tenant back to `ACTIVE`, reason *"payment received"*.
+2. Log in as `owner.lifecycle@myplus.com` again.
+
+**Expected:** login **succeeds**, immediately.
+
+> A lever that only goes one way is an accident waiting to happen: a wrong suspension stops a real business
+> trading. **Run F2 every time you run F1** — never leave a session with this tenant suspended.
+
+### F3 — A closed account is refused too, and differently
+**Persona:** platform operator · **Proves:** E3 (case 4)
+
+1. Set the tenant to `CLOSED`, reason *"customer left"*. Try to log in.
+
+**Expected:** refused with *"This account has been closed…"* — a different sentence from F1's.
+
+> `SUSPENDED` and `CLOSED` behave identically at the door and mean different things on a report: dunning
+> versus churn. **Nothing is deleted** — set it back to `ACTIVE` and the business is exactly as it was.
+
+### F4 — A typo cannot silently do nothing
+**Persona:** platform operator · **Proves:** E3 (case 5)
+
+1. Through the API, attempt a status of `SUSPEND` (not `SUSPENDED`).
+
+**Expected:** refused — *"Unknown status: SUSPEND"*. The tenant can still log in.
+
+> The column is free text. Without this an operator would believe a customer was stopped while that customer
+> carried on selling — the worst failure this feature could have, because it is silent.
+
+### F5 — A status change needs a reason
+**Persona:** platform operator · **Proves:** E3 (case 6)
+
+1. Attempt a suspension with the reason left blank.
+
+**Expected:** refused — *"A reason is required for a status change."*
+
+### F6 ⭐ — Changing the plan does not quietly let them back in
+**Persona:** platform operator · **Proves:** E3 (case 11)
+
+1. Suspend the tenant. Then change its **plan** to `PRO`, reason *"prepared for return"*.
+2. Try to log in as that tenant.
+
+**Expected:** the plan change succeeds and the tenant is **still suspended**.
+
+> Status and plan are separate axes. An operator preparing a returning customer's plan must not accidentally
+> restore their access before payment has cleared.
+
+---
+
+## G. Known limits — do not file these as bugs
+
+> Row ids are `L*` deliberately: this document also refers to the SLICES E1, E2 and E3, and a
+> limit numbered "E1" beside a slice named "E1" is a sentence nobody can read twice the same way.
 
 | | Behaviour | Why |
 |---|---|---|
-| **E1** | A change takes up to **15 minutes** to reach an active tenant session | Capabilities ride the JWT so no hot path makes a remote call (E1 ruling D-1). The screen states it where the operator acts. Log the tenant out and in to see it now |
-| **E2** | The operator account **owns an empty organization** | An artefact of `getOrCreatePrimaryOrg`'s legacy first-login path. Recorded rather than fixed — changing it touches every first-login path (analysis §2b, Q4) |
-| **E3** | No **usage** figures — how much of a capability a tenant actually uses | We do not collect per-capability telemetry. Salesforce shows licences *used*; inventing a number would be worse than omitting one |
-| **E4** | Operator actions are **not yet in the audit log** | E4. Every mutation already carries `reason`, so that slice is a listener rather than a retrofit |
-| **E5** | Search matches the **business name** only, not the owner email | Deliberate for now; widening it is one line when somebody asks |
+| **L1** | A change takes up to **15 minutes** to reach an active tenant session | Capabilities ride the JWT so no hot path makes a remote call (E1 ruling D-1). The screen states it where the operator acts. Log the tenant out and in to see it now |
+| **L2** | The operator account **owns an empty organization** | An artefact of `getOrCreatePrimaryOrg`'s legacy first-login path. Recorded rather than fixed — changing it touches every first-login path (analysis §2b, Q4) |
+| **L3** | No **usage** figures — how much of a capability a tenant actually uses | We do not collect per-capability telemetry. Salesforce shows licences *used*; inventing a number would be worse than omitting one |
+| **L4** | Operator actions are **not yet in the audit log** | E4. Every mutation already carries `reason`, so that slice is a listener rather than a retrofit |
+| **L5** | Search matches the **business name** only, not the owner email | Deliberate for now; widening it is one line when somebody asks |
+| **L6** | A suspended tenant’s **open sessions survive up to 15 minutes** | There is no per-request check anywhere, by design. Suspension is enforced at the door and at token refresh, so an open session dies when it next fails to renew — at zero cost on any hot path |
+| **L7** | No **grace period** before suspension | Dunning belongs to a billing system that does not exist. Naming it beats faking it |

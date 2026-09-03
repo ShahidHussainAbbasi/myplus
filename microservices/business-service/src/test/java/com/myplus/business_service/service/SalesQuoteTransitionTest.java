@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -70,6 +73,11 @@ class SalesQuoteTransitionTest {
         lenient().when(user.getOrganizationId()).thenReturn(ORG);
         lenient().when(user.getUserId()).thenReturn(USER);
         lenient().when(requestUtil.getCurrentUser()).thenReturn(user);
+        // #28 made load() branch on WHO is asking: a whole-org caller (ADMIN/SUPER) reads through
+        // findByIdScoped, a plain USER through findOwnByIdScoped. These transition tests are about the
+        // lifecycle, not visibility, so they take the whole-org branch — which is what every stub below
+        // registers. The own-only branch is gated on its own, in the anti-IDOR section.
+        lenient().when(requestUtil.callerSeesWholeOrg()).thenReturn(true);
 
         // Default: no approval threshold configured — the common case, and the documented "unset means off".
         // getDecimal, not getText: the service reads the shared decimal port, which does the parse itself.
@@ -252,6 +260,38 @@ class SalesQuoteTransitionTest {
     void foreignQuoteReadsAsMissing() {
         when(quoteRepo.findByIdScoped(99L, ORG, USER)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.transition(99L, QuoteStatus.SENT, null))
+                .isInstanceOf(SalesQuoteService.QuoteRefused.class)
+                .hasMessageContaining("not found");
+    }
+
+    /*
+     * The OWN-ONLY half of load()'s visibility branch (#28). Everything above runs as a whole-org caller, so
+     * without these two the USER branch is unexecuted code inside an anti-IDOR read — the worst place to have
+     * any. They pin the two things that can silently break: that the branch reaches the OWN query rather than
+     * the org-wide one, and that it still fails closed when the row is not the caller's.
+     */
+
+    @Test
+    @DisplayName("a plain USER is read through the OWN-scoped query, never the org-wide one")
+    void ownOnlyCallerLoadsThroughTheOwnScopedRead() {
+        when(requestUtil.callerSeesWholeOrg()).thenReturn(false);
+        when(quoteRepo.findOwnByIdScoped(11L, ORG, USER))
+                .thenReturn(Optional.of(newQuote(QuoteStatus.DRAFT)));
+
+        assertThat(service.transition(11L, QuoteStatus.SENT, null).getStatus()).isEqualTo(QuoteStatus.SENT);
+
+        // The point of the assertion: picking the wrong query here widens what a USER can reach, and every
+        // other test in this class would still pass.
+        verify(quoteRepo, never()).findByIdScoped(anyLong(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("a colleague's quote reads as missing to a plain USER — not as forbidden")
+    void ownOnlyCallerCannotReachAColleaguesQuote() {
+        when(requestUtil.callerSeesWholeOrg()).thenReturn(false);
+        when(quoteRepo.findOwnByIdScoped(11L, ORG, USER)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.transition(11L, QuoteStatus.SENT, null))
                 .isInstanceOf(SalesQuoteService.QuoteRefused.class)
                 .hasMessageContaining("not found");
     }

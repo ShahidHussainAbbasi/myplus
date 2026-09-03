@@ -527,6 +527,38 @@ because the endpoint genuinely works — what is missing is the path a person ta
 
 ---
 
+## Every slice adds its manual cases to the Test Book
+
+**The Test Book is the single manual reference for walking the product end to end.** A slice with a green
+Cypress run and nothing written there is **not finished**.
+
+Not a new page, not an appendix, not a section in the slice doc — *that* page, so there is one place a person
+can walk the whole product without knowing which slices exist.
+
+**What a slice adds:**
+
+* **What a person should SEE**, in their words rather than the system's. "The dialog buttons read as words" —
+  not "`ui.completeSale` resolves".
+* **Every case marked ⚠ that records something actually found broken.** Those are the ones worth repeating
+  after any nearby change, and they are the reason the page is more than a feature list.
+* **Any defect the slice could not close**, into *Not yet verified* rather than left unsaid.
+
+**And correct what the slice made wrong.** A slice that changes behaviour must fix the existing wording it
+invalidates. ONB-1 is the worked example: it changed what a tenant with no shape sees, which contradicted a
+note in the Settings section that had been true for months. **A page that quietly contradicts the product is
+worse than no page, because it is trusted.**
+
+### Why a manual page at all, when there are automated gates
+
+The gates have been green through a blank credit note, a credit note with no customer on it, a scan box that
+ignored its own setting, and **nine features that shipped where nobody could click them**. Every one was found
+by a person looking at a screen.
+
+An automated case asserts what someone thought to assert. The manual walk is what finds what nobody thought of
+— which is why `cy.request` reaching an endpoint has never been evidence that a feature is reachable.
+
+---
+
 ## The gate is written BEFORE the implementation
 
 **Analyze docs + standards → share the analysis for review → Document → Design → write the Cypress cases →

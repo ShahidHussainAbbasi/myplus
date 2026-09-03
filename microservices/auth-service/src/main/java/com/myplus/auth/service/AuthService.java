@@ -7,6 +7,7 @@ import com.myplus.auth.exception.ResourceNotFoundException;
 import com.myplus.auth.exception.ValidationException;
 import com.myplus.auth.repository.*;
 import com.myplus.auth.security.CustomUserDetailsService;
+import com.myplus.common.settings.OrganizationStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -147,6 +148,28 @@ public class AuthService {
         String plan = (request.getPlan() == null || request.getPlan().isBlank())
                 ? "PRO" : request.getPlan().toUpperCase();
 
+        /*
+         * ONB-1 — the business type, validated against the Shape enum HERE and not left to byCode.
+         *
+         * `Shape.byCode` falls back permissively to GENERAL, which is right for a READ — an unreadable stored
+         * value must never strip a working tenant's screens. It is wrong at this write: it would turn an
+         * operator's typo into "show this customer the entire product", which is precisely the defect this
+         * slice closes. So an unrecognised value is refused, not guessed.
+         */
+        com.myplus.common.settings.Shape shape = null;
+        String requestedShape = request.getShape() == null ? null : request.getShape().trim();
+        if (requestedShape != null && !requestedShape.isEmpty()) {
+            for (com.myplus.common.settings.Shape candidate : com.myplus.common.settings.Shape.values()) {
+                if (candidate.code().equalsIgnoreCase(requestedShape)) shape = candidate;
+            }
+        }
+        if (shape == null) {
+            throw new ValidationException("Choose a business type for this tenant: "
+                    + java.util.Arrays.stream(com.myplus.common.settings.Shape.values())
+                            .map(com.myplus.common.settings.Shape::code)
+                            .collect(java.util.stream.Collectors.joining(", ")));
+        }
+
         User user = User.builder()
                 .username(username)
                 .email(request.getEmail())
@@ -163,7 +186,8 @@ public class AuthService {
                 .build();
         user = userRepository.save(user);
 
-        Organization org = organizationService.createTenant(user, request.getOrganizationName(), userType, plan);
+        Organization org = organizationService.createTenant(
+                user, request.getOrganizationName(), userType, plan, shape.code());
         // Owner sets their own password via the reset link (no operator-known credential).
         sendPasswordResetEmail(user.getEmail());
 
@@ -679,7 +703,71 @@ public class AuthService {
         return buildClaims(user, activeOrg, null);
     }
 
+    /**
+     * E3 — refuse a token to a tenant that is not trading.
+     *
+     * <h3>Why the check lives HERE and not in login()</h3>
+     * Every way a session begins or continues converges on this method:
+     * <pre>
+     *   login()              → buildClaims(user)     → buildClaims(user, primaryOrg)
+     *   refreshToken()       → buildClaims(user)     → buildClaims(user, primaryOrg)
+     *   switchOrganization() → buildClaims(user, id) → buildClaims(user, org)
+     *   register()           → buildClaims(user, newOrg)
+     * </pre>
+     * One guard covers all four <b>and any fifth path added later</b>, which is the property that matters:
+     * three copies drift, and the next caller forgets. A new session path inherits this by construction
+     * rather than by review.
+     *
+     * <h3>Why this needs no per-request check anywhere</h3>
+     * Refusing at REFRESH is what does the work. An already-open session simply fails to renew, so it dies
+     * within the access-token lifetime ({@code jwt.access-token-expiration-ms}, 15 minutes) — at zero cost on
+     * any hot path and with no new remote call. That bound is the one the platform already lives with for
+     * capabilities, so this adds no new class of staleness.
+     *
+     * <h3>ROLE_ADMIN is exempt, and it is not a convenience</h3>
+     * The operator's own organization must never be able to lock the operator out of the console that would
+     * undo the suspension. Google Workspace exempts super-admins for the same reason. This is the second of
+     * two independent guards — {@code OrganizationAdminService.changeStatus} also refuses an operator
+     * suspending their own tenant — because a foot-gun with no undo deserves both.
+     *
+     * <h3>Checked AFTER the password, by construction</h3>
+     * {@code login()} verifies credentials before it reaches any {@code buildClaims} call, so a suspended
+     * tenant's status can never be used to enumerate accounts. Same ordering the existing
+     * email-verification gate already relies on.
+     *
+     * <h3>The message names the way back</h3>
+     * MaxTheService has no in-product billing, so unlike a Shopify "frozen" store there is no payment screen
+     * to keep reachable — the sentence IS the remediation path. An owner told only "invalid credentials" has
+     * no idea they need to contact anybody.
+     */
+    private void assertTenantMaySignIn(User user, Organization activeOrg) {
+        if (activeOrg == null) return;   // no tenant resolved; nothing to refuse, and other paths handle it
+
+        OrganizationStatus status = OrganizationStatus.byCode(activeOrg.getStatus());
+        if (status.allowsSignIn()) return;
+
+        if (isPlatformOperator(user)) return;
+
+        throw new ValidationException(status == OrganizationStatus.CLOSED
+                ? "This account has been closed. Please contact MaxTheService if this is unexpected."
+                : "This account is suspended. Please contact MaxTheService to restore access.");
+    }
+
+    /**
+     * Is this the MaxTheService operator, rather than a customer?
+     *
+     * <p>Keys on the platform {@code ROLE_ADMIN} <b>role</b> and never on {@code ADMIN_PRIVILEGE}: every
+     * tenant owner holds that privilege inside their own organization, so a privilege check here would exempt
+     * every customer from suspension — turning the lever off for precisely the people it exists for.
+     */
+    private boolean isPlatformOperator(User user) {
+        return user != null && user.getRoles() != null
+                && user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
+    }
+
     private Map<String, Object> buildClaims(User user, Organization activeOrg, Long preferredLocationId) {
+        // E3 — the tenant-lifecycle guard, at THE choke point. See assertTenantMaySignIn.
+        assertTenantMaySignIn(user, activeOrg);
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());

@@ -40,6 +40,14 @@ public class EntitlementService {
     private final OrgEntitlementRepository entitlements;
     private final OrganizationRepository organizations;
     private final JpaEntitlementSource source;
+    /**
+     * ONB-1 — so the operator can see what the tenant ACTUALLY has on, not only what it may have.
+     *
+     * <p>{@code grantable} and {@code revoked} are platform facts; {@code enabled} is the resolver's answer —
+     * the same one the tenant's token is minted from. Without it an operator cannot tell "we withdrew this"
+     * from "they switched it off themselves", which are opposite problems with identical symptoms.
+     */
+    private final com.myplus.common.settings.CapabilityService capabilities;
 
     /**
      * Every capability, with what the tenant is entitled to and why — the operator screen's payload (E2).
@@ -80,6 +88,9 @@ public class EntitlementService {
             // using it. Only the second subtracts — see EntitlementSource's javadoc.
             m.put("grantable", source.grantable(organizationId, c));
             m.put("revoked", source.revoked(organizationId, c));
+            // The effective answer, through the SAME resolver enforcement uses — never recomputed here from
+            // plan + row, which would be a second implementation of the resolution order.
+            m.put("enabled", capabilities.isEnabledFor(organizationId, c));
             out.add(m);
         }
 
@@ -87,6 +98,12 @@ public class EntitlementService {
         result.put("organizationId", organizationId);
         result.put("organizationName", org == null ? null : org.getName());
         result.put("plan", plan.code());
+        // E3 — the console's status control reads this. Raw rather than through OrganizationStatus.byCode,
+        // because byCode falls back to ACTIVE for an unreadable value and the OPERATOR is exactly the person
+        // who needs to see that the column holds something the platform does not understand.
+        result.put("status", org == null ? null : org.getStatus());
+        // ONB-1 — the business type, so the detail screen can offer to change it.
+        result.put("shape", capabilities.shapeFor(organizationId).code());
         result.put("trialEndsAt", org == null || org.getTrialEndsAt() == null ? null : org.getTrialEndsAt().toString());
         result.put("capabilities", out);
         return result;

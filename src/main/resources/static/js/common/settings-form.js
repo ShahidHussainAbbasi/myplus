@@ -38,7 +38,11 @@
 				var sel = String(o.value) === String(it.value) ? ' selected' : '';
 				return '<option value="' + esc(o.value) + '"' + sel + '>' + esc(o.label) + '</option>';
 			}).join('');
-			return '<select class="form-control"' + common + '>' + opts + '</select>';
+			// data-previous lets a handler revert a cancelled or refused change. A dropdown left showing a
+			// value that was never saved is how an owner comes to believe their shop is configured one way
+			// while the server behaves another.
+			return '<select class="form-control" data-previous="' + esc(it.value) + '"' + common + '>'
+				+ opts + '</select>';
 		}
 
 		if (it.type === 'INT') {

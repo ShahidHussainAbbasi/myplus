@@ -24,29 +24,12 @@ const OWNER = 'owner.business@myplus.com'
 const OTHER_TENANT = 'owner.mobile@myplus.com'
 
 /** Take a real return through the product's own endpoint and yield the credit-note number it allocates. */
+/*
+ * Promoted to cy.seedCreditNote() in support/commands.js (#24), because returns-parity.cy.js needs the same
+ * seed. Two copies of "make a credit note" would drift the moment the return path changes.
+ */
 function seedCreditNote() {
-  return cy
-    .request({ method: 'GET', url: '/getUserSell?q=-1' })
-    .then((r) => {
-      const rows = (r.body && r.body.collection) || []
-      // SEED, never assert-or-skip: a gate that quietly passes on an empty shop is a gate that tests nothing.
-      expect(rows.length, 'the tenant has at least one sale to return').to.be.greaterThan(0)
-
-      // A line with quantity > 1 so returning 1 cannot exceed what was sold.
-      const line = rows.find((s) => Number(s.quantity) > 1) || rows[0]
-      return cy.request({
-        method: 'POST',
-        url: '/saleReturn',
-        form: true,
-        body: { sellId: line.sellId, quantity: 1, reason: 'cypress: return document gate' },
-      })
-    })
-    .then((r) => {
-      // GenericResponse: refusals are 200 + status ERROR/FAILED, so the envelope IS the assertion.
-      expect(r.body.status, `saleReturn: ${r.body.message}`).to.eq('SUCCESS')
-      expect(r.body.object, 'the server allocates a credit note number').to.be.a('string')
-      return cy.wrap(r.body.object)
-    })
+  return cy.seedCreditNote()
 }
 
 describe('Return documents — credit note and debit note', () => {

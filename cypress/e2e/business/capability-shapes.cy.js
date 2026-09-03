@@ -39,13 +39,20 @@ describe('C4 — shape presets give each domain its own screens', () => {
      * screen. period-close once left the books locked and reddened every sale spec after it; this is the same
      * failure with a different switch.
      */
+    /*
+     * ONB-1 — restore each tenant to its SEEDED shape, not to `general`.
+     *
+     * Resetting to `general` left every demo tenant presenting the whole product: the pesticide dealer showed
+     * installments and serial/IMEI in every demo and every screenshot after a suite run, and a manual
+     * correction was undone by the next green run. These tenants are seeded as what they represent
+     * (SetupDataLoader.ensureShape), so this restores that.
+     */
     cy.loginAsMobileOwner()
     cy.clearCapabilityOverrides()
-    cy.setShape('general')
+    cy.setShape('retail')
     cy.loginAsPesticideOwner()
     cy.clearCapabilityOverrides()
-    cy.setShape('general')
-    cy.setCapability('rxRequired', true)
+    cy.setShape('pharmacy')
     cy.loginAsMarketplaceOwner()
     cy.setShape('general')
   })

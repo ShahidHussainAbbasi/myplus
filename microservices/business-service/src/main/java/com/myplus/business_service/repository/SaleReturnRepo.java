@@ -16,6 +16,33 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 	List<SaleReturn> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
 	/**
+	 * #24 — the register, narrowed by the filters that live ON THE ROW.
+	 *
+	 * <p>Date and product only. The CUSTOMER is deliberately absent: {@code SaleReturn} does not record one —
+	 * it is reached by walking {@code sellId -> Sell -> CustomerHistory -> Customer}, which the register
+	 * already does in batch to put a name on screen. Filtering by customer therefore happens in memory after
+	 * that enrichment; see {@code SellController.getSaleReturns}. Pretending otherwise here would mean a join
+	 * through Sell on every read of a screen that mostly is not filtered by customer at all.
+	 *
+	 * <p>Nullable parameters with the {@code (:x is null or ...)} form so ONE query serves the unfiltered
+	 * register and every combination of filters — a second query per combination is how two code paths end up
+	 * disagreeing about which rows a tenant may see.
+	 *
+	 * <p>⚠ {@code to} must already be the END of its day. A picker sends a date as midnight, so a same-day
+	 * range parsed literally is {@code 00:00:00..00:00:00} and matches only a return recorded at exactly
+	 * midnight — the defect fixed in {@code loadSR} and recorded in {@code docs/slices/report-date-bounds.md}.
+	 * Callers use {@code AppUtil.endOfDay}.
+	 */
+	@Query("select r from SaleReturn r where (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId)) "
+		+ "and (:productId is null or r.productId = :productId) "
+		+ "and (:from is null or r.dated >= :from) "
+		+ "and (:to is null or r.dated <= :to) "
+		+ "order by r.dated desc")
+	List<SaleReturn> findScopedFiltered(@Param("orgId") Long orgId, @Param("userId") Long userId,
+			@Param("productId") Long productId,
+			@Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
+
+	/**
 	 * Task #15: ONE credit note by its own number, tenant-scoped — the row a printable document is built from.
 	 *
 	 * <p>Keyed on the note number rather than the row id because that is the document's identity: it is what

@@ -53,4 +53,28 @@ public interface PurchaseReturnRepo extends JpaRepository<PurchaseReturn, Long> 
          + "AND (r.organizationId = :orgId OR (r.organizationId IS NULL AND r.userId = :userId))")
     List<PurchaseReturn> findDebitNotesForVender(@Param("venderId") Long venderId,
             @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * #24 — the debit register, narrowed by supplier, product and date in ONE query.
+     *
+     * <p>Supersedes {@link #findDebitNotesForVender} for the register read: that one answers only the
+     * supplier question, and adding date and product beside it would have meant four queries for the four
+     * combinations. Nullable parameters keep it to one, so every filtered and unfiltered read applies the
+     * same scope predicate.
+     *
+     * <p>Unlike the sale side, the party IS on the row here ({@code venderId}), which is why the supplier
+     * filter is SQL and the customer filter cannot be.
+     *
+     * <p>⚠ {@code to} must already be the END of its day — see {@code SaleReturnRepo.findScopedFiltered}.
+     */
+    @Query("SELECT r FROM PurchaseReturn r WHERE "
+         + "(r.organizationId = :orgId OR (r.organizationId IS NULL AND r.userId = :userId)) "
+         + "AND (:venderId IS NULL OR r.venderId = :venderId) "
+         + "AND (:productId IS NULL OR r.productId = :productId) "
+         + "AND (:from IS NULL OR r.dated >= :from) "
+         + "AND (:to IS NULL OR r.dated <= :to) "
+         + "ORDER BY r.dated DESC")
+    List<PurchaseReturn> findDebitNotesFiltered(@Param("orgId") Long orgId, @Param("userId") Long userId,
+            @Param("venderId") Long venderId, @Param("productId") Long productId,
+            @Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
 }

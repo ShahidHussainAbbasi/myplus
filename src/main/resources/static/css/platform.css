@@ -38,6 +38,19 @@
 }
 .plat__search input:focus{ outline:none; border-color:#1565C0; box-shadow:0 0 0 3px rgba(21,101,192,.15); }
 .plat__count{ font-size:12px; color:#7a889c; white-space:nowrap; }
+
+/* ONB-2 - the worklist filter. A segmented control, not a dropdown: two states, one click, and the current
+ * one readable without opening anything. An operator working down 39 tenants should never wonder which view
+ * they are in. */
+.plat-seg{ display:inline-flex; border:1px solid #d8dee9; border-radius:8px; overflow:hidden; background:#fff; }
+.plat-seg button{
+  border:0; background:transparent; padding:8px 14px; font-size:12.5px; font-weight:600; color:#5a6677;
+  cursor:pointer; white-space:nowrap;
+}
+.plat-seg button + button{ border-left:1px solid #e2e7ef; }
+.plat-seg button:hover:not(.is-on){ background:#f2f5fa; color:#22303f; }
+.plat-seg button.is-on{ background:#0D3B8C; color:#fff; }
+.plat-seg button:focus-visible{ outline:2px solid #1565C0; outline-offset:-2px; }
 .plat__provision{ border-radius:10px; }
 
 /* ── A tenant row. One line per customer, scannable ────────────────────────── */
@@ -63,9 +76,19 @@
   border-radius:999px; padding:2px 9px; border:1px solid;
 }
 .plat-badge--plan{ color:#0D3B8C; background:#e8f0fd; border-color:#9dbdf0; }
+/* ONB-2 - WHAT this business is. Quiet slate: it is the row's steady state, not an exception, so it must not
+ * compete with the lapsed-trial amber or the suspension red beside it. */
+.plat-badge--shape{ color:#3d4a5c; background:#eef1f5; border-color:#c9d1dd; }
 /* THE badge that matters. 14 of 20 trials are lapsed right now and nothing
  * surfaces it; if this screen makes one thing obvious, it is this one. */
 .plat-badge--lapsed{ color:#8a5b00; background:#fdf3e0; border-color:#d9a441; }
+/* E3 — a stopped customer. RED, and louder than the amber lapsed-trial badge: a lapsed trial is a
+ * conversation to have, a suspension is a business that is not trading right now. */
+.plat-badge--stopped{ color:#fff; background:#c0392b; border-color:#a5321f; }
+/* ONB-1 — never asked what kind of business this is, so it sees everything. A worklist item rather than an
+ * alarm: muted outline, not the red of a suspension or the amber of a lapsed trial. It should read as
+ * "unfinished", because that is what it is. */
+.plat-badge--noshape{ color:#5a6677; background:transparent; border-color:#b8c2d0; border-style:dashed; }
 .plat-badge--ok{ color:#0f6e56; background:#e3f3ee; border-color:#0f6e56; }
 .plat-badge--revoked{ color:#c0392b; background:#fdecea; border-color:#c0392b; }
 .plat-badge--notinplan{ color:#7a889c; background:#f0f2f6; border-color:#c9d1dd; }
@@ -96,6 +119,9 @@
 .plat-plan{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
 .plat-plan select{ max-width:200px; }
 .plat-plan__trial{ font-size:12px; color:#7a889c; }
+/* The status row sits under the plan row inside the same card, separated by a rule: the two are related
+ * (both commercial) but a status change is far more destructive, so it must not read as one more dropdown. */
+.plat-plan--status{ border-top:1px dashed #e6ebf3; padding-top:14px; }
 
 .plat-cap{ display:flex; align-items:center; gap:14px; padding:13px 18px; border-bottom:1px solid #eef2f7; }
 .plat-cap:last-child{ border-bottom:0; }

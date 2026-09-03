@@ -82,3 +82,45 @@ Two further hits, both checked:
 |---|---|
 | `TaxBreakdownService:37` — `LocalDate.now().withDayOfMonth(1)` | **safe** — a `LocalDate` has no time component to leak |
 | `AppUtil.dateTimeByDay(int)` | **same defect, no callers.** Left in place with a warning javadoc rather than changed, since altering unused code carries risk for no benefit — but anyone reaching for it is now told |
+
+
+---
+
+## 4. A fourth defect, same area: the period itself
+
+Found when "Current month" was already selected and View report sent a request with no dates in it.
+
+### 4a. An absent period THREW
+
+```java
+int CURRENT_MONTH = 0;
+if (dto.getRp() == CURRENT_MONTH) {     // Integer == int  ->  UNBOXES
+```
+
+`rp` is an `Integer`. A request that carried no `rp` threw `NullPointerException`, which the catch turned into
+a bare "could not load the report" with nothing to act on. That request is not hypothetical: `.val()` on a
+select that has not rendered yields `undefined`, jQuery omits the field, and the report can be opened from a
+nav entry, a deep link or a back-button restore before the screen is built.
+
+### 4b. A period with no range matched NO branch
+
+`rp=4` (custom range) with no dates fell through every branch, left `objs` null, and returned **NOT_FOUND** —
+"you have no sales" — to a shop full of them.
+
+**That is the worse of the two.** An error at least says something failed; an empty report says the data is
+gone. A report that answers a malformed question with an empty result teaches an operator to distrust their
+own records.
+
+### The fix, on both sides
+
+| Side | Change |
+|---|---|
+| Server | `Integer rp` read once, null-safe; absent period + no range = current month; a final `objs == null` fallback so no request can silently produce "no sales" |
+| Client | `loadSR()` defaults `rp` to `'0'` when the control has not answered |
+
+Both sides default the same way **deliberately** — neither should depend on the other remembering.
+
+Gated by `cypress/e2e/business/sale-report-period.cy.js`, including an end-to-end case that clicks View
+report, because every other case posts a body the test itself built — and a hand-built request cannot detect a
+screen that sends the wrong one. That is precisely how this survived: the server was fine for the requests
+anyone thought to make.

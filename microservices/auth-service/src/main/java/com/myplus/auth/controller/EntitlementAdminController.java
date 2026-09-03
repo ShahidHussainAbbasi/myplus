@@ -56,8 +56,10 @@ public class EntitlementAdminController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> organizations(
             @RequestParam(required = false) String q,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "25") int size) {
-        return ResponseEntity.ok(ApiResponse.success(organizationsAdmin.search(q, page, size), "Tenants"));
+            @RequestParam(defaultValue = "25") int size,
+            @RequestParam(defaultValue = "false") boolean needsType) {
+        return ResponseEntity.ok(
+                ApiResponse.success(organizationsAdmin.search(q, page, size, needsType), "Tenants"));
     }
 
     /**
@@ -72,6 +74,48 @@ public class EntitlementAdminController {
         Long actor = jwtService.extractUserId(bearer(auth));
         organizationsAdmin.changePlan(id, str(body.get("plan")), str(body.get("reason")), actor);
         return ResponseEntity.ok(ApiResponse.success(null, "Plan updated"));
+    }
+
+    /**
+     * E3 — start or stop a tenant trading.
+     *
+     * <p>The operator's own organization is read from their token so self-suspension can be refused: a
+     * caller-supplied "my org id" is not an org id, and this is the one action with no way back.
+     */
+    @PostMapping("/organizations/{id}/status")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> changeStatus(@PathVariable("id") Long id,
+                                                          @RequestBody Map<String, Object> body,
+                                                          @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        Long actor = jwtService.extractUserId(token);
+        Long actorOrgId = asLong(jwtService.extractClaim(token, c -> c.get("activeOrgId")));
+        organizationsAdmin.changeStatus(id, str(body.get("status")), str(body.get("reason")), actor, actorOrgId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Status updated"));
+    }
+
+    /**
+     * ONB-1 — change a tenant's BUSINESS TYPE, re-applying that shape's defaults.
+     *
+     * <p>Destructive to the tenant's own capability switches by design, which is why the console confirms
+     * first with {@link #previewShape}. The reason is required, as on every control-plane write.
+     */
+    @PostMapping("/organizations/{id}/shape")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> changeShape(@PathVariable("id") Long id,
+                                                         @RequestBody Map<String, Object> body,
+                                                         @RequestHeader("Authorization") String auth) {
+        Long actor = jwtService.extractUserId(bearer(auth));
+        organizationsAdmin.changeShape(id, str(body.get("shape")), str(body.get("reason")), actor);
+        return ResponseEntity.ok(ApiResponse.success(null, "Business type updated"));
+    }
+
+    /** ONB-1 — what a shape change would turn on and off, so the confirmation can name it. */
+    @GetMapping("/organizations/{id}/shape-preview")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> previewShape(@PathVariable("id") Long id,
+                                                                         @RequestParam String shape) {
+        return ResponseEntity.ok(ApiResponse.success(organizationsAdmin.previewShape(id, shape), "Preview"));
     }
 
     /** Every capability for one tenant: in-plan, row status, and the effective answer. */
