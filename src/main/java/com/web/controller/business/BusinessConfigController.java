@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -195,11 +196,89 @@ public class BusinessConfigController {
     @ResponseBody
     public Map<String, Object> getBusinessShapePreview(final HttpServletRequest request) {
         try {
-            return authGet("/org/shape-preview?shape=" + enc(request.getParameter("shape")));
+            Map<String, Object> preview = authGet("/org/shape-preview?shape=" + enc(request.getParameter("shape")));
+            addImpact(preview);
+            return preview;
         } catch (Exception e) {
             LOGGER.error("getBusinessShapePreview proxy error", e);
             return ProxyErrors.failure(e);
         }
+    }
+
+    /**
+     * ONB-3 — the same DATA consequences the operator console shows, for the tenant's own screen.
+     *
+     * <h3>Why the owner gets this too, and arguably needs it more</h3>
+     * An owner changing their own business type has exactly the same power as an operator and less context.
+     * "19 products will stop selling" is the sentence that stops a bad change, and there is no reason it should
+     * only reach MaxTheService staff.
+     *
+     * <p>Scoped implicitly: both downstream calls carry this session's own credentials, so a tenant can only
+     * ever learn about itself. No organization id is passed and none would be honoured.
+     *
+     * <p>Failure-tolerant per count, like the operator path: a count that cannot be fetched is omitted rather
+     * than costing the owner the dialog.
+     */
+    @SuppressWarnings("unchecked")
+    private void addImpact(Map<String, Object> preview) {
+        Object dataObj = preview == null ? null : preview.get("data");
+        if (!(dataObj instanceof Map)) return;
+        Map<String, Object> data = (Map<String, Object>) dataObj;
+
+        java.util.List<String> off = asList(data.get("turningOff"));
+        java.util.List<String> on = asList(data.get("turningOn"));
+        Map<String, Object> impact = new java.util.LinkedHashMap<>();
+
+        boolean serialGoing = mentions(off, "serial");
+        boolean batchArriving = mentions(on, "batch") || mentions(on, "expiry");
+
+        if (serialGoing || batchArriving) {
+            try {
+                Map<String, Object> counts = gateway.forMap("/api/catalog", catalogDirectUrl,
+                        "/products/policy-counts", org.springframework.http.HttpMethod.GET, null, null);
+                Object payload = counts == null ? null : counts.get("data");
+                if (payload instanceof Map) {
+                    Map<String, Object> c = (Map<String, Object>) payload;
+                    if (serialGoing) impact.put("productsRequiringSerial", c.get("requiresSerial"));
+                    if (batchArriving) impact.put("productsTrackingBatch", c.get("tracksBatch"));
+                }
+            } catch (Exception unavailable) {
+                LOGGER.warn("shape preview: product counts unavailable; the dialog opens without them",
+                        unavailable);
+            }
+        }
+
+        if (mentions(off, "installment")) {
+            try {
+                Map<String, Object> imp = client.get("/installmentImpact");
+                Object payload = imp == null ? null : imp.get("object");
+                if (payload instanceof Map) {
+                    Map<String, Object> m = (Map<String, Object>) payload;
+                    impact.put("openInstallmentPlans", m.get("openPlans"));
+                    impact.put("installmentsOutstanding", m.get("outstanding"));
+                }
+            } catch (Exception unavailable) {
+                LOGGER.warn("shape preview: installment impact unavailable; the dialog opens without it",
+                        unavailable);
+            }
+        }
+
+        data.put("impact", impact);
+    }
+
+    @Value("${catalog.service.url:http://localhost:8092}")
+    private String catalogDirectUrl;
+
+    @SuppressWarnings("unchecked")
+    private static java.util.List<String> asList(Object o) {
+        return (o instanceof java.util.List) ? (java.util.List<String>) o : java.util.List.of();
+    }
+
+    private static boolean mentions(java.util.List<String> labels, String word) {
+        for (String l : labels) {
+            if (l != null && l.toLowerCase().contains(word)) return true;
+        }
+        return false;
     }
 
     private static String enc(String s) {

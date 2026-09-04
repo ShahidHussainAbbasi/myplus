@@ -147,6 +147,30 @@ const usable = (list) => (list || []).filter((c) => c && c.name && String(c.name
 2. **Assert the seed took.** A create that silently failed leaves the next read empty and every assertion
    downstream testing nothing — while still passing.
 
+### ⚠ "Eligible" is defined by the FEATURE, and it is easy to get wrong twice
+
+Writing this rule down did not stop it happening again the same day — twice more, in the next slice:
+
+| Fixture asked | Feature actually needed | Result |
+|---|---|---|
+| a customer exists | a customer **with a name** | 11 red cases; the blank-name legacy row was row 0 |
+| a sale return exists | a return **with a credit-note number** | 3 red cases; legacy returns list but are not printable |
+
+Both times the product was correct. A return that predates the note series deliberately has no Print button —
+there is no document, and a button that always fails is worse than none. The fixture saw rows, concluded the
+tenant was set up, and seeded nothing.
+
+**So the check is never `rows.length > 0`.** It is: *filter to what this feature can actually use; seed if
+that set is empty.*
+
+```js
+const printable = rows.filter((n) => n && n.documentNo)   // not rows.length
+if (printable.length) return cy.wrap(printable.length)
+return cy.seedCreditNote()
+```
+
+A long-lived tenant accumulates rows that satisfy no requirement. **Every one of them is row 0 to somebody.**
+
 ### And its own failure mode
 
 A fixture that asserts existence turns an environment problem into a red feature. Three cases of this same

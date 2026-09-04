@@ -48,6 +48,8 @@ public class OrganizationAdminService {
     private final UserRepository users;
     private final JpaEntitlementSource source;
     private final com.myplus.auth.repository.OrgSettingRepository orgSettings;
+    /** ONB-3 — the memento written before a shape change clears anything. */
+    private final com.myplus.auth.repository.OrgShapeHistoryRepository shapeHistoryRepo;
     private final com.myplus.common.settings.SettingsService settings;
     private final com.myplus.common.settings.CapabilityService capabilities;
 
@@ -323,7 +325,7 @@ public class OrganizationAdminService {
         // The OPERATOR path records why. The tenant changing its OWN type does not — see changeOwnShape.
         if (reason == null || reason.isBlank())
             throw new IllegalArgumentException("A reason is required for a business-type change.");
-        applyShape(organizationId, shapeCode, actorUserId);
+        applyShape(organizationId, shapeCode, actorUserId, reason);
     }
 
     /**
@@ -345,11 +347,14 @@ public class OrganizationAdminService {
     public void changeOwnShape(String shapeCode) {
         Long org = com.myplus.common.security.CurrentUser.organizationId();
         if (org == null) throw new IllegalArgumentException("No active organization");
-        applyShape(org, shapeCode, com.myplus.common.security.CurrentUser.userId());
+        // A tenant changing its own type gives no reason (see the javadoc); the memento records that plainly
+        // rather than inventing one, so a reader can tell an owner's change from an operator's.
+        applyShape(org, shapeCode, com.myplus.common.security.CurrentUser.userId(),
+                "Changed by the business itself");
     }
 
     /** The shared core: validate, clear the overrides, state the shape, evict. */
-    private void applyShape(Long organizationId, String shapeCode, Long actorUserId) {
+    private void applyShape(Long organizationId, String shapeCode, Long actorUserId, String reason) {
         // Validated here rather than through Shape.byCode, which falls back permissively to GENERAL. That
         // fallback is right for a READ — an unreadable stored value must never strip a working tenant's
         // screens — and wrong at a WRITE, where it would turn a typo into "show this customer everything".
@@ -362,10 +367,33 @@ public class OrganizationAdminService {
         organizations.findById(organizationId)
                 .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
 
-        // Clear every capability override, then state the shape. Order matters only for readability: both
-        // land in one transaction, and the cache is evicted after both.
         List<com.myplus.auth.entity.OrgSetting> overrides =
                 orgSettings.findByOrganizationIdAndSettingKeyStartingWith(organizationId, "org.cap.");
+
+        /*
+         * ONB-3 — RECORD BEFORE CLEARING, in the same transaction.
+         *
+         * A shape change either records what it destroyed or does not destroy it. Without this the tenant's
+         * own switches are gone silently: switching back restores capabilities (the shape is just a settings
+         * row) but applies the OTHER preset, not the choices the owner personally made. That was the one
+         * irreversible part of a business-type change, and the only part nothing showed anyone.
+         *
+         * Ordered first for that reason, not for readability — a write that happens after the delete is a
+         * write that a rollback between them turns into a lie.
+         */
+        String previousShape = settings
+                .overrideFor(organizationId, com.myplus.common.settings.Shape.settingKey())
+                .orElse(null);
+        shapeHistoryRepo.save(com.myplus.auth.entity.OrgShapeHistory.builder()
+                .organizationId(organizationId)
+                .changedAt(LocalDateTime.now())
+                .changedBy(actorUserId)
+                .previousShape(previousShape)
+                .newShape(shape.code())
+                .previousOverrides(asJson(overrides))
+                .reason(reason)
+                .build());
+
         if (overrides != null && !overrides.isEmpty()) orgSettings.deleteAll(overrides);
 
         com.myplus.auth.entity.OrgSetting shapeRow = orgSettings
@@ -416,5 +444,57 @@ public class OrganizationAdminService {
     /** True when the platform has withdrawn this capability, whatever a preset says. */
     private boolean entitlementBlocks(Long organizationId, com.myplus.common.settings.Capability c) {
         return source.revoked(organizationId, c);
+    }
+
+    /**
+     * The cleared overrides as a JSON object, so an undo has something to restore.
+     *
+     * <p>Hand-built rather than through Jackson: the payload is a flat map of two short strings per entry, the
+     * keys are a closed set the platform generates ({@code org.cap.*}), and adding a mapper dependency to this
+     * service for one snapshot is more moving parts than the problem has. Values are escaped for quotes and
+     * backslashes — the only characters a settings value can hold that would break the shape.
+     *
+     * <p>Empty object rather than null when nothing was cleared, so a reader can tell "nothing to restore"
+     * from "we did not record".
+     */
+    private String asJson(List<com.myplus.auth.entity.OrgSetting> rows) {
+        StringBuilder sb = new StringBuilder("{");
+        if (rows != null) {
+            boolean first = true;
+            for (com.myplus.auth.entity.OrgSetting r : rows) {
+                if (r.getSettingValue() == null) continue;   // a cleared row has nothing to put back
+                if (!first) sb.append(',');
+                first = false;
+                sb.append('"').append(escape(r.getSettingKey())).append('"')
+                  .append(':')
+                  .append('"').append(escape(r.getSettingValue())).append('"');
+            }
+        }
+        return sb.append('}').toString();
+    }
+
+    private String escape(String v) {
+        return v == null ? "" : v.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /** ONB-3 — one tenant's business-type changes, newest first. Feeds the operator's history view. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> shapeHistory(Long organizationId) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.myplus.auth.entity.OrgShapeHistory h
+                : shapeHistoryRepo.findByOrganizationIdOrderByChangedAtDesc(organizationId)) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("changedAt", h.getChangedAt() == null ? null : h.getChangedAt().toString());
+            m.put("changedBy", h.getChangedBy());
+            m.put("previousShape", h.getPreviousShape());
+            m.put("newShape", h.getNewShape());
+            m.put("previousOverrides", h.getPreviousOverrides());
+            m.put("reason", h.getReason());
+            rows.add(m);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("organizationId", organizationId);
+        out.put("rows", rows);
+        return out;
     }
 }

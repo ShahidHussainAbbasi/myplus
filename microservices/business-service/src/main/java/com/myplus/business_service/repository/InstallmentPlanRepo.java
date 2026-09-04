@@ -139,6 +139,32 @@ public interface InstallmentPlanRepo extends JpaRepository<InstallmentPlan, Long
     long countOpenForOrg(@Param("orgId") Long orgId);
 
     /**
+     * ONB-3 — how much money is still owed on open plans, for the business-type change preview.
+     *
+     * <h3>Why an amount and not only a count</h3>
+     * "206 open plans" and "Rs 7,716,000 outstanding" are the same fact, and only the second one gets acted
+     * on. An operator deciding whether to switch a shop away from selling on terms is weighing money, not
+     * rows.
+     *
+     * <h3>Summed in the database, over the SCHEDULE</h3>
+     * The outstanding balance is not a column — it is what is left on each unpaid installment row. Loading
+     * the plans and adding it up in Java would be the N+1 this repository's own javadoc warns about one
+     * method up, on a tenant that has 979 unpaid rows.
+     *
+     * <p>Same status set as {@link #countOpenForOrg}: ACTIVE and DEFAULTED are both live money owed, and a
+     * defaulted plan is the one a shop most needs counted.
+     *
+     * <p>Returns null for a tenant with nothing outstanding — SUM over no rows is NULL, and the caller
+     * coalesces rather than this pretending zero, because "no plans" and "nothing left to pay" are different
+     * answers to the operator.
+     */
+    @Query("SELECT SUM(i.amount - COALESCE(i.paidAmount, 0)) FROM Installment i "
+         + "JOIN i.plan p WHERE p.organizationId = :orgId "
+         + "AND p.status IN ('ACTIVE','DEFAULTED') "
+         + "AND i.amount > COALESCE(i.paidAmount, 0)")
+    java.math.BigDecimal sumOutstandingForOrg(@Param("orgId") Long orgId);
+
+    /**
      * The reminder scanner's window (INST-3): plans with an installment falling due in a date range.
      *
      * <p>Kept as a plan-level read so the scanner can apply plan-level rules — stop reminding a

@@ -49,6 +49,8 @@ public class InstallmentController {
             "hasAuthority('ROLE_OWNER') or hasAuthority('SUPER_PRIVILEGE') or hasAuthority('ADMIN_PRIVILEGE')";
     @Autowired private RequestUtil requestUtil;
     @Autowired private com.myplus.business_service.repository.CustomerRepo customerRepo;
+    /** ONB-3 — read directly for the two aggregates the migration preview needs; no service logic involved. */
+    @Autowired private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
 
     /**
      * Customer names for a set of plans, in ONE query.
@@ -82,6 +84,41 @@ public class InstallmentController {
      * <b>whether a read needs scoping depends on where the id came from, not on which method reads it.</b> An
      * id followed from a row the caller could already see is safe; an id off the wire is not.
      */
+    /**
+     * ONB-3 — what switching this tenant away from selling on terms would leave behind.
+     *
+     * <h3>⚠ {@code organizationId} is honoured ONLY for a platform operator</h3>
+     * This reports a tenant's RECEIVABLES, so a parameter anyone could set would be a cross-tenant read of a
+     * competitor's debtor book. It is therefore resolved through
+     * {@link com.myplus.common.security.CurrentUser#organizationIdFor(Long)}: a {@code ROLE_ADMIN} operator
+     * gets the org they asked about, everybody else silently gets their own however they spell the URL.
+     *
+     * <h3>Why the parameter has to exist at all</h3>
+     * The operator reaches this through the monolith BFF, which is {@code ROLE_ADMIN}-gated — but the BFF
+     * calls downstream with the OPERATOR's own credentials. Reading the token's org alone would answer the
+     * confirmation dialog with the operator's figures while labelling them as the tenant's: not an error, a
+     * wrong number, which is worse. The tenant's own Configuration screen passes nothing and reaches it as
+     * itself.
+     *
+     * <p>Not capability-gated, and that is deliberate for the same reason the dashboard figure is not
+     * (ONB-2 §5): a capability governs what a tenant may do next, never what they may see about what they
+     * have already done. This endpoint exists precisely to be called while the capability is being taken
+     * away.
+     */
+    @GetMapping("/installmentImpact")
+    public GenericResponse installmentImpact(
+            @RequestParam(name = "organizationId", required = false) Long organizationId) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationIdFor(organizationId);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        long open = installmentPlanRepo.countOpenForOrg(orgId);
+        out.put("openPlans", open);
+        java.math.BigDecimal owed = installmentPlanRepo.sumOutstandingForOrg(orgId);
+        // Coalesced HERE rather than in the query: "no plans" and "nothing left to pay" are different answers
+        // to an operator, and only the caller knows it wants a number rather than the distinction.
+        out.put("outstanding", owed == null ? java.math.BigDecimal.ZERO : owed);
+        return new GenericResponse("SUCCESS", "impact", out);
+    }
+
     @GetMapping("/installmentPlans")
     @ResponseBody
     public GenericResponse plansForCustomer(@RequestParam("customerId") Long customerId) {

@@ -16,6 +16,10 @@
  */
 
 const OWNER = 'owner.business@myplus.com'
+// A second REAL tenant on the monolith, for the cross-tenant case. Note numbers are sequential, so this
+// tenant's own series very likely contains the same numbers — which is the point: only the scope predicate
+// separates them, never the key being hard to guess.
+const OTHER_TENANT = 'owner.mobile@myplus.com'
 
 /**
  * Ensure the CREDIT register has something in it, seeding a return if not.
@@ -27,9 +31,27 @@ const OWNER = 'owner.business@myplus.com'
 function ensureCreditNote() {
   return cy.request({ url: '/getSaleReturns' }).then((r) => {
     const rows = (r.body && r.body.collection) || []
-    if (rows.length) return cy.wrap(rows.length)
+
+    /*
+     * ⚠ ELIGIBILITY, not existence — the THIRD time this exact mistake has been made today.
+     *
+     * A return that predates the credit-note series lists in the register but carries NO documentNo, so
+     * renderReturns deliberately gives it no `.rtn-print` button: there is no document to print, and a
+     * button that always fails is worse than none. That is correct product behaviour.
+     *
+     * The first version of this helper asked only whether ANY returns existed. On a tenant whose returns are
+     * all legacy that is true, so it seeded nothing — and the three cases that need a PRINTABLE note failed
+     * against a register that was working exactly as designed.
+     *
+     * Same shape as customers[0] with a blank name (GATE-RUNBOOK §7): the fixture must ask for what the
+     * feature actually needs, which here is a note with a NUMBER.
+     */
+    const printable = rows.filter((n) => n && n.documentNo)
+    if (printable.length) return cy.wrap(printable.length)
+
     // cy.seedCreditNote is the SHARED command return-documents.cy.js also uses — one definition of "make a
-    // credit note", so the two specs cannot drift apart about what one is.
+    // credit note", so the two specs cannot drift apart about what one is. It allocates a number, so what it
+    // creates is always printable.
     return cy.seedCreditNote().then(() => cy.wrap(1))
   })
 }
@@ -43,11 +65,24 @@ function openReturns(mode) {
   cy.wait('@register', { timeout: 30000 })
 }
 
-/** The note numbers currently listed. */
+/**
+ * The note numbers currently listed, once the register has actually RENDERED them.
+ *
+ * ⚠ THE RETRY IS THE POINT. The first version read the table inside a bare `.then()`, which snapshots the DOM
+ * once and never retries. `cy.wait('@register')` resolves when the RESPONSE arrives — the rows are painted a
+ * tick later, in the callback — so the read could land on an empty tbody and yield `[]`.
+ *
+ * That produced the most misleading failure available: "the tenant has sale returns to filter" against a
+ * tenant that had just been seeded one. It looked like a data problem and was a timing one, and it was
+ * intermittent — the same case passed later in the run once caches were warm.
+ *
+ * `.should()` retries until the rows exist, which is safe here precisely because ensureCreditNote() has
+ * already guaranteed a printable note. Callers expecting an EMPTY register assert that directly instead.
+ */
 function listedNotes() {
-  return cy.get('#tableReturns tbody').then(($tb) => {
-    return $tb.find('.rtn-print').map((_, el) => Cypress.$(el).data('note')).get()
-  })
+  return cy.get('#tableReturns tbody .rtn-print', { timeout: 20000 })
+    .should('have.length.greaterThan', 0)
+    .then(($els) => $els.map((_, el) => Cypress.$(el).data('note')).get())
 }
 
 describe('#24 — returns register parity', () => {
@@ -234,16 +269,28 @@ describe('#24 — returns register parity', () => {
   })
 
   it('8. another tenant\'s notes never appear, whatever the filter', () => {
-    // Scoping is not a filter concern, which is exactly why it needs asserting here: a new WHERE clause is
-    // the classic place for a scope predicate to get lost.
+    /*
+     * Scoping is not a filter concern, which is exactly why it needs asserting here: a new WHERE clause is
+     * the classic place for a scope predicate to get lost, and #24 added one to both registers.
+     *
+     * ⚠ NOT cy.asOtherTenant. That command hands its callback an AUTH HEADER to send against the gateway
+     * (:8765); the first version of this case ignored the argument and issued a RELATIVE request, which goes
+     * to the monolith on the session cookie that was already there — still owner.business@. So it listed
+     * this tenant's own 112 notes and asserted they did not contain themselves. It failed, and it read
+     * exactly like a cross-tenant leak.
+     *
+     * A second real login is the honest form, and it is what return-documents.cy.js already does for the
+     * same question: the request then travels the same path a person's browser does, session and all.
+     */
     ensureCreditNote()
     openReturns('credit')
     listedNotes().then((mine) => {
-      cy.asOtherTenant(() => {
-        cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((r) => {
-          const theirs = ((r.body && r.body.collection) || []).map((n) => n.documentNo)
-          mine.forEach((n) => expect(theirs, 'no leak across tenants').to.not.include(n))
-        })
+      expect(mine.length, 'this tenant has notes to be leaked').to.be.greaterThan(0)
+
+      cy.loginAsOwner(OTHER_TENANT)
+      cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((r) => {
+        const theirs = ((r.body && r.body.collection) || []).map((n) => n.documentNo)
+        mine.forEach((n) => expect(theirs, `no leak across tenants: ${n}`).to.not.include(n))
       })
     })
   })

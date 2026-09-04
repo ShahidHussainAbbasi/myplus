@@ -87,6 +87,53 @@ public final class CurrentUser {
         return caps.contains(code);
     }
 
+    /**
+     * Is the caller a MaxTheService platform operator?
+     *
+     * <h3>Keys on the {@code ROLE_ADMIN} role and never on {@code ADMIN_PRIVILEGE}</h3>
+     * Every tenant owner holds {@code ADMIN_PRIVILEGE} inside their own organization, so keying on it would
+     * hand every tenant the operator's cross-tenant reach — the same distinction {@code AuthService} and
+     * {@code OrgAdminController} already draw, restated here because downstream services now need it too.
+     */
+    public static boolean isPlatformOperator() {
+        return get().map(u -> u.getAuthorities() != null && u.getAuthorities().stream()
+                        .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())))
+                .orElse(false);
+    }
+
+    /**
+     * ONB-3 — the organization a read or write should be scoped to, given one the caller ASKED for.
+     *
+     * <h3>A caller-supplied organization id is honoured only for a platform operator</h3>
+     * Some endpoints legitimately answer about another tenant: an operator previewing what a business-type
+     * change will cost is asking about somebody else's products and receivables on purpose. Every other
+     * caller's request parameter is <b>ignored, not rejected</b> — it silently resolves to their own org, so a
+     * tenant probing with {@code ?organizationId=13} learns nothing, not even whether 13 exists.
+     *
+     * <p><b>This is the whole anti-IDOR rule for those endpoints, in one place.</b> A service that writes the
+     * {@code requested != null ? requested : own} ternary itself has written a cross-tenant read; the point of
+     * naming it here is that the unsafe form stops being the shorter one to type.
+     */
+    public static Long organizationIdFor(Long requestedOrganizationId) {
+        if (requestedOrganizationId != null && isPlatformOperator()) return requestedOrganizationId;
+        return organizationId();
+    }
+
+    /**
+     * The user id to pass alongside {@link #organizationIdFor} for the NULL-org fallback clause.
+     *
+     * <h3>Null when the caller is reading somebody ELSE'S tenant, and that is the point</h3>
+     * Scoped queries read {@code (organizationId = :orgId OR (organizationId IS NULL AND userId = :userId))} —
+     * the second clause exists so a tenant's own pre-tenancy rows stay visible to them. Handing an operator's
+     * own user id to a query about tenant 44 would fold the OPERATOR's orphan rows into that tenant's answer.
+     * {@code null} never matches, which is exactly the intent: another tenant's legacy rows are not the
+     * operator's to see, and the operator's are not that tenant's.
+     */
+    public static Long scopeUserIdFor(Long organizationIdBeingRead) {
+        Long own = organizationId();
+        return (own != null && own.equals(organizationIdBeingRead)) ? userId() : null;
+    }
+
     /** Caller user id (audit + NULL-fallback scoping), or {@code null} when unauthenticated. */
     public static Long userId() {
         return get().map(AuthenticatedUser::getUserId).orElse(null);

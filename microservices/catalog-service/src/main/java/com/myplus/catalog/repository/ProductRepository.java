@@ -26,6 +26,35 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /**
+     * ONB-3 — how many products carry a policy the tenant may be about to lose.
+     *
+     * <p>Counted in the database rather than by loading products and filtering: the answer is a number for a
+     * confirmation dialog, and org 13 alone holds 1,101 products.
+     *
+     * <p>Uses the same SCOPE as every other read here, so a migration preview can never see across tenants
+     * even though the caller is a platform operator asking about somebody else's org — the org id arrives as
+     * a parameter and is used exactly as a tenant's own read would use it.
+     */
+    @Query("SELECT COUNT(p) FROM Product p WHERE " + SCOPE + " AND p.requiresSerial = TRUE")
+    long countRequiringSerial(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE " + SCOPE + " AND p.tracksBatch = TRUE")
+    long countTrackingBatch(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * ONB-3 — the products a switch would strand, so the cleanup list can name them.
+     *
+     * <p>The LIST, not just the count: a warning an operator cannot act on is advice, not a feature. Bounded
+     * by the caller's page size, because a tenant with a thousand serial-tracked products needs a worklist,
+     * not a wall.
+     */
+    @Query("SELECT p FROM Product p WHERE " + SCOPE + " AND p.requiresSerial = TRUE ORDER BY p.name")
+    List<Product> findRequiringSerial(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT p FROM Product p WHERE " + SCOPE + " AND p.tracksBatch = TRUE ORDER BY p.name")
+    List<Product> findTrackingBatch(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
      * PERF-8 — the product picker's read: ACTIVE rows only, projected to three columns.
      *
      * <p>A constructor expression rather than {@code SELECT p}, deliberately. Selecting the entity loads all

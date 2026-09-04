@@ -4833,6 +4833,34 @@ function showBusinessConfig(){
  * Reverts the select on cancel or on failure: a dropdown left showing a value that was never saved is how an
  * owner comes to believe their shop is configured one way while the till behaves another.
  */
+/**
+ * ONB-3 — the DATA consequences of a business-type change, as sentences.
+ *
+ * Mirrors platform.js's impactLines for the tenant's own screen. Kept as a second copy deliberately:
+ * business.js and platform.js load on different pages and never together, so sharing would mean a third
+ * script tag on both to save nine lines. If a third caller ever appears, extract it then.
+ */
+function shapeImpactLines(impact){
+	var out = [];
+	if(!impact) return out;
+	var serial = Number(impact.productsRequiringSerial || 0);
+	var plans  = Number(impact.openInstallmentPlans || 0);
+	var owed   = Number(impact.installmentsOutstanding || 0);
+	if(serial > 0){
+		out.push(t('ui.js.impactSerial','{0} products require a serial number and will stop selling.')
+			.replace('{0}', serial));
+	}
+	if(impact.productsTrackingBatch !== undefined && Number(impact.productsTrackingBatch) === 0){
+		out.push(t('ui.js.impactNoBatches',
+			'No products have a batch recorded — expiry ordering will have nothing to sort on.'));
+	}
+	if(plans > 0){
+		out.push(t('ui.js.impactPlans','{0} open installment plans ({1}) stay collectable but leave the dashboard.')
+			.replace('{0}', plans).replace('{1}', owed.toLocaleString()));
+	}
+	return out;
+}
+
 function saveBusinessShape(el){
 	// NL, rather than a \n escape: see platform.js. A \n in this
 	// position reached the built copy as a real line break and broke the whole file in the browser.
@@ -4849,6 +4877,9 @@ function saveBusinessShape(el){
 			var lines = [];
 			if(off.length) lines.push(t('ui.js.turningOff','Turning OFF') + ': ' + off.join(' · '));
 			if(on.length)  lines.push(t('ui.js.turningOn','Turning ON')  + ': ' + on.join(' · '));
+			// ONB-3 — the owner sees the same consequences the operator does, and arguably needs them more:
+			// same power over their own shop, less context about what the switches do.
+			shapeImpactLines(p.impact).forEach(function(l){ lines.push(NL + '! ' + l); });
 			// Says so plainly when nothing changes. A dialog that always warns is one nobody reads.
 			if(!lines.length) lines.push(t('ui.js.noSwitchesChange','No switches change for this business.'));
 

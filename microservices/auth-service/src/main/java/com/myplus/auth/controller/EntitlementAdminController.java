@@ -110,6 +110,13 @@ public class EntitlementAdminController {
         return ResponseEntity.ok(ApiResponse.success(null, "Business type updated"));
     }
 
+    /** ONB-3 — one tenant's business-type changes, and what each cleared. Feeds an undo, later. */
+    @GetMapping("/organizations/{id}/shape-history")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> shapeHistory(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(ApiResponse.success(organizationsAdmin.shapeHistory(id), "History"));
+    }
+
     /** ONB-1 — what a shape change would turn on and off, so the confirmation can name it. */
     @GetMapping("/organizations/{id}/shape-preview")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

@@ -71,6 +71,8 @@ class OrganizationAdminServiceTest {
         com.myplus.auth.config.JpaEntitlementSource source = mock(com.myplus.auth.config.JpaEntitlementSource.class);
         com.myplus.auth.repository.OrgSettingRepository orgSettings =
                 mock(com.myplus.auth.repository.OrgSettingRepository.class);
+        com.myplus.auth.repository.OrgShapeHistoryRepository shapeHistory =
+                mock(com.myplus.auth.repository.OrgShapeHistoryRepository.class);
         com.myplus.common.settings.SettingsService settings =
                 mock(com.myplus.common.settings.SettingsService.class);
         com.myplus.common.settings.CapabilityService caps =
@@ -80,7 +82,9 @@ class OrganizationAdminServiceTest {
         when(caps.shapeFor(any())).thenReturn(com.myplus.common.settings.Shape.GENERAL);
 
         return new Fixture(
-                new OrganizationAdminService(orgs, members, users, source, orgSettings, settings, caps), orgs);
+                new OrganizationAdminService(
+                        orgs, members, users, source, orgSettings, shapeHistory, settings, caps),
+                orgs);
     }
 
     @SuppressWarnings("unchecked")

@@ -57,6 +57,114 @@
 		}[String(code || '').toLowerCase()] || code;
 	}
 
+	/**
+	 * ONB-3 — the DATA consequences of a business-type change, as sentences.
+	 *
+	 * Numbers, not adjectives: "19 products will stop selling" is actionable, "some products may be affected"
+	 * is not. And the CONSEQUENCE, not the mechanism — an operator does not care that assertEnabled refuses,
+	 * they care that the handsets stop scanning.
+	 *
+	 * Returns an empty array when there is nothing to warn about. A dialog that always warns is one people
+	 * learn to click through, which costs more than never having warned.
+	 */
+	function impactLines(impact) {
+		var out = [];
+		if (!impact) return out;
+		var serial = Number(impact.productsRequiringSerial || 0);
+		var plans = Number(impact.openInstallmentPlans || 0);
+		var owed = Number(impact.installmentsOutstanding || 0);
+
+		if (serial > 0) {
+			out.push(t('ui.js.impactSerial', '{0} products require a serial number and will stop selling.')
+				.replace('{0}', serial));
+		}
+		// The SILENT one: FEFO simply has no dates to sort on, and no error names the cause.
+		if (impact.productsTrackingBatch !== undefined && Number(impact.productsTrackingBatch) === 0) {
+			out.push(t('ui.js.impactNoBatches',
+				'No products have a batch recorded — expiry ordering will have nothing to sort on.'));
+		}
+		if (plans > 0) {
+			out.push(t('ui.js.impactPlans',
+				'{0} open installment plans ({1}) stay collectable but leave the dashboard.')
+				.replace('{0}', plans).replace('{1}', owed.toLocaleString()));
+		}
+		return out;
+	}
+
+	/*
+	 * ── ONB-3: the cleanup list ──────────────────────────────────────────────────────────────────
+	 *
+	 * The dialog warns; this is where somebody can DO something about it. A warning an operator cannot act on
+	 * is advice, not a feature — and the stranded stock outlives the dialog, so the panel has to live on the
+	 * tenant detail rather than only in the moment after the switch. An operator who walked away, or who
+	 * inherited the tenant from somebody who did, finds it here.
+	 *
+	 * Only tracking capabilities appear: these are the two whose PRODUCT POLICY can outlive the capability.
+	 * Installments cannot strand anything the same way — an open plan stays collectable and the money is
+	 * still chased; the dialog says so and there is nothing to clean up.
+	 */
+	var CLEANUP_CAPS = [
+		['serialTracking', 'ui.js.serialRequirement', 'Serial / IMEI requirement'],
+		['batchTracking', 'ui.js.batchRequirement', 'Batch tracking']
+	];
+
+	/**
+	 * Render one card per capability that is OFF and still has products demanding it.
+	 *
+	 * <p>Costs nothing on the common path: a tenant whose tracking capabilities are on makes no request at
+	 * all, and one whose capability is off but has no stranded product gets no card. The check is the
+	 * capability's own `enabled` — the resolver's answer, the same one enforcement uses — never a guess from
+	 * the shape.
+	 *
+	 * <p>A failed fetch renders nothing and says nothing. This panel is an aid; it must never be the reason
+	 * an operator cannot see a tenant's plan.
+	 */
+	function renderCleanup(orgId, caps) {
+		var $box = $('#platConflicts').empty();
+		CLEANUP_CAPS.forEach(function (c) {
+			var off = (caps || []).some(function (row) {
+				return row.capability === c[0] && row.enabled === false;
+			});
+			if (!off) return;
+			$.get(serverContext + 'platform/policyConflicts?organizationId=' + encodeURIComponent(orgId)
+					+ '&capability=' + encodeURIComponent(c[0]))
+				.done(function (res) {
+					if (!apiOk(res)) return;
+					var rows = (apiData(res) || {}).rows || [];
+					if (!rows.length) return;      // nothing stranded -> nothing shown, same rule as the dialog
+					$box.append(conflictCard(c, rows));
+				});
+		});
+	}
+
+	/**
+	 * One cleanup card: the count, the products by name, and the single button that frees them.
+	 *
+	 * <p>Named, not just counted. "19 products" tells an operator the size of the problem; the names tell them
+	 * whether it is the handset range or one forgotten test item, and those call for different decisions.
+	 * Capped at ten because the card is a prompt to act, not the inventory screen.
+	 */
+	function conflictCard(cap, rows) {
+		var names = rows.slice(0, 10).map(function (p) { return esc(p.name || ''); }).join(' · ');
+		if (rows.length > 10) names += ' …';
+		return '<section class="plat-card" data-testid="policy-conflicts" data-conflict-cap="'
+			+ esc(cap[0]) + '">'
+			+   '<header class="plat-card__head"><h4>'
+			+     esc(t('ui.js.policyConflicts', 'Products needing attention')) + '</h4>'
+			+     '<span class="plat-card__n" data-testid="policy-conflict-count">' + rows.length
+			+     '</span></header>'
+			+   '<p class="plat-card__note">' + esc(t('ui.js.policyConflictsHelp',
+					'These products require something this business type can no longer record, so they will not '
+					+ 'sell until the requirement is cleared.')) + '</p>'
+			+   '<div class="plat-card__body">'
+			+     '<div class="plat-cap__help">' + esc(t(cap[1], cap[2])) + ' — ' + names + '</div>'
+			+     '<button type="button" class="btn btn-default js-clear-policy" '
+			+       'data-testid="clear-policy">'
+			+       esc(t('ui.js.clearOnAll', 'Clear on all {0}').replace('{0}', rows.length)) + '</button>'
+			+   '</div>'
+			+ '</section>';
+	}
+
 	var state = { page: 0, size: 25, q: '', total: 0, needsType: false };
 
 	// ── the tenants list ────────────────────────────────────────────────────────────────────────
@@ -252,6 +360,12 @@
 			+       esc(t('ui.js.changeBusinessType', 'Change business type')) + '</button>'
 			+   '</div>'
 			+ '</section>'
+			/*
+			 * ONB-3 — the aftermath of a business-type change sits directly beneath the control that causes
+			 * it. Filled asynchronously and usually empty; a tenant with nothing stranded never sees a
+			 * heading about it.
+			 */
+			+ '<div id="platConflicts"></div>'
 			+ '<section class="plat-card">'
 			+   '<header class="plat-card__head"><h4>' + esc(t('ui.js.plan', 'Plan')) + '</h4></header>'
 			+   '<div class="plat-card__body plat-plan">'
@@ -321,6 +435,8 @@
 		html += '</div></section>';
 		$('#platDetailBody').html(html);
 		$('#platDetailBody').data('org', orgId);
+		// ONB-3 — after the markup exists, never before: renderCleanup writes into #platConflicts.
+		renderCleanup(orgId, caps);
 	}
 
 	/**
@@ -481,6 +597,9 @@
 					var lines = [];
 					if (off.length) lines.push(t('ui.js.turningOff', 'Turning OFF') + ': ' + off.join(' · '));
 					if (on.length) lines.push(t('ui.js.turningOn', 'Turning ON') + ': ' + on.join(' · '));
+					// ONB-3 — what it will BREAK, beneath what it will switch. The capability diff says what
+					// changes; these say what stops working, which is the half an operator can act on.
+					impactLines(p.impact).forEach(function (l) { lines.push(NL + '! ' + l); });
 					// A dialog that lists nothing when nothing changes is far more useful than one that
 					// always warns — an operator learns to read it because it is not always the same.
 					if (!lines.length) lines.push(t('ui.js.noSwitchesChange', 'No switches change for this business.'));
@@ -503,6 +622,40 @@
 					});
 				})
 				.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+		});
+
+		/*
+		 * ONB-3 — the cleanup list's one button.
+		 *
+		 * CLEAR ONLY, and no value travels: catalog's endpoint cannot set a flag at all, which is what keeps
+		 * C6's rule intact for exactly the tenants that have just lost the capability — they may remove a
+		 * product policy, never grant themselves one.
+		 *
+		 * Confirmed, because it is bulk and one-way from here: the business type no longer permits setting
+		 * the requirement back, so the dialog says that rather than letting the operator discover it.
+		 */
+		$('#platDetailBody').on('click', '.js-clear-policy', function () {
+			var orgId = $('#platDetailBody').data('org');
+			var $card = $(this).closest('[data-conflict-cap]');
+			var cap = $card.attr('data-conflict-cap');
+			var n = $card.find('.plat-card__n').text();
+
+			global.uiConfirm({
+				title: t('ui.js.policyConflicts', 'Products needing attention'),
+				message: t('ui.js.clearPolicyConfirm',
+					'This removes the requirement from {0} product(s) so they can sell again. It cannot be put '
+					+ 'back from here — the business type no longer allows setting it.').replace('{0}', n),
+				confirmText: t('ui.js.clear', 'Clear')
+			}).then(function (ok) {
+				if (!ok) return;
+				$.post(serverContext + 'platform/clearPolicyFlags', { organizationId: orgId, capability: cap })
+					.done(function (res) {
+						if (!apiOk(res)) { global.uiAlert(apiMessage(res, '')); return; }
+						openTenant(orgId);   // re-read, never patch the DOM: the card must vanish because the
+						                     // server says it is empty, not because we assume the post worked.
+					})
+					.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, '')); });
+			});
 		});
 
 		// ── provisioning ────────────────────────────────────────────────────────────────────────
