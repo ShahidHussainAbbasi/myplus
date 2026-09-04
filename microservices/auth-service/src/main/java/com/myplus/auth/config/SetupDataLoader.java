@@ -569,6 +569,21 @@ public class SetupDataLoader {
                     //
                     // ⚠ NO OTHER SPEC MAY USE THIS ACCOUNT. It is routinely locked out on purpose.
                     {"owner.lifecycle@myplus.com",    "Lifecycle",   "BUSINESS"},
+
+                    // ── E4: the SACRIFICIAL SUBJECT of the control-plane audit gate. ──────────────────────
+                    //
+                    // The audit gate has to prove that an operator's actions are recorded against the CUSTOMER
+                    // and not against the operator — which means actually changing a customer's plan, status
+                    // and business type. A business-type change CLEARS every org.cap.* override the tenant
+                    // has, so running it against a tenant another spec relies on would silently reconfigure
+                    // that spec's world, and leave it reconfigured if the gate crashed before its cleanup.
+                    //
+                    // owner.mobile@ is the concrete example: capability-shapes.cy.js already went red once
+                    // because leftover overrides from another spec beat the shape preset. A tenant whose whole
+                    // purpose is to be reconfigured removes that class of failure entirely.
+                    //
+                    // ⚠ NO OTHER SPEC MAY USE THIS ACCOUNT. Its plan, status and shape are not stable.
+                    {"owner.audit@myplus.com",        "Audit",       "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);

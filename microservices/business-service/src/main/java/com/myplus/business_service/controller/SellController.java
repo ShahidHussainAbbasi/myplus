@@ -133,6 +133,9 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.InstallmentPlanService installmentPlanService;   // INST-1
 
+	@Autowired
+	com.myplus.business_service.service.PlanGuarantorService planGuarantorService;       // R4
+
 	/**
 	 * C3 — what this tenant is allowed to do. Guards the installment write below.
 	 *
@@ -1955,6 +1958,22 @@ public class SellController {
 						+ " but only " + collected.toPlainString() + " was received. Take the deposit first.";
 			}
 
+			/*
+			 * R4 — the guarantors, checked BEFORE a plan number is allocated.
+			 *
+			 * Ordered here, with the other plan refusals, for two reasons: a document number allocated for a
+			 * plan that is then refused is a gap in the shop's series, and per-org numbers are SERIALISED, so
+			 * allocating one before a check that can fail holds the sequence for nothing.
+			 *
+			 * The refusal follows this method's existing contract exactly — a MESSAGE, and THE SALE STANDS.
+			 * A guarantor shortfall is not uniquely able to fail a sale when unsound terms and an uncollected
+			 * deposit are not.
+			 */
+			String guarantorProblem = planGuarantorService.validate(orgId, customerId, p.getGuarantors());
+			if (guarantorProblem != null) {
+				return "Installment plan NOT created: " + guarantorProblem;
+			}
+
 			// Retried on a lost plan-number race, exactly as the invoice is. create() is REQUIRES_NEW, so
 			// each attempt gets a fresh transaction — retrying inside the poisoned one is what made this
 			// path report "the SALE stands" while the caller's transaction was already rollback-only.
@@ -1969,6 +1988,14 @@ public class SellController {
 					com.myplus.business_service.util.SequenceRetry.withRetry("installment plan", () ->
 							installmentPlanService.create(fTerms, fOrg, fUser, fLoc, fCustomer, fInvoiceId,
 									invoiceNo, fAsset));
+
+			/*
+			 * Stamped AFTER the plan exists, because they carry its id — and outside create()'s REQUIRES_NEW
+			 * transaction on purpose. A guarantor row that failed to write must not roll back a plan the
+			 * customer has already been told about and already owes; validate() above is what makes that
+			 * safe, since by here the shop has entered everything the rule asked for.
+			 */
+			planGuarantorService.save(fOrg, plan.getId(), fUser, p.getGuarantors());
 
 			return "Installment plan " + plan.getPlanNo() + " created ("
 					+ plan.getInstallmentCount() + " payments).";

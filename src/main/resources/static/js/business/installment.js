@@ -96,8 +96,12 @@
 				$('#instFirstDueDateText').val(iso.substring(8, 10) + '-' + iso.substring(5, 7) + '-' + iso.substring(0, 4));
 			}
 			previewInstallmentSchedule();
+			// Ask how many this shop requires, and draw that many. Zero draws nothing, which is the state
+			// 40 of 43 tenants are in.
+			loadGuarantorPolicy();
 		} else {
 			$('#instSchedulePreview').empty();
+			$('#sellGuarantorRow').hide();
 		}
 	};
 
@@ -222,6 +226,201 @@
 	 * CustomerHistoryDTOs — the monolith binds the DTO and re-serialises it onward, so a field declared on
 	 * one side only is dropped in transit and the plan silently never exists (design note F2).
 	 */
+	// ── R4: guarantors ────────────────────────────────────────────────────────────────────────────
+	//
+	// HOW MANY BLOCKS APPEAR IS A TENANT SETTING, AND ITS DEFAULT IS ZERO.
+	// 37 of 43 organisations have never chosen a business type and fall back to a preset that includes
+	// installments. Rendering this unconditionally would put a two-block form in front of forty shops that
+	// never asked for it — and a pharmacy selling a wheelchair on terms would be told to name guarantors it
+	// has never heard of. So the count is fetched, and 0 means the panel does not exist.
+
+	var guarantorsRequired = 0;
+	var recentGuarantors = [];
+
+	/** Ask the server how many this shop wants, then draw that many. Once per sale-screen open. */
+	function loadGuarantorPolicy() {
+		if (!enabled()) return;
+		$.get(ctx() + 'guarantorsRequired').done(function (resp) {
+			var payload = (resp && (resp.object || resp.data)) || {};
+			guarantorsRequired = Number(payload.required || 0);
+			renderGuarantorBlocks();
+		}).fail(function () {
+			// Unreadable means ask for none. A settings hiccup must not start refusing plans for a rule the
+			// shop never set — the permissive direction is the one that leaves the counter trading.
+			guarantorsRequired = 0;
+			renderGuarantorBlocks();
+		});
+		$.get(ctx() + 'recentGuarantors').done(function (resp) {
+			recentGuarantors = (resp && (resp.object || resp.data)) || [];
+			renderRecentChips();
+		});
+	}
+
+	/**
+	 * The one-tap chips: people this shop has used before.
+	 *
+	 * The single biggest saving in the slice. Two guarantors is roughly eighty keystrokes mid-sale with a
+	 * queue waiting, and in these shops a small circle of people guarantee most sales — a shopkeeper's
+	 * brother-in-law stands behind twenty of them.
+	 */
+	function renderRecentChips() {
+		var $box = $('#guarantorRecent');
+		if (!$box.length || !guarantorsRequired || !recentGuarantors.length) { $box.empty(); return; }
+		var html = '<span class="help-block" style="margin:0 6px 0 0;display:inline">'
+			+ esc(tr('ui.js.guarantorUsedBefore', 'Used before at this shop:')) + '</span>';
+		recentGuarantors.forEach(function (g, i) {
+			html += '<button type="button" class="btn btn-default btn-xs js-guarantor-recall"'
+				+ ' data-idx="' + i + '" style="margin:2px">'
+				+ esc(g.name) + (g.cnic ? ' <small>' + esc(g.cnic) + '</small>' : '') + '</button>';
+		});
+		$box.html(html);
+	}
+
+	/** Draw exactly as many blocks as the shop requires. Zero blocks when it requires none. */
+	function renderGuarantorBlocks() {
+		var $row = $('#sellGuarantorRow');
+		var $blocks = $('#guarantorBlocks');
+		if (!$row.length) return;
+
+		if (!guarantorsRequired) { $row.hide(); $blocks.empty(); $('#guarantorCount').text(''); return; }
+
+		var html = '';
+		for (var i = 0; i < guarantorsRequired; i++) {
+			var n = i + 1;
+			html += '<div class="panel panel-default js-guarantor-block" data-idx="' + i + '"'
+				+ ' style="margin-bottom:8px">'
+				+ '<div class="panel-body" style="padding:8px">'
+				+ '<div class="row">'
+				+ '<div class="col-xs-12"><strong>'
+				+ esc(tr('ui.js.guarantorN', 'Guarantor')) + ' ' + n + '</strong></div>'
+				// CNIC FIRST, because the card is in the cashier's hand and it is what recalls the person.
+				+ '<div class="col-xs-12 col-sm-3"><span class="field-label">'
+				+ esc(tr('ui.js.guarantorCnic', 'CNIC')) + '</span>'
+				+ '<input type="text" class="form-control js-g-cnic" maxlength="32" autocomplete="off"></div>'
+				+ '<div class="col-xs-12 col-sm-3"><span class="field-label">'
+				+ esc(tr('ui.js.guarantorName', 'Name')) + '</span>'
+				+ '<input type="text" class="form-control js-g-name" maxlength="255" autocomplete="off"></div>'
+				+ '<div class="col-xs-12 col-sm-3"><span class="field-label">'
+				+ esc(tr('ui.js.guarantorMobile', 'Mobile')) + '</span>'
+				+ '<input type="text" class="form-control js-g-contact" maxlength="64" autocomplete="off"></div>'
+				+ '<div class="col-xs-12 col-sm-3"><span class="field-label">'
+				+ esc(tr('ui.js.guarantorAddress', 'Address')) + '</span>'
+				+ '<input type="text" class="form-control js-g-address" maxlength="255" autocomplete="off"></div>'
+				+ '<div class="col-xs-12"><span class="help-block js-g-msg" style="margin:2px 0"></span></div>'
+				+ '</div></div></div>';
+		}
+		$blocks.html(html);
+		$row.show();
+		updateGuarantorCount();
+	}
+
+	/** "1 of 2 recorded" — the count is the feedback loop; a silent form is how a rule gets rediscovered. */
+	function updateGuarantorCount() {
+		if (!guarantorsRequired) { $('#guarantorCount').text(''); return; }
+		var have = collectGuarantors().length;
+		$('#guarantorCount').text(
+			(tr('ui.js.guarantorCount', '{0} of {1} recorded'))
+				.replace('{0}', have).replace('{1}', guarantorsRequired));
+	}
+
+	/** Digits only, so 35201-1234567-8 and 3520112345678 are one person — the server normalises the same. */
+	function cnicDigits(v) { return String(v || '').replace(/[^0-9]/g, ''); }
+
+	/** Read the blocks. A block with no NAME is not an entry — an empty one tabbed through is not a guarantor. */
+	function collectGuarantors() {
+		var out = [];
+		$('#guarantorBlocks .js-guarantor-block').each(function () {
+			var $b = $(this);
+			var name = $.trim($b.find('.js-g-name').val() || '');
+			if (!name) return;
+			out.push({
+				role: 'GUARANTOR',
+				name: name,
+				cnic: $.trim($b.find('.js-g-cnic').val() || '') || null,
+				contact: $.trim($b.find('.js-g-contact').val() || '') || null,
+				address: $.trim($b.find('.js-g-address').val() || '') || null
+			});
+		});
+		return out;
+	}
+
+	/**
+	 * The two slips, refused where they happen rather than at submit.
+	 *
+	 * Returns a message or null. The SERVER checks both again — this is the courtesy, not the control.
+	 */
+	global.guarantorProblem = function () {
+		if (!guarantorsRequired) return null;
+		var list = collectGuarantors();
+		if (list.length < guarantorsRequired) {
+			return (tr('ui.js.guarantorNeedMore', 'This sale needs {0} guarantors; {1} entered.'))
+				.replace('{0}', guarantorsRequired).replace('{1}', list.length);
+		}
+		var seen = {};
+		var buyerCnic = cnicDigits($('#sellCustomerCnic').val());
+		for (var i = 0; i < list.length; i++) {
+			var key = cnicDigits(list[i].cnic) || ('n:' + list[i].name.toLowerCase());
+			if (seen[key]) return tr('ui.js.guarantorDuplicate', 'The same guarantor has been entered twice.');
+			seen[key] = true;
+			// The buyer standing behind his own debt: worth precisely nothing, and the easiest slip here.
+			if (buyerCnic && buyerCnic === cnicDigits(list[i].cnic)) {
+				return tr('ui.js.guarantorIsBuyer', 'The customer buying cannot also be the guarantor.');
+			}
+		}
+		return null;
+	};
+
+	// Recall by a COMPLETE cnic. 13 digits, exact, this shop only — a prefix search would let staff type
+	// 352 and walk a list of national identifiers; a full match cannot be walked because you hold the card.
+	$(document).on('input', '.js-g-cnic', function () {
+		var $b = $(this).closest('.js-guarantor-block');
+		var digits = cnicDigits($(this).val());
+		var $msg = $b.find('.js-g-msg');
+		if (digits.length < 13) {
+			$msg.text(digits.length ? (tr('ui.js.guarantorCnicShort', 'A CNIC is usually 13 digits.')) : '');
+			return;
+		}
+		$.get(ctx() + 'guarantorRecall?cnic=' + encodeURIComponent(digits)).done(function (resp) {
+			var hit = (resp && (resp.object || resp.data)) || null;
+			if (!hit || !hit.name) { $msg.text(''); return; }
+			// Fill what is EMPTY; never overwrite what the cashier typed. A guarantor's address is often not
+			// the address on file, and a form that overwrites a correction gets worked around.
+			if (!$.trim($b.find('.js-g-name').val())) $b.find('.js-g-name').val(hit.name);
+			if (!$.trim($b.find('.js-g-contact').val())) $b.find('.js-g-contact').val(hit.contact || '');
+			if (!$.trim($b.find('.js-g-address').val())) $b.find('.js-g-address').val(hit.address || '');
+			$msg.text(tr('ui.js.guarantorRecalled', 'Recalled from a previous sale.'));
+			updateGuarantorCount();
+		});
+	});
+
+	$(document).on('click', '.js-guarantor-recall', function () {
+		var g = recentGuarantors[Number($(this).data('idx'))];
+		if (!g) return;
+		// Into the first block that has no name yet, so tapping twice fills both.
+		var $target = $('#guarantorBlocks .js-guarantor-block').filter(function () {
+			return !$.trim($(this).find('.js-g-name').val());
+		}).first();
+		if (!$target.length) return;
+		$target.find('.js-g-name').val(g.name || '');
+		$target.find('.js-g-cnic').val(g.cnic || '');
+		$target.find('.js-g-contact').val(g.contact || '');
+		$target.find('.js-g-address').val(g.address || '');
+		$target.find('.js-g-msg').text(tr('ui.js.guarantorRecalled', 'Recalled from a previous sale.'));
+		updateGuarantorCount();
+	});
+
+	$(document).on('input', '.js-g-name, .js-g-contact, .js-g-address', updateGuarantorCount);
+
+	/** Exposed so the sale screen can draw the panel when it opens. */
+	global.loadGuarantorPolicy = loadGuarantorPolicy;
+	/** Exposed for the submit path and for resetting between sales. */
+	global.guarantorsForSale = collectGuarantors;
+	global.resetGuarantors = function () {
+		$('#guarantorBlocks input').val('');
+		$('#guarantorBlocks .js-g-msg').text('');
+		updateGuarantorCount();
+	};
+
 	global.installmentPlanForSale = function () {
 		if (!enabled() || !$('#sellOnInstallment').is(':checked')) return null;
 
@@ -235,7 +434,11 @@
 			installmentCount: count,
 			frequency: $('#instFrequency').val() || 'monthly',
 			firstDueDate: firstDue,
-			assetRef: $('#instAssetRef').val() || null
+			assetRef: $('#instAssetRef').val() || null,
+			// R4 - an ARRAY, and it must exist on BOTH InstallmentPlanDTO twins or it is dropped in transit:
+			// the monolith re-serialises this block on its way to business-service, so a field on one side
+			// only vanishes silently and the sale still succeeds.
+			guarantors: collectGuarantors()
 		};
 	};
 
@@ -245,6 +448,9 @@
 		$('#sellInstallmentFields').hide();
 		$('#instDownPayment, #instAssetRef, #instFirstDueDate, #instFirstDueDateText').val('');
 		$('#instSchedulePreview').empty();
+		// The next customer must not inherit the last one's guarantors — the same reason the terms are cleared.
+		if (typeof global.resetGuarantors === 'function') global.resetGuarantors();
+		$('#sellGuarantorRow').hide();
 	};
 
 	// ── the Installments screen (INST-2, requirement R2: "know the dues") ───────────────────────────────

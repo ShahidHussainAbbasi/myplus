@@ -3,6 +3,8 @@ package com.myplus.common.settings;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.myplus.common.security.CurrentUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.Map;
  */
 @Service
 public class SettingsService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SettingsService.class);
 
     private final SettingsStore store;
     private final Map<String, SettingEntry> catalog = new LinkedHashMap<>();
@@ -69,6 +73,16 @@ public class SettingsService {
     private final org.springframework.beans.factory.ObjectProvider<SettingWriteGuard> guards;
 
     /**
+     * E4 — the reactions to a write that has already been applied. Empty in every service that registers none.
+     *
+     * <p>{@code ObjectProvider} for the same Spring reason as {@code guards}: constructor injection of a
+     * {@code List<T>} with no {@code T} beans is an UNSATISFIED dependency, not an empty list, so a plain
+     * {@code List} here would stop business, education, welfare and agriculture booting the moment this
+     * parameter appeared — none of them registers a listener.
+     */
+    private final org.springframework.beans.factory.ObjectProvider<SettingWriteListener> listeners;
+
+    /**
      * Backstop only; correctness comes from {@link #set(String, String)} invalidating on write.
      *
      * <p>It exists for one reason: if a service ever runs more than one replica, an eviction on instance
@@ -80,9 +94,11 @@ public class SettingsService {
     public SettingsService(SettingsStore store,
                            List<SettingsCatalogProvider> providers,
                            org.springframework.beans.factory.ObjectProvider<SettingWriteGuard> guards,
+                           org.springframework.beans.factory.ObjectProvider<SettingWriteListener> listeners,
                            @Value("${app.settings.cache-ttl-seconds:60}") long cacheTtlSeconds) {
         this.store = store;
         this.guards = guards;
+        this.listeners = listeners;
         // Injected through the CONSTRUCTOR, not a @Value field. Field injection happens AFTER the
         // constructor runs, so a field here would still be 0 while the cache was being built — the knob
         // would appear in the config, be documented, and do nothing. A setting that cannot change
@@ -355,6 +371,24 @@ public class SettingsService {
     }
 
     /**
+     * E4 — tell every listener what was written. Never lets one of them undo it.
+     *
+     * <p>A listener runs inside the caller's transaction, so an exception escaping here would roll back the
+     * very write it was reporting: a configuration change prevented by the machinery that exists to record it.
+     * Auditing that can veto is worse than auditing that misses a row, so each is isolated and a failure is
+     * logged rather than propagated — the audit producer's own outbox is what makes the row recoverable.
+     */
+    private void notifyListeners(Long org, String key, String before, String after) {
+        listeners.orderedStream().forEach(l -> {
+            try {
+                l.applied(org, key, before, after);
+            } catch (RuntimeException ex) {
+                LOG.warn("settings write listener failed for {} on org {} — the write STANDS", key, org, ex);
+            }
+        });
+    }
+
+    /**
      * The reason this write would be refused, or null when it would be allowed.
      *
      * <p>Deliberately a "would this be allowed" question answered by RUNNING the rules, not by a parallel
@@ -383,6 +417,15 @@ public class SettingsService {
         // Inside the caller's transaction on purpose: the throw rolls back anything the caller had already
         // written in the same unit of work, rather than committing half a configuration change.
         runGuards(org, key, value);
+        /*
+         * E4 — read the PREVIOUS override before the upsert replaces it.
+         *
+         * Raw via overrideFor, never getBoolFor: the typed accessor folds the catalog default in and cannot
+         * tell "the owner switched it off" from "the owner said nothing" — the same distinction
+         * CapabilityService.resolve depends on. An audit event built from the folded value would report a
+         * change from the default every time, including when there was none.
+         */
+        String before = overrideFor(org, key).orElse(null);
         try {
             store.upsert(org, CurrentUser.userId(), key, value);
         } finally {
@@ -404,5 +447,12 @@ public class SettingsService {
              */
             invalidate(org);
         }
+        /*
+         * AFTER the write and AFTER the eviction, so a listener that reads the setting back sees the new value
+         * rather than a cached old one. Outside the try/finally deliberately: a write that threw did not
+         * happen, and a listener must not be told about a change that was rolled back — the ordering that
+         * keeps refusals out of the audit trail entirely.
+         */
+        notifyListeners(org, key, before, value);
     }
 }

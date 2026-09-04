@@ -546,6 +546,14 @@ $(document).ready(function() {
 						var instPlan = installmentPlanForSale();
 						if (instPlan) customerHistory.installmentPlan = instPlan;
 					}
+					// R4 - stop the cashier HERE when the shop requires guarantors and they are not entered.
+					// The server refuses the PLAN either way, following the contract every other plan refusal
+					// has had since INST-1 (a message, and the sale stands) - but a shop that asked for the
+					// rule would rather be stopped before the receipt prints than told afterwards.
+					if (typeof guarantorProblem === 'function') {
+						var gProblem = guarantorProblem();
+						if (gProblem) { showFormError(gProblem); return false; }
+					}
 					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
 					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
 					var payMethod = $("#sellPayMethod").val() || 'CASH';

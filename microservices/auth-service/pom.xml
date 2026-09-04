@@ -72,6 +72,21 @@
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
     </dependency>
+    <!--
+      E4 — the control-plane audit producer.
+
+      common-audit brings common-outbox, common-security and commerce-contracts transitively (compile scope).
+      Its own `provided` deps are NOT transitive, and auth-service extends the ROOT aggregator rather than
+      service-parent, so each was checked against this pom before the module was added: spring-context and
+      spring-web arrive with spring-boot-starter-web, spring-tx and jakarta.persistence-api with
+      spring-boot-starter-data-jpa, spring-boot-autoconfigure and slf4j-api with the Boot parent. Nothing is
+      missing — unlike the common-settings addition (C3c), which broke three times on exactly this.
+    -->
+    <dependency>
+      <groupId>com.myplus</groupId>
+      <artifactId>common-audit</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
     <dependency>
       <groupId>com.myplus</groupId>
       <artifactId>common-settings</artifactId>

@@ -65,4 +65,17 @@ public class InstallmentPlanDTO {
     private String assetRef;
 
     private String notes;
+
+    /**
+     * R4 — the people standing behind this plan. Empty or null when the shop asks for none.
+     *
+     * <p>A LIST, not {@code guarantor1_*} / {@code guarantor2_*} fields: "two" is a tenant setting
+     * ({@code installments.guarantorsRequired}, default 0), so a numbered shape would be wrong the first day
+     * a shop wanted three, and every read would carry the COALESCE to prove it.
+     *
+     * <p>⚠ Travels as JSON, which is what makes a list safe here — the monolith's form-encoded purchase proxy
+     * collapses repeated parameters to their first value, the trap SER-2 worked around by sending serials as
+     * one block of text.
+     */
+    private java.util.List<GuarantorDTO> guarantors;
 }

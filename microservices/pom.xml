@@ -41,6 +41,7 @@
     <module>common-web</module>
     <module>common-settings</module>
     <module>common-outbox</module>
+    <module>common-audit</module>
     <module>common-subledger</module>
     <module>common-credit</module>
     <module>common-installment</module>

@@ -66,4 +66,12 @@ public class InstallmentPlanDTO {
     private String assetRef;
 
     private String notes;
+
+    /**
+     * R4 — the people standing behind this plan. Empty or null when the shop asks for none.
+     *
+     * <p>⚠ Must stay identical to the business-service twin. This list is re-serialised on its way through,
+     * so a guarantor that exists only on one side of the hop is dropped without a sound.
+     */
+    private java.util.List<GuarantorDTO> guarantors;
 }

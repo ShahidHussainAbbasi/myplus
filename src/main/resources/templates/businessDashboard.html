@@ -2461,6 +2461,24 @@ tr.row-voided .js-edit-row{display:none !important}
 									<div id="instSchedulePreview" class="help-block"></div>
 								</div>
 							</div>
+
+							<!-- R4 — the people standing behind the debt.
+							     RENDERED BY JAVASCRIPT, and empty until then, because how many blocks appear is a
+							     TENANT SETTING (installments.guarantorsRequired) whose default is 0. A shop that
+							     never asked for the rule sees nothing here at all: 37 of 43 organisations have no
+							     business type and fall back to a preset that includes installments, so anything
+							     rendered unconditionally would arrive for forty shops that never wanted it.
+							     Only the NAME is ever required — CNIC shape is help while typing, never a refusal. -->
+							<div class="form-group" id="sellGuarantorRow" data-guarantor-panel style="display:none">
+								<div class="col-xs-12">
+									<div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+										<span class="field-label" th:text="#{ui.js.guarantors}">Guarantors</span>
+										<span id="guarantorCount" class="help-block" style="margin:0"></span>
+									</div>
+									<div id="guarantorRecent" style="padding:4px 0"></div>
+									<div id="guarantorBlocks"></div>
+								</div>
+							</div>
 						</div>
 
 						<!-- Payment row — always visible -->

@@ -312,6 +312,100 @@ public class SellController {
         }
     }
 
+    // ── R4: guarantors on a plan ────────────────────────────────────────────────────────────────
+    //
+    // Straight proxies. Every rule — how many are required, the duplicate and self-guarantee refusals, the
+    // 13-digit recall minimum and the org scoping — lives in business-service, because a rule enforced in
+    // this hop is a rule that stops existing the moment somebody calls the service directly.
+
+    /** R4 — the guarantors on one plan. Scoped downstream by the caller's own org. */
+    @RequestMapping(value = "/planGuarantors", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> planGuarantors(final HttpServletRequest request) {
+        try {
+            return client.get("/planGuarantors", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("planGuarantors proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** R4 — add a guarantor to a plan that already exists (the 211 that carry none). */
+    @RequestMapping(value = "/savePlanGuarantor", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> savePlanGuarantor(final HttpServletRequest request) {
+        try {
+            return client.postForm("/savePlanGuarantor", formParams(request,
+                    "planId", "name", "cnic", "contact", "address", "role", "customerId"));
+        } catch (Exception e) {
+            LOGGER.error("savePlanGuarantor proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** R4 — remove a guarantor. Gated downstream: a guarantor is the shop's recourse. */
+    @RequestMapping(value = "/deletePlanGuarantor", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deletePlanGuarantor(final HttpServletRequest request) {
+        try {
+            return client.postForm("/deletePlanGuarantor", formParams(request, "id"));
+        } catch (Exception e) {
+            LOGGER.error("deletePlanGuarantor proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** R4 — recall someone used before, by their COMPLETE CNIC. A partial one recalls nobody. */
+    @RequestMapping(value = "/guarantorRecall", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> guarantorRecall(final HttpServletRequest request) {
+        try {
+            return client.get("/guarantorRecall", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("guarantorRecall proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** R4 — the shop's most-used guarantors, for the one-tap chips. */
+    @RequestMapping(value = "/recentGuarantors", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> recentGuarantors(final HttpServletRequest request) {
+        try {
+            return client.get("/recentGuarantors", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("recentGuarantors proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** R4 — how many this shop requires, so the sale screen renders that many blocks (0 = none). */
+    @RequestMapping(value = "/guarantorsRequired", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> guarantorsRequired(final HttpServletRequest request) {
+        try {
+            return client.get("/guarantorsRequired", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("guarantorsRequired proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * Collect the named request parameters into a form map, skipping any that were not sent.
+     *
+     * <p>Named explicitly rather than copying the whole parameter map: a proxy that forwards everything
+     * forwards whatever a caller invents, and only these fields belong downstream.
+     */
+    private static Map<String, String> formParams(HttpServletRequest request, String... names) {
+        Map<String, String> out = new java.util.LinkedHashMap<>();
+        for (String n : names) {
+            String v = request.getParameter(n);
+            if (v != null && !v.isEmpty()) out.put(n, v);
+        }
+        return out;
+    }
+
     /** INST-1 — the schedule a customer would owe, computed by the same generator the commit uses. */
     @RequestMapping(value = "/installmentPreview", method = RequestMethod.GET)
     @ResponseBody

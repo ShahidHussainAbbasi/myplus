@@ -50,6 +50,11 @@ public class EntitlementService {
     private final com.myplus.common.settings.CapabilityService capabilities;
 
     /**
+     * E4 — the record of this decision. Written in THIS transaction, so a refusal above takes it with it.
+     */
+    private final ControlPlaneAuditService audit;
+
+    /**
      * Every capability, with what the tenant is entitled to and why — the operator screen's payload (E2).
      *
      * <p>Returns the whole capability set rather than only the rows that exist, because the interesting cases
@@ -147,6 +152,15 @@ public class EntitlementService {
                         .organizationId(organizationId)
                         .capability(capability.code())
                         .build());
+        /*
+         * E4 — READ THE PREVIOUS STATE BEFORE OVERWRITING IT.
+         *
+         * This upserts straight onto the entity, so one line further down the old status is gone. An audit
+         * event that recorded only the new value would read SUSPENDED -> SUSPENDED, and a revocation would be
+         * indistinguishable from a re-revocation. "—" rather than null for a capability with no row yet: the
+         * absence of a row is a real and interesting prior state (the tenant was on plan terms), not a gap.
+         */
+        String before = row.getStatus() == null ? "—" : row.getStatus();
         row.setStatus(st);
         row.setSource(source == null || source.isBlank() ? "ADMIN_OVERRIDE" : source.trim().toUpperCase());
         row.setStartsAt(startsAt);
@@ -154,6 +168,23 @@ public class EntitlementService {
         row.setReason(reason);
         row.setGrantedBy(grantedBy);
         entitlements.save(row);
+
+        /*
+         * E4 — grant and revoke are separate ACTIONS, not one action carrying a status, because "everything we
+         * withdrew this quarter" is the question that gets asked and it should not require parsing after_value.
+         * ACTIVE is a grant; SUSPENDED and EXPIRED are both a withdrawal, whatever the mechanism.
+         */
+        audit.operatorAction(
+                "ACTIVE".equals(st) ? ControlPlaneAuditService.ENTITLEMENT_GRANT
+                                    : ControlPlaneAuditService.ENTITLEMENT_REVOKE,
+                ControlPlaneAuditService.ENTITY_CAPABILITY,
+                capability.code(),
+                organizationId,
+                before,
+                st,
+                reason,
+                grantedBy,
+                row.getEndsAt() == null ? null : "until " + row.getEndsAt());
 
         // Exactly on write, like SettingsService's eviction and for the same reason: a TTL as the primary
         // mechanism is at once too slow for the operator who just made a change and watched nothing happen,

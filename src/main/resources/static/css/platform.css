@@ -140,6 +140,58 @@
 .plat__form label:first-child{ margin-top:0; }
 .plat__form .btn{ margin-top:18px; }
 
+
+/* ── E4: the Activity panel ────────────────────────────────────────────────── */
+
+/* THE TWO CHIPS THIS SLICE EXISTS FOR. They must be told apart at a glance and without colour alone —
+ * each carries its own glyph and its own words — because everything the panel is for rests on a reader
+ * knowing whether the platform or their own colleague made a change. */
+.plat-badge--platform{ color:#0D3B8C; background:#e8f0fd; border-color:#0D3B8C; }
+.plat-badge--member{ color:#3d4a5c; background:#eef1f5; border-color:#c9d1dd; }
+
+.plat-act__filters{ margin:0 18px 4px; }
+.plat-act{ padding-top:8px; }
+.plat-act__list{ list-style:none; margin:0; padding:0; }
+
+.plat-act__row{
+  display:flex; gap:12px; padding:12px 0;
+  border-top:1px solid #eef2f7;
+}
+.plat-act__list > .plat-act__row:first-child{ border-top:0; padding-top:2px; }
+
+.plat-act__icon{ flex:0 0 auto; margin-top:3px; font-size:12px; color:#8a97aa; }
+.plat-act__body{ flex:1 1 auto; min-width:0; }
+
+.plat-act__head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.plat-act__what{ font-size:13px; font-weight:700; color:#22303f; }
+/* The subject wraps rather than ellipsing: a truncated capability name is unreadable, and the panel has
+ * the vertical room a tenant row does not. */
+.plat-act__subject{ font-size:12.5px; color:#5a6677; overflow-wrap:anywhere; }
+
+/* BEFORE and AFTER, both. The old value is muted and the new one carries the weight, so the direction of
+ * the change is legible without reading the words. */
+.plat-act__delta{ margin-top:3px; font-size:12px; font-family:inherit; }
+.plat-act__from{ color:#8a97aa; text-decoration:line-through; }
+.plat-act__to{ color:#22303f; font-weight:700; }
+/* ⚠ THE ARROW IS A PSEUDO-ELEMENT, NOT A CHARACTER IN THE STRING — it is directional, and a literal
+ * arrow inside a translated string renders the change backwards in the ar and ur bundles. Here it flips
+ * with the document direction for free. */
+.plat-act__to::before{ content:"\2192"; margin:0 7px; color:#b8c2d0; text-decoration:none; }
+[dir="rtl"] .plat-act__to::before{ content:"\2190"; }
+
+.plat-act__who{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:5px; }
+.plat-act__actor{ font-size:11.5px; color:#7a889c; overflow-wrap:anywhere; }
+/* Relative time for scanning; the exact stamp is in the title attribute, for the person writing an
+ * incident note. Dotted underline so it is discoverable as hoverable without becoming a link. */
+.plat-act__when{ font-size:11.5px; color:#8a97aa; margin-left:auto; white-space:nowrap;
+                 border-bottom:1px dotted #d8dee9; cursor:help; }
+[dir="rtl"] .plat-act__when{ margin-left:0; margin-right:auto; }
+
+.plat-act__more{ display:block; width:100%; margin-top:12px; border-radius:8px; font-size:12.5px; }
+
+/* There is deliberately NO hover-reveal edit or delete control here. audit_event is append-only, and a
+ * panel that looks editable teaches operators to expect an undo that does not exist. */
+
 /* ── Phones. The app's existing 991 breakpoint (responsive contract) ───────── */
 @media (max-width:991px){
   .plat__body{ padding:16px 12px 48px; }
@@ -149,4 +201,11 @@
   .plat-cap{ flex-wrap:wrap; }
   .plat-cap__actions{ width:100%; }
   .plat__provision{ width:100%; }
+  /* E4 — the activity row stacks instead of squeezing four columns into a phone width: what happened,
+   * then the change, then who and when. The filter chips scroll horizontally rather than wrapping into
+   * a two-line block that pushes the rows off screen. */
+  .plat-act__filters{ margin:0 12px 4px; max-width:100%; overflow-x:auto; }
+  .plat-act__when{ margin-left:0; }
+  [dir="rtl"] .plat-act__when{ margin-right:0; }
+  .plat-act__head{ gap:4px; }
 }

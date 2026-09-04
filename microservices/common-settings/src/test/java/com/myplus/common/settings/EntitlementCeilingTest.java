@@ -53,7 +53,7 @@ class EntitlementCeilingTest {
     }
 
     private static CapabilityService svc(FakeStore store, EntitlementSource ceiling) {
-        SettingsService settings = new SettingsService(store, List.of(new CapabilityCatalog()), Guards.none(), 60L);
+        SettingsService settings = new SettingsService(store, List.of(new CapabilityCatalog()), Providers.none(), Providers.none(), 60L);
         return new CapabilityService(settings, ceiling);
     }
 
@@ -179,7 +179,7 @@ class EntitlementCeilingTest {
                 throw new IllegalArgumentException("\"Sell on installments\" is not included in your current plan.");
         };
         SettingsService settings =
-                new SettingsService(store, List.of(new CapabilityCatalog()), Guards.of(refuseAll), 60L);
+                new SettingsService(store, List.of(new CapabilityCatalog()), Providers.of(refuseAll), Providers.none(), 60L);
 
         // No CurrentUser in a plain unit test, so the org reaching the guard is null — which this guard
         // ignores, exactly as EntitlementWriteGuard's key/value check does before it consults the ceiling.
@@ -209,7 +209,8 @@ class EntitlementCeilingTest {
                 throw new IllegalArgumentException("\"Sell on installments\" is not included in your current plan.");
         };
         SettingsService settings = new SettingsService(
-                new FakeStore(), List.of(new CapabilityCatalog()), Guards.of(refuseInstallments), 60L);
+                new FakeStore(), List.of(new CapabilityCatalog()), Providers.of(refuseInstallments),
+                Providers.none(), 60L);
 
         List<Map<String, Object>> catalog = settings.catalogForOrg();
         Map<String, Object> installments = catalog.stream()

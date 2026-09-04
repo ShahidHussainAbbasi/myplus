@@ -262,6 +262,18 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       JWT_SECRET: ${JWT_SECRET}
+      # E4 — auth-service was the ONLY application service in this file without the shared trust token,
+      # and until it made an outbound call of its own it never mattered.
+      #
+      # HeaderAuthFilter skips authentication entirely when a service HAS a secret configured and the
+      # caller's X-Internal-Secret does not match, so the callee answers 403 with no body. auth-service's
+      # request-scoped calls survived that because GatewayIdentityForwarding's interceptor copies the
+      # header off the INBOUND request. Its background calls do not: runAs stamps auth-service's OWN
+      # secret, which was empty, so the header was omitted and audit-service refused every delivery.
+      #
+      # Found by E4's control-plane audit relay, the first background outbound call auth-service has ever
+      # made. Every future one would have failed the same way.
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
       # Public base URL used to build the emailed verification/reset links. MUST be reachable from the
       # customer's browser (behind nginx: https://<your-domain>, which proxies /api/ -> gateway -> auth).
       # Unset here it would default to http://localhost:8765 and every link would be dead.

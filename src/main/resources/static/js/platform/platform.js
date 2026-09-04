@@ -165,6 +165,213 @@
 			+ '</section>';
 	}
 
+
+	// ── E4: the Activity panel ──────────────────────────────────────────────────────────────────
+
+	/**
+	 * The event families, and how each renders.
+	 *
+	 * Labels are SENTENCES, not enum codes. `ENTITLEMENT_REVOKE` is a machine identifier; the console has a
+	 * mixed audience and a support engineer should not have to learn the schema to read a history. The raw
+	 * before/after values stay on the row for anyone who does.
+	 */
+	var ACTIONS = {
+		ENTITLEMENT_GRANT:  { fam: 'ent',  icon: 'ok-circle',  key: 'ui.js.actGrant',  def: 'Capability granted' },
+		ENTITLEMENT_REVOKE: { fam: 'ent',  icon: 'minus-sign', key: 'ui.js.actRevoke', def: 'Capability revoked' },
+		PLAN_CHANGE:        { fam: 'plan', icon: 'transfer',   key: 'ui.js.actPlan',   def: 'Plan changed' },
+		STATUS_CHANGE:      { fam: 'plan', icon: 'ban-circle', key: 'ui.js.actStatus', def: 'Account status changed' },
+		SHAPE_CHANGE:       { fam: 'type', icon: 'th-large',   key: 'ui.js.actShape',  def: 'Business type changed' },
+		CAPABILITY_TOGGLE:  { fam: 'cap',  icon: 'adjust',     key: 'ui.js.actToggle', def: 'Capability switched' }
+	};
+
+	var ACTIVITY_FILTERS = [
+		['',     'ui.js.filterAll',  'All'],
+		['ent',  'ui.js.filterEnt',  'Entitlements'],
+		['plan', 'ui.js.filterPlan', 'Plan & status'],
+		['type', 'ui.js.filterType', 'Business type'],
+		['cap',  'ui.js.filterCap',  'Capabilities']
+	];
+
+	/** How many rows before the panel offers "show all". It is a summary, not the audit screen. */
+	var ACTIVITY_PAGE = 10;
+
+	var activityState = { filter: '', expanded: false };
+	var activityRows = [];
+
+	/**
+	 * A Date from whatever the server sent.
+	 *
+	 * LocalDateTime serialises as an ISO string with a JavaTimeModule registered and as an ARRAY without one,
+	 * and which of those arrives is a Jackson configuration detail no screen should depend on. Both are
+	 * handled, and an unparseable value yields null rather than "Invalid Date" — a wrong timestamp on an
+	 * audit row is worse than no timestamp.
+	 */
+	function asDate(v) {
+		if (!v) return null;
+		if (Array.isArray(v)) {
+			return new Date(v[0], (v[1] || 1) - 1, v[2] || 1, v[3] || 0, v[4] || 0, v[5] || 0);
+		}
+		var d = new Date(String(v));
+		return isNaN(d.getTime()) ? null : d;
+	}
+
+	/** Relative time for scanning; the absolute value goes in the title attribute for incident notes. */
+	function ago(d) {
+		if (!d) return '';
+		var secs = Math.floor((Date.now() - d.getTime()) / 1000);
+		if (secs < 60) return t('ui.js.justNow', 'just now');
+		var mins = Math.floor(secs / 60);
+		if (mins < 60) return t('ui.js.minsAgo', '{0} min ago').replace('{0}', mins);
+		var hrs = Math.floor(mins / 60);
+		if (hrs < 24) return t('ui.js.hoursAgo', '{0} h ago').replace('{0}', hrs);
+		var days = Math.floor(hrs / 24);
+		if (days < 30) return t('ui.js.daysAgo', '{0} d ago').replace('{0}', days);
+		return d.toISOString().substring(0, 10);
+	}
+
+	function stamp(d) {
+		return d ? d.toISOString().substring(0, 16).replace('T', ' ') : '';
+	}
+
+	/**
+	 * Fetch and draw one tenant's control-plane history.
+	 *
+	 * Called only after the detail markup exists — it writes into #platActivity, which renderTenant creates.
+	 */
+	function renderActivity(orgId) {
+		var $box = $('#platActivity');
+		if (!$box.length) return;
+		$box.html('<section class="plat-card"><div class="plat__loading">'
+			+ esc(t('ui.js.loading', 'Loading…')) + '</div></section>');
+
+		$.get(serverContext + 'platform/activity?organizationId=' + encodeURIComponent(orgId))
+			.done(function (res) {
+				if (!apiOk(res)) {
+					$box.html(activityShell('<div class="plat__empty">'
+						+ esc(apiMessage(res, t('ui.js.couldNotLoadActivity', 'Could not load activity.')))
+						+ '</div>', 0));
+					return;
+				}
+				activityRows = (apiData(res) || {}).rows || [];
+				paintActivity();
+			})
+			.fail(function (xhr) {
+				// The server's own sentence wins; the hard-coded string is only a fallback for when it sent none.
+				$box.html(activityShell('<div class="plat__empty">'
+					+ esc(apiFailMessage(xhr, t('ui.js.couldNotLoadActivity', 'Could not load activity.')))
+					+ '</div>', 0));
+			});
+	}
+
+	/** The card, its note and its filter chips — everything that does not depend on the rows. */
+	function activityShell(inner, count) {
+		var chips = ACTIVITY_FILTERS.map(function (f) {
+			var on = activityState.filter === f[0];
+			return '<button type="button" data-fam="' + f[0] + '" aria-pressed="' + (on ? 'true' : 'false') + '"'
+				+ (on ? ' class="is-on"' : '') + '>' + esc(t(f[1], f[2])) + '</button>';
+		}).join('');
+
+		return '<section class="plat-card" data-testid="activity">'
+			+   '<header class="plat-card__head"><h4>' + esc(t('ui.js.activity', 'Activity')) + '</h4>'
+			+     '<span class="plat-card__n" data-testid="activity-count">' + count + '</span></header>'
+			/*
+			 * Stated, not implied. audit_event is append-only, and a panel that LOOKS editable teaches
+			 * operators to expect an undo that does not exist — which they find out during an incident. The
+			 * absence of edit and delete controls is the design; this sentence is what makes it deliberate
+			 * rather than an oversight somebody later "fixes".
+			 */
+			+   '<p class="plat-card__note">' + esc(t('ui.js.activityNote',
+					'Everything the platform and this business have changed. Records are added, never edited '
+					+ 'or removed.')) + '</p>'
+			+   '<div class="plat-seg plat-act__filters" role="group">' + chips + '</div>'
+			+   '<div class="plat-card__body plat-act">' + inner + '</div>'
+			+ '</section>';
+	}
+
+	function paintActivity() {
+		var rows = activityState.filter
+			? activityRows.filter(function (e) {
+				var def = ACTIONS[e.action];
+				return def && def.fam === activityState.filter;
+			})
+			: activityRows;
+
+		var inner;
+		if (!activityRows.length) {
+			// ⚠ NOT an error. A brand-new tenant legitimately has no history, and an empty trail that reads
+			// like a failure sends operators looking for a bug that is not there.
+			inner = '<div class="plat__empty">'
+				+ esc(t('ui.js.activityEmpty', 'No changes recorded for this business yet.')) + '</div>';
+		} else if (!rows.length) {
+			// Distinct from empty: the operator narrowed it themselves and needs to know that.
+			inner = '<div class="plat__empty">'
+				+ esc(t('ui.js.activityNoneInFilter', 'No changes of this kind.')) + '</div>';
+		} else {
+			var shown = activityState.expanded ? rows : rows.slice(0, ACTIVITY_PAGE);
+			inner = '<ul class="plat-act__list">' + shown.map(activityRow).join('') + '</ul>';
+			if (!activityState.expanded && rows.length > ACTIVITY_PAGE) {
+				inner += '<button type="button" class="btn btn-default plat-act__more" data-testid="activity-more">'
+					+ esc(t('ui.js.showAllN', 'Show all {0}').replace('{0}', rows.length)) + '</button>';
+			}
+		}
+		$('#platActivity').html(activityShell(inner, rows.length));
+	}
+
+	/**
+	 * One event.
+	 *
+	 * An <li>, not a table row: this is a sequence of events, and a screen reader announcing "row 3 of 24,
+	 * column 2" for a sentence is worse than list semantics. Icons are decorative — every one is accompanied
+	 * by its text label, so nothing depends on telling one glyph from another.
+	 */
+	function activityRow(e) {
+		var def = ACTIONS[e.action] || { icon: 'record', key: null, def: e.action };
+		var when = asDate(e.occurredAt);
+
+		/*
+		 * ⭐ THE ACTOR CHIP — the whole point of this slice at the UI layer.
+		 *
+		 * "Platform" and "This business" are two visually distinct chips, never a bare user id. An owner
+		 * reading their own trail must not attribute a platform revocation to a colleague, and this is the
+		 * element that stops them. Rendered before the timestamp, and never truncated.
+		 */
+		var external = e.actorType === 'PLATFORM_OPERATOR';
+		var who = '<span class="plat-badge ' + (external ? 'plat-badge--platform' : 'plat-badge--member') + '">'
+			+   '<span class="glyphicon glyphicon-' + (external ? 'globe' : 'user') + '" aria-hidden="true"></span> '
+			+   esc(external ? t('ui.js.actorPlatform', 'Platform') : t('ui.js.actorMember', 'This business'))
+			+ '</span>';
+
+		/*
+		 * Before AND after, always both. A trail recording only the new value cannot show a change at all: a
+		 * revocation and a re-revocation read identically. Muted before, full-weight after.
+		 *
+		 * ⚠ The arrow between them is a CSS pseudo-element, NOT a character in this string. It is
+		 * directional, and baking it in renders "after → before" in the ar and ur bundles.
+		 */
+		var delta = (e.beforeValue || e.afterValue)
+			? '<div class="plat-act__delta"><span class="plat-act__from">' + esc(e.beforeValue || '—')
+				+ '</span><span class="plat-act__to">' + esc(e.afterValue || '—') + '</span></div>'
+			: '';
+
+		return '<li class="plat-act__row" data-testid="activity-row" data-action="' + esc(e.action) + '">'
+			+   '<span class="plat-act__icon glyphicon glyphicon-' + esc(def.icon) + '" aria-hidden="true"></span>'
+			+   '<div class="plat-act__body">'
+			+     '<div class="plat-act__head">'
+			+       '<span class="plat-act__what">' + esc(def.key ? t(def.key, def.def) : def.def) + '</span>'
+			+       '<span class="plat-act__subject">' + esc(e.details || e.entityRef || '') + '</span>'
+			+     '</div>'
+			+     delta
+			+     '<div class="plat-act__who">' + who
+			+       '<span class="plat-act__actor">' + esc(e.actorEmail || '') + '</span>'
+			+       '<span class="plat-act__when" title="' + esc(stamp(when)) + '">' + esc(ago(when)) + '</span>'
+			+     '</div>'
+			// The reason, quoted and VERBATIM — never summarised. Escaped because it is free text a human
+			// typed into uiPromptConfirm, and this goes through .html().
+			+     (e.reason ? '<div class="plat-cap__reason">&ldquo;' + esc(e.reason) + '&rdquo;</div>' : '')
+			+   '</div>'
+			+ '</li>';
+	}
+
 	var state = { page: 0, size: 25, q: '', total: 0, needsType: false };
 
 	// ── the tenants list ────────────────────────────────────────────────────────────────────────
@@ -432,11 +639,25 @@
 				+   '</div>';
 		});
 
-		html += '</div></section>';
+		html += '</div></section>'
+			/*
+			 * E4 — Activity goes LAST, and the order is the operator's own reasoning order:
+			 * business type (what does this customer see at all?) -> plan and status (are they paying, and
+			 * are they trading?) -> capabilities (what may they do?) -> and what have we already done to them?
+			 *
+			 * It doubles as the confirmation of every control above it: each save calls openTenant(), which
+			 * re-renders this whole panel, so an operator's own change appears at the top a moment after they
+			 * make it. The evidence the write landed IS the record it created — no toast that disappears
+			 * before it is read.
+			 */
+			+ '<div id="platActivity"></div>';
 		$('#platDetailBody').html(html);
 		$('#platDetailBody').data('org', orgId);
 		// ONB-3 — after the markup exists, never before: renderCleanup writes into #platConflicts.
 		renderCleanup(orgId, caps);
+		// E4 — same rule, same reason: renderActivity writes into #platActivity.
+		activityState = { filter: '', expanded: false };
+		renderActivity(orgId);
 	}
 
 	/**
@@ -516,6 +737,24 @@
 			$('#platDetail').hide();
 			$('#platTenants').show();
 			loadTenants();
+		});
+
+		/*
+		 * E4 — the Activity filters and "show all".
+		 *
+		 * Delegated on #platDetailBody like every other control here, because the panel is re-rendered on
+		 * every save (openTenant) and a handler bound to the elements themselves would be lost each time.
+		 * Neither re-fetches: the rows are already in memory, and a filter that costs a round trip is a
+		 * filter people stop using.
+		 */
+		$('#platDetailBody').on('click', '.plat-act__filters button', function () {
+			activityState.filter = $(this).attr('data-fam') || '';
+			activityState.expanded = false;   // a new question deserves the summary again, not page 3
+			paintActivity();
+		});
+		$('#platDetailBody').on('click', '.plat-act__more', function () {
+			activityState.expanded = true;
+			paintActivity();
 		});
 
 		$('#platDetailBody').on('click', '.js-grant', function () {

@@ -52,6 +52,8 @@ public class OrganizationAdminService {
     private final com.myplus.auth.repository.OrgShapeHistoryRepository shapeHistoryRepo;
     private final com.myplus.common.settings.SettingsService settings;
     private final com.myplus.common.settings.CapabilityService capabilities;
+    /** E4 — the control plane's record of its own decisions, written in the SAME transaction as each one. */
+    private final ControlPlaneAuditService audit;
 
     /** Bound the page size whatever the caller asks for — an operator typo must not become a table scan. */
     private static final int MAX_PAGE_SIZE = 100;
@@ -241,11 +243,18 @@ public class OrganizationAdminService {
         Organization org = organizations.findById(organizationId)
                 .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
 
+        // E4 — captured before the setter, or the event records PRO -> PRO and shows no change at all.
+        String before = org.getPlan();
+
         org.setPlan(plan.code());
         // Moving OFF a trial clears its end date. Leaving a stale date behind would make a paying customer
         // read as a lapsed trial on the very screen an operator uses to decide who to chase.
         if (plan != Plan.TRIAL) org.setTrialEndsAt(null);
         organizations.save(org);
+
+        audit.operatorAction(ControlPlaneAuditService.PLAN_CHANGE,
+                ControlPlaneAuditService.ENTITY_ORGANIZATION, String.valueOf(organizationId),
+                organizationId, before, plan.code(), reason, actorUserId, null);
     }
 
     /**
@@ -290,8 +299,19 @@ public class OrganizationAdminService {
 
         Organization org = organizations.findById(organizationId)
                 .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
+        // E4 — before the setter. A suspension and a re-suspension must not read identically.
+        String before = org.getStatus();
         org.setStatus(status.code());
         organizations.save(org);
+
+        /*
+         * Recorded AFTER the self-suspension guard above, so a refused attempt leaves no trace of a change
+         * that did not happen. The attempt itself is not nothing — but it belongs in a security log, not in
+         * the customer's own history of what was done to their account.
+         */
+        audit.operatorAction(ControlPlaneAuditService.STATUS_CHANGE,
+                ControlPlaneAuditService.ENTITY_ORGANIZATION, String.valueOf(organizationId),
+                organizationId, before, status.code(), reason, actorUserId, null);
         // No cache to invalidate: the status is read from the Organization row on the login/refresh path,
         // which loads it fresh every time. Deliberately NOT cached — this is a cold path, and a cached
         // suspension would be the one kind of staleness that lets a stopped tenant keep trading.
@@ -384,7 +404,8 @@ public class OrganizationAdminService {
         String previousShape = settings
                 .overrideFor(organizationId, com.myplus.common.settings.Shape.settingKey())
                 .orElse(null);
-        shapeHistoryRepo.save(com.myplus.auth.entity.OrgShapeHistory.builder()
+        com.myplus.auth.entity.OrgShapeHistory memento = shapeHistoryRepo.save(
+                com.myplus.auth.entity.OrgShapeHistory.builder()
                 .organizationId(organizationId)
                 .changedAt(LocalDateTime.now())
                 .changedBy(actorUserId)
@@ -410,6 +431,23 @@ public class OrganizationAdminService {
         // The rows were written outside SettingsService.set, so nothing has evicted its cache. Without this
         // the operator changes a business type, watches nothing happen, and reports it as broken.
         settings.evictOrganization(organizationId);
+
+        /*
+         * E4 — ONE event, whichever door was used.
+         *
+         * This method serves BOTH an operator changing somebody else's business type and an owner changing
+         * their own, so the actor type is the one place it must be DERIVED rather than stated: the emitter
+         * compares the actor's org with the subject's, which is true by construction on both paths. Stating
+         * it here would mean stating it twice, and the second one would eventually be wrong.
+         *
+         * The event points at the ONB-3 memento rather than repeating it (ruling D-3). They answer different
+         * questions — the memento is the state an undo will read, this is the trail — and the count is
+         * carried because "11 switches cleared" is what makes an operator look at the memento at all.
+         */
+        int cleared = overrides == null ? 0 : overrides.size();
+        audit.shapeAction(String.valueOf(memento.getId()), organizationId,
+                previousShape, shape.code(), reason, actorUserId,
+                cleared == 0 ? null : cleared + " capability overrides cleared");
     }
 
     /**

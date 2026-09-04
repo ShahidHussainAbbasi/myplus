@@ -377,6 +377,34 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 + "cannot be on two live plans at once. A mobile or electronics shop wants "
                                 + "this on; a shop financing furniture has nothing to type in it.",
                         false, "Installments"),
+                /*
+                 * R4 — how many guarantors a financed sale must name.
+                 *
+                 * ⚠⚠ THE DEFAULT IS ZERO, AND IT IS THE MOST IMPORTANT NUMBER IN THE SLICE.
+                 *
+                 * Measured 2026-09-04: 43 organisations, 6 of which have chosen a business type. The other 37
+                 * fall back to Shape.GENERAL, whose preset is EVERY capability — installments included — and
+                 * three more are on RETAIL, which carries INSTALLMENTS explicitly.
+                 *
+                 * A default of 2 would stop 40 of 43 tenants completing an installment sale on the day it
+                 * deployed, for a rule not one of them asked for: a pharmacy selling a wheelchair on terms,
+                 * refused at the counter and told to name two guarantors it has never heard of. That is
+                 * exactly what Shape.GENERAL exists to prevent — "GENERAL is the migration, and it is why
+                 * this deploy changes nothing".
+                 *
+                 * So 0 ships, the panel does not render, and the shop that wants the rule turns it on. A
+                 * feature that arrives switched on for everyone is the same defect as a capability that
+                 * arrives switched on for everyone, and this codebase has already paid for that one.
+                 *
+                 * Counts GUARANTOR rows only, and applies when a plan is CREATED — never retrospectively, or
+                 * the 211 live plans carrying none would become unopenable and unpayable.
+                 */
+                SettingEntry.intOf("installments.guarantorsRequired",
+                        "Guarantors required on an installment sale",
+                        "How many guarantors a sale on terms must name before a plan can be created. "
+                                + "0 asks for none and hides the panel entirely. Applies to new plans only — "
+                                + "raising it never invalidates a plan already recorded.",
+                        0, "Installments"),
                 SettingEntry.bool("pos.installment.repossession.enabled",
                         "Allow a financed item to be repossessed",
                         "Off by default. On: a defaulted plan can be closed by taking the item back — the "

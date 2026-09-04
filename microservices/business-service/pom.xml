@@ -16,6 +16,7 @@
     <dependency><groupId>com.myplus</groupId><artifactId>common-settings</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- Shared transactional-outbox relay (was business-local; education now uses it too — slice 0.1). -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-outbox</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-audit</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- Slice 0.2a: shared subledger settlement (FIFO allocation), aging + statement builders. -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-subledger</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- Slice 0.2b: shared party-credit rules (append-only ledger, capped redeem, cached balance). -->

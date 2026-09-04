@@ -27,6 +27,28 @@ public class AuditEvent {
     @Column(name = "user_id")
     private Long userId;
 
+    /**
+     * E4 — the ACTOR AXIS: which organization the actor belongs to, and whether that is this tenant.
+     *
+     * <p>Every row written before E4 had {@code actorOrgId == organizationId}, so the question never arose. A
+     * platform operator acting on a customer's tenant is the case that needs it: without these two columns the
+     * trail either hides the change from the customer or attributes it to one of their own staff, and the
+     * second is worse — an owner auditing their configuration would blame a colleague for a platform decision.
+     *
+     * <p>{@code actorType} is {@code MEMBER · PLATFORM_OPERATOR · SYSTEM} and deliberately not a role name.
+     * audit-service does not know roles; encoding one would make the column lie the moment that person's role
+     * changed. Inside-or-outside is a fact about the event and does not decay.
+     */
+    @Column(name = "actor_org_id")
+    private Long actorOrgId;
+
+    @Column(name = "actor_type", length = 24)
+    private String actorType;
+
+    /** Stamped, not resolved on read — the trail must stay readable after the person's user row is gone. */
+    @Column(name = "actor_email", length = 160)
+    private String actorEmail;
+
     @Column(name = "source_service", length = 32)
     private String sourceService;
 
@@ -44,6 +66,20 @@ public class AuditEvent {
 
     @Column(name = "details", length = 500)
     private String details;
+
+    /**
+     * E4 — WHY. Its own column rather than free text inside {@code details}: mandatory on every control-plane
+     * write since E2, and the only question anybody asks of this trail six months later.
+     */
+    @Column(name = "reason", length = 255)
+    private String reason;
+
+    /** E4 — what it changed FROM and TO. A record keeping only the new value cannot show a change. */
+    @Column(name = "before_value", length = 64)
+    private String beforeValue;
+
+    @Column(name = "after_value", length = 64)
+    private String afterValue;
 
     @Column(name = "event_key", length = 64)
     private String eventKey;

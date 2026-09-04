@@ -50,6 +50,12 @@ public class PlatformAdminController {
     @Value("${auth.server.url:http://localhost:8765}")
     private String authDirectUrl;
 
+    /** E4 — audit-service's controllers map at the full {@code /api/audit/...} path (no StripPrefix). */
+    private static final String AUDIT_PREFIX = "/api/audit";
+
+    @Value("${audit.service.url:http://localhost:8095/api/audit}")
+    private String auditDirectUrl;
+
     /** One page of tenants. Search and paging are server-side — see OrganizationAdminService. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/organizations", method = RequestMethod.GET)
@@ -365,6 +371,49 @@ public class PlatformAdminController {
             return authPost("/admin/provision-tenant", body);
         } catch (Exception e) {
             LOGGER.error("platform provisionTenant proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * E4 — one tenant's control-plane activity, for the console's Activity panel.
+     *
+     * <h3>Why this proxies audit-service directly rather than going through auth</h3>
+     * The trail is audit-service's, and auth-service is a PRODUCER of it, not its owner. Routing the read
+     * through auth would make auth a second front door onto somebody else's data and would have to duplicate
+     * the {@code organizationId} authorization rule that already lives in {@code AuditIngestService}.
+     *
+     * <h3>The org parameter is safe to forward, and that is not this class's doing</h3>
+     * audit-service honours it only for {@code ROLE_ADMIN} ({@code CurrentUser.organizationIdFor} — the ONB-3
+     * rule) and silently substitutes the caller's own org for everyone else. So the decision is made on the
+     * authority in the token, where it belongs; the {@code @PreAuthorize} here only stops this proxy answering
+     * a customer at all.
+     *
+     * <p>audit-service answers with a raw JSON ARRAY — it is the platform's one non-enveloped endpoint —
+     * so this wraps it in the {@code ApiResponse} shape every other platform call returns. A screen that had
+     * to unwrap two different envelopes depending on which panel it was drawing is how a null check gets
+     * forgotten.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/activity", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> activity(final HttpServletRequest request) {
+        try {
+            String action = request.getParameter("action");
+            String limit = request.getParameter("limit");
+            StringBuilder qs = new StringBuilder("?organizationId=")
+                    .append(enc(request.getParameter("organizationId")))
+                    .append("&limit=").append(limit == null ? "200" : enc(limit));
+            if (action != null && !action.isBlank()) qs.append("&action=").append(enc(action));
+
+            String json = gateway.forString(AUDIT_PREFIX, auditDirectUrl, qs.toString(),
+                    HttpMethod.GET, null, null);
+            java.util.List<Object> rows = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(json == null || json.isBlank() ? "[]" : json,
+                               new com.fasterxml.jackson.core.type.TypeReference<java.util.List<Object>>() {});
+            return Map.of("success", true, "data", Map.of("rows", rows));
+        } catch (Exception e) {
+            LOGGER.error("platform activity proxy error", e);
             return ProxyErrors.failure(e);
         }
     }

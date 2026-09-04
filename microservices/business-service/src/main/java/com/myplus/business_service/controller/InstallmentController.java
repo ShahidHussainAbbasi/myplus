@@ -51,6 +51,8 @@ public class InstallmentController {
     @Autowired private com.myplus.business_service.repository.CustomerRepo customerRepo;
     /** ONB-3 — read directly for the two aggregates the migration preview needs; no service logic involved. */
     @Autowired private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
+    /** R4 — the people standing behind a financed sale. */
+    @Autowired private com.myplus.business_service.service.PlanGuarantorService planGuarantorService;
 
     /**
      * Customer names for a set of plans, in ONE query.
@@ -290,5 +292,115 @@ public class InstallmentController {
             LOGGER.error("repossessPlan failed", e);
             return new GenericResponse("FAILED", "The repossession could not be completed.");
         }
+    }
+
+    // ── R4: guarantors ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * R4 — one plan's guarantors.
+     *
+     * <p>⚠ Scoped by the org from the TOKEN and not only by {@code planId}: the id arrives off the wire, and
+     * an id off the wire is not an id followed from a row the caller could already see. A plan belonging to
+     * another tenant answers with an empty list rather than a refusal, so a prober learns nothing — not even
+     * whether the plan exists.
+     */
+    @GetMapping("/planGuarantors")
+    public GenericResponse planGuarantors(@RequestParam("planId") Long planId) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (com.myplus.business_service.entity.PlanGuarantor g : planGuarantorService.forPlan(orgId, planId)) {
+            rows.add(planGuarantorService.asMap(g));
+        }
+        return new GenericResponse("SUCCESS", "guarantors", rows);
+    }
+
+    /**
+     * R4 — add a guarantor to a plan that already exists.
+     *
+     * <h3>Why a plan can gain one afterwards</h3>
+     * 211 live plans carry none, because there was nowhere to record one. A feature that only ever applied to
+     * future sales would leave every one of them permanently unguaranteed — the same reason there is no
+     * backfill and no retrospective refusal.
+     */
+    @PostMapping("/savePlanGuarantor")
+    public GenericResponse savePlanGuarantor(
+            @RequestParam("planId") Long planId,
+            @RequestParam("name") String name,
+            @RequestParam(name = "cnic", required = false) String cnic,
+            @RequestParam(name = "contact", required = false) String contact,
+            @RequestParam(name = "address", required = false) String address,
+            @RequestParam(name = "role", required = false) String role,
+            @RequestParam(name = "customerId", required = false) Long customerId) {
+
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        Long userId = com.myplus.common.security.CurrentUser.userId();
+
+        // The plan must be THIS tenant's. Checked by reading it through the org-scoped path rather than
+        // trusting the id.
+        com.myplus.business_service.entity.InstallmentPlan plan =
+                installmentPlanRepo.findById(planId).orElse(null);
+        if (plan == null || orgId == null || !orgId.equals(plan.getOrganizationId())) {
+            return new GenericResponse("FAILED", "No such plan.");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            return new GenericResponse("FAILED", "A guarantor needs a name.");
+        }
+
+        com.myplus.business_service.dto.GuarantorDTO g = new com.myplus.business_service.dto.GuarantorDTO();
+        g.setName(name);
+        g.setCnic(cnic);
+        g.setContact(contact);
+        g.setAddress(address);
+        g.setRole(role);
+        g.setCustomerId(customerId);
+
+        planGuarantorService.save(orgId, planId, userId, java.util.List.of(g));
+        return new GenericResponse("SUCCESS", "Guarantor added.");
+    }
+
+    /**
+     * R4 — remove a guarantor.
+     *
+     * <p>{@code ADMIN_PRIVILEGE}, matching this service's rule for destructive operations: a guarantor record
+     * is the shop's recourse, and removing one is not a cashier's decision.
+     */
+    @PostMapping("/deletePlanGuarantor")
+    @PreAuthorize(OWNER_ONLY)
+    public GenericResponse deletePlanGuarantor(@RequestParam("id") Long id) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        boolean gone = planGuarantorService.delete(orgId, id);
+        return gone ? new GenericResponse("SUCCESS", "Guarantor removed.")
+                    : new GenericResponse("FAILED", "No such guarantor.");
+    }
+
+    /**
+     * R4 — recall a guarantor this shop has used before, by their COMPLETE CNIC.
+     *
+     * <p>⚠ Exact match on 13 digits, within the caller's own org. A prefix search would let staff type
+     * {@code 352} and walk a list of national identifiers; a full match cannot be walked, because the caller
+     * already has to be holding the card. A short or unknown CNIC returns an empty object, never an error —
+     * "not found" and "too short" look identical from outside, deliberately.
+     */
+    @GetMapping("/guarantorRecall")
+    public GenericResponse guarantorRecall(@RequestParam(name = "cnic", required = false) String cnic) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        return new GenericResponse("SUCCESS", "recall", planGuarantorService.recall(orgId, cnic));
+    }
+
+    /** R4 — the guarantors this shop uses most, for one-tap recall. This org's own, and nobody else's. */
+    @GetMapping("/recentGuarantors")
+    public GenericResponse recentGuarantors(
+            @RequestParam(name = "limit", required = false, defaultValue = "8") int limit) {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        return new GenericResponse("SUCCESS", "recent",
+                planGuarantorService.recent(orgId, Math.min(Math.max(limit, 1), 25)));
+    }
+
+    /** R4 — how many guarantors this shop requires, so the screen can render that many blocks. */
+    @GetMapping("/guarantorsRequired")
+    public GenericResponse guarantorsRequired() {
+        Long orgId = com.myplus.common.security.CurrentUser.organizationId();
+        return new GenericResponse("SUCCESS", "required",
+                java.util.Map.of("required", planGuarantorService.requiredCount(orgId)));
     }
 }

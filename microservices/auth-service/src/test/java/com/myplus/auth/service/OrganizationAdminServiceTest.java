@@ -73,6 +73,13 @@ class OrganizationAdminServiceTest {
                 mock(com.myplus.auth.repository.OrgSettingRepository.class);
         com.myplus.auth.repository.OrgShapeHistoryRepository shapeHistory =
                 mock(com.myplus.auth.repository.OrgShapeHistoryRepository.class);
+        // changeShape audits the memento BY ID, so save() has to hand back a persisted row. A bare mock
+        // returns null and the shape tests die on the audit call rather than on what they are testing.
+        when(shapeHistory.save(any())).thenAnswer(i -> {
+            com.myplus.auth.entity.OrgShapeHistory saved = i.getArgument(0);
+            saved.setId(501L);
+            return saved;
+        });
         com.myplus.common.settings.SettingsService settings =
                 mock(com.myplus.common.settings.SettingsService.class);
         com.myplus.common.settings.CapabilityService caps =
@@ -80,10 +87,11 @@ class OrganizationAdminServiceTest {
         when(orgSettings.findByOrganizationIdAndSettingKeyStartingWith(any(), any())).thenReturn(List.of());
         when(orgSettings.findByOrganizationIdAndSettingKey(any(), any())).thenReturn(Optional.empty());
         when(caps.shapeFor(any())).thenReturn(com.myplus.common.settings.Shape.GENERAL);
+        ControlPlaneAuditService audit = mock(ControlPlaneAuditService.class);
 
         return new Fixture(
                 new OrganizationAdminService(
-                        orgs, members, users, source, orgSettings, shapeHistory, settings, caps),
+                        orgs, members, users, source, orgSettings, shapeHistory, settings, caps, audit),
                 orgs);
     }
 

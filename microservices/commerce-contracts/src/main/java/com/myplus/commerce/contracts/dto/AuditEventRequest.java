@@ -20,4 +20,14 @@ public class AuditEventRequest {
     private String details;
     private String eventKey;        // producer-generated UUID (dedup)
     private LocalDateTime occurredAt;
+
+    // ── E4 — the control-plane fields ─────────────────────────────────────────────────────────────
+    // Identity (which tenant the row belongs to, which user acted) still comes from the authenticated
+    // request. These DESCRIBE the actor; they cannot re-file the record against a different tenant.
+    private Long actorOrgId;        // the actor's own org — equal to the subject org for an insider
+    private String actorType;       // MEMBER | PLATFORM_OPERATOR | SYSTEM (AuditActorType)
+    private String actorEmail;      // stamped, so the trail survives the person leaving
+    private String reason;          // mandatory on every control-plane write since E2
+    private String beforeValue;     // a record of a change that keeps only the new value shows no change
+    private String afterValue;
 }

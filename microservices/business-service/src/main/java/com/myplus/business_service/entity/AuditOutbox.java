@@ -1,60 +1,22 @@
 package com.myplus.business_service.entity;
 
-import jakarta.persistence.*;
-import lombok.Data;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import com.myplus.common.audit.AbstractAuditOutbox;
 
 /**
- * Audit #6: a queued audit event (transactional outbox). Written in the SAME tx as the money/stock change so the
- * event can't be lost; delivered to audit-service by AuditService (AFTER_COMMIT + @Scheduled relay). Mirrors GlOutbox.
+ * Audit #6: business-service's queued audit events (transactional outbox). Written in the SAME transaction as
+ * the money/stock change so an event can neither be lost nor survive a rollback; delivered to audit-service
+ * after commit by {@code AuditService}.
+ *
+ * <p>E4 moved the columns to {@link AbstractAuditOutbox} — a {@code @MappedSuperclass}, so this service still
+ * owns the {@code audit_outbox} TABLE and its migrations, and only the column set and the delivery behaviour
+ * are shared with the second producer (auth-service). The extraction happened at the second consumer rather
+ * than the third, per the standing rule.
  */
-@Data
 @Entity
 @Table(name = "audit_outbox", indexes = { @Index(name = "idx_audit_outbox_pending", columnList = "status,id") })
-public class AuditOutbox implements com.myplus.common.outbox.OutboxEntry {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name = "action", nullable = false, length = 32)
-    private String action;
-
-    @Column(name = "entity_type", length = 32)
-    private String entityType;
-    @Column(name = "entity_ref", length = 64)
-    private String entityRef;
-
-    @Column(name = "amount", precision = 19, scale = 2)
-    private BigDecimal amount;
-
-    @Column(length = 500)
-    private String details;
-
-    @Column(name = "event_key", length = 64)
-    private String eventKey;
-
-    @Column(name = "occurred_at")
-    private LocalDateTime occurredAt;
-
-    @Column(nullable = false, length = 20)
-    private String status;      // PENDING | POSTED | FAILED
-
-    @Column(nullable = false)
-    private Integer attempts;
-
-    @Column(name = "last_error", length = 500)
-    private String lastError;
-
-    @Column(name = "organization_id")
-    private Long organizationId;
-    @Column(name = "user_id")
-    private Long userId;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+public class AuditOutbox extends AbstractAuditOutbox {
 }
