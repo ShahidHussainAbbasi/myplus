@@ -30,6 +30,22 @@
  */
 const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
 
+/**
+ * A realistic 11-digit mobile number, unique per run.
+ *
+ * WHY THIS HELPER EXISTS - a fixture bug that took a full cycle to find.
+ *
+ * The first cut built numbers as `0300G${run}` / `0300I${run}` / `0333N${run}`, assuming the letter and the
+ * network prefix made them distinct. The server normalises a phone to its LAST TEN DIGITS, so that
+ * +92 300 1234567, 03001234567 and 0300-123-4567 are one number - and under that rule all three fixture
+ * numbers collapsed to the SAME value, because the only thing that differed sat at the FRONT of a 20-digit
+ * string. The buyer and both guarantors became one person, the self-guarantee rule fired correctly, and three
+ * legitimate cases went red reporting "a plan was created" - a failure with nothing to do with guarantors.
+ *
+ * The rule: a fixture must fake a value the way the SERVER reads it. A 20-digit phone is not a phone.
+ */
+const phoneFor = (prefix, run) => prefix + String(run).slice(-7)
+
 const list = (body) => {
   for (const k of ['collection', 'data', 'object']) if (Array.isArray(body && body[k])) return body[k]
   return []
@@ -76,7 +92,8 @@ const customerNamed = (name) =>
 const sellOnPlan = (run, guarantors, opts = {}) =>
   cy.seedProduct({ name: `GRT_${run}`, sellingPrice: 50000, stock: 5 }).then(({ productId }) => {
     const body = {
-      customer: { name: opts.buyerName || `Buyer ${run}`, contact: opts.buyerContact || `0300G${run}`,
+      customer: { name: opts.buyerName || `Buyer ${run}`,
+                  contact: opts.buyerContact || phoneFor('0300', run),
                   paidAmount: 20000, dueAmount: 0 },
       sales: [{ productId, quantity: 1, sellRate: 50000, totalAmount: 50000, netAmount: 50000 }],
       paidAmount: 20000, dueAmount: 0, grandTotal: 50000,
@@ -137,9 +154,11 @@ const guarantorsOf = (planId) =>
   cy.request({ url: `/planGuarantors?planId=${planId}`, failOnStatusCode: false })
     .then((r) => { expect(r.body, `planGuarantors: ${JSON.stringify(r.body)}`).to.be.an('object'); return list(r.body) })
 
-const G1 = (run) => ({ name: `Imran ${run}`, cnic: '35201-1234567-8', contact: `0300I${run}`,
+// Different network prefixes, so the last ten digits differ - see phoneFor. Sharing a suffix here would
+// make every person in the fixture the same person to the server.
+const G1 = (run) => ({ name: `Imran ${run}`, cnic: '35201-1234567-8', contact: phoneFor('0311', run),
                        address: '12 Mall Road, Lahore' })
-const G2 = (run) => ({ name: `Nadia ${run}`, cnic: '35202-7654321-2', contact: `0333N${run}`,
+const G2 = (run) => ({ name: `Nadia ${run}`, cnic: '35202-7654321-2', contact: phoneFor('0333', run),
                        address: '44 Ferozepur Road' })
 
 describe('R4 — guarantors on an installment plan', () => {
@@ -178,7 +197,7 @@ describe('R4 — guarantors on an installment plan', () => {
         expect(imran, 'the first guarantor by name').to.be.an('object')
         // Every field, not just the name: a partial save looks identical to a complete one on a list screen.
         expect(imran.cnic, 'CNIC').to.eq('35201-1234567-8')
-        expect(imran.contact, 'mobile').to.contain('0300I')
+        expect(imran.contact, 'mobile').to.eq(G1(run).contact)
         expect(imran.address, 'address').to.contain('Mall Road')
       })
     })
@@ -284,7 +303,8 @@ describe('R4 — guarantors on an installment plan', () => {
     // CNIC is Pakistani; this product ships in six languages. The format is advice, never a refusal —
     // only the NAME is ever mandatory.
     const run = uniq()
-    const odd = { name: `Foreign ${run}`, cnic: 'AB-99887766', contact: `0311F${run}`, address: 'Dubai' }
+    const odd = { name: `Foreign ${run}`, cnic: 'AB-99887766', contact: phoneFor('0345', run),
+                  address: 'Dubai' }
     setConfig(REQ, '1')
     sellOnPlan(run, [odd]).then((r) => {
       expect(r.body.status, `an unusual identifier must not block a sale: ${JSON.stringify(r.body)}`)
@@ -357,7 +377,7 @@ describe('R4 — guarantors on an installment plan', () => {
      */
     const run2 = uniq()
     const selfCnic = '35201-5556667-1'
-    const selfPhone = `0300S${run2}`
+    const selfPhone = phoneFor('0300', run2)   // deliberately the SAME number on both sides
     sellOnPlan(run2, [{ name: `Self ${run2}`, cnic: selfCnic, contact: selfPhone }, G2(run2)],
                { buyerName: `Self ${run2}`, buyerContact: selfPhone, buyerCnic: selfCnic })
       .then((r) => expectPlanRefused(r, `Self ${run2}`, 'the buyer guaranteeing himself'))

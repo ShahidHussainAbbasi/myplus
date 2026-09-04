@@ -65,6 +65,9 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                 // C3c: the tenant's capabilities as resolved at token mint. Absent header => stays null =>
                 // the callee falls back to its own settings store (pre-C3c behaviour). See parseCapabilities.
                 principal.setCapabilities(parseCapabilities(request.getHeader("X-Org-Caps")));
+                // E5 — the support scope. Absent header => no session => the caller reaches only their own
+                // organization, which is what every request that is not platform support should get.
+                applySupportScope(principal, request.getHeader("X-Support-Scope"));
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
                 // Also store in request attributes as a reliable fallback (read by CurrentUser.get()).
@@ -73,6 +76,32 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * E5 — parse {@code X-Support-Scope} ("orgId|expiresAt|writeApproved") onto the principal.
+     *
+     * <p><b>Anything unparseable leaves the principal with NO scope.</b> A malformed header must never widen
+     * a caller: the failure mode of guessing would be a cross-tenant read granted by a typo, and there is no
+     * plausible reading of a broken value that is safer than "no session".
+     *
+     * <p>The expiry is applied here rather than trusted blindly at the call site, so a token still carrying a
+     * finished session grants nothing.
+     */
+    private void applySupportScope(AuthenticatedUser principal, String header) {
+        String v = cleanHeader(header);
+        if (v == null) return;
+        String[] parts = v.split("\\|", -1);
+        if (parts.length < 2) return;
+        try {
+            principal.setSupportOrgId(Long.valueOf(parts[0].trim()));
+            principal.setSupportUntil(java.time.LocalDateTime.parse(parts[1].trim()));
+            principal.setSupportWrite(parts.length > 2 && "true".equalsIgnoreCase(parts[2].trim()));
+        } catch (RuntimeException malformed) {
+            principal.setSupportOrgId(null);
+            principal.setSupportUntil(null);
+            principal.setSupportWrite(false);
+        }
     }
 
     /** Trim a header; treat blank / literal "null" as absent. */

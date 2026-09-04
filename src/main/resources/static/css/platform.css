@@ -192,6 +192,38 @@
 /* There is deliberately NO hover-reveal edit or delete control here. audit_event is append-only, and a
  * panel that looks editable teaches operators to expect an undo that does not exist. */
 
+
+/* ── E5: the support session bar ───────────────────────────────────────────── */
+
+/* AMBER, used nowhere else on this screen. Blue is the console's own colour and green/red already mean
+ * entitled/revoked; a session needs to read as a STATE the operator is inside, not as a status of the
+ * tenant. Sticky, because an operator scrolling a customer's figures must not have to scroll back up to
+ * remember whose they are. */
+.plat-support{
+  position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:10px 14px; margin:0 0 14px; border-radius:10px;
+  background:#fdf3e0; border:1px solid #d9a441; color:#6b4600;
+  font-size:13px;
+}
+.plat-support .glyphicon{ font-size:12px; }
+.plat-support__text{ font-weight:600; }
+/* Tabular figures so a ticking countdown does not shuffle the row sideways every second. */
+.plat-support__left{ font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap; }
+.plat-support__reason{ font-style:italic; opacity:.85; overflow-wrap:anywhere; flex:1 1 200px; }
+.plat-support .btn{ margin-left:auto; }
+[dir="rtl"] .plat-support .btn{ margin-left:0; margin-right:auto; }
+
+/* Under five minutes. Expiry must never be a surprise mid-investigation — an operator who gets cut off
+ * halfway opens a four-hour session next time, which is the control quietly defeating itself. */
+.plat-support--ending{ background:#fbeae8; border-color:#c0392b; color:#8c2318; }
+
+/* No session: a quiet prompt, not an alarm. Most of the time this is the correct state and it should not
+ * look like something is wrong. */
+.plat-support--none{
+  background:var(--plat-none-bg,#f7f9fc); border:1px dashed #c9d1dd; color:#5a6677; font-weight:400;
+}
+
 /* ── Phones. The app's existing 991 breakpoint (responsive contract) ───────── */
 @media (max-width:991px){
   .plat__body{ padding:16px 12px 48px; }
@@ -208,4 +240,10 @@
   .plat-act__when{ margin-left:0; }
   [dir="rtl"] .plat-act__when{ margin-right:0; }
   .plat-act__head{ gap:4px; }
+  /* E5 — the bar stacks rather than squeezing five things into a phone width, and the button goes full
+   * width so "Close" is never a 20px target beside a wrapping reason. */
+  .plat-support{ align-items:flex-start; }
+  .plat-support .btn{ margin-left:0; width:100%; }
+  [dir="rtl"] .plat-support .btn{ margin-right:0; }
+  .plat-support__reason{ flex-basis:100%; }
 }

@@ -45,6 +45,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProductPolicyAdminController {
 
+    /** E5 — the record of what the platform did to this customer's products. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.catalog.service.CatalogAuditService audit;
+
     private final ProductRepository products;
 
     /**
@@ -119,6 +123,23 @@ public class ProductPolicyAdminController {
                                                                @RequestParam String capability) {
         Long org = CurrentUser.organizationIdFor(organizationId);
         Long user = CurrentUser.scopeUserIdFor(org);
+
+        /*
+         * E5 — a platform operator changing a CUSTOMER'S records needs that customer's consent.
+         *
+         * An open support session is not enough. Reading a shop's figures to answer their question and
+         * altering their product policy are different asks, and only the second is irreversible from where
+         * the shop is standing — nineteen products stopped selling in ONB-3's own gate run.
+         *
+         * The tenant acting on ITSELF is untouched: organizationIdFor resolves to their own org, the branch
+         * below is false, and nothing changes for the path that has always existed.
+         */
+        boolean crossTenant = org != null && !org.equals(CurrentUser.organizationId());
+        if (crossTenant && !CurrentUser.supportSessionMayWrite(org)) {
+            // A refusal is an ANSWER, not a failure — the envelope carries it, and the sentence is written
+            // for the operator reading it on the console rather than for a log.
+            return ApiResponse.error("This business has not allowed changes during this support session.", 403);
+        }
         boolean batch = "tracksBatch".equalsIgnoreCase(capability) || "batchTracking".equalsIgnoreCase(capability);
 
         List<Product> found = batch ? products.findTrackingBatch(org, user) : products.findRequiringSerial(org, user);
@@ -126,6 +147,18 @@ public class ProductPolicyAdminController {
             if (batch) p.setTracksBatch(false); else p.setRequiresSerial(false);
         }
         products.saveAll(found);
+
+        /*
+         * E5 — recorded against the CUSTOMER, in this transaction.
+         *
+         * Only for a cross-tenant clear: a shop tidying its own product policy is ordinary configuration it
+         * can already see on its own screens, and recording it would bury the one event that matters under
+         * the ones that do not.
+         */
+        if (crossTenant) {
+            audit.policyCleared(org, capability, found.size(),
+                    "Cleared during a support session");
+        }
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("cleared", found.size());

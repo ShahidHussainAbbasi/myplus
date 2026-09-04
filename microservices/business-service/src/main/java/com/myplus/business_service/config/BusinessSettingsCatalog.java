@@ -254,6 +254,33 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "On (default). Wholesale and distribution use it for \"20 billed, 2 free\"; a "
                                 + "retail till almost never does.",
                         true, "Sale entry"),
+                /*
+                 * SER-3d — the Serial / IMEI field, on the sale line AND on goods-in.
+                 *
+                 * ⚠ IT WAS NEVER SETTABLE. The markup has carried data-pos-field="serial" since SER-3, and
+                 * its own comment claimed "a tenant can still switch it off through the sale-screen
+                 * configuration" — but the key was never registered and never added to posFieldsFor's MAP,
+                 * so the hook was inert and the claim was false. The same shape as the quote settings that
+                 * existed in code for months while nobody could set them, which left PENDING_APPROVAL
+                 * unreachable for every tenant.
+                 *
+                 * ON by default, which is exactly today's behaviour: a tenant with the serialTracking
+                 * capability sees the field. The capability decides WHETHER this shop does serials at all;
+                 * this decides whether the field sits on the entry line for the ones that do — a shop that
+                 * records IMEIs only at goods-in, never at the till, can now take it off the sale row
+                 * without losing the capability.
+                 *
+                 * ⚠ Turning it off does NOT stop the server demanding a serial for a product whose policy
+                 * requires one. The help text says so, because a shop that hid the field and then met a
+                 * refusal it could not satisfy would have no way to connect the two.
+                 */
+                SettingEntry.bool("pos.entry.showSerial",
+                        "Show the Serial / IMEI field",
+                        "On (default): the Serial / IMEI box appears on the sale line and on goods-in, for "
+                                + "shops that record a number per unit. Off: it is hidden in both places. "
+                                + "This only hides the field — a product whose policy requires a serial is "
+                                + "still refused without one, so switch it off only if no product needs it.",
+                        true, "Sale entry"),
                 SettingEntry.bool("pos.entry.showStock",
                         "Show on-hand stock on the sale line",
                         "On (default): the cashier sees what is in stock as they pick an item. Turn off "

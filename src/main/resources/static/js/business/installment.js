@@ -434,7 +434,17 @@
 			installmentCount: count,
 			frequency: $('#instFrequency').val() || 'monthly',
 			firstDueDate: firstDue,
-			assetRef: $('#instAssetRef').val() || null,
+			/*
+			 * SER-3b: taken from the SALE LINE's serial box, not from a second field of our own.
+			 *
+			 * The panel used to carry its own "IMEI / serial" input beside #sellSerials, so the same number
+			 * was asked for twice on one screen and the two could disagree — with nothing saying which one
+			 * the serial register would actually read.
+			 *
+			 * assetRef is the plan's human LABEL ("which handset is this plan against?"); #sellSerials is
+			 * what the register validates. One number, entered once, doing both jobs.
+			 */
+			assetRef: $.trim($('#sellSerials').val() || '') || null,
 			// R4 - an ARRAY, and it must exist on BOTH InstallmentPlanDTO twins or it is dropped in transit:
 			// the monolith re-serialises this block on its way to business-service, so a field on one side
 			// only vanishes silently and the sale still succeeds.
@@ -446,7 +456,7 @@
 	global.resetInstallmentPanel = function () {
 		$('#sellOnInstallment').prop('checked', false);
 		$('#sellInstallmentFields').hide();
-		$('#instDownPayment, #instAssetRef, #instFirstDueDate, #instFirstDueDateText').val('');
+		$('#instDownPayment, #instFirstDueDate, #instFirstDueDateText').val('');
 		$('#instSchedulePreview').empty();
 		// The next customer must not inherit the last one's guarantors — the same reason the terms are cleared.
 		if (typeof global.resetGuarantors === 'function') global.resetGuarantors();

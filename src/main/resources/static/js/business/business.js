@@ -3600,6 +3600,72 @@ var purchaseLineCount  = 0;       // lines saved onto the bill currently open
 // crud-modal.js. This list is not flipped to match because the purchase flow is gated by 28 Cypress
 // cases and has no live defect (every field on the form today is accounted for); instead
 // assertPurchaseFieldsAccounted() below makes an unaccounted field announce itself.
+/* ── SER-3c: a serialled PURCHASE line is one unit ───────────────────────────────────────────────
+ *
+ * The mirror of applySerialQuantityLock() on the sale side, and it exists for the same reason: a serial
+ * number identifies ONE physical thing, so the moment one is entered the quantity is 1 and there is nothing
+ * for the operator to decide.
+ *
+ * The server already enforced it from the other direction — SerialUnitService.validateForPurchase refuses a
+ * line whose serial COUNT does not equal its quantity, because "a purchase of three handsets with two IMEIs
+ * means one unit is unaccounted for, and the shop would never find out which". Before this, goods-in met
+ * that rule as a REFUSAL after the whole receipt had been typed.
+ *
+ * ⚠ READONLY, NOT DISABLED. #purchaseQuantity carries name="quantity" and is form-serialized, and a disabled
+ * input is dropped by FormData and by jQuery serialize — so `disabled` would post a purchase line with NO
+ * quantity, recording a receipt of zero units or failing for a reason nothing on the screen could explain.
+ * That is the silent-drop shape this codebase has already paid for twice (the bonus column, the GL outbox
+ * fields). `readonly` cannot be typed into, looks the same, and still submits.
+ *
+ * Ten handsets are now ten lines, which "Save & Add Another" (P6) turns into scan-and-repeat.
+ */
+function applyPurchaseSerialQuantityLock() {
+	var $serial = $('#purchaseSerials');
+	var $qty = $('#purchaseQuantity');
+	if (!$serial.length || !$qty.length) return;
+
+	var hasSerial = $.trim($serial.val() || '') !== '';
+	if (hasSerial) {
+		$qty.val(1).prop('readonly', true).addClass('is-locked-by-serial')
+			.attr('title', t('ui.js.qtyLockedBySerial', 'One serial number is one unit.'));
+
+		/*
+		 * PACK / BOX goes with it — a serialled line CANNOT be a box.
+		 *
+		 * BOX means "quantity x packsPerBox" (U5): ten boxes of ten is a hundred units. A serial identifies
+		 * ONE physical thing, so the two are contradictory by construction — and leaving the toggle on screen
+		 * beside a quantity locked at 1 offers the operator a choice whose only outcomes are a refused
+		 * receipt or, worse, one unit booked in as a hundred with a single IMEI against it.
+		 *
+		 * Forced back to PACK through setPurchaseUnit rather than by hiding the buttons: that function also
+		 * clears packsPerBox and hides its input and the box hint, so a factor typed a moment ago cannot ride
+		 * along invisibly on a purchase that is no longer in box mode.
+		 */
+		if (typeof setPurchaseUnit === 'function' && $('#purchaseUnit').val() === 'BOX') {
+			setPurchaseUnit('PACK');
+		}
+		$('.purchase-unit-wrap').addClass('is-locked-by-serial').hide();
+
+		// The line total follows the quantity, and nothing else recalculates it for us: the field is
+		// readonly now, so the keyup/blur handlers that normally drive calculateNetPurchase() never fire.
+		// Without this the operator sees the previous quantity's total against a quantity of 1.
+		if (typeof calculateNetPurchase === 'function') calculateNetPurchase();
+	} else if ($qty.hasClass('is-locked-by-serial')) {
+		// Release only a lock THIS rule applied — a quantity made readonly by anything else is not ours.
+		$qty.prop('readonly', false).removeClass('is-locked-by-serial').removeAttr('title');
+		// Same rule for the unit toggle: only restore the one this lock hid. A shop whose products are not
+		// divisible may have it hidden for its own reasons, and un-hiding that would be inventing a control.
+		$('.purchase-unit-wrap.is-locked-by-serial').removeClass('is-locked-by-serial').show();
+	}
+}
+
+// `input` as well as `change`, so a SCANNER locks the quantity the instant the code lands rather than when
+// focus finally leaves the field.
+$(document).on('input change', '#purchaseSerials', applyPurchaseSerialQuantityLock);
+
+/** Exposed so the P6 "Save & Add Another" path can release the lock as it clears the line. */
+window.applyPurchaseSerialQuantityLock = applyPurchaseSerialQuantityLock;
+
 var PURCHASE_LINE_FIELDS = [
 	'purchaseId', 'purchaseItemDesc', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
 	'purchaseBatchNo', 'purchaseExpiry', 'purchaseTaxRate', 'purchaseTotalAmount', 'purchaseNetAmount',
@@ -3607,13 +3673,21 @@ var PURCHASE_LINE_FIELDS = [
 	// purchasePaid is NOT a header field despite looking like one. Its placeholder is "Blank = paid in
 	// full (cash)", so carrying a typed value onto the next line posts that payment again and credits
 	// the vendor once per line. Everything else in this list is convenience; this one is money.
-	'purchasePaid'
+	'purchasePaid',
+	// SER-3c: a serial identifies ONE unit, so it can never survive onto the next line. It was in
+	// neither list before this — assertPurchaseFieldsAccounted() was already warning about it — and
+	// with one serial per line a sticky IMEI would register the previous handset against the next.
+	'purchaseSerials'
 ];
 
 // The fields that SURVIVE a line deliberately — the bill header. Declared so the two sets together
 // account for the whole form, which is what makes the check below possible.
 var PURCHASE_HEADER_FIELDS = [
-	'purchaseVenderDD', 'purchaseInvoiceNo', 'purchaseDate', 'purchaseItemDD', 'purchaseVendorDues'
+	'purchaseVenderDD', 'purchaseInvoiceNo', 'purchaseDate', 'purchaseItemDD', 'purchaseVendorDues',
+	// SER-3c: condition SURVIVES a line, deliberately — a carton of handsets is one grade, and retyping
+	// "NEW" twenty times is the kind of friction that gets a feature switched off. Sticky here is visible
+	// on screen and cheap to correct; a sticky SERIAL above is neither, which is why they differ.
+	'purchaseCondition'
 ];
 
 /**
@@ -3662,6 +3736,10 @@ window.afterSavePurchase = function () {
 		var el = document.getElementById(PURCHASE_LINE_FIELDS[i]);
 		if (el) el.value = '';
 	}
+	// SER-3c: the loop above blanks the fields by id, which fires no input event — so the quantity lock
+	// applied to the LAST line would survive onto the next one, leaving the operator with a quantity stuck
+	// at 1 and nothing on screen explaining why. Released explicitly, right where the line is cleared.
+	if (typeof applyPurchaseSerialQuantityLock === 'function') applyPurchaseSerialQuantityLock();
 	if (typeof updatePurchaseProjectedOnHand === 'function') updatePurchaseProjectedOnHand();
 
 	// Refresh the grid WITHOUT clear().draw() — blanking the table between every line is the flicker
@@ -3712,9 +3790,15 @@ window.afterSavePurchase = function () {
  * computed totals marked data-kbd-skip in the template all fall out automatically.
  *
  * For a tenant without purchase tax the walk is exactly:
- *   invoice -> batch -> vendor -> item -> qty -> cost -> sell -> date -> expiry -> paid
+ *   invoice -> batch -> vendor -> item -> serial -> condition -> qty -> cost -> sell -> date -> expiry -> paid
  * which is the sequence the form already showed; nothing about the behaviour changed, only where the
  * knowledge of it lives.
+ *
+ * SER-3d demonstrated the point. Moving the serial box in front of QTY put it in the walk with NO code
+ * change here, because the walk is read from the DOM. The sale screen's chain is a literal list of ids in
+ * pos-keyboard.js, and the same move left `sellSerials` out of it entirely — a keyboard-only cashier could
+ * not reach a field the server then refused the sale for. Deriving beats enumerating, and that is the
+ * evidence.
  */
 var PURCHASE_FORM = '#Purchase';
 // (no picker list: enter-chain asks the DOM whether a field is a bootstrap-select)
@@ -4705,6 +4789,10 @@ function posFieldsFor(preset, byKey, chosen){
 	var MAP = {
 		description:     'pos.entry.showDescription',
 		bonus:           'pos.entry.showBonus',
+		// SER-3d: the hook existed in the markup from SER-3 but was never mapped, so the field could not
+		// be switched off however the setting was saved. Registering the key without this line would
+		// have put a control in Configuration that does nothing.
+		serial:          'pos.entry.showSerial',
 		stock:           'pos.entry.showStock',
 		expiry:          'pos.entry.showExpiry',
 		lineDiscount:    'pos.entry.lineDiscountEnabled',
@@ -4773,7 +4861,11 @@ function applyPosFieldVisibility(){
 	// and drag fields back onto the compact row the moment settings were applied. The two mechanisms are
 	// orthogonal (config decides IF a field exists, the row layout decides WHERE), so neither may write
 	// inline styles the other has to fight.
-	$('#sellDiv [data-pos-field]').each(function(){
+	// SER-3d: the PURCHASE modal is walked too. `serial` is the first field that means the same thing on
+	// both screens, and a tenant that hides it on the till but keeps it on goods-in would be describing a
+	// distinction nobody asked for. Scoped to the two containers rather than the document, so a stray
+	// data-pos-field elsewhere cannot be hidden by a setting that was never about it.
+	$('#sellDiv [data-pos-field], #PurchaseModal [data-pos-field]').each(function(){
 		var name = $(this).attr('data-pos-field');
 		$(this).toggleClass('pos-hidden', f[name] === false);   // absent => shown (fail open)
 	});
@@ -4820,6 +4912,67 @@ function applyPosFieldVisibility(){
 // Self-renders from the business-service catalog (/getBusinessConfig â†’ ApiResponse{data:[...]}): each row is one
 // configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
 // new setting is a catalog entry in the service (BusinessSettingsCatalog) — no change here.
+/* ── SER-3b: a serialled line is ONE unit ────────────────────────────────────────────────────────
+ *
+ * A serial number identifies ONE physical thing. Two handsets are two IMEIs, which is two lines — so the
+ * moment a serial is entered, the quantity is 1 and there is nothing to decide.
+ *
+ * The server already enforces this from the other direction: SerialUnitService.validateForSale refuses a
+ * line whose serial COUNT does not equal its quantity ("a purchase of three handsets with two IMEIs means
+ * one unit is unaccounted for"). Before this, the cashier met that rule as a refusal AFTER pressing
+ * Complete Sale, having typed a number the app could already work out.
+ *
+ * ⚠ READONLY, NOT DISABLED — and this is the whole reason this function is not two lines.
+ * A DISABLED input is dropped by FormData and by jQuery's serialize, so the manual Add-to-Cart path
+ * (formToJSON("Sell"), which reads the form BY NAME) would have posted a line with NO quantity at all. The
+ * sale would have been recorded for zero, or refused, for a reason nothing on the screen could explain —
+ * the same silent-drop shape that cost this codebase the bonus column and the GL outbox fields.
+ * `readonly` cannot be typed into, is styled the same way, and is still submitted.
+ */
+function applySerialQuantityLock() {
+	var $serial = $('#sellSerials');
+	var $qty = $('#sellItems');
+	if (!$serial.length || !$qty.length) return;
+
+	var hasSerial = $.trim($serial.val() || '') !== '';
+	if (hasSerial) {
+		$qty.val(1).prop('readonly', true).addClass('is-locked-by-serial')
+			.attr('title', t('ui.js.qtyLockedBySerial', 'One serial number is one unit.'));
+	} else if ($qty.hasClass('is-locked-by-serial')) {
+		// Only release a lock THIS rule applied. A quantity made readonly by anything else — a loose line,
+		// a future rule — is not ours to unlock.
+		$qty.prop('readonly', false).removeClass('is-locked-by-serial').removeAttr('title');
+	}
+}
+
+// `input` rather than `change`, so a SCANNER — which fires no change event until focus leaves — locks the
+// quantity the instant the code lands. A cashier scanning three handsets in a row never sees a stale 3.
+$(document).on('input change', '#sellSerials', applySerialQuantityLock);
+
+/*
+ * Release the lock when the LINE is cleared, however it was cleared.
+ *
+ * After Add-to-Cart the sale line goes through the generic resetForm(), which empties #sellSerials WITHOUT
+ * firing an input event — so a lock applied to the previous line would survive onto the next one, leaving
+ * the cashier with a quantity stuck at 1 and nothing on screen explaining why.
+ *
+ * Bound to the form's own `reset` event rather than patched into each call site, so a reset path added later
+ * is covered without anybody remembering this rule. Deferred by a tick because `reset` fires BEFORE the
+ * browser clears the fields — reading the serial box during the event still returns the old value.
+ */
+$(document).on('reset', 'form', function () {
+	setTimeout(function () {
+		applySerialQuantityLock();
+		// The PURCHASE lock too. newPurchase() resets the modal's form, and a lock left applied there would
+		// open a fresh bill with the quantity stuck at 1 and the Pack/Box toggle missing — with nothing on
+		// the screen to say why, because the serial that caused it has just been cleared.
+		if (typeof applyPurchaseSerialQuantityLock === 'function') applyPurchaseSerialQuantityLock();
+	}, 0);
+});
+
+/** Exposed so a caller that clears the line by hand can release the lock too. */
+window.applySerialQuantityLock = applySerialQuantityLock;
+
 function showBusinessConfig(){
 	$('.formDiv').hide();
 	$('#ConfigDiv').show();
@@ -4916,6 +5069,17 @@ function loadBusinessConfig(){
 		onChangeFn: 'saveBusinessConfigToggle',
 		fieldPrefix:'bcfg'
 	});
+	/*
+	 * E5 - what MaxTheService support has done to this business.
+	 *
+	 * Shared renderer in /js/common/support-access.js: a support session is opened over ANY tenant, so the
+	 * other three dashboards add this same line rather than a copy of the screen. It draws nothing at all
+	 * when the business has never been accessed, so the ordinary case costs nothing.
+	 *
+	 * Guarded so a dashboard served without the shared file still renders its Configuration screen: this
+	 * card is supplementary, and taking the settings list down with it would be a poor trade.
+	 */
+	if (typeof renderPlatformAccess === 'function') { renderPlatformAccess('#platformAccessBox'); }
 }
 
 function saveBusinessConfigToggle(el){

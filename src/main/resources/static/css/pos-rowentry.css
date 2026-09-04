@@ -30,11 +30,18 @@
  * physically regrouping the markup — is the rebuild this file exists to avoid.
  *
  * FIELD ORDER IS THE DOM ORDER, DELIBERATELY
- * The strip reads:  Item · Qty · Stock · Expiry · Price · Total · Disc
+ * The strip reads:  Item · Serial · Qty · Stock · Expiry · Price · Total · Disc
  * Stock/Expiry land next to Qty rather than at the end because that is where
  * the DOM already puts them, and no CSS reordering is needed. It also happens
  * to be the better arrangement: on-hand sits beside the quantity being typed,
  * which is exactly when a cashier needs to see it.
+ *
+ * SER-3d moved Serial in front of Qty — in the markup, not with CSS `order`,
+ * so the tab sequence and the visual sequence stay the same thing. It goes
+ * first because it DECIDES the quantity: entering a serial locks Qty to 1, and
+ * with the old order the cashier typed a number and watched it be overwritten.
+ * Serial is hidden entirely for a tenant without serialTracking, or one that
+ * switched pos.entry.showSerial off, so most tills never see this column.
  *
  * PHONES KEEP THE STACKED FORM
  * Below 992px every rule here is switched off. A seven-column strip on a phone
@@ -251,6 +258,17 @@
 .pos-rowentry #Sell .pos-cell-item{ flex:0 0 210px; }
 .pos-rowentry #Sell .pos-cell-item .col-sm-4{ width:100%; }
 
+/* SER-3d — the serial sits between Item and Qty, and it was the ONE typed field in the strip with no
+ * stated width. Every other one is explicit for the reason at the top of this block: a till is read by
+ * POSITION, and a column that sizes itself to its content is a column nobody can learn the position of.
+ * Left unset, a text input falls back to the browser's ~20-character default and pushed the fields after
+ * it onto a second band.
+ *
+ * 148px fits a 15-digit IMEI at 13px without clipping, which is what this field is for. It does not grow:
+ * an over-long code scrolls inside the box rather than widening the strip mid-scan.
+ */
+.pos-rowentry #sellSerials{ width:148px; }
+
 .pos-rowentry #sellItems{ width:72px; }
 .pos-rowentry #sellSellRate{ width:98px; }
 .pos-rowentry #sellDiscount{ width:84px; }
@@ -428,6 +446,16 @@
    Sits under the serial input on the sale screen. Three states, and the colours carry meaning
    rather than decoration: a USED handset changes what the customer is buying, so it must not look
    the same as a new one at a glance on a busy counter. */
+/* ⚠ In the compact row this badge shares a flex cell with the serial input, and a flex item's default
+ * min-width:auto means its CONTENT can force the cell wider than the input above it — "REFURBISHED · not
+ * in stock" would have dragged the whole strip out and misaligned every field after it. Bounded to the
+ * cell and allowed to wrap instead. */
+.pos-rowentry #sellSerialInfo{
+  max-width: 148px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .serial-info {
   margin-top: 4px;
   padding: 3px 8px;

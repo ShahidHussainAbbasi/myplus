@@ -49,12 +49,30 @@ public class AuthenticatedUser {
     private Set<String> capabilities;
 
     /**
+     * E5 — the tenant this caller holds an OPEN SUPPORT SESSION over, or null for the overwhelming majority
+     * of requests, which are a tenant acting on itself.
+     *
+     * <p>This is the only thing in the platform that widens a caller past their own organization. It is set
+     * from a header the gateway strips and re-stamps from the token, never from anything a client can send.
+     */
+    private Long supportOrgId;
+
+    /** When that session ends. Carried so a callee can answer "still valid?" without calling auth-service. */
+    private java.time.LocalDateTime supportUntil;
+
+    /** Whether the CUSTOMER has allowed this session to change their records (E5 ruling D-2). */
+    private boolean supportWrite;
+
+    /**
      * Legacy constructor (pre multi-location). Keeps existing call sites working; the location fields
      * default to unset, so behaviour is unchanged until the gateway stamps X-Location-* headers.
      */
     public AuthenticatedUser(Long userId, String email, List<SimpleGrantedAuthority> authorities, Long organizationId) {
         // capabilities = NULL, not an empty set: an identity built without the gateway's header has not
         // resolved them, and must fall back rather than assert that nothing is enabled. See the field javadoc.
-        this(userId, email, authorities, organizationId, null, Collections.emptySet(), null, null);
+        // supportOrgId = null / supportWrite = false: an identity the gateway did not stamp holds NO support
+        // session. E5 widens a caller past their own org and that must never be a default (see the field).
+        this(userId, email, authorities, organizationId, null, Collections.emptySet(), null, null,
+                null, null, false);
     }
 }

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<!-- saved from url=(0253)https://90c66dc3-a2c2-4cca-94d2-1124111af23d.frame.claudeusercontent.com/_f/1788282817-7fad/?__frame_t=yyj_7TnwVWyeckzsA5RAehLc.960c3e7a-cec9-4cbe-878d-aa820ff776c3.484ef2ef-2ee4-4444-8576-da7dbb9a9460.1788531454&__frame_v=manifest.4438b201f031cc1b.json -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><!-- frame-runtime --><script>window.__FRAME_PREAMBLE={"v":1,"capabilities":{"artifact":"artifact.BYHii2AW.js","assets":"assets.8Gk803W0.js","comments":"comments.BiSa9uTt.js","db":"db.h-3sndFg.js","downloads":"downloads.th1YuAIk.js","embed":"embed.eqL6deQM.js","endpoints":"endpoints.CfzSv5nM.js","mcp":"mcp.Bvma3qD7.js","network":"network.B5UA9Su4.js","permissions":"permissions.BNySkLV5.js","room":"room.VSdFwTE9.js","sample":"sample.BW2Uysoh.js","self":"artifact.BYHii2AW.js","user":"user.BpKav-Rf.js"},"transforms":"_transforms.DSB5x63f.js","comments":"_comments.CySkkG-P.js","translate":"_translate.5HCW4BJh.js","ldx":"_ldx.DYFNSryD.js"}</script><script>(function(){"use strict";var ce=["light","dark","system"],le=/^[A-Za-z0-9_-]{1,64}$/,Z=/^[a-zA-Z_:][a-zA-Z0-9_:.-]{0,127}$/,ue=new Set(["class","hidden","value","checked","style","title","alt","placeholder","lang","dir","role","tabindex","disabled","readonly","contenteditable","open","colspan","rowspan"]);function fe(e){const t=e.toLowerCase();return t.startsWith("data-")||t.startsWith("aria-")||ue.has(t)}var He="http://www.w3.org/1999/xhtml",de="http://www.w3.org/2000/svg",pe=new Set(["script","style","iframe","noscript","noframes","noembed","xmp","plaintext","template","title","textarea","object","embed"]),me=new Set(["script","style"]);function he(e){const t=e.localName.toLowerCase();return e.namespaceURI==="http://www.w3.org/1999/xhtml"?!pe.has(t):e.namespaceURI===de?!me.has(t):!1}function D(e,t){return e===t||(e===160||e===32)&&(t===160||t===32)}function _e(e,t){const r=e.length,n=t.length;let s=0;for(;s<r&&s<n&&D(e.charCodeAt(s),t.charCodeAt(s));)s++;let o=0;for(;o<r-s&&o<n-s&&D(e.charCodeAt(r-1-o),t.charCodeAt(n-1-o));)o++;return{p:s,s:o}}function ve(e,t){const r=e.firstChild;if(e.childNodes.length!==1||r===null||r.nodeType!==Node.TEXT_NODE){e.textContent=t;return}const n=r.data,s=n.length,o=t.length,{p:i,s:c}=_e(n,t);i===s&&c===0&&s===o||r.replaceData(i,s-i-c,t.slice(i,o-c));const m=r.data,d=e.ownerDocument.getSelection?.()??null,v=d!==null&&d.rangeCount>0&&(d.anchorNode===r||d.focusNode===r)?{anchor:d.anchorNode,anchorOffset:d.anchorOffset,focus:d.focusNode,focusOffset:d.focusOffset}:null;let p=-1,y=-1;for(let h=0;h<m.length&&h<t.length;h++){const E=m.charCodeAt(h),A=t.charCodeAt(h);E!==A&&D(E,A)&&(p<0&&(p=h),y=h)}const w=p>=0;if(w&&r.replaceData(p,y-p+1,t.slice(p,y+1)),w&&v!==null&&v.anchor!==null&&v.focus!==null)try{d.setBaseAndExtent(v.anchor,v.anchorOffset,v.focus,v.focusOffset)}catch{}}var ye=new Set(["html","head","body","frameset"]);function we(e){return e.namespaceURI==="http://www.w3.org/1999/xhtml"&&ye.has(e.localName)}function ge(e){if(e===null||typeof e!="object")return!1;const t=e;if(typeof t.target!="string"||!le.test(t.target)||t.text!==void 0&&typeof t.text!="string")return!1;if(t.attrsSet!==void 0){if(t.attrsSet===null||typeof t.attrsSet!="object")return!1;for(const[r,n]of Object.entries(t.attrsSet))if(!Z.test(r)||typeof n!="string")return!1}if(t.attrsRemoved!==void 0){if(!Array.isArray(t.attrsRemoved))return!1;for(const r of t.attrsRemoved)if(typeof r!="string"||!Z.test(r))return!1}return!0}function Ee(e,t){if(e===null||typeof e!="object")return!1;const{seq:r,elements:n}=e;if(typeof r!="number"||!Number.isSafeInteger(r)||!Array.isArray(n)||n.length===0||n.length>64)return!1;for(let s=0;s<n.length;s++)if(!t(n[s]))return!1;return!0}function be(e){return e===null||typeof e!="object"?!1:Ee(e.__frame_patch,ge)}function Ae(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_init;return t!==null&&typeof t=="object"}function Te(e){return e!==null&&typeof e=="object"&&e.__frame_size_poke===!0}function Re(e){if(e===null||typeof e!="object")return!1;const t=e.__frame_theme;if(t===null||typeof t!="object")return!1;const r=t.theme;return typeof r=="string"&&ce.includes(r)}var S=/^[\w.-]+\.js$/;function Se(e,t,r){return r?"inert":typeof t=="string"&&S.test(t)?e?[t]:"inert":e?"inert":"framed"}var We="frame_ldx_runtime",Ke="script#an-form";function Le(){return{post(e,t){parent.postMessage(e,t)},on(e){const t=r=>{r.source===parent&&e(r.data,r.origin,r.isTrusted)};return addEventListener("message",t),()=>removeEventListener("message",t)}}}function ke(){return{post:()=>{},on:()=>()=>{}}}var I="__frame_scroll",Pe=150,Oe=310,Ce=160,Me=3e4;function je(){let e=0,t=!1,r=!1,n=!1,s=0,o=null;const i=u=>{try{sessionStorage.setItem(I,JSON.stringify({y:u}))}catch{}},c=()=>{if(clearTimeout(e),o===null)return;const u=o;o=null,i(u)},m=()=>{if(t){t=!1;return}r=!0,o=scrollY,clearTimeout(e),e=setTimeout(c,Pe)};try{addEventListener("scroll",m,{passive:!0}),addEventListener("pagehide",c)}catch{}const d=()=>{let u;try{u=sessionStorage.getItem(I)}catch{return null}if(u===null)return null;let a;try{a=JSON.parse(u)}catch{a=null}const f=a?.y;if(!(typeof f=="number"&&Number.isFinite(f)&&f>=0)){try{sessionStorage.removeItem(I)}catch{}return null}return f};let v=!1;const p=u=>{try{const a=scrollY;scrollTo({top:u,left:0,behavior:"instant"}),s=u,n=!0,clearTimeout(e),o=null,i(u);const f=scrollY;f!==a&&(t=!0),f!==u&&!v&&(v=!0,addEventListener("load",()=>{try{if(scrollY===f){const b=d();p(b!==null?b:s)}}catch{}},{once:!0}))}catch{}},y=()=>{try{return!!location.hash}catch{return!0}};let w=!1;const h=()=>{try{if(w||innerWidth>Oe||innerHeight>Ce)return;w=!0;const u=Date.now(),a=()=>{try{removeEventListener("resize",a)}catch{}if(Date.now()-u>Me||r||y())return;const f=d();p(f!==null?f:s)};addEventListener("resize",a)}catch{}};let E=!1,A=!1;return{restore(){if(E||(E=!0,y()))return;const u=d();u!==null&&(p(u),h())},promoted(){if(A||(A=!0,y()))return;const u=d();u!==null?(p(u),h()):n&&p(s)}}}function Ne(e,t,r,n){let s=null;try{s=window.trustedTypes?.createPolicy("frame-runtime",{createScriptURL:m=>m})??null}catch{}const o=window.Worker,i=o?.prototype,c=Object.freeze({Worker:o,workerOn:i?.addEventListener,workerPost:i?.postMessage,workerTerminate:i?.terminate,fetch:window.fetch.bind(window),preventDefault:Event.prototype.preventDefault,policy:s,origins:t});r(e).then(m=>m?.bootTopLevel?m.bootTopLevel(c,n):n.settle()).catch(()=>n.settle())}var $e="modulepreload",qe=function(e){return"/"+e},Xe={},Be=function(t,r,n){let s=Promise.resolve();function o(i){const c=new Event("vite:preloadError",{cancelable:!0});if(c.payload=i,window.dispatchEvent(c),!c.defaultPrevented)throw i}return s.then(i=>{for(const c of i||[])c.status==="rejected"&&o(c.reason);return t().catch(o)})},De=window===top,J=Object.getOwnPropertyDescriptor(window,"claude"),O=Se(De,window.__FRAME_PREAMBLE?.topLevel,J?.writable===!1),U=typeof O=="object"&&O[0],_=U?ke():Le();(function(){const e=Object.defineProperty,t=globalThis,r=["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel","RTCIceCandidate","RTCSessionDescription","RTCRtpSender","RTCRtpReceiver"];let n=0;for(let s=0;s<r.length;s++){const o=r[s];try{e(t,o,{value:void 0,writable:!1,configurable:!1})}catch{try{delete t[o]}catch{}try{e(t,o,{value:void 0,writable:!1,configurable:!0})}catch{}}typeof t[o]=="function"&&n++}if(n&&O==="framed")try{_.post({__frame_rtc_lockdown_failed:n},"*")}catch{}})();var Ie=1e4,Ue=2e3,Q=Object.freeze([...window.__FRAME_PREAMBLE?.origins??["https://claude.ai","https://preview.claude.ai"]]);function ee(e){for(const t of Q)if(t.endsWith(":*"))try{const r=new URL(e);if(`${r.protocol}//${r.hostname}:*`===t)return!0}catch{}else if(e===t)return!0;return!1}var C=Object.freeze({...window.__FRAME_PREAMBLE?.capabilities}),x=window.__FRAME_PREAMBLE?.transforms,F=window.__FRAME_PREAMBLE?.comments,z=window.__FRAME_PREAMBLE?.translate,H=window.__FRAME_PREAMBLE?.ldx;function L(e){return Be(()=>import("/_runtime/"+e),void 0)}function te(e,t){return{contract:e.contract,changes:new Set(e.changes??[]),flags:new Set(e.flags??[]),capabilities:e.capabilities??{},capBudgets:e.capBudgets??{},transforms:new Map,shellOrigin:t,mount:$,hooks:j,pipe:()=>({wrap:(r,n)=>(...s)=>{try{return n(...s)}catch(o){return Promise.reject(o)}}})}}var M=null,T=null;function re(e,t,r){try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!1,enumerable:!0})}catch{try{Object.defineProperty(e,t,{value:r,writable:!1,configurable:!0,enumerable:!0})}catch{}}}var W=!1,j={editBefore:null,edit:null};function xe(e,t,r=!1){const n=[];let s;if(r)try{j.editBefore?.(e)}catch{}for(const o of e.elements){const i=document.querySelector(`[data-id="${o.target}"]`);if(!i){s=o.target;break}if([...Object.keys(o.attrsSet??{}),...o.attrsRemoved??[]].some(c=>!fe(c))){s=o.target;break}if(o.text!==void 0&&(!he(i)||we(i))){s=o.target;break}for(const[c,m]of Object.entries(o.attrsSet??{}))if(!oe(i,c)){try{i.setAttribute(c,m)}catch{}ne(i,c,m)}for(const c of o.attrsRemoved??[])oe(i,c)||(i.removeAttribute(c),ne(i,c,null));typeof o.text=="string"&&ve(i,o.text),n.push(o.target)}if(r)try{j.edit?.(e.seq,n,s)}catch{}if(s!==void 0){_.post({__frame_patch_miss:{seq:e.seq}},t);return}try{document.dispatchEvent(new CustomEvent("claude:edit",{detail:{seq:e.seq,targets:n}}))}catch{}}function ne(e,t,r){if(!(e instanceof HTMLInputElement))return;const n=t.toLowerCase();n==="checked"?e.checked=r!==null:n==="value"&&e.type!=="file"&&(e.value=r??"")}function oe(e,t){const r=t.toLowerCase(),n=e;return r==="data-id"||(r==="value"||r==="checked")&&(n.__artifactSecret===!0||/^(password|hidden|file)$/.test(n.type??"")||/(^|\s)(cc-|one-time-code|current-password|new-password)/i.test(`${e.getAttribute("autocomplete")??""} ${n.autocomplete??""}`))}function se(e){const t=document.documentElement;e==="light"||e==="dark"?(t.dataset.theme=e,t.style.colorScheme=e,W=!0):W&&(delete t.dataset.theme,t.style.colorScheme="",W=!1)}var N=new Map;function Fe(){let e;const t={u:new Promise(r=>{e=r}),r:r=>{t.done=!0,e(r)},done:!1,nulled:!1};return t}function K(){for(const e of N.values())e.done||(e.nulled=!0,e.r(null))}var ze=Object.freeze(Object.assign(Object.create(null),{call:Function.prototype.call,apply:Function.prototype.apply,bind:Function.prototype.bind})),$=(e,t)=>{const r=N.get(e);if(!r||r.done){r?.nulled&&T&&_.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:e}},T);return}const n=typeof t=="function"?Object.setPrototypeOf(t,ze):Object.assign(Object.create(null),t);typeof n.then=="function"&&delete n.then,r.r(Object.freeze(n))};function ae(){const e=J?.value??{};re(window,"claude",e);for(const t of Object.keys(C)){if(e[t]!==void 0){re(e,t,e[t]);continue}N.set(t,Fe())}if(e.use===void 0){const t=r=>{if(typeof r!="string"||!Object.hasOwn(C,r))return Promise.resolve(null);const n=N.get(r);return n?n.u:Promise.resolve(e[r]??null)};try{Object.defineProperty(e,"use",{value:t,writable:!0,configurable:!0,enumerable:!1})}catch{}}}if(O==="framed"){const e=x&&S.test(x)?L(x).catch(()=>{}):Promise.resolve(void 0),t=a=>{if(a.type==="auxclick"&&a.button!==1)return;const f=a.target,b=f&&f.closest?f.closest("a[href],area[href]"):null;if(!b)return;const P=b.getAttribute("href");if(!P)return;let R;try{R=new URL(P,document.baseURI)}catch{return}if((R.protocol==="http:"||R.protocol==="https:")&&R.origin!==location.origin){a.preventDefault();const k=(b.getAttribute("target")??"").toLowerCase(),g=a.type==="auxclick"||a.metaKey||a.ctrlKey||a.shiftKey||a.altKey||!["","_self","_top","_parent"].includes(k);_.post({__frame_nav:!0,url:R.href,newTab:g},"*")}};addEventListener("click",t,!0),addEventListener("auxclick",t,!0);const r={},n=a=>{a.isTrusted&&(r.pointer=!0)},s=a=>{a.isTrusted&&(r.click=!0)};addEventListener("pointermove",n,{capture:!0,passive:!0}),addEventListener("click",s,{capture:!0,passive:!0}),e.then(a=>{a?.wireNav&&(a.wireNav(),removeEventListener("click",t,!0),removeEventListener("auxclick",t,!0),removeEventListener("pointermove",n,!0),removeEventListener("click",s,!0),a.wireEngagement?.(r))});let o=null;try{o=je()}catch{}ae();let i=null,c=null,m=0;const d=_.on((a,f)=>{ee(f)&&Ae(a)&&(i=a.__frame_init,T=f,d(),clearTimeout(m),c?.())});_.post({__frame_connect:!0},"*");const v=setTimeout,p=clearTimeout;let y=0;const w=()=>{try{_.post({__frame_alive:!0},"*")}catch{}y=v(w,Ue)},h=()=>p(y);w(),addEventListener("load",h,{once:!0});const E=new Promise(a=>{c=a,m=setTimeout(()=>{d(),a()},Ie)}),A=document.readyState==="loading"?new Promise(a=>document.addEventListener("DOMContentLoaded",()=>a(),{once:!0})):Promise.resolve();A.then(()=>{try{o?.restore()}catch{}});const u={cb:null};_.on((a,f)=>{if(ee(f)&&Te(a)){try{o?.promoted()}catch{}u.cb?.()}}),E.then(async()=>{if(!i||!T){K();return}se(i.theme);const a=T;let f=!1,b=!1;_.on((l,X,B)=>{if(X!==a)return;Re(l)&&se(l.__frame_theme.theme),be(l)&&xe(l.__frame_patch,a,B);const Y=l?.__fc_mode;Y&&typeof Y=="object"&&!f&&F&&S.test(F)&&(f=!0,L(F).then(V=>V.install?.(a,Y.on===!0)).catch(()=>{}));const G=l?.__ft_cmd;G&&typeof G=="object"&&!b&&z&&S.test(z)&&(b=!0,L(z).then(V=>V.install?.(a,G)).catch(()=>{}))});const P=Object.keys(i.capabilities??{}).filter(l=>Object.hasOwn(C,l)).map(l=>[l,C[l]]).filter(l=>typeof l[1]=="string"&&S.test(l[1])),R=await Promise.allSettled(P.map(([,l])=>L(l))),k=await e,g=T;if(k?.buildBoot||_.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},g),k?.buildBoot)try{M=k.buildBoot(i,k.TRANSFORMS??{},{shellOrigin:g,mount:$,hooks:j},l=>_.post({__frame_cap_telemetry:l},g))}catch{_.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:"_transforms"}},g),M=te(i,g)}else M=te(i,g);const q=l=>_.post({__frame_cap_telemetry:{kind:"cap-load-error",cap:l}},g),ie=M;R.forEach((l,X)=>{const B=P[X][0];if(l.status!=="fulfilled"){q(B);return}try{l.value?.install?.(ie)}catch{q(B)}}),K(),await A,h(),_.post({__frame_ready:!0},T),e.then(l=>l?.installSizeReporter?.(g,u)),ie.flags.has("frame_ldx_runtime")&&H&&S.test(H)&&document.querySelector("script#an-form")&&L(H).then(l=>l?.boot?.()).catch(()=>!1).then(l=>{l!==!0&&q("_ldx")})})}else U&&(ae(),Ne(U,Q,L,{settle:K,mount:$}))})();</script><!-- /frame-runtime --><meta name="viewport" content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found]){display:none!important}</style><style id="_goober"> .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}</style></head><body>
+<title>Verification Backlog</title>
+<link rel="stylesheet" href="./css2(1)">
+<style>
+  :root{
+    --paper:#f6f7fb; --card:#ffffff; --ink:#141c2b; --ink-2:#48546b;
+    --line:#dde3ee; --line-2:#c7d0e0;
+    --accent:#1f4e8c; --accent-2:#2f6bbd; --accent-wash:#eaf1fa;
+    --good:#106b46; --good-wash:#e6f3ec;
+    --warn:#8a5200; --warn-wash:#fdf1de;
+    --bad:#a52017;  --bad-wash:#fbeae8;
+    --mono-bg:#f0f3f9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e131c; --card:#151d29; --ink:#e6ecf6; --ink-2:#9dabc2;
+      --line:#25303f; --line-2:#334155;
+      --accent:#7fb0ec; --accent-2:#a6c8f4; --accent-wash:#17243a;
+      --good:#67c79b; --good-wash:#122a20;
+      --warn:#e0a860; --warn-wash:#2c2113;
+      --bad:#ef8d84;  --bad-wash:#2e1815;
+      --mono-bg:#101823;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e131c; --card:#151d29; --ink:#e6ecf6; --ink-2:#9dabc2;
+    --line:#25303f; --line-2:#334155;
+    --accent:#7fb0ec; --accent-2:#a6c8f4; --accent-wash:#17243a;
+    --good:#67c79b; --good-wash:#122a20;
+    --warn:#e0a860; --warn-wash:#2c2113;
+    --bad:#ef8d84;  --bad-wash:#2e1815;
+    --mono-bg:#101823;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink);
+    font-family:"Source Serif 4",Georgia,serif; font-size:17px; line-height:1.6; margin:0; padding:40px 20px 90px}
+  .wrap{max-width:900px; margin:0 auto; display:flex; flex-direction:column; gap:32px}
+  header{display:flex; flex-direction:column; gap:9px; padding-bottom:20px; border-bottom:2px solid var(--ink)}
+  .eyebrow{font-family:"JetBrains Mono",monospace; font-size:11.5px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--accent); font-weight:600}
+  h1{font-family:Archivo,sans-serif; font-weight:700; font-size:clamp(29px,5vw,40px);
+    line-height:1.08; margin:0; text-wrap:balance; letter-spacing:-.02em}
+  .standfirst{margin:0; color:var(--ink-2); max-width:64ch}
+  h2{font-family:Archivo,sans-serif; font-weight:600; font-size:22px; margin:0 0 4px;
+    display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; letter-spacing:-.01em}
+  .tag{font-family:"JetBrains Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.1em;
+    text-transform:uppercase; padding:3px 8px; border-radius:3px; border:1px solid var(--line-2)}
+  .tag.green{background:var(--good-wash); color:var(--good)}
+  .tag.amber{background:var(--warn-wash); color:var(--warn)}
+  .tag.red{background:var(--bad-wash); color:var(--bad)}
+  .tag.blue{background:var(--accent-wash); color:var(--accent)}
+  section{display:flex; flex-direction:column; gap:15px}
+  .phase{border-top:1px solid var(--line); padding-top:24px}
+  p{margin:0 0 11px} p:last-child{margin-bottom:0}
+  .tscroll{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--card)}
+  table{width:100%; border-collapse:collapse; font-size:15px; font-variant-numeric:tabular-nums}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-family:Archivo,sans-serif; font-weight:600; font-size:11.5px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-2); background:var(--mono-bg)}
+  tr:last-child td{border-bottom:none}
+  code{font-family:"JetBrains Mono",monospace; font-size:.85em; background:var(--mono-bg);
+    padding:1.5px 5px; border-radius:3px; border:1px solid var(--line)}
+  .ck{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
+  .ck li{display:flex; gap:10px; align-items:flex-start; font-size:15.5px}
+  .ck li::before{content:"☐"; font-family:"JetBrains Mono",monospace; color:var(--accent);
+    font-size:16px; line-height:1.45; flex:none}
+  .note{border-radius:6px; padding:13px 16px; border:1px solid var(--line-2);
+    display:flex; flex-direction:column; gap:5px}
+  .note .hd{font-family:Archivo,sans-serif; font-weight:600; font-size:12.5px;
+    letter-spacing:.05em; text-transform:uppercase}
+  .note p{font-size:15px}
+  .note.red{background:var(--bad-wash)} .note.red .hd{color:var(--bad)}
+  .note.amber{background:var(--warn-wash)} .note.amber .hd{color:var(--warn)}
+  .note.blue{background:var(--accent-wash)} .note.blue .hd{color:var(--accent)}
+  footer{border-top:1px solid var(--line); padding-top:16px; color:var(--ink-2); font-size:14.5px}
+  :focus-visible{outline:2px solid var(--accent-2); outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">MyPlus · verification state</div>
+    <h1>Verification Backlog</h1>
+    <p class="standfirst">What is proven, what is written but unproven, and what is waiting on a decision.
+      Ordered by risk: unverified work that is already committed sits at the top.</p>
+  </header>
+
+  <section>
+    <div class="note red">
+      <span class="hd">The headline</span>
+      <p><strong>Four slices are implemented, committed, and have never been verified.</strong> Their Cypress
+        specs exist and have never run. That is the largest exposure here — code that looks tested because a
+        spec file sits beside it.</p>
+    </div>
+  </section>
+
+  <section class="phase">
+    <h2>Proven <span class="tag green">green</span></h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Slice</th><th>Gate</th><th>Manual page</th></tr></thead>
+        <tbody>
+          <tr><td>Sale-screen latency (tier 1b)</td><td>5/5</td><td>—</td></tr>
+          <tr><td>#15 credit &amp; debit notes</td><td>5/5</td><td>—</td></tr>
+          <tr><td>#17 P1 bonus scheme master</td><td>9/9</td><td>✅ published</td></tr>
+          <tr><td>#17 P2 supplier bonus at goods-in</td><td>7/7</td><td>✅ published</td></tr>
+          <tr><td>#17 P3 customer bonus &amp; true COGS</td><td>14/14</td><td>✅ published</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="phase">
+    <h2>Written, never run <span class="tag red">the backlog</span></h2>
+    <p>Each of these is committed code with an unrun gate. Cypress is running the first group now.</p>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Slice</th><th>What it claims to do</th><th>Spec</th></tr></thead>
+        <tbody>
+          <tr><td><strong>#21</strong> returns register</td><td>find and reprint a credit or debit note after the counter moment</td><td><code>returns-list</code></td></tr>
+          <tr><td><strong>#16</strong> supplier filter + bulk print</td><td>pick a supplier, print their debit notes as one job</td><td><code>debit-note-supplier-filter</code></td></tr>
+          <tr><td><strong>#19</strong> invoices from the report</td><td>print or download the actual invoices behind a filtered report</td><td><code>sale-report-invoices</code></td></tr>
+          <tr><td><strong>#20</strong> stock value tile</td><td>value of stock in hand, labelled with its costing basis</td><td><code>dashboard-stock-value</code></td></tr>
+          <tr><td><strong>#18</strong> report by company</td><td>filter and subtotal the sale report by manufacturer</td><td><code>sale-report-by-company</code></td></tr>
+          <tr><td><strong>tier 1c</strong> picker chain</td><td>pickers no longer queue behind the sales history</td><td><code>sale-picker-chain</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="phase">
+    <h2>Manual checks worth doing yourself</h2>
+    <p>These are the ones a suite is structurally poor at — reachability, what a customer is handed, and
+      whether two screens agree. Every item below is here because something in this class has already been
+      found broken.</p>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:6px 0 0">#21 · Returns register</h3>
+    <ul class="ck">
+      <li>Sidebar → <strong>Sell → Sale Returns</strong> and <strong>Purchase → Purchase Returns</strong> both open.</li>
+      <li>Rows show a document number (CRN-/DBN-), a <em>party name</em> — not an id — and a date.</li>
+      <li><strong>Reprint</strong> produces a document with lines on it, not a blank page.</li>
+      <li>A row with no note number shows no reprint button rather than a button that fails.</li>
+    </ul>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:14px 0 0">#16 · Supplier filter</h3>
+    <ul class="ck">
+      <li>The supplier picker offers real suppliers, and only one blank option at the top.</li>
+      <li>Choosing one narrows the list; choosing "All" restores it.</li>
+      <li><strong>Print all</strong> opens ONE print dialog, not one per note.</li>
+      <li>The filter is absent on the credit-note side, where it could never match.</li>
+    </ul>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:14px 0 0">#19 · Invoices from the report</h3>
+    <ul class="ck">
+      <li>Buttons appear on the Sale Detail Report toolbar.</li>
+      <li>They produce <em>invoice documents</em> — header, customer, lines, totals — not a dump of the grid.</li>
+      <li>A three-line sale yields ONE invoice, not three copies of it.</li>
+      <li>Download gives one PDF per invoice, and asks first past ten files.</li>
+    </ul>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:14px 0 0">#20 · Stock value tile</h3>
+    <ul class="ck">
+      <li>The tile sits beside the product count and shows a number, not a dash.</li>
+      <li><strong>Its label says "at last purchase rate".</strong> An unqualified "stock value" would be read as a books figure and will not match the ledger.</li>
+      <li>It changes after a purchase.</li>
+    </ul>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:14px 0 0">#18 · Report by company</h3>
+    <ul class="ck">
+      <li>A <strong>Company</strong> filter appears on the report, offering only companies the data contains.</li>
+      <li>Choosing one narrows the rows; an impossible one returns nothing rather than everything.</li>
+      <li>Group by Company produces subtotals.</li>
+      <li>The CSV export carries the filter — otherwise it silently exports the whole month.</li>
+    </ul>
+
+    <h3 style="font-family:Archivo,sans-serif;font-weight:600;font-size:16px;margin:14px 0 0">tier 1c · Sale screen speed</h3>
+    <ul class="ck">
+      <li>Opening <strong>New Sale</strong> lets you type into the item box before the sales list has finished loading.</li>
+      <li>The customer picker fills in while the screen is already usable.</li>
+      <li>Saving a purchase line does not rebuild the pickers under you mid-entry.</li>
+    </ul>
+  </section>
+
+  <section class="phase">
+    <h2>Waiting on a decision <span class="tag amber">blocked</span></h2>
+    <div class="tscroll">
+      <table>
+        <thead><tr><th>Item</th><th>What is needed</th></tr></thead>
+        <tbody>
+          <tr><td><strong>#14</strong> platform master account</td><td>Three rulings: may it read tenant business data or only administer? Do tenants see when it enters? One shared credential or one per operator?</td></tr>
+          <tr><td><strong>#17 P3b</strong> different reward SKU</td><td>"Buy a machine, get a coffee pack" needs its own sale line at zero price plus a renderer change. Designed, not built.</td></tr>
+          <tr><td><strong>#17 P4</strong> bonus tax policy</td><td>Per-tenant tax treatment of free goods, and bonus reporting.</td></tr>
+          <tr><td>Barcode / compact-row settings</td><td>Two console outputs, to tell a stale build from a real defect. Likely resolved by the recent rebuild.</td></tr>
+          <tr><td><strong>32 uncommitted files</strong></td><td>Includes auth-service entitlement (E1) work I did not write. Confirm it is yours before anything is staged.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="phase">
+    <h2>Before any tenant gets P3</h2>
+    <div class="note red">
+      <span class="hd">Per-tenant, with finance sign-off</span>
+      <p>P3 changes reported margin on <strong>every</strong> sale, not only bonus ones. And any shop that
+        used the old Bonus column already carries a stock overstatement, because those units were never
+        deducted — enabling P3 surfaces it, and staff will blame the feature.</p>
+      <p>Run a physical stock count, post the difference as an adjustment reasoned <em>"historical bonus-sale
+        stock variance correction"</em>, record a cutover date, then enable.</p>
+    </div>
+    <div class="note amber">
+      <span class="hd">Check the shape, do not assume</span>
+      <p>A tenant that never chose a business shape has <strong>every</strong> capability on by default,
+        bonus offers included. This does not only reach distributors.</p>
+    </div>
+  </section>
+
+  <footer>
+    Slice docs: <code>microservices/docs/slices/</code> ·
+    Standards: <code>SAAS-BUILD-STANDARDS.md</code>, <code>GATE-RUNBOOK.md</code>
+  </footer>
+
+</div>
+
+</body></html>

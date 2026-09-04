@@ -1,0 +1,1124 @@
+
+<!-- saved from url=(0171)file:///C:/Users/HP/AppData/Local/Temp/claude/C-%2DUsers-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#trace -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>Till to Ledger Walkthrough</title>
+<style>
+  /* ── Tokens: light is the base, both dark states redefine only these ───────────────── */
+  :root {
+    --ground:      #EFF2F1;
+    --surface:     #FFFFFF;
+    --surface-alt: #E7ECEB;
+    --rule:        #CBD5D3;
+    --rule-soft:   #DFE5E4;
+    --ink:         #16202B;
+    --ink-soft:    #4A5A66;
+    --ink-faint:   #78888F;
+    --accent:      #1F5C8B;
+    --accent-soft: #E2ECF3;
+    --wrong:       #A8412F;
+    --wrong-soft:  #F6E7E3;
+    --right:       #1E6B4F;
+    --right-soft:  #E0EEE7;
+    --shadow:      0 1px 2px rgba(22,32,43,.06), 0 6px 18px rgba(22,32,43,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #121A20;
+      --surface:     #1A242C;
+      --surface-alt: #212D36;
+      --rule:        #35454F;
+      --rule-soft:   #2A3841;
+      --ink:         #E2E9EC;
+      --ink-soft:    #A6B6BF;
+      --ink-faint:   #7B8C96;
+      --accent:      #74AAD0;
+      --accent-soft: #1D3245;
+      --wrong:       #E08A76;
+      --wrong-soft:  #3A2620;
+      --right:       #62B392;
+      --right-soft:  #17332A;
+      --shadow:      0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #121A20;
+    --surface:     #1A242C;
+    --surface-alt: #212D36;
+    --rule:        #35454F;
+    --rule-soft:   #2A3841;
+    --ink:         #E2E9EC;
+    --ink-soft:    #A6B6BF;
+    --ink-faint:   #7B8C96;
+    --accent:      #74AAD0;
+    --accent-soft: #1D3245;
+    --wrong:       #E08A76;
+    --wrong-soft:  #3A2620;
+    --right:       #62B392;
+    --right-soft:  #17332A;
+    --shadow:      0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, .mono, .fig, th.fig, td.fig {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0 56px;
+  }
+  @media (min-width: 1040px) {
+    .wrap { grid-template-columns: 216px minmax(0, 1fr); }
+    .masthead { grid-column: 1 / -1; }
+  }
+
+  /* ── Masthead ──────────────────────────────────────────────────────────────────────── */
+  .masthead {
+    padding: 56px 0 32px;
+    border-bottom: 2px solid var(--ink);
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 650;
+    margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -.022em;
+    font-weight: 680;
+    margin: 0 0 18px;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  .standfirst {
+    font-size: 18px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  /* ── Setup slate ───────────────────────────────────────────────────────────────────── */
+  .slate {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 22px 24px;
+    margin: 32px 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 18px 28px;
+  }
+  .slate dt {
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 650;
+    margin: 0 0 5px;
+  }
+  .slate dd {
+    margin: 0;
+    font-size: 14px;
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    color: var(--ink);
+    word-break: break-all;
+  }
+
+  /* ── Act index ─────────────────────────────────────────────────────────────────────── */
+  .index { display: none; }
+  @media (min-width: 1040px) {
+    .index {
+      display: block;
+      position: sticky;
+      top: 28px;
+      align-self: start;
+      font-size: 13px;
+    }
+    .index h2 {
+      font-size: 10.5px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      font-weight: 650;
+      margin: 0 0 12px;
+    }
+    .index ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+    .index a {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 8px;
+      padding: 7px 8px 7px 0;
+      color: var(--ink-soft);
+      text-decoration: none;
+      border-radius: 3px;
+      line-height: 1.35;
+    }
+    .index a:hover, .index a:focus-visible { color: var(--accent); background: var(--accent-soft); padding-left: 8px; }
+    .index .n {
+      font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+      color: var(--ink-faint);
+      font-size: 12px;
+      text-align: right;
+    }
+  }
+
+  /* ── Acts ──────────────────────────────────────────────────────────────────────────── */
+  .act {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    margin: 0 0 28px;
+    overflow: hidden;
+    scroll-margin-top: 20px;
+  }
+  .act-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 14px;
+    padding: 18px 24px 16px;
+    border-bottom: 1px solid var(--rule-soft);
+    background: var(--surface-alt);
+  }
+  .act-n {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--accent);
+    letter-spacing: .06em;
+  }
+  .act-head h2 {
+    font-size: 19px;
+    letter-spacing: -.014em;
+    font-weight: 660;
+    margin: 0;
+    flex: 1 1 240px;
+    line-height: 1.25;
+  }
+  .tag {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .act-body { padding: 20px 24px 24px; }
+  .act-body > * + * { margin-top: 16px; }
+  .act-body p { margin: 0; max-width: 68ch; }
+  .act-body p.lede { color: var(--ink-soft); }
+
+  h3.step-label {
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 650;
+    margin: 22px 0 0;
+    padding-top: 14px;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .act-body h3.step-label:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+  ol.steps { margin: 12px 0 0; padding-left: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 10px; }
+  ol.steps > li {
+    counter-increment: s;
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 12px;
+    max-width: 70ch;
+  }
+  ol.steps > li::before {
+    content: counter(s);
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+    text-align: right;
+    padding-top: 2px;
+  }
+
+  code {
+    background: var(--surface-alt);
+    border: 1px solid var(--rule-soft);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-size: .875em;
+  }
+  pre {
+    background: var(--surface-alt);
+    border: 1px solid var(--rule-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 2px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+  /* ── Figure tables ─────────────────────────────────────────────────────────────────── */
+  .tbl-scroll { overflow-x: auto; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 340px; }
+  th, td { text-align: left; padding: 8px 14px 8px 0; border-bottom: 1px solid var(--rule-soft); }
+  thead th {
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 650;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 7px;
+  }
+  td.fig, th.fig { text-align: right; padding-right: 0; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tr.total td { font-weight: 660; border-top: 1px solid var(--rule); border-bottom: 0; padding-top: 9px; }
+
+  /* ── Journal strip: the Dr/Cr device ───────────────────────────────────────────────── */
+  .journal {
+    margin-top: 14px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .journal-head {
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+    padding: 8px 14px;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--rule);
+  }
+  .journal .tbl-scroll { margin: 0; }
+  .journal table { font-size: 13.5px; }
+  .journal th, .journal td { padding: 7px 14px; }
+  .journal td.acct { width: 1%; white-space: nowrap; color: var(--ink-faint); }
+  .journal tr.rule-top td { border-top: 1px solid var(--rule); }
+
+  /* ── Callouts ──────────────────────────────────────────────────────────────────────── */
+  .before, .note, .proof {
+    margin-top: 16px;
+    padding: 13px 16px;
+    border-radius: 2px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    max-width: 72ch;
+  }
+  .before { background: var(--wrong-soft); border-left: 3px solid var(--wrong); }
+  .before b { color: var(--wrong); }
+  .proof  { background: var(--right-soft); border-left: 3px solid var(--right); }
+  .proof b { color: var(--right); }
+  .note   { background: var(--surface-alt); border-left: 3px solid var(--rule); color: var(--ink-soft); }
+  .before p, .note p, .proof p { margin: 0; max-width: none; }
+  .before p + p, .note p + p, .proof p + p { margin-top: 8px; }
+
+  .wait {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 7px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 2px;
+    padding: 3px 9px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── Part divider ──────────────────────────────────────────────────────────────────── */
+  .part {
+    margin: 8px 0 30px;
+    padding-top: 4px;
+    scroll-margin-top: 20px;
+  }
+  .part:not(:first-of-type) { margin-top: 52px; padding-top: 34px; border-top: 2px solid var(--ink); }
+  .part-n {
+    font-size: 11px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 650;
+    margin: 0 0 10px;
+  }
+  .part h2 {
+    font-size: clamp(22px, 3vw, 29px);
+    letter-spacing: -.018em;
+    font-weight: 670;
+    margin: 0 0 12px;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  .part p { margin: 0; max-width: 68ch; color: var(--ink-soft); font-size: 16.5px; }
+  .part p + p { margin-top: 12px; }
+
+  /* ── Two-lane entry diagram ────────────────────────────────────────────────────────── */
+  .lanes {
+    margin-top: 22px;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .lane {
+    display: grid;
+    grid-template-columns: 128px 1fr;
+    gap: 0 18px;
+    align-items: center;
+    padding: 16px 20px;
+  }
+  .lane + .lane { border-top: 1px solid var(--rule-soft); }
+  .lane-name {
+    font-size: 10.5px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    font-weight: 650;
+    color: var(--ink-faint);
+    line-height: 1.4;
+  }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .node {
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--rule);
+    background: var(--surface-alt);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .node.gateway { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .node.here    { border-color: var(--right); background: var(--right-soft); color: var(--right); }
+  .node.off     { border-style: dashed; color: var(--ink-faint); background: transparent; }
+  .arrow { color: var(--ink-faint); font-size: 13px; }
+  .lane-note { grid-column: 2; font-size: 13.5px; color: var(--ink-faint); margin-top: 8px; line-height: 1.5; }
+  @media (max-width: 620px) {
+    .lane { grid-template-columns: 1fr; gap: 8px; }
+    .lane-note { grid-column: 1; }
+  }
+
+  /* ── Live readout ──────────────────────────────────────────────────────────────────── */
+  .readout {
+    margin-top: 22px;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    box-shadow: var(--shadow);
+    padding: 18px 22px;
+  }
+  .readout h3 {
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 650;
+    margin: 0 0 14px;
+  }
+  .readout dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 14px 24px;
+  }
+  .readout dt {
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 3px;
+    font-weight: 600;
+  }
+  .readout dd {
+    margin: 0;
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+  }
+
+  /* ── Gate pills ────────────────────────────────────────────────────────────────────── */
+  .gate {
+    display: inline-block;
+    font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .gate.open  { background: var(--surface-alt); color: var(--ink-soft); border: 1px solid var(--rule); }
+  .gate.admin { background: var(--wrong-soft); color: var(--wrong); border: 1px solid var(--wrong); }
+  td .gate + .gate { margin-left: 4px; }
+
+  /* ── Closing ───────────────────────────────────────────────────────────────────────── */
+  .closing { margin-top: 48px; padding-top: 32px; border-top: 2px solid var(--ink); }
+  .closing h2 { font-size: 22px; letter-spacing: -.016em; font-weight: 670; margin: 0 0 14px; }
+  .closing h3 { font-size: 15px; font-weight: 660; margin: 26px 0 8px; }
+  .closing p, .closing li { max-width: 70ch; }
+  .closing ul { padding-left: 18px; margin: 8px 0 0; }
+  .closing li { margin-bottom: 7px; }
+  a { color: var(--accent); }
+  a:focus-visible, .index a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+</head><body><div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Manual verification · Storefront → General Ledger</p>
+    <h1>Does the money reach the books?</h1>
+    <p class="standfirst">
+      <b>Part one</b> is five short acts: place real orders in the shop front, then check the figure that came
+      out the other end — first on the invoice, then in the ledger. Each act names what it would have done
+      before the fix, so a pass is something you can see rather than take on trust.
+      <b>Part two</b> follows a single order the rest of the way — who approves it, how to trace it, and the
+      four steps from NEW to settled cash.
+    </p>
+
+    <dl class="slate">
+      <div><dt>Sign in</dt><dd>owner.marketplace@myplus.com<br>Demo@2025!</dd></div>
+      <div><dt>Back office</dt><dd>localhost:8080/businessDashboard</dd></div>
+      <div><dt>Shop front (no login)</dt><dd>localhost:8080/I</dd></div>
+      <div><dt>Organization</dt><dd>20 — Owner Marketplace</dd></div>
+    </dl>
+  </header>
+
+  <nav class="index" aria-label="Contents">
+    <h2>One · The figures</h2>
+    <ol>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act0"><span class="n">00</span><span>Stock the shop</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act1"><span class="n">01</span><span>Tax switched off</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act2"><span class="n">02</span><span>Tax switched on</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act3"><span class="n">03</span><span>Charge for delivery</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act4"><span class="n">04</span><span>Honour a coupon</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#act5"><span class="n">05</span><span>Void it all back</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#closing"><span class="n">—</span><span>What you proved</span></a></li>
+    </ol>
+    <h2 style="margin-top:26px">Two · The order</h2>
+    <ol>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#lifecycle"><span class="n">—</span><span>Who approves what</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#trace"><span class="n">—</span><span>Tracing an order</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#stages"><span class="n">—</span><span>Pack to settled cash</span></a></li>
+      <li><a href="file:///C:/Users/HP/AppData/Local/Temp/claude/C--Users-HP-Shahid-software-myplus/f5858bbe-be26-48f9-8bc0-22e83de1e5cd/scratchpad/storefront-ledger-walkthrough.html#reversals"><span class="n">—</span><span>Undoing it</span></a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <section class="part">
+      <p class="part-n">Part one</p>
+      <h2>Follow the figures</h2>
+      <p>
+        Five acts, about twenty minutes. Each one places a real order and then checks the number that came out
+        the other end — on the invoice, and again in the ledger.
+      </p>
+    </section>
+
+    <!-- ACT 0 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act0">
+      <div class="act-head">
+        <span class="act-n">ACT 00</span>
+        <h2>Stock the shop</h2>
+        <span class="tag">~5 min</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          One product, priced so every later figure is checkable in your head: <b>10.00 each, taxed at 10%</b>.
+          You buy two of them in every act that follows.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>Sign in at <code>localhost:8080</code> as the owner above. You land on the Store dashboard.</li>
+          <li>Open <b>Product</b> from the sidebar and add: name <code>Desk Lamp</code>, selling price
+              <code>10</code>, tax rate <code>10</code>, unit <code>pcs</code>. Save.</li>
+          <li>Add stock for it — <code>50</code> is plenty for the whole walkthrough.</li>
+          <li>Open <b>Settings → Tax Settings</b>. Set mode <b>Exclusive</b>, default rate <code>0</code>,
+              and tick <b>Enabled</b>. Save.</li>
+          <li>Create the coupon you'll need in Act 04. There is no screen for coupons yet, so open your
+              browser console (F12) on the dashboard and run:</li>
+        </ol>
+<pre><code>await (await fetch('/addCoupon', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ code: 'SAVE10', type: 'PERCENT', value: 10 })
+})).json()</code></pre>
+        <ol class="steps" start="6" style="counter-reset: s 5">
+          <li>Make sure this shop's chart of accounts includes the new delivery account:
+              <code>await fetch('/gl/ensureDefaults', { method: 'POST' })</code></li>
+        </ol>
+
+        <h3 class="step-label">Keep this to hand</h3>
+        <p>You'll read invoices several times. Paste this helper into the console once — it prints the six
+          figures that matter for any invoice number.</p>
+<pre><code>window.inv = async (no) =&gt; {
+  const r = await (await fetch('/getReceipt?invoiceNo=' + no)).json();
+  const o = r.object || {};
+  console.table({
+    subTotal: o.subTotal, taxTotal: o.taxTotal, tradeDiscount: o.tradeDiscount,
+    shippingFee: o.shippingFee, grandTotal: o.grandTotal, paid: o.paidAmount
+  });
+};</code></pre>
+        <div class="note">
+          <p>The payload sits on <code>object</code>, not <code>data</code> — that is how this API answers, and
+            reading the wrong key silently returns nothing useful. It cost one red test run to notice.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 1 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act1">
+      <div class="act-head">
+        <span class="act-n">ACT 01</span>
+        <h2>A shop with tax switched off</h2>
+        <span class="tag">the original defect</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          Most shops never open the Tax Settings screen. The storefront used to price their orders as though
+          they had, using the product's own rate — while the books, correctly, charged no tax at all.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>In <b>Settings → Tax Settings</b>, untick <b>Enabled</b> and save.</li>
+          <li><span class="wait">Wait 15 seconds.</span> The shop front caches the tax policy for that long,
+              deliberately — it's a hot path, and this is month-end configuration.</li>
+          <li>Open <code>localhost:8080/store?org=20</code> in a new tab. Add <b>2 × Desk Lamp</b> to the basket.</li>
+          <li>Choose <b>Store pickup</b>, leave the coupon box empty, and read the summary.</li>
+          <li>Place the order (Cash on Delivery). Note the order number it shows you.</li>
+          <li>Back in the dashboard, open <b>Store → Orders</b> and find your order. Take its invoice number,
+              then run <code>inv('INV-000xxx')</code> in the console.</li>
+        </ol>
+
+        <h3 class="step-label">Expect</h3>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Line</th><th class="fig">Shop front</th><th class="fig">Invoice</th></tr></thead>
+            <tbody>
+              <tr><td>Goods · 2 × 10.00</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+              <tr><td>Tax</td><td class="fig">0.00</td><td class="fig">0.00</td></tr>
+              <tr><td>Delivery · pickup</td><td class="fig">0.00</td><td class="fig">—</td></tr>
+              <tr class="total"><td>Total</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="before">
+          <p><b>Before the fix:</b> the shop front showed a tax line of 2.00 and quoted <b>22.00</b>, then the
+            invoice came back at <b>20.00</b>. The shopper was charged one figure and the books recorded
+            another, and both halves were individually correct — the disagreement only existed between them.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 2 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act2">
+      <div class="act-head">
+        <span class="act-n">ACT 02</span>
+        <h2>The same shop, tax switched on</h2>
+        <span class="tag">the control</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          The other half of the pair. If Act 01 passed only because tax had stopped working everywhere, this
+          act fails — which is what makes Act 01 mean something.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>In <b>Tax Settings</b>, tick <b>Enabled</b> again and save.</li>
+          <li><span class="wait">Wait 15 seconds.</span></li>
+          <li>Reload the shop front, basket <b>2 × Desk Lamp</b>, <b>Store pickup</b>, place the order.</li>
+          <li>Read the invoice with <code>inv('INV-000xxx')</code>.</li>
+        </ol>
+
+        <h3 class="step-label">Expect</h3>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Line</th><th class="fig">Shop front</th><th class="fig">Invoice</th></tr></thead>
+            <tbody>
+              <tr><td>Goods</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+              <tr><td>Tax · 10%</td><td class="fig">2.00</td><td class="fig">2.00</td></tr>
+              <tr class="total"><td>Total</td><td class="fig">22.00</td><td class="fig">22.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <p>Both figures now come from the same tax engine, and the shop's own tax switch is what decides
+            whether it applies. The shop front asks the books for that policy rather than guessing at it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 3 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act3">
+      <div class="act-head">
+        <span class="act-n">ACT 03</span>
+        <h2>Charge for delivery</h2>
+        <span class="tag">4300 Delivery Income</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          The delivery fee has always been charged to the shopper. It had never once reached the accounts —
+          the sale contract had nowhere to put it, so delivery income simply did not exist on the P&amp;L.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>In the dashboard, open <b>Trial Balance</b> from the Finance menu. Write down the current
+              figures for <b>4000 Sales</b>, <b>2100 Tax Payable</b> and <b>4300 Delivery Income</b>.</li>
+          <li>On the shop front, basket <b>2 × Desk Lamp</b>, choose <b>Standard delivery</b>, and fill in an
+              address. The summary should now show a delivery line of 5.00.</li>
+          <li>Place the order and read the invoice.</li>
+          <li>Reopen <b>Trial Balance</b> and compare.</li>
+        </ol>
+
+        <h3 class="step-label">Expect · the invoice</h3>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Line</th><th class="fig">Shop front</th><th class="fig">Invoice</th></tr></thead>
+            <tbody>
+              <tr><td>Goods</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+              <tr><td>Tax · 10%</td><td class="fig">2.00</td><td class="fig">2.00</td></tr>
+              <tr><td>Delivery</td><td class="fig">5.00</td><td class="fig">5.00</td></tr>
+              <tr class="total"><td>Total</td><td class="fig">27.00</td><td class="fig">27.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="step-label">Expect · the ledger moves by</h3>
+        <div class="journal">
+          <div class="journal-head">Journal · this sale</div>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th>Account</th><th></th><th class="fig">Debit</th><th class="fig">Credit</th></tr></thead>
+              <tbody>
+                <tr><td class="acct mono">1100</td><td>Accounts Receivable</td><td class="fig mono">27.00</td><td class="fig mono">—</td></tr>
+                <tr><td class="acct mono">4000</td><td>Sales</td><td class="fig mono">—</td><td class="fig mono">20.00</td></tr>
+                <tr><td class="acct mono">2100</td><td>Tax Payable</td><td class="fig mono">—</td><td class="fig mono">2.00</td></tr>
+                <tr><td class="acct mono">4300</td><td>Delivery Income</td><td class="fig mono">—</td><td class="fig mono">5.00</td></tr>
+                <tr class="rule-top total"><td></td><td>Balanced</td><td class="fig mono">27.00</td><td class="fig mono">27.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p>Two things to check beyond the total: <b>Sales moved by 20.00, not 25.00</b> — the fee is not goods
+          revenue — and <b>Tax Payable moved by 2.00</b>, because delivery is not taxed here. The shop front
+          adds the fee after tax, so the books do too.</p>
+
+        <div class="before">
+          <p><b>Before the fix:</b> the invoice recorded no fee at all and 4300 did not exist. Worse, in the
+            state between the two fixes this sale posted <b>no journal whatsoever</b> — the entry was short by
+            exactly 5.00, failed its balance check, and retried twenty times before giving up.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 4 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act4">
+      <div class="act-head">
+        <span class="act-n">ACT 04</span>
+        <h2>Honour a coupon</h2>
+        <span class="tag">4200 Sales Discount</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          A coupon is not a lower price — it's a concession you gave, and a shop needs to know what its
+          promotions cost. So Sales is credited at what the goods list for, and the 2.00 is booked separately.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>Note the current <b>4000 Sales</b> and <b>4200 Sales Discount</b> figures on the Trial Balance.</li>
+          <li>On the shop front, basket <b>2 × Desk Lamp</b>, choose <b>Store pickup</b>, and enter coupon
+              <code>SAVE10</code>. The summary should confirm <i>Coupon "SAVE10" applied</i> and show a
+              discount line of 2.00.</li>
+          <li>Place the order, read the invoice, then reopen the Trial Balance.</li>
+        </ol>
+
+        <h3 class="step-label">Expect · the invoice</h3>
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Line</th><th class="fig">Shop front</th><th class="fig">Invoice</th></tr></thead>
+            <tbody>
+              <tr><td>Goods</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+              <tr><td>Coupon SAVE10 · 10%</td><td class="fig">−2.00</td><td class="fig">−2.00</td></tr>
+              <tr><td>Tax · 10%</td><td class="fig">2.00</td><td class="fig">2.00</td></tr>
+              <tr class="total"><td>Total</td><td class="fig">20.00</td><td class="fig">20.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="step-label">Expect · the ledger moves by</h3>
+        <div class="journal">
+          <div class="journal-head">Journal · this sale</div>
+          <div class="tbl-scroll">
+            <table>
+              <thead><tr><th>Account</th><th></th><th class="fig">Debit</th><th class="fig">Credit</th></tr></thead>
+              <tbody>
+                <tr><td class="acct mono">1100</td><td>Accounts Receivable</td><td class="fig mono">20.00</td><td class="fig mono">—</td></tr>
+                <tr><td class="acct mono">4200</td><td>Sales Discount</td><td class="fig mono">2.00</td><td class="fig mono">—</td></tr>
+                <tr><td class="acct mono">4000</td><td>Sales</td><td class="fig mono">—</td><td class="fig mono">20.00</td></tr>
+                <tr><td class="acct mono">2100</td><td>Tax Payable</td><td class="fig mono">—</td><td class="fig mono">2.00</td></tr>
+                <tr class="rule-top total"><td></td><td>Balanced</td><td class="fig mono">22.00</td><td class="fig mono">22.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <p>The figure to check is <b>4200 Sales Discount moving by 2.00</b>. If it moves and Sales still moves
+          by the full 20.00, the concession is visible as its own number — a shop that discounted heavily no
+          longer looks identical to one that simply sold less.</p>
+
+        <div class="before">
+          <p><b>Before the fix:</b> the invoice ignored the coupon entirely and came back at 22.00 against a
+            quote of 20.00.</p>
+          <p>And 4200 was empty. Not empty for this shop — <b>empty for every shop, since the account was
+            introduced.</b> The posting rule was right and the caller was right; the value was being dropped in
+            silence in between, by an outbox table that had no column to hold it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACT 5 ────────────────────────────────────────────────────────────────────────── -->
+    <section class="act" id="act5">
+      <div class="act-head">
+        <span class="act-n">ACT 05</span>
+        <h2>Void it all back</h2>
+        <span class="tag">the mirror</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          A reversal has to undo every leg the sale posted, not just the obvious ones. A void that forgets the
+          concession leaves 4200 holding a discount on an invoice that no longer exists.
+        </p>
+
+        <h3 class="step-label">Do this</h3>
+        <ol class="steps">
+          <li>Note the Trial Balance figures for <b>4000</b>, <b>4200</b>, <b>4300</b>, <b>2100</b> and
+              <b>1100</b>.</li>
+          <li>Find the <b>Act 03 delivery order</b> and the <b>Act 04 coupon order</b> in the sales list and
+              void each one.</li>
+          <li>Reopen the Trial Balance.</li>
+        </ol>
+
+        <h3 class="step-label">Expect</h3>
+        <p>Every account you noted returns to <b>exactly</b> the figure it held before Act 03 — including
+          4200 and 4300. The trial balance still reports itself balanced, and the two invoices survive in the
+          list stamped <b>VOID</b> with zeroed totals, because a document you have already handed a customer
+          is cancelled, never deleted.</p>
+
+        <div class="proof">
+          <p><b>Why this act is the real test.</b> Getting money <i>into</i> the ledger is the easy half.
+            Anything that can be posted has to be reversible to the penny, or the books drift a little with
+            every cancelled order and nobody notices until the year-end.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLOSING ─────────────────────────────────────────────────────────────────────── -->
+    <section class="closing" id="closing">
+      <h2>What part one proved</h2>
+      <p>
+        Three defects were stacked on top of one another here, and each one hid the next. The shop front ran
+        its own tax engine that never asked the shop whether it charged tax. The sale contract had no room for
+        a coupon or a delivery fee. And underneath both, the queue that carries sales into the ledger was
+        quietly discarding any figure it had no column for.
+      </p>
+      <p>
+        Every act above checks the same thing twice — once on the invoice, once in the ledger — because the
+        invoice alone will lie to you. Three automated tests passed against correct invoices while the ledger
+        behind them was wrong. An invoice is what the shop shows a customer; the ledger is what the shop
+        actually knows.
+      </p>
+
+      <h3>If something doesn't match</h3>
+      <ul>
+        <li><b>The shop front still shows tax after you switched it off.</b> The 15-second policy cache hasn't
+          expired. Wait and reload — if it persists past a minute, that's a real finding.</li>
+        <li><b>An account didn't move at all.</b> Check the sale actually produced an invoice number. A sale
+          with no invoice means the order never reached the books, which is a different problem from a wrong
+          figure.</li>
+        <li><b>4300 Delivery Income isn't listed.</b> Run <code>fetch('/gl/ensureDefaults', {method:'POST'})</code> —
+          new accounts are added to a shop's chart the first time they're needed.</li>
+        <li><b>Trial Balance reports unbalanced.</b> Stop and say so. That is the one result here that should
+          never happen, and it is worth more than the rest of this document.</li>
+      </ul>
+
+      <h3>Known limits, so you don't report them as bugs</h3>
+      <ul>
+        <li><b>Tax is calculated before the coupon</b>, so Act 04 taxes the full 20.00 rather than the
+          discounted 18.00. The shop front and the invoice agree on this, so it isn't a disagreement — but
+          whether a whole-order discount ought to reduce the tax base is a live question, and jurisdictions
+          differ.</li>
+        <li><b>Delivery is never refunded on a partial return.</b> Return one lamp of two and the fee stays on
+          the invoice — the van went out either way. The coupon, by contrast, is pro-rated to the goods kept.</li>
+        <li><b>A rejected journal reports only "Something went wrong".</b> If a sale posts nothing, the error
+          won't tell you why. That's a known gap.</li>
+        <li><b>Coupons have no screen yet.</b> Act 00 creates one through the console because that is currently
+          the only way.</li>
+      </ul>
+    </section>
+
+    <!-- ═══ PART TWO ═══════════════════════════════════════════════════════════════════ -->
+
+    <section class="part" id="lifecycle">
+      <p class="part-n">Part two</p>
+      <h2>Who approves an order, and who moves it along</h2>
+      <p>
+        Part one followed the money. This follows the order — from the moment it exists to the moment its cash
+        is banked, and who is allowed to push it each step.
+      </p>
+      <p>
+        The first thing to settle is a common surprise: <b>most orders have nothing to approve.</b> Whether an
+        order waits for a decision depends entirely on how it arrived.
+      </p>
+
+      <div class="lanes">
+        <div class="lane">
+          <div class="lane-name">Booked by a rep</div>
+          <div class="flow">
+            <span class="node gateway">PENDING_APPROVAL</span>
+            <span class="arrow">→</span>
+            <span class="node">NEW</span>
+            <span class="arrow">→</span>
+            <span class="node">PACKED</span>
+            <span class="arrow">→</span>
+            <span class="node">SHIPPED</span>
+            <span class="arrow">→</span>
+            <span class="node">DELIVERED</span>
+          </div>
+          <p class="lane-note">
+            A rep books through <b>Store → Book order</b>. It stops at the gate and waits for someone with
+            authority to confirm or reject it. Rejected orders go back for revision, never straight to NEW —
+            otherwise "reject" would be a one-click way round the approval it exists to enforce.
+          </p>
+        </div>
+        <div class="lane">
+          <div class="lane-name">Placed in the shop</div>
+          <div class="flow">
+            <span class="node off">no gate</span>
+            <span class="arrow">→</span>
+            <span class="node here">NEW</span>
+            <span class="arrow">→</span>
+            <span class="node">PACKED</span>
+            <span class="arrow">→</span>
+            <span class="node">SHIPPED</span>
+            <span class="arrow">→</span>
+            <span class="node">DELIVERED</span>
+          </div>
+          <p class="lane-note">
+            A shopper has already committed and paid or agreed to pay, so there is no one to approve them to.
+            The order enters at <b>NEW</b>, which in this system <i>is</i> the confirmed state — there is
+            deliberately no separate <code>CONFIRMED</code>, because it would mean exactly what NEW already means.
+          </p>
+        </div>
+      </div>
+
+      <div class="readout">
+        <h3>Worked example · SO-000342, read from the server</h3>
+        <dl>
+          <div><dt>Source</dt><dd>STOREFRONT</dd></div>
+          <div><dt>Booked by</dt><dd>—</dd></div>
+          <div><dt>Status</dt><dd>NEW</dd></div>
+          <div><dt>Server offers</dt><dd>PACKED · CANCELLED</dd></div>
+          <div><dt>Books</dt><dd>POSTED · INV-000197</dd></div>
+          <div><dt>Total</dt><dd>95.00</dd></div>
+          <div><dt>Payment</dt><dd>COD · PENDING</dd></div>
+          <div><dt>Shipments</dt><dd>none yet</dd></div>
+        </dl>
+      </div>
+
+      <div class="note">
+        <p>Nothing to approve on this one. It came through the shop front, it is already at NEW, and it is
+          already invoiced — 90.00 of goods plus 5.00 delivery. The only decisions left are physical ones.</p>
+        <p><b>Read <code>allowedTransitions</code> rather than guessing.</b> The server publishes exactly what an
+          order can do next, and the Orders screen draws its buttons from that list. If a button you expect is
+          missing, the order is not in the state you think it is.</p>
+      </div>
+    </section>
+
+    <section class="act" id="trace">
+      <div class="act-head">
+        <span class="act-n">TRACE</span>
+        <h2>Finding out where an order has been</h2>
+        <span class="tag">3 ways</span>
+      </div>
+      <div class="act-body">
+        <h3 class="step-label">In the back office</h3>
+        <p>Open <b>Store → Orders</b>, search the order number, and click the row. The detail view carries a
+          <b>Timeline</b> panel that gains an entry on every status change. SO-000342 currently shows one:
+          <i>Order placed · NEW · 18:26</i>. Everything you do in the next section appends to it.</p>
+
+        <h3 class="step-label">From the console, when you want the raw shape</h3>
+<pre><code>await (await fetch('/getOrder?id=621')).json()      // status + allowedTransitions + timeline
+await (await fetch('/getDeliveries?id=621')).json() // what the driver reported back
+inv('INV-000197')                                    // the books side (helper from Act 00)</code></pre>
+
+        <h3 class="step-label">As the customer sees it</h3>
+        <p>The shop front has its own tracking page at <code>/storefront/track</code>, keyed by order number and
+          contact — useful for checking what a customer would be told, which is deliberately less than the back
+          office shows.</p>
+      </div>
+    </section>
+
+    <section class="act" id="stages">
+      <div class="act-head">
+        <span class="act-n">STAGES</span>
+        <h2>From NEW to settled cash</h2>
+        <span class="tag">4 steps</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          Four steps remain for SO-000342. The authority widens as the money gets closer: anyone in the
+          warehouse can put goods in a box, but only an owner or admin can say cash came back.
+        </p>
+
+        <div class="tbl-scroll">
+          <table>
+            <thead>
+              <tr><th>Step</th><th>Where</th><th>Who can</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><b>1 · Pack</b></td>
+                <td>Order detail → <b>Pack</b></td>
+                <td><span class="gate open">any signed-in user</span></td>
+              </tr>
+              <tr>
+                <td><b>2 · Ship</b></td>
+                <td>Order detail → <b>Ship</b></td>
+                <td><span class="gate open">any signed-in user</span></td>
+              </tr>
+              <tr>
+                <td><b>3 · Record delivery</b></td>
+                <td>Order detail → <b>Record delivery</b></td>
+                <td><span class="gate admin">ROLE_OWNER</span> <span class="gate admin">ADMIN</span> <span class="gate admin">SUPER</span></td>
+              </tr>
+              <tr>
+                <td><b>4 · Settle the cash</b></td>
+                <td>Store → <b>Driver settlement</b></td>
+                <td><span class="gate admin">ROLE_OWNER</span> <span class="gate admin">ADMIN</span> <span class="gate admin">SUPER</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="step-label">1 · Pack</h3>
+        <p>Scans each item against the order as it goes in the box. This catches the one error the Ship form
+          cannot: right count, wrong goods. <b>Ship</b> stays available beside it on purpose — a barcode can be
+          missing or damaged, and a packer who cannot proceed will find some other way round. The shipment
+          records which lines were actually scanned, so typing is possible but no longer invisible.</p>
+
+        <h3 class="step-label">2 · Ship</h3>
+        <p>You do not mark an order shipped. You record a parcel, and the status follows from what went out —
+          <code>SHIPPED</code> and <code>PARTIALLY_SHIPPED</code> are <b>derived</b> states. A status that could
+          be set independently of its shipments is a status that can lie about them.</p>
+
+        <h3 class="step-label">3 · Record delivery</h3>
+        <p>Appears only once a parcel is <code>DISPATCHED</code>, so it never sits on a settled order. This is
+          where the driver's outcome is keyed — delivered, refused, part-refused — and where <b>COD cash is
+          declared</b>. SO-000342 is COD with 95.00 outstanding, so this is the step that says the money exists.</p>
+
+        <h3 class="step-label">4 · Settle the cash</h3>
+        <p>The day-end cash-up. It sweeps a driver's collections into AR through the books' own allocator,
+          raising real receipts against real invoices. <b>Until you do this the 95.00 is collected but not
+          settled</b>, and <code>INV-000197</code> still reads <code>due −95.00</code>.</p>
+        <p>The whole screen is admin-gated, reads included — the open-collections list is a statement of who is
+          holding how much of the company's money, and the settlements list is the record of who came back short.
+          Neither is ordinary operational data.</p>
+
+        <div class="proof">
+          <p><b>Check it landed.</b> After settling, run <code>inv('INV-000197')</code> again. <code>paid</code>
+            should be 95.00 and the due should be gone. That is the same before-and-after discipline as Part one:
+            the order screen saying "delivered" is the artefact, the receivable clearing is the property.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="act" id="reversals">
+      <div class="act-head">
+        <span class="act-n">UNDO</span>
+        <h2>Cancelling, returning, refunding</h2>
+        <span class="tag">admin only</span>
+      </div>
+      <div class="act-body">
+        <p class="lede">
+          <code>allowedTransitions</code> for SO-000342 also offers <b>CANCELLED</b>. Forward fulfilment is
+          ungated; anything that reverses money is not.
+        </p>
+
+        <div class="tbl-scroll">
+          <table>
+            <thead><tr><th>Action</th><th>What it actually does</th><th>Gate</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><b>Cancel</b></td>
+                <td>Voids INV-000197, restores stock, nets Sales and AR back to zero</td>
+                <td><span class="gate admin">ADMIN</span></td>
+              </tr>
+              <tr>
+                <td><b>Return</b></td>
+                <td>Raises a credit note against the issued invoice — never edits it</td>
+                <td><span class="gate admin">ADMIN</span></td>
+              </tr>
+              <tr>
+                <td><b>Refund</b></td>
+                <td>Sends money back to a card; only offered where there is something refundable</td>
+                <td><span class="gate admin">ADMIN</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Two rules worth knowing before you reach for one. A <b>shipped order cannot be cancelled</b> — goods
+          on a van are not back on the shelf, so it goes DELIVERED → RETURNED instead, which puts stock back when
+          it physically arrives. And a <b>partial return is a credit note, not an edit</b>, because the customer
+          is holding a copy of the original invoice.</p>
+
+        <div class="note">
+          <p>If you don't see a Cancel button, that is the gate working rather than a missing feature — the
+            Orders grid hides reversal actions from anyone who would only get a 403 from the server.</p>
+        </div>
+
+        <div class="before">
+          <p><b>Worth re-checking here.</b> A cancel is the fastest way to prove Part one's fix end to end: void
+            SO-000342 and every account it touched — including 4300 Delivery Income — must return to exactly
+            where it was. A reversal that forgets a leg leaves the books drifting slightly on every cancelled
+            order, and nobody notices until year-end.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</body></html>

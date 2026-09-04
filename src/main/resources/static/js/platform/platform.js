@@ -372,6 +372,110 @@
 			+ '</li>';
 	}
 
+
+	// ── E5: the support session bar ─────────────────────────────────────────────────────────────
+
+	/**
+	 * The session currently open on the tenant being viewed, or null.
+	 *
+	 * Held in module scope rather than re-fetched by the countdown, because a timer that makes a request
+	 * every second is a timer somebody eventually leaves running on a dashboard.
+	 */
+	var supportSession = null;
+	var supportTimer = null;
+
+	/** Remaining time as m:ss, or null once it has run out. */
+	function remaining(expiresAtIso) {
+		var end = new Date(String(expiresAtIso)).getTime();
+		if (isNaN(end)) return null;
+		var secs = Math.floor((end - Date.now()) / 1000);
+		if (secs <= 0) return null;
+		var m = Math.floor(secs / 60);
+		var s = secs % 60;
+		return m + ':' + (s < 10 ? '0' : '') + s;
+	}
+
+	/**
+	 * Draw the bar for the tenant on screen.
+	 *
+	 * ⭐ An operator must never forget whose data they are looking at, so this is not a quiet flag: it is a
+	 * persistent, sticky strip in a colour used nowhere else on this screen, naming the customer and counting
+	 * down. Its absence is equally deliberate — with no session there is a plain button, and the panels that
+	 * need one say so rather than rendering an empty card.
+	 */
+	function renderSupportBar(orgId, orgName) {
+		var $box = $('#platSupport');
+		if (!$box.length) return;
+
+		if (!supportSession) {
+			$box.html('<div class="plat-support plat-support--none">'
+				+   '<span class="glyphicon glyphicon-eye-close" aria-hidden="true"></span>'
+				+   '<span class="plat-support__text">'
+				+     esc(t('ui.js.supportNone', 'You are not in a support session for this business.'))
+				+   '</span>'
+				+   '<button type="button" class="btn btn-default btn-xs" id="platSupportOpen" '
+				+     'data-testid="support-open">'
+				+     esc(t('ui.js.openSupport', 'Open support session')) + '</button>'
+				+ '</div>');
+			return;
+		}
+
+		var left = remaining(supportSession.expiresAt);
+		if (left === null) {
+			// Expired while the page was open. Say so rather than leaving a bar that claims access the
+			// server will now refuse — a stale banner is worse than none, because it is believed.
+			supportSession = null;
+			renderSupportBar(orgId, orgName);
+			return;
+		}
+
+		var mins = parseInt(left.split(':')[0], 10);
+		var ending = mins < 5;
+
+		$box.html('<div class="plat-support' + (ending ? ' plat-support--ending' : '') + '" '
+			+     'data-testid="support-bar" role="status">'
+			+   '<span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span>'
+			+   '<span class="plat-support__text">'
+			+     '<strong>' + esc(t('ui.js.supportOpen', 'Support session')) + '</strong> &middot; '
+			+     esc(orgName || '')
+			+   '</span>'
+			+   '<span class="plat-support__left" data-testid="support-remaining">'
+			+     esc(t('ui.js.endsIn', 'ends in')) + ' ' + esc(left)
+			+   '</span>'
+			+   '<span class="plat-badge ' + (supportSession.writeApproved ? 'plat-badge--ok' : 'plat-badge--notinplan') + '">'
+			+     esc(supportSession.writeApproved
+					? t('ui.js.changesAllowed', 'Changes allowed')
+					: t('ui.js.readOnly', 'Read only'))
+			+   '</span>'
+			+   '<span class="plat-support__reason">&ldquo;' + esc(supportSession.reason || '') + '&rdquo;</span>'
+			+   '<button type="button" class="btn btn-default btn-xs" id="platSupportClose" '
+			+     'data-testid="support-close">' + esc(t('ui.js.closeSupport', 'Close')) + '</button>'
+			+ '</div>');
+
+		// One timer, restarted on each render — never one per render, which is how a page ends up with
+		// twelve of them counting the same number down twelve times.
+		if (supportTimer) clearInterval(supportTimer);
+		supportTimer = setInterval(function () {
+			if (!$('#platSupport').length) { clearInterval(supportTimer); supportTimer = null; return; }
+			renderSupportBar(orgId, orgName);
+		}, 1000);
+	}
+
+	/** Fetch this tenant's sessions and draw the bar. Called after the detail markup exists. */
+	function loadSupport(orgId, orgName) {
+		supportSession = null;
+		$.get(serverContext + 'platform/supportSessions?organizationId=' + encodeURIComponent(orgId))
+			.done(function (res) {
+				if (apiOk(res)) {
+					var rows = (apiData(res) || {}).rows || [];
+					// The open one, if any. The server computes `open` from the clock so the console and the
+					// resolver cannot disagree about whether a customer is currently being accessed.
+					supportSession = rows.filter(function (r) { return r.open; })[0] || null;
+				}
+			})
+			.always(function () { renderSupportBar(orgId, orgName); });
+	}
+
 	var state = { page: 0, size: 25, q: '', total: 0, needsType: false };
 
 	// ── the tenants list ────────────────────────────────────────────────────────────────────────
@@ -553,6 +657,11 @@
 
 		var html = '<h3 class="plat-detail__name">' + esc(d.organizationName || '') + '</h3>'
 			/*
+			 * E5 — the support bar goes FIRST, above the data it grants access to. An operator scrolling
+			 * a customer's figures must not have to scroll back up to discover whose they are.
+			 */
+			+ '<div id="platSupport"></div>'
+			/*
 			 * ONB-1 — the business type comes FIRST, above plan and status.
 			 *
 			 * It is the question that decides what the customer sees at all; plan and status decide what they
@@ -658,6 +767,9 @@
 		// E4 — same rule, same reason: renderActivity writes into #platActivity.
 		activityState = { filter: '', expanded: false };
 		renderActivity(orgId);
+		// E5 — and the support bar, which needs the tenant's NAME: an operator reading "49" has to look it
+		// up to know whose data they are in, which defeats the point of the bar.
+		loadSupport(orgId, d.organizationName);
 	}
 
 	/**
@@ -755,6 +867,44 @@
 		$('#platDetailBody').on('click', '.plat-act__more', function () {
 			activityState.expanded = true;
 			paintActivity();
+		});
+
+		/*
+		 * E5 — opening and closing a support session.
+		 *
+		 * Opening asks for a reason through the shared prompt, never window.confirm, and the server refuses
+		 * without one anyway — the dialog is the courtesy, the API is the rule.
+		 */
+		$('#platDetailBody').on('click', '#platSupportOpen', function () {
+			var orgId = $('#platDetailBody').data('org');
+			var orgName = $('.plat-detail__name').first().text();
+			global.uiPromptConfirm({
+				title: t('ui.js.openSupport', 'Open support session'),
+				message: orgName,
+				input: { label: t('ui.js.supportReason', 'Why do you need access?') },
+				confirmText: t('ui.js.openSupport', 'Open support session')
+			}).then(function (reason) {
+				if (reason === null) return;
+				return $.post(serverContext + 'platform/supportSession',
+					{ organizationId: orgId, reason: reason, minutes: 30 })
+					.done(function (res) {
+						if (!apiOk(res)) {
+							global.uiAlert(apiMessage(res, t('ui.js.saveFailed', 'Save failed')));
+							return;
+						}
+						openTenant(orgId);
+					})
+					.fail(function (xhr) {
+						global.uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed', 'Save failed')));
+					});
+			});
+		});
+
+		$('#platDetailBody').on('click', '#platSupportClose', function () {
+			var orgId = $('#platDetailBody').data('org');
+			if (!supportSession) return;
+			$.post(serverContext + 'platform/closeSupportSession', { id: supportSession.id })
+				.always(function () { openTenant(orgId); });
 		});
 
 		$('#platDetailBody').on('click', '.js-grant', function () {

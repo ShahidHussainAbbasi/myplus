@@ -115,8 +115,45 @@ public final class CurrentUser {
      * naming it here is that the unsafe form stops being the shorter one to type.
      */
     public static Long organizationIdFor(Long requestedOrganizationId) {
-        if (requestedOrganizationId != null && isPlatformOperator()) return requestedOrganizationId;
+        if (requestedOrganizationId != null && supportSessionCovers(requestedOrganizationId))
+            return requestedOrganizationId;
         return organizationId();
+    }
+
+    /**
+     * E5 — is there an OPEN support session for this tenant?
+     *
+     * <h3>What this replaced, and why the change is the whole slice</h3>
+     * Until E5 the question above was {@code isPlatformOperator()}: a yes handed over any tenant, for any
+     * reason, for ever. Nothing bounded it in time, nothing recorded why, and the customer could not see it.
+     * A session answers all three, and this method is where the standing grant stops being the answer.
+     *
+     * <p>{@code isPlatformOperator()} is deliberately still here and still used — it remains the right
+     * question for the operator's own console endpoints (the tenant list, entitlements, plans). What changed
+     * is only the question asked about <b>somebody else's data</b>.
+     *
+     * <h3>The expiry is checked here, not trusted</h3>
+     * The scope arrives in a claim, so a token minted before a session ended still carries it. Checking the
+     * clock at the point of use is what keeps "time-boxed" true rather than decorative.
+     */
+    public static boolean supportSessionCovers(Long organizationId) {
+        if (organizationId == null) return false;
+        return get().map(u -> organizationId.equals(u.getSupportOrgId())
+                        && u.getSupportUntil() != null
+                        && u.getSupportUntil().isAfter(java.time.LocalDateTime.now()))
+                .orElse(false);
+    }
+
+    /**
+     * E5 — may this caller CHANGE that tenant's records?
+     *
+     * <p>An open session is not enough: the customer has to have allowed it (ruling D-2). Reading a shop's
+     * figures to answer their question and altering their records are different asks, and only the second is
+     * irreversible from where they are standing.
+     */
+    public static boolean supportSessionMayWrite(Long organizationId) {
+        return supportSessionCovers(organizationId)
+                && get().map(AuthenticatedUser::isSupportWrite).orElse(false);
     }
 
     /**

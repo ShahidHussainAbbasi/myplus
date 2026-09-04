@@ -46,6 +46,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    /**
+     * E5 — the operator's open support sessions, resolved once per token mint.
+     *
+     * <p>{@code ObjectProvider} rather than a plain field so this class keeps booting if the bean is ever
+     * unavailable during startup ordering; the claim is simply absent, which resolves to "no session" and is
+     * the safe answer. A support scope that failed OPEN would be the entire slice undone.
+     */
+    private final org.springframework.beans.factory.ObjectProvider<SupportSessionService> supportSessions;
     private final TwoFactorService twoFactorService;
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
@@ -577,6 +585,28 @@ public class AuthService {
         return buildAuthResponse(user, accessToken, refreshToken.getToken(), claims);
     }
 
+    /**
+     * E5 — a fresh access token for a user whose SCOPE has just changed, without a refresh-token round trip.
+     *
+     * <h3>Why the open-session endpoint must hand one back</h3>
+     * The support scope is a claim, so opening a session does nothing at all for the token the operator is
+     * already holding: they would open a session, click into the customer, and be answered about their own
+     * organization — a wrong number under the customer's name, which is the failure ONB-3 and E4 both hit
+     * and the hardest kind to notice.
+     *
+     * <p>Reuses {@link #buildClaims} rather than adding the claim by hand, so a token minted here can never
+     * disagree with one minted by login about anything else the claims carry.
+     *
+     * @return a signed access token carrying the caller's claims as they stand right now
+     */
+    @Transactional(readOnly = true)
+    public String mintAccessTokenFor(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ValidationException("No such user"));
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getEmail());
+        return jwtService.generateAccessToken(userDetails, buildClaims(user));
+    }
+
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         RefreshToken token = refreshTokenService.findByToken(request.getRefreshToken())
@@ -783,6 +813,45 @@ public class AuthService {
         // is working in, not the single type stamped on the person. NULL for tenants created before the column
         // was populated; every consumer falls back to userType, which is exactly today's behaviour.
         claims.put("activeOrgType", activeOrg != null ? activeOrg.getType() : null);
+        /*
+         * E5 — the SUPPORT SCOPE.
+         *
+         * Before this, `CurrentUser.organizationIdFor` asked "are you ROLE_ADMIN?" and a yes reached every
+         * tenant for ever. It now asks whether an OPEN SESSION names the tenant, and this is how that answer
+         * travels — the same mechanism as `caps` (C3c), for the same reason: resolved once at the door, so no
+         * service acquires a request-path dependency on auth-service.
+         *
+         * ⚠ Only the FIRST open session is carried. An operator supporting two customers at once has two
+         * sessions, and the claim names the newest; the console opens one at a time and closing is one click.
+         * Carrying a list would let a single token reach several tenants at once, which is the standing grant
+         * in a smaller costume.
+         *
+         * ⚠ `supportUntil` is carried so a callee can answer "is this still valid?" without calling back. Its
+         * cost is stated in the design's §2: a session CLOSED early stays usable until the token refreshes,
+         * inside the 15-minute access-token life. Sessions are short by default so expiry, not closure, is the
+         * normal ending — and every access is recorded either way.
+         */
+        try {
+            SupportSessionService sessionService = supportSessions.getIfAvailable();
+            if (sessionService != null) {
+                java.util.List<com.myplus.auth.entity.SupportSession> open =
+                        sessionService.openFor(user.getId());
+                if (!open.isEmpty()) {
+                    com.myplus.auth.entity.SupportSession s = open.get(0);
+                    claims.put("supportOrg", s.getSubjectOrgId());
+                    claims.put("supportUntil", s.getExpiresAt().toString());
+                    // The customer's consent for WRITES (D-2), carried separately: an operator may look at a
+                    // shop's figures to answer their question without being able to change their records.
+                    claims.put("supportWrite", s.isWriteApproved());
+                }
+            }
+        } catch (RuntimeException scopeUnavailable) {
+            // A support scope that cannot be resolved is ABSENT, never assumed. Failing open here would hand
+            // back the standing grant this slice exists to remove, silently, on exactly the deployment where
+            // something else was already wrong.
+            log.warn("Support scope could not be resolved for user {}; the token carries none.",
+                    user.getId(), scopeUnavailable);
+        }
         // Tenant entitlement (slice 32): the plan is the source of truth for limits; trialEndsAt time-boxes
         // a TRIAL. The gateway will move from the demo boolean to these without a breaking change.
         if (activeOrg != null) {

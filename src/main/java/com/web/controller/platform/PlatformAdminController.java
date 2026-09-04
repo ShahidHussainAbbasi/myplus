@@ -418,6 +418,126 @@ public class PlatformAdminController {
         }
     }
 
+    /**
+     * E5 — open a support session over one tenant.
+     *
+     * <h3>⚠ The re-mint is the whole reason this is a BFF call and not a link to the gateway</h3>
+     * The support scope travels as a JWT claim, and this console's downstream calls use the token held in
+     * the operator's SESSION. Opening a session mints a new token in auth-service — but the session is still
+     * holding the old one, so without {@code gateway.refreshNow()} the operator would open a session, click
+     * into the customer, and be answered about their own (empty) organization. Not an error: a wrong number
+     * under somebody else's name, which is the failure ONB-3 and E4 both hit and the hardest kind to notice.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/supportSession", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> openSupportSession(final HttpServletRequest request) {
+        try {
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("organizationId", request.getParameter("organizationId"));
+            body.put("reason", request.getParameter("reason"));
+            String minutes = request.getParameter("minutes");
+            if (minutes != null && !minutes.isBlank()) body.put("minutes", minutes);
+
+            Map<String, Object> res = authPost("/admin/support-sessions", body);
+            refreshSessionToken();
+            return res;
+        } catch (Exception e) {
+            LOGGER.error("platform open support session proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** E5 — end a session early. Re-mints too, so the scope stops reaching the tenant on the next call. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/closeSupportSession", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> closeSupportSession(final HttpServletRequest request) {
+        try {
+            Map<String, Object> res = authPost(
+                    "/admin/support-sessions/" + enc(request.getParameter("id")) + "/close", null);
+            refreshSessionToken();
+            return res;
+        } catch (Exception e) {
+            LOGGER.error("platform close support session proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** E5 — one tenant's support history, for the console's detail panel. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/supportSessions", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> supportSessions(final HttpServletRequest request) {
+        try {
+            return authGet("/admin/support-sessions?organizationId="
+                    + enc(request.getParameter("organizationId")));
+        } catch (Exception e) {
+            LOGGER.error("platform support sessions proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * Take a fresh token for THIS session, so a scope change applies to the very next call.
+     *
+     * <p>A failure here is logged and swallowed on purpose: the session itself was opened successfully, and
+     * refusing the whole call would tell the operator nothing happened when something did. The scope arrives
+     * at the next refresh either way — within the access-token life.
+     */
+    private void refreshSessionToken() {
+        try {
+            gateway.refreshNow();
+        } catch (Exception refreshFailed) {
+            LOGGER.warn("Support session changed but this session's token could not be re-minted; the scope "
+                    + "will apply on its next refresh.", refreshFailed);
+        }
+    }
+
+    // ── E5: the CUSTOMER's side ───────────────────────────────────────────────────────────────────
+    //
+    // Deliberately NOT gated on ROLE_ADMIN like everything above: these are the tenant's own records of who
+    // looked at their books. auth-service gates them on ROLE_OWNER and scopes every one to activeOrgId from
+    // the validated token, so there is no id to tamper with and nothing for this proxy to decide. They live
+    // in this class because the support-session API is one thing, and splitting it by audience across two
+    // controllers is how the two halves drift.
+
+    /** Every support session over the caller's OWN organisation. */
+    @RequestMapping(value = "/getSupportSessions", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getSupportSessions() {
+        try {
+            return authGet("/support-sessions/mine");
+        } catch (Exception e) {
+            LOGGER.error("tenant support sessions proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** The customer allows this session to change their records (E5 ruling D-2). */
+    @RequestMapping(value = "/approveSupportWrites", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> approveSupportWrites(final HttpServletRequest request) {
+        try {
+            return authPost("/support-sessions/" + enc(request.getParameter("id")) + "/approve-writes", null);
+        } catch (Exception e) {
+            LOGGER.error("approve support writes proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** The customer ends a session. Takes effect when the operator's token next refreshes. */
+    @RequestMapping(value = "/endSupportSession", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> endSupportSession(final HttpServletRequest request) {
+        try {
+            return authPost("/support-sessions/" + enc(request.getParameter("id")) + "/end", null);
+        } catch (Exception e) {
+            LOGGER.error("end support session proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     private Map<String, Object> authGet(String path) {
         return gateway.forMap(AUTH_PREFIX, authDirectUrl, path, HttpMethod.GET, null, null);
     }

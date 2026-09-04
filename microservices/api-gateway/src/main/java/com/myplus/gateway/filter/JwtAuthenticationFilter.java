@@ -161,6 +161,16 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             // when no claim replaces it below, so an unresolved capability set can never be
                             // supplied by the caller it is about.
                             h.remove("X-Org-Caps");
+                            /*
+                             * E5 — REMOVED UNCONDITIONALLY, for exactly the reason X-Org-Caps is.
+                             *
+                             * This header is what widens a platform operator past their own organization. A
+                             * client able to set it could name any tenant and be answered about it — the
+                             * standing grant this slice removes, handed back through a header instead of a
+                             * role. Stripped even when no claim replaces it below, so a support scope can
+                             * never be supplied by the caller it is about.
+                             */
+                            h.remove("X-Support-Scope");
                         })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
@@ -175,6 +185,19 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 // tenants on tokens minted before this shipped — a self-inflicted outage on deploy day.
                 if (caps != null && !caps.isEmpty()) {
                     builder.header("X-Org-Caps", caps);
+                }
+                /*
+                 * E5 — the support scope: "<subjectOrgId>|<expiresAt>|<writeApproved>".
+                 *
+                 * Stamped ONLY when the token actually carried the claim, like the capability header above:
+                 * an absent header means "no session", which is the safe answer and the one every ordinary
+                 * request should get.
+                 */
+                Object supportOrg = claims.get("supportOrg");
+                if (supportOrg != null) {
+                    builder.header("X-Support-Scope", supportOrg
+                            + "|" + String.valueOf(claims.get("supportUntil"))
+                            + "|" + Boolean.TRUE.equals(claims.get("supportWrite")));
                 }
                 if (internalSecret != null && !internalSecret.isEmpty()) {
                     builder.header("X-Internal-Secret", internalSecret);

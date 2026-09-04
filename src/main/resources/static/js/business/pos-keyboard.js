@@ -50,9 +50,59 @@
      * A walk-in is NOT slowed down. The picker may be left blank and the double-Enter escape below skips
      * it — which is the rule that makes putting it first safe to impose at all. Without that escape this
      * change would put a mandatory stop in front of every cash sale.
+     *
+     * ⚠ `sellSerials` SITS BETWEEN THE ITEM AND THE QUANTITY, and it was missing from this list entirely.
+     * SER-3d moved it in front of QTY on screen; the chain still walked Item → QTY, so the visual order
+     * and the keyboard order disagreed — and a keyboard-only cashier could not reach the box at all. For a
+     * serial-tracked product that is not a nuisance, it is a DEAD END: the server refuses the sale without
+     * a serial, and the only field that satisfies it was unreachable without a mouse.
+     *
+     * It costs a till that does not track serials nothing: usable() drops any field that is hidden, and
+     * the box is hidden both for a tenant without the capability and for one that switched
+     * pos.entry.showSerial off. Configuration drives the keyboard for free — the same property that keeps
+     * sellCN/sellCC out of the walk in select mode.
+     *
+     * It also has to come BEFORE the quantity rather than after it, because entering a serial LOCKS the
+     * quantity to 1. Walking Item → QTY → Serial would put the cashier in a box whose value is about to be
+     * overwritten by the next field they type in.
      */
+    /* ══════════════════════════════════════════════════════════════════════════════════════════
+     * THE TWO RULES EVERY CHAIN AND EVERY JUMP IN THIS FILE OBEYS
+     *
+     * Three keyboard defects shipped in one week and every one broke one of these. None was
+     * catchable by reading the code — each read correctly and behaved wrongly on screen.
+     *
+     *   RULE 1 — THE CHAIN ORDER IS THE SCREEN ORDER.
+     *            One thing, not two that have to be kept in step. Reorder in the MARKUP and the walk
+     *            follows; never reorder with CSS `order` or by rewriting a list to disagree with the
+     *            page. The purchase form takes this further and DERIVES its walk from the DOM, which
+     *            is why moving a field there needs no code change at all — see business.js.
+     *            Broken by: the checkout listing trade discount before Received while the screen had
+     *            them the other way round, so Enter jumped down the page and back up.
+     *
+     *   RULE 2 — A NAMED FIELD IS A PREFERENCE, NEVER A TARGET.
+     *            Whether it is on screen is the TENANT's decision. Check it with usable() and move to
+     *            the next available field; never focus nothing, and never leave an id here for a
+     *            field that no longer exists.
+     *            Broken by: focusGoodsEntry() focusing #sellItemDD unconditionally (cursor unmoved,
+     *            Enter apparently dead, no error), and by #sellInsured sitting in the checkout chain
+     *            for weeks after the field was removed from the screen.
+     *
+     * A COROLLARY OF BOTH, learned twice: a jump that skips AHEAD of the next field is a second,
+     * unstated ordering. It made the customer picker leap to the money and strand a cashier on an
+     * empty cart, and a later attempt to skip the payment method silently disabled AFTER_METHOD —
+     * which is what sends a CREDIT sale to its due date rather than to a Received box it has no
+     * business in. If a stop feels wasted, the answer is a routing rule that says why, not a jump
+     * that says nothing.
+     *
+     * ENFORCED, not just written down: cypress/e2e/business/keyboard-chain-order.cy.js reads these
+     * arrays out of the shipped file and compares them with the DOM. Prose in a header is what these
+     * three defects already had.
+     * ══════════════════════════════════════════════════════════════════════════════════════════ */
+
     var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC',
-                 'sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscountTypeDD', 'sellDiscount'];
+                 'sellItemDD', 'sellSerials', 'sellItems', 'sellSellRate',
+                 'sellDiscountTypeDD', 'sellDiscount'];
 
     /** Every dropdown the chain walks. These are bootstrap-select widgets, so they need the
      *  selection hook below rather than a keystroke handler — see D-23 in the P5 design. */
@@ -78,16 +128,42 @@
      * when the tenant enables it — appear in the walk exactly when they are on screen, and never
      * otherwise. Same rule as the line chain: configuration drives the keyboard for free.
      */
+    /*
+     * ⚠ THIS LIST IS THE ORDER THE FIELDS APPEAR ON SCREEN, and it did not used to be.
+     *
+     * The comment further down has always said the checkout "walks the form's field ORDER". It did not:
+     *
+     *     on screen   payMethod → storeCredit → Received → tradeDiscount → dueDate → insured
+     *     in the list payMethod → tradeDiscount → storeCredit → insured → Received → dueDate
+     *
+     * so Enter left the payment method, jumped over Received to a discount box further down the page,
+     * then back up. Every complaint about the checkout "going the wrong way" is that disagreement, and it
+     * survived because the routing rule below (AFTER_METHOD) sends a cash sale straight to Received and
+     * hides the worst of it — the walk only looks wrong once you are past that jump.
+     *
+     * Corrected to the DOM order. It is the same rule the sale line follows and the same one SER-3d
+     * restated: the keyboard order and the visual order are one thing, not two that have to be kept in
+     * step. A field moved in the markup is then a field moved in the walk, with nothing to remember.
+     *
+     * For a cash sale the forward walk is now:
+     *     payMethod --AFTER_METHOD--> Received → trade discount → complete
+     * with store credit, due date and insured falling out for any tenant that does not show them.
+     */
     var CHECKOUT = [
         // sellCustomerDD / sellCN / sellCC deliberately NOT here any more — they moved to the head of
         // CHAIN (task #13). Leaving them in both would make the cashier name the customer twice per sale:
         // once before the lines and again on the way to payment.
         'sellPayMethod',
-        'sellTradeDiscount',
         'sellStoreCredit',
-        'sellInsured',
         'sellRec',
+        'sellTradeDiscount',
         'dueDateTemp'          // only visible when this sale leaves a balance
+        // #sellInsured is NOT here: the insurer-covered amount field was REMOVED from the screen by
+        // decision on 2026-08-16 (P12, slice 59), and its id sat in this list ever since. usable() made
+        // it harmless — a missing element is never focusable — but a chain that names a field nobody can
+        // see is a chain nobody can read, and the audit that found it had to prove the absence rather
+        // than see it. The INSURANCE tender itself stays; a pharmacy still settles against an insurer,
+        // it simply does not split the amount on this screen.
     ];
 
     /** Read-only fields that display a computed value. They are still submitted and still written to
@@ -176,10 +252,10 @@
      *
      *   • an empty ITEM picker means the line is finished, so the cursor belongs in the checkout, not
      *     at the next line field;
-     *   • an empty CUSTOMER picker means a walk-in, so the cursor belongs on the money — skipping the
-     *     payment method, which is already Cash. (A customer may still be REQUIRED to complete the
-     *     sale; that is the submit path's business, and refusing to move the cursor is not how to say
-     *     it. Blocking the keyboard does not name a customer, it just strands the cashier.)
+     *   • an empty CUSTOMER picker means a walk-in, so the cursor belongs on the GOODS — the sale has
+     *     not been rung up yet. (A customer may still be REQUIRED to complete the sale; that is the
+     *     submit path's business, and refusing to move the cursor is not how to say it. Blocking the
+     *     keyboard does not name a customer, it just strands the cashier.)
      *
      * @returns an id to focus, false when this function has already moved the cursor, or null to leave it
      */
@@ -189,13 +265,29 @@
             return false;
         }
         if (from === 'sellCustomerDD') {
-            // No customer => a WALK-IN, and a walk-in pays now. Skip straight to the money.
-            //
-            // Safe to skip the payment method because it is never empty: it opens on the tenant's
-            // `pos.tender.default` (CASH out of the box, and a distributor invoicing on account sets it
-            // to Credit). Skipping a field that already holds the right answer costs the cashier
-            // nothing; Shift+Enter walks back to it on the rare sale that differs.
-            return $('#sellCustomerDD').val() ? 'sellPayMethod' : 'sellRec';
+            /*
+             * No customer => a WALK-IN, so move on to the GOODS. Nothing has been rung up yet.
+             *
+             * ⚠ THIS USED TO JUMP TO THE MONEY, and it was a real dead end reported from the counter:
+             * skipping the customer landed the cursor in `sellRec` — the Received box — with an empty
+             * cart, past every field that puts anything in it.
+             *
+             * The old rule was correct WHEN IT WAS WRITTEN and stopped being correct underneath itself.
+             * The customer picker used to be the first field of CHECKOUT, where "no customer named, so
+             * take me to the amount" is exactly right. Task #13 moved it to the head of the LINE chain —
+             * before any goods — and this branch was not revisited, so it went on skipping to payment
+             * from a position where payment is the last thing that should happen.
+             *
+             * focusGoodsEntry() rather than a plain walk to `sellItemDD`, because where goods are typed
+             * depends on the shop: the scan box when barcode scanning is on, the item picker otherwise.
+             * The general walk below only knows CHAIN, and #sellScan is deliberately not in it.
+             *
+             * The old code also read `val() ? 'sellPayMethod' : 'sellRec'` — but the true branch was
+             * DEAD: skipAhead is only ever called on an EMPTY picker (the caller returns early when a
+             * value is present). A ternary that can only take one path is a rule nobody can check.
+             */
+            focusGoodsEntry();
+            return false;
         }
         // Everything else: the next usable field along, in whichever chain this picker belongs to.
         return walk(chainFor(from), from, 1);
@@ -205,7 +297,9 @@
     /**
      * WHERE THE PAY METHOD SENDS THE CURSOR.
      *
-     * The checkout chain walks the form's field ORDER, which is a layout decision and not a workflow one.
+     * The checkout chain walks the form's field ORDER — which it now genuinely does; see the note on
+     * CHECKOUT above for the years it did not. Field order is a LAYOUT decision, and the tender is a
+     * WORKFLOW one, which is why this table exists on top of it.
      * On a cash sale that put the cursor in Trade discount — a field most cash sales never touch — while
      * the field the method actually requires, the amount handed over, sat two stops further on. The
      * cashier's next keystroke and the chain's next stop disagreed on every single sale.
@@ -265,14 +359,61 @@
      * block of fields that cannot complete anything, and the honest response is to leave them where the
      * items are typed.
      */
+    /**
+     * WHERE THE CURSOR LANDS when the lines are finished: the FIRST FIELD OF THE CHECKOUT, which is the
+     * payment method — then Received, then the trade discount, then completing the sale.
+     *
+     *     empty item picker → sellPayMethod → sellRec → sellTradeDiscount → Complete Sale
+     *
+     * <h3>Why the payment method, and not straight to the money</h3>
+     * An earlier cut of this landed on `sellRec` directly, arguing that the method dropdown is never
+     * empty (it opens on the tenant's `pos.tender.default`) so stopping there answers nothing. The owner
+     * overruled it, and the reason is better than the optimisation:
+     *
+     *   THE RULE IS "THE NEXT AVAILABLE FIELD IN THE CHAIN", and after the line phase that is
+     *   `sellPayMethod`. A jump that skips ahead to a field further down is a second, unstated ordering —
+     *   exactly the kind of special case that made the customer picker jump to the money and strand a
+     *   cashier on an empty cart.
+     *
+     * Skipping it also DISABLED A RULE THAT ALREADY EXISTED. {@code AFTER_METHOD} routes the cursor from
+     * the method to the right next field — `sellRec` for cash, card, wallet, bank transfer and split;
+     * `dueDateTemp` for credit, because a credit sale takes no money now and wants its due date. Landing
+     * past the method meant a CREDIT sale went to Received, a box it has no business in. One stop on a
+     * pre-filled dropdown buys that routing; removing the stop cost it.
+     *
+     * ⚠ EVERY ENTRY IS A PREFERENCE, NOT A TARGET. Each is checked with usable() and skipped when the
+     * tenant has switched it off, so this degrades instead of focusing nothing — and then the rest of the
+     * checkout, and then completing the sale. That is the rule the whole module follows, and it is why
+     * naming a field here cannot strand a shop that hid it.
+     */
+    var CHECKOUT_LANDING = ['sellPayMethod', 'sellRec', 'sellTradeDiscount'];
+
+    /**
+     * Focus the first field in `list` the tenant actually has. Returns false when none of them exist.
+     *
+     * The shared spelling of the rule this module keeps restating: a named field is a PREFERENCE, and
+     * whether it is on screen is the tenant's decision. Extracted so the two fallbacks below can each
+     * reach the checkout WITHOUT calling one another — see the cycle note in focusGoodsEntry().
+     */
+    function focusFirstUsable(list) {
+        for (var i = 0; i < list.length; i++) {
+            if (usable(list[i])) { focusField(list[i]); return true; }
+        }
+        return false;
+    }
+
+    /** Landing preferences first, then the chain's own order. */
+    function checkoutOrder() { return CHECKOUT_LANDING.concat(CHECKOUT); }
+
     function goToCheckout() {
         // Empty cart: back to the GOODS, not to the entry point. Since the entry point became the customer,
         // routing here would bounce customer → item → customer and trap the cashier in a loop with no way
         // forward. "Leave them where the items are typed" is what this line has always meant.
         if (!global.data || global.data.length === 0) { focusGoodsEntry(); return false; }
-        for (var i = 0; i < CHECKOUT.length; i++) {
-            if (usable(CHECKOUT[i])) { focusField(CHECKOUT[i]); return true; }
-        }
+
+        // Preferred landings first, then the chain's own order for anything they did not cover. Deduped by
+        // construction: a landing that is also in CHECKOUT is simply found earlier.
+        if (focusFirstUsable(checkoutOrder())) return true;
         // Nothing in the checkout is reachable (every field hidden by configuration) — the sale is
         // already answerable, so go straight to completing it rather than nowhere.
         completeSale();
@@ -329,9 +470,32 @@
     function focusGoodsEntry() {
         if (global.posBarcodeEnabled === true && $('#sellScan').is(':visible')) {
             focusField('sellScan');
-        } else {
-            focusField('sellItemDD');
+            return;
         }
+        /*
+         * ⚠ SKIP WHAT IS NOT THERE, and move on to the next usable field — the same rule goToCheckout()
+         * and focusEntryPoint() follow.
+         *
+         * This used to focus #sellItemDD unconditionally. A tenant that hid the item picker (or any build
+         * where it had not been rendered yet) got a call that focused NOTHING: the cursor stayed wherever
+         * it was, Enter did nothing visible, and the till looked frozen with no error anywhere. Naming a
+         * field is a preference; whether it is on screen is the tenant's decision, and every jump in this
+         * module has to allow for that.
+         */
+        if (usable('sellItemDD')) { focusField('sellItemDD'); return; }
+        var next = walk(CHAIN, 'sellItemDD', 1);
+        if (next) { focusField(next); return; }
+        /*
+         * No goods field at all is a configuration nobody should have, but stranding the cursor is not the
+         * way to say so — fall back to wherever the sale can still be answered.
+         *
+         * ⚠ THE CHECKOUT FIELDS DIRECTLY, never goToCheckout(). That function sends an EMPTY cart back
+         * here, and the only way to reach this line is with no goods field on screen — which the empty
+         * cart then guarantees. Calling it would be a loop with no exit: goods → checkout → goods, hanging
+         * the tab on a keystroke. The same shape as the customer → item → customer loop task #13 left
+         * behind, which is why this one is spelled out rather than trusted to stay obvious.
+         */
+        focusFirstUsable(checkoutOrder());
     }
     global.posFocusEntryPoint = focusEntryPoint;
 
@@ -637,7 +801,7 @@
         // Bound separately from the line chain because these controls are not inside <form id="Sell">.
         $(document).on('keydown',
             '#customerSelectMode input, #customerSelectMode select, #customerManualMode input, '
-          + '#sellPayMethod, #sellRec, #sellTradeDiscount, #sellStoreCredit, #sellInsured, #dueDateTemp',
+          + '#sellPayMethod, #sellRec, #sellTradeDiscount, #sellStoreCredit, #dueDateTemp',
         function (e) {
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (e.key === 'Escape') {

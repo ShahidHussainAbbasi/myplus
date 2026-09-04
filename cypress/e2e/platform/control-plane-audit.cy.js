@@ -169,6 +169,42 @@ const writeCapability = (value) =>
 
 // ── the gate ──────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * E5 — open a support session over `orgId` and yield the RE-MINTED operator token that carries its scope.
+ *
+ * ⚠ THIS IS A PRECONDITION, NOT A WEAKENING, and the distinction matters because the two look identical in
+ * a diff. Before E5, a ROLE_ADMIN operator reached every tenant for ever, unasked and unrecorded; the calls
+ * below were written against that standing grant. E5 replaced it with a bounded, explained session, so the
+ * operator now has to open one — this spec asserts exactly what it always did, through the path the product
+ * actually has. What stops that reasoning excusing anything is `support-session.cy.js` case 1, which asserts
+ * the standing grant is GONE.
+ *
+ * The scope travels as a claim, so the token handed back here is the one every later call must use.
+ */
+const openSupport = (token, orgId, reason) =>
+  cy
+    .request({
+      method: 'POST',
+      url: `${GW}/api/auth/admin/support-sessions`,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: { organizationId: orgId, reason, minutes: 60 },
+      failOnStatusCode: false,
+    })
+    .then((r) => {
+      expect(r.body && r.body.success, `open support session: ${JSON.stringify(r.body)}`).to.eq(true)
+      expect(r.body.data.accessToken, 'the open call hands back the scoped token').to.be.a('string')
+      return cy.wrap({ id: r.body.data.id, token: r.body.data.accessToken }, { log: false })
+    })
+
+/** Close it again — an operator session left open is the standing grant by another name. */
+const closeSupport = (token, id) =>
+  cy.request({
+    method: 'POST',
+    url: `${GW}/api/auth/admin/support-sessions/${id}/close`,
+    headers: { Authorization: `Bearer ${token}` },
+    failOnStatusCode: false,
+  })
+
 describe('E4 — every control-plane change leaves a record that says who, and why', () => {
   let operatorToken = null
   let operatorOrgId = null

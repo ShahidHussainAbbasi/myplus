@@ -101,6 +101,44 @@ const requireSerial = (productId) =>
     expect(r.body && r.body.success, `requiresSerial(${productId}): ${JSON.stringify(r.body)}`).to.not.eq(false)
   })
 
+/**
+ * E5 — open a support session over `orgId`, through the CONSOLE'S OWN PATH.
+ *
+ * ⚠ THIS IS A PRECONDITION, NOT A WEAKENING, and the two look identical in a diff. Before E5 a ROLE_ADMIN
+ * operator reached every tenant for ever, unasked and unrecorded; the operator calls below were written
+ * against that standing grant. E5 replaced it with a bounded, explained session, so the operator now opens
+ * one — this spec asserts exactly what it always did, through the path the product actually has. What keeps
+ * that reasoning honest is `support-session.cy.js` case 1, which asserts the standing grant is GONE.
+ *
+ * ⚠ It goes through the monolith BFF rather than the gateway, and that is deliberate: this spec drives the
+ * console as a signed-in operator, and the console's downstream calls use the token held in its SESSION.
+ * `/platform/supportSession` re-mints that token server-side. Opening the session at the gateway instead
+ * would succeed and change nothing here — the session would still be carrying the old, scope-less token.
+ */
+const openSupport = (orgId, reason) =>
+  cy
+    .request({
+      method: 'POST',
+      url: '/platform/supportSession',
+      form: true,
+      body: { organizationId: orgId, reason, minutes: 60 },
+      failOnStatusCode: false,
+    })
+    .then((r) => {
+      expect(r.body && r.body.success, `open support session: ${JSON.stringify(r.body)}`).to.eq(true)
+      return r.body.data.id
+    })
+
+/** Close it again — an operator session left open is the standing grant by another name. */
+const closeSupport = (id) =>
+  cy.request({
+    method: 'POST',
+    url: '/platform/closeSupportSession',
+    form: true,
+    body: { id },
+    failOnStatusCode: false,
+  })
+
 describe('ONB-3 — a business-type change tells you what it costs', () => {
   let mobileOrg = null
   let pesticideOrg = null

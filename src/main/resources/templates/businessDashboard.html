@@ -30,6 +30,47 @@ tr.row-voided .js-edit-row{display:none !important}
 .cmode-toggle .cmode-btn.active{color:#fff;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);box-shadow:0 4px 10px rgba(31,78,140,.35)}
 .cmode-toggle .cmode-btn:active{transform:translateY(1px)}
 @media (max-width:480px){.cmode-toggle{display:flex;width:100%}.cmode-toggle .cmode-btn{flex:1;justify-content:center;padding:10px 8px}}
+/* The toggle and the customer field share ONE row, instead of stacking into two bands.
+ *
+ * The sale screen opens on the customer, so this block is the first thing on it — and it was spending two
+ * full rows of a till screen on a two-button switch and one dropdown. Side by side it costs one.
+ *
+ * ⚠ THE PARENT IS THE FLEX CONTAINER, NOT THE CHILDREN. #customerSelectMode and #customerManualMode are
+ * shown and hidden by jQuery .show()/.hide(), which writes an INLINE display:block — that would beat any
+ * display:flex declared on them here, and the layout would snap back to stacked the first time the cashier
+ * switched modes. A flex ITEM keeps participating in the row whatever its own display says, so making only
+ * the wrapper flex leaves the existing JS untouched and correct.
+ *
+ * align-items:flex-end sits the dropdown's box on the toggle's baseline; the field-label above it means the
+ * two would otherwise be a caption's height out of alignment.
+ */
+.cmode-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 18px}
+/* Bootstrap 3 gives a nested .form-group -15px side margins, meant to cancel a parent column's padding.
+   There is no such padding to cancel in a flex row, so it showed up as the field sitting left of the toggle
+   with a gap on its right. Zeroed only inside this row. */
+.cmode-row > .form-group{margin:0;min-width:0}
+/* The explicit widths the fields now carry. A Bootstrap column class could not do this job here: col-sm-4
+   and col-md-3 are PERCENTAGES OF THE PARENT, and the parent is a .form-group that is now a flex item whose
+   own width is shrink-to-fit from its content. A percentage of a shrink-to-fit box is circular, so the
+   column collapsed and the customer dropdown came out a few characters wide. */
+.cmode-row .cmode-field-customer{width:280px}
+.cmode-row .cmode-field-name{width:220px}
+.cmode-row .cmode-field-mobile{width:170px}
+/* sellCustomerDD is enhanced into a bootstrap-select at runtime (searchable-selects.js), so the thing on
+   screen is the plugin's wrapper div, not the select. The plugin writes its own width inline, which is why
+   this needs !important to reach the field width above. */
+.cmode-row .bootstrap-select{width:100% !important}
+.cmode-row .bootstrap-select > .btn{height:38px;text-align:left}
+.cmode-row .field-label{display:block;margin-bottom:4px}
+/* On a phone the toggle already goes full-width (above), so let the fields wrap under it rather than
+   squeezing a dropdown into whatever is left. 767 is the existing breakpoint in responsive.css. */
+@media (max-width:767px){
+  .cmode-row{gap:8px}
+  .cmode-row > .form-group{flex:1 0 100%}
+  .cmode-row .cmode-field-customer,
+  .cmode-row .cmode-field-name,
+  .cmode-row .cmode-field-mobile{width:100%}
+}
 /* Sell cart / checkout panel (iDiv) */
 .cart-panel{max-width:80%;margin:0 auto;background:#fff;border:1px solid #e2e7ef;border-radius:14px;box-shadow:0 6px 22px rgba(20,40,80,.09);overflow:hidden;text-align:left}
 .cart-panel__head{display:flex;align-items:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);color:#fff;font-size:15px;font-weight:700;letter-spacing:.3px}
@@ -1649,6 +1690,34 @@ tr.row-voided .js-edit-row{display:none !important}
 					  </div>
 					</div>
 
+					<!-- Toggle column — the same control (and the same shared `a.toggle-vis` handler in
+					     business.js) that #tableProduct, #tablePurchase and #tableSell use. The customer grid
+					     is the widest of the four at 13 columns: a shop chasing payments wants Due and Credit,
+					     a shop taking orders wants Address and Contact, and nobody wants all thirteen.
+
+					     data-column is the ZERO-BASED index into #tableCustomer's header below:
+					       0 ID (hidden by loadDataTable)   1 checkbox        2 Name       3 Contact
+					       4 Email     5 Address    6 Customer type   7 Credit limit      8 Payment terms
+					       9 Due      10 Credit    11 Dated          12 Receive Payment (the action control)
+					     0, 1 and 12 are deliberately NOT offered: hiding the id or the checkbox breaks
+					     row-edit and bulk select, and 12 holds the Receive Payment button rather than data.
+
+					     ⚠ These indexes are POSITIONAL — insert a column into the table below and every number
+					     after it silently points one column to the left. The control still works; it just hides
+					     the wrong thing, with no error. -->
+					<div>
+						<span th:text="#{ui.toggleColumn}">Toggle column:</span>
+						  <a class="toggle-vis" data-column="2" th:text="#{ui.name}">Name</a>
+						  - <a class="toggle-vis" data-column="3" th:text="#{ui.contact}">Contact</a>
+						  - <a class="toggle-vis" data-column="4" th:text="#{ui.email}">Email</a>
+						  - <a class="toggle-vis" data-column="5" th:text="#{ui.address2}">Address</a>
+						  - <a class="toggle-vis" data-column="6" th:text="#{ui.customerType}">Customer type</a>
+						  - <a class="toggle-vis" data-column="7" th:text="#{ui.creditLimit}">Credit limit</a>
+						  - <a class="toggle-vis" data-column="8" th:text="#{ui.paymentTerms}">Payment terms</a>
+						  - <a class="toggle-vis" data-column="9" th:text="#{ui.due}">Due</a>
+						  - <a class="toggle-vis" data-column="10" th:text="#{ui.credit}">Credit</a>
+						  - <a class="toggle-vis" data-column="11" th:text="#{ui.dated}">Dated</a>
+					</div>
 					<table id="tableCustomer" class="table table-bordered table-striped">
 						<thead>
 							<tr>
@@ -1827,9 +1896,65 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					
+					<!--
+						SER-3d: the serial comes BEFORE the quantity, because it DECIDES the quantity.
+
+						Entering a serial locks QTY to 1 — a serial identifies one physical thing — so with the
+						old order the operator typed a quantity and then watched the next field overwrite it.
+						Scan first and the quantity answers itself, which is also the order goods arrive in:
+						you have the box in your hand before you know how many you are booking in.
+					-->
+					<!--
+						SER-2 — the serial / IMEI of each unit received, and the condition they arrived in.
+
+						Capability-gated, so a shop that does not track serials never sees the row. Within a shop
+						that does, the SERVER still decides per product: a handset requires serials, a charger on
+						the same receipt does not (ProductRef.requiresSerial).
+
+						SER-3c: ONE serial per LINE, not a list in one box.
+
+						This was a three-row textarea holding one IMEI per line, so a carton of ten handsets was
+						one purchase line carrying ten serials — and the count had to match the quantity exactly
+						or the whole receipt was refused. A miscount was found only at submit, after everything
+						had been typed.
+
+						Now a line IS a unit: enter the serial and the quantity locks to 1. Ten handsets are ten
+						lines, which "Save & Add Another" (P6) makes a scan-and-repeat rather than a retype —
+						and a wrong IMEI is now one line to fix instead of a refused receipt.
+					-->
+					<!-- SER-3d: data-pos-field="serial" is the same hook the sale line carries, so ONE setting
+					     (pos.entry.showSerial) governs both screens. data-capability still gates whether this
+					     shop does serials at all; the setting only decides whether the field is on the form. -->
+					<div class="form-group" data-pos-field="serial" data-capability="serialTracking,conditionGrading">
+						<label class="control-label col-sm-2" for="purchaseSerials"
+						       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
+						<div class="col-sm-4" data-capability="serialTracking">
+							<input type="text" class="form-control" id="purchaseSerials" maxlength="64"
+							       th:placeholder="#{ui.js.serialNumbersHint}"
+							       placeholder="Scan or type the IMEI of this unit"/>
+						</div>
+						<label class="control-label col-sm-2" for="purchaseCondition"
+						       data-capability="conditionGrading" th:text="#{ui.js.condition}">Condition</label>
+						<div class="col-sm-4" data-capability="conditionGrading">
+							<select class="form-control" id="purchaseCondition">
+								<option value="NEW" th:text="#{ui.js.conditionNew}">New</option>
+								<option value="USED" th:text="#{ui.js.conditionUsed}">Used</option>
+								<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
+							</select>
+						</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="purchaseQuantity" th:text="#{ui.qty2}">QTY</label>
-						<div class="col-lg-4">
+						<!--
+							col-sm-4, not col-lg-4. Bootstrap 3 applies `col-lg-*` only from 1200px, and these three
+							divs carried NO col-sm companion — so between 768px and 1199px, which is most laptops,
+							the column class did not apply at all and each input fell back to a full-width block
+							while its `col-sm-2` label stayed floated beside it. QTY, Bonus and Stock In Hand each
+							took a row of their own, out of line with every other field on this form.
+
+							Every other row here is col-sm-2 + col-sm-4; these now match. QTY(6) + Bonus(6) fills
+							one row exactly, and the Pack/Box toggle and Stock In Hand follow on the next.
+						-->
+						<div class="col-sm-4">
 							<input type="number" step="any" min="1" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="purchaseQuantity" 
 							name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
 						</div>
@@ -1841,7 +1966,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							Capability-gated: a shop that receives no bonus offers should not see the box.
 						-->
 						<label class="control-label col-sm-2" for="purchaseBonusQuantity" data-capability="bonusSchemes" th:text="#{ui.bonusQty}">Bonus</label>
-						<div class="col-lg-4" data-capability="bonusSchemes">
+						<div class="col-sm-4" data-capability="bonusSchemes">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseBonusQuantity"
 							name="bonusQuantity" th:placeholder="#{ui.freeUnitsReceived}" placeholder="Free units received"/>
 						</div>
@@ -1875,38 +2000,11 @@ tr.row-voided .js-edit-row{display:none !important}
 						     size is caught by the person who knows the answer. -->
 						<div class="pos-cell purchase-box-hint" id="purchaseBoxHint" style="display:none"></div>
 						<label class="control-label col-sm-2" for="purchaseStock" th:text="#{ui.stockInHand}">Stock In Hand</label>
-						<div class="col-lg-4">
+						<div class="col-sm-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
 						</div>
 					</div>
 
-					<!--
-						SER-2 — the serial / IMEI of each unit received, and the condition they arrived in.
-
-						Capability-gated, so a shop that does not track serials never sees the row. Within a shop
-						that does, the SERVER still decides per product: a handset requires serials, a charger on
-						the same receipt does not (ProductRef.requiresSerial).
-
-						One per line rather than a comma list: an IMEI is 15 digits transcribed off a box, and a
-						separator is one more thing to get wrong when the count must match the quantity exactly.
-					-->
-					<div class="form-group" data-capability="serialTracking,conditionGrading">
-						<label class="control-label col-sm-2" for="purchaseSerials"
-						       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
-						<div class="col-sm-4" data-capability="serialTracking">
-							<textarea class="form-control" id="purchaseSerials" rows="3"
-							          th:placeholder="#{ui.js.serialNumbersHint}"
-							          placeholder="One serial or IMEI per line — one for each unit received"></textarea>
-						</div>
-						<label class="control-label col-sm-2" for="purchaseCondition"
-						       data-capability="conditionGrading" th:text="#{ui.js.condition}">Condition</label>
-						<div class="col-sm-4" data-capability="conditionGrading">
-							<select class="form-control" id="purchaseCondition">
-								<option value="NEW" th:text="#{ui.js.conditionNew}">New</option>
-								<option value="USED" th:text="#{ui.js.conditionUsed}">Used</option>
-								<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
-							</select>
-						</div>
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</label>
@@ -2070,7 +2168,41 @@ tr.row-voided .js-edit-row{display:none !important}
 				-->
 						<!-- Customer mode toggle -->
 						<div class="form-group" style="padding-top: 15px;">
-							<div class="col-sm-12">
+							<div class="col-sm-12 cmode-row">
+								<!--
+									THE FIELD COMES FIRST, THE MODE SWITCH AFTER IT.
+
+									The sale opens on the customer, and the picker is what a cashier uses on every
+									sale; the toggle is for the rare one where the buyer is not on file. Leading
+									with the switch put the secondary control in the primary position — and in the
+									tab order ahead of the field it governs.
+
+									Reordered in the MARKUP rather than with CSS `order`, so the tab sequence and
+									the visual sequence stay the same thing. Same rule the sale line follows for
+									Serial before QTY.
+								-->
+								<div class="form-group" id="customerSelectMode">
+									<div class="cmode-field-customer">
+										<span class="field-label" th:text="#{ui.customer}">Customer</span>
+										<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
+											<option value="" th:text="#{ui.selectCustomer}">-- Select Customer --</option>
+										</select>
+									</div>
+								</div>
+								<!-- Manual mode: type name + contact -->
+								<div class="form-group" id="customerManualMode" style="display: none;">
+									<div class="cmode-field-name">
+										<span class="field-label" th:text="#{ui.customerName}">Customer Name</span>
+										<input type="text" class="form-control" id="sellCN"
+											name="cn" placeholder=" Customer name " th:placeholder="#{ui.customerName2}"
+											oninput="this.style.removeProperty('border-color')">
+									</div>
+									<div class="cmode-field-mobile">
+										<span class="field-label" th:text="#{ui.mobile2}">Mobile</span>
+										<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number" th:placeholder="#{ui.mobileNumber2}"/>
+									</div>
+								</div>
+
 								<div class="cmode-toggle btn-group" data-toggle="buttons" role="group" aria-label="Customer input mode" th:aria-label="#{ui.customerInputMode}">
 									<label class="cmode-btn active" id="btnModeSelect" onclick="onCustomerModeChange('select')">
 										<input type="radio" name="customerInputMode" value="select" checked>
@@ -2080,28 +2212,6 @@ tr.row-voided .js-edit-row{display:none !important}
 										<input type="radio" name="customerInputMode" value="manual">
 										<span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.enterManually}">Enter Manually</span>
 									</label>
-								</div>
-
-								<div class="form-group" id="customerSelectMode">
-									<div class="col-xs-12 col-sm-4 col-md-3">
-										<span class="field-label" th:text="#{ui.customer}">Customer</span>
-										<select class="form-control" id="sellCustomerDD" onchange="onSellCustomerSelect(this)">
-											<option value="" th:text="#{ui.selectCustomer}">-- Select Customer --</option>
-										</select>
-									</div>
-								</div>
-								<!-- Manual mode: type name + contact -->
-								<div class="form-group" id="customerManualMode" style="display: none;">
-									<div class="col-xs-12 col-sm-4">
-										<span class="field-label" th:text="#{ui.customerName}">Customer Name</span>
-										<input type="text" class="form-control" id="sellCN"
-											name="cn" placeholder=" Customer name " th:placeholder="#{ui.customerName2}"
-											oninput="this.style.removeProperty('border-color')">
-									</div>
-									<div class="col-xs-12 col-sm-3">
-										<span class="field-label" th:text="#{ui.mobile2}">Mobile</span>
-										<input type="text" class="form-control" id="sellCC" name="cc" placeholder="Mobile number" th:placeholder="#{ui.mobileNumber2}"/>
-									</div>
 								</div>								
 							</div>
 						</div>
@@ -2151,6 +2261,67 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div> -->
 					<div class="form-group">
+						<!--
+							SER-3d: the serial comes BEFORE the quantity, because it DECIDES the quantity.
+
+							Entering a serial locks QTY to 1 (a serial identifies one physical thing), so with the
+							old order the cashier typed a quantity and then watched it be overwritten by the next
+							field — wasted keystrokes on every handset, and a control that appeared to fight them.
+							Scan first, and the quantity answers itself.
+						-->
+						<!--
+							SER-3 — the serial / IMEI of the unit being sold.
+
+							`name="serials"` is what wires it: formToJSON("Sell") reads the form by name, so the
+							value lands on the cart line with no extra JavaScript and travels to the server as
+							SellDTO.serials. A field wired by hand instead would be one more place to forget.
+
+							Capability-gated, and the SERVER still decides per product — a handset on the line
+							demands a serial, a charger on the next line does not (ProductRef.requiresSerial).
+						-->
+						<!--
+							NOT `pos-more`. That class puts a field off the compact row entirely
+							(`.pos-rowentry #Sell .pos-more{display:none}`) until the "More ▾" popover is
+							built, which it is not yet — so marking it optional made the serial box invisible
+							on the sale screen for every tenant that tracks serials. It is not an optional
+							extra: for a serial-tracked product the sale is REFUSED without it.
+
+							`data-pos-field="serial"` is now LIVE: SER-3d registered pos.entry.showSerial and
+							added it to posFieldsFor's MAP. Until then this hook was inert and this comment
+							was wrong — the key existed nowhere, so no tenant could switch the field off
+							however the sentence read. On by default, which is the right default for a field
+							the server may demand.
+						-->
+						<div class="pos-cell" data-pos-field="serial" data-capability="serialTracking">
+							<label class="control-label col-sm-2" for="sellSerials"
+							       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
+							<!--
+								col-sm-4, matching QTY and Price beside it. It was col-sm-2 — half the width of every
+								neighbour — for a field holding the LONGEST value on the line: a 15-digit IMEI does not
+								fit in it on the classic stacked layout, and a cashier cannot read back a number that
+								is scrolling inside its own box while they check it against the handset.
+
+								Serial(2+4) + QTY(2+4) is now exactly 12, so the two sit on one clean Bootstrap row.
+								Inert under .pos-rowentry, where every column is width:auto and pos-rowentry.css
+								states the widths in pixels instead.
+							-->
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="sellSerials" name="serials"
+								       th:placeholder="#{ui.js.serialScanHint}" placeholder="Scan or type the IMEI"/>
+								<!--
+									SER-4 — what the register knows about the unit just entered: its condition,
+									or that it is not on the shelf.
+
+									Read-only and beside the input on purpose. A cashier selling a used handset
+									must see that it is used BEFORE taking the money — the grade was recorded at
+									intake and then lived only in the database, which made it a fact the shop
+									owned and could not act on.
+
+									Filled by /js/business/serial-sell.js; empty until a serial is entered.
+								-->
+								<div id="sellSerialInfo" class="serial-info" style="display:none"></div>
+							</div>
+						</div>
 						<div class="pos-cell pos-cell-qty">
 							<label class="control-label col-sm-2 req" for="sellItems" th:text="#{ui.qty2}">QTY</label>
 							<div class="col-sm-4">
@@ -2208,47 +2379,6 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="col-sm-2">
 								<input type="number" step="any" min="0" class="form-control" id="sellBonus"
 								       placeholder="0" th:title="#{ui.bonusHelp}"/>
-							</div>
-						</div>
-						<!--
-							SER-3 — the serial / IMEI of the unit being sold.
-
-							`name="serials"` is what wires it: formToJSON("Sell") reads the form by name, so the
-							value lands on the cart line with no extra JavaScript and travels to the server as
-							SellDTO.serials. A field wired by hand instead would be one more place to forget.
-
-							Capability-gated, and the SERVER still decides per product — a handset on the line
-							demands a serial, a charger on the next line does not (ProductRef.requiresSerial).
-						-->
-						<!--
-							NOT `pos-more`. That class puts a field off the compact row entirely
-							(`.pos-rowentry #Sell .pos-more{display:none}`) until the "More ▾" popover is
-							built, which it is not yet — so marking it optional made the serial box invisible
-							on the sale screen for every tenant that tracks serials. It is not an optional
-							extra: for a serial-tracked product the sale is REFUSED without it.
-
-							`data-pos-field="serial"` stays, so a tenant can still switch it off through the
-							sale-screen configuration; an absent setting means shown, which is the right
-							default for a field the server may demand.
-						-->
-						<div class="pos-cell" data-pos-field="serial" data-capability="serialTracking">
-							<label class="control-label col-sm-2" for="sellSerials"
-							       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
-							<div class="col-sm-2">
-								<input type="text" class="form-control" id="sellSerials" name="serials"
-								       th:placeholder="#{ui.js.serialScanHint}" placeholder="Scan or type the IMEI"/>
-								<!--
-									SER-4 — what the register knows about the unit just entered: its condition,
-									or that it is not on the shelf.
-
-									Read-only and beside the input on purpose. A cashier selling a used handset
-									must see that it is used BEFORE taking the money — the grade was recorded at
-									intake and then lived only in the database, which made it a fact the shop
-									owned and could not act on.
-
-									Filled by /js/business/serial-sell.js; empty until a serial is entered.
-								-->
-								<div id="sellSerialInfo" class="serial-info" style="display:none"></div>
 							</div>
 						</div>
 						<div class="pos-cell" data-pos-field="stock">
@@ -2452,11 +2582,15 @@ tr.row-voided .js-edit-row{display:none !important}
 										data-dp-iso="#instFirstDueDate" onchange="previewInstallmentSchedule()">
 									<input type="hidden" id="instFirstDueDate">
 								</div>
-								<div class="col-xs-12 col-sm-2 col-md-2">
-									<!-- INST-1: a LABEL, not a register. INST-5 replaces it with a real serial unit. -->
-									<span class="field-label" th:text="#{ui.js.instAssetRef}">IMEI / serial</span>
-									<input type="text" class="form-control" id="instAssetRef" maxlength="64">
-								</div>
+								<!--
+									SER-3b: the IMEI field that stood here has been REMOVED as a duplicate.
+
+									The sale line already has one (#sellSerials, SER-3) which the server validates
+									against the serial register. Asking for the same IMEI twice on one screen invited
+									the two to disagree, and left the cashier deciding which box the register reads.
+
+									The plan's assetRef is now taken FROM the sale line — see installment.js.
+								-->
 								<div class="col-xs-12" style="padding-top:10px">
 									<div id="instSchedulePreview" class="help-block"></div>
 								</div>
@@ -3682,6 +3816,9 @@ tr.row-voided .js-edit-row{display:none !important}
 					<p th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 				</div>
 				<div id="businessConfigMsg" class="alert" style="display:none"></div>
+				<!-- E5 - Platform access. Empty unless this business has actually been accessed, so a shop
+				     that support has never opened sees nothing here at all. -->
+				<div id="platformAccessBox"></div>
 				<div id="businessConfigBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 
