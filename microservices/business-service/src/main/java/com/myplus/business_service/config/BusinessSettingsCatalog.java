@@ -360,6 +360,40 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // log nothing at all. The allowed values live as constants on the classes that read them
                 // (Frequency.SettingValue, InstallmentPlanService.ORDER_*) so the catalog and the reader
                 // cannot drift apart.
+                /*
+                 * OB-1 — the date this business became the system of record.
+                 *
+                 * ⚠ NO DEFAULT, and that is the whole point of Q3. Every opening balance is DATED by this,
+                 * so a defaulted value is a wrong value on every tenant that did not notice the field — and
+                 * "today" is the most tempting and the most wrong: a shop entering its balances a fortnight
+                 * after go-live would date its entire migration into the wrong period, invisibly.
+                 *
+                 * TEXT rather than a date type because this catalog has no date type. The service parses it
+                 * with LocalDate.parse and treats anything unparseable exactly as it treats blank: refuse,
+                 * and name the setting. A migration anchored to a guessed day is worse than one that has not
+                 * started.
+                 *
+                 * LOCKED by the first posting — enforced by CutoverDateGuard, which attaches to the KEY and
+                 * therefore holds however the write arrives: this screen, the settings API, or an importer.
+                 */
+                SettingEntry.text("business.cutoverDate",
+                        "Opening balances: the date this business became the system of record",
+                        "Leave blank until you are ready. Set it to the day MaxTheService took over from "
+                                + "your previous records, then enter what each customer and supplier owed on "
+                                + "that date. It cannot be changed once a balance has been recorded against "
+                                + "it, because those entries are dated by it.",
+                        "", "Opening balances"),
+                /*
+                 * Set to true by the first successful posting; read by CutoverDateGuard. Visible in
+                 * Configuration deliberately — a shop that cannot see WHY its cutover date is refused has
+                 * only a mysterious error, and the E4 trail shows who locked it and when.
+                 */
+                SettingEntry.bool("business.cutoverLocked",
+                        "Opening balances: cutover date locked",
+                        "Set automatically the first time an opening balance is recorded. While this is on, "
+                                + "the cutover date cannot be changed — reverse the opening balances first "
+                                + "if the date was wrong.",
+                        false, "Opening balances"),
                 SettingEntry.bool("pos.installment.enabled",
                         "Sell on installment",
                         "Off (default). On: the sale screen offers a down payment and a dated payment "

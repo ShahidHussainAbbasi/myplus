@@ -12,7 +12,24 @@ import com.myplus.business_service.entity.CustomerHistory;
 
 public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long> {
 
-    @Query("SELECT ch FROM CustomerHistory ch LEFT JOIN FETCH ch.customer WHERE ch.userId = :userId AND ch.dated >= :sd AND ch.dated <= :ed")
+    /**
+     * Documents in a date range, for the dashboard's "sales by customer" chart.
+     *
+     * <h3>⚠ OPENING BALANCES ARE EXCLUDED, and this is the ONLY reader of this table that excludes them</h3>
+     * An end-to-end review of every query here found exactly one place where an OB-1 opening balance would
+     * be wrong: this one. The balance, the statement, the aging, the FIFO allocator and the credit limit all
+     * WANT it — that is the whole reason an opening balance is a document. But an opening balance is not
+     * trade, and a chart of "what each customer bought this month" that included the money they owed before
+     * the shop started using this product would be reporting the previous system's history as this month's
+     * sales.
+     *
+     * <p>The revenue KPI and the Sale Detail Report are safe without this clause because they read the
+     * {@code Sell} LINES, and an opening balance deliberately has none. This query reads headers, so it has
+     * to say so itself.
+     */
+    @Query("SELECT ch FROM CustomerHistory ch LEFT JOIN FETCH ch.customer "
+         + "WHERE ch.userId = :userId AND ch.dated >= :sd AND ch.dated <= :ed "
+         + "AND (ch.docType IS NULL OR ch.docType <> 'OPENING')")
     List<CustomerHistory> findByUserIdAndDateRange(
         @Param("userId") Long userId,
         @Param("sd") LocalDateTime sd,
@@ -37,6 +54,18 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
 
     // Net (paid − bill) across all of a customer's invoice headers. Negate + floor at 0 to get the
     // running balance the customer owes — the single source of truth for Customer.dueAmount.
+    /**
+     * OB-1 — this organisation's total opening RECEIVABLES, for the migration screen and OB-3's
+     * reconciliation against the legacy aging total.
+     *
+     * <p>Sums {@code grandTotal}, not {@code dueAmount}: the reconciliation question is "did we enter what
+     * the old system said was owed", which is the amount as ENTERED. What is still outstanding after
+     * receipts is a different question and the customer balance already answers it.
+     */
+    @Query("SELECT COALESCE(SUM(ch.grandTotal), 0) FROM CustomerHistory ch "
+         + "WHERE ch.organizationId = :orgId AND ch.docType = 'OPENING'")
+    BigDecimal sumOpeningForOrg(@Param("orgId") Long orgId);
+
     @Query("SELECT COALESCE(SUM(ch.dueAmount), 0) FROM CustomerHistory ch WHERE ch.customer.customerId = :customerId")
     BigDecimal sumDueByCustomer(@Param("customerId") Long customerId);
 

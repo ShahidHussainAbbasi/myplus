@@ -176,9 +176,9 @@ public class SupportSessionService {
             m.put("id", s.getId());
             m.put("operatorEmail", s.getOperatorEmail());
             m.put("reason", s.getReason());
-            m.put("openedAt", s.getOpenedAt() == null ? null : s.getOpenedAt().toString());
-            m.put("expiresAt", s.getExpiresAt() == null ? null : s.getExpiresAt().toString());
-            m.put("closedAt", s.getClosedAt() == null ? null : s.getClosedAt().toString());
+            m.put("openedAt", iso(s.getOpenedAt()));
+            m.put("expiresAt", iso(s.getExpiresAt()));
+            m.put("closedAt", iso(s.getClosedAt()));
             // Computed here rather than left to each screen to work out from three dates. Two screens
             // deriving "is it open" separately is two chances to disagree about a customer's own access.
             m.put("open", s.isOpen());
@@ -189,6 +189,25 @@ public class SupportSessionService {
         result.put("organizationId", subjectOrgId);
         result.put("rows", out);
         return result;
+    }
+
+    /**
+     * A timestamp the browser cannot misread.
+     *
+     * <h3>⚠ Why {@code LocalDateTime.toString()} is not good enough on the wire</h3>
+     * It produces {@code 2026-09-04T20:52:10} — no zone, no offset — and a browser parses that as its OWN
+     * local time. The services run UTC while the people using them are on +05:00, so a session with half an
+     * hour left arrived at the console looking like it had expired four and a half hours ago: the countdown
+     * computed a negative remainder and the bar quietly fell back to "you are not in a support session".
+     * Good data, right on the wire, wrong on the screen — and no error anywhere.
+     *
+     * <p>Stamping the server's offset makes the value self-describing, so a customer in Karachi and an
+     * operator in London read the same instant. This matters beyond cosmetics here: the countdown is what an
+     * operator trusts to know how long they still have inside somebody else's books.
+     */
+    private static String iso(java.time.LocalDateTime t) {
+        return t == null ? null
+                : t.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString();
     }
 
     /** Whether an open session lets this operator WRITE to that tenant — consulted by catalog's guard. */

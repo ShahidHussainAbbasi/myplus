@@ -384,9 +384,22 @@
 	var supportSession = null;
 	var supportTimer = null;
 
-	/** Remaining time as m:ss, or null once it has run out. */
+	/**
+	 * Remaining time as m:ss, or null once it has run out.
+	 *
+	 * ⚠ The value MUST carry an offset (…+05:00 or …Z). A bare `2026-09-04T20:52:10` is parsed as the
+	 * BROWSER's local time, and the services run UTC while the people using them do not — a session with
+	 * half an hour left read as expired four and a half hours ago, and the bar fell back to "not in a
+	 * support session" with no error anywhere. Treated as unreadable rather than guessed at, because
+	 * guessing is what produced a confident wrong answer the first time.
+	 */
 	function remaining(expiresAtIso) {
-		var end = new Date(String(expiresAtIso)).getTime();
+		var raw = String(expiresAtIso || '');
+		if (raw && !/([zZ]|[+-]\d{2}:?\d{2})$/.test(raw)) {
+			if (global.console) console.warn('support session expiry has no timezone: ' + raw);
+			return null;
+		}
+		var end = new Date(raw).getTime();
 		if (isNaN(end)) return null;
 		var secs = Math.floor((end - Date.now()) / 1000);
 		if (secs <= 0) return null;
@@ -473,7 +486,124 @@
 					supportSession = rows.filter(function (r) { return r.open; })[0] || null;
 				}
 			})
-			.always(function () { renderSupportBar(orgId, orgName); });
+			.always(function () {
+				renderSupportBar(orgId, orgName);
+				/*
+				 * Take a fresh token whenever this tenant has an open session.
+				 *
+				 * The scope — including whether the CUSTOMER has allowed changes — rides the operator's
+				 * token, and the customer grants that from their own screen, in their own session. Nothing
+				 * about their click re-mints this one. Without this the operator would go on being refused
+				 * for up to fifteen minutes after the customer said yes, in the middle of the support call
+				 * that prompted it.
+				 *
+				 * Once per tenant view, on a cold path, and its failure changes nothing that is already
+				 * drawn — so it is fired and not waited on.
+				 */
+				if (supportSession) { $.post(serverContext + 'platform/refreshSupportScope'); }
+			});
+	}
+
+
+	// ── D-6: undelivered records ─────────────────────────────────────────────────────────────────
+
+	/** The last health payload, so Details can render without asking again. */
+	var outboxHealth = null;
+
+	/**
+	 * Fetch the platform's delivery state and draw the strip.
+	 *
+	 * ⚠ Drawn ONLY when something has actually failed. A permanent banner is one people stop seeing, and
+	 * this one has to be noticed the day it appears — 57 general-ledger events sat undelivered for three
+	 * weeks because nothing anywhere said so.
+	 */
+	function loadOutboxHealth() {
+		var $box = $('#platOutbox');
+		if (!$box.length) return;
+
+		$.get(serverContext + 'platform/outboxHealth')
+			.done(function (res) {
+				if (!apiOk(res)) { $box.empty(); return; }
+				outboxHealth = apiData(res) || {};
+				renderOutboxStrip();
+			})
+			// Silent on failure: this strip sits above the tenant list and an error banner here would make a
+			// working console look broken. The count is supplementary; the list is the screen.
+			.fail(function () { $box.empty(); });
+	}
+
+	function renderOutboxStrip() {
+		var $box = $('#platOutbox');
+		if (!$box.length || !outboxHealth) return;
+
+		var total = outboxHealth.totalFailed || 0;
+		if (!total) { $box.empty(); return; }
+
+		/*
+		 * ⭐ "records", never "audit records".
+		 *
+		 * The whole finding behind this slice is that the dead-letter mechanism drops GENERAL-LEDGER events
+		 * too — 56 education fee postings, worth real money, none of them audit. A label naming only audit
+		 * would have hidden every one of them behind a word.
+		 */
+		var lines = '';
+		(outboxHealth.services || []).forEach(function (svc) {
+			(svc.tables || []).forEach(function (tbl) {
+				if (!tbl.failed) return;
+				lines += '<div class="plat-outbox__row" data-testid="outbox-line">'
+					+   '<span class="plat-outbox__where">' + esc(svc.service) + ' &middot; ' + esc(tbl.table) + '</span>'
+					+   '<span class="plat-outbox__n">' + esc(tbl.failed) + '</span>'
+					+   '<span class="plat-outbox__age">'
+					+     esc(tbl.oldestFailed ? (t('ui.js.oldest', 'oldest') + ' ' + String(tbl.oldestFailed).substring(0, 10)) : '')
+					+   '</span>'
+					+ '</div>';
+			});
+		});
+
+		$box.html('<div class="plat-outbox" data-testid="outbox-strip">'
+			+   '<div class="plat-outbox__head">'
+			+     '<span class="glyphicon glyphicon-warning-sign" aria-hidden="true"></span> '
+			+     '<strong>' + esc(t('ui.js.undelivered', '{0} records have not been delivered.')
+					.replace('{0}', total)) + '</strong>'
+			+     '<button type="button" class="btn btn-default btn-xs" id="platOutboxDetail" '
+			+       'data-testid="outbox-detail">' + esc(t('ui.js.details', 'Details')) + '</button>'
+			+   '</div>'
+			+   lines
+			+ '</div>');
+	}
+
+	/**
+	 * The detail view: what failed, and WHY.
+	 *
+	 * ⭐ The reason is the point. Fifty-seven failures sharing two distinct messages is exactly the shape
+	 * where one diagnosis fixes everything — a bare count sends an operator to the database, which is where
+	 * this problem was found in the first place and the reason it took three weeks.
+	 */
+	function renderOutboxDetail() {
+		if (!outboxHealth) return;
+		var html = '';
+		(outboxHealth.services || []).forEach(function (svc) {
+			(svc.tables || []).forEach(function (tbl) {
+				if (!tbl.failed) return;
+				html += '<section class="plat-card">'
+					+   '<header class="plat-card__head"><h4>'
+					+     esc(svc.service + ' · ' + tbl.table) + '</h4>'
+					+     '<span class="plat-card__n">' + esc(tbl.failed) + '</span></header>'
+					+   '<div class="plat-card__body">';
+				(tbl.reasons || []).forEach(function (r) {
+					html += '<div class="plat-outbox__reason" data-testid="outbox-reason">'
+						+    '<span class="plat-outbox__n">' + esc(r.count) + '</span> '
+						+    esc(r.message || t('ui.js.noReasonRecorded', 'no reason recorded'))
+						+  '</div>';
+				});
+				html += '<button type="button" class="btn btn-default btn-xs js-outbox-redrive" '
+					+     'data-service="' + esc(svc.service) + '" data-table="' + esc(tbl.table) + '" '
+					+     'data-testid="outbox-redrive">'
+					+     esc(t('ui.js.resend', 'Re-send')) + '</button>'
+					+   '</div></section>';
+			});
+		});
+		$('#platOutboxDetail').closest('.plat-outbox').after('<div id="platOutboxDetailBody">' + html + '</div>');
 	}
 
 	var state = { page: 0, size: 25, q: '', total: 0, needsType: false };
@@ -485,7 +615,14 @@
 	 * written for 40,000. A client-side filter over everything would work for a year and then have to be
 	 * undone, along with everything built on top of it.
 	 */
+	/*
+	 * D-6 — the strip is platform-wide, so it loads with the LIST rather than with a tenant.
+	 *
+	 * An undelivered record is the platform's problem before it is any one customer's: the 56 education GL
+	 * rows belong to one tenant, but nobody would have gone looking inside that tenant to find them.
+	 */
 	function loadTenants() {
+		loadOutboxHealth();
 		var url = serverContext + 'platform/organizations?page=' + state.page + '&size=' + state.size
 			+ (state.q ? '&q=' + encodeURIComponent(state.q) : '')
 			+ (state.needsType ? '&needsType=true' : '');
@@ -875,6 +1012,43 @@
 		 * Opening asks for a reason through the shared prompt, never window.confirm, and the server refuses
 		 * without one anyway — the dialog is the courtesy, the API is the rule.
 		 */
+		// D-6 — Details, and the re-send it offers. Delegated on document because the strip lives on the
+		// tenant LIST panel, not inside #platDetailBody.
+		$(document).on('click', '#platOutboxDetail', function () {
+			if ($('#platOutboxDetailBody').length) { $('#platOutboxDetailBody').remove(); return; }
+			renderOutboxDetail();
+		});
+
+		$(document).on('click', '.js-outbox-redrive', function () {
+			var svc = $(this).attr('data-service');
+			var table = $(this).attr('data-table');
+			/*
+			 * A reason, always — and the server refuses without one anyway. Re-driving events into a ledger
+			 * unexplained is exactly the thing somebody needs to be able to ask about six months later.
+			 */
+			global.uiPromptConfirm({
+				title: t('ui.js.resend', 'Re-send'),
+				message: svc + ' · ' + table,
+				input: { label: t('ui.js.whyResend', 'Why are you re-sending these?') },
+				confirmText: t('ui.js.resend', 'Re-send')
+			}).then(function (reason) {
+				if (reason === null) return;
+				return $.post(serverContext + 'platform/outboxRedrive',
+					{ service: svc, table: table, reason: reason })
+					.done(function (res) {
+						if (!apiOk(res)) {
+							global.uiAlert(apiMessage(res, t('ui.js.saveFailed', 'Save failed')));
+							return;
+						}
+						$('#platOutboxDetailBody').remove();
+						loadOutboxHealth();
+					})
+					.fail(function (xhr) {
+						global.uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed', 'Save failed')));
+					});
+			});
+		});
+
 		$('#platDetailBody').on('click', '#platSupportOpen', function () {
 			var orgId = $('#platDetailBody').data('org');
 			var orgName = $('.plat-detail__name').first().text();

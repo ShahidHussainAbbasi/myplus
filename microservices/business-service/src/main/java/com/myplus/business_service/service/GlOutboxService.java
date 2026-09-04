@@ -78,6 +78,17 @@ public class GlOutboxService {
         // thrown away on every sale, which is why 4200 Sales Discount was empty in every tenant.
         o.setDiscountTotal(req.getDiscountTotal());   // → Dr 4200
         o.setShippingFee(req.getShippingFee());       // → Cr 4300
+        /*
+         * V60 — the SAME HOLE, one field along, and the comment above did not stop it.
+         *
+         * `date` had been on PostingEventRequest all along and was never copied here, so the relay rebuilt
+         * every event with LocalDate.now() and dated every journal by DELIVERY rather than by transaction. A
+         * sale at 23:59 posted to the next day; a retry posted days late; across a month end it landed in the
+         * wrong period, which is the one thing period close exists to prevent.
+         *
+         * Falls back to today only when the caller genuinely sent no date — never silently preferring it.
+         */
+        o.setEventDate(req.getDate() != null ? req.getDate() : java.time.LocalDate.now());
         o.setMethod(req.getMethod());
         o.setStatus("PENDING");
         o.setAttempts(0);
@@ -112,7 +123,13 @@ public class GlOutboxService {
 
     private PostingEventRequest toReq(GlOutbox o) {
         return PostingEventRequest.builder()
-                .eventType(o.getEventType()).eventKey(o.getEventKey()).date(LocalDate.now()).ref(o.getRef())
+                .eventType(o.getEventType()).eventKey(o.getEventKey())
+                // V60: the date the TRANSACTION happened. LocalDate.now() stood here and dated every journal
+                // by when the relay woke up. created_at is the fallback for rows queued before that column
+                // existed — still the transaction's own day, unlike now().
+                .date(o.getEventDate() != null ? o.getEventDate()
+                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : LocalDate.now()))
+                .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())
                 .storeCredit(o.getStoreCredit())

@@ -148,8 +148,8 @@ flowchart TD
 | **E2** | **operator portal screen** — organizations list, provision tenant, change plan, grant/revoke with a required reason. `ROLE_ADMIN` only | ✅ **green** — makes E1 operable; entitlements were curl-only |
 | **E3** | ~~freshness~~ → **tenant lifecycle**. The freshness work turned out to be already done (see the E3 analysis §2); the real gap was that `Organization.status` was enforced nowhere, so a customer who never paid kept trading | ✅ **green** |
 | **E4** | **audit the control plane** — entitlement grant/revoke, plan change, shape change, capability toggle → `AuditEvent` via the existing outbox | ✅ **green** — [analysis](slices/e4-control-plane-audit-analysis.md) · [design](slices/e4-control-plane-audit-design.md). Closed F5, plus A3 (any user could read the org's trail) and an `INTERNAL_SECRET` gap that would have broken every future background call from auth |
-| **E5** | **support session** — reason required, time-boxed, read-only, audited, visible to the tenant | F3. **[Analysis 2026-09-04](slices/e5-support-session-analysis.md) re-scopes it:** the support door already EXISTS — `CurrentUser.organizationIdFor` grants any ROLE_ADMIN every tenant, for ever, across 3 services and 4 endpoints, one of them a WRITE that nothing records. E5 turns a standing grant into a bounded session. **E4 built its foundations**: `actor_type = PLATFORM_OPERATOR` already distinguishes an outsider's act, and the trail is already stamped against the SUBJECT tenant. E4 also left it §10.4 — a dead-lettered audit event is invisible and unrecoverable, which matters more for access records than for trading ones |
-| **E6** | **server-rendered navigation manifest** — replaces shipping 3,947 template lines to every tenant | ties to the front-end perf programme; **not** required by E1..E5 |
+| **E5** | **support session** — reason required, time-boxed, read-only, audited, visible to the tenant | ✅ **green** 2026-09-05 (10/10; the two gates it changed re-green at 10/10 and 14/14). [Analysis](slices/e5-support-session-analysis.md) re-scoped it: the support door already EXISTS — `CurrentUser.organizationIdFor` grants any ROLE_ADMIN every tenant, for ever, across 3 services and 4 endpoints, one of them a WRITE that nothing records. E5 turns a standing grant into a bounded session. **E4 built its foundations**: `actor_type = PLATFORM_OPERATOR` already distinguishes an outsider's act, and the trail is already stamped against the SUBJECT tenant. E4 also left it §10.4 — a dead-lettered audit event is invisible and unrecoverable, which matters more for access records than for trading ones |
+| **E6** | ~~server-rendered navigation manifest~~ | ⚠ **[Analysis 2026-09-05](slices/e6-navigation-manifest-analysis.md) recommends NOT building it as framed.** Measured: saving is 7 KB (retail) to 42 KB (pesticide) of a page that gzips to 80 KB; the nav is only 2,875 of the 57,286 gated bytes; and the flash it was meant to prevent **does not happen** — gated nav sits in collapsed groups, probed and disproved. Found instead: **education's 3,411-line dashboard has ZERO capability gating**, and E5's D-6 is still unbuilt |
 
 Each slice ships a headed Cypress gate per `feedback_cypress_gate_per_slice`, run as the feature's own tenant
 **and** across the owner/admin/user ladder per `GATE-RUNBOOK.md`.
@@ -162,6 +162,25 @@ Each slice ships a headed Cypress gate per `feedback_cypress_gate_per_slice`, ru
 | E2 | `cypress/e2e/platform/operator-portal.cy.js` | operator sees the org list and a **grant control on the screen** — a UI assertion, because an API gate passed for C6 while no shopkeeper could reach the feature; a tenant owner is refused the operator endpoints; a grant is visible on the tenant's own Configuration screen afterwards |
 | E4 | `cypress/e2e/platform/control-plane-audit.cy.js` | after a grant and a toggle, `audit-service` holds an event naming actor, org, before and after — assert the **property**, not that a row exists |
 | E5 | `cypress/e2e/platform/support-session.cy.js` | support access without a reason is refused; a session expires; every read is audited; the tenant can see the session happened |
+
+---
+
+## 4b. After E6 — what the measurements redirected the programme to
+
+**D-6 (from E5) is no longer a convenience.** Reviewing every outbox end to end found that the same
+dead-letter mechanism has silently dropped **57 general-ledger events worth PKR 137,510** — `myplusdb_education.gl_outbox`
+holds 56 rows, **every one FAILED and none POSTED**, so not one education fee has ever reached the books.
+Two causes: one fixed by finance `V5` on 16 Aug, one **still undiagnosed** and dated three hours *after* that
+fix. Nothing on any screen surfaces it.
+
+See [`d6-undelivered-outbox-analysis.md`](slices/d6-undelivered-outbox-analysis.md) and the
+[design](slices/d6-undelivered-outbox-design.md) (awaiting consent). This is now the highest-value remaining
+work in the programme, ahead of E6.
+
+⭐ **The re-drive is the diagnostic instrument, not just a repair.** The cause of 29 of the failures cannot
+be read from the source — `GlobalExceptionHandler` stopped echoing `ex.getMessage()` between the two batches,
+so the later ones are masked, and no fee has been collected since 16 Aug, so the path has not been exercised
+since `V5` fixed the earlier cause. One recorded replay answers what three rounds of reading could not.
 
 ---
 

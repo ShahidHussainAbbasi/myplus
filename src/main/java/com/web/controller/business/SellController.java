@@ -406,6 +406,58 @@ public class SellController {
         return out;
     }
 
+    // ── OB-1: opening balances at cutover ───────────────────────────────────────────────────────
+    //
+    // Straight proxies. Every rule — the cutover date, the lock, the org check, the part-paid refusal and
+    // the owner/admin gate — lives in business-service, because a rule enforced in this hop stops existing
+    // the moment somebody calls the service directly.
+
+    /** What the migration looks like so far: the cutover date, whether it is locked, and the totals. */
+    @RequestMapping(value = "/openingBalanceSummary", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> openingBalanceSummary(final HttpServletRequest request) {
+        try {
+            return client.get("/openingBalanceSummary", request.getQueryString());
+        } catch (Exception e) {
+            LOGGER.error("openingBalanceSummary proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * Record what one customer or supplier owed at cutover.
+     *
+     * <p>⚠ This writes to the GENERAL LEDGER. The gate is downstream and owner/admin — named here only so a
+     * reader of this file does not mistake it for ordinary data entry.
+     */
+    @RequestMapping(value = "/postOpeningBalance", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> postOpeningBalance(final HttpServletRequest request) {
+        try {
+            return client.postForm("/postOpeningBalance",
+                    // ⚠ idempotencyKey MUST be in this list. formParams is an allowlist, so a parameter
+                    // missing from it is dropped SILENTLY — the post would succeed, the key would never
+                    // reach the service, and a retried migration would double a shop's receivables with
+                    // nothing anywhere reporting a fault. The same shape as the GL outbox dropping a field.
+                    formParams(request, "customerId", "venderId", "amount", "reference", "idempotencyKey"));
+        } catch (Exception e) {
+            LOGGER.error("postOpeningBalance proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /** Undo one entered wrongly. Refused downstream when a receipt has already been allocated against it. */
+    @RequestMapping(value = "/reverseOpeningBalance", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> reverseOpeningBalance(final HttpServletRequest request) {
+        try {
+            return client.postForm("/reverseOpeningBalance", formParams(request, "invoiceNo", "reason"));
+        } catch (Exception e) {
+            LOGGER.error("reverseOpeningBalance proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     /** INST-1 — the schedule a customer would owe, computed by the same generator the commit uses. */
     @RequestMapping(value = "/installmentPreview", method = RequestMethod.GET)
     @ResponseBody

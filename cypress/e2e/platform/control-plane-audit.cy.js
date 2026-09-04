@@ -209,6 +209,8 @@ describe('E4 — every control-plane change leaves a record that says who, and w
   let operatorToken = null
   let operatorOrgId = null
   let subjectOrgId = null
+  /** E5 — closed in after(); an operator session left open is a standing grant by another name. */
+  let supportSessionId = null
   let ownerOrgId = null
 
   /** Restored in after(), so the sacrificial tenant is handed back the way it was found. */
@@ -234,6 +236,24 @@ describe('E4 — every control-plane change leaves a record that says who, and w
       ownerOrgId = claims(t).activeOrgId
     })
 
+    /*
+     * E5 — every cross-tenant read below now needs an OPEN SUPPORT SESSION on the subject.
+     *
+     * Before E5 a ROLE_ADMIN operator reached every tenant unasked; this spec was written against that
+     * standing grant. Opening a session is the path the product actually has now, so the assertions are
+     * unchanged — only the way in is. `support-session.cy.js` case 1 is what keeps that honest by asserting
+     * the old way is gone.
+     *
+     * ⚠ operatorToken is REPLACED by the scoped token the open call hands back. The scope rides the claim,
+     * so the token this spec started with reaches nothing but the operator's own org.
+     */
+    cy.then(() =>
+      openSupport(operatorToken, subjectOrgId, 'E4 gate — reading the tenant trail').then((sess) => {
+        supportSessionId = sess.id
+        operatorToken = sess.token
+      }),
+    )
+
     // Capture the sacrificial tenant's real state, rather than assuming a default. A spec that "restores"
     // to a value it guessed leaves the tenant changed and blames the next run.
     cy.then(() =>
@@ -255,6 +275,8 @@ describe('E4 — every control-plane change leaves a record that says who, and w
   })
 
   after(() => {
+    // E5 — first, so a later cleanup failure cannot leave the session behind.
+    if (operatorToken && supportSessionId) closeSupport(operatorToken, supportSessionId)
     if (operatorToken && subjectOrgId) {
       if (originalPlan) orgWrite(operatorToken, subjectOrgId, 'plan', { plan: originalPlan, reason: `${RUN} cleanup` })
       if (originalShape) {

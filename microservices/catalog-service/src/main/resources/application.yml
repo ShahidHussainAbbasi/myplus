@@ -33,3 +33,17 @@ management:
     web:
       exposure:
         include: health,info,metrics
+
+# D-6 — where the shared /outbox-health endpoint is mapped in THIS service.
+#
+# It belongs here rather than in config-server, and the difference is not cosmetic: this is a fact about how
+# the service is ROUTED, not about the environment it runs in — the same category as server.port above, which
+# is also local. catalog-service is routed WITHOUT StripPrefix, so its controllers are mapped at the full
+# /api/... path and the shared endpoint must match. business and education are stripped and use the default.
+#
+# Putting it in config-server cost a gate run: config-server serves its configs from its own jar, so the
+# property did not exist until THAT was rebuilt, and the endpoint 404'd in a way that reads exactly like an
+# unregistered bean. A property the service cannot start correctly without should ship with the service.
+outbox:
+  health:
+    base-path: /api/catalog

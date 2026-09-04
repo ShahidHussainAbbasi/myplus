@@ -63,6 +63,26 @@ public class CustomerHistory implements Serializable {
 	@Column(name = "invoice_no")
 	private String invoiceNo;          // display form, e.g. INV-000123
 
+	/**
+	 * OB-1 — what KIND of document this row is: {@code SALE} (everything the till records) or
+	 * {@code OPENING} (what the customer owed before this shop started using MaxTheService).
+	 *
+	 * <h3>Why a discriminator on this row rather than a table of its own</h3>
+	 * The customer balance, the statement, the aging, the FIFO allocator and the credit limit all read
+	 * these headers. An opening balance in a separate table would need each of those taught about it —
+	 * five integrations, and the ones that were missed would disagree with the customer card in ways
+	 * nobody notices for months. One column on the row they already read is the entire point.
+	 *
+	 * <p><b>NOT NULL, default SALE.</b> A nullable discriminator is one {@code IS NULL} away from a
+	 * report counting opening balances as trade — overstating a month's sales and inventing output tax
+	 * on money that was never a sale here. The column may not be able to express "unknown".
+	 *
+	 * <p>VARCHAR(16) and a plain String, never a MySQL enum: see
+	 * {@code project_ddl_validate_column_contract} for the nine crash-loops that cost.
+	 */
+	@Column(name = "doc_type", nullable = false, length = 16)
+	private String docType = com.myplus.business_service.service.OpeningBalanceService.DOC_SALE;
+
 	@ManyToOne(fetch = jakarta.persistence.FetchType.EAGER, cascade = CascadeType.MERGE)
 	@JoinColumn(name = "customer_id", referencedColumnName = "customer_id", nullable = true)
 	private Customer customer;

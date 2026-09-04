@@ -17,6 +17,39 @@ reinvent.**
 
 ## 1. Governing standards (the rules every slice follows)
 
+### 0. NEVER ASSUME. REVIEW 100% END TO END.
+
+**This one comes before the others, because breaking it is how every other standard gets broken.**
+
+Every defect this project has paid for was an assumption that **read correctly in the source**. Not one was
+found by reasoning about the code — each needed the whole path traced, or a person looking at the screen:
+
+| Assumed | Actually |
+|---|---|
+| "the keyboard chain follows the form order" — its own comment said so | it did not; Enter jumped down the page and back up |
+| "moving a field on screen moves it in the walk" | the sale chain is a literal list; the field became unreachable, and the server required it |
+| "the org parameter is honoured for the operator" | honoured for **anyone** — a cross-tenant WRITE |
+| "TEXT is fine for a `@Lob` String" · "ENUM is fine for a String field" | two services crash-looped, 59 and 9 times |
+| "`paidAmount` is what the deposit guard checks" | it checks the TENDERS — 14 gate cases red on an unrelated message |
+| "the tenant has open plans to assert on" | zero. Existence is not eligibility |
+
+**The trace, before writing anything:**
+
+1. **Every READER.** List all queries over the table and classify each: does it WANT the new row, or must it
+   exclude it? *(OB-1: eight queries — five wanted the opening balance, one had to exclude it, two were
+   unaffected. Only listing all eight found the one.)*
+2. **Every CALLER.** A function's contract is what its call sites rely on, not what its name suggests.
+3. **Every WRITER — especially anything that RECOMPUTES.** A derived column silently discards what you wrote.
+4. **The wire.** DTO twins, proxies that collapse repeated parameters, fields lost in re-serialisation.
+5. **The column type against the entity.** Under `ddl-auto=validate` a mismatch is not a warning, it is a
+   service that does not start.
+6. **State the COUNT.** "8 queries: 5 include, 1 excludes, 2 unaffected" is checkable. "I reviewed it" is not.
+
+**Verify, never infer.** Run the query, read the file, check the timestamp, print the parsed value. A claim
+that cannot be shown is reported as unverified.
+
+---
+
 1. **Multi-tenancy (SaaS).** Every read/write org-scoped: `organization_id` + `findScoped` NULL-fallback; identity
    flows JWT → gateway `X-Org-Id`/`X-User-*` → service `CurrentUser`. Per-org plan/trial/quota; signup provisions a
    tenant. _→ `ARCHITECTURE-MULTITENANCY.md`._

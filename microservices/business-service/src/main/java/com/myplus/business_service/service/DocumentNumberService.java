@@ -45,6 +45,13 @@ public class DocumentNumberService {
     public static final String QUOTE = "QUOTE";
     public static final String INVOICE = "INVOICE";
     public static final String PLAN = "PLAN";
+    /**
+     * OB-1 — opening balances get their OWN series (OB-000001), never the invoice one.
+     *
+     * An opening balance consuming an INV- number would leave a gap in the shop's invoice sequence at
+     * exactly the point an auditor looks hardest: the migration. The series is per-org like the others.
+     */
+    public static final String OPENING = "OPENING";
 
     private final OrgDocumentSeqRepo repo;
 

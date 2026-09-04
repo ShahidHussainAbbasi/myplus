@@ -19,6 +19,18 @@ import com.myplus.business_service.entity.Purchase;
  */
 public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExampleExecutor<Purchase> {
 
+    /** OB-1 — this organisation's total opening PAYABLES, the mirror of the receivable summary. */
+    // ⚠ `purchase`, lowercase — the entity is declared @Entity(name="purchase"), so JPQL must use
+    // that name and not the class name. Verified against PurchaseRepository, which already does.
+    // Getting it wrong is not a compile error: it is a CRASH LOOP at startup, because Spring Data
+    // validates every @Query while building the repository bean.
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT COALESCE(SUM(p.netAmount), 0) FROM purchase p "
+          + "WHERE p.organizationId = :orgId AND p.docType = 'OPENING'")
+    java.math.BigDecimal sumOpeningForOrg(
+            @org.springframework.data.repository.query.Param("orgId") Long orgId);
+
+
    // Tenant-scoped read with NULL-fallback (own org + caller's pre-migration org-NULL rows).
    @Query("select p from purchase p where p.organizationId = :orgId "
         + "or (p.organizationId is null and p.userId = :userId)")

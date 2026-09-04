@@ -185,6 +185,13 @@ public class Purchase implements Serializable {
 	@Column(name = "due_amount", precision = 19, scale = 2)
 	private BigDecimal dueAmount;
 
+	/**
+	 * OB-1 — {@code SALE} for every bill the shop recorded, {@code OPENING} for what it already owed a
+	 * supplier at cutover. The mirror of {@code CustomerHistory.docType}; the reasoning is there.
+	 */
+	@Column(name = "doc_type", nullable = false, length = 16)
+	private String docType = com.myplus.business_service.service.OpeningBalanceService.DOC_SALE;
+
 	@Column(name = "purchase_expense")
 	private Float purchaseExpense;
 

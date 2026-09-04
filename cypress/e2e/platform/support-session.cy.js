@@ -431,6 +431,24 @@ describe('E5 — an operator reaches a customer only through an open, explained 
       cy.get('#platSearch').clear().type('Audit')
       cy.get(`[data-testid="tenant-row"][data-org="${subjectOrgId}"]`, { timeout: 15000 }).first().click()
 
+      /*
+       * ⚠ Assert the DATA before the pixels.
+       *
+       * The bar renders "not in a support session" both when there is genuinely no session and when the
+       * fetch behind it failed — one appearance, two causes. Checking the console's own endpoint first
+       * means a failure names which half is broken instead of leaving the reader to guess, which is the
+       * lesson E4 paid three gate runs for.
+       */
+      cy.request({ url: '/platform/supportSessions?organizationId=' + subjectOrgId, failOnStatusCode: false })
+        .then((r) => {
+          expect(r.body && r.body.success, `the console's own session feed: ${JSON.stringify(r.body).slice(0, 300)}`)
+            .to.eq(true)
+          const rows = (r.body.data && r.body.data.rows) || []
+          const open = rows.filter((x) => x.open)
+          expect(open.length, `the console must see an OPEN session; got ${rows.length} rows, none open`)
+            .to.be.greaterThan(0)
+        })
+
       cy.get('[data-testid="support-bar"]', { timeout: 15000 }).should('be.visible')
       // The tenant's NAME, not its id: an operator reading "49" has to look it up to know whose data it is.
       cy.get('[data-testid="support-bar"]').should('contain.text', 'Audit')

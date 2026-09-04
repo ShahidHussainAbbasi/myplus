@@ -318,6 +318,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li data-capability="bonusSchemes" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a id="navBonusSchemes" onclick="showBonusSchemes();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-gift"></span> <span th:text="#{ui.bonusSchemes}">Bonus Offers</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navDocumentDesigner" onclick="showDocumentDesigner();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-print"></span> <span th:text="#{ui.documentDesigner}">Document Designer</span></a></li>
 								<li><a id="navConfiguration" onclick="showBusinessConfig();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
+								<!-- OB-1: owner/admin only. This writes to the general ledger, and an opening balance is
+								     the easiest place in the product to record a receivable that never existed. -->
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a id="navOpeningBalance" onclick="showOpeningBalances();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-import"></span> <span th:text="#{ui.js.openingBalances}">Opening balances</span></a></li>
 							</ul>
 						</div>
 						<!-- Team management — the owner AND admins/managers (an admin may create USERs in their own
@@ -3810,6 +3813,86 @@ tr.row-voided .js-edit-row{display:none !important}
 			<!-- Owner OR admin: matches the shared SettingsController, which already permits
 			     ROLE_OWNER or ADMIN_PRIVILEGE to write an override. The screen was the narrower of the
 			     two, so an admin could change these by API but not see them. -->
+			<!--
+				OB-1 — what customers and suppliers owed BEFORE this shop started using MaxTheService.
+
+				The CUTOVER DATE is not on this screen: it is an ordinary tenant setting
+				(business.cutoverDate) and the Configuration screen self-renders it from the catalog. Putting
+				a second copy here would be two controls writing one value, and the one nobody used would
+				drift. The link below goes to it.
+			-->
+			<div id="OpeningBalanceDiv" class="formDiv" data-screen="openingBalance" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
+				<div class="cfg-page-head">
+					<h4 th:text="#{ui.js.openingBalances}">Opening balances</h4>
+					<p th:text="#{ui.js.obIntro}">What each customer and supplier owed on the day this business
+						started using MaxTheService.</p>
+				</div>
+
+				<div id="openingBalanceMsg" class="alert" style="display:none"></div>
+
+				<!--
+					⚠ THE SCOPE STATEMENT IS PART OF THE PRODUCT, NOT A DISCLAIMER.
+
+					A shop that loads its customer dues and believes its whole books came across discovers
+					otherwise at its first stock valuation or tax return — by which time it has traded on the
+					belief. Saying so ON THE SCREEN is the only place a person actually reads it.
+				-->
+				<div id="openingBalanceScope" class="alert alert-info" th:text="#{ui.js.obScope}">
+					This records what customers and suppliers owed. It does NOT migrate cash, bank balances,
+					stock valuation, loans, tax or fixed assets — those are still to be set up separately.
+				</div>
+
+				<div id="openingBalanceState" class="help-block"></div>
+
+				<div class="form-horizontal" style="padding-top:10px">
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="obParty" th:text="#{ui.js.obWhoOwes}">Who owes</label>
+						<div class="col-sm-2">
+							<select class="form-control" id="obPartyType" onchange="obLoadParties()">
+								<option value="customer" th:text="#{ui.customer}">Customer</option>
+								<option value="vender" th:text="#{ui.vendor}">Supplier</option>
+							</select>
+						</div>
+						<div class="col-sm-4">
+							<select class="form-control" id="obParty"></select>
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="obAmount" th:text="#{ui.js.obAmountOwed}">Amount owed</label>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0.01" class="form-control" id="obAmount"/>
+						</div>
+						<label class="control-label col-sm-2" for="obReference" th:text="#{ui.reference}">Reference</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="obReference" maxlength="120"
+							       th:placeholder="#{ui.js.obReferenceHint}" placeholder="e.g. notebook p.12"/>
+						</div>
+					</div>
+					<!--
+						⚠ Q1: a SUMMARY balance cannot pretend to invoice-level aging, and saying so is the
+						owner's ruling, not a nicety. A shop with its old invoice list should enter one per
+						invoice so the aging is real; a shop with a notebook total cannot, and must not be
+						shown 30/60/90 buckets that were invented.
+					-->
+					<div class="form-group">
+						<div class="col-sm-offset-2 col-sm-8">
+							<span class="help-block" th:text="#{ui.js.obSummaryWarning}">Summary balance —
+								invoice-level aging is not available for these.</span>
+						</div>
+					</div>
+					<div class="form-group">
+						<div class="col-sm-offset-2 col-sm-8">
+							<button type="button" id="obPost" class="btn btn-success" onclick="postOpeningBalance()">
+								<span class="glyphicon glyphicon-import"></span>
+								<span th:text="#{ui.js.obPost}">Record opening balance</span>
+							</button>
+							<a id="obCutoverLink" onclick="showBusinessConfig()" style="margin-left:14px"
+							   th:text="#{ui.js.obSetCutover}">Set the cutover date</a>
+						</div>
+					</div>
+				</div>
+			</div>
+
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
 				<div class="cfg-page-head">
 					<h4 th:text="#{ui.configuration}">Configuration</h4>

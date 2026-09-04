@@ -1,6 +1,8 @@
 # E5 — design: a support session, not a standing key
 
-**Status:** DESIGN, shared for review. **Programme:** [`saas-control-plane-review.md`](../saas-control-plane-review.md) — E5, finding **F3**.
+**Status:** ✅ **SHIPPED AND GREEN** (2026-09-05) — `support-session.cy.js` **10/10**, and the two gates E5
+changed are green on the new path: `control-plane-audit.cy.js` **10/10**, `migration-safety.cy.js` **14/14**.
+**Programme:** [`saas-control-plane-review.md`](../saas-control-plane-review.md) — E5, finding **F3**.
 **Analysis:** [`e5-support-session-analysis.md`](e5-support-session-analysis.md) — read that first.
 **Predecessors:** E1 · E2 · E3 · E4 · ONB-1/2/3 — all ✅ green. **Branch:** `feature/pack-loose-selling`.
 
@@ -318,3 +320,54 @@ change nothing there.
 * **D-6 — the undelivered-audit-record count and re-drive is not built.** It is the one ruling from §1 that
   did not make it into the code, and it matters here more than in E4: an access record that fails to deliver
   has no second copy, so losing it silently defeats the slice's central claim.
+
+
+---
+
+## 11. What the gate runs found
+
+### 11.1 ⚠ A timezone-ambiguous timestamp made a live session look expired
+
+The console showed *"You are not in a support session"* while its own feed said `"open": true`. auth runs
+**UTC** and writes `LocalDateTime.toString()` — `2026-09-04T20:52:10`, **no offset**. The browser runs
+**+05:00** and parses that as local, concluding the session had expired **four and a half hours ago**;
+`remaining()` returned null and the bar fell back to the none-state. Good data, correct on the wire, wrong on
+the screen, and no error anywhere.
+
+Fixed both ends: the server sends an offset-carrying stamp, and the client **refuses a zoneless value with a
+console warning rather than guessing** — guessing is what produced a confident wrong answer the first time.
+
+⚠ **The same defect is almost certainly live in E4's Activity panel**: `audit-service` sends `occurredAt` the
+same zoneless way and `ago()` does arithmetic on it, so "2 h ago" is wrong by the server/browser offset. E4
+went green because no assertion read the time value. Not fixed here — different service, different screen.
+
+### 11.2 The customer's approval could not reach the operator
+
+D-2 says a write needs consent. The customer grants it **in their own session**, which re-mints nothing for
+the operator — so the operator would go on being refused for up to fifteen minutes after the customer said
+yes, in the middle of the support call that prompted it. Closed with
+`POST /platform/refreshSupportScope`, which the console calls whenever it opens a tenant that has an open
+session: once per tenant view, on a cold path.
+
+Found only because the gate exercised the write. The design had the rule and no way to satisfy it promptly.
+
+### 11.3 Adding a helper is not wiring it
+
+Both existing gates went red on the first run because the `openSupport` helper was added to each spec and
+**never called**. Every failure was a cross-tenant read with no session — exactly what E5 is supposed to
+refuse, arriving as a broken gate rather than a passing one, which is the right way round.
+
+⚠ `migration-safety` inspects **two** tenants and the claim carries **one** session, so case 4 opens and
+closes its own on the second tenant. Without that it would have passed for the wrong reason: an operator with
+no session is answered about their own organization, which also has no serial products.
+
+### 11.4 ⚠ Fixture damage, caused and recovered
+
+A smoke test ran the real bulk clear against `owner.mobile@` outside any spec's restore, clearing 26
+`requires_serial` flags the mobile-shop gates depend on. Twenty-four were reconstructed from
+`serial_unit` — a product with registered serial units unambiguously requires them — through
+`/setProductTracking`, the product's own C6-gated path, not a DB write. The remaining two had nothing to
+reconstruct from.
+
+**The lesson is the gates' own:** they capture the ids before clearing and restore them in `after()`. A manual
+call has no `after()`.

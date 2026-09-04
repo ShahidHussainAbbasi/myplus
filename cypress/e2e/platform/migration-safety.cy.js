@@ -145,6 +145,8 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
   let mobileTok = null
   let pesticideTok = null
   let seeded = null
+  /** E5 — closed in after(); an operator session left open is a standing grant by another name. */
+  let supportId = null
   /** Every product requiring a serial before case 9 clears them, so after() can put the flags back. */
   let stranded = []
 
@@ -164,11 +166,53 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
       seeded = p.productId
       requireSerial(seeded)
     })
+
+    /*
+     * E5 — the operator now needs an OPEN SUPPORT SESSION to see this tenant's figures at all.
+     *
+     * Before E5 a ROLE_ADMIN operator reached every customer unasked, and this spec was written against that.
+     * The assertions below are unchanged; only the way in is. `support-session.cy.js` case 1 asserts the old
+     * way is gone, which is what stops this being a quiet weakening.
+     *
+     * Opened through the console's OWN path, because that is what re-mints the token held in the operator's
+     * monolith session — the one every /platform/* call below travels on. Opening it at the gateway would
+     * succeed and change nothing here.
+     */
+    cy.loginAsOperator()
+    cy.then(() =>
+      openSupport(mobileOrg, 'ONB-3 gate — reading this tenant to preview a business-type change')
+        .then((id) => { supportId = id }),
+    )
+
+    /*
+     * E5 — and the CUSTOMER allows changes, because cases 9, 10 and 14 write to their records.
+     *
+     * A session alone is read-only: an operator may look at a shop's figures to answer their question
+     * without being able to alter them. Clearing product policy in bulk is exactly the kind of change that
+     * needs the shop to have said yes, so the gate says yes as the shop, through the shop's own endpoint —
+     * an approval the operator could grant themselves would not be consent.
+     */
+    cy.loginAsMobileOwner()
+    cy.then(() =>
+      cy.request({
+        method: 'POST', url: '/approveSupportWrites', form: true, failOnStatusCode: false,
+        body: { id: supportId },
+      }).then((r) => {
+        expect(r.body && r.body.success, `the shop allows changes: ${JSON.stringify(r.body)}`).to.eq(true)
+      }),
+    )
+
+    // The approval is the customer's; the operator's token has to pick it up. The console does this on its
+    // own whenever it opens a tenant with an open session — a spec that only calls APIs has to ask.
+    cy.loginAsOperator()
+    cy.then(() => cy.request({ method: 'POST', url: '/platform/refreshSupportScope', failOnStatusCode: false }))
   })
 
   beforeEach(() => cy.loginAsOperator())
 
   after(() => {
+    // E5 — first, so a failure in the restore below cannot leave the session open.
+    cy.then(() => { if (supportId) closeSupport(supportId) })
     /*
      * Leave no server state behind, in the order the guards require: the SHAPE first (an operator switch
      * clears capability overrides, so restoring the capability before it would simply be undone), then the
@@ -257,11 +301,21 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
 
   it('4 — a tenant with no conflicts gets an EMPTY impact, not a zero-filled scare', () => {
     // owner.pesticide@ has no serial-tracked products. Nothing to warn about must produce nothing to read.
-    preview(pesticideOrg, 'retail').then((p) => {
-      const serial = p.impact && p.impact.productsRequiringSerial
-      expect(serial === undefined || serial === 0,
-        `a tenant with no serial products must not be warned about them: ${JSON.stringify(p.impact)}`).to.eq(true)
-    })
+    //
+    // ⚠ E5 — this is the ONE case that inspects a different tenant, so it opens its own session. Without it
+    // the operator would be answered about their OWN organization, which also has no serial products — the
+    // case would pass for entirely the wrong reason, which is worse than failing. A session is closed again
+    // afterwards so the mobile scope from before() is the one in force for everything that follows.
+    let ownSession = null
+    openSupport(pesticideOrg, 'ONB-3 gate — the quiet half').then((id) => { ownSession = id })
+    cy.then(() =>
+      preview(pesticideOrg, 'retail').then((p) => {
+        const serial = p.impact && p.impact.productsRequiringSerial
+        expect(serial === undefined || serial === 0,
+          `a tenant with no serial products must not be warned about them: ${JSON.stringify(p.impact)}`).to.eq(true)
+      }),
+    )
+    cy.then(() => { if (ownSession) closeSupport(ownSession) })
   })
 
   // ── the memento ─────────────────────────────────────────────────────────────────────────────────

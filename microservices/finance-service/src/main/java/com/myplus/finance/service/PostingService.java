@@ -34,6 +34,10 @@ public class PostingService {
     // Default chart-of-accounts codes (see GlService.DEFAULT_COA).
     private static final String CASH = "1000", BANK = "1010", AR = "1100", INVENTORY = "1200",
             AP = "2000", TAX = "2100", STORE_CREDIT = "2200", SALES = "4000", COGS = "5000",
+            // OB-1: the balancing side of an opening balance. NOT 3100 Retained Earnings — that is the
+            // accumulation account, and writing to it directly would make a migration indistinguishable from
+            // real prior profit. An opening balance IS the owner's stake as it stood on day one.
+            OWNERS_EQUITY = "3000",
             FEE_INCOME = "4100",   // slice 0.1: education fee revenue, kept off 4000 Sales
             /**
              * B2B-P4b / D-4: CONTRA-REVENUE — trade discount given on an invoice.
@@ -94,7 +98,50 @@ public class PostingService {
         else if ("FEE_CHARGE".equalsIgnoreCase(type)) postFeeCharge(req);
         else if ("FEE_CREDIT_ISSUED".equalsIgnoreCase(type)) postFeeCreditIssued(req);
         else if ("FEE_CREDIT_APPLIED".equalsIgnoreCase(type)) postFeeCreditApplied(req);
+        else if ("OPENING_AR".equalsIgnoreCase(type)) postOpeningReceivable(req);
+        else if ("OPENING_AP".equalsIgnoreCase(type)) postOpeningPayable(req);
         else throw new IllegalArgumentException("Unknown event type: " + type);
+    }
+
+    /**
+     * OB-1 — what a CUSTOMER owed before this shop started using MaxTheService.
+     *
+     *     Dr 1100 Accounts Receivable      Cr 3000 Owner's Equity
+     *
+     * <h3>⚠ Never through 4000 Sales, and this is the point of the whole slice</h3>
+     * An opening balance is not trade. Booking it through Sales would report last year's business as this
+     * month's revenue, carry it into the tax register as output tax on a sale that never happened here, and
+     * overstate the margin on a period the shop did not trade in. That is exactly what a shop does today
+     * when it "migrates" by back-dating invoices, and it is what OB-1 exists to replace.
+     *
+     * <h3>No tax, no COGS, no inventory — deliberately</h3>
+     * There are no lines and no goods: the money was owed, and whatever was sold to create it was sold in a
+     * system that is not this one, and taxed there. Inventing any of those here would be inventing facts.
+     *
+     * <p>The DATE is the tenant's cutover, carried from the event. Until V60 the outbox dropped the date and
+     * the relay stamped {@code LocalDate.now()}, which would have landed every migration in the current
+     * period — see that migration for what else it was quietly doing to ordinary sales.
+     */
+    private void postOpeningReceivable(PostEventRequest r) {
+        BigDecimal owed = nz(r.getGrandTotal());
+        if (owed.signum() <= 0) return;   // nothing owed is nothing to post, not an error
+        post("OPENING_AR", r.getDate(), r.getRef(), List.of(dr(AR, owed), cr(OWNERS_EQUITY, owed)));
+    }
+
+    /**
+     * OB-1 — what this shop owed a SUPPLIER at cutover. The mirror.
+     *
+     *     Dr 3000 Owner's Equity           Cr 2000 Accounts Payable
+     *
+     * <p>An opening payable REDUCES the owner's stake: the business starts owing money it has not yet paid
+     * for, so equity is debited rather than credited. Getting this backwards would balance the journal and
+     * report the opposite of the truth about the shop's net worth — which is why the gate asserts the SIGNED
+     * movement on both accounts rather than that the trial balance merely still balances.
+     */
+    private void postOpeningPayable(PostEventRequest r) {
+        BigDecimal owed = nz(r.getGrandTotal());
+        if (owed.signum() <= 0) return;
+        post("OPENING_AP", r.getDate(), r.getRef(), List.of(dr(OWNERS_EQUITY, owed), cr(AP, owed)));
     }
 
     // Reverse a sale (goods back, refund/AR credited): mirror image of postSale. grand = returned value,

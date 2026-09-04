@@ -4908,10 +4908,6 @@ function applyPosFieldVisibility(){
 	}
 }
 
-// ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
-// Self-renders from the business-service catalog (/getBusinessConfig â†’ ApiResponse{data:[...]}): each row is one
-// configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
-// new setting is a catalog entry in the service (BusinessSettingsCatalog) — no change here.
 /* ── SER-3b: a serialled line is ONE unit ────────────────────────────────────────────────────────
  *
  * A serial number identifies ONE physical thing. Two handsets are two IMEIs, which is two lines — so the
@@ -4973,6 +4969,122 @@ $(document).on('reset', 'form', function () {
 /** Exposed so a caller that clears the line by hand can release the lock too. */
 window.applySerialQuantityLock = applySerialQuantityLock;
 
+/* ── OB-1: opening balances at cutover ───────────────────────────────────────────────────────────
+ *
+ * What each customer and supplier owed on the day this shop started using MaxTheService.
+ *
+ * WHY THERE IS NO CUTOVER-DATE FIELD HERE
+ * It is an ordinary tenant setting (business.cutoverDate) and the Configuration screen self-renders it from
+ * the catalog. A second control writing the same value is two answers to one question, and the one nobody
+ * uses drifts. The link goes there instead.
+ *
+ * EVERY RULE IS THE SERVER'S. The cutover requirement, the lock, the org check, the part-paid refusal and
+ * the owner/admin gate all live in business-service — a rule enforced in this file stops existing the moment
+ * somebody posts the endpoint directly. What this file owns is telling the operator what happened.
+ */
+function showOpeningBalances(){
+	$('.formDiv').hide();
+	$('#OpeningBalanceDiv').show();
+	$('#openingBalanceMsg').hide().empty();
+	$('#obAmount').val('');
+	$('#obReference').val('');
+	obLoadParties();
+	obLoadState();
+}
+
+/** The migration's state, in the operator's words rather than the setting's. */
+function obLoadState(){
+	$.get(serverContext + 'openingBalanceSummary').done(function(resp){
+		var d = (resp && (resp.object || resp.data)) || {};
+		var parts = [];
+		if(d.cutoverDate){
+			parts.push(t('ui.js.obCutoverIs','System of record from {0}').replace('{0}', escHtml(d.cutoverDate)));
+		}else{
+			// Said plainly and first: nothing can be recorded until this is set, and the operator should not
+			// discover that by being refused.
+			parts.push('<b>' + escHtml(t('ui.js.obNoCutover',
+				'Set the cutover date before recording any balance.')) + '</b>');
+		}
+		if(d.locked === true){
+			parts.push(escHtml(t('ui.js.obLocked',
+				'Locked — balances have been recorded against this date.')));
+		}
+		var cust = Number(d.customerTotal || 0), supp = Number(d.supplierTotal || 0);
+		if(cust > 0 || supp > 0){
+			parts.push(t('ui.js.obEnteredSoFar','Entered so far: {0} from customers, {1} to suppliers.')
+				.replace('{0}', cust.toLocaleString()).replace('{1}', supp.toLocaleString()));
+		}
+		$('#openingBalanceState').html(parts.join(' &middot; '));
+	}).fail(function(){
+		$('#openingBalanceState').text(t('ui.js.obStateUnavailable',
+			'Could not read the migration state.'));
+	});
+}
+
+/** Fill the party picker for whichever side is selected. */
+function obLoadParties(){
+	var isCustomer = $('#obPartyType').val() === 'customer';
+	var url = isCustomer ? 'getUserCustomer?q=-1' : 'getUserVender?q=-1';
+	$('#obParty').empty();
+	$.get(serverContext + url).done(function(resp){
+		var rows = (resp && (resp.collection || resp.data || resp.object)) || [];
+		var html = '<option value="">' + escHtml(t('ui.js.obChoose','— choose —')) + '</option>';
+		for(var i = 0; i < rows.length; i++){
+			var r = rows[i];
+			var id = isCustomer ? (r.customerId || r.id) : (r.venderId || r.id);
+			var nm = isCustomer ? r.name : (r.venderName || r.name);
+			// A party with no name cannot be recognised on a statement later, and a blank row in a picker is
+			// how a fixture once drew customer 4663. Skip rather than offer it.
+			if(id && nm && String(nm).trim()){
+				html += '<option value="' + escHtml(id) + '">' + escHtml(nm) + '</option>';
+			}
+		}
+		$('#obParty').html(html);
+	});
+}
+
+function postOpeningBalance(){
+	var isCustomer = $('#obPartyType').val() === 'customer';
+	var partyId = $('#obParty').val();
+	var amount = $('#obAmount').val();
+
+	if(!partyId){ obMsg(t('ui.js.obPickParty','Choose who owes the money.'), false); return; }
+	if(!(Number(amount) > 0)){ obMsg(t('ui.js.obNeedAmount','Enter the amount owed.'), false); return; }
+
+	var body = { amount: amount, reference: $('#obReference').val() || '' };
+	body[isCustomer ? 'customerId' : 'venderId'] = partyId;
+
+	$('#obPost').prop('disabled', true);
+	$.post(serverContext + 'postOpeningBalance', body).done(function(resp){
+		$('#obPost').prop('disabled', false);
+		var ok = resp && (resp.status === 'SUCCESS');
+		// The SERVER'S SENTENCE, verbatim. Its refusals name the cutover date, the lock or the part-paid
+		// rule and say what to do about each; replacing them with "could not save" would throw away the only
+		// part of the message the operator can act on.
+		obMsg(ok ? t('ui.js.obRecorded','Opening balance recorded.') : (resp && resp.message), !!ok);
+		if(ok){
+			$('#obAmount').val('');
+			$('#obReference').val('');
+			obLoadState();   // the totals and the lock both change on the first posting
+		}
+	}).fail(function(){
+		$('#obPost').prop('disabled', false);
+		obMsg(t('ui.js.obFailed','The opening balance could not be recorded.'), false);
+	});
+}
+
+function obMsg(text, ok){
+	$('#openingBalanceMsg')
+		.removeClass('alert-success alert-danger')
+		.addClass(ok ? 'alert-success' : 'alert-danger')
+		.text(text || '')
+		.show();
+}
+
+// ===== Owner Configuration (generic per-tenant settings, shared common-settings backend) =====
+// Self-renders from the business-service catalog (/getBusinessConfig â†’ ApiResponse{data:[...]}): each row is one
+// configurable policy grouped by section. A toggle saves immediately (/saveBusinessConfig key=&value=). Adding a
+// new setting is a catalog entry in the service (BusinessSettingsCatalog) — no change here.
 function showBusinessConfig(){
 	$('.formDiv').hide();
 	$('#ConfigDiv').show();

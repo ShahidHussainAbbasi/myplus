@@ -63,7 +63,9 @@ public class SupportSessionController {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("id", s.getId());
         out.put("organizationId", s.getSubjectOrgId());
-        out.put("expiresAt", s.getExpiresAt().toString());
+        // Offset-carrying, for the same reason the list is — see SupportSessionService.iso.
+        out.put("expiresAt", s.getExpiresAt()
+                .atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString());
         out.put("accessToken", authService.mintAccessTokenFor(actor));
         return ResponseEntity.ok(ApiResponse.success(out, "Support session open"));
     }

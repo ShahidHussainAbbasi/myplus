@@ -22,5 +22,20 @@
     <dependency><groupId>org.springframework</groupId><artifactId>spring-context</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><scope>provided</scope></dependency>
+    <!--
+      D-6 — the outbox-health endpoint. These are what changed this module's character, so they are called out:
+      it held no web and no JDBC dependency before, deliberately. The alternative was the same controller copied
+      into four services, which is the duplication the DRY rule names.
+
+      All `provided`, like everything else here: every consumer is a Boot service that already ships them at
+      runtime. spring-security-core is for @PreAuthorize on the controller.
+
+      ⚠ auth-service and api-gateway extend the ROOT aggregator, not service-parent, so they inherit none of a
+      shared module's `provided` scopes. auth OWNS an outbox, so it must declare these itself — the trap that
+      broke the common-settings addition three times in a row.
+    -->
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-core</artifactId><scope>provided</scope></dependency>
   </dependencies>
 </project>

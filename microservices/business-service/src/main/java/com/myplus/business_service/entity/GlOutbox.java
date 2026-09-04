@@ -87,6 +87,19 @@ public class GlOutbox implements com.myplus.common.outbox.OutboxEntry {
     @Column(name = "user_id")
     private Long userId;
 
+    /**
+     * ⚠ The day the TRANSACTION happened — not the day the relay delivered it.
+     *
+     * This column did not exist, and the relay rebuilt every event with {@code LocalDate.now()}. So a
+     * sale rung at 23:59 and delivered at 00:01 posted to the NEXT DAY, and a retried delivery posted on
+     * its retry date — across a month end, into the wrong period, with nothing on screen to show it.
+     *
+     * Nullable for rows queued before V60; the relay falls back to {@code createdAt} for those, which is
+     * closer to the truth than now() because it is when the transaction actually happened.
+     */
+    @Column(name = "event_date")
+    private java.time.LocalDate eventDate;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     @Column(name = "updated_at")

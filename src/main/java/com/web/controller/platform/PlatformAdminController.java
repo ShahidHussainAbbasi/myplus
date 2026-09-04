@@ -464,6 +464,24 @@ public class PlatformAdminController {
         }
     }
 
+    /**
+     * E5 — take a fresh token so a scope change made ELSEWHERE reaches this session.
+     *
+     * <h3>The gap this closes</h3>
+     * The customer allows changes on their own screen, in their own session. Nothing about that re-mints the
+     * OPERATOR's token, so without this the operator would keep being refused for up to fifteen minutes after
+     * the customer said yes — during a support call, which is the worst possible moment for the product to
+     * look broken. The console calls it whenever it opens a tenant that has an open session, which is once
+     * per tenant view on a cold path.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/refreshSupportScope", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> refreshSupportScope() {
+        refreshSessionToken();
+        return Map.of("success", true);
+    }
+
     /** E5 — one tenant's support history, for the console's detail panel. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/supportSessions", method = RequestMethod.GET)
@@ -536,6 +554,104 @@ public class PlatformAdminController {
             LOGGER.error("end support session proxy error", e);
             return ProxyErrors.failure(e);
         }
+    }
+
+    // ── D-6: undelivered records, across every service that owns an outbox ────────────────────────
+    //
+    // Four services own the seven outboxes and each owns its own database, so there is no single place to
+    // count from. The console asks each and this composes the answers — which is what a BFF is for, and the
+    // same shape as the business-type preview above.
+    //
+    // ⚠ THE PATHS DIFFER, and it is not cosmetic. The gateway strips /api/<svc> for business and education
+    // (StripPrefix=2) and does NOT for catalog and auth, so each service's controller is mapped differently
+    // and the shared endpoint follows via `outbox.health.base-path`. Verified against the gateway config,
+    // not assumed — a wrong path here 404s in a way that reads exactly like a missing bean.
+
+    private static final String EDUCATION_PREFIX = "/api/education";
+
+    @Value("${education.service.url:http://localhost:8084}")
+    private String educationDirectUrl;
+
+    /**
+     * Every undelivered record on the platform, per service and table.
+     *
+     * <p>One service being down must not blank the whole strip: each call is caught on its own and reported
+     * as unavailable, because "we cannot tell" and "nothing is failing" are opposite answers and only one of
+     * them is safe to show as a clear screen.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/outboxHealth", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> outboxHealth() {
+        java.util.List<Map<String, Object>> services = new java.util.ArrayList<>();
+        long totalFailed = 0;
+
+        Object[][] targets = {
+                { "business",  BUSINESS_PREFIX,  businessDirectUrl },
+                { "education", EDUCATION_PREFIX, educationDirectUrl },
+                { "catalog",   CATALOG_PREFIX,   catalogDirectUrl },
+                { "auth",      AUTH_PREFIX,      authDirectUrl },
+        };
+        for (Object[] t : targets) {
+            String name = (String) t[0];
+            Map<String, Object> entry = new java.util.LinkedHashMap<>();
+            entry.put("service", name);
+            try {
+                Map<String, Object> res = gateway.forMap((String) t[1], (String) t[2],
+                        "/outbox-health", HttpMethod.GET, null, null);
+                Object data = res == null ? null : res.get("data");
+                java.util.List<?> tables = (data instanceof Map<?, ?> m)
+                        ? (java.util.List<?>) m.get("tables") : java.util.List.of();
+                entry.put("tables", tables);
+                for (Object row : tables) {
+                    if (row instanceof Map<?, ?> r && r.get("failed") instanceof Number n) {
+                        totalFailed += n.longValue();
+                    }
+                }
+            } catch (Exception unavailable) {
+                LOGGER.warn("outbox health unavailable for {}", name, unavailable);
+                entry.put("unavailable", true);
+            }
+            services.add(entry);
+        }
+        return Map.of("success", true,
+                "data", Map.of("totalFailed", totalFailed, "services", services));
+    }
+
+    /** Re-send undelivered records. The reason and the scope are enforced by the service, not by this proxy. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/outboxRedrive", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> outboxRedrive(final HttpServletRequest request) {
+        try {
+            String svc = request.getParameter("service");
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("table", request.getParameter("table"));
+            body.put("reason", request.getParameter("reason"));
+            String ids = request.getParameter("ids");
+            if (ids != null && !ids.isBlank()) {
+                java.util.List<Long> list = new java.util.ArrayList<>();
+                for (String part : ids.split(",")) list.add(Long.valueOf(part.trim()));
+                body.put("ids", list);
+            } else {
+                body.put("all", true);
+            }
+            String[] target = outboxTarget(svc);
+            return gateway.forMap(target[0], target[1], "/outbox-health/redrive",
+                    HttpMethod.POST, body, MediaType.APPLICATION_JSON);
+        } catch (Exception e) {
+            LOGGER.error("outbox redrive proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** Prefix + base URL for one service name. Refuses anything not on the list — never interpolated. */
+    private String[] outboxTarget(String service) {
+        if ("business".equals(service))  return new String[] { BUSINESS_PREFIX,  businessDirectUrl };
+        if ("education".equals(service)) return new String[] { EDUCATION_PREFIX, educationDirectUrl };
+        if ("catalog".equals(service))   return new String[] { CATALOG_PREFIX,   catalogDirectUrl };
+        if ("auth".equals(service))      return new String[] { AUTH_PREFIX,      authDirectUrl };
+        throw new IllegalArgumentException("Not a service that owns an outbox: " + service);
     }
 
     private Map<String, Object> authGet(String path) {
