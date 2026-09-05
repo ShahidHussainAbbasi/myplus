@@ -136,12 +136,27 @@ public class OutboxHealthService {
         if (!table.toLowerCase().contains("audit"))
             throw new IllegalArgumentException(
                     "Only an audit outbox can be seeded: the others carry payload columns this cannot fill.");
+        /*
+         * ⚠ STAMP A REAL IDENTITY, or the row can never be delivered.
+         *
+         * The first cut inserted a null organization_id and user_id. The re-drive then worked perfectly — the
+         * row moved FAILED → PENDING — and the relay could still never deliver it: it impersonates the row's
+         * tenant with runAs(userId, organizationId), so a null pair sends no X-User-Id and no X-Org-Id,
+         * audit-service authenticates nobody, and every attempt comes back "403 : [no body]". The row sat at
+         * PENDING for ever and the gate reported a broken re-drive, which is the one thing that was working.
+         *
+         * The caller is the operator, and their identity is exactly the right one for a fixture: it is a real
+         * tenant that really can receive an audit event.
+         */
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        Long user = com.myplus.common.security.CurrentUser.userId();
         jdbc.update(
                 "insert into `" + table + "` (action, entity_type, entity_ref, details, event_key,"
-                        + " occurred_at, status, attempts, last_error, organization_id, created_at, updated_at)"
-                        + " values (?,?,?,?,?, now(), 'FAILED', 20, ?, null, now(), now())",
+                        + " occurred_at, status, attempts, last_error, organization_id, user_id,"
+                        + " created_at, updated_at)"
+                        + " values (?,?,?,?,?, now(), 'FAILED', 20, ?, ?, ?, now(), now())",
                 "GATE_FIXTURE", "FIXTURE", "d6", reason, java.util.UUID.randomUUID().toString(),
-                "seeded by the D-6 gate; safe to re-drive");
+                "seeded by the D-6 gate; safe to re-drive", org, user);
         Long id = jdbc.queryForObject("select last_insert_id()", Long.class);
         return id == null ? 0L : id;
     }

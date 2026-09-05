@@ -694,7 +694,20 @@ $(document).ready(function() {
 						 */
 						if (typeof hasCapability !== 'function' || hasCapability('serialTracking')) {
 							var rawSerials = $.trim($("#purchaseSerials").val() || '');
-							if (rawSerials !== '') fd += "&serials=" + encodeURIComponent(rawSerials);
+							/*
+							 * SENT EVEN WHEN EMPTY, and always with the marker beside it.
+							 *
+							 * On EDIT the box is pre-filled from the grid, so an empty box now means "remove the
+							 * units from this bill" — a real instruction the server has to be able to hear.
+							 * Omitting the parameter would make that indistinguishable from "this client never
+							 * rendered the field", and the two must produce opposite outcomes.
+							 *
+							 * serialsSubmitted is what tells them apart. A browser holding a CACHED copy of the
+							 * old form sends neither, and updatePurchase then leaves the register untouched — so
+							 * a stale tab can never silently delete the IMEIs of a bill it could not display.
+							 */
+							fd += "&serials=" + encodeURIComponent(rawSerials);
+							fd += "&serialsSubmitted=true";
 						}
 						if (typeof hasCapability !== 'function' || hasCapability('conditionGrading')) {
 							var grade = $("#purchaseCondition").val();

@@ -173,8 +173,9 @@ holds 56 rows, **every one FAILED and none POSTED**, so not one education fee ha
 Two causes: one fixed by finance `V5` on 16 Aug, one **still undiagnosed** and dated three hours *after* that
 fix. Nothing on any screen surfaces it.
 
+✅ **GREEN 2026-09-05** (10/10; the two gates sharing the audit path re-green at 10/10 each).
 See [`d6-undelivered-outbox-analysis.md`](slices/d6-undelivered-outbox-analysis.md) and the
-[design](slices/d6-undelivered-outbox-design.md) (awaiting consent). This is now the highest-value remaining
+[design](slices/d6-undelivered-outbox-design.md). This is now the highest-value remaining
 work in the programme, ahead of E6.
 
 ⭐ **The re-drive is the diagnostic instrument, not just a repair.** The cause of 29 of the failures cannot

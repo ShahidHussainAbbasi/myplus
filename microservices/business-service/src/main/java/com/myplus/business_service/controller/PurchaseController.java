@@ -43,6 +43,17 @@ public class PurchaseController {
 	@Autowired
 	private MessageSource messages;
 
+	/**
+	 * SER-2 (fix) — the per-unit register, so the purchase grid can SHOW the serials it recorded.
+	 *
+	 * <p>Until this, nothing in the product ever read a serial back onto a screen: the register was written by
+	 * goods-in and read by the till advisory alone, so a shop that had recorded an IMEI had no way to see it and
+	 * reasonably concluded the purchase had not saved it. That is the exact failure {@code SerialUnitController}
+	 * warns about in its own header — a register nobody can query is a table, not a feature.
+	 */
+	@Autowired
+	private com.myplus.business_service.service.SerialUnitService serialUnitService;
+
 	@Autowired
 	IPurchaseService purchaseService;
 	
@@ -130,6 +141,15 @@ public class PurchaseController {
 			if (!pVenderIds.isEmpty())
 				venderService.findAllById(pVenderIds).forEach(v -> venderNameById.put(v.getId(), v.getName()));
 
+			// SER-2 (fix): the units each bill brought in — ONE query for the page, batched for the same reason
+			// the product and vendor lookups above are. The grid renders them as a column, and editRecord reads the
+			// same cell back into #purchaseSerials, which is what makes an edit round-trip instead of wiping them.
+			java.util.Map<Long, java.util.List<com.myplus.business_service.entity.SerialUnit>> unitsByPurchase =
+					serialUnitService.unitsByPurchase(
+							com.myplus.common.security.CurrentUser.organizationId(),
+							objs.stream().map(Purchase::getPurchaseId)
+									.filter(java.util.Objects::nonNull).toList());
+
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
 				modelMapper.addConverter(appUtil.localDateTimeToString);
@@ -156,6 +176,16 @@ public class PurchaseController {
 				sd.setStock(o.getQuantity());                 // the purchased quantity
 				dto.setStock(sd);
 				dto.setVenderName(venderNameById.get(o.getVenderId()));   // grid + edit: show/preselect the vendor
+
+				// SER-2 (fix): the serials this bill brought in, in the SAME single-field shape the form posts back
+				// (SerialUnitService.join / split are the two halves of one round trip). The grade comes from the
+				// first unit — a delivery is graded as a lot, which is why the form has one selector per line.
+				java.util.List<com.myplus.business_service.entity.SerialUnit> units =
+						unitsByPurchase.get(o.getPurchaseId());
+				if (units != null && !units.isEmpty()) {
+					dto.setSerials(com.myplus.business_service.service.SerialUnitService.join(units));
+					dto.setConditionGrade(units.get(0).getConditionGrade());
+				}
 				dtos.add(dto);
 			});
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);

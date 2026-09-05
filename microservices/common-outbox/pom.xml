@@ -34,6 +34,12 @@
       shared module's `provided` scopes. auth OWNS an outbox, so it must declare these itself — the trap that
       broke the common-settings addition three times in a row.
     -->
+    <!--
+      common-security, for CurrentUser: the fixture seeder stamps the caller's own tenant so the seeded row
+      is DELIVERABLE. No cycle — common-security depends on no common-* module, and common-audit's dependency
+      runs the other way (it is built ON this one).
+    -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-security</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework</groupId><artifactId>spring-web</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.security</groupId><artifactId>spring-security-core</artifactId><scope>provided</scope></dependency>

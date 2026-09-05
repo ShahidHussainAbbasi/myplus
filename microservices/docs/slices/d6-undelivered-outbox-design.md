@@ -1,6 +1,7 @@
 # D-6 — design: nothing may fail silently seven times over
 
-**Status:** BUILT — awaiting the headed Cypress gate. Designed and implemented 2026-09-05.
+**Status:** ✅ **SHIPPED AND GREEN** (2026-09-05) — `undelivered-outbox.cy.js` **10/10**, and the two gates
+that share the audit path re-green: `control-plane-audit.cy.js` **10/10**, `support-session.cy.js` **10/10**.
 **Gate:** `cypress/e2e/platform/undelivered-outbox.cy.js` (10 cases), written before the code.
 **Analysis:** [`d6-undelivered-outbox-analysis.md`](d6-undelivered-outbox-analysis.md) — read that first; it
 holds the measurements and is not repeated here.
@@ -327,3 +328,74 @@ waiting to happen.
 * The `ROLE_ADMIN` gate is enforced: an unauthenticated probe got 403, an authenticated operator got the data.
 * `business.gl_outbox` really does hold **1 dead-lettered SALE** with its reason, exactly as the analysis
   measured from the database.
+
+
+---
+
+## 12. Second gate run — 9 of 10, and the last one was the fixture, not the feature
+
+Everything the slice is about passed. The one failure was my seeder.
+
+```
+row 8 never left PENDING: {"table":"audit_outbox","pending":1,"failed":0,...}
+```
+
+Read carefully, that line says the re-drive **worked**: `failed` went to 0 and the row moved to `PENDING`.
+What never happened was delivery. The row itself said why:
+
+```
+id 8 · GATE_FIXTURE · PENDING · attempts 2 · organization_id NULL · user_id NULL · "403 : [no body]"
+```
+
+⚠ **The seeder inserted a null identity.** `AuditEmitter` delivers by impersonating the row's tenant —
+`runAs(userId, organizationId)` — so a null pair sends no `X-User-Id` and no `X-Org-Id`, audit-service
+authenticates nobody, and every attempt returns a bare 403. The row would have sat at `PENDING` for ever, and
+the gate reported a broken re-drive, **which is the one thing that was working.**
+
+Fixed by stamping the caller's own organization and user: the operator is a real tenant that really can
+receive an audit event. `common-outbox` gains `common-security` for `CurrentUser` — no cycle, verified:
+`common-security` depends on no `common-*` module, and `common-audit`'s dependency runs the other way.
+
+### What the same run proved
+
+The row above it in the same table settles two cases on its own:
+
+```
+id 9 · OUTBOX_REDRIVEN · POSTED · organization_id 8 · user_id 59
+```
+
+The re-drive **was recorded through E4's trail and delivered** — so the `OutboxRedriveAudit` SPI, the
+cycle-free wiring and the audit producer all work end to end. Cases 4, 5, 6 (reason required, scope required,
+unknown table refused) and 7 (the ladder) passed, as did 1, 2, 9 and 10.
+
+⚠ The undeliverable fixture row was deleted from `myplusdb_catalog.audit_outbox` so the next run starts clean.
+Nothing else was touched — the 57 real events remain exactly where they are.
+
+
+---
+
+## 13. Green, and what it leaves behind
+
+Third run, 10/10, with `control-plane-audit` and `support-session` re-run afterwards and both still 10/10 —
+`common-outbox` sits under every audit producer, so a change there had to be shown not to disturb them.
+
+**The 57 real events are exactly where they were:** `myplusdb_education.gl_outbox` 56 FAILED,
+`myplusdb.gl_outbox` 1 FAILED. Nothing in this slice replayed them, which was the point of §7.
+
+### ⚠ Known residue: one POSTED fixture row per gate run
+
+The seeded `GATE_FIXTURE` row is now delivered successfully — that is the case passing — so it stays in
+`myplusdb_catalog.audit_outbox` as `POSTED`, and its audit event reaches audit-service. One row per run,
+harmless and correct, but it accumulates.
+
+Recorded rather than quietly left: it violates the letter of *leave no server state behind*. The cheap fix is
+to make the seeder **idempotent** — reset an existing `GATE_FIXTURE` row back to `FAILED` instead of inserting
+another — which would hold it at exactly one for ever. Not done, because it needs a further rebuild cycle and
+the residue is one row; worth doing the next time this module is touched.
+
+### Still open, and unchanged by this slice
+
+* **`business-service` and `education-service` have no `OutboxRedriveAudit`.** A re-drive on those two works
+  and is **not recorded** — a gap in the same accountability argument this slice is built on. auth and catalog
+  have one.
+* **The 29 undiagnosed GL failures.** The instrument now exists to find out; §7 is the separate consented step.

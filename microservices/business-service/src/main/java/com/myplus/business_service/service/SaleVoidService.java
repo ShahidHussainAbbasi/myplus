@@ -61,6 +61,8 @@ public class SaleVoidService {
     @Autowired private AuditService auditService;
     @Autowired private PeriodLockGuard periodLockGuard;
     @Autowired private SaleReturnRepo saleReturnRepo;
+    /** SER-3 (fix): a voided invoice never happened, so the units it named go back on the shelf. */
+    @Autowired private SerialUnitService serialUnitService;
     /** Optional so a slim context still voids: a tenant with no plans must not need the repository. */
     @Autowired(required = false)
     private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
@@ -253,6 +255,30 @@ public class SaleVoidService {
                 // Best-effort, and deliberately: the invoice is already reversed. Failing here would leave a
                 // voided sale that reports as un-voided, which is worse than a plan needing a second look.
                 LOG.warn("voidInvoice could not cancel the plan on {} (void applied)", ch.getInvoiceNo(), planEx);
+            }
+        }
+
+        /*
+         * SER-3 (fix) — the handsets go back on the shelf.
+         *
+         * Missing until now, and invisibly: markReturned existed, read correctly, and had NO caller. So a
+         * voided sale left every unit it named marked SOLD for ever — unsellable (the sale path refuses a
+         * unit that is not in stock) while physically sitting on the shelf. Stock and the ledger were both
+         * reversed; only the answer to "which handset" was not.
+         *
+         * Best-effort, like the plan cancellation above and for the same reason: the invoice is already
+         * reversed, and failing here would leave a sale that is void everywhere except the register.
+         */
+        if (ch.getInvoiceNo() != null) {
+            try {
+                java.util.List<String> back =
+                        serialUnitService.restoreForVoid(ch.getOrganizationId(), ch.getInvoiceNo());
+                if (!back.isEmpty())
+                    LOG.info("Void put {} serial unit(s) back in stock on invoice {}: {}",
+                            back.size(), ch.getInvoiceNo(), String.join(", ", back));
+            } catch (Exception serialEx) {
+                LOG.warn("voidInvoice could not restock the serial units on {} (void applied)",
+                        ch.getInvoiceNo(), serialEx);
             }
         }
 

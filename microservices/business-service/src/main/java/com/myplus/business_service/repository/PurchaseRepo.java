@@ -82,6 +82,22 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    @Query("select p from purchase p where p.venderId = :venderId order by p.dated asc")
    List<Purchase> findByVenderOrdered(@Param("venderId") Long venderId);
 
+   /**
+    * SER-2 (fix) — the bills carrying a given invoice number, tenant-scoped.
+    *
+    * <p>Exists so the serial register can answer a question asked with a DOCUMENT number. An operator holding
+    * bill 10225 types 10225; a lookup that only matches serials returns nothing and reads as "no such unit",
+    * which is how a register that had recorded the IMEI correctly was reported as having lost it.
+    *
+    * <p>A list, not one row: a purchase invoice covers a delivery and this codebase stores one LINE per row,
+    * so several purchases legitimately share an invoice number.
+    */
+   // 'purchase', lowercase: the entity is declared @Entity(name="purchase"), so the JPQL root is that
+   // name and NOT the class name. 'Purchase' fails the startup query validation this file's header
+   // describes, and takes the whole service down with it.
+   @Query("SELECT p FROM purchase p WHERE p.organizationId = :orgId AND p.purchaseInvoiceNo = :invoiceNo")
+   List<Purchase> findByInvoiceNoScoped(@Param("orgId") Long orgId, @Param("invoiceNo") String invoiceNo);
+
    // SF-10: the product's most-recent purchase rate (unit cost / COGS) in this tenant — for the sell-line margin
    // snapshot. Returns newest-first; the caller takes the first with Pageable(0,1). NULL rates are skipped.
    @Query("select p.bpurchaseRate from purchase p where p.productId = :productId and p.bpurchaseRate is not null "

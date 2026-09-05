@@ -148,6 +148,19 @@ public class PurchaseDTO implements Serializable {
 	 */
 	private String conditionGrade;
 
+	/**
+	 * Did the browser that submitted this bill know about serials at all?
+	 *
+	 * <p>The edit path needs to tell "the operator cleared the serial box" apart from "this client never had
+	 * one". Both arrive as an absent {@code serials} parameter, and they mean opposite things: the first must
+	 * remove the units from the register, the second must leave them alone.
+	 *
+	 * <p>Absent or false therefore means LEAVE THE REGISTER UNTOUCHED. A browser holding a cached copy of the
+	 * old purchase form — which never sent the field — must not silently delete the IMEIs of a bill it
+	 * simply could not display. Only a client that says it rendered the box gets to speak for it.
+	 */
+	private Boolean serialsSubmitted;
+
 	private StockDTO stock;
 
 	private String purchaseInvoiceNo;

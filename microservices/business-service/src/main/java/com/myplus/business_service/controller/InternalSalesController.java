@@ -247,6 +247,9 @@ public class InternalSalesController {
                 s.setStock(st);
             }
             s.setDescription(line.getDescription());
+            // SER-3: the unit(s) this line is selling. buildLines validates and claims them exactly as it does
+            // for a till sale — no new rule here, the field simply had to reach it.
+            s.setSerials(line.getSerials());
             sales.add(s);
         }
         if (sales.isEmpty()) throw new ValidationException("A sale needs at least one line with a productId");

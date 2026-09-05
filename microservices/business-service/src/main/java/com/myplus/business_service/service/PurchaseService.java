@@ -607,6 +607,29 @@ public class PurchaseService implements IPurchaseService{
 				: (existing.getPaidAmount() != null ? existing.getPaidAmount() : bill);
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
+
+		/*
+		 * SER-2 (fix) — the register follows the bill when the bill is EDITED.
+		 *
+		 * This was missing entirely: `main.js` appended `serials=` on the update path exactly as it does on
+		 * add, and updatePurchase discarded it without a word. A shop correcting a mistyped IMEI saved the
+		 * bill, was told it succeeded, and the register kept the wrong number — the worst of the three
+		 * possible outcomes, because the screen said the correction had been made.
+		 *
+		 * BEFORE the write, same as addPurchase: a refusal here has changed nothing. And gated on
+		 * serialsSubmitted so a stale browser that cannot render the box never speaks for it (see the field).
+		 */
+		if (Boolean.TRUE.equals(dto.getSerialsSubmitted())) {
+			serialUnitService.reconcileForPurchase(
+					existing.getPurchaseId(),
+					obj.getProductId(),
+					dto.getSerials(),
+					productRequiresSerial(obj.getProductId()),
+					obj.getQuantity() == null ? 0f : obj.getQuantity(),
+					dto.getConditionGrade(),
+					user);
+		}
+
 		Purchase saved = this.save(obj);
 		Long oldVendor = existing.getVenderId();
 		if (oldVendor != null) venderService.recomputePayable(oldVendor);

@@ -1954,6 +1954,13 @@ function loadDataTable(){
 							// B2B-P3a (#2): batch/lot. Header position 7, so the cell goes here — a <th> with no cell
 							// shifts every later column (the tableCustomer lesson from P0).
 							"<div id=purchaseBatchNo>"+escHtml((obj.stock && obj.stock.batchNo)||'')+"</div>",
+							// SER-2 (fix): the serials this bill brought in. escHtml because a serial is operator
+							// input, and the id is what editRecord copies into #purchaseSerials on edit. The grade
+							// rides along HIDDEN in the same cell so the edit form can restore its selector without
+							// a column nobody asked for — editRecord matches a SELECT by option VALUE, and
+							// NEW/USED/REFURBISHED is exactly the text it needs to read.
+							"<div id=purchaseSerials>"+escHtml(obj.serials||'')+"</div>"
+								+"<span id=purchaseCondition style='display:none'>"+escHtml(obj.conditionGrade||'')+"</span>",
 							"<div id=purchasePurchaseRate>"+obj.stock.bpurchaseRate+"</div>","<div id=purchaseSellRate>"+obj.stock.bsellRate+"</div>",
 							// Total = the vendor bill you owe for this line = goods (totalAmount) + input tax (taxAmount,
 							// 0 unless the org captures purchase tax). Aligns with the "Total" header. The orphaned
@@ -2066,6 +2073,10 @@ function loadDataTable(){
 				}
 				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();
+
+				// SER-2 (fix): a capability-gated COLUMN is hidden through the DataTables API, never with
+				// `data-capability` on its <th>. See applyPurchaseColumnCapabilities.
+				if (getAll === "Purchase") applyPurchaseColumnCapabilities(datatable);
 
 				// Product on-hand is inventory (not catalog). Fill EVERY row's on-hand in ONE batch call
 				// (/productStockLevels â†’ inventory /stock/levels/detail) instead of a per-row /productStock request.
@@ -3619,6 +3630,88 @@ var purchaseLineCount  = 0;       // lines saved onto the bill currently open
  *
  * Ten handsets are now ten lines, which "Save & Add Another" (P6) turns into scan-and-repeat.
  */
+/**
+ * SER-2 (fix) — hide the purchase grid's capability-gated columns THROUGH THE DATATABLES API.
+ *
+ * `data-capability` cannot do this job. capabilities.js applies `.cap-off{display:none!important}` to the
+ * element it finds, and on a `<th>` that hides the header cell alone: the body cells stay, every later
+ * header slides one column left, and the grid then labels the wrong data — P/U Price over the batch,
+ * Total over P/U Price, and so on down the row. Batch # carried the attribute and did exactly that for
+ * every tenant without batchTracking, which is most of them.
+ *
+ * `column().visible(false)` drops the header and its cells together, which is the only way a table column
+ * can be hidden without lying about the ones beside it.
+ *
+ * Column order (see the <thead>): 6 = Batch #, 7 = Serial / IMEI.
+ *
+ * Fails OPEN via hasCapability(), matching capabilities.js: an unknown code shows the column, because a
+ * tenant mid-upgrade must not lose a column the server is still sending data for.
+ */
+/**
+ * SER-2 (fix) — ask the register a question from the SCREEN.
+ *
+ * `/serialHistory` and `/serialUnits` shipped with the register and no caller ever reached them from a page,
+ * so the only way to look a handset up was to type the URL. Someone did — with a BILL number, which the
+ * server could not match, and the empty answer was reasonably read as "the purchase lost the serial".
+ *
+ * One box, three questions. The server tries serial, then sale invoice, then purchase bill, and stamps
+ * `matchedBy` on every row, so a result never leaves the reader guessing which of the three it answered.
+ *
+ * Renders through escHtml(): every value here — serial, invoice, bill — is operator input that has been
+ * round-tripped through the database, which is precisely the shape of a stored XSS.
+ */
+function lookupSerialUnit(){
+	var q = $.trim($('#serialLookup').val() || '');
+	var $msg = $('#serialLookupMsg'), $out = $('#serialLookupResult');
+	$out.empty(); $msg.text('').css('color', '');
+	if (q === '') { $('#serialLookup').focus(); return; }
+
+	var t = (typeof window.t === 'function') ? window.t : function(k){ return k; };
+	$.get(serverContext + 'serialHistory', { serial: q }, function(resp){
+		var rows = (resp && resp.collection) ? resp.collection : [];
+		if (!rows.length) {
+			$msg.text(t('ui.js.serialLookupNone')).css('color', '#c0392b');
+			return;
+		}
+		$msg.text(rows.length + ' ' + t('ui.js.serialLookupFound')).css('color', '#0f6e56');
+
+		var html = '<table class="table table-bordered table-condensed" style="margin-bottom:0">'
+			+ '<thead><tr>'
+			+ '<th>' + escHtml(t('ui.js.serialNumbers')) + '</th>'
+			+ '<th>' + escHtml(t('ui.js.condition')) + '</th>'
+			+ '<th>' + escHtml(t('ui.js.serialStatus')) + '</th>'
+			+ '<th>' + escHtml(t('ui.js.serialReceivedOn')) + '</th>'
+			+ '<th>' + escHtml(t('ui.js.serialSoldOn')) + '</th>'
+			+ '</tr></thead><tbody>';
+		$.each(rows, function(i, r){
+			// IN_STOCK is the state a shop acts on, so it is the one that gets a colour.
+			var inStock = (r.status === 'IN_STOCK');
+			html += '<tr>'
+				+ '<td><strong>' + escHtml(r.serialNo || '') + '</strong></td>'
+				+ '<td>' + escHtml(r.conditionGrade || '') + '</td>'
+				+ '<td style="color:' + (inStock ? '#0f6e56' : '#727374') + '">'
+				+ escHtml(r.status || '') + '</td>'
+				+ '<td>' + escHtml(r.purchaseInvoiceNo || '') + '</td>'
+				+ '<td>' + escHtml(r.invoiceNo || '') + '</td>'
+				+ '</tr>';
+		});
+		$out.html(html + '</tbody></table>');
+	}, 'json').fail(function(){
+		$msg.text(t('ui.js.serialLookupNone')).css('color', '#c0392b');
+	});
+}
+
+function applyPurchaseColumnCapabilities(dt){
+	if (!dt) return;
+	var can = (typeof hasCapability === 'function') ? hasCapability : function(){ return true; };
+	try {
+		// `false` as the second argument defers the redraw, so two column changes cost one adjust().
+		dt.column(6).visible(can('batchTracking'), false);
+		dt.column(7).visible(can('serialTracking'), false);
+		dt.columns.adjust();
+	} catch (e) { /* a grid not yet built has no columns to hide */ }
+}
+
 function applyPurchaseSerialQuantityLock() {
 	var $serial = $('#purchaseSerials');
 	var $qty = $('#purchaseQuantity');

@@ -75,4 +75,30 @@ public interface SerialUnitRepo extends JpaRepository<SerialUnit, Long> {
     /** The units a given purchase brought in — used when a purchase is edited or reversed. */
     @Query("SELECT s FROM SerialUnit s WHERE s.organizationId = :orgId AND s.purchaseId = :purchaseId")
     List<SerialUnit> findByPurchase(@Param("orgId") Long orgId, @Param("purchaseId") Long purchaseId);
+
+    /**
+     * The units several purchases brought in, in ONE query.
+     *
+     * <p>Batched deliberately. The purchase register renders every bill a shop has, and the list endpoint
+     * already resolves products and vendors in batches for exactly this reason; a per-row serial lookup would
+     * put an N+1 behind the busiest read screen in the product.
+     *
+     * <p>Ordered by purchase then id so the serials of one bill come back in the order they were received —
+     * the order the operator typed them, and the order the edit form has to show them back in.
+     */
+    @Query("SELECT s FROM SerialUnit s WHERE s.organizationId = :orgId AND s.purchaseId IN :purchaseIds "
+         + "ORDER BY s.purchaseId, s.serialUnitId")
+    List<SerialUnit> findByPurchaseIds(@Param("orgId") Long orgId,
+                                       @Param("purchaseIds") java.util.Collection<Long> purchaseIds);
+
+    /**
+     * Every unit that left on a given SALE invoice.
+     *
+     * <p>Exists because "does 10225 exist?" is asked with a document number far more often than with a
+     * serial: an operator holds a bill or a receipt, not a handset. {@code findHistory} answers only the
+     * serial question, and its empty result reads as "no such unit" when the truth is "that is not a serial".
+     */
+    @Query("SELECT s FROM SerialUnit s WHERE s.organizationId = :orgId AND s.invoiceNo = :invoiceNo "
+         + "ORDER BY s.serialUnitId DESC")
+    List<SerialUnit> findBySaleInvoice(@Param("orgId") Long orgId, @Param("invoiceNo") String invoiceNo);
 }

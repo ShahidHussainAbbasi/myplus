@@ -158,6 +158,10 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;   // SF-11: return audit / credit-note
 
+	/** SER-3 (fix): a sale return puts the named unit back in the per-unit register. */
+	@Autowired
+	com.myplus.business_service.service.SerialUnitService serialUnitService;
+
 	@Autowired
 	com.myplus.business_service.service.AuditService auditService;   // #6: append-only audit trail
 
@@ -1441,6 +1445,21 @@ public class SellController {
 			CustomerHistory ch = existingSell.getCustomerHistory();
 			if (ch != null && "VOID".equals(ch.getStatus()))   // Audit #3: no returns against a voided invoice
 				return new GenericResponse("FAILED", "This invoice is voided.");
+
+			/*
+			 * SER-3 (fix) — the returned handset goes back on the shelf, and WHICH handset is asked, not
+			 * guessed. See SerialUnitService.restoreForReturn: named serials are checked against this invoice
+			 * and this product; a whole-line return needs no input; a PARTIAL return of a tracked line is
+			 * refused until the serial is given, because restocking the wrong IMEI is discovered by a warranty
+			 * claim months later and never by the person who took the return.
+			 *
+			 * FIRST, before the inventory reversal below: a refusal here must leave the sale exactly as it was.
+			 * Inert — and free — for every line whose invoice put no units in the register.
+			 */
+			if (ch != null) {
+				serialUnitService.restoreForReturn(orgId(), ch.getInvoiceNo(),
+						existingSell.getProductId(), dto.getSerials(), retQty);
+			}
 			String reservationId = ch != null ? ch.getReservationId() : null;
 			boolean sagaSell = existingSell.getProductId() != null && reservationId != null;
 

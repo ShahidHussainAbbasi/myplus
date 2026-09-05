@@ -130,6 +130,25 @@ public class SaleRecordRequest {
          * <p>Null or zero on an undiscounted line, which is every POS and storefront line today.
          */
         private BigDecimal discount;
+
+        /**
+         * The serial / IMEI of the unit(s) this line is selling.
+         *
+         * <h3>Its absence made serial-tracked goods unsellable through this API</h3>
+         * business-service refuses a line for a {@code requiresSerial} product that names no serial — correctly,
+         * and identically for a till sale and an order dispatch. But this wire carried no way to name one, so
+         * every storefront order and every OMS dispatch of a handset was refused with "scan or enter the one
+         * being sold" and no field in which to answer. Proven against a running stack: passing a serial in the
+         * body changed nothing, because {@code toCustomerHistory} had nothing to copy.
+         *
+         * <p>One field for the whole line, newline- or comma-separated, matching {@code SellDTO.serials} and
+         * split by the same {@code SerialUnitService.split}. A list would have been the obvious shape and the
+         * wrong one — the POS side is a single string for transport reasons that have not gone away, and two
+         * shapes for one concept is how a field arrives populated and is read as empty.
+         *
+         * <p>Null on every line of every ordinary sale, which is most of them.
+         */
+        private String serials;
     }
 
     /** One payment against the sale. {@code reference} carries the PSP charge id for a CARD tender. */

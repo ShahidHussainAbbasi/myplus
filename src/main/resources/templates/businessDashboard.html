@@ -1945,6 +1945,13 @@ tr.row-voided .js-edit-row{display:none !important}
 								<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
 							</select>
 						</div>
+					<!--
+						This close was MISSING, and the QTY / Bonus / Pack / Stock-in-hand group below was
+						therefore parsed as a CHILD of the serial row rather than its sibling. So a tenant with
+						`pos.entry.showSerial=false` — which hides this group — lost the quantity field with it,
+						and could not enter a purchase at all. The markup balanced, so nothing complained.
+					-->
+					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="purchaseQuantity" th:text="#{ui.qty2}">QTY</label>
 						<!--
@@ -2006,8 +2013,6 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
 						</div>
-					</div>
-
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2 req" for="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</label>
@@ -2093,16 +2098,46 @@ tr.row-voided .js-edit-row{display:none !important}
 				  </div>
 				</div>
 				<div>
-					<span th:text="#{ui.toggleColumn}">Toggle column:</span> <a class="toggle-vis" data-column="2" th:text="#{ui.code}">Code</a> - <a class="toggle-vis" data-column="3" th:text="#{ui.name}">Name</a>
-					  - <a class="toggle-vis" data-column="4" th:text="#{ui.qty2}">QTY</a> <!-- - <a class="toggle-vis" data-column="5">Stock</a> -->
-					  <!-- - <a class="toggle-vis" data-column="5">Batch #</a> 
-					  - <a class="toggle-vis" data-column="6">P/U price</a> - <a class="toggle-vis" data-column="7">S/U price</a>
-					  - <a class="toggle-vis" data-column="8">P/U Disc type</a> - <a class="toggle-vis" data-column="9">P/U Discount</a>
-					  - <a class="toggle-vis" data-column="10">S/U Disc type</a> - <a class="toggle-vis" data-column="11">S/U Discount</a>-->
-					  - <a class="toggle-vis" data-column="12" th:text="#{ui.total}">Total</a> - <a class="toggle-vis" data-column="13" th:text="#{ui.profit}">Profit</a>
-					  <!-- - <a class="toggle-vis" data-column="14">Expire Date</a>  -->
-					  - <a class="toggle-vis" data-column="15" th:text="#{ui.datetime}">DateTime</a>
+				<!--
+					SER-2 (fix) — the register's LOOKUP.
 
+					The endpoints existed from the first day and no page ever called them, so the only way to
+					ask "do we have this handset?" was to type the URL by hand — which is what happened, and
+					with a BILL number, which the old query could not match. It answered empty, and empty read
+					as "the purchase never saved the serial".
+
+					One box, three questions: a serial, a sale invoice, or a purchase bill. The server tries
+					them in that order and says on every row WHICH matched, so an answer is never ambiguous.
+				-->
+				<div class="form-inline" id="serialLookupBox" data-capability="serialTracking"
+				     style="margin-bottom:10px">
+					<label for="serialLookup" th:text="#{ui.js.serialLookup}">Serial / IMEI lookup</label>
+					<input type="text" class="form-control" id="serialLookup" style="min-width:260px"
+					       th:placeholder="#{ui.js.serialLookupHint}"
+					       placeholder="Serial, IMEI, bill no. or invoice no." autocomplete="off"
+					       onkeydown="if(event.key===&#39;Enter&#39;){event.preventDefault();lookupSerialUnit();}"/>
+					<button type="button" class="btn btn-default" onclick="lookupSerialUnit()"
+					        th:text="#{ui.search}">Search</button>
+					<span id="serialLookupMsg" class="help-block"
+					      style="display:inline-block;margin:0 0 0 10px"></span>
+					<div id="serialLookupResult" style="margin-top:8px"></div>
+				</div>
+					<!--
+						These indices are the LIVE column positions, recounted when Serial / IMEI was added.
+						They had drifted: "QTY" pointed at 4 (Vendor), Total at 12 (Due), "Profit" at 13 on a grid
+						that has no profit column, and DateTime at 15 on a 14-column table — so three of the five
+						links toggled something other than their label, and one toggled nothing at all.
+						0 ID · 1 select · 2 Invoice · 3 Name · 4 Vendor · 5 QTY · 6 Batch · 7 Serial ·
+						8 P/U · 9 S/U · 10 Total · 11 Paid · 12 Due · 13 Expiry · 14 DateTime
+					-->
+					<span th:text="#{ui.toggleColumn}">Toggle column:</span>
+					  <a class="toggle-vis" data-column="2" th:text="#{ui.invoiceNo}">Invoice No</a>
+					  - <a class="toggle-vis" data-column="3" th:text="#{ui.name}">Name</a>
+					  - <a class="toggle-vis" data-column="4" th:text="#{ui.vendor}">Vendor</a>
+					  - <a class="toggle-vis" data-column="5" th:text="#{ui.qty2}">QTY</a>
+					  - <a class="toggle-vis" data-column="7" th:text="#{ui.js.serialNumbers}">Serial / IMEI</a>
+					  - <a class="toggle-vis" data-column="10" th:text="#{ui.total}">Total</a>
+					  - <a class="toggle-vis" data-column="14" th:text="#{ui.datetime}">DateTime</a>
 				</div>
 				<table id="tablePurchase" class="table table-bordered table-striped">
 					<thead>
@@ -2115,8 +2150,23 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="purchaseQuantity" th:text="#{ui.qty2}">QTY</th>
 							<!-- Stock column removed: it duplicated QTY (the purchase line's stored 'stock' = purchased qty).
 							     Live on-hand now lives on the purchase FORM's "Stock In Hand" field instead. -->
-							<th data-field="purchaseBatchNo" th:text="#{ui.batchNo}"
-							    data-capability="batchTracking">Batch #</th>
+							<!--
+								NO data-capability ON A GRID HEADER.
+
+								`.cap-off{display:none!important}` hides the <th> and NOTHING ELSE — the body cells
+								stay, so every later header slides one column left and the grid labels the wrong
+								data. Batch # carried the attribute and did exactly that for any tenant without
+								batchTracking, which is most of them.
+
+								A DataTables column is hidden through the API, which drops the header AND its cells
+								together — see applyPurchaseColumnCapabilities() in business.js.
+							-->
+							<th data-field="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</th>
+							<!-- SER-2 (fix): the serials this bill brought in. The register recorded them from the
+							     first day and no screen ever showed one back, so a shop that had entered an IMEI
+							     concluded the purchase had not saved it. The cell id is what editRecord reads into
+							     #purchaseSerials, which is what makes an edit round-trip instead of wiping it. -->
+							<th data-field="purchaseSerials" th:text="#{ui.js.serialNumbers}">Serial / IMEI</th>
 							<th data-field="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</th>
 							<th data-field="purchaseSellRate" th:text="#{ui.sUPrice}">S/U Price</th>
 							<!-- <th data-field="purchaseDiscountTypeDD">P/U Disc Type</th> -->

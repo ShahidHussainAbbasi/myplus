@@ -36,6 +36,16 @@ public class SerialUnitController {
     @Autowired private SerialUnitRepo serialUnitRepo;
 
     /**
+     * SER-2 (fix) — to resolve a PURCHASE invoice number into the units that bill brought in.
+     *
+     * <p>The register keys a sale by {@code invoiceNo} but a receipt only by {@code purchaseId}, so the bill
+     * number an operator is holding cannot be matched without the purchase row. Reading it here rather than
+     * denormalising the number onto every unit keeps one copy of the fact: a bill that is renumbered stays
+     * findable, and a register row can never disagree with the bill it came from.
+     */
+    @Autowired private com.myplus.business_service.repository.PurchaseRepo purchaseRepo;
+
+    /**
      * The units of a product currently on the shelf — what a cashier picks from when selling a tracked item.
      */
     @GetMapping("/serialUnits")
@@ -60,10 +70,59 @@ public class SerialUnitController {
     @GetMapping("/serialHistory")
     public GenericResponse history(@RequestParam String serial) {
         Long org = CurrentUser.organizationId();
-        String normalised = SerialUnitService.normalise(serial);
+        String q = SerialUnitService.normalise(serial);
+        if (q == null || q.isEmpty()) return new GenericResponse("SUCCESS", new ArrayList<Map<String, Object>>());
+
+        // 1. The serial itself. The question this endpoint was built for, and still the common one.
+        List<SerialUnit> hits = serialUnitRepo.findHistory(org, q);
+        String matchedBy = "SERIAL";
+
+        // 2. The number on a RECEIPT — which unit(s) left on this sale.
+        if (hits.isEmpty()) {
+            hits = serialUnitRepo.findBySaleInvoice(org, q);
+            matchedBy = "SALE_INVOICE";
+        }
+
+        // 3. The number on a BILL — which units this delivery brought in.
+        if (hits.isEmpty()) {
+            List<Long> purchaseIds = purchaseRepo.findByInvoiceNoScoped(org, serial == null ? null : serial.trim())
+                    .stream().map(com.myplus.business_service.entity.Purchase::getPurchaseId)
+                    .filter(java.util.Objects::nonNull).toList();
+            hits = purchaseIds.isEmpty() ? new ArrayList<SerialUnit>()
+                    : serialUnitRepo.findByPurchaseIds(org, purchaseIds);
+            matchedBy = "PURCHASE_INVOICE";
+        }
+
+        if (hits.isEmpty()) matchedBy = "NONE";
+
+        /*
+         * The BILL number each unit arrived on, resolved in ONE query for the whole result.
+         *
+         * The register stores purchaseId, not the number printed on the bill, and an id means nothing to the
+         * person asking. Without this the answer to "where did this handset come from?" was an internal
+         * primary key — technically the truth and of no use to anybody holding the document.
+         */
+        java.util.Map<Long, String> billNoById = new java.util.HashMap<>();
+        java.util.List<Long> billIds = hits.stream().map(SerialUnit::getPurchaseId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        if (!billIds.isEmpty()) {
+            for (com.myplus.business_service.entity.Purchase b : purchaseRepo.findAllById(billIds)) {
+                // Scoped on the way out as well as in: findAllById takes ids, and an id is exactly what an
+                // IDOR supplies. Nothing here can leak a foreign bill number even if a unit row were wrong.
+                if (org != null && !org.equals(b.getOrganizationId())) continue;
+                billNoById.put(b.getPurchaseId(), b.getPurchaseInvoiceNo());
+            }
+        }
+
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (SerialUnit u : serialUnitRepo.findHistory(org, normalised)) {
-            rows.add(row(u));
+        for (SerialUnit u : hits) {
+            Map<String, Object> m = row(u);
+            m.put("purchaseInvoiceNo", billNoById.get(u.getPurchaseId()));
+            // Carried on every row rather than in the envelope, because GenericResponse's collection form has
+            // no place for a sibling field — and a caller that renders rows needs to know WHY they matched:
+            // "3 units received on bill 10225" is a different sentence from "this handset's history".
+            m.put("matchedBy", matchedBy);
+            rows.add(m);
         }
         return new GenericResponse("SUCCESS", rows);
     }

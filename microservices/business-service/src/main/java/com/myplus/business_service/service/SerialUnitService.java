@@ -179,6 +179,164 @@ public class SerialUnitService {
         return rows.size();
     }
 
+    /**
+     * SER-2 (read) — the units several purchases brought in, keyed by purchase.
+     *
+     * <p>One query for the whole page. The purchase register is the screen a shop lives on, and the list
+     * endpoint already batches its product and vendor lookups for exactly this reason.
+     */
+    public java.util.Map<Long, java.util.List<SerialUnit>> unitsByPurchase(
+            Long orgId, java.util.Collection<Long> purchaseIds) {
+        java.util.Map<Long, java.util.List<SerialUnit>> byPurchase = new java.util.LinkedHashMap<>();
+        if (orgId == null || purchaseIds == null || purchaseIds.isEmpty()) return byPurchase;
+        for (SerialUnit u : serialUnitRepo.findByPurchaseIds(orgId, purchaseIds)) {
+            byPurchase.computeIfAbsent(u.getPurchaseId(), k -> new ArrayList<>()).add(u);
+        }
+        return byPurchase;
+    }
+
+    /**
+     * The serials of a bill as ONE field, in the shape the purchase form posts them back in.
+     *
+     * <p>Comma-separated because {@link #split} accepts commas and newlines alike, so what the grid shows,
+     * what the edit form loads and what the browser submits are the same string. A different separator on the
+     * way out than on the way in is how a round-trip quietly stops being one.
+     */
+    public static String join(java.util.List<SerialUnit> units) {
+        if (units == null || units.isEmpty()) return null;
+        StringBuilder sb = new StringBuilder();
+        for (SerialUnit u : units) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(u.getSerialNo());
+        }
+        return sb.toString();
+    }
+
+    /**
+     * SER-2 (edit) — make the register agree with an EDITED purchase line.
+     *
+     * <h3>Why an edit needed its own method rather than reusing the add path</h3>
+     * {@link #registerForPurchase} only ever inserts. An edit can also REMOVE a unit — an IMEI typed wrong
+     * and corrected — and it must not re-insert the ones that were already right, because a second live row
+     * for the same serial is precisely what V52's unique index refuses. So the operation is a reconcile:
+     * keep, add, remove.
+     *
+     * <h3>A unit that has left the shop cannot be un-received</h3>
+     * Removing a SOLD unit would erase the only record connecting a customer to the handset they are holding
+     * — the warranty claim, the return and the police enquiry all start there. Refused with the serial
+     * named, rather than silently skipped: an operator correcting a bill whose goods have since been sold
+     * needs to be told, not left with a register that quietly disagrees with the form they just saved.
+     *
+     * <h3>Validates everything before it changes anything</h3>
+     * Same placement and the same reason as {@link #validateForPurchase}: this runs inside the edit's
+     * transaction and before the record is written, so a refusal costs nothing and leaves nothing to unpick.
+     *
+     * @param serials what the operator submitted — the FULL list for this line, never a delta
+     * @return how many units the register holds for this purchase afterwards
+     */
+    @Transactional
+    public int reconcileForPurchase(Long purchaseId, Long productId, String serials, boolean requiresSerial,
+                                    float quantity, String conditionGrade, AuthenticatedUser user) {
+        Long orgId = user.getOrganizationId();
+        List<String> submitted = split(serials);
+        List<SerialUnit> existing = serialUnitRepo.findByPurchase(orgId, purchaseId);
+
+        // Nothing held and nothing asked for: the ordinary edit of an ordinary product, and it does no work.
+        if (submitted.isEmpty() && existing.isEmpty() && !requiresSerial) return 0;
+
+        // Naming serials at all is a use of the capability. Fails CLOSED, exactly as the add path does.
+        capabilityService.assertEnabled(Capability.SERIAL_TRACKING);
+
+        if (requiresSerial && submitted.isEmpty()) {
+            throw new ValidationException(
+                    "This product is tracked by serial number, so each unit received needs one.");
+        }
+
+        for (String n : submitted) {
+            if (n.length() > MAX_SERIAL_LEN) {
+                throw new ValidationException("Serial \"" + n + "\" is too long.");
+            }
+        }
+
+        Set<String> wanted = new LinkedHashSet<>();
+        for (String n : submitted) {
+            if (!wanted.add(n)) {
+                throw new ValidationException("Serial \"" + n + "\" was entered twice.");
+            }
+        }
+
+        if (requiresSerial) {
+            int expected = Math.round(quantity);
+            if (expected > 0 && wanted.size() != expected) {
+                throw new ValidationException("This purchase is for " + expected + " unit(s) but "
+                        + wanted.size() + " serial number(s) were entered.");
+            }
+        }
+
+        // What this bill already holds, and what of it the edit is dropping.
+        Set<String> held = new LinkedHashSet<>();
+        List<SerialUnit> removing = new ArrayList<>();
+        for (SerialUnit u : existing) {
+            held.add(u.getSerialNo());
+            if (!wanted.contains(u.getSerialNo())) removing.add(u);
+        }
+        for (SerialUnit u : removing) {
+            if (!SerialUnit.IN_STOCK.equals(u.getStatus())) {
+                throw new ValidationException("Serial \"" + u.getSerialNo() + "\" has already left"
+                        + " the shop" + (u.getInvoiceNo() != null ? " on invoice " + u.getInvoiceNo() : "")
+                        + ", so it cannot be removed from this bill. Record a sale return first.");
+            }
+        }
+
+        // A serial this bill is taking ON must not already be live somewhere else. Checked for the MESSAGE;
+        // the unique index is what makes it certain.
+        for (String n : wanted) {
+            if (held.contains(n)) continue;                       // already ours — not a new claim
+            if (serialUnitRepo.findLive(orgId, n).isPresent()) {
+                throw new ValidationException("Serial \"" + n + "\" is already in stock.");
+            }
+        }
+
+        // ── Everything above refused without writing. From here the register changes. ──
+        if (!removing.isEmpty()) serialUnitRepo.deleteAll(removing);
+
+        String grade = normaliseGrade(conditionGrade);
+        LocalDateTime now = LocalDateTime.now();
+        List<SerialUnit> adding = new ArrayList<>();
+        for (String n : wanted) {
+            if (held.contains(n)) continue;
+            adding.add(SerialUnit.builder()
+                    .organizationId(orgId)
+                    .userId(user.getUserId())
+                    .storeId(user.getActiveLocationId())
+                    .productId(productId)
+                    .serialNo(n)
+                    .conditionGrade(grade)
+                    .status(SerialUnit.IN_STOCK)
+                    .purchaseId(purchaseId)
+                    .dated(now)
+                    .updated(now)
+                    .build());
+        }
+        if (!adding.isEmpty()) serialUnitRepo.saveAll(adding);
+
+        /*
+         * The grade is a property of the DELIVERY, so an edit that regrades the line regrades every unit it
+         * brought in — including the ones already there. Without this, correcting "New" to "Used" would
+         * apply only to units added by the same edit, and one bill would hold two grades for goods that
+         * arrived in one box.
+         */
+        for (SerialUnit u : existing) {
+            if (!wanted.contains(u.getSerialNo())) continue;      // being removed
+            if (!grade.equals(u.getConditionGrade())) {
+                u.setConditionGrade(grade);
+                u.setUpdated(now);
+                serialUnitRepo.save(u);
+            }
+        }
+        return wanted.size();
+    }
+
     // ── SER-3: consuming a unit at the till ─────────────────────────────────────────────────────────
 
     /**
@@ -262,6 +420,129 @@ public class SerialUnitService {
             }
         }
         return notClaimed;
+    }
+
+    // ── SER-3 (fix): putting a unit BACK ───────────────────────────────────────────
+
+    /**
+     * The units a given invoice took off the shelf and has not given back.
+     *
+     * <p>Filtered in memory rather than with another query: this is the units of ONE invoice, a handful of
+     * rows, and {@link SerialUnitRepo#findBySaleInvoice} is already the query the lookup path needs.
+     */
+    private List<SerialUnit> soldOn(Long orgId, String invoiceNo, Long productId) {
+        List<SerialUnit> out = new ArrayList<>();
+        if (orgId == null || invoiceNo == null || invoiceNo.isEmpty()) return out;
+        for (SerialUnit u : serialUnitRepo.findBySaleInvoice(orgId, invoiceNo)) {
+            if (!SerialUnit.SOLD.equals(u.getStatus())) continue;
+            if (productId != null && !productId.equals(u.getProductId())) continue;
+            out.add(u);
+        }
+        return out;
+    }
+
+    /**
+     * SER-3 (fix) — a SALE RETURN puts the handset back on the shelf.
+     *
+     * <h3>The gap this closes</h3>
+     * {@link SerialUnitRepo#markReturned} was written with the return path in mind and then never called by
+     * anything — a fact a caller count makes plain and a reading of the code does not. So a returned handset
+     * stayed SOLD for ever: it could not be sold again (the sale path refuses a unit that is not in stock),
+     * and the shop had a phone on the shelf that its own register said belonged to a customer.
+     *
+     * <h3>Which unit came back is a question, not an inference</h3>
+     * Returning one of three handsets returns a SPECIFIC handset, and guessing would mark the wrong customer's
+     * unit as back in stock. So:
+     * <ul>
+     *   <li>serials named — those units, each checked against this invoice and this product;</li>
+     *   <li>none named and the WHOLE line coming back — unambiguous, so all of them;</li>
+     *   <li>none named and a PARTIAL return — refused, naming what is needed.</li>
+     * </ul>
+     * The refusal is deliberate. A partial return that silently restocked the first unit it found would put
+     * the wrong IMEI back on sale, and nobody would learn of it until a warranty claim.
+     *
+     * <h3>Inert for everything else</h3>
+     * A line whose invoice put no units in the register does nothing at all — which is every sale of every
+     * product that is not serial-tracked, and every legacy sale from before the register existed.
+     *
+     * @return the serials actually put back
+     */
+    @Transactional
+    public List<String> restoreForReturn(Long orgId, String invoiceNo, Long productId,
+                                         String serials, float returnQty) {
+        List<String> restored = new ArrayList<>();
+        List<SerialUnit> sold = soldOn(orgId, invoiceNo, productId);
+        if (sold.isEmpty()) return restored;                  // not a tracked line — nothing to put back
+
+        List<String> named = split(serials);
+        List<SerialUnit> coming;
+
+        if (!named.isEmpty()) {
+            Set<String> seen = new LinkedHashSet<>();
+            coming = new ArrayList<>();
+            for (String n : named) {
+                if (!seen.add(n)) {
+                    throw new ValidationException("Serial " + q(n) + " was entered twice.");
+                }
+                SerialUnit match = null;
+                for (SerialUnit u : sold) {
+                    if (u.getSerialNo().equals(n)) { match = u; break; }
+                }
+                if (match == null) {
+                    throw new ValidationException("Serial " + q(n) + " was not sold on invoice "
+                            + invoiceNo + ", so it cannot be returned against it.");
+                }
+                coming.add(match);
+            }
+            int expected = Math.round(returnQty);
+            if (expected > 0 && coming.size() != expected) {
+                throw new ValidationException("This return is for " + expected + " unit(s) but "
+                        + coming.size() + " serial number(s) were entered.");
+            }
+        } else if (Math.round(returnQty) == sold.size()) {
+            coming = sold;                                    // the whole line — no ambiguity to resolve
+        } else {
+            throw new ValidationException("This invoice sold " + sold.size()
+                    + " serial-tracked unit(s). Enter the serial number(s) being returned so the right unit"
+                    + " goes back on the shelf.");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (SerialUnit u : coming) {
+            if (serialUnitRepo.markReturned(orgId, u.getSerialNo(), now) == 1) restored.add(u.getSerialNo());
+        }
+        return restored;
+    }
+
+    /**
+     * SER-3 (fix) — a VOIDED invoice never happened, so every unit it named goes back.
+     *
+     * <p>No serials to ask for and no ambiguity to resolve: a void reverses the WHOLE document, so the answer
+     * is all of them. That is why this is separate from {@link #restoreForReturn} rather than a special case
+     * of it — the two look alike and are asked different questions.
+     *
+     * <p>Never throws. A void is a books-safe reversal that has already reversed stock and the ledger by the
+     * time this runs; failing it here would leave an invoice that is void everywhere except the register.
+     *
+     * @return the serials put back
+     */
+    @Transactional
+    public List<String> restoreForVoid(Long orgId, String invoiceNo) {
+        List<String> restored = new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        for (SerialUnit u : soldOn(orgId, invoiceNo, null)) {
+            try {
+                if (serialUnitRepo.markReturned(orgId, u.getSerialNo(), now) == 1) restored.add(u.getSerialNo());
+            } catch (RuntimeException ex) {
+                // Logged by the caller against the invoice; one stubborn unit must not abort the rest.
+            }
+        }
+        return restored;
+    }
+
+    /** Quote a serial in a message. One helper so every refusal reads the same way. */
+    private static String q(String serial) {
+        return "\"" + serial + "\"";
     }
 
     /**
