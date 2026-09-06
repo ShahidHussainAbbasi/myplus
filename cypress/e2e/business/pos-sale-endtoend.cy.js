@@ -30,6 +30,9 @@ function openTill(opts) {
     w.posQuickPickEnabled = o.quickPick === true
     w.applyPosKeyboard()
   })
+  // Scanning ships OFF for every tenant now, so #sellScanRow is display:none and scan() below could
+  // not reach its box. Pinned in the BROWSER alongside the keyboard flags above - see cy.enableScanBox.
+  cy.enableScanBox()
 }
 
 /** Type into the scan box, tolerating the global AJAX overlay (see sell.cy.js for why the long timeout). */
@@ -37,24 +40,18 @@ function scan(entry) {
   cy.get('#sellScan', { timeout: 30000 }).should('be.visible').type(entry, { timeout: 30000 })
 }
 
-/**
- * Answer the "Complete this sale?" dialog the way a cashier does.
+/*
+ * The "Complete this sale?" dialog is answered by `cy.confirmSale()` (commands.js) — this file's local
+ * helper is what became that command.
  *
- * `pos.sale.confirmOnComplete` DEFAULTS TO TRUE, so the sale does not post until the operator confirms —
- * deliberate: a mis-hit on a function key should not take money. This spec drives the keyboard end to end, so
- * it has to answer the dialog too; without it the button is clicked, nothing posts, and `cy.wait('@sale')`
- * times out looking like a broken chain rather than an unanswered question.
+ * Called with `{ optional: true }` at both sites below: this spec drives the KEYBOARD end to end and does
+ * not pin pos.sale.confirmOnComplete, so if the dialog is off the sale has already posted and there is
+ * nothing to answer.
  *
- * Tolerant of the setting being OFF: if no dialog appears the sale has already posted, and there is nothing
- * to answer.
+ * ⚠ The shared command also fixed a race the local helper had: it probed with jQuery `:visible`, but
+ * confirm-dialog.js lifts the backdrop off `opacity: 0` inside a requestAnimationFrame — so a snapshot
+ * taken right after the click could see nothing and skip a dialog that was already in the DOM.
  */
-function confirmSale() {
-  cy.get('body').then(($b) => {
-    if ($b.find('[data-ui-confirm="ok"]:visible').length) {
-      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).click({ force: true })
-    }
-  })
-}
 
 function pressKey(key, alt) {
   cy.document().then((doc) => {
@@ -68,10 +65,20 @@ describe('End-to-end — a complete sale with no mouse', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
   /**
-   * THE REGRESSION THIS FILE EXISTS FOR. Enter on the empty scan box must leave line entry and land on
-   * the customer. It did nothing at all in the shipped build.
+   * THE REGRESSION THIS FILE EXISTS FOR. Enter on the empty scan box must leave line entry and cross to
+   * the checkout. It did nothing at all in the shipped build.
+   *
+   * ⚠ IT LANDS ON THE PAYMENT METHOD, and this case used to expect the CUSTOMER.
+   *
+   * Both halves of that moved after it was written. Task #13 took the customer OUT of the checkout block
+   * and put it at the head of the LINE chain — CHECKOUT's own comment says leaving it in both "would make
+   * the cashier name the customer twice per sale". So "leave line entry" can no longer mean "go to the
+   * customer": the customer is now BEHIND the cursor, not ahead of it.
+   *
+   * Then the owner ruled where the crossing lands: CHECKOUT_LANDING = ['sellPayMethod', 'sellRec',
+   * 'sellTradeDiscount'], first usable wins. The rule is "after the goods comes how they pay".
    */
-  it('Enter on the EMPTY scan box moves focus to the customer', () => {
+  it('Enter on the EMPTY scan box crosses from line entry to the checkout', () => {
     const stamp = Date.now()
     cy.seedProduct({ name: 'E2E_A_' + stamp, sku: 'E2EA' + stamp, sellingPrice: 50, stock: 20 })
       .then(({ sku }) => {
@@ -82,12 +89,11 @@ describe('End-to-end — a complete sale with no mouse', () => {
         // The bridge. Nothing typed — just Enter.
         scan('{enter}')
 
-        // Focus is now in the checkout block, not the line form. bootstrap-select puts focus on its
-        // button, so accept either the select or its rendered button.
-        cy.focused().then(($f) => {
-          const id = $f.attr('id') || ''
-          const owner = $f.closest('.bootstrap-select').prev('select').attr('id') || ''
-          expect(id || owner, 'focus moved to the customer control').to.match(/sellCustomerDD|sellCN/)
+        // Focus is now in the checkout block, not the line form. Resolved through the shared helper
+        // because sellPayMethod is a bootstrap-select and the plugin focuses a <button> with no id.
+        cy.window().should((w) => {
+          expect(Cypress.focusedPicker(w), 'the crossing lands on how they pay')
+            .to.eq('sellPayMethod')
         })
       })
   })
@@ -147,7 +153,7 @@ describe('End-to-end — a complete sale with no mouse', () => {
         cy.get('#sellRec').should('have.value', '100.00')
         pressKey('F2')
 
-        confirmSale()
+        cy.confirmSale({ optional: true })
         cy.wait('@sale').its('response.statusCode').should('eq', 200)
         // A completed sale clears the till for the next customer.
         cy.window({ timeout: 20000 }).its('data').should('have.length', 0)
@@ -169,9 +175,24 @@ describe('End-to-end — a complete sale with no mouse', () => {
         pressKey('F8')                                   // exact cash so nothing is left owing
         cy.get('#sellRec').should('have.value', '60.00')
 
-        // Walk the rest of the checkout with Enter; past the last field it completes.
+        /*
+         * Walk the REST of the checkout with Enter; past the last field it completes.
+         *
+         * ⚠ One Enter is not the rest of the chain. CHECKOUT is
+         * ['sellPayMethod','sellStoreCredit','sellRec','sellTradeDiscount','dueDateTemp'], and
+         * `pos.invoice.tradeDiscountEnabled` defaults TRUE — so Enter on the till lands on the trade
+         * discount, not on a completed sale. dueDateTemp is skipped because F8 paid this one exactly and
+         * it only appears when a sale leaves a balance; past it, walk() returns null and completeSale()
+         * runs.
+         *
+         * Each stop is asserted rather than blind-fired: "press Enter twice and hope" would still pass
+         * if the chain silently lost a field, which is the regression this file is for.
+         */
         cy.get('#sellRec').type('{enter}')
-        confirmSale()
+        cy.focused().should('have.id', 'sellTradeDiscount')
+
+        cy.get('#sellTradeDiscount').type('{enter}')
+        cy.confirmSale({ optional: true })
         cy.wait('@sale2', { timeout: 30000 }).its('response.statusCode').should('eq', 200)
       })
   })

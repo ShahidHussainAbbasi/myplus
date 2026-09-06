@@ -65,13 +65,8 @@ const ringUp = (productId, price) => {
   cy.get('#sellRec').clear().type(String(price))
 }
 
-/**
- * Answer the till's confirm dialog. pos.sale.confirmOnComplete defaults ON and the client fails OPEN
- * (absent => on), so this appears for any tenant that has never touched the setting. Keyed on the stable
- * [data-ui-confirm="ok"] hook confirm-dialog.js exposes for tests, not on button text.
- */
-const confirmSale = () =>
-  cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible').click({ force: true })
+// The dialog is answered by cy.confirmSale() (commands.js). Not optional here: this file PINS
+// pos.sale.confirmOnComplete to true in before(), so a missing dialog is a real failure, not a setting.
 
 describe('SF-3b — one press, one sale', () => {
   before(() => {
@@ -99,7 +94,7 @@ describe('SF-3b — one press, one sale', () => {
 
       cy.intercept('POST', '**/addSell').as('sale')
       cy.get('#addSell').click({ force: true })
-      confirmSale()
+      cy.confirmSale()
 
       cy.wait('@sale', { timeout: 20000 }).then((i) => {
         expect(i.response.body.status, JSON.stringify(i.response.body)).to.eq('SUCCESS')
@@ -134,7 +129,7 @@ describe('SF-3b — one press, one sale', () => {
 
       cy.intercept('POST', '**/addSell').as('sale')
       cy.get('#addSell').click({ force: true })
-      confirmSale()
+      cy.confirmSale()
 
       cy.wait('@sale', { timeout: 20000 }).then((i) => {
         // The sale itself must still have committed - the receipt is downstream of the money.
@@ -169,7 +164,7 @@ describe('SF-3b — one press, one sale', () => {
       cy.intercept('POST', '**/addSell', () => { posts += 1 }).as('sale')
 
       cy.get('#addSell').click({ force: true })
-      confirmSale()
+      cy.confirmSale()
       cy.wait('@sale', { timeout: 20000 })
 
       /*

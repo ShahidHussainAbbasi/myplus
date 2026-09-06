@@ -30,12 +30,30 @@ $(document).ready(function() {
     // 5 Unit price, 6 Line total, 7 Tax, 8 Net, 9 Customer, 10 Contact, 11 Payment, 12 Invoice due, 13 Margin (SF-10).
     tableSellReport = $('#tableSellReport').DataTable( {
         dom: 'Bfrtip',
-        order: [[ 0, 'desc' ]],
+        /*
+         * ⭐ SR-1 — newest sale on top, and it really is the newest now.
+         *
+         * This said `order: [[0,'desc']]` before, which is the same instruction — but column 0 holds
+         * `dd-MM-yyyy` text and DataTables typed it as a STRING, so it sorted by day-of-month. Against live
+         * data the grid put 30-08-2026 on top while the newest sale was 06-09-2026. The `date-dmy` type
+         * registered in /js/common/datatable-defaults.js is what makes the instruction mean what it says.
+         *
+         * The secondary sort matters because `dated` carries NO time of day: many sales share a date.
+         * Invoice numbers are zero-padded and sequential (INV-000536), so descending on column 1 puts the
+         * day's latest invoice first, and keeps the lines of one invoice together instead of interleaving
+         * them with another sale's.
+         */
+        order: [[ 0, 'desc' ], [ 1, 'desc' ]],
         lengthMenu: [
             [ 10, 25, 50, -1 ],
             [ '10 rows', '25 rows', '50 rows', 'Show all' ]
         ],
-        columnDefs: [ { targets: [3,4,5,6,7,8,12,13], className: 'num' } ],
+        columnDefs: [
+            { targets: [3,4,5,6,7,8,12,13], className: 'num' },
+            { targets: 0, type: 'date-dmy' },
+            // The invoice cell is a <span>; 'html' makes DataTables compare the number, not the markup.
+            { targets: 1, type: 'html' }
+        ],
         buttons: [
         	'pageLength',
             { extend: 'copyHtml5', footer: true, title: t('ui.js.saleDetailReport') },
@@ -855,17 +873,32 @@ var SR_DOWNLOAD_WARN_AT = 10;
 $(document).on('click', '#srDownloadInvoices', function(){
 	var nos = srVisibleInvoiceNos();
 	if (!nos.length) { if (window.showFormError) showFormError(t('ui.js.nothingToPrint')); return; }
+	/*
+	 * ⭐ ONE file, one invoice per page — not one download per invoice.
+	 *
+	 * This used to fire N downloads 400 ms apart, and its own comment said browsers "throttle or silently
+	 * drop a burst". They do something worse and more specific: Chrome and Edge treat the SECOND automatic
+	 * download from a page as a permission decision, and silently drop everything after it unless the user
+	 * notices the prompt. A shopkeeper selecting twenty invoices got one file, or none, with no error
+	 * anywhere — the whole of "Download PDF does nothing", which no amount of spacing could have fixed
+	 * because the limit is on the COUNT.
+	 *
+	 * The batch emitter lives beside the single-document one and shares its blocks, so the pages in the
+	 * batch are the same document the single download produces.
+	 */
 	var go = function(){
-		// Sequential, not all at once: browsers throttle or silently drop a burst of simultaneous downloads,
-		// which would look like the feature half-working.
-		nos.forEach(function(no, i){
-			setTimeout(function(){ downloadInvoicePdf(no); }, i * 400);
-		});
+		if (typeof downloadInvoicesPdf !== 'function') {
+			if (window.showFormError) showFormError(t('ui.js.pdfUnavailable'));
+			return;
+		}
+		downloadInvoicesPdf(nos, null, 'invoices');
 	};
 	if (nos.length < SR_DOWNLOAD_WARN_AT) { go(); return; }
+	// The warning is now about TIME, not about a folder full of files: each invoice is fetched before the
+	// document can be built, so a large batch takes a moment. Saying "N files" would now be untrue.
 	uiConfirm({
 		title: t('ui.js.downloadInvoices'),
-		message: t('ui.js.downloadNFiles', nos.length),
+		message: t('ui.js.downloadNPages', nos.length),
 		confirmText: t('ui.js.download')
 	}).then(function(ok){ if (ok) go(); });
 });
@@ -3358,6 +3391,23 @@ function escSR(s){
 function initSRDatePickers(){
 	if (typeof initDatePickers === 'function') initDatePickers();   // pick up any newly rendered field
 }
+/**
+ * Which period the Sale Detail Report is showing — SR-1.
+ *
+ * <p>ONE answer for the screen and for the CSV export. They each read the control separately before, with
+ * their own hardcoded fallback, so a page where the control had not rendered yet exported a DIFFERENT period
+ * from the one on screen — a file that quietly disagrees with the report it came from.
+ *
+ * <p>`.val()` yields undefined when the select is not in the DOM: the report opens from a nav entry, a deep
+ * link or a back-button restore, and the screen is not always built by then. '3' is the LAST 30 DAYS, and it
+ * must stay in step with SaleReportPeriod.DEFAULT on the server — both sides default deliberately, so that
+ * neither depends on the other remembering.
+ */
+function srPeriod(){
+	var rp = $('#dateRangeDDSR').val();
+	return (rp === undefined || rp === null || rp === '') ? '3' : rp;
+}
+
 function toggleSRCustomRange(){
 	var custom = $('#dateRangeDDSR').val() === '4';
 	$('#srStartWrap, #srEndWrap').toggle(custom);
@@ -3455,7 +3505,7 @@ function mountSRFilters(){
 		dimensions: ['groupBy','customer','product','category','company','channel'],
 		onApply   : function(){ loadSR(); },
 		exportUrl : function(v){
-			var q = 'rp=' + encodeURIComponent($('#dateRangeDDSR').val() || '0')
+			var q = 'rp=' + encodeURIComponent(srPeriod())
 				+ '&sd=' + encodeURIComponent($('#srsd').val() || '')
 				+ '&ed=' + encodeURIComponent($('#sred').val() || '')
 				+ '&customerId=' + encodeURIComponent(v.customerId || '')
@@ -3476,20 +3526,8 @@ function loadSR(){
 	clearFormError();
 	// Self-contained params (the report bypasses the shared form-scan machinery): rp = period,
 	// sd/ed = custom range. Backend contract unchanged.
-	/*
-	 * Default to the CURRENT MONTH (0) when the control has not answered.
-	 *
-	 * `.val()` yields undefined if the select is not in the DOM yet — the report can be opened from a nav
-	 * entry, a deep link or a back-button restore, and the screen is not always built by then. jQuery then
-	 * omits the field, `rp` binds as null on the server, and what the operator gets is either a bare error or
-	 * "no sales found" for a shop that has plenty.
-	 *
-	 * The dropdown ships with "Current month" selected, so sending 0 is the same question the screen appears
-	 * to be asking. The server defaults the same way, deliberately: neither side should depend on the other
-	 * remembering.
-	 */
-	var rp = $('#dateRangeDDSR').val();
-	if (rp === undefined || rp === null || rp === '') rp = '0';
+	// Which period, and what happens when the control has not answered: see srPeriod().
+	var rp = srPeriod();
 	var sd = $('#srsd').val() || '';
 	var ed = $('#sred').val() || '';
 	if (rp === '4' && !sd && !ed){

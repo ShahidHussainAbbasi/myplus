@@ -85,8 +85,25 @@ function pressEnter() {
  */
 function settled() {
   quiet()
-  cy.focused().should(($el) => {
-    expect($el.attr('id'), 'the till has placed its own initial cursor').to.eq('sellScan')
+  /*
+   * ⚠ THE TILL OPENS ON THE CUSTOMER, and this waited for the scan box — stale on two counts.
+   *
+   * 1. Task #13 moved the entry point. focusEntryPoint()'s own docblock is explicit: "Where the cursor
+   *    lands when the sale screen opens: THE CUSTOMER", a product-owner ruling taken against the
+   *    author's first instinct, because a sale is priced by who is buying. It tries sellCustomerDD,
+   *    then sellCN, and only then the goods — so the scan box is not the answer even with scanning on.
+   * 2. Barcode scanning then shipped OFF by default, hiding #sellScan entirely.
+   *
+   * Resolved through Cypress.focusedPicker because sellCustomerDD is a bootstrap-select: the plugin
+   * hides the <select> and focuses a <button> with NO id, so `.should('have.id', ...)` would report
+   * "expected undefined" against a cursor sitting exactly where it belongs.
+   *
+   * cy.window().should() — not .then() — so this keeps its job as the file's synchronisation point:
+   * it RETRIES until the till has placed its cursor, which is what every test here was racing.
+   */
+  cy.window().should((w) => {
+    expect(Cypress.focusedPicker(w), 'the till has placed its own initial cursor')
+      .to.eq('sellCustomerDD')
   })
 }
 
@@ -341,7 +358,10 @@ describe('Checkout chain — every route to a paid sale', () => {
         // the shared spinner sits over the scan box while they run; a keystroke landing then fails with
         // "covered by <div class=ao-box>", which reads like a layout fault and is really a race.
         quiet()
-        cy.get('#sellScan').should('be.visible').type(sku + '{enter}')
+        // Scanning ships OFF for every tenant now (#sellScanRow is display:none), so the box has to be
+        // switched on before it can be typed into. Pinned in the browser, not server-side - see
+        // cy.enableScanBox. This is the only case in this file that scans; the rest drive the chain.
+        cy.enableScanBox().type(sku + '{enter}')
         cy.get('#sellItems', { timeout: 15000 }).should('be.visible')
         cy.focused().type('2{enter}')
         cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)

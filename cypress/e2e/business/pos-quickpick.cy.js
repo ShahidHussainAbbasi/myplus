@@ -84,7 +84,12 @@ describe('P3 — /topProducts endpoint', () => {
         cy.intercept('POST', '**/addSell').as('sale')
         cy.visit('/businessDashboard')
         cy.get('#sellType').select('sellDiv', { force: true })
-        cy.get('#sellScan', { timeout: 30000 }).should('be.visible').type(sku + '{enter}', { timeout: 30000 })
+
+        // Scanning ships OFF for every tenant now, so #sellScanRow is display:none and this case died
+        // with "not visible because its parent has display: none" - nothing to do with quick-pick, which
+        // is all it is actually about. cy.enableScanBox pins the flag in the browser (never server-side:
+        // this spec does not own that tenant's barcode policy) and returns the box, asserted visible.
+        cy.enableScanBox().type(sku + '{enter}', { timeout: 30000 })
         cy.window().its('data').should('have.length', 1)
 
         // The screen opens in "Select Customer" mode, so #sellCN lives in a display:none block until
@@ -95,6 +100,9 @@ describe('P3 — /topProducts endpoint', () => {
         cy.get('#sellCN').should('be.visible').type('QP Buyer ' + stamp)
         cy.get('#sellRec').clear().type('40')
         cy.get('#addSell').click({ timeout: 30000 })
+        // The till asks before it posts - without this the wait below reports "No request ever
+        // occurred", which looks like a broken sale rather than an unanswered question.
+        cy.confirmSale()
 
         // WAIT for the sale to be written. The first draft only commented that "the sale has to land"
         // and then queried immediately — the ranking would have been read before the row existed, and
@@ -238,12 +246,30 @@ describe('P3 — ON', () => {
     cy.window().its('data').should('have.length', 0)
   })
 
-  it('an empty ranking hides the panel rather than showing an empty box', () => {
+  it('an empty ranking EXPLAINS itself rather than showing a blank grid', () => {
+    /*
+     * ⚠ THIS CASE ASSERTED THE OPPOSITE, AND THE PRODUCT IS RIGHT - a test encoding a superseded
+     * decision fails for being correct.
+     *
+     * It used to demand `#quickPickWrap` be HIDDEN when the ranking came back empty, on the reasoning
+     * that a blank grid claiming to be "best sellers" is worse than no grid. renderQuickPick() records
+     * why that changed: hiding made "switched on with no sales history yet" look identical to
+     * "switched off" or "broken". The owner ticks the box, nothing appears, and nothing tells them why
+     * - and every shop is new once.
+     *
+     * So the panel now shows itself and says what it is waiting for. Asserted on the MESSAGE and on
+     * the empty grid, not merely on visibility: a visible panel full of stale tiles would also be
+     * "visible", and that is the failure worth catching.
+     */
     cy.intercept('GET', '**/topProducts*', { body: { status: 'SUCCESS', collection: [] } }).as('tiles')
     openSell({ quickPick: true })
     cy.wait('@tiles')
-    // A shop with no sales history has no best sellers; a blank grid claiming to be one is worse.
-    cy.get('#quickPickWrap').should('not.be.visible')
+
+    cy.get('#quickPickWrap').should('be.visible')
+    cy.get('.qp-tile').should('not.exist')            // enabled but empty - no stale tiles
+    cy.get('#quickPickMsg').should('be.visible')
+      .invoke('text')
+      .should('match', /no best sellers yet/i)        // ui.js.quickPickEmpty
   })
 
   it('a failed fetch hides the panel — the tiles are an accelerator, never a gate', () => {

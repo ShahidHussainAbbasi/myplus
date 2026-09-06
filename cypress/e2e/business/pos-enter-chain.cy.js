@@ -24,6 +24,9 @@ function openTill() {
     w.posShortcutsEnabled = true
     w.applyPosKeyboard()
   })
+  // Scanning ships OFF for every tenant now, so #sellScanRow is display:none and scan() below could
+  // not reach its box. Pinned in the BROWSER alongside the keyboard flags above - see cy.enableScanBox.
+  cy.enableScanBox()
 }
 
 function scan(entry) {

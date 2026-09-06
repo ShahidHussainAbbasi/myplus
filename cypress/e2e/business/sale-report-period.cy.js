@@ -15,6 +15,12 @@
  * <b>3. The month bounds kept the clock time</b> (fixed separately, see report-date-bounds.md): on the 1st,
  * "Current month" began mid-morning and excluded everything before it.
  *
+ * <b>4. The default period itself was wrong (SR-1).</b> "Current month" is not what an operator opens a sale
+ * report to see. Measured on the 6th against this tenant's 541 sale lines, it showed SIX; on the 1st a shop
+ * that had traded for years opened its report empty. The default is now a rolling LAST 30 DAYS — code 3 —
+ * while codes 0 (this month) and 4 (custom) keep their meanings so bookmarked reports still mean what they
+ * meant.
+ *
  * Every case here asserts what the OPERATOR gets, not the shape of the request — a report is only correct if
  * it returns the right rows for the period the screen says it is showing.
  */
@@ -53,7 +59,7 @@ describe('Sale Detail Report — period selection', () => {
     cy.request({ method: 'POST', url: '/loadSR', form: true, body: {}, failOnStatusCode: false })
       .then((r) => {
         expect(r.body.status, `no period supplied: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq('SUCCESS')
-        expect((r.body.collection || []).length, 'defaults to the current month').to.be.greaterThan(0)
+        expect((r.body.collection || []).length, 'defaults to the last 30 days').to.be.greaterThan(0)
       })
   })
 
@@ -67,6 +73,48 @@ describe('Sale Detail Report — period selection', () => {
         expect(r.body.status, 'a period with no range must not read as "no sales"').to.eq('SUCCESS')
         expect((r.body.collection || []).length).to.be.greaterThan(0)
       })
+  })
+
+  it('⭐ 3b. SR-1 — the default reaches back 30 days, not to the 1st of the month', () => {
+    /*
+     * THE ASK: "by default load last 30 days sales". Asserted on the SERVER, because that is where the
+     * default lives — and on the 1st of a month a client-only check would pass against the OLD behaviour
+     * by coincidence.
+     */
+    const num = (dmy) => {
+      const m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(String(dmy).trim())
+      return m ? Number(m[3]) * 10000 + Number(m[2]) * 100 + Number(m[1]) : -1
+    }
+    cy.request({ method: 'POST', url: '/loadSR', form: true, body: {} }).then((r) => {
+      expect(r.body.status).to.eq('SUCCESS')
+      const dates = (r.body.collection || []).map((x) => num(x.dated)).filter((n) => n > 0)
+      expect(dates.length, 'a default report is not empty for a trading shop').to.be.greaterThan(0)
+
+      const cutoff = new Date()
+      cutoff.setDate(cutoff.getDate() - 29)
+      const cutoffNum = cutoff.getFullYear() * 10000 + (cutoff.getMonth() + 1) * 100 + cutoff.getDate()
+      expect(Math.min.apply(null, dates), 'nothing older than 30 days is included').to.be.at.least(cutoffNum)
+
+      const now = new Date()
+      const firstOfMonth = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + 1
+      // ⭐ The assertion that fails on the old build: the window must START BEFORE this month did.
+      expect(cutoffNum, 'the 30-day window opens before the 1st of this month').to.be.lessThan(firstOfMonth)
+    })
+  })
+
+  it('3c. the old period codes still mean what a bookmarked report expects', () => {
+    // rp=0 was, and remains, "this month". A saved link or export URL must not silently change period.
+    const num = (dmy) => {
+      const m = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(String(dmy).trim())
+      return m ? Number(m[3]) * 10000 + Number(m[2]) * 100 + Number(m[1]) : -1
+    }
+    cy.request({ method: 'POST', url: '/loadSR', form: true, body: { rp: 0 } }).then((r) => {
+      const now = new Date()
+      const firstOfMonth = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + 1
+      ;(r.body.collection || []).forEach((x) => {
+        expect(num(x.dated), 'rp=0 stays inside this calendar month').to.be.at.least(firstOfMonth)
+      })
+    })
   })
 
   it('4. an explicit same-day range returns that day', () => {
@@ -97,13 +145,14 @@ describe('Sale Detail Report — period selection', () => {
     cy.get('#sellType').select('SRDiv', { force: true })
     cy.get('#SRDiv').should('be.visible')
 
-    // Current month is the shipped default — do not change it, that is the state being tested.
-    cy.get('#dateRangeDDSR').should('have.value', '0')
+    // ⭐ SR-1: LAST 30 DAYS (code 3) is the shipped default — do not change it, that is the state being
+    // tested. This read '0' (current month) until the default moved.
+    cy.get('#dateRangeDDSR').should('have.value', '3')
     cy.get('#SRDiv button[onclick*="loadSR"]').first().click({ force: true })
 
     cy.wait('@report', { timeout: 30000 }).then((i) => {
       // The screen must SEND a period, not rely on the server guessing.
-      expect(i.request.body, 'the request names its period').to.match(/rp=0/)
+      expect(i.request.body, 'the request names its period').to.match(/rp=3/)
       expect(i.response.body.status, 'and the report loads').to.eq('SUCCESS')
     })
 

@@ -165,34 +165,128 @@
         emitPdf(inv, profile, prefix, nameHint);
     };
 
-    /** The ONE pdfmake emitter. Both entry points above end here. */
+    /**
+     * The blocks for ONE document, in order. Shared by the single and the batch emitters so a change to a
+     * document's shape reaches both — the same reason this file draws from `toPrintModel` rather than
+     * deciding anything itself.
+     */
+    function documentBlocks(model) {
+        var content = [];
+        letterhead(model).forEach(function (b) { content.push(b); });
+        content.push({ text: model.title, style: 'title' });
+        var head = headerBlock(model); if (head) content.push(head);
+        content.push(lineTable(model));
+        var tot = totalsBlock(model); if (tot) content.push(tot);
+        if (model.footerText) content.push({ text: model.footerText, style: 'foot' });
+        var sign = signatureBlock(model); if (sign) content.push(sign);
+        return content;
+    }
+
+    /** The page setup and styles, identical for one document or fifty. */
+    function docDefinition(model, content) {
+        return {
+            pageSize: model.paper === 'A5' ? 'A5' : 'A4',
+            pageMargins: [24, 22, 24, 28],
+            content: content,
+            styles: {
+                brand: { fontSize: 15, bold: true, alignment: 'center' },
+                brandSub: { fontSize: 8, alignment: 'center' },
+                title: { fontSize: 12, bold: true, alignment: 'center', margin: [0, 8, 0, 8],
+                    characterSpacing: 1 },
+                th: { bold: true, fillColor: '#eeeeee', fontSize: 8 },
+                foot: { fontSize: 8, alignment: 'center', margin: [0, 10, 0, 0] }
+            }
+        };
+    }
+
+    /**
+     * ⭐ Every selected invoice in ONE file, one document per page.
+     *
+     * <h3>The defect this replaces, and why "sequential" was not enough</h3>
+     * The report used to fire one download per invoice, 400 ms apart, and its own comment said browsers
+     * "throttle or silently drop a burst". They do worse than throttle: Chrome and Edge treat the SECOND
+     * automatic download from a page as a permission decision, show "allow multiple downloads?", and
+     * <b>silently drop every subsequent file</b> if it is dismissed — or if the origin was ever denied. A
+     * shopkeeper selecting twenty invoices got one file, or none, with no error anywhere. That is the whole
+     * of "Download PDF does nothing".
+     *
+     * <p>Spacing the calls cannot fix it, because the limit is on the COUNT, not the rate. One file does.
+     *
+     * <h3>And it is what the user wanted anyway</h3>
+     * A shop downloading a day's invoices is going to print or send them as a batch. Twenty files in a
+     * downloads folder is a worse answer than one document with twenty pages, even where the browser allows
+     * it.
+     *
+     * @param invoiceNos the numbers to include, in the order the report shows them
+     */
+    global.downloadInvoicesPdf = function (invoiceNos, profile, prefix) {
+        var DR = global.DocumentRenderer;
+        if (!DR || typeof DR.toPrintModel !== 'function' || typeof DR.withInvoice !== 'function'
+            || !global.LazyExport || typeof global.LazyExport.ensurePdfMake !== 'function') {
+            return fail('ui.js.pdfUnavailable', 'PDF export is not available.');
+        }
+        var nos = (invoiceNos || []).filter(function (n) { return !!n; });
+        if (!nos.length) return fail('ui.js.nothingToPrint', 'There is nothing to download.');
+
+        /*
+         * Fetched one at a time and in order, so the pages come out in the order the report showed and a
+         * slow server cannot interleave them. `withInvoice` reports its own failures, so a document that
+         * cannot be read is SKIPPED rather than taking the whole batch down — nineteen invoices are worth
+         * more than an all-or-nothing refusal, and the shopkeeper can see which one is missing.
+         */
+        var models = [];
+        var step = function (i) {
+            if (i >= nos.length) return emitBatch();
+            DR.withInvoice(nos[i], function (inv) {
+                try { models.push(DR.toPrintModel(inv, profile || null)); } catch (ignored) { /* skipped */ }
+                step(i + 1);
+            });
+        };
+
+        function emitBatch() {
+            if (!models.length) return fail('ui.js.pdfUnavailable', 'PDF export is not available.');
+            global.LazyExport.ensurePdfMake().then(function () {
+                var content = [];
+                models.forEach(function (m, idx) {
+                    documentBlocks(m).forEach(function (b, bi) {
+                        // A page break BEFORE every document after the first, set on its first block so no
+                        // empty trailing page is produced.
+                        if (idx > 0 && bi === 0) {
+                            b = $.extend({}, b, { pageBreak: 'before' });
+                        }
+                        content.push(b);
+                    });
+                });
+                var name = (prefix || 'invoices') + '-' + models.length + '.pdf';
+                global.pdfMake.createPdf(docDefinition(models[0], content)).download(name);
+            }).catch(function () {
+                fail('ui.js.pdfUnavailable', 'PDF export is not available.');
+            });
+        }
+
+        step(0);
+    };
+
+    /**
+     * The SINGLE-document emitter. downloadDocumentPdf, downloadDocumentPdfFromObject, downloadChallan
+     * and downloadInvoicePdf all end here.
+     *
+     * <p>downloadInvoicesPdf (the batch) does NOT — it emits many documents into one file. The two
+     * share documentBlocks() and docDefinition(), which is where a document's shape actually lives, so
+     * a change to either reaches both paths.
+     */
     function emitPdf(inv, profile, prefix, nameHint) {
         var DR = global.DocumentRenderer;
         {
             var model = DR.toPrintModel(inv, profile || null);
             global.LazyExport.ensurePdfMake().then(function () {
-                var content = [];
-                letterhead(model).forEach(function (b) { content.push(b); });
-                content.push({ text: model.title, style: 'title' });
-                var head = headerBlock(model); if (head) content.push(head);
-                content.push(lineTable(model));
-                var tot = totalsBlock(model); if (tot) content.push(tot);
-                if (model.footerText) content.push({ text: model.footerText, style: 'foot' });
-                var sign = signatureBlock(model); if (sign) content.push(sign);
+                var content = documentBlocks(model);
 
-                global.pdfMake.createPdf({
-                    pageSize: model.paper === 'A5' ? 'A5' : 'A4',
-                    pageMargins: [24, 22, 24, 28],
-                    content: content,
-                    styles: {
-                        brand: { fontSize: 15, bold: true, alignment: 'center' },
-                        brandSub: { fontSize: 8, alignment: 'center' },
-                        title: { fontSize: 12, bold: true, alignment: 'center', margin: [0, 8, 0, 8],
-                            characterSpacing: 1 },
-                        th: { bold: true, fillColor: '#eeeeee', fontSize: 8 },
-                        foot: { fontSize: 8, alignment: 'center', margin: [0, 10, 0, 0] }
-                    }
-                }).download((prefix || 'document') + '-' + (model.invoiceNo || nameHint || '') + '.pdf');
+                // The SAME page setup and styles the batch uses — one document or fifty, see docDefinition.
+                // This held its own copy of that object until the batch emitter was added; two copies of a
+                // document's shape is how a change reaches one path and not the other.
+                global.pdfMake.createPdf(docDefinition(model, content))
+                    .download((prefix || 'document') + '-' + (model.invoiceNo || nameHint || '') + '.pdf');
             }).catch(function () {
                 fail('ui.js.pdfUnavailable', 'PDF export is not available.');
             });

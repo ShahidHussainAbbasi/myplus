@@ -162,6 +162,13 @@ public class SellController {
 	@Autowired
 	com.myplus.business_service.service.SerialUnitService serialUnitService;
 
+	/** The fiscal QR, built once on the server for the HTML, the PDF and the thermal bitmap alike. */
+	@Autowired
+	com.myplus.business_service.service.DocumentQrService documentQrService;
+
+	/** Null-safe string, so a QR template never interpolates the four letters "null" into a fiscal code. */
+	private static String nzs(String v) { return v == null ? "" : v; }
+
 	@Autowired
 	com.myplus.business_service.service.AuditService auditService;   // #6: append-only audit trail
 
@@ -649,6 +656,46 @@ public class SellController {
 			// The terms block \u2014 several lines, any language, printed under the thank-you line.
 			out.setTermsText(settingsService.getText("pos.document.termsText"));
 			out.setFontFamily(settingsService.getText("pos.document.fontFamily"));
+			out.setNumberSystem(settingsService.getChoice("pos.document.numberSystem",
+					java.util.Set.of("indian", "western"), "indian"));
+			out.setFiscalLine(settingsService.getText("pos.document.fiscalLine"));
+			// P1 — the print route. Every one of these is absent-means-today: printMode defaults to
+			// "browser", so a tenant that has configured nothing keeps the dialog it has always had.
+			out.setPrintMode(settingsService.getChoice("pos.document.printMode",
+					java.util.Set.of("browser", "escpos-raster", "escpos-text"), "browser"));
+			out.setPrintTransport(settingsService.getChoice("pos.document.printTransport",
+					java.util.Set.of("agent", "usb", "serial"), "agent"));
+			out.setPrintAgentUrl(settingsService.getText("pos.document.printAgentUrl"));
+			// Stored as the paper size a shopkeeper recognises; sent as the dots the encoder needs, so the
+			// browser never has to know that 80mm means 576.
+			out.setPaperWidthDots("58".equals(settingsService.getChoice("pos.document.paperWidth",
+					java.util.Set.of("80", "58"), "80")) ? 384 : 576);
+			out.setCashDrawer(settingsService.getBool("pos.document.cashDrawer"));
+			out.setAutoCut(settingsService.getBool("pos.document.autoCut"));
+
+			/*
+			 * The fiscal QR. Built here, once, for every output format.
+			 *
+			 * Best-effort by construction: dataUri returns null on any failure and the document prints
+			 * without a code. A missing square is visible to the shopkeeper; a sale that would not print
+			 * would not be.
+			 */
+			if (settingsService.getBool("pos.document.qrEnabled")) {
+				java.util.Map<String, String> qrValues = new java.util.HashMap<>();
+				qrValues.put("invoiceNo", nzs(ch.getInvoiceNo()));
+				qrValues.put("date", ch.getDated() != null ? ch.getDated().toLocalDate().toString() : "");
+				qrValues.put("time", ch.getDated() != null ? ch.getDated().toLocalTime().withNano(0).toString() : "");
+				qrValues.put("total", ch.getGrandTotal() != null ? ch.getGrandTotal().toPlainString() : "");
+				qrValues.put("tax", ch.getTaxTotal() != null ? ch.getTaxTotal().toPlainString() : "");
+				qrValues.put("taxRegNo", nzs(out.getTaxRegNo()));
+				qrValues.put("customer", ch.getCustomer() != null ? nzs(ch.getCustomer().getName()) : "");
+				qrValues.put("business", out.getLetterhead() != null ? nzs(out.getLetterhead().getBusinessName()) : "");
+				String payload = documentQrService.renderPayload(
+						settingsService.getText("pos.document.qrTemplate"), qrValues);
+				out.setQrDataUri(documentQrService.dataUri(payload,
+						settingsService.getInt("pos.document.qrSize", 200)));
+				out.setQrPayload(payload);
+			}
 			out.setShowAmountInWords(settingsService.getBool("pos.document.amountInWords"));
 
 			// 3g-3: the org's own layout for this buyer's channel, if they have designed one. Null means the
@@ -715,49 +762,58 @@ public class SellController {
 	@RequestMapping(value = "/loadSR", method = RequestMethod.POST)
 	@ResponseBody
 	public GenericResponse loadSR(final SellDTO dto, final HttpServletRequest request) {
-		int CURRENT_MONTH = 0;
 		try {
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 	        List<Sell> objs=null;
 
 	        /*
-	         * WHICH PERIOD, decided once and safely.
+	         * WHICH PERIOD, decided once and safely — SR-1.
 	         *
-	         * `rp` is an Integer, and this used to read `dto.getRp() == CURRENT_MONTH` — an Integer compared to
-	         * an int, which UNBOXES. A request that carried no `rp` at all therefore threw a
-	         * NullPointerException, which the catch below turned into a bare "could not load" with nothing to
-	         * act on.
+	         * The vocabulary lives in {@link SaleReportPeriod}: one constant per period, each owning its own
+	         * date maths, so this method chooses a period rather than computing one. Mirrors
+	         * SaleReportGrouping, which is the same shape in the same package.
 	         *
-	         * The second failure was quieter and worse: a period with no dates matched NO branch, so `objs`
-	         * stayed null and the caller got NOT_FOUND — "you have no sales" — when the truth was "you did not
-	         * tell me when". A report that answers a malformed question with an empty result teaches an
-	         * operator that their data is missing.
+	         * ⭐ THE DEFAULT IS NOW THE LAST 30 DAYS, not the current month. Measured on the 6th against a
+	         * shop with 541 sale lines, the current month showed SIX of them; on the 1st a trading business
+	         * opened its sale report on an empty screen. A rolling 30 days always answers the question the
+	         * screen is opened to ask. Codes 0 (this month) and 4 (custom) keep their old meanings so a
+	         * bookmarked report still means what it meant.
 	         *
-	         * So: absent or unparseable period means CURRENT MONTH, which is what the screen shows selected by
-	         * default. The report now answers the question the screen appears to be asking.
+	         * Two older defects are preserved as fixed, because both were subtle:
+	         *   - `rp` is an Integer. This once read `dto.getRp() == CURRENT_MONTH`, an Integer compared to an
+	         *     int, which UNBOXES — a request carrying no `rp` threw NullPointerException, and the catch
+	         *     below turned that into a bare "could not load". `from(...)` takes the Integer and never
+	         *     unboxes a null.
+	         *   - A period with no dates once matched NO branch, so `objs` stayed null and the caller got
+	         *     NOT_FOUND — "you have no sales" — when the truth was "you did not tell me when". A report
+	         *     that answers a malformed question with an empty result teaches an operator their data is
+	         *     missing. `from(...)` cannot return null, and CUSTOM without usable dates falls back below.
 	         */
-	        Integer rp = dto.getRp();
-	        boolean noRange = appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd());
-	        boolean currentMonth = (rp == null) ? noRange : (rp.intValue() == CURRENT_MONTH);
+	        boolean hasSd = !appUtil.isEmptyOrNull(dto.getSd());
+	        boolean hasEd = !appUtil.isEmptyOrNull(dto.getEd());
+	        com.myplus.business_service.dto.SaleReportPeriod period =
+	                com.myplus.business_service.dto.SaleReportPeriod.from(dto.getRp(), hasSd || hasEd);
 
-	        if(currentMonth) {
-	        	objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
-	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
+	        if(period != com.myplus.business_service.dto.SaleReportPeriod.CUSTOM) {
+	        	java.time.LocalDateTime[] range = period.range(java.time.LocalDate.now());
+	        	objs = sellService.findSellByDates(range[0], range[1], user.getOrganizationId(), user.getUserId());
+	        }else if(hasSd && hasEd) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
 	        	// for both ends returned nothing at all.
 	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
-	        }else if(!appUtil.isEmptyOrNull(dto.getSd()) && appUtil.isEmptyOrNull(dto.getEd())) {
+	        }else if(hasSd) {
 	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
-	        }else if(appUtil.isEmptyOrNull(dto.getSd()) && !appUtil.isEmptyOrNull(dto.getEd())) {
+	        }else if(hasEd) {
 	        	objs = sellService.findSellByEndDate(appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
 	        }
 
 	        if(objs == null) {
-	            // Nothing matched — a period was named but no usable range came with it. Fall back to the
-	            // month rather than reporting an empty shop, and say so in the message so the operator knows
-	            // WHICH period they are looking at.
-	            objs = sellService.findSellByDates(appUtil.firstDateTimeOfMonth(),
-	                    appUtil.lastDateTimeOfMonth(), user.getOrganizationId(), user.getUserId());
+	            // CUSTOM was asked for with no usable dates. Fall back to the DEFAULT period rather than
+	            // reporting an empty shop — the same period an operator gets when they ask for nothing.
+	            java.time.LocalDateTime[] fallback =
+	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(java.time.LocalDate.now());
+	            objs = sellService.findSellByDates(fallback[0], fallback[1],
+	                    user.getOrganizationId(), user.getUserId());
 	        }
 	        
 			if(appUtil.isEmptyOrNull(objs))

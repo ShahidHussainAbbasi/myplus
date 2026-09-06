@@ -19,10 +19,10 @@ import java.util.function.Function;
 public enum SaleReportGrouping {
 
     /** Sales per day — the most common question a shop asks of a month. */
-    DAY(row -> firstTen(row.getDated())),
+    DAY(row -> dayKey(row.getDated())),
 
     /** Sales per month, for comparing periods. */
-    MONTH(row -> firstSeven(row.getDated())),
+    MONTH(row -> monthKey(row.getDated())),
 
     CUSTOMER(row -> blankToDash(row.getCn())),
 
@@ -92,13 +92,31 @@ public enum SaleReportGrouping {
         return s == null || s.trim().isEmpty() ? "—" : s;
     }
 
-    /** yyyy-MM-dd from a rendered date, without parsing — the report already formats it. */
-    private static String firstTen(String dated) {
+    /**
+     * The day key, from the report's rendered date.
+     *
+     * <p><b>SR-1 — the format is {@code dd-MM-yyyy}, not ISO.</b> {@code SellController.loadSR} renders it
+     * with {@code AppUtil.getDateStr}, whose formatter is {@code dd-MM-yyyy}; verified against 541 of 541
+     * rows on a live tenant, none of them carrying a time. These two helpers were written to the comment
+     * "yyyy-MM-dd from a rendered date", which was never true of this report.
+     *
+     * <p>Day grouping SURVIVED that mistake by luck — it takes the whole 10-character string, which is
+     * unique per day whichever way round it is written. Month grouping did not: see {@link #monthKey}.
+     */
+    private static String dayKey(String dated) {
         return dated == null || dated.length() < 10 ? blankToDash(dated) : dated.substring(0, 10);
     }
 
-    /** yyyy-MM from a rendered date. */
-    private static String firstSeven(String dated) {
-        return dated == null || dated.length() < 7 ? blankToDash(dated) : dated.substring(0, 7);
+    /**
+     * The month key {@code MM-yyyy}, from a {@code dd-MM-yyyy} rendered date.
+     *
+     * <p>This used to return {@code dated.substring(0, 7)} — the first seven characters of
+     * {@code "01-09-2026"}, which is <b>{@code "01-09-2"}</b>: a day, a month, and the first digit of the
+     * year. Every day therefore became its own "month", and "group by month" quietly produced the same rows
+     * as "group by day". It could only have been noticed by someone counting the groups.
+     */
+    private static String monthKey(String dated) {
+        // Positions 3..9 of dd-MM-yyyy — month and year, the part that identifies the month.
+        return dated == null || dated.length() < 10 ? blankToDash(dated) : dated.substring(3, 10);
     }
 }

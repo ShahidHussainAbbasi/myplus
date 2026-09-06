@@ -28,12 +28,23 @@ class SaleReportGroupingTest {
         return r;
     }
 
+    /*
+     * ⭐ SR-1 — these dates are {@code dd-MM-yyyy} because THAT IS WHAT THE PRODUCT SENDS.
+     *
+     * They used to read {@code "2026-08-04 10:00"}. No code path produces that: loadSR renders the column
+     * with {@code AppUtil.getDateStr}, whose formatter is {@code dd-MM-yyyy} (541 of 541 rows verified on a
+     * live tenant). So this suite passed while MONTH grouping was broken in production — the substring it
+     * tested was taken from a string shaped like nothing the report ever built.
+     *
+     * A fixture in the wrong format does not test less than a real one. It tests something else, and reports
+     * that as a pass.
+     */
     private List<SellDTO> twoInvoicesOnOneDay() {
         return List.of(
                 // one invoice, TWO lines — this is one transaction, not two
-                row("2026-08-04 10:00", "INV-000001", "Acme", "Cola", "Drinks", 2f, "100.00", "10.00"),
-                row("2026-08-04 10:00", "INV-000001", "Acme", "Chips", "Snacks", 1f, "50.00", "5.00"),
-                row("2026-08-04 11:00", "INV-000002", "Beta", "Cola", "Drinks", 3f, "150.00", "15.00"));
+                row("04-08-2026", "INV-000001", "Acme", "Cola", "Drinks", 2f, "100.00", "10.00"),
+                row("04-08-2026", "INV-000001", "Acme", "Chips", "Snacks", 1f, "50.00", "5.00"),
+                row("04-08-2026", "INV-000002", "Beta", "Cola", "Drinks", 3f, "150.00", "15.00"));
     }
 
     @Test
@@ -41,7 +52,7 @@ class SaleReportGroupingTest {
     void byDay() {
         List<SaleReportGroup> g = SaleReportGrouping.DAY.aggregate(twoInvoicesOnOneDay());
         assertEquals(1, g.size());
-        assertEquals("2026-08-04", g.get(0).getLabel());
+        assertEquals("04-08-2026", g.get(0).getLabel());
         assertEquals(0, new BigDecimal("300.00").compareTo(g.get(0).getTotal()));
         assertEquals(0, new BigDecimal("30.00").compareTo(g.get(0).getTax()));
         assertEquals(0, new BigDecimal("330.00").compareTo(g.get(0).getGross()), "gross = total + tax");
@@ -79,11 +90,11 @@ class SaleReportGroupingTest {
     @DisplayName("grouping by month rolls days up")
     void byMonth() {
         List<SaleReportGroup> g = SaleReportGrouping.MONTH.aggregate(List.of(
-                row("2026-08-04 10:00", "INV-1", "A", "X", "C", 1f, "10.00", "0.00"),
-                row("2026-08-31 10:00", "INV-2", "A", "X", "C", 1f, "20.00", "0.00"),
-                row("2026-09-01 10:00", "INV-3", "A", "X", "C", 1f, "40.00", "0.00")));
+                row("04-08-2026", "INV-1", "A", "X", "C", 1f, "10.00", "0.00"),
+                row("31-08-2026", "INV-2", "A", "X", "C", 1f, "20.00", "0.00"),
+                row("01-09-2026", "INV-3", "A", "X", "C", 1f, "40.00", "0.00")));
         assertEquals(2, g.size());
-        assertEquals("2026-08", g.get(0).getLabel());
+        assertEquals("08-2026", g.get(0).getLabel());
         assertEquals(0, new BigDecimal("30.00").compareTo(g.get(0).getTotal()));
     }
 
@@ -91,7 +102,7 @@ class SaleReportGroupingTest {
     @DisplayName("a missing dimension groups under a dash, never crashes the report")
     void missingValues() {
         List<SaleReportGroup> g = SaleReportGrouping.CATEGORY.aggregate(List.of(
-                row("2026-08-04 10:00", "INV-1", "A", "X", null, 1f, "10.00", "0.00")));
+                row("04-08-2026", "INV-1", "A", "X", null, 1f, "10.00", "0.00")));
         assertEquals("—", g.get(0).getLabel());
     }
 
@@ -110,9 +121,9 @@ class SaleReportGroupingTest {
     void noFloatingPointDrift() {
         // 0.10 x 3 is 0.30 exactly here; summing doubles would give 0.30000000000000004.
         List<SellDTO> rows = List.of(
-                row("2026-08-04 10:00", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"),
-                row("2026-08-04 10:00", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"),
-                row("2026-08-04 10:00", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"));
+                row("04-08-2026", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"),
+                row("04-08-2026", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"),
+                row("04-08-2026", "INV-1", "A", "X", "C", 1f, "0.10", "0.00"));
         assertEquals(0, new BigDecimal("0.30").compareTo(SaleReportGrouping.DAY.aggregate(rows).get(0).getTotal()));
     }
 }

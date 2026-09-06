@@ -270,7 +270,11 @@ describe('POS line entry — one cell per field', () => {
         setFields({})
         // A wedge scanner types the code and presses Enter. From here the operator's hands never leave
         // the keyboard — which is the entire point of the row layout.
-        cy.get('#sellScan').should('be.visible').type(sku + '{enter}')
+        //
+        // Scanning ships OFF for every tenant now (#sellScanRow is display:none), so the box has to be
+        // switched on before it can be typed into. cy.enableScanBox pins the flag in the browser and
+        // returns the box, already asserted visible.
+        cy.enableScanBox().type(sku + '{enter}')
         cy.get('#sellItems', { timeout: 15000 }).should('be.visible')
         cy.focused().type('3{enter}')
         // #tablesi is the cart (Item id · Name/Code · QTY · Price · Disc · Total · Action).

@@ -159,12 +159,14 @@ describe('Sale screen — leaving the item picker empty', () => {
     cy.get('#sellCustomerDD option', { timeout: 20000 }).should('have.length.greaterThan', 1)
   })
 
-  /** Which picker (if any) the focused element belongs to — the app's own resolution idiom. */
-  const focusedPicker = (w) => {
-    const active = w.document.activeElement
-    const $sel = w.jQuery(active).closest('.bootstrap-select').prev('select')
-    return $sel.attr('id') || (active && active.id) || null
-  }
+  /**
+   * Which picker (if any) the focused element belongs to — the app's own resolution idiom.
+   *
+   * This file is where it came from; it now lives in commands.js as Cypress.focusedPicker because
+   * pos-checkout-chain and pos-keyboard need the same walk. Kept as a local alias so the call sites
+   * below read unchanged.
+   */
+  const focusedPicker = (w) => Cypress.focusedPicker(w)
 
   it('⭐ with items in the cart, it goes to the payment method', () => {
     cy.window().then((w) => {

@@ -69,6 +69,12 @@ function createSaleViaUI(cust) {
 
   // Step A5: click "Add Sell" to save.
   cy.get('#addSell').click({ force: true })
+
+  // The till asks "Complete this sale?" before it posts (pos.sale.confirmOnComplete defaults ON and the
+  // client fails OPEN), so a NEW sale does not reach the server until this is answered. Without it
+  // cy.wait('@addSell') dies with "No request ever occurred" - the same symptom this file's comment
+  // above already describes for a different cause.
+  cy.confirmSale()
 }
 
 describe('Sell edit — Phase 1: link + getSellInvoice', () => {
@@ -191,6 +197,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
     cy.get('#sellCC').clear({ force: true }).type('03001234567', { force: true })
     cy.get('#sellRec').clear({ force: true }).type('200', { force: true })
     cy.get('#addSell').click({ force: true })
+    cy.confirmSale()          // a NEW sale is gated by the till's confirm dialog
 
     cy.wait('@addSell').then(({ response }) => {
       expect(response.body.status, JSON.stringify(response.body)).to.eq('SUCCESS')
@@ -240,6 +247,11 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
           cy.get('#tablesi tbody tr').should('have.length', 1)
 
           // ── Step 5: customer is locked & already filled — just save -> routes to updateSell. ──────
+          //
+          // ⚠ NO cy.confirmSale() here, deliberately. main.js gates the dialog on the NEW-sale branch
+          // only: `if (window.editingInvoice && window.editingInvoice.chId) jsonPost("updateSell", ...)`
+          // posts immediately, and the confirm sits in the `else`. Adding one would hang this case
+          // waiting for a dialog that never opens.
           cy.get('#addSell').click({ force: true })
 
           cy.wait('@updateSell').then(({ response }) => {

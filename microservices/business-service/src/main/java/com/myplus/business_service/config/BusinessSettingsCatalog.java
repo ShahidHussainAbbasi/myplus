@@ -742,6 +742,126 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                  * A blank value, or a font that is not installed, falls through to the built-in stack \u2014 so
                  * the failure mode of a typo is the default document, never an unstyled one.
                  */
+                /*
+                 * How FIGURES are grouped, and it drives the words as well as the digits.
+                 *
+                 * These were two settings pretending to be one: `numberSystem: 'indian'` on every preset
+                 * reached only the amount in words, while the digits were grouped Western by a hard-coded
+                 * regexp. One invoice could read "Rs 1,234,567.00" above "Twelve Lakh ... Only".
+                 *
+                 * Default INDIAN because that is what every preset already declared and what Pakistan and
+                 * India actually use — the words were right and the digits were not. ⚠ A shop whose
+                 * documents run past 99,999 WILL see its digits regroup; below that the two are identical,
+                 * which is why nobody had noticed.
+                 */
+                /*
+                 * P1 — HOW the document reaches paper.
+                 * See docs/slices/p1-thermal-printing-escpos-design.md.
+                 *
+                 * DEFAULT "browser", and that is load-bearing: every tenant keeps the hidden-iframe path they
+                 * print on today, and ESC/POS is something a shop switches on for its own counter.
+                 *
+                 * ⚠ "escpos-text" CANNOT PRINT URDU, ARABIC, HINDI OR CHINESE. ESC/POS text mode is
+                 * codepage-based and no codepage covers them; Nastaliq additionally needs shaping that no
+                 * printer firmware performs. "escpos-raster" draws the document in the browser and sends a
+                 * bitmap, so it prints any script and any logo — which is why it, and not text, is the
+                 * mode to recommend.
+                 */
+                SettingEntry.select("pos.document.printMode",
+                        "How receipts are printed",
+                        "Browser (default): the normal print dialog — works with any printer the machine "
+                                + "has. Direct (image): sends the receipt straight to a thermal printer with "
+                                + "no dialog, and prints ANY language. Direct (text): fastest, but ENGLISH "
+                                + "ONLY — a thermal printer cannot render Urdu or Arabic as text.",
+                        "browser", "Documents",
+                        List.of(new SettingEntry.Option("browser", "Browser print dialog (default)"),
+                                new SettingEntry.Option("escpos-raster",
+                                        "Direct to thermal printer (image — any language)"),
+                                new SettingEntry.Option("escpos-text",
+                                        "Direct to thermal printer (text — English only, fastest)"))),
+                SettingEntry.select("pos.document.printTransport",
+                        "How the till reaches the printer",
+                        "Print agent (default): a small helper installed on the till — works with any "
+                                + "printer the machine can already print to, and needs no other setup. "
+                                + "USB / Serial: the browser talks to the printer directly with NO install, "
+                                + "but requires Chrome or Edge, an https:// address, and on Windows a driver "
+                                + "change. Only used when the print mode above is Direct.",
+                        "agent", "Documents",
+                        List.of(new SettingEntry.Option("agent",
+                                        "Print agent on the till (default — most compatible)"),
+                                new SettingEntry.Option("usb", "USB direct (Chrome/Edge + https)"),
+                                new SettingEntry.Option("serial", "Serial direct (Chrome/Edge + https)"))),
+                SettingEntry.text("pos.document.printAgentUrl",
+                        "Print agent address",
+                        "Where the print agent listens on the till. Leave as the default unless it was "
+                                + "installed on another port.",
+                        "http://localhost:8083/print", "Documents"),
+                SettingEntry.select("pos.document.paperWidth",
+                        "Receipt paper width",
+                        "80mm is the usual till roll; 58mm is the narrow one used by handheld and mobile "
+                                + "printers. Only applies to direct printing.",
+                        "80", "Documents",
+                        List.of(new SettingEntry.Option("80", "80mm (576 dots)"),
+                                new SettingEntry.Option("58", "58mm (384 dots)"))),
+                SettingEntry.bool("pos.document.cashDrawer",
+                        "Open the cash drawer after printing",
+                        "Sends the drawer kick with the receipt. Only possible with direct printing — the "
+                                + "browser print dialog cannot open a drawer.",
+                        false, "Documents"),
+                SettingEntry.bool("pos.document.autoCut",
+                        "Cut the paper automatically",
+                        "On (default): the printer cuts the slip when it finishes. Turn off for a printer "
+                                + "with no cutter, which would otherwise beep or jam on every sale.",
+                        true, "Documents"),
+                SettingEntry.select("pos.document.numberSystem",
+                        "Number grouping on documents",
+                        "Indian (default): 12,34,567.00 — lakh and crore, matching the amount in words. "
+                                + "Western: 1,234,567.00. This governs BOTH the figures and the words, so a "
+                                + "document can no longer contradict itself.",
+                        "indian", "Documents",
+                        java.util.List.of(new SettingEntry.Option("indian", "Indian — 12,34,567.00 (lakh / crore)"),
+                                new SettingEntry.Option("western", "Western — 1,234,567.00"))),
+                /*
+                 * A jurisdiction's required wording, whatever it is.
+                 *
+                 * Deliberately FREE TEXT rather than a field per authority. Pakistan's FBR wants a POS
+                 * registration number on a Tier-1 retailer's invoice; another country wants something else
+                 * worded differently; the requirement changes by regulation more often than by release. One
+                 * multi-line box a shop types their own line into meets all of them and dates none of them.
+                 *
+                 * The SALES TAX number is already handled and already prints — TaxSetting.taxRegNo, set on
+                 * the tax screen. This is the line beside it, not a replacement for it.
+                 */
+                /*
+                 * The fiscal QR.
+                 *
+                 * OFF by default: a code on a document a shop hands its customer is not something to appear
+                 * because we deployed. A tenant whose authority requires one switches it on and states the
+                 * payload their rules ask for.
+                 */
+                SettingEntry.bool("pos.document.qrEnabled",
+                        "Print a QR code on invoices",
+                        "Off by default. On: a QR code is printed at the foot of the invoice, built from the "
+                                + "template below. Some tax authorities require this.",
+                        false, "Documents"),
+                SettingEntry.text("pos.document.qrTemplate",
+                        "What the QR code contains",
+                        "Placeholders are replaced with this invoice's values: {invoiceNo} {date} {time} "
+                                + "{total} {tax} {taxRegNo} {customer} {business}. Anything else is printed "
+                                + "literally, so a format your authority specifies can be typed exactly as "
+                                + "written. Example: {taxRegNo}|{invoiceNo}|{date}|{total}|{tax}",
+                        "{taxRegNo}|{invoiceNo}|{date}|{total}|{tax}", "Documents"),
+                SettingEntry.intOf("pos.document.qrSize",
+                        "QR code size (pixels)",
+                        "200 suits an 80mm till roll \u2014 big enough for a phone camera, small enough that a "
+                                + "thermal head resolves the squares. Raise it for an A4 invoice.",
+                        200, "Documents"),
+                SettingEntry.multiline("pos.document.fiscalLine",
+                        "Fiscal / regulatory line on documents",
+                        "Printed near the foot, under the tax registration. Free text in any language — for "
+                                + "example a POS registration number your tax authority requires on every "
+                                + "invoice. Leave blank if none applies.",
+                        "", "Documents"),
                 SettingEntry.text("pos.document.fontFamily",
                         "Font for printed invoices and receipts",
                         "Leave blank for the default. Otherwise name a font INSTALLED ON THE MACHINE THAT "

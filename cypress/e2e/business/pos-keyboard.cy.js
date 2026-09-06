@@ -300,7 +300,21 @@ describe('POS keyboard entry — ON', () => {
       cy.get('#sellSellRate').type('{enter}')
       cy.get('#sellDiscount').type('{enter}')
       cy.window().its('data').should('have.length', 1)
-      cy.focused().should('have.id', 'sellScan')
+
+      /*
+       * ⚠ Back to the CUSTOMER, not the scan box.
+       *
+       * commitLine() ends with focusEntryPoint(), so the start of each line agrees with the start of
+       * the sale — and task #13 made that the customer picker. This expected sellScan, which was right
+       * before that ruling and before barcode scanning shipped OFF by default.
+       *
+       * Cypress.focusedPicker resolves the bootstrap-select's focused <button> (which carries no id)
+       * back to the <select> it stands in for.
+       */
+      cy.window().should((w) => {
+        expect(Cypress.focusedPicker(w), 'a committed line returns to the till entry point')
+          .to.eq('sellCustomerDD')
+      })
     })
   })
 

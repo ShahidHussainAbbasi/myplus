@@ -148,6 +148,47 @@ public class CustomerHistoryDTO {
      */
     private String fontFamily;
 
+    /** {@code pos.document.numberSystem} — 'indian' or 'western'. Governs the figures AND the words. */
+    private String numberSystem;
+
+    /**
+     * {@code pos.document.fiscalLine} — whatever a shop's tax authority requires on the face of an
+     * invoice, in their own words.
+     *
+     * <p>Distinct from {@link #taxRegNo}, which is the sales-tax registration and already prints.
+     */
+    private String fiscalLine;
+
+    // ── P1: how this tenant's documents reach paper. All absent => the browser dialog, i.e. today. ──
+    /** {@code browser} | {@code escpos-raster} | {@code escpos-text}. */
+    private String printMode;
+    /** {@code agent} | {@code usb} | {@code serial}. Only consulted when printMode is a direct one. */
+    private String printTransport;
+    private String printAgentUrl;
+    /** Dots across the roll: 576 for 80mm, 384 for 58mm. Both multiples of 8, as a raster row requires. */
+    private Integer paperWidthDots;
+    private Boolean cashDrawer;
+    private Boolean autoCut;
+
+    /**
+     * The fiscal QR as a {@code data:image/png;base64,...} URI, or null when the tenant prints none.
+     *
+     * <p>Built SERVER-SIDE (DocumentQrService) so the HTML, the PDF and the thermal bitmap all carry the
+     * same code. Three client-side generators would be three chances for the invoice a customer photographs
+     * to disagree with the one that was filed.
+     */
+    private String qrDataUri;
+
+    /**
+     * The same code's PAYLOAD, unencoded.
+     *
+     * <p>ESC/POS text mode asks the printer to build the QR itself, which needs the text and not a picture
+     * of it. Sent alongside the image rather than derived from it, because a data URI cannot be turned back
+     * into its payload — and because both must come from one render of the template or the printed code
+     * and the filed one could differ.
+     */
+    private String qrPayload;
+
     /** The org's stored Document Profile for this channel (3g-3). Null ⇒ the renderer uses a built-in preset. */
     private Object documentProfile;
 

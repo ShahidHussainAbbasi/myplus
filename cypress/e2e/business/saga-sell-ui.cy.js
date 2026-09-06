@@ -47,6 +47,7 @@ describe('Sell↔stock saga — through the sell form (UI)', () => {
 
       // 6. Submit; saga reserves+confirms inventory.
       cy.get('#addSell').click()
+      cy.confirmSale()   // the till asks before it posts; nothing reaches the saga until it is answered
       cy.wait('@addSell').then(({ response }) => {
         cy.log(`addSell: ${JSON.stringify(response.body).substring(0, 200)}`)
         expect(response.statusCode).to.eq(200)

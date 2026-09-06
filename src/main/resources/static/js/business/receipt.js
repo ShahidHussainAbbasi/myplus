@@ -31,9 +31,45 @@
 
     function num(v) { var n = Number(v); return isNaN(n) ? 0 : n; }
 
+    /*
+     * ONE NUMBER SYSTEM FOR THE WHOLE DOCUMENT.
+     *
+     * It used to be two, and they contradicted each other. `numberSystem: 'indian'` is declared on every
+     * preset, but it reached only the amount IN WORDS (wordsEn). The digits went through a hard-coded
+     * Western grouping, so one invoice could print
+     *
+     *     Rs 1,234,567.00        <- western digits
+     *     Twelve Lakh Thirty Four Thousand ... Only   <- indian words
+     *
+     * the same number, twice, two ways, on the same page. Pakistan and India group by lakh and crore, so on
+     * these documents the WORDS were right and the digits were not.
+     *
+     * Set once per render because the whole document is one number system, and reading it from the profile
+     * inside fifteen resolvers would mean threading an argument through every one of them. Safe: a render is
+     * synchronous and single-threaded, and buildHtml/toPrintModel each set it before anything formats.
+     */
+    var NUM_LOCALE = 'en-IN';
+
+    function setNumberSystem(profile) {
+        // 'western' is the only alternative; anything else (including the historic 'indian') is the default.
+        NUM_LOCALE = (profile && String(profile.numberSystem).toLowerCase() === 'western') ? 'en-US' : 'en-IN';
+    }
+
+    /**
+     * Money, grouped for the document's number system.
+     *
+     * <p>Intl.NumberFormat rather than a regexp: it is in every browser this runs in, and it knows that
+     * en-IN groups 12,34,567 while en-US groups 1,234,567 — a rule a `(\d{3})+` pattern cannot express at
+     * all. The old regexp is why the digits could never have agreed with the words.
+     */
     function money(v) {
         var n = Number(v);
-        return isNaN(n) ? '' : n.toFixed(2);
+        if (isNaN(n)) return '';
+        try {
+            return n.toLocaleString(NUM_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+            return n.toFixed(2);        // a browser without Intl still prints a correct, ungrouped figure
+        }
     }
 
     /**
@@ -62,13 +98,14 @@
         return String(Number(n.toFixed(4)));
     }
 
-    /** Thousands-separated money, for the A4 summary block where figures are read at a glance. */
-    function moneyG(v) {
-        var n = Number(v);
-        if (isNaN(n)) return '';
-        var parts = n.toFixed(2).split('.');
-        return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + parts[1];
-    }
+    /**
+     * Kept as a NAME, no longer as a second behaviour.
+     *
+     * <p>Every line amount used bare `toFixed(2)` and only the grand total was grouped, so a slip read
+     * `6000.00` on its lines and `6,000.00` at its foot. There was never a reason for two formatters; there
+     * was only one that had been applied in one place.
+     */
+    function moneyG(v) { return money(v); }
 
     function dateOnly(v) { return v ? String(v).replace('T', ' ').substring(0, 10) : ''; }
 
@@ -200,7 +237,8 @@
         if (lang !== 'en') return '';                       // deliberate: digits, never guessed words
         var whole = Math.floor(num(total));
         var paisa = Math.round((num(total) - whole) * 100);
-        var s = wordsEn(whole, profile.numberSystem || 'indian') + ' ' + word;
+        // The SAME system as the digits above — that agreement is the whole point of the setting.
+        var s = wordsEn(whole, NUM_LOCALE === 'en-US' ? 'western' : 'indian') + ' ' + word;
         if (paisa > 0) s += ' and ' + under1000(paisa) + ' ' + (inv.currencyFraction || 'Paisa');
         return s + ' Only';
     }
@@ -959,11 +997,29 @@
      */
     function buildHtml(inv, profile) {
         profile = resolveProfile(inv, profile);
+        setNumberSystem(inv.numberSystem ? inv : profile);
         var ctx = buildContext(inv, profile);
         var title = titleFor(inv, profile);
         var boxed = (profile.header && profile.header.titleStyle === 'boxed') ? ' dc-boxed' : '';
-        var regNo = inv.taxRegNo
-            ? '<div class="dc-c dc-sm">' + escHtml(ctx.taxLabel) + ' Reg: ' + escHtml(inv.taxRegNo) + '</div>' : '';
+        var regNo = (inv.taxRegNo
+            ? '<div class="dc-c dc-sm">' + escHtml(ctx.taxLabel) + ' Reg: ' + escHtml(inv.taxRegNo) + '</div>' : '')
+            // The shop's own regulatory wording, under the tax number. pre-line keeps their line breaks and
+            // dir="auto" lets it be written in any script — a requirement stated in Urdu prints in Urdu.
+            + (inv.fiscalLine
+                ? '<div class="dc-c dc-sm" dir="auto" style="white-space:pre-line">'
+                  + escHtml(inv.fiscalLine) + '</div>' : '')
+            /*
+             * The fiscal QR, built on the server (DocumentQrService) so this document, the PDF and the
+             * thermal bitmap all carry the SAME code.
+             *
+             * encodeURI, not escHtml: this is a data: URI going into an src attribute, and escHtml would
+             * mangle the base64 padding. It can only ever be what our own encoder produced \u2014 it is never
+             * owner input \u2014 but the guard below still refuses anything that is not a PNG data URI, so a
+             * payload swapped in later cannot become a javascript: src.
+             */
+            + (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(String(inv.qrDataUri || ''))
+                ? '<div class="dc-c" style="margin-top:6px"><img alt="" src="' + inv.qrDataUri
+                  + '" style="width:' + (profile.paper === 'A4' ? '110px' : '150px') + '"></div>' : '');
         var footText = (profile.footer && profile.footer.text) || inv.footerText || t('ui.js.docThankYou');
         // The signature strip, as DATA. `footer.signature` is a list of message keys; absent, it stays exactly
         // the two boxes every invoice has always printed. A delivery challan needs more of them -- what was
@@ -1064,9 +1120,50 @@
         })();
     }
 
+    /**
+     * Put one resolved document on paper, by whatever route this tenant has configured.
+     *
+     * <h3>browser is the default and stays the default</h3>
+     * Every shop that has configured nothing keeps the hidden-iframe path it has always printed on. ESC/POS
+     * is opt-in per tenant, which is what makes this additive rather than a migration.
+     *
+     * <h3>The fallback rule is deliberately narrow</h3>
+     * If the bytes NEVER REACHED the printer — no agent listening, no WebUSB in this browser — we fall back
+     * to the browser dialog so the customer still leaves with a receipt. If the agent ANSWERED and failed,
+     * we do not: it may already have printed, and a second copy arriving from a different path is worse than
+     * a visible error. `reachedPrinter` is what tells those two apart.
+     */
     function printInvoiceObject(inv, profile) {
-        var frame = writeToFrame(buildHtml(inv, profile), 'receiptFrame');
-        printWhenReady(frame);
+        var mode = String(inv.printMode || 'browser').toLowerCase();
+        var viaBrowser = function () { printWhenReady(writeToFrame(buildHtml(inv, profile), 'receiptFrame')); };
+
+        if (mode === 'browser' || !global.EscPos) { viaBrowser(); return; }
+
+        try {
+            var model = toPrintModel(inv, profile);
+            global.EscPos.print(model, {
+                mode: mode,
+                widthDots: Number(inv.paperWidthDots) || global.EscPos.WIDTHS['80'],
+                fontFamily: inv.fontFamily || undefined,
+                transport: inv.printTransport || 'agent',
+                agentUrl: inv.printAgentUrl,
+                cashDrawer: inv.cashDrawer === true,
+                autoCut: inv.autoCut !== false
+            })['catch'](function (err) {
+                var msg = (err && err.message) || 'The printer could not be reached.';
+                if (err && err.reachedPrinter) {
+                    if (typeof showFormError === 'function') showFormError('Printing failed: ' + msg);
+                    return;
+                }
+                if (typeof showFormError === 'function') {
+                    showFormError('Direct printing failed (' + msg + '). Falling back to the print dialog.');
+                }
+                viaBrowser();
+            });
+        } catch (buildFailed) {
+            // A fault in our own encoding must never cost the shop a receipt.
+            viaBrowser();
+        }
     }
 
     // Fetch the authoritative document by invoice number, then print.
@@ -1089,6 +1186,7 @@
      */
     function toPrintModel(inv, profile) {
         profile = resolveProfile(inv, profile);
+        setNumberSystem(inv.numberSystem ? inv : profile);
         var ctx = buildContext(inv, profile);
         var cols = normaliseColumns(profile);
 
@@ -1154,7 +1252,15 @@
             footerText: (profile.footer && profile.footer.text) || inv.footerText || '',
             // Carried here as well, or the PDF quietly omits a block the printed slip shows — the DTO-twin
             // failure this codebase keeps paying for.
-            termsText: inv.termsText || ''
+            termsText: inv.termsText || '',
+            // Carried for the ESC/POS renderer, which draws from THIS model and not from the HTML. A field
+            // the paper prints and the model omits is a document that differs by output format — the exact
+            // drift toPrintModel exists to prevent.
+            taxRegNo: inv.taxRegNo ? (ctx.taxLabel + ' Reg: ' + inv.taxRegNo) : '',
+            fiscalLine: inv.fiscalLine || '',
+            qrDataUri: inv.qrDataUri || '',
+            // ESC/POS text mode has the PRINTER build the code, which needs the payload, not the picture.
+            qrPayload: inv.qrPayload || ''
         };
     }
 

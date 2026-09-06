@@ -803,11 +803,31 @@ $(document).ready(function() {
 			loadDataTable();
 	  	}
 	  	
+	  	/*
+	  	 * Switching screens resets the selects — but to the default the MARKUP declares, not blindly to the
+	  	 * first option.
+	  	 *
+	  	 * <h3>The defect</h3>
+	  	 * This was `this.selectedIndex = 0`. For a select whose default IS its first option that is the same
+	  	 * thing, which is why it looked correct for years. For one that declares a different default it is
+	  	 * not: the browser honours `selected` on first render, then the first screen switch silently moved the
+	  	 * control somewhere else. Counted across the templates, **10 selects in 3 modules** were losing their
+	  	 * declared default this way — `#studentGender`, `#studentFeeMode`, `#staffMartialStatus`,
+	  	 * `#discountTypeDD`, `#fvYearDD`, `#gradeRoom`, `#bkDiscountTypeDD`, `#clSeverity`, `#provPlan`, and
+	  	 * the Sale Detail Report's period, which is how it was found.
+	  	 *
+	  	 * <h3>Why defaultSelected</h3>
+	  	 * `option.defaultSelected` reflects the `selected` ATTRIBUTE rather than the current state, so this is
+	  	 * exactly what the platform's own `form.reset()` does. Every select that does not declare a default
+	  	 * still lands on index 0 — behaviour there is unchanged by construction, not by inspection.
+	  	 */
 	  	$("select").each(function() {
-	  		if(this.value == tab+"Div")
-	  			this.value = tab+"Div"
-	  		else
-	  			this.selectedIndex = 0
+	  		if(this.value == tab+"Div") { this.value = tab+"Div"; return; }
+	  		var def = -1;
+	  		for (var oi = 0; oi < this.options.length; oi++) {
+	  			if (this.options[oi].defaultSelected) { def = oi; break; }
+	  		}
+	  		this.selectedIndex = def >= 0 ? def : 0;
 	  	});
 
 	  	// having below block on every switch to get it work

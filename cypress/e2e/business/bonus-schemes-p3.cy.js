@@ -442,12 +442,11 @@ describe('#17 P3 — customer bonus and true COGS', () => {
 
           cy.get('#addSell').click({ timeout: 30000 })
 
-          // The confirm dialog is on by default (pos.sale.confirmOnComplete); answer it as a cashier would.
-          cy.get('body').then(($b) => {
-            if ($b.find('.uiC-card').length) {
-              cy.get('.uiC-card button').contains(new RegExp('complete|finaliser|finalizar', 'i')).click()
-            }
-          })
+          // The confirm dialog is on by default (pos.sale.confirmOnComplete); answer it as a cashier
+          // would. This block used to match the button's TEXT (/complete|finaliser|finalizar/i), which
+          // was one added language away from breaking; cy.confirmSale keys on the stable
+          // [data-ui-confirm="ok"] hook instead.
+          cy.confirmSale({ optional: true })
 
           // Wait for the sale to actually complete before reading stock — otherwise the assertion races
           // the submit and reports "0 units moved" for a sale that was still in flight.

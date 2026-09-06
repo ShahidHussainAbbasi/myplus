@@ -802,3 +802,119 @@ Cypress.Commands.add('seedCreditNote', () => {
       return cy.wrap(r.body.object)
     })
 })
+
+// ── the till's "Complete this sale?" dialog ────────────────────────────────────────
+/**
+ * Answer the "Complete this sale?" dialog the way a cashier does.
+ *
+ * -- WHY THIS IS A SHARED COMMAND -----------------------------------------------------------------
+ * `pos.sale.confirmOnComplete` DEFAULTS TO TRUE and the client deliberately fails OPEN (absent => on,
+ * see business.js), so this dialog appears for ANY tenant that has never touched the setting.
+ * `jsonPost("addSell", ...)` runs only once it is answered. A spec that clicks Complete Sale and does
+ * not answer it dies at `cy.wait('@sale')` with **"No request ever occurred"** — which reads like a
+ * broken sale rather than an unanswered question, and cost a full debugging session to trace.
+ *
+ * There were THREE copies of this logic: a helper in pos-sale-endtoend.cy.js, an inline block in
+ * bonus-schemes-p3.cy.js matching button TEXT (`/complete|finaliser|finalizar/i` — one language away
+ * from breaking), and a third in sale-duplicate-guard.cy.js. This is the one definition.
+ *
+ * -- TWO THINGS THAT LOOK LIKE DETAIL AND ARE NOT -------------------------------------------------
+ * 1. Keyed on `[data-ui-confirm="ok"]`, the stable hook confirm-dialog.js sets expressly for tests
+ *    (`okBtn.setAttribute('data-ui-confirm', 'ok')`). Never on the label — that is translated.
+ * 2. The existence probe deliberately does NOT use `:visible`. confirm-dialog.js appends the backdrop
+ *    SYNCHRONOUSLY but adds `is-open` (which lifts it off `opacity: 0`) inside a
+ *    `requestAnimationFrame`, so a one-shot jQuery `:visible` snapshot taken right after the click can
+ *    see nothing and skip a dialog that is very much there. Existence is synchronous and reliable;
+ *    visibility is then asserted through cy.get, which retries.
+ *
+ * @param {Object}  [opts]
+ * @param {boolean} [opts.optional=false]  Do not fail when no dialog appears — for a spec that runs
+ *                                         with the setting explicitly OFF. Off by default ON PURPOSE:
+ *                                         a precondition that skips itself silently is how a gate
+ *                                         passes while proving nothing.
+ */
+Cypress.Commands.add('confirmSale', (opts) => {
+  const optional = !!(opts && opts.optional)
+
+  if (!optional) {
+    return cy.get('[data-ui-confirm="ok"]', { timeout: 10000 })
+      .should('be.visible')
+      .click({ force: true })
+  }
+
+  return cy.get('body').then(($b) => {
+    // Existence, not :visible — see note 2 above.
+    if ($b.find('[data-ui-confirm="ok"]').length) {
+      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).click({ force: true })
+    }
+  })
+})
+
+// ── the barcode scan box ───────────────────────────────────────────────────────────
+/**
+ * Make the sale screen's scan box (#sellScan) usable for a spec that needs to scan.
+ *
+ * -- WHY THIS IS NEEDED AT ALL --------------------------------------------------------------------
+ * Barcode scanning ships OFF for every tenant (the user's own ruling: "sellScan should be off by
+ * default for all tenants" — see pos-barcode-default.cy.js). `#sellScanRow` renders with
+ * `display:none`, the catalog default for `pos.barcode.enabled` is FALSE, and
+ * applyPosBarcodeVisibility() requires `=== true` so an UNSET flag reads as OFF — deliberately, so a
+ * screen reached before the settings call returns cannot flash a box the tenant switched off.
+ *
+ * Specs written before that change use the scan box as the shortest route to a cart line and now die
+ * with "not visible because its parent has display: none".
+ *
+ * -- WHY IN THE BROWSER AND NOT IN org_setting ----------------------------------------------------
+ * This writes `window.posBarcodeEnabled` and re-applies visibility, exactly as pos-quickpick's
+ * openSell() pins the quick-pick flags. It does NOT POST pos.barcode.enabled, because a spec that
+ * needs to scan does not own that tenant's barcode policy — writing it would change the sale screen
+ * for every later spec in the run, and would need restoring in an after() hook that a mid-spec failure
+ * never reaches. Nothing here outlives the page.
+ *
+ * ⚠ Call AFTER the sale screen is open (#sellType -> sellDiv). applyPosBarcodeVisibility() toggles
+ * elements that must already exist, and the flag is overwritten by loadPosFeatureFlags() when the
+ * settings call lands — so pinning it before that returns is a race the settings call wins.
+ *
+ * ⚠ NOT for pos-barcode-default.cy.js, which asserts the default itself. That spec owns the setting
+ * and drives it through /saveBusinessConfig on purpose.
+ */
+Cypress.Commands.add('enableScanBox', () => {
+  // Asserted, so a rename fails loudly here instead of as a mystery "not visible" further down.
+  cy.window().should((w) => {
+    expect(w.applyPosBarcodeVisibility, 'business.js exposes applyPosBarcodeVisibility')
+      .to.be.a('function')
+  })
+  cy.window().then((w) => {
+    w.posBarcodeEnabled = true
+    w.applyPosBarcodeVisibility()
+  })
+  return cy.get('#sellScan', { timeout: 30000 }).should('be.visible')
+})
+
+// ── which field the cursor is really in ────────────────────────────────────────────
+/**
+ * Resolve the focused element to the id of the FIELD it belongs to.
+ *
+ * -- WHY cy.focused().should('have.id', ...) IS NOT ENOUGH ----------------------------------------
+ * bootstrap-select HIDES the real <select> and renders a <button> in its place. Focusing a picker
+ * therefore focuses that button, which has NO id at all — so a naive `.should('have.id','sellItemDD')`
+ * fails against a cursor sitting exactly where it belongs, and reports it as "expected undefined".
+ *
+ * This walks back from whatever is focused to the <select> the plugin is standing in for, and falls
+ * back to the element's own id for ordinary inputs. Lifted verbatim from sale-customer-first.cy.js,
+ * which calls it "the app's own resolution idiom" — the same walk EnterChain.focusField does going the
+ * other way.
+ *
+ * Deliberately a plain function on the Cypress object rather than a cy command: callers need it both
+ * synchronously inside a `cy.window().then()` (after driving focus programmatically) and inside a
+ * retrying `cy.window().should()` (while waiting for the till to place its own cursor). A command
+ * yields a chainable and cannot serve the first shape.
+ *
+ * @param   {Window} win  the application window
+ * @returns {string|null} the field id, or null when nothing is focused
+ */
+Cypress.focusedPicker = (win) => {
+  const active = win.document.activeElement
+  const $sel = win.jQuery(active).closest('.bootstrap-select').prev('select')
+  return $sel.attr('id') || (active && active.id) || null
+}

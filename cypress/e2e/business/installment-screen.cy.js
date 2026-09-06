@@ -162,6 +162,9 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()
 
+      // Pin the seeded instalment count before the panel opens: toggleInstallmentPanel() reads
+      // (posInstallmentCount || 6) and this spec must not inherit whatever a tenant chose.
+      cy.window().then((w) => { w.posInstallmentCount = 6 })
       cy.get('#sellOnInstallment').check({ force: true })
 
       /*
@@ -190,8 +193,22 @@ describe('INST-1 — the sale screen sells on terms', () => {
        * Waiting for the box to be non-empty makes the seeding a precondition rather than a competitor, and
        * the value assertion afterwards means this can never again be diagnosed from a row count.
        */
-      cy.get('#instCount').should('not.have.value', '')
-      cy.get('#instCount').clear().type('6').should('have.value', '6')
+      /*
+       * DO NOT clear() THIS BOX - pin what it will be seeded with instead.
+       *
+       * toggleInstallmentPanel() seeds #instCount with (posInstallmentCount || 6), and the guard is
+       * `if (!$('#instCount').val())` - it fires only when the box is EMPTY. clear() creates exactly
+       * that condition, so the seed can land in the gap between clear() and type(), and the typed 6
+       * goes in FRONT of the seeded one: the box reads 66, the server builds 66 installments, and it
+       * surfaces as "Too many elements found. Found '66', expected '6'" - a row count, nowhere near
+       * the field that caused it.
+       *
+       * Waiting for the seed before clearing does NOT fix it (tried: still 66) and cannot, because the
+       * seed is re-armed by the clear itself. The only race-free answer is to never empty the box:
+       * pin the tenant default in the browser, as this file already does for every other pos* flag,
+       * and assert what the panel put there.
+       */
+      cy.get('#instCount').should('have.value', '6')
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
       cy.get('#instFrequency').select('monthly', { force: true })
       // Nudge the preview the way a cashier's last keystroke would.
@@ -291,11 +308,15 @@ describe('INST-1 — the sale screen sells on terms', () => {
       // On account: the whole balance is the plan.
       cy.get('#sellPayMethod').select('CREDIT', { force: true })
 
+      // Pin the seeded instalment count before the panel opens: toggleInstallmentPanel() reads
+      // (posInstallmentCount || 6) and this spec must not inherit whatever a tenant chose.
+      cy.window().then((w) => { w.posInstallmentCount = 6 })
       cy.get('#sellOnInstallment').check({ force: true })
       overlayGone()   // R4's guarantor fetch raises the overlay over this panel - see the case above
       // Seeded first, then overwritten - see the case above for why a bare clear() yields 66.
-      cy.get('#instCount').should('not.have.value', '')
-      cy.get('#instCount').clear().type('6').should('have.value', '6')
+      // Seeded from posInstallmentCount, pinned above - never cleared. See the case above for why a
+      // clear() here yields 66.
+      cy.get('#instCount').should('have.value', '6')
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
       cy.get('#instCount').trigger('change')
       cy.get('#instScheduleTable tbody tr', { timeout: 10000 }).should('have.length', 6)
@@ -306,19 +327,12 @@ describe('INST-1 — the sale screen sells on terms', () => {
       /*
        * ANSWER THE TILL'S CONFIRM DIALOG - Complete Sale posts NOTHING until a cashier does.
        *
-       * pos.sale.confirmOnComplete is on by default, and the client deliberately fails OPEN (absent =>
-       * on), so this dialog appears for any tenant that has never touched the setting. Skip it and the
-       * cy.wait below dies with "No request ever occurred", which reads like a broken sale rather than an
-       * unanswered question - it is how this case failed the first time it got this far.
-       *
-       * Asserted visible and then answered, rather than clicked only if present: a conditional that finds
-       * no dialog silently proves nothing, and this case cannot pass without completing the sale.
-       *
-       * Keyed on [data-ui-confirm="ok"] - the stable hook confirm-dialog.js puts there for tests - and not
-       * on the button's text. bonus-schemes-p3.cy.js matches /complete|finaliser|finalizar/i instead, which
-       * is one more language away from breaking; pos-sale-endtoend.cy.js already uses this attribute.
+       * Not optional: this case pins pos.sale.confirmOnComplete to true, so a missing dialog is a real
+       * failure rather than a setting. Skipping it is how this case failed the first time it got this
+       * far - cy.wait below died with "No request ever occurred", which reads like a broken sale rather
+       * than an unanswered question. See cy.confirmSale in commands.js.
        */
-      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible').click({ force: true })
+      cy.confirmSale()
 
       cy.wait('@sale', { timeout: 20000 }).then((i) => {
         // THE assertion the API spec cannot make: the BROWSER put the plan block on the wire. If main.js

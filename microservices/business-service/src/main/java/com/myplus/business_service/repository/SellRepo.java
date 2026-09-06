@@ -102,12 +102,24 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
          + "order by s.sellId asc")
     List<Sell> findByInvoiceScoped(@Param("chId") Long chId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /*
+     * SR-1 — {@code ORDER BY s.dated DESC, s.sellId DESC} on the three range queries below.
+     *
+     * <p>They had no ordering at all. The Sale Detail Report re-sorts client-side so the SCREEN hid that, but
+     * {@code saleReport.csv} streams this list straight into the file — so the export came out in whatever
+     * order the database happened to return, verified as neither oldest- nor newest-first.
+     *
+     * <p>{@code sellId} breaks the tie because {@code dated} carries no time of day: several sales share a
+     * date, and the later row is the later sale.
+     */
     @Query("SELECT s FROM Sell s WHERE s.dated >= :sd "
-         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "ORDER BY s.dated DESC, s.sellId DESC")
     public List<Sell> findSellByStartDate(@Param("sd") LocalDateTime sd, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     @Query("SELECT s FROM Sell s WHERE s.dated <= :ed "
-         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "ORDER BY s.dated DESC, s.sellId DESC")
     public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
@@ -195,7 +207,8 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
      * than of design. That made it the cheapest possible moment to correct it.
      */
     @Query("SELECT s FROM Sell s WHERE s.dated >= :sd AND s.dated <= :ed "
-         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId))")
+         + "AND (s.organizationId = :orgId or (s.organizationId is null and s.userId = :userId)) "
+         + "ORDER BY s.dated DESC, s.sellId DESC")
     List<Sell> findSellByDates(
         @Param("sd") LocalDateTime sd,
         @Param("ed") LocalDateTime ed,

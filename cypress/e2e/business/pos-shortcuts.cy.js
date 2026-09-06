@@ -28,6 +28,9 @@ function openSell(opts) {
     w.posKeyboardEnabled = o.keyboard === true
     if (typeof w.applyPosKeyboard === 'function') w.applyPosKeyboard()
   })
+  // Scanning ships OFF for every tenant now, so #sellScanRow is display:none and scan() below could
+  // not reach its box. Pinned in the BROWSER alongside the keyboard flags above - see cy.enableScanBox.
+  cy.enableScanBox()
 }
 
 /** Fire a key at the document the way a real keyboard does. */

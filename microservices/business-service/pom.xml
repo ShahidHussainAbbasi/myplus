@@ -66,6 +66,20 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!--
+      Fiscal QR codes on documents.
+
+      CORE ONLY, deliberately. zxing-core does the ENCODING - Reed-Solomon error correction and mask
+      selection - which is the part that must be exactly right: a subtle bug there yields a code that
+      scans on a developer phone and fails on a tax inspector app. Turning the resulting BitMatrix into
+      a PNG is a fifteen-line loop over pixels, so the zxing-javase artifact earns nothing here.
+    -->
+    <dependency>
+      <groupId>com.google.zxing</groupId>
+      <artifactId>core</artifactId>
+      <version>3.5.3</version>
+    </dependency>
   </dependencies>
 
   <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin></plugins></build>
