@@ -31,6 +31,32 @@ const setConfig = (key, value) =>
 /** dd-MM-yyyy — what the visible date box shows and what a cashier actually types. */
 const ddmmyyyy = (iso) => `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}`
 
+/**
+ * Receive ONE unit of a product into the serial register, the way a shop does: on a purchase.
+ *
+ * A serial cannot be SOLD until it has been BOUGHT - SerialUnitService refuses with
+ * 'Serial "X" is not in stock.', which is the register doing its job. cy.seedProduct() creates stock but no
+ * units, so a case that sells an IMEI has to receive that IMEI first.
+ *
+ * Shaped after buy() in serial-register.cy.js rather than invented. Note `serials` is ONE newline-joined
+ * string, never repeated parameters: the monolith's purchase proxy collapses repeats and the extras vanish
+ * silently.
+ */
+const receiveSerial = (productId, serial) =>
+  cy.request({
+    method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+    body: {
+      productId, quantity: 1, serials: serial,
+      purchaseRate: 40000, 'stock.bpurchaseRate': 40000, 'stock.bsellRate': 60000,
+      totalAmount: 40000, netAmount: 40000, paidAmount: 40000,
+      purchaseInvoiceNo: 'INSTSER-' + Date.now().toString().slice(-8),
+    },
+  }).then((r) => {
+    // Assert the receipt: /addPurchase answers GenericResponse, so a refusal is 200 with status:"ERROR".
+    // Unasserted, the sale below would fail on a missing serial and read like a defect in the sale path.
+    expect(r.body && r.body.status, `receiveSerial: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+  })
+
 const monthsOut = (n) => {
   const d = new Date()
   d.setMonth(d.getMonth() + n)
@@ -38,6 +64,28 @@ const monthsOut = (n) => {
 }
 
 describe('INST-1 — the sale screen sells on terms', () => {
+  /*
+   * THE CAPABILITY, NOT THE SETTING - and they are two different switches.
+   *
+   * `pos.installment.enabled` (below, per case) decides whether the PANEL is drawn. The capability
+   * `org.cap.installments` decides whether the SERVER will accept a plan at all: SellController asserts it
+   * before writing, and the refusal is HTTP 200 with {success:false, "This is not switched on for your
+   * business."} - a sale that looks completed to a careless assertion.
+   *
+   * Set here rather than assumed. This tenant was found carrying an explicit `false` on the auth side
+   * (which mints the JWT) while the business-side row said `true` - a disagreement that refuses every
+   * financed sale on this tenant no matter what the panel shows.
+   *
+   * MUST be set BEFORE the login that runs the case: CapabilityService.resolveEffective reads the
+   * capabilities out of the TOKEN first, so a capability granted after login is invisible until the token
+   * is minted again. before() + beforeEach(login) is the order capability-enforcement.cy.js uses, and the
+   * reason it works.
+   */
+  before(() => {
+    cy.loginAsOwner()
+    cy.setCapability('installments', true)
+  })
+
   beforeEach(() => {
     cy.loginAsOwner()
   })
@@ -48,6 +96,9 @@ describe('INST-1 — the sale screen sells on terms', () => {
     setConfig('pos.installment.enabled', 'false')
     setConfig('pos.entry.showSerial', 'true')          // catalog defaults; this file sets them explicitly
     setConfig('pos.sale.confirmOnComplete', 'true')
+    // ON is the baseline for a tenant whose specs sell on terms - the same restore
+    // capability-enforcement.cy.js makes for the capabilities it needs.
+    cy.setCapability('installments', true)
   })
 
   // ── the panel is a tenant decision ────────────────────────────────────────────────────────────────────
@@ -112,7 +163,35 @@ describe('INST-1 — the sale screen sells on terms', () => {
       overlayGone()
 
       cy.get('#sellOnInstallment').check({ force: true })
-      cy.get('#instCount').clear().type('6')
+
+      /*
+       * WAIT FOR THE PANEL'S OWN AJAX before typing into it.
+       *
+       * R4: switching the plan on calls loadGuarantorPolicy(), which fires two $.gets
+       * (guarantorsRequired, recentGuarantors). jQuery's ajaxStart raises the "Please wait" overlay, and
+       * #appAjaxOverlay covers #instCount - so cy.type() fails with "covered by another element:
+       * <div class='ao-box'>". Before R4 this toggle fired no request and typing straight in worked, which
+       * is why both cases in this file were written without the wait.
+       *
+       * Waited out rather than forced through: {force: true} would type into a field behind a modal
+       * overlay and race the very response that redraws this panel.
+       */
+      overlayGone()
+
+      /*
+       * LET THE PANEL FINISH SEEDING BEFORE OVERWRITING IT.
+       *
+       * toggleInstallmentPanel() fills an EMPTY count box with (posInstallmentCount || 6) when the panel
+       * opens. clear() empties it, so a clear that lands just before that seeding gets a 6 written back
+       * and the typed 6 goes in FRONT of it: the box reads 66, the server builds 66 installments, and the
+       * failure surfaces as "Too many elements found. Found '66', expected '6'" - a row count, nowhere
+       * near the field that caused it.
+       *
+       * Waiting for the box to be non-empty makes the seeding a precondition rather than a competitor, and
+       * the value assertion afterwards means this can never again be diagnosed from a row count.
+       */
+      cy.get('#instCount').should('not.have.value', '')
+      cy.get('#instCount').clear().type('6').should('have.value', '6')
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
       cy.get('#instFrequency').select('monthly', { force: true })
       // Nudge the preview the way a cashier's last keystroke would.
@@ -170,6 +249,9 @@ describe('INST-1 — the sale screen sells on terms', () => {
     setConfig('pos.sale.confirmOnComplete', 'true')
 
     cy.seedProduct({ name: `UIS_${run}`, sellingPrice: 60000, stock: 5 }).then(({ productId }) => {
+      // The handset has to be IN the register before it can be sold out of it.
+      receiveSerial(productId, `IMEI${run}`)
+
       cy.visit('/businessDashboard')
       cy.waitForAppReady()
       cy.get('#sellType').select('sellDiv', { force: true })
@@ -210,7 +292,10 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellPayMethod').select('CREDIT', { force: true })
 
       cy.get('#sellOnInstallment').check({ force: true })
-      cy.get('#instCount').clear().type('6')
+      overlayGone()   // R4's guarantor fetch raises the overlay over this panel - see the case above
+      // Seeded first, then overwritten - see the case above for why a bare clear() yields 66.
+      cy.get('#instCount').should('not.have.value', '')
+      cy.get('#instCount').clear().type('6').should('have.value', '6')
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
       cy.get('#instCount').trigger('change')
       cy.get('#instScheduleTable tbody tr', { timeout: 10000 }).should('have.length', 6)

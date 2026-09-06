@@ -60,6 +60,20 @@
 		if (it.type === 'TEXT') {
 			return '<input type="text" class="form-control" value="' + esc(it.value) + '"' + common + '/>';
 		}
+		/*
+		 * MULTILINE \u2014 a terms block, not a label.
+		 *
+		 * dir="auto" so an owner writing Urdu types right-to-left in the box itself, matching how it will
+		 * print. maxlength 500 mirrors the storage column, so the limit is met while typing instead of as a
+		 * database error on save.
+		 *
+		 * \u26a0 The value goes in the ELEMENT BODY, never a value="" attribute \u2014 a textarea has no value
+		 * attribute, and writing one renders an empty box that silently discards what the owner saved.
+		 */
+		if (it.type === 'MULTILINE') {
+			return '<textarea class="form-control" rows="3" maxlength="500" dir="auto"'
+				+ common + '>' + esc(it.value) + '</textarea>';
+		}
 
 		// BOOL (default)
 		return '<input type="checkbox"' + (String(it.value) === 'true' ? ' checked' : '') + common + '/>';

@@ -290,6 +290,32 @@ describe('E4 — every control-plane change leaves a record that says who, and w
         reason: `${RUN} cleanup`,
       })
     }
+    /*
+     * THE OWNER TENANT'S ENTITLEMENT - restored here, and BEFORE the capability write below.
+     *
+     * Case 5 SUSPENDS the entitlement on ownerOrgId (not subjectOrgId) to prove that a refused write
+     * leaves no audit trail. The cleanup above restores subjectOrgId only, so ownerOrgId stayed SUSPENDED
+     * after every run of this file - and owner.business@ is the tenant most of the suite sells on.
+     *
+     * The damage was not limited to this spec. With the entitlement withdrawn, every financed sale on that
+     * tenant is refused by CapabilityService with "This is not switched on for your business.", so the
+     * INST-* specs fail on a tenant that looks correctly configured from its own settings screen. Found by
+     * chasing exactly that refusal back from installment-screen.cy.js; the reason column still named this
+     * file's case 5.
+     *
+     * ORDER MATTERS. setCapability goes through the owner's own settings endpoint, which the entitlement
+     * ceiling guards - so with the entitlement still suspended that call is REFUSED, this hook throws, and
+     * the cleanup dies half-done leaving the tenant worse than before. Entitlement first, always.
+     */
+    if (operatorToken && ownerOrgId) {
+      setEntitlement(operatorToken, {
+        organizationId: ownerOrgId,
+        capability: CAP,
+        status: 'ACTIVE',
+        reason: `${RUN} cleanup — restore the owner tenant's ceiling`,
+      })
+    }
+
     // owner.business@ is the tenant most of the suite runs on. Its capability goes back exactly.
     cy.loginAsOwner(OWNER)
     if (originalOwnerCap !== null) cy.setCapability(CAP, originalOwnerCap)

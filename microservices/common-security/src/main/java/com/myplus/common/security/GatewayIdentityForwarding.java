@@ -19,7 +19,7 @@ public final class GatewayIdentityForwarding {
 
     /** Identity headers the gateway stamps; the callee's HeaderAuthFilter authenticates + scopes from these. */
     private static final List<String> HEADERS = List.of(
-            "X-User-Id", "X-User-Email", "X-User-Roles", "X-User-Privileges", "X-Org-Id",
+            "X-User-Id", "X-User-Email", "X-User-Name", "X-User-Roles", "X-User-Privileges", "X-Org-Id",
             "X-Location-Id", "X-Location-Ids", "X-Loc-Role", "X-Internal-Secret",
             // C3c: carried service-to-service so a hop keeps the SAME capability answer the first callee had.
             // Omitting it here would make an inter-service call fall back to the callee's local settings

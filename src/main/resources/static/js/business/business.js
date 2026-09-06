@@ -4555,10 +4555,25 @@ function finRunAuditLog(){
 		var rows=(typeof resp==='string')?JSON.parse(resp):resp;
 		if(!Array.isArray(rows)){ finSet('<div style="padding:10px;color:#c0392b">Could not load the audit log. Check that audit-service is running.</div>'); return; }
 		if(!rows.length){ finSet('<div style="padding:10px;color:#777">No audit events yet.</div>'); return; }
+		/*
+		 * The timestamp now arrives with an offset (…+05:00), so it must be FORMATTED rather than
+		 * string-patched. The old code did `.replace('T',' ')`, which was fine for a zoneless value and
+		 * would now leave the offset dangling on the end of every row — a shopkeeper does not need to read
+		 * "+05:00" 200 times to know when a sale happened.
+		 *
+		 * Rendered in the reader's own locale, which is what they actually want: this is their shop's log.
+		 */
+		function auditWhen(v) {
+			if (!v) return '';
+			var d = new Date(String(v));
+			if (isNaN(d.getTime())) return String(v);
+			return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+				+ ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+		}
 		var h='<table class="table table-striped" style="width:100%"><thead><tr><th>When</th><th>Action</th><th>Entity</th><th class="text-right">Amount</th><th>User</th><th>Source</th><th>Details</th></tr></thead><tbody>';
 		rows.forEach(function(r){
 			var entity=escHtml((r.entityType||'')+(r.entityRef?(' '+r.entityRef):''));
-			h+='<tr><td>'+escHtml((r.occurredAt||'').toString().replace('T',' '))+'</td>'
+			h+='<tr><td>'+escHtml(auditWhen(r.occurredAt))+'</td>'
 				+'<td>'+escHtml(r.action||'')+'</td><td>'+entity+'</td>'
 				+'<td class="text-right">'+(r.amount!=null?Number(r.amount).toFixed(2):'')+'</td>'
 				+'<td>'+escHtml(r.userId!=null?('#'+r.userId):'')+'</td>'

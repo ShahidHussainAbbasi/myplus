@@ -22,7 +22,7 @@ public record SettingEntry(String key, String label, String help, SettingType ty
      * whole number, and rendering it with INT's spinner would silently forbid the decimal. Read with
      * {@code SettingsService.getDecimal}; rendered by settings-form.js as a decimal-capable number input.
      */
-    public enum SettingType { BOOL, INT, TEXT, SELECT, MONEY }
+    public enum SettingType { BOOL, INT, TEXT, SELECT, MONEY, MULTILINE }
 
     /**
      * One choice in a SELECT setting.
@@ -89,5 +89,22 @@ public record SettingEntry(String key, String label, String help, SettingType ty
      */
     public static SettingEntry money(String key, String label, String help, String def, String group) {
         return new SettingEntry(key, label, help, SettingType.MONEY, def == null ? "0" : def, group);
+    }
+
+    /**
+     * Owner-authored text that runs to SEVERAL LINES \u2014 a terms block at the foot of an invoice.
+     *
+     * <h3>Why TEXT could not do this</h3>
+     * {@code settings-form.js} renders TEXT as {@code <input type="text">}, and a single-line input cannot
+     * accept a newline at all: an owner typing a three-line terms block gets one line and no way to break it.
+     * The distinction is the CONTROL, not the storage \u2014 both land in the same {@code setting_value}.
+     *
+     * <h3>\u26a0 Still bounded by the column: VARCHAR(500)</h3>
+     * This is a short block \u2014 the terms on a till slip \u2014 not a document body, and the storage has not
+     * changed. The form caps input at 500 so an owner is stopped while typing rather than by a database
+     * error on save. A genuinely long document would need its own table, which is a different feature.
+     */
+    public static SettingEntry multiline(String key, String label, String help, String def, String group) {
+        return new SettingEntry(key, label, help, SettingType.MULTILINE, def == null ? "" : def, group);
     }
 }

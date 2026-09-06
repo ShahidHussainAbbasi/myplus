@@ -18,6 +18,27 @@ import java.util.Set;
 public class AuthenticatedUser {
     private Long userId;
     private String email;
+
+    /**
+     * The person's NAME, for documents that a customer reads.
+     *
+     * <h3>Why the email was not good enough</h3>
+     * {@code CustomerHistory.bookedByName} — a column with "name" in its own title — was stamped with
+     * {@code user.getEmail()}, so every sales receipt printed an address where the counter hand's name
+     * belongs. A 29-character gmail address on an 80mm slip is not a signature.
+     *
+     * <h3>Why it travels in the token rather than being looked up</h3>
+     * The name lives in auth-service, and the sale path may not make a remote call to render a document —
+     * the standing rule that V44 states for the serial check and the sale path follows everywhere else.
+     * So it rides the JWT beside {@code activeOrgId} and {@code caps}, costs nothing at the till, and is
+     * stamped onto the sale AT WRITE (never resolved at print, so an old invoice keeps the name of whoever
+     * actually made the sale).
+     *
+     * <p>Null for an identity the gateway did not stamp, and for any token minted before this shipped —
+     * so every reader must fall back to the email rather than print a blank.
+     */
+    private String displayName;
+
     private List<SimpleGrantedAuthority> authorities;
     /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). May be null. */
     private Long organizationId;
@@ -72,7 +93,9 @@ public class AuthenticatedUser {
         // resolved them, and must fall back rather than assert that nothing is enabled. See the field javadoc.
         // supportOrgId = null / supportWrite = false: an identity the gateway did not stamp holds NO support
         // session. E5 widens a caller past their own org and that must never be a default (see the field).
-        this(userId, email, authorities, organizationId, null, Collections.emptySet(), null, null,
+        // displayName = null: an identity built without the gateway's header has no name to offer, and a
+        // caller must fall back to the email rather than print an empty signature line.
+        this(userId, email, null, authorities, organizationId, null, Collections.emptySet(), null, null,
                 null, null, false);
     }
 }

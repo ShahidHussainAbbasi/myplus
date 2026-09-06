@@ -36,6 +36,32 @@
         return isNaN(n) ? '' : n.toFixed(2);
     }
 
+    /**
+     * A QUANTITY, which is not money and must not be formatted like it.
+     *
+     * <h3>The complaint this answers</h3>
+     * Quantities went through {@code money()}, so a mobile shop selling one handset printed <b>1.00</b> on
+     * every line of every receipt. Two decimal places are right for a price and wrong for a count.
+     *
+     * <h3>⚠ It TRIMS, it does not ROUND — and that distinction is the whole design</h3>
+     * A loose line (U2) legitimately holds 0.5 of a pack, and {@code qtyTotal} sums loose and pack lines
+     * into one figure, so a mixed invoice can correctly total 5.5. Rounding here would print 6, and the
+     * document would stop adding up against its own line totals — the exact reconciliation a tax inspector
+     * performs. So a whole number loses its zeros and a fraction keeps every digit it needs.
+     *
+     * <p>4 dp is not arbitrary: it is the precision U2 stores a broken-pack quantity at
+     * ({@code Math.round(x * 10000) / 10000}), so nothing this can receive is truncated.
+     *
+     * @param showDecimals the tenant's `pos.document.qtyDecimals`. Absent means TRUE — an org that has
+     *        changed nothing must see the document it saw yesterday.
+     */
+    function qtyText(v, showDecimals) {
+        var n = Number(v);
+        if (isNaN(n)) return '';
+        if (showDecimals !== false) return money(n);
+        return String(Number(n.toFixed(4)));
+    }
+
     /** Thousands-separated money, for the A4 summary block where figures are read at a glance. */
     function moneyG(v) {
         var n = Number(v);
@@ -276,7 +302,9 @@
         batchNo:       { key: 'ui.js.docBatchNo',  align: 'left',  resolve: function (c) { return batchText(c.s, 'batchNo'); } },
         expiryDate:    { key: 'ui.js.docExpiry',   align: 'left',  resolve: function (c) { return batchText(c.s, 'expiryDate'); } },
         // U4: a loose line prints "5 tablets"; an ordinary line prints exactly what it printed before.
-        quantity:      { key: 'ui.js.docQty',      align: 'right', sum: 'qty',      resolve: function (c) {
+        // `count: true` — a COUNT, so the totals band under it is formatted like the column
+        // itself rather than as money. See renderTable's tfoot.
+        quantity:      { key: 'ui.js.docQty',      align: 'right', sum: 'qty',   count: true,   resolve: function (c) {
                              /*
                               * #17 P3 — FREE GOODS APPEAR ON THE DOCUMENT THE CUSTOMER KEEPS.
                               *
@@ -291,10 +319,32 @@
                               * that happen to list bonusQty today. Same mechanism U4 uses to print '5
                               * tablets' on a loose line.
                               */
-                             var q = c.m.isLoose ? (c.m.qty + ' ' + c.m.unit) : money(c.m.qty);
-                             return (c.m.bonus > 0) ? (q + ' + ' + money(c.m.bonus) + ' ' + t('ui.js.free')) : q; } },
-        bonusQty:      { key: 'ui.js.docBonus',    align: 'right', sum: 'bonus',    resolve: function (c) { return money(c.m.bonus); } },
+                             var dec = c.inv.qtyDecimals;
+                             var q = c.m.isLoose ? (qtyText(c.m.qty, dec) + ' ' + c.m.unit) : qtyText(c.m.qty, dec);
+                             return (c.m.bonus > 0) ? (q + ' + ' + qtyText(c.m.bonus, dec) + ' ' + t('ui.js.free')) : q; } },
+        bonusQty:      { key: 'ui.js.docBonus',    align: 'right', sum: 'bonus', count: true,   resolve: function (c) { return qtyText(c.m.bonus, c.inv.qtyDecimals); } },
         tradePrice:    { key: 'ui.js.docTradePrice', align: 'right',                resolve: function (c) { return money(c.m.rate); } },
+        /*
+         * THE SAME NUMBER AS tradePrice, UNDER A NAME A RETAIL BUYER READS.
+         *
+         * "TP" is a pharmaceutical-distribution abbreviation. It belongs on the A4 trade invoice, where the
+         * reader is a distributor's accounts clerk who expects it — and it means nothing on a till slip
+         * handed to a walk-in. Worse, a shop selling one unit per line prints the SAME figure under TP and
+         * under Total, so the column reads as a repeated value rather than as a rate.
+         *
+         * A separate field rather than a relabelled one: renaming ui.js.docTradePrice would fix the receipt
+         * by breaking the invoice, and a literal label override on the column would take the header out of
+         * i18n in six languages. One resolver, two names, each correct for its audience.
+         */
+        /*
+         * THE LIST RATE, because the slip now carries a Disc column beside it.
+         *
+         * With a discount shown separately the reader's arithmetic is qty x rate - disc = amount, which is
+         * how the reference invoice reads and how a buyer checks a concession they were promised. Without
+         * that column this had to be the NET rate instead, or qty x rate would not reach the line total —
+         * the two designs are exclusive, and the column set is what decides between them.
+         */
+        unitRate:      { key: 'ui.js.docRate',     align: 'right',                  resolve: function (c) { return money(c.m.rate); } },
         lineValue:     { key: 'ui.js.docValue',    align: 'right', sum: 'value',    resolve: function (c) { return money(c.m.value); } },
         discountPct:   { key: 'ui.js.docDiscountPct', align: 'right',               resolve: function (c) { return c.m.discountPct.toFixed(2); } },
         discount:      { key: 'ui.js.docDiscount', align: 'right', sum: 'discount', resolve: function (c) { return money(c.m.discount); } },
@@ -307,8 +357,8 @@
     // Summary rows. `strong` renders the emphasised total rule.
     var TOTAL_ROWS = {
         itemCount:       { key: 'ui.js.docItemCount',      resolve: function (c) { return String(c.lines.length); } },
-        qtyTotal:        { key: 'ui.js.docQtyTotal',       resolve: function (c) { return money(c.sums.qty); } },
-        bonusTotal:      { key: 'ui.js.docBonusTotal',     resolve: function (c) { return money(c.sums.bonus); } },
+        qtyTotal:        { key: 'ui.js.docQtyTotal',       resolve: function (c) { return qtyText(c.sums.qty, c.inv.qtyDecimals); } },
+        bonusTotal:      { key: 'ui.js.docBonusTotal',     resolve: function (c) { return qtyText(c.sums.bonus, c.inv.qtyDecimals); } },
         valueTotal:      { key: 'ui.js.docValueTotal',     resolve: function (c) { return money(c.sums.value); } },
         discountTotal:   { key: 'ui.js.docDiscountTotal',  resolve: function (c) { return money(c.sums.discount); } },
         subTotal:        { key: 'ui.js.docSubtotal',       resolve: function (c) { return c.inv.subTotal != null ? money(c.inv.subTotal) : ''; } },
@@ -506,11 +556,15 @@
             channel: 'B2C',
             numberSystem: 'indian',
             showDrCr: false,
+            // `bookedBy` — who served the customer. Absent until now, so the one document a walk-in keeps
+            // could not say who sold to them: no counter to go back to on a warranty claim, and nothing
+            // tying a till slip to the person who rang it up.
             header: { titleStyle: 'plain', showLogo: false,
-                columns: [['invoiceNo', 'datedTime', 'customerName']] },
+                columns: [['invoiceNo', 'datedTime', 'customerName', 'bookedBy']] },
             lines: [
-                col('lineNo', 6, 'left'), col('itemName', 46, 'left'),
-                col('quantity', 14, 'right'), col('tradePrice', 16, 'right'), col('lineTotal', 18, 'right')
+                col('lineNo', 5, 'left'), col('itemName', 39, 'left'),
+                col('quantity', 12, 'right'), col('unitRate', 15, 'right'),
+                col('discount', 13, 'right'), col('lineTotal', 16, 'right')
             ],
             totals: ['subTotal', 'taxTotal', 'grandTotal', 'paidBy', 'tendered', 'change',
                 'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
@@ -584,7 +638,7 @@
                 columns: [['invoiceNo', 'datedTime', 'customerName']] },
             lines: [
                 col('lineNo', 6, 'left'), col('itemName', 40, 'left'), col('batchNo', 12, 'left'),
-                col('quantity', 12, 'right'), col('tradePrice', 14, 'right'), col('lineTotal', 16, 'right')
+                col('quantity', 12, 'right'), col('unitRate', 14, 'right'), col('lineTotal', 16, 'right')
             ],
             totals: ['subTotal', 'taxTotal', 'grandTotal', 'paidBy', 'tendered', 'change',
                 'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
@@ -720,7 +774,23 @@
             foot = '<tfoot><tr>' + cols.map(function (c) {
                 var spec = LINE_FIELDS[c.key];
                 var align = c.align || spec.align || 'left';
-                if (spec.sum) { first = false; return '<td class="dc-' + align + ' dc-sum">' + money(ctx.sums[spec.sum]) + '</td>'; }
+                if (spec.sum) {
+                    first = false;
+                    /*
+                     * A TOTALS BAND IS FORMATTED LIKE THE COLUMN IT SITS UNDER.
+                     *
+                     * Everything summable went through money() here, so with quantity decimals switched off
+                     * the rows read "1" and the figure directly beneath them read "1.00" — the foot of the
+                     * table contradicting the lines above it, on the same slip.
+                     *
+                     * Keyed on the spec's own `count` flag rather than on the sum's NAME: a future count
+                     * column that forgets the flag degrades to money(), which is today's behaviour, instead
+                     * of to something wrong. Money columns are untouched — a total is always 2 dp.
+                     */
+                    var sumTxt = spec.count ? qtyText(ctx.sums[spec.sum], ctx.inv.qtyDecimals)
+                                            : money(ctx.sums[spec.sum]);
+                    return '<td class="dc-' + align + ' dc-sum">' + sumTxt + '</td>';
+                }
                 if (first) return '<td class="dc-sum">&nbsp;</td>';
                 return '<td class="dc-sum"></td>';
             }).join('') + '</tr></tfoot>';
@@ -765,14 +835,50 @@
         return out;
     }
 
-    function css(profile) {
+    function css(profile, inv_fontFamily) {
         var a4 = profile.paper === 'A4' || profile.paper === 'A5';
         var page = a4
             ? '@page{size:' + (profile.paper === 'A5' ? 'A5' : 'A4') + ';margin:10mm}'
             : '@page{margin:0}';
+        /*
+         * THE FONT STACK, AND WHY ITS ORDER IS LOAD-BEARING.
+         *
+         * The till slip was set in "Courier New" — a typewriter face, and the reason a customer asked about
+         * the "font style". It also has NO Urdu coverage, so an Urdu footer fell back to whatever the OS
+         * offered, or to boxes.
+         *
+         * ⚠ The Latin face at the FRONT must not itself cover Arabic script. Browsers fall back PER GLYPH,
+         * so 'Segoe UI' or Arial first would render Urdu in their own Naskh forms and the Nastaliq faces
+         * further down the list would never be reached. Pakistani readers strongly prefer Nastaliq —
+         * rtl.css:37 says so for the app, and a receipt is no different. Calibri and Segoe UI Variable Text
+         * carry no Arabic, so Latin resolves there and Arabic script falls through to the Nastaliq faces.
+         *
+         * 'Jameel Noori Nastaleeq' is listed because it is on far more Pakistani Windows machines than the
+         * Noto family is. No webfont is loaded: this document is written into an iframe that prints within
+         * 300ms (printWhenReady), and a till may be offline — a font that has not arrived by then prints as
+         * fallback anyway, so system faces are the only ones that can be relied on.
+         *
+         * A shop that has neither installed can name its own face in pos.document.fontFamily, which is the
+         * real answer to "what is on the machine by the printer" — nothing here can know that.
+         */
+        var URDU = "'Noto Nastaliq Urdu','Jameel Noori Nastaleeq','Urdu Typesetting','Noto Naskh Arabic'";
+        var FALLBACK = "Calibri,'Segoe UI Variable Text','Helvetica Neue'," + URDU + ",'Segoe UI',Arial,sans-serif";
+        /*
+         * The tenant's font is PREPENDED, never substituted — so a name that is not installed on the
+         * printing machine falls straight through to the stack below it. A shop that mistypes gets the
+         * standard document, not an unstyled one.
+         *
+         * ⚠ SANITISED, because this is owner text on its way into a CSS declaration. A raw value could
+         * carry `;` or `}` and close the rule to open another — CSS injection into a document that then
+         * prints. Letters, digits, spaces and hyphens are all a font family name needs; everything else is
+         * dropped and the result is quoted.
+         */
+        var chosen = String(profile.fontFamily || inv_fontFamily || '')
+            .replace(/[^A-Za-z0-9 \-]/g, '').trim().slice(0, 60);
+        var stack = (chosen ? "'" + chosen + "'," : '') + FALLBACK;
         var body = a4
-            ? 'body{font-family:Arial,Helvetica,sans-serif;color:#000;font-size:11px;padding:0}'
-            : 'body{font-family:"Courier New",monospace;color:#000;width:80mm;padding:6mm 4mm;font-size:12px}';
+            ? 'body{font-family:' + stack + ';color:#000;font-size:11px;padding:0}'
+            : 'body{font-family:' + stack + ';color:#000;width:80mm;padding:6mm 4mm;font-size:12px}';
         return page + '*{margin:0;padding:0;box-sizing:border-box}' + body
             /*
              * The status watermark (#28). Fixed, centred, rotated, BEHIND the content (z-index:-1) and
@@ -808,7 +914,23 @@
             + '.dc-strong{font-weight:700;font-size:' + (a4 ? '15px' : '14px') + ';border-top:1px solid #000;padding-top:3px;margin-top:3px}'
             + '.dc-wide{display:block;text-align:' + (a4 ? 'right' : 'center') + ';font-weight:700;margin-top:4px}'
             + '.dc-wide span:first-child{display:none}'
-            + '.dc-foot{text-align:center;margin-top:' + (a4 ? '18px' : '8px') + ';font-size:10px}'
+            /*
+             * line-height 1.9, and 11px rather than 10.
+             *
+             * Nastaliq is a steeply cascading script: its letters descend across the baseline, so lines set
+             * at Latin leading collide and the ascenders of one row are clipped by the row above. 10px/normal
+             * is unreadable for it. Latin gains a little air from the same change, which a centred footer
+             * wanted anyway.
+             */
+            + '.dc-foot{text-align:center;margin-top:' + (a4 ? '18px' : '8px') + ';font-size:11px;line-height:1.9}'
+            /*
+             * The TERMS block. white-space:pre-line keeps the owner's own line breaks without turning any
+             * part of their text into markup — escHtml still runs, so a newline is the ONLY thing that
+             * survives as formatting. Converting to <br> would mean building HTML out of owner input, which
+             * is the shape of a stored-XSS bug for the sake of a line break CSS already gives us.
+             */
+            + '.dc-terms{text-align:center;margin-top:6px;font-size:11px;line-height:1.9;'
+            + 'white-space:pre-line}'
             + '.dc-sign{display:flex;justify-content:space-between;margin-top:30px;font-size:11px}'
             + '.dc-sign div{border-top:1px solid #000;padding-top:3px;width:34%;text-align:center}'
             + '@media print{body{width:auto}}';
@@ -823,9 +945,11 @@
         var addr = [lh.addressLine1, lh.addressLine2, lh.phone].filter(function (x) { return x; }).join('   ');
         var logo = (profile.header && profile.header.showLogo && lh.logoUrl)
             ? '<div class="dc-c"><img src="' + encodeURI(lh.logoUrl) + '" alt="" style="max-height:60px"></div>' : '';
+        // dir="auto" for the same reason as the footer: a shop may write its name and address in Urdu, and
+        // each line takes its direction from its own content. Latin text is unaffected.
         return logo
-            + '<div class="dc-brand" data-brand>' + escHtml(name) + '</div>'
-            + (addr ? '<div class="dc-addr">' + escHtml(addr) + '</div>' : '');
+            + '<div class="dc-brand" data-brand dir="auto">' + escHtml(name) + '</div>'
+            + (addr ? '<div class="dc-addr" dir="auto">' + escHtml(addr) + '</div>' : '');
     }
 
     /**
@@ -854,7 +978,8 @@
             : '';
 
         return '<!doctype html><html><head><meta charset="utf-8"><title>'
-            + escHtml(title + ' ' + (inv.invoiceNo || '')) + '</title><style>' + css(profile) + '</style>'
+            + escHtml(title + ' ' + (inv.invoiceNo || '')) + '</title><style>'
+            + css(profile, inv.fontFamily) + '</style>'
             + '</head><body>'
             /*
              * The WATERMARK (#28). Driven by data, not by the preset: any document can set `inv.watermark` and
@@ -873,13 +998,26 @@
             + renderTable(profile, ctx)
             + '<div class="dc-totwrap">' + renderTotals(profile, ctx) + '</div>'
             + regNo
-            + (footText ? '<div class="dc-foot">' + escHtml(footText) + '</div>' : '')
+            /*
+             * dir="auto" — THE ELEMENT, never the document.
+             *
+             * The browser takes direction from the first strong character, so an Urdu footer lays itself out
+             * right-to-left and an English one is untouched. Setting dir on <html> would have mirrored the
+             * whole slip: Qty, Rate and Amount would swap sides and every existing invoice would change.
+             * A bilingual document is normal here — an English table under an Urdu terms block — and only
+             * per-element direction can express that.
+             */
+            + (footText ? '<div class="dc-foot" dir="auto">' + escHtml(footText) + '</div>' : '')
+            // The owner's terms, under the sign-off. dir="auto" for the same reason as everything else that
+            // is owner-authored: Urdu lays itself out right-to-left, English is untouched.
+            + (inv.termsText
+                ? '<div class="dc-terms" dir="auto">' + escHtml(inv.termsText) + '</div>' : '')
             + sign
             // B2B-P0 (#13). OFF unless the org turned it on: this prints on a document our customer hands to
             // THEIR customer, so it is opt-in, never a surprise on a paying client's invoices.
             + (inv.showPromo === true
-                ? '<div class="dc-foot" style="opacity:.75;margin-top:4px">Powered by MaxTheService'
-                  + '<br>maxtheservice.com</div>'
+                ? '<div class="dc-foot" style="opacity:.75;margin-top:4px">Powered by www.maxtheservice.com'
+                  + '<br>03114499660</div>'
                 : '')
             + '</body></html>';
     }
@@ -1013,7 +1151,10 @@
                     return t(k);
                 }))
                 : [],
-            footerText: (profile.footer && profile.footer.text) || inv.footerText || ''
+            footerText: (profile.footer && profile.footer.text) || inv.footerText || '',
+            // Carried here as well, or the PDF quietly omits a block the printed slip shows — the DTO-twin
+            // failure this codebase keeps paying for.
+            termsText: inv.termsText || ''
         };
     }
 

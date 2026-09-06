@@ -116,14 +116,43 @@ public class GatewayClient {
         boolean serverMode = tokenStore.hasAccessToken();
         String url = (serverMode ? gatewayUrl + servicePrefix : directBaseUrl) + path;
 
+        /*
+         * A URI, NOT A STRING — or every query value is encoded TWICE.
+         *
+         * Callers hand us a query string they have already percent-encoded (BusinessConfigController.enc,
+         * AppUtil.passThroughQuery, and every `"x=" + enc(...)` proxy). RestTemplate's String overload treats
+         * its argument as a URI TEMPLATE and encodes it again, so a value's `%D9` left here as `%25D9`. The
+         * far side decodes once and stores the still-encoded text.
+         *
+         * ASCII survived by accident and hid this for a long time: URLEncoder writes a space as `+`, which
+         * passes both hops untouched and decodes back to a space. Anything that produces a `%` — which is
+         * every non-Latin character — did not. An Urdu terms block of 194 characters reached the database
+         * as 1041 and was refused by a VARCHAR(500) column; a shorter one would have been stored as visible
+         * gibberish instead, which is worse because nothing would have complained.
+         *
+         * build(true) means "these components are already encoded, leave them alone". A caller that has NOT
+         * encoded its query is a bug, but not one worth taking a working screen down for, so that falls back
+         * to the old behaviour with a warning rather than throwing.
+         */
+        java.net.URI uri;
+        try {
+            uri = org.springframework.web.util.UriComponentsBuilder.fromHttpUrl(url).build(true).toUri();
+        } catch (IllegalArgumentException notEncoded) {
+            log.warn("Query string for {} is not properly percent-encoded; falling back to template "
+                    + "encoding. Non-ASCII values on this call may be stored encoded.", path);
+            uri = null;
+        }
+
         HttpEntity<?> entity = new HttpEntity<>(body, buildHeaders(serverMode, contentType));
         try {
-            return strip(restTemplate.exchange(url, method, entity, responseType));
+            return strip(uri != null ? restTemplate.exchange(uri, method, entity, responseType)
+                                     : restTemplate.exchange(url, method, entity, responseType));
         } catch (HttpClientErrorException.Unauthorized e) {
             // Access token likely expired — refresh once and retry (server mode only).
             if (serverMode && refreshAccessToken()) {
                 HttpEntity<?> retry = new HttpEntity<>(body, buildHeaders(true, contentType));
-                return strip(restTemplate.exchange(url, method, retry, responseType));
+                return strip(uri != null ? restTemplate.exchange(uri, method, retry, responseType)
+                                         : restTemplate.exchange(url, method, retry, responseType));
             }
             throw e;
         } catch (HttpClientErrorException.Forbidden e) {
@@ -242,6 +271,15 @@ public class GatewayClient {
             if (auth != null && auth.getPrincipal() instanceof User user) {
                 headers.set("X-User-Id", String.valueOf(user.getId()));
                 headers.set("X-User-Email", user.getEmail());
+                // The NAME a document prints for whoever is acting. The JWT path carries this as a token
+                // claim the gateway turns into the same header; legacy mode has no gateway, so it stamps it
+                // here or a shop running without auth-service prints an email on every receipt for ever.
+                // Blank when the account has no name — HeaderAuthFilter leaves displayName null and the
+                // caller falls back to the email, which is exactly the old behaviour.
+                String first = user.getFirstName() == null ? "" : user.getFirstName().trim();
+                String last = user.getLastName() == null ? "" : user.getLastName().trim();
+                String fullName = (first + " " + last).trim();
+                if (!fullName.isEmpty()) headers.set("X-User-Name", fullName);
                 headers.set("X-User-Roles", auth.getAuthorities().stream()
                         .map(a -> a.getAuthority())
                         .collect(java.util.stream.Collectors.joining(",")));

@@ -638,10 +638,17 @@ public class SellController {
 			out.setLetterhead(letterheadFor(ch));
 			out.setLayoutMode(settingsService.getChoice("pos.document.layoutMode",
 					java.util.Set.of("auto", "thermal", "a4"), "auto"));
+			// A count is not money: whether "1" or "1.00" prints on a quantity. getBool reads the catalog
+			// default (TRUE) when the tenant has no override, so an org that has changed nothing keeps the
+			// document it has always had.
+			out.setQtyDecimals(settingsService.getBool("pos.document.qtyDecimals"));
 			out.setCurrencySymbol(settingsService.getText("pos.document.currencySymbol"));
 			out.setCurrencyWord(settingsService.getText("pos.document.currencyWord"));
 			out.setCurrencyFraction(settingsService.getText("pos.document.currencyFraction"));
 			out.setFooterText(settingsService.getText("pos.document.footerText"));
+			// The terms block \u2014 several lines, any language, printed under the thank-you line.
+			out.setTermsText(settingsService.getText("pos.document.termsText"));
+			out.setFontFamily(settingsService.getText("pos.document.fontFamily"));
 			out.setShowAmountInWords(settingsService.getBool("pos.document.amountInWords"));
 
 			// 3g-3: the org's own layout for this buyer's channel, if they have designed one. Null means the

@@ -795,12 +795,34 @@ public class AuthService {
                 && user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
     }
 
+    /**
+     * The person's name as a document should print it, or NULL when the account has none.
+     *
+     * <p>Null rather than a fallback to the email: the claim says "here is a name", and a consumer that
+     * receives one must be able to trust it. Every reader already falls back to the email when this is
+     * absent, so putting the address in here would only remove their ability to tell the two apart.
+     *
+     * <p>Deliberately not {@code username}: it is a login handle ("admin"), not what a customer should read
+     * on a receipt.
+     */
+    private static String displayNameOf(User user) {
+        if (user == null) return null;
+        String first = user.getFirstName() == null ? "" : user.getFirstName().trim();
+        String last = user.getLastName() == null ? "" : user.getLastName().trim();
+        String full = (first + " " + last).trim();
+        return full.isEmpty() ? null : full;
+    }
+
     private Map<String, Object> buildClaims(User user, Organization activeOrg, Long preferredLocationId) {
         // E3 — the tenant-lifecycle guard, at THE choke point. See assertTenantMaySignIn.
         assertTenantMaySignIn(user, activeOrg);
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("email", user.getEmail());
+        // The person's NAME, for documents a customer reads (a receipt's "served by"). Carried here so the
+        // sale path never has to call auth-service to render one. Blank when the account has no name set,
+        // and every reader falls back to the email — see AuthenticatedUser.displayName.
+        claims.put("name", displayNameOf(user));
         claims.put("roles", new ArrayList<>(CustomUserDetailsService.getRoleNames(user.getRoles())));
         // Privilege-level authorities so privilege-based consumers (the monolith's
         // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.

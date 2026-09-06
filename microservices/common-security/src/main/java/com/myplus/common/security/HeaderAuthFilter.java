@@ -59,6 +59,9 @@ public class HeaderAuthFilter extends OncePerRequestFilter {
                 AuthenticatedUser principal = new AuthenticatedUser(Long.valueOf(userId), email, authorities, organizationId);
                 // Multi-location (Pattern A): active/accessible stores + role at the active location. All
                 // absent => single-location, so the principal keeps its unset defaults and nothing changes.
+                // The name a document prints for whoever is acting. Absent header (an old token, an
+                // account with no name) leaves it null, and the caller falls back to the email.
+                principal.setDisplayName(cleanHeader(request.getHeader("X-User-Name")));
                 principal.setActiveLocationId(parseLongOrNull(request.getHeader("X-Location-Id")));
                 principal.setAccessibleLocationIds(parseLongSet(request.getHeader("X-Location-Ids")));
                 principal.setRoleAtLocation(cleanHeader(request.getHeader("X-Loc-Role")));

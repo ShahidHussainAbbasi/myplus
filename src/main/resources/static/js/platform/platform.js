@@ -211,7 +211,20 @@
 		if (Array.isArray(v)) {
 			return new Date(v[0], (v[1] || 1) - 1, v[2] || 1, v[3] || 0, v[4] || 0, v[5] || 0);
 		}
-		var d = new Date(String(v));
+		var raw = String(v);
+		/*
+		 * ⚠ The value MUST carry an offset (…Z or …+05:00).
+		 *
+		 * A bare `2026-09-04T20:52:10` is parsed as the BROWSER's local time. The services run UTC and the
+		 * people using them do not, so every age on this panel was out by the offset — "2 h ago" for
+		 * something two minutes old, with nothing looking wrong. Treated as unreadable rather than guessed
+		 * at, because guessing is what produced a confident wrong answer for weeks.
+		 */
+		if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(raw)) {
+			if (global.console) console.warn('audit timestamp has no timezone: ' + raw);
+			return null;
+		}
+		var d = new Date(raw);
 		return isNaN(d.getTime()) ? null : d;
 	}
 

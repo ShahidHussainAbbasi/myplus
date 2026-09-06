@@ -122,6 +122,32 @@ public class CustomerHistoryDTO {
      */
     private String layoutMode;
 
+    /**
+     * {@code pos.document.qtyDecimals} — does this tenant want two decimals on a QUANTITY?
+     *
+     * <p>A Boolean, not a boolean: null means the tenant never expressed a view, and the renderer treats
+     * that as ON so a document nobody configured is the document they printed yesterday.
+     */
+    private Boolean qtyDecimals;
+
+    /**
+     * {@code pos.document.termsText} \u2014 the owner's terms block for the foot of the document.
+     *
+     * <p>Several lines, in whatever language the shop writes. Carried as one string with its newlines
+     * intact; the renderer preserves them with {@code white-space:pre-line} rather than converting them to
+     * markup, so nothing owner-authored is ever interpreted as HTML.
+     */
+    private String termsText;
+
+    /**
+     * {@code pos.document.fontFamily} \u2014 the tenant's chosen typeface for printed documents.
+     *
+     * <p>Blank means the built-in stack. Whatever is here is SANITISED in the renderer before it reaches a
+     * CSS declaration: this is owner-supplied text on its way into a stylesheet, and a raw value could close
+     * the declaration and open another.
+     */
+    private String fontFamily;
+
     /** The org's stored Document Profile for this channel (3g-3). Null ⇒ the renderer uses a built-in preset. */
     private Object documentProfile;
 

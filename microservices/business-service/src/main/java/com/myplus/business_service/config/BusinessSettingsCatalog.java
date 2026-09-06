@@ -699,6 +699,61 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         List.of(new SettingEntry.Option("auto", "Automatic (default) — the customer type decides"),
                                 new SettingEntry.Option("thermal", "Always 80mm thermal receipt"),
                                 new SettingEntry.Option("a4", "Always A4 invoice"))),
+                /*
+                 * A COUNT IS NOT MONEY.
+                 *
+                 * Quantities were formatted with the money formatter, so a shop selling one handset printed
+                 * "1.00" on every line. Right for a price, wrong for a count — but not wrong for everyone:
+                 * a distributor invoicing 12.5 kg wants the decimals, which is why this is a tenant switch
+                 * rather than a change of formatter.
+                 *
+                 * DEFAULT TRUE = today's document, unchanged. The same rule the document designer follows:
+                 * an org that has configured nothing must not find its paperwork altered by a deploy.
+                 *
+                 * ⚠ OFF trims, it never rounds. A broken-pack line legitimately holds 0.5, and the totals
+                 * row sums loose and whole lines together — so 5.5 still prints 5.5 with this off, and only
+                 * the meaningless ".00" on a whole number goes. See qtyText() in receipt.js.
+                 */
+                SettingEntry.bool("pos.document.qtyDecimals",
+                        "Show decimal places on quantity",
+                        "On (default): quantities print with two decimals, e.g. \"1.00\" — right for a "
+                                + "distributor selling by weight or part-packs. Off: whole quantities print as "
+                                + "\"1\", and a part-pack still prints its fraction so the line still "
+                                + "multiplies out to its total.",
+                        true, "Documents"),
+                /*
+                 * The terms block at the foot of the slip \u2014 the one in the reference invoice, three lines
+                 * of Urdu about returns and warranty.
+                 *
+                 * SEPARATE from footerText, which is a one-line sign-off ("Thank you for your business") and
+                 * is already in use. A shop wants both: the courtesy line and the conditions.
+                 *
+                 * Any language. The document renders it with dir="auto", so it takes its direction from what
+                 * was typed \u2014 Urdu lays out right-to-left, English does not, and a shop writing both gets
+                 * each correct without a setting to say which.
+                 */
+                /*
+                 * The typeface for printed documents.
+                 *
+                 * FREE TEXT, not a fixed list, and the reason is that nothing on the server can know what is
+                 * installed on the machine by the printer. A Pakistani shop wanting Nastaliq usually has
+                 * "Jameel Noori Nastaleeq" locally and no list we ship would name it.
+                 *
+                 * A blank value, or a font that is not installed, falls through to the built-in stack \u2014 so
+                 * the failure mode of a typo is the default document, never an unstyled one.
+                 */
+                SettingEntry.text("pos.document.fontFamily",
+                        "Font for printed invoices and receipts",
+                        "Leave blank for the default. Otherwise name a font INSTALLED ON THE MACHINE THAT "
+                                + "PRINTS \u2014 e.g. \"Jameel Noori Nastaleeq\" for Urdu, or \"Calibri\". If the "
+                                + "font is missing the document falls back to the standard one.",
+                        "", "Documents"),
+                SettingEntry.multiline("pos.document.termsText",
+                        "Terms / notes printed at the foot of the invoice",
+                        "Free text in any language \u2014 returns policy, warranty, conditions of sale. Printed "
+                                + "below the thank-you line, on its own lines exactly as typed. Urdu and Arabic "
+                                + "are laid out right-to-left automatically. Up to 500 characters.",
+                        "", "Documents"),
                 SettingEntry.text("pos.document.currencySymbol",
                         "Currency symbol on documents",
                         "Printed before the grand total, e.g. \"Rs.\" or \"$\".",

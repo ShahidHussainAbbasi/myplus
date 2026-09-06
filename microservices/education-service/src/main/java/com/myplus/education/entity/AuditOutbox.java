@@ -1,81 +1,23 @@
 package com.myplus.education.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
-import java.time.LocalDateTime;
+import com.myplus.common.audit.AbstractAuditOutbox;
 
 /**
- * Slice 1.3 (D5) — one pending audit event, captured in the SAME transaction as the marks write.
+ * education-service's queued audit events.
  *
- * Reuses the transactional-outbox pattern already proven twice on this platform: business-service's
- * {@code AuditOutbox} and education's own {@code GlOutbox} (slice 0.1). Capture is atomic with the
- * business write; delivery to audit-service is AFTER_COMMIT and retried by the shared
- * {@code OutboxRelay}. A marks save must never fail because an audit service is unreachable — but the
- * event must never be lost either, which is exactly what an outbox buys.
+ * <p>D-7 closed: the columns now live on {@link AbstractAuditOutbox}, shared with business, auth and catalog.
+ * This service was left out when common-audit was extracted at E4 because its table was a different shape —
+ * a decision recorded as debt rather than quietly taken — and {@code V30} reconciled it once the data proved
+ * nothing would be truncated.
  *
- * Consequence worth stating (design §7): the audit log is complete EVENTUALLY, not instantly.
+ * <p>The table is still this service's own, per the schema-ownership standard. What is shared is the column
+ * set and the delivery behaviour, not the table.
  */
 @Entity
-@Table(name = "audit_outbox")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class AuditOutbox implements com.myplus.common.outbox.OutboxEntry {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    /** MARK_ENTERED · MARK_CHANGED · EXAM_LOCKED · EXAM_UNLOCKED. */
-    @Column(name = "action", nullable = false)
-    private String action;
-
-    @Column(name = "entity_type")
-    private String entityType;
-
-    /** Which row: "paper=12,student=ENR-001" for a mark, the exam id for a status change. */
-    @Column(name = "entity_ref")
-    private String entityRef;
-
-    /**
-     * For MARK_CHANGED this carries the OLD and NEW values. An audit that records only the new number
-     * cannot answer "was this altered?", which is the one question anyone actually asks of it.
-     */
-    @Column(name = "details", length = 1000)
-    private String details;
-
-    /** Idempotency key so a relay retry cannot record the same event twice. */
-    @Column(name = "event_key")
-    private String eventKey;
-
-    @Column(name = "occurred_at")
-    private LocalDateTime occurredAt;
-
-    @Column(name = "status", nullable = false)
-    private String status;
-
-    @Column(name = "attempts")
-    private Integer attempts;
-
-    @Column(name = "last_error", length = 1000)
-    private String lastError;
-
-    @Column(name = "organization_id")
-    private Long organizationId;
-
-    @Column(name = "user_id")
-    private Long userId;
-
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    void prePersist() {
-        if (status == null) status = "PENDING";
-        if (attempts == null) attempts = 0;
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        if (occurredAt == null) occurredAt = LocalDateTime.now();
-    }
+@Table(name = "audit_outbox", indexes = { @Index(name = "idx_audit_outbox_pending", columnList = "status,id") })
+public class AuditOutbox extends AbstractAuditOutbox {
 }

@@ -107,6 +107,14 @@ that as a defect.)*
 
 ## 5. ⭐ What the measurement found instead
 
+### F-1 ~~🟠~~ ⚠ **CORRECTED 2026-09-06 — see [`edu-gating-analysis.md`](edu-gating-analysis.md)**
+
+> I called this *"the largest remaining correctness item"*. Every measurement below is still true, and the
+> conclusion was wrong: **there are two education tenants and both are seeded fixtures.** The sentence
+> "every education tenant is served every education feature" is about `owner.education@` and
+> `demo.education@`, not about customers. The commerce case that justified the capability platform was 39 of
+> 41 REAL tenants. Recommendation is now **do not build**, with the trigger recorded.
+
 ### F-1 🟠 Four dashboards have NO capability gating at all
 
 ```

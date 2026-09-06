@@ -1153,18 +1153,61 @@ function jsonPost(method,data) {
 				return;   // keep the idempotency key so a retry dedups
 			}
 			clearFormError();
-			// SF-3: sale committed — retire this checkout's key so the NEXT sale gets a fresh one.
-			if (method === 'addSell') { window.saleIdempotencyKey = null; }
+
+			/*
+			 * ── THE CHECKOUT ENDS IN ONE STEP, BEFORE ANY OPTIONAL WORK ─────────────────────
+			 *
+			 * Retiring the key and clearing the cart are two halves of ONE fact — "this checkout is
+			 * finished" — and nothing that can throw may come between them.
+			 *
+			 * THE DUPLICATE-SALE DEFECT THIS CLOSES. The key used to be retired here and the cart cleared
+			 * at the very bottom, with printReceipt(), dispensePrescription() and loadDataTable() in
+			 * between. Any throw in those three left a RETIRED key and a FULL cart: the till looks like the
+			 * sale never went through, the cashier presses Complete Sale again, getSaleIdempotencyKey()
+			 * mints a FRESH key because the old one is gone — and the server, which correctly dedups only
+			 * on (org, key), writes a genuine SECOND invoice. One press, two sales, and the shop is owed
+			 * twice for goods it handed over once.
+			 *
+			 * Everything below this block is a side effect of a sale that has ALREADY committed: a receipt,
+			 * a dispense record, a grid refresh. None of them can fail in a way that should re-open a
+			 * finished checkout, so none of them runs before it is closed.
+			 *
+			 * ⚠ resetCart is guarded. main.js is shared — fragments/header.html loads it on the education,
+			 * agriculture, welfare and appointment dashboards too — and resetCart() is defined ONLY in
+			 * business.js. Called bare it throws ReferenceError on every one of those modules. park.js
+			 * already guards it exactly this way; this is that convention, not a new one.
+			 */
+			if (method === 'addSell') {
+				window.saleIdempotencyKey = null;
+				if (typeof resetCart === 'function') resetCart();
+			}
+
 			// slice 22: show the system-generated per-org invoice number returned by addSell
 			if (data.object) {
 				showSaleSuccess('Sale recorded — Invoice ' + data.object);
 				// G6 (slice 38): auto-print the receipt for a new sale (hidden iframe — no popup block). Owner-
 				// configurable (pos.receipt.autoPrint, default ON); when off, the cashier reprints from the sale's
 				// Print button instead.
-				if (method === 'addSell' && window.posAutoPrintReceipt !== false && typeof printReceipt === 'function') { printReceipt(data.object); }
+				// try/catch, because a receipt is not worth a sale. Before the block above was made atomic a
+				// throw here stranded a full cart against a retired key; the ordering now protects the
+				// checkout, and this keeps a printer problem from also swallowing the dispense record and
+				// the grid refresh below it.
+				if (method === 'addSell' && window.posAutoPrintReceipt !== false && typeof printReceipt === 'function') {
+					try { printReceipt(data.object); }
+					catch (e) { if (window.console) console.error('printReceipt failed for ' + data.object, e); }
+				}
 				// P6 (slice 43): if this sale is dispensing a prescription, record the dispense against it.
 				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
-					dispensePrescription(data.object);
+					// Isolated for the same reason, but NOT silently: a dispense that fails is a controlled
+					// drug unrecorded against a sale that happened, which a pharmacist has to know about.
+					try { dispensePrescription(data.object); }
+					catch (e) {
+						if (window.console) console.error('dispensePrescription failed for ' + data.object, e);
+						// ui.js.* — LocaleInterceptor ships only that prefix to the browser, and t() returns
+						// the KEY itself when one is missing, so a plain `ui.` name renders as literal text.
+						showFormError(t ? t('ui.js.dispenseNotRecorded')
+							: 'The sale was recorded, but the prescription could not be marked as dispensed.');
+					}
 				}
 				// E1 (slice 46) used to post /recordOrder from here, so a Store sale became an order only if the
 				// browser was still around to say so — close the tab or lose the network and the sale survived
@@ -1179,8 +1222,15 @@ function jsonPost(method,data) {
 		        mylink.click();
 			}
 */
-			loadDataTable();
-			resetCart();
+			// A grid refresh is cosmetic; a throw here must not be the last word on a committed write.
+			// loadDataTable() opens with tableSellReport.clear().draw(), so it is exactly the kind of call
+			// that can fail on a screen whose report table was never initialised.
+			try { loadDataTable(); }
+			catch (e) { if (window.console) console.error('loadDataTable failed after ' + method, e); }
+
+			// addSell already cleared the cart in the atomic block above - clearing it twice would undo an
+			// edit-mode exit the operator has since re-entered. Every other method still ends here.
+			if (method !== 'addSell' && typeof resetCart === 'function') resetCart();
 		}, fail: function(data, textStatus, errorThrown) {
 			showFormError(apiFailMessage(data, 'Network error. Please check your connection and try again.'));
 		}, error: function(data, textStatus, errorThrown) {

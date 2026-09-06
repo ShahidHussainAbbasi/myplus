@@ -150,7 +150,23 @@ public class SagaSaleWriter {
         // this stamp exists to avoid. If a proper display name is wanted on the document, the right fix is
         // to add it to the JWT claims so it arrives with the request, not to look it up while printing.
         if (!replaceLines && ch.getBookedByName() == null && user.getEmail() != null) {
-            ch.setBookedByName(user.getEmail());
+            /*
+             * THE NAME, not the address.
+             *
+             * This column is called booked_by_name and held user.getEmail(), so every receipt printed
+             * "shahzad…@gmail.com" where the counter hand's name belongs. Measured on a live tenant: every
+             * invoice on the shop's account carried the address.
+             *
+             * Falls back to the email, deliberately. A token minted before the `name` claim shipped carries
+             * no name, and so does an account whose owner never filled one in — and a blank "served by" line
+             * on a customer's receipt is worse than an address. The document degrades to exactly what it
+             * printed yesterday rather than to nothing.
+             *
+             * STAMPED AT WRITE, never resolved at print: a document records who made this sale. Resolving it
+             * later would rewrite old receipts when somebody is renamed or leaves.
+             */
+            String bookedBy = user.getDisplayName();
+            ch.setBookedByName(bookedBy != null && !bookedBy.isBlank() ? bookedBy : user.getEmail());
         }
 
         // Settle: an edit KEEPS the invoice's prior payment and ADDS any new tender; a new sale starts at 0.

@@ -84,9 +84,48 @@ public class AuditEvent {
     @Column(name = "event_key", length = 64)
     private String eventKey;
 
+    /**
+     * ⚠ Persisted as a LocalDateTime and serialised WITH AN OFFSET — see {@link #getOccurredAt()}.
+     *
+     * <p>The field is {@code @JsonIgnore}d and the offset-carrying getter below carries the same name on the
+     * wire, so storage keeps the type it has always had and every reader gets an unambiguous instant.
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "occurred_at")
     private LocalDateTime occurredAt;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "received_at")
     private LocalDateTime receivedAt;
+
+    /**
+     * When it happened, as an instant the caller cannot misread.
+     *
+     * <h3>The defect this fixes</h3>
+     * {@code LocalDateTime.toString()} produces {@code 2026-09-04T20:52:10} — no zone, no offset — and a
+     * browser parses that as ITS OWN local time. The services run UTC and the people using them do not, so
+     * the operator console's Activity panel computed every age against a timestamp five hours out: an event
+     * from two minutes ago read as five hours old, and nothing looked broken.
+     *
+     * <p>E5 hit exactly this on the support-session countdown, where it was catastrophic rather than merely
+     * wrong — a live session read as expired four and a half hours earlier. This is the same defect on the
+     * screen next to it, fixed the same way.
+     *
+     * <p>Named {@code occurredAt} on the wire, so no consumer changes: it is the same field, now
+     * self-describing.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty("occurredAt")
+    public String getOccurredAtIso() {
+        return iso(occurredAt);
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("receivedAt")
+    public String getReceivedAtIso() {
+        return iso(receivedAt);
+    }
+
+    private static String iso(LocalDateTime t) {
+        return t == null ? null
+                : t.atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString();
+    }
 }

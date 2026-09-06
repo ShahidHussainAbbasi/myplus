@@ -116,6 +116,10 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
 
                 String userId = String.valueOf(claims.get("userId"));
                 String email = claims.getSubject();
+                // The person's NAME for documents. A token minted before this claim existed simply has none,
+                // and every consumer falls back to the email — so an old session keeps working unchanged.
+                Object nameObj = claims.get("name");
+                String name = (nameObj == null) ? null : String.valueOf(nameObj).trim();
                 Object rolesObj = claims.get("roles");
                 String roles = rolesObj != null ? rolesObj.toString() : "";
                 Object privilegesObj = claims.get("privileges");
@@ -149,6 +153,10 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                             h.remove("X-Org-Id");
                             h.remove("X-User-Id");
                             h.remove("X-User-Email");
+                            // Stripped for the same reason as the two above: a header the gateway stamps is
+                            // one a client must never be able to supply. This one prints on a customer's
+                            // receipt as who served them, so a spoofed value forges a signature.
+                            h.remove("X-User-Name");
                             h.remove("X-User-Roles");
                             h.remove("X-User-Privileges");
                             h.remove("X-Location-Id");
@@ -174,6 +182,9 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                         })
                         .header("X-User-Id", userId)
                         .header("X-User-Email", email != null ? email : "")
+                        // The person's NAME for documents (a receipt's "served by"). Empty when the token
+                        // predates the claim or the account has no name — every reader falls back to email.
+                        .header("X-User-Name", name != null ? name : "")
                         .header("X-User-Roles", roles)
                         .header("X-User-Privileges", privileges)
                         .header("X-Org-Id", orgId)
