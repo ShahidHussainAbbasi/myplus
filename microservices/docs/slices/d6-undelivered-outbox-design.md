@@ -399,3 +399,120 @@ the residue is one row; worth doing the next time this module is touched.
   and is **not recorded** — a gap in the same accountability argument this slice is built on. auth and catalog
   have one.
 * **The 29 undiagnosed GL failures.** The instrument now exists to find out; §7 is the separate consented step.
+
+
+---
+
+## 14. D6-1 executed: one replay, and what it found
+
+Row 28 (`FEE_CHARGE`, fee 49, PKR 1,000) re-driven through the control built in this slice — one row, named by
+id, with a reason, recorded.
+
+```
+id 28 · status POSTED · attempts 0 · last_error NULL
+```
+
+**Attempts 0 — it succeeded first try**, and the entry is correct and balanced:
+
+```
+1100  Accounts Receivable   Dr 1,000.00
+4100  Fee Income                        Cr 1,000.00
+```
+
+**So the cause is fixed.** `V5__accounts_unique_org_code` closed it, and the 29 generic-500 rows were almost
+certainly the same `NonUniqueResultException` masked by `GlobalExceptionHandler` no longer echoing
+`ex.getMessage()`. *Almost certainly* — the replay proves the cause is gone, not that both batches shared one.
+That is as far as the evidence goes.
+
+### ⚠⚠ And it found a defect that blocked the bulk replay
+
+```
+outbox row 28 created   2026-08-16 09:45   ← when the fee was charged
+journal entry 3727      2026-09-06         ← when it was replayed
+```
+
+Traced end to end:
+
+| Step | What happens |
+|---|---|
+| `FeeCollectionController` | sends `.date(LocalDate.now())` ✓ |
+| `myplusdb_education.gl_outbox` | **no date column** — dropped here |
+| `GlOutboxService.toReq()` | hard-coded `.date(LocalDate.now())` **at delivery** |
+| `PostingService.post()` | `entryDate(date != null ? date : now())` |
+
+Asymmetric, and that is the tell: **`myplusdb.gl_outbox` has `event_date`; education's did not.** Business
+solved it in its own V60 with the same reasoning — *"across a month end, into the wrong period, with nothing
+on screen to show it"* — and education, written from the same template, missed it. The recorded trap exactly:
+**a new `PostingEventRequest` field needs five places or it vanishes.** It existed on the DTO at both ends and
+still fell through the middle.
+
+Same-day delivery hides it completely, which is why business's 2,906 postings look right. Replaying the
+remaining 55 would have posted **PKR 136,510 of 7–16 August fees dated 6 September** — and no period lock
+protects org 14, so nothing would have stopped it.
+
+### Step 1, done
+
+* `V29__gl_outbox_event_date.sql` — `event_date DATE NULL`, and **backfills every existing row from
+  `created_at`**, which is when the fee was collected and therefore the truth for all 56.
+* `GlOutbox.eventDate` — mirrors business's column type and nullability exactly, so `ddl-auto=validate`
+  cannot crash-loop the service and the two cannot drift on where a fee lands.
+* `enqueue` stamps the caller's date; `toReq` uses **the row's** date, falling back to `created_at` then
+  `now()` — business's chain, verbatim.
+
+### Steps 2–4, after education is rebuilt
+
+2. Verify the backfill: all 56 rows carry an August `event_date`.
+3. Replay the remaining 55 and reconcile org 14's AR and 4100 against **PKR 137,510**.
+4. Decide on entry **3727**, which is itself mis-dated — PKR 1,000 in an unclosed period.
+
+
+---
+
+## 15. D6-1 complete: the 56 education GL events are in the books
+
+Steps 2-4 executed after `V29` shipped.
+
+**Step 2 — the backfill is clean.** All 56 rows carry an August `event_date` (7-16 Aug), none null. Verified
+before replaying, because that column is the only thing standing between a replay and the wrong period.
+
+**Step 3 — the 55 replayed, all POSTED.** Through the control, `all: true`, with a reason, recorded.
+
+**The reconciliation, org 14:**
+
+| Account | Dr | Cr |
+|---|---:|---:|
+| 1000 Cash | 39,000.00 | |
+| 1100 Accounts Receivable | 91,510.00 | 9,000.00 |
+| 2200 Store Credit | 8,000.00 | 38,000.00 |
+| 4100 Fee Income | | 91,510.00 |
+| | **138,510.00** | **138,510.00** |
+
+Balanced to zero. Every figure ties to the analysis:
+
+* **Fee Income 91,510** = 39 replayed `FEE_CHARGE` (90,510) + row 28's 1,000.
+* **Store Credit** Cr 38,000 = 12 `FEE_CREDIT_ISSUED`; Dr 8,000 = 4 `FEE_CREDIT_APPLIED`.
+* **Cash 39,000** = 38,000 credit issued + the 1,000 `RECEIPT` that was already there.
+* Total moved: **PKR 137,510**, exactly the figure the analysis measured from the outbox three days earlier.
+
+**Step 4 — entry 3727 corrected.** It was the one replayed *before* `V29`, so it carried 6 September. Its
+source row says 16 August, and that is now its date. **Date only** — no amount, no account, no line touched,
+and the ledger still balances at 138,510.
+
+⚠ Done as a direct `UPDATE`, and that is worth stating plainly: there is **no product path to amend a posted
+entry's date**. Reversing and reposting would have added two entries to correct one field in an unclosed
+period. The alternative was leaving a knowingly-wrong date in the books, which is worse. If entry amendment
+becomes a real requirement, it needs its own slice — this was a one-row correction of a defect this work
+introduced and then fixed.
+
+### Where every outbox stands now
+
+```
+myplusdb.gl_outbox            FAILED=1    POSTED=2991
+myplusdb_education.gl_outbox  FAILED=0    POSTED=56     ← was 56 FAILED, 0 POSTED
+myplusdb_auth.audit_outbox    FAILED=8    POSTED=265
+```
+
+**Still open, deliberately:** the 1 business `SALE` and the 8 auth rows. The auth eight are E5 gate leftovers
+(noise). The business one is a real event and a separate diagnosis — it failed on 16 August with the same
+masked generic 500, and the same argument that justified this replay applies to it. It is not covered by the
+education fix, because business already had `event_date`; its failure has a different cause.

@@ -61,6 +61,47 @@
 	 * <p>Re-summing the cart lines here would be worse still — two places computing one total is how a plan
 	 * comes to finance an amount the invoice does not carry.
 	 */
+	/**
+	 * SER-3b (fix) — the serial this plan finances, read from the CART.
+	 *
+	 * <h3>Why not #sellSerials, which is what this used to read</h3>
+	 * That box belongs to the line-ENTRY row. Add-to-Cart pushes the line and then immediately calls the
+	 * generic resetForm() (business.js, right after data.push) — which clicks .resetForm, fires the form's
+	 * reset, and empties the box; the same clearing applySerialQuantityLock() exists to notice. So by the
+	 * time the sale is submitted the box is blank, and the plan was built with assetRef = null on EVERY
+	 * financed sale.
+	 *
+	 * The mechanism above is the evidence — it is checkable in source and stays true. The database only
+	 * agrees weakly and is worth reading honestly: of 351 plans, 148 carry an empty asset_ref and the ten
+	 * most recent are all empty, but NO serial was consumed against any of those invoices either, so they
+	 * are equally consistent with nobody having typed one. Do not cite them as proof of this bug.
+	 *
+	 * Silent while `pos.installment.serialRequired` is off — the plan simply recorded no serial, which is
+	 * the one thing INST-5a exists to record. Switch the setting on and the same gap becomes a refusal the
+	 * cashier cannot satisfy: the number is asked for, typed, and then read from somewhere it no longer is.
+	 *
+	 * <h3>ONE serial, not a list</h3>
+	 * assetRef is unique across live plans (V44's uq_plan_live_asset), so it must be a single value. A
+	 * financed sale is a financed ASSET — the handset — and the first serial in the cart is it. A basket
+	 * that also carries a tracked charger does not make the plan about the charger.
+	 *
+	 * The entry box remains the fallback, for the operator who types a serial and completes the sale without
+	 * a separate Add-to-Cart step.
+	 */
+	function cartSerial() {
+		var cart = global.data;
+		if (cart && cart.length) {
+			for (var i = 0; i < cart.length; i++) {
+				var raw = cart[i] && cart[i].serials ? String(cart[i].serials) : '';
+				// A line may carry several units; the plan names one. Split the way the server does.
+				var first = raw.split(/[\r\n,]+/).map(function (x) { return x.trim(); })
+					.filter(function (x) { return x.length > 0; })[0];
+				if (first) return first;
+			}
+		}
+		return $.trim($('#sellSerials').val() || '') || null;
+	}
+
 	function cartTotal() {
 		var el = $('#sellTotal')[0];
 		if (!el) return 0;
@@ -441,10 +482,13 @@
 			 * was asked for twice on one screen and the two could disagree — with nothing saying which one
 			 * the serial register would actually read.
 			 *
-			 * assetRef is the plan's human LABEL ("which handset is this plan against?"); #sellSerials is
-			 * what the register validates. One number, entered once, doing both jobs.
+			 * assetRef is the plan's human LABEL ("which handset is this plan against?"); the serial register
+			 * validates the same number. One number, entered once, doing both jobs.
+			 *
+			 * ⚠ Read from the CART, not from #sellSerials directly — Add-to-Cart clears that box, so reading
+			 * it here produced assetRef = null on every financed sale. See cartSerial().
 			 */
-			assetRef: $.trim($('#sellSerials').val() || '') || null,
+			assetRef: cartSerial(),
 			// R4 - an ARRAY, and it must exist on BOTH InstallmentPlanDTO twins or it is dropped in transit:
 			// the monolith re-serialises this block on its way to business-service, so a field on one side
 			// only vanishes silently and the sale still succeeds.

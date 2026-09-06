@@ -84,6 +84,9 @@ public class GlOutboxService {
         o.setGrandTotal(req.getGrandTotal());
         o.setPaidAmount(req.getPaidAmount());
         o.setMethod(req.getMethod());
+        // D-6 — the transaction date, kept on the row. The caller sends it; before V29 there was nowhere to
+        // put it and it was silently dropped, so a retry posted whatever date it happened to run on.
+        o.setEventDate(req.getDate() != null ? req.getDate() : java.time.LocalDate.now());
         o.setStatus("PENDING");
         o.setAttempts(0);
         o.setOrganizationId(CurrentUser.organizationId());
@@ -111,7 +114,18 @@ public class GlOutboxService {
     private PostingEventRequest toReq(GlOutbox o) {
         return PostingEventRequest.builder()
                 .eventType(o.getEventType()).eventKey(o.getEventKey())
-                .date(LocalDate.now()).ref(o.getRef())
+                /*
+                 * D-6 — the ROW's date, never now().
+                 *
+                 * This line used to read `LocalDate.now()`, which dated a journal entry by when the relay
+                 * happened to succeed. Same-day delivery hid it completely; a replay three weeks later put
+                 * August fees into September. The fallback chain is business-service's, exactly: the stamped
+                 * date, else created_at (when the fee was collected — closer to the truth than today), else
+                 * now() for a row with neither.
+                 */
+                .date(o.getEventDate() != null ? o.getEventDate()
+                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : LocalDate.now()))
+                .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).paidAmount(o.getPaidAmount())
                 .method(o.getMethod())
                 .build();

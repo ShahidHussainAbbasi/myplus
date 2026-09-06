@@ -67,6 +67,20 @@ public class GlOutbox implements com.myplus.common.outbox.OutboxEntry {
     @Column(name = "user_id")
     private Long userId;
 
+    /**
+     * D-6 — the date the money actually moved, carried so a RETRY cannot post it into the wrong period.
+     *
+     * <p>Without it the delivery stamped {@code LocalDate.now()}, which is right only when delivery is
+     * immediate. Replaying one 16-August fee on 6 September posted it dated 6 September. business-service's
+     * V60 solved this first and this mirrors it exactly — same column type, same nullability, same
+     * fall-back-to-createdAt on delivery — so the two services cannot drift on where a fee lands.
+     *
+     * <p>Nullable for rows queued before V29; V29 backfills them from {@code created_at}, which is when the
+     * fee was collected and is therefore the truth for every one of them.
+     */
+    @Column(name = "event_date")
+    private java.time.LocalDate eventDate;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

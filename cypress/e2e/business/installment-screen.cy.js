@@ -46,6 +46,8 @@ describe('INST-1 — the sale screen sells on terms', () => {
     // Leave no server state behind: a setting left ON changes the sale screen for every later spec.
     cy.loginAsOwner()
     setConfig('pos.installment.enabled', 'false')
+    setConfig('pos.entry.showSerial', 'true')          // catalog defaults; this file sets them explicitly
+    setConfig('pos.sale.confirmOnComplete', 'true')
   })
 
   // ── the panel is a tenant decision ────────────────────────────────────────────────────────────────────
@@ -159,6 +161,13 @@ describe('INST-1 — the sale screen sells on terms', () => {
     const run = uniq()
     const buyer = `UI Buyer ${run}`
     setConfig('pos.installment.enabled', 'true')
+    // SER-3c made the serial box hideable per tenant. This case TYPES into it, so it sets the field on
+    // rather than inheriting whatever a previous spec left. ON is the catalog default, so this restores
+    // the default rather than departing from it - and after() puts it back regardless.
+    setConfig('pos.entry.showSerial', 'true')
+    // Same reasoning for the till's confirm dialog: this case CLICKS Complete Sale, so it pins the
+    // setting instead of inheriting it. 'true' is the catalog default.
+    setConfig('pos.sale.confirmOnComplete', 'true')
 
     cy.seedProduct({ name: `UIS_${run}`, sellingPrice: 60000, stock: 5 }).then(({ productId }) => {
       cy.visit('/businessDashboard')
@@ -166,9 +175,31 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellType').select('sellDiv', { force: true })
 
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
-      cy.get('#sellItems').clear().type('1')
+
+      /*
+       * SER-3b - the IMEI is typed on the LINE, before Add to Cart, and there is no second field for it.
+       *
+       * This case used to type into #instAssetRef, a box on the plan panel that asked for the same number
+       * a second time. That input is gone, so the case was red against a field that no longer exists.
+       *
+       * Typing a serial also forces the quantity to 1 and locks it: a serialled line is ONE unit. Asserted
+       * rather than assumed, because that lock is what makes `serials` a single value a plan can carry.
+       */
+      cy.get('#sellSerials').clear().type(`IMEI${run}`)
+      cy.get('#sellItems').should('have.value', '1').and('have.attr', 'readonly')
+
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()
+
+      /*
+       * THE MECHANISM THIS CASE EXISTS FOR.
+       *
+       * Add to Cart runs the generic resetForm(), which empties the entry box. So the plan CANNOT read
+       * #sellSerials at submit time - it did, and every financed sale was built with assetRef = null.
+       * Asserting the box is empty here pins why installment.js reads the serial off the CART instead:
+       * delete cartSerial() and the assetRef assertion at the bottom of this case goes red again.
+       */
+      cy.get('#sellSerials').should('have.value', '')
 
       // A financed sale needs a named customer — it is chased for months.
       cy.get('#btnModeManual').click({ force: true })
@@ -181,12 +212,28 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellOnInstallment').check({ force: true })
       cy.get('#instCount').clear().type('6')
       cy.get('#instFirstDueDateText').clear().type(ddmmyyyy(monthsOut(1))).blur()
-      cy.get('#instAssetRef').clear().type(`IMEI${run}`)
       cy.get('#instCount').trigger('change')
       cy.get('#instScheduleTable tbody tr', { timeout: 10000 }).should('have.length', 6)
 
       cy.intercept('POST', '**/addSell').as('sale')
       cy.get('#addSell').click({ force: true })
+
+      /*
+       * ANSWER THE TILL'S CONFIRM DIALOG - Complete Sale posts NOTHING until a cashier does.
+       *
+       * pos.sale.confirmOnComplete is on by default, and the client deliberately fails OPEN (absent =>
+       * on), so this dialog appears for any tenant that has never touched the setting. Skip it and the
+       * cy.wait below dies with "No request ever occurred", which reads like a broken sale rather than an
+       * unanswered question - it is how this case failed the first time it got this far.
+       *
+       * Asserted visible and then answered, rather than clicked only if present: a conditional that finds
+       * no dialog silently proves nothing, and this case cannot pass without completing the sale.
+       *
+       * Keyed on [data-ui-confirm="ok"] - the stable hook confirm-dialog.js puts there for tests - and not
+       * on the button's text. bonus-schemes-p3.cy.js matches /complete|finaliser|finalizar/i instead, which
+       * is one more language away from breaking; pos-sale-endtoend.cy.js already uses this attribute.
+       */
+      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible').click({ force: true })
 
       cy.wait('@sale', { timeout: 20000 }).then((i) => {
         // THE assertion the API spec cannot make: the BROWSER put the plan block on the wire. If main.js
