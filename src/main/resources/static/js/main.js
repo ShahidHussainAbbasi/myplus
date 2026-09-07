@@ -546,14 +546,20 @@ $(document).ready(function() {
 						var instPlan = installmentPlanForSale();
 						if (instPlan) customerHistory.installmentPlan = instPlan;
 					}
-					// R4 - stop the cashier HERE when the shop requires guarantors and they are not entered.
-					// The server refuses the PLAN either way, following the contract every other plan refusal
-					// has had since INST-1 (a message, and the sale stands) - but a shop that asked for the
-					// rule would rather be stopped before the receipt prints than told afterwards.
-					if (typeof guarantorProblem === 'function') {
-						var gProblem = guarantorProblem();
-						if (gProblem) { showFormError(gProblem); return false; }
-					}
+					/*
+					 * R4b - GUARANTORS NEVER STOP A SALE.
+					 *
+					 * This used to call guarantorProblem() and `return false`, which made a guarantor
+					 * shortfall the ONLY plan rule able to stop the cashier before anything was recorded -
+					 * unsound terms and an uncollected deposit both let the sale complete with a message.
+					 * A shop that had asked to be prompted for two guarantors could not sell to a customer
+					 * who arrived without them.
+					 *
+					 * `installments.guarantorsRequired` now says how many the screen ASKS for. The panel
+					 * still renders that many blocks and still counts "1 of 2 recorded" live, and the server
+					 * notes any shortfall on the plan message - so the shop is prompted and informed, and
+					 * never blocked.
+					 */
 					// G5 (slice 37): record how the sale is paid. One tender from the chosen method + amount received;
 					// CREDIT = on account (not counted as paid). Backend settles paid/due against the grand total.
 					var payMethod = $("#sellPayMethod").val() || 'CASH';
@@ -628,8 +634,33 @@ $(document).ready(function() {
 						}
 					}
 			    }else{
-					    	document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
-					    	showFormError('Please add items to the cart and enter a valid payment amount.');
+					/*
+					 * NAME THE ONE THING THAT IS WRONG, and put the cursor on it.
+					 *
+					 * This branch is reached two ways that have nothing to do with each other — an empty
+					 * cart, or a cart with no payment against it — and it used to answer both with one
+					 * sentence covering both ("add items to the cart AND enter a valid payment amount")
+					 * while reddening the Received box either way. A cashier with an empty till was sent
+					 * to a field that was not the problem, and told to fix something that was not wrong.
+					 *
+					 * An error has to say what happened and how to fix it. Two causes, two messages, and
+					 * the cursor lands where the answer goes — which for an empty cart is the goods, not
+					 * the money.
+					 */
+					document.getElementById("sellRec").style.removeProperty('border-color');
+					if (!data || data.length === 0) {
+						showFormError(t ? t('ui.js.sellNeedsItems')
+							: 'Add at least one item before completing the sale.');
+						// The goods, not the till: pos-keyboard owns "where are items typed on THIS
+						// screen" (the scan box, or the picker when scanning is off), so ask it rather
+						// than naming a field that a tenant may have switched off.
+						if (typeof posFocusGoodsEntry === 'function') posFocusGoodsEntry();
+					} else {
+						document.getElementById("sellRec").style.setProperty('border-color', 'red', 'important');
+						showFormError(t ? t('ui.js.sellNeedsPayment')
+							: 'Enter the amount received, or choose Credit to put this sale on account.');
+						$('#sellRec').focus();
+					}
 					    }
 			}else{
 				// Purchase (add AND edit — this handler serves both): block client-side when no item is selected,

@@ -57,6 +57,37 @@ const receiveSerial = (productId, serial) =>
     expect(r.body && r.body.status, `receiveSerial: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
   })
 
+/**
+ * Switch the installment panel on and WAIT FOR ITS OWN AJAX to land.
+ *
+ * ⚠ Why an intercept and not a "wait for the overlay to clear".
+ *
+ * R4 made ticking #sellOnInstallment call loadGuarantorPolicy(), which fires two $.gets
+ * (guarantorsRequired, recentGuarantors). jQuery's ajaxStart then raises the shared "Please wait"
+ * overlay over the panel, so a cy.type() into #instCount or #instFirstDueDateText fails with
+ * "covered by another element: <div class='ao-box'>".
+ *
+ * Asserting the overlay is NOT visible does not fix it and is worse than nothing: ajaxStart fires when
+ * the request BEGINS, so an assertion running in the gap between the click and the first request finds
+ * no overlay, passes instantly, and hands back a screen that is about to be covered. That is exactly
+ * how this file failed twice - once on #instCount, then again on the date box a few lines further on.
+ *
+ * Waiting for the RESPONSES is deterministic: when both have landed the overlay is down for good and
+ * renderGuarantorBlocks() has already redrawn the panel, so nothing is still moving underneath.
+ */
+const openPlanPanel = () => {
+  cy.intercept('GET', '**/guarantorsRequired*').as('gReq')
+  cy.intercept('GET', '**/recentGuarantors*').as('gRecent')
+
+  // Pin the seeded instalment count before the panel opens: toggleInstallmentPanel() reads
+  // (posInstallmentCount || 6) and this spec must not inherit whatever a tenant chose.
+  cy.window().then((w) => { w.posInstallmentCount = 6 })
+  cy.get('#sellOnInstallment').check({ force: true })
+
+  cy.wait('@gReq', { timeout: 20000 })
+  cy.wait('@gRecent', { timeout: 20000 })
+}
+
 const monthsOut = (n) => {
   const d = new Date()
   d.setMonth(d.getMonth() + n)
@@ -162,24 +193,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()
 
-      // Pin the seeded instalment count before the panel opens: toggleInstallmentPanel() reads
-      // (posInstallmentCount || 6) and this spec must not inherit whatever a tenant chose.
-      cy.window().then((w) => { w.posInstallmentCount = 6 })
-      cy.get('#sellOnInstallment').check({ force: true })
-
-      /*
-       * WAIT FOR THE PANEL'S OWN AJAX before typing into it.
-       *
-       * R4: switching the plan on calls loadGuarantorPolicy(), which fires two $.gets
-       * (guarantorsRequired, recentGuarantors). jQuery's ajaxStart raises the "Please wait" overlay, and
-       * #appAjaxOverlay covers #instCount - so cy.type() fails with "covered by another element:
-       * <div class='ao-box'>". Before R4 this toggle fired no request and typing straight in worked, which
-       * is why both cases in this file were written without the wait.
-       *
-       * Waited out rather than forced through: {force: true} would type into a field behind a modal
-       * overlay and race the very response that redraws this panel.
-       */
-      overlayGone()
+      openPlanPanel()
 
       /*
        * LET THE PANEL FINISH SEEDING BEFORE OVERWRITING IT.
@@ -308,11 +322,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       // On account: the whole balance is the plan.
       cy.get('#sellPayMethod').select('CREDIT', { force: true })
 
-      // Pin the seeded instalment count before the panel opens: toggleInstallmentPanel() reads
-      // (posInstallmentCount || 6) and this spec must not inherit whatever a tenant chose.
-      cy.window().then((w) => { w.posInstallmentCount = 6 })
-      cy.get('#sellOnInstallment').check({ force: true })
-      overlayGone()   // R4's guarantor fetch raises the overlay over this panel - see the case above
+      openPlanPanel()
       // Seeded first, then overwritten - see the case above for why a bare clear() yields 66.
       // Seeded from posInstallmentCount, pinned above - never cleared. See the case above for why a
       // clear() here yields 66.

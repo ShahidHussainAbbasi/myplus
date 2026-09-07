@@ -1023,8 +1023,41 @@ public class SellController {
 					// generic failure instead of the reason.
 					return new GenericResponse("FAILED", notAllowed.getMessage());
 				}
+				/*
+				 * ⭐ INST-5b — is there anything on this sale that HAS a serial?
+				 *
+				 * The rule used to be the tenant setting alone, so a shop that turned it on could not
+				 * finance a product that has no serial to give: Shahzad Mobile Shop (org 41) was refused
+				 * selling Panadol on terms, for an item the catalog already flags requires_serial = 0.
+				 * Most shops are mostly untracked — that org is 3 untracked to 1 tracked — so a blanket
+				 * rule refuses the ordinary case and permits nothing extra.
+				 *
+				 * ONE batch call, and only on a financed sale (this whole block is inside
+				 * `installmentPlan != null`), so the standing rule against per-line remote calls on the
+				 * sale path is kept — see the note in SagaSellService where the same flag is read from a
+				 * ProductRef already in hand.
+				 *
+				 * ⚠ FAILS CLOSED. If the catalog cannot be reached, `productRefs` returns an empty map and
+				 * we CANNOT tell whether the item is tracked. The old behaviour is kept in that case — the
+				 * serial is still required — because a guard that switches itself off when a dependency
+				 * blinks reads as protection while providing none, which is the same reasoning as the
+				 * capability check immediately above. A cashier can still complete the sale by typing the
+				 * serial; nobody silently loses a rule they turned on.
+				 */
+				java.util.List<Long> soldProductIds = dto.getSales().stream()
+						.map(com.myplus.business_service.dto.SellDTO::getProductId)
+						.filter(java.util.Objects::nonNull)
+						.distinct()
+						.collect(java.util.stream.Collectors.toList());
+				java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> soldRefs =
+						productRefs(soldProductIds);
+				boolean anySerialTracked = soldRefs.isEmpty()
+						? true   // catalog unreachable: keep the old, stricter behaviour — see above
+						: soldRefs.values().stream()
+								.anyMatch(r -> Boolean.TRUE.equals(r.getRequiresSerial()));
+
 				String serialProblem = installmentPlanService.validateSerial(
-						orgId(), dto.getInstallmentPlan().getAssetRef());
+						orgId(), dto.getInstallmentPlan().getAssetRef(), anySerialTracked);
 				if (serialProblem != null) return new GenericResponse("FAILED", serialProblem);
 
 				/*
@@ -2041,20 +2074,17 @@ public class SellController {
 			}
 
 			/*
-			 * R4 — the guarantors, checked BEFORE a plan number is allocated.
+			 * ⭐ R4b — the guarantors are REVIEWED, never a reason to refuse.
 			 *
-			 * Ordered here, with the other plan refusals, for two reasons: a document number allocated for a
-			 * plan that is then refused is a gap in the shop's series, and per-org numbers are SERIALISED, so
-			 * allocating one before a check that can fail holds the sequence for nothing.
+			 * This used to be a refusal sitting with the other plan refusals above, and {@code main.js}
+			 * stopped the sale outright before it — the only plan rule that did. A shop that had asked to
+			 * be prompted for two guarantors could not sell to a customer who arrived without them.
 			 *
-			 * The refusal follows this method's existing contract exactly — a MESSAGE, and THE SALE STANDS.
-			 * A guarantor shortfall is not uniquely able to fail a sale when unsound terms and an uncollected
-			 * deposit are not.
+			 * Now: what was entered is kept, what is unsound is dropped, and what is missing is NOTED on the
+			 * message. The plan is created either way. See PlanGuarantorService.review.
 			 */
-			String guarantorProblem = planGuarantorService.validate(orgId, customerId, p.getGuarantors());
-			if (guarantorProblem != null) {
-				return "Installment plan NOT created: " + guarantorProblem;
-			}
+			com.myplus.business_service.service.PlanGuarantorService.GuarantorReview guarantors =
+					planGuarantorService.review(orgId, customerId, p.getGuarantors());
 
 			// Retried on a lost plan-number race, exactly as the invoice is. create() is REQUIRES_NEW, so
 			// each attempt gets a fresh transaction — retrying inside the poisoned one is what made this
@@ -2074,13 +2104,17 @@ public class SellController {
 			/*
 			 * Stamped AFTER the plan exists, because they carry its id — and outside create()'s REQUIRES_NEW
 			 * transaction on purpose. A guarantor row that failed to write must not roll back a plan the
-			 * customer has already been told about and already owes; validate() above is what makes that
-			 * safe, since by here the shop has entered everything the rule asked for.
+			 * customer has already been told about and already owes. That is more clearly right since R4b:
+			 * guarantors are optional, so losing one can never be worth losing the plan.
 			 */
-			planGuarantorService.save(fOrg, plan.getId(), fUser, p.getGuarantors());
+			planGuarantorService.save(fOrg, plan.getId(), fUser, guarantors.accepted());
 
-			return "Installment plan " + plan.getPlanNo() + " created ("
+			// The remarks ride on the success message: the plan was created, and here is what to know about
+			// the guarantors on it. A shop that asked to be prompted for two still learns it recorded one.
+			String created = "Installment plan " + plan.getPlanNo() + " created ("
 					+ plan.getInstallmentCount() + " payments).";
+			String remarks = guarantors.message();
+			return remarks == null ? created : created + " " + remarks;
 
 		} catch (Exception e) {
 			LOGGER.error("INST-1: plan creation failed for invoice {} — the SALE stands", invoiceNo, e);

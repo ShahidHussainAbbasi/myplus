@@ -68,78 +68,129 @@ public class PlanGuarantorService {
     }
 
     /**
-     * Check the guarantors a sale is carrying, BEFORE any plan is created.
+     * The outcome of looking over what a sale entered: the rows to KEEP, and what to tell the shop.
      *
-     * @return an operator-readable refusal, or {@code null} when the sale may proceed
-     *
-     * <h3>The refusal names the number, because "invalid" is not actionable</h3>
-     * A cashier who is told "this sale needs 2 guarantors; 1 has been entered" knows what to do. One who is
-     * told the request was invalid does not.
-     *
-     * <h3>Two slips this refuses, and why each matters</h3>
-     * <ul>
-     *   <li><b>The same person twice.</b> Two rows, one guarantor — the shop believes it has two people and
-     *       has one.</li>
-     *   <li><b>The buyer guaranteeing himself.</b> A plan guaranteed by its own debtor is worth precisely
-     *       nothing, and it is the easiest mistake the form can make.</li>
-     * </ul>
+     * <p>There is no "refused" state, deliberately — see {@link #review}.
      */
-    public String validate(Long orgId, Long buyerCustomerId, List<GuarantorDTO> submitted) {
-        List<GuarantorDTO> named = namedOnly(submitted);
-        int required = requiredCount(orgId);
+    public static final class GuarantorReview {
+        private final List<GuarantorDTO> accepted;
+        private final List<String> notes;
 
-        if (named.size() < required) {
-            return "this sale needs " + required + " guarantor" + (required == 1 ? "" : "s")
-                    + "; " + named.size() + " " + (named.size() == 1 ? "has" : "have") + " been entered.";
+        GuarantorReview(List<GuarantorDTO> accepted, List<String> notes) {
+            this.accepted = accepted;
+            this.notes = notes;
         }
-        if (named.isEmpty()) return null;   // nothing more to check, and nothing was required
 
-        // The same person twice. Keyed on CNIC where there is one, otherwise on name+contact — a shop that
-        // records guarantors by name alone still must not record the same one twice.
+        /** The rows worth saving — everything entered, minus any dropped row named in {@link #notes()}. */
+        public List<GuarantorDTO> accepted() { return accepted; }
+
+        /** Operator-readable remarks. Empty when there is nothing to say. */
+        public List<String> notes() { return notes; }
+
+        /** The remarks as one sentence for the plan message, or {@code null} when there are none. */
+        public String message() {
+            return notes.isEmpty() ? null : String.join(" ", notes);
+        }
+    }
+
+    /**
+     * Look over the guarantors a sale is carrying. <b>Never refuses anything.</b>
+     *
+     * <h3>⭐ R4b — a guarantor is ASKED FOR, never demanded</h3>
+     * This was {@code validate()}, and it returned a refusal that stopped the plan while {@code main.js}
+     * stopped the SALE outright — the only plan rule that did, where unsound terms and an uncollected
+     * deposit both let the sale complete with a message. A shop with a customer at the counter and no
+     * guarantor present simply could not sell.
+     *
+     * <p>So {@code installments.guarantorsRequired} is now how many the screen ASKS for, and no guarantor
+     * problem can refuse a sale or a plan. That is what makes "optional" true: a count that still blocked on
+     * a duplicate would be optional-with-exceptions, which is not what was asked for.
+     *
+     * <h3>The two integrity checks survive as DROPS, not refusals</h3>
+     * They exist to stop a shop believing it holds two guarantors when it holds one, and a note naming the
+     * dropped row prevents that just as well as a refusal did — without a counter that will not sell.
+     * <ul>
+     *   <li><b>The same person twice.</b> The second row is dropped; one guarantor is one guarantor.</li>
+     *   <li><b>The buyer guaranteeing himself.</b> Worth precisely nothing, so it is not recorded as if it
+     *       were worth something.</li>
+     * </ul>
+     *
+     * @return what to save and what to say — never {@code null}
+     */
+    public GuarantorReview review(Long orgId, Long buyerCustomerId, List<GuarantorDTO> submitted) {
+        List<GuarantorDTO> named = namedOnly(submitted);
+        List<GuarantorDTO> accepted = new ArrayList<>();
+        List<String> notes = new ArrayList<>();
+
+        Customer buyer = buyerCustomerId == null ? null : customerRepo.findById(buyerCustomerId).orElse(null);
+        String buyerCnic = buyer == null ? null : normaliseCnic(buyer.getCnic());
+        String buyerPhone = buyer == null ? null : normalisePhone(buyer.getContact());
+
         Set<String> seen = new LinkedHashSet<>();
         for (GuarantorDTO g : named) {
-            String key = identityKey(g);
-            if (!seen.add(key)) {
-                return "the same guarantor has been entered twice (" + trim(g.getName()) + ").";
+            // Keyed on CNIC where there is one, otherwise on name+contact — a shop that records guarantors
+            // by name alone still must not record the same one twice.
+            if (!seen.add(identityKey(g))) {
+                notes.add("The same guarantor was entered twice (" + trim(g.getName())
+                        + "); the duplicate was not recorded.");
+                continue;
             }
+
+            /*
+             * The buyer standing behind his own debt.
+             *
+             * ⚠ MATCHED ON THREE SIGNALS, because CNIC alone is dead code in practice. The first cut
+             * compared CNICs only and the gate caught it immediately: the sale path does not persist
+             * `customer.cnic`, so a buyer created during the sale has none — and platform-wide only 10 of
+             * 2,545 customers carry one. A guard that fires for 0.4% of customers is not a guard.
+             *
+             * In order of how certain each signal is:
+             *   1. customerId — the cashier recalled the buyer's own record. Definitive.
+             *   2. CNIC       — the same national identifier. Definitive when both sides have one.
+             *   3. contact    — the same phone. Not proof of one person, but a guarantor reachable ONLY on
+             *                   the debtor's own number cannot be contacted independently of him, which is
+             *                   the one thing a guarantor has to be. Phone is also NOT NULL on Customer, so
+             *                   this is the signal that actually fires.
+             *
+             * The note names WHICH matched, so a shopkeeper whose customer and guarantor genuinely share a
+             * household phone knows to put the guarantor's own number in.
+             */
+            String self = selfGuaranteeReason(g, buyerCustomerId, buyerCnic, buyerPhone);
+            if (self != null) {
+                notes.add(self);
+                continue;
+            }
+            accepted.add(g);
         }
 
         /*
-         * The buyer standing behind his own debt.
-         *
-         * ⚠ MATCHED ON THREE SIGNALS, because CNIC alone is dead code in practice. The first cut compared
-         * CNICs only and the gate caught it immediately: the sale path does not persist `customer.cnic`, so
-         * a buyer created during the sale has none — and platform-wide only 10 of 2,545 customers carry one.
-         * A guard that fires for 0.4% of customers is not a guard.
-         *
-         * So, in order of how certain each signal is:
-         *   1. customerId — the cashier recalled the buyer's own record. Definitive.
-         *   2. CNIC       — the same national identifier. Definitive when both sides have one.
-         *   3. contact    — the same phone. Not proof of one person, but a guarantor reachable ONLY on the
-         *                   debtor's own number cannot be contacted independently of him, which is the one
-         *                   thing a guarantor has to be. Phone is also NOT NULL on Customer, so this is the
-         *                   signal that actually fires.
-         *
-         * The message names WHICH matched, so a shopkeeper whose customer and guarantor genuinely share a
-         * household phone knows to put the guarantor's own number in rather than guessing at a refusal.
+         * The shortfall — a REMARK now, never a refusal. Still worth saying: a shop that asked to be
+         * prompted for two wants to notice when it recorded one, and the plan message is where it will.
          */
-        Customer buyer = buyerCustomerId == null ? null : customerRepo.findById(buyerCustomerId).orElse(null);
-        if (buyer != null) {
-            String buyerCnic = normaliseCnic(buyer.getCnic());
-            String buyerPhone = normalisePhone(buyer.getContact());
-            for (GuarantorDTO g : named) {
-                if (g.getCustomerId() != null && g.getCustomerId().equals(buyerCustomerId)) {
-                    return "the customer buying cannot also be the guarantor. A guarantor must be somebody else.";
-                }
-                if (buyerCnic != null && buyerCnic.equals(normaliseCnic(g.getCnic()))) {
-                    return "the customer buying cannot also be the guarantor — that is their own CNIC. "
-                            + "A guarantor must be somebody else.";
-                }
-                if (buyerPhone != null && buyerPhone.equals(normalisePhone(g.getContact()))) {
-                    return "that is the buyer's own mobile number. A guarantor needs a number they can be "
-                            + "reached on independently of the customer.";
-                }
-            }
+        int required = requiredCount(orgId);
+        if (required > 0 && accepted.size() < required) {
+            notes.add("Recorded " + accepted.size() + " of " + required + " guarantor"
+                    + (required == 1 ? "" : "s")
+                    + " — the plan stands; add the rest on the plan when you have them.");
+        }
+        return new GuarantorReview(accepted, notes);
+    }
+
+    /** Why this row is the buyer, or {@code null} when it is somebody else. See the note in {@link #review}. */
+    private String selfGuaranteeReason(GuarantorDTO g, Long buyerCustomerId, String buyerCnic,
+            String buyerPhone) {
+        String who = trim(g.getName());
+        if (buyerCustomerId != null && buyerCustomerId.equals(g.getCustomerId())) {
+            return "The customer buying cannot also be the guarantor (" + who
+                    + "); that entry was not recorded.";
+        }
+        if (buyerCnic != null && buyerCnic.equals(normaliseCnic(g.getCnic()))) {
+            return "The customer buying cannot also be the guarantor (" + who
+                    + ") — that is their own CNIC; that entry was not recorded.";
+        }
+        if (buyerPhone != null && buyerPhone.equals(normalisePhone(g.getContact()))) {
+            return "That is the buyer's own mobile number (" + who + "), so a guarantor could not be "
+                    + "reached independently of the customer; that entry was not recorded.";
         }
         return null;
     }
@@ -149,8 +200,9 @@ public class PlanGuarantorService {
     /**
      * Stamp the guarantors onto a plan.
      *
-     * <p>Called after {@link #validate} has passed and the plan exists. Everything the shop relies on is
-     * written here, locally: the party link is attached separately and may never arrive.
+     * <p>Called with {@link GuarantorReview#accepted()} once the plan exists — the caller passes the rows
+     * that survived review, so a dropped duplicate cannot be written by a caller that forgot. Everything
+     * the shop relies on is written here, locally: the party link is attached separately and may never arrive.
      */
     @Transactional
     public List<PlanGuarantor> save(Long orgId, Long planId, Long userId, List<GuarantorDTO> submitted) {

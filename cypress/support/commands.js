@@ -428,6 +428,22 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
     const stockBody = { productId, quantity: overrides.stock }
     stockBody.batchNo = overrides.batchNo || `B${stamp}`
     if (overrides.expiryDate) stockBody.expiryDate = overrides.expiryDate
+
+    /*
+     * ⚠ SEEDED STOCK MUST CARRY A COST, or it is not stock a shop could ever have.
+     *
+     * Every unit received in real life was bought for something. Stock seeded without a cost produced
+     * sell_batch rows with a NULL unit cost, so any assertion about COGS measured ZERO against a general
+     * ledger that had posted the real figure — which is exactly how three bonus-schemes-p3 cases failed:
+     * "the GL posts exactly what the sale consumed: expected 5000 to equal 0".
+     *
+     * Defaults to 60% of the selling price, the ordinary shape of a retail margin, so a fixture that says
+     * nothing about cost still produces books that add up. Pass `purchasePrice` to pin it.
+     */
+    const cost = overrides.purchasePrice != null
+      ? overrides.purchasePrice
+      : Math.round(Number(overrides.sellingPrice || 100) * 0.6 * 100) / 100
+    stockBody.purchasePrice = cost
     return cy.request({
       method: 'POST', url: '/addProductStock', body: stockBody,
       headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
@@ -780,7 +796,10 @@ Cypress.Commands.add('setShape', (code) => {
  * SEEDS, never asserts-or-skips: a gate that quietly passes on an empty shop tests nothing. Every step
  * asserts its own envelope, because GenericResponse answers a refusal with HTTP 200 and status ERROR.
  */
-Cypress.Commands.add('seedCreditNote', () => {
+// `opts.reason` lets a caller TAG the note it seeded, so a cross-tenant case can ask whether that
+// exact row leaked. Document numbers cannot answer that — they are a per-org sequence and every
+// tenant owns a CRN-000001. Defaulted, so existing callers are unchanged.
+Cypress.Commands.add('seedCreditNote', (opts = {}) => {
   return cy
     .request({ method: 'GET', url: '/getUserSell?q=-1' })
     .then((r) => {
@@ -793,7 +812,8 @@ Cypress.Commands.add('seedCreditNote', () => {
         method: 'POST',
         url: '/saleReturn',
         form: true,
-        body: { sellId: line.sellId, quantity: 1, reason: 'cypress: returns gate' },
+        body: { sellId: line.sellId, quantity: 1,
+                reason: opts.reason || 'cypress: returns gate' },
       })
     })
     .then((r) => {
@@ -888,7 +908,19 @@ Cypress.Commands.add('enableScanBox', () => {
     w.posBarcodeEnabled = true
     w.applyPosBarcodeVisibility()
   })
-  return cy.get('#sellScan', { timeout: 30000 }).should('be.visible')
+  /*
+   * ⚠ WAIT FOR THE ROW TO STOP MOVING - this command is what moved it.
+   *
+   * Un-hiding #sellScanRow inserts a full-width row above the entry strip, so everything below shifts.
+   * Cypress refuses to act on an element whose position is still changing ("could not determine the
+   * actionability of this element"), and the caller's very next step is usually .type() - so the command
+   * that caused the reflow is the right place to wait it out, not every call site.
+   *
+   * Two consecutive equal positions, rather than a fixed sleep: it returns as soon as the layout is
+   * settled on a fast machine and still holds on a slow one.
+   */
+  cy.get('#sellScan', { timeout: 30000 }).should('be.visible')
+  return cy.settled('#sellScan')
 })
 
 // ── which field the cursor is really in ────────────────────────────────────────────
@@ -918,3 +950,148 @@ Cypress.focusedPicker = (win) => {
   const $sel = win.jQuery(active).closest('.bootstrap-select').prev('select')
   return $sel.attr('id') || (active && active.id) || null
 }
+
+// ── the sale strip's optional fields ───────────────────────────────────────────────
+/**
+ * Apply a tenant field configuration to the sale line, the way the settings screen does.
+ *
+ * `{ bonus: false }` hides the bonus cell; `{}` shows EVERYTHING, because applyPosFieldVisibility()
+ * fails open — an absent key means shown. So this is "pin what this case depends on", never "reset".
+ *
+ * -- WHY A SPEC SHOULD PIN RATHER THAN INHERIT -----------------------------------------------------
+ * These fields change the ENTER CHAIN, because the chain follows what is on screen (RULE 1 in
+ * pos-keyboard.js) and skips what is not (RULE 2). A case asserting "Enter on Qty goes to Price"
+ * silently depends on the bonus field being off — and `pos.entry.showBonus` defaults TRUE, so it
+ * passed only on tenants that happened to carry an explicit `false` row. When #sellBonus was added to
+ * CHAIN, five such cases would have started failing on a configuration nobody chose.
+ *
+ * Pinning in the BROWSER, not through /saveBusinessConfig: a spec that needs one field hidden does not
+ * own that tenant's field policy, and a server write would change the sale screen for every later spec
+ * in the run and need restoring in an after() a mid-spec failure never reaches.
+ *
+ * ⚠ Call AFTER the sale screen is open — applyPosFieldVisibility() toggles elements that must exist,
+ * and loadPosFeatureFlags() overwrites window.posFields when the settings call lands.
+ */
+Cypress.Commands.add('setPosFields', (cfg) => {
+  cy.window().should((w) => {
+    expect(w.applyPosFieldVisibility, 'business.js exposes applyPosFieldVisibility').to.be.a('function')
+  })
+  return cy.window().then((w) => {
+    w.posFields = cfg || {}
+    w.applyPosFieldVisibility()
+  })
+})
+
+// ── point a POS spec at a REAL tenant ──────────────────────────────────────────────
+/**
+ * Log in as the tenant under test on the sale screen.
+ *
+ * Defaults to demo.business@ - what every POS spec has always used - but honours a Cypress env
+ * override so the SAME spec can be run against a real shop without editing it:
+ *
+ *   npx cypress run --spec cypress/e2e/business/pos-keyboard.cy.js --headed --no-exit  *     --env posUser=owner@example.com,posPass=TheirPassword
+ *
+ * -- WHY THIS IS WORTH A COMMAND ------------------------------------------------------------------
+ * The Enter chain is not one behaviour, it is one behaviour PER CONFIGURATION: RULE 2 makes the walk
+ * skip whatever a tenant has switched off, so the chain a shop actually experiences depends on its own
+ * capabilities and field settings. A gate pinned to one demo tenant proves the rule on ONE shape of
+ * screen. Both keyboard defects reported from the counter this week - the unreachable serial box and
+ * the unreachable bonus box - were invisible on the demo tenant and obvious on the shop's own.
+ */
+Cypress.Commands.add('loginAsPosTenant', () => {
+  const user = Cypress.env('posUser')
+  const pass = Cypress.env('posPass')
+  if (user && pass) return cy.loginAs(user, pass, '/getBusinessDashboardStats')
+  return cy.loginAsBusiness()
+})
+
+// ── the Enter rule, for ANY form ───────────────────────────────────────────────────
+/**
+ * The ordered ids a keyboard walk should visit inside `containerSelector`, read off the SCREEN.
+ *
+ * Delegates to FocusFlow.fields — the app's own answer to "which fields, in what order", which honours
+ * document order (DOM order IS the layout), `data-kbd-order` for a CSS-reordered grid, and skips
+ * anything a cursor has no business in.
+ */
+Cypress.screenFields = (win, containerSelector) => {
+  const el = win.document.querySelector(containerSelector)
+  expect(el, `${containerSelector} is on the page`).to.not.eq(null)
+  return win.FocusFlow.fields(el).map((f) => f.id).filter(Boolean)
+}
+
+/**
+ * ⭐ THE RULE, ASSERTED ON ANY FORM: Enter moves to the next field the SCREEN offers.
+ *
+ *   cy.assertEnterFollowsScreen('#Purchase', 'purchaseQuantity')
+ *
+ * RULE 1  the walk follows the order the fields appear in.
+ * RULE 2  a field the tenant switched off is skipped, and the cursor goes to the next available one.
+ *
+ * -- WHY THIS BELONGS IN ONE PLACE --------------------------------------------------------------
+ * Every keyboard spec used to hardcode the id it expected to land on, which encoded ONE screen in ONE
+ * configuration. Adding #sellSerials broke five cases; adding #sellBonus broke five more — both times
+ * the product was right and the specs were describing a form that no longer existed. A rule stated once
+ * cannot rot that way: hide a field and the expectation moves with it.
+ *
+ * -- WHAT IT PROVES, PER FORM -------------------------------------------------------------------
+ * The two binding shapes in enter-chain.js make this assertion mean two different things, and both are
+ * worth having:
+ *
+ *   • an EXPLICIT chain (the sale screen passes `chain`, because that one form carries two deliberate
+ *     chains — line entry and checkout — so "every field in the form" is the wrong answer there):
+ *     this is a genuine CROSS-CHECK of that array against the screen. It is what both counter-reported
+ *     defects broke, and what nothing else could see.
+ *
+ *   • a DERIVED chain (`container` — the purchase form and the CRUD modals): the chain IS the screen,
+ *     so RULE 1 holds by construction. Here the assertion is still worth making, because it catches the
+ *     failures that remain possible: a form never bound at all, a field wrongly carrying data-kbd-skip
+ *     or .no-autofocus, and a data-kbd-order that disagrees with the layout.
+ *
+ * @param containerSelector the form or region the chain walks, e.g. '#Purchase'
+ * @param fromId            the field Enter is pressed in
+ */
+Cypress.Commands.add('assertEnterFollowsScreen', (containerSelector, fromId) => {
+  let expected = null
+  cy.window().then((w) => {
+    const ids = Cypress.screenFields(w, containerSelector)
+    const i = ids.indexOf(fromId)
+    expect(i, `${fromId} is a usable field inside ${containerSelector}`).to.be.greaterThan(-1)
+    expected = i + 1 < ids.length ? ids[i + 1] : null
+  })
+
+  cy.get('#' + fromId).focus().type('{enter}')
+
+  return cy.window().should((w) => {
+    expect(Cypress.focusedPicker(w),
+      `Enter from ${fromId} goes to the next field on screen inside ${containerSelector}`)
+      .to.eq(expected)
+  }).then(() => expected)
+})
+
+// ── wait for a moving row to stop ──────────────────────────────────────────────────
+/**
+ * Wait until `selector` has stopped moving, then yield it.
+ *
+ * -- THE FAILURE THIS PREVENTS -------------------------------------------------------------------
+ * "could not determine the actionability of this element" - Cypress refuses to act on something whose
+ * position is still changing, and reports it as though the element were broken. On the sale line it is
+ * not broken at all: choosing a product fires loadStock(), which writes the stock badge and the
+ * sellable badge from two CHAINED round trips, and each write reflows the one-row strip. Anything typed
+ * in that window races the layout.
+ *
+ * It has now cost three diagnoses in one session - the scan box after un-hiding its row, #sellItems
+ * after a product was chosen, and #instCount under the panel's own fetch - so it belongs in one place.
+ *
+ * Two consecutive equal positions rather than a fixed sleep: it returns as soon as the layout settles
+ * on a fast machine and still holds on a slow one, and it never spends time that is not needed.
+ */
+Cypress.Commands.add('settled', (selector, opts) => {
+  let last = null
+  return cy.get(selector, { timeout: (opts && opts.timeout) || 30000 })
+    .should(($el) => {
+      const top = Math.round($el[0].getBoundingClientRect().top)
+      const still = last !== null && top === last
+      last = top
+      expect(still, `${selector} has stopped moving`).to.eq(true)
+    })
+})

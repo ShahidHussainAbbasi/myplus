@@ -3,6 +3,8 @@ package com.myplus.business_service.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,6 +42,38 @@ public interface SerialUnitRepo extends JpaRepository<SerialUnit, Long> {
     @Query("SELECT COUNT(s) FROM SerialUnit s WHERE s.organizationId = :orgId AND s.productId = :productId "
          + "AND s.status = 'IN_STOCK'")
     long countInStock(@Param("orgId") Long orgId, @Param("productId") Long productId);
+
+    /**
+     * Units ON THE SHELF, counted by condition \u2014 the dashboard's condition card.
+     *
+     * <h3>\u26a0 IN_STOCK only, and that is the whole point</h3>
+     * The register holds sold units for ever: that is what answers "who did we sell this handset to?". A card
+     * counting every row would tell a shop it holds 12 used handsets when 11 are on the shelf and one is in a
+     * customer's pocket. The status filter is what makes the number actionable rather than historical.
+     *
+     * <p>One grouped query rather than a count per grade: three round trips to draw one card is three too
+     * many, and a fourth grade added later would cost a fourth with no edit here.
+     */
+    @Query("SELECT s.conditionGrade, COUNT(s) FROM SerialUnit s WHERE s.organizationId = :orgId "
+         + "AND s.status = 'IN_STOCK' GROUP BY s.conditionGrade")
+    List<Object[]> countInStockByCondition(@Param("orgId") Long orgId);
+
+    /**
+     * The units themselves, one grade at a time, newest first and PAGED.
+     *
+     * <h3>Why this is paged when the shop probably has eleven</h3>
+     * Eleven today; a shop taking trade-ins has hundreds within a year, and an unbounded read is the defect
+     * that has to be designed out rather than discovered. Newest first because a used handset booked in this
+     * morning is the one somebody is asking about.
+     *
+     * <p>Status is a parameter rather than fixed to IN_STOCK so the same query answers "what did we sell"
+     * without a second one that could drift from it.
+     */
+    @Query("SELECT s FROM SerialUnit s WHERE s.organizationId = :orgId "
+         + "AND s.conditionGrade = :grade AND s.status = :status ORDER BY s.dated DESC, s.serialUnitId DESC")
+    Page<SerialUnit> findByCondition(
+            @Param("orgId") Long orgId, @Param("grade") String grade, @Param("status") String status,
+            Pageable pageable);
 
     /**
      * SER-3 — claim a unit for a sale. Returns the number of rows changed: <b>1 won, 0 lost.</b>

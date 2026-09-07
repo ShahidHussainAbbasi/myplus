@@ -129,23 +129,27 @@ const planOf = (name) =>
   })
 
 /**
- * ⚠ A refused plan does NOT refuse the sale.
+ * ⭐ R4b — a guarantor shortfall PRODUCES A PLAN, and says what is missing.
  *
- * `createInstallmentPlan` has returned a MESSAGE and left the sale standing since INST-1 — for bad terms, an
- * uncollected deposit and an unnamed customer alike, so the shop has a paid invoice to reconcile rather than
- * a silent mismatch. A guarantor shortfall follows that same contract rather than inventing a second one:
- * the screen is what stops the cashier, and this is the backstop behind it.
+ * <p>This replaces `expectPlanRefused`. The old contract was: sale succeeds, message explains, NO PLAN. That
+ * was the mildest of the two blocks — `main.js` stopped the sale outright before the server was ever asked,
+ * so a shop that had asked to be prompted for two guarantors could not sell to a customer who arrived
+ * without them.
  *
- * So "refused" means: the sale succeeded, the MESSAGE says why, and NO PLAN EXISTS.
+ * <p>Now nothing about a guarantor can refuse a sale or a plan. The shop is PROMPTED (the panel renders that
+ * many blocks, the counter says "1 of 2 recorded") and INFORMED (the plan message notes the shortfall), and
+ * it decides. So the assertion is the opposite of what it was, and deliberately checks the plan EXISTS — a
+ * message-only check would pass on a build that still refused.
  */
-const expectPlanRefused = (res, buyerName, why) => {
+const expectPlanCreatedWithNote = (res, buyerName, why) => {
   const body = JSON.stringify(res.body)
-  expect(res.body.status, `the sale itself still stands: ${body}`).to.eq('SUCCESS')
-  expect(body, `the message says why the plan was not created (${why})`).to.match(/guarantor/i)
+  expect(res.body.status, `the sale stands: ${body}`).to.eq('SUCCESS')
+  expect(body, `the message says what is missing (${why})`).to.match(/guarantor/i)
+  expect(body, 'and does NOT claim the plan was refused').to.not.match(/NOT created/i)
   return customerNamed(buyerName).then((c) => {
-    if (!c) return
+    expect(c, `customer ${buyerName} exists`).to.be.an('object')
     cy.request(`/installmentPlans?customerId=${c.customerId || c.id}`).then((r) => {
-      expect(list(r.body).length, `no plan may exist: ${JSON.stringify(r.body)}`).to.eq(0)
+      expect(list(r.body).length, `⭐ the plan MUST exist: ${JSON.stringify(r.body)}`).to.be.greaterThan(0)
     })
   })
 }
@@ -231,14 +235,81 @@ describe('R4 — guarantors on an installment plan', () => {
 
   // ── the rule, and whose rule it is ──────────────────────────────────────────────────────────────
 
-  it('⭐ 3 — one guarantor is refused when the shop requires two, and the message says so', () => {
+  it('⭐ 3 — one guarantor where the shop asks for two: the plan is CREATED and the shortfall noted', () => {
+    /*
+     * ⭐⭐ THE CASE R4b EXISTS FOR. This asserted a refusal until 2026-09-07.
+     *
+     * The number still appears in the message — "recorded 1 of 2" is what a shopkeeper acts on — but it is
+     * a remark on a plan that exists, not a reason there is no plan.
+     */
     const run = uniq()
     setConfig(REQ, '2')
     sellOnPlan(run, [G1(run)]).then((r) => {
-      // The number, in the message. "Invalid" tells a cashier nothing they can act on.
-      expect(JSON.stringify(r.body), 'the refusal names how many are needed').to.match(/2|two/i)
-      expectPlanRefused(r, `Buyer ${run}`, 'one of two')
+      expect(JSON.stringify(r.body), 'the note names how many were asked for').to.match(/2|two/i)
+      expectPlanCreatedWithNote(r, `Buyer ${run}`, 'one of two')
     })
+  })
+
+  it('⭐⭐ 3b — NO guarantors at all, where the shop asks for two: the sale and the plan both stand', () => {
+    /*
+     * The literal ask: "guarantors should be optional not mandatory on sale no matter how many Guarantors
+     * required". Zero entered against a requirement of two is the strongest form of it, and the case a
+     * shopkeeper actually hits — a customer at the counter with nobody to vouch for them.
+     */
+    const run = uniq()
+    setConfig(REQ, '2')
+    sellOnPlan(run, []).then((r) => {
+      expect(r.body.status, `the sale completes with no guarantors: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+      expect(JSON.stringify(r.body), 'no refusal anywhere in the message').to.not.match(/NOT created/i)
+      customerNamed(`Buyer ${run}`).then((c) => {
+        cy.request(`/installmentPlans?customerId=${c.customerId || c.id}`).then((pr) => {
+          const plans = list(pr.body)
+          expect(plans.length, 'the plan exists').to.be.greaterThan(0)
+          // And it genuinely carries none — nothing was invented to satisfy the number.
+          guarantorsOf(plans[0].id).then((g) =>
+            expect(g.length, 'no guarantor rows were fabricated').to.eq(0))
+        })
+      })
+    })
+  })
+
+  it('⭐⭐ 3c — optional does not mean gone: the screen still ASKS for two', () => {
+    /*
+     * ⭐ THE OTHER HALF OF R4b, and the one a careless implementation loses.
+     *
+     * "Guarantors are optional" is satisfied just as well by deleting the feature, and that would be wrong:
+     * a shop that set the number wants to be prompted for that many, and to see that it recorded fewer. The
+     * setting still drives the panel and the counter — only the refusal is gone.
+     *
+     * Asserted through the SCREEN, because the panel and the counter are the whole of the prompt now. A
+     * server-side check could not tell a rendered prompt from a removed one.
+     */
+    setConfig(REQ, '2')
+    cy.visitDashboardSettled()
+    cy.get('#sellType').select('sellDiv', { force: true })
+
+    /*
+     * ⚠ WAIT FOR THE PANEL'S OWN AJAX, not for the overlay.
+     *
+     * Ticking #sellOnInstallment fires loadGuarantorPolicy() — two $.gets — and renderGuarantorBlocks()
+     * only runs when guarantorsRequired lands. Asserting on the blocks before then finds an empty panel.
+     * installment-screen.cy.js documents this at length: an overlay check passes in the gap BEFORE the
+     * first request and hands back a screen about to be covered. Waiting on the responses is deterministic.
+     */
+    cy.intercept('GET', '**/guarantorsRequired*').as('gReq')
+    cy.intercept('GET', '**/recentGuarantors*').as('gRecent')
+    cy.get('#sellOnInstallment').check({ force: true })
+    cy.wait('@gReq', { timeout: 20000 })
+    cy.wait('@gRecent', { timeout: 20000 })
+
+    cy.get('#sellGuarantorRow', { timeout: 20000 }).should('be.visible')
+    cy.get('#guarantorBlocks .js-guarantor-block').should('have.length', 2)
+    // The counter is what reports a shortfall now, so it has to be there and has to name the number.
+    cy.get('#guarantorCount').should('contain.text', '2')
+
+    // One name typed — the counter follows, and still nothing is refused.
+    cy.get('#guarantorBlocks .js-guarantor-block').first().find('.js-g-name').type('Imran Test')
+    cy.get('#guarantorCount').should('contain.text', '1').and('contain.text', '2')
   })
 
   it('⭐ 5 — set the requirement to 1, and a one-guarantor sale completes', () => {
@@ -316,14 +387,15 @@ describe('R4 — guarantors on an installment plan', () => {
     setConfig(REQ, '2')
   })
 
-  it('⭐ 7 — the rule is enforced on the SERVER, not only in the form', () => {
+  it('⭐ 7 — the SERVER does not block either, posted directly with no browser', () => {
     /*
-     * A rule that lives in JavaScript is a rule until somebody posts the endpoint directly. This case IS
-     * that post: no browser, no form, one guarantor, requirement of two.
+     * The mirror of what this case used to assert. It checked that the count was enforced server-side as
+     * well as in the form; R4b removed BOTH, so the same request now has to succeed — posting the endpoint
+     * directly must not be a way to hit a rule the screen no longer applies.
      */
     const run = uniq()
     setConfig(REQ, '2')
-    sellOnPlan(run, [G1(run)]).then((r) => expectPlanRefused(r, `Buyer ${run}`, 'posted directly'))
+    sellOnPlan(run, [G1(run)]).then((r) => expectPlanCreatedWithNote(r, `Buyer ${run}`, 'posted directly'))
   })
 
   it('⭐ 8 — plans that predate the rule still open, list and take a receipt', () => {
@@ -355,13 +427,30 @@ describe('R4 — guarantors on an installment plan', () => {
 
   // ── the two easy slips ──────────────────────────────────────────────────────────────────────────
 
-  it('⭐ 9 — the buyer cannot guarantee himself, and the same person cannot be both guarantors', () => {
+  it('⭐ 9 — the buyer cannot guarantee himself, and the same person cannot count twice', () => {
+    /*
+     * ⭐ R4b — these two are DROPS now, not refusals.
+     *
+     * They asserted `expectPlanRefused`. But if a duplicate could still refuse a plan, "guarantors are
+     * optional" would be optional-with-exceptions — a shop could still be stopped at the counter over a
+     * guarantor. So the offending ROW is dropped and the message names it, and the plan is created.
+     *
+     * ⭐ The assertion that carries the weight is the GUARANTOR COUNT ON THE PLAN, not the message. A
+     * message-only check would pass on a build that saved the bad row and merely mentioned it — which is
+     * the whole failure these two checks exist to prevent: a shop believing it holds two guarantors when it
+     * holds one.
+     */
     const run = uniq()
     const dup = G1(run)
 
-    // Same CNIC twice.
-    sellOnPlan(run, [dup, { ...G2(run), cnic: dup.cnic }])
-      .then((r) => expectPlanRefused(r, `Buyer ${run}`, 'the same person twice'))
+    // Same CNIC twice — one person, so ONE row.
+    sellOnPlan(run, [dup, { ...G2(run), cnic: dup.cnic }]).then((r) => {
+      expect(r.body.status, `the sale stands: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+      expect(JSON.stringify(r.body), 'the message says a duplicate was not recorded').to.match(/twice|duplicate/i)
+      planOf(`Buyer ${run}`).then((plan) =>
+        guarantorsOf(plan.id).then((g) =>
+          expect(g.length, 'the duplicate was DROPPED, not saved as a second guarantor').to.eq(1)))
+    })
 
     // The buyer as his own guarantor — worth precisely nothing, and the easiest mistake this form can make.
     /*
@@ -380,7 +469,17 @@ describe('R4 — guarantors on an installment plan', () => {
     const selfPhone = phoneFor('0300', run2)   // deliberately the SAME number on both sides
     sellOnPlan(run2, [{ name: `Self ${run2}`, cnic: selfCnic, contact: selfPhone }, G2(run2)],
                { buyerName: `Self ${run2}`, buyerContact: selfPhone, buyerCnic: selfCnic })
-      .then((r) => expectPlanRefused(r, `Self ${run2}`, 'the buyer guaranteeing himself'))
+      .then((r) => {
+        expect(r.body.status, `the sale stands: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+        expect(JSON.stringify(r.body), 'the message says the buyer cannot guarantee himself')
+          .to.match(/cannot also be the guarantor|own mobile/i)
+        planOf(`Self ${run2}`).then((plan) =>
+          guarantorsOf(plan.id).then((g) => {
+            // G2 is a real third party and IS recorded; the buyer's own row is not.
+            expect(g.length, 'only the genuine guarantor survives').to.eq(1)
+            expect(g[0].name, 'and it is not the buyer').to.not.match(new RegExp(`Self ${run2}`))
+          }))
+      })
   })
 
   // ── recall ──────────────────────────────────────────────────────────────────────────────────────

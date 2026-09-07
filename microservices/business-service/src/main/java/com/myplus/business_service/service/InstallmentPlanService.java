@@ -350,7 +350,11 @@ public class InstallmentPlanService {
     }
 
     /**
-     * INST-5a — may this serial go on a new plan? Returns a message, or {@code null} when it may.
+     * INST-5a/5b — may this sale go on a new plan? Returns a message, or {@code null} when it may.
+     *
+     * @param itemIsSerialTracked whether anything on this sale is a product the catalog flags
+     *        {@code requiresSerial}. A shop can only be asked for a serial that exists — see the
+     *        note on the null branch below.
      *
      * <h3>⚠ Why this RETURNS a refusal instead of throwing one</h3>
      * It is called from {@code addSell} <b>before</b> the sale is written, and it must not be able to mark a
@@ -370,13 +374,30 @@ public class InstallmentPlanService {
      * database can stop both inserts. What this adds is a sentence naming the plan that already holds the
      * serial, so the cashier is told where to look instead of being shown a constraint violation.
      */
-    public String validateSerial(Long orgId, String assetRef) {
+    public String validateSerial(Long orgId, String assetRef, boolean itemIsSerialTracked) {
         String serial = trimToNull(assetRef);
 
         if (serial == null) {
-            boolean required = settingsService != null
+            /*
+             * ⭐ INST-5b — THE PRODUCT DECIDES WHETHER A SERIAL EXISTS; THE SHOP DECIDES WHETHER TO INSIST.
+             *
+             * This read the tenant setting ALONE, so a shop that turned the rule on could not finance
+             * anything without a serial — including items that have none. Found on Shahzad Mobile Shop
+             * (org 41): the setting was on, and selling Panadol on terms was refused with "this sale needs
+             * an IMEI", for a product the catalog already flags {@code requires_serial = 0}. The shop had
+             * 3 such products and 1 tracked one, and the rule applied to all four.
+             *
+             * The product's own policy is the fact that was missing, and it is the SAME fact
+             * {@link SerialUnitService} has always used on the ordinary sale path — "requiresSerial says
+             * whether THIS product must have one". The installment check was the one place that asked the
+             * tenant and never the product.
+             *
+             * Both must be true: the shop insists, AND there is something to insist on.
+             */
+            boolean shopInsists = settingsService != null
                     && settingsService.getBoolFor(orgId, "pos.installment.serialRequired");
-            return required ? "This sale needs an IMEI or serial number before it can go on a plan." : null;
+            return (shopInsists && itemIsSerialTracked)
+                    ? "This sale needs an IMEI or serial number before it can go on a plan." : null;
         }
 
         for (InstallmentPlan other : planRepo.findLiveByAssetRef(orgId, serial)) {

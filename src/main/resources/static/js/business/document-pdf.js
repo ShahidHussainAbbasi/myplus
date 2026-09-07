@@ -32,19 +32,63 @@
         if (global.showFormError) { global.showFormError(tr(msgKey, fallback)); }
     }
 
-    /** A4 portrait for a document; the widths come from the profile so a designed layout keeps its proportions. */
-    function columnWidths(model) {
-        var declared = model.columns.filter(function (c) { return c.width; }).length;
-        // A profile states widths as PERCENTAGES. pdfmake takes star-weights, and a percentage is exactly a
-        // weight — so they map across without inventing numbers. A profile with no widths gets equal columns,
-        // which is what the HTML renderer does too.
-        if (declared !== model.columns.length) {
-            return model.columns.map(function () { return '*'; });
-        }
-        return model.columns.map(function (c) { return c.width + '*'; });
+    /*
+     * The page geometry, in pdfmake points, stated ONCE.
+     *
+     * The margins used to live only inside the document definition while columnWidths guessed at the page
+     * separately. Column widths have to be measured against the printable area, so the two cannot be allowed
+     * to hold different ideas of it.
+     */
+    var PAGE_MARGINS = [24, 22, 24, 28];          // left, top, right, bottom
+    var PAGE_WIDTH = { A4: 595.28, A5: 419.53 };  // ISO 216 at 72dpi
+    /** Horizontal padding a table layout adds per column, reserved so the table cannot exceed the page. */
+    var CELL_PADDING = 8;
+
+    /** Which sheet this document prints on. The one rule, used by both the widths and the definition. */
+    function paperOf(model) {
+        return model.paper === 'A5' ? 'A5' : 'A4';
     }
 
-    function lineTable(model) {
+    /**
+     * Column widths as ABSOLUTE POINTS, proportional to the profile's percentages.
+     *
+     * <h3>⚠ The defect this replaces: pdfmake has no weighted star widths</h3>
+     * This returned `c.width + '*'` — `'5*'`, `'39*'` — under a comment claiming "pdfmake takes star-weights,
+     * and a percentage is exactly a weight". <b>It does not.</b> pdfmake accepts `'auto'`, a bare `'*'`, or a
+     * number, and nothing else. Given `'5*'` it left `_calcWidth` as that STRING, then added it to the running
+     * x-offset — so a numeric accumulator turned into text and the library threw
+     * `unsupported number: 085*1639*1612*1615*1613*0024`, which is those widths concatenated with the cell
+     * paddings between them.
+     *
+     * <p><b>Every PDF whose profile declares column widths failed</b> — which is every built-in preset — and
+     * it failed SILENTLY, because both emitters wrap the render in `.catch(fail)`. No file, no error. That is
+     * the larger half of the original "Download PDF does nothing" report; the browser's multiple-download
+     * rule (see downloadInvoicesPdf) is the other half.
+     *
+     * <p>A bare `'*'` per column would render, but it divides the page EQUALLY and throws away the designed
+     * proportions — an item description would get the same width as a line number. Percentages are turned
+     * into points against the printable area instead, which pdfmake supports unambiguously and which keeps
+     * the layout the owner designed.
+     *
+     * <p>Normalised by the actual sum rather than assuming 100, so a profile whose widths total 90 or 110
+     * still fills the page in the right proportions.
+     */
+    function columnWidths(model, paper) {
+        var cols = model.columns;
+        var declared = cols.filter(function (c) { return c.width; }).length;
+        // A profile with no widths gets equal columns, which is what the HTML renderer does too.
+        if (declared !== cols.length) {
+            return cols.map(function () { return '*'; });
+        }
+        var total = cols.reduce(function (sum, c) { return sum + (Number(c.width) || 0); }, 0);
+        if (!(total > 0)) {
+            return cols.map(function () { return '*'; });
+        }
+        var available = PAGE_WIDTH[paper] - PAGE_MARGINS[0] - PAGE_MARGINS[2] - (CELL_PADDING * cols.length);
+        return cols.map(function (c) { return available * (Number(c.width) || 0) / total; });
+    }
+
+    function lineTable(model, paper) {
         var head = model.columns.map(function (c) {
             return { text: c.label, style: 'th', alignment: c.align };
         });
@@ -55,7 +99,7 @@
             }));
         });
         return {
-            table: { headerRows: 1, widths: columnWidths(model), body: body },
+            table: { headerRows: 1, widths: columnWidths(model, paper), body: body },
             layout: 'lightHorizontalLines',
             fontSize: 8
         };
@@ -170,12 +214,12 @@
      * document's shape reaches both — the same reason this file draws from `toPrintModel` rather than
      * deciding anything itself.
      */
-    function documentBlocks(model) {
+    function documentBlocks(model, paper) {
         var content = [];
         letterhead(model).forEach(function (b) { content.push(b); });
         content.push({ text: model.title, style: 'title' });
         var head = headerBlock(model); if (head) content.push(head);
-        content.push(lineTable(model));
+        content.push(lineTable(model, paper));
         var tot = totalsBlock(model); if (tot) content.push(tot);
         if (model.footerText) content.push({ text: model.footerText, style: 'foot' });
         var sign = signatureBlock(model); if (sign) content.push(sign);
@@ -185,8 +229,10 @@
     /** The page setup and styles, identical for one document or fifty. */
     function docDefinition(model, content) {
         return {
-            pageSize: model.paper === 'A5' ? 'A5' : 'A4',
-            pageMargins: [24, 22, 24, 28],
+            // paperOf and PAGE_MARGINS are the SAME values columnWidths measured against — a table sized for
+            // one page on a document printed at another is how the widths silently stopped fitting.
+            pageSize: paperOf(model),
+            pageMargins: PAGE_MARGINS,
             content: content,
             styles: {
                 brand: { fontSize: 15, bold: true, alignment: 'center' },
@@ -247,8 +293,14 @@
             if (!models.length) return fail('ui.js.pdfUnavailable', 'PDF export is not available.');
             global.LazyExport.ensurePdfMake().then(function () {
                 var content = [];
+                /*
+                 * ONE page size for the whole file — docDefinition below takes it from models[0], so every
+                 * document's columns must be measured against that same sheet. Measuring each against its own
+                 * would size a document's table for a page it is not printed on.
+                 */
+                var paper = paperOf(models[0]);
                 models.forEach(function (m, idx) {
-                    documentBlocks(m).forEach(function (b, bi) {
+                    documentBlocks(m, paper).forEach(function (b, bi) {
                         // A page break BEFORE every document after the first, set on its first block so no
                         // empty trailing page is produced.
                         if (idx > 0 && bi === 0) {
@@ -280,7 +332,7 @@
         {
             var model = DR.toPrintModel(inv, profile || null);
             global.LazyExport.ensurePdfMake().then(function () {
-                var content = documentBlocks(model);
+                var content = documentBlocks(model, paperOf(model));
 
                 // The SAME page setup and styles the batch uses — one document or fifty, see docDefinition.
                 // This held its own copy of that object until the batch emitter was added; two copies of a

@@ -67,6 +67,29 @@ public class ProductService {
         return productRepository.countScoped(CurrentUser.organizationId(), CurrentUser.userId());
     }
 
+    /**
+     * Products per category for the dashboard card, biggest first.
+     *
+     * <p>One grouped query, not a count per category: a tenant with 39 categories would otherwise cost 39
+     * round trips to draw one card.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<java.util.Map<String, Object>> categoryCounts() {
+        java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (Object[] row : productRepository.countByCategoryScoped(
+                CurrentUser.organizationId(), CurrentUser.userId())) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("categoryId", row[0]);
+            // Null id AND null name is the uncategorised bucket. Named on the SERVER so every caller shows
+            // the same words \u2014 a client inventing its own label would drift from the next one.
+            m.put("categoryName", row[1] != null ? row[1] : "Uncategorised");
+            m.put("uncategorised", row[0] == null);
+            m.put("count", row[2] == null ? 0L : ((Number) row[2]).longValue());
+            out.add(m);
+        }
+        return out;
+    }
+
     @Transactional(readOnly = true)
     public ProductDTO getById(Long id) {
         return toDto(getEntity(id));
@@ -133,10 +156,18 @@ public class ProductService {
         productRepository.delete(getEntity(id));   // scoped — anti-IDOR
     }
 
+    /**
+     * Paged product search \u2014 the grid's read and the dashboard drill's read, deliberately the SAME one.
+     *
+     * <p>A blank {@code q} is normalised to null so an empty search box means "everything", not "match the
+     * empty string" \u2014 which LIKE '%%' happens to do today, until a later rewrite of the clause does not.
+     */
     @Transactional(readOnly = true)
-    public Page<ProductDTO> search(String q, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
-        return productRepository.searchScoped(q, categoryId, minPrice, maxPrice,
-                CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
+    public Page<ProductDTO> search(String q, Long categoryId, boolean uncategorised, boolean includeInactive,
+                                   BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable) {
+        String needle = (q == null || q.isBlank()) ? null : q.trim();
+        return productRepository.searchScoped(needle, categoryId, uncategorised, includeInactive,
+                minPrice, maxPrice, CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
     @Transactional(readOnly = true)

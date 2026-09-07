@@ -152,15 +152,40 @@ describe('POS line entry — one cell per field', () => {
       const tops = [...$cells].map((c) => Math.round(c.getBoundingClientRect().top))
       const bands = [...new Set(tops)].sort((a, b) => a - b)
 
-      // The failure this catches: an empty full-width notice wrapper sitting BETWEEN the field groups
-      // cut the strip into four bands with ~170px of dead space, while the fields themselves occupied
-      // only 732px of a 1300px form. Cells not fitting is wrapping; cells not fitting when there is
-      // room to spare is a break.
-      expect(bands.length, 'cell tops: ' + JSON.stringify(tops)).to.eq(1)
-
-      // And the strip is one row tall. Four bands measured ~600px; one row is well under 200.
+      /*
+       * THE PROPERTY IS "NO BREAK", NOT "EXACTLY ONE BAND" - and the difference is what this case is for.
+       *
+       * The failure it caught: an empty full-width notice wrapper sitting BETWEEN the field groups cut
+       * the strip into four bands with ~170px of DEAD SPACE, while the fields themselves occupied only
+       * 732px of a 1300px form. Cells not fitting is wrapping; cells not fitting WHEN THERE IS ROOM TO
+       * SPARE is a break.
+       *
+       * `setFields({})` shows every optional field at once - the maximum configuration, which no real
+       * tenant has (serial is a mobile shop, expiry a pharmacy, bonus a distributor). Asserting one band
+       * asserted that the MAXIMUM fits at 1600px, which was true at nine cells and stopped being true
+       * when SER-3c added the serial box - a tenth. The design is explicit that the strip WRAPS rather
+       * than switching off, so a second band with the first band FULL is the design working.
+       *
+       * So: measure the dead space. Whatever wraps must wrap because the row ran out of room, and the
+       * first band must be full to within one cell's width. That is the defect, it survives the next
+       * field being added, and it would still have caught the original four-band break - which had a
+       * half-empty first band.
+       */
       const form = $cells.closest('#Sell')[0].getBoundingClientRect()
-      expect(form.height, 'the strip is one row tall, not several').to.be.lessThan(200)
+      const first = [...$cells].filter((c) => Math.round(c.getBoundingClientRect().top) === bands[0])
+      const used = first.reduce((w, c) => w + c.getBoundingClientRect().width, 0)
+
+      expect(used / form.width,
+        `the first band is FULL before anything wraps - cell tops: ${JSON.stringify(tops)}, `
+        + `used ${Math.round(used)}px of ${Math.round(form.width)}px`)
+        .to.be.greaterThan(0.75)
+
+      // And no field is stranded on a band of its own with the row half empty.
+      expect(bands.length, 'the strip is a row that wraps, not a stack of bands: ' + JSON.stringify(tops))
+        .to.be.lessThan(3)
+
+      // Two bands at most, so the strip stays a strip. Four bands measured ~600px.
+      expect(form.height, 'the strip is one or two rows tall, not several').to.be.lessThan(300)
     })
   })
 
@@ -237,6 +262,12 @@ describe('POS line entry — one cell per field', () => {
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
 
+        // Bonus off: this case is about the PRICE stop, and #sellBonus now sits between Qty and
+        // Price in the chain (it always did on screen). Pinned rather than inherited -
+        // pos.entry.showBonus defaults TRUE, so this passed only on tenants carrying an explicit
+        // false. The bonus link itself is asserted in pos-keyboard.cy.js and by
+        // keyboard-chain-order.cy.js case 7.
+        cy.setPosFields({ bonus: false })
         cy.get('#sellItems').focus().type('{enter}')
         cy.focused().should('have.id', 'sellSellRate')
         cy.focused().type('{enter}')

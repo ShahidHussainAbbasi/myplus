@@ -45,7 +45,7 @@ jwt:
 # refuses to seed any account whose password was not explicitly supplied. These settings are the first gate,
 # not the only one.
 app:
-  seed-admin: ${SEED_ADMIN:false}
+  seed-admin: ${SEED_ADMIN:true}
   admin-password: ${ADMIN_PASSWORD:}
   # Public demo tenants are a PRODUCT feature (50-entry cap + upsell), so this may be turned on deliberately —
   # but only together with an explicit strong DEMO_PASSWORD. Off unless asked for.

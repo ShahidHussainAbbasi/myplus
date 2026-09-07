@@ -69,6 +69,13 @@
  * The control itself is NEVER removed or disabled: see the FormData note below.
  */
 .pos-hidden{ display:none !important; }
+/*
+ * SER-6 — the serial cell hidden because the PRODUCT has no serial, as opposed to .pos-hidden (the tenant
+ * switched the field off) and .cap-off (the tenant has no serial tracking at all). Three orthogonal reasons,
+ * three classes: any one hides the cell and none can un-hide what another hid, which is why none of them may
+ * be an inline style. See applySerialFieldVisibility.
+ */
+.serial-na{ display:none !important; }
 
 /* ── Keyboard flow hint ────────────────────────────────────────────────────
  * One quiet line stating the whole path: item → line → payment → done. Shown

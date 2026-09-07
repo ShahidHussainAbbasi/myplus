@@ -84,6 +84,15 @@ const saveSetting = (t, key, value) =>
 describe('SER-2/3 (fix) — reading, editing and returning a tracked unit', () => {
   let tracked = null
   let plain = null
+  /*
+   * ⚠ The POS tenant's OWN value of pos.entry.showSerial, captured before this spec touches it.
+   *
+   * Restoring the PLATFORM DEFAULT in after() is not the same thing as putting it back, and the
+   * difference is a live defect: this tenant had it OFF, the spec handed it back ON, and every later
+   * run of the purchase screen saw two extra fields. "Leave no server state behind" means the state
+   * that was there, not the state the catalog would have given a new shop.
+   */
+  let posShowSerialWas = null
 
   before(() => {
     cy.loginAsMobileOwner()
@@ -99,13 +108,21 @@ describe('SER-2/3 (fix) — reading, editing and returning a tracked unit', () =
           `the product must really be serial-tracked: ${JSON.stringify(r.body)}`).to.not.eq(false))
     })
     cy.seedProduct({ name: `SERFIX_PLAIN_${uniq()}` }).then((p) => { plain = p.productId })
+
+    // What the POS tenant had, so after() can hand back exactly that.
+    token(POS).then((t) =>
+      cy.request({ url: `${GW}/api/business/settings`, headers: { Authorization: `Bearer ${t}` },
+        failOnStatusCode: false }).then((r) => {
+        const row = ((r.body && r.body.data) || []).find((e) => e.key === 'pos.entry.showSerial')
+        posShowSerialWas = row ? String(row.value) : 'true'
+      }))
   })
 
   beforeEach(() => cy.loginAsMobileOwner())
 
   after(() => {
-    // Leave no server state behind: this spec flips a SERVER-WIDE setting on the POS tenant below.
-    token(POS).then((t) => saveSetting(t, 'pos.entry.showSerial', 'true'))
+    // Leave no server state behind — and "behind" means what was THERE, not the platform default.
+    token(POS).then((t) => saveSetting(t, 'pos.entry.showSerial', posShowSerialWas || 'true'))
     cy.loginAsMobileOwner()
     cy.setCapability('serialTracking', true)
     cy.setCapability('conditionGrading', true)

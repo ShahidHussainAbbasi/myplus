@@ -69,7 +69,17 @@ describe('Download PDF — one file for a batch of invoices', () => {
         const built = []
         const real = win.pdfMake.createPdf.bind(win.pdfMake)
         win.pdfMake.createPdf = function (docDefinition) {
-          built.push(docDefinition)
+          /*
+           * ⚠ A DEEP COPY, taken before the library sees it.
+           *
+           * pdfmake MUTATES the definition it is given: it rewrites every `table.widths` entry in place from
+           * the value we supplied into `{width, _minWidth, _maxWidth, _calcWidth}`. Holding the original
+           * reference means inspecting pdfmake's internal working state instead of what this product built —
+           * which reported `'auto'` as an illegal width and hid whether our own value was right.
+           *
+           * So the assertions read OUR definition, and `real` still gets the object it expects.
+           */
+          built.push(JSON.parse(JSON.stringify(docDefinition)))
           return real(docDefinition)
         }
         win.__built = built
@@ -100,23 +110,116 @@ describe('Download PDF — one file for a batch of invoices', () => {
     })
   })
 
-  it('⭐ 2 — the document really is a PDF, not just a well-shaped definition', () => {
+  /**
+   * Render a recorded definition to bytes, and if pdfmake refuses it, fail with enough of the definition to
+   * say WHY.
+   *
+   * <p>`getBuffer` throws synchronously out of `createPdfKitDocument`, and the emitters wrap their render in
+   * `.catch(fail)` — so in the product this failure is SILENT: no file, no error, exactly the symptom
+   * originally reported. A bare "unsupported number" with no context is not enough to act on, so the
+   * offending definition travels with the failure.
+   */
+  const renderToBytes = (win, def) => {
+    const describe_ = () => {
+      const tables = []
+      const walk = (node, path) => {
+        if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}[${i}]`))
+        if (!node || typeof node !== 'object') return
+        if (node.table) tables.push(`${path}.table.widths = ${JSON.stringify(node.table.widths)}`)
+        Object.keys(node).forEach((k) => walk(node[k], `${path}.${k}`))
+      }
+      walk(def.content, 'content')
+      return `pageSize=${def.pageSize} pageMargins=${JSON.stringify(def.pageMargins)}\n`
+        + tables.join('\n')
+    }
+    return new Cypress.Promise((resolve, reject) => {
+      let doc
+      try {
+        doc = win.pdfMake.createPdf(def)
+      } catch (e) {
+        return reject(new Error(`createPdf refused the definition: ${e.message}\n${describe_()}`))
+      }
+      try {
+        doc.getBuffer((buf) => resolve(buf))
+      } catch (e) {
+        reject(new Error(`pdfmake could not render the document: ${e.message}\n${describe_()}`))
+      }
+    })
+  }
+
+  it('⭐ 1b — every column width is one pdfmake actually accepts', () => {
     /*
-     * The page count above is read from the definition. This runs the library over that same definition and
-     * checks the BYTES, so a build that produced a definition the library could not render cannot pass.
+     * ⭐ THE REGRESSION THIS SLICE EXISTS FOR.
+     *
+     * pdfmake accepts a NUMBER, the bare string `'*'`, or `'auto'`. Nothing else. It does not support the
+     * weighted star `'5*'` that some other table libraries do — given one it leaves `_calcWidth` as that
+     * string, then adds it to the running x-offset, turning a numeric accumulator into text and throwing
+     * `unsupported number: 085*1639*1612*1615*1613*0024`.
+     *
+     * Both emitters wrap their render in `.catch(fail)`, so in the product that produced NO file and NO
+     * error — for every profile that declares column widths, which is every built-in preset. Asserting the
+     * widths names the cause directly; case 2 below only proves that something is wrong.
+     */
+    const legal = (w) =>
+      typeof w === 'number' ? Number.isFinite(w) : (w === '*' || w === 'auto')
+
+    withRecorder().then((win) => {
+      win.downloadInvoicesPdf(invoices, null, 'invoices')
+      cy.wrap(null, { timeout: 40000 })
+        .should(() => { expect(win.__built.length).to.eq(1) })
+        .then(() => {
+          const bad = []
+          const walk = (node, path) => {
+            if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}[${i}]`))
+            if (!node || typeof node !== 'object') return
+            if (node.table && node.table.widths) {
+              node.table.widths.forEach((w, i) => {
+                if (!legal(w)) bad.push(`${path}.table.widths[${i}] = ${JSON.stringify(w)}`)
+              })
+            }
+            Object.keys(node).forEach((k) => walk(node[k], `${path}.${k}`))
+          }
+          walk(win.__built[0].content, 'content')
+          expect(bad, `widths pdfmake cannot parse:\n${bad.join('\n')}`).to.have.length(0)
+        })
+    })
+  })
+
+  it('⭐ 2 — the batch document really renders, not just a well-shaped definition', () => {
+    /*
+     * The page count in case 1 is read from the definition. This runs the library over that same definition
+     * and checks the BYTES, so a build that produced a definition the library cannot render cannot pass —
+     * and that is not hypothetical: this case is what found the render failure.
      */
     withRecorder().then((win) => {
       win.downloadInvoicesPdf(invoices, null, 'invoices')
       cy.wrap(null, { timeout: 40000 })
         .should(() => { expect(win.__built.length).to.eq(1) })
-        .then(() => new Cypress.Promise((resolve) => {
-          win.pdfMake.createPdf(win.__built[0]).getBuffer((buf) => resolve(buf))
-        }))
+        .then(() => renderToBytes(win, win.__built[0]))
         .then((buf) => {
           const bytes = new Uint8Array(buf)
           expect(bytes.length, 'a real PDF has bytes').to.be.greaterThan(1000)
           const head = String.fromCharCode.apply(null, bytes.subarray(0, 5))
           expect(head, 'it is actually a PDF').to.eq('%PDF-')
+        })
+    })
+  })
+
+  it('⭐ 2b — a SINGLE invoice renders too', () => {
+    /*
+     * ⚠ Deliberately separate from case 2. These invoices resolve to the 80mm thermal preset
+     * (`layoutMode:'auto'`, no trade customer → RETAIL_RECEIPT_80MM), and the single and batch emitters share
+     * `documentBlocks`/`docDefinition`. So if the render failure is in the DOCUMENT rather than in the
+     * batching, every ordinary "Download PDF" on a walk-in sale is silently broken too — and this case is
+     * what tells the two apart. Whichever way it lands, it is the fact the fix depends on.
+     */
+    withRecorder().then((win) => {
+      win.downloadInvoicePdf(invoices[0])
+      cy.wrap(null, { timeout: 40000 })
+        .should(() => { expect(win.__built.length).to.eq(1) })
+        .then(() => renderToBytes(win, win.__built[0]))
+        .then((buf) => {
+          expect(new Uint8Array(buf).length, 'one invoice renders to real bytes').to.be.greaterThan(1000)
         })
     })
   })

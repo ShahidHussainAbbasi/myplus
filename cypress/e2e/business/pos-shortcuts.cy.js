@@ -68,17 +68,29 @@ describe('P2 — the quantity-multiplier parser', () => {
 
   it('accepts a count, a star, then the code', () => {
     cy.window().then((w) => {
-      expect(w.parseScanEntry('12*ABC123')).to.deep.eq({ qty: 12, code: 'ABC123' })
+      /*
+       * ⚠ `unit` IS PART OF THE ANSWER NOW, and a deep-equal without it fails on a parser that is
+       * working. U3 (loose selling) extended this same function with one optional suffix rather than
+       * adding a second grammar — 12*CODE is twelve PACKS, 5L*CODE is five LOOSE pieces — so every
+       * result carries the unit it resolved to.
+       *
+       * Asserted in full, matching sell-loose-till.cy.js which owns that grammar: a subset match here
+       * would stop noticing if a plain multiplier ever started resolving to LOOSE, which is a
+       * mis-priced line rather than an error.
+       */
+      expect(w.parseScanEntry('12*ABC123')).to.deep.eq({ qty: 12, code: 'ABC123', unit: 'PACK' })
       expect(w.parseScanEntry('  3 * XYZ  '), 'spaces around the parts are tolerated')
-        .to.deep.eq({ qty: 3, code: 'XYZ' })
-      expect(w.parseScanEntry('1*A')).to.deep.eq({ qty: 1, code: 'A' })
+        .to.deep.eq({ qty: 3, code: 'XYZ', unit: 'PACK' })
+      expect(w.parseScanEntry('1*A')).to.deep.eq({ qty: 1, code: 'A', unit: 'PACK' })
     })
   })
 
   it('a plain code is unchanged — qty 1, exactly as before P2', () => {
     cy.window().then((w) => {
-      expect(w.parseScanEntry('ABC123')).to.deep.eq({ qty: 1, code: 'ABC123' })
-      expect(w.parseScanEntry('  8901234567890  ')).to.deep.eq({ qty: 1, code: '8901234567890' })
+      // PACK, because a scanned manufacturer barcode is printed on the pack and cannot mean one piece.
+      expect(w.parseScanEntry('ABC123')).to.deep.eq({ qty: 1, code: 'ABC123', unit: 'PACK' })
+      expect(w.parseScanEntry('  8901234567890  '))
+        .to.deep.eq({ qty: 1, code: '8901234567890', unit: 'PACK' })
     })
   })
 
@@ -110,7 +122,16 @@ describe('P2 — OFF (default): nothing changed', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
   it('a star in a scanned code is taken literally, not as a multiplier', () => {
-    cy.intercept('GET', '**/lookupProduct*').as('lookup')
+    /*
+     * ⚠ /scanProduct, not /lookupProduct — the scan path moved and this intercept never matched, so the
+     * wait below reported "No request ever occurred" as though the scan had done nothing.
+     *
+     * U7 gave the till its own resolver: business.js scans through `scanProduct`, a pass-through of
+     * catalog's /products/scan returning a ScanResolution (product + quantity + unit). /lookupProduct
+     * still exists and still answers — barcode-scan.cy.js and product-policies.cy.js call it directly —
+     * it is simply no longer what the SCAN BOX calls.
+     */
+    cy.intercept('GET', '**/scanProduct*').as('lookup')
     openSell({ shortcuts: false })
     scan('12*NOSUCHCODE{enter}')
     // The WHOLE string is sent as the code — a shop whose barcodes contain '*' is unaffected.

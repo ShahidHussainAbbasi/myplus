@@ -317,9 +317,23 @@ describe('P6 — Purchase rapid line entry', () => {
     openFreshPurchaseModal()
     cy.wait('@taxOff')
     cy.window().then((w) => {
+      /*
+       * SERIAL and CONDITION sit between the item and the quantity, and BONUS after it.
+       *
+       * Not a regression — SER-2 and #17 P2 added those controls to the form, and SER-3d put the
+       * serial BEFORE the quantity deliberately, because entering one locks QTY to 1: the serial
+       * decides the quantity, so it has to be asked first. This list was last written on 2026-08-16,
+       * before any of them existed, and derives the chain from the DOM — so it went stale the moment
+       * the form gained a field, which is exactly what a derived chain is supposed to notice.
+       *
+       * ⚠ Whether these appear at all is per TENANT: they carry data-capability and data-pos-field,
+       * and derivedChain filters on visibility. This runs as demo.business@ (org 6), which holds
+       * serialTracking, conditionGrading and bonusSchemes and has no pos.entry.* overrides.
+       */
       expect(w.EnterChain.fieldsIn('#Purchase')).to.deep.eq([
         'purchaseInvoiceNo', 'purchaseBatchNo', 'purchaseVenderDD',
-        'purchaseItemDD', 'purchaseQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
+        'purchaseItemDD', 'purchaseSerials', 'purchaseCondition',
+        'purchaseQuantity', 'purchaseBonusQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
         'purchaseDate', 'purchaseExpiry', 'purchasePaid',
       ])
     })
@@ -385,8 +399,8 @@ describe('P6 — Purchase rapid line entry', () => {
     // live-search box, which is the rule working — in the one test that is not about the rule.
     answerVendor()
     answerItem(productA)
-    cy.get('#purchaseInvoiceNo').focus().type('{enter}')
-    cy.focused().should('have.id', 'purchaseBatchNo')
+    // The first stop, read off the screen like the rest of the walk below.
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseInvoiceNo')
 
     cy.focused().type('{enter}')
     cy.focused().should(($el) => {
@@ -401,25 +415,49 @@ describe('P6 — Purchase rapid line entry', () => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseItemDD').length,
              'Enter on the vendor picker reached the item picker').to.eq(1)
     })
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchaseQuantity')
-
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchasePurchaseRate')
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchaseSellRate')
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchaseDate')
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchaseExpiry')
-    cy.focused().type('{enter}')
-    cy.focused().should('have.id', 'purchasePaid')
+    // Serial, then Condition, then Quantity — the layout order, and the order SER-3d chose on purpose:
+    // typing a serial locks QTY to 1, so asking for it after the quantity would overwrite what was typed.
+    /*
+     * ── THE REST OF THE WALK, ASSERTED AGAINST THE SCREEN ───────────────────────────
+     *
+     * Each stop used to be a hardcoded id, which described THIS form in ONE tenant's configuration. On
+     * the sale screen the same style of assertion broke twice in a week - once when #sellSerials was
+     * added to the strip, once when #sellBonus was - and both times the product was right and the spec
+     * was describing a form that no longer existed. Serial and condition are capability-gated HERE too,
+     * so this list was one settings change away from the same fate.
+     *
+     * cy.assertEnterFollowsScreen states the rule instead: Enter goes to the next field the SCREEN
+     * offers, in order, skipping whatever the tenant switched off. Hide the serial box and the
+     * expectation moves with it. It also handles the bootstrap-select case that forced the hand-rolled
+     * assertion above - a picker focuses a <button> with no id, which `have.id` can never match.
+     *
+     * ⚠ What this proves on THIS form: the purchase chain is DERIVED from the container
+     * (EnterChain.bind('purchase', { container: '#Purchase' })), so RULE 1 holds by construction here.
+     * The assertion still earns its place - it catches the form being unbound, a field wrongly carrying
+     * data-kbd-skip or .no-autofocus, and a data-kbd-order that disagrees with the layout.
+     */
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseSerials')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseCondition')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseQuantity')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseBonusQuantity')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchasePurchaseRate')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseSellRate')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseDate')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseExpiry')
   })
 
   it('Shift+Enter walks BACK up the chain', () => {
     openFreshPurchaseModal()
-    cy.get('#purchaseBatchNo').focus().type('{shift}{enter}')
-    cy.focused().should('have.id', 'purchaseInvoiceNo')
+    // Backwards is the same walk reversed, so the stop before #purchaseBatchNo on screen - read off the
+    // form rather than named, for the same reason as the forward walk above.
+    cy.window().then((w) => {
+      const ids = Cypress.screenFields(w, '#Purchase')
+      const back = ids[ids.indexOf('purchaseBatchNo') - 1]
+      cy.get('#purchaseBatchNo').focus().type('{shift}{enter}')
+      cy.window().should((w2) => {
+        expect(Cypress.focusedPicker(w2), 'Shift+Enter reverses one stop along the screen').to.eq(back)
+      })
+    })
   })
 
   it('the tax rate is a chain stop only when the org uses purchase tax', () => {

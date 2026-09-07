@@ -1,6 +1,6 @@
 # SR-1 — the Sale Detail Report opens on the last 30 days, newest first
 
-**Status:** DESIGN + IMPLEMENTED, gate pending.
+**Status:** ✅ **GREEN** (2026-09-07). Gates: `sale-report-order.cy.js` + `sale-report-period.cy.js`.
 **Ask:** *"fix loadSR report by default load last 30 days sales so that user can see the latest sale on the top"*.
 
 Every figure below was measured against the running system on 2026-09-06 as `owner.business@myplus.com`
@@ -133,3 +133,32 @@ on top. Column 1 is declared `type: 'html'` so DataTables strips its `<span>` be
 * **Other `dd-MM-yyyy` grids.** The sort type is now available to them; each needs its own trace first.
 * **`"message":"User Not Found"` on a `SUCCESS` envelope** — `loadSR` returns the `message.userNotFound` bundle
   key on the happy path. Cosmetic, wrong, and untouched: it is not this defect.
+
+
+---
+
+## 6. What the gates found on the way to green
+
+Recorded because each cost a run, and each is a repeatable mistake rather than a one-off.
+
+### ⚠ The select reset — a defect my change only EXPOSED
+
+`#dateRangeDDSR` came back as `'1'` when the markup said `selected="selected"` on `'3'`. The served HTML was
+correct; `main.js` reset **every select on the page** to `selectedIndex = 0` on each screen switch. That was
+invisible while the report's default happened to be its first option.
+
+Counted across the templates: **10 selects in 3 modules** lose their declared default this way —
+`#studentGender`, `#studentFeeMode`, `#staffMartialStatus`, `#discountTypeDD`, `#fvYearDD`, `#gradeRoom`,
+`#bkDiscountTypeDD`, `#clSeverity`, `#provPlan`, and this one. Each renders correctly on first load and then
+moves. Fixed at the cause: the reset now goes to the option whose markup declares `selected`
+(`option.defaultSelected`), which is what the platform's own `form.reset()` does. A select declaring no
+default still lands on index 0, so behaviour there is unchanged **by construction**.
+
+### ⚠ A gate that read the rendered page could not see the defect
+
+The ordering case asserted over `#tableSellReport tbody tr` — the rendered page, 50 rows. Sorted newest-first
+those all fall inside the newest month, and **inside one month a string sort and a date sort agree**. The
+assertion could only ever observe agreement; it would have passed on the broken build. It now reads through
+the DataTables API with `{ page: 'all', order: 'applied' }`, which is where the month boundary is.
+
+*The same trap as the defect itself: the one-month default hid the sort, and a one-page assertion hid it again.*

@@ -25,6 +25,68 @@
  * ("expected #sellStock to have attribute tabindex") instead of the one true fact, "the script 404'd".
  * A test helper that swallows a missing dependency costs more than the test is worth.
  */
+/*
+ * ── THE RULE, NOT A FIELD LIST ──────────────────────────────────────────────────────────────────
+ *
+ * RULE 1  the chain walks the fields in the order they appear ON SCREEN.
+ * RULE 2  a field the tenant switched off is skipped; the cursor moves to the next available one.
+ *
+ * Every stop in this file used to be a hardcoded id, which encoded ONE tenant's screen rather than the
+ * rule. SER-3c put #sellSerials between the item and the quantity and the spec went red; #sellBonus
+ * between quantity and price and it went red again - both times the CHAIN was right and the spec was
+ * describing a screen that no longer existed.
+ *
+ * `nextOnScreen` derives the expectation from the DOM instead: the next field a person could actually
+ * type into, in document order, inside the line strip. That is RULE 1 and RULE 2 stated together, and
+ * it is what makes these cases hold on any tenant - serial on or off, bonus on or off - with no login
+ * override and nothing pinned.
+ *
+ * ⚠ NOT CIRCULAR. The expectation comes from the SCREEN (document order + what is on it); the app
+ * computes its jump from CHAIN, an array in pos-keyboard.js. The test passes only when those two
+ * agree, which is exactly the property RULE 1 asserts and exactly what both counter-reported defects
+ * broke. `FocusFlow.skip` is shared deliberately - "can a cursor go here?" must have ONE answer, and
+ * keyboard-chain-order.cy.js case 7 covers the chain's own completeness.
+ */
+const lineFields = (w) =>
+  Array.from(w.document.querySelectorAll('#sellDiv .pos-cell'))
+    .flatMap((c) => Array.from(c.querySelectorAll('input, select, textarea')))
+    .filter((el) => el.id && !w.FocusFlow.skip(el))
+
+/** The id Enter should land on after `fromId`, read off the screen. Null past the last field. */
+const nextOnScreen = (w, fromId) => {
+  const ids = lineFields(w).map((el) => el.id)
+  const i = ids.indexOf(fromId)
+  expect(i, `${fromId} is a usable field on the line strip`).to.be.greaterThan(-1)
+  return i + 1 < ids.length ? ids[i + 1] : null
+}
+
+/**
+ * Press Enter in `fromId` and assert the cursor lands where the SCREEN says it should.
+ * Returns the id it landed on, so a caller can walk several stops.
+ */
+const enterFrom = (fromId) => {
+  let expected = null
+  cy.window().then((w) => { expected = nextOnScreen(w, fromId) })
+  cy.get('#' + fromId).focus().type('{enter}')
+  return cy.window().should((w) => {
+    expect(Cypress.focusedPicker(w), `Enter from ${fromId} goes to the next field on screen`)
+      .to.eq(expected)
+  }).then(() => expected)
+}
+
+/** Walk Enter forward until `targetId`, asserting EVERY stop against the screen on the way. */
+const walkTo = (fromId, targetId) => {
+  const step = (cur, guard) => {
+    if (cur === targetId) return cy.wrap(cur)
+    expect(guard, `reached ${targetId} within the line strip`).to.be.greaterThan(0)
+    return enterFrom(cur).then((next) => {
+      expect(next, `the walk from ${fromId} must reach ${targetId}, not run off the end`).to.not.eq(null)
+      return step(next, guard - 1)
+    })
+  }
+  return step(fromId, 12)
+}
+
 function openSell(enabled) {
   // visitSaleScreen waits for loadPosFeatureFlags() to finish writing window.pos* — otherwise the
   // assignment below is racing it, and a failed config call (which fails CLOSED) silently wins.
@@ -61,7 +123,22 @@ function pickItem(productId) {
   cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
   cy.get('#sellItemDD').select(String(productId), { force: true })   // bootstrap-select hides the real <select>
   cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
-  cy.get('#sellStock').should('not.have.value', '')
+
+  /*
+   * ⚠ #sellStock NEEDS A LONGER BUDGET THAN THE PRICE, NOT THE DEFAULT 5s.
+   *
+   * The price arrives with /productStock. The stock badge is filled by a SECOND round trip CHAINED
+   * after it - business.js fires /productSellable from inside that response and only then writes
+   * #sellStock - so it can never land before the price and routinely lands well after, on a picker that
+   * now carries several thousand options and reflows the row as it re-renders.
+   *
+   * It was asserted with the default 5s while the strictly-earlier field got 10s: the budget did not
+   * match the number of round trips, so this line timed out first and every case in this file reported
+   * a failure inside pickItem with an empty expected/actual - which reads like a broken screen rather
+   * than an assertion that ran out of time. Eight cases at once, on a database that had done nothing
+   * except accumulate products.
+   */
+  cy.get('#sellStock', { timeout: 20000 }).should('not.have.value', '')
 
   /*
    * ...and wait for the SCREEN to stop moving, not just for the values to arrive.
@@ -184,8 +261,31 @@ describe('POS keyboard entry — ON', () => {
         .focus()
         .trigger('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true })
 
-      // Qty is where it must land: pre-filled by loadStock, but never "answered" by the cashier.
-      cy.focused().should('have.id', 'sellItems')
+      /*
+       * ⚠ THE NEXT STOP IS THE SERIAL BOX, not Qty - and that is the rule working, not a defect.
+       *
+       * SER-3c moved #sellSerials in front of #sellItems on the sale form, and RULE 1 in
+       * pos-keyboard.js says the chain must match the screen: CHAIN is
+       * [... 'sellItemDD', 'sellSerials', 'sellItems', ...]. keyboard-chain-order.cy.js reads that
+       * array out of the shipped file and compares it with the DOM, and it is green.
+       *
+       * This case was written before that field existed. Asserting the serial box here keeps it
+       * honest about where the cursor goes; the Qty stop it was really about is asserted one Enter
+       * further on.
+       */
+      // Wherever the SCREEN says - the serial box on a shop that tracks IMEIs, the quantity on one
+      // that does not. Both are the rule working.
+      cy.window().should((w) => {
+        expect(Cypress.focusedPicker(w), 'Enter off the item picker follows the screen')
+          .to.eq(nextOnScreen(w, 'sellItemDD'))
+      })
+
+      // And the walk reaches Qty - the stop this case exists for: pre-filled by loadStock, but never
+      // "answered" by the cashier. Every stop on the way is asserted against the screen.
+      cy.window().then((w) => {
+        const first = nextOnScreen(w, 'sellItemDD')
+        if (first !== 'sellItems') walkTo(first, 'sellItems')
+      })
     })
   })
 
@@ -210,18 +310,32 @@ describe('POS keyboard entry — ON', () => {
    * in Qty on its own. A cashier does not focus a button before pressing Enter, and neither does this.
    */
   it('picking through the dropdown lands the cursor in Qty by itself', () => {
-    cy.seedProduct({ name: 'KbdHandover_' + Date.now(), sellingPrice: 30, stock: 8 }).then(({ productId }) => {
+    const name = 'KbdHandover_' + Date.now()
+    cy.seedProduct({ name, sellingPrice: 30, stock: 8 }).then(({ productId }) => {
       openSell(true)
 
       cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
 
-      // Drive the WIDGET, not the hidden <select>: the button opens the menu, the menu item is clicked.
+      /*
+       * Drive the WIDGET, not the hidden <select>: the button opens the menu, the menu item is clicked.
+       *
+       * ⚠ Matched on the FULL name. `.contains('KbdHandover_')` matches the PREFIX, so on a database
+       * carrying leftovers from earlier runs it clicks somebody else's product - the picker ends up
+       * holding an id this case never seeded, and the failure reads as a broken chain rather than a
+       * mis-aimed click. Every seeded name is unique; the selector has to use all of it.
+       */
       cy.get('#sellItemDD').next('.bootstrap-select').find('button').first().click({ force: true })
-      cy.get('#sellItemDD').next('.bootstrap-select').find('.dropdown-menu li a')
-        .contains('KbdHandover_').click({ force: true })
+      cy.get('#sellItemDD').next('.bootstrap-select')
+        .find(`.dropdown-menu li a:contains("${name}")`).first().click({ force: true })
+
+      cy.get('#sellItemDD').should('have.value', String(productId))
 
       // No focus staged, no keystroke sent. The advance is the app's job once the item is chosen.
-      cy.focused({ timeout: 10000 }).should('have.id', 'sellItems')
+      // Whatever the screen has next - the point is that a SELECTION moved the cursor at all.
+      cy.window({ timeout: 10000 }).should((w) => {
+        expect(Cypress.focusedPicker(w), 'choosing an item advances to the next field on screen')
+          .to.eq(nextOnScreen(w, 'sellItemDD'))
+      })
     })
   })
 
@@ -230,8 +344,11 @@ describe('POS keyboard entry — ON', () => {
       openSell(true)
       pickItem(productId)
       cy.get('#sellSellRate').should('not.have.value', '')     // the catalog filled it
-      cy.get('#sellItems').clear().type('4{enter}')
-      cy.focused().should('have.id', 'sellSellRate')
+      cy.get('#sellItems').clear().type('4')
+      // The subject is that a PRE-FILLED price still gets a stop - not how many fields precede it.
+      // walkTo asserts every stop on the way against the screen, so a shop with a bonus box passes
+      // through it and a shop without one does not.
+      walkTo('sellItems', 'sellSellRate')
       cy.window().its('data').should('have.length', 0)          // nothing committed yet
     })
   })
@@ -259,8 +376,14 @@ describe('POS keyboard entry — ON', () => {
       // opens and the chain advances on the first press. An earlier version of this test pressed
       // Enter twice; the second press landed on #sellDiscount, the last field, and COMMITTED the
       // line — which is why focus was found on the scan box rather than the discount.
+      // Landing on the LAST field on screen, whatever the tenant's last field is - the point is that
+      // one press advanced and did not commit, not which id it stopped on.
       cy.focused().type('{enter}')
-      cy.focused().should('have.id', 'sellDiscount')
+      cy.window().should((w) => {
+        const ids = lineFields(w).map((el) => el.id)
+        expect(Cypress.focusedPicker(w), 'one press advanced along the screen, it did not commit')
+          .to.eq(ids[ids.length - 1])
+      })
       cy.window().its('data').should('have.length', 0)
     })
   })
@@ -281,13 +404,52 @@ describe('POS keyboard entry — ON', () => {
     })
   })
 
+  /**
+   * ⭐⭐ THE DEFECT REPORTED FROM THE COUNTER, 2026-09-06.
+   *
+   * "after sellItems there is sellBonus visible but control moved to sellSellRate."
+   *
+   * #sellBonus sits between Qty and Price ON SCREEN and was absent from CHAIN entirely, so a shop
+   * selling on free-goods watched Enter jump the quantity straight to the price, past a box they then
+   * had to reach for the mouse to fill - on a screen whose whole promise is that they never have to.
+   *
+   * The bonus field is switched ON here, because the defect only exists when it is visible: with it
+   * off the old chain was correct, which is why every gate stayed green (pos.entry.showBonus defaults
+   * TRUE, but the tenants these specs run on carried an explicit false).
+   */
+  it('⭐⭐ Enter walks Qty → BONUS → Price when the shop sells on free goods', () => {
+    cy.seedProduct({ name: 'KbdBonus_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
+      openSell(true)
+      cy.setPosFields({ bonus: true })
+      pickItem(productId)
+
+      /*
+       * Bonus is pinned ON above as a PRECONDITION, not as inherited configuration: the defect only
+       * exists while the field is visible. With it visible the screen says the next stop IS the bonus
+       * box - so this asserts the rule and the specific defect at once. Before the fix the cursor went
+       * to sellSellRate and the field was unreachable from the keyboard.
+       */
+      cy.window().should((w) => {
+        expect(nextOnScreen(w, 'sellItems'), 'with free goods on, the screen puts bonus after quantity')
+          .to.eq('sellBonus')
+      })
+
+      cy.get('#sellItems').clear().type('2')
+      enterFrom('sellItems')                     // -> sellBonus, asserted against the screen
+      enterFrom('sellBonus')                     // -> and the rest of the chain is unchanged
+      cy.window().should((w) => {
+        expect(Cypress.focusedPicker(w), 'and on to the price').to.eq('sellSellRate')
+      })
+    })
+  })
+
   it('Enter walks Qty → Price when the price is blank too', () => {
     cy.seedProduct({ name: 'KbdChain_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
       cy.get('#sellSellRate').clear()
-      cy.get('#sellItems').clear().type('2{enter}')
-      cy.focused().should('have.id', 'sellSellRate')
+      cy.get('#sellItems').clear().type('2')
+      walkTo('sellItems', 'sellSellRate')
     })
   })
 
@@ -322,9 +484,20 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdBack_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      // Backwards is the same linear walk in reverse, so Price lands on Qty.
-      cy.get('#sellSellRate').focus().type('{shift}{enter}')
-      cy.focused().should('have.id', 'sellItems')
+      /*
+       * Backwards is the same linear walk in reverse, so Shift+Enter from Price lands on whatever the
+       * screen puts immediately BEFORE it - the bonus box where a shop sells free goods, the quantity
+       * where it does not. Derived from the screen for the same reason as the forward cases.
+       */
+      cy.window().then((w) => {
+        const ids = lineFields(w).map((el) => el.id)
+        const back = ids[ids.indexOf('sellSellRate') - 1]
+        cy.get('#sellSellRate').focus().type('{shift}{enter}')
+        cy.window().should((w2) => {
+          expect(Cypress.focusedPicker(w2), 'Shift+Enter reverses one stop along the screen')
+            .to.eq(back)
+        })
+      })
     })
   })
 

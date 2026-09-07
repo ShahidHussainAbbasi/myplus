@@ -152,6 +152,74 @@ public class PurchaseController {
         }
     }
 
+    /**
+     * SER-5 — units on the shelf per condition grade, for the dashboard's condition card.
+     *
+     * <p>Every grade comes back, including the empty ones: a card that appears only once the first refurbished
+     * handset exists is a feature nobody discovers, because the shop has to know the grade is there before it
+     * books one in.
+     */
+    @RequestMapping(value = "/serialConditionCounts", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> serialConditionCounts() {
+        try {
+            return client.get("/serialConditionCounts", null);
+        } catch (Exception e) {
+            LOGGER.error("serialConditionCounts proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * SER-5 — the units behind one condition card, paged, with product name and purchase bill resolved.
+     *
+     * <h3>The page envelope is MOVED, not merely forwarded</h3>
+     * business-service answers through {@code GenericResponse}, which carries a status and a collection and
+     * has no third field — so it rides the paging totals on every row as {@code _page}, and represents an
+     * empty page as a single placeholder row. Neither is a shape the browser should ever see. This envelope
+     * is a plain Map with room for a sibling, so the totals are lifted here and the placeholder is dropped:
+     * one response shape reaches the grid, the same one {@code /getProductPage} returns.
+     */
+    @RequestMapping(value = "/serialUnitsByCondition", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> serialUnitsByCondition(final HttpServletRequest request) {
+        try {
+            Map<String, Object> resp = client.get("/serialUnitsByCondition",
+                    com.web.util.AppUtil.passThroughQuery(request, "grade", "status", "page", "size"));
+
+            java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
+            Map<String, Object> meta = new java.util.LinkedHashMap<>();
+            Object coll = (resp != null) ? resp.get("collection") : null;
+            if (coll instanceof java.util.List<?> list) {
+                for (Object o : list) {
+                    if (!(o instanceof Map<?, ?> m)) continue;
+                    // Taken from whichever row carries it — every row holds the same totals, and on an empty
+                    // page the placeholder is the ONLY thing carrying them.
+                    if (meta.isEmpty() && m.get("_page") instanceof Map<?, ?> pg) {
+                        for (Map.Entry<?, ?> e : pg.entrySet()) meta.put(String.valueOf(e.getKey()), e.getValue());
+                    }
+                    if (Boolean.TRUE.equals(m.get("_empty"))) continue;   // the placeholder is not a unit
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : m.entrySet()) {
+                        String k = String.valueOf(e.getKey());
+                        if (!k.startsWith("_")) row.put(k, e.getValue());
+                    }
+                    rows.add(row);
+                }
+            }
+            Map<String, Object> out = new java.util.HashMap<>();
+            // An empty LATER page is still SUCCESS — see getProductPage: running past the end is not "no data".
+            boolean firstPage = !Boolean.TRUE.equals(meta.get("hasPrevious"));
+            out.put("status", (!rows.isEmpty() || !firstPage) ? "SUCCESS" : "NOT_FOUND");
+            out.put("collection", rows);
+            out.put("page", meta);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("serialUnitsByCondition proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     /** Task #21 — the debit-note register, so a purchase return can be found and reprinted later. */
     @RequestMapping(value = "/getPurchaseReturns", method = RequestMethod.GET)
     @ResponseBody

@@ -158,6 +158,12 @@
              pharma). It registers a global ajaxComplete hook that drops the cache after any catalogue
              write, so a product added on one screen is sellable on the next without a reload. -->
         <script th:src="@{/js/common/product-picker.js}"></script>
+        <!-- The customer twin of product-picker: one cached lean read behind every customer picker. -->
+        <script th:src="@{/js/common/customer-picker.js}"></script>
+        <!-- Warms BOTH caches during idle time after load, so New Sale opens on a filled picker
+             instead of two cold round trips. Pure optimisation: skipped on Save-Data, 2g and
+             hidden tabs, and a failure changes nothing. Must come AFTER both pickers. -->
+        <script th:src="@{/js/common/picker-prefetch.js}"></script>
         <!-- CSRF: send the XSRF-TOKEN cookie back as the X-XSRF-TOKEN header on every state-changing
              AJAX call, so jQuery $.post/$.ajax pass Spring Security's CSRF check. -->
         <script>

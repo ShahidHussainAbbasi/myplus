@@ -169,7 +169,7 @@ describe('SF-3b — one press, one sale', () => {
 
       /*
        * The cashier's second press - the whole point. With an empty cart the client refuses it before any
-       * request is made ("Please add items to the cart..."), which is the behaviour that protects the
+       * request is made ("Add at least one item before completing the sale."), which protects the
        * customer. Asserted by COUNTING requests rather than by looking for an absence, because "no second
        * request appeared yet" and "no second request will appear" are different claims.
        */

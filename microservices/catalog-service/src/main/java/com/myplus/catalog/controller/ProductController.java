@@ -210,15 +210,36 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(null, "Deleted"));
     }
 
+    /**
+     * Products per category \u2014 the dashboard card, and the counts its drill-through must match.
+     *
+     * <p>Sits beside {@code /count} rather than inside it: the KPI is one number and this is a breakdown, and
+     * a caller that wants one should not pay for the other.
+     */
+    @GetMapping("/category-counts")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> categoryCounts() {
+        return ResponseEntity.ok(ApiResponse.success(productService.categoryCounts()));
+    }
+
+    /**
+     * Paged product search.
+     *
+     * <p>{@code uncategorised=true} selects the products with NO category \u2014 a distinct request from
+     * omitting {@code category}, which means "any". Both new flags default to false, so a caller that passes
+     * neither gets an active-only, unfiltered page.
+     */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<ProductDTO>>> search(
             @RequestParam(required = false) String q,
             @RequestParam(required = false) Long category,
+            @RequestParam(required = false, defaultValue = "false") boolean uncategorised,
+            @RequestParam(required = false, defaultValue = "false") boolean includeInactive,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success(
-                PageResponse.of(productService.search(q, category, minPrice, maxPrice, pageable), p -> p)));
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.of(
+                productService.search(q, category, uncategorised, includeInactive, minPrice, maxPrice, pageable),
+                p -> p)));
     }
 
     /** Re-price on receive (Option B): the purchase/goods-in flow sets the selling price and stamps the rates this

@@ -203,6 +203,12 @@ describe('U3 — selling a broken pack at the till', () => {
       cy.window().then((w) => { if (w.posKeyboardEnabled !== true) w.posKeyboardEnabled = true })
       pickProduct(p.id)
 
+      // Bonus off: this case is about the PRICE stop, and #sellBonus now sits between Qty and
+      // Price in the chain (it always did on screen). Pinned rather than inherited -
+      // pos.entry.showBonus defaults TRUE, so this passed only on tenants carrying an explicit
+      // false. The bonus link itself is asserted in pos-keyboard.cy.js and by
+      // keyboard-chain-order.cy.js case 7.
+      cy.setPosFields({ bonus: false })
       cy.get('#sellItems').focus().clear().type('5')
       cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
       cy.get('#sellItems').type('{enter}', { force: true })

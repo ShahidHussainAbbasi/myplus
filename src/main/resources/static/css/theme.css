@@ -785,6 +785,23 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   box-shadow: 0 14px 50px rgba(13,35,83,.2);
   transform: translateY(-3px);
 }
+
+/*
+ * ⚠ A panel whose CONTENTS are clickable does not lift.
+ *
+ * The 3px hover lift was written when every .chart-panel held a chart — one static picture, with nothing
+ * inside it to aim at. The breakdown cards are the first panels to contain individually clickable rows, and
+ * the lift then moves the target under the cursor as the user reaches for it: the row you were pointing at
+ * slides up 3px over 200ms, so a click begun on "Accessories" can land on the row above. Small, but it is
+ * the pointing task the whole card exists for.
+ *
+ * The shadow still deepens, so the panel keeps its "this is live" response — only the movement goes.
+ * Charts keep the lift, because there is nothing in them to hit.
+ *
+ * (This is also what made Cypress refuse to click the row: an actionability check samples the target's
+ * position twice and refuses while it is still moving. The test was reporting a real property of the UI.)
+ */
+.chart-panel.is-interactive:hover { transform: none; }
 .chart-panel-head {
   padding: 14px 20px;
   border-bottom: 1px solid rgba(13,35,83,.07);
@@ -807,6 +824,213 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   display: flex; align-items: center; justify-content: center;
 }
 .chart-panel-body { padding: 18px; }
+
+/* ── BREAKDOWN CARDS (SER-5) ─────────────────────────────
+   Products-by-category and stock-by-condition, in .chart-panel shells so they read as part of the
+   dashboard rather than as a bolted-on panel. Everything below is INSIDE .breakdown-body / .grade-grid,
+   so no rule here can reach the charts that share the shell.
+
+   Colour comes from the existing tokens only. A card that introduced its own palette would be the fourth
+   place the dashboard's blues are defined. */
+.breakdown-body { padding: 14px 18px 12px; }
+
+.breakdown-hint {
+  font-size: 11.5px;
+  color: var(--txt3);
+  margin: 0 0 10px;
+}
+
+.breakdown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;                 /* gap, not per-row margins — nothing to collapse or double */
+}
+
+/* The whole row is the control, so the target grows with the count instead of shrinking to fit a link. */
+.breakdown-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background .15s ease;
+}
+.breakdown-row:hover { background: var(--blue-50); }
+.breakdown-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(31,78,140,.85);
+}
+
+/* The bar sits BEHIND the text as a fill, not beside it: a separate track would cost a third column on a
+   card whose whole job is to be read at a glance. z-index keeps the labels legible over it. */
+.breakdown-bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  background: linear-gradient(90deg, rgba(21,101,192,.16), rgba(33,150,243,.09));
+  border-radius: var(--r-sm);
+  pointer-events: none;
+  z-index: 0;
+}
+.breakdown-name,
+.breakdown-count { position: relative; z-index: 1; }
+
+.breakdown-name {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--txt);
+  /* A long category name scrolls nothing and clips nothing — it wraps its own row. */
+  overflow-wrap: anywhere;
+}
+.breakdown-count {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--blue-800);
+  font-variant-numeric: tabular-nums;    /* counts line up down the column */
+}
+
+.breakdown-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(13,35,83,.07);
+}
+.breakdown-more { font-size: 11.5px; color: var(--txt3); }
+.breakdown-empty { font-size: 13px; color: var(--txt3); padding: 6px 2px; }
+.breakdown-error { font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 6px; }
+
+/* Skeletons hold the card's height while it loads, so nothing below it jumps when the rows arrive. */
+.breakdown-skeleton {
+  height: 30px;
+  margin-bottom: 4px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, #EEF3F9 25%, #F7FAFD 37%, #EEF3F9 63%);
+  background-size: 400% 100%;
+  animation: breakdown-shimmer 1.3s ease infinite;
+}
+@keyframes breakdown-shimmer { from { background-position: 100% 0 } to { background-position: 0 0 } }
+
+/* ── Condition grade tiles ───────────────────────────────── */
+.grade-grid {
+  display: grid;
+  /* auto-fit so three grades fill the row and a fourth wraps cleanly, without a column count to maintain */
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+.grade-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.grade-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.grade-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px rgba(31,78,140,.85);
+}
+.grade-count {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.grade-name {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--txt3);
+}
+
+/* Semantic, and separate from the brand accent: condition is a STATE, and reading it should not depend on
+   reading the number beside it. */
+.grade-new    { background: var(--green-bg);  border-color: rgba(46,125,50,.25);  }
+.grade-new    .grade-count { color: var(--green); }
+.grade-used   { background: var(--amber-bg);  border-color: rgba(230,81,0,.25);   }
+.grade-used   .grade-count { color: var(--amber); }
+.grade-refurb { background: var(--purple-bg); border-color: rgba(69,39,160,.25);  }
+.grade-refurb .grade-count { color: var(--purple); }
+.grade-other  { background: var(--bg2); }
+.grade-other  .grade-count { color: var(--txt2); }
+
+/* A zero tile stays present and clickable — "we hold none" is an answer — but recedes so the grades that
+   DO hold stock are what the eye lands on. */
+.grade-tile.is-empty { opacity: .55; }
+.grade-tile.is-empty:hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .grade-tile, .grade-tile:hover { transition: none; transform: none; }
+  .breakdown-skeleton { animation: none; }
+}
+
+/* ── Active-filter chip ──────────────────────────────────── */
+.filter-bar { margin: 0 0 10px; }
+.active-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 8px 5px 11px;
+  border-radius: 999px;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  color: var(--blue-800);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.active-filter-chip .glyphicon { font-size: 11px; }
+.chip-x {
+  border: 0;
+  background: rgba(13,59,140,.1);
+  color: var(--blue-800);
+  border-radius: 50%;
+  width: 18px; height: 18px;
+  line-height: 1;
+  font-size: 14px;
+  cursor: pointer;
+}
+.chip-x:hover { background: rgba(13,59,140,.22); }
+
+/* ── Pager (server-paged lists that are not DataTables) ──── */
+.pager-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+.pager-range {
+  font-size: 12.5px;
+  color: var(--txt2);
+  font-variant-numeric: tabular-nums;
+}
+/* A disabled Next must READ as unavailable — otherwise it looks like a page that failed to load. */
+.pager-bar .btn[disabled] { opacity: .45; cursor: not-allowed; }
+
+@media (max-width: 767px) {
+  .breakdown-body { padding: 12px 14px 10px; }
+  .grade-grid { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+  .grade-count { font-size: 19px; }
+}
 
 /* ── FORM SECTION HEADINGS (formDiv > h3/h4) ─────────────── */
 .formDiv > h3,

@@ -1051,8 +1051,9 @@ $(document).on('click', '#returnsPrintAll', function(){
 function loadReturnsCustomers(){
 	var $dd = $('#returnsCustomerDD');
 	if (!$dd.length || $dd.data('loaded')) return;
-	bgJson(serverContext + 'customerOptions', function(resp){
-		var rows = (resp && resp.collection) || [];
+	// Through the cache (customer-picker.js): this list is the same one the till uses, and it is warmed
+	// during idle time after load, so this filter fills from memory instead of paying its own trip.
+	CustomerPicker.load(function(rows){
 		$dd.empty().append($('<option>').val('').text(t('ui.js.allCustomers')));
 		rows.forEach(function(c){
 			$dd.append($('<option>').val(c.customerId).text(c.name || ('#' + c.customerId)));
@@ -1803,6 +1804,22 @@ function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
 
+	/*
+	 * The Product grid is SERVER-PAGED and has its own initialiser.
+	 *
+	 * <h3>Why the fork is here and not at the call sites</h3>
+	 * `loadDataTable()` has 34 call sites across business, education, crud-modal and data-import. Five of
+	 * them are the Product screen's own refreshes, but the rest are generic - `crud-modal.js` and
+	 * `data-import.js` call it after a save or an import WITHOUT knowing which entity is on screen. Forking
+	 * at the call sites would have meant finding and updating those two blind refreshes as well, and a
+	 * missed one would silently rebuild the Product grid through the unpaged path: 1,000 rows again, and no
+	 * error to say so. One guard on the shared entry point routes every caller, present and future.
+	 *
+	 * The two statements above still run: `edit = false` is the shared edit-mode flag, and clearing the
+	 * sale-report table is what every other section switch does.
+	 */
+	if (tableV === 'Product' && typeof loadProductTable === 'function') { loadProductTable(); return; }
+
 	var table = tableV.toLowerCase();
 	// Read current page length from the active DataTable for this entity (not hardcoded to Sell)
 	var offset = $("select[name='table" + tableV + "_length']").val();
@@ -2071,38 +2088,6 @@ function loadDataTable(){
 								+ "</div>"
 						]);
 					});
-				} else if (getAll === "Product") {
-					// Product master row, rendered through the shared DataTable (same path as Customer). Columns:
-					// [id(hidden), checkbox, name, sku, unit, price, last-purchase-rate, last-sale-rate,
-					//  tax%, category, MANUFACTURER, on-hand(lazy), add-stock control, status].
-					// This array MUST stay exactly as long as the #tableProduct header — a missing cell shifts every
-					// later column and DataTables throws "Requested unknown parameter".
-					$.each(collections, function(ind, obj) {
-						allRows.push([
-							"<div id=productId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=name>"+escHtml(obj.name || '')+"</div>","<div id=sku>"+escHtml(obj.sku || '')+"</div>",
-							"<div id=unit>"+escHtml(obj.unit || '')+"</div>",
-							"<div id=sellingPrice>"+(obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '')+"</div>",
-							// Last rates come stamped on the product itself (written by the purchase flow), so they
-							// render straight from this row — no lazy fill, no extra request.
-							lastRateCell(obj.lastPurchaseRate, obj.lastRateAt, t('ui.js.lastPurchased')),
-							lastRateCell(obj.lastSaleRate,     obj.lastRateAt, t('ui.js.lastSold')),
-							"<div id=taxRate>"+(obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '')+"</div>",
-							"<div id=categoryName>"+escHtml(obj.categoryName || '')+"</div>",
-							// Manufacturer/brand — already carried by getUserProduct, so this needed no new request.
-							// escHtml because it is operator-typed free text (XSS-safe rendering rule).
-							"<div id=manufacturer>"+escHtml(obj.manufacturer || '')+"</div>",
-							"<div id=stk_"+obj.id+" class=prod-onhand>…</div>",
-							"<div class='row-actions'>"
-								+ "<input type=number min=0 step=any id=addstk_"+obj.id+" class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
-								+ "<button type=button id=addstkbtn_"+obj.id+" class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock("+obj.id+")'><span class='glyphicon glyphicon-plus'></span></button>"
-								+ "<button type=button id=lessstkbtn_"+obj.id+" class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock("+obj.id+")'><span class='glyphicon glyphicon-minus'></span></button>"
-								+ "</div>",
-							(obj.isActive === false
-								? "<span class='label label-default'>Inactive</span> <button type=button class='btn btn-xs btn-info' style='margin-left:6px' onclick='reactivateProduct("+obj.id+")' title='Reactivate this product'><span class='glyphicon glyphicon-refresh'></span> Reactivate</button>"
-								: "<span class='label label-success'>Active</span>")
-						]);
-					});
 				}
 				// Single draw — much faster than calling draw() on every row.add()
 				datatable.rows.add(allRows).draw();
@@ -2110,47 +2095,6 @@ function loadDataTable(){
 				// SER-2 (fix): a capability-gated COLUMN is hidden through the DataTables API, never with
 				// `data-capability` on its <th>. See applyPurchaseColumnCapabilities.
 				if (getAll === "Purchase") applyPurchaseColumnCapabilities(datatable);
-
-				// Product on-hand is inventory (not catalog). Fill EVERY row's on-hand in ONE batch call
-				// (/productStockLevels â†’ inventory /stock/levels/detail) instead of a per-row /productStock request.
-				// Show the honest SELLABLE count (what a sale can actually reserve) + a red "N expired" badge when
-				// physical stock is locked in expired batches — so a 16-on-hand/0-sellable product no longer lies.
-				if (getAll === "Product") {
-					$.get(serverContext + "productStockLevels", function(resp){
-						var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
-						$.each(collections, function(ind, obj){
-							var d = levels[obj.id];
-							var el = $('#stk_' + obj.id);
-							if (d == null) { el.text('0'); return; }
-							// Back-compat: a bare number means sellable only.
-							var sellable = (typeof d === 'object') ? Number(d.sellable || 0) : Number(d);
-							var expired  = (typeof d === 'object') ? Number(d.expired  || 0) : 0;
-							var onHand   = (typeof d === 'object') ? Number(d.onHand   || 0) : sellable;
-							/*
-							 * U6 — say it in the language of the person counting the shelf.
-							 *
-							 * 9.5 is arithmetically true and operationally useless: nobody counts half a
-							 * pack. It means nine sealed packs and five loose tablets, and until the screen
-							 * says so the shop cannot reconcile what it holds against what we claim.
-							 *
-							 * An ordinary product has no pack size, so shelfText returns the plain number and
-							 * this row renders exactly as it does today.
-							 */
-							var shelf = (typeof shelfText === 'function')
-								? shelfText(sellable, obj.packSize, obj.looseUnitPlural || obj.looseUnit)
-								: { text: String(sellable) };
-							var html = "<span title='" + onHand + " physical on-hand'>"
-								+ escHtml(shelf.text) + "</span>";
-							if (expired > 0) {
-								html += " <span class='label label-danger' style='margin-left:4px' title='" + expired
-									+ " unit(s) in expired batches — physically present but not sellable'>" + expired + " expired</span>";
-							}
-							el.html(html);   // numbers only (no user data) â†’ XSS-safe
-						});
-					}).fail(function(){
-						$.each(collections, function(ind, obj){ $('#stk_' + obj.id).text('—'); });
-					});
-				}
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
 				console.log(jqXHR, textStatus, errorThrown);
@@ -2202,10 +2146,20 @@ function loadSellCustomers(ddId) {
 	//
 	// bgJson = `global: false`: populating a picker is background work and must not hold the blocking
 	// overlay over a counter. The explicit refresh at the end is NOT optional — see refreshSearchableSelect.
-	bgJson(serverContext + "customerOptions", function(res) {
+	/*
+	 * PERF: through the CACHE now (customer-picker.js), not a fresh read per screen.
+	 *
+	 * Three call sites each fetched this list independently, so opening the till, the receipts screen
+	 * and a quote each paid for the same customers again. More to the point, the list is warmed during
+	 * idle time after load (picker-prefetch.js), so on New Sale this returns from memory and the picker
+	 * is filled before the cashier looks at it - which is the whole reason a sale used to have to wait.
+	 *
+	 * The list, the markup and the refresh are unchanged; only where the rows come from has moved.
+	 */
+	CustomerPicker.load(function(list) {
 		dd.empty().append('<option value=""> Select Customer </option>');
-		if (res && res.collection) {
-			$.each(res.collection, function(i, c) {
+		if (list) {
+			$.each(list, function(i, c) {
 				// B2B-P1 (#9): carry the credit limit alongside the balance the option already carries, so the
 				// screen can show "available" live while typing without a call per keystroke. Only a HINT —
 				// the server re-checks against the current balance, which another till may have moved.
@@ -2218,7 +2172,7 @@ function loadSellCustomers(ddId) {
 		// ajaxComplete hook that normally keeps every AJAX-filled picker in sync. Without this the
 		// options exist in the DOM and the cashier sees an empty list forever.
 		refreshSearchableSelect(dd);
-	}).fail(function() {
+	}, function() {
 		console.log("Error loading customers for sell dropdown");
 		// Say so, rather than leaving the loading text sitting there forever on a dead request.
 		dd.empty().append($('<option>').val('').text(t('ui.js.couldNotLoadCustomers')));
@@ -2793,6 +2747,9 @@ function loadStock(label,value){
     // U3: fetch this product's pack rules ONCE (cached per product) so the unit toggle and the live
     // per-piece hint can appear. Fire-and-forget: a failure leaves the line pack-only, exactly as today.
     if (window.LooseSell) LooseSell.onProductPicked(Number($('#sellItemDD').val()) || null);
+    // SER-6: show the serial box only for a product that has one. Synchronous and local — the flag rides
+    // on the option (data-requires-serial), so picking an item costs no extra call to learn this.
+    if (typeof applySerialFieldVisibility === 'function') applySerialFieldVisibility();
     var catalogSellPrice = $("#"+(tableV?tableV.toLowerCase():'')+"ItemDD :selected").attr('data-price');
 		// Fill the sell rate IMMEDIATELY from the catalog price (data-price on the option), independent of the async
 		// on-hand/batch fetch below — so it shows on select even if /productStock is slow or unavailable.
@@ -5089,7 +5046,60 @@ function applySerialQuantityLock() {
 
 // `input` rather than `change`, so a SCANNER — which fires no change event until focus leaves — locks the
 // quantity the instant the code lands. A cashier scanning three handsets in a row never sees a stale 3.
+/**
+ * ⭐ SER-6 — the serial box appears for products that HAVE a serial, and only those.
+ *
+ * <h3>The problem</h3>
+ * The box was on every line of every till whose tenant had serial tracking, so a shop selling handsets and
+ * paracetamol from one screen asked for an IMEI on the paracetamol. It is the visible half of the same
+ * mistake INST-5b fixed on the server, where a financed sale of Panadol was refused for want of a serial
+ * the product does not have.
+ *
+ * <h3>⚠ A THIRD class, never an inline style</h3>
+ * Two mechanisms already decide whether this cell exists: `.cap-off` (the tenant lacks serialTracking) and
+ * `.pos-hidden` (the tenant switched the field off). applyPosFields states the contract in as many words —
+ * "neither may write inline styles the other has to fight" — because an inline `display` beats the
+ * stylesheet and drags fields back onto a compact row. So this adds `.serial-na`, orthogonal to both: any
+ * one of the three hides the cell, and none can un-hide what another hid.
+ *
+ * <h3>⚠ Hiding is not enough — the value must go</h3>
+ * A hidden input is still submitted (`display:none` is kept by FormData; only `disabled` is dropped — the
+ * lesson the POS keyboard slice recorded). A serial left in the box from the previous line would ride along
+ * on a product that cannot take one, and the server would refuse the line for a serial the cashier could no
+ * longer see. So the box is cleared as it is hidden, and the register note with it.
+ *
+ * <p>Nothing selected leaves the box SHOWN: a scanner-first cashier types the IMEI before choosing anything,
+ * and hiding it then would break the flow this screen was built around.
+ */
+function applySerialFieldVisibility() {
+	var $cell = $('#sellDiv [data-pos-field="serial"]');
+	if (!$cell.length) return;
+
+	var $picked = $('#sellItemDD :selected');
+	var nothingPicked = !$('#sellItemDD').val();
+	// Absent attribute => not tracked. Only an explicit flag shows the box.
+	var tracked = $picked.attr('data-requires-serial') === '1';
+	var applicable = nothingPicked || tracked;
+
+	$cell.toggleClass('serial-na', !applicable);
+	if (!applicable) {
+		$('#sellSerials').val('');
+		// SER-4's condition note describes a unit that is no longer on screen.
+		$(document).trigger('serial:clear');
+		if (typeof applySerialQuantityLock === 'function') applySerialQuantityLock();
+	}
+}
+
 $(document).on('input change', '#sellSerials', applySerialQuantityLock);
+
+/*
+ * SER-6 — re-evaluate whenever the picker changes for a reason other than a click: Add-to-Cart runs the
+ * generic resetForm(), a barcode scan sets the value programmatically, and an edit loads an existing line.
+ * Binding the SELECT itself covers all three, where hooking only the click handler covered none of them.
+ */
+$(document).on('change', '#sellItemDD', function () {
+	if (typeof applySerialFieldVisibility === 'function') applySerialFieldVisibility();
+});
 
 /*
  * Release the lock when the LINE is cleared, however it was cleared.

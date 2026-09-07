@@ -2,6 +2,8 @@ package com.spring;
 
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -33,6 +35,8 @@ import com.web.util.SupportedLocaleResolver;
 @ComponentScan(basePackages = { "com.web" })
 @EnableWebMvc
 public class MvcConfig implements WebMvcConfigurer {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MvcConfig.class);
 
  /*   public MvcConfig() {
         super();
@@ -148,6 +152,48 @@ public class MvcConfig implements WebMvcConfigurer {
     private boolean staticChainCache;
 
     /**
+     * ⭐ The working copy of the static assets, served AHEAD of the packaged ones when it exists.
+     *
+     * <h3>The problem this removes</h3>
+     * This app serves static files from {@code target/classes}, so editing
+     * {@code src/main/resources/static/js/…} changed nothing until the next {@code mvn package}. The failure
+     * is silent and total: the browser is served the OLD bytes, under a content hash computed over those old
+     * bytes, so the URL looks freshly versioned and everything appears to be working. A fix can be tested,
+     * observed not to work, and "re-fixed" several times over — which is exactly what happened, three test
+     * runs in a row, before anyone compared the served file with the file on disk.
+     *
+     * <p>The obvious workaround — copy the file into {@code target/classes} by hand — is worse than the
+     * problem: it makes what you TESTED differ from what you BUILT, which is a far better way to ship a
+     * defect than to catch one.
+     *
+     * <h3>Why this cannot leak into production</h3>
+     * It is a path on disk, resolved relative to the working directory, and it is used ONLY if that
+     * directory actually exists. A deployed jar runs from {@code /} in a container built by
+     * {@code mvn clean package} from a fresh checkout — {@code src/main/resources/static} is not there, the
+     * location is dropped, and the packaged assets serve exactly as before. So the dev convenience is
+     * self-disabling rather than profile-guarded: there is no property anyone can set wrongly on a server.
+     *
+     * <p>Set {@code app.static.source-dir} to blank to switch it off even in development.
+     */
+    @Value("${app.static.source-dir:src/main/resources/static}")
+    private String staticSourceDir;
+
+    /**
+     * The live source location as a Spring resource prefix, or {@code null} when there is none.
+     *
+     * <p>Also the reason the resolved-resource cache has to go off in development: with the cache on, the
+     * md5 of the FIRST version of a file is memoised, so the second edit of a session would serve stale
+     * bytes again under a stale hash — reintroducing the same defect one step further along.
+     */
+    private String liveSourceLocation() {
+        if (staticSourceDir == null || staticSourceDir.trim().isEmpty()) {
+            return null;
+        }
+        java.io.File dir = new java.io.File(staticSourceDir.trim());
+        return dir.isDirectory() ? dir.toURI().toString() : null;
+    }
+
+    /**
      * PERF-2 (audit finding F1). Static assets used to go out with NO Cache-Control at all, so every one of
      * the ~80 requests on a page was re-issued as a conditional GET on every navigation — and this app
      * navigates by full page load. On a 300 ms link that is seconds of dead time per screen.
@@ -175,22 +221,34 @@ public class MvcConfig implements WebMvcConfigurer {
                 .cachePublic()
                 .immutable();
 
+        // Development only, and only when the working copy is actually on disk — see staticSourceDir. In a
+        // deployed container this is null and every line below behaves exactly as it did before.
+        final String liveSource = liveSourceLocation();
+        // A memoised hash would defeat the whole point: the second edit of a session would serve the first
+        // edit's bytes under the first edit's URL.
+        final boolean chainCache = staticChainCache && liveSource == null;
+        if (liveSource != null) {
+            LOGGER.info("Static assets served from the working copy first: {} "
+                    + "(edits are live; no rebuild needed). Resolved-resource cache is OFF.", liveSource);
+        }
+
         for (String dir : VERSIONED_ASSET_DIRS) {
             if (registry.hasMappingForPattern("/" + dir + "/**")) {
                 continue;
             }
             registry.addResourceHandler("/" + dir + "/**")
-                    .addResourceLocations(locationsUnder(dir))
+                    .addResourceLocations(locationsUnder(dir, liveSource))
                     .setCacheControl(versioned)
                     // Chain of Responsibility: CachingResourceResolver -> VersionResourceResolver ->
                     // PathResourceResolver. resourceChain(true) also inserts a CssLinkResourceTransformer
                     // automatically once a version resolver is present, which rewrites url(...) inside CSS
                     // so the images a stylesheet references are hashed too.
                     //
-                    // chain cache ON in dev as well as prod: this app serves from target/classes and every
-                    // static change already needs a rebuild + restart, which drops the cache. With it off,
-                    // rendering a page would md5 every referenced asset on every request.
-                    .resourceChain(staticChainCache)
+                    // Chain cache ON in production: with it off, rendering a page would md5 every
+                    // referenced asset on every request. It is forced OFF in development, where the working
+                    // copy is served directly — see staticSourceDir for why a memoised hash would put the
+                    // stale-asset defect straight back.
+                    .resourceChain(chainCache)
                     // Strategy for the version format: the md5 of the file's own bytes.
                     .addResolver(new VersionResourceResolver().addContentVersionStrategy("/**"));
         }
@@ -199,19 +257,36 @@ public class MvcConfig implements WebMvcConfigurer {
         // period it can actually recover from, never "immutable".
         if (!registry.hasMappingForPattern("/**")) {
             registry.addResourceHandler("/**")
-                    .addResourceLocations(CLASSPATH_RESOURCE_LOCATIONS)
+                    .addResourceLocations(withLiveSourceFirst(CLASSPATH_RESOURCE_LOCATIONS, liveSource))
                     .setCacheControl(CacheControl.maxAge(plainCacheSeconds, TimeUnit.SECONDS)
                             .cachePublic()
                             .mustRevalidate());
         }
     }
 
-    /** {@code classpath:/static/} + {@code js} -> {@code classpath:/static/js/}. See the trap note above. */
-    private static String[] locationsUnder(String dir) {
+    /**
+     * {@code classpath:/static/} + {@code js} -> {@code classpath:/static/js/}. See the trap note above.
+     *
+     * <p>{@code liveSource} (development only, may be null) is suffixed the same way and placed FIRST, so a
+     * working-copy file wins over the packaged one. Locations are tried in order and a miss falls through,
+     * so anything not present in the working copy still resolves from the jar.
+     */
+    static String[] locationsUnder(String dir, String liveSource) {
         String[] out = new String[CLASSPATH_RESOURCE_LOCATIONS.length];
         for (int i = 0; i < out.length; i++) {
             out[i] = CLASSPATH_RESOURCE_LOCATIONS[i] + dir + "/";
         }
+        return withLiveSourceFirst(out, liveSource == null ? null : liveSource + dir + "/");
+    }
+
+    /** {@code locations} unchanged when there is no working copy; otherwise it is prepended. */
+    static String[] withLiveSourceFirst(String[] locations, String liveSource) {
+        if (liveSource == null) {
+            return locations;
+        }
+        String[] out = new String[locations.length + 1];
+        out[0] = liveSource;
+        System.arraycopy(locations, 0, out, 1, locations.length);
         return out;
     }
 

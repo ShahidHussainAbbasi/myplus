@@ -203,3 +203,23 @@ html[dir="rtl"] .glyphicon-arrow-right::before{ content:"\e091"; }   /* → beco
 html[dir="rtl"] .glyphicon-arrow-left::before{ content:"\e092"; }
 html[dir="rtl"] .glyphicon-chevron-right::before{ content:"\e079"; }
 html[dir="rtl"] .glyphicon-chevron-left::before{ content:"\e080"; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BREAKDOWN CARDS (SER-5)
+   ══════════════════════════════════════════════════════════════════════════
+   Per this file's own scope note, flex and grid mirror themselves: .breakdown-row,
+   .breakdown-foot, .grade-grid and .pager-bar all need nothing here.
+
+   The bar fill is the exception, and it is not a Bootstrap 3 problem — it is
+   absolutely positioned, and `left: 0` is a physical edge that `dir` does not touch.
+   Left unfixed, an Urdu reader would see every bar grow away from the label it
+   measures: the numbers stay correct and the graphic reads backwards. */
+html[dir="rtl"] .breakdown-bar{ left:auto; right:0; }
+html[dir="rtl"] .breakdown-bar{
+  background:linear-gradient(270deg,rgba(21,101,192,.16),rgba(33,150,243,.09));
+}
+
+/* The chip's padding is lopsided by design (label side roomier than the × side), so it
+   has to be swapped rather than left symmetrical. */
+html[dir="rtl"] .active-filter-chip{ padding:5px 11px 5px 8px; }

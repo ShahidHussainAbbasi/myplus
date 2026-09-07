@@ -125,6 +125,14 @@
             .fail(function () {
                 // Fail OPEN. Nothing is hidden, and every guarded endpoint still refuses on its own.
                 global.CAPS = null;
+                /*
+                 * The event fires on this path too, so it means "the map has SETTLED" rather than "the map
+                 * arrived". A listener that only ever hears the success case has no way to tell a failed
+                 * fetch from a slow one, and waits for ever \u2014 which for a screen that defers its own work
+                 * until this event is a section that silently never loads. `caps` is null here; listeners
+                 * read `hasCapability()`, which already fails open.
+                 */
+                $(global.document).trigger('capabilities:ready', [null]);
             });
     }
 

@@ -447,6 +447,48 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 				</div>
 
+				<!--
+				     Breakdown cards — asked for by the user: *"on businessdashbaord dashDateLabel we want to add
+				     card to show to the user products by categories where user will click and directly navigate to
+				     the filtered products also a mobile shop user want to see purchaseCondition (new, used or
+				     Refurbished) with single click instead of moving to the products and searching for it"*.
+
+				     WHY HERE, between the KPI tiles and the charts: a KPI answers "how many", a chart answers "how
+				     is it trending", and neither answers "how does it BREAK DOWN" — which is the question a
+				     shopkeeper actually acts on. The breakdown belongs next to the count it decomposes, not below
+				     six months of trend.
+
+				     Both cards are filled by /js/business/dashboard-cards.js. Their bodies are rendered in JS
+				     because the data is per-tenant and arrives after load; the LABELS stay here, in Thymeleaf, so
+				     the message bundles remain the single source of truth for wording.
+				-->
+				<div class="row" style="margin-bottom:18px">
+					<div data-widget="categoryBreakdown" class="col-xs-12 col-sm-7" style="margin-bottom:12px">
+						<div class="chart-panel is-interactive">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-tags"></span>
+								<span th:text="#{ui.productsByCategory}">Products by category</span>
+							</div>
+							<div class="chart-panel-body breakdown-body" id="dashCategoryCard"></div>
+						</div>
+					</div>
+					<!--
+					     Condition is a SERIAL-REGISTER fact, so the card follows the same capability gate the
+					     purchase form's Condition field carries. A grocer has no New/Used/Refurbished and must not
+					     be shown an empty card asking about one.
+					-->
+					<div data-widget="conditionBreakdown" data-capability="serialTracking,conditionGrading"
+					     class="col-xs-12 col-sm-5" style="margin-bottom:12px">
+						<div class="chart-panel is-interactive">
+							<div class="chart-panel-head">
+								<span class="glyphicon glyphicon-barcode"></span>
+								<span th:text="#{ui.stockByCondition}">Stock by condition</span>
+							</div>
+							<div class="chart-panel-body breakdown-body" id="dashConditionCard"></div>
+						</div>
+					</div>
+				</div>
+
 				<!-- Charts row 1: trend + top items -->
 				<div class="row" style="margin-bottom:18px">
 					<div data-widget="chartTrend" class="col-xs-12 col-sm-8" style="margin-bottom:12px">
@@ -2664,6 +2706,11 @@ tr.row-voided .js-edit-row{display:none !important}
 									</div>
 									<div id="guarantorRecent" style="padding:4px 0"></div>
 									<div id="guarantorBlocks"></div>
+									<!-- R4b: the two slips that make a recorded guarantor worthless — the same
+									     person twice, or the buyer himself — reported WHILE the form is filled,
+									     where they can be corrected. Never a refusal: guarantors are asked for,
+									     not demanded, so the sale and the plan proceed regardless. -->
+									<span id="guarantorNote" class="help-block text-warning" style="margin:2px 0"></span>
 								</div>
 							</div>
 						</div>
@@ -3625,6 +3672,13 @@ tr.row-voided .js-edit-row{display:none !important}
 				     ⚠ These indexes are positional — if a column is inserted into the table above, every number
 				     after it shifts. product-manufacturer.cy.js asserts header count vs row-cell count for exactly
 				     that reason. -->
+				<!--
+				     Active-filter chip. The grid can arrive already filtered (from the dashboard category card),
+				     and a grid that silently holds a filter is a support call: the shop searches for a product it
+				     owns, finds nothing, and has no way to see why. The chip states the filter and is itself the
+				     control that clears it. Filled by catalog-products.js.
+				-->
+				<div id="productFilterBar" class="filter-bar" style="display:none"></div>
 				<div>
 					<span th:text="#{ui.toggleColumn}">Toggle column:</span>
 					  <a class="toggle-vis" data-column="2" th:text="#{ui.name}">Name</a>
@@ -3663,6 +3717,60 @@ tr.row-voided .js-edit-row{display:none !important}
 							</tr>
 						</thead>
 					</table>
+				</div>
+			</div>
+
+			<!--
+			     SER-5 — the units behind one condition card, in detail.
+
+			     Asked for by the user: *"Condition card will display all the used in the stock with detail"*. A
+			     count alone sends the shopkeeper to the Product screen to search for what it counted, which is the
+			     errand the card was meant to remove.
+
+			     A SECTION rather than a modal: the list is paged and is a place a person works from — reading
+			     serials off the screen while handling the handsets — not a message to dismiss. It is also
+			     deliberately NOT a DataTable: the paging is the server's, and a second paging mechanism drawn on
+			     top of it is two controls disagreeing about which page you are on.
+			-->
+			<div id="ConditionUnitsDiv" data-capability="serialTracking,conditionGrading" class="formDiv" style="display:none">
+				<div class="crud-head">
+					<h4 id="conditionUnitsTitle" style="margin:0"></h4>
+					<button type="button" class="btn btn-default btn-sm" onclick="showDashboardHome()">
+						<span class="glyphicon glyphicon-arrow-left"></span> <span th:text="#{ui.businessOverview}">Business Overview</span>
+					</button>
+				</div>
+				<p class="text-muted" id="conditionUnitsHint"></p>
+				<div class="table-responsive">
+					<table id="tableConditionUnits" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th th:text="#{ui.js.serialImei}">Serial / IMEI</th>
+								<th th:text="#{ui.product}">Product</th>
+								<th th:text="#{ui.js.purchaseBill}">Purchase bill</th>
+								<th th:text="#{ui.js.receivedOn}">Received</th>
+							</tr>
+						</thead>
+						<tbody id="conditionUnitsBody"></tbody>
+					</table>
+				</div>
+				<div id="conditionUnitsEmpty" class="text-muted" style="display:none"
+				     th:text="#{ui.js.noUnitsAtCondition}">Nothing in stock at this condition.</div>
+				<!--
+				     Explicit Previous / Next, never infinite scroll. This is a working list a person reads a page
+				     of and acts on — the same reason Amazon pages its order history and Gmail pages a mailbox
+				     while a social feed scrolls forever. A feed is browsed; a register is worked through, and
+				     losing your place in one costs the shop a handset.
+				-->
+				<div class="pager-bar" id="conditionUnitsPager" style="display:none">
+					<button type="button" class="btn btn-default btn-sm" id="conditionUnitsPrev">
+						<span class="glyphicon glyphicon-chevron-left"></span>
+						<span th:text="#{ui.js.prevPage}">Previous</span>
+					</button>
+					<span class="pager-range" id="conditionUnitsRange"></span>
+					<button type="button" class="btn btn-default btn-sm" id="conditionUnitsNext">
+						<span th:text="#{ui.js.nextPage}">Next</span>
+						<span class="glyphicon glyphicon-chevron-right"></span>
+					</button>
 				</div>
 			</div>
 
@@ -4346,6 +4454,13 @@ tr.row-voided .js-edit-row{display:none !important}
          distinct audience. Inert unless the tenant turned on pos.installment.enabled. -->
     <script th:src="@{/js/business/installment.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
+    <!--
+         SER-5 dashboard cards. Loads AFTER catalog-products.js because the category card's click handler
+         calls openProductsForCategory(), which that file defines. The handler is delegated on `document`, so
+         only the DEFINITION has to exist by the time a click happens — but ordering it here keeps the
+         dependency visible rather than relying on a user being slow.
+    -->
+    <script th:src="@{/js/business/dashboard-cards.js}"></script>
     <script th:src="@{/js/business/stock-count.js}"></script>
     <!-- U12: vendored barcode encoder. If this file is absent the Labels screen
          REFUSES to print rather than rendering empty boxes. -->

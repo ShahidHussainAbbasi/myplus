@@ -80,6 +80,16 @@
      *            Broken by: the checkout listing trade discount before Received while the screen had
      *            them the other way round, so Enter jumped down the page and back up.
      *
+     *            ⚠ AND COMPLETE, not merely correctly ordered. Every field the cashier can TYPE INTO
+     *            belongs in its chain. A field left out is not skipped politely — it is unreachable
+     *            from the keyboard, which is the one thing this module exists to prevent, and it looks
+     *            exactly like a deliberate skip from the outside.
+     *            Broken by: #sellBonus, on screen between Qty and Price and absent from CHAIN, so a
+     *            distributor's Enter jumped the quantity straight to the price. Six chain-order gate
+     *            cases passed throughout: they checked that the listed fields were in screen order and
+     *            that no listed field was missing from the page — never that no PAGE field was missing
+     *            from the list. Case 7 in keyboard-chain-order.cy.js closes that direction.
+     *
      *   RULE 2 — A NAMED FIELD IS A PREFERENCE, NEVER A TARGET.
      *            Whether it is on screen is the TENANT's decision. Check it with usable() and move to
      *            the next available field; never focus nothing, and never leave an id here for a
@@ -101,8 +111,18 @@
      * ══════════════════════════════════════════════════════════════════════════════════════════ */
 
     var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC',
-                 'sellItemDD', 'sellSerials', 'sellItems', 'sellSellRate',
+                 'sellItemDD', 'sellSerials', 'sellItems', 'sellBonus', 'sellSellRate',
                  'sellDiscountTypeDD', 'sellDiscount'];
+    /*
+     * sellBonus sits between Qty and Price ON SCREEN, and was missing from this list entirely — so a
+     * distributor with free-goods switched on watched Enter jump straight from the quantity to the
+     * price, past a field they had to reach for the mouse to fill. Reported from the counter.
+     *
+     * It is a typed input like any other (readonly display badges — sellStock, bexpDate,
+     * sellTotalAmount — are excluded by FocusFlow.skip and must NOT be listed here). A tenant with
+     * pos.entry.showBonus off has it hidden, and RULE 2 means Enter flows past it untouched, so adding
+     * it costs the shops that do not use bonuses exactly nothing.
+     */
 
     /** Every dropdown the chain walks. These are bootstrap-select widgets, so they need the
      *  selection hook below rather than a keystroke handler — see D-23 in the P5 design. */
@@ -498,6 +518,15 @@
         focusFirstUsable(checkoutOrder());
     }
     global.posFocusEntryPoint = focusEntryPoint;
+    /*
+     * Exported for main.js, which refuses an EMPTY CART and has to put the cursor where items are typed.
+     *
+     * posFocusEntryPoint is the wrong one there: it lands on the CUSTOMER (task #13), and telling a
+     * cashier "add an item" while moving them to the buyer's name is the same class of mismatch this
+     * export exists to fix. Only this module knows whether goods are typed into the scan box or the item
+     * picker on THIS tenant's screen, so it answers rather than main.js guessing an id.
+     */
+    global.posFocusGoodsEntry = focusGoodsEntry;
 
     /** Commit the in-progress line through the EXISTING add-to-cart handler, then reset for the next
      *  one. Returns without committing when the line is obviously incomplete, so Enter on an empty
@@ -814,15 +843,45 @@
             e.preventDefault();
             e.stopPropagation();
 
+            /*
+             * ⚠ chainFor(), NOT a hardcoded CHECKOUT — this was the one call site that hardcoded it, and
+             * it was a live dead end.
+             *
+             * This handler is bound to the CUSTOMER controls too (they sit outside <form id="Sell">, so
+             * the line-chain binding cannot reach them). Task #13 then moved sellCustomerDD / sellCN /
+             * sellCC OUT of CHECKOUT and into CHAIN — and walk() returns null for a field that is not in
+             * the list it is given. So Enter on the customer walked a chain the customer is not in, got
+             * null, read it as "past the last checkout field", and ran completeSale() on an empty cart:
+             *
+             *     "Please add items to the cart and enter a valid payment amount."
+             *
+             * — a checkout complaint, thrown at a cashier who had done nothing but name the buyer, at the
+             * very first field of the sale. Reported from the counter.
+             *
+             * Nine other call sites already ask chainFor() which chain a field belongs to. This is the
+             * tenth, and the same class of miss as RULE 2's #sellInsured: an array was updated and one
+             * place that reads it was not.
+             */
+            var list = chainFor(this.id);
+
             // Forward from the PAY METHOD, the method decides — see AFTER_METHOD. Backwards is left
             // positional on purpose: Shift+Enter means "the field before this one", and a shortcut that
             // reversed into somewhere other than where you came from is disorienting.
             var target = (this.id === 'sellPayMethod' && !e.shiftKey && afterPayMethod())
-                || walk(CHECKOUT, this.id, e.shiftKey ? -1 : 1);
-            // Past the last checkout field = complete the sale. Same handler as the button and F2, so
-            // the credit-limit checks, the due-date rule and the idempotency key all still apply —
-            // this only decides WHEN it is called.
-            if (target === null) { completeSale(); return; }
+                || walk(list, this.id, e.shiftKey ? -1 : 1);
+
+            if (target === null) {
+                /*
+                 * Past the end means different things in the two chains, which is exactly what the old
+                 * code could not express: the end of the LINE chain commits a line, the end of the
+                 * CHECKOUT completes the sale. Mirrors the picker handler's own branch.
+                 */
+                if (list === CHAIN) { if (!e.shiftKey) commitLine(); return; }
+                // Same handler as the button and F2, so the credit-limit checks, the due-date rule and
+                // the idempotency key all still apply — this only decides WHEN it is called.
+                completeSale();
+                return;
+            }
             focusField(target);
         });
 
@@ -843,13 +902,32 @@
             if (!enabled() || !onSellScreen() || blocked()) return;
             if (clickedIndex === undefined || clickedIndex === null) return;   // programmatic — ignore
             var id = this.id;
-            var list = chainFor(id);          // one answer to "which chain", shared with skipAhead
-            var target = walk(list, id, 1);
-            if (target === null) {
-                if (list === CHAIN) { commitLine(); } else { completeSale(); }
-                return;
-            }
-            focusField(target);
+
+            /*
+             * ⚠ DEFERRED BY A TICK, and this is the whole reason the cursor appeared not to move.
+             *
+             * bootstrap-select fires changed.bs.select and THEN finishes its own work - it closes the
+             * menu and returns focus to its button. Focusing the next field synchronously here happened
+             * BEFORE that, so the plugin pulled the cursor straight back to the picker a moment later and
+             * the operator saw a dropdown that answered Enter with nothing at all. Selecting a product
+             * and pressing Enter left them exactly where they started, on the one screen whose promise is
+             * that they never touch the mouse. Reported from the counter twice.
+             *
+             * A tick is enough because the plugin's restore is synchronous within its own handler chain -
+             * it just runs after ours. This is the same deferral commitLine() makes for the same reason
+             * ("the click path calls resetForm() + resetBSDD() itself; we only decide where focus lands")
+             * and the same one the form's `reset` handler makes. When a widget tells you it is done, it
+             * means it is done telling you - not that it has finished.
+             */
+            global.setTimeout(function () {
+                var list = chainFor(id);      // one answer to "which chain", shared with skipAhead
+                var target = walk(list, id, 1);
+                if (target === null) {
+                    if (list === CHAIN) { commitLine(); } else { completeSale(); }
+                    return;
+                }
+                focusField(target);
+            }, 0);
         });
 
         // Tiles are clickable as well as keyable — a touch till has no Alt key.

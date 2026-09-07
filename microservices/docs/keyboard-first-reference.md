@@ -51,7 +51,7 @@ setting exists for teams worried a stray Enter saves a half-typed record — not
 ### 3a. The line, in one row
 
 ```
-Customer → Item → Serial → Qty → Price → Disc-type → Discount → [Enter] adds the line
+Customer → Item → Serial → Qty → Bonus → Price → Disc-type → Discount → [Enter] adds the line
 ```
 
 * **The customer comes first** (task #13). A sale rung against a customer the system did not know it had was
@@ -69,6 +69,19 @@ Customer → Item → Serial → Qty → Price → Disc-type → Discount → [E
   could not reach it — and for a serial-tracked product the server then refuses the sale. See §7.
 * It must come **before** the quantity, because entering a serial **locks the quantity to 1**. Walking
   Item → Qty → Serial would put the cashier in a box whose value the next field overwrites.
+* ⚠ **`sellBonus` sits between Qty and Price, and was missing from the chain in exactly the same way** —
+  the second time one field on the strip was unreachable from the keyboard. A distributor with free-goods
+  switched on watched Enter jump the quantity straight to the price, past a box they then had to reach for
+  the mouse to fill. **Reported from the counter (waqaschaudhary96@gmail.com); fixed 2026-09-06.**
+* **The rule is now ORDER *and* COMPLETENESS.** Order alone is half a rule: a chain can be perfectly ordered
+  and still leave a field unreachable. Every field the cashier can TYPE INTO belongs in its chain — and only
+  those: the readonly display badges (`sellStock`, `bexpDate`, `sellTotalAmount`) are excluded by
+  `FocusFlow.skip`, which is precisely why they must not be listed.
+* ⚠ **Six chain-order gate cases were green throughout both defects, and none of them could have caught
+  either.** They check that the fields *in* a chain appear in screen order, and that no chain names a field
+  missing from the *page* — never that no page field is missing from the *chain*. That direction is now
+  case 7 of `keyboard-chain-order.cy.js`, which asks the page's own `FocusFlow.skip` rather than restating a
+  list that would drift.
 
 ### 3b. Checkout
 
@@ -246,6 +259,7 @@ any walk built on it. `visualEl()` measures what the plugin actually shows. Any 
 | Finding | State |
 |---|---|
 | ⚠ **`sellSerials` was missing from the sale Enter-chain** — visual order and keyboard order disagreed, and the field the server requires was unreachable without a mouse | **fixed in this review** |
+| ⚠ **`sellBonus` was missing the same way** — on screen between Qty and Price, absent from `CHAIN`, so Enter skipped it for every shop that sells on free-goods | **fixed 2026-09-06.** RULE 1 now covers completeness, and `keyboard-chain-order.cy.js` case 7 asserts it from the page's own `FocusFlow.skip` |
 | ⚠ **Skipping an empty customer jumped to the Received box**, past the whole goods phase, on an empty cart. A rule that was correct while the customer lived in checkout and was never revisited when it moved | **fixed — reported from the counter** |
 | **The landing order needed stating explicitly**, so a hidden field falls through instead of stranding the cursor | **done:** payment method → Received → trade discount → rest → complete. ⚠ My first cut skipped the payment method as an "empty stop" and thereby disabled `AFTER_METHOD`, which sends a CREDIT sale to its due date rather than to Received. Overruled by the owner on the chain rule, and he was right |
 | ⚠ **`focusGoodsEntry()` focused the item picker unconditionally.** A tenant who had hidden it got a call that focused nothing: cursor unmoved, Enter apparently dead, no error | **fixed:** checked, then the next usable field in the chain |

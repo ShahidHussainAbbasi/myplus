@@ -282,15 +282,37 @@ describe('#24 — returns register parity', () => {
      * A second real login is the honest form, and it is what return-documents.cy.js already does for the
      * same question: the request then travels the same path a person's browser does, session and all.
      */
-    ensureCreditNote()
+    /*
+     * ⚠⚠ DO NOT COMPARE DOCUMENT NUMBERS. They are a PER-ORG sequence.
+     *
+     * `credit_note_no` is allocated from org_document_seq, so every tenant has its own CRN-000001. Measured
+     * on this database: orgs 6, 12, 13, 20, 41 and 44 each own a CRN-000001 AND a CRN-000002. Asserting that
+     * one tenant's numbers are absent from another's list therefore fails the moment BOTH tenants have made
+     * two returns — with nothing leaked. That began on 2026-09-01, when the mobile tenant made its second.
+     *
+     * This is the SECOND false positive on this one case (see the note above about cy.asOtherTenant), and a
+     * cross-tenant assertion that cries wolf is worse than none: the next person either loses an afternoon
+     * or learns to ignore a red security test.
+     *
+     * The register exposes no globally unique id — only documentNo, referenceNo (an invoice number, also
+     * per-org) and party. So the honest question is not "are your numbers absent from their list" but "is
+     * the ROW I just created absent from it", and the way to ask that is to make the row identifiable by
+     * something no other tenant can hold: a token in the reason text.
+     */
+    const token = `LEAKCHK-${Date.now()}${Math.floor(Math.random() * 1000)}`
+    cy.seedCreditNote({ reason: token })
     openReturns('credit')
-    listedNotes().then((mine) => {
-      expect(mine.length, 'this tenant has notes to be leaked').to.be.greaterThan(0)
+
+    cy.request({ url: '/getSaleReturns' }).then((r) => {
+      const mine = (r.body && r.body.collection) || []
+      const tagged = mine.filter((n) => String(n.reason || '').includes(token))
+      expect(tagged.length, 'the tagged note is on MY register, so there is something to leak').to.eq(1)
 
       cy.loginAsOwner(OTHER_TENANT)
-      cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((r) => {
-        const theirs = ((r.body && r.body.collection) || []).map((n) => n.documentNo)
-        mine.forEach((n) => expect(theirs, `no leak across tenants: ${n}`).to.not.include(n))
+      cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((rr) => {
+        const theirs = (rr.body && rr.body.collection) || []
+        const leaked = theirs.filter((n) => String(n.reason || '').includes(token))
+        expect(leaked.length, `no leak across tenants: ${token} reached the other tenant`).to.eq(0)
       })
     })
   })

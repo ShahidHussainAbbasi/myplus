@@ -26,6 +26,27 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /**
+     * How many products this tenant holds in each category \u2014 the dashboard's category card.
+     *
+     * <h3>LEFT JOIN, so uncategorised products are a BUCKET and not an omission</h3>
+     * A tenant here has 368 of 1,518 products with no category. An inner join would drop them, and the card
+     * would then total less than the Products figure beside it \u2014 two numbers disagreeing on one dashboard,
+     * which is the failure a summary card exists to avoid. The null row is returned and the caller names it.
+     *
+     * <h3>ACTIVE only, matching what the drill-through shows</h3>
+     * The product grid hides deactivated rows by default, so a card counting them would promise more rows
+     * than clicking it delivers. {@code isActive IS NULL} counts as active \u2014 the same reading the list
+     * projection already applies to legacy rows, so the two cannot disagree.
+     *
+     * <p>Returns {@code [categoryId, categoryName, count]} rows, biggest first: the card order IS the
+     * ranking, so a shop sees where its catalogue actually sits without reading the numbers.
+     */
+    @Query("SELECT c.id, c.name, COUNT(p) FROM Product p LEFT JOIN p.category c "
+            + "WHERE " + SCOPE + " AND (p.isActive IS NULL OR p.isActive = TRUE) "
+            + "GROUP BY c.id, c.name ORDER BY COUNT(p) DESC")
+    java.util.List<Object[]> countByCategoryScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
      * ONB-3 — how many products carry a policy the tenant may be about to lose.
      *
      * <p>Counted in the database rather than by loading products and filtering: the answer is a number for a
@@ -67,7 +88,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      * <p>{@code Boolean.TRUE} is compared explicitly because the column is a nullable {@code Boolean} — a
      * pre-migration row with {@code NULL} is not active and must not appear in a till's picker.
      */
-    @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO(p.id, p.name, p.sellingPrice) "
+    @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO("
+         + "p.id, p.name, p.sellingPrice, p.requiresSerial) "
          + "FROM Product p WHERE p.isActive = TRUE AND " + SCOPE + " ORDER BY p.name ASC")
     Page<com.myplus.catalog.dto.ProductPickerDTO> findPickerScoped(@Param("orgId") Long orgId,
                                                                    @Param("userId") Long userId,
@@ -120,13 +142,48 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND " + SCOPE)
     Page<Product> findByCategoryScoped(@Param("categoryId") Long categoryId, @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
-    @Query("SELECT p FROM Product p WHERE "
-            + "(:q IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%',:q,'%')) OR LOWER(p.sku) LIKE LOWER(CONCAT('%',:q,'%'))) "
-            + "AND (:categoryId IS NULL OR p.category.id = :categoryId) "
+    /**
+     * The paged, filtered product read \u2014 what backs the Product grid and the dashboard category drill.
+     *
+     * <h3>Why this query grew three clauses</h3>
+     * It had NO caller before this slice (0 in the monolith, 0 in JS, 0 in other services), so widening it
+     * broke nothing \u2014 but it could not have backed the grid as it stood, in three separate ways:
+     *
+     * <ol>
+     *   <li><b>{@code q} matched only name and SKU.</b> The grid searched CLIENT-side across its rendered
+     *       columns, which include <b>Category</b> and <b>Manufacturer</b>. Moving the search to the server
+     *       without these would have quietly stopped "Samsung" finding anything \u2014 a regression that
+     *       throws no error and looks like missing data. Barcode joins them because a scanned code landing
+     *       in a search box is the one thing a counter does without thinking; it is not a grid column, so
+     *       nothing regresses either way.</li>
+     *   <li><b>No {@code isActive} filter.</b> The grid hides deactivated products, and the dashboard card
+     *       counts active only. Without this the card would say 120 and the click would show 166 \u2014 the
+     *       exact disagreement a summary card exists to prevent. {@code includeInactive} carries the grid's
+     *       existing "Show inactive" toggle through to the server rather than re-deciding it here.</li>
+     *   <li><b>The uncategorised bucket was UNREACHABLE.</b> {@code :categoryId IS NULL} already means "no
+     *       category filter", so there was no value that could mean "the ones with no category" \u2014 and a
+     *       tenant here has 368 of them, a card row that could be clicked and would return everything.
+     *       {@code uncategorised=true} is a separate flag precisely because null is already taken.</li>
+     * </ol>
+     *
+     * <p>A NULL {@code isActive} counts as active, matching {@code countByCategoryScoped} and the list
+     * projection \u2014 legacy rows predate the column and must not vanish from the screen.
+     */
+    @Query("SELECT p FROM Product p LEFT JOIN p.category c WHERE "
+            + "(:q IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%',:q,'%')) "
+            + "         OR LOWER(p.sku) LIKE LOWER(CONCAT('%',:q,'%')) "
+            + "         OR LOWER(p.barcode) LIKE LOWER(CONCAT('%',:q,'%')) "
+            + "         OR LOWER(p.manufacturer) LIKE LOWER(CONCAT('%',:q,'%')) "
+            + "         OR LOWER(c.name) LIKE LOWER(CONCAT('%',:q,'%'))) "
+            + "AND (:categoryId IS NULL OR c.id = :categoryId) "
+            + "AND (:uncategorised = FALSE OR c.id IS NULL) "
+            + "AND (:includeInactive = TRUE OR p.isActive IS NULL OR p.isActive = TRUE) "
             + "AND (:minPrice IS NULL OR p.sellingPrice >= :minPrice) "
             + "AND (:maxPrice IS NULL OR p.sellingPrice <= :maxPrice) "
             + "AND " + SCOPE)
     Page<Product> searchScoped(@Param("q") String q, @Param("categoryId") Long categoryId,
+                               @Param("uncategorised") boolean uncategorised,
+                               @Param("includeInactive") boolean includeInactive,
                                @Param("minPrice") java.math.BigDecimal minPrice,
                                @Param("maxPrice") java.math.BigDecimal maxPrice,
                                @Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);

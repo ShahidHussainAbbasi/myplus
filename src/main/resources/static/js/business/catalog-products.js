@@ -862,4 +862,305 @@
             editProduct(id);
         });
     });
+
+    /* ══════════════════════════════════════════════════════════════════════════════════════════════════
+     * The Product grid, SERVER-PAGED.
+     *
+     * Asked for by the user: *"fetching 1000 may cause slowness or performance problem. implement
+     * pagination default 50 and click next to fetch next 50 and so on"*.
+     *
+     * ## What was actually wrong
+     * The grid asked for `size=1000&sort=id,desc` and rendered every row. Two costs, one of them silent:
+     * the tenant downloaded ~618KB to look at the first screenful, and at 1,001 products the thousand-and
+     * -first simply was not in the list. The `sort=id,desc` added earlier made the truncation land on the
+     * OLDEST rows instead of the newest, which was the better half of a bad trade, not a fix.
+     *
+     * ## Why paging alone would have made the screen WORSE
+     * DataTables searches and sorts the rows it is holding. Leave those client-side and page the fetch, and
+     * the search box goes from searching 1,000 products to searching 50 — typing a product name that
+     * exists returns "No matching records", confidently, with no error anywhere. So search and sort move to
+     * the server in the SAME change; they cannot ship apart. `serverSide: true` is what makes DataTables
+     * hand all three to the `ajax` function below instead of doing them locally.
+     *
+     * ## Why this is a separate initialiser
+     * `loadDataTable()` is shared by 34 call sites across four modules. This grid needs a different
+     * DataTables mode, not a different URL, and rebuilding the shared function around one screen's needs is
+     * how the other 33 acquire a defect nobody was looking for. `loadDataTable()` forks to here in one line.
+     * ══════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+    var PAGE_SIZE_DEFAULT = 50;
+
+    /*
+     * "All" is 1,000 — deliberately the SAME ceiling the unpaged grid already used.
+     *
+     * It exists for export (below), not for browsing. Picking a number here that the old screen did not
+     * already reach every single time would have been a new unbounded read introduced by the change that
+     * was supposed to remove one.
+     */
+    var ALL_ROWS = 1000;
+
+    /*
+     * Column index → the catalog property to sort by. `null` means the server cannot sort it, and the column
+     * is marked unorderable so the header does not offer a sort that would silently do nothing.
+     *
+     * ⚠ POSITIONAL, against #tableProduct's header. Same hazard the "Toggle column" data-column indexes
+     * carry: insert a column into the table and every entry after it points at the wrong field.
+     *   0 id · 1 checkbox · 2 name · 3 sku · 4 unit · 5 price · 6 last-purchase · 7 last-sale
+     *   8 tax% · 9 category · 10 manufacturer · 11 on-hand · 12 add-stock · 13 status
+     *
+     * On-hand is not sortable because it is not catalog's to sort — it is filled in afterwards from
+     * inventory (see fillProductOnHand). A header that sorted it would sort the "…" placeholders.
+     */
+    var SORT_FIELD = [
+        'id', null, 'name', 'sku', 'unit', 'sellingPrice',
+        'lastPurchaseRate', 'lastSaleRate', 'taxRate', 'category.name', 'manufacturer',
+        null, null, 'isActive'
+    ];
+
+    /**
+     * ONE product as the 14 cells #tableProduct expects.
+     *
+     * ⚠ This array MUST stay exactly as long as the header — a missing cell shifts every later column and
+     * DataTables throws "Requested unknown parameter".
+     *
+     * <p>Moved here verbatim from `loadDataTable()`, which no longer renders products. It was not copied:
+     * two renderers for one grid is how a column gets fixed on one screen and stays broken on the other.
+     */
+    function productGridRow(obj) {
+        return [
+            "<div id=productId>" + obj.id + "</div>",
+            "<input type='checkbox' value=" + obj.id + ">",
+            "<div id=name>" + escHtml(obj.name || '') + "</div>",
+            "<div id=sku>" + escHtml(obj.sku || '') + "</div>",
+            "<div id=unit>" + escHtml(obj.unit || '') + "</div>",
+            "<div id=sellingPrice>" + (obj.sellingPrice != null ? Number(obj.sellingPrice).toFixed(2) : '') + "</div>",
+            // Last rates come stamped on the product itself (written by the purchase flow), so they render
+            // straight from this row — no lazy fill, no extra request.
+            lastRateCell(obj.lastPurchaseRate, obj.lastRateAt, t('ui.js.lastPurchased')),
+            lastRateCell(obj.lastSaleRate,     obj.lastRateAt, t('ui.js.lastSold')),
+            "<div id=taxRate>" + (obj.taxRate != null ? Number(obj.taxRate).toFixed(2) : '') + "</div>",
+            "<div id=categoryName>" + escHtml(obj.categoryName || '') + "</div>",
+            // Operator-typed free text → escHtml (XSS-safe rendering rule).
+            "<div id=manufacturer>" + escHtml(obj.manufacturer || '') + "</div>",
+            "<div id=stk_" + obj.id + " class=prod-onhand>…</div>",
+            "<div class='row-actions'>"
+                + "<input type=number min=0 step=any id=addstk_" + obj.id + " class='form-control input-sm prod-addstk' style='width:80px;display:inline-block'>"
+                + "<button type=button id=addstkbtn_" + obj.id + " class='btn btn-xs btn-success' style='margin-left:4px' title='Add to on-hand' onclick='addProductStock(" + obj.id + ")'><span class='glyphicon glyphicon-plus'></span></button>"
+                + "<button type=button id=lessstkbtn_" + obj.id + " class='btn btn-xs btn-warning' style='margin-left:4px' title='Correct / reduce on-hand' onclick='adjustProductStock(" + obj.id + ")'><span class='glyphicon glyphicon-minus'></span></button>"
+                + "</div>",
+            (obj.isActive === false
+                ? "<span class='label label-default'>Inactive</span> <button type=button class='btn btn-xs btn-info' style='margin-left:6px' onclick='reactivateProduct(" + obj.id + ")' title='Reactivate this product'><span class='glyphicon glyphicon-refresh'></span> Reactivate</button>"
+                : "<span class='label label-success'>Active</span>")
+        ];
+    }
+
+    /**
+     * On-hand for the rows now on screen, in ONE batch call.
+     *
+     * <p>Product on-hand is inventory, not catalog, so it cannot come down with the page. `/productStockLevels`
+     * → inventory `/stock/levels/detail` returns the whole tenant's levels keyed by product id, and this looks
+     * up only the ids drawn — one request per page, never one per row.
+     *
+     * <p>It shows the honest SELLABLE count (what a sale can actually reserve) plus a red "N expired" badge
+     * when physical stock is locked in expired batches, so a 16-on-hand/0-sellable product no longer lies.
+     */
+    function fillProductOnHand(collections) {
+        if (!collections || !collections.length) return;
+        $.get(serverContext + "productStockLevels", function (resp) {
+            var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
+            $.each(collections, function (ind, obj) {
+                var d = levels[obj.id];
+                var el = $('#stk_' + obj.id);
+                if (d == null) { el.text('0'); return; }
+                // Back-compat: a bare number means sellable only.
+                var sellable = (typeof d === 'object') ? Number(d.sellable || 0) : Number(d);
+                var expired  = (typeof d === 'object') ? Number(d.expired  || 0) : 0;
+                var onHand   = (typeof d === 'object') ? Number(d.onHand   || 0) : sellable;
+                /*
+                 * U6 — say it in the language of the person counting the shelf. 9.5 is arithmetically true
+                 * and operationally useless: it means nine sealed packs and five loose tablets. An ordinary
+                 * product has no pack size, so shelfText returns the plain number.
+                 */
+                var shelf = (typeof shelfText === 'function')
+                    ? shelfText(sellable, obj.packSize, obj.looseUnitPlural || obj.looseUnit)
+                    : { text: String(sellable) };
+                var html = "<span title='" + onHand + " physical on-hand'>" + escHtml(shelf.text) + "</span>";
+                if (expired > 0) {
+                    html += " <span class='label label-danger' style='margin-left:4px' title='" + expired
+                        + " unit(s) in expired batches — physically present but not sellable'>" + expired + " expired</span>";
+                }
+                el.html(html);   // numbers only (no user data) → XSS-safe
+            });
+        }).fail(function () {
+            $.each(collections, function (ind, obj) { $('#stk_' + obj.id).text('—'); });
+        });
+    }
+
+    /**
+     * Make an export button cover the WHOLE result set, not just the page on screen.
+     *
+     * <h3>The silent half of server-side paging</h3>
+     * DataTables exports the rows it holds. Under `serverSide` that is one page — so Excel/PDF/Print would
+     * have quietly started producing a 50-row file for a 1,042-product catalogue. Nothing errors; the file
+     * opens; it is simply missing 992 products. That is the whole class of defect this codebase keeps
+     * paying for, so the button loads everything first.
+     *
+     * <h3>⚠ Why the page length is NOT restored afterwards</h3>
+     * The export libraries are lazy-loaded (see lazy-export.js): the button's action returns a promise and
+     * reads the table LATER, once JSZip/pdfmake has arrived. Restoring the length as soon as the action
+     * returns would put the 50-row page back before the exporter ever looked — reintroducing the exact bug
+     * this wrapper exists to prevent, and only on slow connections, which is the worst way to have it.
+     * The grid is therefore left showing every row; the state is visible, and the length menu puts it back.
+     */
+    function exportAll(btn) {
+        var inner = btn && btn.action;
+        if (typeof inner !== 'function') return btn;
+        return $.extend({}, btn, {
+            action: function (e, dt, node, cfg) {
+                var self = this, args = [e, dt, node, cfg];
+                if (dt.page.len() === -1) { inner.apply(self, args); return; }   // already showing everything
+                dt.one('draw', function () { inner.apply(self, args); });
+                dt.page.len(-1).draw(false);
+            }
+        });
+    }
+
+    /**
+     * Build (or rebuild) #tableProduct as a server-paged grid. Entered only through `loadDataTable()`.
+     */
+    global.loadProductTable = function () {
+        if (datatable != null) { datatable.destroy(); datatable = null; }
+
+        // The section's dropdowns belong to the SECTION, not to a grid refresh — start them in parallel with
+        // the grid rather than after it. Same call, same reason, as the shared path.
+        preloadSectionPickers();
+
+        datatable = $('#tableProduct').DataTable({
+            serverSide: true,
+            processing: true,          // DataTables draws its own "Processing…" while a page is in flight
+            lengthMenu: [[25, 50, 100, 200, -1], ['25', '50', '100', '200', 'All']],
+            pageLength: PAGE_SIZE_DEFAULT,
+            order: [[0, 'desc']],      // newest first — the same window the unpaged grid settled on
+            autoWidth: true,
+            // A keystroke must not be a request. 400ms is long enough to type through and short enough that
+            // the list feels live; DataTables also skips the call when the term has not changed.
+            searchDelay: 400,
+            columnDefs: [
+                { targets: 0, visible: false },
+                { targets: SORT_FIELD.reduce(function (acc, f, i) { if (f === null) acc.push(i); return acc; }, []),
+                  orderable: false }
+            ],
+            dom: 'Bfrtip',
+            buttons: ['pageLength',
+                exportAll(lazyExcelButton({ footer: true })),
+                exportAll({ extend: 'print', footer: true }),
+                exportAll(lazyPdfButton({ orientation: 'landscape', pageSize: 'LEGAL', footer: true }))
+            ].concat((typeof importButtons === 'function') ? importButtons('Product') : []),
+
+            ajax: function (d, callback) {
+                /*
+                 * The adapter between DataTables' request shape and /getProductPage.
+                 *
+                 * A translation layer rather than teaching the server DataTables' protocol (draw / start /
+                 * length / search[value]): that protocol would then be baked into a monolith proxy and a
+                 * catalog endpoint that other, non-DataTables callers — the dashboard category drill, for
+                 * one — also use.
+                 */
+                var all = !(d.length > 0);                       // "All" arrives as length = -1
+                var size = all ? ALL_ROWS : d.length;
+                var page = all ? 0 : Math.floor(d.start / d.length);
+
+                var ord = (d.order && d.order.length) ? d.order[0] : null;
+                var field = ord ? SORT_FIELD[ord.column] : null;
+                var sort = field ? (field + ',' + (ord.dir === 'asc' ? 'asc' : 'desc')) : 'id,desc';
+
+                var params = { page: page, size: size, sort: sort };
+                if (d.search && d.search.value) params.q = d.search.value;
+                if (global.productShowInactive) params.includeInactive = true;
+                // Set by the dashboard category card; see openProductsForCategory().
+                if (global.productCategoryFilter != null) {
+                    if (global.productCategoryFilter === 'none') params.uncategorised = true;
+                    else params.category = global.productCategoryFilter;
+                }
+
+                $.get(serverContext + 'getProductPage', params)
+                    .done(function (resp) {
+                        var rows = (resp && resp.collection) ? resp.collection : [];
+                        var meta = (resp && resp.page) ? resp.page : {};
+                        var total = (meta.totalElements != null) ? Number(meta.totalElements) : rows.length;
+
+                        if (rows.length) userId = rows[0].userId;   // keeps the shared bookkeeping happy
+
+                        callback({
+                            draw: d.draw,
+                            // Equal on purpose. DataTables prints "(filtered from N total)" only when they
+                            // differ, and the server returns the FILTERED total — quoting an unfiltered
+                            // count we were never told would be a number invented on the client.
+                            recordsTotal: total,
+                            recordsFiltered: total,
+                            data: rows.map(productGridRow)
+                        });
+
+                        // After the draw, so the #stk_<id> cells the fill targets exist.
+                        fillProductOnHand(rows);
+                    })
+                    .fail(function (jqXHR, textStatus, errorThrown) {
+                        callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+                        handleAjaxFailure(jqXHR, errorThrown, 'loadProductTable');
+                    });
+            }
+        });
+
+        // Enable the fields for editing the data in the table (parity with the shared path).
+        updateReadOnly(false);
+    };
+
+    /**
+     * Open the Product screen already filtered to one category — the dashboard card's destination.
+     *
+     * <p>`'none'` is the uncategorised bucket, and is NOT the same as no filter: null already means "any
+     * category", so the products with no category at all needed a value of their own to be reachable.
+     */
+    global.openProductsForCategory = function (categoryId, label) {
+        // `null` is the uncategorised BUCKET, not "no filter" — see the note above. Clearing the filter is
+        // openProductsUnfiltered(), a separate call, so neither can be reached by accident from the other.
+        global.productCategoryFilter = (categoryId == null ? 'none' : categoryId);
+        global.productCategoryLabel = label || '';
+        showProducts();
+        renderProductFilterChip();
+    };
+
+    /** Open the Product screen with no category filter at all — the card's "All categories" link. */
+    global.openProductsUnfiltered = function () {
+        global.productCategoryFilter = null;
+        global.productCategoryLabel = '';
+        showProducts();
+        renderProductFilterChip();
+    };
+
+    /**
+     * The active-filter chip.
+     *
+     * <p>A grid that silently holds a filter is a support call: the shop searches for a product it owns,
+     * finds nothing, and has no way to see why. The chip states the filter and is itself the way to clear
+     * it — the pattern every faceted catalogue (Amazon, eBay, LinkedIn) settled on for the same reason.
+     */
+    function renderProductFilterChip() {
+        var $bar = $('#productFilterBar');
+        if (!$bar.length) return;
+        if (global.productCategoryFilter == null) { $bar.empty().hide(); return; }
+        $bar.html('<span class="active-filter-chip">'
+            + '<span class="glyphicon glyphicon-filter"></span> '
+            + escHtml(global.productCategoryLabel || 'Category')
+            + ' <button type="button" class="chip-x" id="productFilterClear" '
+            + 'aria-label="Clear this filter" title="Clear this filter">&times;</button></span>').show();
+    }
+
+    $(document).on('click', '#productFilterClear', function () {
+        global.productCategoryFilter = null;
+        global.productCategoryLabel = '';
+        renderProductFilterChip();
+        loadDataTable();          // forks straight back to loadProductTable(), now unfiltered
+    });
+
 })(window);

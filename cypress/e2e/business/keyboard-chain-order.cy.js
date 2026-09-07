@@ -158,4 +158,68 @@ describe('Keyboard chains follow the screen', () => {
     expect(chain.indexOf('sellSerials'), 'and before the quantity it locks')
       .to.be.lessThan(chain.indexOf('sellItems'))
   })
+
+  // ── ⭐⭐ 7. the direction the other six could not see ───────────────────────────────────────────
+
+  it('⭐⭐ 7 — RULE 1: every field the cashier can TYPE INTO is in the line chain', () => {
+    /*
+     * THE CASE THIS FILE WAS MISSING, and the defect that proved it.
+     *
+     * #sellBonus sits between Qty and Price on screen and was absent from CHAIN entirely, so a
+     * distributor with free-goods on watched Enter jump the quantity straight to the price, past a
+     * field they then had to reach for the mouse to fill. Reported from the counter.
+     *
+     * All six cases above were green throughout, and none of them could have caught it:
+     *   • 1 and 2 check that the fields IN a chain appear in screen order — a field that is not in the
+     *     chain is not in the comparison at all;
+     *   • 3 checks that no chain names a field missing from the PAGE — the opposite direction;
+     *   • 4, 5 and 6 check named preferences and one specific field.
+     *
+     * Order without completeness is half a rule: a chain can be perfectly ordered and still leave a
+     * field unreachable from the keyboard, which is the one thing this module exists to prevent.
+     *
+     * ⚠ ASKED OF THE APP, NOT RESTATED HERE. The check uses the page's own FocusFlow.skip — the single
+     * definition of "is this worth putting a cursor in?" that EnterChain.usable() calls at runtime. A
+     * list of expected ids in this spec would be a second opinion that drifts, and a hand-rolled
+     * "visible and editable" test here would disagree with the engine on some field nobody thought to
+     * check. Readonly display badges (sellStock, bexpDate, sellTotalAmount) are excluded by that same
+     * function, which is exactly why they must NOT be in the chain.
+     *
+     * ⚠ SCOPED TO .pos-cell, THE LINE STRIP - not to <form id="Sell">.
+     *
+     * The form is the wrong boundary in both directions. It does NOT contain the customer controls
+     * (the markup says so: "STILL OUTSIDE <form id='Sell'>, deliberately" - they are serialised into a
+     * cart LINE and a customer is not a line), and it DOES contain things the line chain has no
+     * business walking: the scan box, which focusGoodsEntry() targets directly and which
+     * pos-keyboard.js says is "deliberately not in it", and the installment panel.
+     *
+     * `.pos-cell` is precisely the set of fields the line chain exists to walk - one cell per field,
+     * caption and input together - so scoping here needs no allow-list of exceptions, and an allow-list
+     * is the thing that would quietly grow until it covered the next real defect.
+     *
+     * The customer half of CHAIN is covered by cases 1 and 3; the checkout by case 2.
+     */
+    const chain = chainFrom(src, 'CHAIN')
+
+    cy.window().should((w) => {
+      expect(w.FocusFlow, 'focus-flow.js is loaded').to.be.an('object')
+    })
+
+    cy.window().then((w) => {
+      const cells = w.document.querySelectorAll('#sellDiv .pos-cell')
+      expect(cells.length, 'the line strip is on the page').to.be.greaterThan(4)
+
+      const typeable = Array.from(cells)
+        .flatMap((c) => Array.from(c.querySelectorAll('input, select, textarea')))
+        .filter((el) => el.id)                 // an id is how a chain names a field
+        .filter((el) => !w.FocusFlow.skip(el)) // the app's own answer, never a copy of it
+
+      const missing = typeable.map((el) => el.id).filter((id) => chain.indexOf(id) < 0)
+
+      expect(missing.join(', '),
+        'every typeable field on the sale line is reachable by keyboard — a field on screen and absent '
+        + 'from CHAIN is unreachable, and looks from the outside exactly like a deliberate skip')
+        .to.eq('')
+    })
+  })
 })

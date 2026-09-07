@@ -125,14 +125,20 @@
      * Here rather than in each caller because all five built the identical string, and a divergence
      * would mean the sale screen and the booking screen disagreeing about what a product is called.
      * `data-price` feeds the sale screen's price prefill; `data-product` is the productId the cart
-     * submits.
+     * submits; `data-requires-serial` (SER-6) tells the sale screen whether to show the serial box for
+     * the product just picked, which is why it rides on the option rather than costing a lookup per
+     * selection on the hot path.
      */
     function optionsHtml(list, placeholder) {
         var html = "<option value=''>" + (placeholder || 'Nothing Selected') + "</option>";
         var esc = (typeof global.escHtml === 'function') ? global.escHtml : function (v) { return v; };
         list.forEach(function (p) {
             html += "<option value='" + p.id + "' data-product='" + p.id + "'"
-                 + " data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'>"
+                 + " data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'"
+                 // Emitted only when TRUE: absent is the common case and the safe reading. A product
+                 // nobody has flagged is not a tracked one.
+                 + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
+                 + ">"
                  + esc(p.name || ('Product #' + p.id)) + "</option>";
         });
         return html;
@@ -154,7 +160,19 @@
      *
      * Only SUCCESSFUL calls invalidate: a failed write changed nothing, and dropping the cache for
      * it would mean re-fetching the catalogue every time a validation error came back. */
-    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|import\/product\/commit)(\?|$)/;
+    /*
+     * ⚠ SER-6 added `setProductTracking`, and it had to.
+     *
+     * Before SER-6 this cache held id, name and price only, so a change to a product's tracking flags could
+     * not stale it — the flags were not in the payload. Now `requiresSerial` rides on every option and
+     * decides whether the sale screen shows the serial box, so marking a product as serial-tracked while the
+     * picker is cached would leave the till hiding the box for a product that has just started needing one.
+     *
+     * Precisely the rot this hook exists to prevent: "the next write path added would simply forget, and
+     * nothing would fail loudly". The rule is that a write belongs here when it changes anything the
+     * PROJECTION carries — not merely when it adds or removes a product.
+     */
+    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|setProductTracking|import\/product\/commit)(\?|$)/;
 
     $(document).ajaxComplete(function (evt, jqXHR, settings) {
         if (!settings || !settings.url || !MUTATES.test(settings.url)) return;

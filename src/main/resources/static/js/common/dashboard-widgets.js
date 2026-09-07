@@ -47,6 +47,18 @@
         { name: 'monthlySales',   order: 50 },
         { name: 'monthlyRevenue', order: 60 },
         { name: 'installmentsDue', order: 70, capability: 'installments' },
+        /*
+         * Breakdown cards — between the tiles and the charts, which is also their band in the ordering.
+         *
+         * `conditionBreakdown` names a capability and so is PROMOTED for a tenant that has it: a mobile shop
+         * that deliberately switched serial tracking on cares about its used stock more than it cares about a
+         * generic category split, and the promotion is exactly the rule this registry exists to express.
+         *
+         * They sit in their own `.row`, so ranking them alongside the tiles and the charts costs nothing —
+         * `apply()` sorts per parent.
+         */
+        { name: 'categoryBreakdown',  order: 80 },
+        { name: 'conditionBreakdown', order: 90, capability: 'serialTracking' },
         // Charts
         { name: 'chartTrend',     order: 110 },
         { name: 'chartTopItems',  order: 120 },

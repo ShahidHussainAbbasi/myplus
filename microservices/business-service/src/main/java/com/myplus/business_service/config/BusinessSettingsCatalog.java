@@ -432,11 +432,27 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                 // TRANSACTIONS differ. Whether a shop repossesses at all is a tenant policy; whether THIS
                 // handset came back smashed is a fact about one repossession and is passed with the request.
                 // A setting for the second kind is how a screen ends up with thirty toggles nobody reads.
+                /*
+                 * ⭐ INST-5b — THIS APPLIES TO SERIAL-TRACKED PRODUCTS ONLY.
+                 *
+                 * It used to apply to every financed sale, which made it unsatisfiable for anything that has
+                 * no serial: Shahzad Mobile Shop (org 41) turned it on and could not sell Panadol on terms,
+                 * refused with "this sale needs an IMEI" for a product the catalog flags
+                 * requires_serial = 0. There is no keystroke that clears that refusal. The shop had 3
+                 * untracked products to 1 tracked one, so the rule refused the ordinary case and protected
+                 * nothing extra.
+                 *
+                 * The product's own `requiresSerial` decides whether a serial EXISTS; this setting decides
+                 * whether the shop INSISTS on it. Both must be true. That is the same division
+                 * SerialUnitService has always used on the ordinary sale path.
+                 */
                 SettingEntry.bool("pos.installment.serialRequired",
                         "Require an IMEI or serial number on a financed sale",
-                        "Off by default. On: a plan cannot be sold without a serial, and the same serial "
-                                + "cannot be on two live plans at once. A mobile or electronics shop wants "
-                                + "this on; a shop financing furniture has nothing to type in it.",
+                        "Off by default. On: a financed sale of a SERIAL-TRACKED product cannot be completed "
+                                + "without its serial, and the same serial cannot be on two live plans at "
+                                + "once. Products not marked as serial-tracked are unaffected — a shop can "
+                                + "still finance anything else on terms. Mark a product as tracked on the "
+                                + "product itself; a mobile or electronics shop wants this on.",
                         false, "Installments"),
                 /*
                  * R4 — how many guarantors a financed sale must name.
@@ -459,12 +475,23 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                  *
                  * Counts GUARANTOR rows only, and applies when a plan is CREATED — never retrospectively, or
                  * the 211 live plans carrying none would become unopenable and unpayable.
+                 *
+                 * ⭐ R4b — THIS NUMBER PROMPTS, IT DOES NOT BLOCK.
+                 *
+                 * It was a hard gate: the sale screen refused to submit until that many guarantors were
+                 * typed, making it the only plan rule that could stop a cashier before anything was
+                 * recorded. A shop with a customer at the counter and no guarantor present could not sell.
+                 * Now it decides how many blocks the panel renders and what "1 of 2 recorded" counts; a
+                 * shortfall is noted on the plan message and nothing is refused. The key is unchanged so
+                 * every tenant that set a number keeps it — only its effect is softer.
                  */
                 SettingEntry.intOf("installments.guarantorsRequired",
-                        "Guarantors required on an installment sale",
-                        "How many guarantors a sale on terms must name before a plan can be created. "
-                                + "0 asks for none and hides the panel entirely. Applies to new plans only — "
-                                + "raising it never invalidates a plan already recorded.",
+                        "Guarantors to ask for on an installment sale",
+                        "How many guarantor blocks the sale screen shows, and what the \"1 of 2 recorded\" "
+                                + "counter counts. 0 asks for none and hides the panel entirely. The sale and "
+                                + "the plan are never blocked by this: what is entered is recorded, what is "
+                                + "missing is noted on the plan. Applies to new plans only — raising it never "
+                                + "invalidates a plan already recorded.",
                         0, "Installments"),
                 SettingEntry.bool("pos.installment.repossession.enabled",
                         "Allow a financed item to be repossessed",

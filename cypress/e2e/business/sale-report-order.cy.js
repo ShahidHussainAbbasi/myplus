@@ -73,8 +73,16 @@ describe('SR-1 — the newest sale is on top', () => {
   })
 
   it('⭐ 2 — every visible row is in descending date order across a month boundary', () => {
-    // Case 1 checks the top row; this checks that the whole page is ordered, which is what a manager
-    // scrolling a month of sales actually relies on.
+    /*
+     * Case 1 checks the top row; this checks that EVERY row is ordered, which is what a manager scrolling a
+     * report actually relies on.
+     *
+     * ⚠ Read through the DataTables API, not off the screen. The grid renders one page — 50 rows — and
+     * sorted newest-first those all fall inside the newest month. So a check on the visible cells can only
+     * ever see a single month, which is exactly the case where a string sort and a date sort agree: it would
+     * pass just as happily on the broken build. `{ page: 'all' }` returns every row in the applied order,
+     * which is where the month boundary the defect lives on actually is.
+     */
     openReport()
     cy.window().then((win) => {
       win.$('#dateRangeDDSR').val('4')
@@ -84,13 +92,22 @@ describe('SR-1 — the newest sale is on top', () => {
       win.loadSR()
     })
     cy.get('#tableSellReport tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 1)
-    cy.get('#tableSellReport tbody tr td:first-child').then(($cells) => {
-      const seen = [...$cells].map((c) => num(c.innerText))
-      const months = new Set([...$cells].map((c) => c.innerText.trim().slice(3)))
-      expect(months.size, 'the visible page crosses a month boundary — where a string sort fails')
+    cy.window().then((win) => {
+      const dates = win.tableSellReport
+        .column(0, { order: 'applied', page: 'all', search: 'none' })
+        .data()
+        .toArray()
+        .map((cell) => String(cell).replace(/<[^>]*>/g, '').trim())
+
+      expect(dates.length, 'every row, not just the rendered page').to.be.greaterThan(1)
+      const months = new Set(dates.map((d) => d.slice(3)))
+      expect(months.size, 'the report spans more than one month — where a string sort fails')
         .to.be.greaterThan(1)
+
+      const seen = dates.map(num)
       for (let i = 1; i < seen.length; i++) {
-        expect(seen[i], `row ${i} is newer than the row above it`).to.be.at.most(seen[i - 1])
+        expect(seen[i], `row ${i} (${dates[i]}) is newer than the row above it (${dates[i - 1]})`)
+          .to.be.at.most(seen[i - 1])
       }
     })
   })

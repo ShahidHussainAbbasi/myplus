@@ -311,30 +311,100 @@ describe('Checkout chain — every route to a paid sale', () => {
     })
   })
 
-  it('an empty CUSTOMER means a walk-in, so the cursor goes to the money', () => {
+  /**
+   * ⭐⭐ REPORTED FROM THE COUNTER, 2026-09-07.
+   *
+   * "on selection of sellCustomerDD and hit enter an error message show 'Please add items to the cart
+   * and enter a valid payment amount.' it should validate and display on complete sale."
+   *
+   * This handler is bound to the customer controls (they sit outside <form id="Sell">, so the line-chain
+   * binding cannot reach them) but walked a hardcoded CHECKOUT — and task #13 moved the customer OUT of
+   * CHECKOUT into CHAIN. walk() returns null for a field that is not in the list it is given, the branch
+   * read null as "past the last checkout field", and ran completeSale() on an empty cart. A checkout
+   * complaint, thrown at a cashier who had done nothing but name the buyer, at the FIRST field of the sale.
+   *
+   * Asserts BOTH halves: the cursor advances, and no error is raised. Either alone would pass against a
+   * build that had half-fixed it.
+   */
+  it('⭐⭐ naming a customer and pressing Enter does NOT try to complete the sale', () => {
     openTill()
     quiet()
-    // Not the payment method: that is already Cash, and a walk-in paying cash wants the amount box.
-    // A customer may still be REQUIRED to complete the sale — that is the submit path's job to say,
-    // not something to enforce by stranding the cursor.
+
+    cy.get('#btnModeManual').click({ force: true })
+    cy.get('#sellCN').should('be.visible').type('Enter Probe ' + Date.now())
+
+    // Nothing may be submitted: an empty cart cannot become a sale by naming somebody.
+    let posted = false
+    cy.intercept('POST', '**/addSell', () => { posted = true }).as('sale')
+
+    cy.get('#sellCN').type('{enter}')
+
+    // The checkout's complaint must NOT appear - this is line entry, and nothing has been asked for yet.
+    cy.get('#formErrorToast, #globalError').should(($el) => {
+      const txt = ($el.text() || '').toLowerCase()
+      expect(txt, 'no checkout complaint while still naming the customer')
+        .to.not.match(/add items to the cart|amount received/)
+    })
+
+    // And the cursor moved ON, along the line chain.
+    cy.window().should((w) => {
+      expect(Cypress.focusedPicker(w), 'Enter advances out of the customer').to.not.eq('sellCN')
+    })
+
+    cy.wait(500)
+    cy.then(() => expect(posted, 'nothing was submitted').to.eq(false))
+  })
+
+  it('an empty CUSTOMER means a walk-in, so the cursor goes to the GOODS', () => {
+    openTill()
+    quiet()
+    /*
+     * ⚠ THIS CASE USED TO EXPECT sellRec, AND THAT WAS THE DEFECT, not the rule.
+     *
+     * Reported from the counter and ruled on directly: "on the sellCustomerDD the control move to the
+     * sellRec which is wrong it should look to the next which is sellItemDD."
+     *
+     * skipAhead() carries the reasoning now — an empty customer picker means a WALK-IN, and nothing has
+     * been rung up yet, so the cursor belongs on the goods. Landing in the Received box put the cashier
+     * past every field that puts anything IN the cart, with an empty cart: a dead end. The old comment
+     * here ("a walk-in paying cash wants the amount box") was true only while the customer picker sat at
+     * the head of CHECKOUT; task #13 moved it to the head of the LINE chain and it stopped being true.
+     *
+     * A customer may still be REQUIRED to complete the sale — that is the submit path's job to say, and
+     * refusing to move the cursor is not how to say it.
+     *
+     * Resolved through the shared helper because #sellItemDD is a bootstrap-select: the plugin focuses a
+     * <button> with no id, which is what "expected <button.selectpicker> to have id sellRec" was really
+     * reporting.
+     */
     focusPicker('sellCustomerDD')
     pressEnter()
     expectOpen('sellCustomerDD')
     pressEnter()
-    cy.focused().should('have.id', 'sellRec')
+    cy.window().should((w) => {
+      expect(Cypress.focusedPicker(w), 'a walk-in goes to the goods, not to the money')
+        .to.eq('sellItemDD')
+    })
   })
 
-  it('SKIPPING IS SAFE — the payment method already holds the tenant default, so it is never left blank', () => {
+  it('the walk-in route leaves the payment method ALONE, still holding the tenant default', () => {
     openTill()
     quiet()
     /*
-     * The walk-in path jumps sellCustomerDD -> sellRec, straight past the payment method. That is only
-     * defensible because the field is never empty when we pass it: `pos.tender.default` (CASH out of
-     * the box) is applied to the control on load, and the markup carries CASH selected as well.
+     * ⚠ THE SKIP THIS CASE GUARDED NO LONGER EXISTS, and the property it protected still matters.
      *
-     * Skipping a field that already holds the right answer saves a keystroke. Skipping one that does
-     * not would post a sale with no tender — so this asserts the PROPERTY the skip depends on, not
-     * merely that the cursor moved.
+     * It was written when the walk-in path jumped sellCustomerDD -> sellRec, straight PAST the payment
+     * method, and it asserted the one thing that made that jump defensible: the field is never empty
+     * when you pass it, because `pos.tender.default` (CASH out of the box) is applied on load and the
+     * markup carries CASH selected too. Skipping a field that already holds the right answer saves a
+     * keystroke; skipping one that does not would post a sale with no tender.
+     *
+     * The ruling above removed the jump: a walk-in now goes to the GOODS. So there is no longer a skip
+     * to justify — but "walking this route must not disturb the tender" is still worth holding, because
+     * the failure it prevents is silent and expensive: a sale posted with no tender.
+     *
+     * Kept, re-aimed at the route that actually exists. Deleting it would have retired a live property
+     * along with the dead premise.
      */
     cy.get('#sellPayMethod').should('have.value', 'CASH')
 
@@ -342,8 +412,11 @@ describe('Checkout chain — every route to a paid sale', () => {
     pressEnter()
     expectOpen('sellCustomerDD')
     pressEnter()
-    cy.focused().should('have.id', 'sellRec')
-    // Still Cash after being walked past — the skip reads it, it does not clear it.
+    cy.window().should((w) => {
+      expect(Cypress.focusedPicker(w), 'the walk-in route lands on the goods').to.eq('sellItemDD')
+    })
+
+    // Untouched by the walk — the route reads the tender, it never clears it.
     cy.get('#sellPayMethod').should('have.value', 'CASH')
   })
 

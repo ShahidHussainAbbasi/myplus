@@ -76,9 +76,13 @@ public class CatalogController {
      * PERF-8 — the lean read behind every product picker.
      *
      * <p>Distinct from {@code /catalogProducts} above, which serves the product LIST and returns all 23
-     * fields including deactivated rows. This returns three fields for active products only. Both exist
-     * because a list and a picker want genuinely different things; serving one from the other was
-     * transferring 83% of each product to be discarded by the browser.
+     * fields including deactivated rows. This returns a handful of fields for active products only — id,
+     * name, price, and (SER-6) {@code requiresSerial}, which decides whether the sale screen shows the
+     * serial box. Both exist because a list and a picker want genuinely different things; serving one from
+     * the other was transferring 83% of each product to be discarded by the browser.
+     *
+     * <p>A {@code Map} pass-through on purpose: a typed twin here would have to gain every field the
+     * projection gains, and the one that forgot would drop it silently on the way to the browser.
      */
     @GetMapping("/catalogProductPicker")
     @ResponseBody
@@ -138,44 +142,7 @@ public class CatalogController {
                     if (!(o instanceof Map<?, ?> p)) continue;
                     boolean inactive = Boolean.FALSE.equals(p.get("isActive"));
                     if (inactive && !includeInactive) continue;   // deactivated → hidden unless "Show inactive"
-                    Map<String, Object> row = new java.util.LinkedHashMap<>();
-                    row.put("id", p.get("id"));
-                    row.put("name", p.get("name"));
-                    row.put("sku", p.get("sku"));
-                    // Carried so the form's "already registered" panel can match a scanned/typed barcode too —
-                    // without it that panel would silently never match on barcode and read as "no duplicate".
-                    row.put("barcode", p.get("barcode"));
-                    row.put("unit", p.get("unit"));
-                    row.put("sellingPrice", p.get("sellingPrice"));
-                    // Last rates stamped by the purchase flow (Option B) — the Product list's "last bought / last
-                    // sold at" columns come straight off this row, with no second call.
-                    row.put("lastPurchaseRate", p.get("lastPurchaseRate"));
-                    row.put("lastSaleRate", p.get("lastSaleRate"));
-                    row.put("lastRateAt", p.get("lastRateAt"));
-                    /*
-                     * U1 — the pack rules.
-                     *
-                     * ⚠ THIS PROJECTION IS AN ALLOW-LIST: every field is copied by hand, so anything not named
-                     * here is SILENTLY DROPPED on the way to the browser. The columns existed, the entity
-                     * carried them, the DTO exposed them and catalog returned them — and the product form
-                     * still saw nothing, because this loop never mentioned them.
-                     *
-                     * Same shape as the gl_outbox defect: a new field needs every copy point or it vanishes,
-                     * and nothing errors when one is missed. If a later slice adds a product field, it must be
-                     * added HERE too.
-                     */
-                    row.put("packSize", p.get("packSize"));
-                    row.put("looseUnit", p.get("looseUnit"));
-                    row.put("looseUnitPlural", p.get("looseUnitPlural"));
-                    row.put("allowLoose", p.get("allowLoose"));
-                    row.put("defaultSellUnit", p.get("defaultSellUnit"));
-                    row.put("taxRate", p.get("taxRate"));
-                    row.put("categoryName", p.get("categoryName"));
-                    row.put("manufacturer", p.get("manufacturer"));
-                    row.put("description", p.get("description"));
-                    row.put("isActive", p.get("isActive") == null ? Boolean.TRUE : p.get("isActive"));   // for the Status column / Reactivate
-                    row.put("userId", p.get("createdBy"));   // keeps loadDataTable's userId bookkeeping happy
-                    collection.add(row);
+                    collection.add(productRow(p));
                 }
             }
             Map<String, Object> out = new java.util.HashMap<>();
@@ -186,6 +153,214 @@ public class CatalogController {
             LOGGER.error("getUserProduct proxy error", e);
             return ProxyErrors.statusError(e);
         }
+    }
+
+    /**
+     * ONE catalog product, projected into the row shape every product screen reads.
+     *
+     * <h3>⚠ THIS PROJECTION IS AN ALLOW-LIST</h3>
+     * Every field is copied by hand, so anything not named here is <b>SILENTLY DROPPED</b> on the way to the
+     * browser. The pack columns existed, the entity carried them, the DTO exposed them and catalog returned
+     * them — and the product form still saw nothing, because the loop never mentioned them. Same shape as the
+     * gl_outbox defect: a new field needs every copy point or it vanishes, and nothing errors when one is
+     * missed. <b>If a later slice adds a product field, it must be added HERE.</b>
+     *
+     * <p>It is a method rather than an inline loop for exactly that reason. {@code /getUserProduct} and
+     * {@code /getProductPage} return the same rows to the same grid; as two copies, the next field added
+     * would reach whichever screen the author happened to be looking at and vanish from the other — an
+     * allow-list drop is hard enough to spot once without a second one to keep in step with it.
+     */
+    private Map<String, Object> productRow(Map<?, ?> p) {
+        Map<String, Object> row = new java.util.LinkedHashMap<>();
+        row.put("id", p.get("id"));
+        row.put("name", p.get("name"));
+        row.put("sku", p.get("sku"));
+        // Carried so the form's "already registered" panel can match a scanned/typed barcode too — without it
+        // that panel would silently never match on barcode and read as "no duplicate".
+        row.put("barcode", p.get("barcode"));
+        row.put("unit", p.get("unit"));
+        row.put("sellingPrice", p.get("sellingPrice"));
+        // Last rates stamped by the purchase flow (Option B) — the Product list's "last bought / last sold at"
+        // columns come straight off this row, with no second call.
+        row.put("lastPurchaseRate", p.get("lastPurchaseRate"));
+        row.put("lastSaleRate", p.get("lastSaleRate"));
+        row.put("lastRateAt", p.get("lastRateAt"));
+        row.put("packSize", p.get("packSize"));           // U1 — the pack rules
+        row.put("looseUnit", p.get("looseUnit"));
+        row.put("looseUnitPlural", p.get("looseUnitPlural"));
+        row.put("allowLoose", p.get("allowLoose"));
+        row.put("defaultSellUnit", p.get("defaultSellUnit"));
+        row.put("taxRate", p.get("taxRate"));
+        row.put("categoryName", p.get("categoryName"));
+        row.put("manufacturer", p.get("manufacturer"));
+        row.put("description", p.get("description"));
+        row.put("isActive", p.get("isActive") == null ? Boolean.TRUE : p.get("isActive"));   // Status / Reactivate
+        row.put("userId", p.get("createdBy"));   // keeps loadDataTable's userId bookkeeping happy
+        return row;
+    }
+
+    /**
+     * The Product grid's PAGED read — 50 rows at a time, filtered and searched on the SERVER.
+     *
+     * <h3>Why this is a new endpoint and not a change to {@code /getUserProduct}</h3>
+     * {@code /getUserProduct} has <b>7 consumers, and 6 of them need the WHOLE catalogue</b>: the duplicate-SKU
+     * index on the product form, labels.js, stock-count.js, report-filters.js, and the two picker fills in
+     * business.js. Paging it would not have slowed those screens down — it would have made them <i>wrong</i>,
+     * silently: a duplicate check that only sees page 1 reports no duplicate. Only the grid wants a page, so
+     * only the grid gets a new endpoint.
+     *
+     * <h3>Search moves to the server WITH the paging, in the same slice</h3>
+     * These cannot ship apart. DataTables searches the rows it holds; at 50 rows a page its box would search
+     * 50 products out of 1,042 and confidently report "No matching records" for a product the tenant owns.
+     * That is a worse screen than the one being replaced, so {@code q} is handled by catalog — where it also
+     * matches manufacturer and category, which is what the client-side box covered.
+     *
+     * <p>Page metadata is returned as a SIBLING of {@code collection}, since this envelope is a plain Map and
+     * has room for it.
+     */
+    @GetMapping("/getProductPage")
+    @ResponseBody
+    public Map<String, Object> getProductPage(final HttpServletRequest request) {
+        try {
+            boolean includeInactive = "true".equalsIgnoreCase(request.getParameter("includeInactive"));
+            int page = parseInt(request.getParameter("page"), 0, 0, Integer.MAX_VALUE);
+            /*
+             * Bounded, not trusted: `size=100000` would be the unbounded read this endpoint exists to end,
+             * wearing a query parameter.
+             *
+             * The ceiling is 1000 rather than a page-sized number because the grid's "All" — which the
+             * export path uses, so a 50-row page never becomes a 50-row spreadsheet — has to reach it.
+             * 1000 is deliberately the SAME ceiling {@code /getUserProduct} already used every time this
+             * screen opened: picking anything higher would introduce a larger read than the one being
+             * removed.
+             */
+            int size = parseInt(request.getParameter("size"), 50, 1, 1000);
+
+            StringBuilder qs = new StringBuilder();
+            qs.append("page=").append(page).append("&size=").append(size)
+              .append("&sort=").append(enc(sortOrDefault(request.getParameter("sort"))));
+            if (includeInactive) qs.append("&includeInactive=true");
+            String q = request.getParameter("q");
+            if (q != null && !q.isBlank()) qs.append("&q=").append(enc(q.trim()));
+            // "uncategorised" is a DISTINCT request from omitting the category: null already means "any".
+            if ("true".equalsIgnoreCase(request.getParameter("uncategorised"))) {
+                qs.append("&uncategorised=true");
+            } else {
+                String category = request.getParameter("category");
+                if (category != null && !category.isBlank()) qs.append("&category=").append(enc(category.trim()));
+            }
+
+            Map<String, Object> resp = catalog.get("/products/search", qs.toString());
+            java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
+            Map<String, Object> meta = new java.util.LinkedHashMap<>();
+            Object data = (resp != null) ? resp.get("data") : null;
+            if (data instanceof Map<?, ?> pg) {
+                if (pg.get("content") instanceof java.util.List<?> list) {
+                    for (Object o : list) if (o instanceof Map<?, ?> p) collection.add(productRow(p));
+                }
+                /*
+                 * Straight off the page catalog returned — never recomputed here. A total the browser derived
+                 * from the rows it can see is the classic "Showing 1-50 of 50" bug.
+                 *
+                 * ⚠ The KEYS ON THE LEFT are this endpoint's contract; the ones on the right are
+                 * {@code common.web.PageResponse}'s fields, and they are NOT the same words. Reading
+                 * {@code "page"} and {@code "size"} — the names Spring Data's own Page uses — returns null
+                 * from every one of them, and null is not an error: the grid still draws, the totals just
+                 * quietly stop being there. Renamed here rather than at the caller so the browser sees one
+                 * vocabulary across both paged endpoints.
+                 */
+                meta.put("page", pg.get("pageNo"));
+                meta.put("size", pg.get("pageSize"));
+                meta.put("totalElements", pg.get("totalElements"));
+                meta.put("totalPages", pg.get("totalPages"));
+                meta.put("last", pg.get("last"));
+                // PageResponse carries no "first" flag; page 0 is the only thing it could mean.
+                meta.put("first", Integer.valueOf(0).equals(pg.get("pageNo")));
+            }
+            Map<String, Object> out = new java.util.HashMap<>();
+            // A LATER page that is legitimately empty is still SUCCESS — "NOT_FOUND" here would make the grid
+            // show its no-data message for a search that simply ran past the end.
+            out.put("status", (!collection.isEmpty() || page > 0) ? "SUCCESS" : "NOT_FOUND");
+            out.put("collection", collection);
+            out.put("page", meta);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("getProductPage proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * Products per category — the dashboard's category card.
+     *
+     * <p>Counted by catalog in ONE grouped query rather than by paging the catalogue and tallying here: a
+     * tenant with 1,042 products would otherwise pay a full download to render a summary.
+     */
+    @GetMapping("/getCategoryCounts")
+    @ResponseBody
+    public Map<String, Object> getCategoryCounts() {
+        try {
+            Map<String, Object> resp = catalog.get("/products/category-counts", null);
+            java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
+            if (resp != null && resp.get("data") instanceof java.util.List<?> list) {
+                for (Object o : list) if (o instanceof Map<?, ?> m) {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("categoryId", m.get("categoryId"));
+                    row.put("categoryName", m.get("categoryName"));
+                    row.put("uncategorised", m.get("uncategorised"));
+                    row.put("count", m.get("count"));
+                    collection.add(row);
+                }
+            }
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("status", collection.isEmpty() ? "NOT_FOUND" : "SUCCESS");
+            out.put("collection", collection);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("getCategoryCounts proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * Product properties the grid may sort by, and the ONLY ones.
+     *
+     * <h3>Why an allow-list and not a pass-through</h3>
+     * This string lands in Spring Data's {@code Pageable} as a property path. An unknown one raises
+     * {@code PropertyReferenceException} — a 500 on a grid header click — and a <i>known but unintended</i>
+     * one lets a caller order by, and so probe the ordering of, whatever it can name through the entity
+     * graph. Neither is a risk worth carrying to save a list of eleven strings.
+     *
+     * <p>{@code onHand} is absent on purpose: stock lives in inventory-service, and catalog cannot order by
+     * a column it does not have. The grid marks that header unorderable for the same reason.
+     */
+    private static final java.util.Set<String> SORTABLE = java.util.Set.of(
+            "id", "name", "sku", "unit", "sellingPrice", "lastPurchaseRate", "lastSaleRate",
+            "taxRate", "category.name", "manufacturer", "isActive");
+
+    /** {@code "<field>,<dir>"} if the field is sortable, else newest-first. */
+    private static String sortOrDefault(String raw) {
+        final String fallback = "id,desc";
+        if (raw == null || raw.isBlank()) return fallback;
+        String[] parts = raw.split(",", 2);
+        String field = parts[0].trim();
+        if (!SORTABLE.contains(field)) return fallback;
+        boolean asc = parts.length > 1 && "asc".equalsIgnoreCase(parts[1].trim());
+        return field + "," + (asc ? "asc" : "desc");
+    }
+
+    /** Bounded integer parse — a bad value falls back to the default rather than 500ing the grid. */
+    private static int parseInt(String raw, int fallback, int min, int max) {
+        if (raw == null || raw.isBlank()) return fallback;
+        try {
+            return Math.max(min, Math.min(max, Integer.parseInt(raw.trim())));
+        } catch (NumberFormatException notANumber) {
+            return fallback;
+        }
+    }
+
+    private static String enc(String v) {
+        return java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /** Update a catalog Product (the "edit" Submit on the Product form) → catalog PUT /products/{id}. */
@@ -614,6 +789,28 @@ public class CatalogController {
             line.put("quantity", quantity);
             if (body.get("batchNo") != null) line.put("batchNo", body.get("batchNo"));
             if (body.get("expiryDate") != null) line.put("expiryDate", body.get("expiryDate"));
+            /*
+             * ⚠ THE COST, which this map used to drop on the floor.
+             *
+             * StockImportLine has carried purchasePrice, costPrice and paidTotal all along and
+             * StockImportService persists them — but this method builds the line FIELD BY FIELD, so a
+             * caller could send a cost and watch it vanish with a 200 and "success": true.
+             *
+             * What that costs, end to end: stock imported here has purchase_price NULL, so
+             * ReservationService.unitCostOf() returns null, so the FEFO pick carries no cost, so
+             * sell_batch.unit_cost is NULL — and the sale's own record of what it consumed says the goods
+             * were free. The GL still posts COGS (it computes costPrice x quantity from the product), so
+             * the books and the traceability DISAGREE, silently, on every sale that draws down imported
+             * stock. Measured on this database: 2,930 of 4,006 stock entries carry no cost at all, and
+             * 1,437 of 1,682 sell_batch rows have a NULL unit cost.
+             *
+             * This is the FOURTH instance of the same defect in this codebase — gl_outbox dropping event
+             * fields, the product row projection, the monolith SellDTO, and now this. A hand-built map
+             * over a DTO that already has the field is the shape to distrust.
+             */
+            if (body.get("purchasePrice") != null) line.put("purchasePrice", body.get("purchasePrice"));
+            if (body.get("costPrice") != null)     line.put("costPrice", body.get("costPrice"));
+            if (body.get("paidTotal") != null)     line.put("paidTotal", body.get("paidTotal"));
             String count = inventory.postJsonString("/stock/import", Collections.singletonList(line));
             return Map.of("success", true, "created", count);
         } catch (Exception e) {

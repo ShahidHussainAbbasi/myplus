@@ -355,13 +355,23 @@
 		updateGuarantorCount();
 	}
 
-	/** "1 of 2 recorded" — the count is the feedback loop; a silent form is how a rule gets rediscovered. */
+	/**
+	 * "1 of 2 recorded" — the count is the feedback loop; a silent form is how a rule gets rediscovered.
+	 *
+	 * <p>R4b: this is now the ONLY thing that reports a shortfall, and it reports it continuously rather
+	 * than as a refusal at submit. A shop that asked to be prompted for two sees that it has one, the whole
+	 * time it is typing, and can still choose to sell.
+	 */
 	function updateGuarantorCount() {
-		if (!guarantorsRequired) { $('#guarantorCount').text(''); return; }
+		if (!guarantorsRequired) { $('#guarantorCount').text(''); $('#guarantorNote').text(''); return; }
 		var have = collectGuarantors().length;
 		$('#guarantorCount').text(
 			(tr('ui.js.guarantorCount', '{0} of {1} recorded'))
 				.replace('{0}', have).replace('{1}', guarantorsRequired));
+		// The two slips that make a recorded guarantor worthless, shown while the form is being filled —
+		// where they can still be corrected, rather than as a wall at submit.
+		var note = typeof global.guarantorNote === 'function' ? global.guarantorNote() : null;
+		$('#guarantorNote').text(note || '');
 	}
 
 	/** Digits only, so 35201-1234567-8 and 3520112345678 are one person — the server normalises the same. */
@@ -386,17 +396,21 @@
 	}
 
 	/**
-	 * The two slips, refused where they happen rather than at submit.
+	 * ⭐ R4b — an ADVISORY about what has been typed. It never stops a sale.
 	 *
-	 * Returns a message or null. The SERVER checks both again — this is the courtesy, not the control.
+	 * <p>This was `guarantorProblem`, and `main.js` turned its answer into `return false` — a guarantor
+	 * shortfall was the only plan rule that could stop the cashier before anything was recorded. It is now
+	 * shown beside the panel while the form is being filled, which is where a shopkeeper can still act on
+	 * it, and the sale proceeds regardless.
+	 *
+	 * <p>The SHORTFALL is deliberately not reported here: the "1 of 2 recorded" counter already says it,
+	 * continuously and without sounding like an error. What is reported is the two slips that make a
+	 * recorded guarantor worthless — the server drops those rows and says so on the plan message.
+	 *
+	 * @returns a message, or null when there is nothing to say
 	 */
-	global.guarantorProblem = function () {
-		if (!guarantorsRequired) return null;
+	global.guarantorNote = function () {
 		var list = collectGuarantors();
-		if (list.length < guarantorsRequired) {
-			return (tr('ui.js.guarantorNeedMore', 'This sale needs {0} guarantors; {1} entered.'))
-				.replace('{0}', guarantorsRequired).replace('{1}', list.length);
-		}
 		var seen = {};
 		var buyerCnic = cnicDigits($('#sellCustomerCnic').val());
 		for (var i = 0; i < list.length; i++) {
