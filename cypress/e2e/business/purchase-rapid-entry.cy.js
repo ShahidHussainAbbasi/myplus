@@ -605,7 +605,7 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.window().its('EnterChain').should('exist')
     cy.window().then((w) => {
       expect(w.EnterChain.usable('sellItemDD'), 'sale item picker is usable').to.be.true
-      expect(w.EnterChain.walk(['sellItemDD', 'sellItems'], 'sellItemDD', 1)).to.eq('sellItems')
+      expect(w.EnterChain.walk(['sellItemDD', 'sellQuantity'], 'sellItemDD', 1)).to.eq('sellQuantity')
     })
   })
 

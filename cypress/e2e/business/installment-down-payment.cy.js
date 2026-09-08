@@ -165,7 +165,7 @@ describe('The deposit on a financed sale', () => {
       cy.get('#sellType').select('sellDiv', { force: true })
 
       cy.get('#sellItemDD', { timeout: 15000 }).select(String(productId), { force: true })
-      cy.get('#sellItems').clear().type('1')
+      cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
 
       // Hidden on an ordinary sale — the negative control for the assertion below.

@@ -62,7 +62,7 @@ describe('Sale screen — background loading', () => {
 
     // "Typeable" is the honest test of a till, and it is stronger than "visible": a rendered screen whose
     // quantity box is disabled is not a counter anyone can sell from.
-    cy.get('#sellItems').should('not.be.disabled').type('2').should('have.value', '2')
+    cy.get('#sellQuantity').should('not.be.disabled').type('2').should('have.value', '2')
 
     // Only now let the slow reads land, so the assertions above were genuinely made mid-flight.
     cy.wait('@customers')

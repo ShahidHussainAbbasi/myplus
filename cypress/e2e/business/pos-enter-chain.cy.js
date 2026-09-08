@@ -63,11 +63,11 @@ describe('P5 — the line chain includes the discount TYPE', () => {
         // Choosing a product reflows the strip (loadStock writes the stock and sellable badges from
         // two chained round trips), so typing straight away races the layout and Cypress reports the
         // field as un-actionable. Wait for the row to stop moving - see cy.settled.
-        cy.settled('#sellItems')
-        cy.get('#sellItems').clear().type('2{enter}')
+        cy.settled('#sellQuantity')
+        cy.get('#sellQuantity').clear().type('2{enter}')
         cy.window().should((w) => {
           expect(Cypress.focusedPicker(w), 'Enter on Qty follows the screen')
-            .to.eq(nextOnScreen(w, 'sellItems'))
+            .to.eq(nextOnScreen(w, 'sellQuantity'))
         })
 
         // The stop that did not exist before: amount-vs-percent, reachable without the mouse.
@@ -96,8 +96,8 @@ describe('P5 — the line chain includes the discount TYPE', () => {
         cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
-        cy.settled('#sellItems')          // the strip is still reflowing after the pick - see above
-        cy.get('#sellItems').clear().type('1{enter}')
+        cy.settled('#sellQuantity')          // the strip is still reflowing after the pick - see above
+        cy.get('#sellQuantity').clear().type('1{enter}')
         cy.get('#sellSellRate').type('{enter}')
         /*
          * Straight past the hidden chooser. Read off the screen rather than named: with the TYPE picker
@@ -120,7 +120,7 @@ describe('P5 — the line chain includes the discount TYPE', () => {
  *
  * ⚠ Every stop in this file used to be a hardcoded id, and that is what made it tenant-dependent: the
  * D-23 case demanded #sellSerials, which is correct only where serial tracking is ON. On the demo
- * tenant the capability is off, the serial cell is hidden, the chain correctly skips to #sellItems -
+ * tenant the capability is off, the serial cell is hidden, the chain correctly skips to #sellQuantity -
  * and the spec failed against a product doing exactly what RULE 2 says it must.
  */
 const nextOnScreen = (w, fromId) => {
@@ -195,6 +195,19 @@ describe('P5 — D-23: a dropdown advances on SELECTION', () => {
           .find(`.dropdown-menu li a:contains("${name}")`).first().click({ force: true })
 
         cy.get('#sellItemDD').should('have.value', String(productId))
+
+        /*
+         * ⭐⭐ CHOOSING A PRODUCT MUST NOT ADD IT TO THE CART.
+         *
+         * Reported from the counter. The selection handler committed the line whenever walk() answered
+         * null - and choosing an item fires loadStock(), which re-renders the strip, so for a few frames
+         * every field behind the picker reads as not-yet-usable and null comes back for a MOMENT. The
+         * product landed in the cart with no quantity, no price and no keystroke.
+         *
+         * Asserted BEFORE the focus check because it is the more serious failure: a cursor in the wrong
+         * place is an annoyance, a line in the cart nobody rang up is money.
+         */
+        cy.window().its('data').should('have.length', 0)
 
         /*
          * The assertion the old case could not make: where the cursor is AFTER the plugin has finished.

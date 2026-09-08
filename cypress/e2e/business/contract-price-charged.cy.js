@@ -118,7 +118,7 @@ describe('B2B P2-UI — the contract price is the price charged (#10)', () => {
         selectCustomer(c.customerId)
         pickProduct(p.productId)
         cy.get('#sellSellRate').should('have.value', String(CONTRACT))
-        cy.get('#sellItems').clear().type('2')
+        cy.get('#sellQuantity').clear().type('2')
         cy.get('#addInviceItem').click()
 
         // the cart carries the contract price, not the catalog one.

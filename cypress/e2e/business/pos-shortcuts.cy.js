@@ -147,7 +147,7 @@ describe('P2 — OFF (default): nothing changed', () => {
       cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
       cy.get('#sellItemDD').select(String(productId), { force: true })
       cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
-      cy.get('#sellItems').clear().type('1')
+      cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click({ timeout: 30000 })
       cy.window().its('data').should('have.length', 1)
 

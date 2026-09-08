@@ -4927,7 +4927,15 @@ function publishReportCard() {
 			}
 		});
 	};
-	if (typeof uiConfirm === 'function') { uiConfirm(t('ui.js.rcConfirmPublish'), go); return; }
+	// Options object + promise, not (message, callback) — see the note on deleteNotice.
+	if (typeof uiConfirm === 'function') {
+		uiConfirm({
+			title: t('ui.js.ntPublish'),
+			message: t('ui.js.rcConfirmPublish'),
+			confirmText: t('ui.js.ntPublish')
+		}).then(function (ok) { if (ok) go(); });
+		return;
+	}
 	go();
 }
 
@@ -5038,7 +5046,13 @@ function saveNotice() {
 function publishNotice() {
 	// Confirmed, because it is irreversible in the way that matters: the families have been told, and a
 	// published notice cannot be edited afterwards (only superseded by a new one).
-	uiConfirm(t('ui.js.ntConfirmPublish'), function () {
+	// ⚠ Options object + promise, not (message, callback) — see the note on deleteNotice below.
+	uiConfirm({
+		title: t('ui.js.ntPublish'),
+		message: t('ui.js.ntConfirmPublish'),
+		confirmText: t('ui.js.ntPublish')
+	}).then(function (ok) {
+		if (!ok) return;
 		var go = function (id) {
 			$.post(serverContext + 'publishNotice', { id: id }).done(function (res) {
 				uiAlert(apiMessage(res, ''));
@@ -5097,7 +5111,25 @@ function editNotice(n) {
 }
 
 function deleteNotice(id) {
-	uiConfirm(t('ui.js.ntConfirmDelete'), function () {
+	/*
+	 * ⚠ uiConfirm takes an OPTIONS OBJECT and returns a PROMISE, never (message, callback).
+	 *
+	 * This called uiConfirm(message, callback) — the window.confirm shape. It does not fail at the call
+	 * site in a way anyone would notice from the code: uiConfirm does `o.input = null` on whatever it is
+	 * handed, and assigning a property to a STRING throws in strict mode
+	 * ("Cannot create property 'input' on string"). So the dialog never opened and the notice was never
+	 * deleted — a button that silently did nothing.
+	 *
+	 * (uiAlert accepts a bare string and normalises it; uiConfirm and uiPromptConfirm do not. That
+	 * inconsistency is what makes the wrong shape look plausible.)
+	 */
+	uiConfirm({
+		title: t('ui.js.delete'),
+		message: t('ui.js.ntConfirmDelete'),
+		confirmText: t('ui.js.delete'),
+		tone: 'danger'
+	}).then(function (ok) {
+		if (!ok) return;
 		$.post(serverContext + 'deleteNotice', { id: id }).done(function () { loadNotices(); });
 	});
 }

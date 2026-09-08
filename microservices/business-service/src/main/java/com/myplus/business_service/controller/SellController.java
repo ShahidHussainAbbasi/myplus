@@ -64,6 +64,9 @@ public class SellController {
 	@Autowired
 	ISellService sellService;
 
+	@org.springframework.beans.factory.annotation.Autowired
+	private com.myplus.business_service.repository.SellRepo sellRepo;
+
 	@Autowired
 	com.myplus.business_service.repository.SellBatchRepo sellBatchRepo;   // B2B-P3b-2 (#4): receipt traceability
 	
@@ -336,6 +339,54 @@ public class SellController {
 	 * service, and nothing here can be widened by a crafted parameter: {@code days} and {@code limit}
 	 * are clamped, and the tenant comes from the token, never the request.
 	 */
+	/**
+	 * What this customer last paid for each of these products — the cart's negotiating aid.
+	 *
+	 * <h3>ONE call for the whole cart</h3>
+	 * The till asks as lines are added and again when the customer changes. A call per line would put a
+	 * round trip on every keystroke of the busiest screen in the product, so the cart is sent as a list
+	 * and answered in a single query. Capped at 100 ids — a cart is a handful of lines, and an unbounded
+	 * IN-list from the browser is somebody else's denial of service.
+	 *
+	 * <h3>Scoped by the TOKEN, never the request</h3>
+	 * The organisation comes from {@code CurrentUser}; only the customer and the products are the
+	 * caller's to choose. A customerId from another tenant simply matches nothing — the org predicate
+	 * runs first — so this cannot be used to read a competitor's prices, which is exactly what an
+	 * endpoint answering "what did X pay" has to be proof against.
+	 *
+	 * <p>Answers a map of productId → {rate, dated}. A product this customer has never bought is ABSENT
+	 * rather than zero: the till draws nothing at all for it, and a zero would read as "free".
+	 */
+	@RequestMapping(value = "/lastSoldRates", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse lastSoldRates(@RequestParam Long customerId,
+	                                     @RequestParam("productIds") java.util.List<Long> productIds) {
+		try {
+			java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+			if (customerId == null || productIds == null || productIds.isEmpty()) {
+				return new GenericResponse("SUCCESS", "", out);
+			}
+			java.util.List<Long> ids = productIds.stream().filter(java.util.Objects::nonNull)
+					.distinct().limit(100).collect(java.util.stream.Collectors.toList());
+			if (ids.isEmpty()) return new GenericResponse("SUCCESS", "", out);
+
+			// Newest first, so the FIRST row seen for a product is its last sale — putIfAbsent keeps it
+			// and ignores the older ones without a second pass or a sort in the browser.
+			for (Object[] row : sellRepo.findLastSoldRates(com.myplus.common.security.CurrentUser.organizationId(), customerId, ids)) {
+				if (row == null || row[0] == null) continue;
+				java.util.Map<String, Object> v = new java.util.LinkedHashMap<>();
+				v.put("rate", row[1]);
+				v.put("dated", row[2] == null ? null : String.valueOf(row[2]));
+				out.putIfAbsent(String.valueOf(row[0]), v);
+			}
+			return new GenericResponse("SUCCESS", "", out);
+		} catch (Exception e) {
+			// A hint that cannot load is a hint that is not shown. It must never be why a sale stops.
+			LOGGER.warn("lastSoldRates failed for customer {}", customerId, e);
+			return new GenericResponse("SUCCESS", "", new java.util.LinkedHashMap<String, Object>());
+		}
+	}
+
 	@RequestMapping(value = "/topProducts", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse topProducts(@RequestParam(required = false) Integer days,

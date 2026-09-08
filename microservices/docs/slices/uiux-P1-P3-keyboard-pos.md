@@ -30,7 +30,7 @@ For non-scanned goods: `item → qty → Enter` per line, everything on one row.
 | **D-7** | Shortcut keys are **F-keys with an `Alt+letter` alias**, suppressed inside text inputs except where the binding is the point (Enter, Esc). | F-keys are what till operators expect; the alias covers kiosks/browsers that swallow them. |
 | **D-8** | The qty multiplier is parsed **in the scan box** (`12*ABC123`), not as a separate control. | Standard POS idiom, no new control, degrades to today's behaviour when `*` is absent. |
 | **D-9** | **P1 is a single-row line-entry strip**, not a patched vertical form. | ⭐ The tall form's dead tab stops (review F3) are a *symptom*; the disease is that one cart line is composed across 13 stacked controls and ~600px of screen. A horizontal strip removes the dead stops **structurally** — they simply aren't on the row — and is the pattern every serious billing system uses (Tally, QuickBooks, SAP B1, Odoo). Easiest *and* most advanced: fewer moving parts than the patch, and a better end state. |
-| **D-10** | The strip is achieved by **re-flowing the existing inputs with CSS — every id stays in the DOM, in one copy.** No field is deleted, no field is duplicated, no handler is rebound. | ⭐ This is what makes D-9 cheap and safe. `formToJSON("Sell")`, `#addInviceItem`, `calculateNetSell()` and `loadStock()` all keep reading and writing the same ids. Two layouts with two copies of `#sellItems` would be duplicate ids and a submission bug waiting to happen. The OFF case is byte-identical to today because nothing about the markup's *content* changed. |
+| **D-10** | The strip is achieved by **re-flowing the existing inputs with CSS — every id stays in the DOM, in one copy.** No field is deleted, no field is duplicated, no handler is rebound. | ⭐ This is what makes D-9 cheap and safe. `formToJSON("Sell")`, `#addInviceItem`, `calculateNetSell()` and `loadStock()` all keep reading and writing the same ids. Two layouts with two copies of `#sellQuantity` would be duplicate ids and a submission bug waiting to happen. The OFF case is byte-identical to today because nothing about the markup's *content* changed. |
 
 ## 3. Settings
 
@@ -291,7 +291,7 @@ re-flow safe where a markup rebuild would not be. Every control in `#Sell`, chec
 | `#sellBonus` | *(none)* | no | `$("#sellBonus").val()` at `business.js:193` | none — `.val()` unaffected |
 | `#sellrm` | *(none)* | no | `calculateNetSell()` writes it | none — display only |
 
-Fields left on the row (`#sellItemDD`, `#sellItems`, `#sellSellRate`, `#sellDiscount`) and the
+Fields left on the row (`#sellItemDD`, `#sellQuantity`, `#sellSellRate`, `#sellDiscount`) and the
 badges (`#sellStock`, `#bexpDate`, `#sellTotalAmount`) are untouched in every respect.
 
 **Also verified:** none of the four hidden fields carries `required`, so hiding them cannot make

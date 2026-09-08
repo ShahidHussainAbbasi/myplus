@@ -192,7 +192,7 @@ describe('U4 — what the customer reads', () => {
       cy.get('#sellItemDD').select(String(p.id), { force: true })
       cy.get('#sellSellRate').should('not.have.value', '')
 
-      cy.get('#sellItems').clear().type('5')
+      cy.get('#sellQuantity').clear().type('5')
       cy.get('#sellUnitLoose').click({ force: true })
       cy.get('#addInviceItem').click({ force: true })
 

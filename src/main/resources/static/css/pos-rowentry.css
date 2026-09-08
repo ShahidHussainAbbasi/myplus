@@ -13,7 +13,7 @@
  * exactly one copy, in its original position. This is a pure re-flow, so
  * formToJSON("Sell"), #addInviceItem, calculateNetSell() and loadStock() keep
  * reading and writing the same ids with no modification whatsoever. A second
- * copy of #sellItems living in an alternate layout would be a duplicate id and
+ * copy of #sellQuantity living in an alternate layout would be a duplicate id and
  * a silently wrong invoice — hence "re-flow", never "rebuild".
  *
  * EVERYTHING IS SCOPED TO .pos-rowentry
@@ -276,7 +276,7 @@
  */
 .pos-rowentry #sellSerials{ width:148px; }
 
-.pos-rowentry #sellItems{ width:72px; }
+.pos-rowentry #sellQuantity{ width:72px; }
 .pos-rowentry #sellSellRate{ width:98px; }
 .pos-rowentry #sellDiscount{ width:84px; }
 .pos-rowentry #sellStock,
@@ -440,7 +440,7 @@
   .pos-rowentry #Sell [class*="col-sm-"],
   .pos-rowentry #Sell [class*="col-xs-"],
   .pos-rowentry #Sell [class*="col-md-"]{ width:100%; }
-  .pos-rowentry #sellItems,
+  .pos-rowentry #sellQuantity,
   .pos-rowentry #sellSellRate,
   .pos-rowentry #sellDiscount,
   .pos-rowentry #sellStock,
@@ -478,3 +478,42 @@
 .serial-info-warn { background: #fff3e0; color: #E65100; border: 1px solid #ffcc80; }
 /* Not on the shelf. Advisory: the server is what actually refuses the sale. */
 .serial-info-miss { background: #fdecea; color: #B71C1C; border: 1px solid #ef9a9a; }
+
+/* ── The last-paid hint in the cart ─────────────────────────────────────────
+ *
+ * A HINT, and it has to look like one. It sits under the rate rather than beside it, in a smaller,
+ * quieter type, so the eye reads the PRICE first and finds the history only when it goes looking. A
+ * second number at equal weight in a price column is how a cashier quotes the wrong one.
+ *
+ * Tabular numerals so the figures line up down the column and can be compared at a glance without
+ * reading them — the whole point of showing it on the line rather than in a lookup.
+ */
+.lr-hint{
+  display:flex; align-items:baseline; gap:5px;
+  margin-top:3px; padding-left:7px;
+  border-left:2px solid #dfe5ee;                 /* a rail, not a box: no second card in a table cell */
+  font-size:11px; line-height:1.35; color:#7b8794;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.lr-hint .lr-cap{ text-transform:uppercase; letter-spacing:.06em; font-size:9.5px; opacity:.8 }
+.lr-hint b{ font-weight:600; color:#4a5568 }
+.lr-hint i{ font-style:normal; opacity:.75 }
+
+/* BELOW what they last paid — the one case worth flagging, because it is a concession being made right
+ * now and it is the number an owner asks about afterwards. Amber, not red: it is a fact, not a fault. */
+.lr-hint.lr-below{ border-left-color:#e8a33d; color:#8a6216 }
+.lr-hint.lr-below b{ color:#7a5410 }
+.lr-hint.lr-below .lr-cap::after{ content:" \25BC"; font-size:8px }
+
+@media (prefers-reduced-motion: no-preference){
+  .lr-hint{ animation: lrFade .18s ease-out both }
+  @keyframes lrFade{ from{ opacity:0; transform:translateY(-2px) } to{ opacity:1; transform:none } }
+}
+
+/* On a phone the cart is already tight: keep the hint, drop the date. */
+@media (max-width: 767px){ .lr-hint i{ display:none } }
+
+/* The same hint, in the ENTRY row beside the rate box — where the price is actually decided.
+ * Sits under the input rather than beside it, so it never competes with the field it informs. */
+.pos-rowentry #Sell .pos-cell .lr-entry{ margin-top:2px; padding-left:6px }

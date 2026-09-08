@@ -31,7 +31,7 @@ describe('Sell↔stock saga — through the sell form (UI)', () => {
       if (!(onHand > 0)) return cy.log(`Picked item has on-hand=${onHand} — pick a stocked item; skipping`)
 
       // 3. Fill QTY (1). Sell rate auto-fills from catalog; default it if empty.
-      cy.get('#sellItems').clear().type('1')
+      cy.get('#sellQuantity').clear().type('1')
       cy.get('#sellSellRate').invoke('val').then((r) => { if (!r) cy.get('#sellSellRate').clear().type('1') })
 
       // 4. Add the line to the cart.

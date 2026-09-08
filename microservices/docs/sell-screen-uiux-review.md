@@ -20,7 +20,7 @@ One cart line, manual (non-scan) entry:
 | 1 | Item picker | `#sellItemDD` | opens on keypress, filters, Enter selects |
 | 2 | *(wait)* | — | **two sequential XHRs** — `/productStock` then `quoteSellFormPrice()` |
 | 3 | Description | `#sellItemDesc` | **readonly — dead tab stop** |
-| 4 | QTY | `#sellItems` | typed |
+| 4 | QTY | `#sellQuantity` | typed |
 | 5 | Bonus | `#sellBonus` | rarely used, always in the way |
 | 6 | Stock | `#sellStock` | **readonly — dead tab stop** |
 | 7 | Expiry | `#bexpDate` | **readonly — dead tab stop** |

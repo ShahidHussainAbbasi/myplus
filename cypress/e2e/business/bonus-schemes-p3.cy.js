@@ -426,7 +426,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
           // Pick the product the way the picker exposes it (value = productId).
           cy.get('#sellItemDD').select(String(pid), { force: true })
 
-          cy.get('#sellItems', { timeout: 20000 }).should('not.be.disabled').clear().type('10')
+          cy.get('#sellQuantity', { timeout: 20000 }).should('not.be.disabled').clear().type('10')
 
           // THE POINT OF THIS CASE: the cashier must be able to see and use this box.
           cy.get('#sellBonus').should('be.visible').clear().type('1')

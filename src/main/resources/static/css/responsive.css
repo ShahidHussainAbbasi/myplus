@@ -215,7 +215,7 @@ html[lang="hi"] .table > thead > tr > th{ line-height:1.8; }
 
   /* ── Controls hanging off the LEFT edge of the screen ────────────────────────
      Measured on the sale screen at 360px (Infinix Hot 40, Vivo Y400): fifteen
-     controls — sellScan, sellItems, sellItemDesc, sellBonus, the item picker —
+     controls — sellScan, sellQuantity, sellItemDesc, sellBonus, the item picker —
      rendered at left:-5px, i.e. 5px outside the viewport and unreachable.
 
      The chain, read off the live DOM:

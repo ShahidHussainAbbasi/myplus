@@ -55,6 +55,39 @@ public class SellController {
      * shortcut, and every product stays reachable through the normal picker, so a shop must never be
      * blocked from selling because a convenience could not be drawn.
      */
+    /**
+     * What this customer last paid for each product in the cart — a hint beside the rate.
+     *
+     * ⚠ productIds is a REPEATED parameter, and this proxy builds the query string by hand for exactly
+     * that reason: the generic formParams() helper collapses repeats to the first value
+     * (params.put(k, v[0])), which is how ten serials once registered as one, silently, on a purchase
+     * that reported success. A cart of five lines would have asked about one product and quietly shown
+     * nothing for the other four.
+     *
+     * A hint that fails is simply not shown - an empty map, never an error. Nothing on this path may be
+     * a reason a sale cannot be rung up.
+     */
+    @RequestMapping(value = "/lastSoldRates", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> lastSoldRates(final HttpServletRequest request) {
+        try {
+            String customerId = request.getParameter("customerId");
+            String[] ids = request.getParameterValues("productIds");
+            if (customerId == null || customerId.isBlank() || ids == null || ids.length == 0) {
+                return Map.of("status", "SUCCESS", "object", java.util.Collections.emptyMap());
+            }
+            StringBuilder qs = new StringBuilder("customerId=").append(enc(customerId));
+            for (String id : ids) {
+                if (id == null || id.isBlank()) continue;
+                qs.append("&productIds=").append(enc(id));
+            }
+            return client.get("/lastSoldRates", qs.toString());
+        } catch (Exception e) {
+            LOGGER.warn("lastSoldRates proxy error", e);
+            return Map.of("status", "SUCCESS", "object", java.util.Collections.emptyMap());
+        }
+    }
+
     @RequestMapping(value = "/topProducts", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> topProducts(final HttpServletRequest request) {

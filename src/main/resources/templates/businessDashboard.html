@@ -72,11 +72,11 @@ tr.row-voided .js-edit-row{display:none !important}
   .cmode-row .cmode-field-mobile{width:100%}
 }
 /* Sell cart / checkout panel (iDiv) */
-.cart-panel{max-width:80%;margin:0 auto;background:#fff;border:1px solid #e2e7ef;border-radius:14px;box-shadow:0 6px 22px rgba(20,40,80,.09);overflow:hidden;text-align:left}
+.cart-panel{margin:0 auto;background:#fff;border:1px solid #e2e7ef;border-radius:14px;box-shadow:0 6px 22px rgba(20,40,80,.09);overflow:hidden;text-align:left}
 .cart-panel__head{display:flex;align-items:center;gap:10px;padding:13px 20px;background:linear-gradient(135deg,#2b6cb0,#1f4e8c);color:#fff;font-size:15px;font-weight:700;letter-spacing:.3px}
 .cart-panel__head .glyphicon{font-size:16px}
 .cart-hint{margin-left:auto;font-size:11px;font-weight:500;opacity:.85;letter-spacing:0}
-.cart-panel__body{padding:18px 20px 20px}
+/* .cart-panel__body{padding:18px 20px 20px} */
 .cart-panel__body .form-group{margin-bottom:14px}
 .cart-panel__body .form-group::after{content:"";display:table;clear:both}
 #sellCartScroll{max-height:300px;overflow:auto;border:1px solid #e7ebf2;border-radius:10px;background:#fff}
@@ -1956,16 +1956,24 @@ tr.row-voided .js-edit-row{display:none !important}
 						that does, the SERVER still decides per product: a handset requires serials, a charger on
 						the same receipt does not (ProductRef.requiresSerial).
 
-						SER-3c: ONE serial per LINE, not a list in one box.
+						⭐ SER-7: MANY serials in one box again — comma, space or new line.
 
-						This was a three-row textarea holding one IMEI per line, so a carton of ten handsets was
-						one purchase line carrying ten serials — and the count had to match the quantity exactly
-						or the whole receipt was refused. A miscount was found only at submit, after everything
-						had been typed.
+						The history is worth keeping, because this reverses a deliberate decision and the
+						reason it was made still matters.
 
-						Now a line IS a unit: enter the serial and the quantity locks to 1. Ten handsets are ten
-						lines, which "Save & Add Another" (P6) makes a scan-and-repeat rather than a retype —
-						and a wrong IMEI is now one line to fix instead of a refused receipt.
+						It began as a three-row textarea holding one IMEI per line. The count had to match the
+						quantity EXACTLY or the whole receipt was refused, and a miscount was only found at
+						submit — after everything had been typed. SER-3c answered that by making a line one
+						unit: enter a serial, the quantity locks to 1, ten handsets are ten lines.
+
+						That is correct and slow. Ten lines is ten trips through the form for a carton that
+						arrives as one carton, and "Save & Add Another" still asks for the vendor, rate and
+						product each time.
+
+						SER-7 brings the box back WITHOUT bringing back the miscount: the quantity is now
+						DERIVED from the number of serials typed, live, and stays read-only. The operator
+						never keeps two numbers in step, so the server's count rule — which is still there and
+						still right — can no longer fire by accident. Scan ten, the quantity says ten.
 					-->
 					<!-- SER-3d: data-pos-field="serial" is the same hook the sale line carries, so ONE setting
 					     (pos.entry.showSerial) governs both screens. data-capability still gates whether this
@@ -1974,9 +1982,25 @@ tr.row-voided .js-edit-row{display:none !important}
 						<label class="control-label col-sm-2" for="purchaseSerials"
 						       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
 						<div class="col-sm-4" data-capability="serialTracking">
-							<input type="text" class="form-control" id="purchaseSerials" maxlength="64"
-							       th:placeholder="#{ui.js.serialNumbersHint}"
-							       placeholder="Scan or type the IMEI of this unit"/>
+							<!--
+								SER-7 — a TEXTAREA, and that is the point of the change.
+
+								maxlength="64" was the server's per-SERIAL cap applied to the whole box, so it
+								stopped at about four IMEIs; and an <input> cannot hold a newline at all, so
+								two of the three separators the server accepts were untypeable. The cap is
+								gone from here because it belongs per serial, where SerialUnitService already
+								enforces it (MAX_SERIAL_LEN) and can name the offending one.
+
+								rows="2" so the common single-serial case still looks like a field rather than
+								a form, and a carton of ten scrolls rather than pushing the rest of the line
+								off screen.
+							-->
+							<textarea class="form-control" id="purchaseSerials" rows="2"
+							          th:placeholder="#{ui.js.serialNumbersHint}"
+							          placeholder="Scan or type one IMEI per unit — separate with a comma, a space or a new line"></textarea>
+							<!-- SER-7: what the box parsed to, and a duplicate named while it can still be
+							     corrected. Filled by updatePurchaseSerialHint(). -->
+							<span id="purchaseSerialHint" class="help-block" style="margin:2px 0"></span>
 						</div>
 						<label class="control-label col-sm-2" for="purchaseCondition"
 						       data-capability="conditionGrading" th:text="#{ui.js.condition}">Condition</label>
@@ -2418,9 +2442,9 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 						<div class="pos-cell pos-cell-qty">
-							<label class="control-label col-sm-2 req" for="sellItems" th:text="#{ui.qty2}">QTY</label>
+							<label class="control-label col-sm-2 req" for="sellQuantity" th:text="#{ui.qty2}">QTY</label>
 							<div class="col-sm-4">
-								<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellItems" name="quantity" inputmode="decimal"
+								<input type="text" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="sellQuantity" name="quantity" inputmode="decimal"
 								 onblur="calculateNetSell()" onkeyup="calculateNetSell()" required="required"/>
 							</div>
 							<!--
@@ -2600,11 +2624,11 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 				<div id="iDiv" class="text-center" style="margin-top:12px;">
 					<div class="cart-panel">
-						<div class="cart-panel__head">
+						<div class="cart-panel__head" style="display: none;">
 							<span class="glyphicon glyphicon-shopping-cart"></span> <span th:text="#{ui.currentSale}">Current Sale</span>
 							<span class="cart-hint" th:text="#{ui.reviewItemsChooseCustomerAndPayment}">Review items, choose customer &amp; payment, then complete the sale</span>
 						</div>
-						<div class="cart-panel__body">
+						<div class="cart-panel__body"> Add to Cart
 						<div id="sellCartScroll">
 						<table id="tablesi" class="display" style="width:100%;">
 							<thead>
@@ -2882,7 +2906,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="sellInvoiceNo" th:text="#{ui.invoice}">Invoice</th>
 							<th data-field="sellCustomerName" th:text="#{ui.customer}">Customer</th>
 							<th data-field="sellItemName" th:text="#{ui.product}">Product</th>
-							<th data-field="sellItems" th:text="#{ui.qty}">Qty</th>
+							<th data-field="sellQuantity" th:text="#{ui.qty}">Qty</th>
 							<th data-field="sellSellRate" title="The rate this line was actually sold at (may differ from the catalog price)" th:title="#{ui.theRateThisLineWasActually}" th:text="#{ui.unitPrice}">Unit Price</th>
 							<th data-field="sellDiscount" title="Discount applied to this line — % of the line, or a flat amount" th:title="#{ui.discountAppliedToThisLineOf}" th:text="#{ui.discount}">Discount</th>
 							<th data-field="sellTaxAmount" th:text="#{ui.tax2}">Tax</th>
@@ -4425,6 +4449,9 @@ tr.row-voided .js-edit-row{display:none !important}
          registry-driven: [] unless business-service has an ImportSpec for that entity. -->
     <script th:src="@{/js/common/data-import.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
+    <!-- The last-paid hint in the cart. Reads window.posShowLastRate and draws nothing without it,
+         so a tenant that switches it off loads an inert file. AFTER business.js: it hooks #tablesi. -->
+    <script th:src="@{/js/business/last-rate.js}"></script>
     <!-- B2B-P3g-5: businessInvoicePrint.js removed. It was a 148-line jsPDF A4 printer gated on
          `if (userId*ONE != 37) return false;` with one shop's name, address and phone hardcoded into it, and
          it loaded on EVERY business dashboard while doing nothing for anyone else. It was also evidence of

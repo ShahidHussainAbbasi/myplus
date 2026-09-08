@@ -24,7 +24,7 @@ defects to exactly that shape (`gl_outbox`, the product row projection, the mono
 | 3 | The cart grid, scan add | `business.js:446` `n` | **5** |
 | 4 | Sale detail report | `business.js:2713` `srNum(o.quantity)` | **0.5** |
 | 5 | Report group/summary row | `business.js:2639` `g.quantity` | **0.5** |
-| 6 | Edit — loading a line back into the till | `loadCartLineIntoForm` → `#sellItems` | **0.5** in the quantity box |
+| 6 | Edit — loading a line back into the till | `loadCartLineIntoForm` → `#sellQuantity` | **0.5** in the quantity box |
 
 **Server side: none.** There is no `ReceiptLine` DTO and `InternalReceiptsController` never touches a
 quantity — every document is rendered in the browser. That is a genuinely good outcome for this slice: six
@@ -83,7 +83,7 @@ did.
 
 ## 4. The edit path — the one that can lose money
 
-`loadCartLineIntoForm` puts `line.quantity` into `#sellItems`. For a loose line that is **0.5**, in a box the
+`loadCartLineIntoForm` puts `line.quantity` into `#sellQuantity`. For a loose line that is **0.5**, in a box the
 cashier reads as *pieces* and the seven numeric readers treat as *packs*.
 
 Left alone, editing a loose sale and clicking Update would re-submit **half a pack of packs**. So U4:

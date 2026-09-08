@@ -189,7 +189,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
 
       // Put the handset in the cart so the plan has a price to finance.
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
-      cy.get('#sellItems').clear().type('1')
+      cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()
 
@@ -249,7 +249,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
       cy.get('#sellType').select('sellDiv', { force: true })
 
       cy.get('#sellItemDD', { timeout: 10000 }).select(String(productId), { force: true })
-      cy.get('#sellItems').clear().type('1')
+      cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()
 
@@ -299,7 +299,7 @@ describe('INST-1 — the sale screen sells on terms', () => {
        * rather than assumed, because that lock is what makes `serials` a single value a plan can carry.
        */
       cy.get('#sellSerials').clear().type(`IMEI${run}`)
-      cy.get('#sellItems').should('have.value', '1').and('have.attr', 'readonly')
+      cy.get('#sellQuantity').should('have.value', '1').and('have.attr', 'readonly')
 
       cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
       overlayGone()

@@ -13,8 +13,8 @@ capability.
 
 | Verified | Where |
 |---|---|
-| The quantity box is `#sellItems` | `businessDashboard.html` |
-| The Enter chain is `sellItemDD → sellItems → sellSellRate → sellDiscountTypeDD → sellDiscount` | `pos-keyboard.js:38` |
+| The quantity box is `#sellQuantity` | `businessDashboard.html` |
+| The Enter chain is `sellItemDD → sellQuantity → sellSellRate → sellDiscountTypeDD → sellDiscount` | `pos-keyboard.js:38` |
 | A field joins the chain only if present, visible and editable — configuration drives it for free | `pos-keyboard.js:104`, `common/enter-chain.js` |
 | The scan grammar `12*CODE` is ONE pure exported function with digits-only validation | `business.js:275` `parseScanEntry` |
 | The cart line object is built in one place and `data[]` is submitted as `sales` | `business.js:375` |
@@ -28,12 +28,12 @@ The parent design says the quantity box takes the answer: *type `5L` for five lo
 box is a number**, and it is read numerically in **seven** places:
 
 ```js
-business.js:1547   var qty = $('#sellItems').val()*1>0 ? $('#sellItems').val()*ONE : 1;
-business.js:2051   if($("#sellItems").val()*1<=0){ ... }
-business.js:2174   if($("#sellItems").val()*1<=0){ ... }
-business.js:2278   var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
-business.js:2348   var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
-pos-keyboard.js:279 if (!(Number($('#sellItems').val()) > 0)) { ... }
+business.js:1547   var qty = $('#sellQuantity').val()*1>0 ? $('#sellQuantity').val()*ONE : 1;
+business.js:2051   if($("#sellQuantity").val()*1<=0){ ... }
+business.js:2174   if($("#sellQuantity").val()*1<=0){ ... }
+business.js:2278   var qty= $("#sellQuantity").val()*1>0?$("#sellQuantity").val()*ONE:1;
+business.js:2348   var qty= $("#sellQuantity").val()*1>0?$("#sellQuantity").val()*ONE:1;
+pos-keyboard.js:279 if (!(Number($('#sellQuantity').val()) > 0)) { ... }
                     (+1 commented-out copy at business.js:2307)
 ```
 
@@ -48,7 +48,7 @@ projection, and the monolith `SellDTO`.
 ### The decision: `L` is a KEYSTROKE, never a character in the value
 
 ```
-   cashier types:   5   L                     #sellItems value:  "5"      (always a number)
+   cashier types:   5   L                     #sellQuantity value:  "5"      (always a number)
                         └──> intercepted in keydown
                              ├─ flips the line's unit to LOOSE
                              ├─ the toggle lights up, the hint line appears
@@ -80,7 +80,7 @@ The owner reviewed three mechanisms against a working mock and chose this one. T
 | **No character can reach the quantity box** | so the seven numeric readers in §2 stay untouched — the whole point |
 | ⭐ **Its failure mode is VISIBLE** | if the binding breaks, the toggle does nothing and the cashier notices. A letter-in-the-box mechanism that regresses produces `NaN`, silently sells **one pack**, and overcharges the customer with nothing reporting an error |
 
-**Rejected: a bare `L`, and `Shift+L`.** Both put a letter in a numeric field — and `#sellItems` is
+**Rejected: a bare `L`, and `Shift+L`.** Both put a letter in a numeric field — and `#sellQuantity` is
 `type="text" inputmode="decimal"`, so the character genuinely lands. Neither is an industry standard; **there
 is no standard key for this**. What the established systems share is a principle, not a keybinding: the unit
 is a *visible control on the line*, and the keyboard is an accelerator layered on top of it.
@@ -94,7 +94,7 @@ every layout. This platform ships in six languages including ar/ur.
 > layout**. Not introduced by U3 and deliberately not fixed here — U3 touches as little of this file as it
 > can, and the owner has not confirmed whether any tenant types on such a layout. Its own slice.
 
-**The Enter chain is untouched.** No new field joins `CHAIN`, so `sellItemDD → sellItems → sellSellRate → …`
+**The Enter chain is untouched.** No new field joins `CHAIN`, so `sellItemDD → sellQuantity → sellSellRate → …`
 is byte-for-byte what it is today. This matters: that chain has been broken twice by well-intentioned
 changes, once by a capture-phase handler that swallowed Enter on an arrow-highlighted row.
 
@@ -211,7 +211,7 @@ arithmetic at the counter is the actual problem being solved.
 
 1. ⭐ **type `5`, press `L`, add the line — the bill says 60.00** and the stored line is `soldUnit LOOSE`,
    `soldQuantity 5`, `quantity 0.5`. *The whole slice in one case.*
-2. ⭐ **`#sellItems` never contains a letter** — after pressing `L` its value is still `"5"`. The seven
+2. ⭐ **`#sellQuantity` never contains a letter** — after pressing `L` its value is still `"5"`. The seven
    numeric readers are why.
 3. ⭐ **the hint line shows before committing** — "5 tablets · 12.00 each · uses 0.5 of a pack".
 4. **an ordinary product has no toggle and ignores `L`** — the till a shop uses today is unchanged.

@@ -193,7 +193,7 @@ describe('POS keyboard entry — OFF (default): the screen is unchanged', () => 
   it('Enter in the quantity field does nothing — no cart line, no navigation', () => {
     cy.seedProduct({ name: 'KbdOff_' + Date.now(), sellingPrice: 10, stock: 5 }).then(() => {
       openSell(false)
-      cy.get('#sellItems').type('3{enter}')
+      cy.get('#sellQuantity').type('3{enter}')
       // Still on the sale screen (the form never submits — it has no submit button) ...
       cy.get('#sellDiv').should('be.visible')
       // ... and nothing was committed to the cart.
@@ -204,7 +204,7 @@ describe('POS keyboard entry — OFF (default): the screen is unchanged', () => 
   it('all four line fields are present and typeable', () => {
     openSell(false)
     cy.get('#sellItemDD').should('exist')
-    cy.get('#sellItems').should('be.visible').and('not.have.attr', 'readonly')
+    cy.get('#sellQuantity').should('be.visible').and('not.have.attr', 'readonly')
     cy.get('#sellSellRate').should('be.visible').and('not.have.attr', 'readonly')
     cy.get('#addInviceItem').should('be.visible')
   })
@@ -242,7 +242,7 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdQty_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      cy.get('#sellItems').should('have.value', '1')          // the default landed
+      cy.get('#sellQuantity').should('have.value', '1')          // the default landed
 
       // Drive the chain the way a cashier does. bootstrap-select replaces the <select> with a button,
       // so the keystroke has to go there — asserting the wrapper exists first, because a silently
@@ -264,9 +264,9 @@ describe('POS keyboard entry — ON', () => {
       /*
        * ⚠ THE NEXT STOP IS THE SERIAL BOX, not Qty - and that is the rule working, not a defect.
        *
-       * SER-3c moved #sellSerials in front of #sellItems on the sale form, and RULE 1 in
+       * SER-3c moved #sellSerials in front of #sellQuantity on the sale form, and RULE 1 in
        * pos-keyboard.js says the chain must match the screen: CHAIN is
-       * [... 'sellItemDD', 'sellSerials', 'sellItems', ...]. keyboard-chain-order.cy.js reads that
+       * [... 'sellItemDD', 'sellSerials', 'sellQuantity', ...]. keyboard-chain-order.cy.js reads that
        * array out of the shipped file and compares it with the DOM, and it is green.
        *
        * This case was written before that field existed. Asserting the serial box here keeps it
@@ -284,7 +284,7 @@ describe('POS keyboard entry — ON', () => {
       // "answered" by the cashier. Every stop on the way is asserted against the screen.
       cy.window().then((w) => {
         const first = nextOnScreen(w, 'sellItemDD')
-        if (first !== 'sellItems') walkTo(first, 'sellItems')
+        if (first !== 'sellQuantity') walkTo(first, 'sellQuantity')
       })
     })
   })
@@ -344,11 +344,11 @@ describe('POS keyboard entry — ON', () => {
       openSell(true)
       pickItem(productId)
       cy.get('#sellSellRate').should('not.have.value', '')     // the catalog filled it
-      cy.get('#sellItems').clear().type('4')
+      cy.get('#sellQuantity').clear().type('4')
       // The subject is that a PRE-FILLED price still gets a stop - not how many fields precede it.
       // walkTo asserts every stop on the way against the screen, so a shop with a bonus box passes
       // through it and a shop without one does not.
-      walkTo('sellItems', 'sellSellRate')
+      walkTo('sellQuantity', 'sellSellRate')
       cy.window().its('data').should('have.length', 0)          // nothing committed yet
     })
   })
@@ -360,7 +360,7 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdDisc_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      cy.get('#sellItems').clear().type('2')
+      cy.get('#sellQuantity').clear().type('2')
       cy.get('#sellSellRate').clear().type('30{enter}')
       // bootstrap-select hides the real <select> behind a button, so focus lands on that button.
       cy.focused().should(($el) => {
@@ -392,7 +392,7 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdEnd_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      cy.get('#sellItems').clear().type('2')
+      cy.get('#sellQuantity').clear().type('2')
       cy.get('#sellSellRate').clear().type('30')                // override the catalog price
       cy.get('#sellDiscount').clear().type('{enter}')
       cy.window().its('data').should('have.length', 1)
@@ -407,7 +407,7 @@ describe('POS keyboard entry — ON', () => {
   /**
    * ⭐⭐ THE DEFECT REPORTED FROM THE COUNTER, 2026-09-06.
    *
-   * "after sellItems there is sellBonus visible but control moved to sellSellRate."
+   * "after sellQuantity there is sellBonus visible but control moved to sellSellRate."
    *
    * #sellBonus sits between Qty and Price ON SCREEN and was absent from CHAIN entirely, so a shop
    * selling on free-goods watched Enter jump the quantity straight to the price, past a box they then
@@ -430,12 +430,12 @@ describe('POS keyboard entry — ON', () => {
        * to sellSellRate and the field was unreachable from the keyboard.
        */
       cy.window().should((w) => {
-        expect(nextOnScreen(w, 'sellItems'), 'with free goods on, the screen puts bonus after quantity')
+        expect(nextOnScreen(w, 'sellQuantity'), 'with free goods on, the screen puts bonus after quantity')
           .to.eq('sellBonus')
       })
 
-      cy.get('#sellItems').clear().type('2')
-      enterFrom('sellItems')                     // -> sellBonus, asserted against the screen
+      cy.get('#sellQuantity').clear().type('2')
+      enterFrom('sellQuantity')                     // -> sellBonus, asserted against the screen
       enterFrom('sellBonus')                     // -> and the rest of the chain is unchanged
       cy.window().should((w) => {
         expect(Cypress.focusedPicker(w), 'and on to the price').to.eq('sellSellRate')
@@ -448,8 +448,8 @@ describe('POS keyboard entry — ON', () => {
       openSell(true)
       pickItem(productId)
       cy.get('#sellSellRate').clear()
-      cy.get('#sellItems').clear().type('2')
-      walkTo('sellItems', 'sellSellRate')
+      cy.get('#sellQuantity').clear().type('2')
+      walkTo('sellQuantity', 'sellSellRate')
     })
   })
 
@@ -458,24 +458,26 @@ describe('POS keyboard entry — ON', () => {
       openSell(true)
       pickItem(productId)
       // Walk the WHOLE chain: Qty -> Price -> Discount -> commit. Enter on Qty no longer commits.
-      cy.get('#sellItems').clear().type('2{enter}')
+      cy.get('#sellQuantity').clear().type('2{enter}')
       cy.get('#sellSellRate').type('{enter}')
       cy.get('#sellDiscount').type('{enter}')
       cy.window().its('data').should('have.length', 1)
 
       /*
-       * ⚠ Back to the CUSTOMER, not the scan box.
+       * ⭐ Back to the GOODS, not the customer.
        *
-       * commitLine() ends with focusEntryPoint(), so the start of each line agrees with the start of
-       * the sale — and task #13 made that the customer picker. This expected sellScan, which was right
-       * before that ruling and before barcode scanning shipped OFF by default.
+       * commitLine() used to end on focusEntryPoint() - the customer (task #13) - after EVERY line. But
+       * the customer is a SALE-level question asked once, and a line is not a new sale: a five-line
+       * basket paid five stops on a name that had not changed since the first. Reported from the counter.
        *
-       * Cypress.focusedPicker resolves the bootstrap-select's focused <button> (which carries no id)
-       * back to the <select> it stands in for.
+       * pickItem() names a customer, so the question is answered here and the cursor goes to where the
+       * NEXT line is typed - which is the scan box on a shop that scans and the item picker otherwise,
+       * so it is read off the screen rather than named.
        */
-      cy.window().should((w) => {
-        expect(Cypress.focusedPicker(w), 'a committed line returns to the till entry point')
-          .to.eq('sellCustomerDD')
+      cy.window({ timeout: 10000 }).should((w) => {
+        const ids = Cypress.screenFields(w, '#sellDiv')
+        const goods = ids.indexOf('sellScan') >= 0 ? 'sellScan' : 'sellItemDD'
+        expect(Cypress.focusedPicker(w), 'the next line starts where goods are typed').to.eq(goods)
       })
     })
   })
@@ -506,16 +508,39 @@ describe('POS keyboard entry — ON', () => {
       openSell(true)
       pickItem(productId)
       // Commit one line so there is a cart to protect — the full chain, since Qty no longer commits.
-      cy.get('#sellItems').clear().type('1{enter}')
+      cy.get('#sellQuantity').clear().type('1{enter}')
       cy.get('#sellSellRate').type('{enter}')
       cy.get('#sellDiscount').type('{enter}')
       cy.window().its('data').should('have.length', 1)
 
       // Start a second line, then abandon it.
-      cy.get('#sellItems').clear().type('7')
-      cy.get('#sellItems').type('{esc}')
-      cy.get('#sellItems').should('not.have.value', '7')
+      cy.get('#sellQuantity').clear().type('7')
+      cy.get('#sellQuantity').type('{esc}')
+      cy.get('#sellQuantity').should('not.have.value', '7')
       cy.window().its('data').should('have.length', 1)   // the committed line survived
+
+      /*
+       * ⭐ ESC BACKS OUT ONE LEVEL. Abandoning a half-typed line leaves you at the start of a LINE,
+       * so the cursor goes to the goods - not back to the customer, who was answered once for the sale.
+       */
+      cy.window({ timeout: 10000 }).should((w) => {
+        const ids = Cypress.screenFields(w, '#sellDiv')
+        const goods = ids.indexOf('sellScan') >= 0 ? 'sellScan' : 'sellItemDD'
+        expect(Cypress.focusedPicker(w), 'Esc on a half-typed line returns to the goods').to.eq(goods)
+      })
+
+      /*
+       * ⭐ AND AGAIN, on a line that is now EMPTY, steps back to the sale itself. Two presses to leave
+       * line entry entirely - and neither of them destroys anything. Wiping the CART is F9, which names
+       * how many lines are about to go and waits for an answer.
+       */
+      cy.get('#sellItemDD').next('.bootstrap-select').find('button').first()
+        .focus().trigger('keydown', { key: 'Escape', bubbles: true })
+      cy.window({ timeout: 10000 }).should((w) => {
+        expect(Cypress.focusedPicker(w), 'a second Esc backs out to the sale-level entry point')
+          .to.eq('sellCustomerDD')
+      })
+      cy.window().its('data').should('have.length', 1)   // still nothing destroyed
     })
   })
 
@@ -523,7 +548,7 @@ describe('POS keyboard entry — ON', () => {
     openSell(true)
     // No item chosen: commitLine() refuses and sends the cashier to the picker rather than raising a
     // validation error they then have to dismiss.
-    cy.get('#sellItems').clear().type('{enter}')
+    cy.get('#sellQuantity').clear().type('{enter}')
     cy.window().its('data').should('have.length', 0)
   })
 
@@ -539,7 +564,7 @@ describe('POS keyboard entry — ON', () => {
       cy.get('#sellDiscount').should('not.be.visible')
       // Price -> (discount hidden) -> commit. If the chain had stopped at the hidden discount the
       // cart would still be empty and focus would be stuck on an invisible field.
-      cy.get('#sellItems').clear().type('3')
+      cy.get('#sellQuantity').clear().type('3')
       cy.get('#sellSellRate').focus().type('{enter}')
       cy.window().its('data').should('have.length', 1)
       cy.focused().should('not.have.id', 'sellDiscount')
@@ -574,7 +599,7 @@ describe('POS keyboard entry — ON', () => {
     cy.seedProduct({ name: 'KbdModal_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
       pickItem(productId)
-      cy.get('#sellItems').clear().type('3')
+      cy.get('#sellQuantity').clear().type('3')
 
       // Any .crud-overlay.open suppresses the contract — committing a line, or completing a sale,
       // from behind a dialog the cashier cannot see is the failure mode the guard exists for.
@@ -583,7 +608,7 @@ describe('POS keyboard entry — ON', () => {
       })
       // force:true DELIBERATELY, and only here: the element being covered is the very condition
       // under test, so Cypress's actionability check would be refusing the scenario itself.
-      cy.get('#sellItems').type('{enter}', { force: true })
+      cy.get('#sellQuantity').type('{enter}', { force: true })
       cy.window().its('data').should('have.length', 0)
       cy.window().then((w) => { w.$('#fakeOverlay').remove() })
     })
@@ -602,7 +627,7 @@ describe('POS row-entry layout', () => {
     cy.get('#sellDiv').should('have.class', 'pos-rowentry')
     // The four typed fields stay visible in the compact layout ...
     cy.get('#sellItemDD').should('exist')
-    cy.get('#sellItems').should('be.visible')
+    cy.get('#sellQuantity').should('be.visible')
     cy.get('#sellSellRate').should('be.visible')
     // ... and the fields moved off the row are hidden but STILL IN THE DOM, because FormData
     // submits display:none controls and dropping them would strip columns off the invoice.

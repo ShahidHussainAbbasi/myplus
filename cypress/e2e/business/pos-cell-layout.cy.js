@@ -63,7 +63,7 @@ describe('POS line entry — one cell per field', () => {
 
     // The property the negative-margin layout could not guarantee: caption and field are ONE element's
     // children, so no CSS rule and no edit can separate them.
-    ;['sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscount', 'sellDiscountTypeDD',
+    ;['sellItemDD', 'sellQuantity', 'sellSellRate', 'sellDiscount', 'sellDiscountTypeDD',
       'sellTotalAmount', 'sellStock', 'bexpDate'].forEach((id) => {
       cy.get('#' + id).closest('.pos-cell').as('cell')
       cy.get('@cell').should('have.length', 1)
@@ -201,7 +201,7 @@ describe('POS line entry — one cell per field', () => {
 
   it('a caption and its input stay in the same column when the strip wraps', () => {
     openTill()
-    cy.get('#sellItems').closest('.pos-cell').then(($cell) => {
+    cy.get('#sellQuantity').closest('.pos-cell').then(($cell) => {
       const cell = $cell[0].getBoundingClientRect()
       const cap = $cell.find('label')[0].getBoundingClientRect()
       const inp = $cell.find('input')[0].getBoundingClientRect()
@@ -268,7 +268,7 @@ describe('POS line entry — one cell per field', () => {
         // false. The bonus link itself is asserted in pos-keyboard.cy.js and by
         // keyboard-chain-order.cy.js case 7.
         cy.setPosFields({ bonus: false })
-        cy.get('#sellItems').focus().type('{enter}')
+        cy.get('#sellQuantity').focus().type('{enter}')
         cy.focused().should('have.id', 'sellSellRate')
         cy.focused().type('{enter}')
         // The chooser before the amount — the order pos-keyboard.js has always used. Wrapping the
@@ -306,7 +306,7 @@ describe('POS line entry — one cell per field', () => {
         // switched on before it can be typed into. cy.enableScanBox pins the flag in the browser and
         // returns the box, already asserted visible.
         cy.enableScanBox().type(sku + '{enter}')
-        cy.get('#sellItems', { timeout: 15000 }).should('be.visible')
+        cy.get('#sellQuantity', { timeout: 15000 }).should('be.visible')
         cy.focused().type('3{enter}')
         // #tablesi is the cart (Item id · Name/Code · QTY · Price · Disc · Total · Action).
         cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)

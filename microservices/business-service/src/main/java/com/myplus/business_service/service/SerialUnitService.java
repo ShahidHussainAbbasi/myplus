@@ -74,7 +74,24 @@ public class SerialUnitService {
     static List<String> split(String serials) {
         List<String> clean = new ArrayList<>();
         if (serials == null) return clean;
-        for (String part : serials.split("[\\r\\n,]+")) {
+        /*
+         * ⭐ SER-7 — COMMA, WHITESPACE, OR BOTH.
+         *
+         * Was {@code [\r\n,]+}: comma and newline only. A shop working down a box of handsets types or
+         * scans them separated by whatever the scanner emits and whatever the operator finds natural, and a
+         * space is the commonest of those — "IMEI1 IMEI2 IMEI3" arrived as ONE serial 47 characters long,
+         * which then failed the length check or, worse, registered a unit under a serial nobody could
+         * search for.
+         *
+         * {@code \s} covers space, tab, CR and LF, so the comma is the only extra character named. The
+         * separators COMBINE: {@code join()} writes ", " and that still splits to the same list, which is
+         * what keeps the grid → edit → resubmit round trip stable.
+         *
+         * ⚠ Safe against existing data because a serial cannot contain a space: measured on the live
+         * register, 153 units, 0 containing one. If that ever stops being true this is the line that breaks
+         * them apart.
+         */
+        for (String part : serials.split("[,\\s]+")) {
             String n = normalise(part);
             if (n != null && !n.isEmpty()) clean.add(n);
         }

@@ -1,6 +1,6 @@
 # INST-5b — a serial can only be required of something that has one
 
-**Status:** DESIGN + IMPLEMENTED, gate pending.
+**Status:** ✅ **GREEN** (2026-09-08). Gates: `installment-serial.cy.js` + `serial-field-visibility.cy.js`.
 **Reported:** *"I logged in with Shahzadahmad7576600@gmail.com and selling Panadol and getting validation
 error 'This sale needs an IMEI or serial number before it can go on a plan.' why?"* — followed by
 *"all products do not have IMEI or serial number then how we can fix it?"*

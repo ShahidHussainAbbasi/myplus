@@ -1079,7 +1079,7 @@ Cypress.Commands.add('assertEnterFollowsScreen', (containerSelector, fromId) => 
  * sellable badge from two CHAINED round trips, and each write reflows the one-row strip. Anything typed
  * in that window races the layout.
  *
- * It has now cost three diagnoses in one session - the scan box after un-hiding its row, #sellItems
+ * It has now cost three diagnoses in one session - the scan box after un-hiding its row, #sellQuantity
  * after a product was chosen, and #instCount under the panel's own fetch - so it belongs in one place.
  *
  * Two consecutive equal positions rather than a fixed sleep: it returns as soon as the layout settles

@@ -169,7 +169,7 @@ describe('Sale-line presets — one choice instead of nine switches', () => {
     // preset says. The visible control is the generated wrapper — the same rule FocusFlow follows when
     // it decides what to put a cursor in.
     cy.get('#sellItemDD').next('.bootstrap-select').should('be.visible')
-    cy.get('#sellItems').should('be.visible')
+    cy.get('#sellQuantity').should('be.visible')
     cy.get('#sellSellRate').should('be.visible')
     cy.get('#sellTotalAmount').should('be.visible')
     // And nothing else. Asserted on the CELL, because that is what the preset hides — checking the input
@@ -189,7 +189,7 @@ describe('Sale-line presets — one choice instead of nine switches', () => {
       // Enter must not stop on a control the operator cannot see — that reads as a frozen till.
       expect(chain, 'discount is gone').to.not.include('sellDiscount')
       expect(chain, 'and so is its chooser').to.not.include('sellDiscountTypeDD')
-      expect(chain, 'while the fields the shop DOES use remain').to.include('sellItems')
+      expect(chain, 'while the fields the shop DOES use remain').to.include('sellQuantity')
     })
   })
 })

@@ -89,14 +89,14 @@ describe('#23 — stock check at item selection', () => {
       cy.get('#sellSellRate', { timeout: 20000 }).should(($r) => {
         expect(String($r.val()).trim(), 'a rate is pre-filled').to.not.eq('')
       })
-      cy.get('#sellItems').clear().type('99999')
+      cy.get('#sellQuantity').clear().type('99999')
 
       cy.get('#sellTotalAmount', { timeout: 10000 }).should(($t) => {
         const v = Number(String($t.val()).replace(/,/g, ''))
         expect(v, 'the line still prices itself despite exceeding stock').to.be.greaterThan(0)
       })
       // And the quantity the cashier typed is still there — not reverted or cleared.
-      cy.get('#sellItems').should('have.value', '99999')
+      cy.get('#sellQuantity').should('have.value', '99999')
     })
   })
 

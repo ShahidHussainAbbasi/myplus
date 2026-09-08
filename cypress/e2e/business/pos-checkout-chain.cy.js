@@ -355,6 +355,57 @@ describe('Checkout chain — every route to a paid sale', () => {
     cy.then(() => expect(posted, 'nothing was submitted').to.eq(false))
   })
 
+  /**
+   * ⭐⭐ An empty item picker crosses to the checkout ONLY when there is something to check out.
+   *
+   * Reported from the counter: "how will it work if the user does not want to select the item and wants
+   * to move to the next field?" - a fair question, because the answer was "you cannot". The picker threw
+   * the cursor into the payment fields of an EMPTY sale, past every field that could fill it, and it was
+   * the one dropdown that did not follow RULE 2.
+   *
+   * Both halves asserted, because either alone would pass against a build that had swapped one dead end
+   * for another.
+   */
+  it('⭐⭐ an empty item picker with an EMPTY CART goes to the next line field, not the checkout', () => {
+    openTill()
+    quiet()
+
+    cy.window().then((w) => { w.data = [] })          // nothing rung up yet
+
+    // Two Enters on the untouched picker: the first opens it, the second says "nothing here".
+    focusPicker('sellItemDD')
+    pressEnter()
+    expectOpen('sellItemDD')
+    pressEnter()
+
+    cy.window().should((w) => {
+      const ids = Cypress.screenFields(w, '#sellDiv').filter((id) => id !== 'sellScan')
+      const landed = Cypress.focusedPicker(w)
+      expect(landed, 'an empty cart has nothing to check out - stay in the line chain')
+        .to.eq(ids[ids.indexOf('sellItemDD') + 1])
+      expect(landed, 'and specifically NOT the payment fields').to.not.eq('sellPayMethod')
+    })
+  })
+
+  it('⭐ but WITH lines in the cart it still crosses to the checkout - the bridge is kept', () => {
+    openTill()
+    quiet()
+
+    // One line, as add-to-cart leaves it. The gesture means "no more lines", so there must be lines.
+    cy.window().then((w) => {
+      w.data = [{ productId: 1, itemName: 'probe', quantity: 1, sellRate: 10, totalAmount: 10 }]
+    })
+
+    focusPicker('sellItemDD')
+    pressEnter()
+    expectOpen('sellItemDD')
+    pressEnter()
+
+    cy.window().should((w) => {
+      expect(Cypress.focusedPicker(w), 'a finished basket crosses to how they pay').to.eq('sellPayMethod')
+    })
+  })
+
   it('an empty CUSTOMER means a walk-in, so the cursor goes to the GOODS', () => {
     openTill()
     quiet()
@@ -435,7 +486,7 @@ describe('Checkout chain — every route to a paid sale', () => {
         // switched on before it can be typed into. Pinned in the browser, not server-side - see
         // cy.enableScanBox. This is the only case in this file that scans; the rest drive the chain.
         cy.enableScanBox().type(sku + '{enter}')
-        cy.get('#sellItems', { timeout: 15000 }).should('be.visible')
+        cy.get('#sellQuantity', { timeout: 15000 }).should('be.visible')
         cy.focused().type('2{enter}')
         cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)
 

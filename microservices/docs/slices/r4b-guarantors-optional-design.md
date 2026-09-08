@@ -1,6 +1,6 @@
 # R4b — a guarantor is asked for, never demanded
 
-**Status:** DESIGN + IMPLEMENTED, gate pending.
+**Status:** ✅ **GREEN** (2026-09-08). Gate: `cypress/e2e/business/installment-guarantors.cy.js`.
 **Ask:** *"guarantors should be optional not mandatory on sale no matter how many Guarantors required on an
 installment sale"*.
 

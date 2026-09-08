@@ -6,7 +6,7 @@
  * ─────────────────────────────────────────────────────────────────────────────────────────────────────────
  * THE ONE RULE THAT SHAPES THIS FILE
  *
- * `#sellItems` — the quantity box — stays a PURE NUMBER. It is read numerically in seven places across
+ * `#sellQuantity` — the quantity box — stays a PURE NUMBER. It is read numerically in seven places across
  * business.js and pos-keyboard.js, every one shaped `val()*1 > 0 ? val() : 1`. A letter in that box becomes
  * NaN, `NaN > 0` is false, and the line SILENTLY becomes one pack: the customer pays for ten tablets and the
  * shelf loses ten. No error, no log.
@@ -111,7 +111,7 @@
     /* ── the hint line — the feature ──────────────────────────────────────────────────────────────────── */
 
     function pieces() {
-        var n = Number($('#sellItems').val());
+        var n = Number($('#sellQuantity').val());
         return (n > 0) ? n : 0;
     }
 
@@ -217,7 +217,7 @@
             if (typeof showFormError === 'function') {
                 showFormError(t('ui.js.loosePiecesWhole', 'Pieces must be a whole number.'));
             }
-            $('#sellItems').addClass('alert-danger').focus();
+            $('#sellQuantity').addClass('alert-danger').focus();
             return false;
         }
         return true;

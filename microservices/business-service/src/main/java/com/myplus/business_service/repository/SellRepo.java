@@ -23,6 +23,53 @@ import com.myplus.business_service.entity.Sell;
  */
 @Repository
 public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecutor<Sell> {
+
+    /**
+     * What THIS customer last paid for each of these products — the till's negotiating aid.
+     *
+     * <h3>ONE query for the whole cart, never one per line</h3>
+     * Called as lines are added and again when the customer changes, so a per-product read would put a
+     * round trip on every keystroke of the busiest screen in the product. The IN-list is the cart, which
+     * is a handful of rows.
+     *
+     * <h3>What is deliberately EXCLUDED, and why</h3>
+     * <ul>
+     *   <li><b>VOIDED invoices</b> ({@code ch.status = 'VOID'}) — a void means "this never happened", so
+     *       quoting a price from one is quoting from a sale the books have already disowned.</li>
+     *   <li><b>RETURNED lines</b> (a {@code sale_return} row against that {@code sell_id}) — the goods
+     *       came back. The customer did not settle at that price, they undid it.</li>
+     * </ul>
+     * Both were the owner's ruling and both matter for the same reason: this number exists to help a
+     * cashier hold a price, and a figure taken from a reversed sale argues for a price nobody ever paid.
+     *
+     * <h3>Why the raw rate and not the net</h3>
+     * {@code sellRate} is what was AGREED per unit. Discount, tax and any invoice-level concession are
+     * separate facts the cart already shows on their own lines; folding them in would produce a number
+     * that matches nothing the cashier can see and cannot be compared with the rate box beside it.
+     *
+     * <p>Ordered newest first; the caller keeps the first row per product. Returns
+     * {@code [productId, sellRate, dated]} rather than entities — three columns off an index, with no
+     * entity graph to hydrate on the hot path.
+     */
+    /*
+     * ⚠ JOINED ON THE ASSOCIATIONS, not on id fields - `Sell` has no customerHistoryId and
+     * `CustomerHistory` no customerId; both are @ManyToOne references (s.customerHistory,
+     * ch.customer). @Query is validated at STARTUP, not at compile, so the id-field spelling compiles
+     * cleanly and then crash-loops the service - which is how two services went down 59 and 9 times
+     * before. Read the entity, never the column name.
+     */
+    @Query("select s.productId, s.sellRate, ch.dated "
+         + "  from Sell s join s.customerHistory ch "
+         + " where s.organizationId = :orgId "
+         + "   and ch.customer.customerId = :customerId "
+         + "   and s.productId in :productIds "
+         + "   and s.sellRate is not null "
+         + "   and (ch.status is null or ch.status <> 'VOID') "
+         + "   and not exists (select 1 from SaleReturn r where r.sellId = s.sellId) "
+         + " order by ch.dated desc, s.sellId desc")
+    java.util.List<Object[]> findLastSoldRates(@Param("orgId") Long orgId,
+                                               @Param("customerId") Long customerId,
+                                               @Param("productIds") java.util.Collection<Long> productIds);
 	
 
     // Tenant-scoped read with NULL-fallback (own org's rows + caller's pre-migration org-NULL rows),

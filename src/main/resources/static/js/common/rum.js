@@ -202,7 +202,7 @@
         var tillWatch = setInterval(function () {
             safe(function () {
                 var div = document.getElementById('sellDiv');
-                var box = document.getElementById('sellItems');
+                var box = document.getElementById('sellQuantity');
                 if (!div || !box) return;
                 var usable = div.offsetParent !== null && !box.disabled && box.offsetParent !== null;
                 if (usable) {

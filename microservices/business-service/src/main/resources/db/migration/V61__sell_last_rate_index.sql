@@ -1,0 +1,11 @@
+-- LAST-SOLD RATE: the index the lookup needs, and nothing else.
+--
+-- The till asks "what did THIS customer last pay for THIS product?" as each cart line is added. The
+-- `sell` table carried no product_id index at all -- only (organization_id, dated) and
+-- (organization_id, user_id) -- so the question was answerable but only by scanning the tenant's sell
+-- rows and joining history. Fine at today's 2,227 rows across every tenant, wrong on the hot path of a
+-- shop that grows, and the sale screen is the one place that must not get slower.
+--
+-- Leading with organization_id keeps it usable by the scoped reads that already exist; product_id is the
+-- filter, and customer_history_id carries the join the customer test rides on.
+CREATE INDEX idx_sell_org_product_hist ON sell (organization_id, product_id, customer_history_id);

@@ -234,6 +234,9 @@ $(document).ready(function() {
 				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
 				];
 			tablesi.row.add(arr).draw();
+			// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
+			// only when the customer or the product SET differs from what it last asked.
+			if (typeof LastRate !== 'undefined') LastRate.refresh();
 			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
 				// place (no duplicate). A brand-new item is still appended. New-sale mode always appends.
 				var existingIdx = window.editingInvoice
@@ -644,7 +647,7 @@ function loadCartLineIntoForm(line){
 		 * decorate() then re-derives the conversion on submit, and the edit round-trips.
 		 */
 		var d = (typeof looseDisplay === 'function') ? looseDisplay(line) : null;
-		$('#sellItems').val(d && d.isLoose ? d.qty : line.quantity);   // loadStock won't override >0
+		$('#sellQuantity').val(d && d.isLoose ? d.qty : line.quantity);   // loadStock won't override >0
 		if (d && d.isLoose && window.LooseSell) {
 			// After loadStock's async /looseInfo settles, or the toggle would be re-drawn as PACK over it.
 			setTimeout(function () { LooseSell.setUnit('LOOSE'); }, 600);
@@ -2272,7 +2275,7 @@ function quoteSellFormPrice(productId){
 	$('#sellPriceReason').hide().text('');
 	var ctx = sellQuoteContext();
 	if(!ctx || !productId) return;
-	var qty = $('#sellItems').val()*1>0 ? $('#sellItems').val()*ONE : 1;
+	var qty = $('#sellQuantity').val()*1>0 ? $('#sellQuantity').val()*ONE : 1;
 	quoteSellLines(ctx, [{ productId: Number(productId), quantity: qty }], function(byProduct){
 		var q = byProduct[String(productId)];
 		if(!q) return;
@@ -2735,7 +2738,7 @@ function loadStock(label,value){
 	$("#purchaseSellRate").val("")
 	$("#sellPurchaseRate").val("");
 	$("#sellSellRate").val("")
-	$("#sellItems").removeClass("alert-danger");
+	$("#sellQuantity").removeClass("alert-danger");
 	$("#sellBatchInfo").hide().empty();   // P10 (slice 54): FEFO batch/expiry shown when an item is picked
 	syncSellNoticeRow();
 	$("#sellSellableInfo").hide().empty();   // sellable/expired badge, refreshed on each item pick
@@ -2795,7 +2798,7 @@ function loadStock(label,value){
 	    		// cashier carries on — refusing would not stop goods already on the counter leaving, it would
 	    		// only stop them being recorded. resetBSDD() in particular threw away the entry mid-sale.
 	    		if(batchStock <= 0 && window.posValidateStockOnSelect === true){
-	    			$("#sellItems").addClass("alert-danger");
+	    			$("#sellQuantity").addClass("alert-danger");
  	    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 	    			resetBSDD('sellItemDD');
 	    			return false;
@@ -2812,10 +2815,10 @@ function loadStock(label,value){
 					window._sellAutoRate = Number($("#sellSellRate").val());
 					quoteSellFormPrice(value);
 			    	$("#sellDiscount").val(discountValue);
-			    	if($("#sellItems").val()*1<=0){
+			    	if($("#sellQuantity").val()*1<=0){
 			    		// Per-tenant starting quantity: 1 at a retail counter, a carton size for a
 			    		// wholesaler. Absent/invalid config falls back to 1 (posSettingInt guards it).
-			    		$("#sellItems").val(window.posDefaultQty || 1);
+			    		$("#sellQuantity").val(window.posDefaultQty || 1);
 			    	}
 			    	$("#sellItemDesc").val(data.idesc);
 			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
@@ -2838,7 +2841,7 @@ function loadStock(label,value){
 			    		// #23: the badge above still SAYS "Sellable: 0 (+2 expired)" — the cashier is told.
 			    		// What is opt-in is refusing the line and discarding their selection.
 			    		if(sellable <= 0 && window.posValidateStockOnSelect === true){
-			    			$("#sellItems").addClass("alert-danger");
+			    			$("#sellQuantity").addClass("alert-danger");
 			    			showFormError(expired>0 ? t('ui.js.allStockExpired') : t('ui.js.noSellableStock'));
 			    			resetBSDD('sellItemDD');
 			    			$("#sellSellableInfo").hide();
@@ -2900,7 +2903,7 @@ function getStockByBatch(batchNo){
 		$("#purchaseSellRate").val("")
 		$("#sellPurchaseRate").val("");
 		$("#sellSellRate").val("")
-		$("#sellItems").removeClass("alert-danger");
+		$("#sellQuantity").removeClass("alert-danger");
 		$("pdt").html("      ");
 		// M4e.1b (slice 98): the picker value is a productId now â†’ ask the server by productId (inventory batches +
 		// catalog master), no itemId/ItemCatalogMap lookup.
@@ -2930,7 +2933,7 @@ function getStockByBatch(batchNo){
 	        		if($("#sellDiscountTypeDD").data('selectpicker')) $("#sellDiscountTypeDD").selectpicker('refresh');
 		    		// #23: same rule as the sell path above — opt-in, and off by default.
 		    		if(batchStock <= 0 && window.posValidateStockOnSelect === true){
-		    			$("#sellItems").addClass("alert-danger");
+		    			$("#sellQuantity").addClass("alert-danger");
  		    			showFormError(t('ui.js.noStockAvailablePleasePurchaseThisItem'));
 		    			resetBSDD('sellItemDD');
 		    			return false;
@@ -2941,8 +2944,8 @@ function getStockByBatch(batchNo){
 			    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 				    	$("#sellSellRate").val(data.bsellRate)
 				    	$("#sellDiscount").val(discountValue);
-				    	if($("#sellItems").val()*1<=0){
-				    		$("#sellItems").val(1);
+				    	if($("#sellQuantity").val()*1<=0){
+				    		$("#sellQuantity").val(1);
 				    	}
 				    	// $("#sellItemDesc").val(data.idesc);
 				    	calculateNetSell();
@@ -3088,8 +3091,8 @@ function sellLineMath(rate, qty, purchaseRate, discountValue, discountTypeValue)
 function calculateNetSell(){
 	var p = $("#sellPurchaseRate").val()*ONE;
 	var s= $("#sellSellRate").val()*ONE;
-	$("#sellItems").removeClass("alert-danger");
-	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+	$("#sellQuantity").removeClass("alert-danger");
+	var qty= $("#sellQuantity").val()*1>0?$("#sellQuantity").val()*ONE:1;
 	/*
 	 * U4 — on a LOOSE line the box holds PIECES and the rate box holds the PACK price, so the maths below
 	 * would compute 5 x 120 = 600.00 for five tablets that cost 60.00 — and the stock guard would compare
@@ -3119,7 +3122,7 @@ function calculateNetSell(){
 	 * stands. The server's FEFO reservation at submit remains the real gate.
 	 */
 	if(batchStock < qty && window.posValidateStockOnSelect === true){
-		$("#sellItems").addClass("alert-danger");
+		$("#sellQuantity").addClass("alert-danger");
  		showFormError(t('ui.js.quantityExceedsAvailableStockPleaseReduceThe'));
 		return false;
 	}
@@ -3142,8 +3145,8 @@ function calculateNetSell(){
 // function calculateNetSell(){
 // 	var p = $("#sellPurchaseRate").val()*ONE;
 // 	var s= $("#sellSellRate").val()*ONE;
-// 	$("#sellItems").removeClass("alert-danger");
-// 	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+// 	$("#sellQuantity").removeClass("alert-danger");
+// 	var qty= $("#sellQuantity").val()*1>0?$("#sellQuantity").val()*ONE:1;
 // 	discountType = $("#sellDiscountTypeDD :selected").val();
 // 	if(edit){
 // 		batchStock = $("#sellStock").val()*ONE;
@@ -3151,7 +3154,7 @@ function calculateNetSell(){
 // 	$("#sellStock").val(batchStock);
 
 // 	if(batchStock < qty){
-// 		$("#sellItems").addClass("alert-danger");
+// 		$("#sellQuantity").addClass("alert-danger");
 // 		alert("You can not select more item than availabe in stock, Please purchase or select some other item to sell.")
 // 		$(".form-control").val("");
 // 		return false;
@@ -3184,7 +3187,7 @@ function calculateSRP(){
  		showFormError(t('ui.js.pleaseSelectAValidSoldItemRecord'));
 		return false;
 	}
-	var qty= $("#sellItems").val()*1>0?$("#sellItems").val()*ONE:1;
+	var qty= $("#sellQuantity").val()*1>0?$("#sellQuantity").val()*ONE:1;
 	var srp= $("#sellsrp").val()*1>0?$("#sellsrp").val()*ONE:0;
 	sellTotalAmount = parseFloat(qty * s).toFixed(2);
 	var type = $("#srpDD :selected" ).val();
@@ -3707,22 +3710,51 @@ function applyPurchaseColumnCapabilities(dt){
 	} catch (e) { /* a grid not yet built has no columns to hide */ }
 }
 
+/**
+ * SER-7 — how many serials are in the box. The SAME rule the server splits on: comma or any whitespace.
+ *
+ * Exported so the gate and any future caller read the count the one way, rather than each re-deriving it
+ * and disagreeing with the register about where one serial ends.
+ */
+function purchaseSerialList() {
+	return $.trim($('#purchaseSerials').val() || '')
+		.split(/[,\s]+/)
+		.map(function (x) { return $.trim(x); })
+		.filter(function (x) { return x.length > 0; });
+}
+window.purchaseSerialList = purchaseSerialList;
+
 function applyPurchaseSerialQuantityLock() {
 	var $serial = $('#purchaseSerials');
 	var $qty = $('#purchaseQuantity');
 	if (!$serial.length || !$qty.length) return;
 
-	var hasSerial = $.trim($serial.val() || '') !== '';
-	if (hasSerial) {
-		$qty.val(1).prop('readonly', true).addClass('is-locked-by-serial')
-			.attr('title', t('ui.js.qtyLockedBySerial', 'One serial number is one unit.'));
+	/*
+	 * ⭐ SER-7 — THE QUANTITY IS DERIVED FROM THE SERIALS, not locked to 1.
+	 *
+	 * This used to set the quantity to 1 for any non-empty box, because a line was one unit (SER-3c). With
+	 * many serials allowed again, the quantity has to be the COUNT — and deriving it is the whole reason
+	 * it is safe to allow many.
+	 *
+	 * The server refuses a purchase whose serial count differs from its quantity, and rightly: three
+	 * handsets with two IMEIs means one unit nobody can identify. That rule is what made the old textarea
+	 * painful — the operator kept two numbers in step by hand and found out at submit if they had not.
+	 * Counting for them means the two cannot disagree, so the rule stops being something a shop can trip
+	 * over and goes back to being a backstop against a malformed request.
+	 *
+	 * Still READONLY: typing a quantity that contradicts the serials is exactly the mistake being removed.
+	 */
+	var serials = purchaseSerialList();
+	if (serials.length > 0) {
+		$qty.val(serials.length).prop('readonly', true).addClass('is-locked-by-serial')
+			.attr('title', t('ui.js.qtyFromSerials', 'The quantity is the number of serials entered.'));
 
 		/*
 		 * PACK / BOX goes with it — a serialled line CANNOT be a box.
 		 *
 		 * BOX means "quantity x packsPerBox" (U5): ten boxes of ten is a hundred units. A serial identifies
 		 * ONE physical thing, so the two are contradictory by construction — and leaving the toggle on screen
-		 * beside a quantity locked at 1 offers the operator a choice whose only outcomes are a refused
+		 * beside a quantity derived from the serials offers the operator a choice whose only outcomes are a refused
 		 * receipt or, worse, one unit booked in as a hundred with a single IMEI against it.
 		 *
 		 * Forced back to PACK through setPurchaseUnit rather than by hiding the buttons: that function also
@@ -3736,8 +3768,9 @@ function applyPurchaseSerialQuantityLock() {
 
 		// The line total follows the quantity, and nothing else recalculates it for us: the field is
 		// readonly now, so the keyup/blur handlers that normally drive calculateNetPurchase() never fire.
-		// Without this the operator sees the previous quantity's total against a quantity of 1.
+		// Without this the operator sees the previous quantity's total against a stale quantity.
 		if (typeof calculateNetPurchase === 'function') calculateNetPurchase();
+		updatePurchaseSerialHint();
 	} else if ($qty.hasClass('is-locked-by-serial')) {
 		// Release only a lock THIS rule applied — a quantity made readonly by anything else is not ours.
 		$qty.prop('readonly', false).removeClass('is-locked-by-serial').removeAttr('title');
@@ -3745,10 +3778,47 @@ function applyPurchaseSerialQuantityLock() {
 		// divisible may have it hidden for its own reasons, and un-hiding that would be inventing a control.
 		$('.purchase-unit-wrap.is-locked-by-serial').removeClass('is-locked-by-serial').show();
 	}
+	// SER-7: the hint belongs to the lock, not to the keystroke handler — three other callers clear or
+	// restore this line (P6 Save & Add Another, editRecord, the settings re-apply) and each would otherwise
+	// have to remember. A stale "10 serials" under an empty box is exactly the kind of thing that ships.
+	updatePurchaseSerialHint();
 }
 
-// `input` as well as `change`, so a SCANNER locks the quantity the instant the code lands rather than when
-// focus finally leaves the field.
+/**
+ * ⭐ SER-7 — say what was understood, while it is being typed.
+ *
+ * <p>The original objection to a multi-serial box was that a miscount "was found only at submit, after
+ * everything had been typed". Deriving the quantity removes the miscount; this removes the rest of the
+ * surprise by reporting what the box actually parsed to.
+ *
+ * <p>The DUPLICATE check is the one worth having live: working down a carton of ten handsets, scanning or
+ * typing the same IMEI twice is the likeliest mistake on this screen, and the server can only refuse the
+ * whole receipt for it. Named here, next to the box, while the box is still open.
+ */
+function updatePurchaseSerialHint() {
+	var $hint = $('#purchaseSerialHint');
+	if (!$hint.length) return;
+	var list = purchaseSerialList();
+	if (!list.length) { $hint.text('').removeClass('text-danger'); return; }
+
+	var seen = {}, dup = null;
+	for (var i = 0; i < list.length; i++) {
+		var key = list[i].toUpperCase();   // the server normalises to upper case before comparing
+		if (seen[key]) { dup = list[i]; break; }
+		seen[key] = true;
+	}
+	if (dup) {
+		$hint.addClass('text-danger')
+			.text((t('ui.js.serialDuplicate', 'The same serial is entered twice: {0}')).replace('{0}', dup));
+		return;
+	}
+	$hint.removeClass('text-danger')
+		.text((t('ui.js.serialCount', '{0} serial(s) — quantity {0}')).replace(/\{0\}/g, String(list.length)));
+}
+window.updatePurchaseSerialHint = updatePurchaseSerialHint;
+
+// `input` as well as `change`, so a SCANNER updates the quantity the instant the code lands rather than
+// when focus finally leaves the field.
 $(document).on('input change', '#purchaseSerials', applyPurchaseSerialQuantityLock);
 
 /** Exposed so the P6 "Save & Add Another" path can release the lock as it clears the line. */
@@ -4670,6 +4740,14 @@ function loadPosFeatureFlags(){
 		// costs familiarity, never function. Re-laying-out a till mid-sale because a settings call
 		// hiccuped is the surprise worth avoiding, whichever way the default points.
 		window.posKeyboardEnabled = byKey['pos.keyboard.enabled'] === true;
+		/*
+		 * The last-paid hint in the cart. Fails CLOSED like its neighbours: a config hiccup must not
+		 * conjure an extra number into a price column, which is the one place a wrong reading costs money.
+		 * The catalogue default is ON, so a tenant that has not touched it still gets it - and it draws
+		 * nothing at all until a customer has actually bought the product before.
+		 */
+		window.posShowLastRate = byKey['pos.entry.showLastRate'] === true;
+		if (typeof LastRate !== 'undefined') { LastRate.bind(); LastRate.refresh(); }
 		// Ask before completing a sale. Fails OPEN (absent => ON) — the opposite of its neighbours, and
 		// deliberately: those fail closed because the risk is an unexpected FEATURE arming itself on a
 		// till, whereas the risk here is a sale completing with no question asked. A config hiccup should
@@ -5030,7 +5108,7 @@ function applyPosFieldVisibility(){
  */
 function applySerialQuantityLock() {
 	var $serial = $('#sellSerials');
-	var $qty = $('#sellItems');
+	var $qty = $('#sellQuantity');
 	if (!$serial.length || !$qty.length) return;
 
 	var hasSerial = $.trim($serial.val() || '') !== '';

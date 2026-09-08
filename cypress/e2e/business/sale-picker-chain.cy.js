@@ -82,7 +82,7 @@ describe('Sale screen — pickers are not chained behind the grid', () => {
 
     cy.get('#appAjaxOverlay').should('not.be.visible')
     cy.get('.ao-box').should('not.be.visible')
-    cy.get('#sellItems').should('not.be.disabled').type('3').should('have.value', '3')
+    cy.get('#sellQuantity').should('not.be.disabled').type('3').should('have.value', '3')
 
     // The customer list must actually arrive during the grid's delay, not merely be requested.
     cy.get('#sellCustomerDD option', { timeout: 20000 }).should('have.length.greaterThan', 1)

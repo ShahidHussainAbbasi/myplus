@@ -111,7 +111,7 @@
      * ══════════════════════════════════════════════════════════════════════════════════════════ */
 
     var CHAIN = ['sellCustomerDD', 'sellCN', 'sellCC',
-                 'sellItemDD', 'sellSerials', 'sellItems', 'sellBonus', 'sellSellRate',
+                 'sellItemDD', 'sellSerials', 'sellQuantity', 'sellBonus', 'sellSellRate',
                  'sellDiscountTypeDD', 'sellDiscount'];
     /*
      * sellBonus sits between Qty and Price ON SCREEN, and was missing from this list entirely — so a
@@ -281,8 +281,36 @@
      */
     function skipAhead(from) {
         if (from === 'sellItemDD' && !$('#sellItemDD').val()) {
-            goToCheckout();
-            return false;
+            /*
+             * ⚠ "NO MORE LINES" ONLY MAKES SENSE WHEN THERE ARE LINES.
+             *
+             * An empty item picker used to mean "the sale is finished" unconditionally, and cross to the
+             * checkout. That is right at the END of a sale and wrong at the START of one, which is where
+             * the cashier actually meets it: on a brand-new sale with an EMPTY CART, the second Enter
+             * threw them into the payment fields of a sale that has nothing in it - past every field
+             * that could put something there.
+             *
+             * It also contradicted RULE 2 for this one picker. Every other dropdown answers an empty
+             * second Enter with "the next usable field"; the item picker answered with "leave the line
+             * chain entirely", and a behaviour a cashier learns on one dropdown has to hold on all of them.
+             *
+             * THE CART DECIDES, because the cart is what the gesture is actually about:
+             *   • lines in the cart  -> "no more lines", cross to the checkout. The fast gesture is kept,
+             *     and it is the only keyboard bridge from line entry into the payment fields.
+             *   • cart empty         -> there is nothing to check out, so this is not "finished", it is
+             *     "not this way" - fall through to the ordinary walk and land on the next usable field.
+             *     That is what a shop selling BY SERIAL needs: skip the picker, type the IMEI.
+             *
+             * This also removes a loop rather than adding one. goToCheckout() refuses an empty cart and
+             * falls back to the goods, so the old rule could send the cursor item -> checkout -> back to
+             * the goods for one keystroke. Now the empty-cart case never reaches it.
+             */
+            if (global.data && global.data.length > 0) {
+                goToCheckout();
+                return false;
+            }
+            // Empty cart: fall through to the general rule below - the next usable field in this
+            // picker's own chain, exactly like every other dropdown.
         }
         if (from === 'sellCustomerDD') {
             /*
@@ -533,18 +561,67 @@
      *  row is a no-op rather than a validation error the cashier has to dismiss. */
     function commitLine() {
         if (!$('#sellItemDD').val()) { focusField('sellItemDD'); return; }
-        if (!(Number($('#sellItems').val()) > 0)) { focusField('sellItems'); return; }
+        if (!(Number($('#sellQuantity').val()) > 0)) { focusField('sellQuantity'); return; }
         $('#addInviceItem').trigger('click');
-        // The click path calls resetForm() + resetBSDD() itself; we only decide where focus lands.
-        global.setTimeout(focusEntryPoint, 0);
+        /*
+         * The click path calls resetForm() + resetBSDD() itself; we only decide where focus lands.
+         *
+         * ⚠ THE GOODS, not the entry point, once the customer is answered.
+         *
+         * This used to return to focusEntryPoint() - the CUSTOMER (task #13) - after every committed
+         * line. But the customer is a SALE-level question asked once, and a line is not a new sale: a
+         * five-line basket therefore paid five stops on a name that had not changed since the first one,
+         * and the cashier had to Enter past it every time. Reported from the counter.
+         *
+         * Still the entry point when the customer is UNANSWERED - a walk-in who has not been named yet
+         * is a question the sale still owes, and the cursor should keep offering it rather than hiding it
+         * behind the goods.
+         */
+        global.setTimeout(function () {
+            if (customerAnswered()) { focusGoodsEntry(); return; }
+            focusEntryPoint();
+        }, 0);
     }
 
     /** Esc: abandon the line being composed without touching the cart. Reuses the form's own Cancel
      *  button so "clear the row" means exactly what it has always meant. */
+    /**
+     * Has the SALE-level customer question been answered?
+     *
+     * Either mode counts: a chosen account in select mode, or a typed name in manual mode. Asked in one
+     * place because two callers now need it and a second copy would drift the first time a third mode
+     * appeared.
+     */
+    function customerAnswered() {
+        return !!($.trim($('#sellCustomerDD').val() || '') || $.trim($('#sellCN').val() || ''));
+    }
+
+    /**
+     * Esc: abandon the line being composed. Reuses the form's own Cancel button so "clear the row" means
+     * exactly what it has always meant.
+     *
+     * WHERE THE CURSOR GOES, and why it is not simply "back to the start".
+     *
+     * Esc backs out ONE LEVEL, which is what Esc means everywhere else a person uses it. Clearing a
+     * half-typed line puts you at the start of a LINE, so the cursor belongs on the goods - the customer
+     * was answered once for the whole sale and re-asking after every abandoned line is the same wasted
+     * stop that made returning there after a COMMIT worth fixing.
+     *
+     * Press it again on a line that is ALREADY empty and there is nothing left to abandon at this level,
+     * so it steps back to the sale itself - the entry point, which is the customer. Two presses to leave
+     * the line entirely, no press that destroys anything.
+     *
+     * ⚠ Esc deliberately does NOT reset the whole sale. That gesture exists, is a different key, and
+     * ASKS first: F9 (clearCart) names how many lines are about to go and waits for an answer. A cashier
+     * ten lines into a sale who brushes Esc must not lose them, and an unconfirmed key that can is not a
+     * shortcut, it is a hazard. Esc clears what you are typing; F9 clears what you have rung up.
+     */
     function clearLine() {
+        var wasEmpty = !$('#sellItemDD').val() && !$.trim($('#sellQuantity').val() || '');
         $('#resetInviceItem').trigger('click');
         if (typeof global.resetBSDD === 'function') { try { global.resetBSDD('sellItemDD'); } catch (e) {} }
-        focusEntryPoint();
+        if (wasEmpty) { focusEntryPoint(); return; }   // nothing was being typed - back out one more level
+        focusGoodsEntry();
     }
 
     /** Take the display-only fields out of the tab order. Idempotent, and re-applied whenever the
@@ -922,10 +999,29 @@
             global.setTimeout(function () {
                 var list = chainFor(id);      // one answer to "which chain", shared with skipAhead
                 var target = walk(list, id, 1);
-                if (target === null) {
-                    if (list === CHAIN) { commitLine(); } else { completeSale(); }
-                    return;
-                }
+
+                /*
+                 * ⚠ CHOOSING A VALUE IS NOT A TERMINAL ACT. Nowhere to go means STAY PUT.
+                 *
+                 * This branch used to commit the line (CHAIN) or complete the sale (CHECKOUT) when walk()
+                 * answered null, and both were wrong for the same reason: selecting a product from a list
+                 * is "this is the item", not "this line is finished", and selecting Cash is certainly not
+                 * "take the money". Committing on a SELECTION added the product to the cart the instant
+                 * it was picked, with no quantity, no price and no keystroke from the operator - reported
+                 * from the counter.
+                 *
+                 * And null does not even reliably mean "past the end" here. Choosing an item fires
+                 * loadStock(), which re-renders the strip; for a few frames afterwards the fields behind
+                 * this picker can all read as not-yet-usable, so walk() answers null for a MOMENT. The
+                 * keydown path a few lines below already refuses to finish a sale on that reading -
+                 * "finishing on that would turn a mistimed keystroke into a completed transaction" - and
+                 * the same caution belongs here, doubly so, because no keystroke is involved at all.
+                 *
+                 * Committing and completing stay where they belong: Enter walked PAST the last field, and
+                 * F2. Both are things the operator does deliberately.
+                 */
+                if (target === null) return;
+
                 focusField(target);
             }, 0);
         });

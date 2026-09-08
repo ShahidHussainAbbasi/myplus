@@ -99,7 +99,7 @@ describe('The single-row sale line is a setting a shop can reach', () => {
     // horizontal form is byte-for-byte what it always was. That is what makes the switch reversible.
     cy.get('#Sell .pos-cell').first().should('have.css', 'display', 'contents')
     // The fields are all still there and still submit; only their arrangement changed.
-    ;['sellItemDD', 'sellItems', 'sellSellRate', 'sellDiscount'].forEach((id) => {
+    ;['sellItemDD', 'sellQuantity', 'sellSellRate', 'sellDiscount'].forEach((id) => {
       cy.get('#' + id).should('exist')
     })
   })

@@ -94,7 +94,9 @@
 			for (var i = 0; i < cart.length; i++) {
 				var raw = cart[i] && cart[i].serials ? String(cart[i].serials) : '';
 				// A line may carry several units; the plan names one. Split the way the server does.
-				var first = raw.split(/[\r\n,]+/).map(function (x) { return x.trim(); })
+				// SER-7: the SAME separators the server splits on — comma or any whitespace. Two different
+				// ideas of where one serial ends would pick a different "first" one than the register does.
+				var first = raw.split(/[,\s]+/).map(function (x) { return x.trim(); })
 					.filter(function (x) { return x.length > 0; })[0];
 				if (first) return first;
 			}
@@ -694,8 +696,215 @@
 				+ '<button type="button" id="instRepossess" class="btn btn-danger btn-sm">'
 				+ esc(tr('ui.js.instRepossess', 'Repossess')) + '</button></div>';
 		}
+		/*
+		 * ⭐ R4c — WHO STANDS BEHIND THIS PLAN.
+		 *
+		 * The guarantors were recorded from the sale screen and then could not be read back anywhere: the
+		 * endpoint existed, was tenant-scoped and was proxied, and NO client code called it. A shop could
+		 * take two people's names and CNICs and never see them again — which is most of the point of
+		 * taking them, since a guarantor matters precisely when a plan stops being paid.
+		 *
+		 * R4b made this urgent rather than merely missing: a shortfall is now allowed, and the message a
+		 * cashier gets says "add the rest on the plan when you have them". Until this panel existed that
+		 * was a promise the product could not keep.
+		 *
+		 * Here, with the schedule, for the reason INST-5a put the IMEI and the repossess action here — it
+		 * is the screen a shopkeeper is already on when a plan goes wrong.
+		 */
+		foot += '<div id="planGuarantors" style="margin-top:18px"></div>';
+
 		$('#installmentSchedule').html(html + '</tbody></table>' + foot);
 		$('#instRepossess').off('click').on('click', function () { repossess(plan); });
+		loadPlanGuarantors(plan);
+	}
+
+	/** The people standing behind one plan. Read-only list + an add form; money never moves from here. */
+	function loadPlanGuarantors(plan) {
+		var $box = $('#planGuarantors');
+		if (!$box.length || !plan || !plan.id) return;
+		$box.html('<span class="text-muted">' + esc(tr('ui.js.loading', 'Loading\u2026')) + '</span>');
+
+		/*
+		 * ⚠ `guarantorsRequired` is loaded by loadGuarantorPolicy(), which only runs when the SALE panel is
+		 * opened — so on the Installments screen it is still 0 and the shortfall line would never appear,
+		 * on exactly the screen a shop uses to notice a shortfall. Fetch it here when it has not been read.
+		 *
+		 * Fire-and-forget: the list is what matters, and a failed policy read must not hide the guarantors.
+		 */
+		var policy = guarantorsRequired ? $.Deferred().resolve().promise()
+			: $.get(ctx() + 'guarantorsRequired').done(function (resp) {
+				var payload = (resp && (resp.object || resp.data)) || {};
+				guarantorsRequired = Number(payload.required || 0);
+			});
+
+		$.when($.get(ctx() + 'planGuarantors?planId=' + encodeURIComponent(plan.id)), policy)
+			.done(function (listArgs) {
+				// $.when hands back [data, statusText, jqXHR] per call once there is more than one.
+				var resp = $.isArray(listArgs) ? listArgs[0] : listArgs;
+				renderPlanGuarantors(plan, (resp && (resp.object || resp.data || resp.collection)) || []);
+			})
+			.fail(function () {
+				// Say so rather than render an empty list: "no guarantors" and "could not load them" are
+				// different facts, and a shop chasing a defaulter must not confuse them.
+				$box.html('<p class="text-danger">'
+					+ esc(tr('ui.js.guarantorLoadFailed', 'Could not load the guarantors for this plan.'))
+					+ '</p>');
+			});
+	}
+
+	function renderPlanGuarantors(plan, rows) {
+		var $box = $('#planGuarantors');
+		var open = plan.status === 'ACTIVE' || plan.status === 'DEFAULTED';
+
+		var html = '<h4 style="margin:0 0 6px">'
+			+ esc(tr('ui.js.guarantors', 'Guarantors')) + ' <span class="text-muted" style="font-weight:400">('
+			+ rows.length + ')</span></h4>';
+
+		if (!rows.length) {
+			html += '<p class="text-muted">'
+				+ esc(tr('ui.js.guarantorNoneOnPlan', 'Nobody is recorded against this plan.')) + '</p>';
+		} else {
+			html += '<table class="table table-condensed" style="max-width:820px"><thead><tr>'
+				+ '<th>' + esc(tr('ui.js.guarantorName', 'Name')) + '</th>'
+				+ '<th>' + esc(tr('ui.js.guarantorCnic', 'CNIC')) + '</th>'
+				+ '<th>' + esc(tr('ui.js.guarantorMobile', 'Mobile')) + '</th>'
+				+ '<th>' + esc(tr('ui.js.guarantorAddress', 'Address')) + '</th>'
+				+ '<th>' + esc(tr('ui.js.instAdded', 'Added')) + '</th>'
+				+ (open ? '<th></th>' : '') + '</tr></thead><tbody>';
+			rows.forEach(function (g) {
+				// A WITNESS attests; only a GUARANTOR stands behind the debt. Labelled, because a shop
+				// counting who it can call must not count the wrong people.
+				var isWitness = String(g.role || '').toUpperCase() === 'WITNESS';
+				html += '<tr><td>' + esc(g.name || '')
+					+ (isWitness ? ' <span class="label label-default">'
+						+ esc(tr('ui.js.guarantorWitness', 'Witness')) + '</span>' : '')
+					+ '</td>'
+					+ '<td>' + esc(g.cnic || '\u2014') + '</td>'
+					// The number is the point of the record when a plan defaults, so make it dialable.
+					+ '<td>' + (g.contact
+						? '<a href="tel:' + esc(String(g.contact).replace(/[^0-9+]/g, '')) + '">'
+							+ esc(g.contact) + '</a>'
+						: '\u2014') + '</td>'
+					+ '<td>' + esc(g.address || '\u2014') + '</td>'
+					+ '<td>' + esc(String(g.createdAt || '').substring(0, 10)) + '</td>'
+					+ (open
+						? '<td><button type="button" class="btn btn-xs btn-default js-g-remove" data-id="'
+							+ esc(String(g.id)) + '" data-name="' + esc(g.name || '') + '">'
+							+ esc(tr('ui.js.remove', 'Remove')) + '</button></td>'
+						: '')
+					+ '</tr>';
+			});
+			html += '</tbody></table>';
+		}
+
+		/*
+		 * Adding is offered only while the plan is LIVE. A settled or cancelled plan is a closed record, and
+		 * a guarantor added to one would be somebody who never agreed to stand behind anything.
+		 */
+		if (open) {
+			var short = guarantorsRequired && rows.filter(function (g) {
+				return String(g.role || 'GUARANTOR').toUpperCase() !== 'WITNESS';
+			}).length < guarantorsRequired;
+			if (short) {
+				html += '<p class="text-warning" style="margin:4px 0">'
+					+ esc((tr('ui.js.guarantorCount', '{0} of {1} recorded'))
+						.replace('{0}', rows.length).replace('{1}', guarantorsRequired)) + '</p>';
+			}
+			html += '<div class="form-inline" style="margin-top:6px">'
+				+ '<input type="text" id="pgName" class="form-control input-sm" style="margin-right:6px" '
+				+ 'placeholder="' + esc(tr('ui.js.guarantorName', 'Name')) + '" maxlength="255">'
+				+ '<input type="text" id="pgCnic" class="form-control input-sm" style="margin-right:6px" '
+				+ 'placeholder="' + esc(tr('ui.js.guarantorCnic', 'CNIC')) + '" maxlength="32">'
+				+ '<input type="text" id="pgContact" class="form-control input-sm" style="margin-right:6px" '
+				+ 'placeholder="' + esc(tr('ui.js.guarantorMobile', 'Mobile')) + '" maxlength="64">'
+				+ '<input type="text" id="pgAddress" class="form-control input-sm" style="margin-right:6px" '
+				+ 'placeholder="' + esc(tr('ui.js.guarantorAddress', 'Address')) + '" maxlength="255">'
+				+ '<button type="button" id="pgAdd" class="btn btn-primary btn-sm">'
+				+ esc(tr('ui.js.guarantorAdd', 'Add guarantor')) + '</button>'
+				+ '</div><span id="pgMsg" class="help-block" style="margin:4px 0"></span>';
+		}
+
+		$box.html(html);
+
+		$box.find('#pgAdd').off('click').on('click', function () { addPlanGuarantor(plan); });
+		$box.find('.js-g-remove').off('click').on('click', function () {
+			removePlanGuarantor(plan, $(this).data('id'), $(this).data('name'));
+		});
+	}
+
+	function addPlanGuarantor(plan) {
+		var name = $.trim($('#pgName').val() || '');
+		var $msg = $('#pgMsg').removeClass('text-danger').text('');
+		// The NAME is the only required field, exactly as on the sale screen: a shop that has a name and a
+		// phone number and no CNIC still has a guarantor.
+		if (!name) {
+			$msg.addClass('text-danger')
+				.text(tr('ui.js.guarantorNameRequired', 'A guarantor needs a name.'));
+			$('#pgName').focus();
+			return;
+		}
+		$.post(ctx() + 'savePlanGuarantor', {
+			planId: plan.id,
+			name: name,
+			cnic: $.trim($('#pgCnic').val() || ''),
+			contact: $.trim($('#pgContact').val() || ''),
+			address: $.trim($('#pgAddress').val() || '')
+		}).done(function (resp) {
+			// The monolith answers 200 with status FAILED on a refusal — read the ENVELOPE, not the status.
+			if (resp && (resp.status === 'FAILED' || resp.status === 'ERROR')) {
+				$msg.addClass('text-danger').text(resp.message || tr('ui.js.saveFailed', 'Could not save.'));
+				return;
+			}
+			loadPlanGuarantors(plan);
+		}).fail(function () {
+			$msg.addClass('text-danger').text(tr('ui.js.saveFailed', 'Could not save.'));
+		});
+	}
+
+	function removePlanGuarantor(plan, id, name) {
+		if (!id) return;
+
+		var go = function () {
+			$.post(ctx() + 'deletePlanGuarantor', { id: id })
+				.done(function (resp) {
+					// Removing is OWNER-gated on the server. A cashier's attempt comes back as a 200 with a
+					// refusal in the envelope, so say what happened rather than silently re-rendering an
+					// unchanged list — which reads as the button not working.
+					if (resp && (resp.status === 'FAILED' || resp.status === 'ERROR')) {
+						$('#pgMsg').addClass('text-danger')
+							.text(resp.message || tr('ui.js.saveFailed', 'Could not save.'));
+						return;
+					}
+					loadPlanGuarantors(plan);
+				})
+				.fail(function () {
+					$('#pgMsg').addClass('text-danger').text(tr('ui.js.saveFailed', 'Could not save.'));
+				});
+		};
+
+		/*
+		 * ⚠ uiConfirm takes an OPTIONS OBJECT and returns a PROMISE — uiConfirm({title, message, …}).then(ok).
+		 *
+		 * This called uiConfirm(message, callback), the shape window.confirm and most confirm helpers use.
+		 * It does not throw at the call site: uiConfirm does `o.input = null` on whatever it is given, and
+		 * assigning a property to a STRING throws in strict mode — "Cannot create property 'input' on string".
+		 * So the dialog never opened and the removal never ran.
+		 *
+		 * (uiAlert accepts a bare string and normalises it; uiConfirm and uiPromptConfirm do not. Worth
+		 * knowing, because the inconsistency is what makes the wrong shape look plausible.)
+		 */
+		var ask = (tr('ui.js.guarantorRemoveConfirm', 'Remove {0} from this plan?')).replace('{0}', name || '');
+		if (typeof global.uiConfirm === 'function') {
+			global.uiConfirm({
+				title: tr('ui.js.guarantorRemoveTitle', 'Remove guarantor'),
+				message: ask,
+				confirmText: tr('ui.js.remove', 'Remove'),
+				// Destructive: a guarantor row is the shop's recourse if the plan defaults.
+				tone: 'danger'
+			}).then(function (ok) { if (ok) go(); });
+		} else {
+			go();
+		}
 	}
 
 	/**

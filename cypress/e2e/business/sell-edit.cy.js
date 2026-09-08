@@ -43,7 +43,7 @@ function createSaleViaUI(cust) {
   })
   cy.wait(1000) // let the onChange -> loadStock AJAX populate the rate fields
   // Step A3: enter quantity and click "Add Item" -> the line lands in the cart (tablesi).
-  cy.get('#sellItems').clear({ force: true }).type('1', { force: true })
+  cy.get('#sellQuantity').clear({ force: true }).type('1', { force: true })
   cy.get('#addInviceItem').click({ force: true })
   cy.get('#tablesi tbody tr:first td', { timeout: 8000 }).should('have.length.greaterThan', 1)
   // Step A4: fill the iDiv customer/payment fields (manual customer, full payment).
@@ -189,7 +189,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
     cy.openSellSection('sellDiv')
     cy.get('#sellItemDD').select(String(productId), { force: true }).trigger('change', { force: true })
     cy.wait(1000) // let onChange -> loadStock populate the rate fields
-    cy.get('#sellItems').clear({ force: true }).type('2', { force: true })
+    cy.get('#sellQuantity').clear({ force: true }).type('2', { force: true })
     cy.get('#addInviceItem').click({ force: true })
     cy.get('#tablesi tbody tr', { timeout: 8000 }).should('have.length', 1)
     cy.get('#btnModeManual').click({ force: true })
@@ -241,7 +241,7 @@ describe('Sell edit — Phase 3: updateSell via the real form-driven edit flow',
           // ── Step 4: the item can't change (dropdown locked) — only adjust the qty (2 -> 1), then
           //     click "Update Item". ─────────────────────────────────────────────────────────────
           cy.wait(1000) // let loadStock finish populating the rate fields for the locked item
-          cy.get('#sellItems').clear({ force: true }).type('1', { force: true })
+          cy.get('#sellQuantity').clear({ force: true }).type('1', { force: true })
           cy.get('#addInviceItem').click({ force: true }) // "Update Item" -> replaces the line in place
           // the line was REPLACED, not duplicated: still exactly one line.
           cy.get('#tablesi tbody tr').should('have.length', 1)

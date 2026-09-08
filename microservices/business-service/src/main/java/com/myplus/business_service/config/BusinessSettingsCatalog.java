@@ -281,6 +281,25 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 + "This only hides the field — a product whose policy requires a serial is "
                                 + "still refused without one, so switch it off only if no product needs it.",
                         true, "Sale entry"),
+                /*
+                 * The last price THIS customer paid for THIS product, shown beside the rate in the cart.
+                 *
+                 * ON by default, like every other pos.entry.show* flag, and it is self-hiding: nothing is
+                 * drawn for a product this customer has never bought, so a new shop sees no change at all
+                 * until it has history worth showing.
+                 *
+                 * ⚠ A HINT, never an instruction. It is what they DID pay, not what they SHOULD pay -
+                 * dealer and tier pricing answer that, and this must never be mistaken for it. Voided
+                 * invoices and returned lines are excluded, because a price from a sale that was undone
+                 * argues for a figure nobody ever settled at.
+                 */
+                SettingEntry.bool("pos.entry.showLastRate",
+                        "Show what this customer last paid, on the sale line",
+                        "On (default): as each item is added, the cart shows the rate this customer was "
+                                + "last charged for it and when — a negotiating aid for a counter that "
+                                + "haggles. Nothing is shown for a product they have not bought before. "
+                                + "Voided and returned sales are never used. Off: hide it.",
+                        true, "Sale entry"),
                 SettingEntry.bool("pos.entry.showStock",
                         "Show on-hand stock on the sale line",
                         "On (default): the cashier sees what is in stock as they pick an item. Turn off "

@@ -7,7 +7,7 @@
  * front of a cashier, so these cases drive the SCREEN — picker, toggle, keyboard, scan box — and then check
  * the books, because a till that looks right and bills wrong is the failure that matters.
  *
- * ⚠ THE CASE THAT PROTECTS EVERYTHING ELSE is "#sellItems never contains a letter". The quantity box is read
+ * ⚠ THE CASE THAT PROTECTS EVERYTHING ELSE is "#sellQuantity never contains a letter". The quantity box is read
  * numerically in seven places, every one shaped `val()*1 > 0 ? val() : 1` — so a letter becomes NaN and the
  * line SILENTLY becomes one pack. That is why the unit is a keystroke (F7 / Alt+L) and never a character.
  *
@@ -89,7 +89,7 @@ describe('U3 — selling a broken pack at the till', () => {
       cy.get('#sellUnitWrap').should('be.visible')
       cy.get('#sellUnitLoose').should('contain.text', 'tablet')
 
-      cy.get('#sellItems').clear().type('5')
+      cy.get('#sellQuantity').clear().type('5')
       cy.get('#sellUnitLoose').click({ force: true })
 
       // The hint line — the actual feature. The cashier sees the price BEFORE committing.
@@ -131,15 +131,15 @@ describe('U3 — selling a broken pack at the till', () => {
       openSale()
       pickProduct(p.id)
 
-      cy.get('#sellItems').clear().type('5')
-      cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
-      cy.get('#sellItems').should('have.value', '5')
+      cy.get('#sellQuantity').clear().type('5')
+      cy.get('#sellQuantity').trigger('keydown', { key: 'F7', code: 'F7', force: true })
+      cy.get('#sellQuantity').should('have.value', '5')
 
-      cy.get('#sellItems').trigger('keydown', { key: 'l', code: 'KeyL', altKey: true, force: true })
-      cy.get('#sellItems').should('have.value', '5')
+      cy.get('#sellQuantity').trigger('keydown', { key: 'l', code: 'KeyL', altKey: true, force: true })
+      cy.get('#sellQuantity').should('have.value', '5')
 
       // and the value is still a usable number
-      cy.get('#sellItems').invoke('val').then((v) => expect(Number(v)).to.eq(5))
+      cy.get('#sellQuantity').invoke('val').then((v) => expect(Number(v)).to.eq(5))
     })
   })
 
@@ -150,17 +150,17 @@ describe('U3 — selling a broken pack at the till', () => {
       stockIn(p.id, 10, 100, 120)
       openSale()
       pickProduct(p.id)
-      cy.get('#sellItems').clear().type('5')
+      cy.get('#sellQuantity').clear().type('5')
 
-      cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
+      cy.get('#sellQuantity').trigger('keydown', { key: 'F7', code: 'F7', force: true })
       cy.get('#sellUnitLoose').should('have.class', 'active')
       cy.get('#sellLooseHint').should('be.visible')
 
-      cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
+      cy.get('#sellQuantity').trigger('keydown', { key: 'F7', code: 'F7', force: true })
       cy.get('#sellUnitPack').should('have.class', 'active')
       cy.get('#sellLooseHint').should('not.be.visible')
 
-      cy.get('#sellItems').trigger('keydown', { key: 'l', code: 'KeyL', altKey: true, force: true })
+      cy.get('#sellQuantity').trigger('keydown', { key: 'l', code: 'KeyL', altKey: true, force: true })
       cy.get('#sellUnitLoose').should('have.class', 'active')
     })
   })
@@ -184,11 +184,11 @@ describe('U3 — selling a broken pack at the till', () => {
       pickProduct(p.id)
 
       cy.get('#sellUnitWrap').should('not.be.visible')
-      cy.get('#sellItems').clear().type('2')
-      cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
+      cy.get('#sellQuantity').clear().type('2')
+      cy.get('#sellQuantity').trigger('keydown', { key: 'F7', code: 'F7', force: true })
       cy.get('#sellUnitWrap').should('not.be.visible')
       cy.get('#sellLooseHint').should('not.be.visible')
-      cy.get('#sellItems').should('have.value', '2')
+      cy.get('#sellQuantity').should('have.value', '2')
     })
   })
 
@@ -209,9 +209,9 @@ describe('U3 — selling a broken pack at the till', () => {
       // false. The bonus link itself is asserted in pos-keyboard.cy.js and by
       // keyboard-chain-order.cy.js case 7.
       cy.setPosFields({ bonus: false })
-      cy.get('#sellItems').focus().clear().type('5')
-      cy.get('#sellItems').trigger('keydown', { key: 'F7', code: 'F7', force: true })
-      cy.get('#sellItems').type('{enter}', { force: true })
+      cy.get('#sellQuantity').focus().clear().type('5')
+      cy.get('#sellQuantity').trigger('keydown', { key: 'F7', code: 'F7', force: true })
+      cy.get('#sellQuantity').type('{enter}', { force: true })
       cy.focused().should('have.id', 'sellSellRate')
     })
   })
@@ -248,11 +248,11 @@ describe('U3 — selling a broken pack at the till', () => {
       openSale()
       pickProduct(p.id)
 
-      cy.get('#sellItems').clear().type('2.5')
+      cy.get('#sellQuantity').clear().type('2.5')
       cy.get('#sellUnitLoose').click({ force: true })
       cy.get('#addInviceItem').click({ force: true })
 
-      cy.get('#sellItems').should('have.class', 'alert-danger')
+      cy.get('#sellQuantity').should('have.class', 'alert-danger')
       cy.get('#tablesi tbody').should('not.contain.text', name)
     })
   })
@@ -268,7 +268,7 @@ describe('U3 — selling a broken pack at the till', () => {
       openSale()
       pickProduct(p.id)
 
-      cy.get('#sellItems').clear().type('5')
+      cy.get('#sellQuantity').clear().type('5')
       cy.get('#sellUnitLoose').click({ force: true })
       cy.get('#sellLooseHint').should('be.visible').and('contain.text', '13.20')
     })

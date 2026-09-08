@@ -369,7 +369,7 @@ describe('Responsive app-shell across dashboards & devices', () => {
 
    ⚠ assertNoHorizontalOverflow compares scrollWidth to clientWidth, which only ever sees overflow to the
    RIGHT. Content pushed off the LEFT is clipped and contributes nothing to scrollWidth. So this suite ran
-   49/49 green while fifteen controls on the sale screen — sellScan, sellItems, sellItemDesc, sellBonus,
+   49/49 green while fifteen controls on the sale screen — sellScan, sellQuantity, sellItemDesc, sellBonus,
    the item picker — sat at left:-5px, five pixels outside the viewport and unreachable on a 360px phone.
 
    Cause: a .form-group carries Bootstrap's -15px gutter margin, its columns have no gutter padding for it

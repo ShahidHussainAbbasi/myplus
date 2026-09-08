@@ -633,7 +633,7 @@ so they are not lost.
 ## Responsiveness — controls off the LEFT edge on 360px phones (✅ FIXED)
 
 **Symptom.** On the sale screen at 360px (Infinix Hot 40, Vivo Y400 — the phones these shops actually carry),
-fifteen controls rendered at `left:-5px`: `sellScan`, `sellItems`, `sellItemDesc`, `sellBonus`, the item
+fifteen controls rendered at `left:-5px`: `sellScan`, `sellQuantity`, `sellItemDesc`, `sellBonus`, the item
 picker. Five pixels outside the viewport and unreachable.
 
 **Cause**, read off the live DOM rather than inferred:

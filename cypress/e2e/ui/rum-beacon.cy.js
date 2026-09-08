@@ -85,7 +85,7 @@ describe('RUM — the beacon actually fires', () => {
     }).as('tillBeacon')
 
     cy.visitSaleScreen()
-    cy.get('#sellItems', { timeout: 30000 }).should('be.visible')
+    cy.get('#sellQuantity', { timeout: 30000 }).should('be.visible')
     cy.visit('/businessDashboard?rumProbe=2')
 
     cy.wrap(null, { timeout: 20000 }).should(() => {

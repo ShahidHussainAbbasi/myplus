@@ -156,7 +156,7 @@ describe('Keyboard chains follow the screen', () => {
     expect(chain.indexOf('sellSerials'), 'and it comes after the item picker')
       .to.be.greaterThan(chain.indexOf('sellItemDD'))
     expect(chain.indexOf('sellSerials'), 'and before the quantity it locks')
-      .to.be.lessThan(chain.indexOf('sellItems'))
+      .to.be.lessThan(chain.indexOf('sellQuantity'))
   })
 
   // ── ⭐⭐ 7. the direction the other six could not see ───────────────────────────────────────────

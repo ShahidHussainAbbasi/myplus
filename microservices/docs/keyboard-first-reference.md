@@ -85,7 +85,17 @@ Customer → Item → Serial → Qty → Bonus → Price → Disc-type → Disco
 
 ### 3b. Checkout
 
-**Enter on an empty item picker means "no more lines"**, and the cursor goes to the **first field of the
+⚠ **"No more lines" only means that when there ARE lines.** An empty item picker used to cross to the
+checkout unconditionally — right at the END of a sale, wrong at the START, which is where the cashier
+actually meets it: on a new sale with an empty cart the second Enter threw them into the payment fields
+of a sale containing nothing, past every field that could put something there. It also contradicted
+RULE 2 for this one picker, while every other dropdown answers an empty second Enter with "the next
+usable field". **The CART decides now:** lines in the cart → cross to the checkout (the fast gesture is
+kept, and it is the only keyboard bridge into the payment fields); cart empty → fall through to the
+next usable field, which is what a shop selling **by serial** needs — skip the picker, type the IMEI.
+Reported from the counter; fixed 2026-09-08.
+
+**Enter on an empty item picker WITH LINES IN THE CART means "no more lines"**, and the cursor goes to the **first field of the
 checkout** — the payment method, which is what the chain rule says comes next:
 
 ```
