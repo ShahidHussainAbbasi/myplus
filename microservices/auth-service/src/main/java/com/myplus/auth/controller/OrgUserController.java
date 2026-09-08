@@ -31,6 +31,7 @@ import java.util.Map;
 public class OrgUserController {
 
     private final AuthService authService;
+    private final com.myplus.auth.service.PermissionService permissionService;
     private final JwtService jwtService;
     private final com.myplus.auth.service.OrganizationAdminService organizationAdminService;
 
@@ -85,6 +86,95 @@ public class OrgUserController {
      * what "reassign" needs: without it the endpoint could only ever add, so an owner could never move someone
      * from one store to another, or take access away.
      */
+    // ── PERM-1: permission sets ────────────────────────────────────────────────────────────────
+    //
+    // ⚠ OWNER ONLY, every one of them — the owner's own ruling, and it removes a whole class of problem
+    // with it. If an admin could edit sets, an admin holding team.edit could grant themselves finance,
+    // and the model would need a "you cannot grant what you do not hold" rule enforced on every path.
+    // Only the owner grants, and the owner already holds everything, so there is nothing to escalate to.
+
+    /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    @GetMapping("/permissions")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> permissions() {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("catalog", permissionService.catalog().stream().map(p -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("code", p.getCode());
+            m.put("area", p.getArea());
+            m.put("action", p.getAction());
+            m.put("label", p.getLabel());
+            m.put("implies", p.getImplies());
+            return m;
+        }).toList());
+        out.put("sets", permissionService.setsFor(org).stream().map(ps -> {
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", ps.getId());
+            m.put("name", ps.getName());
+            m.put("description", ps.getDescription());
+            m.put("scope", ps.getScope());
+            m.put("builtin", ps.isBuiltin());
+            m.put("codes", permissionService.codesOf(ps.getId()));
+            return m;
+        }).toList());
+        return ResponseEntity.ok(ApiResponse.success(out, "Permissions"));
+    }
+
+    /**
+     * Create or update one of this tenant's own sets.
+     *
+     * <p>The CLOSURE runs in the service, not here and not only in the browser: a set stored through this
+     * endpoint by anything other than the matrix screen must still be coherent, or it produces a member
+     * whose sale screen has an empty item picker and no explanation.
+     */
+    @PostMapping("/permissions/sets")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> saveSet(@RequestBody Map<String, Object> body) {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        var set = permissionService.save(org, toLong(body.get("id")), str(body.get("name")),
+                str(body.get("description")), str(body.get("scope")), toStringList(body.get("codes")));
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("id", set.getId());
+        m.put("codes", permissionService.codesOf(set.getId()));
+        return ResponseEntity.ok(ApiResponse.success(m, "Permission set saved."));
+    }
+
+    /**
+     * Put a member on a set.
+     *
+     * <p>⚠ Takes effect within 15 minutes, not instantly — the permissions travel in the access token and
+     * the token is not re-minted until it refreshes. The owner accepted that trade deliberately; it is
+     * repeated here because "I removed him and he could still sell" is otherwise reported as a defect.
+     */
+    @PostMapping("/permissions/assign")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    public ResponseEntity<ApiResponse<String>> assign(@RequestBody Map<String, Object> body) {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        permissionService.assign(toLong(body.get("userId")), toLong(body.get("setId")), org);
+        return ResponseEntity.ok(ApiResponse.success("assigned",
+                "Saved. It applies the next time they sign in, and within 15 minutes at the latest."));
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("/permissions/sets/{id}")
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
+    public ResponseEntity<ApiResponse<String>> deleteSet(
+            @org.springframework.web.bind.annotation.PathVariable Long id) {
+        permissionService.delete(id, com.myplus.common.security.CurrentUser.organizationId());
+        return ResponseEntity.ok(ApiResponse.success("deleted", "Permission set deleted."));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.List<String> toStringList(Object v) {
+        if (!(v instanceof java.util.List<?> l)) return java.util.List.of();
+        return l.stream().filter(java.util.Objects::nonNull).map(String::valueOf).toList();
+    }
+
+    private static Long toLong(Object v) {
+        if (v == null) return null;
+        try { return Long.valueOf(String.valueOf(v).trim()); } catch (NumberFormatException e) { return null; }
+    }
+
     @PostMapping("/locations/grant")
     @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
     public ResponseEntity<ApiResponse<String>> grantLocations(

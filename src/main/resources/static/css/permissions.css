@@ -1,0 +1,69 @@
+/*
+ * permissions.css — PERM-1, the owner's permission matrix.
+ *
+ * The screen where a shop decides what its staff can do, so it is built to be READ rather than admired:
+ * a dense grid the eye can scan down a column, an unmistakable difference between "off" and "not
+ * applicable", and a preview that looks like the thing it predicts.
+ */
+
+.perm-bar{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px }
+.perm-field{ display:flex; flex-direction:column; gap:3px; min-width:170px }
+.perm-field label{ font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+                   color:#7a889c; margin:0 }
+.perm-actions{ display:flex; gap:8px; margin-left:auto }
+
+.perm-builtin{ background:#fbf3e0; border:1px solid #d9a93c; color:#7a5a10;
+               border-radius:4px; padding:8px 12px; font-size:13px; margin-bottom:10px }
+
+/* ── the matrix ──────────────────────────────────────────────────────────── */
+.perm-matrix{ margin-bottom:6px; font-size:13px }
+.perm-matrix thead th{ font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+                       color:#7a889c; font-weight:600; border-bottom:2px solid #e3e8ef;
+                       white-space:nowrap; padding:8px 10px }
+.perm-matrix thead th:first-child{ text-align:left }
+.perm-matrix tbody td, .perm-matrix tbody th{ text-align:center; vertical-align:middle;
+                                              padding:7px 10px; border-top:1px solid #eef2f6 }
+.perm-matrix tbody th.pm-area{ text-align:left; font-weight:600; white-space:nowrap;
+                               display:flex; align-items:center; gap:8px }
+.perm-matrix tbody tr:hover{ background:#f7fafc }
+.perm-matrix.is-readonly{ opacity:.72 }
+
+/* An action an area does NOT have. A dash, never an unticked box: an unticked box promises that
+ * ticking it would do something, and this one would not. */
+.perm-matrix .pm-na{ color:#c3cbd6; user-select:none }
+
+.pm-box{ display:inline-flex; margin:0; cursor:pointer }
+.pm-box input{ width:16px; height:16px; cursor:pointer; accent-color:#0f5f6b }
+/* Disabled because VIEW is off for this row — the rest of the row cannot mean anything without it. */
+.pm-box.is-off input{ cursor:not-allowed; opacity:.35 }
+/* The row master when only SOME of the area is granted: neither on nor off, and it should look it. */
+.pm-box.pm-partial input{ accent-color:#d9a93c; opacity:.85 }
+
+.pm-specials{ text-align:left !important }
+.pm-chip{ display:inline-flex; align-items:center; gap:5px; margin:0 10px 0 0;
+          font-weight:400; font-size:12px; white-space:nowrap }
+.pm-chip.is-off{ opacity:.4 }
+.pm-chip input{ accent-color:#0f5f6b }
+
+.sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap }
+
+/* What the cascade did. A box that ticks itself needs a reason on screen. */
+.perm-note{ background:#e2f0f1; border-left:3px solid #0f5f6b; color:#12525c;
+            padding:8px 12px; border-radius:0 4px 4px 0; font-size:12.5px; margin:8px 0 14px }
+
+/* ── the preview ─────────────────────────────────────────────────────────────
+ * The most valuable element here. A matrix is abstract; a sidebar is not — so this is drawn to look
+ * like the sidebar it predicts, not like more table. */
+.perm-preview{ background:#22303f; border-radius:6px; padding:12px 14px; margin-top:6px }
+.perm-preview__cap{ font-size:10.5px; letter-spacing:.09em; text-transform:uppercase;
+                    color:#8fa3b8; margin-bottom:9px }
+.perm-preview__nav{ display:flex; flex-wrap:wrap; gap:7px }
+.pm-nav{ background:#31465c; color:#e8eef5; border-radius:4px; padding:5px 11px; font-size:12.5px }
+.pm-none{ color:#e0917f; font-size:12.5px; font-style:normal }
+.perm-preview__off{ color:#7d8fa3; font-size:11.5px; margin-top:9px }
+
+@media (max-width: 767px){
+  .perm-actions{ margin-left:0; width:100% }
+  .perm-matrix{ font-size:12px }
+  .perm-matrix tbody td, .perm-matrix tbody th{ padding:6px }
+}

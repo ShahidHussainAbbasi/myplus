@@ -55,6 +55,13 @@ public class AuthService {
      */
     private final org.springframework.beans.factory.ObjectProvider<SupportSessionService> supportSessions;
     private final TwoFactorService twoFactorService;
+    /*
+     * PERM-1. ObjectProvider, not a direct injection: PermissionService is only consulted while minting a
+     * token, and a hard dependency here would put it in this class's construction path -- which is the
+     * shape that has produced a startup cycle in this codebase before. Resolved on demand instead.
+     */
+    private final org.springframework.beans.factory.ObjectProvider<PermissionService> permissionServiceProvider;
+
     private final EmailService emailService;
     private final AuthenticationManager authenticationManager;
     private final CustomUserDetailsService userDetailsService;
@@ -266,6 +273,30 @@ public class AuthService {
 
         organizationService.addMember(user.getId(), callerOrgId, rc);   // join the caller's org
         grantLocations(user.getId(), callerOrgId, grantStores, rc, locModule);   // store (commerce) / school (education) access
+
+        /*
+         * PERM-1 — a new member lands on a permission set, never on nothing.
+         *
+         * Standard for a USER, Administrator for an ADMIN: the same two built-ins the migration put every
+         * existing member on, so a member created today reaches exactly what a member created yesterday
+         * reaches. The owner narrows them afterwards from the matrix; the point here is that the account
+         * is never born in a state where every screen is missing and nothing says why.
+         *
+         * Best-effort: a member who cannot be placed on a set still exists and can still be placed by
+         * hand. Refusing to create them because the set lookup failed would be the tail wagging the dog.
+         */
+        final Long newUserId = user.getId();
+        try {
+            PermissionService perms = permissionServiceProvider.getObject();
+            String setName = "ADMIN".equals(rc) ? "Administrator" : PermissionService.SET_STANDARD;
+            perms.setsFor(callerOrgId).stream()
+                    .filter(ps -> ps.isBuiltin() && setName.equals(ps.getName()))
+                    .findFirst()
+                    .ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
+        } catch (Exception e) {
+            log.warn("Could not place new member {} on a permission set", user.getEmail(), e);
+        }
+
         sendPasswordResetEmail(user.getEmail());                        // user sets their own password
 
         Map<String, Object> r = new HashMap<>();
@@ -519,6 +550,19 @@ public class AuthService {
                 row.put("email", u.getEmail());
                 row.put("role", m.getRole());
                 row.put("enabled", u.isEnabled());
+                /*
+                 * PERM-1 — which set this member is on, so the team table can SHOW it and change it.
+                 *
+                 * Without it the picker in that row has nothing to pre-select and would open on
+                 * whichever set happens to be first, quietly inviting the owner to reassign somebody
+                 * they only meant to look at.
+                 */
+                try {
+                    row.put("permissionSetId", permissionServiceProvider.getObject()
+                            .setIdFor(u.getId()));
+                } catch (Exception ignored) {
+                    row.put("permissionSetId", null);   // the row still lists; the picker just opens blank
+                }
                 String module = moduleForOrg(listOrg, u.getUserType());
                 row.put("locationIds", userLocationAccessRepository
                         .findByUserIdAndOrganizationIdAndStatus(u.getId(), callerOrgId, "ACTIVE").stream()
@@ -826,7 +870,43 @@ public class AuthService {
         claims.put("roles", new ArrayList<>(CustomUserDetailsService.getRoleNames(user.getRoles())));
         // Privilege-level authorities so privilege-based consumers (the monolith's
         // @PreAuthorize / sec:authorize checks) can rebuild their authority set from the token.
-        claims.put("privileges", new ArrayList<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles())));
+        /*
+         * PERM-1 — the member's PERMISSIONS ride this same claim, alongside the role's privileges.
+         *
+         * Deliberately not a claim of their own. `privileges` is already read end to end -- the gateway
+         * forwards it, CurrentUser exposes it, @PreAuthorize and Thymeleaf's sec:authorize both resolve
+         * against it -- so `hasAuthority('sale.create')` works with no new plumbing anywhere. A second
+         * claim would have been a second rail to keep in step with the first, and the two would
+         * eventually disagree about the same question.
+         *
+         * AN OWNER HOLDS EVERYTHING, without a row anywhere saying so. Their access is implicit
+         * precisely so that no edit to any permission set can lock an owner out of their own shop --
+         * they are not in the matrix, so there is nothing to mis-tick (design G-4).
+         */
+        java.util.Set<String> authorities =
+                new java.util.LinkedHashSet<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles()));
+        try {
+            boolean isOwner = CustomUserDetailsService.getRoleNames(user.getRoles()).contains("ROLE_OWNER");
+            PermissionService permissionService = permissionServiceProvider.getObject();
+            authorities.addAll(isOwner ? permissionService.everything()
+                                       : permissionService.effectiveFor(user.getId()));
+            // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
+            // different question from which actions, and the readers need both (design G-3).
+            claims.put("dataScope", isOwner ? "ALL" : permissionService.scopeFor(user.getId()));
+        } catch (Exception e) {
+            /*
+             * Permissions unreadable => mint the ROLE's privileges alone, which is exactly the token
+             * this method produced before PERM-1 existed.
+             *
+             * Failing CLOSED here would sign a member in with no permissions at all -- a shop staring at
+             * an empty dashboard because a query failed, which reads as "the system is broken" and would
+             * have them phoning at the counter. Failing back to the previous behaviour is the smaller
+             * wrong, and it is loud in the log rather than silent.
+             */
+            log.warn("Could not resolve permissions for user {}; minting role privileges only",
+                    user.getId(), e);
+        }
+        claims.put("privileges", new ArrayList<>(authorities));
         // Active tenant the request is scoped to. The gateway copies this into X-Org-Id.
         claims.put("activeOrgId", activeOrg != null ? activeOrg.getId() : null);
         // B2B P0.5: which MODULE that tenant is (BUSINESS/PHARMA/MARKETPLACE/EDUCATION/WELFARE/AGRICULTURE/

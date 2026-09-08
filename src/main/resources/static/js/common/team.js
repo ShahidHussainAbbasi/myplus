@@ -38,6 +38,15 @@ function showTeam() {
 	// Locations FIRST: the team rows name each member's stores/branches, and can only do that once the id→label
 	// map exists — otherwise the table renders raw ids on first paint.
 	loadTeamLocations(loadTeamUsers);
+	/*
+	 * PERM-1 — the matrix loads with the screen it lives on.
+	 *
+	 * Guarded on the FUNCTION rather than on a role: #permWrap carries sec:authorize="ROLE_OWNER", so for
+	 * an admin the block is not in the DOM at all and permissions.js has nothing to fill. Asking "does the
+	 * screen have this section" is the honest test; re-deriving the role here would be a second opinion
+	 * about a question the template already answered.
+	 */
+	if (typeof showPermissions === 'function' && $('#permWrap').length) showPermissions();
 }
 
 function loadTeamUsers() {
@@ -57,6 +66,43 @@ function loadTeamUsers() {
 			// Where this member works, and a way to CHANGE it — assignment used to be a one-way door: you could
 			// grant on creation and never move or revoke afterwards.
 			$tr.append($('<td>').text(teamLocationNames(u.locationIds)));
+
+			/*
+			 * PERM-1 — which permission set this member is on, changeable in place.
+			 *
+			 * The matrix above edits a SET; this is what puts a PERSON on one, and without it the feature
+			 * was half a loop: an owner could define "Cashier" perfectly and had no way to make anybody a
+			 * cashier. Reported from the counter as "I cannot change permission to him".
+			 *
+			 * Rendered only when the owner is signed in - #permWrap carries sec:authorize="ROLE_OWNER", so
+			 * for an admin the whole section is absent from the DOM and this column has no header to sit
+			 * under. Asking the DOM is the honest test; re-deriving the role in JS would be a second
+			 * opinion about a question the template already answered.
+			 */
+			/*
+			 * ⚠ NO PICKER ON AN OWNER'S ROW.
+			 *
+			 * An owner's access is implicit — the token is minted from the whole catalog and their set row
+			 * is never read — so a picker there offers a control that appears to change their access and
+			 * cannot. A control that does nothing is worse than no control: it invites exactly the one
+			 * action it will silently ignore. V13 removes the rows; this removes the invitation.
+			 */
+			var isOwnerRow = String(u.role || '').toUpperCase() === 'OWNER';
+			if ($('#permWrap').length && !isOwnerRow) {
+				var $sel = $('<select class="form-control input-sm js-permset">')
+					.attr('data-user-id', u.userId || u.id);
+				(window.teamPermissionSets || []).forEach(function (ps) {
+					$('<option>').val(ps.id).text(ps.name + (ps.builtin ? ' \u00b7 built-in' : ''))
+						.prop('selected', String(ps.id) === String(u.permissionSetId))
+						.appendTo($sel);
+				});
+				$tr.append($('<td>').append($sel));
+			} else if ($('#permWrap').length) {
+				// The column still exists on this row, so the table does not go ragged — it simply says
+				// what an owner holds, which is everything.
+				$tr.append($('<td>').html('<span class="text-muted">'
+					+ tMsg('ui.js.permOwnerAll', 'Owner · full access') + '</span>'));
+			}
 			$tr.append($('<td>').append(
 				$('<button type="button" class="btn btn-xs btn-default">')
 					.text(tMsg('ui.js.teamEditAccess', 'Edit access'))
@@ -70,6 +116,35 @@ function loadTeamUsers() {
 }
 
 /** Human-readable location list for a member's row. */
+/**
+ * Put a member on a permission set.
+ *
+ * ⚠ THE MESSAGE SAYS 15 MINUTES, and that is not padding. Permissions travel in the access token and
+ * the token is not re-minted until it refreshes, so a change lands on the member's NEXT sign-in and
+ * within a quarter of an hour at the latest. The owner accepted that trade deliberately -- instant
+ * revocation costs a database read on every request -- but "I moved him off that set and he could
+ * still sell" is otherwise reported as a defect rather than as the documented behaviour.
+ */
+$(document).on('change', '.js-permset', function () {
+	var $sel = $(this);
+	$.ajax({
+		url: serverContext + 'team/permissions/assign', method: 'POST',
+		contentType: 'application/json',
+		data: JSON.stringify({ userId: $sel.data('user-id'), setId: $sel.val() })
+	}).done(function (resp) {
+		$('#teamMsg').removeClass('alert-danger').addClass('alert-success')
+			.text((resp && resp.message) || tMsg('ui.js.permAssigned',
+				'Saved. It applies the next time they sign in, and within 15 minutes at the latest.'))
+			.show();
+	}).fail(function (xhr) {
+		var body = xhr.responseJSON || {};
+		$('#teamMsg').removeClass('alert-success').addClass('alert-danger')
+			.text(body.message || tMsg('ui.js.permAssignFailed', 'Could not change the permission set.'))
+			.show();
+		loadTeamUsers();   // put the picker back to the truth rather than leaving a lie on screen
+	});
+});
+
 function teamLocationNames(ids) {
 	var noun = window.TEAM_LOCATION_NOUN || 'store';
 	if (!ids || !ids.length) { return 'All (' + noun + '-wide)'; }

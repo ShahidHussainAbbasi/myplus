@@ -4,6 +4,7 @@
 <title th:text="#{ui.businessDashboardMyplus}">Business Dashboard — MyPlus</title>
 	<th:block th:replace="~{fragments/header :: header-css}"></th:block>
     <link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+    <link rel="stylesheet" th:href="@{/css/permissions.css}"/>
     <link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
 <style>
 #dueCustTableBody tr td:nth-child(3){font-weight:700;color:#c62828}
@@ -1253,8 +1254,73 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div id="teamStores" class="locpick"></div>
 					</div>
 				</div>
+				<!--
+					PERM-1 — the permission matrix. OWNER ONLY, and that is not a nicety: if an admin could edit
+					sets, an admin holding team.edit could grant themselves finance. Only the owner grants, and the
+					owner already holds everything, so there is nothing to escalate to.
+				-->
+				<div id="permWrap" sec:authorize="hasAuthority('ROLE_OWNER')" style="margin:22px 0 26px">
+					<h4 class="dash-sub-title" th:text="#{ui.permissions}">Permissions</h4>
+					<div id="permMsg" class="alert" style="display:none"></div>
+
+					<div class="perm-bar">
+						<div class="perm-field">
+							<label th:text="#{ui.permissionSet}">Permission set</label>
+							<select id="permSetPicker" class="form-control"></select>
+						</div>
+						<div class="perm-field">
+							<label th:text="#{ui.name}">Name</label>
+							<input id="permSetName" class="form-control" maxlength="64"/>
+						</div>
+						<div class="perm-field">
+							<!-- WHICH ROWS, not which actions. A different question from the matrix, so a control
+							     of its own rather than a reading somebody has to guess. -->
+							<label th:text="#{ui.sees}">Sees</label>
+							<select id="permScope" class="form-control">
+								<option value="OWN" th:text="#{ui.onlyOwnRecords}">Only their own records</option>
+								<option value="ALL" th:text="#{ui.allRecordsInShop}">All records in this shop</option>
+							</select>
+						</div>
+						<div class="perm-actions">
+							<button type="button" id="permSave" class="btn btn-success" onclick="savePermissionSet()"
+							        th:text="#{ui.save}">Save</button>
+							<button type="button" class="btn btn-default" onclick="duplicatePermissionSet()"
+							        th:text="#{ui.duplicate}">Duplicate</button>
+						</div>
+					</div>
+
+					<div id="permBuiltinNote" class="perm-builtin" style="display:none"
+					     th:text="#{ui.builtinSetNote}">This is a built-in set and cannot be changed. Duplicate it and edit the copy.</div>
+
+					<!-- A PLAIN table, deliberately: twelve rows do not need paging, and a DataTable rebuilds its
+					     cells on every draw, which wipes checkbox state on a sort or a search. -->
+					<div class="table-responsive">
+						<table id="permMatrix" class="table perm-matrix">
+							<thead>
+								<tr>
+									<th th:text="#{ui.area}">Area</th>
+									<th th:text="#{ui.view}">View</th>
+									<th th:text="#{ui.create}">Create</th>
+									<th th:text="#{ui.edit}">Edit</th>
+									<th th:text="#{ui.delete}">Delete</th>
+									<th th:text="#{ui.special}">Special</th>
+								</tr>
+							</thead>
+							<tbody></tbody>
+						</table>
+					</div>
+					<div id="permNote" class="perm-note" style="display:none"></div>
+
+					<!-- The preview. A matrix is abstract; a sidebar is not. -->
+					<div class="perm-preview">
+						<div class="perm-preview__cap" th:text="#{ui.whatTheyWillSee}">What they will see</div>
+						<div id="permPreviewOn" class="perm-preview__nav"></div>
+						<div id="permPreviewOff" class="perm-preview__off"></div>
+					</div>
+				</div>
+
 				<table id="tableTeam" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.email}">Email</th><th th:text="#{ui.role}">Role</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.stores}">Stores</th><th></th></tr></thead>
+					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.email}">Email</th><th th:text="#{ui.role}">Role</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.stores}">Stores</th><th sec:authorize="hasAuthority('ROLE_OWNER')" th:text="#{ui.permissionSet}">Permission set</th><th></th></tr></thead>
 					<tbody></tbody>
 				</table>
 			</div>
@@ -4435,6 +4501,7 @@ tr.row-voided .js-edit-row{display:none !important}
          offering them would be a lie. An owner still gets every store. -->
     <script>window.TEAM_LOCATIONS_URL = 'getMyStores'; window.TEAM_LOCATION_NOUN = 'store';</script>
     <script th:src="@{/js/common/team.js}"></script>
+    <script th:src="@{/js/common/permissions.js}"></script>
     <script th:src="@{/js/common/org-switcher.js}"></script>
     <script th:src="@{/js/business/module-theme.js}"></script>
     <script th:src="@{/js/common/report-filters.js}"></script>

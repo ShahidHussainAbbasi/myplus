@@ -52,6 +52,11 @@ public class MvcConfig implements WebMvcConfigurer {
     @Autowired
     private MessageSource messageSource;
 
+    /** PERM-1 — the enforcement half of permission sets. Without it the matrix is decoration. */
+    @Autowired
+    private com.web.security.PermissionInterceptor permissionInterceptor;
+
+
     @Override
     public void addViewControllers(final ViewControllerRegistry registry) {
 //        registry.addViewController("/").setViewName("forward:/login");
@@ -327,6 +332,15 @@ public class MvcConfig implements WebMvcConfigurer {
         // ?lang= is user-supplied, so it is whitelisted to the shipped languages — an unsupported
         // tag would otherwise be stored in the locale cookie and every page would render raw
         // message keys until the user cleared it. See SupportedLocaleChangeInterceptor.
+        /*
+         * PERM-1 first: a refusal must be decided before anything else spends work on the request.
+         *
+         * Registered for every path with no addPathPatterns list — a second list of paths kept beside
+         * the one inside the interceptor would be two places stating one rule, and the day they disagree
+         * the permission silently stops applying to whatever fell out of this copy.
+         */
+        registry.addInterceptor(permissionInterceptor);
+
         final LocaleChangeInterceptor localeChangeInterceptor = new SupportedLocaleChangeInterceptor();
         localeChangeInterceptor.setParamName("lang");
         localeChangeInterceptor.setIgnoreInvalidLocale(true);

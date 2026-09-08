@@ -57,6 +57,60 @@ public class TeamController {
         }
     }
 
+    // ── PERM-1: permission sets ────────────────────────────────────────────────────────────────
+    //
+    // Straight pass-throughs. auth-service is the authority on who may call these — every one is
+    // @PreAuthorize("hasAuthority('ROLE_OWNER')") there — and re-checking here would be a SECOND opinion
+    // about the same question, which is how a proxy and its service come to disagree. The proxy's job is
+    // to carry the token and the body, nothing else.
+
+    /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    @RequestMapping(value = "/team/permissions", method = RequestMethod.GET)
+    @ResponseBody
+    public Object permissions() {
+        return relay("/api/auth/org/permissions", HttpMethod.GET, null, "load permissions");
+    }
+
+    @RequestMapping(value = "/team/permissions/sets", method = RequestMethod.POST)
+    @ResponseBody
+    public Object saveSet(@RequestBody Map<String, Object> body) {   // Object: `codes` is an array
+        return relay("/api/auth/org/permissions/sets", HttpMethod.POST, body, "save the permission set");
+    }
+
+    @RequestMapping(value = "/team/permissions/assign", method = RequestMethod.POST)
+    @ResponseBody
+    public Object assign(@RequestBody Map<String, Object> body) {
+        return relay("/api/auth/org/permissions/assign", HttpMethod.POST, body, "save the assignment");
+    }
+
+    @RequestMapping(value = "/team/permissions/sets/{id}", method = RequestMethod.DELETE)
+    @ResponseBody
+    public Object deleteSet(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return relay("/api/auth/org/permissions/sets/" + id, HttpMethod.DELETE, null, "delete the set");
+    }
+
+    /**
+     * One relay for all four, because four copies of the same six lines is four places to forget the
+     * bearer token. The REFUSAL is surfaced verbatim: auth-service already words these for the person
+     * reading them ("that is a built-in set and cannot be changed"), and replacing that with a generic
+     * failure would throw away the only sentence that tells the owner what to do instead.
+     */
+    private Object relay(String path, HttpMethod method, Object body, String what) {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(tokenStore.getAccessToken());
+            if (body != null) headers.setContentType(MediaType.APPLICATION_JSON);
+            return rest.exchange(gatewayUrl + path, method,
+                    new HttpEntity<>(body, headers), Object.class).getBody();
+        } catch (HttpStatusCodeException e) {
+            LOGGER.warn("{} {}: {}", path, e.getStatusCode(), e.getResponseBodyAsString());
+            return Collections.singletonMap("message", extractMessage(e.getResponseBodyAsString()));
+        } catch (Exception e) {
+            LOGGER.error("{} proxy error", path, e);
+            return Collections.singletonMap("message", "Could not " + what + ". Please try again.");
+        }
+    }
+
     @RequestMapping(value = "/team/users", method = RequestMethod.POST)
     @ResponseBody
     public Object createTeamUser(@RequestBody Map<String, Object> body) {   // Object: storeIds is an array
