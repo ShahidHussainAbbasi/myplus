@@ -887,12 +887,30 @@ public class AuthService {
                 new java.util.LinkedHashSet<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles()));
         try {
             boolean isOwner = CustomUserDetailsService.getRoleNames(user.getRoles()).contains("ROLE_OWNER");
+            /*
+             * ⚠ BUSINESS TENANTS ONLY. The catalog is business-shaped — sale, purchase, till, opening
+             * balances — so minting it for a member of another module grants them permissions their
+             * dashboard has no use for and their role never carried.
+             *
+             * V12 taught this the expensive way: its migration read "everyone not already placed" and
+             * there are four other modules and a parent portal in the same table, so a ROLE_GUARDIAN
+             * ended up holding sale.create. V14 cleans the rows; this stops them being minted again,
+             * because a migration fixes what happened and only the code stops it recurring.
+             *
+             * A member of another module falls through to the role privileges alone — exactly the token
+             * this method produced before PERM-1 existed.
+             */
+            boolean businessTenant = activeOrg != null && "BUSINESS".equalsIgnoreCase(
+                    String.valueOf(activeOrg.getType()));
             PermissionService permissionService = permissionServiceProvider.getObject();
-            authorities.addAll(isOwner ? permissionService.everything()
-                                       : permissionService.effectiveFor(user.getId()));
+            if (businessTenant) {
+                authorities.addAll(isOwner ? permissionService.everything()
+                                           : permissionService.effectiveFor(user.getId()));
+            }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).
-            claims.put("dataScope", isOwner ? "ALL" : permissionService.scopeFor(user.getId()));
+            claims.put("dataScope", (!businessTenant || isOwner) ? "ALL"
+                    : permissionService.scopeFor(user.getId()));
         } catch (Exception e) {
             /*
              * Permissions unreadable => mint the ROLE's privileges alone, which is exactly the token

@@ -4,15 +4,44 @@
  * adds a VOID_SALE row and never rewrites the original SALE. Requires audit-service + business + gateway up. Headed.
  */
 describe('Audit #6 — immutable audit trail', () => {
-  beforeEach(() => { cy.loginAsBusiness() })
+  /*
+   * ⭐ THE OWNER, because the trail is OWNER-ONLY BY DESIGN.
+   *
+   * This ran as `cy.loginAsBusiness()` — demo.business@, which holds no ROLE_OWNER. audit-service guards
+   * the read with `hasAuthority('ROLE_OWNER') or hasAuthority('ROLE_ADMIN')` and its javadoc explains why:
+   * a PRIVILEGE gate would be no gate at all, since every tenant owner holds the super privilege set inside
+   * their own organization. It ends "A refusal here is a real 403: a security event, reported as one."
+   *
+   * So the 403 was the control working. Verified end to end before changing this: the sale WAS audited
+   * (org 6, INV-000456, delivered with attempts=1), the outbox said POSTED, and only the READ was refused
+   * — the monolith log showed `403 Forbidden on GET /api/audit "Access denied"`.
+   *
+   * ⚠ Note what this means for coverage: no case here exercises a NON-owner. If a cashier or a demo user
+   * should ever be able to read their own org's trail, that is a deliberate change to a security control
+   * and belongs in its own slice — not something to be arrived at by relaxing a gate until a spec passes.
+   */
+  beforeEach(() => { cy.loginAsOwner() })
 
   // Tolerate a non-JSON body (e.g. audit-service/gateway still warming up returns an HTML page) → treat as empty so
   // findAudit retries rather than crashing. A persistent HTML body means the read chain (monolith /getAuditLog →
   // gateway /api/audit → audit-service) isn't fully deployed.
   const rows = (b) => {
     if (b == null) return []
-    if (typeof b !== 'string') return b
-    try { return JSON.parse(b) } catch (e) { return [] }
+    if (typeof b === 'string') {
+      try { b = JSON.parse(b) } catch (e) { return [] }
+    }
+    /*
+     * ⚠ ONLY AN ARRAY IS A LIST OF ROWS.
+     *
+     * This returned the body unchanged for anything non-string, so the monolith's error envelope —
+     * AuditController answers `{"status":"ERROR"}` when the read chain (monolith → gateway → audit-service)
+     * is unreachable — came back as an OBJECT and the caller crashed on `.find is not a function`.
+     *
+     * The comment above says this helper exists to tolerate exactly that and let findAudit RETRY. It could
+     * not: it crashed on the first bad answer instead of polling through a service that was still warming
+     * up. Anything that is not an array is "no rows yet".
+     */
+    return Array.isArray(b) ? b : []
   }
   // Delivery is async (AFTER_COMMIT + relay), so poll the trail until the expected row shows up.
   const findAudit = (pred, attempt = 0) =>

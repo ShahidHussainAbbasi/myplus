@@ -32,9 +32,27 @@ public class AuditController {
             if (action != null && !action.isEmpty()) q.append("action=").append(action);
             if (limit != null && !limit.isEmpty()) q.append(q.length() > 0 ? "&" : "").append("limit=").append(limit);
             return client.get("", q.toString());
+        } catch (org.springframework.web.client.HttpClientErrorException.Forbidden denied) {
+            /*
+             * ⚠ A REFUSAL IS NOT AN OUTAGE, and saying so costs one branch.
+             *
+             * Every failure used to collapse to {"status":"ERROR"}, so the screen told the shopkeeper to
+             * "check that audit-service is running" when the service was running perfectly and had simply
+             * refused them. Chasing that took several steps and a container log to unpick.
+             *
+             * audit-service guards the trail with ROLE_OWNER / ROLE_ADMIN deliberately — a privilege gate
+             * would be no gate at all, since a tenant owner holds the super privilege set inside their own
+             * organization. So a 403 here is the control working, and it is reported as what it is.
+             *
+             * Deliberately says nothing about WHO is allowed beyond the role, and nothing about the
+             * upstream URL: a refusal message is read by whoever was refused.
+             */
+            LOGGER.warn("getAuditLog refused for the current user (403 from audit-service)");
+            return "{\"status\":\"ERROR\",\"message\":\"Only an owner or a platform operator "
+                 + "can read the audit trail.\"}";
         } catch (Exception e) {
             LOGGER.error("getAuditLog proxy error", e);
-            return "{\"status\":\"ERROR\"}";
+            return "{\"status\":\"ERROR\",\"message\":\"Could not reach the audit service.\"}";
         }
     }
 }

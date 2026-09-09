@@ -4618,7 +4618,16 @@ function finRunAuditLog(){
 	var q={limit:$('#finLimit').val()||200}; var a=$('#finAction').val(); if(a) q.action=a;
 	$.get(serverContext+'getAuditLog', q, function(resp){
 		var rows=(typeof resp==='string')?JSON.parse(resp):resp;
-		if(!Array.isArray(rows)){ finSet('<div style="padding:10px;color:#c0392b">Could not load the audit log. Check that audit-service is running.</div>'); return; }
+		if(!Array.isArray(rows)){
+			// Show the reason the SERVER gave. This said "Check that audit-service is running" for every
+			// failure, including a permission refusal from a service that was running perfectly — sending
+			// the reader to look at the one thing that was not wrong.
+			// t() returns the KEY when it is missing, so there is no inline fallback to lean on — the key
+			// ships in all six bundles.
+			var why = (rows && rows.message) ? rows.message : t('ui.js.auditLoadFailed');
+			finSet('<div style="padding:10px;color:#c0392b">' + escHtml(why) + '</div>');
+			return;
+		}
 		if(!rows.length){ finSet('<div style="padding:10px;color:#777">No audit events yet.</div>'); return; }
 		/*
 		 * The timestamp now arrives with an offset (…+05:00), so it must be FORMATTED rather than

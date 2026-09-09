@@ -22,6 +22,23 @@
  * </ul>
  */
 
+/**
+ * ⚠ A PER-RUN SUFFIX ON EVERY SCHEME CODE.
+ *
+ * The codes were constants — 'CY-DIFF-SKU', 'CY-EXPIRED', 'CY-TENANT-A' — and nothing removes a scheme
+ * afterwards. So the second run of this file posted a new scheme and then found the FIRST one, left behind
+ * by the run before, still pointing at a product seeded that day.
+ *
+ * That is how "the reward SKU survived the write" failed with `expected '3971' to be '4941'`: both numbers
+ * were real product ids, the assertion compared this run's product against last run's scheme, and the
+ * product code under test was never actually examined.
+ *
+ * A run-scoped code makes each case assert against the row it just created. It also removes the silent
+ * dependency on going first.
+ */
+const RUN = Date.now().toString().slice(-6)
+const code = (base) => `${base}-${RUN}`
+
 const DIST_OWNER = 'owner.marketplace@myplus.com'
 const OTHER_TENANT = 'owner.business@myplus.com'
 const CAP = 'bonusSchemes'
@@ -29,7 +46,7 @@ const CAP = 'bonusSchemes'
 /** A minimal valid scheme body. Individual cases omit fields to prove they are required. */
 function scheme(over) {
   return Object.assign({
-    code: 'CY-SUP-10-1',
+    code: code('CY-SUP-10-1'),
     scope: 'VENDOR',
     triggerProductId: null,      // filled per test
     rewardProductId: null,       // same product unless a case says otherwise
@@ -104,12 +121,12 @@ describe('#17 P1 — bonus scheme master', () => {
       cy.request({
         method: 'POST', url: '/bonusScheme', failOnStatusCode: false,
         headers: { 'Content-Type': 'application/json' },
-        body: scheme({ code: 'CY-DIFF-SKU', triggerProductId: trigger, rewardProductId: reward }),
+        body: scheme({ code: code('CY-DIFF-SKU'), triggerProductId: trigger, rewardProductId: reward }),
       }).then((r) => {
         expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.not.eq('ERROR')
         cy.request({ url: '/bonusSchemes' }).then((list) => {
           const saved = (list.body.collection || list.body.data || [])
-            .find((x) => x.code === 'CY-DIFF-SKU')
+            .find((x) => x.code === code('CY-DIFF-SKU'))
           expect(saved, 'the scheme was stored').to.exist
           expect(String(saved.rewardProductId), 'the reward SKU survived the write').to.eq(String(reward))
           expect(String(saved.triggerProductId)).to.eq(String(trigger))
@@ -150,11 +167,11 @@ describe('#17 P1 — bonus scheme master', () => {
     cy.request({
       method: 'POST', url: '/bonusScheme', failOnStatusCode: false,
       headers: { 'Content-Type': 'application/json' },
-      body: scheme({ code: 'CY-EXPIRED', startsOn: '2020-01-01', endsOn: '2020-01-31' }),
+      body: scheme({ code: code('CY-EXPIRED'), startsOn: '2020-01-01', endsOn: '2020-01-31' }),
     }).then(() => {
       cy.request({ url: '/bonusSchemes?activeOnly=true' }).then((r) => {
         const rows = r.body.collection || r.body.data || []
-        expect(rows.find((x) => x.code === 'CY-EXPIRED'), 'an expired scheme is not live').to.not.exist
+        expect(rows.find((x) => x.code === code('CY-EXPIRED')), 'an expired scheme is not live').to.not.exist
       })
     })
   })
@@ -165,12 +182,12 @@ describe('#17 P1 — bonus scheme master', () => {
     cy.request({
       method: 'POST', url: '/bonusScheme', failOnStatusCode: false,
       headers: { 'Content-Type': 'application/json' },
-      body: scheme({ code: 'CY-TENANT-A' }),
+      body: scheme({ code: code('CY-TENANT-A') }),
     })
     cy.loginAsOwner(OTHER_TENANT)
     cy.request({ url: '/bonusSchemes', failOnStatusCode: false }).then((r) => {
       const rows = r.body.collection || r.body.data || []
-      expect(rows.find((x) => x.code === 'CY-TENANT-A'),
+      expect(rows.find((x) => x.code === code('CY-TENANT-A')),
         'tenant A\'s scheme must not be visible to tenant B').to.not.exist
     })
   })
@@ -192,7 +209,7 @@ describe('#17 P1 — bonus scheme master', () => {
     cy.request({
       method: 'POST', url: '/bonusScheme', failOnStatusCode: false,
       headers: { 'Content-Type': 'application/json' },
-      body: scheme({ code: 'CY-BOOKER' }),
+      body: scheme({ code: code('CY-BOOKER') }),
     }).then((r) => {
       expect(r.body.success === false || r.body.status === 'ERROR' || r.body.status === 'FAILED',
         'a booker must not be able to author a bonus scheme').to.eq(true)

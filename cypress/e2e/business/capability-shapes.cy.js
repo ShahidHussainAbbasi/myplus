@@ -79,9 +79,51 @@ describe('C4 — shape presets give each domain its own screens', () => {
      */
     cy.clearCapabilityOverrides()
     cy.setShape('general')
+
+    /*
+     * ⚠ THREE LAYERS DECIDE A CAPABILITY, AND THIS CASE OWNS ONLY ONE OF THEM.
+     *
+     * `clearCapabilityOverrides()` clears the TENANT's own `org.cap.*` settings — the comment on that
+     * command says as much. It cannot clear the PLATFORM ENTITLEMENT ceiling (E1), an operator-only layer
+     * in auth-service that beats both the override and the preset by design.
+     *
+     * So this asserted "everything is ON" against a tenant whose `batchTracking` a platform operator
+     * SUSPENDED on 2026-09-01, reason "not required". The preset was innocent: the case could not see the
+     * layer that had switched it off, and reported an operator decision as a preset failure.
+     *
+     * The claim under test is that the GENERAL preset restricts NOTHING — a statement about the preset. So
+     * the ceiling is READ and excluded rather than assumed absent, as the operator, because a tenant cannot
+     * see its own ceiling.
+     */
     cy.getCapabilities().then((caps) => {
-      Object.entries(caps).forEach(([code, on]) => {
-        expect(on, `${code} must stay ON for a tenant with no shape chosen`).to.eq(true)
+      cy.loginAsOperator()
+
+      // The org id from the operator's own tenant list, keyed on the owner's email — never hardcoded, so a
+      // reseed that renumbers the tenants cannot turn this into an assertion about somebody else's shop.
+      cy.request('/platform/organizations?size=200').then((orgRes) => {
+        const orgs = (orgRes.body && orgRes.body.data && orgRes.body.data.rows) || []
+        const mine = orgs.find((o) => o.ownerEmail === 'owner.mobile@myplus.com')
+        expect(mine, 'owner.mobile@ has an organization in the operator list').to.exist
+
+        cy.request(`/platform/entitlements?organizationId=${mine.id}`).then((entRes) => {
+          const rows = (entRes.body && entRes.body.data && entRes.body.data.capabilities) || []
+          // `grantable:false` is the ceiling's own verdict; SUSPENDED is the status behind it. Either means
+          // the preset never gets a say. See PlatformAdminController.entitlements.
+          const revoked = new Set(rows
+            .filter((r) => r && (r.grantable === false || String(r.status) === 'SUSPENDED'))
+            .map((r) => r.capability))
+
+          cy.loginAsMobileOwner()
+          const checked = Object.entries(caps).filter(([code]) => !revoked.has(code))
+          // The exclusion must not swallow the case: a ceiling that revoked everything would otherwise
+          // leave an empty loop passing silently.
+          expect(checked.length, 'capabilities remain to assert on after the ceiling is excluded')
+            .to.be.greaterThan(0)
+          checked.forEach(([code, on]) => {
+            expect(on, `${code} must stay ON for a tenant with no shape chosen`).to.eq(true)
+          })
+          if (revoked.size) cy.log(`excluded by the entitlement ceiling: ${[...revoked].join(', ')}`)
+        })
       })
     })
   })

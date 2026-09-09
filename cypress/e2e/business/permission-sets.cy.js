@@ -179,4 +179,43 @@ describe('PERM-1 — permission sets', () => {
     // it is saved rather than after.
     cy.get('.perm-preview').should('be.visible')
   })
+  // ── ⭐⭐ 8. the escalation this slice actually shipped, and must never ship again ─────────────────
+
+  it('⭐⭐ 8 — a member of ANOTHER module holds no business permissions', () => {
+    /*
+     * THE REGRESSION TEST FOR A REAL DEFECT, written after it reached the database.
+     *
+     * V12's migration read "everyone not already placed" and this database holds four other modules and
+     * a parent portal. So ROLE_GUARDIAN -- a parent signing in to see their child's attendance -- was
+     * placed on `Standard`, a set built for a SHOP, and carried sale.create, purchase.create and
+     * customer.create in their token.
+     *
+     * Nothing was exploitable through a screen: those accounts reach a different dashboard and the
+     * interceptor maps no education path. But "not reachable today" is the DEFINITION of a latent
+     * escalation, and the design said business-only while the SQL said everyone.
+     *
+     * Fixed twice on purpose -- V14 removed the rows, and AuthService now mints permissions only for a
+     * BUSINESS tenant. A migration fixes what happened; only the code stops it recurring, and only a
+     * test stops the code being undone.
+     *
+     * ⚠ Asserted on a permission `Standard` GRANTS (sale.create), because that is what discriminates:
+     * an assertion on something Standard lacks would have passed before the fix as well.
+     */
+    cy.loginAsEducation()
+    cy.request({
+      method: 'POST', url: '/addSell', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' },
+      body: {
+        customer: { name: 'Should Never Post', contact: '03000000000' },
+        sales: [{ productId: 1, quantity: 1, sellRate: 1, totalAmount: 1, netAmount: 1 }],
+        paidAmount: 1, dueAmount: 0, grandTotal: 1,
+        tenders: [{ method: 'CASH', amount: 1, reference: '' }],
+      },
+    }).then((r) => {
+      expect(r.status, `a member of another module must not hold sale.create: ${r.status}`).to.eq(403)
+      expect(JSON.stringify(r.body).toLowerCase(), 'and is told so plainly')
+        .to.contain('not allowed')
+    })
+  })
+
 })
