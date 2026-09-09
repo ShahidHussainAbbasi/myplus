@@ -80,8 +80,8 @@ public class PermissionInterceptor implements HandlerInterceptor {
             new Rule("GET",  "/openingBalanceSummary", "opening.view"),
 
             // ── settings ───────────────────────────────────────────────────────────────────────
+            // ⚠ ONLY THE WRITE. Reading the config is in ALWAYS below — see the note there.
             new Rule("POST", "/saveBusinessConfig",    "settings.edit"),
-            new Rule("GET",  "/getBusinessConfig",     "settings.view"),
 
             // ── the two the owner asked for by name ────────────────────────────────────────────
             new Rule("POST", "/updateSell",            "sale.edit"),
@@ -105,7 +105,23 @@ public class PermissionInterceptor implements HandlerInterceptor {
      */
     private static final List<String> ALWAYS = List.of(
             "/user/", "/login", "/logout", "/js/", "/css/", "/images/", "/webjars/",
-            "/getBusinessDashboardStats", "/catalogProductPicker", "/customerOptions"
+            "/getBusinessDashboardStats", "/catalogProductPicker", "/customerOptions",
+            /*
+             * ⚠ READING THE TENANT'S CONFIG IS NOT "SEEING THE SETTINGS SCREEN", and gating it as though
+             * it were broke every member's till.
+             *
+             * loadPosFeatureFlags() calls this on EVERY page load to learn how this shop's screens are
+             * configured — barcode on or off, which fields the sale line shows, whether the keyboard flow
+             * is enabled, how many instalments to seed. Those flags fail CLOSED by design, so a 403 here
+             * did not produce an error: it produced a till quietly running on defaults, with the shop's
+             * own configuration silently absent. Reported as "the settings were not the same as the
+             * owner's" — and they were the same, they just never arrived.
+             *
+             * The distinction that matters: READING the configuration to render your own screen is not
+             * the same act as OPENING Settings to change it. The screen is hidden by sec:authorize in the
+             * template, and the CHANGE is gated above by settings.edit. That is where the control belongs.
+             */
+            "/getBusinessConfig"
     );
 
     @Override
