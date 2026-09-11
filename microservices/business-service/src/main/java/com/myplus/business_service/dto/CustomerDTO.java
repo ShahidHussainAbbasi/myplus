@@ -95,4 +95,13 @@ public class CustomerDTO implements Serializable {
 		return serialVersionUID;
 	}
 
+
+    /**
+     * The optimistic-lock version this client last SAW (V62).
+     *
+     * <p>It travels out on every read and must come back on an edit. Without it the server cannot tell a
+     * fresh edit from one made against a copy another till has since replaced — which is the whole point of
+     * the column.
+     */
+    private Long version;
 }

@@ -178,6 +178,20 @@
         var visible = areasInOrder().filter(function (a) { return !!chosen[a + '.view']; });
         var hidden = areasInOrder().filter(function (a) { return !chosen[a + '.view']; });
 
+        /*
+         * ⭐ The preview says WHOSE records too, not only which areas.
+         *
+         * The matrix and the Sees control answer two different questions, and an owner reading only the
+         * sidebar preview would see "Sale, Customers" and reasonably conclude the member can work with
+         * the shop's customers -- when on OWN they will open an EMPTY customer picker and be unable to
+         * ring up a credit sale at all. The preview has to carry both halves or it predicts the wrong
+         * screen, which is worse than predicting nothing.
+         */
+        var scopeAll = $('#permScope').val() === 'ALL';
+        $('#permPreviewScope').text(scopeAll
+            ? tr('ui.js.permPreviewAll', 'Sees every record in the shop')
+            : tr('ui.js.permPreviewOwn', 'Sees only the records they create themselves'));
+
         $('#permPreviewOn').html(visible.length
             ? visible.map(function (a) {
                 return '<span class="pm-nav">' + esc(AREA_LABEL[a] || a) + '</span>';
@@ -320,6 +334,10 @@
     });
 
     $(document).on('change', '#permSetPicker', function () { selectSet(this.value); });
+
+    // The Sees control feeds the preview, so a change to it has to redraw — otherwise the panel keeps
+    // predicting the screen the OTHER setting would have produced.
+    $(document).on('change', '#permScope', renderPreview);
 
     global.PermissionMatrix = {
         // Exposed for the gate: the closure is the behaviour worth asserting directly, and driving it

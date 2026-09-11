@@ -337,6 +337,55 @@ Cypress.Commands.add('waitForAppReady', () => {
       const deadline = Date.now() + DEADLINE_MS
       let quietSince = null
 
+      /*
+       * ⭐ NAME THE OFFENDER. The message this used to throw — "Something is polling, or a request is
+       * hanging" — is true and useless: it reports the SYMPTOM the helper measures and nothing about the
+       * cause. It sent me through the overlay hooks, Eureka registrations, the RUM beacon and the
+       * live-users poller, all of which were innocent, because the only data in the failure was a number
+       * that was ZERO.
+       *
+       * `jQuery.active` is a COUNTER — it cannot tell you what it counted. So record the traffic here:
+       * which URLs started, how many times each, and which are still open at the deadline. A poll shows up
+       * as one URL with a high count; a hang shows up as one URL still in flight. Those are opposite
+       * diagnoses and the old message could not tell them apart.
+       *
+       * Costs nothing when the app settles normally — the handlers are removed on the way out either way.
+       */
+      const startedByUrl = new Map()
+      const openByXhr = new Map()
+      const $doc = (win.jQuery && typeof win.jQuery.active === 'number') ? win.jQuery(win.document) : null
+
+      // Group by PATH, not the full URL: a cache-buster or a changing `q=` would otherwise scatter one
+      // repeating call across a hundred distinct keys and hide the very repetition being hunted.
+      const pathOf = (settings) => String((settings && settings.url) || '?').split('?')[0]
+
+      const onSend = (evt, jqXHR, settings) => {
+        const key = pathOf(settings)
+        startedByUrl.set(key, (startedByUrl.get(key) || 0) + 1)
+        openByXhr.set(jqXHR, key)
+      }
+      const onComplete = (evt, jqXHR) => { openByXhr.delete(jqXHR) }
+
+      if ($doc) { $doc.on('ajaxSend', onSend); $doc.on('ajaxComplete', onComplete) }
+      const cleanup = () => {
+        if ($doc) { $doc.off('ajaxSend', onSend); $doc.off('ajaxComplete', onComplete) }
+      }
+
+      const NL = String.fromCharCode(10)   // a newline, written so no escaping layer can mangle it
+      const report = () => {
+        const busiest = Array.from(startedByUrl.entries())
+          .sort((a, b) => b[1] - a[1]).slice(0, 6)
+          .map(([url, n]) => `      ${n}× ${url}`).join(NL) || '      (none)'
+        const open = Array.from(new Set(openByXhr.values()))
+        const stillOpen = open.length ? open.map((u) => `      ${u}`).join(NL) : '      (none)'
+        return `
+    started during the wait, most frequent first:
+${busiest}`
+             + `
+    STILL IN FLIGHT at the deadline:
+${stillOpen}`
+      }
+
       const tick = () => {
         // No jQuery on the page (a plain template) means nothing can be in flight — treat as quiet
         // rather than hanging for 30s on a page this helper has no opinion about.
@@ -344,15 +393,16 @@ Cypress.Commands.add('waitForAppReady', () => {
 
         if (active === 0) {
           if (quietSince === null) quietSince = Date.now()
-          if (Date.now() - quietSince >= QUIET_MS) return resolve()
+          if (Date.now() - quietSince >= QUIET_MS) { cleanup(); return resolve() }
         } else {
           quietSince = null          // a new wave started — the clock restarts, it does not accumulate
         }
 
         if (Date.now() > deadline) {
+          cleanup()
           return reject(new Error(
-            `waitForAppReady: the app never went quiet for ${QUIET_MS}ms (jQuery.active=${active}). ` +
-            'Something is polling, or a request is hanging.'))
+            `waitForAppReady: the app never went quiet for ${QUIET_MS}ms (jQuery.active=${active}).`
+            + report()))
         }
         setTimeout(tick, 50)
       }

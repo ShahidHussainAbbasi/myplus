@@ -103,7 +103,8 @@ public class StockController {
     /** Bulk opening-stock seed for the item→product migration (slice 33, U2b). Returns the count created.
      *  Raw body (not ApiResponse) so trade-service's InventoryClient.importStock deserializes it directly. */
     @PostMapping("/import")
-    public Integer importStock(@RequestBody List<StockImportLine> lines) {
+    public com.myplus.commerce.contracts.dto.StockImportResult importStock(
+            @RequestBody List<StockImportLine> lines) {
         return stockImportService.importStock(lines, CurrentUser.organizationId(), CurrentUser.userId());
     }
 

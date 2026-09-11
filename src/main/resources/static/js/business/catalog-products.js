@@ -522,6 +522,27 @@
     }
     global.refreshStock = refreshStock;
 
+    /**
+     * ⭐ PERF-9 — show the on-hand the WRITE reported, and only read it back if it did not report one.
+     *
+     * <p>Both stock writes used to be followed by GET /productStock purely to learn the figure that had just
+     * been computed on the server — two browser round trips to change one number in one cell. Over a shop's
+     * own LAN that is invisible; over a real connection it is twice the latency of the operation, every time.
+     *
+     * <p>⚠ Falls back rather than assuming. A response with no `stock` means an older server (or a path
+     * that does not report one), and rendering nothing — or worse, 0 — would tell a shopkeeper their stock
+     * had vanished. Absent means "ask", never "zero".
+     */
+    function applyStock(productId, resp) {
+        var v = resp ? Number(resp.stock) : NaN;
+        if (resp && resp.stock != null && !isNaN(v)) {
+            $('#stk_' + productId).text(v);
+            return;
+        }
+        refreshStock(productId);
+    }
+    global.applyStock = applyStock;
+
     // Add opening stock for a product — feeds the inventory the storefront/POS reservation saga draws down.
     global.addProductStock = function (productId) {
         var qty = s2n($('#addstk_' + productId).val());
@@ -534,7 +555,8 @@
                 if (resp && resp.success) {
                     showSaleSuccess(t('ui.js.added') + qty + ' to stock.');
                     $('#addstk_' + productId).val('');
-                    refreshStock(productId);
+                    // ⭐ PERF-9 — the write ALREADY told us the new on-hand; showing it costs no round trip.
+                    applyStock(productId, resp);
                 } else { showFormError(apiMessage(resp, 'Could not add stock.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotAddStock')); },
@@ -556,7 +578,7 @@
                 if (resp && resp.success) {
                     showSaleSuccess((t === 'DECREASE' ? 'Removed ' : 'Added ') + qty + (t === 'DECREASE' ? ' from' : ' to') + ' stock.');
                     $('#addstk_' + productId).val('');
-                    refreshStock(productId);
+                    applyStock(productId, resp);   // PERF-9 — see addProductStock
                 } else { showFormError(apiMessage(resp, 'Could not correct stock (not enough on hand?).')); }
             },
             error: function () { showFormError(t('ui.js.couldNotCorrectStock')); },

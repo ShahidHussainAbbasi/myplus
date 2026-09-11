@@ -59,12 +59,16 @@ class StockImportServiceTest {
 
     @Test
     void seeds_stock_level_and_opening_entry() {
-        int created = service.importStock(List.of(StockImportLine.builder()
+        var result = service.importStock(List.of(StockImportLine.builder()
                 .productId(10L).quantity(25f).batchNo("B1").expiryDate(LocalDate.of(2026, 12, 1))
                 .purchasePrice(new BigDecimal("5.00")).costPrice(new BigDecimal("5.00"))
                 .build()), ORG, USER);
 
-        assertThat(created).isEqualTo(1);
+        assertThat(result.getCreated()).isEqualTo(1);
+        // PERF-9: the write ANSWERS with the on-hand it just computed. Asserting only the count would leave
+        // the reason the return type widened untested, and the Product screen's second round trip — the GET
+        // this replaced — would come back unnoticed.
+        assertThat(result.onHandFor(10L)).isEqualByComparingTo("25");
         var level = stockLevelRepository.findByProductScoped(10L, ORG, USER);
         assertThat(level).isPresent();
         assertThat(level.get().getCurrentStock()).isEqualByComparingTo("25");

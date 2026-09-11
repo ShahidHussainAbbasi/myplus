@@ -46,6 +46,26 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
+        # ⭐ PERF-10 — THE N+1 COLLAPSER. One line, every service, no code change.
+        #
+        # An EAGER @OneToOne/@ManyToOne does not mean "joined" — it means "fetched before the entity is
+        # returned", and without a fetch plan Hibernate issues ONE QUERY PER ROW for each association.
+        # Measured on /getUserSell (org 13, 807 sale lines, Sell→CustomerHistory→Customer, both EAGER,
+        # neither join-fetched):
+        #
+        #     1 + 807 + 807 = 1,615 queries to draw ONE screen   (~1.2s of server time)
+        #
+        # Capping the payload does not help: q=5 returns 11KB and still takes 1.19s, because the rows are
+        # loaded and then truncated in Java. The queries are the cost.
+        #
+        # With batching, Hibernate fetches the missing associations in IN (...) batches of this size:
+        # 1,615 -> ~19. It changes no behaviour and no mapping — only how many round trips the SAME reads
+        # take — which is why it is the first thing to do and the safest.
+        #
+        # 100 rather than higher: MySQL plans a large IN() list poorly and each batch is one round trip
+        # either way. @EntityGraph on the specific hot reads is still the structural fix (see
+        # performance-at-scale-analysis.md item 4); this is the floor under every read that has not had one.
+        default_batch_fetch_size: ${JPA_BATCH_FETCH_SIZE:100}
         # SQL echo is OFF by default (prod-safe, quiet logs, less CPU/log volume across all services).
         # Turn it on per-service for debugging with JPA_SHOW_SQL=true / JPA_FORMAT_SQL=true.
         format_sql: ${JPA_FORMAT_SQL:false}

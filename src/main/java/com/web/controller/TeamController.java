@@ -130,9 +130,26 @@ public class TeamController {
         }
     }
 
+    /**
+     * The server's own sentence, out of its JSON body.
+     *
+     * <p>PARSED, not regexed. The previous version matched the message with a character class that stops
+     * at the first quote &mdash; and a refusal that NAMES something in quotes ("Cashier" is a built-in
+     * set, duplicate it and edit the copy) therefore reached the owner as a single backslash. That
+     * sentence is the only part of a refusal that tells somebody what to do next, so it has to survive
+     * the trip whole.
+     */
     private String extractMessage(String body) {
-        if (body == null) return "Could not add the team member.";
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"message\"\\s*:\\s*\"([^\"]*)\"").matcher(body);
-        return m.find() ? m.group(1) : "Could not add the team member.";
+        if (body == null || body.isBlank()) return "Could not complete that request.";
+        try {
+            com.fasterxml.jackson.databind.JsonNode n =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(body);
+            String msg = n.path("message").asText(null);
+            if (msg != null && !msg.isBlank()) return msg;
+        } catch (Exception ignored) {
+            // Not JSON, or a shape we do not know. Falling through beats surfacing a parser error to
+            // somebody who asked to save a permission set.
+        }
+        return "Could not complete that request.";
     }
 }

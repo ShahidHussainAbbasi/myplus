@@ -79,8 +79,28 @@ public class PurchaseController {
 	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
 		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
 		try {
-			return catalogClient.getProducts(productIds).stream()
-				.collect(java.util.stream.Collectors.toMap(com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+			/*
+			 * ⚠ PERF-12 — CHUNKED, for the reason documented on SellController.productRefs.
+			 *
+			 * These ids ride in the QUERY STRING of a @GetExchange. Unbounded, a large tenant's request line
+			 * plus its bearer JWT exceeds Tomcat's 8 KB header limit and comes back as a bare
+			 * "HTTP Status 400 – Bad Request" — caught below, logged as a warning, and rendered as a grid with
+			 * NO product names on any row. Confirmed happening on the Sale grid for org 13 (730 ids); this is
+			 * the same call on the Purchase grid and fails the same way once a tenant's catalogue is big
+			 * enough.
+			 */
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> out = new java.util.HashMap<>();
+			for (int i = 0; i < productIds.size(); i += 100) {
+				java.util.List<Long> chunk = productIds.subList(i, Math.min(i + 100, productIds.size()));
+				try {
+					for (com.myplus.commerce.contracts.dto.ProductRef r : catalogClient.getProducts(chunk)) {
+						if (r != null && r.getId() != null) out.putIfAbsent(r.getId(), r);
+					}
+				} catch (Exception chunkFailed) {
+					LOGGER.warn("M4d: catalog getProducts failed for a chunk of {} id(s)", chunk.size(), chunkFailed);
+				}
+			}
+			return out;
 		} catch (Exception e) {
 			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); purchase line names may be blank", productIds.size(), e);
 			return java.util.Collections.emptyMap();
@@ -150,10 +170,13 @@ public class PurchaseController {
 							objs.stream().map(Purchase::getPurchaseId)
 									.filter(java.util.Objects::nonNull).toList());
 
+			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
+			// so calling it inside the loop made every row rebuild what the row before it had just built.
+			modelMapper.addConverter(appUtil.localDateTimeToString);
+			modelMapper.addConverter(appUtil.localDateToString);
+
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
 
 				// M4e.d (slice 106): identity from the purchase's own productId; name/sku from catalog ProductRef (no Item load).

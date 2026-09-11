@@ -41,9 +41,45 @@ public final class LocationScope {
         return hasAuthority("SUPER_PRIVILEGE");
     }
 
-    /** Whole-org viewer: an owner OR an admin — sees other users' records (within their locations). */
+    /**
+     * PERM-1 — the permission set's answer to "whose records?", carried as an authority.
+     *
+     * <h3>Why an AUTHORITY and not a new field on the principal</h3>
+     * Authorities already travel the whole way: minted into the `privileges` claim, forwarded by the
+     * gateway, rebuilt by HeaderAuthFilter, and read by @PreAuthorize and sec:authorize alike. A new
+     * field on AuthenticatedUser would have meant touching its constructor, the header filter, the
+     * gateway's forwarding and the monolith's session builder — four places to keep in step, and the day
+     * one is missed the scope silently reverts to OWN for that path only. This rides a rail that is
+     * already correct.
+     */
+    public static final String SCOPE_ALL = "scope.ALL";
+
+    /**
+     * Whole-org viewer: sees other users' records (within their locations).
+     *
+     * <h3>Three ways in, and the third is new</h3>
+     * <ul>
+     *   <li>an OWNER or SUPER — always, and not expressible as a set (they hold everything by design);</li>
+     *   <li>an ADMIN — the long-standing rule, unchanged;</li>
+     *   <li>⭐ a member whose PERMISSION SET says {@code ALL} — the "Sees" control on the matrix screen.</li>
+     * </ul>
+     *
+     * <p>The third existed on the screen and governed nothing: the choice was stored on the set, minted
+     * into the token, and read by no one. An owner set a member to "All records in this shop" and watched
+     * nothing change, because the ROLE decided. Two answers to one question, and the dropdown was the one
+     * nobody consulted.
+     *
+     * <p>⚠ Scoped deliberately to a READ widening. It grants no action: a member still cannot ring up a
+     * sale without {@code sale.create}, and this only decides how much of the shop the actions they DO
+     * hold can see. The matrix says what; this says whose.
+     *
+     * <p>⚠ It also cannot NARROW an admin. An admin has seen the whole shop since long before permission
+     * sets existed, and taking that away from every admin in the product on the deploy that introduces
+     * this is the G-5 failure the built-in sets exist to prevent. Widening is safe to infer; narrowing is
+     * a decision somebody has to make deliberately.
+     */
     public static boolean seesWholeOrg() {
-        return isOwnerSuper() || hasAuthority("ADMIN_PRIVILEGE");
+        return isOwnerSuper() || hasAuthority("ADMIN_PRIVILEGE") || hasAuthority(SCOPE_ALL);
     }
 
     /**

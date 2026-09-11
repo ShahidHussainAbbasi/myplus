@@ -2,6 +2,7 @@ package com.myplus.inventory.service;
 
 import java.math.BigDecimal;
 import com.myplus.commerce.contracts.dto.StockImportLine;
+import com.myplus.commerce.contracts.dto.StockImportResult;
 import com.myplus.inventory.entity.StockEntry;
 import com.myplus.inventory.entity.StockLevel;
 import com.myplus.inventory.repository.StockEntryRepository;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Bulk opening-stock seed for the item→product migration (slice 33, U2b). For each line: upsert the product's
@@ -25,9 +28,20 @@ public class StockImportService {
     private final StockLevelRepository stockLevelRepository;
     private final StockEntryRepository stockEntryRepository;
 
+    /**
+     * ⭐ PERF-9 — returns the resulting ON-HAND, not just a count.
+     *
+     * <p>The new on-hand is computed three lines below and used to be thrown away, so every caller that
+     * wanted the number had to read it back: the Product screen did a POST and then a GET to change one
+     * figure on screen. The write now answers with what it wrote — the same thing
+     * {@code reconcilePurchase} has always done for a purchase edit.
+     *
+     * <p>All six bulk callers ignore the return value, so widening it changes nothing for them.
+     */
     @Transactional
-    public int importStock(List<StockImportLine> lines, Long orgId, Long userId) {
+    public StockImportResult importStock(List<StockImportLine> lines, Long orgId, Long userId) {
         int created = 0;
+        Map<Long, BigDecimal> onHand = new LinkedHashMap<>();
         for (StockImportLine l : lines) {
             if (l.getProductId() == null) continue;
             float qty = l.getQuantity() != null ? l.getQuantity() : 0f;
@@ -41,6 +55,9 @@ public class StockImportService {
             level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : BigDecimal.ZERO).add(add));
             if (l.getCostPrice() != null) level.setCostPrice(l.getCostPrice());
             stockLevelRepository.save(level);
+            // PERF-9: the figure the caller is about to ask for. Recorded per product, so several lines for
+            // one product leave the LAST (cumulative) value — which is the on-hand after the whole import.
+            onHand.put(l.getProductId(), level.getCurrentStock());
 
             // #17 P2: carry the exact amount paid onto the BATCH. Without this the field exists on the
             // contract and dies at the seam — the same way a new GL outbox field vanishes unless every hop
@@ -53,6 +70,6 @@ public class StockImportService {
             stockEntryRepository.save(entry);
             created++;
         }
-        return created;
+        return StockImportResult.builder().created(created).onHand(onHand).build();
     }
 }

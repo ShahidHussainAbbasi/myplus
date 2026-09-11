@@ -70,7 +70,61 @@ public class GatewayClient {
     @Autowired
     private AuthServerClient authServerClient;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    /** Connect timeout for a downstream hop. Generous for a LAN; a refusal is what we want to see fast. */
+    @Value("${gateway.client.connect-timeout-ms:5000}")
+    private int connectTimeoutMs;
+
+    /**
+     * Read timeout — the BACKSTOP, deliberately ABOVE the gateway's own limits.
+     *
+     * <p>The gateway runs a resilience4j time limiter at 20s and trips its breaker on calls slower than 18s,
+     * and it answers with a proper fallback body when it does. If this timeout were shorter, the monolith
+     * would abandon the call FIRST and throw away the gateway's considered answer — turning "the service is
+     * degraded, here is the fallback" into "unreachable". So this only fires when the gateway itself is
+     * unreachable or hung, which is exactly the case nothing else covers.
+     */
+    @Value("${gateway.client.read-timeout-ms:30000}")
+    private int readTimeoutMs;
+
+    /**
+     * ⭐ PERF-11 — a POOLED, TIME-BOUNDED client. It was `new RestTemplate()`.
+     *
+     * <h3>What that cost</h3>
+     * A bare RestTemplate uses SimpleClientHttpRequestFactory → HttpURLConnection: <b>a new TCP connection
+     * for every proxied call</b>, torn down after each one. Every screen in this product makes 5–15 proxied
+     * calls, so every screen paid 5–15 handshakes that a keep-alive pool makes free.
+     *
+     * <h3>And no timeouts at all</h3>
+     * This class's own log line already recorded the consequence — "the RestTemplate below has NO timeouts,
+     * so this is the shape a hung downstream takes". A hung service held a monolith request thread forever;
+     * enough of them and the monolith stops answering anyone, for every tenant. That is the difference
+     * between a slow dependency and an outage, and it is the single change that makes overload behaviour
+     * predictable rather than open-ended.
+     *
+     * <h3>Why the JDK client and not Apache HttpClient</h3>
+     * {@code JdkClientHttpRequestFactory} (Spring Framework 6.1+, and this is Boot 3.5) wraps
+     * {@code java.net.http.HttpClient}, which keeps a connection pool of its own and speaks HTTP/2 where the
+     * downstream offers it. That is the pooling we need with <b>no new dependency</b> — and a dependency not
+     * added is a dependency not to patch.
+     *
+     * <p>The client is built once and shared: constructing one per call would reintroduce exactly the
+     * per-call setup this removes.
+     */
+    private RestTemplate restTemplate;
+
+    @jakarta.annotation.PostConstruct
+    void buildRestTemplate() {
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofMillis(connectTimeoutMs))
+                // Follow the same redirects HttpURLConnection did, so behaviour is unchanged.
+                .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+                .build();
+        org.springframework.http.client.JdkClientHttpRequestFactory factory =
+                new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        factory.setReadTimeout(java.time.Duration.ofMillis(readTimeoutMs));
+        this.restTemplate = new RestTemplate(factory);
+        log.info("GatewayClient HTTP: pooled JDK client, connect={}ms read={}ms", connectTimeoutMs, readTimeoutMs);
+    }
 
     /**
      * Added 2026-08-02 while diagnosing a timetable failure that took hours to pin down.

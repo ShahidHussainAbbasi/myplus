@@ -164,8 +164,21 @@ describe('PERM-1 — permission sets', () => {
      */
     cy.window().should((w) => expect(w.PermissionMatrix, 'permissions.js is loaded').to.be.an('object'))
     cy.window().then((w) => {
+      /*
+       * ⚠ START FROM A CLEAN STATE. grant() returns what it ADDED, and adding a permission already held
+       * adds nothing — so asserting the cascade against whichever set happens to load first proved
+       * nothing the moment that set was Administrator, which holds everything. It returned [] and the
+       * case failed against a cascade that works perfectly.
+       *
+       * Revoking first is not tidying: it is what makes the next line an actual observation.
+       */
+      w.PermissionMatrix.revoke('sale.create')
+      w.PermissionMatrix.revoke('product.view')
+      w.PermissionMatrix.revoke('customer.view')
+
       const added = w.PermissionMatrix.grant('sale.create')
       expect(added, 'ticking an action pulls in what it needs').to.include('product.view')
+      expect(added, 'and the customers it sells to').to.include('customer.view')
 
       const removed = w.PermissionMatrix.revoke('product.view')
       expect(removed, 'and unticking the dependency drops what needed it').to.include('sale.create')
@@ -201,7 +214,18 @@ describe('PERM-1 — permission sets', () => {
      * ⚠ Asserted on a permission `Standard` GRANTS (sale.create), because that is what discriminates:
      * an assertion on something Standard lacks would have passed before the fix as well.
      */
-    cy.loginAsEducation()
+    /*
+     * ⚠ A PLAIN MEMBER, and choosing the wrong one made this case a false alarm.
+     *
+     * cy.loginAsEducation() signs in demo.education@, whose DEMO_ROLE carries SUPER_PRIVILEGE — and the
+     * interceptor treats that as holding everything, deliberately: a super could do all of this before
+     * PERM-1 existed, and taking it away on deploy is exactly the G-5 failure the built-in sets exist to
+     * prevent. So the demo account passes, correctly, and proves nothing about module isolation.
+     *
+     * user.education@ holds ROLE_EDUCATION_USER and nothing else. Verified by hand before this was
+     * written: the plain member gets 403 and the demo account gets 200, which is both rules working.
+     */
+    cy.loginAs('user.education@myplus.com', 'Demo@2025!', '/getDashboardData')
     cy.request({
       method: 'POST', url: '/addSell', failOnStatusCode: false,
       headers: { 'Content-Type': 'application/json' },
@@ -215,6 +239,266 @@ describe('PERM-1 — permission sets', () => {
       expect(r.status, `a member of another module must not hold sale.create: ${r.status}`).to.eq(403)
       expect(JSON.stringify(r.body).toLowerCase(), 'and is told so plainly')
         .to.contain('not allowed')
+    })
+
+    /*
+     * THE OTHER HALF, pinned so nobody later "fixes" it.
+     *
+     * A SUPER_PRIVILEGE holder passes every permission check, and that is deliberate rather than an
+     * oversight: a super could do all of this before PERM-1 existed, and removing that on the deploy
+     * that introduces permissions is precisely the failure the built-in sets exist to prevent. Without
+     * this assertion the bypass looks like a hole and somebody removes it, taking access away from every
+     * super in the product on the morning they do.
+     */
+    cy.loginAsEducation()   // demo.education@ — DEMO_ROLE, which carries SUPER_PRIVILEGE
+    cy.request({
+      method: 'POST', url: '/addSell', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' },
+      body: { customer: { name: 'Super Probe', contact: '03001111111' }, sales: [],
+              paidAmount: 0, dueAmount: 0, grandTotal: 0 },
+    }).then((r) => {
+      expect(r.status, 'a SUPER is not stopped by the matrix, by design').to.not.eq(403)
+    })
+  })
+
+  // ── the three controls on the screen: picker, name, scope ───────────────────────────────────────
+
+  it('⭐ 9 — a set ROUND-TRIPS: name, scope and codes come back as saved', () => {
+    /*
+     * The screen has three controls beside the matrix -- permSetPicker, permSetName, permScope -- and a
+     * control that does not survive a reload is worse than no control: the owner believes they set
+     * something. Asserted by reading the set BACK rather than trusting the save response, because a
+     * response can echo what it was handed without ever storing it.
+     */
+    const run = uniq()
+    const name = `RoundTrip ${run}`
+    cy.request({
+      method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+      body: { name, scope: 'ALL', codes: ['purchase.create'] },
+    }).then((r) => {
+      const id = ((r.body && (r.body.data || r.body.object)) || {}).id
+      expect(id, 'the set was created').to.exist
+
+      perms().then((d) => {
+        const back = (d.sets || []).find((x) => String(x.id) === String(id))
+        expect(back, 'and it is in the picker').to.exist
+        expect(back.name, 'permSetName survived').to.eq(name)
+        expect(back.scope, 'permScope survived').to.eq('ALL')
+        expect(back.codes, 'and the closure was stored, not just the tick')
+          .to.include.members(['purchase.create', 'purchase.view', 'product.view', 'supplier.view'])
+      })
+    })
+  })
+
+  it('⭐ 10 — editing a set UPDATES it rather than making a second one', () => {
+    /*
+     * The failure this catches is quiet: a save that inserts instead of updating leaves the owner with
+     * two sets of the same name, some members on the old one, and no way to tell which is live.
+     */
+    const run = uniq()
+    cy.request({
+      method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+      body: { name: `Editable ${run}`, scope: 'OWN', codes: ['sale.view'] },
+    }).then((r) => {
+      const id = ((r.body && (r.body.data || r.body.object)) || {}).id
+      cy.request({
+        method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+        body: { id, name: `Renamed ${run}`, scope: 'ALL', codes: ['purchase.create'] },
+      }).then(() => {
+        perms().then((d) => {
+          const mine = (d.sets || []).filter((x) => x.name.endsWith(String(run)))
+          expect(mine.length, 'one set, renamed - not two').to.eq(1)
+          expect(mine[0].scope, 'and the scope changed with it').to.eq('ALL')
+          expect(mine[0].codes, 'and the old codes are gone').to.not.include('sale.view')
+        })
+      })
+    })
+  })
+
+  // ── ⭐⭐ 11. the cross-tenant write this probing actually found ──────────────────────────────────
+
+  it('⭐⭐ 11 — a set cannot be assigned to somebody in ANOTHER business', () => {
+    /*
+     * A REAL DEFECT, found by asking the running system to do it and being told "Saved."
+     *
+     * assign() scoped the SET from the start, so an owner could not borrow another tenant's set. Nothing
+     * scoped the USER -- so an owner could post any userId at all and rewrite the permissions of a member
+     * of a completely different business. A cross-tenant WRITE, the same class the organizationIdFor
+     * ruling was made about, and it wrote a real row before this test existed.
+     *
+     * user id 1 is deliberately somebody outside this tenant. If the refusal ever regresses, this fails
+     * loudly here rather than silently in somebody else's shop.
+     */
+    perms().then((d) => {
+      const anySet = (d.sets || []).find((x) => x.name === 'Standard')
+      cy.request({
+        method: 'POST', url: '/team/permissions/assign', failOnStatusCode: false,
+        body: { userId: 1, setId: anySet.id },
+      }).then((r) => {
+        const msg = JSON.stringify(r.body).toLowerCase()
+        expect(msg, `an outsider must be refused: ${msg}`).to.contain('not in this business')
+        expect(msg, 'and it must NOT report success').to.not.contain('"success":true')
+      })
+    })
+  })
+
+  // ── ⭐ 12. a refusal must arrive as a sentence, not as "internal server error" ───────────────────
+
+  it('⭐ 12 — a refusal reaches the owner intact, quotes and all', () => {
+    /*
+     * Also found by probing. Every deliberate refusal here reached the screen as
+     * "Internal server error: ..." because auth-service's own advice turned ValidationException into a
+     * 500, and the built-in one arrived as a single BACKSLASH because the proxy pulled the sentence out
+     * with a regex that stops at the first quote -- and that message names the set in quotes.
+     *
+     * Two faults compounding, and the casualty was the only part of a refusal worth reading: what to do
+     * instead. Asserted on the WORDS, because that is what was lost.
+     */
+    perms().then((d) => {
+      const builtin = (d.sets || []).find((x) => x.builtin && x.name === 'Cashier')
+      cy.request({
+        method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+        body: { id: builtin.id, name: 'Cashier', scope: 'OWN', codes: ['sale.view'] },
+      }).then((r) => {
+        const msg = String((r.body && r.body.message) || '')
+        expect(msg, `the sentence survived: "${msg}"`).to.contain('built-in')
+        expect(msg, 'and names the way forward').to.contain('uplicate')
+        expect(msg.toLowerCase(), 'and is not dressed up as a server fault')
+          .to.not.contain('internal server error')
+      })
+    })
+  })
+
+  it('⭐ 13 — a set somebody is on cannot be deleted', () => {
+    // Deleting it would strip those members silently. The refusal names how many and what to do.
+    perms().then((d) => {
+      const std = (d.sets || []).find((x) => x.name === 'Standard')
+      cy.request({ method: 'DELETE', url: `/team/permissions/sets/${std.id}`, failOnStatusCode: false })
+        .then((r) => {
+          const msg = String((r.body && r.body.message) || '').toLowerCase()
+          expect(msg, `refused: ${msg}`).to.match(/built-in|member/)
+        })
+    })
+  })
+
+  // ── the "Sees" control: whose records, as opposed to which actions ──────────────────────────────
+
+  it('⭐⭐ 14 — a member on ALL sees the shop; a member on OWN sees only their own', () => {
+    /*
+     * THE CONTROL THAT USED TO GOVERN NOTHING.
+     *
+     * `permScope` was stored on the set and minted into the token from the day the matrix shipped, and
+     * read by NOBODY. An owner set a member to "All records in this shop" and watched nothing change,
+     * because the ROLE decided: owner/super/admin saw the whole shop, everyone else saw only rows they
+     * had created. Two answers to one question, and the dropdown was the one nobody consulted.
+     *
+     * It surfaced as a shop that could not trade. A member holding customer.view AND sale.create, set to
+     * ALL, opened a sale screen with an EMPTY customer picker — and a sale that leaves a balance requires
+     * a named customer, so they could not ring one up at all.
+     *
+     * ⚠ BOTH DIRECTIONS, because either alone is satisfiable by a build that is simply broken. A test
+     * that only checked ALL would pass against a build that showed everybody everything — which is the
+     * failure the control exists to prevent.
+     */
+    let ownRows = null
+
+    // OWN: user.business@ is on Standard, whose scope is OWN, and has created nothing here.
+    cy.loginAsTier('user', 'business')
+    cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r) => {
+      ownRows = ((r.body && (r.body.collection || r.body.data || r.body.object)) || []).length
+    })
+
+    // The owner's count is the shop's total — the number a widened member should reach.
+    cy.loginAsOwner()
+    cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r) => {
+      const all = ((r.body && (r.body.collection || r.body.data || r.body.object)) || []).length
+      expect(all, 'the shop has customers to be scoped away from somebody').to.be.greaterThan(0)
+      expect(ownRows, 'a member on OWN does NOT see the whole shop').to.be.lessThan(all)
+    })
+  })
+
+  it('⭐⭐ 15 — switching a set to ALL widens the member, and back to OWN narrows them', () => {
+    /*
+     * The round trip, which is what makes case 14 a control rather than a coincidence. A build that
+     * ignored the set entirely would give the same answer to both halves of case 14 if the member simply
+     * had no records; this one CHANGES the set and requires the answer to change with it.
+     *
+     * ⚠ A NEW SET, never one of the built-ins. Standard and Administrator are the contract that this
+     * feature's deploy changed nothing for anybody, and a gate that edited them in place would rewrite
+     * that contract for every member already migrated onto them.
+     */
+    const run = uniq()
+    let setId = null
+    let userId = null
+
+    cy.loginAsOwner()
+    cy.request({
+      method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+      body: { name: `Scope ${run}`, scope: 'OWN', codes: ['customer.view', 'sale.view'] },
+    }).then((r) => {
+      setId = ((r.body && (r.body.data || r.body.object)) || {}).id
+      expect(setId, 'the set was created').to.exist
+    })
+
+    // Find the plain member to move. Their own row in the team list carries the id.
+    cy.request({ url: '/team/users', failOnStatusCode: false }).then((r) => {
+      const rows = (r.body && (r.body.data || r.body.object)) || []
+      const member = rows.find((u) => String(u.email || '').startsWith('user.business@'))
+      expect(member, 'the plain member is in this tenant').to.exist
+      userId = member.userId || member.id
+    })
+
+    cy.then(() => {
+      // ── OWN ──────────────────────────────────────────────────────────────────────────────────
+      cy.request({ method: 'POST', url: '/team/permissions/assign', failOnStatusCode: false,
+        body: { userId, setId } })
+        .then((r) => expect(r.body && r.body.success, JSON.stringify(r.body)).to.eq(true))
+
+      cy.loginAsTier('user', 'business')     // a fresh sign-in re-mints the token; see the 15-minute rule
+      cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r) => {
+        const narrow = ((r.body && (r.body.collection || r.body.data || r.body.object)) || []).length
+
+        // ── ALL ────────────────────────────────────────────────────────────────────────────────
+        cy.loginAsOwner()
+        cy.request({ method: 'POST', url: '/team/permissions/sets', failOnStatusCode: false,
+          body: { id: setId, name: `Scope ${run}`, scope: 'ALL', codes: ['customer.view', 'sale.view'] } })
+          .then((r2) => expect(r2.body && r2.body.success, JSON.stringify(r2.body)).to.eq(true))
+
+        cy.loginAsTier('user', 'business')
+        cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r3) => {
+          const wide = ((r3.body && (r3.body.collection || r3.body.data || r3.body.object)) || []).length
+          expect(wide, `ALL widened the member: ${narrow} -> ${wide}`).to.be.greaterThan(narrow)
+        })
+      })
+    })
+
+    // Leave no server state behind: the member goes back to Standard, whatever this case did.
+    cy.then(() => {
+      cy.loginAsOwner()
+      perms().then((d) => {
+        const std = (d.sets || []).find((x) => x.name === 'Standard')
+        cy.request({ method: 'POST', url: '/team/permissions/assign', failOnStatusCode: false,
+          body: { userId, setId: std.id } })
+      })
+    })
+  })
+
+  it('⭐ 16 — widening READS grants no ACTION', () => {
+    /*
+     * The line the control must not cross. `scope.ALL` answers "whose records?" and never "what may they
+     * do?" — a member set to ALL still cannot ring up a sale without sale.create.
+     *
+     * Worth pinning because the implementation carries the scope as an AUTHORITY, and an authority is
+     * exactly the shape that could be mistaken for a permission by a later reader. This case fails the
+     * moment somebody widens what scope.ALL is allowed to unlock.
+     */
+    cy.loginAsTier('user', 'business')     // Standard: holds sale.create but NOT team.create
+    cy.request({
+      method: 'POST', url: '/team/users', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' },
+      body: { firstName: 'Scope', lastName: 'Probe', email: `scope${uniq()}@t.com`, role: 'USER' },
+    }).then((r) => {
+      expect(r.status, 'seeing more of the shop is not permission to do more in it').to.eq(403)
     })
   })
 

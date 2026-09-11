@@ -17,6 +17,38 @@ reinvent.**
 
 ## 1. Governing standards (the rules every slice follows)
 
+### 0b. NEVER BE OPTIMISTIC ABOUT MONEY.
+
+**A stock adjustment, a payment, a GL posting — show PENDING and wait for the server. A customer's phone
+number can be optimistic; a receivable cannot. The cost of being wrong is different in kind.**
+
+This governs every technique that shows a result before the server has confirmed it: optimistic UI, a
+client-side patch, a cached figure, a fire-and-forget write.
+
+**The test to apply:** if this turns out to be wrong, does someone lose money, or does someone retype a
+field?
+
+| Optimistic is fine | Wait for the server |
+|---|---|
+| a name, a phone number, an address | a payment received or made |
+| a category, a unit, a label | a stock adjustment or transfer |
+| a note, a description, a tag | anything that posts to the GL |
+| a UI preference | a due amount, a credit balance, an invoice total |
+| a search result already held | a document number allocation |
+
+**Why the asymmetry is not conservatism.** A wrong phone number is visible to the person who typed it and
+costs one correction. A wrong balance is invisible — it looks exactly like a right one — and is discovered
+weeks later by a customer disputing a statement, at which point the shop cannot tell which figure was ever
+true. A silent, delayed, unfalsifiable error is a different class of failure from an obvious one, and speed
+is never worth trading for it.
+
+⚠ **This also rules out "compare the optimistic value with the server's answer and warn on a mismatch."**
+The server legitimately differs on every successful write — it stamps `updated`, generates ids, defaults
+enums and restores derived fields the form carries as blank (`Customer.dueAmount` is the live example). A
+diff-based check fires on saves that worked, users learn to ignore it, and the real failure then passes
+unnoticed. **The server's response replaces the optimistic value silently; the MESSAGE comes from the
+envelope.**
+
 ### 0. NEVER ASSUME. REVIEW 100% END TO END.
 
 **This one comes before the others, because breaking it is how every other standard gets broken.**

@@ -1315,6 +1315,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="perm-preview">
 						<div class="perm-preview__cap" th:text="#{ui.whatTheyWillSee}">What they will see</div>
 						<div id="permPreviewOn" class="perm-preview__nav"></div>
+						<div id="permPreviewScope" class="perm-preview__scope"></div>
 						<div id="permPreviewOff" class="perm-preview__off"></div>
 					</div>
 				</div>
@@ -1639,7 +1640,12 @@ tr.row-voided .js-edit-row{display:none !important}
 					onsubmit="return false" id="Customer" autocomplete="off">
 					<div class="form-group" style="display: none">
 						<div class="col-sm-6">
-							<input type="number" class="form-control" id="customerId" name="customerId" readonly="readonly"/> 
+							<input type="number" class="form-control" id="customerId" name="customerId" readonly="readonly"/>
+							<!-- V62 optimistic lock: the version this form was loaded with, sent back on save so
+							     the server can tell a fresh edit from one made against a copy another till has
+							     since replaced. Filled by editRecord() from the row's hidden span; empty on a
+							     NEW customer, which is correct — there is nothing to conflict with. -->
+							<input type="hidden" id="customerVersion" name="version"/> 
 						</div>
 					</div>
 					<div class="form-group">

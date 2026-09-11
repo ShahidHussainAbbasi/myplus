@@ -1803,6 +1803,99 @@ function preloadSectionPickers(){
 	}
 }
 
+/**
+ * ⭐ PERF-13 — ONE customer row, as the grid renders it.
+ *
+ * <h3>Why this is a function now</h3>
+ * It was an array literal inside the grid's ajax success handler, which meant the ONLY way to show a saved
+ * customer was to reload every customer. Saving one name cost 543 KB and a full re-render.
+ *
+ * The same builder now serves both the full load and a single-row patch, so a row inserted after a save is
+ * identical to one that arrived from the server — there is no second definition of what a row looks like,
+ * which is the way these two drift apart.
+ *
+ * ⚠ The cell COUNT is load-bearing. DataTables requires the array to match the column count exactly; a
+ * missing cell shifts every later column and throws "Requested unknown parameter". editRecord() also refills
+ * the form FROM this row, so the id on each div is the form field it feeds.
+ */
+function buildCustomerRow(obj){
+	return [
+		/*
+		 * ⭐ V62 — the optimistic-lock version rides HIDDEN in the id cell.
+		 *
+		 * It cannot have a column of its own: DataTables requires the row array to match the header count
+		 * exactly, and an extra cell shifts every later column. This is the same trick purchaseCondition
+		 * uses to ride inside the serials cell — editRecord() matches form fields to row elements BY ID, so
+		 * a hidden span with the field's id is picked up and sent back on the next save.
+		 *
+		 * Without it an edit posts no version, the server falls back to the row's current one, and the
+		 * conflict check silently does nothing.
+		 */
+		"<div id=customerId>"+obj.customerId+"</div>"
+			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>",
+		"<input type='checkbox' value="+ obj.customerId+ ">",
+		"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
+		"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
+		"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
+		"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
+		"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
+		"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
+		"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
+		"<div class='row-actions'>"
+		// Receive only makes sense when the customer owes something — hide it when the due is 0.
+		+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
+		+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
+		+ contact360Button(obj.partyId)
+		+ "</div>"
+	];
+}
+
+/** Which entities can patch a single row, and how they build it. Anything absent falls back to a reload. */
+var GRID_ROW_BUILDERS = { Customer: buildCustomerRow };
+
+/**
+ * ⭐ PERF-13 — show a saved record by REPLACING ITS ROW, not by reloading the grid.
+ *
+ * <p>Returns true when it handled the update, false when the caller should fall back to loadDataTable().
+ *
+ * <h3>⚠ It only ever patches from the SERVER's object</h3>
+ * Never from the form. The server generates the id, stamps the clocks, defaults customerType and
+ * <b>preserves the derived dueAmount that the edit form carries as blank</b>. A row painted from the form
+ * would show a customer owing nothing when they owe money — which is worse than the reload it replaces.
+ *
+ * <p>So: no saved object in the response, no patch. Absent means "reload", never "guess".
+ */
+function applySavedRow(entity, saved){
+	var build = GRID_ROW_BUILDERS[entity];
+	if (!build || !saved || !datatable) return false;
+
+	// The id column is index 0 and carries "<div id=...>value</div>" — match on the value inside it.
+	var idOf = function(cell){
+		var m = /<div[^>]*>([^<]*)<\/div>/.exec(String(cell || ''));
+		return $.trim(m ? m[1] : String(cell || ''));
+	};
+	var wanted = String(saved.customerId != null ? saved.customerId : saved.id || '');
+	if (!wanted) return false;
+
+	var row = null;
+	datatable.rows().every(function(){
+		if (idOf(this.data()[0]) === wanted) { row = this; return false; }
+	});
+
+	try {
+		if (row) { row.data(build(saved)); }
+		else     { datatable.row.add(build(saved)); }
+		// draw(false) KEEPS the current page and sort — draw() would jump the operator back to page one,
+		// which after editing row 40 is its own small usability defect.
+		datatable.draw(false);
+		return true;
+	} catch (e) {
+		if (window.console) console.warn('applySavedRow fell back to a reload', e);
+		return false;
+	}
+}
+window.applySavedRow = applySavedRow;
+
 function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
@@ -1949,30 +2042,7 @@ function loadDataTable(){
 					});
 					$("#venderName").prop("readonly", false);
 				} else if (getAll === "Customer") {
-					$.each(collections, function(ind, obj) {
-						allRows.push([
-							"<div id=customerId>"+obj.customerId+"</div>","<input type='checkbox' value="+ obj.customerId+ ">",
-							"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
-							"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
-							// B2B-P0/P1: these three cells MUST exist. The header has a column for each, and DataTables
-							// requires row arrays to match the column count exactly — a missing cell shifts every later
-							// column and throws "Requested unknown parameter". editRecord() also refills the form FROM
-							// this row, so the id on each div is the form field it feeds.
-							"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
-							"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
-							"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
-							"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
-							"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
-							"<div class='row-actions'>"
-							// Receive only makes sense when the customer owes something — hide it when the due is 0.
-							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
-							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
-							// Contact-360: this customer's identity + roles across modules (the shared helper applies the
-							// owner/admin gate and the "only when bridged" rule in one place for every vertical).
-							+ contact360Button(obj.partyId)
-							+ "</div>"
-						]);
-					});
+					$.each(collections, function(ind, obj) { allRows.push(buildCustomerRow(obj)); });
 				} else if (getAll === "ItemType") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([

@@ -48,7 +48,15 @@ describe('Debit notes — supplier filter and bulk print', () => {
       expect($real.length, 'the tenant has at least one supplier').to.be.greaterThan(0)
       const id = Cypress.$($real[0]).val()
       expect(id, 'a real supplier id').to.match(/^\d+$/)
-      cy.get('#returnsVenderDD').select(id)
+      /*
+       * ⚠ { force: true } — a .selectpicker's real <select> is ALWAYS display:none.
+       *
+       * bootstrap-select hides the element and renders a button in its place, so Cypress's visibility
+       * check can never pass on it and the failure reads as a missing control. Forcing here is not
+       * skipping a check: .select() on the hidden <select> fires the same changed.bs.select the widget
+       * does, which is the event the filter listens for. 48 other sites in this suite already do it.
+       */
+      cy.get('#returnsVenderDD').select(id, { force: true })
 
       cy.wait('@register', { timeout: 30000 }).then((i) => {
         expect(i.request.url, 'the filter is applied SERVER-side').to.include('venderId=' + id)
@@ -56,16 +64,31 @@ describe('Debit notes — supplier filter and bulk print', () => {
     })
   })
 
-  it('the supplier filter does not appear for credit notes', () => {
-    // A credit note's party is a customer. A supplier picker there is a control that cannot match anything.
+  it('the SUPPLIER picker does not appear for credit notes — but the bar still does', () => {
+    /*
+     * ⚠ THIS CASE ASSERTED A DECISION THE PRODUCT REVERSED, and the reversal is right.
+     *
+     * It demanded the whole #returnsFilterBar be hidden on the credit side. showReturns() says why that
+     * changed, in as many words: task #16 hid the bar because its only filter was a supplier one, and a
+     * supplier picker over customer returns can never match anything — "right about the PICKER and wrong
+     * about the BAR — it took Print all down with it."
+     *
+     * So the bar stays and only the PARTY SLOT swaps: customers on credit, suppliers on debit. That is
+     * the behaviour worth asserting, and it is what a test encoding a superseded decision was hiding.
+     */
     cy.loginAsMarketplaceOwner()
     cy.visit('/businessDashboard')
     cy.get('#sellType', { timeout: 30000 }).should('exist')
+
     cy.window().then((w) => w.showReturns('credit'))
-    cy.get('#returnsFilterBar').should('not.be.visible')
+    cy.get('#returnsFilterBar').should('be.visible')            // Print all lives here
+    cy.get('#returnsPartyVender').should('not.be.visible')      // no supplier picker over customer returns
+    cy.get('#returnsPartyCustomer').should('be.visible')
 
     cy.window().then((w) => w.showReturns('debit'))
     cy.get('#returnsFilterBar').should('be.visible')
+    cy.get('#returnsPartyVender').should('be.visible')          // and the supplier picker returns
+    cy.get('#returnsPartyCustomer').should('not.be.visible')
   })
 
   it('⭐ Print all fetches every listed note — as one job, not one dialog each', () => {

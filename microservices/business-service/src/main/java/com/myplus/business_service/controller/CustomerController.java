@@ -177,10 +177,13 @@ public class CustomerController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
+			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
+			// so calling it inside the loop made every row rebuild what the row before it had just built.
+			modelMapper.addConverter(appUtil.localDateToString);
+			modelMapper.addConverter(appUtil.localDateTimeToString);
+
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
 				CustomerDTO dto = modelMapper.map(obj, CustomerDTO.class);
 				// dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
@@ -253,6 +256,22 @@ public class CustomerController {
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
 				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
 				if(existing != null) {
+					/*
+					 * ⭐ V62 — THE VERSION THE CLIENT SAW decides whether this edit is still valid.
+					 *
+					 * Hibernate puts it in the UPDATE's WHERE clause. If another till saved since this form
+					 * was loaded the row no longer matches, no rows update, and an
+					 * ObjectOptimisticLockingFailureException is thrown — caught below and turned into a
+					 * message a cashier can act on.
+					 *
+					 * ⚠ FALLING BACK TO THE EXISTING VERSION IS THE SAFE DIRECTION, NOT A LOOPHOLE. An older
+					 * client that sends no version gets the row's current one, i.e. today's last-write-wins
+					 * — exactly the behaviour it has always had. Refusing those saves instead would break
+					 * every cached browser tab the moment this deployed, to protect against a collision that
+					 * is rare; and a shop unable to save a customer is a worse outcome than the overwrite
+					 * this guards. New clients send it and get the protection.
+					 */
+					obj.setVersion(dto.getVersion() != null ? dto.getVersion() : existing.getVersion());
 					obj.setDated(existing.getDated());
 					// dueAmount + dueDate are DERIVED (owned by recomputeDue / Receive Payment) — a profile edit
 					// carries a blank due from the form, so preserve the real balance instead of wiping it.
@@ -290,8 +309,45 @@ public class CustomerController {
 					LOGGER.warn("Customer {} saved but its credit account could not be stamped", obj.getCustomerId(), stampFailed);
 				}
 				partyBridgeService.bridgeCustomer(obj);   // P1: link to the shared party master (best-effort)
-				return new GenericResponse("SUCCESS", "Customer saved successfully.");
+
+				/*
+				 * ⭐ PERF-13 — THE WRITE ANSWERS WITH THE ROW IT WROTE.
+				 *
+				 * This returned a message and nothing else, so the screen had no way to show the result
+				 * except to reload the ENTIRE customer grid — 543 KB and a full re-render after saving one
+				 * name. The row was right here and was thrown away.
+				 *
+				 * ⚠ IT MUST BE THE SAVED ENTITY, NOT THE SUBMITTED FORM. The client cannot reconstruct this
+				 * row: `customerId` is generated, `dated`/`updated` are server clocks, `customerType` may have
+				 * been DEFAULTED, and `dueAmount` is DERIVED — an edit carries a blank one and the code above
+				 * deliberately restores the real balance. A client that painted its own form values would show
+				 * a customer owing nothing when they owe money.
+				 *
+				 * Mapped exactly as getUserCustomer maps a row, so the object the grid patches in is identical
+				 * in shape to the ones it loaded. Same pattern as PERF-9 (stock) and the existing
+				 * reconcilePurchase.
+				 */
+				modelMapper.addConverter(appUtil.localDateToString);
+				modelMapper.addConverter(appUtil.localDateTimeToString);
+				CustomerDTO saved = modelMapper.map(obj, CustomerDTO.class);
+				return new GenericResponse("SUCCESS", "Customer saved successfully.", saved);
 			}
+		} catch (org.springframework.dao.OptimisticLockingFailureException conflict) {
+			/*
+			 * ⭐ V62 — SOMEBODY ELSE SAVED THIS CUSTOMER FIRST.
+			 *
+			 * Not an error in any useful sense: both writes were legitimate, they simply raced. The generic
+			 * catch below would have called it "an unexpected error — contact support", which tells a
+			 * cashier nothing and sends them to a support queue for a conflict they can resolve in ten
+			 * seconds by reloading.
+			 *
+			 * The message names the ACTION to take. Nothing was written, so their typed values are still on
+			 * screen and still theirs to re-apply.
+			 */
+			LOGGER.info("addCustomer: optimistic lock conflict on customer {}", dto.getCustomerId());
+			return new GenericResponse("CONFLICT",
+					"Somebody else changed this customer while you were editing it. "
+					+ "Reload to see their version, then re-apply your change.");
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addCustomer "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");

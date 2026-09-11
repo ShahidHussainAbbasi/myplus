@@ -40,6 +40,30 @@ function receive(productId, qty, rate, bonus) {
 }
 
 /**
+ * A product this case OWNS, with stock it received itself.
+ *
+ * ⚠ Every case in this file used to open with `/getUserProduct` and take `collection[0]` — whichever
+ * product happened to sort first, carrying whatever stock, batches and costs earlier runs had left on
+ * it. Three consequences, all of which bit:
+ *
+ *   • FEFO picks the OLDEST batch, so a case that received 40 @ 500 could still consume a legacy batch
+ *     with no cost at all — and the COGS assertion then measured NULL against a ledger holding the real
+ *     figure;
+ *   • the "sellable" arithmetic drifted, because held and expired stock from other runs counted toward
+ *     on-hand and not toward sellable;
+ *   • two cases sharing one product meant the second inherited the first's leftovers.
+ *
+ * Seeding is the standing rule in this project: existence is not eligibility. A fresh product with no
+ * history is the only fixture whose arithmetic a case can actually predict.
+ */
+const ownProduct = (label, price = 900) =>
+  // Same unique-suffix shape receive() already uses for its batch numbers — one idiom in one file.
+  cy.seedProduct({
+    name: `${label}_${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    sellingPrice: price,
+  }).then(({ productId }) => cy.wrap(productId))
+
+/**
  * COGS as the books actually record it.
  *
  * ⚠ /gl/accountLedger takes `accountId` — a numeric row id on a PATH (/gl/accounts/{id}/ledger) — not an
@@ -110,8 +134,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * (The reservation itself is a service-to-service call the browser never sees. Its EFFECTS are what a
      * gate can honestly assert: the batches recorded here, the stock in case 2, the cost in cases 3 and 4.)
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 40, 500).then(() => {
         sell(pid, 10, 1, 900).then((r) => {
           expect(r.body.status, JSON.stringify(r.body).slice(0, 250)).to.not.eq('ERROR')
@@ -146,8 +169,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * THE DEFECT. Sell 10 with 1 free and 11 leave the shelf. A system that decrements 10 shows one phantom
      * unit per bonus sale — permanently, compounding, and feeding the stock-value tile.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 40, 500).then(() => {
         onHand(pid).then((before) => {
           sell(pid, 10, 1, 900).then((r) => {
@@ -175,8 +197,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * what the sale recorded consuming — and those records must cover all ELEVEN units. That is precisely the
      * P3 contract ("cost follows the goods"), and it holds whatever the tenant already had on the shelf.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 60, 500).then(() => {
         cogsBalance().then((before) => {
           if (before === null) return   // GL reports not enabled for this tenant
@@ -216,8 +237,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * LATEST rate posts 11 x 600; a build that costs it from the batches FEFO consumed posts the blend. Every
      * other case in this file passes under both designs — this one does not.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
 
       receive(pid, 6, 500).then(() => {
         receive(pid, 10, 600).then(() => {
@@ -254,8 +274,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * So the assertions are the two things that must hold whatever FEFO picks: exactly TEN units leave (no
      * phantom bonus), and the GL posts exactly what the sale recorded consuming.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 30, 500).then(() => {
         onHand(pid).then((before) => {
           cogsBalance().then((cogsBefore) => {
@@ -321,8 +340,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * system-generated addition. Refusing the sale because a FREE unit is short would be the #23 defect
      * returning by another route.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       onHand(pid).then((have) => {
         if (have < 1) return
         // Ask for exactly what exists: the paid line fits, the bonus cannot.
@@ -409,10 +427,15 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      * does: pick the product, type the quantity, type the bonus, add to cart, complete the sale. Only the
      * before/after stock reads are API calls, because they are observations, not the thing under test.
      */
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const rows = (p.body && p.body.collection) || []
-      expect(rows.length, 'the tenant has a product').to.be.greaterThan(0)
-      const pid = rows[0].id
+    /*
+     * ⚠ ITS OWN PRODUCT, like every other case here.
+     *
+     * This one took `collection[0]` and failed with "only 60 sellable, 111 requested" — it receives 60
+     * and sells 10 + 1, so 111 is not a number this case can produce. It came from a shared product
+     * whose sellable count had been eaten by other runs' held and expired stock, on top of a till that
+     * carried a previous cart. Neither is a defect in the bonus feature this case is about.
+     */
+    ownProduct('HoldProd').then((pid) => {
 
       // Enough stock that the bonus cannot be withheld for shortage — this case is about the UI, and a
       // legitimate D11 withholding here would look like the bonus never reaching the server.
@@ -529,8 +552,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
      */
     const FREE = /(free|offert|gratis|मुफ़्त|مجاناً|مفت)/i
 
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 60, 500).then(() => {
         sell(pid, 10, 1, 900).then((r) => {
           expect(r.body.status, JSON.stringify(r.body).slice(0, 200)).to.not.eq('ERROR')
@@ -572,8 +594,7 @@ describe('#17 P3 — customer bonus and true COGS', () => {
     const mm = String(today.getMonth() + 1).padStart(2, '0')
     const stamp = dd + '-' + mm + '-' + today.getFullYear()
 
-    cy.request({ url: '/getUserProduct' }).then((p) => {
-      const pid = ((p.body && p.body.collection) || [])[0].id
+    ownProduct('P3').then((pid) => {
       receive(pid, 20, 500).then(() => {
         sell(pid, 5, null, 900).then(() => {
           // Today to today — the range that returned nothing.

@@ -111,13 +111,52 @@ public class SellController {
 	@Autowired
 	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line display fields from catalog
 
+	/**
+	 * How many product ids go in ONE catalog lookup.
+	 *
+	 * <h3>⚠ PERF-12 — this was UNBOUNDED, and it silently broke the Sale grid</h3>
+	 * {@code getProducts} is a {@code @GetExchange}, so every id rides in the QUERY STRING. Org 13 has 730
+	 * distinct products on its sale rows, and {@code /getUserSell} asked for all 730 in one GET. Tomcat
+	 * rejected it before Spring ever saw it — a bare {@code HTTP Status 400 – Bad Request} HTML page, which
+	 * is what a request line plus headers over {@code maxHttpHeaderSize} (8 KB default) looks like: ~3.7 KB
+	 * of ids, plus a bearer JWT carrying the caps claim, plus the internal headers.
+	 *
+	 * <p><b>It failed on every single call</b>, and the catch below turned that into a WARNING and an empty
+	 * map — so the grid rendered with <b>no product name, SKU or description on any row</b>, with nothing on
+	 * screen to say why. Found only by reading the container log while investigating something else.
+	 *
+	 * <p>And it gets WORSE with tenant size, which is exactly the population that reported slowness: the more
+	 * products a shop has sold, the longer the URL, the more certain the failure.
+	 *
+	 * <p>100 keeps a chunk near 500 bytes of ids — far under any header limit — while still turning what
+	 * would be 730 single lookups into 8 calls. The batching this method exists for is preserved; only its
+	 * unbounded-ness is removed.
+	 */
+	private static final int PRODUCT_REF_BATCH = 100;
+
 	/** M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
 	 *  replacing the local Item entity load. Best-effort — on a catalog hiccup names fall back to blank, never throws. */
 	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
 		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
 		try {
-			return catalogClient.getProducts(productIds).stream()
-				.collect(java.util.stream.Collectors.toMap(com.myplus.commerce.contracts.dto.ProductRef::getId, p -> p, (a, b) -> a));
+			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> out = new java.util.HashMap<>();
+			/*
+			 * Chunked — see PRODUCT_REF_BATCH. A partial failure degrades PARTIALLY: the chunks that answered
+			 * still name their rows, instead of one oversized request blanking every name on the screen.
+			 */
+			for (int i = 0; i < productIds.size(); i += PRODUCT_REF_BATCH) {
+				java.util.List<Long> chunk =
+						productIds.subList(i, Math.min(i + PRODUCT_REF_BATCH, productIds.size()));
+				try {
+					for (com.myplus.commerce.contracts.dto.ProductRef r : catalogClient.getProducts(chunk)) {
+						if (r != null && r.getId() != null) out.putIfAbsent(r.getId(), r);
+					}
+				} catch (Exception chunkFailed) {
+					LOGGER.warn("M4d: catalog getProducts failed for a chunk of {} id(s); "
+							+ "those line names will be blank", chunk.size(), chunkFailed);
+				}
+			}
+			return out;
 		} catch (Exception e) {
 			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); line names may be blank", productIds.size(), e);
 			return java.util.Collections.emptyMap();
@@ -496,10 +535,21 @@ public class SellController {
 					.map(s -> s.getProductId()).distinct()
 					.collect(java.util.stream.Collectors.toList());
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(sagaProductIds);
+			/*
+			 * ⭐ PERF-10 — REGISTERED ONCE, NOT ONCE PER ROW.
+			 *
+			 * These two lines were INSIDE the loop below, so a 807-row response called addConverter 1,614
+			 * times on the same shared mapper. addConverter mutates the mapper's configuration and drops its
+			 * internal type cache, so every row paid to rebuild what the row before it had just built.
+			 *
+			 * Hoisting is safe because the mapper is a field on this controller and the converters are
+			 * idempotent — registering the same converter twice was always a no-op in effect, only in cost.
+			 */
+			modelMapper.addConverter(appUtil.localDateTimeToString);
+			modelMapper.addConverter(appUtil.localDateToString);
+
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				// SellDTO dto = appUtil.objTodtoConverter(o);
 				SellDTO dto = modelMapper.map(o, SellDTO.class);
 				if(o.getProductId() != null) {

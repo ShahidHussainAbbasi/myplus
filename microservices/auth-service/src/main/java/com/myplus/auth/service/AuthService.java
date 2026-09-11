@@ -672,16 +672,40 @@ public class AuthService {
      * principal from the response (the monolith does — see {@code AuthServerAuthenticationProvider}) then see
      * exactly what the token says.
      */
+    /**
+     * The authorities that were just minted into the token, so the response cannot disagree with it.
+     *
+     * <p>Falls back to the role's privileges when the claim is missing — the same fail-back the claim
+     * builder itself uses, so a token minted before this existed still yields a usable response.
+     */
+    @SuppressWarnings("unchecked")
+    private java.util.Set<String> claimPrivileges(Map<String, Object> claims, User user) {
+        Object v = (claims == null) ? null : claims.get("privileges");
+        if (v instanceof java.util.Collection<?> c && !c.isEmpty()) {
+            java.util.Set<String> out = new java.util.LinkedHashSet<>();
+            for (Object o : c) if (o != null) out.add(String.valueOf(o));
+            return out;
+        }
+        return new java.util.LinkedHashSet<>(CustomUserDetailsService.getPrivilegeNames(user.getRoles()));
+    }
+
     private AuthResponse buildAuthResponse(User user, String accessToken, String refreshToken,
                                            Map<String, Object> claims) {
         Object orgType = (claims != null) ? claims.get("activeOrgType") : null;
-        return buildAuthResponseBuilder(user, accessToken, refreshToken)
+        return buildAuthResponseBuilder(user, accessToken, refreshToken, claims)
                 .activeOrgType(orgType != null ? orgType.toString() : null)
                 .build();
     }
 
     private AuthResponse.AuthResponseBuilder buildAuthResponseBuilder(User user, String accessToken,
                                                                       String refreshToken) {
+        return buildAuthResponseBuilder(user, accessToken, refreshToken, null);
+    }
+
+    /** As above, but told which claims were minted — see the privileges note below. */
+    private AuthResponse.AuthResponseBuilder buildAuthResponseBuilder(User user, String accessToken,
+                                                                     String refreshToken,
+                                                                     Map<String, Object> claims) {
         return AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -692,7 +716,21 @@ public class AuthService {
                 .lastName(user.getLastName())
                 .userType(user.getUserType())
                 .roles(CustomUserDetailsService.getRoleNames(user.getRoles()))
-                .privileges(CustomUserDetailsService.getPrivilegeNames(user.getRoles()))
+                /*
+                 * ⚠ FROM THE CLAIMS, not re-derived from the roles.
+                 *
+                 * This line read getPrivilegeNames(user.getRoles()) — the ROLE's privileges only — while
+                 * buildClaims had already assembled roles + PERMISSIONS into the token. So the JWT carried
+                 * sale.create and this response body did not, and the monolith builds its session
+                 * authorities from THIS BODY (AuthServerAuthenticationProvider maps response.getPrivileges()
+                 * to GrantedAuthority). The result: every permission-mapped path refused every non-owner,
+                 * including members holding the permission — "You are not allowed to add customers" to a
+                 * cashier whose set grants exactly that.
+                 *
+                 * Two sources for one question, and they disagreed the moment one gained a new input. The
+                 * claims are the single answer; this reads them rather than computing a second one.
+                 */
+                .privileges(claimPrivileges(claims, user))
                 .twoFactorRequired(false)
                 .demo(user.isDemo());
     }
@@ -909,8 +947,22 @@ public class AuthService {
             }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).
-            claims.put("dataScope", (!businessTenant || isOwner) ? "ALL"
-                    : permissionService.scopeFor(user.getId()));
+            String scope = (!businessTenant || isOwner) ? "ALL" : permissionService.scopeFor(user.getId());
+            claims.put("dataScope", scope);
+            /*
+             * ⭐ And as an AUTHORITY, which is what actually makes it work.
+             *
+             * `dataScope` was written into the token from the day the matrix shipped and read by NOTHING —
+             * an owner set a member to "All records in this shop" and watched nothing change. Authorities
+             * are the rail that already reaches every reader (gateway → HeaderAuthFilter → LocationScope),
+             * so the same answer travelling as `scope.ALL` is honoured with no further plumbing.
+             *
+             * The claim stays too: it is what the SCREEN shows back, and dropping it would leave the
+             * dropdown unable to display what it had saved.
+             */
+            if ("ALL".equals(scope)) {
+                authorities.add(com.myplus.common.security.LocationScope.SCOPE_ALL);
+            }
         } catch (Exception e) {
             /*
              * Permissions unreadable => mint the ROLE's privileges alone, which is exactly the token

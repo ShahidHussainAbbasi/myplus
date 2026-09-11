@@ -32,6 +32,8 @@ public class PermissionService {
     private final PermissionSetRepository setRepo;
     private final PermissionSetItemRepository itemRepo;
     private final UserPermissionSetRepository userSetRepo;
+    /** Answers "is this person in this shop?" — the check assign() was missing. */
+    private final com.myplus.auth.repository.MembershipRepository membershipRepository;
 
     public static final String SET_STANDARD = "Standard";
 
@@ -137,6 +139,22 @@ public class PermissionService {
      */
     @Transactional
     public void assign(Long userId, Long setId, Long orgId) {
+        /*
+         * ⚠ THE MEMBER MUST BE IN THIS SHOP — and this check was missing.
+         *
+         * The SET was scoped from the start, so an owner could not use another tenant's set. But nothing
+         * checked the USER, so an owner of org 50 could post any userId and rewrite the permissions of a
+         * member of a different tenant entirely. Found by asking the running system to do exactly that,
+         * and it answered "Saved." — a cross-tenant WRITE, which is the same class of defect the
+         * organizationIdFor ruling was made about.
+         *
+         * Scoped BEFORE the set is even looked up: the caller has no business learning whether a set
+         * exists by probing with somebody else's user id.
+         */
+        if (userId == null) throw new ValidationException("Choose a team member.");
+        membershipRepository.findByUserIdAndOrganizationId(userId, orgId)
+                .orElseThrow(() -> new ValidationException("That team member is not in this business."));
+
         setRepo.findScoped(setId, orgId)
                 .orElseThrow(() -> new ValidationException("That permission set was not found."));
         UserPermissionSet row = userSetRepo.findByUserId(userId)

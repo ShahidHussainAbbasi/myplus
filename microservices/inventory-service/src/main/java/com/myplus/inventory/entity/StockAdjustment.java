@@ -39,4 +39,14 @@ public class StockAdjustment {
 
     @Column(length = 1000)
     private String notes;
+
+    /**
+     * ⭐ PERF-9 — the product's on-hand AFTER this adjustment. Transient: not a column, not persisted.
+     *
+     * <p>An adjustment row records what CHANGED; this carries what the change RESULTED IN, so the caller
+     * does not have to read the level back over a second round trip. Derived state on a write response,
+     * never a second source of truth — the StockLevel remains the only record of on-hand.
+     */
+    @jakarta.persistence.Transient
+    private Float resultingOnHand;
 }

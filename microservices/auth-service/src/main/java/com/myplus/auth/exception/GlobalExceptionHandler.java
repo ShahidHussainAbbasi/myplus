@@ -84,6 +84,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage(), 400));
     }
 
+    /**
+     * The same rule for {@code ValidationException} — a REFUSAL is an answer, not a fault.
+     *
+     * <p>This advice already turned {@code IllegalArgumentException} into a 400 carrying the server's own
+     * sentence, for exactly the reason in the note above. {@code ValidationException} was left out, so
+     * every deliberate refusal PERM-1 writes — "that is a built-in set, duplicate it and edit the copy",
+     * "one member is on this set", "give the set a name" — reached the owner as
+     * <b>"Internal server error:"</b> with the real sentence trailing behind it. Told the server had
+     * broken, they go to the logs instead of to the thing they can fix.
+     *
+     * <p>⚠ It also mangled the message on the way. The monolith proxy pulls the sentence out with a
+     * regex that stops at the first quote, and the built-in refusal NAMES the set in quotes — so
+     * {@code "Cashier" is a built-in set…} arrived as {@code Internal server error: \}. Two faults
+     * compounding: the wrong status, and a lossy extraction. Both fixed.
+     */
+    @ExceptionHandler(com.myplus.common.web.exception.ValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidation(
+            com.myplus.common.web.exception.ValidationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage(), 400));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

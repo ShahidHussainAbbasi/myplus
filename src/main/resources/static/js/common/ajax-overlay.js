@@ -2,8 +2,9 @@
  * Global AJAX waiting overlay — the single source for the whole application.
  *
  * Include THIS one file (no per-page markup or CSS). It self-injects a blocking spinner overlay
- * and ties it to jQuery's global AJAX lifecycle, so EVERY $.ajax/$.post/$.get shows the overlay
- * while the request is in flight and the user cannot interact until the server responds.
+ * and ties it to jQuery's global AJAX lifecycle, so a READ shows the overlay while it is in flight.
+ * A caller that should not block the screen passes `nonBlocking: true` in its $.ajax settings — see
+ * the note on ajaxSend below for why that flag exists rather than `global: false`.
  *
  * jQuery fires `ajaxStart` when the first request begins and `ajaxStop` when the last one finishes,
  * so concurrent requests are coalesced into a single overlay. A short show-delay keeps quick calls
@@ -66,11 +67,49 @@
     injectStyles();
     injectDom();
     var $ = window.jQuery;
-    $(document).ajaxStart(function () {
-      if (showTimer) clearTimeout(showTimer);
-      showTimer = setTimeout(show, SHOW_DELAY_MS);
+    /*
+     * ⭐ PERF-13 — A REQUEST CAN OPT OUT OF THE OVERLAY WITHOUT LEAVING THE GLOBAL EVENTS.
+     *
+     * This used ajaxStart/ajaxStop, which say only "something is in flight" — there is no way to ask WHICH
+     * request, so every call blocked the screen. Saving a customer covered the whole viewport while the user
+     * waited for a write that takes 80 ms and almost always succeeds.
+     *
+     * ⚠ `global: false` is NOT the answer, and this is the trap worth recording: it removes the request
+     * from ajaxSend/ajaxComplete entirely — and product-picker.js hangs its cache invalidation on
+     * ajaxComplete. Silencing the overlay that way would leave a stale picker after every product write,
+     * which is exactly the failure that hook exists to prevent.
+     *
+     * So the lifecycle moves to ajaxSend/ajaxComplete with a counter of BLOCKING requests only. A caller
+     * passes `nonBlocking: true` in its settings; jQuery carries unknown settings through untouched, the
+     * global events still fire, and only the overlay ignores it.
+     */
+    var blocking = 0;
+
+    $(document).ajaxSend(function (evt, jqXHR, settings) {
+      if (settings && settings.nonBlocking === true) return;
+      blocking++;
+      if (blocking === 1) {
+        if (showTimer) clearTimeout(showTimer);
+        showTimer = setTimeout(show, SHOW_DELAY_MS);
+      }
     });
-    $(document).ajaxStop(hide);
+
+    $(document).ajaxComplete(function (evt, jqXHR, settings) {
+      if (settings && settings.nonBlocking === true) return;
+      // Never below zero: a handler added after a request began would otherwise strand the counter
+      // positive and leave the overlay up for the rest of the session.
+      blocking = Math.max(0, blocking - 1);
+      if (blocking === 0) hide();
+    });
+
+    /*
+     * A last-resort release. If a request is aborted in a way that skips ajaxComplete — a navigation, a
+     * torn-down iframe — the counter could strand and the overlay would never lift. A covered screen that
+     * cannot be dismissed is the worst failure this file can produce, so it is bounded.
+     */
+    window.setInterval(function () {
+      if (blocking > 0 && $.active === 0) { blocking = 0; hide(); }
+    }, 3000);
     $(document).ajaxError(hide); // belt-and-suspenders: never strand the overlay on an error
   });
 })();

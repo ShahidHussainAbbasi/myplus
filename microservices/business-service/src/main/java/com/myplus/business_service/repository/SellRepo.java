@@ -76,11 +76,32 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     // newest first. Replaces the Example-by-userId reads.
     @Query("select s from Sell s where s.organizationId = :orgId "
          + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
+    /**
+     * ⭐ PERF-10 item 4 — fetch the two EAGER associations in the SAME query.
+     *
+     * <p>{@code Sell.customerHistory} is {@code @OneToOne(EAGER)} and
+     * {@code CustomerHistory.customer} is {@code @ManyToOne(EAGER)}. EAGER does not mean "joined" — it
+     * means "fetched before the entity is returned", so without a fetch plan Hibernate issues one query
+     * PER ROW for each. Measured on org 13: 807 sale lines produced <b>1 + 807 + 807 = 1,615 queries</b>
+     * to draw one screen, ~1.2s of server time — and capping the result did not help, because the rows
+     * are loaded and then truncated in Java (q=5 returned 11KB and still took 1.19s).
+     *
+     * <p>{@code default_batch_fetch_size} (set platform-wide) already collapses this to ~19 queries. This
+     * graph makes the highest-volume read structurally correct instead of relying on that floor: ONE
+     * query, joined. Both are wanted — the global setting protects every read nobody has looked at yet.
+     *
+     * <p>Safe with {@code Pageable}: these are to-ONE associations, so the join cannot multiply rows and
+     * Hibernate pages in SQL. A collection here would force in-memory pagination, which is why none is
+     * listed.
+     */
+    @EntityGraph(attributePaths = {"customerHistory", "customerHistory.customer"})
     List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     // Paged overload (slice 24) — newest first, LIMIT/OFFSET via Pageable.
     @Query("select s from Sell s where s.organizationId = :orgId "
          + "or (s.organizationId is null and s.userId = :userId) order by s.sellId desc")
+    /** Same graph and the same reason as {@link #findScoped(Long, Long)} above. */
+    @EntityGraph(attributePaths = {"customerHistory", "customerHistory.customer"})
     List<Sell> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
     // OWN rows only (role-aware visibility, Phase 7a): a non-SUPER caller sees just what they created —
@@ -88,6 +109,8 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     // Legacy store-NULL rows remain visible so nothing disappears before data is re-saved with a store.
     @Query("select s from Sell s where s.organizationId = :orgId "
          + "and (s.storeId in :storeIds or s.storeId is null)")
+    /** Same graph and the same reason as {@link #findScoped(Long, Long)} above. */
+    @EntityGraph(attributePaths = {"customerHistory", "customerHistory.customer"})
     List<Sell> findScopedByStores(@Param("orgId") Long orgId, @Param("storeIds") java.util.Collection<Long> storeIds);
 
     @Query("select s from Sell s where s.organizationId = :orgId and s.userId = :userId "
@@ -169,7 +192,14 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
          + "ORDER BY s.dated DESC, s.sellId DESC")
     public List<Sell> findSellByEndDate(@Param("ed") LocalDateTime ed, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    // @EntityGraph(attributePaths = {"stock", "customerHistory", "customerHistory.customer"})
+    /*
+     * ⚠ REMOVED, not restored: this read {@code @EntityGraph(attributePaths = {"stock",
+     * "customerHistory", "customerHistory.customer"})} and {@code stock} IS NO LONGER AN ATTRIBUTE
+     * of Sell — the local Stock entity was retired when inventory-service took ownership. Spring Data
+     * validates attribute paths at STARTUP, so uncommenting it would not have been slow, it would have
+     * stopped business-service from booting. Left as a note rather than a line one keystroke from
+     * breaking the service. The live graph is GRAPH_SCOPED below.
+     */
     /**
      * The 6-month trend, grouped in SQL: {@code [year, month, count, revenue]} per month.
      *

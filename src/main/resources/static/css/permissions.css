@@ -67,3 +67,8 @@
   .perm-matrix{ font-size:12px }
   .perm-matrix tbody td, .perm-matrix tbody th{ padding:6px }
 }
+
+/* Whose records — the other half of what the preview predicts. Set apart from the menu chips above it,
+ * because it answers a different question and an owner must not read it as another section. */
+.perm-preview__scope{ color:#c9d6e4; font-size:12px; margin-top:10px;
+                      padding-top:9px; border-top:1px solid #31465c }

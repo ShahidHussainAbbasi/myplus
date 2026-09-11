@@ -143,6 +143,26 @@ public class Customer implements Serializable {
 
 	private LocalDateTime updated;
 
+	/**
+	 * ⭐ OPTIMISTIC LOCK — stops two tills silently overwriting one another (V62).
+	 *
+	 * <p>Two cashiers open the same customer; the first fixes the phone number, the second saves an address
+	 * change from a copy loaded before that, and the old phone number goes back. Nothing errors and both
+	 * screens look right until somebody reloads. Hibernate now puts this column in the UPDATE's WHERE clause
+	 * and increments it — the second write matches no row and throws instead of quietly winning.
+	 *
+	 * <p><b>Not {@code updated}</b>, which was the tempting alternative: it is set BY the save being checked,
+	 * it has second fidelity in places, and two writes inside one second compare equal. A counter JPA owns
+	 * has none of those ambiguities.
+	 *
+	 * <p>⚠ {@code NOT NULL DEFAULT 0} in the migration, because a NULL version makes Hibernate treat a row as
+	 * TRANSIENT and attempt an INSERT — which would turn every one of the 3,383 existing customers into a
+	 * duplicate on its next edit.
+	 */
+	@jakarta.persistence.Version
+	@Column(name = "version", nullable = false)
+	private Long version;
+
     // @OneToMany(mappedBy = "customer", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     // private List<CustomerHistory> customerHistory = new ArrayList<>();
 

@@ -985,6 +985,14 @@ $(document).ready(function() {
 	$.fn.callAjax = function(method, data) {
 		var dataSent = data;   // captured for the credit-limit re-submit below
 		$.ajax({
+			/*
+			 * ⭐ PERF-13 — a WRITE does not cover the screen. See the note in ajax-overlay.js.
+			 *
+			 * The save measures 80-170 ms and almost always succeeds; blocking the viewport for it stops the
+			 * operator starting their next action for the whole round trip. NOT `global: false`, which would
+			 * also drop this out of ajaxComplete — where product-picker.js hangs its cache invalidation.
+			 */
+			nonBlocking : true,
 			type : "POST",
 			url : serverContext + method,
 			dataType : "json",
@@ -1010,7 +1018,22 @@ $(document).ready(function() {
 					});
 					return false;
 				}
-				if(data.status==="FOUND"){
+				if(data.status==="CONFLICT"){
+					/*
+					 * ⭐ V62 — SOMEBODY ELSE SAVED THIS RECORD WHILE IT WAS BEING EDITED.
+					 *
+					 * Distinct from FOUND/ERROR/FAILED on purpose. Nothing was written, both edits were
+					 * legitimate, and the operator's typing is still on screen — so the form is deliberately
+					 * NOT reset and the grid is NOT patched. Wiping their work here would be the second data
+					 * loss in a row.
+					 *
+					 * The message the server sends names the action (reload, then re-apply), which is what a
+					 * cashier needs; "an unexpected error, contact support" was what they used to get.
+					 */
+					showFormError(data.message
+						|| 'Somebody else changed this record while you were editing it. Reload and try again.');
+					return false;
+				}else if(data.status==="FOUND"){
 					showFormError(data.message || 'This record already exists.');
 					return false;
 				}else if(data.status==="ERROR"){
@@ -1035,8 +1058,28 @@ $(document).ready(function() {
 						if (typeof refreshBulkBar === 'function') refreshBulkBar(tableV);
 						return false;
 					}
-					datatable.clear().draw();
-					datatable.ajax.reload();
+					/*
+					 * ⭐ PERF-13 — PATCH THE SAVED ROW; RELOAD ONLY IF WE CANNOT.
+					 *
+					 * `clear().draw()` + `ajax.reload()` empties the grid and refetches the whole entity to
+					 * show one changed row — 543 KB for a customer. The server now returns the row it wrote,
+					 * so the common case needs no fetch at all.
+					 *
+					 * ⚠ THIS IS THE PATH THE CRUD SCREENS ACTUALLY USE. jsonPost (further down) is the SALE
+					 * path; every ordinary entity save arrives here through callAjax. Patching only jsonPost
+					 * looked correct and changed nothing a customer save does — the gate caught it by counting
+					 * the refetch rather than trusting the code.
+					 *
+					 * The fallback stays the default: applySavedRow answers false for an entity with no
+					 * builder, a response with no saved row, or any error while patching, and every one of
+					 * those means reload. Stale data on screen is worse than the second it replaced.
+					 */
+					var savedRow = (data && (data.object || data.data)) || null;
+					var patched = (typeof applySavedRow === 'function') && applySavedRow(tableV, savedRow);
+					if (!patched) {
+						datatable.clear().draw();
+						datatable.ajax.reload();
+					}
 					resetForm();
 					clearFormError();
 					// Register-screen modal layer: close the form modal + clear the bulk-action bar after a save/delete.
@@ -1173,6 +1216,18 @@ function jsonPost(method,data) {
 
 	var printData = data;
 	$.ajax({
+	      /*
+	       * ⭐ PERF-13 — a WRITE does not cover the screen.
+	       *
+	       * The save itself measures 80-170 ms and almost always succeeds. Blocking the viewport for it stops
+	       * the operator starting their next action for the whole round trip — on a till, that is the queue.
+	       * The submit button already disables itself below, and a message follows; a modal spinner over the
+	       * entire application was never proportionate to that.
+	       *
+	       * ⚠ NOT `global: false`, which would also remove this from ajaxComplete — where product-picker.js
+	       * hangs its cache invalidation. This flag is read only by the overlay; the global events still fire.
+	       */
+	      nonBlocking : true,
 	      type : "POST",
 	      contentType : "application/json",
 	      url : serverContext + method,
@@ -1273,11 +1328,33 @@ function jsonPost(method,data) {
 		        mylink.click();
 			}
 */
-			// A grid refresh is cosmetic; a throw here must not be the last word on a committed write.
-			// loadDataTable() opens with tableSellReport.clear().draw(), so it is exactly the kind of call
-			// that can fail on a screen whose report table was never initialised.
-			try { loadDataTable(); }
-			catch (e) { if (window.console) console.error('loadDataTable failed after ' + method, e); }
+			/*
+			 * ⭐ PERF-13 — PATCH THE SAVED ROW; RELOAD ONLY IF WE CANNOT.
+			 *
+			 * Every save used to call loadDataTable(), which destroys the grid and refetches the whole
+			 * entity: 543 KB for a customer, 1.76 MB on the sale screen — to show one changed row. The
+			 * server now returns the row it wrote (see CustomerController.addCustomer), so the common case
+			 * needs no fetch at all.
+			 *
+			 * ⚠ THE FALLBACK IS NOT OPTIONAL AND MUST STAY THE DEFAULT. applySavedRow answers false for
+			 * any entity without a registered builder, any response without a saved object, and any error
+			 * while patching. Every one of those means "reload" — a screen showing stale data because a
+			 * patch quietly did nothing is far worse than one that took an extra second.
+			 *
+			 * A grid refresh is cosmetic either way; a throw here must not be the last word on a committed
+			 * write. loadDataTable() opens with tableSellReport.clear().draw(), so it is exactly the kind of
+			 * call that can fail on a screen whose report table was never initialised.
+			 */
+			try {
+				var savedRow = (data && (data.object || data.data)) || null;
+				var patched = (typeof applySavedRow === 'function')
+					&& applySavedRow(typeof tableV !== 'undefined' ? tableV : '', savedRow);
+				if (!patched) loadDataTable();
+			}
+			catch (e) {
+				if (window.console) console.error('grid refresh failed after ' + method, e);
+				try { loadDataTable(); } catch (ignored) { /* already reported above */ }
+			}
 
 			// addSell already cleared the cart in the atomic block above - clearing it twice would undo an
 			// edit-mode exit the operator has since re-entered. Every other method still ends here.
@@ -1379,8 +1456,27 @@ function editRecord(doc){
 
 
 function updateReadOnly(flag) {
+	/*
+	 * ⚠ THE NAME IS EDITABLE ON EDIT. It used to be locked, and that was wrong.
+	 *
+	 * This line made #companyName / #venderName / #customerName / #prodName readonly whenever a record was
+	 * opened — so a shop that mis-typed a customer's name, or a supplier that rebranded, or a product
+	 * whose description needed correcting, had no way to fix it from the screen at all. The only route was
+	 * to create a duplicate and abandon the original, which is how a register fills with near-identical
+	 * rows nobody can tell apart.
+	 *
+	 * ⭐ SAFE, and verified rather than assumed: the server identifies the record by its ID, never by its
+	 * name. Renaming customer 6385 in place through /addCustomer left exactly ONE row, with the new name —
+	 * no duplicate, no orphan. Sales, purchases and ledger rows reference the id too, so the history of a
+	 * renamed party follows it.
+	 *
+	 * The other locks below are NOT this. Locking #purchaseInvoiceNo and the item picker on an edit stops
+	 * a line being re-pointed at a different product or invoice, which would silently move stock and money
+	 * between records. Those stay. A NAME is a label; an ID is an identity, and only one of them may not
+	 * change.
+	 */
 	if (tableV) {
-		$("#"+tableV.toLowerCase()+"Name").prop("readonly", flag);
+		$("#"+tableV.toLowerCase()+"Name").prop("readonly", false);
 	}
 	if (tableV == "Purchase") {
 		$("#purchaseInvoiceNo").prop("readonly", flag);
@@ -1404,12 +1500,30 @@ function updateReadOnly(flag) {
 			$('#sellCN').prop('disabled', flag);
 			$('#sellCC').prop('disabled', flag);
 		}
-	} else if (tableV == "Product") {
-		$('#prodName').prop('disabled', flag);
 	}
 
-	$('#companyName').prop('disabled', flag);
-
+	/*
+	 * ⚠ #prodName AND #companyName WERE LOCKED SEPARATELY, WITH `disabled` — and that is why unlocking the
+	 * readonly line above fixed customers and suppliers while these two stayed dead.
+	 *
+	 * Two locks for one rule, in one function, using two different mechanisms. The first is why the fix
+	 * looked complete and was not; the second is worse than a cosmetic difference:
+	 *
+	 *   ⚠ A DISABLED INPUT IS DROPPED FROM FormData ENTIRELY. It is not submitted read-only — it is not
+	 *     submitted at all. And the server REFUSES an update with no name: posting one back returns
+	 *     "name: name is required; name: Customer name is required". So this was not merely stopping the
+	 *     operator editing the name; it was arming a save that could only fail, or one that silently
+	 *     depended on something else re-enabling the field first.
+	 *
+	 * A name is a LABEL and the server identifies these records by ID — verified, not assumed: renaming
+	 * customer 6385 in place left exactly one row carrying the new name. So all four name fields are
+	 * editable, by the same rule, stated once.
+	 *
+	 * (`readonly` would have been the right lock if a lock were wanted at all: it still submits. This
+	 * codebase has already paid for the difference once, on the sale line's quantity.)
+	 */
+	$('#prodName').prop('disabled', false);
+	$('#companyName').prop('disabled', false);
 }
 
 function resetBSDD(id){

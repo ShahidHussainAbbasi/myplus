@@ -67,9 +67,11 @@ public interface InventoryClient {
     @PostExchange("/reservations/{reservationId}/return")
     StockReturnResponse returnStock(@PathVariable String reservationId, @RequestBody StockReturnRequest request);
 
-    /** Seed opening stock for migrated products (item→product, slice 33 U2b). Returns the number created. */
+    /** Seed opening stock for migrated products (item→product, slice 33 U2b).
+     *  PERF-9: returns the rows created AND each product's resulting on-hand, so a caller that needs the new
+     *  figure does not have to read it back. Every bulk caller here ignores it, exactly as before. */
     @PostExchange("/stock/import")
-    Integer importStock(@RequestBody List<StockImportLine> lines);
+    com.myplus.commerce.contracts.dto.StockImportResult importStock(@RequestBody List<StockImportLine> lines);
 
     /** Reconcile a purchase EDIT: apply the signed quantity delta to the purchase's own batch + StockLevel,
      *  keeping batch totals and on-hand consistent. Returns the product's new on-hand. */

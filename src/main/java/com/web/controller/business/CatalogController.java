@@ -811,8 +811,55 @@ public class CatalogController {
             if (body.get("purchasePrice") != null) line.put("purchasePrice", body.get("purchasePrice"));
             if (body.get("costPrice") != null)     line.put("costPrice", body.get("costPrice"));
             if (body.get("paidTotal") != null)     line.put("paidTotal", body.get("paidTotal"));
-            String count = inventory.postJsonString("/stock/import", Collections.singletonList(line));
-            return Map.of("success", true, "created", count);
+            /*
+             * ⭐ PERF-9 — answer with the new ON-HAND, so the screen needs no second call.
+             *
+             * This returned a bare row count, so catalog-products.js had to follow every add with
+             * GET /productStock to learn the figure it was about to display: two browser round trips to
+             * change one number. Inventory computes that number while writing and now returns it
+             * (StockImportResult) — the same thing reconcilePurchase has always done for a purchase edit.
+             *
+             * `stock` is ABSENT rather than 0 when inventory did not report one: a missing figure and a
+             * genuine zero must not look alike, and the client falls back to its own read in that case.
+             */
+            Map<String, Object> res = inventory.postJson("/stock/import", Collections.singletonList(line));
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("success", true);
+            if (res != null) {
+                out.put("created", res.get("created"));
+                Object onHand = res.get("onHand");
+                if (onHand instanceof Map<?, ?> byProduct && productId != null) {
+                    /*
+                     * ⚠ MATCH ON THE NUMERIC VALUE, not on toString().
+                     *
+                     * JSON object keys are always strings ("5422"), while productId arrives from the request
+                     * body as whatever Jackson chose — Integer here, but a Long or a Double would render as
+                     * "5422" or "5422.0" and silently miss. A miss is not visible: `stock` would simply be
+                     * absent and the client would fall back to its extra round trip, which is the exact cost
+                     * this change exists to remove. Comparing numerically cannot drift.
+                     */
+                    /*
+                     * ⚠ AND IT CANNOT THROW. The stock is ALREADY WRITTEN by the time we get here, so an
+                     * exception escaping this block would reach the catch below and report a FAILURE for an
+                     * add that succeeded — the worst possible outcome, and one the operator would answer by
+                     * adding the stock a second time. A figure we cannot read is simply absent, and the
+                     * client falls back to its own read.
+                     */
+                    try {
+                        long want = Double.valueOf(productId.toString()).longValue();
+                        for (Map.Entry<?, ?> e : byProduct.entrySet()) {
+                            if (e.getKey() == null || e.getValue() == null) continue;
+                            if (Double.valueOf(e.getKey().toString()).longValue() == want) {
+                                out.put("stock", e.getValue());
+                                break;
+                            }
+                        }
+                    } catch (RuntimeException unreadable) {
+                        LOGGER.debug("addProductStock: could not match the on-hand key; the screen will re-read", unreadable);
+                    }
+                }
+            }
+            return out;
         } catch (Exception e) {
             LOGGER.error("addProductStock proxy error", e);
             return ProxyErrors.failure(e);
@@ -834,6 +881,12 @@ public class CatalogController {
             Map<String, Object> out = new java.util.HashMap<>();
             out.put("success", resp != null && Boolean.TRUE.equals(resp.get("success")));
             if (resp != null && resp.get("message") != null) out.put("message", resp.get("message"));
+            // PERF-9, same as addProductStock above: the adjustment carries the resulting on-hand, so the
+            // screen updates from the write instead of reading it back.
+            if (resp != null && resp.get("data") instanceof Map) {
+                Object onHand = ((Map<?, ?>) resp.get("data")).get("resultingOnHand");
+                if (onHand != null) out.put("stock", onHand);
+            }
             return out;
         } catch (Exception e) {
             LOGGER.error("adjustProductStock proxy error", e);

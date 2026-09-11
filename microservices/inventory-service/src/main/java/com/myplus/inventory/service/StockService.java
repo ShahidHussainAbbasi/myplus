@@ -91,9 +91,21 @@ public class StockService {
         // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
         // on-hand) — keeping master data consistent no matter which side edited it.
         BigDecimal qty = in(dto.getQuantity());
+        /*
+         * ⭐ PERF-9 — keep the resulting on-hand instead of discarding it.
+         *
+         * applyStockDelta has always RETURNED the product's new on-hand; this method threw it away and
+         * answered with the StockAdjustment audit row, so the Product screen had to read the figure back in
+         * a second browser round trip to change one number on screen. Stamped onto the adjustment below,
+         * which is the record the caller already receives.
+         *
+         * An array because a switch arm cannot assign to a local that is later read — the same shape the
+         * JDK's own examples use for this.
+         */
+        final BigDecimal[] newOnHand = { null };
         switch (dto.getAdjustmentType()) {
-            case INCREASE -> applyStockDelta(dto.getProductId(), qty, null, null, null, orgId, userId);
-            case DECREASE -> applyStockDelta(dto.getProductId(), qty.negate(), null, null, null, orgId, userId);
+            case INCREASE -> newOnHand[0] = applyStockDelta(dto.getProductId(), qty, null, null, null, orgId, userId);
+            case DECREASE -> newOnHand[0] = applyStockDelta(dto.getProductId(), qty.negate(), null, null, null, orgId, userId);
             case TRANSFER -> { /* handled via StockTransfer */ }
         }
 
@@ -106,7 +118,10 @@ public class StockService {
                 .adjustedBy(dto.getAdjustedBy())
                 .notes(dto.getNotes())
                 .build();
-        return stockAdjustmentRepository.save(adj);
+        StockAdjustment saved = stockAdjustmentRepository.save(adj);
+        // Not persisted — a transient carrier for the caller, so the write answers with the state it produced.
+        saved.setResultingOnHand(out(newOnHand[0]));
+        return saved;
     }
 
     @Transactional

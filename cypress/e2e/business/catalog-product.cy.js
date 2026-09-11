@@ -78,6 +78,16 @@ describe('Catalog Product master (M1)', () => {
     // refused with "this element is currently animating". Wait for the field itself to be visible — the
     // idiom this file already uses at the top — so the assertion settles with the animation.
     cy.get('#prodName').should('be.visible')
+    /*
+     * ⚠ VISIBLE IS NOT REACHABLE. The field was visible and still un-typeable, because the shared AJAX
+     * overlay (#appAjaxOverlay) sat on top of it — the modal's own loads are still in flight when it
+     * opens, and jQuery's ajaxStart raises that overlay over the whole page.
+     *
+     * Cypress reports it as "covered by another element", naming the overlay, which reads as a layout
+     * fault and is really a race. cy.settled waits for the row to stop moving; this waits for the thing
+     * that is covering it to lift. Both are needed, and they are different waits.
+     */
+    cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
     cy.get('#prodName').type('Another_' + Date.now())
     cy.get('#prodSku').type(sku).blur()
     cy.get('#addProduct').click()
