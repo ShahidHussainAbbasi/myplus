@@ -199,6 +199,11 @@
      carries its own jQuery tag and had to be fixed separately — and it matters MORE here than anywhere
      else, because this is the first page every user loads, before anything is warm in their cache. -->
 <script th:src="@{/js/jquery-3.3.1.min.js}"></script>
+<!-- DUP-1: this page carries its own jQuery tag rather than the shared header fragment, so it needs the guard
+     named explicitly — the same reason the comment above says the lazy-load fix had to be repeated here.
+     It earns its place: line 119's `onkeypress="handleEnterKey(event,'enter','loginSubmit')"` clicks Submit, and
+     keypress auto-repeats, so a held Enter on the password field used to fire a burst of sign-in attempts. -->
+<script th:src="@{/js/common/submit-once.js}"></script>
 <!-- Global AJAX waiting overlay — single source for the whole app (see /js/common/ajax-overlay.js). -->
 <script th:src="@{/js/common/ajax-overlay.js}"></script>
 <script th:src="@{/js/login.js}"></script>

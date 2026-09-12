@@ -361,10 +361,26 @@
         });
     }
 
+    /*
+     * DUP-1 — the product form's idempotency key, read through FormKeys (common/submit-once.js).
+     *
+     * WRAPPED RATHER THAN CALLED DIRECTLY, and the reason is specific to this project: static assets have been
+     * served stale from target/classes before, under a correct-looking hash. If submit-once.js ever fails to
+     * load, a direct `global.FormKeys.get(...)` would throw INSIDE saveProduct and the product form would stop
+     * saving altogether — a guard against duplicates taking out the very thing it guards. Degrading to "no key"
+     * just puts the form back to how it behaved before this slice.
+     */
+    function productKey() { return global.FormKeys ? global.FormKeys.get('product') : null; }
+    function retireProductKey() { if (global.FormKeys) global.FormKeys.retire('product'); }
+
     function resetProductForm() {
         var f = document.getElementById('Product');
         if (f) f.reset();
         $('#productId').val('');
+        // DUP-1 — a cleared form is a new intent. Belt-and-braces beside the retire-on-success in saveProduct:
+        // a key that somehow outlived its save must never reach the NEXT product, because the server would
+        // correctly replay the old one and the new product would silently not exist.
+        retireProductKey();
         // form.reset() does not fire change, so the loose row would stay open from the last product edited.
         prodPackSizeChanged();
         $('#prodCategory').val('');
@@ -616,6 +632,10 @@
             // to a name/SKU that is about to be overwritten, so clear them before the new values land.
             $('#prodName, #prodSku').removeClass('alert-danger');
             markExistingRow(null);
+            // DUP-1 — an edit must never carry a CREATE key. The reachable case is real: the operator starts a
+            // new product, abandons it, and clicks "edit this one" on the already-registered panel. Saving an
+            // update ignores the key, but leaving it in place would hand it to whatever is created next.
+            retireProductKey();
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
@@ -676,6 +696,10 @@
     /** Clear ONLY what identifies this product; leave the batch context selected. */
     function resetProductIdentityFields() {
         $('#productId').val('');
+        // DUP-1 — the Save-&-Add-Another path. THE most important of the three: this is the one flow that keeps
+        // the modal open across saves, so a key left in place here would make every subsequent product in the
+        // run replay the first one.
+        retireProductKey();
         ['prodName', 'prodSku', 'prodBarcode', 'prodPrice', 'prodDesc'].forEach(function (id) {
             $('#' + id).val('');
         });
@@ -749,11 +773,31 @@
         };
         var url = 'addProduct';
         if (id) { body.id = Number(id); url = 'updateProduct'; }
+        /*
+         * DUP-1 — one key per form-fill, so a repeated submit replays instead of registering a second product.
+         *
+         * CREATE ONLY. An update is addressed by id and is already idempotent; sending a create key on it would
+         * only invite a later reader to think the two paths share a rule they do not.
+         *
+         * This is the layer that does not depend on the browser behaving: a held Enter, a double-click, a retry
+         * after a dropped connection and a reload mid-save all arrive carrying the same key, and the server
+         * (V16 unique index + ProductController's replay) answers with the ONE product that was created.
+         */
+        if (!id) body.idempotencyKey = productKey();
         $.ajax({
             type: 'POST', url: serverContext + url, contentType: 'application/json', dataType: 'json',
             data: JSON.stringify(body),
             success: function (resp) {
                 if (resp && resp.success) {
+                    /*
+                     * ⚠ RETIRED FIRST — before saveProductTracking, keepCataloguing and loadDataTable, any of
+                     * which can throw. If a throw were to skip this line, the NEXT product would carry this same
+                     * key and the server would correctly replay THIS one: the operator catalogues twenty items,
+                     * the shop gets one, and every save says "saved". That is worse than the duplicate bug, and
+                     * it is exactly how SF-3b happened on the sale (a throw between retiring the key and
+                     * clearing the cart). Retire on success only — a failure keeps the key so a retry is safe.
+                     */
+                    if (!id) retireProductKey();
                     // C6 — the tracking policy is saved through its OWN endpoint, like the clinical flags,
                     // because it is policy rather than product data. Fired after the product exists so a
                     // newly created product has an id to attach it to.

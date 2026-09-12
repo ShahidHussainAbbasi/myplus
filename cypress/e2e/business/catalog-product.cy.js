@@ -74,20 +74,38 @@ describe('Catalog Product master (M1)', () => {
     cy.get('#ProductDiv').should('be.visible')
     cy.window().then((w) => w.newProduct())
     cy.get('#ProductModal').should('have.class', 'open')
-    // `.open` is added when the transition STARTS, so typing here raced the modal sliding in and Cypress
-    // refused with "this element is currently animating". Wait for the field itself to be visible — the
-    // idiom this file already uses at the top — so the assertion settles with the animation.
-    cy.get('#prodName').should('be.visible')
     /*
-     * ⚠ VISIBLE IS NOT REACHABLE. The field was visible and still un-typeable, because the shared AJAX
-     * overlay (#appAjaxOverlay) sat on top of it — the modal's own loads are still in flight when it
-     * opens, and jQuery's ajaxStart raises that overlay over the whole page.
+     * ⭐ GETTING TO ONE FIELD IN THIS MODAL TOOK FOUR SEPARATE WAITS, each found by a different red run
+     * with a different Cypress message. None of them substitutes for another, so none can be dropped:
      *
-     * Cypress reports it as "covered by another element", naming the overlay, which reads as a layout
-     * fault and is really a race. cy.settled waits for the row to stop moving; this waits for the thing
-     * that is covering it to lift. Both are needed, and they are different waits.
+     *   1. `.open` is added when the transition STARTS       → "currently animating"
+     *      Waiting on the class alone races the modal sliding in.
+     *
+     *   2. VISIBLE IS NOT REACHABLE                          → "covered by another element"
+     *      The shared overlay (#appAjaxOverlay) sits on top: the modal's own loads are still in flight
+     *      when it opens, and jQuery's ajaxStart raises that overlay over the whole page. Cypress names
+     *      it as a layout fault; it is a race.
+     *
+     *   3. ONE SAMPLE OF THE OVERLAY IS NOT ENOUGH — IT COMES BACK.
+     *      A bare `should('not.be.visible')` passed, and the next command still failed with the overlay
+     *      `class="show"`. The loads arrive in WAVES: one finishes, ajaxStop drops the overlay, a success
+     *      handler starts the next request, ajaxStart raises it again — the assertion caught the gap
+     *      between waves. waitForAppReady cannot be fooled by a gap: it needs jQuery.active to stay at 0
+     *      for 300ms, longer than any gap between chained requests, and re-checks the overlay after.
+     *
+     *   4. QUIET IS NOT STILL                                → "currently animating", again
+     *      Uncovered and visible, the field is STILL MOVING. The overlay hides when the last request
+     *      completes, and that same ajaxComplete is when searchable-selects.js rebuilds every picker in
+     *      the modal — bootstrap-select swaps each <select> for a taller button+dropdown, the content
+     *      grows, and a vertically-centred modal slides. The field drifts AFTER the page looks ready.
+     *
+     * ⚠ NOT {force:true} and NOT waitForAnimations:false, at any of the four. Both would type into a
+     * field a real operator cannot hit yet — so a modal that genuinely jitters under the cursor, or one
+     * left under a stuck spinner, would pass this gate and fail every day in the shop.
      */
-    cy.get('#appAjaxOverlay', { timeout: 30000 }).should('not.be.visible')
+    cy.get('#prodName').should('be.visible')
+    cy.waitForAppReady()
+    cy.settled('#prodName')
     cy.get('#prodName').type('Another_' + Date.now())
     cy.get('#prodSku').type(sku).blur()
     cy.get('#addProduct').click()

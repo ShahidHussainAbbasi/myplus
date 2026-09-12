@@ -111,6 +111,20 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     boolean existsBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * DUP-1 — the product a given form-fill already created, if any. Two callers: the fast path in
+     * {@code ProductService.create} (a repeat that arrives after the first one committed) and the replay in
+     * {@code ProductController.create} (a repeat that raced it and lost on the unique index).
+     *
+     * <p>SCOPED, and that is a security property rather than tidiness: the answer is a whole product, so an
+     * unscoped lookup would hand a caller who guessed a key another tenant's product. It also carries the
+     * standard {@code organizationId IS NULL AND userId = :userId} fallback, so the fast path still replays for
+     * a legacy unstamped row — which the UNIQUE index cannot cover, MySQL treating NULLs as distinct.
+     */
+    @Query("SELECT p FROM Product p WHERE p.idempotencyKey = :key AND " + SCOPE)
+    Optional<Product> findByIdempotencyKeyScoped(@Param("key") String key,
+                                                 @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT p FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     Optional<Product> findBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 

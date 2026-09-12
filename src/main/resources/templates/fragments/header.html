@@ -66,6 +66,12 @@
              same directory. Same library, same version, 282KB -> 87KB.
              NOTE: /js/jquery.min.js is still on disk on purpose — appointment.html loads it directly. -->
         <script th:src="@{/js/jquery-3.3.1.min.js}"></script>
+        <!-- DUP-1: one submit per intent (auto-repeat suppression + in-flight write coalescing + form keys).
+             IMMEDIATELY AFTER jQUERY AND BEFORE EVERY OTHER SCRIPT, both halves on purpose: it decorates
+             $.ajax, so anything that captured a reference to the original first would keep posting around the
+             guard. In the SHARED fragment rather than per dashboard, so no register in any module can be left
+             out of it by someone adding a screen later. -->
+        <script th:src="@{/js/common/submit-once.js}"></script>
         <script th:src="@{/js/moment.js}"></script>
         <script th:src="@{/js/jquery.timepicker.min.js}"></script>
         <script th:src="@{/js/jquery.dataTables.min.js}"></script>

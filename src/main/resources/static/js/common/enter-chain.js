@@ -206,6 +206,20 @@
         document.addEventListener('keydown', function (e) {
             if (!active()) return;
 
+            /*
+             * DUP-1 — auto-repeat is the keyboard talking, not the operator.
+             *
+             * A held Enter repeats at ~30/s, and the end of a chain SUBMITS (keyboard-forms.js onEnd), so a
+             * held key used to mean a burst of saves: a production shop registered 148 products from one
+             * submit. Nothing in the walk wants repeats either — nobody holds Enter to cross a form.
+             *
+             * ⚠ This is NOT the whole of layer 1. When focus is on the submit BUTTON, the id is not in the
+             * chain and we return below without ever reaching the submit — the browser fires the repeated
+             * `click` itself. `submit-once.js` suppresses that from a window-capture listener. Both are needed;
+             * this one keeps repeats out of the WALK, that one keeps them out of native activation.
+             */
+            if (e.repeat) return;
+
             var id = e.target && e.target.id;
             // The focused element inside a bootstrap-select is its BUTTON, not the <select>.
             if (!id || chainOf().indexOf(id) < 0) {

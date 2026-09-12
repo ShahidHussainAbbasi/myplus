@@ -204,6 +204,17 @@ public class Product {
     private Long userId;
     private String userType;
 
+    /**
+     * DUP-1 — the form-fill that created this product, so a repeat of the same submit replays instead of
+     * inserting again. Unique per (organizationId, idempotencyKey) via V16; see ProductService.create.
+     *
+     * <p>⚠ {@code length = 191} is not cosmetic and must match V16: at utf8mb4 a 255-char column is 1020 bytes
+     * and overflows the 1000-byte index limit. It is also {@code updatable = false} — the key records which
+     * submit wrote the row, so an edit must never move it onto a different key and make a later create replay.
+     */
+    @Column(name = "idempotency_key", length = 191, updatable = false)
+    private String idempotencyKey;
+
     @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

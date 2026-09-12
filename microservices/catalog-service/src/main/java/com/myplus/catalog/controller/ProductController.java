@@ -22,6 +22,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ProductController {
 
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ProductController.class);
+
     private final ProductService productService;
     private final com.myplus.catalog.service.ProductBarcodeService productBarcodeService;
 
@@ -55,9 +57,40 @@ public class ProductController {
 
     // Slice 106: @Valid enforces ProductDTO's constraints. Without it the annotations are inert decoration —
     // the DTO carried none and this carried no @Valid, so a nameless product saved happily.
+    /**
+     * DUP-1 — create, or replay the create this form-fill already performed.
+     *
+     * <p><b>Why the catch is HERE and not in the service.</b> {@code ProductService.create} is
+     * {@code @Transactional}. When the V16 unique index rejects a concurrent twin, that transaction is marked
+     * rollback-only, so reading the winner's row from inside it is impossible — the read would fail too. This
+     * method runs OUTSIDE the transaction: by the time the exception arrives here the failed insert has rolled
+     * back cleanly and a fresh read is free to succeed. (The sale reaches the same place differently: an
+     * untransactional orchestrator over a REQUIRES_NEW writer bean. Products need no extra bean for it.)
+     *
+     * <p>⚠ AND THIS IS THE PATH THAT FIXES THE REPORTED DEFECT, not the service's pre-check. A shop registered
+     * 148 products from a single submit with a held Enter; all of those requests overlapped, so every pre-check
+     * found nothing. Only the index can separate concurrent twins, which makes this handler — the loser's
+     * replay — the one carrying the load. Deleting it would leave a guard that passes a sequential test and
+     * still lets the real burst through.
+     *
+     * <p>The replay answers exactly as the winner did: same product, same "Created". A caller cannot tell which
+     * of its repeated submits won, and has no reason to care.
+     */
     @PostMapping
     public ResponseEntity<ApiResponse<ProductDTO>> create(@Valid @RequestBody ProductDTO dto) {
-        return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
+        try {
+            return ResponseEntity.ok(ApiResponse.success(productService.create(dto), "Created"));
+        } catch (org.springframework.dao.DataIntegrityViolationException dup) {
+            // Only a duplicate KEY is replayable. Any other constraint (a real data fault) must surface as
+            // itself rather than be reported as a successful save — so if no row carries this key, rethrow.
+            return productService.findByIdempotencyKey(dto.getIdempotencyKey())
+                    .map(existing -> {
+                        LOG.info("create: idempotent race for key {} -> returning the winner's product {}",
+                                dto.getIdempotencyKey(), existing.getId());
+                        return ResponseEntity.ok(ApiResponse.success(existing, "Created"));
+                    })
+                    .orElseThrow(() -> dup);
+        }
     }
 
     @GetMapping("/{id}")

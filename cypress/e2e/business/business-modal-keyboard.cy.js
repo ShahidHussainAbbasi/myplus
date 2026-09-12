@@ -259,14 +259,28 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
     cy.get('#venderName').focus().type(`P72Kbd_${STAMP}{enter}`)
     cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('venderCompanyDD'))
 
-    cy.get('#venderCompanyDD').should('have.value', '')      // unanswered
+    /*
+     * ⚠ `should('have.value', '')` CANNOT PASS HERE, and did not fail because of a product change.
+     *
+     * #venderCompanyDD became a MULTI-select on 2026-08-23 (one supplier represents several brands;
+     * registering them twice split their payables). jQuery's .val() on a multi-select returns an ARRAY,
+     * so an unanswered picker reads `[]` — never ''. This spec was written ten days EARLIER, against a
+     * single select, and nobody re-ran it across the change.
+     *
+     * Assert the INTENT ("nothing chosen yet") rather than the old encoding, so it holds whichever
+     * kind of select this field is tomorrow.
+     */
+    cy.get('#venderCompanyDD').should(($s) => {
+      var v = $s.val()
+      expect(v == null || v.length === 0, 'no company chosen yet').to.eq(true)
+    })
     cy.focused().type('{enter}')
     cy.get('#venderCompanyDD').next('.bootstrap-select')
       .should('have.class', 'open')                          // the list is on screen
     cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('venderCompanyDD'))
   })
 
-  it('choosing from an open dropdown sets the value AND moves on', () => {
+  it('choosing from a MULTI dropdown records the value and STAYS — Enter moves on', () => {
     openDash()
     openSectionFor('VenderDiv')
     clickNew('#newVender')
@@ -280,8 +294,32 @@ describe('P7.2 — business registration modals, keyboard-first', () => {
         $s.val($o.val()).selectpicker('refresh').trigger('changed.bs.select')
       })
     })
-    cy.get('#venderCompanyDD').should('not.have.value', '')   // the choice was RECORDED
-    cy.focused().should(($el) => expect(focusedFieldId($el)).to.not.eq('venderCompanyDD'))
+    cy.get('#venderCompanyDD').should(($s) => {
+      var v = $s.val()
+      expect(v != null && v.length > 0, 'the choice was RECORDED').to.eq(true)
+    })
+
+    /*
+     * ⭐ THE CHAIN MUST *NOT* ADVANCE HERE, and this case used to assert the opposite.
+     *
+     * P7.3 added `if (e.target.multiple) return;` to enter-chain.js on purpose: bootstrap-select fires
+     * changed.bs.select on EVERY individual tick and leaves the menu open, because that is what choosing
+     * several things looks like. Advancing on the first one took the cursor away mid-choice — on
+     * education's School form `schoolOwnerDD` is a REQUIRED multi-select AND the first field, so a second
+     * owner could not be named without the mouse.
+     *
+     * A multi-select is answered by CLOSING it — and THE NEXT CASE already owns that half ("an ANSWERED
+     * dropdown advances on Enter"), so this one stops at the rule it exists to pin: the first tick does
+     * not move the cursor. One case, one contract.
+     *
+     * ⚠ I first ended this case with `cy.focused().type('{enter}')` to prove the way out from here too.
+     * It fails, and NOT because the chain is wrong: with data-live-search the open menu puts focus in
+     * bootstrap-select's own search box, which is overflowed outside the fixed modal, so Cypress refuses
+     * it as not visible. Driving the open menu is testing the PLUGIN — the same reason the comment above
+     * gives for not arrowing through it. The next case focuses the picker BUTTON instead, which is what a
+     * closed, answered picker actually exposes.
+     */
+    cy.focused().should(($el) => expect(focusedFieldId($el)).to.eq('venderCompanyDD'))
   })
 
   it('an ANSWERED dropdown advances on Enter — it does not re-open', () => {

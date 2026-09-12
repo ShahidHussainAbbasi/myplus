@@ -60,6 +60,17 @@ public class ProductDTO {
     private Long createdBy;
     /** U1 — who is making this change, for the pack-rule audit stamp. */
     private Long updatedBy;
+    /**
+     * DUP-1 — one key per form-fill, so a repeated submit replays instead of inserting again.
+     *
+     * <p>⚠ THIS FIELD IS LOAD-BEARING AND EASY TO LEAVE OUT. {@code POST /products} binds a typed DTO and Spring
+     * Boot drops unknown JSON properties silently — so without it the client's key is discarded without a word,
+     * every request looks unique, and the guard reports success while protecting nothing.
+     *
+     * <p>Echoed back by {@code toDto} on purpose: it is the caller's own key, and returning it is what lets a
+     * caller (and the gate) tell a replay from a fresh insert.
+     */
+    private String idempotencyKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

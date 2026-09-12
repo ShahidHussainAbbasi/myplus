@@ -10,16 +10,21 @@ import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.catalog.repository.CategoryRepository;
 import com.myplus.catalog.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class ProductService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
@@ -104,6 +109,30 @@ public class ProductService {
     public ProductDTO create(ProductDTO dto) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
+
+        /*
+         * DUP-1 — the FAST path of idempotent creation: this form-fill already produced a product, so return
+         * that one instead of a second copy.
+         *
+         * ⚠ THIS CHECK ALONE DOES NOT FIX THE DEFECT IT WAS WRITTEN FOR, and believing otherwise is the easy
+         * mistake here. A production shop registered 148 products from one submit by holding Enter: those
+         * requests were all IN FLIGHT AT ONCE, so every one of their pre-checks found nothing and all 148
+         * inserted. What actually arbitrates between concurrent twins is the UNIQUE index from V16, and the
+         * loser's replay lives in ProductController.create — it cannot live here, because a constraint
+         * violation marks THIS transaction rollback-only and no read inside it can succeed afterwards.
+         *
+         * So: this path catches the sequential repeat (a retry after the first one committed), the index plus
+         * the controller catches the concurrent one. Both are needed; neither is sufficient.
+         */
+        String key = normalize(dto.getIdempotencyKey());
+        if (key != null) {
+            Optional<Product> already = productRepository.findByIdempotencyKeyScoped(key, orgId, userId);
+            if (already.isPresent()) {
+                LOG.info("create: idempotent replay for key {} -> existing product {}", key, already.get().getId());
+                return toDto(already.get());
+            }
+        }
+
         // Only a REAL sku can be a duplicate. Checking a blank one matched every other product saved
         // without a code, so the second such product was rejected with "SKU already exists: ".
         String sku = normalize(dto.getSku());
@@ -113,8 +142,28 @@ public class ProductService {
         Product p = fromDto(dto, new Product());
         p.setOrganizationId(orgId);
         p.setUserId(userId);
+        p.setIdempotencyKey(key);     // stamped HERE, not in fromDto: an update must never move the key
         if (p.getCreatedBy() == null) p.setCreatedBy(userId);
-        return toDto(productRepository.save(p));
+        /*
+         * saveAndFlush, deliberately: the INSERT must hit the database while we are still inside this method so
+         * the unique-index violation surfaces as a DataIntegrityViolationException the controller can replay.
+         * A plain save() may defer the insert to commit — which happens after this method returns, turning a
+         * recoverable duplicate into an opaque 500.
+         */
+        return toDto(productRepository.saveAndFlush(p));
+    }
+
+    /**
+     * DUP-1 — read back the product a key created, for the controller's replay after a lost insert race.
+     * Its own transaction: the caller's has already rolled back.
+     */
+    @Transactional(readOnly = true)
+    public Optional<ProductDTO> findByIdempotencyKey(String key) {
+        String k = normalize(key);
+        if (k == null) return Optional.empty();
+        return productRepository
+                .findByIdempotencyKeyScoped(k, CurrentUser.organizationId(), CurrentUser.userId())
+                .map(this::toDto);
     }
 
     /**
@@ -379,6 +428,8 @@ public class ProductService {
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
+                // DUP-1 — the caller's own key, echoed so a replay is distinguishable from a fresh insert.
+                .idempotencyKey(p.getIdempotencyKey())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
                 .build();
