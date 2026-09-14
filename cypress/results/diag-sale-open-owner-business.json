@@ -1,0 +1,159 @@
+{
+  "longtasks": [
+    {
+      "start": 283,
+      "dur": 362
+    },
+    {
+      "start": 652,
+      "dur": 82
+    },
+    {
+      "start": 853,
+      "dur": 59
+    },
+    {
+      "start": 1116,
+      "dur": 144
+    },
+    {
+      "start": 1411,
+      "dur": 3619
+    },
+    {
+      "start": 5038,
+      "dur": 4669
+    },
+    {
+      "start": 9805,
+      "dur": 389
+    }
+  ],
+  "flagWrites": [
+    {
+      "k": "posKeyboardEnabled",
+      "v": true,
+      "t": 1002,
+      "by": ""
+    },
+    {
+      "k": "posShortcutsEnabled",
+      "v": false,
+      "t": 1003,
+      "by": ""
+    }
+  ],
+  "pickerCalls": [
+    {
+      "t": 286,
+      "dur": 357,
+      "cmd": "construct",
+      "ids": [
+        "orgSwitcher",
+        "storeSwitcher",
+        "dtChannel",
+        "dtPaper",
+        "dtTitleStyle",
+        "instChaseStage"
+      ],
+      "n": 78,
+      "by": ""
+    },
+    {
+      "t": 1440,
+      "dur": 3589,
+      "cmd": "refresh",
+      "ids": [
+        "sellItemDD"
+      ],
+      "n": 1,
+      "by": ""
+    },
+    {
+      "t": 5147,
+      "dur": 4558,
+      "cmd": "refresh",
+      "ids": [
+        "sellCustomerDD"
+      ],
+      "n": 1,
+      "by": ""
+    }
+  ],
+  "marks": {
+    "visitResolved": 664,
+    "saleOpenAsked": 667,
+    "sellDivVisible": 1244,
+    "flagsWaitResolved": 1257
+  },
+  "frames": {
+    "count": 772,
+    "gaps": [
+      {
+        "at": 234,
+        "gap": 417
+      },
+      {
+        "at": 1417,
+        "gap": 3617
+      },
+      {
+        "at": 5033,
+        "gap": 4667
+      },
+      {
+        "at": 9800,
+        "gap": 383
+      }
+    ]
+  },
+  "visibility": [
+    {
+      "t": 0,
+      "state": "visible"
+    }
+  ],
+  "dialogs": [
+    {
+      "label": "at sale open",
+      "openedAt": 1244,
+      "msToOpen": 27
+    },
+    {
+      "label": "after 20 s",
+      "openedAt": 21263,
+      "msToOpen": 9
+    }
+  ],
+  "summary": {
+    "afterSaleOpen": {
+      "longtaskTotalMs": 8880,
+      "longtaskMaxMs": 4669,
+      "longtaskCount": 5
+    },
+    "wholeRun": {
+      "longtaskTotalMs": 9324,
+      "longtaskMaxMs": 4669
+    },
+    "flagsWaitResolvedVsLastFlagWrite": {
+      "waitResolved": 1257,
+      "lastFlagWrite": 1003
+    },
+    "pickers": [
+      {
+        "id": "sellItemDD",
+        "options": 1857,
+        "lis": 1857,
+        "dirty": false
+      },
+      {
+        "id": "sellCustomerDD",
+        "options": 1615,
+        "lis": 1615,
+        "dirty": false
+      }
+    ],
+    "visibleAtEnd": "visible",
+    "focusedAtEnd": true
+  }
+}

@@ -1,0 +1,187 @@
+{
+  "longtasks": [
+    {
+      "start": 412,
+      "dur": 55
+    },
+    {
+      "start": 471,
+      "dur": 371
+    },
+    {
+      "start": 850,
+      "dur": 121
+    },
+    {
+      "start": 992,
+      "dur": 88
+    },
+    {
+      "start": 1147,
+      "dur": 56
+    },
+    {
+      "start": 1385,
+      "dur": 277
+    },
+    {
+      "start": 1831,
+      "dur": 621
+    },
+    {
+      "start": 2485,
+      "dur": 405
+    },
+    {
+      "start": 3133,
+      "dur": 10716
+    }
+  ],
+  "flagWrites": [
+    {
+      "k": "posKeyboardEnabled",
+      "v": true,
+      "t": 1267,
+      "by": ""
+    },
+    {
+      "k": "posShortcutsEnabled",
+      "v": false,
+      "t": 1268,
+      "by": ""
+    }
+  ],
+  "pickerCalls": [
+    {
+      "t": 477,
+      "dur": 364,
+      "cmd": "construct",
+      "ids": [
+        "orgSwitcher",
+        "storeSwitcher",
+        "instChaseStage",
+        "qtCustomerDD",
+        "qtItemDD",
+        "returnsVenderDD"
+      ],
+      "n": 64,
+      "by": ""
+    },
+    {
+      "t": 1417,
+      "dur": 49,
+      "cmd": "refresh",
+      "ids": [
+        "venderCompanyDD",
+        "BUTTON",
+        "UL"
+      ],
+      "n": 3,
+      "by": ""
+    },
+    {
+      "t": 1874,
+      "dur": 577,
+      "cmd": "refresh",
+      "ids": [
+        "sellCustomerDD"
+      ],
+      "n": 1,
+      "by": ""
+    },
+    {
+      "t": 3180,
+      "dur": 10668,
+      "cmd": "refresh",
+      "ids": [
+        "sellItemDD"
+      ],
+      "n": 1,
+      "by": ""
+    }
+  ],
+  "marks": {
+    "visitResolved": 867,
+    "saleOpenAsked": 872,
+    "sellDivVisible": 1616,
+    "flagsWaitResolved": 1660
+  },
+  "frames": {
+    "count": 591,
+    "gaps": [
+      {
+        "at": 393,
+        "gap": 450
+      },
+      {
+        "at": 1376,
+        "gap": 317
+      },
+      {
+        "at": 1693,
+        "gap": 483
+      },
+      {
+        "at": 2176,
+        "gap": 283
+      },
+      {
+        "at": 2459,
+        "gap": 433
+      },
+      {
+        "at": 3143,
+        "gap": 10700
+      }
+    ]
+  },
+  "visibility": [
+    {
+      "t": 0,
+      "state": "visible"
+    }
+  ],
+  "dialogs": [
+    {
+      "label": "at sale open",
+      "openedAt": 1616,
+      "msToOpen": 60
+    },
+    {
+      "label": "after 20 s",
+      "openedAt": 21670,
+      "msToOpen": 12
+    }
+  ],
+  "summary": {
+    "afterSaleOpen": {
+      "longtaskTotalMs": 12163,
+      "longtaskMaxMs": 10716,
+      "longtaskCount": 6
+    },
+    "wholeRun": {
+      "longtaskTotalMs": 12710,
+      "longtaskMaxMs": 10716
+    },
+    "flagsWaitResolvedVsLastFlagWrite": {
+      "waitResolved": 1660,
+      "lastFlagWrite": 1268
+    },
+    "pickers": [
+      {
+        "id": "sellItemDD",
+        "options": 2390,
+        "lis": 2390,
+        "dirty": false
+      },
+      {
+        "id": "sellCustomerDD",
+        "options": 459,
+        "lis": 459,
+        "dirty": false
+      }
+    ],
+    "visibleAtEnd": "visible",
+    "focusedAtEnd": true
+  }
+}

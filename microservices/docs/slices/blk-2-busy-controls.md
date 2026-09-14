@@ -1,6 +1,7 @@
 # BLK-2 — the clicked control says what it is doing
 
-**Status:** coded 2026-09-14, NOT built, NOT gated. Parent design: `blocking-ui-and-backend-guards-design.md`
+**Status:** ✅ **GATED GREEN 21/21, headed (2026-09-14, run by the user)** · committed in `cfa8a761` · the
+served `submit-once.js` == src. Manual walk (Test Book §18) not yet done. Parent design: `blocking-ui-and-backend-guards-design.md`
 §4.1, §4.3.1, §5. Gate: `cypress/e2e/business/busy-controls.cy.js` (written before the code).
 Boundary agreed with session myplus-5f (BLK-1 owner): `ajax-overlay.js` and `non-blocking-ui.cy.js` are NOT
 touched; the global "a write raises the veil" rule is NOT changed; a form leaves the veil only at its own call
@@ -199,8 +200,9 @@ sequenceDiagram
 - [x] `ui.js.busySaving` / `ui.js.busyPosting` in 6 locales
 - [x] **Run-1 fixes (user go-ahead 2026-09-14):** submit-once.js last-resort sweep (`BusyControl.heldCount`);
       `submitSaleReturn` treats ONLY `status === 'SUCCESS'` as a return; spec cases 7/9/12 corrected; cases 14–20 added
-- [ ] gate green, headed, SOLO — user
-- [ ] manual cases after green; ask before commit
+- [x] gate green, headed, SOLO — user: **21/21** (2026-09-14, run 4)
+- [x] committed — `cfa8a761` (the user's commit, 21:50)
+- [ ] manual walk — Test Book §18
 
 ## 6. Gate run 1 (2026-09-14 10:53–10:56) — 10 / 14, and what the 4 reds were
 
@@ -237,7 +239,22 @@ blamed the BLK-4 catalog redeploy; that is FALSE: `myplus-catalog` was recreated
 seen starting during the wait was `/serialConditionCounts`. To check after the next deploy: instance ages and a
 per-endpoint timing of the dashboard's first load, BEFORE any gate runs.
 
-### ⚠ The committed HEAD holds a PARTIAL BLK-2
+### Gate run 3 (user, 22:02, the 21-case spec) — stopped at case 3: the dialog never drew
+
+✅ 0, 1, 2. Case 3 red at spec:179 — `.uiC-card` not visible, its backdrop at `opacity: 0`. The dialog HAD opened
+(still attached; `close()` would have removed it after 160 ms) but `is-open`, which `confirm-dialog.js:199` adds in a
+`requestAnimationFrame`, was never applied: no frame was drawn in 5 s. The picker pass was excluded (a probe reply
+dirties no picker). Leading cause: the Cypress window minimised or hidden — Chrome stops drawing frames while
+timers, which Cypress un-throttles, keep running, and cases 0–2 use only timers. Cypress 13.17 does not disable
+`CalculateNativeWinOcclusion`.
+
+### Gate run 4 (user, 2026-09-14) — ✅ 21 / 21
+
+No code or spec change between runs 3 and 4 (tree clean, HEAD still `cfa8a761`), so run 3's red was the run's
+environment, not the product. ⚠ Any spec asserting `.uiC-card` visible or clicking `[data-ui-confirm]` needs the
+browser window drawing frames — keep it visible for the whole run.
+
+### ~~⚠ The committed HEAD holds a PARTIAL BLK-2~~ — resolved: `cfa8a761` committed the whole slice (no `$btn` left)
 
 Commit `e3582e27` ("BLK-1 passed end to end", 10:31, not made by this slice's session) captured these files
 mid-edit. Its `catalog-products.js` `addProductStock` still has `complete: … $btn.prop(…)` after `var $btn` was

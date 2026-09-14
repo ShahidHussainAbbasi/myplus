@@ -15,7 +15,12 @@ yet done. ⚠ Two earlier runs were INVALID: a second Cypress run overlapped as
 the same owner and `maximumSessions(1)` expired each other's session (37 s request stalls; per-endpoint curl
 <0.45 s). Case 7 was also hardened — it now records both indicators inside the page at the write's
 `ajaxComplete`, because asserting after `cy.wait` depended on command-queue latency.
-**BLK-3 BUILT (10:47 monolith), gate run 1 = 6/7** — skeleton rows while a grid loads, never "no records" before
+**BLK-2 GATED GREEN 21/21, headed (2026-09-14, run by the user)** — the pressed control carries the wait
+(`slices/blk-2-busy-controls.md`); gate `cypress/e2e/business/busy-controls.cy.js`; committed in `cfa8a761`.
+Manual walk (Test Book §18) not yet done.
+**BLK-3 GATED GREEN 12/12 (headed, 2026-09-14, on the 15:00 build; committed `cfa8a761`) — hold LIFTED:
+`dashboard-no-freeze.cy.js` (§4.3.3 fix v2) green 5/5, headed (2026-09-14, run by the user). ⚠ Fix v2's own
+regression specs are still red — see §4.3.3.** Earlier: BUILT (10:47 monolith), gate run 1 = 6/7 — skeleton rows while a grid loads, never "no records" before
 the answer (§4.3.2); gate `cypress/e2e/business/grid-loading.cy.js`. Case 5's failure was the spec's own opener
 (fixed); the end-to-end review added cases 7–11 and a small polish that needs the next monolith rebuild. Full
 re-run pending. **BLK-4 coded 2026-09-14, NOT built/gated** — slice doc `slices/blk-4-product-optimistic-lock.md` (by the BLK-4
@@ -455,6 +460,12 @@ and the regressions that lean on the busy guard: `pos-keyboard`, `pos-checkout-c
 vanishes: opening the Sale Detail Report now pays its rail's one-time rebuild (~3 s each, one per task) when it is shown.
 Upgrading off bootstrap-select 1.6.2 (2014) is the real cure, a separate slice.
 
+**✅ Fix v2 GATED GREEN — `dashboard-no-freeze.cy.js` 5/5, headed (2026-09-14, run by the user).** ⚠ Its regression
+list is NOT green: the user's run at ~21:30–21:47 had `picker-prefetch` 3 red, `pos-shortcuts` P2-ON 3,
+`pos-enter-chain` P5 1 and `pos-keyboard` 2 — being diagnosed in another session. Found so far: the `pos-keyboard`
+failure is a spec defect (a synthetic Escape with no `keyCode`) and the `pos-shortcuts` one a harness race on the
+feature flags; the leading, UNMEASURED hypothesis for the rest is that v2 moves picker rebuilds onto New Sale opening.
+
 **Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
 handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's
 sweep waited for `jQuery.active === 0` — so a veil or bar raised by that request stayed up for the session. Now each
@@ -480,9 +491,9 @@ Ordered by consequence, not by convenience.
 | id | Change | Row it satisfies | Size |
 |---|---|---|---|
 | **BLK-0** | ⭐ **IMPLEMENTED — see §8.5.** The ledger write moved to `/internal/**` (not `@PreAuthorize` — §8.1 says why that cannot work); the missing audit closed at the one producer that lacked it (education fees), not in finance; `@Version` on Payment/PaymentAllocation. **NOT** idempotency — the user path already has it | Q5: irreversible/security-sensitive | S |
-| BLK-1 | **IMPLEMENTED, not yet gated — see §4.3.1.** READS never raise the overlay (a thin progress bar instead); writes keep it until BLK-2/BLK-13 give each a server key + a control-level lock. Deviation from "invert everything", and why, is recorded there | all | M |
-| BLK-2 | **CODED 2026-09-14, not built, not gated — `slices/blk-2-busy-controls.md`.** Per-control busy state: disable + label the control that was clicked. One shared helper (`BusyControl`, submit-once.js layer 2c) replacing 7 hand-rolled disables; veil OFF only where a server key exists (product save, receive payment, pay vendor), KEPT on sale/purchase return, stock adjust, opening balance, voids, permission save. Closes `#addFc`'s no-lock gap. Gate `busy-controls.cy.js` (14 cases) | Save product, POS sale, stock adjustment, permission change | M |
-| BLK-3 | **IMPLEMENTED; gate `grid-loading.cy.js` GREEN 12/12 headed (2026-09-14) — "gated" HELD until the picker follow-up in §4.3.3 (same build) is green. See §4.3.2.** Skeleton rows in every DataTables grid through one shared hook (no call-site edits) + 3 plain tables; a grid never renders "no records" while its read is in flight | Product page load, Search products | S |
+| BLK-1 | **GATED GREEN — 9/9 at 10:06–10:11, then 10/10 with case 9 (the stranded-veil sweep) on the 15:40 build — see §4.3.1.** READS never raise the overlay (a thin progress bar instead); writes keep it until BLK-2/BLK-13 give each a server key + a control-level lock. Deviation from "invert everything", and why, is recorded there | all | M |
+| BLK-2 | **GATED GREEN 21/21, headed (2026-09-14) — `slices/blk-2-busy-controls.md`.** Per-control busy state: disable + label the control that was clicked. One shared helper (`BusyControl`, submit-once.js layer 2c) replacing 7 hand-rolled disables; veil OFF only where a server key exists (product save, receive payment, pay vendor), KEPT on sale/purchase return, stock adjust, opening balance, voids, permission save. Closes `#addFc`'s no-lock gap. Gate `busy-controls.cy.js` (14 cases) | Save product, POS sale, stock adjustment, permission change | M |
+| BLK-3 | **GATED GREEN — `grid-loading.cy.js` 12/12 headed (2026-09-14); the §4.3.3 picker follow-up `dashboard-no-freeze.cy.js` is green 5/5 too, so the hold is lifted. See §4.3.2.** Skeleton rows in every DataTables grid through one shared hook (no call-site edits) + 3 plain tables; a grid never renders "no records" while its read is in flight | Product page load, Search products | S |
 | BLK-4 | **Coded 2026-09-14, NOT built/gated** — `@Version` on `Product` + catalog V17; save sends the version; slice doc `slices/blk-4-product-optimistic-lock.md`. Vender/Company still to come | Save product | S |
 | BLK-5 | Idempotency key on stock adjustment + a required reason | Stock adjustment | S |
 | BLK-6 | Cancel obsolete reads (with the two traps in 4.1.1 handled) + "Checking…" beside SKU | Search products, SKU check | S |
@@ -856,9 +867,13 @@ instead — **a ruling on who may adjust stock**, the same shape as BLK-0d.
 
 - The overlay still blocks by default: 344 jQuery call sites (187 get / 81 post / 76 ajax) + 26 inline in
   templates. Opt-outs: 2 `nonBlocking` (`callAjax`, `jsonPost`) + 27 `global:false` (14 via
-  `bgJson`/`bgGet`). **BLK-1 not started.**
+  `bgJson`/`bgGet`). ~~**BLK-1 not started.**~~ → BLK-1 gated green (§4.3.1): a read shows the thin bar, never
+  the veil; a write keeps the veil until BLK-2/BLK-13 give it a lock + a server key. Recount 2026-09-14 (app JS,
+  bundled jQuery excluded): 372 sites → 190 reads (bar), 22 `global:false`, 15 `nonBlocking`, 3 `fetch`, **142
+  writes still veiled**.
 - In-flight disable exists (L2b modal button, `#addSell`, `#srSubmit`, `#obPost`, `_rcvBusy`/`_pvBusy`),
-  but no "Saving…" label anywhere. **BLK-2: coded 2026-09-14, not built/gated** — `slices/blk-2-busy-controls.md`.
+  but no "Saving…" label anywhere. ~~**BLK-2: coded 2026-09-14, not built/gated**~~ → BLK-2 gated green 21/21 —
+  `slices/blk-2-busy-controls.md`.
 - Skeleton rows: `dashboard-cards.js` only. ~~**BLK-3 not started.**~~ → BLK-3 implemented 2026-09-14 (§4.3.2).
   BLK-6/8/9 not started (not re-verified).
 - `welfare.js:48` still raises a native `confirm()` for delete.
