@@ -53,6 +53,8 @@ public class FeeCollectionController {
     private com.myplus.education.service.GlOutboxService glOutboxService;   // slice 0.1: fee revenue → GL
     @Autowired
     private com.myplus.education.service.FeeArrearsService feeArrearsService;   // slice 0.2a: AR / aging / statement
+    @Autowired
+    private com.myplus.education.service.EduAuditService auditService;   // BLK-0b: who took a fee payment
     @Autowired(required = false)
     private com.myplus.common.credit.CreditService creditService;   // slice 0.2b: fee credit (shared rules)
     @Autowired
@@ -324,6 +326,44 @@ public class FeeCollectionController {
     }
 
     /**
+     * BLK-0b: record WHO took a fee payment, the same way a POS receipt is recorded.
+     *
+     * <p>Once BLK-0a took the ledger write off the public gateway, three paths remain that can reach it. Two
+     * were already audited in business-service ({@code RECEIPT}/CUSTOMER, {@code PAYMENT}/VENDOR). A fee
+     * receipt was the one that left no audit event: the fee row keeps a userId, but nothing in the owner's
+     * audit trail said who took the money.
+     *
+     * <p>Shaped like business-service's receipt row ({@code RECEIPT} + the party type), so a trail filtered on
+     * {@code action=RECEIPT} shows both verticals' receipts. {@code entityRef} is the fee collection id because
+     * that is the {@code reference} the ledger stores for this receipt, so the audit row and the ledger row join
+     * on it. The amount is what was TENDERED, any surplus carried to credit included: that is what was handed over.
+     *
+     * <p>⚠ Called straight after the fee row is SAVED, before the charge, settlement and credit steps. addFc has
+     * no transaction, so a call placed after those steps would be skipped whenever one of them threw — leaving a
+     * saved fee, i.e. money on record, with no audit row saying who took it.
+     *
+     * <p>⚠ Best-effort, deliberately. By the time this runs the fee row is saved. If a failed audit write made
+     * {@code addFc} answer ERROR, the clerk would see a failure for money that WAS recorded, and the obvious
+     * response is to submit again — a duplicate real payment, which is worse than a missing audit row.
+     */
+    private void auditReceipt(FeeCollection fc, Student student, int tendered) {
+        if (tendered <= 0 || auditService == null) return;
+        try {
+            auditService.record(com.myplus.common.audit.AuditRecord.builder()
+                    .action("RECEIPT")
+                    .entityType("STUDENT")
+                    .entityRef(String.valueOf(fc.getId()))
+                    .amount(java.math.BigDecimal.valueOf(tendered))
+                    .details("enrollNo=" + fc.getEnrollNo()
+                            + (student != null ? ", student=" + student.getName() : "")
+                            + ", method=" + glMethod(fc.getReceivedIn()))
+                    .build());
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+        }
+    }
+
+    /**
      * Map the school's "Received In" value onto finance's method vocabulary.
      *
      * Necessary, not cosmetic: finance routes to the Bank account with {@code startsWith("CHEQUE")}, and this
@@ -439,13 +479,17 @@ public class FeeCollectionController {
             // Only on CREATE: re-charging on every edit would double-count the receivable.
             String creditNote = null;
             if (isNew) {
+                Student st = studentRepository.findByOrganizationIdAndEnrollNo(orgId, saved.getEnrollNo()).orElse(null);
+                // BLK-0b: FIRST, straight after the save — addFc has no transaction, so if any step below threw, an
+                // audit placed after it would be skipped while the saved fee stayed. The FULL tender, not the
+                // settled part: the audit answers "who took this money".
+                auditReceipt(saved, st, tendered);
                 enqueueFeeCharge(saved);            // Dr AR = Cr Fee Income (the due is raised)
                 // Only the part of the tender that actually settles dues is a cash RECEIPT (Dr Cash = Cr AR). Passing the
                 // full tender would credit AR by more than was owed and drive it negative; the surplus is handled
                 // as credit below (Dr Cash = Cr 2200).
                 settleFeePayment(orgId, saved, Math.min(tendered, owedBeforeTender));
                 // Slice 0.2b: carry any surplus forward, and spend existing credit on what is still owed.
-                Student st = studentRepository.findByOrganizationIdAndEnrollNo(orgId, saved.getEnrollNo()).orElse(null);
                 creditNote = applyCredit(orgId, saved, st, tendered, owedBeforeTender);
             }
 

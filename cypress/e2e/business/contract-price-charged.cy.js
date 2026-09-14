@@ -72,6 +72,14 @@ const contractRule = (customerId, productId, value) =>
 
 /** Compose one line on the sell screen exactly as a cashier does. */
 const pickProduct = (productId) => {
+  /*
+   * Arm the quote BEFORE the pick. The rate box is filled from the catalog price the moment a product
+   * is chosen and only then overwritten by POST /priceQuote (business.js), so every "the box shows the
+   * CONTRACT price" assertion is really waiting on that round trip. Case 1 bought itself a 10s timeout;
+   * the others kept the default 5s and lost the race on a loaded screen. Waiting for the RESPONSE is
+   * deterministic where a bigger number is only a longer bet.
+   */
+  cy.intercept('POST', '**/priceQuote').as('priceQuote')
   // Wait for THIS option, not merely for "some options" — a stale list would satisfy the weaker wait.
   cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 10000 }).should('exist')
   cy.get('#sellItemDD').select(String(productId), { force: true })
@@ -117,6 +125,7 @@ describe('B2B P2-UI — the contract price is the price charged (#10)', () => {
         cy.openSellSection('sellDiv')
         selectCustomer(c.customerId)
         pickProduct(p.productId)
+        cy.wait('@priceQuote')   // the box holds CATALOG until the quote lands; see pickProduct()
         cy.get('#sellSellRate').should('have.value', String(CONTRACT))
         cy.get('#sellQuantity').clear().type('2')
         cy.get('#addInviceItem').click()
@@ -168,6 +177,7 @@ describe('B2B P2-UI — the contract price is the price charged (#10)', () => {
         cy.openSellSection('sellDiv')
         selectCustomer(c.customerId)
         pickProduct(p.productId)
+        cy.wait('@priceQuote')   // the box holds CATALOG until the quote lands; see pickProduct()
         cy.get('#sellSellRate').should('have.value', String(CONTRACT))
 
         cy.get('#sellSellRate').clear().type(String(TYPED)).blur()

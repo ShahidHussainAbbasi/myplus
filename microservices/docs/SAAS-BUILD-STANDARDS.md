@@ -49,6 +49,44 @@ diff-based check fires on saves that worked, users learn to ignore it, and the r
 unnoticed. **The server's response replaces the optimistic value silently; the MESSAGE comes from the
 envelope.**
 
+### 0c. BLOCK THE RISKY ACTION, NOT THE WHOLE INTERFACE.
+
+**Block the risky action, not the whole user interface. Protect the backend with idempotency and
+concurrency controls, not only with disabled buttons.**
+
+The companion to \u00a70b and frequently confused with it. \u00a70b says *do not show a result you have not been
+given*. It does **not** say *freeze the application until you are given one* \u2014 those are different
+requirements, and conflating them produces a slow app that is still unsafe.
+
+**The two clauses are not equally important. The second one is where defects live.**
+
+A disabled button is a courtesy, not a control. It is defeated by a reload, a retry, a flaky connection, a
+second tab, a mistyped URL, or anyone calling the API directly. If the only thing preventing a duplicate
+payment is that the button went grey, **there is no protection** \u2014 there is a coincidence that usually
+holds.
+
+**The test to apply:** *if a user reloaded mid-request and resubmitted, what would the server do?* If the
+answer is "record it twice", the guard is missing and no amount of UI will supply it.
+
+| Front end | Back end |
+|---|---|
+| disable the control that was clicked, label it ("Saving\u2026", "Posting\u2026") | idempotency key on every write that costs money |
+| block the FORM for a money action | `@Version` on every entity two people can edit at once |
+| skeleton rows for a region that is loading | a uniqueness constraint where a natural key exists |
+| **never** a full-screen blocker for a read | refuse a stale write with a message naming the ACTION |
+
+\u26a0 **A global "please wait" overlay is not a safety feature.** This codebase learned that concretely: a shop
+registered **148 products from one held Enter key**, and the fix that worked was auto-repeat suppression +
+in-flight coalescing + a server-enforced idempotency key (`submit-once.js`). A spinner would have changed
+nothing, because the writes were already non-blocking \u2014 and re-adding one would only have made every save
+feel slower. See `blocking-ui-and-backend-guards-design.md`.
+
+\u26a0 **Where this bites hardest is the code that looks safest.** The entities that have optimistic locking
+here are mostly *documents* (Order, SalesQuote, Shipment); the ones without are mostly *money*. Audit along
+the risk axis, never by counting how many places have a guard.
+
+---
+
 ### 0. NEVER ASSUME. REVIEW 100% END TO END.
 
 **This one comes before the others, because breaking it is how every other standard gets broken.**

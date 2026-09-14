@@ -23,8 +23,23 @@ public class InventoryRestClient {
     @Autowired
     private GatewayClient gateway;
 
+    private String withQuery(String path, String queryString) {
+        return (queryString != null && !queryString.isEmpty()) ? path + "?" + queryString : path;
+    }
+
     public Map<String, Object> get(String path) {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.GET, null, null);
+    }
+
+    /**
+     * GET with a query string appended — same shape the catalog/business/agriculture clients already carry.
+     *
+     * <p>Added for PS-1a ({@code /stock/levels/detail?ids=}), which is the first inventory read that needs
+     * to narrow its result; every previous one either took the whole tenant or addressed a single id in the
+     * path.
+     */
+    public Map<String, Object> get(String path, String queryString) {
+        return gateway.forMap(PREFIX, directBaseUrl, withQuery(path, queryString), HttpMethod.GET, null, null);
     }
 
     /** Raw GET returning a scalar (e.g. stock level) as text. */

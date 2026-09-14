@@ -36,8 +36,22 @@
      * ever exceeds it the console says so instead of failing silently, which is the whole point. */
     var MAX_PAGES = 200;
 
-    /** Unwrap ApiResponse/PageResponse/bare-array into { list, totalPages }. */
+    /** Unwrap ApiResponse/PageResponse/bare-array/monolith-proxy into { list, totalPages }. */
     function unwrap(resp) {
+        /*
+         * The MONOLITH PROXY shape: { status, collection: [...], page: { totalPages, ... } }.
+         *
+         * Checked FIRST and separately, because the proxies reshape a PageResponse into the
+         * {status, collection} envelope the shared loadDataTable() path reads — so `content` is not
+         * there to find. Without this branch `unwrap` returned an empty list and one page, and a
+         * caller would have paged a complete catalogue into nothing while looking like it worked.
+         */
+        if (resp && Array.isArray(resp.collection)) {
+            return {
+                list: resp.collection,
+                totalPages: (resp.page && typeof resp.page.totalPages === 'number') ? resp.page.totalPages : 1
+            };
+        }
         var page = (resp && resp.data) ? resp.data : resp;
         if (Array.isArray(page)) return { list: page, totalPages: 1 };
         if (!page) return { list: [], totalPages: 1 };

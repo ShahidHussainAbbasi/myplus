@@ -58,6 +58,17 @@ public class Payment {
     @Column(name = "receipt_no")
     private String receiptNo;                // per-org receipt sequence (RCPT-000123)
 
+    /**
+     * DOC-INT B — the number inside {@link #receiptNo}, taken from the per-org counter (V7) and UNIQUE per
+     * (organization_id, direction) via {@code uq_pay_org_dir_seq}.
+     *
+     * <p>NULL on every payment recorded before V7, deliberately: those were numbered {@code COUNT + 1}, some pairs
+     * share a number, and they are printed and in customers' hands — so the UNIQUE binds from the first new receipt
+     * on and never has to judge history. MySQL treats NULLs as distinct, which is what makes that possible.
+     */
+    @Column(name = "receipt_seq")
+    private Long receiptSeq;
+
     @Column(name = "note")
     private String note;
 
@@ -75,6 +86,31 @@ public class Payment {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * OPTIMISTIC LOCK on the ledger row (BLK-0c) — FORWARD protection, and saying so is the point.
+     *
+     * <p>⚠ <b>Nothing updates a payment today.</b> {@code PaymentService.record} is the only writer of this
+     * table and it only INSERTS (traced 2026-09-14: no update path, no native SQL touching {@code payments}).
+     * So there is no race for this to lose yet, and no stale-edit refusal a gate could provoke. It is here so
+     * that the first feature which edits, re-allocates or reverses a payment inherits a loud refusal instead of
+     * last-write-wins — which on money is exactly what STANDARDS §0b refuses — without anyone having to
+     * remember to add it. Hibernate puts it in that UPDATE's WHERE clause, so a write made against a copy
+     * somebody else has already replaced matches no row and throws.
+     *
+     * <p>V6's own comment describes a present re-allocation race. That overstates it, and it is left unedited
+     * on purpose: Flyway checksums a migration's comments too. See the design doc §8.5.3.
+     *
+     * <p><b>Not {@code createdAt}</b>: it is set BY the write being validated, has second fidelity, and two
+     * writes inside one second compare equal. A counter JPA owns has none of those ambiguities.
+     *
+     * <p>⚠ {@code NOT NULL DEFAULT 0} in V6 — a NULL version makes Hibernate treat an existing row as
+     * TRANSIENT and INSERT it, which on this table would duplicate money.
+     */
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
 
     @OneToMany(mappedBy = "payment", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

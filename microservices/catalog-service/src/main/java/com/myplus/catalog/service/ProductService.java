@@ -186,6 +186,35 @@ public class ProductService {
                 .orElseGet(NameCheckDTO::none);
     }
 
+    /**
+     * "Is this SKU already taken?" — the Product form asks on focus-out of the SKU field (PS-1b).
+     *
+     * <p>Mirrors {@link #checkName} deliberately, but answers a DIFFERENT kind of question. A duplicate
+     * name is advisory — two products may legitimately share one. <b>A duplicate SKU is REFUSED</b> by
+     * {@code create}/{@code update}, so this is the check that decides whether the save can succeed at all.
+     *
+     * <p>It exists because the client used to answer this from a full-catalogue fetch capped at 1,000 rows:
+     * on a 1,632-product tenant <b>632 SKUs were invisible</b> and every one of them passed the check,
+     * telling the operator a taken SKU was free and failing only on submit. The server sees every row.
+     *
+     * <p>{@code excludeId} is the product being EDITED — keeping your own SKU is not a duplicate.
+     */
+    public NameCheckDTO checkSku(String sku, Long excludeId) {
+        String v = normalize(sku);
+        if (v == null) return NameCheckDTO.none();   // a blank SKU is "none", never a duplicate
+        return productRepository.findBySkuScoped(v, CurrentUser.organizationId(), CurrentUser.userId())
+                .filter(p -> excludeId == null || !excludeId.equals(p.getId()))
+                .map(p -> new NameCheckDTO(true, p.getId(), p.getName(), p.getSku(),
+                        !Boolean.FALSE.equals(p.getIsActive())))
+                .orElseGet(NameCheckDTO::none);
+    }
+
+    /** The tenant's distinct manufacturer names for the Product form's dropdown (PS-1b). */
+    public java.util.List<String> manufacturers() {
+        return productRepository.findDistinctManufacturersScoped(
+                CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
     @Transactional
     public ProductDTO update(Long id, ProductDTO dto) {
         Product p = getEntity(id);   // scoped — anti-IDOR

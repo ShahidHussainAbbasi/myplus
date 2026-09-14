@@ -4,12 +4,25 @@
  * Three claims, and the second is the one that makes this more than cosmetics:
  *
  *   1. A capability-gated widget appears only for a tenant that has the capability.
- *   2. **The server does not compute its data for anyone else** — the key is ABSENT from the stats payload,
- *      not zero. A hidden tile whose data was fetched anyway is a much weaker claim, and on this screen it
- *      is also a performance regression: the dashboard was brought from ~3s to ~0.27s by removing exactly
- *      that kind of unconditional work.
+ *   2. **The capability governs the TILE, never the tenant's own figures** — the stats payload carries
+ *      `installmentsDue` for a tenant with open plans whether the capability is on or off.
  *   3. A tenant that switched a capability on sees its widgets FIRST. A mobile shop should not find "On
  *      terms" seventh, behind Companies.
+ *
+ * ⚠ CLAIM 2 IS THE OPPOSITE OF WHAT THIS FILE FIRST ASSERTED, and the reversal was deliberate.
+ *
+ * It used to require the key to be ABSENT without the capability — "no capability, no query, no key" — on
+ * the reasoning that a hidden tile must not be paid for. ONB-2 overturned that, and the controller states
+ * why: InstallmentController's endpoints gate on nothing, because a customer's debt does not evaporate
+ * because a shop changed trade. A shop that switched away from installments kept collectable plans while
+ * the amount outstanding vanished from its dashboard, with nothing left to remind it.
+ *
+ *     THE RULE: a capability governs what a tenant may DO NEXT, never what they may SEE about what
+ *     they have already done.
+ *
+ * The performance claim survives in a narrower form: the count is emitted only when there is something to
+ * count (`if (openPlans > 0)`), so a tenant that never sold on terms still gets nothing and the tile, which
+ * keeps its own data-capability, never renders for them.
  *
  * Plus a structural check that the registry and the markup have not drifted apart, which is the failure that
  * would otherwise be discovered by a widget silently never being ordered.
@@ -77,26 +90,42 @@ describe('C5 — dashboard widgets', () => {
 
     stats().then((s) => {
       expect(s, 'the server computes the count when the capability is on').to.have.property('installmentsDue')
+      // Not vacuous: a zero-plan tenant would legitimately carry no key at all, and then the OFF case
+      // below would be comparing two absences and proving nothing.
+      expect(Number(s.installmentsDue), 'this tenant actually has open plans to count').to.be.greaterThan(0)
     })
   })
 
   // ── OFF ─────────────────────────────────────────────────────────────────────────────────────────
 
-  it('OFF — the widget is hidden AND the server never computes its data', () => {
-    cy.setCapability(CAP, false)
-
+  it("OFF — the widget is hidden, but the tenant's own figures are NOT taken away", () => {
     /*
-     * ⭐ The payload assertion is the point of this test.
+     * ⭐ THE ONB-2 RULE, asserted as an EQUALITY rather than an absence.
      *
-     * "The tile is hidden" only proves the DOM was tidied. This proves the tenant is not PAYING for a widget
-     * they cannot see — the key is absent, so the COUNT query never ran. That is the difference between a
-     * capability that gates a feature and one that only gates its appearance.
+     * The capability decides whether the tile renders. It does not decide whether the shop is told what it
+     * is still owed — that was the defect ONB-2 fixed, and a shop that switched trade kept collectable
+     * plans while the figure disappeared from its dashboard.
+     *
+     * Comparing the two payloads is what makes this checkable without seeding a second tenant: the figure
+     * must be the SAME with the capability on and off. An absence-assertion would need a tenant with zero
+     * open plans, and "existence is not eligibility" — this tenant has 299, so a test written that way
+     * could only ever have been wrong about which rule it was measuring.
      */
-    stats().then((s) => {
-      expect(s, 'no capability, no query, no key').to.not.have.property('installmentsDue')
-      // Positive control on the same payload: the generic counts are still there, so the assertion above is
-      // not passing because the whole endpoint broke.
-      expect(s, 'the rest of the dashboard is unaffected').to.have.property('monthlyRevenue')
+    cy.setCapability(CAP, true)
+    stats().then((withCap) => {
+      const before = withCap.installmentsDue
+      expect(before, 'the ON payload carries a figure to compare against').to.exist
+
+      cy.setCapability(CAP, false)
+      stats().then((s) => {
+        expect(s, 'switching the capability OFF does not take the figure away')
+          .to.have.property('installmentsDue')
+        expect(s.installmentsDue, 'and it is the SAME figure — the capability moved the tile, not the books')
+          .to.eq(before)
+        // Positive control on the same payload: the generic counts are still there, so the assertions above
+        // are not passing because the whole endpoint broke.
+        expect(s, 'the rest of the dashboard is unaffected').to.have.property('monthlyRevenue')
+      })
     })
 
     cy.visit('/businessDashboard')

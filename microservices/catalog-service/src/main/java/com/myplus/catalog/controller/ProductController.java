@@ -231,6 +231,30 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productService.checkName(name, excludeId)));
     }
 
+    /**
+     * "Is this SKU already taken?" — GET /products/sku-check?sku=X&excludeId=12 (PS-1b).
+     *
+     * <p>The companion to {@code /name-check}, and the more consequential of the two: a duplicate name is
+     * allowed, a duplicate SKU is refused. A literal path, so it never collides with GET /products/{id}.
+     */
+    @GetMapping("/sku-check")
+    public ResponseEntity<ApiResponse<NameCheckDTO>> skuCheck(
+            @RequestParam String sku,
+            @RequestParam(required = false) Long excludeId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.checkSku(sku, excludeId)));
+    }
+
+    /**
+     * The tenant's distinct manufacturers — GET /products/manufacturers (PS-1b).
+     *
+     * <p>Small, changes only on a product write, and identical for everyone in the tenant, so it is a
+     * prime candidate for a conditional GET; the BFF carries the ETag.
+     */
+    @GetMapping("/manufacturers")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> manufacturers() {
+        return ResponseEntity.ok(ApiResponse.success(productService.manufacturers()));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));

@@ -247,4 +247,42 @@ class FlywayMigrationTest {
                     .isTrue();
         }
     }
+
+    // ── DOC-INT · natural keys this service relied on without owning (V64) ─────────────────────────────────
+
+    /**
+     * The invoice series is unique per tenant on a FRESH install.
+     *
+     * <p>⭐ This is the case this class was built for: it was RED before V64. The UNIQUE existed only through
+     * {@code @Table} on CustomerHistory + {@code ddl-auto: update}; this test runs {@code validate}, which creates
+     * nothing — exactly as a customer's first install on the target configuration would. Checked by COLUMNS, as
+     * V64 is, because index names vary per environment.
+     */
+    @Test
+    void the_invoice_series_is_unique_per_tenant_on_a_fresh_install() {
+        List<String> unique = jdbc.queryForList(
+                "SELECT INDEX_NAME FROM information_schema.STATISTICS "
+                        + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'customer_history' AND NON_UNIQUE = 0 "
+                        + "GROUP BY INDEX_NAME "
+                        + "HAVING GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) = 'organization_id,invoice_seq'",
+                String.class);
+        assertThat(unique).as("the arbiter that refuses a second invoice with one number — "
+                + "without it a drifted counter hands two customers the same invoice, silently").hasSize(1);
+    }
+
+    /** The duplicate-bill-line guard's lookup is an index probe, and keeps the prefix MyISAM's key limit needs. */
+    @Test
+    void the_bill_line_lookup_index_exists_with_its_prefix() {
+        List<Map<String, Object>> cols = jdbc.queryForList(
+                "SELECT COLUMN_NAME, SUB_PART FROM information_schema.STATISTICS "
+                        + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'purchase' "
+                        + "AND INDEX_NAME = 'idx_purchase_bill_line' ORDER BY SEQ_IN_INDEX");
+
+        assertThat(cols).as("V64 — idx_purchase_bill_line").hasSize(3);
+        assertThat(cols.get(0).get("COLUMN_NAME")).isEqualTo("organization_id");
+        assertThat(cols.get(1).get("COLUMN_NAME")).isEqualTo("vender_id");
+        assertThat(cols.get(2).get("COLUMN_NAME")).isEqualTo("purchase_invoice_no");
+        assertThat(((Number) cols.get(2).get("SUB_PART")).intValue())
+                .as("the full varchar(255) is 1020 bytes against MyISAM's 1000").isEqualTo(64);
+    }
 }

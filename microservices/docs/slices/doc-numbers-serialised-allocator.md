@@ -114,3 +114,60 @@ stale and missing a class, and Maven's incremental compilation hid it — an ent
 failing on margin arithmetic. **That failure belongs to unfinished work by someone else and has been left
 alone.** The lesson stands on its own: *building with `-pl` alone can silently test against yesterday's
 libraries.*
+
+---
+
+## 7. Drift (2026-09-13) — a counter that falls behind can never catch up
+
+§6 closed with *"every counter equals its table's existing maximum, so no tenant's next document reuses a
+number"*, verified by reading the live counters. Three weeks later one of them did not.
+
+```
+Duplicate entry '13-958' for key 'customer_history.uq_ch_org_invoice_seq'
+```
+
+Org 13's `INVOICE` counter stood at **957** while `MAX(customer_history.invoice_seq)` was **958**. The
+allocator handed out 958, the series' UNIQUE index refused it, and `/addSell` answered every caller with
+*"An unexpected error occurred. Please contact support."*
+
+### Why it is permanent, not transient
+
+`next()` is `Propagation.MANDATORY` — deliberately, so the row lock is held by the caller's transaction until
+it commits. The consequence nobody had needed to think about is what happens when the caller **fails**: the
+bump rolls back with the insert. The counter stays at 957, the next sale allocates 958 again, and so on.
+
+> **A drifted counter does not recover, retry, or degrade. The tenant simply stops being able to issue that
+> document, for ever, until somebody runs SQL by hand.**
+
+Eight of the nine orgs in the database were exactly in step, so this is rare — and rare is what makes it
+dangerous, because the first person to meet it is a cashier reading "contact support".
+
+### How it drifted — mechanism NOT established
+
+Invoice 958 is a legitimate `CONFIRMED` sale dated `2026-09-12 16:45:42`; the counter's last write is
+`16:45:39`, which is invoice **957**. So the row committed and its bump did not — the two were in different
+transactions.
+
+`SagaSellService` manages its own `REQUIRES_NEW` transactions for the invoice header. A header committing in
+one of those while the bump sits in an outer transaction that later rolls back would produce exactly this.
+**That path has not been traced and must not be treated as the answer** — §6's whole point was that both
+allocation sites were checked *before* the change rather than after, and the same standard applies here.
+
+### What ships now, and what does not
+
+- **`V63__reconcile_org_document_seq.sql` — ships.** Reconciles every `(org, doc_type)` counter to the highest
+  number actually issued, across all six series, on every deploy. It **raises, never lowers**: a counter ahead
+  of its documents is legitimate (a rolled-back allocation leaves a gap, which is normal and auditable), while
+  lowering one would re-issue numbers already in a customer's hands. Dry-run on the live database: 28 series
+  across 9 orgs, exactly one required action.
+- **The cause — open.** V63 repairs drift on deploy; it does not prevent it. A counter that drifts the morning
+  after a deploy still wedges that tenant until the next one.
+- **The message — open.** A 1062 on a document series is a nameable, recoverable condition. It should either
+  retry with the next number or say what happened; "contact support" is neither.
+
+### ⚠ For whoever takes the follow-up
+
+Do not "fix" this by moving `next()` to `REQUIRES_NEW` so the bump commits independently. That trades a wedge
+for a gap on every rolled-back sale, and §2 of this document explains why the lock is held to the caller's
+commit in the first place. The question to answer first is why the header and the bump ended up in separate
+transactions at all.

@@ -369,6 +369,30 @@ public class PurchaseService implements IPurchaseService{
 		return purchaseId == null ? null : purchaseRepo.findById(Long.valueOf(purchaseId)).orElse(null);
 	}
 
+	/**
+	 * DOC-INT C — hold a NEW line this vendor's bill already has (same product, same batch, not VOID) until the
+	 * operator confirms it.
+	 *
+	 * <p>Not a UNIQUE index: one bill is several rows, and the rare legitimate repeat exists. The database narrows
+	 * to the bill's lines ({@code findBillLinesScoped}, V64 index) and {@link DuplicateBillLine} decides "same line".
+	 * Nothing to match on — no bill #, vendor or product — means nothing is checked.
+	 *
+	 * @throws DuplicateBillLineException carrying the sentence the operator reads
+	 */
+	private void assertNotDuplicateBillLine(Purchase obj, boolean acknowledged) {
+		if (acknowledged) return;
+		String bill = DuplicateBillLine.normalise(obj.getPurchaseInvoiceNo());
+		if (bill == null || obj.getVenderId() == null || obj.getProductId() == null) return;
+		java.util.Optional<Purchase> prior = DuplicateBillLine.find(
+				purchaseRepo.findBillLinesScoped(obj.getOrganizationId(), obj.getVenderId(), bill),
+				obj.getProductId(), obj.getBatchNo());
+		if (prior.isEmpty()) return;
+		String vendorName = (venderRepo == null) ? null
+				: venderRepo.findById(obj.getVenderId())
+						.map(com.myplus.business_service.entity.Vender::getName).orElse(null);
+		throw new DuplicateBillLineException(DuplicateBillLine.message(bill, vendorName, prior.get()));
+	}
+
 	private Purchase doAddPurchase(PurchaseDTO dto, AuthenticatedUser user, Long org, String idemKey) throws Exception {
 		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
 		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
@@ -378,6 +402,10 @@ public class PurchaseService implements IPurchaseService{
 		obj.setUserId(user.getUserId());                  // audit
 		obj.setOrganizationId(user.getOrganizationId());  // tenant scope
 		obj.setStoreId(user.getActiveLocationId());       // multi-location: store this purchase was recorded at
+		// DOC-INT C: " 4471" and "4471" are one bill. Trimmed only when present — a blank bill # stays exactly as it
+		// arrived, because the grid and the serial register read the stored value verbatim.
+		if (obj.getPurchaseInvoiceNo() != null && !obj.getPurchaseInvoiceNo().isBlank())
+			obj.setPurchaseInvoiceNo(obj.getPurchaseInvoiceNo().trim());
 
 
 		// M3c.4b (slice 84): the purchase is self-describing — copy its batch/rate snapshot straight off the DTO
@@ -436,6 +464,11 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount() : bill;
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
+
+		// DOC-INT C: does this vendor's bill already have this line? Asked BEFORE the credit check and before any
+		// write or stock-in, so a held save has changed nothing. AFTER the idempotency replay in addPurchase, so a
+		// same-key retry replays the first save instead of being asked about it. Answered by its OWN flag.
+		assertNotDuplicateBillLine(obj, Boolean.TRUE.equals(dto.getDuplicateBillAcknowledged()));
 
 		// B2B-P1 (#9, supplier side): would this bill take us past what we are willing to owe this vendor?
 		// Checked BEFORE the write and before any stock-in, so `block` refuses having changed nothing and

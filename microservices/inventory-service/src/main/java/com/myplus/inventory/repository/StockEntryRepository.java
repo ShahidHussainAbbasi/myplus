@@ -86,4 +86,20 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
             + "FROM StockEntry se WHERE " + SCOPE + " GROUP BY se.productId")
     List<Object[]> sellableExpiredByScope(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                           @Param("today") LocalDate today);
+
+    /**
+     * The same split, narrowed to the products on screen (PS-1a) — see
+     * {@code sellableExpiredByScope} above for what each measure means; only the WHERE changes.
+     *
+     * <p>⚠ Callers chunk at 100. This aggregates over stock_entry, the largest table here, so the id list
+     * is what keeps the GROUP BY proportional to the page rather than to the catalogue.
+     */
+    @Query("SELECT se.productId, "
+            + "SUM(CASE WHEN (se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
+            + "         THEN (se.quantity - COALESCE(se.reservedQuantity, 0)) ELSE 0 END), "
+            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
+            + "SUM(COALESCE(se.reservedQuantity, 0)) "
+            + "FROM StockEntry se WHERE se.productId IN :ids AND " + SCOPE + " GROUP BY se.productId")
+    List<Object[]> sellableExpiredByScopeAndIds(@Param("ids") java.util.Collection<Long> ids,
+            @Param("orgId") Long orgId, @Param("userId") Long userId, @Param("today") LocalDate today);
 }

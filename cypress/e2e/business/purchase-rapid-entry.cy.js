@@ -32,6 +32,19 @@ function openFreshPurchaseModal() {
   cy.openPurchaseSection('purchaseDiv')
   cy.get('#newPurchase').click()
   cy.get('#PurchaseModal').should('have.class', 'open')
+  /*
+   * WAIT FOR THE MODAL TO STOP MOVING — cy.settled, and deliberately NOT cy.waitForAppReady.
+   *
+   * searchable-selects.js upgrades this form's <select>s to bootstrap-select after it opens; each swap makes
+   * the content taller and a vertically-centred modal slides. Anything typed in that window races the layout,
+   * which is how "cy.clear() could not be issued because this element is currently animating" reached the
+   * expiry-date case — a field that has nothing to do with pickers.
+   *
+   * settled() watches POSITION, so it returns as soon as the layout stops. waitForAppReady additionally
+   * demands 300ms of network quiet, and on this screen that does not arrive inside 30s — it is what hung five
+   * cases of purchase-inline-product.cy.js before they were changed to match this opener.
+   */
+  cy.settled('#purchaseInvoiceNo')
 }
 
 /** Fill the bill HEADER — vendor, invoice #, date. */

@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -58,18 +60,33 @@ class SaleReportPeriodTest {
     }
 
     @Test
-    @DisplayName("every period includes today, to the last instant of it")
+    @DisplayName("every period starts at midnight and ends at the last instant of its last day")
     void bothBoundsAreInclusive() {
         for (SaleReportPeriod p : SaleReportPeriod.values()) {
             if (p == SaleReportPeriod.CUSTOM) continue;
             LocalDateTime[] r = p.range(MID);
-            assertEquals(0, r[0].toLocalTime().toSecondOfDay(), p + " starts at midnight");
-            assertTrue(r[1].isAfter(r[0]), p + " ends after it starts");
-            if (p != SaleReportPeriod.LAST_MONTH) {
-                assertEquals(MID, r[1].toLocalDate(), p + " runs up to today");
-                assertEquals(23, r[1].getHour(), p + " includes the whole of today");
-            }
+            assertEquals(LocalTime.MIDNIGHT, r[0].toLocalTime(), p + " starts at midnight");
+            // MAX, not "hour 23": a bound at 23:00 would pass an hour check and still drop the last hour.
+            assertEquals(LocalTime.MAX, r[1].toLocalTime(), p + " includes the whole of its last day");
         }
+    }
+
+    @Test
+    @DisplayName("the rolling periods end today")
+    void rollingPeriodsEndToday() {
+        for (SaleReportPeriod p : List.of(SaleReportPeriod.TODAY, SaleReportPeriod.LAST_7_DAYS,
+                                          SaleReportPeriod.LAST_30_DAYS)) {
+            assertEquals(MID, p.range(MID)[1].toLocalDate(), p + " runs up to today");
+        }
+    }
+
+    @Test
+    @DisplayName("this month is the whole calendar month — code 0 keeps its pre-SR-1 meaning")
+    void thisMonthIsWhole() {
+        LocalDateTime[] r = SaleReportPeriod.THIS_MONTH.range(MID);
+        assertEquals(LocalDate.of(2026, 9, 1), r[0].toLocalDate());
+        assertEquals(LocalDate.of(2026, 9, 30), r[1].toLocalDate(),
+                "same end bound as AppUtil.lastDateTimeOfMonth, which the dashboard's monthly figures use");
     }
 
     @Test

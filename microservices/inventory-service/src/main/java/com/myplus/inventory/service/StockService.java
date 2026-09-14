@@ -166,12 +166,33 @@ public class StockService {
      *  Product screen show the true "you can sell N" number instead of a raw on-hand that overstates it (a product
      *  can read 16 on-hand yet be 0 sellable when every batch has expired). One call for the whole list. */
     public java.util.Map<Long, java.util.Map<String, Float>> getLevelDetail() {
+        return getLevelDetail(null);
+    }
+
+    /**
+     * PS-1a — the same split for JUST the products on screen.
+     *
+     * <p>The Product grid draws 50 rows. Computing levels for a 1,600-product tenant to paint 50 cells is
+     * work proportional to the catalogue on a page that is not, and it grows with every product the shop
+     * adds. {@code ids} narrows both reads to the drawn rows.
+     *
+     * <p><b>{@code null} or empty ids means THE WHOLE TENANT</b>, which is the pre-existing behaviour and
+     * why the no-arg overload above still works — five other callers (Stock list, order booking, stock
+     * count ×2, the sell form) legitimately want everything and are untouched by this change.
+     *
+     * <p>⚠ An id the caller asked about that owns no stock row is ABSENT from the result, exactly as
+     * before. The caller must not read absent-after-asking as zero unless it knows the request succeeded —
+     * a failed chunk rendering "0" would print "out of stock" over real inventory.
+     */
+    public java.util.Map<Long, java.util.Map<String, Float>> getLevelDetail(java.util.Collection<Long> ids) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
         java.time.LocalDate today = java.time.LocalDate.now();
+        boolean scoped = (ids != null && !ids.isEmpty());
         java.util.Map<Long, java.util.Map<String, Float>> out = new java.util.HashMap<>();
         // Seed every product that has a StockLevel row with its physical on-hand (sellable/expired default 0).
-        for (StockLevel sl : stockLevelRepository.findScoped(orgId, userId)) {
+        for (StockLevel sl : (scoped ? stockLevelRepository.findScopedByProductIds(ids, orgId, userId)
+                                     : stockLevelRepository.findScoped(orgId, userId))) {
             java.util.Map<String, Float> m = new java.util.HashMap<>();
             m.put("onHand", out(sl.getCurrentStock()));
             m.put("sellable", 0f);
@@ -180,7 +201,8 @@ public class StockService {
             out.put(sl.getProductId(), m);
         }
         // Overlay the batch-derived sellable/expired/held split.
-        for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today)) {
+        for (Object[] row : (scoped ? stockEntryRepository.sellableExpiredByScopeAndIds(ids, orgId, userId, today)
+                                    : stockEntryRepository.sellableExpiredByScope(orgId, userId, today))) {
             Long pid = (Long) row[0];
             float sellable = row[1] == null ? 0f : ((Number) row[1]).floatValue();
             float expired = row[2] == null ? 0f : ((Number) row[2]).floatValue();

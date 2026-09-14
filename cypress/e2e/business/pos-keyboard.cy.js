@@ -456,6 +456,25 @@ describe('POS keyboard entry — ON', () => {
   it('after a commit, focus returns to the scan box ready for the next line', () => {
     cy.seedProduct({ name: 'KbdFocus_' + Date.now(), sellingPrice: 25, stock: 10 }).then(({ productId }) => {
       openSell(true)
+      /*
+       * ⚠ NAME THE CUSTOMER FIRST, or this case measures the other branch.
+       *
+       * commitLine() sends the cursor to the goods ONLY once the sale-level question is answered:
+       *     if (customerAnswered()) { focusGoodsEntry(); return; }
+       *     focusEntryPoint();
+       * and customerAnswered() reads #sellCustomerDD / #sellCN. Neither openSell() nor pickItem()
+       * touches either, so nothing had been answered and the till correctly went back to the customer.
+       *
+       * The comment below used to claim "pickItem() names a customer". It does not - it waits for the
+       * option, selects the item and waits for the rate and stock badges, and that is all. Naming the
+       * customer here answers the question the way a cashier does, so the assertion measures the rule.
+       *
+       * ⚠ And NOT by changing the expectation to sellCustomerDD: that is the regression reported from
+       * the counter (a five-line basket paying five stops on a name that never changed), so an
+       * expectation flipped to match it would lock the bug in and the case would prove nothing.
+       */
+      cy.get('#btnModeManual').click({ force: true })
+      cy.get('#sellCN').clear().type('Kbd Buyer ' + Date.now())
       pickItem(productId)
       // Walk the WHOLE chain: Qty -> Price -> Discount -> commit. Enter on Qty no longer commits.
       cy.get('#sellQuantity').clear().type('2{enter}')
@@ -470,9 +489,9 @@ describe('POS keyboard entry — ON', () => {
        * the customer is a SALE-level question asked once, and a line is not a new sale: a five-line
        * basket paid five stops on a name that had not changed since the first. Reported from the counter.
        *
-       * pickItem() names a customer, so the question is answered here and the cursor goes to where the
-       * NEXT line is typed - which is the scan box on a shop that scans and the item picker otherwise,
-       * so it is read off the screen rather than named.
+       * The customer is named at the top of this case, so the question IS answered and the cursor goes
+       * to where the NEXT line is typed - the scan box on a shop that scans and the item picker
+       * otherwise, so it is read off the screen rather than named.
        */
       cy.window({ timeout: 10000 }).should((w) => {
         const ids = Cypress.screenFields(w, '#sellDiv')

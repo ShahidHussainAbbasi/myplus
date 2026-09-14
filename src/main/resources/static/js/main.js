@@ -1005,16 +1005,28 @@ $(document).ready(function() {
 				// purchase). Nothing written, no stock in — so cancelling is free, and confirming re-submits
 				// the same form data with the acknowledgement appended.
 				if(data.status==="CONFIRM"){
+					// DOC-INT C: more than one question can hold a save for confirmation, so the SERVER names the
+					// flag that answers this one (object.ack). Absent → the credit limit, which is what every
+					// CONFIRM meant before. One flag per question: answering "this bill already has this line"
+					// with creditAcknowledged would silently wave a credit-limit breach through on the resubmit.
+					// Only a plain identifier is accepted — it is appended to a request body.
+					var ack = (data.object && typeof data.object.ack === 'string' && /^[A-Za-z]+$/.test(data.object.ack))
+						? data.object.ack : 'creditAcknowledged';
+					var dupBill = (ack === 'duplicateBillAcknowledged');
 					uiConfirm({
-						title: t('ui.js.creditLimitTitle'),
+						title: dupBill ? t('ui.js.duplicateBillTitle') : t('ui.js.creditLimitTitle'),
 						message: data.message,
-						okText: t('ui.js.continueAnyway'),
-						tone: 'danger'
+						// confirmText, not okText — confirm-dialog.js reads confirmText, so okText left the button
+						// saying "Confirm" and "Continue anyway" never showed.
+						confirmText: t('ui.js.continueAnyway'),
+						tone: dupBill ? 'warning' : 'danger'
 					}).then(function (ok) {
 						if (!ok) { return; }
 						// `data` here is a URL-encoded string (populateFormData/$.param), so APPEND — assigning
 						// a property to a string is a silent no-op, the same trap that once dropped productId.
-						$(document).callAjax(method, dataSent + "&creditAcknowledged=true");
+						// A second, different prompt on the resubmit still appears: this call's dataSent carries
+						// the first answer, and the next CONFIRM appends its own.
+						$(document).callAjax(method, dataSent + "&" + ack + "=true");
 					});
 					return false;
 				}
@@ -1246,7 +1258,7 @@ function jsonPost(method,data) {
 				uiConfirm({
 					title: t('ui.js.creditLimitTitle'),
 					message: data.message,
-					okText: t('ui.js.continueAnyway'),
+					confirmText: t('ui.js.continueAnyway'),   // confirm-dialog.js reads confirmText; okText was ignored
 					tone: 'danger'
 				}).then(function (ok) {
 					if (!ok) { return; }          // nothing happened, nothing to undo

@@ -2004,6 +2004,29 @@ tr.row-voided .js-edit-row{display:none !important}
 							<select
 								class="form-control onChangeSelect selectpicker" id="purchaseItemDD" name="itemId" data-live-search="true" required="required">
 							</select>
+							<!-- PUR-INLINE: receiving a delivery that contains something never registered used to
+							     cost the operator the whole bill. This opens the REAL product form over this one
+							     (same ProductModal, same newProduct()) and hands the new product straight back to
+							     the picker above, with the bill header untouched.
+
+							     GATED ON THE PERMISSION THAT GOVERNS THE POST, not on a role: PermissionInterceptor
+							     maps POST /addProduct to product.create, so an affordance visible without it would
+							     be a button that always refuses. The owner holds everything (AuthService mints
+							     everything() for ROLE_OWNER) and the built-in Standard set includes product.create,
+							     so no existing member loses it.
+
+							     data-kbd-skip is belt and braces: FocusFlow.skip() already excludes type="button",
+							     so the Enter walk never lands here. The attribute states the intent so a later
+							     change of element (to an <a>, say) does not quietly insert "register a product"
+							     into the middle of typing a bill line. -->
+							<button type="button" id="newProductFromPurchase" class="btn btn-link btn-sm"
+									style="padding-left:0" data-kbd-skip
+									sec:authorize="hasAuthority('product.create')"
+									onclick="newProductForPurchase()"
+									th:title="#{ui.newProduct}" title="Register a new product">
+								<span class="glyphicon glyphicon-plus"></span>
+								<span th:text="#{ui.newProduct}">New product</span>
+							</button>
 						</div>
 						<div>
 							<label class="control-label col-sm-2" for="purchaseItemDesc" th:text="#{ui.description}">Description</label> 
@@ -3546,7 +3569,73 @@ tr.row-voided .js-edit-row{display:none !important}
 						<input type="checkbox" id="showInactiveProducts" onchange="toggleShowInactiveProducts(this.checked)"> <span th:text="#{ui.showInactive}">Show inactive</span>
 					</label>
 				</div>
-				<div id="ProductModal" class="crud-overlay">
+
+				<!-- Toggle column — same control (and the same shared `a.toggle-vis` handler in business.js) the
+				     Purchase and Sell reports use. data-column is the ZERO-BASED index into #tableProduct's header:
+				       0 ID (hidden by loadDataTable)   1 checkbox   2 Name        3 SKU       4 Unit
+				       5 Price   6 Last purchase   7 Last sale      8 Tax %       9 Category  10 Manufacturer
+				      11 On hand  12 Add stock (the action control)  13 Status
+				     0, 1 and 12 are deliberately NOT offered: hiding the id/checkbox breaks row-edit and bulk
+				     select, and 12 holds the add/reduce stock buttons rather than data.
+				     ⚠ These indexes are positional — if a column is inserted into the table above, every number
+				     after it shifts. product-manufacturer.cy.js asserts header count vs row-cell count for exactly
+				     that reason. -->
+				<!--
+				     Active-filter chip. The grid can arrive already filtered (from the dashboard category card),
+				     and a grid that silently holds a filter is a support call: the shop searches for a product it
+				     owns, finds nothing, and has no way to see why. The chip states the filter and is itself the
+				     control that clears it. Filled by catalog-products.js.
+				-->
+				<div id="productFilterBar" class="filter-bar" style="display:none"></div>
+				<div>
+					<span th:text="#{ui.toggleColumn}">Toggle column:</span>
+					  <a class="toggle-vis" data-column="2" th:text="#{ui.name}">Name</a>
+					  - <a class="toggle-vis" data-column="3" th:text="#{ui.sku}">SKU</a>
+					  - <a class="toggle-vis" data-column="4" th:text="#{ui.unit}">Unit</a>
+					  - <a class="toggle-vis" data-column="5" th:text="#{ui.price}">Price</a>
+					  - <a class="toggle-vis" data-column="6" th:text="#{ui.lastPurchaseRate}">Last purchase rate</a>
+					  - <a class="toggle-vis" data-column="7" th:text="#{ui.lastSaleRate}">Last sale rate</a>
+					  - <a class="toggle-vis" data-column="8" th:text="#{ui.tax}">Tax %</a>
+					  - <a class="toggle-vis" data-column="9" th:text="#{ui.category}">Category</a>
+					  - <a class="toggle-vis" data-column="10" th:text="#{ui.manufacturer}">Manufacturer</a>
+					  - <a class="toggle-vis" data-column="11" th:text="#{ui.onHand}">On hand</a>
+					  - <a class="toggle-vis" data-column="13" th:text="#{ui.status}">Status</a>
+				</div>
+				<div>
+					<table id="tableProduct" class="table table-bordered table-striped">
+						<thead>
+							<tr>
+								<th data-field="productId" th:text="#{ui.id}">ID</th>
+								<th data-field="checkDelete"></th>
+								<th data-field="name" th:text="#{ui.name}">Name</th>
+								<th data-field="sku"><span th:text="#{ui.sku}">SKU</span></th>
+								<th data-field="unit" th:text="#{ui.unit}">Unit</th>
+								<th data-field="sellingPrice" th:text="#{ui.price}">Price</th>
+								<!-- Stamped onto the product by the purchase flow (add/edit a purchase), so both render
+								     straight from the product row. Last sale rate is what the last purchase SET the price
+								     to; the Price column is the live master price — they diverge on a direct price edit. -->
+								<th data-field="lastPurchaseRate" th:text="#{ui.lastPurchaseRate}">Last purchase rate</th>
+								<th data-field="lastSaleRate" th:text="#{ui.lastSaleRate}">Last sale rate</th>
+								<th data-field="taxRate" th:text="#{ui.tax}">Tax %</th>
+								<th data-field="categoryName" th:text="#{ui.category}">Category</th>
+								<th data-field="manufacturer" th:text="#{ui.manufacturer}">Manufacturer</th>
+								<th data-field="onHand" th:text="#{ui.onHand}">On hand</th>
+								<th data-field="addStock" th:text="#{ui.addStock}">Add stock</th>
+								<th data-field="productStatus" th:text="#{ui.status}">Status</th>
+							</tr>
+						</thead>
+					</table>
+				</div>
+			</div>
+
+			<!-- PUR-INLINE: #ProductModal lives OUTSIDE #ProductDiv, deliberately.
+			     Switching section runs $('.formDiv').hide(), so while it was nested inside the Products
+			     section this overlay could only be seen from that one screen. Registering a product from the
+			     purchase bill opened it under a display:none parent: created, focused, populated, invisible.
+			     A fixed-position overlay must not be a descendant of a section that toggles.
+			     It stays AFTER #PurchaseModal in document order, which is what puts it on top when both are
+			     open (they share z-index 1050) and what isTopModal() reads. -->
+<div id="ProductModal" class="crud-overlay">
 				  <div class="crud-box">
 					<div class="crud-head">
 						<!-- <h4 id="ProductModalTitle">New Product</h4> -->
@@ -3758,63 +3847,6 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 				  </div>
 				</div>
-				<!-- Toggle column — same control (and the same shared `a.toggle-vis` handler in business.js) the
-				     Purchase and Sell reports use. data-column is the ZERO-BASED index into #tableProduct's header:
-				       0 ID (hidden by loadDataTable)   1 checkbox   2 Name        3 SKU       4 Unit
-				       5 Price   6 Last purchase   7 Last sale      8 Tax %       9 Category  10 Manufacturer
-				      11 On hand  12 Add stock (the action control)  13 Status
-				     0, 1 and 12 are deliberately NOT offered: hiding the id/checkbox breaks row-edit and bulk
-				     select, and 12 holds the add/reduce stock buttons rather than data.
-				     ⚠ These indexes are positional — if a column is inserted into the table above, every number
-				     after it shifts. product-manufacturer.cy.js asserts header count vs row-cell count for exactly
-				     that reason. -->
-				<!--
-				     Active-filter chip. The grid can arrive already filtered (from the dashboard category card),
-				     and a grid that silently holds a filter is a support call: the shop searches for a product it
-				     owns, finds nothing, and has no way to see why. The chip states the filter and is itself the
-				     control that clears it. Filled by catalog-products.js.
-				-->
-				<div id="productFilterBar" class="filter-bar" style="display:none"></div>
-				<div>
-					<span th:text="#{ui.toggleColumn}">Toggle column:</span>
-					  <a class="toggle-vis" data-column="2" th:text="#{ui.name}">Name</a>
-					  - <a class="toggle-vis" data-column="3" th:text="#{ui.sku}">SKU</a>
-					  - <a class="toggle-vis" data-column="4" th:text="#{ui.unit}">Unit</a>
-					  - <a class="toggle-vis" data-column="5" th:text="#{ui.price}">Price</a>
-					  - <a class="toggle-vis" data-column="6" th:text="#{ui.lastPurchaseRate}">Last purchase rate</a>
-					  - <a class="toggle-vis" data-column="7" th:text="#{ui.lastSaleRate}">Last sale rate</a>
-					  - <a class="toggle-vis" data-column="8" th:text="#{ui.tax}">Tax %</a>
-					  - <a class="toggle-vis" data-column="9" th:text="#{ui.category}">Category</a>
-					  - <a class="toggle-vis" data-column="10" th:text="#{ui.manufacturer}">Manufacturer</a>
-					  - <a class="toggle-vis" data-column="11" th:text="#{ui.onHand}">On hand</a>
-					  - <a class="toggle-vis" data-column="13" th:text="#{ui.status}">Status</a>
-				</div>
-				<div>
-					<table id="tableProduct" class="table table-bordered table-striped">
-						<thead>
-							<tr>
-								<th data-field="productId" th:text="#{ui.id}">ID</th>
-								<th data-field="checkDelete"></th>
-								<th data-field="name" th:text="#{ui.name}">Name</th>
-								<th data-field="sku"><span th:text="#{ui.sku}">SKU</span></th>
-								<th data-field="unit" th:text="#{ui.unit}">Unit</th>
-								<th data-field="sellingPrice" th:text="#{ui.price}">Price</th>
-								<!-- Stamped onto the product by the purchase flow (add/edit a purchase), so both render
-								     straight from the product row. Last sale rate is what the last purchase SET the price
-								     to; the Price column is the live master price — they diverge on a direct price edit. -->
-								<th data-field="lastPurchaseRate" th:text="#{ui.lastPurchaseRate}">Last purchase rate</th>
-								<th data-field="lastSaleRate" th:text="#{ui.lastSaleRate}">Last sale rate</th>
-								<th data-field="taxRate" th:text="#{ui.tax}">Tax %</th>
-								<th data-field="categoryName" th:text="#{ui.category}">Category</th>
-								<th data-field="manufacturer" th:text="#{ui.manufacturer}">Manufacturer</th>
-								<th data-field="onHand" th:text="#{ui.onHand}">On hand</th>
-								<th data-field="addStock" th:text="#{ui.addStock}">Add stock</th>
-								<th data-field="productStatus" th:text="#{ui.status}">Status</th>
-							</tr>
-						</thead>
-					</table>
-				</div>
-			</div>
 
 			<!--
 			     SER-5 — the units behind one condition card, in detail.

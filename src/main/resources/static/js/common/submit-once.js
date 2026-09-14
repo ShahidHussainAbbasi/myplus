@@ -179,28 +179,176 @@
      * Background calls (`global: false`) never reach ajaxSend, so a preload cannot disable anything.
      */
     function openModalSubmit() {
-        var $modal = $('.crud-overlay.open').first();
+        // .last(), not .first() — PUR-INLINE. Overlays share one z-index, so the LAST open one in document
+        // order is the one on screen and the one being submitted. With ProductModal stacked over
+        // PurchaseModal, .first() greyed out the purchase's Save button while the PRODUCT was saving.
+        var $modal = $('.crud-overlay.open').last();
         if (!$modal.length) return null;
         var sel = $modal.attr('data-kbd-submit');
-        var $btn = sel ? $(sel) : $('#add' + $modal.attr('id').replace(/Modal$/, ''));
+        var id = $modal.attr('id');
+        // ⚠ NEVER THROW FROM HERE. This runs inside an ajaxSend handler, and jQuery increments
+        // jQuery.active BEFORE triggering ajaxSend but decrements it in the completion path — so an
+        // exception thrown here aborts jQuery.ajax() with the counter already raised and NEVER lowered.
+        // Every later "is the app idle?" check then waits forever on a request that was never sent.
+        // All 21 overlays carry an id today; this costs one line and removes the failure mode entirely.
+        if (!sel && !id) return null;
+        var $btn = sel ? $(sel) : $('#add' + id.replace(/Modal$/, ''));
         return $btn.length ? $btn.first() : null;
     }
 
-    $(document).ajaxSend(function (evt, jqXHR, settings) {
-        if (!isWriteMethod(settings && settings.type)) return;
-        var $btn = openModalSubmit();
-        // Only ever disable a button that is currently enabled, and remember it ON THE jqXHR so completion
-        // re-enables exactly what this request disabled. Counting in-flight requests instead would re-enable
-        // early whenever two unrelated writes overlapped.
-        if ($btn && !$btn.prop('disabled')) {
-            $btn.prop('disabled', true);
-            jqXHR.__submitOnceBtn = $btn;
+    /* ══ LAYER 2c — BLK-2: the pressed control says what it is doing ═════════════════════════════════════
+     *
+     * "Block the risky action, not the whole user interface." A disabled button that looks exactly like an
+     * enabled one tells the operator nothing, so they press again or wonder whether it worked. The control that
+     * started the write carries the waiting state instead: disabled, aria-busy, a spinner and "Saving…" /
+     * "Posting…", at its own width so nothing moves under the pointer — and the rest of the screen stays usable
+     * wherever the form is safe without the veil (design: slices/blk-2-busy-controls.md §2.3).
+     *
+     * ONE helper for what used to be seven hand-rolled disables. `hold()` returns its own release (a token, not a
+     * shared counter), so two holders of one control cannot release each other early.
+     *
+     * ⚠ THE RELEASE IS WHERE THIS CAN GO WRONG, so its rules are explicit:
+     *   • it runs in ajaxComplete on the SAME jqXHR that held it — success, error, abort and a CONFIRM answer all
+     *     pass through complete, so a failed save cannot leave a button reading "Saving…" for ever;
+     *   • the content is restored only if it is STILL OURS — an app that relabelled the button meanwhile
+     *     ("Save" → "Update") keeps its label rather than getting a stale one back;
+     *   • an ALREADY-disabled control is never held — nobody pressed it, and re-enabling it on release would
+     *     unlock what someone else locked;
+     *   • nothing here may throw: it runs inside ajaxSend (see openModalSubmit's note).
+     */
+    var BUSY_STYLE_ID = 'submit-once-busy-style';
+
+    function injectBusyStyles() {
+        if (document.getElementById(BUSY_STYLE_ID)) return;
+        var s = document.createElement('style');
+        s.id = BUSY_STYLE_ID;
+        s.appendChild(document.createTextNode(
+            '.is-busy{cursor:progress}' +
+            '.busy-spin{display:inline-block;width:.9em;height:.9em;margin-right:.4em;vertical-align:-.12em;' +
+            'border-radius:50%;border:2px solid currentColor;border-right-color:transparent;' +
+            'animation:busySpin .7s linear infinite}' +
+            '.is-busy-compact .busy-spin{margin-right:0}' +
+            '@keyframes busySpin{to{transform:rotate(360deg)}}' +
+            '@media (prefers-reduced-motion: reduce){.busy-spin{animation:none;border-right-color:currentColor;opacity:.55}}'));
+        (document.head || document.documentElement).appendChild(s);
+    }
+
+    /** The label for a kind of write, in the page's language; English if the dictionary lacks the key. */
+    function busyText(kind) {
+        var key = kind === 'post' ? 'ui.js.busyPosting' : 'ui.js.busySaving';
+        var fallback = kind === 'post' ? 'Posting…' : 'Saving…';
+        try {
+            if (typeof global.tHas === 'function' && global.tHas(key) && typeof global.t === 'function') return global.t(key);
+        } catch (e) { /* fall through to English */ }
+        return fallback;
+    }
+
+    /** An element from an element, a jQuery object or a selector; null for anything else (incl. document). */
+    function busyElement(target) {
+        if (!target) return null;
+        var el = target;
+        if (typeof target === 'string') { try { el = document.querySelector(target); } catch (e) { return null; } }
+        else if (target.jquery) el = target[0];
+        return (el && el.nodeType === 1) ? el : null;
+    }
+
+    var DISABLEABLE = /^(BUTTON|INPUT|SELECT|TEXTAREA|FIELDSET)$/;
+    function noop() {}
+
+    /**
+     * Put a control into its busy state. Returns release(), safe to call more than once.
+     *
+     * @param kind  'post' (money, stock, documents) or 'save' (default); a data-busy-kind attribute also works
+     * @param opts  {label:false} — disable and mark busy, but leave the content alone (a control that was NOT
+     *              the one pressed, e.g. a modal's second submit)
+     */
+    function hold(target, kind, opts) {
+        try {
+            var el = busyElement(target);
+            if (!el) return noop;
+            var state = el.__busy;
+            if (state) {
+                state.count++;
+            } else {
+                if (el.disabled === true) return noop;   // someone else's lock — see the rules above
+                state = el.__busy = { count: 1, html: null, markup: null, minWidth: el.style.minWidth };
+                if (DISABLEABLE.test(el.tagName)) el.disabled = true;
+                el.setAttribute('aria-busy', 'true');
+                el.classList.add('is-busy');
+                var wantLabel = !(opts && opts.label === false);
+                if (el.tagName === 'BUTTON' && wantLabel) {
+                    injectBusyStyles();
+                    var width = el.getBoundingClientRect().width;
+                    if (width > 0) el.style.minWidth = Math.ceil(width) + 'px';
+                    var compact = el.classList.contains('btn-xs') || el.hasAttribute('data-busy-compact');
+                    var text = busyText(kind || el.getAttribute('data-busy-kind'));
+                    state.html = el.innerHTML;
+                    el.innerHTML = '<span class="busy-spin" aria-hidden="true"></span><span class="'
+                        + (compact ? 'sr-only' : 'busy-label') + '"></span>';
+                    el.lastChild.textContent = text;   // textContent: a translated string is never markup
+                    if (compact) el.classList.add('is-busy-compact');
+                    state.markup = el.innerHTML;
+                }
+            }
+            var released = false;
+            return function release() {
+                if (released) return;
+                released = true;
+                try {
+                    var st = el.__busy;
+                    if (!st || --st.count > 0) return;
+                    delete el.__busy;
+                    if (st.html !== null && el.innerHTML === st.markup) el.innerHTML = st.html;
+                    el.style.minWidth = st.minWidth;
+                    el.classList.remove('is-busy', 'is-busy-compact');
+                    el.removeAttribute('aria-busy');
+                    if (DISABLEABLE.test(el.tagName)) el.disabled = false;
+                } catch (e) { /* a control removed from the page meanwhile has nothing left to restore */ }
+            };
+        } catch (e) {
+            return noop;
         }
+    }
+
+    global.BusyControl = {
+        hold: hold,
+        isBusy: function (target) { var el = busyElement(target); return !!(el && el.__busy); }
+    };
+
+    /*
+     * LAYER 2b + 2c wiring. The target is STATED, never guessed from "the last thing clicked": a background write
+     * inside that window would label the wrong control, and a confirm dialog's OK button is already gone by the
+     * time its request is sent.
+     *
+     *   1. settings.busyControl (+ settings.busyKind) — the call site names its control;
+     *   2. the open modal's submit (layer 2b's original selection) — labelled when nothing was named, and only
+     *      DISABLED when a different control was, so "Save" and "Save & Add Another" never both say "Saving…".
+     *
+     * `$(button).callAjax(...)` supplies (1) for every generic save (main.js), so the non-modal forms — the school
+     * fee form above all, which had no lock of any kind — are held without a per-form edit.
+     */
+    $(document).ajaxSend(function (evt, jqXHR, settings) {
+        try {
+            if (!isWriteMethod(settings && settings.type)) return;
+            var releases = [];
+            var named = busyElement(settings && settings.busyControl);
+            if (named) releases.push(hold(named, settings.busyKind));
+            var $modalBtn = openModalSubmit();
+            var modalEl = $modalBtn ? $modalBtn[0] : null;
+            if (modalEl && modalEl !== named) {
+                releases.push(hold(modalEl, settings && settings.busyKind, named ? { label: false } : null));
+            }
+            if (releases.length) jqXHR.__busyRelease = releases;
+        } catch (e) { /* never throw from ajaxSend */ }
     });
 
     $(document).ajaxComplete(function (evt, jqXHR) {
-        var $btn = jqXHR && jqXHR.__submitOnceBtn;
-        if ($btn) { $btn.prop('disabled', false); delete jqXHR.__submitOnceBtn; }
+        var releases = jqXHR && jqXHR.__busyRelease;
+        if (!releases) return;
+        delete jqXHR.__busyRelease;
+        for (var i = 0; i < releases.length; i++) {
+            try { releases[i](); } catch (e) { /* keep releasing the rest */ }
+        }
     });
 
 

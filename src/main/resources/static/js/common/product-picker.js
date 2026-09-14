@@ -129,18 +129,28 @@
      * the product just picked, which is why it rides on the option rather than costing a lookup per
      * selection on the hot path.
      */
+    /**
+     * ONE option, for ONE product.
+     *
+     * Extracted from optionsHtml (PUR-INLINE) because a second caller appeared: registering a product from
+     * inside the purchase form appends just the new row to a picker that is already painted. Hand-building
+     * that one option somewhere else is exactly the divergence the comment above warns about — the sale
+     * screen and the purchase screen disagreeing about what a product option carries.
+     */
+    function optionHtml(p) {
+        var esc = (typeof global.escHtml === 'function') ? global.escHtml : function (v) { return v; };
+        return "<option value='" + p.id + "' data-product='" + p.id + "'"
+             + " data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'"
+             // Emitted only when TRUE: absent is the common case and the safe reading. A product
+             // nobody has flagged is not a tracked one.
+             + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
+             + ">"
+             + esc(p.name || ('Product #' + p.id)) + "</option>";
+    }
+
     function optionsHtml(list, placeholder) {
         var html = "<option value=''>" + (placeholder || 'Nothing Selected') + "</option>";
-        var esc = (typeof global.escHtml === 'function') ? global.escHtml : function (v) { return v; };
-        list.forEach(function (p) {
-            html += "<option value='" + p.id + "' data-product='" + p.id + "'"
-                 + " data-price='" + (p.sellingPrice != null ? p.sellingPrice : '') + "'"
-                 // Emitted only when TRUE: absent is the common case and the safe reading. A product
-                 // nobody has flagged is not a tracked one.
-                 + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
-                 + ">"
-                 + esc(p.name || ('Product #' + p.id)) + "</option>";
-        });
+        list.forEach(function (p) { html += optionHtml(p); });
         return html;
     }
 
@@ -190,6 +200,7 @@
         load: load,
         invalidate: invalidate,
         optionsHtml: optionsHtml,
+        optionHtml: optionHtml,
         PAGE_SIZE: PAGE_SIZE
     };
 })(window, jQuery);

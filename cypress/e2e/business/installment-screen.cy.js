@@ -280,6 +280,23 @@ describe('INST-1 — the sale screen sells on terms', () => {
     setConfig('pos.sale.confirmOnComplete', 'true')
 
     cy.seedProduct({ name: `UIS_${run}`, sellingPrice: 60000, stock: 5 }).then(({ productId }) => {
+      /*
+       * SER-6 - the serial box shows only for a product that HAS a serial, and cy.seedProduct() has no
+       * requiresSerial passthrough. Without this flag the option carries no data-requires-serial, the
+       * cell takes .serial-na, #sellSerials is hidden AND cleared, and the IMEI below cannot be typed.
+       *
+       * SEEDED, never forced: {force:true} on the type would leave the box permanently empty, so the
+       * "Add to Cart empties it" assertion further down would pass for a reason unrelated to
+       * resetForm() and the assetRef it pins would go untested. Shape copied from
+       * serial-field-visibility.cy.js seedTracked(), loud assertion included.
+       */
+      cy.request({
+        method: 'POST', url: '/setProductTracking', form: true,
+        body: { id: productId, requiresSerial: 'true' }, failOnStatusCode: false,
+      }).then((r) => {
+        expect(JSON.stringify(r.body), `product ${productId} is serial-tracked`).to.not.match(/error/i)
+      })
+
       // The handset has to be IN the register before it can be sold out of it.
       receiveSerial(productId, `IMEI${run}`)
 

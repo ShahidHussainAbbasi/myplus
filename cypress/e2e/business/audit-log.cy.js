@@ -22,36 +22,9 @@ describe('Audit #6 — immutable audit trail', () => {
    */
   beforeEach(() => { cy.loginAsOwner() })
 
-  // Tolerate a non-JSON body (e.g. audit-service/gateway still warming up returns an HTML page) → treat as empty so
-  // findAudit retries rather than crashing. A persistent HTML body means the read chain (monolith /getAuditLog →
-  // gateway /api/audit → audit-service) isn't fully deployed.
-  const rows = (b) => {
-    if (b == null) return []
-    if (typeof b === 'string') {
-      try { b = JSON.parse(b) } catch (e) { return [] }
-    }
-    /*
-     * ⚠ ONLY AN ARRAY IS A LIST OF ROWS.
-     *
-     * This returned the body unchanged for anything non-string, so the monolith's error envelope —
-     * AuditController answers `{"status":"ERROR"}` when the read chain (monolith → gateway → audit-service)
-     * is unreachable — came back as an OBJECT and the caller crashed on `.find is not a function`.
-     *
-     * The comment above says this helper exists to tolerate exactly that and let findAudit RETRY. It could
-     * not: it crashed on the first bad answer instead of polling through a service that was still warming
-     * up. Anything that is not an array is "no rows yet".
-     */
-    return Array.isArray(b) ? b : []
-  }
-  // Delivery is async (AFTER_COMMIT + relay), so poll the trail until the expected row shows up.
-  const findAudit = (pred, attempt = 0) =>
-    cy.request('/getAuditLog?limit=200').then((r) => {
-      const hit = rows(r.body).find(pred)
-      if (hit) return hit
-      if (attempt >= 45) throw new Error('audit row not found after retries')   // ~35s: cover a relay tick if LB was cold
-      cy.wait(750)
-      return findAudit(pred, attempt + 1)
-    })
+  // The trail is read through cy.auditLog / cy.findAudit (cypress/support/commands.js). They lived here until
+  // BLK-0's gate needed the same thing; one copy now carries the two facts that make them correct — the body
+  // is a RAW ARRAY, and only an array is a list of rows (an error envelope means "not yet", so poll).
 
   it('a sale, its void, and a receipt each append an immutable audit entry', () => {
     cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
@@ -69,7 +42,7 @@ describe('Audit #6 — immutable audit trail', () => {
         const invoiceNo = r.body.object
 
         // 1) SALE audited: right ref, amount, actor, source.
-        findAudit((x) => x.action === 'SALE' && x.entityRef === invoiceNo).then((sale) => {
+        cy.findAudit((x) => x.action === 'SALE' && x.entityRef === invoiceNo, `SALE ${invoiceNo}`).then((sale) => {
           expect(Number(sale.amount), 'sale amount').to.be.greaterThan(0)
           expect(sale.userId, 'actor stamped').to.not.be.null
           expect(sale.sourceService, 'source service').to.eq('business')
@@ -78,9 +51,9 @@ describe('Audit #6 — immutable audit trail', () => {
           // 2) Void it → a VOID_SALE row appears; the SALE row is unchanged (append-only).
           cy.request({ method: 'POST', url: '/voidSell', form: true, body: { invoiceNo, reason: 'CY audit' }, failOnStatusCode: false })
             .then((v) => expect(v.body.status, JSON.stringify(v.body)).to.eq('SUCCESS'))
-          findAudit((x) => x.action === 'VOID_SALE' && x.entityRef === invoiceNo).then(() => {
-            cy.request('/getAuditLog?limit=200').then((r2) => {
-              const original = rows(r2.body).find((x) => x.id === saleId)
+          cy.findAudit((x) => x.action === 'VOID_SALE' && x.entityRef === invoiceNo, `VOID_SALE ${invoiceNo}`).then(() => {
+            cy.auditLog().then((rows) => {
+              const original = rows.find((x) => x.id === saleId)
               expect(original, 'original SALE row still present').to.exist
               expect(original.action, 'SALE row not rewritten').to.eq('SALE')
             })
@@ -103,7 +76,7 @@ describe('Audit #6 — immutable audit trail', () => {
         const due = Number(c.dueAmount || 0)
         cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: c.customerId || c.id, amount: due, method: 'CASH' }, failOnStatusCode: false })
           .then((p) => expect(p.body.status).to.eq('SUCCESS'))
-        findAudit((x) => x.action === 'RECEIPT' && Number(x.amount) === due).then((rcpt) => {
+        cy.findAudit((x) => x.action === 'RECEIPT' && Number(x.amount) === due, `RECEIPT of ${due}`).then((rcpt) => {
           expect(rcpt.entityType).to.eq('CUSTOMER')
         })
       })

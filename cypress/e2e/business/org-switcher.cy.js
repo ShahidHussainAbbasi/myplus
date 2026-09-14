@@ -60,8 +60,14 @@ describe('Commerce dashboard: active-organization switcher', () => {
 
   it('the switcher is rendered on the business dashboard', () => {
     // The control never existed here — assert the markup the shared script drives is actually present.
-    cy.visit('/businessDashboard')
+    cy.visitDashboardSettled()
     cy.get('#orgSwitcher', { timeout: 10000 }).should('exist')
+    /*
+     * waitForAppReady before the visibility check: the load-time AJAX wave raises the shared spinner,
+     * and #orgSwitcherLi is position:fixed, so Cypress reports it as covered by <div class="ao-box">
+     * rather than as hidden. The switcher is fine; the overlay is simply still up.
+     */
+    cy.waitForAppReady()
     cy.get('#orgSwitcherLi').should('be.visible')          // shown once the org list loads
     cy.get('#orgSwitcher option').should('have.length.greaterThan', 0)
   })

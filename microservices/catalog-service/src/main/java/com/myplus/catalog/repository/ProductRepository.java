@@ -129,6 +129,25 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /**
+     * The tenant's distinct manufacturer names, for the Product form's dropdown (PS-1b).
+     *
+     * <p>Replaces deriving the list on the CLIENT from a full catalogue fetch. That fetch was capped at
+     * 1,000 rows, so on a larger tenant the dropdown silently lost the manufacturers that appeared only on
+     * older products — the list looked complete and was not.
+     *
+     * <p>Blank and whitespace-only values are excluded here rather than filtered client-side, so every
+     * caller gets the same list. Sorted in SQL for the same reason.
+     *
+     * <p>⚠ A DISTINCT over the catalogue is cheap at a few thousand rows and is NOT indexed today. If a
+     * tenant ever reaches six figures this wants an index on {@code (organization_id, manufacturer)} —
+     * noted rather than added, because an unused index costs every write.
+     */
+    @Query("SELECT DISTINCT TRIM(p.manufacturer) FROM Product p "
+         + "WHERE p.manufacturer IS NOT NULL AND TRIM(p.manufacturer) <> '' AND " + SCOPE
+         + " ORDER BY TRIM(p.manufacturer)")
+    List<String> findDistinctManufacturersScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
      * Duplicate-NAME guard for the product form (case-insensitive). SKU is optional, so the duplicate that
      * actually happens — same name, no code — was caught by nothing; this is what the form's focus-out check asks.
      *

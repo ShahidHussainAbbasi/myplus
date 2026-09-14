@@ -4,6 +4,10 @@ package com.myplus.catalog.dto;
  * Answer to "is this product name already registered?" — the server-side duplicate check the Product form
  * fires when the Name field loses focus.
  *
+ * <p><b>Also serves {@code /sku-check}</b> (PS-1b): the answer shape is the same question — "which product
+ * already owns this value?" — so it is reused rather than twinned. The two differ in CONSEQUENCE, not in
+ * shape: a duplicate name is advisory, a duplicate SKU is refused by create/update.
+ *
  * <p>ADVISORY, not a rejection. Two products may legitimately share a name across categories, manufacturers or
  * pack sizes, so this reports the namesake and lets the operator decide; {@code ProductService.create} still
  * rejects only a duplicate SKU. The matched product is named (id/sku/active) so the form can offer "edit this

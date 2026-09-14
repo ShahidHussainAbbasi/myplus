@@ -10,7 +10,14 @@
 describe('Sidebar: the selected nav item stays visible', () => {
   beforeEach(() => {
     cy.loginAsOwner()
-    cy.visit('/businessDashboard')
+    /*
+     * Settled, not a bare visit. The rail restores its collapsed state and replays its last selection
+     * AFTER first paint (sidebar.js, on DOMContentLoaded), and both animate - the sidebar's width and
+     * body's padding-left over .18s, a restored group's submenu over .2s. A .snav-btn is width:100%, so
+     * its CENTRE - the point Cypress samples - is still moving, and every case here died on the first
+     * click with "could not determine the actionability of this element".
+     */
+    cy.visitDashboardSettled()
   })
 
   const pickCustomer = () => {

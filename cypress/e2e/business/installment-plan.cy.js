@@ -154,6 +154,14 @@ describe('INST-1 — selling on installment', () => {
           customer: { name: `Sched Buyer ${run}`, contact: `0300S${run}`, paidAmount: 20000, dueAmount: 0 },
           sales: [{ productId, quantity: 1, sellRate: 50000, totalAmount: 50000, netAmount: 50000 }],
           paidAmount: 20000, dueAmount: 0, grandTotal: 50000,
+          /*
+           * The deposit guard compares the down payment against the TENDERS, not paidAmount —
+           * SellController says so in as many words ("tenders are what actually settle an invoice,
+           * which a fixture of mine learned the hard way"). paidAmount is what the invoice RECORDS;
+           * only a tender is money. Without this the whole sale is refused before anything is written
+           * and there is no plan to assert a schedule against.
+           */
+          tenders: [{ method: 'CASH', amount: 20000, reference: '' }],
           installmentPlan: {
             cashPrice: 50000, downPayment: 20000, installmentCount: 3,
             frequency: 'monthly', firstDueDate: monthsOut(1),

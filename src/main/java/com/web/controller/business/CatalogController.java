@@ -121,33 +121,75 @@ public class CatalogController {
             // "Show inactive" toggle: when true, include deactivated products (each carries isActive so the row can
             // show a status badge + a Reactivate action). Default hides them (the "delete" UX).
             boolean includeInactive = "true".equalsIgnoreCase(request.getParameter("includeInactive"));
-            // NEWEST FIRST — `size=1000` alone silently truncated the catalogue.
-            //
-            // The page cap is fine on its own, but with the default (ascending id) ordering it returns the
-            // OLDEST thousand, so once a tenant passes 1000 products their most recent ones stop appearing
-            // on the Product screen entirely — no message, no indicator, they are simply not in the list.
-            // Measured on the demo org: 1042 products, `/getUserProduct` returned 983 with a max id of 1594
-            // while the newest was 1636. A shopkeeper would add a product and not find it.
-            //
-            // `sort=id,desc` makes the window follow the tenant forward. It does NOT change what the user
-            // sees ordered by — DataTables sorts client-side — only WHICH thousand rows are fetched, which
-            // is the half that was wrong. A proper fix is server-side paging/search on this screen; this
-            // keeps the same one request while making the truncation land on the rows least likely to be
-            // wanted rather than the most.
-            Map<String, Object> resp = catalog.get("/products", "size=1000&sort=id,desc");
+            /*
+             * ⭐ PS-2 — READ EVERY PAGE. A CAP THAT NOBODY IS TOLD ABOUT IS A LIE, NOT A LIMIT.
+             *
+             * This used to ask for `size=1000&sort=id,desc` and return whatever came back. On a tenant with
+             * more than a thousand products that silently dropped the rest, and five screens believed the
+             * short list completely:
+             *   • labels.js        — a barcode sheet missing the products it does not mention
+             *   • stock-count.js   — a count sheet whose absent rows read as "nothing to count"
+             *   • report-filters.js and business.js ×2 — filter dropdowns missing real products, so a
+             *     report "for all products" quietly excluded some
+             *
+             * Measured on a 1,632-product tenant: 1,000 returned, 632 invisible. An earlier fix had added
+             * `sort=id,desc` after NEW products started vanishing — that inverted WHICH rows disappear
+             * without stopping them disappearing, and the oldest products are a shop's staples.
+             *
+             * So: page through until the server says `last`. The hops are intra-cluster and measured at
+             * ~45ms, and these are occasional screens (labels, stock count, filter dropdowns), never a hot
+             * path — completeness is worth two or three of them.
+             *
+             * ⚠ THE CEILING BELOW STILL EXISTS, BUT IT IS NO LONGER SILENT. If a catalogue ever exceeds it
+             * the response carries `truncated: true` and the log carries a WARNING naming the count. That is
+             * the whole difference between a limit and a lie: the caller can say so on screen.
+             */
+            final int PAGE_SIZE = 500;
+            final int MAX_PAGES = 40;                 // 20,000 products before anyone is misled
             java.util.List<Map<String, Object>> collection = new java.util.ArrayList<>();
-            Object data = (resp != null) ? resp.get("data") : null;
-            if (data instanceof Map<?, ?> page && page.get("content") instanceof java.util.List<?> list) {
-                for (Object o : list) {
-                    if (!(o instanceof Map<?, ?> p)) continue;
-                    boolean inactive = Boolean.FALSE.equals(p.get("isActive"));
-                    if (inactive && !includeInactive) continue;   // deactivated → hidden unless "Show inactive"
-                    collection.add(productRow(p));
+            boolean truncated = false;
+            long totalElements = -1;
+            int pageNo = 0;
+
+            while (true) {
+                Map<String, Object> resp = catalog.get("/products",
+                        "page=" + pageNo + "&size=" + PAGE_SIZE + "&sort=id,asc");
+                Object data = (resp != null) ? resp.get("data") : null;
+                if (!(data instanceof Map<?, ?> pageMap)) break;
+
+                if (totalElements < 0 && pageMap.get("totalElements") instanceof Number n) {
+                    totalElements = n.longValue();
+                }
+                if (pageMap.get("content") instanceof java.util.List<?> list) {
+                    for (Object o : list) {
+                        if (!(o instanceof Map<?, ?> pr)) continue;
+                        boolean inactive = Boolean.FALSE.equals(pr.get("isActive"));
+                        if (inactive && !includeInactive) continue;   // deactivated → hidden unless "Show inactive"
+                        collection.add(productRow(pr));
+                    }
+                    // An empty page means we are past the end even if `last` was not reported.
+                    if (list.isEmpty()) break;
+                } else {
+                    break;
+                }
+
+                if (Boolean.TRUE.equals(pageMap.get("last"))) break;
+                if (++pageNo >= MAX_PAGES) {
+                    truncated = true;
+                    LOGGER.warn("getUserProduct: stopped at {} pages of {} (≈{} products) — catalogue has {}."
+                            + " The response is marked truncated; callers must not present it as complete.",
+                            MAX_PAGES, PAGE_SIZE, MAX_PAGES * PAGE_SIZE, totalElements);
+                    break;
                 }
             }
+
             Map<String, Object> out = new java.util.HashMap<>();
             out.put("status", collection.isEmpty() ? "NOT_FOUND" : "SUCCESS");
             out.put("collection", collection);
+            // Honest metadata. `truncated` is the flag a caller must check before calling a list
+            // complete; `total` lets it say "showing N of M" instead of implying it has everything.
+            out.put("truncated", truncated);
+            if (totalElements >= 0) out.put("total", totalElements);
             return out;
         } catch (Exception e) {
             LOGGER.error("getUserProduct proxy error", e);
@@ -228,11 +270,14 @@ public class CatalogController {
              * Bounded, not trusted: `size=100000` would be the unbounded read this endpoint exists to end,
              * wearing a query parameter.
              *
-             * The ceiling is 1000 rather than a page-sized number because the grid's "All" — which the
-             * export path uses, so a 50-row page never becomes a 50-row spreadsheet — has to reach it.
-             * 1000 is deliberately the SAME ceiling {@code /getUserProduct} already used every time this
-             * screen opened: picking anything higher would introduce a larger read than the one being
-             * removed.
+             * ⚠ THIS CEILING IS NO LONGER WHAT "ALL" RELIES ON (PS-1f). It used to be: the grid's "All"
+             * asked for {@code size=1000} and got whatever fitted, so a 1,632-product catalogue drew 1,000
+             * rows under a label reading "of 1,632" — and the EXPORT, which switches to "All" precisely so
+             * a 50-row page does not become a 50-row spreadsheet, produced exactly the short file it exists
+             * to prevent.
+             *
+             * "All" now pages through client-side (PagedFetch, 500 a page), so this is back to being an
+             * ordinary sanity bound on one request rather than a limit on how much anyone can see.
              */
             int size = parseInt(request.getParameter("size"), 50, 1, 1000);
 
@@ -543,6 +588,87 @@ public class CatalogController {
             return out;
         } catch (Exception e) {
             LOGGER.error("productNameCheck proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * "Is this SKU already taken?" — the SKU field's focus-out check (PS-1b). Twin of
+     * {@link #productNameCheck}, flattened to the same {@code {success, exists, id, name, sku, active}}.
+     *
+     * <p>This is the one that decides whether the save can succeed: a duplicate NAME is advisory, a
+     * duplicate SKU is refused. It replaces a client-side index built from a full-catalogue fetch that was
+     * capped at 1,000 rows — on a 1,632-product tenant <b>632 SKUs were invisible and every one passed</b>.
+     */
+    @GetMapping("/productSkuCheck")
+    @ResponseBody
+    public Map<String, Object> productSkuCheck(final HttpServletRequest request) {
+        String sku = request.getParameter("sku");
+        // A blank SKU is legitimately "no SKU", never a duplicate — answered here without a hop.
+        if (sku == null || sku.isBlank()) return Map.of("success", true, "exists", false);
+        try {
+            StringBuilder qs = new StringBuilder("sku=").append(
+                    java.net.URLEncoder.encode(sku.trim(), java.nio.charset.StandardCharsets.UTF_8));
+            String excludeId = request.getParameter("excludeId");
+            if (excludeId != null && !excludeId.isBlank()) {
+                qs.append("&excludeId=").append(
+                        java.net.URLEncoder.encode(excludeId.trim(), java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Map<String, Object> resp = catalog.get("/products/sku-check", qs.toString());
+            Map<String, Object> out = new java.util.HashMap<>();
+            out.put("success", true);
+            out.put("exists", false);
+            if (resp != null && resp.get("data") instanceof Map<?, ?> d) {
+                out.put("exists", Boolean.TRUE.equals(d.get("exists")));
+                out.put("id", d.get("id"));
+                out.put("name", d.get("name"));
+                out.put("sku", d.get("sku"));
+                out.put("active", d.get("active"));
+            }
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("productSkuCheck proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * The tenant's distinct manufacturers for the Product form's dropdown (PS-1b).
+     *
+     * <p>Was derived on the client from {@code /getUserProduct}'s whole-catalogue payload — so on a tenant
+     * past 1,000 products the dropdown silently lost every manufacturer that appeared only on older
+     * products. A list that looks complete and is not.
+     */
+    @GetMapping("/manufacturers")
+    @ResponseBody
+    public Map<String, Object> manufacturers() {
+        try {
+            Map<String, Object> resp = catalog.get("/products/manufacturers");
+            Object data = (resp != null) ? resp.get("data") : null;
+            return Map.of("success", true,
+                    "manufacturers", (data instanceof java.util.List<?> l) ? l : java.util.List.of());
+        } catch (Exception e) {
+            LOGGER.error("manufacturers proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * How many products this tenant has — for the "N registered" badge (PS-1b).
+     *
+     * <p>⚠ It cannot be taken from the grid's own {@code totalElements}: that number is FILTERED by
+     * whatever search/category the operator has applied, so the badge would change meaning as they typed.
+     *
+     * <p>The badge previously rendered the length of the client's catalogue array, which the 1,000-row cap
+     * made <b>wrong on screen</b> — a 1,632-product tenant was shown "1000 registered".
+     */
+    @GetMapping("/productCount")
+    @ResponseBody
+    public Map<String, Object> productCount() {
+        try {
+            return Map.of("success", true, "count", catalog.getString("/products/count").trim());
+        } catch (Exception e) {
+            LOGGER.error("productCount proxy error", e);
             return ProxyErrors.failure(e);
         }
     }
@@ -908,9 +1034,28 @@ public class CatalogController {
      *  /productStock call) and shows the honest sellable count + an "expired" badge. */
     @GetMapping("/productStockLevels")
     @ResponseBody
-    public Map<String, Object> productStockLevels() {
+    public Map<String, Object> productStockLevels(final HttpServletRequest request) {
         try {
-            Map<String, Object> levels = inventory.get("/stock/levels/detail");
+            /*
+             * PS-1a — `ids` narrows this to the rows actually drawn.
+             *
+             * Without it this returned EVERY product's levels for the whole tenant to paint a 50-row page:
+             * 1,112 entries / 69.5 KB measured, growing with the catalogue and bounded by nothing. The
+             * parameter is OPTIONAL so the callers that legitimately want everything — the Stock list,
+             * order booking and stock count — keep working untouched.
+             *
+             * ⚠ Passed straight through as a repeated-free CSV. The proxy layer keeps only v[0] of a
+             * REPEATED parameter, so `ids=1&ids=2` would silently arrive as just `1`; one comma-joined
+             * value is the shape that survives. Callers chunk at 100 (PERF-12: 730 ids in one GET became a
+             * silent Tomcat 400).
+             */
+            String ids = request.getParameter("ids");
+            String qs = (ids != null && !ids.isBlank())
+                    ? "ids=" + java.net.URLEncoder.encode(ids.trim(), java.nio.charset.StandardCharsets.UTF_8)
+                    : null;
+            Map<String, Object> levels = (qs != null)
+                    ? inventory.get("/stock/levels/detail", qs)
+                    : inventory.get("/stock/levels/detail");
             return Map.of("success", true, "levels", levels != null ? levels : Collections.emptyMap());
         } catch (Exception e) {
             LOGGER.error("productStockLevels proxy error", e);

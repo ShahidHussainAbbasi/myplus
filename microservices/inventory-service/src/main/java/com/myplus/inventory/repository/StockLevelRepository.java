@@ -22,6 +22,19 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
     List<StockLevel> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /**
+     * The same scoped read, narrowed to the products actually on screen (PS-1a).
+     *
+     * <p>The Product grid shows 50 rows; fetching every level for a 1,600-product tenant to paint 50 cells
+     * is work proportional to the catalogue for a page that is not. The caller passes the drawn ids.
+     *
+     * <p>⚠ Keep the batch SMALL — callers chunk at 100. A very large IN list is a different performance
+     * problem from the one this fixes, and MySQL plans it badly past a few hundred.
+     */
+    @Query("SELECT sl FROM StockLevel sl WHERE sl.productId IN :ids AND " + SCOPE)
+    List<StockLevel> findScopedByProductIds(@Param("ids") java.util.Collection<Long> ids,
+                                            @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
      * Task #20 — the tenant's stock valued at cost, as ONE aggregate row.
      *
      * <p><b>What this number IS, precisely:</b> {@code StockLevel.costPrice} is written by the purchase path

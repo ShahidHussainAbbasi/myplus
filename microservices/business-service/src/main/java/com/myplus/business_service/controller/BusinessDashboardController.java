@@ -67,15 +67,15 @@ public class BusinessDashboardController {
     @Autowired
     private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
 
-    /**
-     * C5 — decides whether the installments widget (and its query) is worth running for this tenant.
+    /*
+     * C5's CapabilityService injection was removed here, deliberately.
      *
-     * <p>REQUIRED, like every other capability injection: an optional one silently skips the check, which for
-     * a rendering decision would mean quietly running a query for tenants that cannot use its result. See
-     * {@code JpaSettingsStore}'s javadoc for the OMS O3 precedent.
+     * ONB-2 took the capability out of the installments-widget decision — the count is emitted whenever the
+     * tenant has open plans, because a capability governs what a shop may DO NEXT, never what it may SEE
+     * about what it has already done (see the note at the emission site below). The field outlived that
+     * change and was read by nothing, while its javadoc still described a check that no longer happened —
+     * which is worse than no comment at all, because the next reader trusts it.
      */
-    @Autowired
-    private com.myplus.common.settings.CapabilityService capabilityService;
 
     @Autowired
     private com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: top-item names from catalog

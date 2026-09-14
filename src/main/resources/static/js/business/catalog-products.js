@@ -3,9 +3,18 @@
  * (the single product master shared by POS, pharmacy, e-commerce). The list now renders through the SHARED
  * loadDataTable() DataTable path (same as Customer): sort/search/paging/export, a hidden id + checkbox column,
  * row-click edit, and a Delete that DEACTIVATES (products referenced by sales/inventory stay intact, just drop
- * off the list). Per-row Add-stock (addstkbtn_<id>) is preserved. Proxies: /getUserProduct (list, {collection}),
- * /addProduct, /updateProduct, /deactivateProduct, /addProductStock, /productStock, /getCatalogProduct,
- * /productNameCheck.
+ * off the list). Per-row Add-stock (addstkbtn_<id>) is preserved.
+ *
+ * PROXIES: /getProductPage (the grid AND the "already registered" panel), /productStockLevels?ids=,
+ * /productCount, /manufacturers, /productNameCheck, /productSkuCheck, /addProduct, /updateProduct,
+ * /deactivateProduct, /addProductStock, /productStock, /getCatalogProduct.
+ *
+ * ⭐ PS-1 — THIS SCREEN LOADS ONLY WHAT IS ON IT. It used to also fetch the whole catalogue
+ * (/getUserProduct, 384 KB) and every product's stock levels (/productStockLevels, 69.5 KB) on every open:
+ * 474 KB to render a 50-row grid that needs 19.8 KB. Worse, the catalogue fetch was capped at 1,000 rows and
+ * the cap was SILENT — on a 1,632-product tenant, 632 products were missing from the duplicate-SKU check,
+ * the registered panel and the manufacturer dropdown. Every one of those now asks the server, which sees
+ * every row.
  *
  * The form also shows what is ALREADY REGISTERED while a new product is being entered — the list has always
  * been on the screen (#tableProduct) but the form opens in a fixed full-viewport overlay that covers it. The
@@ -18,57 +27,158 @@
 
     // Numeric coercion uses the shared s2n() from main.js (was a duplicate local s2n()).
 
-    // ── The registered-product index (one fetch, two consumers) ─────────────────
-    // /getUserProduct?includeInactive=true returns this tenant's whole catalogue. It was ALREADY fetched every
-    // time the screen or the form opened, with everything except sku→id thrown away — so the "already
-    // registered" panel costs no extra round-trip, it just stops discarding the rows. Inactive products are
-    // included deliberately: a deactivated product still owns its SKU downstream, and a namesake the operator
-    // cannot see on the list is precisely the one they are about to register a second time.
-    var productIndex = [];      // rows as returned by /getUserProduct
-    var indexState = 'empty';   // 'empty' | 'loaded' | 'failed' — see below
-    var skuIndex = {};          // normalised sku → owning product id (as a string)
+    // ── What the form knows about the rest of the catalogue (PS-1) ────────────────────
+    //
+    // This was ONE fetch of the whole catalogue (/getUserProduct?includeInactive=true) held in memory and
+    // queried on the client for three things: the duplicate-SKU check, the "already registered" panel, and
+    // the manufacturer dropdown.
+    //
+    // ⚠ THAT FETCH WAS CAPPED AT 1,000 ROWS AND THE CAP WAS SILENT. Measured, not theorised: on a
+    // 1,632-product tenant the five oldest products by id were absent from the index while the grid paged
+    // to them perfectly well — 632 products (39%) missing from all three consumers. So a taken SKU was
+    // reported free, a registered product was reported unregistered, and manufacturers used only on older
+    // products vanished from the dropdown.
+    //
+    // renderExisting() below already argued that an empty list must never be shown as "nothing is
+    // registered", because it is the opposite of the truth and the one reassurance the operator must not be
+    // given. Truncation produced exactly that reassurance, and the guard could not see it: it distinguished
+    // a FAILED fetch from a successful one, and this fetch succeeded.
+    //
+    // Each consumer now asks the server, which sees every row. It also drops 384 KB from every screen open.
 
-    // Cap on rows painted into the panel. A tenant may hold hundreds of products; painting all of them on
-    // every keystroke is the one way a type-ahead becomes slower than the round-trip it replaced.
+    // Rows painted into the panel. Now also the page SIZE asked of the server — a type-ahead that paints
+    // hundreds of rows per keystroke is slower than the round-trip it replaced.
     var EXISTING_MAX_ROWS = 40;
 
     function normSku(s) { return (s == null ? '' : String(s)).trim().toLowerCase(); }
 
+    /** Distinct manufacturers for the dropdown — GET /manufacturers. */
+    var manufacturerList = [];
+
+    /** Products in this tenant, for the "N registered" badge — GET /productCount. Null until known. */
+    var productTotal = null;
+
+    /** The panel's rows and state. 'loaded' means THE SERVER ANSWERED — never merely "we tried". */
+    var existingRows = [];
+    var existingTotal = 0;        // matches the server found, which may exceed what we painted
+    var panelState = 'empty';     // 'empty' | 'loaded' | 'failed'
+
     /**
-     * (Re)load the index and repaint the panel. On failure the state is 'failed', NOT an empty list: an empty
-     * list renders as "nothing is registered yet", which is the opposite of the truth and exactly the
-     * reassurance the operator must not be given. The old refreshSkuIndex() had the same hole silently — a
-     * failed GET left skuIndex empty and every duplicate SKU then passed the client check.
+     * The last AUTHORITATIVE answer about ONE SKU, from GET /productSkuCheck.
+     *
+     * ⚠ Deliberately not a cache of many SKUs — a client-side map of the catalogue is precisely what was
+     * just removed. It holds only the value the server was last asked about, so saveProduct() can block a
+     * duplicate it has already been told about without becoming async.
+     *
+     * Anything not covered here simply goes to the server on save, which refuses a duplicate SKU
+     * authoritatively and always did. <b>The client check is an optimisation, never the enforcement</b> —
+     * which is why losing the old index costs correctness nothing and gains it a great deal.
      */
-    function refreshProductIndex() {
-        $.get(serverContext + 'getUserProduct?includeInactive=true', function (resp) {
-            productIndex = (resp && resp.collection) ? resp.collection : [];
-            indexState = 'loaded';
-            skuIndex = {};
-            productIndex.forEach(function (p) {
-                var k = normSku(p.sku);
-                if (k) skuIndex[k] = String(p.id);
+    var skuVerdict = { sku: null, ownerId: null };
+
+    function clearSkuVerdict() { skuVerdict = { sku: null, ownerId: null }; }
+
+    /**
+     * Ask the server whether a SKU is taken, and remember the answer.
+     *
+     * @param sku       what to check — blank is never a duplicate, and costs no request
+     * @param currentId the product being edited; keeping your own SKU is not a duplicate
+     * @param done      called with true when the SKU is taken by a DIFFERENT product
+     */
+    function checkSkuOnServer(sku, currentId, done) {
+        var k = normSku(sku);
+        if (!k) { clearSkuVerdict(); if (done) done(false); return; }
+        var params = { sku: String(sku).trim() };
+        if (currentId) params.excludeId = currentId;
+        $.get(serverContext + 'productSkuCheck', params)
+            .done(function (resp) {
+                var taken = !!(resp && resp.success && resp.exists);
+                skuVerdict = { sku: k, ownerId: taken ? String(resp.id) : null };
+                if (done) done(taken);
+            })
+            .fail(function () {
+                // Unknown is NOT "free": leave no verdict, so save falls through to the server rather than
+                // the client inventing an all-clear it was never given.
+                clearSkuVerdict();
+                if (done) done(false);
             });
-            renderExisting();
-            // The manufacturer options ARE this index, so they are rebuilt whenever it is — keeping the
-            // currently selected value, which matters while a product is open for editing.
-            loadManufacturers($('#prodManufacturer').val());
-        }, 'json').fail(function () {
-            productIndex = [];
-            indexState = 'failed';
-            skuIndex = {};
-            renderExisting();
-            // Guard 2: keep whatever the form already holds rather than rendering an empty picker.
-            loadManufacturers($('#prodManufacturer').val());
-        });
     }
 
-    // Returns true when `sku` is a non-empty duplicate of a DIFFERENT product than the one being edited.
+    /**
+     * True only when the server has ALREADY told us this exact SKU belongs to a different product.
+     *
+     * Unknown returns false on purpose — the save then proceeds and the server refuses it with a message.
+     * The old version answered from a 1,000-row index and returned false for 632 products' SKUs while
+     * sounding just as certain.
+     */
     function isDuplicateSku(sku, currentId) {
         var k = normSku(sku);
         if (!k) return false;                       // SKU is optional — blank never blocks on the client
-        var owner = skuIndex[k];
-        return owner != null && owner !== String(currentId || '');
+        if (skuVerdict.sku !== k) return false;     // not the value we have an answer for
+        return skuVerdict.ownerId != null && skuVerdict.ownerId !== String(currentId || '');
+    }
+
+    /**
+     * Refresh everything the form shows about the rest of the catalogue: the badge, the manufacturer
+     * dropdown, and the panel. Three small reads in place of one large one, none of them blocking.
+     */
+    function refreshProductPanel() {
+        $.get(serverContext + 'productCount', function (resp) {
+            if (resp && resp.success) productTotal = Number(resp.count);
+            renderExisting();
+        }, 'json');
+
+        $.get(serverContext + 'manufacturers', function (resp) {
+            manufacturerList = (resp && resp.success && resp.manufacturers) ? resp.manufacturers : [];
+            // Keep whatever is currently selected — it matters while a product is open for editing.
+            loadManufacturers($('#prodManufacturer').val());
+        }, 'json');
+
+        refreshExistingRows();
+    }
+
+    /**
+     * Fetch the panel's rows from the server, debounced.
+     *
+     * ⚠ A SEQUENCE GUARD, not just a debounce. Keystrokes produce overlapping requests and they do not
+     * come back in order; without the guard a slower earlier response repaints over a newer one and the
+     * panel shows results for a prefix of what is in the box. Same hazard formEpoch covers for name-check.
+     */
+    var existingTimer = null;
+    var existingSeq = 0;
+    function refreshExistingRows() {
+        if (existingTimer) clearTimeout(existingTimer);
+        existingTimer = setTimeout(function () {
+            var terms = existingTerms();
+            var seq = ++existingSeq;
+            var params = { page: 0, size: EXISTING_MAX_ROWS, sort: 'id,desc', includeInactive: true };
+            /*
+             * ONE term, where the old client filter matched ANY of name/sku/barcode.
+             *
+             * The server's q is a single LIKE across name, sku, barcode and manufacturer, so the first
+             * non-empty field still searches all four columns — what narrows is that a name AND a sku typed
+             * together now filter by the name rather than by either. A deliberate trade: one request per
+             * keystroke instead of three, against results that are complete rather than drawn from the
+             * newest thousand products.
+             */
+            if (terms.length) params.q = terms[0];
+            $.get(serverContext + 'getProductPage', params)
+                .done(function (resp) {
+                    if (seq !== existingSeq) return;          // a later keystroke already asked
+                    existingRows = (resp && resp.collection) ? resp.collection : [];
+                    existingTotal = (resp && resp.page && resp.page.totalElements != null)
+                        ? Number(resp.page.totalElements) : existingRows.length;
+                    panelState = 'loaded';
+                    renderExisting();
+                })
+                .fail(function () {
+                    if (seq !== existingSeq) return;
+                    existingRows = [];
+                    existingTotal = 0;
+                    panelState = 'failed';                    // NOT an empty list — see renderExisting
+                    renderExisting();
+                });
+        }, 200);
     }
 
     // ── "Already registered" panel ──────────────────────────────────────────────
@@ -90,17 +200,14 @@
             .filter(function (v) { return v.length > 0; });
     }
 
-    /** Rows worth showing: everything when nothing is typed, else anything matching ANY term. The product
-     *  being edited is never offered against itself. */
+    /**
+     * The rows to paint. The SERVER has already filtered by what is typed (see refreshExistingRows), so the
+     * only thing left to exclude is the product being edited — it must never be offered against itself.
+     */
     function existingMatches() {
-        var terms = existingTerms();
         var editingId = String($('#productId').val() || '');
-        return productIndex.filter(function (p) {
-            if (editingId && String(p.id) === editingId) return false;
-            if (!terms.length) return true;
-            var hay = [p.name, p.sku, p.barcode, p.manufacturer]
-                .map(function (v) { return v == null ? '' : String(v); }).join(' ').toLowerCase();
-            return terms.some(function (term) { return hay.indexOf(term) >= 0; });
+        return existingRows.filter(function (p) {
+            return !editingId || String(p.id) !== editingId;
         });
     }
 
@@ -122,7 +229,7 @@
         var $list = $('#prodExistingList'), $msg = $('#prodExistingMsg'), $count = $('#prodExistingCount');
         if (!$list.length) return;                       // panel not on this page
 
-        if (indexState === 'failed') {
+        if (panelState === 'failed') {
             $list.empty();
             $count.text('');
             $msg.text(t('ui.js.couldNotLoadTheRegisteredProducts')).removeClass('text-muted').addClass('text-danger').show();
@@ -130,7 +237,7 @@
         }
         // Not fetched yet (the form is painted before the response lands). Say NOTHING — an empty list here
         // would read as "nothing is registered", which is the same false all-clear the failure branch avoids.
-        if (indexState !== 'loaded') {
+        if (panelState !== 'loaded') {
             $list.empty();
             $count.text('');
             $msg.hide();
@@ -139,9 +246,20 @@
         $msg.removeClass('text-danger').addClass('text-muted');
 
         var matches = existingMatches();
-        $count.text(t('ui.js.nRegistered', productIndex.length));
 
-        if (!productIndex.length) {
+        /*
+         * ⭐ THE BADGE COUNTS THE TENANT, NOT THE PANEL.
+         *
+         * It used to render the length of the client's catalogue array, which the 1,000-row cap made WRONG
+         * ON SCREEN: a tenant with 1,632 products was shown "1000 registered". It cannot come from the
+         * panel's own total either — that is FILTERED by whatever is typed, so the number would change
+         * meaning with every keystroke. /productCount answers the question the badge actually asks.
+         *
+         * Blank until known, rather than 0: "0 registered" is a claim, and an unanswered request is not.
+         */
+        $count.text(productTotal == null ? '' : t('ui.js.nRegistered', productTotal));
+
+        if (productTotal === 0) {
             $list.empty();
             $msg.text(t('ui.js.noProductsRegisteredYet')).show();
             return;
@@ -152,11 +270,10 @@
             return;
         }
 
-        var shown = matches.slice(0, EXISTING_MAX_ROWS);
-        $list.html(shown.map(existingRowHtml).join(''));
+        $list.html(matches.map(existingRowHtml).join(''));
         applyFlag();                                     // repaint dropped the highlight — put it back
-        if (matches.length > shown.length) {
-            $msg.text(t('ui.js.showingFirstNKeepTyping', shown.length, matches.length)).show();
+        if (existingTotal > matches.length) {
+            $msg.text(t('ui.js.showingFirstNKeepTyping', matches.length, existingTotal)).show();
         } else {
             $msg.hide();
         }
@@ -188,7 +305,7 @@
         // Render #tableProduct through the shared DataTable path (like #tableCustomer).
         tableV = 'Product'; getAll = 'Product'; buttonV = 'Product'; deleteV = 'Product';
         loadDataTable();
-        refreshProductIndex();   // keeps the duplicate-SKU check and the "already registered" panel current
+        refreshProductPanel();   // keeps the duplicate-SKU check and the "already registered" panel current
         // Per-row "Edit" button is injected by the global DataTables drawCallback (main.js) — no per-table wiring.
 
         // Row interactions (mirror the generic modal screens):
@@ -208,12 +325,27 @@
     };
 
     // Toolbar "+ New Product" → open the form modal fresh.
-    global.newProduct = function () {
+    /**
+     * PUR-INLINE — who asked for this product, and what to do with it once it exists.
+     *
+     * Null for the ordinary Products-screen case, which behaves exactly as before. Set when another form
+     * opened this one (the purchase form's "+ New product"), so the new product can be handed straight back
+     * to the picker the operator was standing in.
+     *
+     * A CALLBACK rather than a string context, deliberately: this file must not learn the purchase form's
+     * field ids. The same hook serves the sale screen later with nothing changed here.
+     */
+    var productCreatedCb = null;
+
+    global.newProduct = function (onCreated) {
+        // Set on EVERY open, so a callback left behind by a form that was closed with Esc (which runs no
+        // reset) can never be inherited by the next product somebody registers from the Products screen.
+        productCreatedCb = (typeof onCreated === 'function') ? onCreated : null;
         resetProductForm();
         loadCategories();
         loadTaxCodes('');        // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
         loadManufacturers('');   // draw from the CURRENT index immediately; refresh below repaints it
-        refreshProductIndex();   // re-read the catalogue each time the form opens, then paint the panel
+        refreshProductPanel();   // re-read the catalogue each time the form opens, then paint the panel
         $('#ProductModalTitle').text('New Product');
         openModal('ProductModal');
     };
@@ -381,6 +513,9 @@
         // a key that somehow outlived its save must never reach the NEXT product, because the server would
         // correctly replay the old one and the new product would silently not exist.
         retireProductKey();
+        // PUR-INLINE — and a cleared form is nobody's errand any more. Cancel runs this, so a purchase that
+        // was abandoned cannot have its callback fire on an unrelated product saved later.
+        productCreatedCb = null;
         // form.reset() does not fire change, so the loose row would stay open from the last product edited.
         prodPackSizeChanged();
         $('#prodCategory').val('');
@@ -393,8 +528,14 @@
         $('#prodSku').removeClass('alert-danger');
         $('#prodName').removeClass('alert-danger');
         formEpoch++;             // any name-check still in flight now belongs to a form that no longer exists
+        clearSkuVerdict();       // … and so does any SKU verdict: it was about the product just closed
         markExistingRow(null);
-        renderExisting();        // cleared fields → the panel goes back to showing everything
+        /*
+         * RE-ASK, don't just repaint. With the rows held in memory, clearing the fields could go straight
+         * back to "showing everything" by re-filtering. The rows now come from the server filtered by what
+         * was typed, so repainting alone would leave the panel showing the LAST SEARCH under an empty form.
+         */
+        refreshExistingRows();
         if (typeof clearFormError === 'function') clearFormError();
     }
     global.resetProductForm = resetProductForm;
@@ -439,14 +580,16 @@
      *
      * There is no manufacturer master table and this deliberately does not create one: the field stays a
      * plain String on the product, so `ProductRef`, the sale report and every other consumer are untouched.
-     * The "list of registered manufacturers" is simply the distinct values across `productIndex` — which is
-     * already fetched for the duplicate-name panel, so this costs no extra request.
+     * The "list of registered manufacturers" is the distinct values across the tenant's products, computed
+     * SERVER-side (GET /manufacturers). It used to be derived on the client from a whole-catalogue fetch
+     * capped at 1,000 rows — so on a larger tenant every manufacturer that appeared only on older products
+     * silently vanished from the dropdown, and the list looked complete.
      *
      * ⚠ TWO WAYS A <select> SILENTLY CORRUPTS DATA, both guarded here:
      *  1. Editing a product whose manufacturer is NOT among the options — `.val(x)` fails quietly, the select
      *     falls back to its first option, and saving would CHANGE the manufacturer without the user touching
      *     it. So `selected` is injected as an option when it is missing.
-     *  2. The index failed to load — rendering an empty picker would blank the field on the next save. In
+     *  2. The list failed to load — rendering an empty picker would blank the field on the next save. In
      *     that case the current value is kept as the only option rather than offering nothing.
      *
      * @param selected the value to pre-select (the product being edited), or '' for a new product
@@ -460,8 +603,8 @@
         // so an existing "Nestle" and "nestlé" both survive on their products. This picker stops NEW
         // divergence; it does not silently merge what is already there.
         var seen = {}, names = [];
-        productIndex.forEach(function (p) {
-            var v = (p.manufacturer == null) ? '' : String(p.manufacturer).trim();
+        manufacturerList.forEach(function (m) {
+            var v = (m == null) ? '' : String(m).trim();
             if (!v) return;
             var k = v.toLowerCase();
             if (seen[k]) return;
@@ -563,9 +706,10 @@
     global.addProductStock = function (productId) {
         var qty = s2n($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError(t('ui.js.enterAQuantityGreaterThan0To')); return; }
-        var $btn = $('#addstkbtn_' + productId).prop('disabled', true);
         $.ajax({
             type: 'POST', url: serverContext + 'addProductStock', contentType: 'application/json', dataType: 'json',
+            // BLK-2: the row button carries the wait (a compact spinner — btn-xs). Keeps the veil: no server key (BLK-5).
+            busyControl: '#addstkbtn_' + productId, busyKind: 'post',
             data: JSON.stringify({ productId: productId, quantity: qty }),
             success: function (resp) {
                 if (resp && resp.success) {
@@ -636,6 +780,7 @@
             // new product, abandons it, and clicks "edit this one" on the already-registered panel. Saving an
             // update ignores the key, but leaving it in place would hand it to whatever is created next.
             retireProductKey();
+            productCreatedCb = null;   // PUR-INLINE: an edit is not the create somebody was waiting for
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
@@ -667,7 +812,7 @@
             $('#prodDesc').val(p.description || '');
             $('#ProductModalTitle').text('Edit Product');
             formEpoch++;               // this is a different product now — drop any in-flight name check
-            refreshProductIndex();     // refresh the index so the checks + panel exclude only THIS product
+            refreshProductPanel();     // refresh the index so the checks + panel exclude only THIS product
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
 
@@ -720,7 +865,7 @@
         try { if (typeof datatable !== 'undefined' && datatable) datatable.ajax.reload(null, false); } catch (e) {}
         if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
         if (typeof clearFormError === 'function') clearFormError();
-        if (typeof refreshProductIndex === 'function') refreshProductIndex();   // keep the dup-SKU check current
+        if (typeof refreshProductPanel === 'function') refreshProductPanel();   // keep the dup-SKU check current
 
         productSavedCount++;
         $('#productSaveCount')
@@ -812,6 +957,27 @@
                         keepCataloguing();
                         return;
                     }
+                    /*
+                     * PUR-INLINE — the product was registered from inside another form, so go BACK to it.
+                     *
+                     * ⚠ loadDataTable() IS DELIBERATELY SKIPPED ON THIS PATH, and not as an optimisation.
+                     * It sets `edit = false` (business.js:1901) — the SHARED edit-mode flag — and clears the
+                     * sale-report table. Called while a purchase line was open behind this modal, it would
+                     * silently take that line out of edit mode, so saving it would ADD a line instead of
+                     * updating one. Nothing on screen would say so.
+                     *
+                     * The grid behind is not stale either: whatever screen the operator returns to reloads
+                     * its own rows, and /addProduct has already dropped the shared picker cache (PERF-8).
+                     */
+                    var handBack = productCreatedCb;
+                    productCreatedCb = null;          // consumed exactly once, whatever happens next
+                    if (handBack) {
+                        resetProductForm();
+                        closeModal('ProductModal');
+                        try { handBack(resp.data); } catch (e) { /* never strand the operator in the modal */ }
+                        return;
+                    }
+
                     resetProductForm();
                     closeModal('ProductModal');
                     loadDataTable();
@@ -870,18 +1036,41 @@
     // and clear the flag while they retype. Delegated so it works with the modal form present at load.
     $(function () {
         $(document).on('blur', '#prodSku', function () {
-            var v = $(this).val();
-            if (isDuplicateSku(v, $('#productId').val())) {
-                $(this).addClass('alert-danger');
-                showFormError(t('ui.js.sku') + v.trim() + '" is already used by another product. Enter a unique SKU.');
-            } else {
-                $(this).removeClass('alert-danger');
-            }
+            /*
+             * ⭐ ASK THE SERVER. This used to consult a client-side index built from a whole-catalogue fetch
+             * capped at 1,000 rows — so on a 1,632-product tenant 632 SKUs were invisible and every one of
+             * them was reported FREE. The operator got a clean field and a rejected save.
+             *
+             * The epoch guard matters as much as the check: the answer arrives after the user has moved on,
+             * and the form may by then hold a different product (they hit Cancel, or clicked another row).
+             * Flagging a field that no longer belongs to the SKU we asked about is worse than not flagging.
+             */
+            var $field = $(this);
+            var v = $field.val();
+            var epoch = formEpoch;
+            checkSkuOnServer(v, $('#productId').val(), function (taken) {
+                if (epoch !== formEpoch) return;               // this answer belongs to a form that is gone
+                if ($field.val() !== v) return;                // they kept typing — it is about a stale value
+                if (taken) {
+                    $field.addClass('alert-danger');
+                    showFormError(t('ui.js.sku') + String(v).trim()
+                        + '" is already used by another product. Enter a unique SKU.');
+                } else {
+                    $field.removeClass('alert-danger');
+                }
+            });
         });
-        $(document).on('input', '#prodSku', function () { $(this).removeClass('alert-danger'); });
+        $(document).on('input', '#prodSku', function () {
+            $(this).removeClass('alert-danger');
+            // The remembered verdict was about the OLD value; keeping it would let save() block a SKU the
+            // server never refused, or clear one it did.
+            clearSkuVerdict();
+        });
 
         // Typing in any of the three identifying fields narrows the panel.
-        $(document).on('input', '#prodName, #prodSku, #prodBarcode', function () { renderExisting(); });
+        // Typing must now ASK the server — the rows are no longer sitting in memory to re-filter.
+        // refreshExistingRows() debounces and sequence-guards, so a keystroke does not mean a request.
+        $(document).on('input', '#prodName, #prodSku, #prodBarcode', function () { refreshExistingRows(); });
 
         // ── Server-side duplicate-NAME check, on focus-out of Name ──────────────
         // Server-side and not just a scan of the loaded index, because the index is a snapshot taken when the
@@ -963,7 +1152,8 @@
      * already reach every single time would have been a new unbounded read introduced by the change that
      * was supposed to remove one.
      */
-    var ALL_ROWS = 1000;
+    // (PS-1f) The old ALL_ROWS = 1000 ceiling is GONE. "All" now pages through via PagedFetch, so
+    // there is no number here to quietly become a limit again.
 
     /*
      * Column index → the catalog property to sort by. `null` means the server cannot sort it, and the column
@@ -1030,13 +1220,46 @@
      * <p>It shows the honest SELLABLE count (what a sale can actually reserve) plus a red "N expired" badge
      * when physical stock is locked in expired batches, so a 16-on-hand/0-sellable product no longer lies.
      */
+    var STOCK_ID_CHUNK = 100;
+
     function fillProductOnHand(collections) {
         if (!collections || !collections.length) return;
-        $.get(serverContext + "productStockLevels", function (resp) {
+
+        /*
+         * ⭐ ASK ONLY FOR THE ROWS ON SCREEN (PS-1a).
+         *
+         * This used to GET /productStockLevels with no parameters, which returned EVERY product's levels for
+         * the whole tenant to paint 50 cells — 1,112 entries / 69.5 KB measured here, growing with the
+         * catalogue and bounded by nothing.
+         *
+         * ⚠ CHUNKED AT 100, and that number is not arbitrary: 730 ids in one GET once became a silent
+         * Tomcat 400 (PERF-12), caught only because a caller logged the warning. Three other callers in this
+         * codebase already chunk at the same ceiling.
+         *
+         * ⚠ A CHUNK THAT FAILS PAINTS "—", NEVER "0". While this fetched the whole tenant, "absent from the
+         * response" safely meant "no stock row". Asking for specific ids breaks that equivalence: a failed
+         * chunk would otherwise stamp OUT OF STOCK across real inventory, which is a stock figure the shop
+         * would act on. Only a chunk that actually answered may resolve an absent id to 0.
+         */
+        var ids = collections.map(function (o) { return o.id; }).filter(function (v) { return v != null; });
+        if (!ids.length) return;
+
+        for (var i = 0; i < ids.length; i += STOCK_ID_CHUNK) {
+            fillOnHandChunk(collections, ids.slice(i, i + STOCK_ID_CHUNK));
+        }
+    }
+
+    function fillOnHandChunk(collections, chunkIds) {
+        var wanted = {};
+        chunkIds.forEach(function (id) { wanted[String(id)] = true; });
+
+        $.get(serverContext + "productStockLevels", { ids: chunkIds.join(',') }, function (resp) {
             var levels = (resp && resp.success && resp.levels) ? resp.levels : {};
             $.each(collections, function (ind, obj) {
+                if (!wanted[String(obj.id)]) return;      // another chunk owns this row
                 var d = levels[obj.id];
                 var el = $('#stk_' + obj.id);
+                // Asked, and the server named no stock row for it — that genuinely is zero.
                 if (d == null) { el.text('0'); return; }
                 // Back-compat: a bare number means sellable only.
                 var sellable = (typeof d === 'object') ? Number(d.sellable || 0) : Number(d);
@@ -1058,7 +1281,17 @@
                 el.html(html);   // numbers only (no user data) → XSS-safe
             });
         }).fail(function () {
-            $.each(collections, function (ind, obj) { $('#stk_' + obj.id).text('—'); });
+            /*
+             * ⚠ ONLY THIS CHUNK'S ROWS. Before chunking there was one request, so blanking every cell was
+             * right. Now a failed chunk must not wipe the cells a SUCCESSFUL chunk has already filled — that
+             * would turn one bad request into a screen of unknowns.
+             *
+             * "—" and never "0": an unanswered request means the figure is unknown, and "0" would read as
+             * out of stock on inventory the shop actually holds.
+             */
+            $.each(collections, function (ind, obj) {
+                if (wanted[String(obj.id)]) $('#stk_' + obj.id).text('—');
+            });
         });
     }
 
@@ -1133,7 +1366,7 @@
                  * one — also use.
                  */
                 var all = !(d.length > 0);                       // "All" arrives as length = -1
-                var size = all ? ALL_ROWS : d.length;
+                var size = all ? PagedFetch.PAGE_SIZE : d.length;
                 var page = all ? 0 : Math.floor(d.start / d.length);
 
                 var ord = (d.order && d.order.length) ? d.order[0] : null;
@@ -1149,31 +1382,74 @@
                     else params.category = global.productCategoryFilter;
                 }
 
-                $.get(serverContext + 'getProductPage', params)
-                    .done(function (resp) {
-                        var rows = (resp && resp.collection) ? resp.collection : [];
-                        var meta = (resp && resp.page) ? resp.page : {};
-                        var total = (meta.totalElements != null) ? Number(meta.totalElements) : rows.length;
+                /** Hand DataTables a drawn set. `total` is the FILTERED total it paginates by. */
+                var deliver = function (rows, total) {
+                    if (rows.length) userId = rows[0].userId;   // keeps the shared bookkeeping happy
 
-                        if (rows.length) userId = rows[0].userId;   // keeps the shared bookkeeping happy
-
-                        callback({
-                            draw: d.draw,
-                            // Equal on purpose. DataTables prints "(filtered from N total)" only when they
-                            // differ, and the server returns the FILTERED total — quoting an unfiltered
-                            // count we were never told would be a number invented on the client.
-                            recordsTotal: total,
-                            recordsFiltered: total,
-                            data: rows.map(productGridRow)
-                        });
-
-                        // After the draw, so the #stk_<id> cells the fill targets exist.
-                        fillProductOnHand(rows);
-                    })
-                    .fail(function (jqXHR, textStatus, errorThrown) {
-                        callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
-                        handleAjaxFailure(jqXHR, errorThrown, 'loadProductTable');
+                    callback({
+                        draw: d.draw,
+                        // Equal on purpose. DataTables prints "(filtered from N total)" only when they
+                        // differ, and the server returns the FILTERED total — quoting an unfiltered
+                        // count we were never told would be a number invented on the client.
+                        recordsTotal: total,
+                        recordsFiltered: total,
+                        data: rows.map(productGridRow)
                     });
+
+                    // After the draw, so the #stk_<id> cells the fill targets exist.
+                    fillProductOnHand(rows);
+                };
+
+                var onFail = function (jqXHR, textStatus, errorThrown) {
+                    callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
+                    handleAjaxFailure(jqXHR, errorThrown, 'loadProductTable');
+                };
+
+                if (all) {
+                    /*
+                     * ⭐ PS-1f — "All" MEANS ALL. It used to mean `size=ALL_ROWS`, i.e. 1000.
+                     *
+                     * DataTables was handed 1000 rows and told `recordsTotal` was 1,632, so it printed
+                     * "Showing 1 to 1000 of 1,632" — the count was right and the rows were not. Silent in
+                     * the one way that matters: nothing on screen said which 632 were missing.
+                     *
+                     * ⚠ THE EXPORT IS WHY THIS IS NOT COSMETIC. exportAll() switches the grid to "All"
+                     * before handing the rows to Excel/PDF/Print precisely so a 50-row page does not become
+                     * a 50-row spreadsheet — its own comment calls that "the whole class of defect this
+                     * codebase keeps paying for". With a 1000-row ceiling it was still producing exactly
+                     * that file, just a bigger one, and a stock-take done from it would be short.
+                     *
+                     * PagedFetch reads page 0, learns totalPages from the envelope, then fetches the rest in
+                     * PARALLEL — and says so in the console if a catalogue ever exceeds ITS ceiling, rather
+                     * than trimming quietly. Reused rather than re-implemented; it needed only to learn the
+                     * monolith's {collection, page} envelope.
+                     */
+                    /*
+                     * ⚠ STRIP page/size BEFORE handing the query to PagedFetch — it appends its OWN.
+                     *
+                     * Leaving them in produces `?page=0&size=500&page=1&size=500`, and a proxy that keeps
+                     * only the FIRST value of a repeated parameter would then re-read page 0 for every page
+                     * and return the same rows N times. That exact collapse has bitten this codebase before
+                     * (the purchase proxy, on `serials`), and it fails by returning plausible data.
+                     */
+                    var pagedParams = $.extend({}, params);
+                    delete pagedParams.page;
+                    delete pagedParams.size;
+
+                    PagedFetch.all('getProductPage?' + $.param(pagedParams), function (rows) {
+                        // Everything was fetched, so the row count IS the total — no second call to ask.
+                        deliver(rows, rows.length);
+                    }, onFail);
+                } else {
+                    $.get(serverContext + 'getProductPage', params)
+                        .done(function (resp) {
+                            var rows = (resp && resp.collection) ? resp.collection : [];
+                            var meta = (resp && resp.page) ? resp.page : {};
+                            var total = (meta.totalElements != null) ? Number(meta.totalElements) : rows.length;
+                            deliver(rows, total);
+                        })
+                        .fail(onFail);
+                }
             }
         });
 

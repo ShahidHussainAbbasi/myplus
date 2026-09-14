@@ -40,7 +40,10 @@ public class TradeClientsConfig {
 
     @Bean
     public FinanceClient financeClient(@LoadBalanced RestClient.Builder builder) {
-        return proxy(builder, "http://finance-service/api/finance", FinanceClient.class);
+        // BLK-0: the BARE service, because FinanceClient's paths are now absolute — the payment WRITE
+        // lives on /internal/** (ungated by the gateway) while the reads stay on /api/finance/**.
+        // ⚠ education-service/FinanceClientConfig must carry the SAME base, or its GL posting 404s.
+        return proxy(builder, "http://finance-service", FinanceClient.class);
     }
 
     @Bean

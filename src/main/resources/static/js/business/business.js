@@ -2750,6 +2750,75 @@ function loadUserItems(table) {
 	});
 }
 
+/* ── PUR-INLINE: register a product without leaving the bill ─────────────────────────────────────
+ *
+ * THE COMPLAINT: an operator receiving a delivery hits a product that was never registered, and has to
+ * abandon a half-typed bill — Products → New Product → save → back to Purchase → retype vendor, invoice
+ * number and date → find the product. Eight steps, and the bill header is lost on the way.
+ *
+ * ⚠ THIS OPENS THE REAL PRODUCT FORM — the SAME ProductModal, reached through the same newProduct(). It is
+ * not a cut-down copy, and that was a deliberate reversal of the first design, which proposed a four-field
+ * inline panel. A second product-creation UI would have had its own validation, its own duplicate panel, and
+ * no tax codes, pack/loose rules, barcode stickers or tracking flags — and it would have drifted from the
+ * real form the first time either changed. The product master has one form; this just borrows it.
+ *
+ * What this file adds is the RETURN JOURNEY, which is the only part that did not already exist.
+ */
+
+/** The bill's own "+ New product", beside the item picker. */
+function newProductForPurchase() {
+	/*
+	 * Refused while the item picker is disabled, which is how EDIT mode renders it (main.js:1483). On an edit
+	 * the line's product is fixed — only its quantity and amounts may change — so registering a product to
+	 * select into it would either do nothing or silently re-point the line. Say so instead.
+	 */
+	if ($('#purchaseItemDD').prop('disabled')) {
+		showFormError('Finish or cancel this line first — its product cannot be changed.');
+		return;
+	}
+	if (typeof newProduct !== 'function') return;           // catalog-products.js not on this page
+	newProduct(selectPurchaseProduct);
+}
+
+/**
+ * The product exists — put it in the bill and get out of the way.
+ *
+ * ⚠ THE OPTION IS APPENDED HERE RATHER THAN BY RELOADING THE PICKER, and the reason is a timing trap worth
+ * stating. PERF-8's cache is dropped by an `ajaxComplete` hook, and jQuery fires a request's own `success`
+ * callbacks BEFORE its global ajaxComplete handlers — so at the moment this runs the cache is STILL STALE,
+ * and loadUserItems('purchase') would repaint the picker from a list that does not contain the new product.
+ * Appending is also instant: no second round trip between the operator and the quantity box.
+ *
+ * The markup comes from ProductPicker.optionHtml so this option is identical to every other one — same
+ * data-product (which main.js reads to submit productId-native), same data-price, same data-requires-serial.
+ */
+function selectPurchaseProduct(product) {
+	if (!product || product.id == null) return;
+	var $dd = $('#purchaseItemDD');
+	if (!$dd.length) return;
+
+	if (!$dd.find("option[value='" + product.id + "']").length) {
+		$dd.append(ProductPicker.optionHtml(product));
+	}
+	$dd.val(String(product.id));
+	if ($dd.data('selectpicker')) $dd.selectpicker('refresh');
+
+	/*
+	 * Fired so a registered product behaves EXACTLY like a picked one. The .onChangeSelect handler in
+	 * main.js is what fills "Stock In Hand" (loadStock) and clears #purchaseId for a fresh line; setting
+	 * .val() programmatically fires nothing, so without this the line would look chosen while the stock
+	 * figure beside it stayed blank — the sort of half-filled form an operator reasonably distrusts.
+	 */
+	$dd.trigger('change');
+
+	// Land where the operator was heading. FocusFlow owns the touch/narrow-screen rule, so ask it rather
+	// than focusing unconditionally — a soft keyboard opening over the bill is not a help.
+	if (window.FocusFlow && window.FocusFlow.mayAutoFocus() && window.EnterChain) {
+		window.EnterChain.focusField('purchaseQuantity');
+	}
+	showSaleSuccess('"' + (product.name || 'Product') + '" registered and selected.');
+}
+
 function loadUserItem(table) {	
 	$("#"+table+"UnitDD").empty().append("<option value = ''> Please Select </option>");
     $.get(serverContext+ "getUserItemUnits",function(data){
@@ -4038,7 +4107,14 @@ function purchaseModalOpen(){
 $(function () {
 	window.EnterChain.bind('purchase', {
 		container: PURCHASE_FORM,   // derived per keystroke — see PURCHASE_FORM above
-		active:  purchaseModalOpen,
+		// PUR-INLINE: ...and only while nothing is stacked ON TOP of the bill. Registering a product opens
+		// ProductModal over this form; without the isTopModal guard both chains stay active and a single
+		// Escape runs both onEscape handlers — closing the product form AND the bill behind it, because
+		// neither handler calls stopPropagation. With no modal above, this is the old behaviour exactly.
+		active:  function () {
+			return purchaseModalOpen()
+				&& (typeof isTopModal !== 'function' || isTopModal('PurchaseModal'));
+		},
 		// Enter past the last field saves and stays — a delivery rarely has exactly one line, and the
 		// operator who does have one line has Ctrl+Enter.
 		onEnd:       function () { $('#addPurchaseAnother').click(); return true; },

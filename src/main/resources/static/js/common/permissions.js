@@ -281,6 +281,9 @@
         $.ajax({
             url: serverContext + 'team/permissions/sets', method: 'POST',
             contentType: 'application/json',
+            // BLK-2: this save had no lock at all. It keeps the veil — creating a set is not idempotent and the
+            // version check is BLK-7 — but the button itself now says so and cannot be pressed twice.
+            busyControl: '#permSave',
             data: JSON.stringify({
                 id: current && !current.builtin ? current.id : null,
                 name: $('#permSetName').val(),

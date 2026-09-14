@@ -29,9 +29,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT COUNT(p) FROM Payment p WHERE (p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))")
     long countScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
-    /** Per-org, per-direction count → the next RCPT-/PV-###### voucher (AP disbursements number separately from AR). */
-    @Query("SELECT COUNT(p) FROM Payment p WHERE p.direction = :direction AND "
-            + "(p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))")
-    long countByDirectionScoped(@Param("direction") com.myplus.finance.entity.PaymentDirection direction,
-                                @Param("orgId") Long orgId, @Param("userId") Long userId);
+    // DOC-INT B: countByDirectionScoped is gone. It numbered receipts COUNT + 1, which handed two concurrent
+    // receipts one number; receipt numbers now come from DocumentNumberService (V7). Its only caller was
+    // PaymentService.nextReceiptNo.
 }

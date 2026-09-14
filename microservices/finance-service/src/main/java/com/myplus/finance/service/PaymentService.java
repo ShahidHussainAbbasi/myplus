@@ -30,6 +30,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PostingService postingService;   // F3b: auto-post the receipt/disbursement to the GL
+    private final DocumentNumberService documentNumberService;   // DOC-INT B: per-org receipt counters (V7)
 
     @Transactional
     public PaymentDTO record(RecordPaymentRequest req) {
@@ -51,7 +52,6 @@ public class PaymentService {
                 .organizationId(orgId)
                 .userId(userId)
                 .createdAt(LocalDateTime.now())
-                .receiptNo(nextReceiptNo(direction, orgId, userId))
                 .allocations(new ArrayList<>())
                 .build();
 
@@ -64,6 +64,23 @@ public class PaymentService {
                         .build());
             }
         }
+
+        /*
+         * DOC-INT B — the receipt number comes from the per-org counter, allocated LATE.
+         *
+         * It used to be COUNT(payments of this direction) + 1, and two receipts recorded together counted the same
+         * total and took the same number — nothing refused the second (the local ledger held 2 such pairs).
+         * Now the counter's row lock makes the second receipt wait, and uq_pay_org_dir_seq refuses a duplicate if
+         * anything ever bypassed the counter.
+         *
+         * LATE, i.e. here: after the request is fully built and immediately before the insert, so the lock is held
+         * only through this local insert and the local GL post below — never across a network call. The bump joins
+         * this transaction (MANDATORY), so if the GL post refuses (a closed period), the number is given back.
+         */
+        long seq = documentNumberService.next(orgId, direction.name());
+        p.setReceiptSeq(seq);
+        p.setReceiptNo(receiptNo(direction, seq));
+
         Payment saved = paymentRepository.save(p);
         // Reliability: post the GL journal ATOMICALLY with the payment. finance owns BOTH the payment ledger and the
         // GL (same DB, same @Transactional — postPayment joins this tx), so a LOCAL transaction is the correct
@@ -93,12 +110,14 @@ public class PaymentService {
         return sum != null ? sum : BigDecimal.ZERO;
     }
 
-    /** Per-org, per-direction voucher sequence: RECEIPT → RCPT-######, DISBURSEMENT (AP) → PV-###### (payment
-     *  voucher). Numbering is direction-scoped so receipts and payments don't share one running number. */
-    private String nextReceiptNo(PaymentDirection direction, Long orgId, Long userId) {
-        long n = paymentRepository.countByDirectionScoped(direction, orgId, userId) + 1;
+    /**
+     * The printed number: RECEIPT → RCPT-######, DISBURSEMENT (AP) → PV-###### (payment voucher). Each direction
+     * is its own series per org (V7 keys the counter on the direction), so receipts and vouchers never share one
+     * running number. Unchanged format — every reader of receipt_no sees the same shape as before.
+     */
+    static String receiptNo(PaymentDirection direction, long seq) {
         String prefix = direction == PaymentDirection.DISBURSEMENT ? "PV" : "RCPT";
-        return String.format("%s-%06d", prefix, n);
+        return String.format("%s-%06d", prefix, seq);
     }
 
     private PaymentDTO toDTO(Payment p) {

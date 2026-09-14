@@ -157,8 +157,17 @@ describe('B2B P3g — document designer', () => {
   })
 
   it('reordering a column changes the printed order', () => {
-    cy.visit('/businessDashboard')
+    /*
+     * visitDashboardSettled + the visible assertion, not a bare visit: the shell is still settling on
+     * load (the rail restores its collapsed state and its last selection after first paint, and .formDiv
+     * carries an entrance animation), so the row Cypress grabs is still moving and .click() fails with
+     * "could not determine the actionability of this element". The sibling case above already waits this
+     * way, which is why it passes and this one did not.
+     */
+    cy.visitDashboardSettled()
     cy.get('#navDocumentDesigner', { timeout: 10000 }).click({ force: true })
+    cy.get('#DocumentDesignerDiv').should('be.visible')
+    cy.waitForAppReady()
     cy.get('#tableDocColumns tbody tr').eq(1).find('.dtColUp').click()
     cy.get('#docPreviewFrame').its('0.contentDocument.body').should('not.be.empty')
   })

@@ -98,6 +98,18 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    @Query("SELECT p FROM purchase p WHERE p.organizationId = :orgId AND p.purchaseInvoiceNo = :invoiceNo")
    List<Purchase> findByInvoiceNoScoped(@Param("orgId") Long orgId, @Param("invoiceNo") String invoiceNo);
 
+   /**
+    * DOC-INT C — the lines already on ONE vendor's bill, for the duplicate-bill-line guard.
+    *
+    * <p>Narrows by the V64 index {@code idx_purchase_bill_line (organization_id, vender_id, purchase_invoice_no(64))};
+    * whether a new line REPEATS one of these (same product, same batch, not VOID) is decided in code by
+    * {@code DuplicateBillLine}. Scoped by org, so a guessed bill number cannot reveal another tenant's lines.
+    */
+   @Query("SELECT p FROM purchase p WHERE p.organizationId = :orgId AND p.venderId = :venderId "
+        + "AND p.purchaseInvoiceNo = :billNo")
+   List<Purchase> findBillLinesScoped(@Param("orgId") Long orgId, @Param("venderId") Long venderId,
+                                      @Param("billNo") String billNo);
+
    // SF-10: the product's most-recent purchase rate (unit cost / COGS) in this tenant — for the sell-line margin
    // snapshot. Returns newest-first; the caller takes the first with Pageable(0,1). NULL rates are skipped.
    @Query("select p.bpurchaseRate from purchase p where p.productId = :productId and p.bpurchaseRate is not null "

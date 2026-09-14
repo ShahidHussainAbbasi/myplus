@@ -267,6 +267,17 @@ describe('SER-5 — dashboard breakdown cards and the paged product grid', () =>
         cy.wrap($row).click()
         cy.get('#ProductDiv', { timeout: 15000 }).should('be.visible')
         cy.get('#productFilterBar').should('be.visible').and('contain.text', label)
+        /*
+         * The drill-in fires the paged product load, and this wait is load-bearing TWICE. Its spinner
+         * (.ao-box) sits over the chip's ×, so the click below fails outright — and the row count read
+         * on the next line would otherwise be taken mid-load, i.e. a baseline that has nothing to do
+         * with the filter. Forcing the click would "fix" the first and leave the second, so the case
+         * would pass by comparing against a stale number rather than by the filter widening anything.
+         *
+         * should('be.visible') above does not catch it: visibility is not the same question as
+         * "covered by something else", and only .click() runs that check.
+         */
+        cy.waitForAppReady()
         // Clearing the chip must actually widen the result set, not just repaint the bar.
         cy.get('#tableProduct_info').invoke('text').then((filtered) => {
           cy.get('#productFilterClear').click()

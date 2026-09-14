@@ -11,7 +11,10 @@
 describe('Negative — Sell: Empty Cart Blocks Submission', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', '/catalogProducts*').as('getItems')   // M4e.1b: picker lists catalog Products
+    // PERF-8 (2026-08-20): the picker's READ moved from /catalogProducts to /catalogProductPicker
+    // (lean projection). The old glob never matches catalogProductPicker, so the wait below saw no
+    // request at all. /catalogProducts still exists and still serves the LIST - only this alias moved.
+    cy.intercept('GET', '**/catalogProductPicker*').as('getItems')
     cy.intercept('GET', /\/getUserCustomer(?!s)/).as('getCustomers')
     cy.visit('/businessDashboard')
     cy.get('#sellType').select('sellDiv', { force: true })
@@ -76,7 +79,10 @@ describe('Negative — Sell: Empty Cart Blocks Submission', () => {
 describe('Negative — Purchase: Missing Fields Block Submission', () => {
   beforeEach(() => {
     cy.loginAsBusiness()
-    cy.intercept('GET', '/catalogProducts*').as('getItems')   // M4e.1b: picker lists catalog Products
+    // PERF-8 (2026-08-20): the picker's READ moved from /catalogProducts to /catalogProductPicker
+    // (lean projection). The old glob never matches catalogProductPicker, so the wait below saw no
+    // request at all. /catalogProducts still exists and still serves the LIST - only this alias moved.
+    cy.intercept('GET', '**/catalogProductPicker*').as('getItems')
     cy.visit('/businessDashboard')
     cy.get('#purchaseType').select('purchaseDiv', { force: true })
     cy.get('#purchaseDiv').should('be.visible')

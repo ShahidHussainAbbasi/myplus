@@ -345,11 +345,19 @@ describe('DUP-1 — one submit per intent', () => {
 
     // The modal stays open — that is the feature — and the key must be gone.
     cy.get('#ProductModal').should('have.class', 'open')
-    cy.get('#prodName').should('have.value', '')
+    /*
+     * ⚠ THE KEY FIRST, THEN THE FIELD — the order is diagnostic, not cosmetic.
+     *
+     * Both assertions fail together when the key is not retired, because a replayed save creates no
+     * product and the form is never cleared. Checked field-first, the run reports "expected '' to equal
+     * 'DupD2a_…'", which reads like a UI timing problem and sends the next reader after the modal.
+     * Checked key-first it names the cause outright. This case exists for the key; assert it first.
+     */
     cy.window().should((w) => {
       expect(w.FormKeys.peek('product'), 'the key was retired on success, so the next product gets a new one')
         .to.eq(null)
     })
+    cy.get('#prodName').should('have.value', '')
 
     // The run repaints the panel and the pickers, so the modal can slide a second time.
     settleProductForm()

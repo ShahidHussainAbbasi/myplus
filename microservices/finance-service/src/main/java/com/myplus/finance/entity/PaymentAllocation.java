@@ -35,4 +35,23 @@ public class PaymentAllocation {
 
     @Column(precision = 19, scale = 2)
     private BigDecimal amount;
+
+    /**
+     * OPTIMISTIC LOCK on the allocation row (BLK-0c) — FORWARD protection, as on {@link Payment#getVersion()}.
+     *
+     * <p>⚠ Nothing updates an allocation today: they are only ever inserted, cascaded from a new Payment. On
+     * its own row and not only the parent's because re-pointing a receipt at a different invoice — the edit
+     * most likely to arrive first — would write THIS row and leave the parent untouched, so a lock on the
+     * parent alone would miss exactly the contention it exists for.
+     *
+     * <p><b>Not {@code createdAt}</b>: it is set BY the write being validated, has second fidelity, and two
+     * writes inside one second compare equal. A counter JPA owns has none of those ambiguities.
+     *
+     * <p>⚠ {@code NOT NULL DEFAULT 0} in V6 — a NULL version makes Hibernate treat an existing row as
+     * TRANSIENT and INSERT it, which on this table would duplicate money.
+     */
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
 }

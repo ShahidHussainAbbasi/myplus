@@ -83,6 +83,13 @@ public class PurchaseDTO implements Serializable {
 	 */
 	private Boolean creditAcknowledged;
 
+	/**
+	 * DOC-INT C: the operator has seen "this bill already has this product" and chosen to save the line again.
+	 * Inbound only, NOT persisted. Its OWN flag, never creditAcknowledged — confirming one prompt must not
+	 * silently confirm the other. Declared explicitly because form binding drops an unknown parameter without a word.
+	 */
+	private Boolean duplicateBillAcknowledged;
+
 	private Float purchaseExpense;
 
 	private String purchaseExpenseDesc;

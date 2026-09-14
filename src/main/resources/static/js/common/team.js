@@ -130,6 +130,9 @@ $(document).on('change', '.js-permset', function () {
 	$.ajax({
 		url: serverContext + 'team/permissions/assign', method: 'POST',
 		contentType: 'application/json',
+		// BLK-2: the picker is locked (disabled + aria-busy) while the change posts, so a second pick cannot race
+		// the first. A <select> gets no label; the message below reports the outcome.
+		busyControl: this,
 		data: JSON.stringify({ userId: $sel.data('user-id'), setId: $sel.val() })
 	}).done(function (resp) {
 		$('#teamMsg').removeClass('alert-danger').addClass('alert-success')

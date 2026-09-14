@@ -353,6 +353,19 @@ Cypress.Commands.add('waitForAppReady', () => {
        */
       const startedByUrl = new Map()
       const openByXhr = new Map()
+      /*
+       * jQuery.active INHERITED from before this wait began.
+       *
+       * The hooks below only see requests that START during the wait, so a request fired by the command
+       * before this one — opening a modal, say — is counted by jQuery and invisible here. That produced a
+       * genuinely confusing report once: "1 request started, none in flight", yet the wait ran its full
+       * deadline. Sampling the counter at attach time tells the two apart.
+       */
+      const activeAtStart = (win.jQuery && typeof win.jQuery.active === 'number') ? win.jQuery.active : 0
+      let maxActive = activeAtStart
+      const transitions = []          // [ms since start, value] each time the counter CHANGES
+      let lastSeen = activeAtStart
+      const t0 = Date.now()
       const $doc = (win.jQuery && typeof win.jQuery.active === 'number') ? win.jQuery(win.document) : null
 
       // Group by PATH, not the full URL: a cache-buster or a changing `q=` would otherwise scatter one
@@ -378,11 +391,18 @@ Cypress.Commands.add('waitForAppReady', () => {
           .map(([url, n]) => `      ${n}× ${url}`).join(NL) || '      (none)'
         const open = Array.from(new Set(openByXhr.values()))
         const stillOpen = open.length ? open.map((u) => `      ${u}`).join(NL) : '      (none)'
+        const moves = transitions.length ? transitions.join(', ') : '(never changed)'
         return `
+    jQuery.active when the wait began: ${activeAtStart}   peak: ${maxActive}`
+             + `
+    — a NON-ZERO start with no transitions means a request from BEFORE this wait never completed`
+             + `
+    counter changes: ${moves}`
+             + `
     started during the wait, most frequent first:
 ${busiest}`
              + `
-    STILL IN FLIGHT at the deadline:
+    STILL IN FLIGHT at the deadline (only requests this wait SAW start):
 ${stillOpen}`
       }
 
@@ -390,6 +410,11 @@ ${stillOpen}`
         // No jQuery on the page (a plain template) means nothing can be in flight — treat as quiet
         // rather than hanging for 30s on a page this helper has no opinion about.
         const active = (win.jQuery && typeof win.jQuery.active === 'number') ? win.jQuery.active : 0
+        if (active > maxActive) maxActive = active
+        if (active !== lastSeen) {
+          if (transitions.length < 40) transitions.push((Date.now() - t0) + 'ms:' + active)
+          lastSeen = active
+        }
 
         if (active === 0) {
           if (quietSince === null) quietSince = Date.now()
@@ -530,6 +555,50 @@ Cypress.Commands.add('asOtherTenant', (fn, email = 'demo.education@myplus.com') 
     return fn({ Authorization: `Bearer ${token}` })
   })
 })
+
+/**
+ * The tenant's audit trail — `auditLog` reads it once, `findAudit` polls until a matching row arrives.
+ *
+ * Moved here from audit-log.cy.js when a second spec (BLK-0, finance-ledger-write-guard) needed the same
+ * thing: ONE copy, so the two cannot drift apart on the two facts that make it correct —
+ *
+ *  1. `/getAuditLog` answers a RAW ARRAY, not a GenericResponse. Reading `.collection` off it yields nothing,
+ *     so a spec written that way can never find a row. BLK-0's first draft did exactly that.
+ *  2. ONLY AN ARRAY IS A LIST OF ROWS. While the read chain (monolith → gateway → audit-service) is still
+ *     warming up the monolith answers `{"status":"ERROR"}`; treating that as rows crashed instead of retrying.
+ *
+ * ⚠ The trail is OWNER-ONLY by design (audit-service: ROLE_OWNER or ROLE_ADMIN). The monolith turns that
+ * 403 into a 200 carrying "Only an owner or a platform operator can read the audit trail." — so it is
+ * detected by message and FAILS AT ONCE, naming the fix, rather than polling for 35s and reporting "not found".
+ * Log in with loginAsOwner / loginAsEduOwner.
+ */
+const auditRowsOf = (body) => {
+  let b = body
+  if (typeof b === 'string') {
+    try { b = JSON.parse(b) } catch (e) { return { rows: [] } }
+  }
+  if (Array.isArray(b)) return { rows: b }
+  const refused = b && typeof b.message === 'string' && /only an owner/i.test(b.message)
+  return { rows: [], refused: refused ? b.message : null }
+}
+
+Cypress.Commands.add('auditLog', () =>
+  cy.request('/getAuditLog?limit=200').then((r) => {
+    const { rows, refused } = auditRowsOf(r.body)
+    if (refused) throw new Error(`audit trail refused — log in as the OWNER: ${refused}`)
+    return rows
+  }))
+
+// Delivery is AFTER_COMMIT + relay, so a row can trail its write: poll ~35s, which covers one relay tick
+// on a cold load balancer.
+Cypress.Commands.add('findAudit', (pred, label = 'audit row', attempt = 0) =>
+  cy.auditLog().then((rows) => {
+    const hit = rows.find(pred)
+    if (hit) return hit
+    if (attempt >= 45) throw new Error(`${label} not found in the audit trail after ~35s of retries`)
+    cy.wait(750)
+    return cy.findAudit(pred, label, attempt + 1)
+  }))
 
 /**
  * Slice 106 (workstream A) — place a storefront order through the CURRENT checkout contract.
@@ -1102,16 +1171,59 @@ Cypress.screenFields = (win, containerSelector) => {
  */
 Cypress.Commands.add('assertEnterFollowsScreen', (containerSelector, fromId) => {
   let expected = null
+  let isTextarea = false
+
   cy.window().then((w) => {
     const ids = Cypress.screenFields(w, containerSelector)
     const i = ids.indexOf(fromId)
     expect(i, `${fromId} is a usable field inside ${containerSelector}`).to.be.greaterThan(-1)
     expected = i + 1 < ids.length ? ids[i + 1] : null
+
+    const el = w.document.getElementById(fromId)
+    isTextarea = !!el && el.tagName === 'TEXTAREA'
   })
 
-  cy.get('#' + fromId).focus().type('{enter}')
+  /*
+   * ⚠ FOCUS THROUGH THE APP, NOT cy.get(id).focus().
+   *
+   * searchable-selects.js upgrades plain <select>s to bootstrap-select at RUNTIME, which hides the real
+   * element (style="display: none") and renders a <button> in its place. #purchaseCondition is declared as an
+   * ordinary select in the template and is one of these by the time the form opens — so cy.type() on it fails
+   * the visibility check, which is what broke this helper on the very next stop after the textarea fix.
+   *
+   * EnterChain.focusField delegates to FocusFlow.focusTarget, the app's own answer to "where does a cursor go
+   * for this id", which returns the plugin's button for a picker and the element itself for anything else.
+   * Pressing Enter on cy.focused() then presses it exactly where a real operator's cursor is — and it is the
+   * same move purchase-rapid-entry already makes by hand for the vendor picker.
+   *
+   * NOT {force: true} on the hidden <select>: that types into an element no operator can reach, so a picker
+   * that genuinely stopped being focusable would still pass.
+   */
+  cy.window().then((w) => w.EnterChain.focusField(fromId))
+  cy.focused().type('{enter}')
 
   return cy.window().should((w) => {
+    if (isTextarea) {
+      /*
+       * ⚠ A <textarea> KEEPS ITS PLAIN ENTER, AND THAT IS THE RULE — not an exception to it.
+       *
+       * enter-chain.js returns before the walk for a textarea, deliberately: "Enter inserts a NEWLINE
+       * there — that is what the control is for, and stealing it makes every address and description box
+       * in the app unable to hold a second line." #purchaseSerials is the case that proves it: it holds
+       * one IMEI per unit, and its own placeholder tells the operator to separate them with a new line.
+       *
+       * This helper used to press Enter and demand advancement from EVERY field, so it failed on
+       * #purchaseSerials while the product was behaving exactly as designed. Asserting the carve-out
+       * rather than skipping the field keeps the case worth running: it now fails if anyone ever steals
+       * Enter back from a textarea, which would silently make multi-serial receiving impossible.
+       *
+       * The way forward from a textarea is Tab (or Ctrl+Enter, which the purchase chain binds to save).
+       */
+      expect(Cypress.focusedPicker(w),
+        `a <textarea> keeps its Enter for a new line, so ${fromId} must NOT advance`)
+        .to.eq(fromId)
+      return
+    }
     expect(Cypress.focusedPicker(w),
       `Enter from ${fromId} goes to the next field on screen inside ${containerSelector}`)
       .to.eq(expected)
@@ -1132,16 +1244,32 @@ Cypress.Commands.add('assertEnterFollowsScreen', (containerSelector, fromId) => 
  * It has now cost three diagnoses in one session - the scan box after un-hiding its row, #sellQuantity
  * after a product was chosen, and #instCount under the panel's own fetch - so it belongs in one place.
  *
- * Two consecutive equal positions rather than a fixed sleep: it returns as soon as the layout settles
- * on a fast machine and still holds on a slow one, and it never spends time that is not needed.
+ * Repeated equal positions rather than a fixed sleep: it returns as soon as the layout settles on a
+ * fast machine and still holds on a slow one, and it never spends time that is not needed.
+ *
+ * -- ⚠ BOTH AXES, UNROUNDED, AND MORE THAN ONE GAP -----------------------------------------------
+ * The first version measured `Math.round(rect.top)` alone and reported "stopped moving" on an element
+ * that was still sliding SIDEWAYS - so it handed the caller a box Cypress then refused to type into,
+ * with the very error this helper exists to prevent. Cypress samples the element's COORDINATE PAIR;
+ * anything less than that is not the same question. Un-hiding a Bootstrap row (#sellScanRow) settles
+ * `top` immediately while the columns resolve `left`, which is exactly that case.
+ *
+ * `Math.round` went with it: it hid sub-pixel drift that Cypress measures at full precision.
+ *
+ * And two equal samples are not enough. loadStock() writes the stock badge and the sellable badge from
+ * two CHAINED round trips, so one equal pair can be the PAUSE BETWEEN WAVES rather than the end of the
+ * reflow - the same trap waitForAppReady() documents for the overlay ("a gap between two waves cannot
+ * be mistaken for quiet"). Requiring the position to hold across two gaps costs one retry interval.
  */
 Cypress.Commands.add('settled', (selector, opts) => {
   let last = null
+  let stable = 0
   return cy.get(selector, { timeout: (opts && opts.timeout) || 30000 })
     .should(($el) => {
-      const top = Math.round($el[0].getBoundingClientRect().top)
-      const still = last !== null && top === last
-      last = top
-      expect(still, `${selector} has stopped moving`).to.eq(true)
+      const r = $el[0].getBoundingClientRect()
+      const still = last !== null && r.top === last.top && r.left === last.left
+      stable = still ? stable + 1 : 0
+      last = { top: r.top, left: r.left }
+      expect(stable >= 2, `${selector} has stopped moving`).to.eq(true)
     })
 })

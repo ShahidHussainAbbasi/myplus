@@ -33,6 +33,9 @@
 
     function isOpen(id) { return $('#' + id).hasClass('open'); }
 
+    /** Absent (an older page that does not load crud-modal.js) reads as "yes" — the single-modal answer. */
+    function isTop(id) { return typeof global.isTopModal !== 'function' || global.isTopModal(id); }
+
     function submitControl(el, entity) {
         var sel = el.getAttribute('data-kbd-submit') || ('#add' + entity);
         var $btn = $(sel);
@@ -58,7 +61,10 @@
 
         global.EnterChain.bind('modal:' + id, {
             container: '#' + id,
-            active: function () { return navEnabled() && isOpen(id); },
+            // PUR-INLINE: ...and only while it is the TOP-MOST open overlay. A modal opened from inside
+            // another (registering a product mid-purchase) would otherwise leave two chains listening, and
+            // one Escape would close both forms. isTopModal is trivially true when only one is open.
+            active: function () { return navEnabled() && isOpen(id) && isTop(id); },
             // Enter past the last field. Returning TRUE means handled; returning false leaves the
             // cursor where it is, which is the honest outcome when the tenant turned submission off.
             onEnd: function () { return enterSubmits() ? submit() : true; },

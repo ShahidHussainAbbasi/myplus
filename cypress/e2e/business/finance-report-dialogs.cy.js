@@ -70,7 +70,14 @@ describe('Business — Finance reports page (owner)', () => {
   })
 
   it('remembers the last report + as-of date (localStorage) across a reload', () => {
-    cy.window().then((win) => { win.showFinance('trialBalance') })
+    /*
+     * Through checkFinance(), not a bare showFinance(). That call reveals #FinanceDiv (which carries an
+     * entrance animation), toggles the per-report filter wraps — #finAsOfWrap is shown for this report
+     * and hidden for others — and fires the report, whose result reflows the panel above the date box.
+     * So #finAsOf goes hidden -> visible with its position still resolving, and .clear() fails on
+     * actionability. Every other case in this file already waits this way.
+     */
+    checkFinance({ report: 'trialBalance', path: 'gl/trialBalance' })
     cy.get('#finAsOf').clear().type('2026-01-31')
     cy.get('#FinanceDiv .btn-primary').click()   // Run — persists prefs
     cy.reload()

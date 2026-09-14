@@ -209,3 +209,125 @@ to `validate`. Now:
   11 services (Flyway runs first); the platform-wide flip to `validate` remains a separate decision.
 
 Every service now owns its schema through migrations — standard **D1** in `SAAS-BUILD-STANDARDS.md` §1b.
+
+---
+
+## #8 — document-number counters reconciled on every deploy (2026-09-13)
+
+**No manual step. That is the point of the entry.**
+
+`org_document_seq.next_val` holds the last number issued for an `(organization_id, doc_type)` series. If it
+falls behind the documents themselves, the next allocation re-issues an existing number, the series' UNIQUE
+index refuses the insert, and — because `DocumentNumberService.next()` is `Propagation.MANDATORY` — the bump
+rolls back with it. The counter never advances, so the tenant **permanently** loses the ability to issue that
+document. Found in the wild as `Duplicate entry '13-958' for key 'customer_history.uq_ch_org_invoice_seq'`,
+surfacing to the operator as "An unexpected error occurred. Please contact support."
+
+The obvious repair is a one-line `UPDATE` against the org that drifted. That is precisely the manual
+production step this log exists to stop accumulating: it fixes one row in one environment and leaves staging,
+every restored backup, every customer database, and the next org to drift to be discovered by a cashier.
+
+`V63__reconcile_org_document_seq.sql` (business-service) instead reconciles **every** series on **every**
+deploy:
+
+| series | where the number really lives |
+|---|---|
+| `INVOICE` | `customer_history.invoice_seq` |
+| `CREDIT_NOTE` | `sale_return.credit_note_seq` (sale returns and repossession forfeits) |
+| `DEBIT_NOTE` | `purchase_return.debit_note_seq` |
+| `QUOTE` | `sales_quote.quote_seq` |
+| `PLAN` | `installment_plan.plan_seq` |
+| `OPENING` | `customer_history.invoice_no` — parsed from `OB-000042`; **no numeric column exists** |
+
+Properties worth knowing before changing it:
+
+- **Raises, never lowers.** `GREATEST()` is load-bearing. A counter *ahead* of its documents is legitimate — a
+  rolled-back allocation leaves a gap, which is normal and auditable. Lowering one would re-issue numbers that
+  are already on paper in a customer's hands.
+- **Creates missing counter rows.** An org whose documents arrive before its counter (a restore, an import)
+  would otherwise start at zero and collide on its first allocation.
+- **Idempotent and re-runnable** per **D7**: the `WHERE c.next_val < s.max_seq` makes a second run match
+  nothing. Pure DML — no DDL to guard on `information_schema`.
+- **Safe on a fresh database**: the source tables are empty, so nothing is selected and nothing is written.
+- **`organization_id IS NULL` rows are excluded** throughout — they predate org scoping and a per-tenant
+  counter is not a question they can answer.
+
+**Relationship to `V46__seed_invoice_and_plan_counters.sql`.** V46 was a one-time `INSERT IGNORE` seed for two
+series (`INVOICE`, `PLAN`) — it creates a missing counter but cannot correct one that already exists and has
+since fallen behind, which is the failure here. V63 supersedes it in scope (six series) and in kind (raises an
+existing counter, not just seeds a missing one). V46 stays where it is; the two do not conflict, because V46's
+`INSERT IGNORE` is a no-op once the rows exist.
+
+Verified before shipping, both without modifying data:
+
+- **Dry run** as a read-only report — 28 `(org, doc_type)` series across 9 orgs, **exactly one** required
+  action (org 13 `INVOICE`, 957 → 958). The `OPENING` parse was checked independently (org 46, 55).
+- **Executed** inside `START TRANSACTION … ROLLBACK` against the live schema: the counter moved to 958 and
+  returned to 957 on rollback. This proves the statements parse and do what they claim on real data, which a
+  dry-run SELECT alone does not.
+
+**⚠ This repairs drift; it does not prevent it.** The cause — an invoice header committing in a different
+transaction from its counter bump — is open, and a counter that drifts the morning after a deploy still wedges
+that tenant until the next one. See §7 of `slices/doc-numbers-serialised-allocator.md` for the trace so far and
+for the fix NOT to reach for.
+
+---
+
+## #9 — finance-service `V6__payment_optimistic_lock.sql` (2026-09-14, BLK-0c)
+
+**No manual step.** Adds `version BIGINT NOT NULL DEFAULT 0` to `payments` and `payment_allocations`, backing
+`@Version` on `Payment` and `PaymentAllocation`.
+
+- **`NOT NULL DEFAULT 0` is load-bearing**, not a convenience: a NULL version makes Hibernate treat an existing
+  row as TRANSIENT and INSERT it on its next save — on this table, duplicated money. Same lesson as V62 on
+  Customer.
+- **Additive and defaulted**, so a rollback of the code leaves a harmless unused column, not a broken table.
+- **BIGINT** because the field is `Long`. finance runs `ddl-auto: update` today (Flyway first), but the column
+  already matches what `validate` would demand, so the platform-wide flip will not trip on it.
+- **What it protects is FORWARD.** `PaymentService.record` is the only writer and it only inserts, so no race
+  exists yet; the first feature that edits a payment inherits the lock.
+
+⚠ **Its header comment overstates two things** — it describes a present re-allocation-vs-edit race, and says
+finance runs `validate`. **It is left unedited on purpose:** Flyway checksums a migration's comments too, and
+editing one that has run anywhere makes the service refuse to start with a checksum mismatch. The correction
+lives in `blocking-ui-and-backend-guards-design.md` §8.5.3. **Never edit an applied migration — not even a
+comment.**
+
+---
+
+## #10 — business `V64__document_integrity_indexes.sql` + finance `V7__receipt_number_series.sql` (2026-09-14, DOC-INT)
+
+Design: `slices/doc-int-numbers-and-bills.md`. **No manual step on a clean database; one conditional operator
+action (V64 §1), and one deploy-order rule (V7).**
+
+### business V64
+
+- **§1 creates `uq_ch_org_invoice_seq` UNIQUE (organization_id, invoice_seq)** — unless a UNIQUE index on exactly
+  those columns already exists, under any name. Every database that ever booted with `ddl-auto: update` already
+  has it (Hibernate made it from `@Table`), so there it is a no-op. It exists for the fresh install and for the
+  flip to `validate`, where nothing else would create it.
+- ⚠ **It fails loudly if two invoices share a number** — `Duplicate entry '<org>-<seq>' for key
+  'uq_ch_org_invoice_seq'` — and business-service will not start. That is deliberate: a silent skip would leave
+  the arbiter missing in exactly the database that has already been hurt. To resolve:
+  ```sql
+  SELECT organization_id, invoice_seq, COUNT(*) FROM customer_history
+   WHERE invoice_seq IS NOT NULL GROUP BY organization_id, invoice_seq HAVING COUNT(*) > 1;
+  ```
+  **Do not renumber by script** — those invoices are printed. Resolve each pair with the shop owner (void one and
+  re-issue it), then restart. Local `myplusdb`, 2026-09-14: **0** duplicate groups.
+- **§2 creates `idx_purchase_bill_line` (organization_id, vender_id, purchase_invoice_no(64))**, non-unique, for
+  the duplicate-bill-line guard. The `(64)` prefix is load-bearing on MyISAM (full column = 1020 bytes > 1000).
+
+### finance V7
+
+- New `org_document_seq` (finance's own — database per service), `payments.receipt_seq BIGINT NULL`, and
+  `uq_pay_org_dir_seq` UNIQUE (organization_id, direction, receipt_seq).
+- Counters are seeded from the numbers already issued: RECEIPT from the highest `RCPT-######` over **every**
+  direction (legacy disbursements carry that prefix), DISBURSEMENT from the highest `PV-######`. Raise, never lower.
+- **Existing duplicate receipt numbers stay exactly as they are** (local: 2 groups / 4 rows), with
+  `receipt_seq` NULL. Intended — they are printed. The UNIQUE binds from the first new receipt on.
+- ⚠ **Deploy order: stop the old finance instance before starting the new one.** An old instance still numbering
+  `COUNT + 1` beside a new one can print a number the counter also hands out.
+- ⚠ **Do not roll back only the finance jar after V7 has run.** The old code's `COUNT + 1` is now BELOW the
+  counters, so it would re-issue numbers already printed — and its rows carry no `receipt_seq`, so the UNIQUE cannot
+  catch them. Roll forward instead.

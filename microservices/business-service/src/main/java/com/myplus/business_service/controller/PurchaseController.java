@@ -271,6 +271,13 @@ public class PurchaseController {
 		} catch (com.myplus.business_service.service.PeriodClosedException pce) {
 			LOGGER.warn("addPurchase rejected (period closed): {}", pce.getMessage());
 			return new GenericResponse("FAILED", pce.getMessage());
+		} catch (com.myplus.business_service.service.DuplicateBillLineException duplicate) {
+			// DOC-INT C: this vendor's bill already has this line (same product, same batch). Nothing was written
+			// and no stock came in. CONFIRM, and the envelope NAMES the flag that answers it — so the browser cannot
+			// answer this prompt with the credit-limit flag and silently wave a credit breach through with it.
+			LOGGER.info("addPurchase awaiting duplicate-bill confirmation: {}", duplicate.getMessage());
+			return new GenericResponse("CONFIRM", duplicate.getMessage(),
+					java.util.Map.of("ack", "duplicateBillAcknowledged"));
 		} catch (com.myplus.business_service.service.CreditConfirmationRequiredException confirm) {
 			// B2B-P1 (#9, supplier side): over the vendor's credit limit under policy=warn, not yet
 			// acknowledged. Nothing was written and no stock came in. CONFIRM, not ERROR — nothing failed.

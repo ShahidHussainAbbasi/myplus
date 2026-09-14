@@ -11,7 +11,8 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 /**
  * Slice 0.1: the {@link FinanceClient} proxy for education-service — load-balanced @HttpExchange at
- * {@code lb://finance-service/api/finance}, so a fee collection can post its journal entry to the shared GL.
+ * {@code lb://finance-service} (paths on FinanceClient are absolute since BLK-0), so a fee
+ * collection can post its journal entry to the shared GL.
  *
  * Identity is re-propagated by {@link GatewayIdentityForwarding#interceptor()} for request-thread deliveries;
  * the outbox relay additionally wraps scheduled deliveries in {@code runAs}, because a background thread has no
@@ -30,7 +31,9 @@ public class FinanceClientConfig {
         rf.setConnectTimeout(2000);
         rf.setReadTimeout(5000);
         RestClient restClient = builder.clone()
-                .baseUrl("http://finance-service/api/finance")
+                // BLK-0: bare service — FinanceClient's paths are absolute now (the payment write moved
+                // to /internal/**). ⚠ Must match business-service/TradeClientsConfig.
+                .baseUrl("http://finance-service")
                 .requestFactory(rf)
                 .requestInterceptor(GatewayIdentityForwarding.interceptor())
                 .build();

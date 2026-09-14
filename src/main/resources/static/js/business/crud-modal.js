@@ -22,6 +22,27 @@
     };
     global.closeModal = function (id) { $('#' + id).removeClass('open'); };
 
+    /**
+     * Is `id` the TOP-MOST open overlay?
+     *
+     * PUR-INLINE — until now nothing opened one .crud-overlay from inside another, so "which form owns the
+     * keyboard" had no answer and did not need one. Registering a product from the purchase form stacks
+     * ProductModal over PurchaseModal, and without this BOTH Enter-chains are active at once: one Escape ran
+     * both onEscape handlers (neither calls stopPropagation) and closed the product form AND the bill behind
+     * it. Asked by keyboard-forms.js and by the purchase chain, so the answer is in one place.
+     *
+     * Top-most = LAST in document order, which is also what paints on top: every .crud-overlay shares
+     * z-index 1050, so the browser's tie-break IS the stacking order. Stated here rather than assumed, so a
+     * future real z-index ladder has one place to change.
+     *
+     * With a single modal open this is trivially true, so nothing about the 16 single-modal forms changes.
+     */
+    global.isTopModal = function (id) {
+        var open = document.querySelectorAll('.crud-overlay.open');
+        if (!open.length) return false;
+        return open[open.length - 1].id === id;
+    };
+
     // Toolbar "+ New": open the entity modal for a fresh record.
     global.newEntity = function (entity) {
         if (typeof resetForm === 'function') resetForm();

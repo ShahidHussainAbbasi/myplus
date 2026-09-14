@@ -59,8 +59,21 @@ public class StockController {
      *  show the true sellable count (what a sale can reserve) + an "expired" badge, instead of a raw on-hand that
      *  overstates it. One call for the whole list. */
     @GetMapping("/levels/detail")
-    public java.util.Map<Long, java.util.Map<String, Float>> stockLevelDetail() {
-        return stockService.getLevelDetail();
+    public java.util.Map<Long, java.util.Map<String, Float>> stockLevelDetail(
+            @RequestParam(required = false) java.util.List<Long> ids) {
+        /*
+         * PS-1a — `ids` is OPTIONAL, and that is what makes this change safe.
+         *
+         * Omitting it keeps the original meaning (the whole tenant), so the five callers that legitimately
+         * want everything — the Stock list, order booking, stock count ×2 and the sell form — are not
+         * touched by this. Only the Product grid, which draws 50 rows, starts naming them.
+         *
+         * ⚠ A GET rather than a POST body, deliberately: it stays cacheable, conditional-GET-able and
+         * retry-safe. The URL-length ceiling is real — 730 ids in one GET once became a silent Tomcat 400
+         * (PERF-12) — so CALLERS CHUNK AT 100, the same ceiling three other callers already use. 50 ids is
+         * one request; a 1,000-row "All" is ten parallel ones.
+         */
+        return stockService.getLevelDetail(ids);
     }
 
     /** Single-product {onHand, sellable, expired} for the sell/purchase forms — lets the sell screen show the true
