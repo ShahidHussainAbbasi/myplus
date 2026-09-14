@@ -14,8 +14,13 @@ fixed in `GlobalExceptionHandler` (framework statuses kept: 405 + `Allow: GET`),
 yet done. ⚠ Two earlier runs were INVALID: a second Cypress run overlapped as
 the same owner and `maximumSessions(1)` expired each other's session (37 s request stalls; per-endpoint curl
 <0.45 s). Case 7 was also hardened — it now records both indicators inside the page at the write's
-`ajaxComplete`, because asserting after `cy.wait` depended on command-queue latency. BLK-2 … BLK-9: design,
-awaiting consent.
+`ajaxComplete`, because asserting after `cy.wait` depended on command-queue latency.
+**BLK-3 BUILT (10:47 monolith), gate run 1 = 6/7** — skeleton rows while a grid loads, never "no records" before
+the answer (§4.3.2); gate `cypress/e2e/business/grid-loading.cy.js`. Case 5's failure was the spec's own opener
+(fixed); the end-to-end review added cases 7–11 and a small polish that needs the next monolith rebuild. Full
+re-run pending. **BLK-4 coded 2026-09-14, NOT built/gated** — slice doc `slices/blk-4-product-optimistic-lock.md` (by the BLK-4
+session); needs catalog-service (V17) + monolith rebuilt before its gate `product-concurrent-edit.cy.js`.
+BLK-5 … BLK-9: design, awaiting consent.
 **Every number below is measured in this repo, not estimated.**
 
 ---
@@ -305,6 +310,158 @@ amount and saves again while the first save is in flight records two collections
 `callAjax` was `nonBlocking` before BLK-1 — and it does not change it. It is the first form BLK-2 should lock,
 and BLK-13 still owes it a key.
 
+#### 4.3.2 As built (BLK-3, 2026-09-14) — a loading grid looks loading, and never says "no records"
+
+**What was true before, measured against the library this app serves (DataTables 1.10.19, `/js/jquery.dataTables.min.js`)**
+— its draw picks the placeholder text as:
+
+```
+text = sZeroRecords
+if (iDraw == 1 && dataSource == "ajax") text = sLoadingRecords      // "Loading..."
+else if (sEmptyTable && recordsTotal == 0) text = sEmptyTable        // "No data available in table"
+```
+
+| finding | evidence | consequence |
+|---|---|---|
+| module grids opened on ONE English "Loading..." line | the rule above; no grid sets `language` (grep: 0) | the grid collapsed to one row, then jumped |
+| a SECOND draw before the data arrives prints the empty text | `iDraw == 1` fails on draw 2; the `a.toggle-vis` handler redraws `datatable` (`business.js:96`) | **"No data available in table" over a grid still loading** |
+| `business.js:2003` wrote `"No Data Found"` into `$(".dataTables_empty")[0]` | the selector is page-wide | the empty message could land in ANOTHER table; English only |
+| the server-paged Product grid drew nothing before its first answer | `serverSide` draws only in the callback | an empty body under a floating "Processing…" |
+| plain tables (tax codes, stores, team) emptied their body only INSIDE the callback | `business.js:743,1670`, `team.js:53` | a re-fetch showed the previous rows — or the previous "No stores yet" — as if current |
+
+⚠ **Corrected claim.** §6 case 8 said a grid "renders 'no records' while loading" as a general fact. Traced, the
+module grids' FIRST draw said "Loading..."; the empty text appeared only on a second mid-load draw. Real, narrower.
+
+**The rule, in `/js/common/grid-loading.js` — no DataTables grid was edited:**
+
+1. `oLanguage.sLoadingRecords` defaults to skeleton rows; `sEmptyTable` to `t('ui.js.noDataYet')` (all 6 locales).
+2. `draw.dt`: while `settings.jqXHR` is in flight, a placeholder cell is a skeleton — whatever the draw counter says.
+3. `preXhr.dt`: a grid showing no data rows (the Product grid's first load) gets skeleton rows in its body; a grid
+   showing a page of data keeps it (a skeleton over rows being read would be worse than the processing box).
+4. When the request SETTLES, a table still showing a skeleton gets the answer: the empty text on success, the
+   translated failure message on error (`abort` ignored — superseded, not failed).
+
+Step 4 attaches to `settings.jqXHR` rather than DataTables' `xhr` event **because the event never fires on these
+grids**: DataTables raises it only from its own `success`, and all four module `loadDataTable()`s override
+`ajax.success`. It also covers what the retired hack hid — `columns([0]).visible(false)` on an already-hidden
+column does not redraw, so without step 4 an empty grid would have stayed a skeleton for ever.
+
+**Plain tables:** `GridLoading.fill('#table')` before the fetch, colspan from the table's own header (so
+`#tableTeam`, 6 columns on education and 7 on business, needs no per-dashboard number). Applied to
+`loadTaxCodesAdmin`, `loadStores`, `loadTeamUsers`. `labels.js`, `stock-count.js` and the finance reports already
+show their own "Loading…" and are unchanged.
+
+**Styling:** `.grid-skeleton-row` shares the dashboard cards' shimmer rule (one "loading" animation, not two),
+static under `prefers-reduced-motion`. A skeleton is ONE `<tr>` with ONE cell — the shape several existing specs
+already treat as "a placeholder, not data" (`row-actions`, `sell-edit`, `purchase-batch-expiry`) — so none of
+them can mistake it for a row.
+
+**Gate:** `cypress/e2e/business/grid-loading.cy.js` — every loading case HOLDS the grid's own read open and asserts
+inside that window, then waits on the read BY NAME and asserts the skeleton is gone and real rows are there.
+0 build check · 1 ⭐⭐ Customer grid held → skeleton, one placeholder cell, height kept, then rows · 2 ⭐⭐ a column
+toggle mid-load keeps the skeleton · 3 ⭐ empty answer → translated empty text in THIS grid, "No Data Found"
+nowhere · 4 ⭐ failed read → failure text, not a skeleton for ever · 5 ⭐⭐ Product grid first load → skeleton,
+then rows · 6 ⭐ Stores (plain) re-fetch → skeleton, never the previous answer · 7 ⭐⭐ Product SEARCH: after a
+zero-result search the next search shows a skeleton, not the stale "No data yet" · 8 ⭐ Team (plain) · 9 ⭐ Tax
+codes (plain) · 10 ⭐⭐ the education Students grid (a second dashboard, `owner.education@`) — held on EXACTLY
+`getUserStudent`, not the `getUserStudents`/`getUserStudentMap` reads that share the prefix · 11 ⭐ the polish
+below (screen-reader text + translated processing box).
+
+**Run 1 (2026-09-14 13:15–13:20, headed, solo, 10:47 monolith): 6/7.** Cases 0–4 and 6 green. ⚠ Case 5 failed
+before testing anything: it opened Products with `#registrationType.select('ProductDiv')`, and ProductDiv is not an
+option there — the screen is function-navigated (`showProducts()`), which `dashboard-kpi-drill.cy.js:50` and
+`pos-barcode-default.cy.js:101` already record. A wrong assumption in the SPEC, not a product defect; fixed with
+the opener BLK-2's spec already uses. Cases 7–11 were added in the end-to-end review that followed.
+
+**Polish from that review (code, needs a monolith rebuild; case 11 is red until then):**
+- the skeleton's `role="status"` carried only an `aria-label` over no content, which screen readers do not
+  reliably announce — it now contains real, visually hidden text (`.sr-only` "Loading…");
+- `sProcessing` — the Product grid's floating "Processing..." box — was the last loading chrome still in English;
+  it now defaults to `t('ui.js.loading')`;
+- `.grid-skeleton` used `text-align: left`; now `start`, so it follows the reading direction (Arabic, Urdu).
+
+**Not covered:** welfare and agriculture grids get the same behaviour through the shared hook but are not gated
+(welfare and agriculture have no Cypress suite at all); tables that render their own loading text were not
+touched. `sZeroRecords` ("No matching records found") is still untranslated — a DataTables-wide i18n gap, not a
+loading state, so outside BLK-3.
+
+#### 4.3.3 The dashboard freeze that blocked the BLK-2/3/4 gates — measured, fixed (2026-09-14)
+
+**Symptom.** `waitForAppReady` beforeEach timeouts ("never went quiet", `cy.then()` 30 s) on the business
+dashboard's first load: BLK-2 (13:21), BLK-3 run 2, BLK-4 case 6. Not the server — the dashboard's 11 reads fired
+in parallel on one session return in **887 ms**.
+
+**Measured, not reasoned** (Chrome, headed, solo):
+- long tasks: **8.4 s @3.6 s · 5.8 s @12.1 s · 5.2 s @18.0 s · 13.2 s @23.3 s** — ~32.6 s of main-thread blocking;
+- CPU profile (DevTools Protocol via `Cypress.automation('remote:debugger:protocol')`): **`searchable-selects.js:147-149`
+  — its `ajaxComplete` hook refreshing EVERY `.selectpicker` (~48) after EVERY request — 39.8 s of 52.6 s**. Self time
+  in jQuery `attr`/`getAttribute` (bootstrap-select's `reloadLi` re-reading every option). The pickers hold ~1,841
+  products and ~1,614 customers, and the test data grows with every seeding spec, so it only got worse.
+- cleared by the same profile: `grid-loading.js` (BLK-3) not in the top 30 app functions; `submit-once.js` (BLK-2) 24 ms.
+
+⚠ **Two wrong attributions came first** — to a run overlap, then "predates BLK-2/3" from that overlapped run. Both
+were retracted. The profile is what settled it.
+
+**Fix** (`searchable-selects.js`; reviewed by the BLK-2 session, which caught a real hazard in the first draft):
+- a per-select `MutationObserver` marks a picker **dirty** only when its OPTIONS change (childList, characterData,
+  `value`/`disabled`/`label` attributes) — a count + first/last signature was rejected: it cannot see a relabelled
+  middle option;
+- `ajaxComplete` schedules **one coalesced pass** per tick, not one per request;
+- the pass: dirty → `refresh`; selection-only change (code `.val()`) → `render` (the button, not the list); else nothing;
+- unchanged: the busy guard (open picker → `data-ss-stale`, refreshed on close — now also for a code `.val()` made
+  while open); an explicit `refreshSearchableSelect()` (the `global:false` loaders' path) stays **unconditional**;
+- `markClean` drains the observer's queued records so a rebuild cannot re-dirty itself; the multi-select value key
+  uses a separator built with `String.fromCharCode(1)` so it is visible in source (an invisible literal was read as
+  "no separator" in review, and an edit really did drop it once);
+- no `MutationObserver` → the old refresh-everything, coalesced to one pass.
+
+Harness (fake jQuery + controllable observer): current file **fails 6 of 13** (11 completions → 44 refreshes);
+fixed file **13/13**, fallback 6/6. ⚠ A harness cannot prove real bootstrap-select behaviour — the proof is
+post-deploy: re-profile (the 39.8 s must be gone), `dashboard-no-freeze.cy.js`, `sell.cy.js`, `pos-keyboard`, and a
+manual check that `#sellCustomerDD` fills after load and after a sale return.
+
+**Gate:** `cypress/e2e/business/dashboard-no-freeze.cy.js` — 1 ⭐⭐ no main-thread block ≥ 3 s and < 8 s total on the
+first load (before: 13.2 s / ~32.6 s) · 2 ⭐⭐ the customer and product pickers still FILL, widget included (a fix
+that simply stopped refreshing would pass case 1) · 3 ⭐ a value set by CODE shows on the widget · 4 ⭐ a picker its
+loader just rebuilt is not rebuilt again by the next request · 5 ⭐⭐ a picker on a hidden screen is not rebuilt at
+load and still fills when its screen opens.
+
+**⚠ The first fix went RED — 0/3 (deployed 15:00, run the same afternoon).** The re-profile looked like success
+(39.8 s → 10.7 s) and the same run was green for BLK-3 (12/12) and BLK-1 (10/10); the gate was not. Every cause was
+MEASURED by a diagnostic spec (wrapping `jQuery.fn.selectpicker` from `onBeforeLoad`, since `cy.intercept` never saw
+the cached bootstrap-select script) before anything was changed:
+
+| Case | Measured | Cause |
+|---|---|---|
+| 2, 3 | cold New Sale: `#sellCustomerDD` 1,615 options, **1 row for 33 s**, `data-ss-stale="1"`, focus on its button; a code `.val()` marked stale, never drawn | the busy guard counted focus on the CLOSED button as "in use". New Sale focuses it (customer-first), and the stale mark is consumed only by `hidden.bs.dropdown` — never, for a menu never opened. The focus clause came from de281058 (22 Aug), whose actual concern is focus INSIDE the menu |
+| 1 | long tasks = single rebuilds: `#rfCustomer` 1,615 options **3,224 ms**, `#rfProduct` 1,857 **2,685 ms** — the Sale Detail Report rail, on a screen nobody opened; 8.2 s = several in one coalesced pass | one bootstrap-select **1.6.2** refresh costs seconds (rebuild every row, then `liHeight()` clones the whole menu into `<body>`); the pass rebuilt pickers nobody could see, all in one task |
+| (4) | `#sellItemDD` still dirty right after `loadUserItems`' own `selectpicker('refresh')` → rebuilt again (2.9 s) | 45 direct `selectpicker('refresh')` calls outside this file never told the change tracking; 1.6.2 has no `refreshed.bs.select` event |
+
+**Fix v2** (user's choice: all three), still `searchable-selects.js` only:
+- **busy = menu open, or focus inside `.dropdown-menu`** (live search, a row). `reloadLi` rebuilds the rows and `render`
+  rewrites the label; the button and its focus survive both, so they no longer block;
+- **any rebuild counts:** `$.fn.selectpicker` is decorated — after `refresh` or construction the picker is marked clean,
+  after `render`/`val` its selection is recorded. A bare `.selectpicker()` on an existing instance rebuilds nothing and
+  is deliberately not marked clean. Behaviour of every call is unchanged;
+- **rebuild what can be seen:** a dirty picker with no layout boxes gets its label only (`render(false)`, no rows), stays
+  dirty, and is rebuilt when an `IntersectionObserver` sees it, when its menu is about to open (`show.bs.dropdown`,
+  before anything is open or typed), or on any later pass that finds it shown;
+- **one rebuild per task** — the rest go to the next task, so a keystroke can be answered between them.
+
+Harness v2 (fake jQuery with a real decorated plugin, controllable MutationObserver + IntersectionObserver): new file
+**31/31**, fallback 7/7; the first fix **fails 12**. Still only a harness — the proof is post-deploy: this gate (5 cases)
+and the regressions that lean on the busy guard: `pos-keyboard`, `pos-checkout-chain`, `pos-enter-chain`,
+`pos-shortcuts`, `sale-customer-first`, `picker-prefetch`, `sale-nonblocking-load`. Note the cost moves rather than
+vanishes: opening the Sale Detail Report now pays its rail's one-time rebuild (~3 s each, one per task) when it is shown.
+Upgrading off bootstrap-select 1.6.2 (2014) is the real cure, a separate slice.
+
+**Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
+handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's
+sweep waited for `jQuery.active === 0` — so a veil or bar raised by that request stayed up for the session. Now each
+request is tracked from `ajaxSend`, and the 3 s sweep releases any that FINISHED (readyState 4, or 0 after 1 s)
+without completing. Harness: reproduced on the old file, fixed on the new; the 22 rule/counter checks unchanged.
+Gate: `non-blocking-ui.cy.js` case 9 — a write whose success handler throws must not leave the veil up.
+
 **The progress bar is the honest half of not blocking.** A read the user started — running a report,
 opening a section — must not look like nothing happened, or they press again. A 3 px bar at the top of the
 viewport, `pointer-events: none`, so it can never cover a control; static under `prefers-reduced-motion`.
@@ -324,9 +481,9 @@ Ordered by consequence, not by convenience.
 |---|---|---|---|
 | **BLK-0** | ⭐ **IMPLEMENTED — see §8.5.** The ledger write moved to `/internal/**` (not `@PreAuthorize` — §8.1 says why that cannot work); the missing audit closed at the one producer that lacked it (education fees), not in finance; `@Version` on Payment/PaymentAllocation. **NOT** idempotency — the user path already has it | Q5: irreversible/security-sensitive | S |
 | BLK-1 | **IMPLEMENTED, not yet gated — see §4.3.1.** READS never raise the overlay (a thin progress bar instead); writes keep it until BLK-2/BLK-13 give each a server key + a control-level lock. Deviation from "invert everything", and why, is recorded there | all | M |
-| BLK-2 | Per-control busy state: disable + label the control that was clicked. One shared helper | Save product, POS sale, stock adjustment, permission change | M |
-| BLK-3 | Region loading states: table skeleton; a grid never renders "no records" while loading | Product page load, Search products | S |
-| BLK-4 | `@Version` on `Product` — and the same for Vender/Company as they come up | Save product | S |
+| BLK-2 | **CODED 2026-09-14, not built, not gated — `slices/blk-2-busy-controls.md`.** Per-control busy state: disable + label the control that was clicked. One shared helper (`BusyControl`, submit-once.js layer 2c) replacing 7 hand-rolled disables; veil OFF only where a server key exists (product save, receive payment, pay vendor), KEPT on sale/purchase return, stock adjust, opening balance, voids, permission save. Closes `#addFc`'s no-lock gap. Gate `busy-controls.cy.js` (14 cases) | Save product, POS sale, stock adjustment, permission change | M |
+| BLK-3 | **IMPLEMENTED; gate `grid-loading.cy.js` GREEN 12/12 headed (2026-09-14) — "gated" HELD until the picker follow-up in §4.3.3 (same build) is green. See §4.3.2.** Skeleton rows in every DataTables grid through one shared hook (no call-site edits) + 3 plain tables; a grid never renders "no records" while its read is in flight | Product page load, Search products | S |
+| BLK-4 | **Coded 2026-09-14, NOT built/gated** — `@Version` on `Product` + catalog V17; save sends the version; slice doc `slices/blk-4-product-optimistic-lock.md`. Vender/Company still to come | Save product | S |
 | BLK-5 | Idempotency key on stock adjustment + a required reason | Stock adjustment | S |
 | BLK-6 | Cancel obsolete reads (with the two traps in 4.1.1 handled) + "Checking…" beside SKU | Search products, SKU check | S |
 | BLK-7 | Confirm + verified version check on permission change | Permission change | S |
@@ -701,8 +858,9 @@ instead — **a ruling on who may adjust stock**, the same shape as BLK-0d.
   templates. Opt-outs: 2 `nonBlocking` (`callAjax`, `jsonPost`) + 27 `global:false` (14 via
   `bgJson`/`bgGet`). **BLK-1 not started.**
 - In-flight disable exists (L2b modal button, `#addSell`, `#srSubmit`, `#obPost`, `_rcvBusy`/`_pvBusy`),
-  but no "Saving…" label anywhere. **BLK-2 not started.**
-- Skeleton rows: `dashboard-cards.js` only. **BLK-3 not started.** BLK-6/8/9 not started (not re-verified).
+  but no "Saving…" label anywhere. **BLK-2: coded 2026-09-14, not built/gated** — `slices/blk-2-busy-controls.md`.
+- Skeleton rows: `dashboard-cards.js` only. ~~**BLK-3 not started.**~~ → BLK-3 implemented 2026-09-14 (§4.3.2).
+  BLK-6/8/9 not started (not re-verified).
 - `welfare.js:48` still raises a native `confirm()` for delete.
 
 ### 9.7 Gates that go green with the defect present

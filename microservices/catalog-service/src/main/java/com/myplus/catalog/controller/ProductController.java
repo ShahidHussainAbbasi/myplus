@@ -260,11 +260,21 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));
     }
 
-    @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.catalog.service.ProductDeletionService productDeletionService;
+
+    /**
+     * PROD-DEL — permanently delete a DEACTIVATED product. The shop OWNER only (the user's ruling), and refused while
+     * anything still references it; ProductDeletionService says what. A repeat answers "Already removed".
+     *
+     * <p>Was {@code DELETE_PRIVILEGE} with a plain row delete that orphaned every reference; it had no caller.
+     */
+    @PreAuthorize("hasAuthority('ROLE_OWNER')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
-        productService.delete(id);
-        return ResponseEntity.ok(ApiResponse.success(null, "Deleted"));
+        var outcome = productDeletionService.deletePermanently(id);
+        return ResponseEntity.ok(ApiResponse.success(null,
+                outcome == com.myplus.catalog.service.ProductDeletionService.Outcome.DELETED ? "Deleted" : "Already removed"));
     }
 
     /**

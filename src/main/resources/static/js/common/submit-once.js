@@ -327,6 +327,24 @@
      * `$(button).callAjax(...)` supplies (1) for every generic save (main.js), so the non-modal forms — the school
      * fee form above all, which had no lock of any kind — are held without a per-form edit.
      */
+    /**
+     * Requests holding a control, until their release. The registry exists for the LAST-RESORT sweep below.
+     */
+    var held = [];
+
+    function runReleases(entry) {
+        for (var i = 0; i < entry.releases.length; i++) {
+            try { entry.releases[i](); } catch (e) { /* keep releasing the rest */ }
+        }
+    }
+
+    function forget(entry) {
+        var i = held.indexOf(entry);
+        if (i < 0) return false;            // already released — the other path got there first
+        held.splice(i, 1);
+        return true;
+    }
+
     $(document).ajaxSend(function (evt, jqXHR, settings) {
         try {
             if (!isWriteMethod(settings && settings.type)) return;
@@ -338,18 +356,56 @@
             if (modalEl && modalEl !== named) {
                 releases.push(hold(modalEl, settings && settings.busyKind, named ? { label: false } : null));
             }
-            if (releases.length) jqXHR.__busyRelease = releases;
+            if (releases.length) {
+                var entry = { jqXHR: jqXHR, releases: releases };
+                held.push(entry);
+                jqXHR.__busyEntry = entry;
+            }
         } catch (e) { /* never throw from ajaxSend */ }
     });
 
     $(document).ajaxComplete(function (evt, jqXHR) {
-        var releases = jqXHR && jqXHR.__busyRelease;
-        if (!releases) return;
-        delete jqXHR.__busyRelease;
-        for (var i = 0; i < releases.length; i++) {
-            try { releases[i](); } catch (e) { /* keep releasing the rest */ }
-        }
+        var entry = jqXHR && jqXHR.__busyEntry;
+        if (!entry) return;
+        delete jqXHR.__busyEntry;
+        if (forget(entry)) runReleases(entry);
     });
+
+    /*
+     * ⚠ THE LAST-RESORT RELEASE — found by the BLK-2 gate, not by reading.
+     *
+     * jQuery 3.3.1 runs a request's success/error callbacks with NO try/catch and triggers ajaxComplete only AFTER
+     * them (jquery-3.3.1.js: readyState=4 at 9244, resolveWith at 9305, ajaxComplete at 9323, --jQuery.active at
+     * 9326). So an app handler that THROWS skips ajaxComplete entirely, and without this the control it held would
+     * stay disabled on "Posting…" for the rest of the session. The gate hit exactly that: a sale-return success
+     * handler threw on a grid that did not exist.
+     *
+     * Once a second, any held request that has FINISHED — its promise is no longer pending (covers a status-0
+     * failure too) or its readyState is 4 — but never reached ajaxComplete is released here. A timer cannot run in
+     * the middle of jQuery's synchronous completion, so this can never beat a normal release to a request, and
+     * `forget()` makes the two paths mutually exclusive anyway.
+     *
+     * Independent of jQuery.active on purpose: a thrown handler also skips `--jQuery.active`, so a sweep keyed on
+     * "nothing in flight" (ajax-overlay.js's) would never fire again on that page.
+     */
+    global.setInterval(function () {
+        if (!held.length) return;
+        for (var i = held.length - 1; i >= 0; i--) {
+            var x = held[i].jqXHR;
+            var finished = !x
+                || (typeof x.state === 'function' && x.state() !== 'pending')
+                || x.readyState === 4;
+            if (finished) {
+                var entry = held[i];
+                held.splice(i, 1);
+                if (x) delete x.__busyEntry;
+                runReleases(entry);
+            }
+        }
+    }, 1000);
+
+    /** For the gate: how many requests are still holding a control. */
+    global.BusyControl.heldCount = function () { return held.length; };
 
 
     /* ══ LAYER 3 (client half) ════════════════════════════════════════════════════════════════════════════

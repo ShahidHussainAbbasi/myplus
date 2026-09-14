@@ -1,7 +1,10 @@
 package com.web.controller.business;
 
 import com.web.util.ProxyErrors;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -838,6 +841,111 @@ public class CatalogController {
 
     /** Reactivate a previously-deactivated product (the Product screen's Reactivate action) → catalog
      *  PUT /products/{id}/activate. Brings it back into the list + pickers. */
+    /**
+     * PROD-DEL — the Product screen's Delete: deactivate an ACTIVE product, permanently delete a DEACTIVATED one.
+     *
+     * <p>The user's ruling (2026-09-14): "active delete should be deactivated and deactivated should be deleted
+     * permanently". Each selected product is handled on its own and the outcome reported, so a mixed selection
+     * does what each row calls for. Design: microservices/docs/slices/prod-del-product-permanent-delete.md.
+     *
+     * <ul>
+     *   <li><b>Deactivating stays open to every member</b>, exactly as {@code /deactivateProduct} was, which is why
+     *       this path is unmapped in PermissionInterceptor. Nobody loses what they could already do.</li>
+     *   <li><b>Permanent delete is the owner's alone.</b> A non-owner's deactivated rows are reported as kept, and
+     *       catalog enforces {@code ROLE_OWNER} again for any caller that bypasses this screen.</li>
+     *   <li><b>catalog decides whether a product may go</b>: it refuses one still referenced by stock, sales,
+     *       orders, dispensing, a price rule or a bonus scheme, and answers "already removed" on a repeat. That
+     *       sentence is carried back verbatim; a refusal is an answer, not a failure.</li>
+     * </ul>
+     */
+    @PostMapping("/removeProducts")
+    @ResponseBody
+    public Map<String, Object> removeProducts(@RequestBody final Map<String, Object> body) {
+        Object checked = body.get("checked");
+        if (checked == null || checked.toString().isBlank()) return Collections.singletonMap("success", false);
+
+        boolean owner = false;
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null) {
+            for (org.springframework.security.core.GrantedAuthority a : auth.getAuthorities()) {
+                if ("ROLE_OWNER".equals(a.getAuthority())) { owner = true; break; }
+            }
+        }
+
+        int deactivated = 0, deleted = 0, alreadyRemoved = 0;
+        List<Map<String, Object>> kept = new ArrayList<>();
+        for (String raw : checked.toString().split(",")) {
+            String id = raw.trim();
+            if (id.isEmpty()) continue;
+            String name = "#" + id;
+            try {
+                Map<String, Object> data;
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> found = (Map<String, Object>) catalog.get("/products/" + id).get("data");
+                    data = found;
+                } catch (org.springframework.web.client.HttpClientErrorException.NotFound gone) {
+                    // Already deleted, or not this tenant's: the same idempotent answer catalog's DELETE gives, and
+                    // reporting it as "kept" would tell the owner a product still exists when it does not.
+                    data = null;
+                }
+                if (data == null) { alreadyRemoved++; continue; }
+                if (data.get("name") != null) name = String.valueOf(data.get("name"));
+
+                if (!Boolean.FALSE.equals(data.get("isActive"))) {
+                    catalog.putJson("/products/" + id + "/deactivate", Collections.emptyMap());
+                    deactivated++;
+                } else if (!owner) {
+                    kept.add(keptRow(id, name, "Only the shop owner can permanently delete a product."));
+                } else {
+                    String reply = catalog.delete("/products/" + id);
+                    if (reply != null && reply.contains("Already removed")) alreadyRemoved++; else deleted++;
+                }
+            } catch (Exception e) {
+                // A refusal from catalog ("still used by 3 stock records") arrives as an HTTP error carrying the
+                // sentence. ProxyErrors extracts it; a DemoLimitException still escapes to its advice.
+                Object m = failure(e).get("message");
+                kept.add(keptRow(id, name, m != null ? String.valueOf(m) : "Could not be removed. Please try again."));
+            }
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("success", true);
+        out.put("deactivated", deactivated);
+        out.put("deleted", deleted);
+        out.put("alreadyRemoved", alreadyRemoved);
+        out.put("kept", kept);
+        out.put("message", removalSummary(deactivated, deleted, alreadyRemoved, kept));
+        return out;
+    }
+
+    private static Map<String, Object> keptRow(String id, String name, String reason) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("name", name);
+        row.put("reason", reason);
+        return row;
+    }
+
+    /** One sentence for the whole selection, e.g. "2 deactivated. 1 deleted permanently. Kept: Panadol (used by 3 stock records)." */
+    private static String removalSummary(int deactivated, int deleted, int alreadyRemoved, List<Map<String, Object>> kept) {
+        StringBuilder s = new StringBuilder();
+        if (deactivated > 0) s.append(deactivated).append(" deactivated. ");
+        if (deleted > 0) s.append(deleted).append(" deleted permanently. ");
+        if (alreadyRemoved > 0) s.append(alreadyRemoved).append(" already removed. ");
+        if (!kept.isEmpty()) {
+            s.append("Kept: ");
+            for (int i = 0; i < kept.size(); i++) {
+                Map<String, Object> k = kept.get(i);
+                if (i > 0) s.append("; ");
+                s.append(k.get("name")).append(" (").append(k.get("reason")).append(")");
+            }
+            s.append('.');
+        }
+        return s.toString().trim();
+    }
+
     @PostMapping("/activateProduct")
     @ResponseBody
     public Map<String, Object> activateProduct(@RequestBody final Map<String, Object> body) {

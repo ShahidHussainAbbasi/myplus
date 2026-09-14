@@ -1,0 +1,53 @@
+{
+  "wrapped": true,
+  "longtasks": [
+    [
+      216,
+      52
+    ],
+    [
+      273,
+      318
+    ],
+    [
+      708,
+      52
+    ],
+    [
+      792,
+      3234
+    ],
+    [
+      4101,
+      2686
+    ]
+  ],
+  "calls": 3,
+  "callsMs": 6222,
+  "top": [
+    {
+      "at": 802,
+      "op": "refresh",
+      "ids": "rfCustomer",
+      "n": 1615,
+      "ms": 3224,
+      "from": ""
+    },
+    {
+      "at": 4102,
+      "op": "refresh",
+      "ids": "rfProduct",
+      "n": 1857,
+      "ms": 2685,
+      "from": ""
+    },
+    {
+      "at": 278,
+      "op": "init",
+      "ids": "orgSwitcher,storeSwitcher,dtChannel,dtPaper,dtTitleStyle,instChaseStage,qtCustom",
+      "n": 78,
+      "ms": 313,
+      "from": ""
+    }
+  ]
+}

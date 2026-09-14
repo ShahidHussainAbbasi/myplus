@@ -219,6 +219,27 @@ public class Product {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    /**
+     * BLK-4 — OPTIMISTIC LOCK: two people cannot silently overwrite one another's edit of a product.
+     *
+     * <p>Product is the master every sale, purchase, report and receipt reads, and it had no lock at all. The
+     * concrete lost update: an operator opens a product, a purchase is received meanwhile and re-prices it
+     * through {@code PUT /products/{id}/price}, and the operator's Save then writes the OLD selling price back
+     * over the one the purchase just set. Nothing errored and both screens looked right.
+     *
+     * <p>Every write path bumps this, whether or not it checks it: {@code updatePrice} (purchase receive and
+     * edit), {@code setActive}, the clinical and tracking flag writes. Only the product FORM's update compares
+     * it against what the operator loaded, because only the form writes back a copy loaded earlier; the
+     * others load the row fresh inside their own transaction.
+     *
+     * <p>⚠ {@code NOT NULL DEFAULT 0} in V17 is load-bearing. A NULL version makes Hibernate treat an existing
+     * row as TRANSIENT and INSERT it, duplicating the product on its next edit. No {@code @Builder.Default}
+     * either: a NEW product must reach persist with a null version so Spring Data classifies it as new.
+     */
+    @jakarta.persistence.Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @PrePersist
     void prePersist() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
     @PreUpdate

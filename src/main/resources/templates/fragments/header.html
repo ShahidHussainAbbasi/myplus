@@ -81,6 +81,10 @@
         <!-- Rows-per-page for every grid. AFTER jquery.dataTables (it extends its defaults) and BEFORE any
              module script builds a table (defaults are read at construction, so later would be inert). -->
         <script th:src="@{/js/common/datatable-defaults.js}"></script>
+        <!-- BLK-3: skeleton rows while a grid loads, and never "no records" before the answer. AFTER
+             datatable-defaults.js and i18n.js (it extends DataTables' language defaults with t()), BEFORE any
+             module script builds a grid. Also exposes GridLoading.fill() for plain tables. -->
+        <script th:src="@{/js/common/grid-loading.js}"></script>
         <script th:src="@{/jQExp/buttons.flash.min.js}"></script>
         <!-- PERF-4b: jszip.min.js, pdfmake.min.js and vfs_fonts.js NO LONGER LOAD HERE.
              They were 2,121,616 bytes raw / 932,627 gzipped — after PERF-1 that was ~70% of the compressed

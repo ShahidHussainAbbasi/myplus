@@ -221,6 +221,21 @@ describe('BLK-1 — a read never freezes the screen', () => {
     idle()
   })
 
+  it('⭐ 9 — a write whose success handler THROWS does not leave the veil up for ever', () => {
+    /*
+     * jQuery 3.3.1 sets readyState = 4 and then runs the success callbacks (jquery-3.3.1.js:9244 / 9305). A throw
+     * there skips ajaxComplete AND --jQuery.active (9311-9329), so the overlay's old sweep — which waited for
+     * jQuery.active === 0 — never fired again and the veil stayed up for the rest of the session. The fix tracks
+     * each request and releases one that FINISHED without completing. The sweep runs every 3 s; allow two.
+     */
+    cy.on('uncaught:exception', (err) => (/blk1-deliberate-throw/.test(err.message) ? false : undefined))
+    hold('POST', 'blk1ProbeThrow', 'thr', 600)
+    fire('blk1ProbeThrow', { type: 'POST', data: { probe: Date.now() },
+      success: function () { throw new Error('blk1-deliberate-throw') } })
+    cy.wait('@thr')
+    cy.get('#appAjaxOverlay', { timeout: 8000 }).should('not.have.class', 'show')
+  })
+
   it('⭐⭐ 8 — the REAL screen: opening Customers while its own read is held open never veils the page', () => {
     // loadAccountGroups() → GET getUserCustomers, fired by selecting the section (owner/admin only — the
     // account-group card is rendered for them). Waiting on it BY NAME is the eligibility check: if this

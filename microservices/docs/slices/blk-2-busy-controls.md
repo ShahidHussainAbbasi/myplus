@@ -197,8 +197,52 @@ sequenceDiagram
       opening balance (hand-rolled removed)
 - [x] `permissions.js` `#permSave`; `team.js` set `<select>`
 - [x] `ui.js.busySaving` / `ui.js.busyPosting` in 6 locales
-- [ ] gate green, headed — user
+- [x] **Run-1 fixes (user go-ahead 2026-09-14):** submit-once.js last-resort sweep (`BusyControl.heldCount`);
+      `submitSaleReturn` treats ONLY `status === 'SUCCESS'` as a return; spec cases 7/9/12 corrected; cases 14–20 added
+- [ ] gate green, headed, SOLO — user
 - [ ] manual cases after green; ask before commit
+
+## 6. Gate run 1 (2026-09-14 10:53–10:56) — 10 / 14, and what the 4 reds were
+
+⚠ Probably overlapped a full-suite run started 10:47:51 as the same owner (`maximumSessions(1)`).
+
+| Case | Red because | Verdict | Change |
+|---|---|---|---|
+| 7 POS sale | watcher got 2 samples in 1.2 s — the page's main thread was busy | the gate could not see; nothing learned about the product | `waitForAppReady` after `visitSaleScreen`, 2.5 s hold, watcher now records LONG TASKS and prints them |
+| 8 product | `waitForAppReady` timed out: 2 reads in flight 30 s, `jQuery.active` 8 at start | the shared-login stall signature | none — re-run solo |
+| 9 receive payment | `#ReceivePaymentModal` lives inside `#CustomerDiv`, which the case never opened | spec defect | open the section first |
+| 12 sale return | ⭐ **two real defects** — see below | real | fixed |
+
+**12a — a refusal shown as a success (pre-existing, STANDARDS §0b).** `submitSaleReturn` treated
+`status === 'SUCCESS' || data.message` as success; every server refusal carries a message
+(`SellController` 1633 / 1635 / 1644 / 1853 / 1856) and so does a proxy failure. The dialog closed, a green
+toast showed the refusal, the grid refreshed — the operator was told a refund happened that the server refused.
+Only `status === 'SUCCESS'` (1849, the one success reply) now counts. Pinned by case 12's last two assertions.
+
+**12b — a throwing success handler strands the control (introduced by BLK-2).** jQuery 3.3.1 runs success
+callbacks with no try/catch and triggers `ajaxComplete` only after them (`jquery-3.3.1.js` 9244 readyState=4 →
+9305 resolveWith → 9323 ajaxComplete → 9326 `--jQuery.active`). A throw skips the release, so `#srSubmit` stayed
+disabled on "Posting…" — where the old code had re-enabled it first. Fixed by a once-a-second sweep that releases
+any held request whose promise is no longer pending. Independent of `jQuery.active`, which a throw also leaves
+raised. Pinned by case 14. The same throw strands the VEIL (its sweep needs `$.active === 0`) — that is
+`ajax-overlay.js`, owned by myplus-5f, who has a matching fix awaiting consent.
+
+### Gate run 2 (myplus-5f, 13:21, the OLD 14-case spec on the 10:47 build, solo)
+
+✅ 0, 1, 2, 13 — the core holds on the real build: label + restore on success and on HTTP failure, and the fee
+form's lock. ❓ 3–12 SKIPPED: case 3's `beforeEach` timed out because the dashboard's own load READS took ~34 s
+to drain. BusyControl acts on writes only, so this is not BLK-2. ⚠ **Cause UNKNOWN** — an earlier note here
+blamed the BLK-4 catalog redeploy; that is FALSE: `myplus-catalog` was recreated at 13:29, after both slow runs
+(BLK-3 13:15–13:20 showed the same ~60 s/case), both solo, catalog and monolith steady throughout. The only request
+seen starting during the wait was `/serialConditionCounts`. To check after the next deploy: instance ages and a
+per-endpoint timing of the dashboard's first load, BEFORE any gate runs.
+
+### ⚠ The committed HEAD holds a PARTIAL BLK-2
+
+Commit `e3582e27` ("BLK-1 passed end to end", 10:31, not made by this slice's session) captured these files
+mid-edit. Its `catalog-products.js` `addProductStock` still has `complete: … $btn.prop(…)` after `var $btn` was
+removed — a **ReferenceError after every stock add**, which (see 12b) also strands the veil. The working tree is
+correct and is what the deploys build; **the next commit must include it.**
 
 ## 5. Test
 
@@ -221,5 +265,15 @@ probe reply — so no case writes data.
 | 9 | ⭐⭐ receive payment: "Posting…", **no veil** | ✅ |
 | 10 | ⭐ stock correction: compact spinner, width stable, **veil KEPT** (no key) | ✅ |
 | 11 | ⭐ permission set save is LOCKED (it had no lock), veil kept | ✅ |
-| 12 | ⭐ sale return: `#srSubmit` "Posting…", veil kept | ✅ |
+| 12 | ⭐ sale return: `#srSubmit` "Posting…", veil kept, **and a refusal stays a refusal** (dialog open, error shown) | ✅ |
 | 13 | ⭐⭐ education `#addFc` — the form with no guard at all — is locked and labelled | ✅ |
+| 14 | ⭐⭐ a success handler that THROWS still releases the control (sweep) | ✅ |
+| 15 | ⭐⭐ pay vendor: "Posting…", **no veil** | ✅ |
+| 16 | ⭐ stock add: row `+` spinner, veil kept | ✅ |
+| 17 | ⭐ a member's permission-set picker is locked while it posts (it had no lock) | ✅ |
+| 18 | ⭐ purchase return: `#prSubmit` (it had no lock) "Posting…", veil kept, refusal shown | ✅ |
+| 19 | ⭐ void sale: the row's Void button (it had no lock), spinner, veil kept | ✅ |
+| 20 | ⭐ opening balance: `#obPost` "Posting…", veil kept | ✅ |
+
+**21 cases (0–20), every screen in §2.3 exercised.** Only void BILL and welfare's own `callAjax` are not in the
+gate: void bill shares void sale's shape; welfare is covered by layer 2b's modal path.

@@ -27,6 +27,11 @@ public interface ProductBarcodeRepository extends JpaRepository<ProductBarcode, 
     /** The stickers registered against one product, for the product form's list. */
     List<ProductBarcode> findByOrganizationIdAndProductIdOrderByBarcodeAsc(Long organizationId, Long productId);
 
+    /** PROD-DEL: a product's stickers are deleted with it. Runs inside ProductDeletionWriter's transaction. */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM ProductBarcode b WHERE b.productId = :id")
+    int deleteByProductId(@Param("id") Long productId);
+
     /**
      * Does any PRODUCT in this org already own this code as its barcode or sku?
      *

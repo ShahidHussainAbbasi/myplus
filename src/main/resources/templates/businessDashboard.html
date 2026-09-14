@@ -4500,6 +4500,14 @@ tr.row-voided .js-edit-row{display:none !important}
     <!-- Void is gated by the VOID_INVOICE privilege server-side (@PreAuthorize); the sale/purchase Void buttons show
          only to a holder of it. Set before business.js renders the trade tables. Enforcement is on the server. -->
     <script sec:authorize="hasAuthority('VOID_INVOICE')" th:inline="none">window.canVoidInvoice = true;</script>
+    <!-- PERM-1 "Edit a product": the product grid's row Edit button and the "edit this one" link are drawn only
+         for a holder. PermissionInterceptor refuses POST /updateProduct without product.edit, so drawing them
+         for anyone else would be offering a button that always refuses. The owner holds everything. The
+         server remains the control. -->
+    <script sec:authorize="hasAuthority('product.edit')" th:inline="none">window.canEditProduct = true;</script>
+    <!-- PROD-DEL: permanently deleting a deactivated product is the OWNER's alone (the user's ruling). This flag only
+         decides whether the "cannot be undone" confirm is shown; catalog enforces ROLE_OWNER itself. -->
+    <script sec:authorize="hasAuthority('ROLE_OWNER')" th:inline="none">window.canPermanentlyDeleteProduct = true;</script>
     <!-- Contact-360 (party contact view) is sensitive (cross-module roles) â†’ owner/admin only; the server enforces too. -->
     <script sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canViewContact360 = true;</script>
     <!-- OMS O4: cancelling, returning and refunding an order reverse money and stock, and marketplace-service

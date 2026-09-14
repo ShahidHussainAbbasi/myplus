@@ -182,7 +182,9 @@
      * nothing would fail loudly". The rule is that a write belongs here when it changes anything the
      * PROJECTION carries — not merely when it adds or removes a product.
      */
-    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|setProductTracking|import\/product\/commit)(\?|$)/;
+    // PROD-DEL: removeProducts deactivates or permanently deletes, so a till picker cached before it would still
+    // offer the product.
+    var MUTATES = /\/(addProduct|updateProduct|activateProduct|deactivateProduct|removeProducts|setProductTracking|import\/product\/commit)(\?|$)/;
 
     $(document).ajaxComplete(function (evt, jqXHR, settings) {
         if (!settings || !settings.url || !MUTATES.test(settings.url)) return;

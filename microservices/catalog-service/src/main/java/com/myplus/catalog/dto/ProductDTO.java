@@ -73,4 +73,17 @@ public class ProductDTO {
     private String idempotencyKey;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    /**
+     * BLK-4 — the row version the caller LOADED, sent back on an update so a stale copy is refused.
+     *
+     * <p>⚠ Same load-bearing trap as {@link #idempotencyKey}: {@code PUT /products/{id}} binds this typed DTO
+     * and unknown JSON properties are dropped silently. Without the field the form's version never reaches
+     * the service, every save falls back to last-write-wins, and the lock protects nothing while looking done.
+     *
+     * <p>Optional on purpose. A caller that sends none — an older cached tab, an integration written before
+     * BLK-4 — keeps today's last-write-wins rather than being refused, the rule V62 set for Customer.
+     * Ignored on create: there is nothing to be stale against.
+     */
+    private Long version;
 }

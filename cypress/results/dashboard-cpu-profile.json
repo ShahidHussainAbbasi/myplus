@@ -1,0 +1,241 @@
+{
+  "totalProfiledMs": 47294,
+  "selfTop": [
+    {
+      "ms": 3811,
+      "fn": "oe.attr  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 2657,
+      "fn": "getAttribute  :0"
+    },
+    {
+      "ms": 1406,
+      "fn": "(anonymous)  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 1051,
+      "fn": "o  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 423,
+      "fn": "grep  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 282,
+      "fn": "w.expr.pseudos.visible  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 184,
+      "fn": "oe.select  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 162,
+      "fn": "oe  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 75,
+      "fn": "w.filter  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 63,
+      "fn": "oe.matchesSelector  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 59,
+      "fn": "getPropertyValue  :0"
+    },
+    {
+      "ms": 57,
+      "fn": "appendChild  :0"
+    },
+    {
+      "ms": 57,
+      "fn": "alreadyScrollable  /js/common/responsive-tables.js:26"
+    },
+    {
+      "ms": 57,
+      "fn": "setAttribute  :0"
+    },
+    {
+      "ms": 53,
+      "fn": "(anonymous)  /bootstrap/js/bootstrap-select.min.js:7"
+    },
+    {
+      "ms": 53,
+      "fn": "merge  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 52,
+      "fn": "xe  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 46,
+      "fn": "oe.compile  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 42,
+      "fn": "map  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 42,
+      "fn": "filter  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 39,
+      "fn": "createElement  :0"
+    },
+    {
+      "ms": 31,
+      "fn": "querySelectorAll  :0"
+    },
+    {
+      "ms": 28,
+      "fn": "Fe  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 28,
+      "fn": "oe.tokenize  /js/jquery-3.3.1.min.js:2"
+    },
+    {
+      "ms": 26,
+      "fn": "t  /js/jquery-3.3.1.min.js:2"
+    }
+  ],
+  "appInclusiveTop": [
+    {
+      "ms": 10688,
+      "fn": "runPass  /js/common/searchable-selects.js:194"
+    },
+    {
+      "ms": 10688,
+      "fn": "(anonymous)  /js/common/searchable-selects.js:196"
+    },
+    {
+      "ms": 370,
+      "fn": "(anonymous)  /js/common/searchable-selects.js:234"
+    },
+    {
+      "ms": 370,
+      "fn": "applySearchableSelects  /js/common/searchable-selects.js:100"
+    },
+    {
+      "ms": 79,
+      "fn": "(anonymous)  /js/business/business.js:2474"
+    },
+    {
+      "ms": 74,
+      "fn": "(anonymous)  /js/common/report-filters.js:54"
+    },
+    {
+      "ms": 70,
+      "fn": "(anonymous)  /js/common/report-filters.js:56"
+    },
+    {
+      "ms": 61,
+      "fn": "wrapTables  /js/common/responsive-tables.js:52"
+    },
+    {
+      "ms": 57,
+      "fn": "alreadyScrollable  /js/common/responsive-tables.js:26"
+    },
+    {
+      "ms": 40,
+      "fn": "(anonymous)  /js/business/business.js:7"
+    },
+    {
+      "ms": 24,
+      "fn": "safe  /js/common/rum.js:62"
+    },
+    {
+      "ms": 20,
+      "fn": "(anonymous)  /js/common/rum.js:202"
+    },
+    {
+      "ms": 20,
+      "fn": "(anonymous)  /js/common/rum.js:203"
+    },
+    {
+      "ms": 20,
+      "fn": "(anonymous)  /js/business/business.js:4911"
+    },
+    {
+      "ms": 11,
+      "fn": "$.ajax  /js/common/submit-once.js:124"
+    },
+    {
+      "ms": 9,
+      "fn": "applyPosFieldVisibility  /js/business/business.js:5220"
+    },
+    {
+      "ms": 6,
+      "fn": "global.applyInstallmentVisibility  /js/business/installment.js:114"
+    },
+    {
+      "ms": 4,
+      "fn": "(anonymous)  /js/web-vitals.iife.js:1"
+    },
+    {
+      "ms": 4,
+      "fn": "mountSRFilters  /js/business/business.js:3604"
+    },
+    {
+      "ms": 4,
+      "fn": "mountReportFilters  /js/common/report-filters.js:82"
+    },
+    {
+      "ms": 4,
+      "fn": "(anonymous)  /js/common/searchable-selects.js:102"
+    },
+    {
+      "ms": 4,
+      "fn": "(anonymous)  /js/common/date-picker.js:406"
+    },
+    {
+      "ms": 4,
+      "fn": "window.initDatePickers  /js/common/date-picker.js:386"
+    },
+    {
+      "ms": 4,
+      "fn": "(anonymous)  /js/common/capabilities.js:114"
+    },
+    {
+      "ms": 4,
+      "fn": "applyPosRowEntry  /js/business/business.js:5091"
+    },
+    {
+      "ms": 4,
+      "fn": "syncSellNoticeRow  /js/business/business.js:5061"
+    },
+    {
+      "ms": 2,
+      "fn": "(anonymous)  /js/common/datatable-defaults.js:0"
+    },
+    {
+      "ms": 2,
+      "fn": "(anonymous)  /js/common/datatable-defaults.js:28"
+    },
+    {
+      "ms": 2,
+      "fn": "(anonymous)  /js/business/business.js:0"
+    },
+    {
+      "ms": 2,
+      "fn": "(anonymous)  /js/business/document-designer.js:0"
+    }
+  ],
+  "gcAndIdle": [
+    {
+      "ms": 34508,
+      "fn": "(idle)  :0"
+    },
+    {
+      "ms": 1032,
+      "fn": "(program)  :0"
+    },
+    {
+      "ms": 118,
+      "fn": "(garbage collector)  :0"
+    }
+  ]
+}

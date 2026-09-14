@@ -142,7 +142,22 @@
     var blocking = 0;   // requests holding the veil
     var reading = 0;    // requests showing the progress bar
 
+    /*
+     * The requests counted above, so one that FINISHED without ever reaching ajaxComplete can still be let go.
+     *
+     * ⚠ That happens. In jQuery 3.3.1 a success/error handler that THROWS aborts done() after it has set
+     * readyState (jquery-3.3.1.js:9244) but before ajaxComplete and --jQuery.active (9311-9329). The request is
+     * over, jQuery.active stays inflated for the rest of the session, and a sweep that waits for $.active === 0
+     * never fires again — a veil or bar raised by that request would stay up for good.
+     */
+    var tracked = [];
+    function track(jqXHR, isBlocking) { if (jqXHR) tracked.push({ x: jqXHR, blocking: isBlocking, t0: Date.now() }); }
+    function untrack(jqXHR) {
+      for (var i = 0; i < tracked.length; i++) { if (tracked[i].x === jqXHR) { tracked.splice(i, 1); return; } }
+    }
+
     $(document).ajaxSend(function (evt, jqXHR, settings) {
+      track(jqXHR, blocks(settings));
       if (blocks(settings)) {
         blocking++;
         if (blocking === 1) {
@@ -159,6 +174,7 @@
     });
 
     $(document).ajaxComplete(function (evt, jqXHR, settings) {
+      untrack(jqXHR);
       // Never below zero: a handler added after a request began would otherwise strand a counter positive
       // and leave an indicator up for the rest of the session.
       if (blocks(settings)) {
@@ -176,9 +192,21 @@
      * cannot be dismissed is the worst failure this file can produce, so it is bounded.
      */
     window.setInterval(function () {
+      // A request that finished but never completed (see `tracked`): release exactly its counter.
+      // readyState is 1 from before ajaxSend; 4 or 0 afterwards means done() ran. ajaxComplete fires in that SAME
+      // synchronous call, so a sweep can only ever see a finished-but-tracked request when a handler threw.
+      for (var i = tracked.length - 1; i >= 0; i--) {
+        var e = tracked[i], rs = e.x && e.x.readyState;
+        if (rs === 4 || (rs === 0 && Date.now() - e.t0 > 1000)) {
+          tracked.splice(i, 1);
+          if (e.blocking) { blocking = Math.max(0, blocking - 1); if (blocking === 0) hide(); }
+          else { reading = Math.max(0, reading - 1); if (reading === 0) hideProgress(); }
+        }
+      }
       if ($.active === 0) {
         if (blocking > 0) { blocking = 0; hide(); }
         if (reading > 0) { reading = 0; hideProgress(); }
+        tracked.length = 0;
       }
     }, 3000);
     $(document).ajaxError(hide); // belt-and-suspenders: never strand the overlay on an error

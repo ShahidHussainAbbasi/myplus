@@ -936,6 +936,12 @@ $(document).ready(function() {
 		if (id.indexOf('table') !== 0) return;
 		var entity = id.slice(5);
 		if (!entity || !document.getElementById(entity + 'Modal')) return;   // modal screens only
+		// A grid may name the window flag that permits editing its rows (data-row-edit-flag, the flag itself set
+		// server-side by sec:authorize). Flag named but absent: no Edit button, because the server would refuse
+		// the save and a button that always refuses is not an affordance. Generic on purpose, so no module's
+		// permission logic lives in this shared file.
+		var editFlag = table.getAttribute('data-row-edit-flag');
+		if (editFlag && !window[editFlag]) return;
 		$(table).find('tbody tr').each(function () {
 			var $cb = $(this).find("input[type='checkbox']").first();
 			if (!$cb.length || $(this).find('.js-edit-row').length) return;  // needs a row id; add once per row
@@ -984,6 +990,12 @@ $(document).ready(function() {
 
 	$.fn.callAjax = function(method, data) {
 		var dataSent = data;   // captured for the credit-limit re-submit below
+		// BLK-2: the generic #add<Entity> handler calls this ON the pressed button — `$(this).callAjax(...)` — so
+		// `this` IS the control that started the write. It carries the wait (disabled, aria-busy, "Saving…") via
+		// submit-once.js; `$(document).callAjax(...)` (bulk delete) names no control and labels nothing.
+		// ⭐ This is what locks the non-modal forms that had NO guard at all — the school fee form above all.
+		var self = this;
+		var pressed = (self && self[0] && self[0].nodeType === 1) ? self[0] : null;
 		$.ajax({
 			/*
 			 * ⭐ PERF-13 — a WRITE does not cover the screen. See the note in ajax-overlay.js.
@@ -993,6 +1005,7 @@ $(document).ready(function() {
 			 * also drop this out of ajaxComplete — where product-picker.js hangs its cache invalidation.
 			 */
 			nonBlocking : true,
+			busyControl : pressed,
 			type : "POST",
 			url : serverContext + method,
 			dataType : "json",
@@ -1026,7 +1039,9 @@ $(document).ready(function() {
 						// a property to a string is a silent no-op, the same trap that once dropped productId.
 						// A second, different prompt on the resubmit still appears: this call's dataSent carries
 						// the first answer, and the next CONFIRM appends its own.
-						$(document).callAjax(method, dataSent + "&" + ack + "=true");
+						// Through `self`, not $(document): the resubmit is held on the SAME control the operator
+						// pressed (BLK-2), so it says "Saving…" again while the confirmed write is in flight.
+						self.callAjax(method, dataSent + "&" + ack + "=true");
 					});
 					return false;
 				}
@@ -1245,9 +1260,10 @@ function jsonPost(method,data) {
 	      url : serverContext + method,
 	      data : JSON.stringify(data),//populateFormData()
 	      dataType : 'json',
-	      // SF-3: lock the submit button while in flight so a double-click can't fire a second sale.
-	      beforeSend : function(){ $('#addSell').prop('disabled', true); },
-	      complete   : function(){ $('#addSell').prop('disabled', false); },
+	      // SF-3 + BLK-2: #addSell carries the wait — disabled so a double-click can't fire a second sale, and
+	      // labelled "Posting…" — held and released on this request by submit-once.js (was beforeSend/complete).
+	      busyControl : '#addSell',
+	      busyKind    : 'post',
 	      success : function(data) {
 			// B2B-P1 (#9): the server is holding the sale for a credit-limit decision. NOTHING has been
 			// written and NO stock is reserved — so cancelling costs nothing, and confirming re-submits the

@@ -913,15 +913,32 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 .breakdown-empty { font-size: 13px; color: var(--txt3); padding: 6px 2px; }
 .breakdown-error { font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 6px; }
 
-/* Skeletons hold the card's height while it loads, so nothing below it jumps when the rows arrive. */
-.breakdown-skeleton {
-  height: 30px;
-  margin-bottom: 4px;
+/* Skeletons hold the card's height while it loads, so nothing below it jumps when the rows arrive.
+   BLK-3: grids use the SAME shimmer (.grid-skeleton-row) — one animation for "loading", not two. */
+.breakdown-skeleton,
+.grid-skeleton-row {
   border-radius: var(--r-sm);
   background: linear-gradient(90deg, #EEF3F9 25%, #F7FAFD 37%, #EEF3F9 63%);
   background-size: 400% 100%;
   animation: breakdown-shimmer 1.3s ease infinite;
 }
+.breakdown-skeleton {
+  height: 30px;
+  margin-bottom: 4px;
+}
+
+/* BLK-3 — placeholder rows inside a grid's own body while it loads (see /js/common/grid-loading.js). */
+.grid-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 2px;
+  text-align: start;   /* follows the reading direction — Arabic and Urdu run right-to-left */
+}
+.grid-skeleton-row { height: 16px; }
+/* Uneven lengths read as rows of text; identical bars read as a progress meter. */
+.grid-skeleton-row:nth-child(3n+2) { width: 92%; }
+.grid-skeleton-row:nth-child(3n)   { width: 78%; }
 @keyframes breakdown-shimmer { from { background-position: 100% 0 } to { background-position: 0 0 } }
 
 /* ── Condition grade tiles ───────────────────────────────── */
@@ -980,7 +997,7 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .grade-tile, .grade-tile:hover { transition: none; transform: none; }
-  .breakdown-skeleton { animation: none; }
+  .breakdown-skeleton, .grid-skeleton-row { animation: none; }
 }
 
 /* ── Active-filter chip ──────────────────────────────────── */

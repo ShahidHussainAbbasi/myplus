@@ -33,4 +33,7 @@ public interface PriceRuleRepository extends JpaRepository<PriceRuleEntity, Long
      */
     @Query("SELECT p FROM PriceRuleEntity p WHERE p.active = true AND " + SCOPE)
     List<PriceRuleEntity> findActiveScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** PROD-DEL: a price rule naming this product blocks its permanent delete. Unscoped: a product id is globally unique. */
+    long countByProductId(Long productId);
 }

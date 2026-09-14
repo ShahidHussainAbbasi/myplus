@@ -1,0 +1,207 @@
+{
+  "serverContext": "/",
+  "beforeVal": {
+    "active": "BUTTON#.btn dropdown-toggle selectpicker btn-default in sellCustomerDD",
+    "pickers": {
+      "sellCustomerDD": {
+        "options": 1615,
+        "lis": 1615,
+        "visible": true,
+        "dirty": false,
+        "lastVal": "0:",
+        "now": "0:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": true,
+        "button": "Select Customer"
+      },
+      "sellItemDD": {
+        "options": 1857,
+        "lis": 1857,
+        "visible": true,
+        "dirty": true,
+        "lastVal": "-1:",
+        "now": "0:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Nothing Selected"
+      },
+      "purchaseItemDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "returnsProductDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "returnsCustomerDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "qtItemDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "qtCustomerDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "venderCompanyDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Choose one or more"
+      }
+    }
+  },
+  "picked": "Aging Buyer 178729202837721",
+  "afterVal": {
+    "active": "BUTTON#.btn dropdown-toggle selectpicker btn-default in sellCustomerDD",
+    "pickers": {
+      "sellCustomerDD": {
+        "options": 1615,
+        "lis": 1615,
+        "visible": true,
+        "dirty": false,
+        "lastVal": "0:",
+        "now": "2:2462",
+        "stale": "1",
+        "open": false,
+        "holdsFocus": true,
+        "button": "Select Customer"
+      },
+      "sellItemDD": {
+        "options": 1857,
+        "lis": 1857,
+        "visible": true,
+        "dirty": false,
+        "lastVal": "0:",
+        "now": "0:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Nothing Selected"
+      },
+      "purchaseItemDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "returnsProductDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "returnsCustomerDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "qtItemDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "qtCustomerDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "-1:",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Select…"
+      },
+      "venderCompanyDD": {
+        "options": 0,
+        "lis": 0,
+        "visible": false,
+        "dirty": false,
+        "lastVal": "",
+        "now": "-1:",
+        "stale": null,
+        "open": false,
+        "holdsFocus": false,
+        "button": "Choose one or more"
+      }
+    }
+  },
+  "callsAfterVal": []
+}

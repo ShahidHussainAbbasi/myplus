@@ -740,6 +740,7 @@ function saveTaxSetting(){
 
 // â”€â”€â”€ Multi-rate tax: tax-code (tax-class) master CRUD (owner) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function loadTaxCodesAdmin(){
+	if (window.GridLoading) GridLoading.fill('#taxCodeTable');   // BLK-3: never the previous rows while re-fetching
 	$.get(serverContext + 'catalogTaxCodes', function(resp){
 		var codes = Array.isArray(resp) ? resp : (typeof resp === 'string' ? (JSON.parse(resp) || []) : []);
 		var $tb = $('#taxCodeTable tbody').empty();
@@ -1667,6 +1668,7 @@ function storeMsg(msg, isErr){
 		.addClass(isErr ? 'alert-danger' : 'alert-success').html(escHtml(msg)).show();
 }
 function loadStores(){
+	if (window.GridLoading) GridLoading.fill('#tableStores');   // BLK-3: never the previous rows while re-fetching
 	$.get(serverContext + 'getStores', function(resp){
 		var rows = (resp && (resp.collection || resp.data)) || [];
 		var $tb = $('#tableStores tbody').empty();
@@ -2000,7 +2002,9 @@ function loadDataTable(){
 				var collections = data.collection;
 				if(!collections || collections.length <= 0){
 					datatable.columns([0]).visible(false);
-					$(".dataTables_empty")[0].innerHTML = "No Data Found";
+					// BLK-3: the empty state is DataTables' own translated emptyTable, settled by grid-loading.js.
+					// This line used to write an English "No Data Found" into $(".dataTables_empty")[0] — the
+					// first empty cell on the whole PAGE, which is not necessarily this table's.
 					return false;
 				}
 
@@ -4221,18 +4225,27 @@ function submitSaleReturn(){
 	if (!qty || qty <= 0) { err.textContent = t('ui.js.enterAQuantityGreaterThan0'); return false; }
 	if (qty > sold)       { err.textContent = t('ui.js.cannotReturnMoreThanTheSoldQuantity') + sold + ').'; return false; }
 
-	var btn = document.getElementById('srSubmit');
-	btn.disabled = true;
 	$.ajax({
 		type: 'POST',
 		url: serverContext + "saleReturn",
 		dataType: "json",
+		// BLK-2: the confirm button carries the wait ("Posting…") and is released on this request's ajaxComplete.
+		// Keeps the veil: a sale return has no server de-duplication yet (BLK-13).
+		busyControl: '#srSubmit', busyKind: 'post',
 		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value,
 			'quarantine': document.getElementById('srQuarantine').checked,
 			'refundAs': document.getElementById('srRefundAs').value },
 		success: function(data){
-			btn.disabled = false;
-			if (data && (data.status === 'SUCCESS' || data.message)) {
+			/* BLK-2: #srSubmit is released by BusyControl on ajaxComplete */
+			/*
+			 * ONLY an explicit SUCCESS is a return. This used to read `status === 'SUCCESS' || data.message` — and
+			 * every refusal the server sends carries a message (SellController: "Return quantity must be greater
+			 * than 0.", "Cannot return more than the sold quantity", "This invoice is voided.", a closed period,
+			 * "An unexpected error occurred"), as does a proxy failure ({status:"ERROR", message}). Each one was
+			 * shown as a green success, the dialog closed and the grid refreshed: the operator was told a refund
+			 * happened that the server had refused (STANDARDS §0b). Found by the BLK-2 gate.
+			 */
+			if (data && data.status === 'SUCCESS') {
 				closeSaleReturn();
 				showSaleSuccess((data.message) || 'Sale returned successfully.');
 				datatable.clear().draw();
@@ -4256,7 +4269,7 @@ function submitSaleReturn(){
 			}
 		},
 		error: function (e) {
-			btn.disabled = false;
+			/* BLK-2: #srSubmit is released by BusyControl on ajaxComplete */
 			err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain');
 		}
 	});
@@ -4319,14 +4332,21 @@ function submitReceivePayment() {
 	var amount = $("#rcvAmount").val() * 1;
 	if (!customerId || !(amount > 0)) { showFormError(t('ui.js.enterAPositiveAmountToReceive')); return; }
 	if (window._rcvBusy) return; window._rcvBusy = true;   // Audit #5: submit-lock (belt-and-braces with the server key)
-	$.post(serverContext + "receivePayment", {
-		customerId: customerId,
-		amount: amount,
-		method: $("#rcvMethod").val(),
-		paidOn: $("#rcvDate").val(),
-		reference: $("#rcvReference").val(),
-		idempotencyKey: window.rcvIdemKey
-	}, function (resp) {
+	$.ajax({
+		type: 'POST', url: serverContext + "receivePayment", dataType: 'json',
+		data: {
+			customerId: customerId,
+			amount: amount,
+			method: $("#rcvMethod").val(),
+			paidOn: $("#rcvDate").val(),
+			reference: $("#rcvReference").val(),
+			idempotencyKey: window.rcvIdemKey
+		},
+		// BLK-2: off the veil — allowed because the server replays a repeated key (Audit #5). The modal's submit
+		// (data-kbd-submit) carries the wait as "Posting…" via submit-once.js layer 2b/2c.
+		nonBlocking: true,
+		busyKind: 'post'
+	}).done(function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
 			var msg = 'Payment received.' + (o.receiptNo ? ' Receipt ' + o.receiptNo : '');
@@ -4336,7 +4356,7 @@ function submitReceivePayment() {
 		} else {
 			showFormError(apiMessage(resp, 'Could not record the payment.'));
 		}
-	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
+	}).fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._rcvBusy = false; });
 }
 
@@ -4364,14 +4384,21 @@ function submitPayVendor() {
 	var amount = $("#pvAmount").val() * 1;
 	if (!venderId || !(amount > 0)) { showFormError(t('ui.js.enterAPositiveAmountToPay')); return; }
 	if (window._pvBusy) return; window._pvBusy = true;   // Audit #5: submit-lock
-	$.post(serverContext + "payVendor", {
-		venderId: venderId,
-		amount: amount,
-		method: $("#pvMethod").val(),
-		paidOn: $("#pvDate").val(),
-		reference: $("#pvReference").val(),
-		idempotencyKey: window.pvIdemKey
-	}, function (resp) {
+	$.ajax({
+		type: 'POST', url: serverContext + "payVendor", dataType: 'json',
+		data: {
+			venderId: venderId,
+			amount: amount,
+			method: $("#pvMethod").val(),
+			paidOn: $("#pvDate").val(),
+			reference: $("#pvReference").val(),
+			idempotencyKey: window.pvIdemKey
+		},
+		// BLK-2: off the veil — allowed because the server replays a repeated key (Audit #5). The modal's submit
+		// (data-kbd-submit) carries the wait as "Posting…" via submit-once.js layer 2b/2c.
+		nonBlocking: true,
+		busyKind: 'post'
+	}).done(function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
 			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : '');
@@ -4381,7 +4408,7 @@ function submitPayVendor() {
 		} else {
 			showFormError(apiMessage(resp, 'Could not record the payment.'));
 		}
-	}, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
+	}).fail(function () { showFormError(t('ui.js.couldNotRecordThePayment')); })
 		.always(function () { window._pvBusy = false; });
 }
 
@@ -4400,7 +4427,11 @@ function openVoidSell(btn){
 		tone: 'danger'
 	}).then(function(reason){
 		if(reason === null) return;
-		$.post(serverContext + 'voidSell', { customerHistoryId: chId, reason: reason }, function(resp){
+		$.ajax({
+			type: 'POST', url: serverContext + 'voidSell', data: { customerHistoryId: chId, reason: reason },
+			// BLK-2: the row's Void button carries the wait. Keeps the veil: a void has a status guard but no key.
+			busyControl: btn, busyKind: 'post'
+		}).done(function(resp){
 			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.invoiceVoided')); try { loadDataTable(); } catch(e){} }
 			else { uiAlert({ title: t('ui.js.voidFailed'), message: apiMessage(resp, 'The invoice could not be voided.'), tone: 'danger' }); }
 		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theInvoiceCouldNotBeVoided'), tone: 'danger' }); });
@@ -4410,6 +4441,7 @@ function openVoidSell(btn){
 // Audit #3: Void a bill — reverses stock-in + vendor payable + GL. POST /voidPurchase, then refresh purchases.
 $(document).on('click', '.purchase-void-btn', function (e) {
 	e.stopPropagation();
+	var voidBtn = this;   // BLK-2: captured now — `this` is not the button inside the dialog's promise
 	var pid = this.getAttribute('data-pid'), inv = this.getAttribute('data-inv') || '';
 	if(!pid) return;
 	uiPromptConfirm({
@@ -4420,7 +4452,10 @@ $(document).on('click', '.purchase-void-btn', function (e) {
 		tone: 'danger'
 	}).then(function(reason){
 		if(reason === null) return;
-		$.post(serverContext + 'voidPurchase', { purchaseId: pid, reason: reason }, function(resp){
+		$.ajax({
+			type: 'POST', url: serverContext + 'voidPurchase', data: { purchaseId: pid, reason: reason },
+			busyControl: voidBtn, busyKind: 'post'   // BLK-2; keeps the veil (no key)
+		}).done(function(resp){
 			if(resp && resp.status === 'SUCCESS'){ if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.billVoided')); try { loadDataTable(); } catch(e){} }
 			else { uiAlert({ title: t('ui.js.voidFailed'), message: apiMessage(resp, 'The bill could not be voided.'), tone: 'danger' }); }
 		}).fail(function(){ uiAlert({ title: t('ui.js.voidFailed'), message: t('ui.js.theBillCouldNotBeVoided'), tone: 'danger' }); });
@@ -4447,7 +4482,7 @@ function openPurchaseReturn(purchaseId, soldQty, inv){
 			+ "<input type='text' id='prReason' class='form-control' maxlength='200' placeholder='e.g. damaged, wrong item' style='margin-bottom:8px'>"
 			+ "<div id='prError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
 			+ "<div style='text-align:right'><button type='button' class='btn btn-default' onclick=\"document.getElementById('purchaseReturnDialog').style.display='none'\">Cancel</button> "
-			+ "<button type='button' class='btn btn-warning' onclick='submitPurchaseReturn()'><span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button></div></div>";
+			+ "<button type='button' id='prSubmit' class='btn btn-warning' onclick='submitPurchaseReturn()'><span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button></div></div>";
 		document.body.appendChild(d);
 	}
 	d.dataset.pid = purchaseId; d.dataset.sold = soldQty;
@@ -4465,7 +4500,13 @@ function submitPurchaseReturn(){
 	var err = document.getElementById('prError');
 	if(!qty || qty <= 0){ err.textContent = t('ui.js.enterAQuantityGreaterThan0'); return; }
 	if(qty > sold){ err.textContent = t('ui.js.cannotReturnMoreThanPurchased') + sold + ').'; return; }
-	$.post(serverContext + 'purchaseReturn', { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value }, function(resp){
+	$.ajax({
+		type: 'POST', url: serverContext + 'purchaseReturn', dataType: 'json',
+		data: { purchaseId: pid, quantity: qty, reason: document.getElementById('prReason').value },
+		// BLK-2: this confirm button had no lock at all. It now carries the wait ("Posting…"). Keeps the veil:
+		// a purchase return has no server de-duplication yet (BLK-13).
+		busyControl: '#prSubmit', busyKind: 'post'
+	}).done(function(resp){
 		if(resp && resp.status === 'SUCCESS'){
 			d.style.display='none';
 			if(typeof showSaleSuccess==='function') showSaleSuccess(t('ui.js.purchaseReturnedToVendor'));
@@ -4475,7 +4516,7 @@ function submitPurchaseReturn(){
 			offerReturnDocument('debit', resp.object && resp.object.debitNoteNo);
 		}
 		else { err.textContent = apiMessage(resp, 'Return failed.'); }
-	}, 'json').fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
+	}).fail(function(){ err.textContent = t('ui.js.anErrorOccurredPleaseTryAgain'); });
 }
 
 // F2: Statement of account + Aging — self-contained dialogs (no template modal needed), like the sale-return dialog.
@@ -5443,9 +5484,12 @@ function postOpeningBalance(){
 	var body = { amount: amount, reference: $('#obReference').val() || '' };
 	body[isCustomer ? 'customerId' : 'venderId'] = partyId;
 
-	$('#obPost').prop('disabled', true);
-	$.post(serverContext + 'postOpeningBalance', body).done(function(resp){
-		$('#obPost').prop('disabled', false);
+	$.ajax({
+		type: 'POST', url: serverContext + 'postOpeningBalance', data: body,
+		// BLK-2: #obPost carries the wait ("Posting…") and is released on this request's ajaxComplete (it used to be
+		// disabled and re-enabled by hand in both branches). Keeps the veil: this screen sends no key yet (BLK-13).
+		busyControl: '#obPost', busyKind: 'post'
+	}).done(function(resp){
 		var ok = resp && (resp.status === 'SUCCESS');
 		// The SERVER'S SENTENCE, verbatim. Its refusals name the cutover date, the lock or the part-paid
 		// rule and say what to do about each; replacing them with "could not save" would throw away the only
@@ -5457,7 +5501,6 @@ function postOpeningBalance(){
 			obLoadState();   // the totals and the lock both change on the first posting
 		}
 	}).fail(function(){
-		$('#obPost').prop('disabled', false);
 		obMsg(t('ui.js.obFailed','The opening balance could not be recorded.'), false);
 	});
 }

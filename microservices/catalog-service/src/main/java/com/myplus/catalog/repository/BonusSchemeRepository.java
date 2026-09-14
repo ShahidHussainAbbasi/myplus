@@ -23,6 +23,10 @@ public interface BonusSchemeRepository extends JpaRepository<BonusSchemeEntity, 
     @Query("SELECT b FROM BonusSchemeEntity b WHERE " + SCOPE + " ORDER BY b.priority DESC, b.id ASC")
     List<BonusSchemeEntity> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** PROD-DEL: a scheme that triggers on OR rewards this product blocks its permanent delete. */
+    @Query("SELECT COUNT(b) FROM BonusSchemeEntity b WHERE b.triggerProductId = :id OR b.rewardProductId = :id")
+    long countReferencing(@Param("id") Long productId);
+
     /** Anti-IDOR: by id AND scope, never by id alone. */
     @Query("SELECT b FROM BonusSchemeEntity b WHERE b.id = :id AND " + SCOPE)
     Optional<BonusSchemeEntity> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,

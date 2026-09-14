@@ -218,6 +218,21 @@ public class ProductService {
     @Transactional
     public ProductDTO update(Long id, ProductDTO dto) {
         Product p = getEntity(id);   // scoped — anti-IDOR
+        /*
+         * BLK-4 — refuse a save made against a copy somebody else has since replaced.
+         *
+         * ⚠ AN EXPLICIT COMPARISON, NOT dto.version COPIED ONTO THE ENTITY. `p` is MANAGED — loaded by getEntity
+         * inside this transaction — and Hibernate checks the version it LOADED, not whatever is set on the object
+         * afterwards. Copying the form's version across would look like a lock and check nothing. @Version still
+         * does its own job: it catches a writer that commits between this read and the flush below.
+         *
+         * A null version falls back to last-write-wins: an older cached tab must keep saving (V62's rule).
+         * The refusal is an OptimisticLockingFailureException, which common-web answers as 409 with a message
+         * that names the action, and the monolith proxy carries that sentence to the form.
+         */
+        if (dto.getVersion() != null && !dto.getVersion().equals(p.getVersion())) {
+            throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Product.class, id);
+        }
         // Same rule as create: a blank sku is "cleared", not a duplicate. Clearing the code on an
         // existing product must be allowed, so only a real, CHANGED value is checked.
         String sku = normalize(dto.getSku());
@@ -226,13 +241,17 @@ public class ProductService {
             throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
         fromDto(dto, p);
-        return toDto(productRepository.save(p));
+        /*
+         * saveAndFlush, not save: Hibernate increments the version when it FLUSHES, and a plain save() on a managed
+         * entity defers that to commit — after toDto has already run. The response would then carry the OLD
+         * version, and the next save from that response would be refused as stale against the caller's own edit.
+         */
+        return toDto(productRepository.saveAndFlush(p));
     }
 
-    @Transactional
-    public void delete(Long id) {
-        productRepository.delete(getEntity(id));   // scoped — anti-IDOR
-    }
+    // PROD-DEL: the plain row delete that lived here is GONE on purpose. Nothing in any database stops a product row
+    // being deleted, and its id is stored in 22 columns across 5 databases, so a delete that skipped the usage check
+    // orphaned them all silently. Permanent delete is ProductDeletionService, owner-only and usage-checked.
 
     /**
      * Paged product search \u2014 the grid's read and the dashboard drill's read, deliberately the SAME one.
@@ -257,7 +276,8 @@ public class ProductService {
     public ProductDTO setActive(Long id, boolean active) {
         Product p = getEntity(id);   // scoped — anti-IDOR
         p.setIsActive(active);
-        return toDto(productRepository.save(p));
+        // BLK-4 — saveAndFlush so the response carries the version this write moved to (see update()).
+        return toDto(productRepository.saveAndFlush(p));
     }
 
     /** Re-price on receive (Option B): the purchase/goods-in flow updates the selling price, and stamps BOTH rates
@@ -284,7 +304,9 @@ public class ProductService {
         }
         if (touched) {
             p.setLastRateAt(java.time.LocalDateTime.now());
-            p = productRepository.save(p);
+            // BLK-4 — saveAndFlush: this write moves the version (it is exactly the change an open product form must
+            // not overwrite), and the response should say so rather than carry the pre-write version.
+            p = productRepository.saveAndFlush(p);
         }
         return toDto(p);
     }
@@ -461,6 +483,9 @@ public class ProductService {
                 .idempotencyKey(p.getIdempotencyKey())
                 .createdAt(p.getCreatedAt())
                 .updatedAt(p.getUpdatedAt())
+                // BLK-4 — the version the product form must send back. Deliberately NOT read in fromDto: update()
+                // compares it explicitly, and copying it onto a managed entity would check nothing.
+                .version(p.getVersion())
                 .build();
     }
 

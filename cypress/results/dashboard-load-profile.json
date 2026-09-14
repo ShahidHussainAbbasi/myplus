@@ -1,0 +1,157 @@
+{
+  "requests": [
+    {
+      "url": "/customerOptions",
+      "method": "GET",
+      "net_ms": 734,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 36771
+    },
+    {
+      "url": "/catalogProductPicker",
+      "method": "GET",
+      "net_ms": 680,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 36714
+    },
+    {
+      "url": "/getUserProduct",
+      "method": "GET",
+      "net_ms": 35600,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 36019
+    },
+    {
+      "url": "/serialConditionCounts",
+      "method": "GET",
+      "net_ms": 20996,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 22738
+    },
+    {
+      "url": "/getCategoryCounts",
+      "method": "GET",
+      "net_ms": 16890,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 17467
+    },
+    {
+      "url": "/getDashboardChartData",
+      "method": "GET",
+      "net_ms": 11081,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 11620
+    },
+    {
+      "url": "/getBusinessDashboardStats",
+      "method": "GET",
+      "net_ms": 11022,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 11561
+    },
+    {
+      "url": "/customerOptions",
+      "method": "GET",
+      "net_ms": 11135,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 11553
+    },
+    {
+      "url": "/getBusinessConfig",
+      "method": "GET",
+      "net_ms": 2579,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 3120
+    },
+    {
+      "url": "/getMyStores",
+      "method": "GET",
+      "net_ms": 2175,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 2588
+    },
+    {
+      "url": "/import/entities",
+      "method": "GET",
+      "net_ms": 2129,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 2539
+    },
+    {
+      "url": "/getMyOrganizations",
+      "method": "GET",
+      "net_ms": 2119,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 2522
+    },
+    {
+      "url": "/getCapabilities",
+      "method": "GET",
+      "net_ms": 2093,
+      "hold_ms": "(no jQuery complete / global:false)",
+      "done_at_ms": 2387
+    }
+  ],
+  "longtasks": [
+    {
+      "start": 23300,
+      "dur": 13208,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 3621,
+      "dur": 8421,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 12117,
+      "dur": 5839,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 18017,
+      "dur": 5210,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 1071,
+      "dur": 968,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 2220,
+      "dur": 656,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 3085,
+      "dur": 524,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 901,
+      "dur": 131,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 2048,
+      "dur": 110,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    },
+    {
+      "start": 777,
+      "dur": 100,
+      "name": "self",
+      "attribution": "http://localhost:8080/businessDashboard"
+    }
+  ]
+}

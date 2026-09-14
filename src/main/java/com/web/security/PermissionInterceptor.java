@@ -89,6 +89,22 @@ public class PermissionInterceptor implements HandlerInterceptor {
             new Rule("POST", "/updatePurchase",        "purchase.edit"),
             new Rule("POST", "/addPurchase",           "purchase.create"),
 
+            // ⚠ "Edit a product" (product.edit) is NOT mapped yet, and that is a HOLD, not an oversight
+            // (2026-09-14). /updateProduct is unmapped, so every member may edit products. Mapping it was coded
+            // and pulled before build: pharmacy tenants are org type PHARMA, AuthService mints PERM-1 codes for
+            // BUSINESS tenants only, so every non-owner pharmacy member holds no codes and the rule would take
+            // product editing away from them all (they are already refused /addProduct today, verified live).
+            // Map it once PHARMA members carry codes. See slices/blk-4-product-optimistic-lock.md §6.
+
+            // ── stock in: the per-row "Add to on-hand" on the Product grid ──────────────────────────
+            // It used to fall to the "/addProduct" prefix rule below and demand product.create, "Add a product",
+            // which is the wrong permission for putting units on a shelf. ABOVE /addProduct for the same prefix
+            // reason as the sticker rules. Counted before changing (auth DB, 2026-09-14): no member on a set
+            // holds one of product.create / stock.create without the other, so nobody gains or loses it today.
+            // /adjustProductStock is deliberately NOT mapped here: it is unmapped (allowed) now, and gating it
+            // would take stock correction away from members who have it.
+            new Rule("POST", "/addProductStock",       "stock.create"),
+
             // ── the register ───────────────────────────────────────────────────────────────────
             new Rule("POST", "/addCustomer",           "customer.create"),
             new Rule("POST", "/addProduct",            "product.create"),
@@ -193,8 +209,10 @@ public class PermissionInterceptor implements HandlerInterceptor {
             case "customer.create"   -> "add customers";
             case "customer.delete"   -> "delete customers";
             case "product.create"    -> "add products";
+            case "product.edit"      -> "edit products";
             case "product.delete"    -> "delete products";
             case "supplier.create"   -> "add suppliers";
+            case "stock.create"      -> "add stock";
             case "supplier.delete"   -> "delete suppliers";
             case "team.create"       -> "create users";
             case "team.edit"         -> "change permissions";

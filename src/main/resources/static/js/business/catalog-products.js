@@ -719,8 +719,8 @@
                     applyStock(productId, resp);
                 } else { showFormError(apiMessage(resp, 'Could not add stock.')); }
             },
-            error: function () { showFormError(t('ui.js.couldNotAddStock')); },
-            complete: function () { $btn.prop('disabled', false); }
+            error: function () { showFormError(t('ui.js.couldNotAddStock')); }
+            // (no `complete`: BusyControl releases the button on this request's ajaxComplete — BLK-2)
         });
     };
 
@@ -730,9 +730,10 @@
         var qty = s2n($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError(t('ui.js.enterAQuantityToCorrectTheOn')); return; }
         var t = type || 'DECREASE';
-        var $btn = $('#lessstkbtn_' + productId).prop('disabled', true);
         $.ajax({
             type: 'POST', url: serverContext + 'adjustProductStock', contentType: 'application/json', dataType: 'json',
+            // BLK-2: the row button carries the wait. Keeps the veil: stock adjustment has no server key yet (BLK-5).
+            busyControl: '#lessstkbtn_' + productId, busyKind: 'post',
             data: JSON.stringify({ productId: productId, adjustmentType: t, quantity: qty, reason: 'Manual stock correction' }),
             success: function (resp) {
                 if (resp && resp.success) {
@@ -741,8 +742,8 @@
                     applyStock(productId, resp);   // PERF-9 — see addProductStock
                 } else { showFormError(apiMessage(resp, 'Could not correct stock (not enough on hand?).')); }
             },
-            error: function () { showFormError(t('ui.js.couldNotCorrectStock')); },
-            complete: function () { $btn.prop('disabled', false); }
+            error: function () { showFormError(t('ui.js.couldNotCorrectStock')); }
+            // (no `complete`: BusyControl releases the button on this request's ajaxComplete — BLK-2)
         });
     };
 
@@ -781,6 +782,9 @@
             // update ignores the key, but leaving it in place would hand it to whatever is created next.
             retireProductKey();
             productCreatedCb = null;   // PUR-INLINE: an edit is not the create somebody was waiting for
+            // BLK-4 — remember WHICH product this version belongs to, so saveProduct never sends one product's
+            // version on another's save. Read fresh on every open (this $.get), so it is never a stale grid copy.
+            editingVersion = { id: p.id, version: p.version };
             $('#productId').val(p.id);
             $('#prodName').val(p.name || '');
             $('#prodSku').val(p.sku || '');
@@ -835,6 +839,15 @@
      * risk: clear too much and nothing is saved; keep too much and the next product silently inherits
      * a price or an SKU that belongs to the last one.
      * ---------------------------------------------------------------------------------------------- */
+    /*
+     * BLK-4 — the version of the product currently open for EDIT, paired with its id.
+     *
+     * Paired, not a bare number: saveProduct sends it only when the id still matches, so a version can never ride
+     * along on a different product's save or on a create. editProduct fills it from a fresh read every time the
+     * form opens, which is also why a product's own tracking-flag write right after a save cannot make the NEXT
+     * edit look stale — that edit starts from another read.
+     */
+    var editingVersion = { id: null, version: null };
     var productAddAnother = false;   // which button submitted (consumed once, in saveProduct's success)
     var productSavedCount = 0;       // products catalogued into the run currently open
 
@@ -919,6 +932,16 @@
         var url = 'addProduct';
         if (id) { body.id = Number(id); url = 'updateProduct'; }
         /*
+         * BLK-4 — send back the version this form LOADED, so a save against a copy somebody else has since changed
+         * (another editor, or a purchase re-pricing the product) is refused instead of silently overwriting it.
+         * Only when the id matches the product that version was read for. A refusal arrives as success:false with
+         * the server's "someone else changed this" sentence: shown by the else-branch below, and the form is NOT
+         * reset, so the operator's typing survives while they reload the product.
+         */
+        if (id && editingVersion.version != null && String(editingVersion.id) === String(id)) {
+            body.version = editingVersion.version;
+        }
+        /*
          * DUP-1 — one key per form-fill, so a repeated submit replays instead of registering a second product.
          *
          * CREATE ONLY. An update is addressed by id and is already idempotent; sending a create key on it would
@@ -931,6 +954,16 @@
         if (!id) body.idempotencyKey = productKey();
         $.ajax({
             type: 'POST', url: serverContext + url, contentType: 'application/json', dataType: 'json',
+            /*
+             * BLK-2 — the PRESSED button carries the wait, and the screen does not.
+             *
+             * nonBlocking is allowed here, and only because the server already de-duplicates this write: a create
+             * carries the DUP-1 key (V16 unique index + replay) and an update is addressed by id. Both submits are
+             * locked while it is in flight — the pressed one labelled "Saving…", the modal's other one disabled by
+             * layer 2b — so an edited field cannot be sent again mid-request.
+             */
+            nonBlocking: true,
+            busyControl: productAddAnother ? '#addProductAnother' : '#addProduct',
             data: JSON.stringify(body),
             success: function (resp) {
                 if (resp && resp.success) {
@@ -984,28 +1017,64 @@
                     if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
                 } else { showFormError(apiMessage(resp, 'Could not save the product.')); }
             },
-            error: function () { showFormError(t('ui.js.couldNotSaveTheProduct')); }
+            // PERM-1: a refusal is an ANSWER. PermissionInterceptor replies 403 with a sentence ("You are not
+            // allowed to edit products. Ask the shop owner."), and discarding it for a generic "could not save"
+            // left the operator unable to tell a permission from a fault. apiFailMessage reads that sentence.
+            error: function (xhr) { showFormError(apiFailMessage(xhr, t('ui.js.couldNotSaveTheProduct'))); }
         });
     };
 
     // Delete = deactivate the checked products (they drop off the active list, stay intact for history).
     // `preselectedIds` comes from the shared bulk-delete path (main.js performBulkDelete → bulkDeleteProduct),
     // which has already collected and confirmed them; called with no argument it reads the checkboxes itself.
+    // PROD-DEL: Delete deactivates an ACTIVE product and permanently deletes a DEACTIVATED one (the user's ruling,
+    // 2026-09-14). The server decides per product and reports each outcome; see CatalogController.removeProducts.
     global.deactivateProducts = function (preselectedIds) {
         var ids = preselectedIds
             || $("#tableProduct input[type='checkbox']:checked").map(function () { return this.value; }).get().join(',');
         if (!ids) { showFormError(t('ui.js.selectAtLeastOneProductToRemove')); return; }
-        $.ajax({
-            type: 'POST', url: serverContext + 'deactivateProduct', contentType: 'application/json', dataType: 'json',
-            data: JSON.stringify({ checked: ids }),
-            success: function (resp) {
-                if (resp && resp.success) {
-                    showSaleSuccess(t('ui.js.productSRemoved')); resetProductForm(); loadDataTable();
-                    if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
-                } else { showFormError(apiMessage(resp, 'Could not remove the product(s).')); }
-            },
-            error: function () { showFormError(t('ui.js.couldNotRemoveTheProductS')); }
+
+        // How many selected rows are already deactivated. The status cell reads "Active" (label-success) or
+        // "Inactive" (label-default), so the default label marks one.
+        var inactive = 0;
+        String(ids).split(',').forEach(function (id) {
+            var $tr = $("#tableProduct input[type='checkbox'][value='" + String(id).trim() + "']").closest('tr');
+            if ($tr.find('.label.label-default').length) inactive++;
         });
+
+        function send() {
+            $.ajax({
+                type: 'POST', url: serverContext + 'removeProducts', contentType: 'application/json', dataType: 'json',
+                data: JSON.stringify({ checked: ids }),
+                success: function (resp) {
+                    if (resp && resp.success) {
+                        var kept = resp.kept || [];
+                        var msg = resp.message || t('ui.js.productSRemoved');
+                        // A kept product is an answer the owner needs to read ("used by 3 stock level records"),
+                        // so it is shown as the prominent message rather than folded into a success toast.
+                        if (kept.length) showFormError(msg); else showSaleSuccess(msg);
+                        resetProductForm(); loadDataTable();
+                        if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
+                    } else { showFormError(apiMessage(resp, 'Could not remove the product(s).')); }
+                },
+                error: function (xhr) { showFormError(apiFailMessage(xhr, t('ui.js.couldNotRemoveTheProductS'))); }
+            });
+        }
+
+        // ⚠ A permanent delete cannot be undone, so it gets its own confirm naming that (STANDARDS §0c question 5),
+        // even though the shared bulk path has already asked "delete?". Shown only to the owner (the only one the
+        // server lets delete permanently) and only when a deactivated row is selected; everyone else's
+        // deactivated rows are reported back as kept.
+        if (inactive > 0 && global.canPermanentlyDeleteProduct && typeof global.uiConfirm === 'function') {
+            global.uiConfirm({
+                title: 'Delete permanently?',
+                message: inactive + (inactive === 1 ? ' deactivated product' : ' deactivated products')
+                    + ' will be deleted permanently. This cannot be undone. A product still used by stock, sales,'
+                    + ' orders, a price rule or a bonus scheme is kept instead.'
+            }).then(function (ok) { if (ok) send(); });
+            return;
+        }
+        send();
     };
 
     // The shared bulk-delete path looks for window.bulkDelete<Entity> before falling back to POST

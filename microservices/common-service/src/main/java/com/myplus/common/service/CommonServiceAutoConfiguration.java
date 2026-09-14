@@ -24,4 +24,12 @@ public class CommonServiceAutoConfiguration {
     public DemoPurgeController demoPurgeController() {
         return new DemoPurgeController();
     }
+
+    /** PROD-DEL: every JPA service answers "is this product still used here?" for catalog's permanent delete. */
+    @Bean
+    @ConditionalOnBean(EntityManagerFactory.class)
+    @ConditionalOnMissingBean
+    public ProductUsageController productUsageController() {
+        return new ProductUsageController();
+    }
 }

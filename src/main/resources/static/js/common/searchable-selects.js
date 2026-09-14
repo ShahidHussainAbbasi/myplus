@@ -49,6 +49,98 @@
         return false;
     }
 
+    /* ── Change tracking (dashboard-freeze fix) ─────────────────────────────────────────────────────────
+     *
+     * Each picker carries `el.__ssWatch = { mo, dirty, lastVal, io }`:
+     *   dirty    its OPTIONS changed (added, removed, relabelled, disabled) since the widget last rebuilt them
+     *   lastVal  the selection the widget last showed, so a `.val(x)` from code can be redrawn cheaply
+     *   io       its widget is being watched for coming on screen (see deferUntilShown)
+     * A MutationObserver sets `dirty`; a signature (count + first/last value) was considered and rejected — it
+     * cannot see a relabelled option in the middle of the list, and a wrong customer name on a till is worse
+     * than the cost of one observer per select.
+     */
+    var MO = window.MutationObserver;
+
+    /** A separator no option value contains. Built with fromCharCode so it is VISIBLE in the source: a literal
+     *  control character is invisible in a diff (a review read it as no separator at all), and an editor or
+     *  tool can silently drop it — which would make ['1','23'] and ['12','3'] both read '123'. */
+    var SEP = String.fromCharCode(1);
+
+    function valueKey(el) {
+        if (el.multiple) {
+            var sel = el.selectedOptions, out = [];
+            if (sel) for (var i = 0; i < sel.length; i++) out.push(sel[i].value);
+            return out.join(SEP);
+        }
+        return el.selectedIndex + ':' + el.value;
+    }
+
+    function watch(el, dirty) {
+        if (!MO || el.__ssWatch) return el.__ssWatch;
+        var st = { dirty: !!dirty, lastVal: valueKey(el), mo: null, io: false };
+        st.mo = new MO(function () { st.dirty = true; });
+        st.mo.observe(el, { childList: true, subtree: true, characterData: true,
+                            attributes: true, attributeFilter: ['value', 'disabled', 'label'] });
+        el.__ssWatch = st;
+        return st;
+    }
+
+    /** The widget now matches the element: forget any change records its own rebuild produced. */
+    function markClean(el) {
+        var st = el.__ssWatch;
+        if (!st) return;
+        if (st.mo && st.mo.takeRecords) st.mo.takeRecords();
+        st.dirty = false;
+        st.lastVal = valueKey(el);
+    }
+
+    /* ── Every rebuild counts, not only this file's ─────────────────────────────────────────────────────
+     *
+     * 45 call sites outside this file call `selectpicker('refresh')` directly (loadUserItems, main.js's form
+     * resets, 25 in education.js, …). Each one leaves the widget matching its options — but nothing told the
+     * change tracking, so the next pass saw the caller's own option changes, called the picker dirty and rebuilt
+     * it a SECOND time. Measured: #sellItemDD, 1,857 options, 2.9 s, still dirty straight after loadUserItems had
+     * rebuilt it.
+     *
+     * bootstrap-select 1.6.2 fires no `refreshed.bs.select` (it triggers only maxReached*), so there is no event
+     * to listen for; the plugin function itself is decorated instead. It changes nothing about what a call does —
+     * it only records afterwards what that call left true:
+     *   refresh                   → the list and the label match the element: clean
+     *   construction              → a freshly built widget matches: watched, clean
+     *   render / val              → the label matches the selection; the options may still be dirty
+     * A bare `.selectpicker()` on an EXISTING instance rebuilds nothing, so it is deliberately not marked clean.
+     */
+    (function decorate() {
+        var orig = $.fn && $.fn.selectpicker;
+        if (typeof orig !== 'function' || orig.__ssDecorated) return;
+        var decorated = function (cmd) {
+            var fresh = (typeof cmd === 'string') ? null
+                : this.filter(function () { return this.tagName === 'SELECT' && !$(this).data('selectpicker'); });
+            var out = orig.apply(this, arguments);
+            try {
+                if (cmd === 'refresh') {
+                    this.each(function () {
+                        if (this.tagName !== 'SELECT' || !$(this).data('selectpicker')) return;
+                        watch(this, false);
+                        markClean(this);
+                    });
+                } else if (fresh) {
+                    fresh.each(function () {
+                        if (!$(this).data('selectpicker')) return;
+                        watch(this, false);
+                        markClean(this);
+                    });
+                } else if (cmd === 'render' || (cmd === 'val' && arguments.length > 1)) {
+                    this.each(function () { if (this.__ssWatch) this.__ssWatch.lastVal = valueKey(this); });
+                }
+            } catch (e) {}
+            return out;
+        };
+        for (var k in orig) { if (Object.prototype.hasOwnProperty.call(orig, k)) decorated[k] = orig[k]; }
+        decorated.__ssDecorated = true;
+        $.fn.selectpicker = decorated;
+    })();
+
     /**
      * Initialise (or refresh) every eligible <select> on the page.
      * Safe to call repeatedly — that is how AJAX-populated dropdowns stay in sync.
@@ -78,6 +170,12 @@
         });
 
         try { $scope.find('.selectpicker').selectpicker(); } catch (e) {}
+        // Freshly built widgets match their options: start watching them CLEAN.
+        $scope.find('.selectpicker').each(function () {
+            if (this.tagName !== 'SELECT') return;
+            watch(this, false);
+            markClean(this);
+        });
     }
 
     window.applySearchableSelects = applySearchableSelects;
@@ -85,11 +183,72 @@
     /**
      * Never touch a picker the operator is USING — see the long note on the ajaxComplete hook below for
      * what refreshing an open picker does to a cashier mid-selection.
+     *
+     * ⚠ "Using" means the menu is OPEN, or focus is INSIDE THE MENU (its live-search box, a row). It does NOT
+     * mean focus on the CLOSED picker's button. refresh() rebuilds the menu's rows (reloadLi) and rewrites the
+     * button's label (render); the button element, and the focus on it, survive both.
+     *
+     * Counting the button was a real defect: New Sale puts focus on #sellCustomerDD's button (the customer-first
+     * entry point), so the picker was "busy" from the moment the screen opened. Its refresh was deferred to
+     * `hidden.bs.dropdown` — which never fires for a menu that was never opened — and the cashier looked at
+     * 1,615 customers in the <select> and ONE row in the list for as long as the screen stayed open (measured,
+     * 33 s). A customer set by code (an invoice opened for edit) was never drawn on the button either.
      */
     function isBusy($bs) {
         if (!$bs.length) return false;
         if ($bs.hasClass('open')) return true;
-        return !!($bs[0].contains && $bs[0].contains(document.activeElement));
+        var menu = $bs[0].querySelector ? $bs[0].querySelector('.dropdown-menu') : null;
+        return !!(menu && menu.contains && menu.contains(document.activeElement));
+    }
+
+    /**
+     * Is the widget laid out at all? A picker on a screen that is not showing (display:none somewhere above it)
+     * has no boxes. No widget found → treat as shown, so nothing is deferred that cannot be brought back.
+     */
+    function isShown($bs) {
+        var bs = $bs[0];
+        return !bs || !bs.getClientRects || bs.getClientRects().length > 0;
+    }
+
+    /*
+     * ── Rebuild what can be SEEN; the rest when it comes on screen ───────────────────────────────────────
+     *
+     * One bootstrap-select 1.6.2 refresh of a big list costs seconds on its own: it rebuilds every row and then
+     * liHeight() clones the whole menu into <body> to measure one row (data-size="8"). Measured on the first
+     * business-dashboard load: the report filter rail's #rfCustomer (1,615 options) 3,224 ms and #rfProduct
+     * (1,857) 2,685 ms — both on a screen nobody had opened. Those two were the whole of the remaining freeze.
+     *
+     * So a changed picker on a HIDDEN screen is not rebuilt now. Its label is redrawn (render(false) — the button
+     * text only, no rows), it stays dirty, and its widget is watched; it is rebuilt when:
+     *   - it comes on screen (IntersectionObserver → a pass), or
+     *   - its menu is about to open (show.bs.dropdown — the backstop, and the only trigger on an engine with no
+     *     IntersectionObserver), or
+     *   - any later pass finds it shown.
+     * Nothing a user can see is left stale: a hidden list is not being looked at, and an opening one is rebuilt
+     * before it shows.
+     */
+    var IO = window.IntersectionObserver;
+    var io = IO ? new IO(function (entries) {
+        var any = false;
+        for (var i = 0; i < entries.length; i++) {
+            if (!entries[i].isIntersecting) continue;
+            var target = entries[i].target, owner = target.__ssOwner;
+            io.unobserve(target);
+            if (owner && owner.__ssWatch) owner.__ssWatch.io = false;
+            any = true;
+        }
+        if (any) schedulePass();
+    }) : null;
+
+    function deferUntilShown(el, $bs) {
+        var st = el.__ssWatch, inst = $(el).data('selectpicker');
+        try { if (inst && inst.render) inst.render(false); } catch (e) {}   // the label only — no rows
+        st.lastVal = valueKey(el);
+        if (io && !st.io && $bs[0]) {
+            $bs[0].__ssOwner = el;
+            st.io = true;
+            io.observe($bs[0]);
+        }
     }
 
     /**
@@ -107,6 +266,9 @@
      * calling {@code selectpicker('refresh')} inline, or the busy guard exists in one code path and not the
      * other, which is the bug it was written to prevent.
      *
+     * <p>⚠ UNCONDITIONAL on purpose: an explicit call is a caller saying "I changed this". It does NOT consult
+     * the change tracking below — those callers are exactly the ones the ajaxComplete pass never hears about.
+     *
      * @param sel  a <select> id, element, or jQuery object
      */
     function refreshSearchableSelect(sel) {
@@ -115,9 +277,79 @@
         var $bs = $s.next('.bootstrap-select');
         if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
         try { $s.selectpicker('refresh'); } catch (e) {}
+        markClean($s[0]);
     }
 
     window.refreshSearchableSelect = refreshSearchableSelect;
+
+    /**
+     * ⭐ THE PASS the ajaxComplete hook runs — only what CHANGED, and can be SEEN, is redrawn.
+     *
+     * <h3>What this replaced, measured</h3>
+     * The hook used to refresh EVERY `.selectpicker` (~48 on business) on EVERY ajaxComplete. bootstrap-select's
+     * refresh() rebuilds the whole list and re-reads every option's attributes, and the product and customer
+     * pickers hold thousands. A CPU profile of the business dashboard's first load (2026-09-14) put this hook at
+     * <b>39.8 s of 52.6 s</b>, in four main-thread blocks of 8.4, 5.8, 5.2 and 13.2 s — the "never went quiet"
+     * beforeEach timeouts that failed the BLK-2, BLK-3 and BLK-4 gates, and a frozen dashboard for anyone whose
+     * catalogue has grown. Nothing was wrong with the options; they were simply redrawn over and over.
+     *
+     * <h3>Now</h3>
+     *   options changed, picker shown    → refresh    — rebuild the list; ONE per task, the rest next task
+     *   options changed, picker hidden   → label only — rebuilt when it comes on screen (deferUntilShown)
+     *   only the selection changed       → render     — redraw the button; the list is untouched
+     *   nothing changed                  → nothing
+     *   no MutationObserver (old engine) → refresh    — exactly the old behaviour
+     * and the busy guard is unchanged: an open picker is marked stale and refreshed when it closes.
+     *
+     * <h3>Why one rebuild per task</h3>
+     * A burst of completions is coalesced into one pass, which is right for cheap work and wrong for expensive
+     * work: several multi-second rebuilds in one pass became ONE block of their sum (8.2 s, measured). Handing
+     * the remaining rebuilds to the next task lets a keystroke or a click in between be answered.
+     */
+    function runPass() {
+        passPending = false;
+        var rebuilt = false, more = false;
+        $('.selectpicker').each(function () {
+            var el = this;
+            if (el.tagName !== 'SELECT') return;
+            var $s = $(el);
+            if (!$s.data('selectpicker')) return;
+
+            // A picker built by someone else's selectpicker() call, never seen here: one refresh to start clean.
+            var st = el.__ssWatch || watch(el, true);
+            if (!st) { refreshSearchableSelect($s); return; }
+
+            var $bs = $s.next('.bootstrap-select');
+            if (st.dirty) {
+                if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }   // refreshed on close
+                if (!isShown($bs)) { deferUntilShown(el, $bs); return; }        // rebuilt when it is seen
+                if (rebuilt) { more = true; return; }                            // next task
+                try { $s.selectpicker('refresh'); } catch (e) {}
+                markClean(el);
+                rebuilt = true;
+                return;
+            }
+            var v = valueKey(el);
+            if (v !== st.lastVal) {
+                // Busy FIRST. Recording the new value before this check meant a .val() made by CODE while the
+                // picker was open advanced lastVal with nothing drawn and nothing marked — after close the widget
+                // kept the old selection until its options next changed (caught in review). Mark it stale instead:
+                // the close handler refreshes it and records the value.
+                if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
+                st.lastVal = v;
+                try { $s.selectpicker('render'); } catch (e) {}
+            }
+        });
+        if (more) schedulePass();
+    }
+
+    var passPending = false;
+    /** A burst of completions is ONE pass on the next tick, not one per request. */
+    function schedulePass() {
+        if (passPending) return;
+        passPending = true;
+        window.setTimeout(runPass, 0);
+    }
 
     $(function () {
         applySearchableSelects();
@@ -144,16 +376,28 @@
         // ⚠ This fires only for requests that participate in jQuery's global AJAX events. A loader that
         // uses `global: false` to stay off the blocking overlay is excluded from THIS hook too, and must
         // call refreshSearchableSelect() itself — see that function for the full trap.
-        $(document).ajaxComplete(function () {
-            $('.selectpicker').each(function () { refreshSearchableSelect($(this)); });
-        });
+        // ⭐ And it now redraws only what CHANGED — see runPass() for the 39.8 s this used to cost.
+        $(document).ajaxComplete(schedulePass);
 
         // The deferred half. Bootstrap 3 fires this on the dropdown's parent when the menu closes.
         $(document).on('hidden.bs.dropdown', '.bootstrap-select', function () {
             var $bs = $(this);
             if (!$bs.attr('data-ss-stale')) return;
             $bs.removeAttr('data-ss-stale');
-            try { $bs.prev('select').selectpicker('refresh'); } catch (e) {}
+            var $s = $bs.prev('select');
+            try { $s.selectpicker('refresh'); } catch (e) {}
+            if ($s[0]) markClean($s[0]);
+        });
+
+        // The backstop for deferUntilShown: a picker still dirty when its menu is ABOUT to open is rebuilt first.
+        // Bootstrap 3 fires this on the same parent, before the menu is shown — nothing is open and no search has
+        // been typed yet, so the rebuild cannot close or wipe anything.
+        $(document).on('show.bs.dropdown', '.bootstrap-select', function () {
+            var $s = $(this).prev('select'), el = $s[0];
+            var st = el && el.__ssWatch;
+            if (!st || !st.dirty) return;
+            try { $s.selectpicker('refresh'); } catch (e) {}
+            markClean(el);
         });
     });
 })(jQuery);

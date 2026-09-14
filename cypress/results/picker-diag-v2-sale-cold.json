@@ -1,0 +1,74 @@
+{
+  "snaps": [
+    {
+      "t": 10130,
+      "active": "BUTTON.btn dropdown-toggle selectpicker btn-def in sellCustomerDD",
+      "sellCustomerDD": {
+        "options": 1615,
+        "lis": 1,
+        "dirty": true,
+        "stale": "1",
+        "holdsFocus": true,
+        "button": "-- Select Customer --"
+      },
+      "sellItemDD": {
+        "options": 1857,
+        "lis": 1857,
+        "dirty": true,
+        "stale": null,
+        "holdsFocus": false,
+        "button": "Nothing Selected"
+      }
+    },
+    {
+      "t": 16148,
+      "active": "BUTTON.btn dropdown-toggle selectpicker btn-def in sellCustomerDD",
+      "sellCustomerDD": {
+        "options": 1615,
+        "lis": 1,
+        "dirty": true,
+        "stale": "1",
+        "holdsFocus": true,
+        "button": "-- Select Customer --"
+      },
+      "sellItemDD": {
+        "options": 1857,
+        "lis": 1857,
+        "dirty": true,
+        "stale": null,
+        "holdsFocus": false,
+        "button": "Nothing Selected"
+      }
+    },
+    {
+      "t": 33160,
+      "active": "BUTTON.btn dropdown-toggle selectpicker btn-def in sellCustomerDD",
+      "sellCustomerDD": {
+        "options": 1615,
+        "lis": 1,
+        "dirty": true,
+        "stale": "1",
+        "holdsFocus": true,
+        "button": "-- Select Customer --"
+      },
+      "sellItemDD": {
+        "options": 1857,
+        "lis": 1857,
+        "dirty": true,
+        "stale": null,
+        "holdsFocus": false,
+        "button": "Nothing Selected"
+      }
+    }
+  ],
+  "calls": [
+    {
+      "at": 7197,
+      "op": "refresh",
+      "ids": "sellItemDD",
+      "n": 1857,
+      "ms": 2909,
+      "from": ""
+    }
+  ]
+}

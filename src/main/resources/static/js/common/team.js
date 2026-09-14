@@ -50,6 +50,7 @@ function showTeam() {
 }
 
 function loadTeamUsers() {
+	if (window.GridLoading) GridLoading.fill('#tableTeam');   // BLK-3: never the previous rows while re-fetching
 	$.get(serverContext + 'team/users', function (resp) {
 		var users = (resp && resp.data) ? resp.data : [];
 		var $tb = $('#tableTeam tbody').empty();
