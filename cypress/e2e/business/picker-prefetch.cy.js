@@ -14,6 +14,24 @@
  * Run headed:
  *   npx cypress run --spec cypress/e2e/business/picker-prefetch.cy.js --headed --no-exit
  */
+/**
+ * Wait for the customer cache to be warm — and when it never is, SAY WHY.
+ *
+ * picker-prefetch.js declines on Save-Data, 2g/slow-2g and a hidden tab, and Chrome's estimate flips to
+ * slow-2g on a loaded local machine (monolith RUM, 2026-09-14). A bare "expected false to equal true" could
+ * not tell that apart from a broken prefetch, so the failure now carries the decision and its inputs.
+ * Pass/fail is unchanged.
+ */
+function expectWarm(label) {
+  cy.window({ timeout: 20000 }).should((w) => {
+    const c = w.navigator.connection || {}
+    expect(w.CustomerPicker.isWarm(),
+      `${label} (shouldPrefetch=${w.PickerPrefetch.shouldPrefetch()}, network=${c.effectiveType}, ` +
+      `saveData=${c.saveData}, visibility=${w.document.visibilityState})`)
+      .to.eq(true)
+  })
+}
+
 describe('PERF-9 — the pickers are warm before the sale screen opens', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
@@ -34,15 +52,13 @@ describe('PERF-9 — the pickers are warm before the sale screen opens', () => {
      * retried through cy.window().should rather than waited on with a sleep, which would either be too
      * short on a loaded machine or wasted on a fast one.
      */
-    cy.window({ timeout: 20000 }).should((w) => {
-      expect(w.CustomerPicker.isWarm(), 'the customer list was fetched during idle time').to.eq(true)
-    })
+    expectWarm('the customer list was fetched during idle time')
   })
 
   it('⭐ opening New Sale fills the customer picker with NO further request', () => {
     cy.visit('/businessDashboard')
     cy.waitForAppReady()
-    cy.window({ timeout: 20000 }).should((w) => expect(w.CustomerPicker.isWarm()).to.eq(true))
+    expectWarm('the customer list was fetched during idle time')
 
     // Count reads AFTER the cache is warm: the whole point is that opening the till costs none.
     let reads = 0
@@ -105,7 +121,7 @@ describe('PERF-9 — the pickers are warm before the sale screen opens', () => {
      */
     cy.visit('/businessDashboard')
     cy.waitForAppReady()
-    cy.window({ timeout: 20000 }).should((w) => expect(w.CustomerPicker.isWarm()).to.eq(true))
+    expectWarm('the customer list was fetched during idle time')
 
     const name = `Prefetch Probe ${Date.now()}`
     cy.request({

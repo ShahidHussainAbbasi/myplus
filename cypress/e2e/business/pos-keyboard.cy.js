@@ -553,8 +553,10 @@ describe('POS keyboard entry — ON', () => {
        * line entry entirely - and neither of them destroys anything. Wiping the CART is F9, which names
        * how many lines are about to go and waits for an answer.
        */
+      // keyCode/which are MANDATORY — the same trap as the Enter case above: bootstrap-select 1.6.2 reads
+      // `b.keyCode.toString(10)` on this button, and a synthetic Escape without one threw there on every run.
       cy.get('#sellItemDD').next('.bootstrap-select').find('button').first()
-        .focus().trigger('keydown', { key: 'Escape', bubbles: true })
+        .focus().trigger('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true })
       cy.window({ timeout: 10000 }).should((w) => {
         expect(Cypress.focusedPicker(w), 'a second Esc backs out to the sale-level entry point')
           .to.eq('sellCustomerDD')

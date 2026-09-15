@@ -14,8 +14,38 @@
 
 function openSell(opts) {
   var o = opts || {}
-  // visitSaleScreen waits for loadPosFeatureFlags() to finish writing window.pos* — otherwise the
-  // assignments below are racing it, and a failed config call (which fails CLOSED) silently wins.
+  /*
+   * ⚠ THE FLAGS COME FROM THE CONFIG REPLY, NOT FROM A LATE ASSIGNMENT.
+   *
+   * visitSaleScreen's cy.wait('@posFeatureFlags') resolves when the reply reaches the Cypress PROXY, not
+   * when loadPosFeatureFlags() has run. On a busy main thread the handler ran AFTER the assignments below
+   * and wrote the tenant's saved `false` over them: the 2026-09-14 run sent `4*TOT…` to the server as a
+   * literal code (404) and three ON cases failed on a switch, not on the feature.
+   *
+   * So the reply is answered with the values THIS case wants ({ data: [{ key, value, isDefault }] }), and
+   * the page's own loader writes them — there is nothing left to race. Browser-only: the tenant's saved
+   * configuration is never changed. Registered BEFORE visitSaleScreen's alias; Cypress runs the later
+   * intercept first, which has no handler and passes the request on to this one.
+   */
+  const want = {
+    'pos.keyboard.shortcuts.enabled': o.shortcuts === true,
+    'pos.keyboard.enabled': o.keyboard === true,
+    // enableScanBox() below shows the scan box for EVERY case, so the loader must agree. Missing from the first
+    // cut: a late loader wrote the tenant's `false` and applyPosBarcodeVisibility() (business.js:4999) hid
+    // #sellScanRow after enableScanBox had seen it — 2 ON cases red on "#sellScan not visible" (2026-09-15).
+    'pos.barcode.enabled': true,
+  }
+  cy.intercept('GET', '**/getBusinessConfig', (req) => {
+    req.continue((res) => {
+      const rows = (res.body && res.body.data) || []
+      Object.keys(want).forEach((key) => {
+        const row = rows.find((r) => r.key === key)
+        if (row) row.value = String(want[key])
+        else rows.push({ key, value: String(want[key]), isDefault: false })
+      })
+      if (res.body) res.body.data = rows
+    })
+  })
   cy.visitSaleScreen()
   // Assert the modules loaded — a silent guard here turned one honest failure into seven confusing
   // ones during the P1 gate, and the lesson is cheap to keep.

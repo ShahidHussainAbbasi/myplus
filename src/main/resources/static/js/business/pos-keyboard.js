@@ -1033,12 +1033,37 @@
             addQuickPick(Number($(this).attr('data-qp')));
         });
 
+        /**
+         * Esc on a sale picker's BUTTON does what Esc on its <select> already does.
+         *
+         * The button is what holds focus — the <select> behind it never does — so the two Esc rules above
+         * (the line form's clearLine, the checkout's focusEntryPoint) were bound to elements a cashier is never
+         * on. After the first Esc on a half-typed line the cursor lands on the item picker (focusGoodsEntry),
+         * and the second Esc — which clearLine() turns into "back out to the customer" on an EMPTY line —
+         * reached no handler at all. That step shipped 09-08 with its gate crashing before this point (a
+         * synthetic Escape without keyCode), so nothing saw it: every scan-off till had a dead second Esc.
+         *
+         * An OPEN menu keeps its own Escape — bootstrap-select closes it and returns focus to this button —
+         * so this acts on a closed picker only.
+         */
+        function escapeFromPicker(btn, e) {
+            var $bs = $(btn).closest('.bootstrap-select');
+            if ($bs.hasClass('open')) return;
+            var $sel = $bs.prev('select');
+            if (PICKERS.indexOf($sel.attr('id')) < 0) return;
+            e.preventDefault();
+            if ($sel.closest('#Sell').length) { clearLine(); return; }   // item / discount type: the line rule
+            focusEntryPoint();                                            // customer / pay method: the checkout rule
+        }
+
         // ── Enter on the bootstrap-select BUTTON ────────────────────────────────
         // The picker replaces the <select> with a button + menu, so a keystroke there never reaches
         // the select the handler above is bound to. When the menu is CLOSED, Enter means "I have
         // chosen, move on"; when it is open, it belongs to the picker's own item selection.
+        // (Esc on the same button is handed to escapeFromPicker above.)
         $(document).on('keydown', '.bootstrap-select > button', function (e) {
             if (!enabled() || !onSellScreen() || blocked()) return;
+            if (e.key === 'Escape') { escapeFromPicker(this, e); return; }
             if (e.key !== 'Enter') return;
             var $sel = $(this).closest('.bootstrap-select').prev('select');
             var pickerId = $sel.attr('id');
