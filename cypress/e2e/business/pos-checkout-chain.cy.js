@@ -491,8 +491,16 @@ describe('Checkout chain — every route to a paid sale', () => {
         // switched on before it can be typed into. Pinned in the browser, not server-side - see
         // cy.enableScanBox. This is the only case in this file that scans; the rest drive the chain.
         cy.enableScanBox().type(sku + '{enter}')
-        cy.get('#sellQuantity', { timeout: 15000 }).should('be.visible')
-        cy.focused().type('2{enter}')
+        // A scan adds the product STRAIGHT INTO THE CART (qty 1) and keeps the cursor in the scan box — it never
+        // fills the line form — so the mouse-free way to quantity 2 is a second scan of the same code. The old step
+        // typed "2{enter}" into the focused box, which went out as a barcode (monolith 404 "scan?code=2", 2026-09-15)
+        // and still passed on rows >= 1. Waits are on the QUANTITY: the lookup is async.
+        cy.window().its('data.0.quantity', { timeout: 15000 }).should('eq', 1)
+        cy.get('#sellScan').type(sku + '{enter}')
+        cy.window().its('data.0.quantity', { timeout: 15000 }).should('eq', 2)
+        cy.window().its('data').should('have.length', 1)            // two scans, ONE line
+        // The stray-keystroke shape, caught directly: a quantity typed into the box answers "No product for …".
+        cy.get('#sellScanMsg').should('not.contain.text', 'No product for')
         cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)
 
         /*

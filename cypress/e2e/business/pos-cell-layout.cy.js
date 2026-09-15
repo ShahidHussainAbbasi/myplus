@@ -261,6 +261,28 @@ describe('POS line entry — one cell per field', () => {
         cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
         cy.get('#sellItemDD').select(String(productId), { force: true })
         cy.get('#sellSellRate', { timeout: 10000 }).should('not.have.value', '')
+        /*
+         * ⚠ WAIT FOR loadStock() TO FINISH, not for the price (fixed 2026-09-15).
+         *
+         * The price is no longer a sign that the line is ready: loadStock fills it SYNCHRONOUSLY from the option's
+         * data-price (business.js:2905), before /productStock is even sent. This case pressed Enter inside what
+         * followed — the default quantity lands only in productStock's answer (:2967), and /productSellable is
+         * chained after it and redraws again (:2985). The red run's cursor went back to an EMPTY Qty, which only
+         * commitLine() does (pos-keyboard.js:564). WHY the walk past the price came back empty that once is NOT
+         * known: a diagnostic (diag/fast-enter-price.cy.js) saw it usable in all 235 frames after a pick and in 5 of
+         * 5 fast attempts, which does not support the re-render explanation first given. It went red once in two
+         * runs of the same code (11/12, then 12/12). With the quantity filled first, a recurrence would COMMIT the
+         * line instead of bouncing — and the last assertion below (focus in the discount-type cell) still fails, so
+         * this wait narrows the race without hiding it.
+         *
+         * So wait for BOTH writes: the quantity (productStock done) and the Sellable badge, the last thing the
+         * chain paints (productSellable done). The badge is emptied when loadStock starts (:2890), so this cannot
+         * be satisfied by a previous pick.
+         */
+        cy.get('#sellQuantity', { timeout: 15000 }).should(($q) => {
+          expect(Number($q.val()), 'loadStock filled the default quantity').to.be.greaterThan(0)
+        })
+        cy.get('#sellSellableInfo', { timeout: 15000 }).should('contain.text', 'Sellable')
 
         // Bonus off: this case is about the PRICE stop, and #sellBonus now sits between Qty and
         // Price in the chain (it always did on screen). Pinned rather than inherited -
@@ -306,10 +328,24 @@ describe('POS line entry — one cell per field', () => {
         // switched on before it can be typed into. cy.enableScanBox pins the flag in the browser and
         // returns the box, already asserted visible.
         cy.enableScanBox().type(sku + '{enter}')
-        cy.get('#sellQuantity', { timeout: 15000 }).should('be.visible')
-        cy.focused().type('3{enter}')
+        /*
+         * A scan puts the product STRAIGHT INTO THE CART at quantity 1 (scanAddToCart), clears the box and keeps the
+         * cursor in it for the next scan (sellScanAdd) — it never fills the line form. So the mouse-free way to a
+         * quantity is to scan again: each repeat adds one to the SAME line. The old step typed "3{enter}" into the
+         * focused box, which went out as a barcode (monolith 404 "scan?code=3", 2026-09-15) while the case still passed
+         * on rows >= 1 — it tested nothing about the quantity. Each step waits on the QUANTITY, as pos-shortcuts does:
+         * the lookup is async, and a length check would pass before the repeat had landed.
+         */
+        cy.window().its('data.0.quantity', { timeout: 15000 }).should('eq', 1)
+        cy.focused().should('have.id', 'sellScan')                  // ready for the next scan
+        cy.get('#sellScan').type(sku + '{enter}')
+        cy.window().its('data.0.quantity', { timeout: 15000 }).should('eq', 2)
+        cy.get('#sellScan').type(sku + '{enter}')
+        cy.window().its('data.0.quantity', { timeout: 15000 }).should('eq', 3)
+        cy.window().its('data').should('have.length', 1)            // three scans, ONE line
+        // The stray-keystroke shape, caught directly: a quantity typed into the box answers "No product for …".
+        cy.get('#sellScanMsg').should('not.contain.text', 'No product for')
         // #tablesi is the cart (Item id · Name/Code · QTY · Price · Disc · Total · Action).
-        cy.get('#tablesi tbody tr', { timeout: 15000 }).should('have.length.at.least', 1)
         cy.get('#tablesi').should('contain.text', name)
       })
   })

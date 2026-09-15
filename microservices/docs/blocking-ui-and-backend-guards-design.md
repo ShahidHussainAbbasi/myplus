@@ -532,8 +532,10 @@ CACHE-1; all committed in the user's `25304ae2`):** ✅ `sale-defaults-race` 4/4
   and the loader then wrote the tenant's scan-off back (the only writers of `#sellScanRow` are `business.js:5002/:5024`).
   **Harness fix (user consent):** `cy.enableScanBox` and pos-checkout-chain's `openTill` wait for `posDefaultTender`
   (set by both loader branches) before pinning — covers all 5 unprotected callers. Not yet committed.
-- `pos-cell-layout` was first 11/12, then 12/12 on a plain re-run — intermittent: the 2nd Enter on the price landed in
-  loadStock's re-render window, `walk()` returned null, `commitLine()` refused an empty qty and focused it. The spec's
+- `pos-cell-layout` was first 11/12, then 12/12 on a plain re-run — intermittent. **Proven:** `commitLine()` ran with an
+  empty qty and focused it (the only code that focuses `#sellQuantity`), i.e. `walk()` from the price answered null that
+  once. **Why is unexplained** — the first explanation (the 2nd Enter landed in loadStock's re-render window) is a
+  hypothesis the diagnostic below does NOT support (0 null frames of 235 after a pick). The spec's
   sync point (`#sellSellRate` filled) is satisfied from `data-price` before loadStock finishes. **Open, user's call:**
   sync on `#sellQuantity` having a value.
 - **Open, spec weakness:** the MOUSE FREE cases (pos-checkout-chain, pos-cell-layout) type the quantity with
@@ -541,6 +543,15 @@ CACHE-1; all committed in the user's `25304ae2`):** ✅ `sale-defaults-race` 4/4
   (monolith 404s `scan?code=2/3`) and the cases still pass on `rows >= 1`.
 - **Open, UNVERIFIED product question (myplus-11):** a fast Enter on the price during that re-render, with qty already
   filled, would reach the same null walk and COMMIT the line, skipping the discount stop. A targeted check, not a fix.
+  **→ NOT REPRODUCED (2026-09-15 18:16, user-approved diagnostic `cypress/e2e/diag/fast-enter-price.cy.js`, opt-in
+  `--env diag=1`):** 235 frames sampled over 4 s around a pick — walk(price → type → discount) never null; 5 no-wait
+  attempts (pick → qty 1 → Enter → Enter) — every one reached discount type, 0 lines committed. Not proven impossible
+  (pos-cell-layout's one 11/12 shows `commitLine` can be reached once; why the walk was null that time is unexplained,
+  and this diagnostic does not support the re-render explanation); no product change.
+- **Follow-ups done (user consent):** pos-cell-layout sync waits for `#sellQuantity` + the Sellable badge (myplus-11);
+  both MOUSE FREE cases now reach their quantity by REPEAT SCANS (a scan adds straight to the cart — it never fills
+  the line form) and assert `data.0.quantity` (15 s waits), one line, and no "No product for" message — 12/12 and
+  15/15, with 0 stray `scan?code=` 404s in the monolith log for that run.
 
 **Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
 handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's

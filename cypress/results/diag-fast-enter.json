@@ -1,0 +1,152 @@
+{
+  "window": {
+    "frames": 235,
+    "nullFrames": [],
+    "startedAt": 2780.1000000089407,
+    "fieldsInSell": [
+      "sellItemDD",
+      "sellSerials",
+      "sellQuantity",
+      "sellSellRate",
+      "sellDiscountTypeDD",
+      "sellDiscount"
+    ]
+  },
+  "attempts": [
+    {
+      "n": 1,
+      "committedLines": 0,
+      "focusedAfter": "sellDiscountTypeDD",
+      "priceEnters": [
+        {
+          "next": "sellDiscountTypeDD",
+          "qty": "1",
+          "fields": [
+            {
+              "id": "sellDiscountTypeDD",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            },
+            {
+              "id": "sellDiscount",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "committedLines": 0,
+      "focusedAfter": "sellDiscountTypeDD",
+      "priceEnters": [
+        {
+          "next": "sellDiscountTypeDD",
+          "qty": "1",
+          "fields": [
+            {
+              "id": "sellDiscountTypeDD",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            },
+            {
+              "id": "sellDiscount",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "committedLines": 0,
+      "focusedAfter": "sellDiscountTypeDD",
+      "priceEnters": [
+        {
+          "next": "sellDiscountTypeDD",
+          "qty": "1",
+          "fields": [
+            {
+              "id": "sellDiscountTypeDD",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            },
+            {
+              "id": "sellDiscount",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "committedLines": 0,
+      "focusedAfter": "sellDiscountTypeDD",
+      "priceEnters": [
+        {
+          "next": "sellDiscountTypeDD",
+          "qty": "1",
+          "fields": [
+            {
+              "id": "sellDiscountTypeDD",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            },
+            {
+              "id": "sellDiscount",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "committedLines": 0,
+      "focusedAfter": "sellDiscountTypeDD",
+      "priceEnters": [
+        {
+          "next": "sellDiscountTypeDD",
+          "qty": "1",
+          "fields": [
+            {
+              "id": "sellDiscountTypeDD",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            },
+            {
+              "id": "sellDiscount",
+              "usable": true,
+              "disabled": false,
+              "readOnly": false,
+              "onScreen": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
