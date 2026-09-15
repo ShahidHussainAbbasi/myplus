@@ -653,7 +653,9 @@ function loadCartLineIntoForm(line){
 			setTimeout(function () { LooseSell.setUnit('LOOSE'); }, 600);
 		}
 		$dd.prop('disabled', true);                           // lock the item while editing
-		if($dd.data('selectpicker')) $dd.selectpicker('refresh');
+		// PSEL-1 F3 — only the DISABLED state changed (the options were rebuilt a few lines up): repaint the button and
+		// the rows, never rebuild the whole product list again.
+		if($dd.data('selectpicker')) repaintPicker($dd);
 	});
 }
 
@@ -671,7 +673,7 @@ function exitSellEditMode(){
 	$('#sellEditBanner').remove();
 	setSellItemBtnMode(false);
 	$('#sellItemDD').prop('disabled', false);
-	if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+	if($('#sellItemDD').data('selectpicker')) repaintPicker('#sellItemDD');   // PSEL-1 F3: unlock = repaint, not rebuild
 	$('#sellCustomerDD').prop('disabled', false);   // unlock the customer controls
 	$('#sellCN').prop('disabled', false);
 	$('#sellCC').prop('disabled', false);
@@ -1752,6 +1754,7 @@ function resetCart(){
 	window.selectedCustomerDue = null;
 	$("#sellAccountRow").hide();
 	onCustomerModeChange('select');
+	window.posCustomerModeChosen = false;   // SALE-DEF — the next sale is fresh: a later settings load may default it again
 	$('input[name="customerInputMode"][value="select"]').prop('checked', true);
 	exitSellEditMode();   // a save (incl. updateSell) ends the edit: clear flag/banner, restore button
 	updateReadOnly(false);
@@ -5279,11 +5282,33 @@ function applyPosFieldVisibility(){
 	}
 	// Apply WHICHEVER mode is configured, not only 'manual'. The earlier version could switch a till
 	// into manual entry but never switch it back, so changing the setting to 'select' looked broken.
-	if (typeof onCustomerModeChange === 'function') {
+	//
+	// SALE-DEF (2026-09-15) — …but NEVER over a choice the cashier already made on an EMPTY cart. The settings can land
+	// AFTER the click (they always could; the New Sale freeze used to hide it), and onCustomerModeChange() also clears
+	// the chosen customer and the typed walk-in name. `saleInProgress` above only covers a part-rung cart.
+	var customerBlockInUse = window.posCustomerModeChosen === true
+		|| !!$('#sellCustomerDD').val()
+		|| $.trim($('#sellCN').val() || '') !== '';
+	if (typeof onCustomerModeChange === 'function' && !customerBlockInUse) {
 		var mode = (window.posDefaultCustomerMode === 'manual') ? 'manual' : 'select';
 		onCustomerModeChange(mode);
 	}
 }
+
+/*
+ * SALE-DEF (2026-09-15) — record the CASHIER's own choice, so a late settings load cannot undo it.
+ *
+ * Delegated, and on real events only. Code sets these controls with .val() / onCustomerModeChange(), which fire no
+ * change or click — so the shop's defaults still apply to an untouched sale (sale-defaults-race.cy.js case 4).
+ *  - #sellPayMethod: sets the existing `posDefaulted` latch that applyPosFieldVisibility checks. NOT inside
+ *    onSellPayMethodChange — the template calls that on New Sale OPEN (businessDashboard.html:4658), which would latch
+ *    before the settings ever land.
+ *  - the two mode buttons: window.posCustomerModeChosen, cleared by resetCart() for the next sale.
+ * A settings SAVE still clears the tender latch (saveBusinessConfigToggle) and re-applies the owner's new default —
+ * intended ("not about ignoring the owner").
+ */
+$(document).on('change', '#sellPayMethod', function () { $(this).data('posDefaulted', true); });
+$(document).on('click', '#btnModeSelect, #btnModeManual', function () { window.posCustomerModeChosen = true; });
 
 /* ── SER-3b: a serialled line is ONE unit ────────────────────────────────────────────────────────
  *

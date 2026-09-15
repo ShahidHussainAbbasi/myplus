@@ -29,6 +29,10 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final com.myplus.catalog.repository.TaxCodeRepository taxCodeRepository;   // multi-rate tax: resolve rate from code
+    // CACHE-1 — the picker's tenant-scoped page cache, and the event every writer here publishes so it is evicted
+    // AFTER the commit (ProductPickerCache.onProductsChanged), never inside the transaction.
+    private final ProductPickerCache pickerCache;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
     private java.util.Map<Long, BigDecimal> orgCodeRates() {
@@ -62,8 +66,19 @@ public class ProductService {
      * columns is ever loaded. Same tenant scoping as {@link #getAll} — org, with the NULL/user fallback.
      */
     public Page<com.myplus.catalog.dto.ProductPickerDTO> getPicker(Pageable pageable) {
-        return productRepository.findPickerScoped(
-                CurrentUser.organizationId(), CurrentUser.userId(), pageable);
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        // CACHE-1 — cache-aside: this tenant + user + page from the cache; on a miss the database, kept with a TTL.
+        return pickerCache.page(org, user, pageable, () -> productRepository.findPickerScoped(org, user, pageable));
+    }
+
+    /**
+     * CACHE-1 — tell the picker cache a product changed. Called INSIDE the writer's transaction; the cache evicts only
+     * once that transaction commits (ProductPickerCache.onProductsChanged), so a rollback evicts nothing.
+     * Both orgs: the caller's (whose pages show the row through the scope's user leg) and the product's own.
+     */
+    private void changed(Product p) {
+        events.publishEvent(CatalogProductsChanged.of(CurrentUser.organizationId(), p.getOrganizationId()));
     }
 
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI. */
@@ -150,7 +165,9 @@ public class ProductService {
          * A plain save() may defer the insert to commit — which happens after this method returns, turning a
          * recoverable duplicate into an opaque 500.
          */
-        return toDto(productRepository.saveAndFlush(p));
+        Product saved = productRepository.saveAndFlush(p);
+        changed(saved);   // CACHE-1 — evicted after commit; a duplicate that throws above publishes nothing
+        return toDto(saved);
     }
 
     /**
@@ -246,7 +263,9 @@ public class ProductService {
          * entity defers that to commit — after toDto has already run. The response would then carry the OLD
          * version, and the next save from that response would be refused as stale against the caller's own edit.
          */
-        return toDto(productRepository.saveAndFlush(p));
+        Product saved = productRepository.saveAndFlush(p);
+        changed(saved);   // CACHE-1 — name / price / active may all have changed
+        return toDto(saved);
     }
 
     // PROD-DEL: the plain row delete that lived here is GONE on purpose. Nothing in any database stops a product row
@@ -277,7 +296,9 @@ public class ProductService {
         Product p = getEntity(id);   // scoped — anti-IDOR
         p.setIsActive(active);
         // BLK-4 — saveAndFlush so the response carries the version this write moved to (see update()).
-        return toDto(productRepository.saveAndFlush(p));
+        Product saved = productRepository.saveAndFlush(p);
+        changed(saved);   // CACHE-1 — a deactivated product leaves the picker, a reactivated one returns
+        return toDto(saved);
     }
 
     /** Re-price on receive (Option B): the purchase/goods-in flow updates the selling price, and stamps BOTH rates
@@ -307,6 +328,7 @@ public class ProductService {
             // BLK-4 — saveAndFlush: this write moves the version (it is exactly the change an open product form must
             // not overwrite), and the response should say so rather than carry the pre-write version.
             p = productRepository.saveAndFlush(p);
+            changed(p);   // CACHE-1 — the cached picker row carries sellingPrice; a no-op purchase publishes nothing
         }
         return toDto(p);
     }
@@ -354,6 +376,7 @@ public class ProductService {
         if (rxRequired != null) p.setRxRequired(rxRequired);
         if (controlledSubstance != null) p.setControlledSubstance(controlledSubstance);
         productRepository.save(p);
+        changed(p);   // CACHE-1 — not in the picker row today; evicted anyway so a wider cached row cannot go stale
         return toRef(p, orgCodeRates());
     }
 
@@ -376,6 +399,7 @@ public class ProductService {
         if (requiresSerial != null) p.setRequiresSerial(requiresSerial);
         if (tracksBatch != null) p.setTracksBatch(tracksBatch);
         productRepository.save(p);
+        changed(p);   // CACHE-1 — the cached picker row carries requiresSerial (the till asks for serials from it)
         return toRef(p, orgCodeRates());
     }
 

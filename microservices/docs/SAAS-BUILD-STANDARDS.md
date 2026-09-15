@@ -464,6 +464,39 @@ state must be the safe one, and an absent key or failed config read must resolve
 schema included. _Incident: `welfare.donation.requireDonor` OFF still failed, because `donation.donator_id` was
 `NOT NULL`._
 
+## 1d. Caching standard (the user, 2026-09-15)
+
+Design and the first implementation: `slices/cache-1-tenant-cache-aside.md`.
+
+**K1. Cache-aside, lazy, with a TTL.** Read: cache → on a miss MySQL → store with a TTL → return. MySQL is the only
+source of truth; any cache can be flushed at any moment and lose nothing.
+
+**K2. Evict only after a successful commit.** A writer publishes an event INSIDE its transaction; the cache evicts in a
+`@TransactionalEventListener(phase = AFTER_COMMIT, fallbackExecution = true)`. Never evict inside the transaction (a
+reader refills the old rows before the commit lands), never on a rollback. Cross-service writers invalidate through
+their outbox/event, not a direct call.
+
+**K3. The key carries the tenant, the scope's user leg, and the page/query.** A key without the org serves one tenant's
+data to another — silent, and invisible to every single-org test. Use common-web's `TenantPagedCache` (paged) or
+`TenantCache` (one value per tenant). Not a new hand-rolled map; not `@Cacheable` (a self-call bypasses the proxy, so
+it can be present and inert); not the Hibernate second-level cache (tenant-blind).
+
+**K4. List every WRITER by the repository's TYPE before shipping** (RULE 0), including bulk updates, imports and
+operator tools. _CACHE-1's first pass searched by field name and missed `ProductPolicyAdminController.clearTrackingFlags`
+(`products.saveAll`) — a bulk clear of the very flag the cached rows carry._
+
+**K5. Safe to cache: master and reference data** — catalog pickers, categories, tax codes, manufacturers. **Never cached
+without the user's ruling: stock on hand, money owed (dues, credit), sales, payments, ledgers, reports.** A slow read
+that does too much work is fixed, not cached.
+
+**K6. Prove it fires.** Build the cache with `recordStats()`, bind it to Micrometer (`cache.gets{result=hit}`), and
+assert a hit in the gate — and warm the cache BEFORE the write in every invalidation case, or the case passes on a cold
+cache and tests nothing.
+
+**K7. One replica today; more needs broadcast eviction first.** In-process Caffeine is consistent at Terraform
+`desired_count = 1`, with the TTL as the backstop. Scaling a service out needs Redis-broadcast eviction first — optional,
+because local start-all runs without Redis.
+
 ---
 
 ## 2. Per-vertical activity lifecycle (UI → API → DB)

@@ -75,10 +75,32 @@
         return el.selectedIndex + ':' + el.value;
     }
 
+    /**
+     * PSEL-1 — two kinds of change, not one. The <select>'s OWN `disabled` attribute (a `.prop('disabled', …)` from
+     * updateReadOnly or the invoice-edit lock) changes nothing a rebuild fixes: the button and the rows need a repaint
+     * (checkDisabled + render). Counting it as "options changed" made every lock toggle a full rebuild of the list.
+     * Anything else — an option added, removed, relabelled or disabled — is `dirty`, exactly as before.
+     */
+    function absorb(st, el, records) {
+        for (var i = 0; i < records.length; i++) {
+            var r = records[i];
+            if (r.type === 'attributes' && r.target === el && r.attributeName === 'disabled') st.stateChanged = true;
+            else st.dirty = true;
+        }
+    }
+
+    /** Fold in what the observer has QUEUED but not yet delivered. Its callback runs on a microtask, so a caller that
+     *  changed the options one line earlier would otherwise be judged against a stale verdict and get no rebuild. */
+    function sync(el) {
+        var st = el.__ssWatch;
+        if (st && st.mo && st.mo.takeRecords) absorb(st, el, st.mo.takeRecords());
+        return st;
+    }
+
     function watch(el, dirty) {
         if (!MO || el.__ssWatch) return el.__ssWatch;
-        var st = { dirty: !!dirty, lastVal: valueKey(el), mo: null, io: false };
-        st.mo = new MO(function () { st.dirty = true; });
+        var st = { dirty: !!dirty, stateChanged: false, lastVal: valueKey(el), mo: null, io: false };
+        st.mo = new MO(function (records) { absorb(st, el, records); });
         st.mo.observe(el, { childList: true, subtree: true, characterData: true,
                             attributes: true, attributeFilter: ['value', 'disabled', 'label'] });
         el.__ssWatch = st;
@@ -91,6 +113,7 @@
         if (!st) return;
         if (st.mo && st.mo.takeRecords) st.mo.takeRecords();
         st.dirty = false;
+        st.stateChanged = false;
         st.lastVal = valueKey(el);
     }
 
@@ -139,7 +162,111 @@
         for (var k in orig) { if (Object.prototype.hasOwnProperty.call(orig, k)) decorated[k] = orig[k]; }
         decorated.__ssDecorated = true;
         $.fn.selectpicker = decorated;
+        patchRender(orig);   // PSEL-1 F1 — see below
     })();
+
+    /* ── PSEL-1 F1 — render() in ONE pass ───────────────────────────────────────────────────────────────
+     *
+     * This was the New Sale freeze. bootstrap-select 1.6.2's render(updateLi) walks every <option> and calls
+     * setDisabled(i) + setSelected(i), and EACH of those runs
+     *     this.$lis.filter('[data-original-index="' + i + '"]')
+     * — an attribute match across EVERY row, once per option: O(n²). Measured (CDP profile, 2026-09-15,
+     * demo.business, 2,511 products): one refresh 8.8 s, of which render 8.5 s; rebuilding the rows themselves
+     * (reloadLi + createLi + liHeight) 0.3 s. Self time: jQuery attr 5.9 s + native getAttribute 4.9 s.
+     *
+     * The replacement indexes every row by data-original-index ONCE, then does for each option exactly what
+     * setDisabled/setSelected do — the same predicates (`:disabled` on the option or its parent, `:selected`) and the
+     * same jQuery DOM calls — and hands the rest to the library's own render(false), its "rows already right" path
+     * (tab index, the button's label and title). Single-row calls (setSelected from a click) are untouched.
+     *
+     * Feature-detected: a different bootstrap-select (the eventual upgrade) keeps its own render. The original stays
+     * reachable as render.__ssOriginal — the gate compares the two outputs byte for byte (sale-picker-speed case 1).
+     */
+    function patchRender(plugin) {
+        var P = plugin && plugin.Constructor && plugin.Constructor.prototype;
+        if (!P || typeof P.render !== 'function' || P.render.__ssFast) return;
+        if (typeof P.setDisabled !== 'function' || typeof P.setSelected !== 'function'
+            || typeof P.findLis !== 'function') return;          // not 1.6.2's shape: leave that render alone
+        var original = P.render;
+        var fast = function (updateLi) {
+            if (updateLi !== false) syncRows(this);
+            return original.call(this, false);
+        };
+        fast.__ssFast = true;
+        fast.__ssOriginal = original;
+        P.render = fast;
+    }
+
+    /** The per-option loop of 1.6.2's render(), from one index instead of one full-row search per option. */
+    function syncRows(inst) {
+        inst.findLis();
+        var lis = inst.$lis, byIndex = {};
+        for (var i = 0; i < lis.length; i++) {
+            var k = lis[i].getAttribute('data-original-index');
+            if (k !== null) (byIndex[k] || (byIndex[k] = [])).push(lis[i]);
+        }
+        var parents = [], parentDisabled = [];                    // a handful of <optgroup>s at most
+        inst.$element.find('option').each(function (index) {
+            var rows = byIndex[index];
+            if (!rows) return;                                    // no row: the library's filter() matched nothing
+            var p = this.parentNode, at = parents.indexOf(p);
+            if (at < 0) { at = parents.push(p) - 1; parentDisabled[at] = $(p).is(':disabled'); }
+            var disabled = $(this).is(':disabled') || parentDisabled[at];
+            var selected = $(this).is(':selected');
+            for (var r = 0; r < rows.length; r++) paintRow(rows[r], disabled, selected);
+        });
+    }
+
+    /** Exactly setDisabled(i, disabled) then setSelected(i, selected), for one row. */
+    function paintRow(li, disabled, selected) {
+        var $li = $(li);
+        if (disabled) $li.addClass('disabled').find('a').attr('href', '#').attr('tabindex', -1);
+        else $li.removeClass('disabled').find('a').removeAttr('href').attr('tabindex', 0);
+        $li.toggleClass('selected', selected);
+    }
+
+    /** Redraw the button and the rows' state — never the rows themselves. checkDisabled() is what applies the SELECT's
+     *  own disabled look in 1.6.2 (only refresh() used to call it), so a repaint always runs it. */
+    function repaintOne(el, $s, st) {
+        var inst = $s.data('selectpicker');
+        st.stateChanged = false;
+        try { if (inst && inst.checkDisabled) inst.checkDisabled(); } catch (e) {}
+        st.lastVal = valueKey(el);
+        try { $s.selectpicker('render'); } catch (e) {}
+    }
+
+    /**
+     * ⭐ PSEL-1 F2/F3 — redraw a picker whose SELECTION or DISABLED STATE changed, WITHOUT rebuilding its rows.
+     *
+     * For the callers that used `selectpicker('refresh')` only to show a cleared or locked picker: main.js's form-reset
+     * handler, updateReadOnly and resetBSDD, and business.js's invoice-edit lock/unlock (through main.js's
+     * repaintPicker). Each rebuilt every row — a cart add or an Esc paid it two or three times over.
+     *
+     * Still a full refresh — exactly what the caller used to get — when:
+     *   the <select> has no instance yet     (refresh constructs it, as it always did)
+     *   it is untracked (no MutationObserver) or its OPTIONS changed (dirty)
+     * and QUEUED change records are folded in first (sync): the observer reports on a microtask, and a caller that
+     * appended an option one line earlier must still get its rebuild.
+     *
+     * @param sel  a <select> id (with or without '#'), element, or jQuery set
+     */
+    function repaintSearchableSelect(sel) {
+        var $set = (typeof sel === 'string') ? $(sel.charAt(0) === '#' ? sel : '#' + sel) : $(sel);
+        $set.each(function () {
+            var el = this, $s = $(el);
+            if (el.tagName !== 'SELECT') return;
+            if (!$s.data('selectpicker')) { try { $s.selectpicker('refresh'); } catch (e) {} return; }
+            var st = sync(el);
+            if (!st || st.dirty) {
+                try { $s.selectpicker('refresh'); } catch (e) {}
+                markClean(el);
+                return;
+            }
+            repaintOne(el, $s, st);
+        });
+    }
+
+    window.repaintSearchableSelect = repaintSearchableSelect;
 
     /**
      * Initialise (or refresh) every eligible <select> on the page.
@@ -330,14 +457,14 @@
                 return;
             }
             var v = valueKey(el);
-            if (v !== st.lastVal) {
+            // PSEL-1: a SELECT-level disabled toggle (stateChanged) needs the same repaint as a new selection.
+            if (v !== st.lastVal || st.stateChanged) {
                 // Busy FIRST. Recording the new value before this check meant a .val() made by CODE while the
                 // picker was open advanced lastVal with nothing drawn and nothing marked — after close the widget
                 // kept the old selection until its options next changed (caught in review). Mark it stale instead:
                 // the close handler refreshes it and records the value.
                 if (isBusy($bs)) { $bs.attr('data-ss-stale', '1'); return; }
-                st.lastVal = v;
-                try { $s.selectpicker('render'); } catch (e) {}
+                repaintOne(el, $s, st);
             }
         });
         if (more) schedulePass();

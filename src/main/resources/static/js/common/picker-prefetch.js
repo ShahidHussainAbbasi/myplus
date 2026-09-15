@@ -27,10 +27,11 @@
  *     A tenant that does not fit in a page is the signal to move that picker to server-side type-ahead,
  *     not to speculatively download more. Those tenants keep today's on-demand behaviour.
  *
- *  2. NOT ON A METERED OR SLOW CONNECTION.  `navigator.connection.saveData` is the Save-Data client
+ *  2. NOT WHEN THE PERSON ASKED TO SAVE DATA.  `navigator.connection.saveData` is the Save-Data client
  *     hint — a request from the person using the device to stop spending their data on things they did
- *     not ask for, and prefetch is exactly that. 2g/slow-2g is skipped for the same reason from the
- *     other direction: on a link that slow the speculative fetch would compete with the real one.
+ *     not ask for, and prefetch is exactly that. (2g/slow-2g USED to be skipped as well; removed
+ *     2026-09-15 by the user's ruling — Chrome's speed estimate flipped slow-2g ↔ 4g within seconds on a
+ *     busy till PC, and a slow link is where the preload helps most. See shouldPrefetch().)
  *
  *  3. NOT ON A HIDDEN TAB.  A background tab may never be looked at again; warming it is pure waste.
  *
@@ -44,16 +45,22 @@
     var IDLE_TIMEOUT_MS = 3000;       // run even if the page never goes properly idle
     var FALLBACK_DELAY_MS = 1200;     // no requestIdleCallback: wait for first paint to settle
 
-    /** Metered, slow, or unwatched — three reasons not to spend somebody's connection speculatively. */
+    /** Save-Data asked for, or a tab nobody is watching — the two reasons not to prefetch (a SLOW link is not one). */
     function shouldPrefetch() {
         try {
             if (global.document && global.document.visibilityState === 'hidden') return false;
             var c = global.navigator && (global.navigator.connection
                     || global.navigator.mozConnection || global.navigator.webkitConnection);
-            if (c) {
-                if (c.saveData === true) return false;
-                if (/^(slow-2g|2g)$/.test(String(c.effectiveType || ''))) return false;
-            }
+            /*
+             * Save-Data is the ONLY connection opt-out (the user's ruling, 2026-09-15).
+             *
+             * Chrome's effectiveType used to be a second one, and it was wrong for a till. It is an ESTIMATE, and on
+             * a busy shop PC it flipped between slow-2g and 4g within seconds (monolith RUM on the same build, and
+             * picker-prefetch.cy.js failing with `network=slow-2g`) — so the till skipped the preload exactly when
+             * its link was slowest, which is when having the lists already in memory saves the most. Save-Data is
+             * different in kind: it is the person asking, not the browser guessing.
+             */
+            if (c && c.saveData === true) return false;
         } catch (e) {
             // A capability probe must never be the thing that breaks a page. Unknown => go ahead.
         }

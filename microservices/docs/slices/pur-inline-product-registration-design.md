@@ -1,6 +1,25 @@
 # PUR-INLINE — register a product without leaving the bill
 
-**Status:** IMPLEMENTED. First gate run found **one real defect** (the modal opened invisible — fixed)
+**Status 2026-09-15:** ⚠ the gate had **never been green**. Its first full re-run (PSEL-1 regression batch, 13:05
+monolith) was **5/10** — two defects that shipped with this slice (`e3582e27`, 2026-09-14), traced independently by
+sessions myplus-f9 and myplus-11, neither caused by PSEL-1:
+- **A (cases 2, 3, 4, 6):** `newProduct()` stored `productCreatedCb` (`catalog-products.js:343`) and THEN called
+  `resetProductForm()`, whose `:518` clears it — so the callback was erased on every open, the save took the ordinary
+  Products path, the product never came back to the bill (no selection, no `data-product`, no change → blank stock),
+  and `loadDataTable()` reset the shared `edit` flag. (Whether a real purchase edit can reach that — `business.js:2781`
+  refuses while the picker is disabled — is **unverified**.)
+- **B (case 5):** one Escape closed the product form AND the bill. Each `EnterChain.bind` adds its own document
+  listener; `keyboard-forms.js` loads before `business.js`, so the ProductModal chain closes the form first and the
+  purchase chain, on the same event, then finds `isTopModal('PurchaseModal')` true.
+
+**Fixes (user consent 2026-09-15, written, NOT yet built):** A — reset first, then store the callback. B — a
+`e.__enterChainEscapeHandled` mark in `enter-chain.js`: one Escape closes one form; only EnterChain listeners read it
+(not `stopImmediatePropagation`, which would strand a confirm dialog / date picker / contact picker opened over a form).
+Both reviewed and approved against the diff by myplus-11. They ship in the next monolith rebuild with SALE-DEF.
+**`mvn test`:** does not apply (client-only). **Gate:** this spec, all 10. **Test Book:** myplus-11 adds the cases
+after green. **Observed, out of scope:** with a `uiConfirm` open over a form, today one Escape closes both (the form's
+chain is still "top" because a confirm is not a `.crud-overlay`).
+_Earlier:_ IMPLEMENTED. First gate run found **one real defect** (the modal opened invisible — fixed)
 plus three faults in the spec/helpers (fixed). Awaiting a re-run; see §8.
 **Reported:** *"during purchase if product is not already registered then customer have to leave the current
 form, register the product, back to purchase and select product."*

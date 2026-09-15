@@ -228,10 +228,23 @@
             }
 
             if (e.key === 'Escape' && typeof opts.onEscape === 'function') {
+                /*
+                 * ONE ESCAPE CLOSES ONE FORM. Every bound chain adds its OWN document listener, and each checks
+                 * active() when IT runs. With a product form open over a purchase bill, the form's chain runs first
+                 * (keyboard-forms.js loads before business.js) and closeModal() drops `.open` synchronously — so the
+                 * bill's listener, on the SAME event, found itself the top modal and closed the bill too
+                 * (purchase-inline-product.cy.js case 5, broken since PUR-INLINE shipped). The mark is read only by
+                 * chain listeners: stopImmediatePropagation would also silence the capture listeners a confirm dialog,
+                 * date picker or contact picker add when they open, stranding them over a closed form.
+                 */
+                if (e.__enterChainEscapeHandled) return;
                 // Defer to an open calendar / dropdown — see transientOwnsEscape(). Returning without
                 // preventDefault lets the plugin's own (later, bubbling) handler close just itself.
                 if (transientOwnsEscape()) return;
-                if (opts.onEscape() === true) { e.preventDefault(); }
+                if (opts.onEscape() === true) {
+                    e.preventDefault();
+                    e.__enterChainEscapeHandled = true;
+                }
                 return;
             }
             if (e.key !== 'Enter') return;

@@ -310,8 +310,18 @@ $(document).ready(function() {
 				: this;
 			visualEl.style.removeProperty('border-color');
 		});
-		// Refresh selectpicker display after native reset clears its value
-		$form.find('.selectpicker').selectpicker('refresh');
+		/*
+		 * Redraw the pickers AFTER the reset has happened, and only as much as changed (PSEL-1 F2).
+		 *
+		 * DEFERRED ONE TICK: the browser fires `reset` BEFORE it resets the fields (the HTML form-reset algorithm), so
+		 * a synchronous redraw here drew the OLD selection — it always had.
+		 * REPAINT, NOT REFRESH: a reset changes which option is selected, never which options exist. A refresh rebuilt
+		 * every row of every picker in the form — measured 8.8 s for the 2,511-product item picker — and resetForm()
+		 * resets EVERY form on the page, so one cart add paid that for every big picker at once. A picker whose
+		 * options did change is still rebuilt (repaintSearchableSelect decides).
+		 */
+		var $pickers = $form.find('.selectpicker');
+		window.setTimeout(function () { repaintPicker($pickers); }, 0);
 		clearFormError();
 
 		// make readonly false on reset, so user can edit the form again
@@ -1516,7 +1526,10 @@ function updateReadOnly(flag) {
 		// Edit state is owned by loadSellForEdit (set) and exitSellEditMode (clear, on save/cancel).
 		setSellItemBtnMode(flag);
 		$('#sellItemDD').prop('disabled', flag);
-		if($('#sellItemDD').data('selectpicker')) $('#sellItemDD').selectpicker('refresh');
+		// PSEL-1 F3 — only the DISABLED state changed. This runs after every reset-button click (main.js:1184), at the
+		// end of every section open (loadDataTable) and after every save; as a refresh it rebuilt the whole product
+		// list each time — the second of the two rebuilds measured when New Sale opens.
+		if($('#sellItemDD').data('selectpicker')) repaintPicker('#sellItemDD');
 		// Sell edit mode is keyed on window.editingInvoice (the single source of truth that persists
 		// through cart edits), NOT the shared `edit` global which resetBSDD/other cycles flip off.
 		if (window.editingInvoice) {
@@ -1554,10 +1567,27 @@ function updateReadOnly(flag) {
 	$('#companyName').prop('disabled', false);
 }
 
+/**
+ * PSEL-1 — redraw a picker whose SELECTION or DISABLED state changed, without rebuilding its rows.
+ *
+ * The rule lives in searchable-selects.js (repaintSearchableSelect — which still rebuilds a picker whose options
+ * changed); this is the one call-site wrapper main.js and business.js share, and it keeps a page without that file,
+ * or a select that is not a picker yet, on the old `selectpicker('refresh')`.
+ *
+ * @param sel  a selector, element, or jQuery set
+ */
+function repaintPicker(sel) {
+	var $s = $(sel);
+	if (!$s.length) return;
+	if (typeof window.repaintSearchableSelect === 'function') window.repaintSearchableSelect($s);
+	else $s.selectpicker('refresh');
+}
+
 function resetBSDD(id){
 	
 	edit = false;// when reset boot strap drill down
-	$("#"+id).val('default').selectpicker("refresh");
+	$("#"+id).val('default');
+	repaintPicker("#"+id);   // PSEL-1 F3: a cleared selection needs a repaint, not a rebuild of every row
 }
 
 function parseDate(dateStr, format) {

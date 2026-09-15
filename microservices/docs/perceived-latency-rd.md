@@ -157,7 +157,9 @@ after the dashboard paints, so New Sale opens from memory instead of two cold ro
 Its own limits are the part worth keeping:
 
 - **one page only** — a bounded speculative budget, using `PAGE_SIZE` rather than an invented number
-- **skipped on `saveData` and 2g/slow-2g** — prefetch spends someone else's data allowance
+- **skipped on `saveData`** (and a hidden tab) — prefetch spends someone else's data allowance. _It was also skipped on
+  2g/slow-2g until 2026-09-15; the user removed that rule after Chrome's estimate flipped slow-2g ↔ 4g within seconds
+  on a busy till PC and `picker-prefetch.cy.js` failed on it — a slow link is where the preload helps most._
 - **never blocks, never retries, never reports an error** — if it fails, the screen fetches as it always did
 
 That is a correct, disciplined implementation of exactly the technique you are asking about.

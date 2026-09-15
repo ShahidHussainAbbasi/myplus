@@ -34,6 +34,8 @@ public class ProductDeletionWriter {
     private final PriceRuleRepository priceRuleRepository;
     private final BonusSchemeRepository bonusSchemeRepository;
     private final CatalogAuditService auditService;
+    // CACHE-1 — a deleted product must leave the cached picker pages once this transaction commits.
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     /** @return false when the product had already gone (a concurrent delete won), true when this call removed it */
     @Transactional
@@ -49,6 +51,7 @@ public class ProductDeletionWriter {
         // Stickers are the product's own labels, meaningless without it: they go with it (the user's ruling).
         int stickers = productBarcodeRepository.deleteByProductId(id);
         productRepository.delete(p);
+        events.publishEvent(CatalogProductsChanged.of(CurrentUser.organizationId(), p.getOrganizationId()));
 
         auditService.record(AuditRecord.builder()
                 .action(ACTION)

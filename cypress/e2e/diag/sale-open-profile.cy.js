@@ -1,9 +1,12 @@
 /**
- * DIAGNOSTIC — not a gate. Untracked on purpose: delete it once its numbers are read; never stage it.
+ * DIAGNOSTIC — not a gate: it measures and asserts nothing about speed. Committed with its first results (395f8f0e,
+ * 3ab2b780) and kept as the tool that re-measures a picker change. SKIPPED unless run with `--env diag=1`, so a
+ * full `cypress run` never pays for two CPU profiles. Not via excludeSpecPattern: Cypress 13 applies that to a
+ * `--spec` path too (ProjectDataSource.findSpecs), so an excluded spec could not be run at all.
  *
  * Plan item #1, the New Sale freeze. diag-sale-open MEASURED the cost (one bootstrap-select 1.6.2 refresh of
- * #sellItemDD = 3.4–7.0 s of main thread); this measures its COMPOSITION, because the fix must make one refresh
- * cheap — moving it again only moves the freeze again. Nothing here changes product code.
+ * #sellItemDD = 3.4–7.0 s of main thread); this measured its COMPOSITION — render() O(n²), fixed by PSEL-1
+ * (docs/slices/psel-1-picker-render-speed.md). Re-run it after any picker change. Nothing here changes product code.
  *
  *   A — CPU profile from "New Sale asked" until both sale pickers are rebuilt and the app is quiet.
  *   B — CPU profile of ONE line reset (#resetInviceItem → form reset). Tests myplus-f9's lead: main.js:304-314
@@ -17,7 +20,8 @@
  * "Load profile" to see the flame chart).
  *
  * Chrome only (CDP). Run SOLO, headed:
- *   npx cypress run --headed --browser chrome --spec cypress/e2e/diag/sale-open-profile.cy.js
+ *   npm run test:e2e:diag:sale-open
+ *   (= npx cypress run --headed --browser chrome --env diag=1 --spec cypress/e2e/diag/sale-open-profile.cy.js)
  */
 
 const cdp = (command, params = {}) => Cypress.automation('remote:debugger:protocol', { command, params })
@@ -26,6 +30,9 @@ const cdp = (command, params = {}) => Cypress.automation('remote:debugger:protoc
 function instrument(win, state) {
   state.calls = []
   state.longtasks = []
+  // V8 keeps 10 frames by default, and a picker call spends all ten inside jQuery, bootstrap-select and
+  // searchable-selects before reaching app code — the first run's `by` column came back EMPTY for every call.
+  win.Error.stackTraceLimit = 60
   try {
     new win.PerformanceObserver((list) => list.getEntries().forEach((e) =>
       state.longtasks.push({ start: Math.round(e.startTime), dur: Math.round(e.duration) })))
@@ -152,7 +159,10 @@ const ACCOUNTS = [
   { tag: 'owner-business', login: () => cy.loginAsOwner() },      // 1,857 products + 1,615 customers
 ]
 
-describe('DIAG — where a New Sale picker rebuild spends its time', () => {
+// Opt-in (see the header): CDP is Chrome-only, and two CPU profiles cost minutes a regression run should not pay.
+const enabled = !!Cypress.env('diag') && Cypress.isBrowser('chrome')
+
+;(enabled ? describe : describe.skip)('DIAG — where a New Sale picker rebuild spends its time', () => {
   ACCOUNTS.forEach(({ tag, login }) => {
     it(`profiles New Sale opening and one line reset — ${tag}`, () => {
       const state = {}

@@ -340,8 +340,13 @@
     global.newProduct = function (onCreated) {
         // Set on EVERY open, so a callback left behind by a form that was closed with Esc (which runs no
         // reset) can never be inherited by the next product somebody registers from the Products screen.
-        productCreatedCb = (typeof onCreated === 'function') ? onCreated : null;
+        // ⚠ RESET FIRST, then store the callback. resetProductForm() clears productCreatedCb on purpose (an abandoned
+        // purchase's callback must never fire for a product saved later) — so storing it BEFORE the reset erased it on
+        // every open, and a product registered from the bill never came back to it: no selection, no stock figure,
+        // and the ordinary save path ran loadDataTable() (edit = false). purchase-inline-product.cy.js cases 2-4 and 6
+        // had never been green since PUR-INLINE shipped (e3582e27, 2026-09-14). Fixed 2026-09-15.
         resetProductForm();
+        productCreatedCb = (typeof onCreated === 'function') ? onCreated : null;
         loadCategories();
         loadTaxCodes('');        // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
         loadManufacturers('');   // draw from the CURRENT index immediately; refresh below repaints it

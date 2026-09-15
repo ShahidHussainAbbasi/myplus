@@ -476,7 +476,13 @@ feature flags; the leading, UNMEASURED hypothesis for the rest is that v2 moves 
 **Update 2026-09-15.** The hypothesis is now MEASURED: `diag-sale-open.cy.js` (results in
 `cypress/results/diag-sale-open-*.json`, 3 runs) shows v2 moved the rebuild cost onto New Sale opening rather than
 removing it. One `#sellItemDD` refresh of 2,390 options = **7.0 s** on the main thread (demo); owner 3.4–3.6 s +
-`#sellCustomerDD` 3.8–4.6 s. Making one refresh cheap is the product fix (profile first), still to do.
+`#sellCustomerDD` 3.8–4.6 s. Making one refresh cheap was the product fix — now **PSEL-1**
+(`slices/psel-1-picker-render-speed.md`): profiled first (bootstrap-select 1.6.2 `render()` is O(n²), 17.0 of 17.7 s),
+`render()` patched to O(n), and five call sites repaint instead of rebuilding. Gate `sale-picker-speed.cy.js` GREEN
+2026-09-15 (monolith 13:05), and GREEN again 8/0 on the 14:22 monolith + catalog with CACHE-1 live. **All 18
+regressions run:** 16 green; `sell` 29/31 and `purchase-inline-product` 5/10 failed for causes PROVEN outside PSEL-1
+(the SALE-DEF settings race; two PUR-INLINE defects from its own commit) — both fixes owned by myplus-f9. Committed
+2026-09-15 together with the prefetch ruling (Save-Data the only opt-out); SALE-DEF, PUR-INLINE and CACHE-1 commit separately.
 Spec-side fixes, applied with the user's consent and **not yet gated**:
 - `pos-keyboard.cy.js` — the second Esc now carries `keyCode: 27, which: 27`. Without it, bootstrap-select 1.6.2's
   `b.keyCode.toString(10)` threw on every run since the step was added (09-08); not a v2 regression.
@@ -484,7 +490,8 @@ Spec-side fixes, applied with the user's consent and **not yet gated**:
   the page's own loader writes them and there is no race (all 16 openers). Browser-only; tenant config untouched.
 - `picker-prefetch.cy.js` — the three isWarm waits now report `shouldPrefetch` and the network estimate when they
   fail. Chrome reported `slow-2g` on this machine in bursts (monolith RUM), and the prefetch declines on slow-2g by
-  design, but that is a CANDIDATE cause, NOT verified. Whether to keep that rule on a till is an open product decision.
+  design, but that is a CANDIDATE cause, NOT verified. _(Later the same day: VERIFIED in run 5, and the user ruled
+Save-Data the only opt-out — see run 5 below.)_
 - `pos-enter-chain` "animating" goes with the product fix (not verified to be the same cause).
 
 **Run 2 (user, 2026-09-15 ~07:30):** `picker-prefetch` **4/4 green**; `pos-shortcuts` 2 red, `pos-keyboard` 1 red.
@@ -507,6 +514,13 @@ four red specs are closed. Still owed: `pos-sale-endtoend`, `pos-checkout-chain`
 **Run 4 (user, same 08:10 build, BLK-5 NOT in it — verified served != src for its 4 JS files):** ✅ `pos-sale-endtoend`,
 ✅ `pos-checkout-chain`, ✅ `keyboard-chain-order`, ✅ `sale-customer-first` — the Esc change regresses nothing.
 Open: `pos-enter-chain` (with the refresh-cost fix); after the BLK-5 rebuild, `pos-shortcuts` again (F9 → confirm dialog).
+**Run 5 (PSEL-1 build, 13:05 monolith, 2026-09-15 13:23-13:46):** ✅ **`pos-enter-chain` 7/7 — all four of the
+original regressions are now green.** `picker-prefetch` 1/4: the 3 reds are **VERIFIED as Chrome's network estimate**
+— each failure reads `shouldPrefetch=false, network=slow-2g` (the 3A message), and the monolith RUM log shows
+`conn=slow-2g` with no prefetch request on those loads, then `4g`. Not PSEL-1; the prefetch declined by its own rule.
+**The user's ruling (2026-09-15): Save-Data is the only connection opt-out** — the effectiveType (2g/slow-2g) check
+is removed from `picker-prefetch.js`, and spec case 3 now asserts that a 2g connection still prefetches. 3B (pinning 4g
+in the spec) is therefore not needed. **Live in the user's 14:22 rebuild (served == src) — `picker-prefetch` 4/4 there.**
 
 **Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
 handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's

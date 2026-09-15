@@ -84,6 +84,8 @@ public class ProductImportSpec implements ImportSpec<Product> {
 
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
+    // CACHE-1 — imported products must appear in the next picker read (see persist()).
+    @Autowired private org.springframework.context.ApplicationEventPublisher events;
 
     @Override public String entity() { return "product"; }
 
@@ -239,6 +241,17 @@ public class ProductImportSpec implements ImportSpec<Product> {
 
     @Override
     public int persist(List<Product> batch) {
-        return productRepository.saveAll(batch).size();
+        int saved = productRepository.saveAll(batch).size();
+        /*
+         * CACHE-1 — ImportEngine.commit runs WITHOUT a transaction and saveAll commits by itself, so the rows are in
+         * MySQL by this line: the picker listener's fallbackExecution then evicts at once, which IS the after-commit
+         * case. (If a caller ever wraps this in a transaction, the same listener waits for that commit instead.)
+         * Every tenant in the batch plus the caller's own.
+         */
+        java.util.Set<Long> orgs = new java.util.HashSet<>();
+        for (Product p : batch) orgs.add(p.getOrganizationId());
+        orgs.add(com.myplus.common.security.CurrentUser.organizationId());
+        events.publishEvent(CatalogProductsChanged.of(orgs.toArray(new Long[0])));
+        return saved;
     }
 }

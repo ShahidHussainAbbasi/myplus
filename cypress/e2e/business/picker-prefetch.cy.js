@@ -17,10 +17,11 @@
 /**
  * Wait for the customer cache to be warm — and when it never is, SAY WHY.
  *
- * picker-prefetch.js declines on Save-Data, 2g/slow-2g and a hidden tab, and Chrome's estimate flips to
- * slow-2g on a loaded local machine (monolith RUM, 2026-09-14). A bare "expected false to equal true" could
- * not tell that apart from a broken prefetch, so the failure now carries the decision and its inputs.
- * Pass/fail is unchanged.
+ * picker-prefetch.js declines on Save-Data and a hidden tab. It also declined on 2g/slow-2g until 2026-09-15, and
+ * this message is what proved that wrong: cases 1, 2 and 4 went red with `shouldPrefetch=false, network=slow-2g` —
+ * Chrome's estimate on a loaded local machine — and the user then removed the effectiveType rule. A bare "expected
+ * false to equal true" could not tell a declined prefetch from a broken one, so the failure carries the decision and
+ * its inputs. Pass/fail is unchanged.
  */
 function expectWarm(label) {
   cy.window({ timeout: 20000 }).should((w) => {
@@ -97,10 +98,16 @@ describe('PERF-9 — the pickers are warm before the sale screen opens', () => {
         })
         expect(w.PickerPrefetch.shouldPrefetch(), 'Save-Data means do not prefetch').to.eq(false)
 
+        /*
+         * A SLOW connection is NOT a reason to skip (the user's ruling, 2026-09-15). Chrome's effectiveType is an
+         * estimate: on this machine it read slow-2g and then 4g seconds later, and this spec's cases 1, 2 and 4 went
+         * red on it (`shouldPrefetch=false, network=slow-2g`). A slow link is exactly where a preloaded list saves
+         * the most; Save-Data — the person's own request, above — is the only opt-out.
+         */
         Object.defineProperty(w.navigator, 'connection', {
           configurable: true, get: () => ({ saveData: false, effectiveType: '2g' }),
         })
-        expect(w.PickerPrefetch.shouldPrefetch(), '2g means do not prefetch').to.eq(false)
+        expect(w.PickerPrefetch.shouldPrefetch(), 'a slow connection still prefetches').to.eq(true)
 
         Object.defineProperty(w.navigator, 'connection', {
           configurable: true, get: () => ({ saveData: false, effectiveType: '4g' }),

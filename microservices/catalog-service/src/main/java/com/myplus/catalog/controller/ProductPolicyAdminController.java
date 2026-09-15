@@ -50,6 +50,8 @@ public class ProductPolicyAdminController {
     private com.myplus.catalog.service.CatalogAuditService audit;
 
     private final ProductRepository products;
+    // CACHE-1 — clearTrackingFlags changes requiresSerial, which the cached picker rows carry.
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     /**
      * ONB-3 — how many products carry a policy the tenant may be about to lose.
@@ -147,6 +149,9 @@ public class ProductPolicyAdminController {
             if (batch) p.setTracksBatch(false); else p.setRequiresSerial(false);
         }
         products.saveAll(found);
+        // CACHE-1 — the cached picker rows carry requiresSerial: evict THIS tenant's pages (possibly not the caller's —
+        // an operator in a support session) once this transaction commits.
+        if (!found.isEmpty()) events.publishEvent(com.myplus.catalog.service.CatalogProductsChanged.of(org));
 
         /*
          * E5 — recorded against the CUSTOMER, in this transaction.
