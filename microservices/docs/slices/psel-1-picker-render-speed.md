@@ -14,9 +14,11 @@ post-rebuild gate run (monolith 17:14) finished — that run (myplus-f9) is now 
 pos-enter-chain 7/0, pos-quickpick 15/0, pos-sale-endtoend 6/0. Two intermittent spec races were found on the way, neither a
 product defect: (1) `cy.enableScanBox` pinned the scan box before the page's settings landed and was overwritten — fixed in the
 shared helper (waits for `posDefaultTender`), user-approved; (2) `pos-cell-layout` :253 syncs on a price that is now filled
-synchronously from `data-price`, so it can press Enter inside `loadStock`'s re-render — passed on re-run; a spec-side sync
-(wait for `#sellQuantity`) is proposed. ⚠ Open, unverified: the same re-render window at `pos-keyboard.js:862` could commit a
-line (skipping the discount stop) on a very fast Enter with a quantity already filled — a targeted check, not a fix. Consent: the user, 2026-09-15 ("go for Proposed fixes" — F1, F2, F3). Parent: the dashboard-freeze work
+synchronously from `data-price`, so it pressed Enter before `loadStock` had finished — passed on re-run; the spec now waits
+for the quantity and the Sellable badge (12/0), and the scan cases assert the line quantity (pos-checkout-chain 15/0).
+**Fast-Enter question — NOT REPRODUCED** (`diag/fast-enter-price.cy.js`, opt-in): the walk past the price was usable in 235
+of 235 frames after a pick and in 5 of 5 no-wait attempts, and no line was committed. That also leaves the single red's cause
+UNEXPLAINED — only its mechanism (`commitLine` → empty Qty, `pos-keyboard.js:564`) is proven. No product change. Consent: the user, 2026-09-15 ("go for Proposed fixes" — F1, F2, F3). Parent: the dashboard-freeze work
 (`blocking-ui-and-backend-guards-design.md` §4.3.3, memory `dashboard-freeze-searchable-selects`).
 
 ---
