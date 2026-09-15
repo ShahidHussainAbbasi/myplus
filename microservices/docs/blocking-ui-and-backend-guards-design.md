@@ -22,9 +22,16 @@ Manual walk (Test Book §18) not yet done.
 `dashboard-no-freeze.cy.js` (§4.3.3 fix v2) green 5/5, headed (2026-09-14, run by the user). ⚠ Fix v2's own
 regression specs are still red — see §4.3.3.** Earlier: BUILT (10:47 monolith), gate run 1 = 6/7 — skeleton rows while a grid loads, never "no records" before
 the answer (§4.3.2); gate `cypress/e2e/business/grid-loading.cy.js`. Case 5's failure was the spec's own opener
-(fixed); the end-to-end review added cases 7–11 and a small polish that needs the next monolith rebuild. Full
-re-run pending. **BLK-4 coded 2026-09-14, NOT built/gated** — slice doc `slices/blk-4-product-optimistic-lock.md` (by the BLK-4
-session); needs catalog-service (V17) + monolith rebuilt before its gate `product-concurrent-edit.cy.js`.
+(fixed); the end-to-end review added cases 7–11 and a small polish, both inside the 12/12 (the polish shipped in the
+15:00 build). Re-verified 2026-09-15: no BLK-3 file changed after 15:00, and the served files equal `src`. ⚠ **But the
+page around it did:** the running monolith is the 15:39 build, and `catalog-products.js`, `businessDashboard.html` and
+`CatalogController.java` changed at 15:31 (after the gated build). Cases 5 and 7 drive exactly that screen (the
+Product grid + its search), and no run of `grid-loading.cy.js` on the 15:39 build was on record. ✅ **Re-run GREEN 12/12,
+headed, solo, 2026-09-15 12:07–12:09, on the monolith built 11:54** (which carries those 15:31 changes AND BLK-5) —
+run by myplus-f9 at the user's request.
+**BLK-4 GATED GREEN 7/7 (2026-09-14 15:00) and RE-RUN GREEN on the current builds (2026-09-15, 07:20–07:31 PKT, by
+the user; the log shows its 5 refusals)** — slice doc `slices/blk-4-product-optimistic-lock.md`. Catalog `mvn test`
+still owed.
 BLK-5 … BLK-9: design, awaiting consent.
 **Every number below is measured in this repo, not estimated.**
 
@@ -378,7 +385,7 @@ option there — the screen is function-navigated (`showProducts()`), which `das
 `pos-barcode-default.cy.js:101` already record. A wrong assumption in the SPEC, not a product defect; fixed with
 the opener BLK-2's spec already uses. Cases 7–11 were added in the end-to-end review that followed.
 
-**Polish from that review (code, needs a monolith rebuild; case 11 is red until then):**
+**Polish from that review — shipped in the 15:00 build; case 11 green inside the 12/12 (served == `src`, 2026-09-15):**
 - the skeleton's `role="status"` carried only an `aria-label` over no content, which screen readers do not
   reliably announce — it now contains real, visually hidden text (`.sr-only` "Loading…");
 - `sProcessing` — the Product grid's floating "Processing..." box — was the last loading chrome still in English;
@@ -466,6 +473,41 @@ list is NOT green: the user's run at ~21:30–21:47 had `picker-prefetch` 3 red,
 failure is a spec defect (a synthetic Escape with no `keyCode`) and the `pos-shortcuts` one a harness race on the
 feature flags; the leading, UNMEASURED hypothesis for the rest is that v2 moves picker rebuilds onto New Sale opening.
 
+**Update 2026-09-15.** The hypothesis is now MEASURED: `diag-sale-open.cy.js` (results in
+`cypress/results/diag-sale-open-*.json`, 3 runs) shows v2 moved the rebuild cost onto New Sale opening rather than
+removing it. One `#sellItemDD` refresh of 2,390 options = **7.0 s** on the main thread (demo); owner 3.4–3.6 s +
+`#sellCustomerDD` 3.8–4.6 s. Making one refresh cheap is the product fix (profile first), still to do.
+Spec-side fixes, applied with the user's consent and **not yet gated**:
+- `pos-keyboard.cy.js` — the second Esc now carries `keyCode: 27, which: 27`. Without it, bootstrap-select 1.6.2's
+  `b.keyCode.toString(10)` threw on every run since the step was added (09-08); not a v2 regression.
+- `pos-shortcuts.cy.js` — `openSell()` rewrites the `/getBusinessConfig` reply to the case's wanted flag values, so
+  the page's own loader writes them and there is no race (all 16 openers). Browser-only; tenant config untouched.
+- `picker-prefetch.cy.js` — the three isWarm waits now report `shouldPrefetch` and the network estimate when they
+  fail. Chrome reported `slow-2g` on this machine in bursts (monolith RUM), and the prefetch declines on slow-2g by
+  design, but that is a CANDIDATE cause, NOT verified. Whether to keep that rule on a till is an open product decision.
+- `pos-enter-chain` "animating" goes with the product fix (not verified to be the same cause).
+
+**Run 2 (user, 2026-09-15 ~07:30):** `picker-prefetch` **4/4 green**; `pos-shortcuts` 2 red, `pos-keyboard` 1 red.
+- `pos-shortcuts` — the first rewrite covered 2 of the 3 flags `openSell()` pins. The loader also writes
+  `posBarcodeEnabled` and calls `applyPosBarcodeVisibility()` (`business.js:4999`), which hid `#sellScanRow` after
+  `enableScanBox` had shown it. `pos.barcode.enabled: true` is now in the rewrite too (spec only).
+- `pos-keyboard` — with the crash gone, the step reached its assertion and exposed a **product gap**: Esc on a sale
+  picker's BUTTON had no handler (`pos-keyboard.js` button handler was Enter-only; the line handler matches only
+  `#Sell input, #Sell select`), so `clearLine()`'s "empty line → back to the customer" (09-08) never ran for a cashier.
+  **Fixed (consented, written, NOT yet built):** `escapeFromPicker()` — a closed sale picker's Esc does what Esc on its
+  `<select>` does (`clearLine()` inside `form#Sell`, `focusEntryPoint()` for the customer / pay-method pickers); an open
+  menu keeps the plugin's own Esc. The same gap in the scan box (scanning tenants) is NOT fixed.
+- Regressions to run after the monolith rebuild: `pos-keyboard`, `pos-sale-endtoend`, `pos-checkout-chain`,
+  `pos-enter-chain`, `keyboard-chain-order`, `sale-customer-first`.
+
+**Run 3 (user, 2026-09-15, monolith rebuilt 08:10 with `escapeFromPicker` — served JS == src, verified):**
+✅ `pos-keyboard` green · ✅ `pos-shortcuts` green (user-reported). With `picker-prefetch` 4/4 from run 2, three of the
+four red specs are closed. Still owed: `pos-sale-endtoend`, `pos-checkout-chain`, `keyboard-chain-order`,
+`sale-customer-first` (regressions for the Esc change); `pos-enter-chain` waits on the refresh-cost fix.
+**Run 4 (user, same 08:10 build, BLK-5 NOT in it — verified served != src for its 4 JS files):** ✅ `pos-sale-endtoend`,
+✅ `pos-checkout-chain`, ✅ `keyboard-chain-order`, ✅ `sale-customer-first` — the Esc change regresses nothing.
+Open: `pos-enter-chain` (with the refresh-cost fix); after the BLK-5 rebuild, `pos-shortcuts` again (F9 → confirm dialog).
+
 **Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
 handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's
 sweep waited for `jQuery.active === 0` — so a veil or bar raised by that request stayed up for the session. Now each
@@ -493,10 +535,10 @@ Ordered by consequence, not by convenience.
 | **BLK-0** | ⭐ **IMPLEMENTED — see §8.5.** The ledger write moved to `/internal/**` (not `@PreAuthorize` — §8.1 says why that cannot work); the missing audit closed at the one producer that lacked it (education fees), not in finance; `@Version` on Payment/PaymentAllocation. **NOT** idempotency — the user path already has it | Q5: irreversible/security-sensitive | S |
 | BLK-1 | **GATED GREEN — 9/9 at 10:06–10:11, then 10/10 with case 9 (the stranded-veil sweep) on the 15:40 build — see §4.3.1.** READS never raise the overlay (a thin progress bar instead); writes keep it until BLK-2/BLK-13 give each a server key + a control-level lock. Deviation from "invert everything", and why, is recorded there | all | M |
 | BLK-2 | **GATED GREEN 21/21, headed (2026-09-14) — `slices/blk-2-busy-controls.md`.** Per-control busy state: disable + label the control that was clicked. One shared helper (`BusyControl`, submit-once.js layer 2c) replacing 7 hand-rolled disables; veil OFF only where a server key exists (product save, receive payment, pay vendor), KEPT on sale/purchase return, stock adjust, opening balance, voids, permission save. Closes `#addFc`'s no-lock gap. Gate `busy-controls.cy.js` (14 cases) | Save product, POS sale, stock adjustment, permission change | M |
-| BLK-3 | **GATED GREEN — `grid-loading.cy.js` 12/12 headed (2026-09-14); the §4.3.3 picker follow-up `dashboard-no-freeze.cy.js` is green 5/5 too, so the hold is lifted. See §4.3.2.** Skeleton rows in every DataTables grid through one shared hook (no call-site edits) + 3 plain tables; a grid never renders "no records" while its read is in flight | Product page load, Search products | S |
-| BLK-4 | **Coded 2026-09-14, NOT built/gated** — `@Version` on `Product` + catalog V17; save sends the version; slice doc `slices/blk-4-product-optimistic-lock.md`. Vender/Company still to come | Save product | S |
-| BLK-5 | Idempotency key on stock adjustment + a required reason | Stock adjustment | S |
-| BLK-6 | Cancel obsolete reads (with the two traps in 4.1.1 handled) + "Checking…" beside SKU | Search products, SKU check | S |
+| BLK-3 | **GATED GREEN — `grid-loading.cy.js` 12/12 headed (2026-09-14, on the 15:00 build); ✅ re-run 12/12 on the 2026-09-15 11:54 build (incl. the later Product-screen changes and BLK-5 — see the header); the §4.3.3 picker follow-up `dashboard-no-freeze.cy.js` is green 5/5 too, so the hold is lifted. See §4.3.2.** Skeleton rows in every DataTables grid through one shared hook (no call-site edits) + 3 plain tables; a grid never renders "no records" while its read is in flight | Product page load, Search products | S |
+| BLK-4 | **GATED GREEN 7/7 (2026-09-14); RE-RUN GREEN on the current builds (2026-09-15)** — `@Version` on `Product` + catalog V17; save sends the version; slice doc `slices/blk-4-product-optimistic-lock.md`. Vender/Company still to come | Save product | S |
+| BLK-5 | **✅ GATED GREEN 11/11 (2026-09-15) — `slices/blk-5-stock-adjust-guard.md`; key + replay/409, reason asked, who + shop stamped (V11). Before it was built, the review found:** Idempotency key on stock adjustment + a required reason. ⚠ The review found the record is also UNATTRIBUTED: `stock_adjustments` has no `organization_id` column, `adjusted_by` is NULL on all 34 live rows (the monolith proxy never sends it), and nothing reads the table — so "audited (reason/who/when)" in `CatalogController`/`stock-count.js` is not true. The reason is never asked of the operator (hard-coded by both screens). Scope should add who + tenant (a Flyway column) — M rather than S. Also found: the inventory stock columns are `decimal(38,2)` on the dev DB although V8 set `DECIMAL(19,4)` (loose 1/3-pack picks already round), cause unverified | Stock adjustment | S→M |
+| BLK-6 | **NOT STARTED (reviewed end to end 2026-09-15).** Cancel obsolete reads (with the two traps in 4.1.1 handled) + "Checking…" beside SKU. Review: no `.abort()` anywhere in app code. ONE server-paged grid (Product): search debounced (`searchDelay: 400`), and out-of-order answers are discarded by DataTables itself (`if(1*draw<iDraw)return`, 1.10.19) — but `deliver()` still runs `fillProductOnHand` for a discarded answer, firing stock reads for rows not on screen. The "already registered" panel: 200 ms debounce + explicit sequence guard. SKU and name checks fire on BLUR with epoch + value guards, and show NO pending state. No gate covers a slower earlier answer. **Correctness already holds; the real gaps are the missing "Checking…" state and wasted requests.** Trap 1 applies if abort is added: the grid's `onFail` calls `handleAjaxFailure`, which would report a superseded read as a failure | Search products, SKU check | S |
 | BLK-7 | Confirm + verified version check on permission change | Permission change | S |
 | **BLK-8** | PDF rendering into a **Web Worker**; queued/running/done status | PDF generation | **L** |
 | **BLK-9** | CSV import as a background job + status page | CSV import/export | **L** |
@@ -874,8 +916,11 @@ instead — **a ruling on who may adjust stock**, the same shape as BLK-0d.
 - In-flight disable exists (L2b modal button, `#addSell`, `#srSubmit`, `#obPost`, `_rcvBusy`/`_pvBusy`),
   but no "Saving…" label anywhere. ~~**BLK-2: coded 2026-09-14, not built/gated**~~ → BLK-2 gated green 21/21 —
   `slices/blk-2-busy-controls.md`.
-- Skeleton rows: `dashboard-cards.js` only. ~~**BLK-3 not started.**~~ → BLK-3 implemented 2026-09-14 (§4.3.2).
-  BLK-6/8/9 not started (not re-verified).
+- Skeleton rows: ~~`dashboard-cards.js` only. **BLK-3 not started.**~~ → **BLK-3 GATED GREEN 12/12** (§4.3.2): every
+  DataTables grid via `/js/common/grid-loading.js` (shared `header-js` fragment) + 3 plain tables. Re-verified
+  2026-09-15: the running monolith serves `grid-loading.js` and `theme.css` byte-identical to `src`.
+  BLK-6 not started — re-verified end to end 2026-09-15 (see its §5 row: correctness already holds; the gaps are the
+  missing "Checking…" state and wasted requests). BLK-8/9 not started (not re-verified).
 - `welfare.js:48` still raises a native `confirm()` for delete.
 
 ### 9.7 Gates that go green with the defect present

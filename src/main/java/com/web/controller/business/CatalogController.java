@@ -885,9 +885,14 @@ public class CatalogController {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> found = (Map<String, Object>) catalog.get("/products/" + id).get("data");
                     data = found;
-                } catch (org.springframework.web.client.HttpClientErrorException.NotFound gone) {
+                } catch (com.web.error.DownstreamNotFoundException
+                         | org.springframework.web.client.HttpClientErrorException.NotFound gone) {
                     // Already deleted, or not this tenant's: the same idempotent answer catalog's DELETE gives, and
                     // reporting it as "kept" would tell the owner a product still exists when it does not.
+                    // ⚠ DownstreamNotFoundException is the one that actually arrives: CatalogRestClient goes through
+                    // GatewayClient, which turns every downstream 404 into it (GatewayClient:221-233). Catching only
+                    // Spring's NotFound left this branch dead — a repeat delete answered "Kept: #id (Could not be
+                    // removed. Please try again.)" (product-permanent-delete.cy.js case 2, 2026-09-15).
                     data = null;
                 }
                 if (data == null) { alreadyRemoved++; continue; }
@@ -1101,7 +1106,8 @@ public class CatalogController {
     }
 
     /** Correct a product's on-hand — decrease (a mistaken over-add) or increase — via inventory {@code /stock/adjust}.
-     *  Server-side guarded (a DECREASE below zero is rejected: "Insufficient stock") and audited (reason/who/when). */
+     *  Server-side guarded (a DECREASE below zero is rejected: "Insufficient stock"), recorded ONCE per key, and
+     *  attributed to the caller and the caller's shop by inventory (BLK-5). */
     @PostMapping("/adjustProductStock")
     @ResponseBody
     public Map<String, Object> adjustProductStock(@RequestBody final Map<String, Object> body) {
@@ -1110,7 +1116,13 @@ public class CatalogController {
             dto.put("productId", body.get("productId"));
             dto.put("adjustmentType", body.getOrDefault("adjustmentType", "DECREASE"));   // INCREASE | DECREASE
             dto.put("quantity", body.get("quantity"));
-            dto.put("reason", body.getOrDefault("reason", "Manual stock correction"));
+            // BLK-5 — the reason AS GIVEN, with NO default any more. A default here answered "why?" on the person's
+            // behalf, which is how every correction came to say "Manual stock correction". Inventory refuses a
+            // correction nobody explained, with a sentence the screen shows.
+            dto.put("reason", body.get("reason"));
+            // ⚠ This proxy is an ALLOW-LIST (OB-1's lesson): a field not copied here never reaches inventory and
+            // nothing reports its absence. Without this line every layer below would look right and dedupe nothing.
+            dto.put("idempotencyKey", body.get("idempotencyKey"));
             Map<String, Object> resp = inventory.postJson("/stock/adjust", dto);
             Map<String, Object> out = new java.util.HashMap<>();
             out.put("success", resp != null && Boolean.TRUE.equals(resp.get("success")));
@@ -1118,13 +1130,29 @@ public class CatalogController {
             // PERF-9, same as addProductStock above: the adjustment carries the resulting on-hand, so the
             // screen updates from the write instead of reading it back.
             if (resp != null && resp.get("data") instanceof Map) {
-                Object onHand = ((Map<?, ?>) resp.get("data")).get("resultingOnHand");
+                Map<?, ?> data = (Map<?, ?>) resp.get("data");
+                Object onHand = data.get("resultingOnHand");
                 if (onHand != null) out.put("stock", onHand);
+                // BLK-5 — a replay moved nothing. Carried so the screen says so, rather than "Removed 3 from stock".
+                out.put("replayed", Boolean.TRUE.equals(data.get("replayed")));
             }
             return out;
         } catch (Exception e) {
             LOGGER.error("adjustProductStock proxy error", e);
-            return failure(e);   // surfaces the inventory error body (e.g. "Insufficient stock")
+            return failure(e);   // surfaces the inventory error body (e.g. "Insufficient stock", "Give a reason…")
+        }
+    }
+
+    /** BLK-5 — a product's stock corrections (who, which shop, why, when), newest first → inventory
+     *  {@code GET /stock/adjustments}. Tenant-scoped in inventory; this only carries the answer. */
+    @GetMapping("/productStockAdjustments")
+    @ResponseBody
+    public Map<String, Object> productStockAdjustments(final HttpServletRequest request) {
+        try {
+            return inventory.get("/stock/adjustments", "productId=" + enc(String.valueOf(request.getParameter("productId"))));
+        } catch (Exception e) {
+            LOGGER.error("productStockAdjustments proxy error", e);
+            return failure(e);
         }
     }
 

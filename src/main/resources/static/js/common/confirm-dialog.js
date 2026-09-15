@@ -51,6 +51,11 @@
             'font-family:inherit;color:#0f172a;background:#fff;outline:none;transition:border-color .12s,box-shadow .12s}' +
             '.uiC-input:focus{border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,.18)}' +
             '.uiC-err{margin:6px 0 0;font-size:12.5px;color:#DC2626;min-height:1px}' +
+            '.uiC-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}' +
+            '.uiC-chip{padding:4px 11px;border:1px solid #cbd5e1;border-radius:999px;background:#f8fafc;color:#334155;' +
+            'font-size:12.5px;font-family:inherit;cursor:pointer;transition:background .12s,border-color .12s}' +
+            '.uiC-chip:hover{background:#eef2f7}' +
+            '.uiC-chip:focus-visible{outline:none;border-color:#1565C0;box-shadow:0 0 0 3px rgba(21,101,192,.25)}' +
             '.uiC-foot{display:flex;gap:10px;justify-content:flex-end;padding:20px 22px 22px}' +
             '.uiC-alt{background:#0f766e;color:#fff;border-color:#0f766e}' +
             '.uiC-btn{padding:9px 18px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;' +
@@ -131,7 +136,7 @@
             card.appendChild(body);
         }
 
-        var input = null, err = null;
+        var input = null, err = null, chipBtns = [];
         if (hasInput) {
             var field = document.createElement('div');
             field.className = 'uiC-field';
@@ -150,6 +155,30 @@
             if (opts.input.value) input.value = opts.input.value;
             if (opts.input.maxlength) input.maxLength = opts.input.maxlength;
             field.appendChild(input);
+            /*
+             * OPTIONAL SUGGESTIONS (BLK-5) — common answers as buttons that FILL the field; the person may pick one or
+             * type their own. The stock-correction reason offers them, so "Damaged" is one click and reads the same in
+             * every report, while an unusual reason is never forced into a wrong box.
+             *
+             * Buttons, not a <datalist>: this dialog accepts on Enter from a document-level capture listener, so a
+             * keyboard user pressing Enter to pick a datalist option would submit the dialog with a half-typed reason.
+             * Enter on a suggestion button PICKS it (see onKey). Single-line inputs only; absent unless asked for, so
+             * every existing dialog is unchanged.
+             */
+            if (!opts.input.multiline && Array.isArray(opts.input.suggestions) && opts.input.suggestions.length) {
+                var chips = document.createElement('div');
+                chips.className = 'uiC-chips';
+                opts.input.suggestions.forEach(function (s) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'uiC-chip';
+                    b.textContent = String(s);            // textContent, never innerHTML
+                    b.setAttribute('data-ui-suggestion', String(s));
+                    chips.appendChild(b);
+                    chipBtns.push(b);
+                });
+                field.appendChild(chips);
+            }
             err = document.createElement('p');
             err.className = 'uiC-err';
             field.appendChild(err);
@@ -233,13 +262,25 @@
                 }
             }
 
+            /** A suggestion FILLS the field — it never submits; the person still confirms with OK or Enter. */
+            function pick(btn) {
+                input.value = btn.getAttribute('data-ui-suggestion');
+                if (err) err.textContent = '';
+                input.focus();
+            }
+
             function onKey(e) {
                 if (e.key === 'Escape') { e.preventDefault(); cancel(); return; }
+                // Enter or Space on a suggestion PICKS it. Checked before the dialog-wide Enter below, which would
+                // otherwise accept the dialog with whatever the field held a moment earlier.
+                if ((e.key === 'Enter' || e.key === ' ') && chipBtns.indexOf(e.target) >= 0) {
+                    e.preventDefault(); pick(e.target); return;
+                }
                 if (e.key === 'Enter' && !(hasInput && opts.input.multiline && e.target === input)) {
                     e.preventDefault(); accept(); return;
                 }
-                if (e.key === 'Tab') {                      // keep focus inside the dialog
-                    var f = [cancelBtn, input, altBtn, okBtn].filter(Boolean);
+                if (e.key === 'Tab') {                      // keep focus inside the dialog, suggestions included
+                    var f = [cancelBtn, input].concat(chipBtns, [altBtn, okBtn]).filter(Boolean);
                     var i = f.indexOf(document.activeElement);
                     var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
                     e.preventDefault();
@@ -248,6 +289,7 @@
             }
 
             okBtn.addEventListener('click', accept);
+            chipBtns.forEach(function (b) { b.addEventListener('click', function () { pick(b); }); });
             if (cancelBtn) cancelBtn.addEventListener('click', cancel);
             if (altBtn) altBtn.addEventListener('click', alternate);
             backdrop.addEventListener('mousedown', function (e) { if (e.target === backdrop) cancel(); });

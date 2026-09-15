@@ -63,6 +63,9 @@
 
     function loadSheet() {
         sheet = {};
+        // BLK-5 — the sheet re-reads every product's real stock, so a row whose earlier Apply had an unknown outcome
+        // must not replay into a new count that happens to ask for the same change (design §2.4).
+        if (global.FormKeys && global.FormKeys.retirePrefix) global.FormKeys.retirePrefix('stockCount:');
         $('#cntBody').html('<tr><td colspan="5">' + t('ui.js.loading', 'Loading…') + '</td></tr>');
         $('#cntSummary').empty();
 
@@ -205,11 +208,17 @@
                 $.ajax({
                     type: 'POST', url: serverContext + 'adjustProductStock',
                     contentType: 'application/json', dataType: 'json',
+                    // BLK-5 — each row's correction carries its own key, so a retried Apply (or one pressed in a second
+                    // tab) replays instead of correcting twice. Kept on a failure, retired on success, and retired for
+                    // every row when the sheet loads again (loadSheet) — a reload has re-read the real stock. The
+                    // server now de-duplicates this write, so BLK-2's rule lifts the veil; #cntApply carries the wait.
+                    nonBlocking: true,
                     data: JSON.stringify({
                         productId: Number(row.id),
                         adjustmentType: item.diff > 0 ? 'INCREASE' : 'DECREASE',
                         quantity: Math.abs(diffPacks),
-                        reason: t('ui.js.countReason', 'Stock count ') + new Date().toISOString().slice(0, 10)
+                        reason: t('ui.js.countReason', 'Stock count ') + new Date().toISOString().slice(0, 10),
+                        idempotencyKey: global.FormKeys ? global.FormKeys.get('stockCount:' + row.id) : null
                     }),
                     success: function (resp) {
                         if (typeof apiOk === 'function' && !apiOk(resp)) {
@@ -217,6 +226,7 @@
                             $('#cntNote_' + row.id).text(apiMessage(resp, t('ui.js.countFailedRow', 'Not adjusted')))
                                 .addClass('text-danger');
                         } else {
+                            if (global.FormKeys) global.FormKeys.retire('stockCount:' + row.id);   // FIRST (SF-3b)
                             applied++;
                             // Update the row IN PLACE: the shelf now holds what was counted, so that becomes
                             // the new system quantity and the variance returns to nothing.

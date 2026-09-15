@@ -1,60 +1,60 @@
 {
   "longtasks": [
     {
-      "start": 412,
+      "start": 313,
+      "dur": 51
+    },
+    {
+      "start": 367,
+      "dur": 321
+    },
+    {
+      "start": 695,
+      "dur": 90
+    },
+    {
+      "start": 916,
+      "dur": 58
+    },
+    {
+      "start": 1154,
+      "dur": 280
+    },
+    {
+      "start": 1478,
       "dur": 55
     },
     {
-      "start": 471,
-      "dur": 371
+      "start": 1614,
+      "dur": 602
     },
     {
-      "start": 850,
-      "dur": 121
+      "start": 2249,
+      "dur": 296
     },
     {
-      "start": 992,
-      "dur": 88
-    },
-    {
-      "start": 1147,
-      "dur": 56
-    },
-    {
-      "start": 1385,
-      "dur": 277
-    },
-    {
-      "start": 1831,
-      "dur": 621
-    },
-    {
-      "start": 2485,
-      "dur": 405
-    },
-    {
-      "start": 3133,
-      "dur": 10716
+      "start": 2630,
+      "dur": 7049
     }
   ],
   "flagWrites": [
     {
       "k": "posKeyboardEnabled",
       "v": true,
-      "t": 1267,
+      "t": 1047,
       "by": ""
     },
     {
       "k": "posShortcutsEnabled",
       "v": false,
-      "t": 1268,
+      "t": 1048,
       "by": ""
     }
   ],
   "pickerCalls": [
     {
-      "t": 477,
-      "dur": 364,
+      "t": 372,
+      "dur": 315,
       "cmd": "construct",
       "ids": [
         "orgSwitcher",
@@ -68,8 +68,8 @@
       "by": ""
     },
     {
-      "t": 1417,
-      "dur": 49,
+      "t": 1178,
+      "dur": 50,
       "cmd": "refresh",
       "ids": [
         "venderCompanyDD",
@@ -80,8 +80,8 @@
       "by": ""
     },
     {
-      "t": 1874,
-      "dur": 577,
+      "t": 1679,
+      "dur": 536,
       "cmd": "refresh",
       "ids": [
         "sellCustomerDD"
@@ -90,8 +90,8 @@
       "by": ""
     },
     {
-      "t": 3180,
-      "dur": 10668,
+      "t": 2673,
+      "dur": 7003,
       "cmd": "refresh",
       "ids": [
         "sellItemDD"
@@ -101,37 +101,37 @@
     }
   ],
   "marks": {
-    "visitResolved": 867,
-    "saleOpenAsked": 872,
-    "sellDivVisible": 1616,
-    "flagsWaitResolved": 1660
+    "visitResolved": 708,
+    "saleOpenAsked": 713,
+    "sellDivVisible": 1388,
+    "flagsWaitResolved": 1432
   },
   "frames": {
-    "count": 591,
+    "count": 811,
     "gaps": [
       {
-        "at": 393,
-        "gap": 450
+        "at": 281,
+        "gap": 400
       },
       {
-        "at": 1376,
-        "gap": 317
+        "at": 1164,
+        "gap": 300
       },
       {
-        "at": 1693,
-        "gap": 483
-      },
-      {
-        "at": 2176,
-        "gap": 283
-      },
-      {
-        "at": 2459,
+        "at": 1464,
         "gap": 433
       },
       {
-        "at": 3143,
-        "gap": 10700
+        "at": 1897,
+        "gap": 333
+      },
+      {
+        "at": 2230,
+        "gap": 317
+      },
+      {
+        "at": 2630,
+        "gap": 7050
       }
     ]
   },
@@ -144,28 +144,28 @@
   "dialogs": [
     {
       "label": "at sale open",
-      "openedAt": 1616,
-      "msToOpen": 60
+      "openedAt": 1389,
+      "msToOpen": 67
     },
     {
       "label": "after 20 s",
-      "openedAt": 21670,
-      "msToOpen": 12
+      "openedAt": 21454,
+      "msToOpen": 19
     }
   ],
   "summary": {
     "afterSaleOpen": {
-      "longtaskTotalMs": 12163,
-      "longtaskMaxMs": 10716,
+      "longtaskTotalMs": 8340,
+      "longtaskMaxMs": 7049,
       "longtaskCount": 6
     },
     "wholeRun": {
-      "longtaskTotalMs": 12710,
-      "longtaskMaxMs": 10716
+      "longtaskTotalMs": 8802,
+      "longtaskMaxMs": 7049
     },
     "flagsWaitResolvedVsLastFlagWrite": {
-      "waitResolved": 1660,
-      "lastFlagWrite": 1268
+      "waitResolved": 1432,
+      "lastFlagWrite": 1048
     },
     "pickers": [
       {

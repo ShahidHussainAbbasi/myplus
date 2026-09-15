@@ -353,7 +353,7 @@ describe('BLK-2 — the pressed control carries the wait', () => {
     })
   })
 
-  it('⭐ 10 — stock correction: a compact spinner that does not resize the row button, and the veil KEPT (no key)', () => {
+  it('⭐ 10 — stock correction: a compact spinner that does not resize the row button, and NO veil (BLK-5 key)', () => {
     cy.window().then((win) => {
       const d = win.document
       ;['addstk_990001', 'lessstkbtn_990001'].forEach((id) => { const o = d.getElementById(id); if (o) o.remove() })
@@ -366,13 +366,18 @@ describe('BLK-2 — the pressed control carries the wait', () => {
     holdPost('adjustProductStock', 'adj', { body: { success: false, message: 'held by the gate' } })
     watch('#lessstkbtn_990001')
     cy.window().then((win) => win.adjustProductStock(990001))
+    // BLK-5 — a correction asks WHY before anything is sent. Answer it; then the held request starts.
+    // (The dialog's backdrop is not the veil: `watch` reads #appAjaxOverlay.show only.)
+    cy.get('#uiC-input', { timeout: 10000 }).type('Damaged')
+    cy.get('[data-ui-confirm="ok"]').click()
     cy.wait('@adj')
     seen().then((s) => {
       expect(s.spinner, 'a spinner').to.eq(true)
       expect(s.disabled).to.eq(true)
       expect(s.labels.join(' '), 'no visible text that would widen a table row').not.to.contain('Saving')
       expect(s.shrank).to.eq(false)
-      expect(s.veil, '⭐ REGRESSION: stock adjustment has no server key (BLK-5) — the veil stays').to.eq(true)
+      expect(s.veil, '⭐ BLK-5: the correction now has a server key — the row button carries the wait, not the screen')
+        .to.eq(false)
       expectRestored('#lessstkbtn_990001', s.html0)
     })
   })

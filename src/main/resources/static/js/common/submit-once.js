@@ -445,6 +445,16 @@
         },
         /** Called after a SUCCESSFUL save: the next record is a new intent and needs a new key. */
         retire: function (name) { delete keys[name]; },
+        /**
+         * BLK-5 — retire every key whose name starts with `prefix`.
+         *
+         * For a screen that has just RE-READ the truth — the Product grid drawing its stock cells, the count sheet
+         * loading. A write whose outcome was unknown (a timeout) kept its key so a retry would replay; once the
+         * screen shows the real stock, that key must not replay into a NEW correction that happens to look the same.
+         */
+        retirePrefix: function (prefix) {
+            Object.keys(keys).forEach(function (k) { if (k.indexOf(prefix) === 0) delete keys[k]; });
+        },
         /** Read without minting — for the gate, and for asserting that a key really rotated. */
         peek: function (name) { return keys[name] || null; }
     };

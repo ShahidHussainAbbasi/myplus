@@ -6,6 +6,7 @@ import com.myplus.common.security.CurrentUser;
 import com.myplus.commerce.contracts.dto.StockImportLine;
 import com.myplus.inventory.dto.StockDTOs.*;
 import com.myplus.inventory.entity.StockEntry;
+import com.myplus.inventory.service.StockAdjustmentService;
 import com.myplus.inventory.service.StockImportService;
 import com.myplus.inventory.service.StockService;
 import lombok.RequiredArgsConstructor;
@@ -22,15 +23,31 @@ public class StockController {
 
     private final StockService stockService;
     private final StockImportService stockImportService;
+    private final StockAdjustmentService stockAdjustmentService;
 
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<StockEntry>> addStock(@RequestBody StockEntryDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(stockService.addStock(dto), "Stock added"));
     }
 
+    /**
+     * BLK-5 — correct a product's on-hand, ONCE per intent, recorded against the caller and the caller's shop.
+     *
+     * <p>The tenant and the person come from the authenticated identity, never the body. A repeat carrying the same
+     * {@code idempotencyKey} answers "Already recorded" with {@code replayed: true} and moves nothing; the same key
+     * with different values is a 409. Design: microservices/docs/slices/blk-5-stock-adjust-guard.md
+     */
     @PostMapping("/adjust")
-    public ResponseEntity<ApiResponse<?>> adjust(@RequestBody StockAdjustmentDTO dto) {
-        return ResponseEntity.ok(ApiResponse.success(stockService.adjustStock(dto), "Stock adjusted"));
+    public ResponseEntity<ApiResponse<StockAdjustmentView>> adjust(@RequestBody StockAdjustmentDTO dto) {
+        StockAdjustmentView v = stockAdjustmentService.adjust(dto, CurrentUser.organizationId(), CurrentUser.userId());
+        return ResponseEntity.ok(ApiResponse.success(v, v.isReplayed() ? "Already recorded" : "Stock adjusted"));
+    }
+
+    /** BLK-5 — a product's corrections, newest first (at most 50), within the caller's tenant only. */
+    @GetMapping("/adjustments")
+    public ResponseEntity<ApiResponse<List<StockAdjustmentView>>> adjustments(@RequestParam Long productId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                stockAdjustmentService.history(productId, CurrentUser.organizationId(), CurrentUser.userId())));
     }
 
     @PostMapping("/transfer")

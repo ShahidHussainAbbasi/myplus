@@ -724,26 +724,74 @@
         });
     };
 
-    // Correct on-hand — reduce (a mistaken over-add) by the entered quantity. Uses inventory's audited DECREASE
-    // adjustment, which refuses to go below zero ("Insufficient stock"). Pass 'INCREASE' to add via the same path.
+    /*
+     * BLK-5 — a stock correction happens ONCE per intent, and says WHY.
+     * Design: microservices/docs/slices/blk-5-stock-adjust-guard.md §2.4–2.5.
+     *
+     * The reason is ASKED. It used to be hard-coded as "Manual stock correction", so every correction in the shop
+     * gave the same non-answer. Five common answers are one click away and anything else can be typed.
+     *
+     * The key is minted only once the operator confirms, so Cancel sends nothing and leaves no key behind:
+     *   success          → retired at once (the next correction is a new intent; SF-3b: before anything can throw)
+     *   refusal          → kept — a refusal stored nothing under it, so a corrected retry is simply a fresh write
+     *   transport error  → kept — the outcome is unknown, and a retry must REPLAY rather than repeat
+     *   grid redraw      → retired in fillOnHand: the screen has just re-read the real stock
+     */
+    function stockAdjustKey(productId) {
+        return global.FormKeys ? global.FormKeys.get('stockAdjust:' + productId) : null;
+    }
+    function retireStockAdjustKey(productId) {
+        if (global.FormKeys) global.FormKeys.retire('stockAdjust:' + productId);
+    }
+    /** The reasons offered in the correction dialog: translated, and never the only choice. */
+    function stockAdjustReasons() {
+        return ['ui.js.stockAdjReasonDamaged', 'ui.js.stockAdjReasonExpired', 'ui.js.stockAdjReasonLost',
+                'ui.js.stockAdjReasonCount', 'ui.js.stockAdjReasonEntry'].map(function (k) { return t(k); });
+    }
+
+    // Correct on-hand — reduce (a mistaken over-add) by the entered quantity. Uses inventory's DECREASE adjustment,
+    // which refuses to go below zero ("Insufficient stock"). Pass 'INCREASE' to add via the same path.
+    //
+    // ⚠ The direction is `dir`, never `t`. It used to be `var t = type || 'DECREASE'`, which — hoisted — shadowed the
+    // translate function for the WHOLE body: pressing − with no quantity threw "t is not a function" before anything
+    // was shown, and so did the error handler on any network failure (found by the BLK-5 review).
     global.adjustProductStock = function (productId, type) {
         var qty = s2n($('#addstk_' + productId).val());
         if (qty <= 0) { showFormError(t('ui.js.enterAQuantityToCorrectTheOn')); return; }
-        var t = type || 'DECREASE';
-        $.ajax({
-            type: 'POST', url: serverContext + 'adjustProductStock', contentType: 'application/json', dataType: 'json',
-            // BLK-2: the row button carries the wait. Keeps the veil: stock adjustment has no server key yet (BLK-5).
-            busyControl: '#lessstkbtn_' + productId, busyKind: 'post',
-            data: JSON.stringify({ productId: productId, adjustmentType: t, quantity: qty, reason: 'Manual stock correction' }),
-            success: function (resp) {
-                if (resp && resp.success) {
-                    showSaleSuccess((t === 'DECREASE' ? 'Removed ' : 'Added ') + qty + (t === 'DECREASE' ? ' from' : ' to') + ' stock.');
-                    $('#addstk_' + productId).val('');
-                    applyStock(productId, resp);   // PERF-9 — see addProductStock
-                } else { showFormError(apiMessage(resp, 'Could not correct stock (not enough on hand?).')); }
+        var dir = type || 'DECREASE';
+        var down = dir === 'DECREASE';
+        uiPromptConfirm({
+            title: t(down ? 'ui.js.stockAdjRemoveTitle' : 'ui.js.stockAdjAddTitle', qty),
+            message: t('ui.js.stockAdjWhy'),
+            input: {
+                label: t('ui.js.stockAdjReason'), required: true, maxlength: 255,
+                requiredMessage: t('ui.js.stockAdjReasonRequired'), suggestions: stockAdjustReasons()
             },
-            error: function () { showFormError(t('ui.js.couldNotCorrectStock')); }
-            // (no `complete`: BusyControl releases the button on this request's ajaxComplete — BLK-2)
+            confirmText: t(down ? 'ui.js.stockAdjRemove' : 'ui.js.stockAdjAdd'),
+            tone: down ? 'danger' : 'primary'
+        }).then(function (reason) {
+            if (reason == null) return;      // cancelled — nothing sent, and no key minted
+            $.ajax({
+                type: 'POST', url: serverContext + 'adjustProductStock', contentType: 'application/json', dataType: 'json',
+                // BLK-2's rule, now satisfied: inventory de-duplicates this write (BLK-5), so the veil comes off and
+                // the row button carries the wait (a compact spinner — btn-xs).
+                nonBlocking: true,
+                busyControl: '#lessstkbtn_' + productId, busyKind: 'post',
+                data: JSON.stringify({ productId: productId, adjustmentType: dir, quantity: qty, reason: reason,
+                                       idempotencyKey: stockAdjustKey(productId) }),
+                success: function (resp) {
+                    if (resp && resp.success) {
+                        retireStockAdjustKey(productId);   // FIRST — before anything below can throw
+                        showSaleSuccess(resp.replayed
+                            ? t('ui.js.stockAdjAlreadyRecorded')
+                            : (down ? 'Removed ' : 'Added ') + qty + (down ? ' from' : ' to') + ' stock.');
+                        $('#addstk_' + productId).val('');
+                        applyStock(productId, resp);   // PERF-9 — see addProductStock
+                    } else { showFormError(apiMessage(resp, 'Could not correct stock (not enough on hand?).')); }
+                },
+                error: function () { showFormError(t('ui.js.couldNotCorrectStock')); }
+                // (no `complete`: BusyControl releases the button on this request's ajaxComplete — BLK-2)
+            });
         });
     };
 
@@ -1310,6 +1358,10 @@
          * chunk would otherwise stamp OUT OF STOCK across real inventory, which is a stock figure the shop
          * would act on. Only a chunk that actually answered may resolve an absent id to 0.
          */
+        // BLK-5 — the grid is about to show the REAL stock of its rows, so no earlier correction whose outcome was
+        // unknown (a timeout) may replay into a new one that happens to look the same (design §2.4).
+        if (global.FormKeys && global.FormKeys.retirePrefix) global.FormKeys.retirePrefix('stockAdjust:');
+
         var ids = collections.map(function (o) { return o.id; }).filter(function (v) { return v != null; });
         if (!ids.length) return;
 

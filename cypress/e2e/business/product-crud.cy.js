@@ -343,17 +343,30 @@ describe('Product screen — Customer parity (list/add/edit/deactivate + add-sto
       cy.intercept('POST', '**/deleteProduct', (req) => {
         throw new Error('bulk delete posted to /deleteProduct — the override is not wired')
       }).as('deadEndpoint')
-      cy.intercept('POST', '**/deactivateProduct').as('deactivate')
+      /*
+       * PROD-DEL (cfa8a761, 2026-09-14): Delete now posts /removeProducts, which DEACTIVATES an active product and
+       * permanently deletes only an already-deactivated one (CatalogController.removeProducts). This spec kept
+       * waiting on /deactivateProduct and went red on a screen that worked ("1 deactivated.", 200).
+       * The seeded product is ACTIVE, so the answer must be a deactivation with nothing kept.
+       */
+      cy.intercept('POST', '**/removeProducts').as('remove')
 
       cy.window().then((w) => w.showProducts())
       cy.get('#addstkbtn_' + productId, { timeout: 10000 }).should('exist')
-      cy.get('#tableProduct tbody').find("input[type='checkbox']").first().check()
+      // THIS product's row, not "the first row" — a first-row tick passes by removing whatever happens to be newest.
+      cy.get(`#tableProduct tbody input[type='checkbox'][value="${productId}"]`).check()
       cy.get('#bulkBarProduct').should('be.visible')
 
       cy.contains('#bulkBarProduct button', 'Delete').click()
       cy.get('[data-ui-confirm="ok"]').click()          // shared confirm dialog
 
-      cy.wait('@deactivate').its('response.statusCode').should('eq', 200)
+      // 200 is not proof: the monolith answers a refusal with 200 + success:false.
+      cy.wait('@remove').then(({ request, response }) => {
+        expect(response.statusCode).to.eq(200)
+        expect(response.body.success, JSON.stringify(response.body)).to.eq(true)
+        expect(response.body.kept || [], 'an active product is deactivated, not kept').to.have.length(0)
+        expect(String(request.body.checked), 'the request names the seeded product').to.eq(String(productId))
+      })
 
       // Gone from the active list, still intact underneath.
       cy.request('/getUserProduct?q=-1').then((r) => {

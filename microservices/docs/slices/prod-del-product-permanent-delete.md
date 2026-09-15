@@ -1,6 +1,14 @@
 # PROD-DEL — deleting a product: deactivate first, then remove permanently
 
-**Status 2026-09-14:** design, rulings taken (below). Not implemented.
+**Status 2026-09-15:** IMPLEMENTED — shipped in `cfa8a761` (09-14; this line still read "Not implemented").
+First gate run (`product-permanent-delete.cy.js`, headed, solo, on the BLK-5 build) = **4/5**: case 2's repeat delete
+answered `kept: "Could not be removed. Please try again."` instead of "already removed". Cause: `removeProducts`
+caught Spring's `HttpClientErrorException.NotFound`, but `CatalogRestClient` → `GatewayClient` (:221-233) turns every
+404 into `com.web.error.DownstreamNotFoundException`, so that branch was dead. **Fixed** (user consent): the catch
+takes both; unit test `CatalogControllerRemoveProductsTest` 3/3 (`mvn -Dtest=`). **NOT yet built** — gate re-run
+after the next monolith rebuild. Also: `product-crud.cy.js`'s bulk-delete case still waited on `/deactivateProduct`
+(red since `cfa8a761`); spec updated to `/removeProducts`, 14/14.
+_Original status (2026-09-14): design, rulings taken (below)._
 Related: `slices/blk-4-product-optimistic-lock.md` §6 (the gap that raised this), STANDARDS §0c question 5.
 
 ## 1. The ruling (the user, 2026-09-14)

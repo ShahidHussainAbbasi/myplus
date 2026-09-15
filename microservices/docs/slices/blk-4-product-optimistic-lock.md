@@ -1,5 +1,17 @@
 # BLK-4 — optimistic lock on the Product master
 
+> **Review 2026-09-15 (end to end):** the lock is intact in the code that is RUNNING — `update`'s explicit compare
+> + `saveAndFlush` (ProductService 233/249/280/309), the form's `editingVersion` (catalog-products.js 787/941), the
+> monolith passing the body both ways, the 409 sentence reaching `showFormError`; V17 success on Docker MySQL, the
+> column `bigint NOT NULL DEFAULT 0`, 5,726 products with 0 NULL versions (max 9 = live edits move it); served JS ==
+> src. ⚠ **But the 7/7 below ran on catalog 13:29 + monolith 14:59, and both have since been rebuilt with later
+> changes** (catalog jar 20:07 with PROD-DEL — `ProductService` edited 15:32; monolith 15:39 — `catalog-products.js`
+> edited 15:31), and the 20:07 catalog build left no surefire reports. **Re-run the gate and `mvn test` (catalog)
+> before calling BLK-4 green on what is deployed.** Writer count corrected to 9 (§2).
+> ✅ **Re-run GREEN on the current builds (2026-09-15, 07:20–07:31 PKT, run by the user)** — corroborated in the logs:
+> `admin.business@` ×2 and `user.business@` ×2 logins (case 7), and 5 × "409 … Someone else changed this" reaching
+> the monolith. Still owed: catalog `mvn test` (the 20:07 build left no surefire reports) and the §17 manual walk.
+
 **Status 2026-09-14: GATED GREEN.** Deployed: catalog 13:29 (V17 applied to `myplusdb_catalog`), monolith 14:59.
 Unit tests **10/10**, 0 skipped (`ProductOptimisticLockTest` 5 + catalog `FlywayMigrationTest` 5). Gate
 **`product-concurrent-edit.cy.js` 7/7 in 29s**, including case 6 (the real product form sends its version) in 10.5s.
@@ -19,7 +31,8 @@ Gate: `cypress/e2e/business/product-concurrent-edit.cy.js`. Unit test: `catalog-
 
 ## 2. End-to-end trace (counted)
 
-**Writers of `products` in catalog — 8 sites:**
+**Writers of `products` in catalog — 9 sites** (recounted 2026-09-15: the first count missed #9, and PROD-DEL
+replaced #7):
 
 | # | Writer | Called by | Loads the row… | Needs the client's version? |
 |---|---|---|---|---|
@@ -29,8 +42,9 @@ Gate: `cypress/e2e/business/product-concurrent-edit.cy.js`. Unit test: `catalog-
 | 4 | `updatePrice` | `PurchaseService.stampRatesOnProduct` (2 calls: receive `:503`, edit `:689`) | fresh | no (bumps it: this IS the change a form must not overwrite) |
 | 5 | `updateClinicalFlags` | pharma via `CatalogClient`; monolith | fresh | no (bumps it) |
 | 6 | `updateTrackingFlags` | product form, right after a save (`saveProductTracking`) | fresh | no (bumps it) |
-| 7 | `delete` | `/products/{id}` DELETE | fresh | no |
-| 8 | CSV import `saveAll` | I1/I2 | new rows only (existing names skipped) | no |
+| 7 | ~~`delete`~~ → `ProductDeletionWriter.delete` (PROD-DEL, 09-14) | `DELETE /products/{id}`, `ROLE_OWNER`, usage-checked | fresh | no |
+| 8 | CSV import `saveAll` (`ProductImportSpec:242`) | I1/I2 | new rows only (existing names skipped) | no |
+| 9 | `clearTrackingFlags` `saveAll` (`ProductPolicyAdminController:149`, ONB-3, since 09-04) | a tenant losing the serial/batch capability | fresh | no — bumps it, so an open form's next save is refused (conservative: per `ProductDTO:51` the form does not write these flags) |
 
 No `@Modifying`/native SQL touches `products` (grep: 0).
 

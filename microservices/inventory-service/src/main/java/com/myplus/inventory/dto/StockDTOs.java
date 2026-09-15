@@ -33,9 +33,51 @@ public class StockDTOs {
         private StockAdjustment.AdjustmentType adjustmentType;
         private Float quantity;
         private String reason;
+        /** IGNORED on a write (BLK-5): the server stamps the authenticated caller, never trusting the body. */
         private Long adjustedBy;
         private LocalDateTime adjustedAt;
         private String notes;
+        /** BLK-5 — the caller's key for ONE intended correction; a repeat replays instead of adjusting twice. */
+        private String idempotencyKey;
+    }
+
+    /**
+     * BLK-5 — what a stock correction ANSWERS with, and what its history lists.
+     *
+     * <p>A DTO, not the entity: {@code StockAdjustment.warehouse} is LAZY, and a replayed row is read outside any
+     * session, so serialising the entity would fail on the proxy the moment a warehouse is set.
+     */
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class StockAdjustmentView {
+        private Long id;
+        private Long productId;
+        private StockAdjustment.AdjustmentType adjustmentType;
+        private BigDecimal quantity;
+        private String reason;
+        private Long adjustedBy;
+        private LocalDateTime adjustedAt;
+        private Long organizationId;
+        private String idempotencyKey;
+        /** The product's on-hand after this write — on a replay, as it is NOW (PERF-9: no read-back needed). */
+        private Float resultingOnHand;
+        /** True when this answer replays a correction the key had already recorded: nothing moved a second time. */
+        private boolean replayed;
+
+        public static StockAdjustmentView of(StockAdjustment a, Float onHand, boolean replayed) {
+            return StockAdjustmentView.builder()
+                    .id(a.getId())
+                    .productId(a.getProductId())
+                    .adjustmentType(a.getAdjustmentType())
+                    .quantity(a.getQuantity())
+                    .reason(a.getReason())
+                    .adjustedBy(a.getAdjustedBy())
+                    .adjustedAt(a.getAdjustedAt())
+                    .organizationId(a.getOrganizationId())
+                    .idempotencyKey(a.getIdempotencyKey())
+                    .resultingOnHand(onHand)
+                    .replayed(replayed)
+                    .build();
+        }
     }
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor

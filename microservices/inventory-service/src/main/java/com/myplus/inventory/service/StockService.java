@@ -36,8 +36,10 @@ public class StockService {
     private final CatalogClient catalogClient;
 
     /** Confirm the product exists in catalog before stock first enters inventory for it (anti-orphan).
-     *  A 404 means "no such product"; other failures (catalog down) propagate — we don't mask them. */
-    private void assertProductExists(Long productId) {
+     *  A 404 means "no such product"; other failures (catalog down) propagate — we don't mask them.
+     *  Public for BLK-5: a stock correction must pass the same check, and catalog's read is tenant-scoped, so this is
+     *  also "the product is the CALLER'S" — another shop's product id answers 404 here. */
+    public void assertProductExists(Long productId) {
         try {
             catalogClient.getProduct(productId);
         } catch (HttpClientErrorException.NotFound nf) {
@@ -81,47 +83,55 @@ public class StockService {
         return stockEntryRepository.save(entry);
     }
 
+    /**
+     * BLK-5 — the WRITE half of a stock correction: ONE transaction that records the adjustment and moves the stock.
+     *
+     * <p>Called only by {@link StockAdjustmentService}, which owns everything that must happen OUTSIDE a transaction:
+     * validation, the catalog check (a remote call never holds a DB connection), the replay, and the racer's catch
+     * (a duplicate key marks this transaction rollback-only, so no read inside it could answer the replay).
+     *
+     * <p>⚠ THE ROW IS INSERTED AND FLUSHED FIRST, before a single unit moves. Two requests carrying one key then meet
+     * at {@code uq_adj_org_idem} before either touches the shelf: the second blocks on the first's index lock, and
+     * when the first commits it fails with a duplicate key having moved nothing.
+     *
+     * <p>A refusal from {@link #applyStockDelta} ("Cannot reduce below stock already reserved/sold") rolls the row back
+     * with it, so a refused correction leaves no record under its key and a corrected retry proceeds normally.
+     *
+     * @param qty    the validated, positive quantity
+     * @param reason the validated, trimmed reason
+     * @param key    the trimmed key, or null for "no de-duplication"
+     */
     @Transactional
-    public StockAdjustment adjustStock(StockAdjustmentDTO dto) {
-        Long orgId = CurrentUser.organizationId();
-        Long userId = CurrentUser.userId();
+    public StockAdjustmentView recordAdjustment(StockAdjustmentDTO dto, BigDecimal qty, String reason, String key,
+                                               Long orgId, Long userId) {
         Warehouse warehouse = dto.getWarehouseId() != null
                 ? warehouseRepository.findByIdScoped(dto.getWarehouseId(), orgId, userId).orElse(null) : null;
 
-        // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
-        // on-hand) — keeping master data consistent no matter which side edited it.
-        BigDecimal qty = in(dto.getQuantity());
-        /*
-         * ⭐ PERF-9 — keep the resulting on-hand instead of discarding it.
-         *
-         * applyStockDelta has always RETURNED the product's new on-hand; this method threw it away and
-         * answered with the StockAdjustment audit row, so the Product screen had to read the figure back in
-         * a second browser round trip to change one number on screen. Stamped onto the adjustment below,
-         * which is the record the caller already receives.
-         *
-         * An array because a switch arm cannot assign to a local that is later read — the same shape the
-         * JDK's own examples use for this.
-         */
-        final BigDecimal[] newOnHand = { null };
-        switch (dto.getAdjustmentType()) {
-            case INCREASE -> newOnHand[0] = applyStockDelta(dto.getProductId(), qty, null, null, null, orgId, userId);
-            case DECREASE -> newOnHand[0] = applyStockDelta(dto.getProductId(), qty.negate(), null, null, null, orgId, userId);
-            case TRANSFER -> { /* handled via StockTransfer */ }
-        }
-
-        StockAdjustment adj = StockAdjustment.builder()
+        StockAdjustment saved = stockAdjustmentRepository.saveAndFlush(StockAdjustment.builder()
                 .productId(dto.getProductId())
                 .warehouse(warehouse)
                 .adjustmentType(dto.getAdjustmentType())
-                .quantity(in(dto.getQuantity()))
-                .reason(dto.getReason())
-                .adjustedBy(dto.getAdjustedBy())
+                .quantity(qty)
+                .reason(reason)
+                .adjustedBy(userId)          // WHO — the authenticated caller, never the request body
+                .organizationId(orgId)       // WHICH SHOP
+                .idempotencyKey(key)
                 .notes(dto.getNotes())
-                .build();
-        StockAdjustment saved = stockAdjustmentRepository.save(adj);
-        // Not persisted — a transient carrier for the caller, so the write answers with the state it produced.
-        saved.setResultingOnHand(out(newOnHand[0]));
-        return saved;
+                .build());
+
+        // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
+        // on-hand) — keeping master data consistent no matter which side edited it.
+        BigDecimal delta = dto.getAdjustmentType() == StockAdjustment.AdjustmentType.INCREASE ? qty : qty.negate();
+        BigDecimal newOnHand = applyStockDelta(dto.getProductId(), delta, null, null, null, orgId, userId);
+
+        // ⭐ PERF-9 — the write answers with the on-hand it produced, so the screen does not read it back.
+        return StockAdjustmentView.of(saved, out(newOnHand), false);
+    }
+
+    /** BLK-5 — a product's on-hand for an explicit tenant: what a replay answers with, read without a security context. */
+    public Float currentStockFor(Long productId, Long orgId, Long userId) {
+        return stockLevelRepository.findByProductScoped(productId, orgId, userId)
+                .map(sl -> out(sl.getCurrentStock())).orElse(0f);
     }
 
     @Transactional
@@ -333,8 +343,10 @@ public class StockService {
      */
     private static Float out(BigDecimal v) { return v == null ? 0f : v.floatValue(); }
 
-    /** The other direction: a Float arriving from the wire becomes exact before it touches stock. */
-    private static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : BigDecimal.valueOf(f); }
+    /** The other direction: a Float arriving from the wire becomes exact before it touches stock.
+     *  Package-visible for BLK-5: StockAdjustmentService validates and replays with the SAME conversion the write
+     *  uses, so the two can never disagree about what quantity a request asked for. */
+    static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : BigDecimal.valueOf(f); }
 
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {
