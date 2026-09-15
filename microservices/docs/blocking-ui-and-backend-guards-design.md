@@ -482,7 +482,8 @@ removing it. One `#sellItemDD` refresh of 2,390 options = **7.0 s** on the main 
 2026-09-15 (monolith 13:05), and GREEN again 8/0 on the 14:22 monolith + catalog with CACHE-1 live. **All 18
 regressions run:** 16 green; `sell` 29/31 and `purchase-inline-product` 5/10 failed for causes PROVEN outside PSEL-1
 (the SALE-DEF settings race; two PUR-INLINE defects from its own commit) — both fixes owned by myplus-f9. Committed
-2026-09-15 together with the prefetch ruling (Save-Data the only opt-out); SALE-DEF, PUR-INLINE and CACHE-1 commit separately.
+2026-09-15 as `25304ae2`, ONE commit with the prefetch ruling (Save-Data the only opt-out), CACHE-1, SALE-DEF and
+PUR-INLINE fixes A + B; the last three before their post-rebuild gate run finished.
 Spec-side fixes, applied with the user's consent and **not yet gated**:
 - `pos-keyboard.cy.js` — the second Esc now carries `keyCode: 27, which: 27`. Without it, bootstrap-select 1.6.2's
   `b.keyCode.toString(10)` threw on every run since the step was added (09-08); not a v2 regression.
@@ -521,6 +522,25 @@ original regressions are now green.** `picker-prefetch` 1/4: the 3 reds are **VE
 **The user's ruling (2026-09-15): Save-Data is the only connection opt-out** — the effectiveType (2g/slow-2g) check
 is removed from `picker-prefetch.js`, and spec case 3 now asserts that a 2g connection still prefetches. 3B (pinning 4g
 in the spec) is therefore not needed. **Live in the user's 14:22 rebuild (served == src) — `picker-prefetch` 4/4 there.**
+**Run 6 (2026-09-15 17:15-17:54, monolith 17:14:03 carrying SALE-DEF + PUR-INLINE A/B, catalog 14:22:55 carrying
+CACHE-1; all committed in the user's `25304ae2`):** ✅ `sale-defaults-race` 4/4, `purchase-inline-product` 10/10,
+`sell` 31/31, `sale-customer-first` 7/7, `pos-shortcuts` 20/20, `park-hold` 3/3, `business-modal-keyboard` 19/19,
+`purchase-rapid-entry` 28/28, `keyboard-chain-order` 7/7, `pos-keyboard` 22/22, `education-modal-keyboard` 30/30,
+`pos-checkout-chain` 15/15 (after the harness fix below), `pos-cell-layout` 12/12 (re-run), `pos-enter-chain` 7/7,
+`pos-quickpick` 15/15, `pos-sale-endtoend` 6/6.
+- `pos-checkout-chain` was first 14/15: `cy.enableScanBox` pinned the scan box before the page's own settings landed,
+  and the loader then wrote the tenant's scan-off back (the only writers of `#sellScanRow` are `business.js:5002/:5024`).
+  **Harness fix (user consent):** `cy.enableScanBox` and pos-checkout-chain's `openTill` wait for `posDefaultTender`
+  (set by both loader branches) before pinning — covers all 5 unprotected callers. Not yet committed.
+- `pos-cell-layout` was first 11/12, then 12/12 on a plain re-run — intermittent: the 2nd Enter on the price landed in
+  loadStock's re-render window, `walk()` returned null, `commitLine()` refused an empty qty and focused it. The spec's
+  sync point (`#sellSellRate` filled) is satisfied from `data-price` before loadStock finishes. **Open, user's call:**
+  sync on `#sellQuantity` having a value.
+- **Open, spec weakness:** the MOUSE FREE cases (pos-checkout-chain, pos-cell-layout) type the quantity with
+  `cy.focused()` right after a scan; with the box visible focus stays in `#sellScan`, so "2"/"3" go out as scan codes
+  (monolith 404s `scan?code=2/3`) and the cases still pass on `rows >= 1`.
+- **Open, UNVERIFIED product question (myplus-11):** a fast Enter on the price during that re-render, with qty already
+  filled, would reach the same null walk and COMMIT the line, skipping the discount stop. A targeted check, not a fix.
 
 **Also fixed with it — the stranded veil (`ajax-overlay.js`, BLK-1's own defect).** In jQuery 3.3.1 a success/error
 handler that throws skips `ajaxComplete` and `--jQuery.active` (jquery-3.3.1.js:9244/9305/9311-9329), and the overlay's

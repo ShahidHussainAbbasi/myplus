@@ -25,6 +25,11 @@ function openTill() {
   cy.get('#sellType').select('sellDiv', { force: true })
   cy.get('#sellDiv').should('be.visible')
   cy.window().should((w) => expect(w.posGoToCheckout, 'pos-keyboard.js').to.be.a('function'))
+  // The page's settings must have LANDED before the flags are pinned — loadPosFeatureFlags writes posKeyboardEnabled
+  // and posShortcutsEnabled too, and a late one would overwrite these (same race as cy.enableScanBox, see there).
+  cy.window({ timeout: 30000 }).should((w) => {
+    expect(w.posDefaultTender, 'the page has applied its settings (loadPosFeatureFlags ran)').to.not.be.undefined
+  })
   cy.window().then((w) => {
     w.posKeyboardEnabled = true
     w.posShortcutsEnabled = true

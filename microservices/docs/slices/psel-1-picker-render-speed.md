@@ -4,8 +4,19 @@
 (container 13:05:48; served searchable-selects.js / main.js / business.js == src, verified).** **Regressions COMPLETE**
 (18 specs, §5): 16 green; `sell` and `purchase-inline-product` failed for causes proven outside PSEL-1, each with its
 own owned fix. Gate re-run GREEN 8/0 on the 14:22 builds (CACHE-1 live). Manual cases in the Test Book (§16, "New Sale
-on a big shop answers at once"). **Committed 2026-09-15 (user's go-ahead) together with the prefetch ruling**; its
-`business.js` change is 2 hunks only (:656-658, :676), staged by patch so SALE-DEF's uncommitted hunks stay out. Consent: the user, 2026-09-15 ("go for Proposed fixes" — F1, F2, F3). Parent: the dashboard-freeze work
+on a big shop answers at once"). **Committed 2026-09-15 17:17 by the user as `25304ae2` ("f9 done") — ONE commit
+with the prefetch ruling, CACHE-1, SALE-DEF and PUR-INLINE fixes A + B (30 files).** A PSEL-1-only commit was staged
+(11 files, `business.js` 2 hunks) but the user committed the whole tree instead. SALE-DEF, A and B went in before their
+post-rebuild gate run (monolith 17:14) finished — that run (myplus-f9) is now the gate on committed code.
+**That run is GREEN — every spec on the list, on the build carrying `25304ae2`:** sale-defaults-race 4/0, purchase-inline-product
+10/0, sell 31/0, sale-customer-first 7/0, pos-shortcuts 20/0, park-hold 3/0, business-modal-keyboard 19/0, purchase-rapid-entry
+28/0, keyboard-chain-order 7/0, pos-keyboard 22/0, education-modal-keyboard 30/0, pos-checkout-chain 15/0, pos-cell-layout 12/0,
+pos-enter-chain 7/0, pos-quickpick 15/0, pos-sale-endtoend 6/0. Two intermittent spec races were found on the way, neither a
+product defect: (1) `cy.enableScanBox` pinned the scan box before the page's settings landed and was overwritten — fixed in the
+shared helper (waits for `posDefaultTender`), user-approved; (2) `pos-cell-layout` :253 syncs on a price that is now filled
+synchronously from `data-price`, so it can press Enter inside `loadStock`'s re-render — passed on re-run; a spec-side sync
+(wait for `#sellQuantity`) is proposed. ⚠ Open, unverified: the same re-render window at `pos-keyboard.js:862` could commit a
+line (skipping the discount stop) on a very fast Enter with a quantity already filled — a targeted check, not a fix. Consent: the user, 2026-09-15 ("go for Proposed fixes" — F1, F2, F3). Parent: the dashboard-freeze work
 (`blocking-ui-and-backend-guards-design.md` §4.3.3, memory `dashboard-freeze-searchable-selects`).
 
 ---

@@ -1,6 +1,10 @@
 # PUR-INLINE — register a product without leaving the bill
 
-**Status 2026-09-15:** ⚠ the gate had **never been green**. Its first full re-run (PSEL-1 regression batch, 13:05
+**✅ GATED GREEN — `purchase-inline-product.cy.js` 10/10, headed, solo, 2026-09-15 17:16-17:17, monolith 17:14:03
+(served `catalog-products.js` + `enter-chain.js` == src) — the first green this gate has had. Fixes A + B committed in
+the user's `25304ae2` (17:17).** **Test Book: ✅ done** — v30 §2 "Registering a product without leaving the bill",
+8 cases (published by myplus-11).
+**Status 2026-09-15 (history):** ⚠ the gate had **never been green**. Its first full re-run (PSEL-1 regression batch, 13:05
 monolith) was **5/10** — two defects that shipped with this slice (`e3582e27`, 2026-09-14), traced independently by
 sessions myplus-f9 and myplus-11, neither caused by PSEL-1:
 - **A (cases 2, 3, 4, 6):** `newProduct()` stored `productCreatedCb` (`catalog-products.js:343`) and THEN called

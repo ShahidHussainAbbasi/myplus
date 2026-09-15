@@ -1023,6 +1023,17 @@ Cypress.Commands.add('enableScanBox', () => {
     expect(w.applyPosBarcodeVisibility, 'business.js exposes applyPosBarcodeVisibility')
       .to.be.a('function')
   })
+  /*
+   * ⚠ THE PAGE'S OWN SETTINGS MUST HAVE BEEN APPLIED FIRST, or they land AFTER this and write the tenant's scan-off
+   * back over it: loadPosFeatureFlags → applyPosBarcodeVisibility (business.js:5002 / :5024 — the only writers of
+   * #sellScanRow). pos-checkout-chain's MOUSE FREE case went red on exactly that on 2026-09-15 ("#sellScan not
+   * visible … #sellScanRow display: none"), with the box asserted visible one step earlier. A cy.wait on the request
+   * is not enough — it resolves at the proxy, before the page's handler runs. posDefaultTender is set synchronously by
+   * BOTH loader branches (success :4991, failure :5022) before they touch the box, so once it exists the loader is done.
+   */
+  cy.window({ timeout: 30000 }).should((w) => {
+    expect(w.posDefaultTender, 'the page has applied its settings (loadPosFeatureFlags ran)').to.not.be.undefined
+  })
   cy.window().then((w) => {
     w.posBarcodeEnabled = true
     w.applyPosBarcodeVisibility()

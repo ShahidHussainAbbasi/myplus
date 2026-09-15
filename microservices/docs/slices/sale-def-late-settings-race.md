@@ -1,6 +1,10 @@
 # SALE-DEF — a late settings load must never undo the cashier's choice
 
-**Status 2026-09-15:** consented (the user: "Yes, fix it"; order: finish PSEL-1's regressions FIRST, then this fix →
+**✅ GATED GREEN — `sale-defaults-race.cy.js` 4/4 (was 1/4 before the fix) and `sell.cy.js` 31/31, headed, solo,
+2026-09-15 17:15-17:20, monolith 17:14:03 (served `business.js` == src). Committed in the user's `25304ae2` (17:17).**
+Regressions on the same build: in progress (see the run list below). **Test Book: ✅ done** — v30 §1 "The till keeps
+the choice you made" (published by myplus-11), including both known limits below.
+**Status 2026-09-15 (history):** consented (the user: "Yes, fix it"; order: finish PSEL-1's regressions FIRST, then this fix →
 monolith rebuild → `sell.cy.js` + the gate). **Gate proven BEFORE the fix** — `sale-defaults-race.cy.js` on the 14:22
 builds = 1/4 exactly as designed: case 1 read `CARD` for `CREDIT`, case 2 lost Manual mode, case 3 lost Select mode,
 the control passed, and no "settings have not landed" precondition fired. **Fix WRITTEN** (both `business.js` edits,
