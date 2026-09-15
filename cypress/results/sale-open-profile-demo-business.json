@@ -1,0 +1,943 @@
+{
+  "account": "demo-business",
+  "when": "2026-09-15T07:31:46.671Z",
+  "saleAskedAt": 1938,
+  "A": {
+    "totalMs": 19958,
+    "idleMs": 1533,
+    "programMs": 210,
+    "gcMs": 35,
+    "topSelf": [
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 5863
+      },
+      {
+        "fn": "getAttribute :0:0",
+        "ms": 4883
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 1952
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 1435
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
+        "ms": 704
+      },
+      {
+        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
+        "ms": 561
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
+        "ms": 350
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 288
+      },
+      {
+        "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
+        "ms": 242
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
+        "ms": 164
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 129
+      },
+      {
+        "fn": "Ha /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:24:138",
+        "ms": 99
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 72
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 70
+      },
+      {
+        "fn": "xe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:37797",
+        "ms": 60
+      },
+      {
+        "fn": "setAttribute :0:0",
+        "ms": 56
+      },
+      {
+        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
+        "ms": 56
+      },
+      {
+        "fn": "getDocument /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1785:21",
+        "ms": 52
+      },
+      {
+        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
+        "ms": 44
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
+        "ms": 42
+      },
+      {
+        "fn": "t /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:6868",
+        "ms": 42
+      },
+      {
+        "fn": "getPropertyValue :0:0",
+        "ms": 39
+      },
+      {
+        "fn": "oe.tokenize /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:18526",
+        "ms": 38
+      },
+      {
+        "fn": "map /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3104",
+        "ms": 37
+      },
+      {
+        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
+        "ms": 36
+      },
+      {
+        "fn": "getElementsByTagName :0:0",
+        "ms": 35
+      },
+      {
+        "fn": "(garbage collector) :0:0",
+        "ms": 35
+      },
+      {
+        "fn": "merge /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2903",
+        "ms": 33
+      },
+      {
+        "fn": "pushStack /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1146",
+        "ms": 33
+      },
+      {
+        "fn": "Fe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:51333",
+        "ms": 32
+      },
+      {
+        "fn": "appendChild :0:0",
+        "ms": 31
+      },
+      {
+        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
+        "ms": 30
+      },
+      {
+        "fn": "removeChild :0:0",
+        "ms": 27
+      },
+      {
+        "fn": "w.fn.init /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24712",
+        "ms": 26
+      },
+      {
+        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
+        "ms": 25
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:49359",
+        "ms": 23
+      },
+      {
+        "fn": "w.fn.<computed> /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:26982",
+        "ms": 22
+      },
+      {
+        "fn": "ATTR /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:13706",
+        "ms": 17
+      },
+      {
+        "fn": "xt /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:65647",
+        "ms": 17
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
+        "ms": 16
+      }
+    ],
+    "topInclusiveApp": [
+      {
+        "fn": "y.handle /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:39714",
+        "ms": 17799
+      },
+      {
+        "fn": "dispatch /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41190",
+        "ms": 17799
+      },
+      {
+        "fn": "(anonymous) /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:811:34",
+        "ms": 17778
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
+        "ms": 17757
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
+        "ms": 17721
+      },
+      {
+        "fn": "loadDataTable /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:1901:23",
+        "ms": 17690
+      },
+      {
+        "fn": "decorated /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:116:34",
+        "ms": 17659
+      },
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 17659
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 17658
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 17658
+      },
+      {
+        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
+        "ms": 17004
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
+        "ms": 16973
+      },
+      {
+        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
+        "ms": 16814
+      },
+      {
+        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
+        "ms": 16807
+      },
+      {
+        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
+        "ms": 16493
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 15572
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 15412
+      },
+      {
+        "fn": "oe.matches /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12226",
+        "ms": 15106
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 14940
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 12989
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
+        "ms": 11080
+      },
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 10732
+      },
+      {
+        "fn": "preloadSectionPickers /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:1792:31",
+        "ms": 9091
+      },
+      {
+        "fn": "loadUserItems /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2734:23",
+        "ms": 8775
+      },
+      {
+        "fn": "load /js/common/product-picker-bc6589150bc087b51be22d945b0f1629.js:80:18",
+        "ms": 8775
+      },
+      {
+        "fn": "(anonymous) /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2741:29",
+        "ms": 8775
+      },
+      {
+        "fn": "updateReadOnly /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1486:24",
+        "ms": 8577
+      },
+      {
+        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
+        "ms": 8424
+      },
+      {
+        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
+        "ms": 8096
+      },
+      {
+        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
+        "ms": 1256
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
+        "ms": 704
+      },
+      {
+        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
+        "ms": 445
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 404
+      },
+      {
+        "fn": "loadSellCustomers /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2204:27",
+        "ms": 315
+      },
+      {
+        "fn": "load /js/common/customer-picker-b47a05caca4676b8e05e583ea6dc2497.js:34:18",
+        "ms": 315
+      },
+      {
+        "fn": "(anonymous) /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2236:30",
+        "ms": 315
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 314
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 307
+      },
+      {
+        "fn": "refreshSearchableSelect /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:274:37",
+        "ms": 282
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 276
+      }
+    ],
+    "bootstrapSelect": [
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 17659
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 17658
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 17658
+      },
+      {
+        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
+        "ms": 17004
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
+        "ms": 16973
+      },
+      {
+        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
+        "ms": 8424
+      },
+      {
+        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
+        "ms": 8096
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 314
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 307
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 276
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
+        "ms": 228
+      },
+      {
+        "fn": "setWidth /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:11584",
+        "ms": 33
+      },
+      {
+        "fn": "h /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5467",
+        "ms": 27
+      },
+      {
+        "fn": "destroyLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5226",
+        "ms": 20
+      },
+      {
+        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
+        "ms": 13
+      },
+      {
+        "fn": "c /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:104",
+        "ms": 12
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
+        "ms": 8
+      },
+      {
+        "fn": "findLis /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7146",
+        "ms": 2
+      },
+      {
+        "fn": "setStyle /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:8813",
+        "ms": 1
+      },
+      {
+        "fn": "g /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5311",
+        "ms": 1
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:740",
+        "ms": 1
+      }
+    ],
+    "samplingUs": 719,
+    "pickers": [
+      {
+        "id": "sellItemDD",
+        "options": 2511,
+        "lis": 2511
+      },
+      {
+        "id": "sellCustomerDD",
+        "options": 468,
+        "lis": 468
+      }
+    ],
+    "calls": [
+      {
+        "t": 2095,
+        "dur": 26,
+        "cmd": "refresh",
+        "n": 3,
+        "ids": [
+          "venderCompanyDD",
+          "BUTTON",
+          "UL"
+        ],
+        "by": []
+      },
+      {
+        "t": 2191,
+        "dur": 8815,
+        "cmd": "refresh",
+        "n": 1,
+        "ids": [
+          "sellItemDD"
+        ],
+        "by": []
+      },
+      {
+        "t": 11041,
+        "dur": 285,
+        "cmd": "refresh",
+        "n": 1,
+        "ids": [
+          "sellCustomerDD"
+        ],
+        "by": []
+      },
+      {
+        "t": 11345,
+        "dur": 8644,
+        "cmd": "refresh",
+        "n": 1,
+        "ids": [
+          "sellItemDD"
+        ],
+        "by": []
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 2075,
+        "dur": 17971
+      },
+      {
+        "start": 20067,
+        "dur": 229
+      },
+      {
+        "start": 22019,
+        "dur": 160
+      }
+    ]
+  },
+  "resetAt": 22560,
+  "resetButton": {
+    "type": "reset",
+    "visible": true
+  },
+  "B": {
+    "totalMs": 21192,
+    "idleMs": 4025,
+    "programMs": 338,
+    "gcMs": 54,
+    "topSelf": [
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 5326
+      },
+      {
+        "fn": "getAttribute :0:0",
+        "ms": 4542
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 2228
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 1175
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
+        "ms": 606
+      },
+      {
+        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
+        "ms": 493
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 480
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
+        "ms": 318
+      },
+      {
+        "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
+        "ms": 255
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
+        "ms": 130
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
+        "ms": 101
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 98
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 70
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 65
+      },
+      {
+        "fn": "setAttribute :0:0",
+        "ms": 60
+      },
+      {
+        "fn": "(garbage collector) :0:0",
+        "ms": 54
+      },
+      {
+        "fn": "merge /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2903",
+        "ms": 53
+      },
+      {
+        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
+        "ms": 47
+      },
+      {
+        "fn": "t /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:6868",
+        "ms": 35
+      },
+      {
+        "fn": "removeChild :0:0",
+        "ms": 32
+      },
+      {
+        "fn": "getElementsByTagName :0:0",
+        "ms": 31
+      },
+      {
+        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
+        "ms": 31
+      },
+      {
+        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
+        "ms": 29
+      },
+      {
+        "fn": "oe.tokenize /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:18526",
+        "ms": 28
+      },
+      {
+        "fn": "xe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:37797",
+        "ms": 28
+      },
+      {
+        "fn": "map /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3104",
+        "ms": 25
+      },
+      {
+        "fn": "_isFullyVisible /__cypress/runner/cypress_runner.js:187948:18",
+        "ms": 24
+      },
+      {
+        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
+        "ms": 23
+      },
+      {
+        "fn": "getPropertyValue :0:0",
+        "ms": 21
+      },
+      {
+        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
+        "ms": 18
+      },
+      {
+        "fn": "xt /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:65647",
+        "ms": 18
+      },
+      {
+        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
+        "ms": 17
+      },
+      {
+        "fn": "appendChild :0:0",
+        "ms": 17
+      },
+      {
+        "fn": "w.fn.init /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24712",
+        "ms": 17
+      },
+      {
+        "fn": "w.fn.<computed> /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:26982",
+        "ms": 15
+      },
+      {
+        "fn": "ATTR /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:13706",
+        "ms": 15
+      },
+      {
+        "fn": "oe.isXML /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:8069",
+        "ms": 14
+      },
+      {
+        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
+        "ms": 14
+      },
+      {
+        "fn": "cloneNode :0:0",
+        "ms": 12
+      },
+      {
+        "fn": "selected /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:17361",
+        "ms": 11
+      }
+    ],
+    "topInclusiveApp": [
+      {
+        "fn": "y.handle /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:39714",
+        "ms": 16635
+      },
+      {
+        "fn": "dispatch /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41190",
+        "ms": 16635
+      },
+      {
+        "fn": "decorated /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:116:34",
+        "ms": 16630
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
+        "ms": 16630
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
+        "ms": 16630
+      },
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 16630
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 16630
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 16630
+      },
+      {
+        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
+        "ms": 15948
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
+        "ms": 15938
+      },
+      {
+        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
+        "ms": 15867
+      },
+      {
+        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
+        "ms": 15838
+      },
+      {
+        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
+        "ms": 15598
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 14743
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 14621
+      },
+      {
+        "fn": "oe.matches /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12226",
+        "ms": 14398
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 14007
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 11779
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
+        "ms": 10170
+      },
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 9856
+      },
+      {
+        "fn": "(anonymous) /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1185:51",
+        "ms": 8959
+      },
+      {
+        "fn": "updateReadOnly /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1486:24",
+        "ms": 8959
+      },
+      {
+        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
+        "ms": 7956
+      },
+      {
+        "fn": "(anonymous) /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:304:58",
+        "ms": 7673
+      },
+      {
+        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
+        "ms": 7633
+      },
+      {
+        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
+        "ms": 1099
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
+        "ms": 606
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 373
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 336
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 315
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 306
+      },
+      {
+        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
+        "ms": 295
+      },
+      {
+        "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
+        "ms": 255
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 199
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
+        "ms": 134
+      },
+      {
+        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
+        "ms": 123
+      },
+      {
+        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
+        "ms": 106
+      },
+      {
+        "fn": "find /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24208",
+        "ms": 98
+      },
+      {
+        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63365",
+        "ms": 86
+      },
+      {
+        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63517",
+        "ms": 82
+      }
+    ],
+    "bootstrapSelect": [
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 16630
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 16630
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 16630
+      },
+      {
+        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
+        "ms": 15948
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
+        "ms": 15938
+      },
+      {
+        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
+        "ms": 7956
+      },
+      {
+        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
+        "ms": 7633
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 373
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 315
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 306
+      },
+      {
+        "fn": "destroyLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5226",
+        "ms": 42
+      },
+      {
+        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
+        "ms": 17
+      },
+      {
+        "fn": "c /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:104",
+        "ms": 13
+      },
+      {
+        "fn": "setWidth /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:11584",
+        "ms": 2
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
+        "ms": 1
+      },
+      {
+        "fn": "findLis /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7146",
+        "ms": 1
+      },
+      {
+        "fn": "setStyle /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:8813",
+        "ms": 1
+      }
+    ],
+    "samplingUs": 664,
+    "calls": [
+      {
+        "t": 22871,
+        "dur": 9040,
+        "cmd": "refresh",
+        "n": 1,
+        "ids": [
+          "sellItemDD"
+        ],
+        "by": []
+      },
+      {
+        "t": 31914,
+        "dur": 7754,
+        "cmd": "refresh",
+        "n": 9,
+        "ids": [
+          "sellItemDD",
+          "BUTTON",
+          "UL",
+          "sellDiscountTypeDD",
+          "BUTTON",
+          "UL"
+        ],
+        "by": []
+      }
+    ],
+    "longtasks": [
+      {
+        "start": 44121,
+        "dur": 127
+      }
+    ],
+    "pickers": [
+      {
+        "id": "sellItemDD",
+        "options": 2511,
+        "lis": 2511
+      },
+      {
+        "id": "sellCustomerDD",
+        "options": 468,
+        "lis": 468
+      }
+    ]
+  }
+}

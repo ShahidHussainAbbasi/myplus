@@ -5,8 +5,9 @@ First gate run (`product-permanent-delete.cy.js`, headed, solo, on the BLK-5 bui
 answered `kept: "Could not be removed. Please try again."` instead of "already removed". Cause: `removeProducts`
 caught Spring's `HttpClientErrorException.NotFound`, but `CatalogRestClient` → `GatewayClient` (:221-233) turns every
 404 into `com.web.error.DownstreamNotFoundException`, so that branch was dead. **Fixed** (user consent): the catch
-takes both; unit test `CatalogControllerRemoveProductsTest` 3/3 (`mvn -Dtest=`). **NOT yet built** — gate re-run
-after the next monolith rebuild. Also: `product-crud.cy.js`'s bulk-delete case still waited on `/deactivateProduct`
+takes both; unit test `CatalogControllerRemoveProductsTest` 3/3 (`mvn -Dtest=`). **✅ GATED GREEN 5/5** (headed, solo,
+2026-09-15 12:36-12:37, monolith rebuilt 12:34 — the RUNNING `/app.jar`'s CatalogController.class verified to carry
+the fix). Also: `product-crud.cy.js`'s bulk-delete case still waited on `/deactivateProduct`
 (red since `cfa8a761`); spec updated to `/removeProducts`, 14/14.
 _Original status (2026-09-14): design, rulings taken (below)._
 Related: `slices/blk-4-product-optimistic-lock.md` §6 (the gap that raised this), STANDARDS §0c question 5.
