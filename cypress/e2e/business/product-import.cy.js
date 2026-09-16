@@ -291,13 +291,22 @@ describe('I2 — Product CSV import', () => {
     //    resolves a route — so a deleted path and a live one are indistinguishable, and the assertion could
     //    never have meant anything.
     //
-    // 2. It must not expect 404. catalog-service answers 500 for ANY unmapped path (its GlobalExceptionHandler
-    //    swallows the no-handler case into a generic error), which is a pre-existing platform behaviour and
-    //    not something this slice introduced.
+    // 2. It must not expect a magic number. It compares against a REFERENCE — a path that never existed — so the
+    //    case says "the deleted route is indistinguishable from one that was never there" and survives the
+    //    platform changing how it refuses.
     //
-    // So the honest assertion compares against a REFERENCE rather than a magic number: the deleted route must
-    // behave exactly like a route that never existed, and differently from a live one. That also survives the
-    // platform later fixing its 404 handling — both sides would move together.
+    // 3. ⚠ THE REFERENCE MUST SIT UNDER /products/ AND USE THE SAME METHOD (fixed 2026-09-16, found by CACHE-2's
+    //    regression run). Until BLK-0's status passthrough shipped (`e3582e27`, 2026-09-14) catalog flattened
+    //    EVERY framework refusal to 500, so any reference matched. Now the framework's own status survives, and
+    //    the two are no longer interchangeable:
+    //        POST /api/catalog/definitely-not-a-route           → 404  (matches no mapping at all)
+    //        POST /api/catalog/products/import                  → 405  Allow: DELETE, PUT, GET
+    //        POST /api/catalog/products/definitely-not-a-route  → 405  Allow: DELETE, PUT, GET
+    //    405, because `/products/{id}` (GET/PUT/DELETE) claims the PATH and only the METHOD is refused. So the
+    //    old root-level GET reference could never equal it again — the case went red on a deleted endpoint that
+    //    is still perfectly deleted. The reference now sits at the same position in the API, with the same
+    //    method, and `Allow` is asserted directly: whatever `/products/{id}` accepts, POST is not in it, which
+    //    is what "nothing serves this path any more" actually means.
     cy.request({
       method: 'POST', url: 'http://localhost:8765/api/auth/login',
       headers: { 'Content-Type': 'application/json' },
@@ -314,18 +323,23 @@ describe('I2 — Product CSV import', () => {
       }).then((live) => {
         expect(live.status, 'catalog-service is up — a live route answers 200').to.eq(200)
 
-        // REFERENCE: a path that has never existed, to learn what "unmapped" looks like here.
+        // REFERENCE: same METHOD, same position in the API — a sibling of the deleted path that never existed.
         cy.request({
-          method: 'GET', url: 'http://localhost:8765/api/catalog/definitely-not-a-route',
-          headers, failOnStatusCode: false,
+          method: 'POST', url: 'http://localhost:8765/api/catalog/products/definitely-not-a-route',
+          headers, body: [], failOnStatusCode: false,
         }).then((absent) => {
           cy.request({
             method: 'POST', url: 'http://localhost:8765/api/catalog/products/import',
             headers, body: [], failOnStatusCode: false,
           }).then((deleted) => {
-            expect(deleted.status, 'the deleted route answers exactly as a never-existed one does')
+            expect(deleted.status, 'the deleted route answers exactly as a never-existed sibling does')
               .to.eq(absent.status)
             expect(deleted.status, 'and is certainly not still serving').to.not.eq(200)
+            // The direct proof, and the one that would catch the endpoint being restored under any status:
+            // whatever this path accepts, POST is not among it.
+            const allow = deleted.headers.allow || deleted.headers.Allow || ''
+            expect(String(allow).toUpperCase(), `nothing accepts POST here (Allow: "${allow}")`)
+              .to.not.contain('POST')
           })
         })
       })
