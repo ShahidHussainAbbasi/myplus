@@ -7,16 +7,25 @@
  *
  * Record it with:
  *   npm run test:e2e:education:demo
- *   (= cypress run --browser chrome --headed --config video=true --spec cypress/e2e/education/demo.cy.js)
+ *   (= cypress run --browser chrome --headed --config video=true --env demo=1
+ *      --spec cypress/e2e/education/demo.cy.js)
  *
  * The MP4 lands in cypress/videos/education/demo.cy.js.mp4.
+ *
+ * ⚠ OPT-IN, and it must stay that way rather than going back in `excludeSpecPattern`. Cypress 13 applies that list
+ * to a `--spec` path as well, so from 6eed5c66 (2026-06-14) until 2026-09-16 this walkthrough was unreachable: the
+ * npm script above named it and Cypress resolved it to nothing, silently, and no video could be recorded. The env
+ * flag keeps it out of `cypress run` (it reports as pending) while leaving it runnable by name.
  *
  * Prerequisites: full stack up (monolith :8080 in auth.mode=server + config/eureka/gateway/auth +
  * education-service), seeded education data (a school + "Grade 1" + students ENR-001/ENR-002), and
  * the fixtures cypress/fixtures/students-import.csv and contacts-import.csv.
  */
 
-describe('Education — end-to-end user-manual walkthrough', () => {
+// Opt-in (see the header): a narrated recording, not a regression test, and it needs a fully seeded school.
+const record = Cypress.env('demo') ? describe : describe.skip
+
+record('Education — end-to-end user-manual walkthrough', () => {
   const STEP = 1200 // pause between actions so the recording is watchable
   const READ = 2200 // pause long enough to read a caption banner
 

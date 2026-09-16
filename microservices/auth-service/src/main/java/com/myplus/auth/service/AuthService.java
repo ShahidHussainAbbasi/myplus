@@ -735,8 +735,27 @@ public class AuthService {
                 .demo(user.isDemo());
     }
 
+    /**
+     * AUTH-SESS-1 — sign out the device that asked.
+     *
+     * <p>A presented refresh token ends THAT session and no other. One that is unknown, already rotated or another
+     * user's deletes nothing and is still a success — the session it names is gone either way, and falling back to
+     * revoke-everything here would rebuild the defect this slice exists to remove.
+     *
+     * <p>No token (a client older than this slice) keeps the previous behaviour: revoke all.
+     */
     @Transactional
-    public void logout(Long userId) {
+    public void logout(Long userId, String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            refreshTokenService.deleteByToken(userId, refreshToken);
+            return;
+        }
+        logoutAll(userId);
+    }
+
+    /** Revoke EVERY session — for a password reset, a password change, or an account lock. */
+    @Transactional
+    public void logoutAll(Long userId) {
         refreshTokenService.deleteByUserId(userId);
     }
 
@@ -779,6 +798,14 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         passwordResetTokenRepository.delete(prt);
+        /*
+         * AUTH-SESS-1 (defect B) — a reset must SHUT OUT whoever the password is being changed away from.
+         *
+         * Until now nothing here revoked anything: every existing session stayed alive on its refresh token for up
+         * to jwt.refresh-token-expiration-ms (7 days), including the session the reset was meant to end. The blunt
+         * revoke-all was firing on ordinary logout instead — the same method, wired to the wrong event.
+         */
+        refreshTokenService.deleteByUserId(user.getId());
     }
 
     public Map<String, Object> validateToken(String token) {

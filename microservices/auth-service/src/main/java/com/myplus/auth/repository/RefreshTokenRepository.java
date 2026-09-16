@@ -27,4 +27,22 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
      * issue order, so the head of the list is the oldest session and is what the session cap evicts.
      */
     List<RefreshToken> findByUserOrderByExpiryDateAsc(User user);
+
+    /**
+     * SESS-1 — how many devices this account is signed in on right now.
+     *
+     * <p>Counted rather than {@code findBy…().size()} so the header chip costs one COUNT per read: it is
+     * polled by every signed-in dashboard, which is exactly the shape that turns a convenience query into
+     * a load problem.
+     */
+    long countByUser(User user);
+
+    /**
+     * SESS-1 — "sign out my other devices": every session for this user EXCEPT the one presenting the call.
+     *
+     * <p>Keyed on the caller's own refresh token, never on an id from the request, so a caller can only ever
+     * end their OWN sessions. Returns the number removed, which is what the screen reports back.
+     */
+    @Modifying
+    int deleteByUserAndTokenNot(User user, String token);
 }

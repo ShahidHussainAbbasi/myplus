@@ -1,423 +1,437 @@
 {
   "account": "owner-business",
-  "when": "2026-09-15T07:32:36.746Z",
-  "saleAskedAt": 1456,
+  "when": "2026-09-16T05:55:58.917Z",
+  "saleAskedAt": 1938,
   "A": {
-    "totalMs": 9760,
-    "idleMs": 1457,
-    "programMs": 260,
-    "gcMs": 48,
+    "totalMs": 2654,
+    "idleMs": 1251,
+    "programMs": 253,
+    "gcMs": 14,
     "topSelf": [
       {
-        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
-        "ms": 2337
-      },
-      {
-        "fn": "getAttribute :0:0",
-        "ms": 1847
-      },
-      {
-        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
-        "ms": 931
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
-        "ms": 538
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
-        "ms": 304
-      },
-      {
-        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
-        "ms": 243
-      },
-      {
-        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
-        "ms": 219
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
-        "ms": 150
-      },
-      {
         "fn": "Ha /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:24:138",
-        "ms": 126
+        "ms": 163
       },
       {
         "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
-        "ms": 120
-      },
-      {
-        "fn": "xe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:37797",
-        "ms": 88
+        "ms": 136
       },
       {
         "fn": "parseFromString :0:0",
-        "ms": 67
+        "ms": 81
       },
       {
-        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
-        "ms": 65
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
-        "ms": 62
-      },
-      {
-        "fn": "appendChild :0:0",
-        "ms": 55
-      },
-      {
-        "fn": "(garbage collector) :0:0",
-        "ms": 48
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
-        "ms": 41
-      },
-      {
-        "fn": "setAttribute :0:0",
-        "ms": 41
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
-        "ms": 37
+        "fn": "xe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:37797",
+        "ms": 73
       },
       {
         "fn": "getPropertyValue :0:0",
-        "ms": 33
+        "ms": 50
       },
       {
-        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
-        "ms": 31
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 36
       },
       {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:49359",
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
+        "ms": 30
+      },
+      {
+        "fn": "appendChild :0:0",
         "ms": 27
       },
       {
-        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
         "ms": 26
       },
       {
-        "fn": "_isFullyVisible /__cypress/runner/cypress_runner.js:187948:18",
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:49359",
         "ms": 25
       },
       {
-        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
-        "ms": 24
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
-        "ms": 19
-      },
-      {
-        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
-        "ms": 19
-      },
-      {
-        "fn": "Fe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:51333",
+        "fn": "(anonymous) /js/common/rum-23419b4ccf791a4ccf44cb3334f894c3.js:203:27",
         "ms": 18
       },
       {
-        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63517",
+        "fn": "setAttribute :0:0",
         "ms": 16
       },
       {
-        "fn": "t /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:6868",
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
         "ms": 14
       },
       {
-        "fn": "oe.tokenize /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:18526",
+        "fn": "(garbage collector) :0:0",
         "ms": 14
-      },
-      {
-        "fn": "map /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3104",
-        "ms": 13
-      },
-      {
-        "fn": "Re /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:46647",
-        "ms": 13
       },
       {
         "fn": "querySelectorAll :0:0",
-        "ms": 12
+        "ms": 14
       },
       {
-        "fn": "C /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3504",
-        "ms": 12
+        "fn": "getAttribute :0:0",
+        "ms": 13
       },
       {
-        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
-        "ms": 12
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 13
       },
       {
-        "fn": "merge /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2903",
+        "fn": "removeChild :0:0",
+        "ms": 11
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
         "ms": 10
       },
       {
-        "fn": "ne /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:33194",
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 10
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 10
+      },
+      {
+        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63517",
         "ms": 9
       },
       {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
+        "fn": "(anonymous) /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:209:52",
         "ms": 9
       },
       {
         "fn": "getElementsByTagName :0:0",
-        "ms": 9
-      }
-    ],
-    "topInclusiveApp": [
-      {
-        "fn": "fireWith /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:28138",
-        "ms": 7683
+        "ms": 8
       },
       {
-        "fn": "u /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:27375",
-        "ms": 7683
+        "fn": "w.fn.init /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24712",
+        "ms": 8
       },
       {
-        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
-        "ms": 7489
+        "fn": "getClientRects :0:0",
+        "ms": 8
       },
       {
-        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
-        "ms": 7366
+        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
+        "ms": 8
       },
       {
-        "fn": "decorated /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:116:34",
-        "ms": 7306
+        "fn": "data /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:33647",
+        "ms": 8
       },
       {
-        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
-        "ms": 7305
+        "fn": "cloneNode :0:0",
+        "ms": 7
       },
       {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
-        "ms": 7305
+        "fn": "focus :0:0",
+        "ms": 7
       },
       {
-        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
-        "ms": 7305
+        "fn": "map /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3104",
+        "ms": 7
       },
       {
-        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
-        "ms": 6905
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
-        "ms": 6899
-      },
-      {
-        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
-        "ms": 6876
-      },
-      {
-        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
-        "ms": 6873
-      },
-      {
-        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
-        "ms": 6726
-      },
-      {
-        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
-        "ms": 6369
-      },
-      {
-        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
-        "ms": 6295
-      },
-      {
-        "fn": "oe.matches /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12226",
-        "ms": 6135
-      },
-      {
-        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
-        "ms": 6008
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
-        "ms": 5078
-      },
-      {
-        "fn": "c /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:29670",
-        "ms": 4425
-      },
-      {
-        "fn": "l /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:29345",
-        "ms": 4425
-      },
-      {
-        "fn": "(anonymous) /js/common/product-picker-bc6589150bc087b51be22d945b0f1629.js:104:32",
-        "ms": 4425
-      },
-      {
-        "fn": "(anonymous) /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2741:29",
-        "ms": 4425
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
-        "ms": 4324
-      },
-      {
-        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
-        "ms": 4177
-      },
-      {
-        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
-        "ms": 3448
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79731",
-        "ms": 3268
-      },
-      {
-        "fn": "k /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:77195",
-        "ms": 3264
-      },
-      {
-        "fn": "(anonymous) /js/common/customer-picker-b47a05caca4676b8e05e583ea6dc2497.js:48:28",
-        "ms": 2973
-      },
-      {
-        "fn": "(anonymous) /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:2236:30",
-        "ms": 2973
-      },
-      {
-        "fn": "refreshSearchableSelect /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:274:37",
-        "ms": 2854
-      },
-      {
-        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
-        "ms": 541
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
-        "ms": 304
-      },
-      {
-        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:102:517",
-        "ms": 287
-      },
-      {
-        "fn": "iterator /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:99:463",
-        "ms": 285
-      },
-      {
-        "fn": "success /js/business/business-69af191d3d6f8e54edcfac22fdb311f5.js:1995:23",
-        "ms": 284
-      },
-      {
-        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:116:325",
-        "ms": 250
-      },
-      {
-        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:116:365",
-        "ms": 250
-      },
-      {
-        "fn": "O /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:16:147",
-        "ms": 248
-      },
-      {
-        "fn": "Ha /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:24:138",
-        "ms": 245
-      },
-      {
-        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
-        "ms": 217
-      }
-    ],
-    "bootstrapSelect": [
-      {
-        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
-        "ms": 7305
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
-        "ms": 7305
-      },
-      {
-        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
-        "ms": 7305
-      },
-      {
-        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
-        "ms": 6905
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
-        "ms": 6899
-      },
-      {
-        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
-        "ms": 3448
-      },
-      {
-        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
-        "ms": 217
-      },
-      {
-        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
-        "ms": 205
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
-        "ms": 171
-      },
-      {
-        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
-        "ms": 164
-      },
-      {
-        "fn": "h /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5467",
-        "ms": 21
-      },
-      {
-        "fn": "setWidth /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:11584",
-        "ms": 18
-      },
-      {
-        "fn": "c /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:104",
-        "ms": 13
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
-        "ms": 9
+        "fn": "alreadyScrollable /js/common/responsive-tables-d6c6782eb99bff84aaf784b2bffd3c16.js:26:28",
+        "ms": 7
       },
       {
         "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
         "ms": 7
       },
       {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:740",
+        "fn": "Fe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:51333",
+        "ms": 6
+      },
+      {
+        "fn": "Ut /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:73270",
+        "ms": 6
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 6
+      },
+      {
+        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
+        "ms": 6
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
+        "ms": 6
+      },
+      {
+        "fn": "merge /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2903",
+        "ms": 5
+      },
+      {
+        "fn": "handlers /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41930",
+        "ms": 5
+      }
+    ],
+    "topInclusiveApp": [
+      {
+        "fn": "y.handle /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:39714",
+        "ms": 607
+      },
+      {
+        "fn": "dispatch /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41190",
+        "ms": 607
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
+        "ms": 606
+      },
+      {
+        "fn": "(anonymous) /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:821:34",
+        "ms": 577
+      },
+      {
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
+        "ms": 529
+      },
+      {
+        "fn": "loadDataTable /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:1904:23",
+        "ms": 523
+      },
+      {
+        "fn": "preloadSectionPickers /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:1795:31",
+        "ms": 469
+      },
+      {
+        "fn": "decorated /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:139:34",
+        "ms": 452
+      },
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 451
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 451
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 386
+      },
+      {
+        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:102:517",
+        "ms": 330
+      },
+      {
+        "fn": "iterator /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:99:463",
+        "ms": 328
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79731",
+        "ms": 328
+      },
+      {
+        "fn": "k /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:77195",
+        "ms": 323
+      },
+      {
+        "fn": "fireWith /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:28138",
+        "ms": 317
+      },
+      {
+        "fn": "u /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:27375",
+        "ms": 317
+      },
+      {
+        "fn": "success /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:1998:23",
+        "ms": 317
+      },
+      {
+        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:116:325",
+        "ms": 287
+      },
+      {
+        "fn": "(anonymous) /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:116:365",
+        "ms": 286
+      },
+      {
+        "fn": "O /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:16:147",
+        "ms": 286
+      },
+      {
+        "fn": "Ha /js/jquery.dataTables.min-2b2c777d6aea488fdd44c53cf8296cf8.js:24:138",
+        "ms": 283
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 280
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 239
+      },
+      {
+        "fn": "loadSellCustomers /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:2207:27",
+        "ms": 235
+      },
+      {
+        "fn": "load /js/common/customer-picker-b47a05caca4676b8e05e583ea6dc2497.js:34:18",
+        "ms": 234
+      },
+      {
+        "fn": "(anonymous) /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:2239:30",
+        "ms": 234
+      },
+      {
+        "fn": "loadUserItems /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:2737:23",
+        "ms": 234
+      },
+      {
+        "fn": "load /js/common/product-picker-bc6589150bc087b51be22d945b0f1629.js:80:18",
+        "ms": 234
+      },
+      {
+        "fn": "(anonymous) /js/business/business-1b1662476e9040b24c7e7515bc08b89b.js:2744:29",
+        "ms": 234
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 215
+      },
+      {
+        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
+        "ms": 203
+      },
+      {
+        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
+        "ms": 203
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 188
+      },
+      {
+        "fn": "refreshSearchableSelect /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:401:37",
+        "ms": 173
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 167
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 164
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 157
+      },
+      {
+        "fn": "oe.matches /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12226",
+        "ms": 138
+      },
+      {
+        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
+        "ms": 136
+      }
+    ],
+    "bootstrapSelect": [
+      {
+        "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
+        "ms": 451
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
+        "ms": 451
+      },
+      {
+        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
+        "ms": 386
+      },
+      {
+        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
+        "ms": 167
+      },
+      {
+        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
+        "ms": 164
+      },
+      {
+        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
+        "ms": 157
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
+        "ms": 124
+      },
+      {
+        "fn": "h /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5467",
+        "ms": 16
+      },
+      {
+        "fn": "c /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:104",
+        "ms": 8
+      },
+      {
+        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
+        "ms": 7
+      },
+      {
+        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
+        "ms": 7
+      },
+      {
+        "fn": "setWidth /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:11584",
+        "ms": 7
+      },
+      {
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
+        "ms": 6
+      },
+      {
+        "fn": "checkDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13431",
+        "ms": 2
+      },
+      {
+        "fn": "isDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13368",
+        "ms": 2
+      },
+      {
+        "fn": "g /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5311",
         "ms": 1
       },
       {
-        "fn": "destroyLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5226",
+        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7544",
+        "ms": 1
+      },
+      {
+        "fn": "findLis /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7146",
         "ms": 1
       }
     ],
-    "samplingUs": 918,
+    "samplingUs": 778,
     "pickers": [
       {
         "id": "sellItemDD",
-        "options": 1892,
-        "lis": 1892
+        "options": 1949,
+        "lis": 1949
       },
       {
         "id": "sellCustomerDD",
-        "options": 1615,
-        "lis": 1615
+        "options": 1620,
+        "lis": 1620
       }
     ],
     "calls": [
       {
-        "t": 1900,
-        "dur": 2879,
+        "t": 2186,
+        "dur": 213,
+        "cmd": "refresh",
+        "n": 1,
+        "ids": [
+          "sellItemDD"
+        ],
+        "by": []
+      },
+      {
+        "t": 2461,
+        "dur": 181,
         "cmd": "refresh",
         "n": 1,
         "ids": [
@@ -426,9 +440,19 @@
         "by": []
       },
       {
-        "t": 4800,
-        "dur": 4445,
-        "cmd": "refresh",
+        "t": 2661,
+        "dur": 20,
+        "cmd": "render",
+        "n": 1,
+        "ids": [
+          "sellItemDD"
+        ],
+        "by": []
+      },
+      {
+        "t": 2755,
+        "dur": 41,
+        "cmd": "render",
         "n": 1,
         "ids": [
           "sellItemDD"
@@ -438,479 +462,395 @@
     ],
     "longtasks": [
       {
-        "start": 1592,
-        "dur": 114
+        "start": 2096,
+        "dur": 636
       },
       {
-        "start": 1780,
-        "dur": 3001
-      },
-      {
-        "start": 4785,
-        "dur": 4461
-      },
-      {
-        "start": 9348,
-        "dur": 321
-      },
-      {
-        "start": 11274,
-        "dur": 57
+        "start": 3402,
+        "dur": 332
       }
     ]
   },
-  "resetAt": 11477,
+  "resetAt": 4854,
   "resetButton": {
     "type": "reset",
     "visible": true
   },
   "B": {
-    "totalMs": 12762,
-    "idleMs": 4065,
-    "programMs": 236,
-    "gcMs": 44,
+    "totalMs": 4420,
+    "idleMs": 4052,
+    "programMs": 196,
+    "gcMs": 38,
     "topSelf": [
       {
-        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
-        "ms": 2549
-      },
-      {
-        "fn": "getAttribute :0:0",
-        "ms": 2119
-      },
-      {
-        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
-        "ms": 1100
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
-        "ms": 613
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
-        "ms": 357
-      },
-      {
-        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
-        "ms": 249
-      },
-      {
-        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
-        "ms": 234
-      },
-      {
-        "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
-        "ms": 178
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
-        "ms": 159
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
-        "ms": 104
-      },
-      {
-        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
-        "ms": 68
-      },
-      {
         "fn": "(garbage collector) :0:0",
-        "ms": 44
-      },
-      {
-        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
-        "ms": 40
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
-        "ms": 35
-      },
-      {
-        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
-        "ms": 32
-      },
-      {
-        "fn": "removeChild :0:0",
-        "ms": 31
-      },
-      {
-        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
-        "ms": 26
-      },
-      {
-        "fn": "setAttribute :0:0",
-        "ms": 25
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
-        "ms": 22
-      },
-      {
-        "fn": "map /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3104",
-        "ms": 22
-      },
-      {
-        "fn": "xe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:37797",
-        "ms": 20
-      },
-      {
-        "fn": "t /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:6868",
-        "ms": 19
-      },
-      {
-        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
-        "ms": 18
-      },
-      {
-        "fn": "appendChild :0:0",
-        "ms": 17
-      },
-      {
-        "fn": "getElementsByTagName :0:0",
-        "ms": 16
-      },
-      {
-        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
-        "ms": 15
-      },
-      {
-        "fn": "oe.tokenize /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:18526",
-        "ms": 14
+        "ms": 38
       },
       {
         "fn": "getPropertyValue :0:0",
-        "ms": 13
+        "ms": 10
       },
       {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
-        "ms": 13
+        "fn": "setAttribute :0:0",
+        "ms": 10
       },
       {
-        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
-        "ms": 13
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 8
+      },
+      {
+        "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
+        "ms": 8
       },
       {
         "fn": "_isFullyVisible /__cypress/runner/cypress_runner.js:187948:18",
-        "ms": 13
+        "ms": 7
       },
       {
-        "fn": "merge /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2903",
-        "ms": 12
+        "fn": "(anonymous) /__cypress/tests:272:24",
+        "ms": 7
       },
       {
-        "fn": "ne /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:33194",
-        "ms": 12
-      },
-      {
-        "fn": "removeAttribute :0:0",
-        "ms": 9
-      },
-      {
-        "fn": "oe.isXML /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:8069",
-        "ms": 9
+        "fn": "querySelectorAll :0:0",
+        "ms": 4
       },
       {
         "fn": "w.fn.init /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24712",
-        "ms": 8
+        "ms": 4
       },
       {
-        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
-        "ms": 8
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
+        "ms": 4
       },
       {
-        "fn": "ATTR /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:13706",
-        "ms": 8
+        "fn": "getAttribute :0:0",
+        "ms": 3
       },
       {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:49359",
-        "ms": 8
+        "fn": "paintRow /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:221:22",
+        "ms": 3
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 3
+      },
+      {
+        "fn": "removeClass /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:66061",
+        "ms": 3
+      },
+      {
+        "fn": "isJquery /__cypress/runner/cypress_runner.js:35144:18",
+        "ms": 2
       },
       {
         "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
-        "ms": 8
+        "ms": 2
+      },
+      {
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 2
+      },
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 2
+      },
+      {
+        "fn": "classNames /__cypress/runner/cypress_runner.js:180542:21",
+        "ms": 2
+      },
+      {
+        "fn": "tryCatcher /__cypress/runner/cypress_runner.js:1826:20",
+        "ms": 2
+      },
+      {
+        "fn": "removeAttribute :0:0",
+        "ms": 2
+      },
+      {
+        "fn": "setNewValue_ /__cypress/runner/cypress_runner.js:183100:46",
+        "ms": 2
+      },
+      {
+        "fn": "Sizzle /__cypress/runner/cypress_runner.js:7636:16",
+        "ms": 1
+      },
+      {
+        "fn": "baseKeysIn /__cypress/runner/cypress_runner.js:21086:24",
+        "ms": 1
+      },
+      {
+        "fn": "Di /__cypress/runner/cypress_runner.js:426:12",
+        "ms": 1
+      },
+      {
+        "fn": "appendChild :0:0",
+        "ms": 1
+      },
+      {
+        "fn": "getElementsByTagName :0:0",
+        "ms": 1
+      },
+      {
+        "fn": "baseAssignValue /__cypress/runner/cypress_runner.js:20134:29",
+        "ms": 1
+      },
+      {
+        "fn": "qi /__cypress/runner/cypress_runner.js:414:12",
+        "ms": 1
+      },
+      {
+        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63517",
+        "ms": 1
+      },
+      {
+        "fn": "oe.isXML /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:8069",
+        "ms": 1
+      },
+      {
+        "fn": "$Chainer /__cypress/runner/cypress_runner.js:119189:14",
+        "ms": 1
+      },
+      {
+        "fn": "C /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:3504",
+        "ms": 1
+      },
+      {
+        "fn": "tb /__cypress/runner/cypress_runner.js:273:12",
+        "ms": 1
+      },
+      {
+        "fn": "click :0:0",
+        "ms": 1
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 1
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 1
+      },
+      {
+        "fn": "postMessage :0:0",
+        "ms": 1
+      },
+      {
+        "fn": "Promise._settlePromiseCtx /__cypress/runner/cypress_runner.js:1635:47",
+        "ms": 1
+      },
+      {
+        "fn": "t /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:6868",
+        "ms": 1
       }
     ],
     "topInclusiveApp": [
       {
-        "fn": "y.handle /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:39714",
-        "ms": 8326
-      },
-      {
-        "fn": "dispatch /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41190",
-        "ms": 8326
+        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
+        "ms": 48
       },
       {
         "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2515",
-        "ms": 8321
+        "ms": 48
       },
       {
-        "fn": "decorated /js/common/searchable-selects-148312184ce628fa9296abb73343238e.js:116:34",
-        "ms": 8321
+        "fn": "repaintPicker /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:1579:23",
+        "ms": 47
+      },
+      {
+        "fn": "repaintSearchableSelect /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:253:37",
+        "ms": 47
+      },
+      {
+        "fn": "(anonymous) /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:255:28",
+        "ms": 47
+      },
+      {
+        "fn": "repaintOne /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:230:24",
+        "ms": 47
+      },
+      {
+        "fn": "decorated /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:139:34",
+        "ms": 46
       },
       {
         "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
-        "ms": 8321
-      },
-      {
-        "fn": "each /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:1227",
-        "ms": 8321
+        "ms": 46
       },
       {
         "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
-        "ms": 8321
+        "ms": 46
       },
       {
-        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
-        "ms": 8321
+        "fn": "fast /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:191:29",
+        "ms": 46
       },
       {
-        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
-        "ms": 7860
+        "fn": "y.handle /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:39714",
+        "ms": 44
       },
       {
-        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
-        "ms": 7836
+        "fn": "dispatch /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41190",
+        "ms": 44
       },
       {
-        "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
-        "ms": 7806
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
-        "ms": 7798
-      },
-      {
-        "fn": "filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24460",
-        "ms": 7638
+        "fn": "syncRows /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:201:22",
+        "ms": 44
       },
       {
         "fn": "oe /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:5888",
-        "ms": 7241
+        "ms": 30
       },
       {
-        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
-        "ms": 7159
+        "fn": "paintRow /js/common/searchable-selects-4fee92abf1ef2f094babad2d2c01566a.js:221:22",
+        "ms": 28
       },
       {
-        "fn": "oe.matches /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12226",
-        "ms": 6985
+        "fn": "(anonymous) /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:1195:51",
+        "ms": 27
       },
       {
-        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
-        "ms": 6845
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
-        "ms": 5747
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
-        "ms": 4819
-      },
-      {
-        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
-        "ms": 4663
-      },
-      {
-        "fn": "(anonymous) /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1185:51",
-        "ms": 4239
-      },
-      {
-        "fn": "updateReadOnly /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:1486:24",
-        "ms": 4239
-      },
-      {
-        "fn": "(anonymous) /js/main-a5c35632a0cf1fcaf988b9933997cfcb.js:304:58",
-        "ms": 4083
-      },
-      {
-        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
-        "ms": 3882
-      },
-      {
-        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
-        "ms": 3712
-      },
-      {
-        "fn": "grep /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:2998",
-        "ms": 606
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24152",
-        "ms": 357
-      },
-      {
-        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
-        "ms": 287
-      },
-      {
-        "fn": "is /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24573",
-        "ms": 262
-      },
-      {
-        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
-        "ms": 239
-      },
-      {
-        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
-        "ms": 237
-      },
-      {
-        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
-        "ms": 226
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
-        "ms": 205
-      },
-      {
-        "fn": "w.expr.pseudos.visible /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:79062",
-        "ms": 178
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
-        "ms": 145
-      },
-      {
-        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19217",
-        "ms": 110
-      },
-      {
-        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
-        "ms": 79
+        "fn": "updateReadOnly /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:1496:24",
+        "ms": 27
       },
       {
         "fn": "find /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24208",
-        "ms": 69
+        "ms": 21
       },
       {
-        "fn": "oe.compile /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21610",
-        "ms": 63
+        "fn": "oe.select /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21777",
+        "ms": 20
+      },
+      {
+        "fn": "(anonymous) /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:324:30",
+        "ms": 20
+      },
+      {
+        "fn": "o /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:21064",
+        "ms": 17
+      },
+      {
+        "fn": "w.fn.init /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24712",
+        "ms": 16
+      },
+      {
+        "fn": "b /bootstrap/js/bootstrap.min-834ca905c3251172e3c538cc0e043d77.js:6:11102",
+        "ms": 13
+      },
+      {
+        "fn": "z /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:31616",
+        "ms": 12
       },
       {
         "fn": "w /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:883",
-        "ms": 48
+        "ms": 12
+      },
+      {
+        "fn": "attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:63517",
+        "ms": 11
+      },
+      {
+        "fn": "j /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:23784",
+        "ms": 10
+      },
+      {
+        "fn": "w.filter /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:24007",
+        "ms": 10
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:19580",
+        "ms": 9
+      },
+      {
+        "fn": "oe.matchesSelector /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12285",
+        "ms": 8
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:14682",
+        "ms": 4
+      },
+      {
+        "fn": "oe.attr /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:12643",
+        "ms": 4
+      },
+      {
+        "fn": "toggleClass /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:66453",
+        "ms": 3
+      },
+      {
+        "fn": "removeClass /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:66061",
+        "ms": 3
+      },
+      {
+        "fn": "(anonymous) /js/common/date-picker-b3a0f9fb67a317ae075bd33afd7e41bc.js:406:43",
+        "ms": 3
+      },
+      {
+        "fn": "window.initDatePickers /js/common/date-picker-b3a0f9fb67a317ae075bd33afd7e41bc.js:386:39",
+        "ms": 3
+      },
+      {
+        "fn": "(anonymous) /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:7598",
+        "ms": 3
+      },
+      {
+        "fn": "handlers /js/jquery-3.3.1.min-378087a64e1394fc51f300bb9c11878c.js:2:41930",
+        "ms": 2
+      },
+      {
+        "fn": "(anonymous) /js/main-8bbc1bef683fbfd06013aad69737c7ae.js:304:58",
+        "ms": 2
+      },
+      {
+        "fn": "(anonymous) /js/common/date-picker-b3a0f9fb67a317ae075bd33afd7e41bc.js:387:32",
+        "ms": 1
       }
     ],
     "bootstrapSelect": [
       {
         "fn": "e /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:770",
-        "ms": 8321
+        "ms": 46
       },
       {
         "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:883",
-        "ms": 8321
-      },
-      {
-        "fn": "refresh /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:21997",
-        "ms": 8321
+        "ms": 46
       },
       {
         "fn": "render /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7233",
-        "ms": 7806
+        "ms": 1
       },
       {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:7298",
-        "ms": 7798
+        "fn": "checkDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13431",
+        "ms": 1
       },
       {
-        "fn": "setDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13085",
-        "ms": 3882
-      },
-      {
-        "fn": "setSelected /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:12967",
-        "ms": 3712
-      },
-      {
-        "fn": "reloadLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5133",
-        "ms": 287
-      },
-      {
-        "fn": "createLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5278",
-        "ms": 239
-      },
-      {
-        "fn": "liHeight /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:9154",
-        "ms": 226
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5824",
-        "ms": 205
-      },
-      {
-        "fn": "h /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5467",
-        "ms": 35
-      },
-      {
-        "fn": "destroyLi /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:5226",
-        "ms": 33
-      },
-      {
-        "fn": "c /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:104",
-        "ms": 17
-      },
-      {
-        "fn": "d /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:527",
-        "ms": 15
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:481",
-        "ms": 13
-      },
-      {
-        "fn": "setWidth /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:11584",
-        "ms": 2
-      },
-      {
-        "fn": "(anonymous) /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:740",
+        "fn": "isDisabled /bootstrap/js/bootstrap-select.min-ed211d2ace5d8296e96f7b9b1697959c.js:7:13368",
         "ms": 1
       }
     ],
-    "samplingUs": 651,
+    "samplingUs": 770,
     "calls": [
       {
-        "t": 11690,
-        "dur": 4270,
-        "cmd": "refresh",
+        "t": 5200,
+        "dur": 27,
+        "cmd": "render",
         "n": 1,
         "ids": [
           "sellItemDD"
         ],
         "by": []
-      },
-      {
-        "t": 15966,
-        "dur": 4117,
-        "cmd": "refresh",
-        "n": 9,
-        "ids": [
-          "sellItemDD",
-          "BUTTON",
-          "UL",
-          "sellDiscountTypeDD",
-          "BUTTON",
-          "UL"
-        ],
-        "by": []
       }
     ],
-    "longtasks": [
-      {
-        "start": 24519,
-        "dur": 87
-      }
-    ],
+    "longtasks": [],
     "pickers": [
       {
         "id": "sellItemDD",
-        "options": 1892,
-        "lis": 1892
+        "options": 1949,
+        "lis": 1949
       },
       {
         "id": "sellCustomerDD",
-        "options": 1615,
-        "lis": 1615
+        "options": 1620,
+        "lis": 1620
       }
     ]
   }

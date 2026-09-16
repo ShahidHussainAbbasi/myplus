@@ -1,6 +1,24 @@
 # O7 D6a — territory assignment. Give `assigned_rep_user_id` its data.
 
-**Status:** design, 2026-08-23
+**Status:** design, 2026-08-23 — ⚠ **gate RED 2/7 on current code, 2026-09-16.**
+
+> **2026-09-16 — the "stale image" explanation is EXCLUDED.** `territory-assignment.cy.js` was run twice: once
+> against a business-service image from 2026-09-15 09:22, and again minutes after that service was rebuilt and
+> redeployed. **Identical 5 failures both times**, same cases, same assertions. So this is a real defect on current
+> code, not an undeployed fix — a question two sessions had been carrying as an assumption, now settled.
+>
+> The five reds: the rep still sees an outlet assigned to somebody else (×2), a REP is not refused when they assign
+> or read the assignment list (×2), and the owner's read reports an assigned outlet as held by nobody. The two
+> greens are the cross-tenant case and DAY ONE (a rep with no assignments sees everything).
+>
+> **What is NOT established:** whether the write fails to persist or the read rule fails to narrow. The business-
+> service log shows the UPDATE executing (`update customer set assigned_rep_user_id=? where customer_id in (?)`
+> plus the org predicate) and the rep's read using the unfiltered `where organization_id=? order by name`, which
+> fits either explanation. ⚠ A post-run DB read proves NOTHING here: the spec's own `after()` hook assigns every
+> seeded outlet back to `null`, so the column is empty by the time anyone looks. Reproduce with the hook disabled,
+> or read the column mid-run, before concluding.
+>
+> Raised while gating SESS-1/AUTH-SESS-1, which are unrelated (auth + monolith only). Left for this slice.
 **Closes:** the gap D2d left open on purpose
 **Scope:** business-service + the owner's screen. No schema change — the column already exists.
 

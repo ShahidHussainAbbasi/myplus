@@ -28,6 +28,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    // AUTH-SESS-1 (defect B) — a credential change ends the sessions that were opened with the old one.
+    private final RefreshTokenService refreshTokenService;
 
     public UserProfileDTO getCurrentUser(Long userId) {
         return toDto(getUser(userId));
@@ -58,6 +60,10 @@ public class UserService {
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        // AUTH-SESS-1 — the point of changing a password is that the old one stops working. A session opened with it
+        // would otherwise keep refreshing for up to 7 days. Note the ORDER: the wrong current password throws above,
+        // so a failed attempt revokes nothing.
+        refreshTokenService.deleteByUserId(userId);
     }
 
     @Transactional
@@ -65,6 +71,9 @@ public class UserService {
         User user = getUser(id);
         user.setAccountNonLocked(false);
         userRepository.save(user);
+        // AUTH-SESS-1 — a locked account must not keep trading on sessions it already has. accountNonLocked is read
+        // at LOGIN, so without this a lock only stops the next sign-in, not the tills already signed in.
+        refreshTokenService.deleteByUserId(id);
     }
 
     @Transactional

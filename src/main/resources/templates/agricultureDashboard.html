@@ -551,5 +551,8 @@ var serverContext = [[@{/}]];
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
 <script th:src="@{/js/common/searchable-selects.js}"></script>
+<!-- SESS-1: fills the "N / 5 devices" chip in the shared header fragment. The session cap is per ACCOUNT,
+     not per module, so this belongs on every signed-in dashboard, not only the till's. -->
+<script th:src="@{/js/common/sessions.js}"></script>
 </body>
 </html>

@@ -296,9 +296,18 @@ PSEL-1 logic defect). Traced separately by both sessions, from screenshots, code
 ## 6. Known limits
 
 - 1.6.2 stays; upgrading bootstrap-select is the long-term cure (virtual lists, no O(n) row DOM at all).
-- A refresh is still ≈ 0.3–0.45 s at 2,511 options (row rebuild + liHeight) — now paid only when options change.
-  ⚠ **ESTIMATE, not an after-measurement**: derived from the BEFORE profile's non-render share (`reloadLi` + `createLi` +
-  `liHeight` ≈ 900 ms across two refreshes). The same holds for "≈ 0.3 s" and "≈ tens of ms" in the sequence diagram and
-  the review table above. What the fix PROVES is the gate's bounds (each rebuild < 2 s, no long task ≥ 3 s, no rebuild on a
-  reset / cart add / lock). Actual after-numbers come from `npm run test:e2e:diag:sale-open` — not yet run on the fixed build.
+- A refresh is still the only real cost, and it is now **MEASURED** on the fixed build (`npm run test:e2e:diag:sale-open`,
+  2026-09-16 05:55, same CDP profiler as the before-numbers, results in `cypress/results/sale-open-profile-*.json`):
+
+  | | demo.business (2,652 opts) | owner.business (1,949 + 1,620) |
+  |---|---|---|
+  | one `#sellItemDD` refresh | **429 ms** (was 8,815) | **213 ms** (was ~3,600) |
+  | `#sellCustomerDD` refresh | 74 ms | 181 ms |
+  | a repaint (`render`) | 41–55 ms | 20–41 ms |
+  | longest task, New Sale opens | **836 ms** (was 17,971) | **636 ms** |
+  | clearing a line | **no refresh**, 2 repaints 38 + 45 ms | 1 repaint 27 ms |
+  | longest task on a clear | **0 ms** (was 16,794) | **0 ms** |
+
+  So New Sale opens ≈ 20× faster on the largest catalogue and a clear costs nothing measurable. The earlier "≈ 0.3 s" and
+  "≈ tens of ms" in §3 and the review table were estimates from the before-profile; the table above supersedes them.
 - Timing thresholds are machine-dependent; the gate prints the measured values so a slower machine reads as data.

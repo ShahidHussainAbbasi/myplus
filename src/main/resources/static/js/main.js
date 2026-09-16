@@ -144,7 +144,33 @@ function handleAjaxFailure(jqXHR, errorThrown, what) {
         || /This session has been expired/i.test(body);
 
     if (sessionLost) {
-        window.location.href = serverContext + "login?message=" + (errorThrown || "");
+        /*
+         * SESS-1 — SAY IT IN THE SHOPKEEPER'S WORDS, but ONLY when the server actually said the session ended.
+         *
+         * What this fixes: a till whose session had died was thrown to the login page reading "Unauthorized"
+         * — jQuery's errorThrown, a developer's word for a person holding a queue. The monolith already
+         * answers 401 {code:"SESSION_EXPIRED"} for this one case (SessionExpiredAdvice), and
+         * ui.js.sessionEnded already exists in all six locales; nothing read either. This is that reader.
+         *
+         * ⚠ GATED ON THE CODE, NOT ON THE 401. `sessionLost` above is deliberately broad — it also catches a
+         * login PAGE coming back from a 302 and ConcurrentSessionFilter's plain-text notice — and a 401 can
+         * still be an ordinary refusal from somewhere that answers 401 rather than 403. Telling one of those
+         * users "your session has ended" would trade one misleading sentence for another, so only the exact
+         * code substitutes the sentence; every other shape keeps the behaviour it has always had.
+         *
+         * encodeURIComponent is new and is required: a sentence has spaces and a full stop. It is identity
+         * for the one-word errorThrown values that used to be passed here, so nothing else changes.
+         */
+        var payload = null;
+        if (jqXHR && jqXHR.responseJSON) {
+            payload = jqXHR.responseJSON;
+        } else if (body) {
+            try { payload = JSON.parse(body); } catch (e) { payload = null; }
+        }
+        var note = (payload && payload.code === 'SESSION_EXPIRED')
+            ? ((typeof t === 'function' && t('ui.js.sessionEnded')) || 'Your session has ended. Sign in again.')
+            : (errorThrown || "");
+        window.location.href = serverContext + "login?message=" + encodeURIComponent(note);
         return;
     }
 

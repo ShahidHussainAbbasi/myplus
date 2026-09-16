@@ -395,6 +395,31 @@ public class GatewayClient {
         return refreshAccessToken();
     }
 
+    /**
+     * Does this failed refresh mean auth-service DOES NOT KNOW the token this session holds?
+     *
+     * <p>True only for the answer auth-service gives when the ROW IS GONE — revoked by a logout, or evicted
+     * by the session cap ({@code jwt.max-sessions-per-user}). Everything else (a timeout, a 5xx, a refusal
+     * with any other reason) is transient and must leave the session alone: see the scoping note in
+     * {@link #refreshAccessToken()}.
+     *
+     * <p>⚠ MATCHED ON THE MESSAGE, because that is the only signal there is: auth-service answers
+     * {@code 400 {"success":false,"message":"Invalid refresh token"}} with no machine-readable code. A code
+     * would be better and is worth adding on that side — until then, this string and
+     * {@code AuthService.refreshToken}'s throw are one contract, and changing either alone breaks it. The
+     * body is preferred over {@code getMessage()} because RestTemplate's message is a formatted summary.
+     */
+    private static boolean unknownRefreshToken(Exception e) {
+        String text = null;
+        if (e instanceof org.springframework.web.client.HttpStatusCodeException he) {
+            text = he.getResponseBodyAsString();
+        }
+        if (text == null || text.isBlank()) {
+            text = e.getMessage();
+        }
+        return text != null && text.contains("Invalid refresh token");
+    }
+
     private boolean refreshAccessToken() {
         String refreshToken = tokenStore.getRefreshToken();
         if (refreshToken == null || refreshToken.isEmpty()) {
@@ -419,6 +444,26 @@ public class GatewayClient {
             // holds. Named explicitly because it is the fingerprint of a session that was displaced.
             log.warn("Token refresh FAILED ({}): {}. The caller will see a 401.",
                     e.getClass().getSimpleName(), e.getMessage());
+            /*
+             * SESS-1 — a session that CANNOT be revived must end, not fail for ever.
+             *
+             * Before this, every path here returned false: the caller got a 401, the dead session was kept,
+             * and every later click repeated the same failure. A production till was unusable that way on
+             * 2026-09-16 until somebody thought to sign out and back in, which nothing on screen suggested.
+             *
+             * ⚠ SCOPED TO AN UNKNOWN TOKEN, deliberately. auth-service answers 400 with
+             * {"message":"Invalid refresh token"} only when the ROW IS GONE — revoked by a logout, or evicted
+             * by the session cap. A refresh that failed because auth-service was briefly unreachable, or
+             * answered without a token, is transient: the session is still good, and ending it would turn a
+             * hiccup into a forced re-login for a shopkeeper mid-sale. Those keep returning false.
+             *
+             * Throwing rather than clearing the TokenStore is also deliberate — emptying the store would make
+             * execute() take the LEGACY direct-call branch (see :170) and bypass the gateway instead of
+             * forcing a login. SessionExpiredAdvice turns this into a 401 the browser acts on.
+             */
+            if (unknownRefreshToken(e)) {
+                throw new com.web.error.SessionExpiredException("Your session has ended. Sign in again.");
+            }
             return false;
         }
     }

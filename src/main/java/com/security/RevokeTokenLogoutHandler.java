@@ -33,7 +33,9 @@ public class RevokeTokenLogoutHandler implements LogoutHandler {
     public void logout(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         try {
             if (tokenStore.hasAccessToken()) {
-                authServerClient.logout(tokenStore.getAccessToken());
+                // AUTH-SESS-1 — send the REFRESH token too: it names this device, so auth-service ends this session
+                // instead of every session the account has. Both are in hand here; TokenStore is session-scoped.
+                authServerClient.logout(tokenStore.getAccessToken(), tokenStore.getRefreshToken());
             }
         } catch (Exception e) {
             LOGGER.warn("Auth-server logout/revocation failed (continuing local logout): {}", e.getMessage());

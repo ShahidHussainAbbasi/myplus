@@ -88,6 +88,18 @@ public final class ProxyErrors {
      */
     private static void rethrowIfUserFacing(Exception e) {
         if (e instanceof com.web.error.DemoLimitException dle) throw dle;
+        /*
+         * SESS-1 — a session that can no longer be revived must reach SessionExpiredAdvice, which answers 401
+         * {code:"SESSION_EXPIRED"} and ends the HTTP session so the browser can send the user to /login.
+         *
+         * ⚠ WITHOUT THIS LINE THE WHOLE FIX IS UNREACHABLE, and it fails in the quietest possible way: every
+         * proxy in this monolith ends in `catch (Exception e) { return ProxyErrors.statusError(e); }`, so the
+         * exception would be flattened into an HTTP 200 {status:"ERROR"} carrying the sentence — the screen
+         * would show the right words and the dead session would be kept, which is the exact loop the slice
+         * exists to end. This is the same shape as the swallowed DemoLimitException above: one controller was
+         * fixed by hand and 108 others still swallowed it.
+         */
+        if (e instanceof com.web.error.SessionExpiredException see) throw see;
     }
 
     /**

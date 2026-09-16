@@ -35,9 +35,20 @@ module.exports = defineConfig({
     defaultCommandTimeout: 5000,
     pageLoadTimeout: 60000,
     specPattern: 'cypress/e2e/**/*.cy.js',
-    // education/demo.cy.js is a manual MP4 documentation walkthrough (run via test:e2e:education:demo),
-    // not a regression test — it requires a fully seeded org (Grade 1, ENR-001/002). Exclude from `cypress run`.
-    excludeSpecPattern: ['cypress/e2e/education/demo.cy.js'],
+    /*
+     * ⚠ NOTHING GOES HERE TO KEEP IT OUT OF A RUN — gate the spec itself on `Cypress.env(...)` instead.
+     *
+     * Cypress 13 applies excludeSpecPattern to a `--spec` path TOO (ProjectDataSource.findSpecs globs the pattern
+     * with `ignore: [...excludeSpecPattern]`), so an excluded spec cannot be run even when it is named. That is how
+     * `npm run test:e2e:education:demo` came to find NO spec from 6eed5c66 (2026-06-14) until 2026-09-16: the
+     * education walkthrough was listed here, and the script that exists to record it could never reach it.
+     * Verified by replicating the same globby 11.1.0 call: the demo path resolved to [], a control spec resolved.
+     *
+     * The opt-in pattern instead — `(Cypress.env('demo') ? describe : describe.skip)` in the spec, `--env demo=1`
+     * in its npm script — keeps it out of `cypress run` (it reports as pending) AND leaves it runnable by name.
+     * `diag/sale-open-profile.cy.js` and `diag/fast-enter-price.cy.js` already work that way.
+     */
+    excludeSpecPattern: [],
     screenshotsFolder: 'cypress/screenshots',
     videosFolder: 'cypress/videos',
     // Off by default (Cypress default); enable per-run with `--config video=true`

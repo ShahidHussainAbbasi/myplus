@@ -182,6 +182,8 @@
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
 <script th:src="@{/js/common/searchable-selects.js}"></script>
+<!-- SESS-1: fills the "N / 5 devices" chip in the shared header fragment (the cap is per ACCOUNT). -->
+<script th:src="@{/js/common/sessions.js}"></script>
   <script th:inline="javascript">
     var serverContext = [[@{/}]];
 

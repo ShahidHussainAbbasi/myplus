@@ -60,11 +60,22 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(authService.refreshToken(request), "Token refreshed"));
     }
 
+    /**
+     * AUTH-SESS-1 — end the session that asked, not every session the account has.
+     *
+     * <p>The body is OPTIONAL and carries the caller's refresh token. With it, exactly that device is signed out.
+     * Without it, every session is revoked — what this endpoint always did, kept so that a client written before
+     * this slice behaves as it did. The monolith ({@code AuthServerClient.logout}) is the only caller in the repo
+     * and now sends the token.
+     *
+     * <p>Answers 200 whether or not a session was found: a logout is not something a user can be told "failed".
+     */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody(required = false) LogoutRequest request) {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow();
-        authService.logout(user.getId());
+        authService.logout(user.getId(), request != null ? request.getRefreshToken() : null);
         return ResponseEntity.ok(ApiResponse.success(null, "Logged out"));
     }
 

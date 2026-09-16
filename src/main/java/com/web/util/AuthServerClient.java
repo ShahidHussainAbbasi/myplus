@@ -98,11 +98,26 @@ public class AuthServerClient {
         return post("/api/auth/refresh", body);
     }
 
-    /** Revoke the user's refresh token(s). Requires the access token (auth-service resolves the user from it). */
-    public void logout(String accessToken) {
+    /**
+     * AUTH-SESS-1 — end THIS session at the auth-service.
+     *
+     * <p>The access token says who; the refresh token says WHICH DEVICE, and it is the only thing that can — the JWT
+     * carries no session id. Sending it is what stops one sign-out killing the till: without it auth-service revokes
+     * every session the account has, and each of those dies ~15 minutes later mid-whatever-it-was-doing.
+     *
+     * <p>A null refresh token still logs out (revoking all), so a session that somehow holds no refresh token is
+     * never left signed in.
+     */
+    public void logout(String accessToken, String refreshToken) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
-        restTemplate.postForEntity(baseUrl + "/api/auth/logout", new HttpEntity<>(null, headers), Void.class);
+        Map<String, String> body = null;
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            body = new HashMap<>();
+            body.put("refreshToken", refreshToken);
+        }
+        restTemplate.postForEntity(baseUrl + "/api/auth/logout", new HttpEntity<>(body, headers), Void.class);
     }
 
     /** List the organizations the token's user belongs to (each: id, name, role, active). */
