@@ -63,13 +63,15 @@ class ProductPickerWritersTest {
     @Mock private TaxCodeRepository taxCodeRepository;
     @Mock private ProductPickerCache pickerCache;
     @Mock private ApplicationEventPublisher events;
+    @Mock private CatalogRefsCache refsCache;   // CACHE-2 — its writers are in CatalogRefsWritersTest
 
     private ProductService service;
 
     @BeforeEach
     void setUp() {
         TestTenant.authenticate(ORG, USER);
-        service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events);
+        service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
+                refsCache);
     }
 
     @AfterEach

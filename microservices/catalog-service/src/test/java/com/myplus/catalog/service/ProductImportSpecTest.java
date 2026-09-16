@@ -54,6 +54,10 @@ class ProductImportSpecTest {
         spec = new ProductImportSpec();
         ReflectionTestUtils.setField(spec, "productRepository", productRepository);
         ReflectionTestUtils.setField(spec, "categoryRepository", categoryRepository);
+        // CACHE-1/2 — persist() and resolveCategory() publish cache evictions; unset, every commit NPE'd (8 errors,
+        // unnoticed from CACHE-1 until CACHE-2's full-suite run). What they publish is pinned in ProductPickerWritersTest
+        // and CatalogRefsWritersTest.
+        ReflectionTestUtils.setField(spec, "events", mock(org.springframework.context.ApplicationEventPublisher.class));
         engine = new ImportEngine();
 
         when(productRepository.existingNamesScoped(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());

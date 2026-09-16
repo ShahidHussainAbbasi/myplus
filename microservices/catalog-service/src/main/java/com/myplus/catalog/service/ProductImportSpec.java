@@ -234,9 +234,14 @@ public class ProductImportSpec implements ImportSpec<Product> {
     private Category resolveCategory(String name, Long orgId, Long userId) {
         if (name == null) return null;
         String trimmed = name.trim();
-        return categoryRepository.findByNameScoped(trimmed, orgId, userId)
-                .orElseGet(() -> categoryRepository.save(
-                        Category.builder().name(trimmed).organizationId(orgId).userId(userId).build()));
+        return categoryRepository.findByNameScoped(trimmed, orgId, userId).orElseGet(() -> {
+            Category created = categoryRepository.save(
+                    Category.builder().name(trimmed).organizationId(orgId).userId(userId).build());
+            // CACHE-2 — no transaction here (ImportEngine.commit has none), so save has committed by this line and the
+            // listener's fallbackExecution evicts at once: the after-commit case. Only a CREATE changes the list.
+            events.publishEvent(CatalogCategoriesChanged.of(orgId));
+            return created;
+        });
     }
 
     @Override

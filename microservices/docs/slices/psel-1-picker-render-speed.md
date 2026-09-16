@@ -296,5 +296,9 @@ PSEL-1 logic defect). Traced separately by both sessions, from screenshots, code
 ## 6. Known limits
 
 - 1.6.2 stays; upgrading bootstrap-select is the long-term cure (virtual lists, no O(n) row DOM at all).
-- A refresh is still ≈ 0.3 s at 2,511 options (row rebuild + liHeight) — now paid only when options change.
+- A refresh is still ≈ 0.3–0.45 s at 2,511 options (row rebuild + liHeight) — now paid only when options change.
+  ⚠ **ESTIMATE, not an after-measurement**: derived from the BEFORE profile's non-render share (`reloadLi` + `createLi` +
+  `liHeight` ≈ 900 ms across two refreshes). The same holds for "≈ 0.3 s" and "≈ tens of ms" in the sequence diagram and
+  the review table above. What the fix PROVES is the gate's bounds (each rebuild < 2 s, no long task ≥ 3 s, no rebuild on a
+  reset / cart add / lock). Actual after-numbers come from `npm run test:e2e:diag:sale-open` — not yet run on the fixed build.
 - Timing thresholds are machine-dependent; the gate prints the measured values so a slower machine reads as data.

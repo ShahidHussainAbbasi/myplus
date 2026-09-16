@@ -42,12 +42,14 @@ class ProductNameCheckTest {
     @Mock private TaxCodeRepository taxCodeRepository;
     @Mock private ProductPickerCache pickerCache;                                   // CACHE-1 — unused by name checks
     @Mock private org.springframework.context.ApplicationEventPublisher events;    // CACHE-1 — unused by name checks
+    @Mock private CatalogRefsCache refsCache;                                      // CACHE-2 — unused by name checks
 
     private ProductService service;
 
     @BeforeEach
     void setUp() {
-        service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events);
+        service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
+                refsCache);
         // No authentication in the context: CurrentUser then yields null org/user, which is fine here —
         // these tests assert what the SERVICE does with the repository's answer, and the scoping itself is
         // proven against a real dialect in ProductRepoScopingTest.

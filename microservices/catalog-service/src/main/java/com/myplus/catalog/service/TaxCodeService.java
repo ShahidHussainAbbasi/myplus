@@ -24,10 +24,17 @@ import java.util.Map;
 public class TaxCodeService {
 
     private final TaxCodeRepository repo;
+    // CACHE-2 — the tax-code list is cached per tenant; every writer here publishes CatalogTaxCodesChanged so it is
+    // evicted AFTER the commit (CatalogRefsCache.onTaxCodesChanged), never inside the transaction.
+    private final CatalogRefsCache refsCache;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     @Transactional(readOnly = true)
     public List<TaxCodeDTO> list() {
-        return repo.findScoped(CurrentUser.organizationId(), CurrentUser.userId()).stream().map(this::toDto).toList();
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        // CACHE-2 — cache-aside: this tenant + user from the cache; on a miss the database, kept with a TTL.
+        return refsCache.taxCodes(org, user, () -> repo.findScoped(org, user).stream().map(this::toDto).toList());
     }
 
     @Transactional
@@ -36,7 +43,9 @@ public class TaxCodeService {
         t.setOrganizationId(CurrentUser.organizationId());
         t.setUserId(CurrentUser.userId());
         apply(t, dto);
-        return toDto(repo.save(t));
+        TaxCode saved = repo.save(t);
+        changed(saved);
+        return toDto(saved);
     }
 
     @Transactional
@@ -44,7 +53,9 @@ public class TaxCodeService {
         TaxCode t = repo.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tax code not found: " + id));
         apply(t, dto);
-        return toDto(repo.save(t));
+        TaxCode saved = repo.save(t);
+        changed(saved);
+        return toDto(saved);
     }
 
     @Transactional
@@ -52,6 +63,15 @@ public class TaxCodeService {
         TaxCode t = repo.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Tax code not found: " + id));
         repo.delete(t);   // products keep their tax_code_id; a dangling id falls back to product rate / org default
+        changed(t);
+    }
+
+    /**
+     * CACHE-2 — published inside the writer's transaction; both orgs: the caller's and the code's own. Also covers
+     * {@link #apply}'s clearing of the default flag on this org's other codes: same transaction, same org.
+     */
+    private void changed(TaxCode t) {
+        events.publishEvent(CatalogTaxCodesChanged.of(CurrentUser.organizationId(), t.getOrganizationId()));
     }
 
     /** All of this org's code rates by id — resolved once so the sale-read path never does a per-product lookup. */

@@ -6,6 +6,7 @@ import com.myplus.common.security.CurrentUser;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.catalog.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,10 +17,17 @@ import java.util.List;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    // CACHE-2 — the category list is cached per tenant; every writer here publishes CatalogCategoriesChanged so it is
+    // evicted AFTER the commit (CatalogRefsCache.onCategoriesChanged), never inside the transaction.
+    private final CatalogRefsCache refsCache;
+    private final ApplicationEventPublisher events;
 
     public List<CategoryDTO> getAll() {
-        return categoryRepository.findScoped(CurrentUser.organizationId(), CurrentUser.userId())
-                .stream().map(this::toDto).toList();
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        // CACHE-2 — cache-aside: this tenant + user from the cache; on a miss the database, kept with a TTL.
+        return refsCache.categories(org, user,
+                () -> categoryRepository.findScoped(org, user).stream().map(this::toDto).toList());
     }
 
     public CategoryDTO getById(Long id) {
@@ -35,7 +43,9 @@ public class CategoryService {
                 .organizationId(CurrentUser.organizationId())
                 .userId(CurrentUser.userId())
                 .build();
-        return toDto(categoryRepository.save(c));
+        Category saved = categoryRepository.save(c);
+        changed(saved);
+        return toDto(saved);
     }
 
     @Transactional
@@ -44,12 +54,17 @@ public class CategoryService {
         c.setName(dto.getName());
         c.setDescription(dto.getDescription());
         c.setParentCategory(dto.getParentId() != null ? getEntity(dto.getParentId()) : null);
-        return toDto(categoryRepository.save(c));
+        Category saved = categoryRepository.save(c);
+        changed(saved);
+        return toDto(saved);
     }
 
     @Transactional
     public void delete(Long id) {
-        categoryRepository.delete(getEntity(id));
+        Category c = getEntity(id);
+        categoryRepository.delete(c);
+        // A category still on a product fails the FK at commit; the transaction rolls back and nothing is evicted.
+        changed(c);
     }
 
     public List<CategoryDTO> getTree() {
@@ -68,6 +83,11 @@ public class CategoryService {
     public Category getEntity(Long id) {
         return categoryRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
+    }
+
+    /** CACHE-2 — published inside the writer's transaction; both orgs: the caller's and the category's own. */
+    private void changed(Category c) {
+        events.publishEvent(CatalogCategoriesChanged.of(CurrentUser.organizationId(), c.getOrganizationId()));
     }
 
     private CategoryDTO toDto(Category c) {

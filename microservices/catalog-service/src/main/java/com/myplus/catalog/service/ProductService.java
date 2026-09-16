@@ -33,6 +33,10 @@ public class ProductService {
     // AFTER the commit (ProductPickerCache.onProductsChanged), never inside the transaction.
     private final ProductPickerCache pickerCache;
     private final org.springframework.context.ApplicationEventPublisher events;
+    // CACHE-2 — the manufacturers list (distinct values on this tenant's products), evicted by the same
+    // CatalogProductsChanged every writer here already publishes; and the category list, which findOrCreateCategory
+    // writes to.
+    private final CatalogRefsCache refsCache;
 
     /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
     private java.util.Map<Long, BigDecimal> orgCodeRates() {
@@ -228,8 +232,11 @@ public class ProductService {
 
     /** The tenant's distinct manufacturer names for the Product form's dropdown (PS-1b). */
     public java.util.List<String> manufacturers() {
-        return productRepository.findDistinctManufacturersScoped(
-                CurrentUser.organizationId(), CurrentUser.userId());
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        // CACHE-2 — cache-aside; copied so the shared cached list cannot be changed by a caller.
+        return refsCache.manufacturers(org, user,
+                () -> java.util.List.copyOf(productRepository.findDistinctManufacturersScoped(org, user)));
     }
 
     @Transactional
@@ -582,7 +589,10 @@ public class ProductService {
             c.setName(name);
             c.setOrganizationId(orgId);
             c.setUserId(userId);
-            return categoryRepository.save(c);
+            Category created = categoryRepository.save(c);
+            // CACHE-2 — inside the product create/update transaction; the category list is evicted after its commit.
+            events.publishEvent(CatalogCategoriesChanged.of(orgId));
+            return created;
         });
     }
 }
