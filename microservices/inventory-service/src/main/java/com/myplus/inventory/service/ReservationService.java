@@ -342,11 +342,25 @@ public class ReservationService {
      *
      * <p>Falls back to the unit purchase price for batches received before P2, where quantity x price IS the
      * total and always was — no bonus was involved, so the identity holds exactly.
+     *
+     * <h3>⚠ COGS-1 — divided by what was RECEIVED, never by what is LEFT</h3>
+     * This used to divide by {@code getQuantity()}, which is the batch's REMAINING stock and falls on every sale,
+     * while {@code paidTotal} is what the whole batch cost and never changes. So each sale after the first was
+     * costed higher than the one before — 800 paid for 10: the first sale at 80.00, the next at 800/8 = 100.00 —
+     * and on the dev data one batch climbed from 500 to 10,000 per unit over 14 sales. Cost of goods was
+     * overstated and Inventory understated by the same amount in the same journal, so the trial balance stayed
+     * balanced and nothing looked wrong. The E2E flow gate found it only by reading the journal lines.
+     *
+     * <p>A batch with a paid total but no received quantity cannot occur after V12's backfill. If one ever does, it
+     * costs from the unit purchase price — the billed rate, exact whenever no bonus was involved — and never from
+     * the remaining quantity, which is the one divisor known to be wrong.
+     *
+     * <p>Package-private and static so the rule is tested on its own, without a database.
      */
-    private BigDecimal unitCostOf(StockEntry e) {
+    static BigDecimal unitCostOf(StockEntry e) {
         if (e == null) return null;
-        if (e.getPaidTotal() != null && e.getQuantity() != null && e.getQuantity().signum() > 0)
-            return e.getPaidTotal().divide(e.getQuantity(), 6, java.math.RoundingMode.HALF_UP);
+        if (e.getPaidTotal() != null && e.getReceivedQuantity() != null && e.getReceivedQuantity().signum() > 0)
+            return e.getPaidTotal().divide(e.getReceivedQuantity(), 6, java.math.RoundingMode.HALF_UP);
         return e.getPurchasePrice();
     }
 

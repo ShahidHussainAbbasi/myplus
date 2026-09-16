@@ -69,7 +69,14 @@ class FlywayMigrationTest {
 
         Integer applied = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1", Integer.class);
-        assertThat(applied).as("V1..V11 applied").isGreaterThanOrEqualTo(11);
+        assertThat(applied).as("V1..V12 applied").isGreaterThanOrEqualTo(12);
+    }
+
+    @Test
+    @DisplayName("⭐ COGS-1: a batch records what it was RECEIVED with, as DECIMAL(19,4) like its quantity (V12)")
+    void cogs1_received_quantity_column_exists() {
+        // The entity maps BigDecimal(19,4); a mismatch is a service that will not start under ddl-auto=validate.
+        assertThat(columnType("stock_entries", "received_quantity")).isEqualTo("decimal(19,4)");
     }
 
     @Test

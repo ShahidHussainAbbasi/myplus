@@ -56,6 +56,20 @@ public class StockEntry {
     @Column(name = "paid_total", precision = 19, scale = 2)
     private BigDecimal paidTotal;
 
+    /**
+     * COGS-1 — how many units this batch was RECEIVED with. Set once, never changed.
+     *
+     * <p>The divisor {@link #paidTotal} is allocated over. {@link #quantity} is what is LEFT and falls on every sale,
+     * so dividing by it — which is what the cost allocation did — costed every sale after the first higher than the
+     * last (800 paid for 10: the 1st sale at 80.00, the next at 800/8 = 100.00). A batch's cost is fixed when it
+     * arrives; what it costs per unit must be too.
+     *
+     * <p>Null where {@link #paidTotal} is null (those batches cost from {@link #purchasePrice}) and on batches that are
+     * not receipts at all (a return, a correction). V12 backfilled it for every batch that carries a paid total.
+     */
+    @Column(name = "received_quantity", precision = 19, scale = 4)
+    private BigDecimal receivedQuantity;
+
     /** P11 (slice 55): false = quarantined (e.g. a pharmacy return) — excluded from FEFO/availability so it is
      *  never re-sold/dispensed. null or true = sellable (back-compat for pre-P11 rows). */
     private Boolean restockable;

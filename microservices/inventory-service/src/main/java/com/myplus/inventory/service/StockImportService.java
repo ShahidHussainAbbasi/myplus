@@ -62,8 +62,11 @@ public class StockImportService {
             // #17 P2: carry the exact amount paid onto the BATCH. Without this the field exists on the
             // contract and dies at the seam — the same way a new GL outbox field vanishes unless every hop
             // both populates and reads it. Consumption allocates from this, never from a rounded unit cost.
+            // COGS-1: and the quantity that money bought — the fixed divisor it is allocated over. `add` is what was
+            // RECEIVED (bonus units included, per PurchaseService), which is exactly what paidTotal paid for.
             StockEntry entry = StockEntry.builder()
                     .paidTotal(l.getPaidTotal())
+                    .receivedQuantity(add)
                     .productId(l.getProductId()).quantity(add).reservedQuantity(BigDecimal.ZERO)
                     .batchNo(l.getBatchNo()).expiryDate(l.getExpiryDate()).purchasePrice(l.getPurchasePrice())
                     .organizationId(orgId).userId(userId).build();

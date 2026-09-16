@@ -177,6 +177,34 @@ class ReservationServiceTest {
         assertThat(stockEntryRepository.findById(fresh.getId()).get().getReservedQuantity()).isEqualByComparingTo("30");   // from fresh
     }
 
+    // ── COGS-1: a batch's unit cost does not rise as it sells down ────────────────────────────────
+
+    @Test
+    void a_batch_costs_the_same_per_unit_on_every_sale() {
+        // A received batch: 10 units, 800.00 paid — 80.00 each, however many are left.
+        StockEntry b = stockEntryRepository.save(StockEntry.builder()
+                .productId(PRODUCT).quantity(new BigDecimal("10")).receivedQuantity(new BigDecimal("10"))
+                .paidTotal(new BigDecimal("800.00")).purchasePrice(new BigDecimal("80"))
+                .reservedQuantity(BigDecimal.ZERO).expiryDate(SOON).batchNo("COGS1")
+                .organizationId(ORG).userId(USER).build());
+        stockLevel(10f);
+
+        StockReservationResponse first = service.reserve(request("cogs-1", 2f), ORG, USER);
+        assertThat(first.getPicks().get(0).getUnitCost()).as("first sale").isEqualByComparingTo("80");
+        service.confirm(first.getReservationId(), ORG, USER);
+        assertThat(stockEntryRepository.findById(b.getId()).get().getQuantity()).isEqualByComparingTo("8");
+
+        // The sale the defect got wrong: 800 / the 8 left = 100.00.
+        StockReservationResponse second = service.reserve(request("cogs-2", 0.5f), ORG, USER);
+        assertThat(second.getPicks().get(0).getUnitCost())
+                .as("second sale from the same batch — the defect costed this at 100.00")
+                .isEqualByComparingTo("80");
+        service.confirm(second.getReservationId(), ORG, USER);
+
+        // The received quantity is a fact about the batch's arrival: selling from it changes nothing.
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReceivedQuantity()).isEqualByComparingTo("10");
+    }
+
     // ── G2: returns -> inventory (inverse saga, slice 34) ─────────────────────────────────────────
     private String confirmedReservation(String key, float qty) {
         StockReservationResponse res = service.reserve(request(key, qty), ORG, USER);
