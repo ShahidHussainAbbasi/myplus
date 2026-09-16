@@ -289,4 +289,75 @@ class CapabilityServiceTest {
             assertThat(e.help()).as("%s needs owner-facing help", e.key()).isNotBlank();
         }
     }
+
+    // ── EXP-1: the shape's FLOOR ──────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("⭐⭐ a PHARMACY cannot switch expiry tracking off, however explicitly it asks")
+    void pharmacy_may_not_disable_expiry_tracking() {
+        FakeStore store = new FakeStore();
+        store.upsert(7L, null, Shape.settingKey(), "pharmacy");
+        // The owner saved a deliberate "off" — the strongest form of the choice, and the one that wins
+        // everywhere else in this class.
+        store.upsert(7L, null, Capability.EXPIRY_TRACKING.settingKey(), "false");
+
+        /*
+         * Since EXP-1 this capability decides whether dated stock is SELLABLE, not just whether a label is
+         * drawn: with it off, the FEFO allocator stops excluding expired batches. For a counter with no
+         * expiry dates that is right. For a dispensary it would turn a checkbox into a way to sell expired
+         * medicine, so the shape refuses the choice rather than honouring it.
+         */
+        assertThat(svc(store).isEnabledFor(7L, Capability.EXPIRY_TRACKING))
+                .as("a dispensing shape floors expiry tracking ON")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("⭐ the floor is NOT a blanket override — a pharmacy still chooses everything else")
+    void the_floor_only_covers_what_the_shape_mandates() {
+        FakeStore store = new FakeStore();
+        store.upsert(7L, null, Shape.settingKey(), "pharmacy");
+        store.upsert(7L, null, Capability.RX_REQUIRED.settingKey(), "false");
+        store.upsert(7L, null, Capability.BATCH_TRACKING.settingKey(), "false");
+
+        CapabilityService svc = svc(store);
+        // A veterinary or agri-chem counter is the same shape and is often not prescription-controlled;
+        // batch numbers without expiry are a lesser record, not an unsafe one. Neither is floored.
+        assertThat(svc.isEnabledFor(7L, Capability.RX_REQUIRED)).isFalse();
+        assertThat(svc.isEnabledFor(7L, Capability.BATCH_TRACKING)).isFalse();
+        assertThat(svc.isEnabledFor(7L, Capability.EXPIRY_TRACKING)).isTrue();
+    }
+
+    @Test
+    @DisplayName("⭐ a RETAIL counter has expiry tracking OFF by preset — the case the product grid reported")
+    void retail_has_expiry_tracking_off() {
+        FakeStore store = new FakeStore();
+        store.upsert(7L, null, Shape.settingKey(), "retail");
+
+        // Nothing overridden: RETAIL's preset simply does not include expiry, which is why a mobile shop was
+        // being shown "N expired" for stock it does not date.
+        assertThat(svc(store).isEnabledFor(7L, Capability.EXPIRY_TRACKING)).isFalse();
+    }
+
+    @Test
+    @DisplayName("⭐⭐ the platform ceiling still outranks the floor — a revoked capability stays off")
+    void a_revoked_capability_beats_the_shape_floor() {
+        FakeStore store = new FakeStore();
+        store.upsert(7L, null, Shape.settingKey(), "pharmacy");
+
+        SettingsService settings = new SettingsService(store, List.of(new CapabilityCatalog()),
+                Providers.none(), Providers.none(), 60L);
+        // An operator withdrawal — a suspended tenant, an expired grant. The floor answers "may this tenant
+        // choose otherwise", never "may this tenant have it at all"; handing a revoked capability back would
+        // make a suspension partially ineffective and tell nobody.
+        // Anonymous, not a lambda: EntitlementSource has two methods (grantable + revoked) on purpose — the
+        // commercial bound lives on the WRITE path and the withdrawal on the read path, and collapsing them
+        // is the error its javadoc was written to prevent.
+        CapabilityService svc = new CapabilityService(settings, new EntitlementSource() {
+            @Override public boolean grantable(Long org, Capability c) { return true; }
+            @Override public boolean revoked(Long org, Capability c) { return c == Capability.EXPIRY_TRACKING; }
+        });
+
+        assertThat(svc.isEnabledFor(7L, Capability.EXPIRY_TRACKING)).isFalse();
+    }
 }

@@ -144,6 +144,18 @@ describe('E2E — pack product: register → purchase → sell pack → sell loo
     // The chart of accounts must exist before anything can post to it.
     cy.request({ method: 'POST', url: '/gl/ensureDefaults', failOnStatusCode: false })
 
+    /*
+     * ⚠ PIN THE TAX POLICY. Every number in this spec assumes tax is OFF (a sale line's net = quantity × rate). The
+     * tenant's policy is server-wide state, and in a full-suite run (2026-09-16) commerce-gaps — which runs earlier,
+     * alphabetically — had left 17% on, so the 60.00 half-pack line came back as 70.20 and case 4 went red for a
+     * reason that had nothing to do with this flow. So: snapshot, switch it off for the run, put it back after.
+     * business-service reads the policy fresh on every sale, so no propagation wait is needed here.
+     */
+    cy.snapshotTaxSetting().then((s) => {
+      state.taxBefore = s
+      cy.setTaxSetting({ ...s, enabled: false })
+    })
+
     const stamp = uniq()
     state.name = `E2E Pack ${stamp}`
 
@@ -166,6 +178,9 @@ describe('E2E — pack product: register → purchase → sell pack → sell loo
   })
 
   after(() => {
+    cy.loginAsBusiness()
+    // Put the tenant's tax policy back exactly as it was found — all six fields.
+    cy.restoreTaxSetting(state.taxBefore)
     // Deactivate the product; leave every financial row alone (see the header).
     if (state.productId) {
       cy.request({ method: 'POST', url: '/removeProducts', headers: { 'Content-Type': 'application/json' },

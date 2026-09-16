@@ -38,6 +38,15 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     long countByUser(User user);
 
     /**
+     * P6 — the OLDEST session for this user, and only it.
+     *
+     * <p>The chip needs two facts: how many sessions there are, and when the oldest signed in. Read together with
+     * {@link #countByUser}, this is one COUNT and one single-row lookup — where {@code findByUserOrderByExpiryDateAsc}
+     * loaded every row to use one of them and discard the rest.
+     */
+    Optional<RefreshToken> findFirstByUserOrderByExpiryDateAsc(User user);
+
+    /**
      * SESS-1 — "sign out my other devices": every session for this user EXCEPT the one presenting the call.
      *
      * <p>Keyed on the caller's own refresh token, never on an id from the request, so a caller can only ever

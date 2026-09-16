@@ -30,11 +30,22 @@
 
 	var READ = '/mySessions';
 	var REVOKE = '/revokeOtherSessions';
-	// Slow on purpose: a session count changes when somebody signs in, not second by second, and this runs
-	// on every dashboard of every signed-in user.
-	var POLL_MS = 120000;
+	/*
+	 * ⚠ P6 (2026-09-16) — NO TIMER. This polled every 120 s, on every dashboard, for every signed-in user.
+	 *
+	 * That is a recurring cross-service call — monolith → gateway → auth-service → MySQL — for a number that
+	 * changes only when somebody signs in or out on another device. At one shop it is invisible; multiplied by
+	 * every till of every tenant it is a standing load nobody asked for, and it keeps running on a dashboard
+	 * left open overnight on a counter.
+	 *
+	 * What replaces it: read once at load, repaint from the revoke's own answer (it returns the fresh count),
+	 * and re-read when the page becomes visible again — but no more often than STALE_MS, so tabbing back and
+	 * forth cannot turn into a poll by another name. A count a few minutes stale costs nothing; what matters is
+	 * that "4 of 5" is right when the shopkeeper looks, and a page they have just returned to is when they look.
+	 */
+	var STALE_MS = 600000;
 
-	var timer = null;
+	var lastRead = 0;
 
 	function chips() {
 		return document.querySelectorAll('[data-sessions]');
@@ -77,6 +88,7 @@
 
 	function read() {
 		if (!chips().length) return;
+		lastRead = Date.now();
 		// global:false — this is background work the user did not ask for, so it must not raise the
 		// progress bar or the veil (the rule ajax-overlay.js records for bgJson).
 		jQuery.ajax({ url: READ, dataType: 'json', global: false })
@@ -117,8 +129,13 @@
 	function start() {
 		if (!chips().length) return;
 		read();
-		if (timer) { window.clearInterval(timer); }
-		timer = window.setInterval(read, POLL_MS);
+		// Re-read on return to the tab, at most once per STALE_MS. document.hidden is not universal on the
+		// older browsers a counter PC may run, so the listener is only attached where it exists.
+		if (typeof document.hidden !== 'undefined') {
+			document.addEventListener('visibilitychange', function () {
+				if (!document.hidden && Date.now() - lastRead > STALE_MS) read();
+			});
+		}
 		// Delegated: the chip lives in a shared header fragment and may be re-rendered by a page that
 		// replaces its navbar.
 		jQuery(document).on('click', '[data-sessions-signout]', function (e) {

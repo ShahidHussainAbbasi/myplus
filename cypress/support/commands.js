@@ -557,6 +557,50 @@ Cypress.Commands.add('asOtherTenant', (fn, email = 'demo.education@myplus.com') 
 })
 
 /**
+ * The tenant's TAX POLICY — read it, change it, and put it back EXACTLY. For the session's current tenant.
+ *
+ * ⚠ It is SERVER-WIDE state, and a spec that changes it without restoring it makes every later money spec depend on
+ * run order. Found 2026-09-16 in a full-suite survey: commerce-gaps set 17% and left it on, so an unrelated e2e spec
+ * that ran after it (alphabetically) was taxed — a 60.00 half-pack line came back as 70.20.
+ *
+ * ⚠ /saveTaxSetting REPLACES EVERY FIELD. `TaxService.saveSetting` resets anything not sent: the label to "Tax", the
+ * registration number to null, both toggles to off. A spec that posts only `enabled` and `defaultRate` therefore
+ * also wipes the label, reg no and purchase-tax toggle — so a restore must send all six, which is what these do.
+ *
+ * Propagation: business-service reads the policy fresh on every sale (no cache). The storefront (marketplace)
+ * caches it for 15s, so a spec whose NEXT step is a storefront quote passes `{ waitForStorefront: true }`.
+ */
+const TAX_FIELDS = ['enabled', 'taxMode', 'defaultRate', 'taxLabel', 'taxRegNo', 'inputTaxEnabled']
+
+Cypress.Commands.add('snapshotTaxSetting', () =>
+  cy.request('/getTaxSetting').then((r) => {
+    const o = r.body && r.body.object
+    expect(o, `/getTaxSetting must answer the policy: ${JSON.stringify(r.body).slice(0, 200)}`).to.be.an('object')
+    const snap = {}
+    TAX_FIELDS.forEach((f) => { snap[f] = o[f] })
+    return snap
+  }))
+
+Cypress.Commands.add('setTaxSetting', (fields, opts = {}) => {
+  const body = {}
+  TAX_FIELDS.forEach((f) => {
+    const v = fields[f]
+    if (v !== undefined && v !== null) body[f] = v   // omitted = the server's default, which is what null means
+  })
+  return cy.request({ method: 'POST', url: '/saveTaxSetting', form: true, body, failOnStatusCode: false })
+    .then((r) => {
+      expect(r.body && r.body.status, `tax setting saved: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq('SUCCESS')
+      if (opts.waitForStorefront) cy.wait(16000)   // marketplace's app.tax-policy.cache-ttl-ms is 15s
+    })
+})
+
+/** Put a snapshot back — the after() half. Same call as a set, named for what it is for. */
+Cypress.Commands.add('restoreTaxSetting', (snap, opts = {}) => {
+  if (!snap) return cy.log('restoreTaxSetting: no snapshot taken, nothing to restore')
+  return cy.setTaxSetting(snap, opts)
+})
+
+/**
  * The tenant's audit trail — `auditLog` reads it once, `findAudit` polls until a matching row arrives.
  *
  * Moved here from audit-log.cy.js when a second spec (BLK-0, finance-ledger-write-guard) needed the same

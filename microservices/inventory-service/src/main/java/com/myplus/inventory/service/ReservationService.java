@@ -37,6 +37,17 @@ public class ReservationService {
     /** OMS O5a — how long this tenant's holds live. */
     private final ReservationPolicy reservationPolicy;
 
+    /**
+     * EXP-1 — whether this tenant keeps expiry dates.
+     *
+     * <p>⚠ This is the ALLOCATOR, so the flag decides what a sale may actually take off the shelf, not merely
+     * what a screen says. With expiry tracking ON, a dated batch past today is excluded and a shop dispensing
+     * medicines cannot sell it (G1, and {@code Shape.PHARMACY} now floors the capability so that cannot be
+     * switched off). With it OFF — a mobile shop, a general counter — an old date on a row is not a reason to
+     * refuse to sell perfectly good stock.
+     */
+    private final com.myplus.common.settings.CapabilityService capabilityService;
+
     /** U0: absent means zero, exactly. */
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
     /*
@@ -111,7 +122,8 @@ public class ReservationService {
         for (StockReservationLine line : req.getLines()) {
             BigDecimal need = nz(line.getQuantity());
             BigDecimal available = BigDecimal.ZERO;
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
+            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today,
+                    capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
                 available = available.add(nz(e.getQuantity()).subtract(nz(e.getReservedQuantity())).max(BigDecimal.ZERO));
             }
             // U0: exact. The epsilon that used to pad this comparison existed only because float subtraction
@@ -169,7 +181,8 @@ public class ReservationService {
              * remainder that never reaches zero, so the last pieces of a batch could never be allocated.
              */
             BigDecimal remaining = nz(line.getQuantity());
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today)) {
+            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today,
+                    capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
                 if (remaining.signum() <= 0) break;
                 BigDecimal avail = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
                 if (avail.signum() <= 0) continue;

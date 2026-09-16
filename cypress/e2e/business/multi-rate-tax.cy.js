@@ -7,6 +7,21 @@
  * Assertions use before/after deltas so other activity in the period doesn't make them brittle.
  */
 describe('Multi-rate tax — tax codes', () => {
+  /*
+   * ⚠ This spec turns sales tax ON for the tenant, and its save sends only three fields — which also RESETS the
+   * label, the registration number and the purchase-tax toggle (saveSetting replaces every field). It left all of
+   * that behind for every later spec. Snapshot first, restore all six fields after.
+   */
+  let taxBefore
+  before(() => {
+    cy.loginAsBusiness()
+    cy.snapshotTaxSetting().then((s) => { taxBefore = s })
+  })
+  after(() => {
+    cy.loginAsBusiness()
+    cy.restoreTaxSetting(taxBefore)
+  })
+
   beforeEach(() => { cy.loginAsBusiness() })
 
   const today = new Date().toISOString().slice(0, 10)

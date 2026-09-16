@@ -153,11 +153,27 @@ public class CapabilityService {
          */
         if (entitlements.revoked(organizationId, capability)) return false;
 
+        Shape shape = shapeFor(organizationId);
+        /*
+         * EXP-1 — the SHAPE'S FLOOR, above the tenant's own choice and below the platform ceiling.
+         *
+         *     revoked (platform)  >  shape floor  >  tenant override  >  shape preset
+         *
+         * A pharmacy may not switch expiry tracking off. Since EXP-1 the capability decides whether dated
+         * stock is sellable at all, so that checkbox would otherwise be a way to start dispensing expired
+         * medicine — with every screen reporting it as ordinary stock, because it would be.
+         *
+         * BELOW the ceiling deliberately: if the operator has revoked a capability the tenant loses it, floor
+         * or not. The floor answers "may this tenant choose otherwise", not "may this tenant have it at all",
+         * and an entitlement that has genuinely been withdrawn must not be handed back by a preset.
+         */
+        if (shape.mandates(capability)) return true;
+
         java.util.Optional<String> chosen = settings.overrideFor(organizationId, capability.settingKey());
         if (chosen.isPresent()) {
             return "true".equalsIgnoreCase(chosen.get().trim());
         }
-        return shapeFor(organizationId).includes(capability);
+        return shape.includes(capability);
     }
 
     /** The caller's tenant's shape. {@link Shape#GENERAL} when none has been chosen. */

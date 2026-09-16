@@ -29,9 +29,21 @@ describe('E-commerce — a storefront order posts a correct, balanced journal', 
    *  specs, so only the MOVEMENT between two reads is meaningful — never an absolute balance. */
   const net = (rows, c) => { const a = acct(rows, c); return Number(a.debit) - Number(a.credit) }
 
+  /*
+   * ⚠ Tax is switched ON below for the marketplace tenant and was never switched back — every later storefront spec
+   * inherited it. Snapshot first; restore in after(), waiting out the storefront's 15s policy cache so the NEXT spec
+   * sees the restored policy rather than this one's.
+   */
+  let taxBefore
+  after(() => {
+    cy.loginAsMarketplace()
+    cy.restoreTaxSetting(taxBefore, { waitForStorefront: true })
+  })
+
   before(() => {
     cy.loginAsMarketplace()
     cy.request('/getMyOrganizations').then((r) => { orgId = ((r.body.collection || [])[0] || {}).id })
+    cy.snapshotTaxSetting().then((s) => { taxBefore = s })
     // Tax ON so the journal has a tax leg too — the fee must stay OUT of it.
     cy.request({ method: 'POST', url: '/saveTaxSetting', form: true, failOnStatusCode: false,
       body: { enabled: true, taxMode: 'EXCLUSIVE', defaultRate: 0 } })

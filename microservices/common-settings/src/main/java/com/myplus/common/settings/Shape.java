@@ -54,7 +54,19 @@ public enum Shape {
      */
     PHARMACY("pharmacy", "Pharmacy / dispensing",
             EnumSet.of(Capability.BATCH_TRACKING, Capability.EXPIRY_TRACKING, Capability.FEFO_ALLOCATION,
-                    Capability.LOOSE_SELLING, Capability.RX_REQUIRED)),
+                    Capability.LOOSE_SELLING, Capability.RX_REQUIRED),
+            // ⚠ THE FLOOR. A dispensing counter may not switch expiry tracking off.
+            //
+            // EXP-1 made the capability mean something in the stock engine: with it OFF, dated stock is
+            // ordinary sellable stock and the allocator will pick it. That is right for a mobile shop, which
+            // has no expiry dates it trusts. For a pharmacy it would mean an owner could turn a checkbox off
+            // and begin dispensing expired medicine, with the screens reporting it as ordinary stock. A
+            // setting whose worst outcome is that is not a setting.
+            //
+            // BATCH_TRACKING is deliberately NOT floored with it: a pharmacy that records expiry without
+            // batch numbers is doing less than it should, but nothing it does is unsafe. RX_REQUIRED stays
+            // optional for the reason above — a veterinary or agri-chem counter is the same shape.
+            EnumSet.of(Capability.EXPIRY_TRACKING)),
 
     /** Selling on to other businesses: reps, routes, collections and tiered prices. */
     DISTRIBUTION("distribution", "Distribution / wholesale",
@@ -71,11 +83,17 @@ public enum Shape {
     private final String code;
     private final String label;
     private final Set<Capability> preset;
+    private final Set<Capability> mandatory;
 
     Shape(String code, String label, Set<Capability> preset) {
+        this(code, label, preset, EnumSet.noneOf(Capability.class));
+    }
+
+    Shape(String code, String label, Set<Capability> preset, Set<Capability> mandatory) {
         this.code = code;
         this.label = label;
         this.preset = Collections.unmodifiableSet(preset);
+        this.mandatory = Collections.unmodifiableSet(mandatory);
     }
 
     /** The stored value, e.g. {@code retail}. */
@@ -91,6 +109,25 @@ public enum Shape {
     public boolean includes(Capability capability) {
         return capability != null && preset.contains(capability);
     }
+
+    /**
+     * EXP-1 — capabilities this shape may not switch OFF, whatever the tenant saved.
+     *
+     * <p>A preset is a starting point an owner may change; this is a floor they may not go below, because for
+     * this kind of business the capability is not a preference. Only {@link #PHARMACY} declares one today
+     * ({@code EXPIRY_TRACKING}), and anything mandatory is necessarily also in the preset — a shape cannot
+     * require what it does not start with.
+     *
+     * <p>⚠ It does NOT outrank the platform ceiling. A capability the operator has revoked stays off: the
+     * floor answers "may this tenant choose otherwise", not "may this tenant have it at all". A shop whose
+     * entitlement has genuinely been withdrawn needs to be told that, not quietly given the capability back.
+     */
+    public boolean mandates(Capability capability) {
+        return capability != null && mandatory.contains(capability);
+    }
+
+    /** The capabilities this shape does not allow to be switched off. */
+    public Set<Capability> mandatory() { return mandatory; }
 
     /**
      * Resolve a stored code, falling back to {@link #GENERAL}.

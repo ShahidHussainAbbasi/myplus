@@ -67,8 +67,12 @@ cd .. ; mvn -q -DskipTests clean package        # monolith UI → target/myplus.
 ### Which commit to deploy
 
 Build only from a branch that compiles. **`master` carries a Dependabot bump to Spring Boot 4.1.0 that
-does not compile** — 3.5.0 is the deployable line. As of 2026-08-17 the deployable branch is
-**`feature/UI-UX`**.
+does not compile** — 3.5.0 is the deployable line.
+
+**As of 2026-09-16 the deployable branch is `feature/pack-loose-selling`.** It contains every commit of
+`feature/UI-UX` (the previous answer here, now 56 commits behind) and every commit of `master`, and both
+`pom.xml` and `microservices/pom.xml` declare `spring-boot-starter-parent` **3.5.0** — checked, not assumed.
+Re-check both facts before a deploy rather than trusting this line; it was 30 days stale when it was found.
 
 **Tag the commit before you build, and deploy the tag.** A branch name moves; a tag does not, and the
 tag is what makes a rollback a one-line operation instead of an archaeology exercise:
@@ -81,13 +85,39 @@ git rev-parse HEAD          # record this — backup-db.sh also captures it with
 
 > ### ⚠ Know what is gated and what is not
 >
-> `feature/UI-UX` HEAD contains work that has **passed** its Cypress gate and work that has **not**, with
-> no commit boundary between them: commit `1a5a4878` landed 53 files in one go, mixing O7 D4's green work
-> and PERF-1/3/3b's green work with **PERF-4 and O7 D5, which were built but never gated**.
+> A branch HEAD contains work that has **passed** its Cypress gate and work that has **not**, with no commit
+> boundary between them: commit `1a5a4878` landed 53 files in one go, mixing O7 D4's green work and
+> PERF-1/3/3b's green work with **PERF-4 and O7 D5, which were built but never gated**.
 >
 > That is not a reason to stop — it is a reason to know which screens are unproven before customers find
-> them. Deploying ungated code is a decision to make deliberately, not one to discover afterwards. Either
-> gate those two first, or deploy and treat them as beta.
+> them. Deploying ungated code is a decision to make deliberately, not one to discover afterwards.
+>
+> **State as at 2026-09-16, for the deploy being prepared now:**
+>
+> | Gated green | Evidence |
+> |---|---|
+> | SESS-1 (sessions chip, dead-session path) | `session-visibility.cy.js` 7/7 |
+> | AUTH-SESS-1 (per-device logout, defect B) | `auth-per-device-logout.cy.js` 5/5, auth-service unit 48/48 |
+> | CACHE-3 (batched product refs) | `catalog-refs-cache.cy.js` 13/13, regressions 81/81 |
+> | COGS-1 (batch unit cost) | `e2e-pack-purchase-sell-finance.cy.js`, red 4/5 against the unfixed build, then green |
+>
+> **⚠ Known NOT-green or unresolved at the same date — read before deciding:**
+>
+> 1. **Territory assignment (OMS O7 D6a) fails 2/7 on current code.** A rep sees every outlet and is not
+>    refused when assigning. Reproduced identically before and after a business-service rebuild, so it is
+>    not a stale image. **If any tenant uses reps, this is a data-visibility failure on day one.**
+> 2. **Sale quantities are FLOAT** (`sell.quantity`, `purchase.quantity`, `sale_return.quantity`,
+>    `sales_quote_line.quantity`) while stock is DECIMAL. 18 rows already hold 0.1 / 0.2 / 0.3333 pack
+>    quantities, and one sale row stores 566,999.88 where 630 × 900.00 = 567,000.00. Matters most for
+>    pack/loose selling, which is what this branch adds.
+> 3. **The dev database does not match its own migrations.** V8 declares `stock_entries.quantity`,
+>    `reserved_quantity` and `stock_levels.current_stock` as `DECIMAL(19,4)`; the live dev DB has `(38,2)`.
+>    A FRESH production database gets (19,4) — so production rounds fractional packs differently from every
+>    local test, and `ddl-auto=validate` will not complain, because it does not check scale.
+> 4. **COGS-1 does not restate history.** Past COGS/Inventory journal postings keep the inflated cost and
+>    past `reservation_picks.unit_cost` keep their values. Only sales after the deploy cost correctly.
+>    Restating is a separate decision. Run the read-only verification query in
+>    `microservices/docs/slices/cogs-1-batch-unit-cost.md` before and after the deploy.
 
 Confirm the tree is clean before building, because the jars must correspond to the tag you just made:
 

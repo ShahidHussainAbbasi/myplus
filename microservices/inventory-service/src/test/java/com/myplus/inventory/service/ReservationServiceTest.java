@@ -18,6 +18,7 @@ import com.myplus.inventory.repository.StockEntryRepository;
 import com.myplus.inventory.repository.StockLevelRepository;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -273,11 +274,58 @@ class ReservationServiceTest {
                 .filter(e -> Boolean.FALSE.equals(e.getRestockable())).findFirst().orElseThrow();
         assertThat(q.getQuantity()).isEqualByComparingTo("8");
         // ...and FEFO never offers it (only the 10 sellable units remain allocatable)
-        java.math.BigDecimal fefoAvailable = stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now())
+        java.math.BigDecimal fefoAvailable = stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now(), true)
                 .stream()
                 .map(e -> e.getQuantity().subtract(
                         e.getReservedQuantity() == null ? java.math.BigDecimal.ZERO : e.getReservedQuantity()))
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
         assertThat(fefoAvailable).isEqualByComparingTo("10");
+    }
+
+    // ── EXP-1: what the expiryTracking capability means to the allocator ──────────────────────────
+
+    @Test
+    @DisplayName("⭐⭐ EXP-1 — a tenant that does not track expiry can sell a dated batch")
+    void without_expiry_tracking_a_dated_batch_is_ordinary_stock() {
+        batch(100f, EXPIRED);      // the only stock, dated yesterday
+        stockLevel(100f);
+
+        /*
+         * The same row, asked about twice. Tracking ON is the long-standing G1 rule: expired stock is not
+         * allocatable, and a pharmacy cannot switch that off (Shape.PHARMACY floors the capability). Tracking
+         * OFF is a shop that keeps no expiry dates — a mobile counter, a hardware store — where a date left on
+         * an old row is not a reason to refuse to sell perfectly good goods, and where the "N expired" badge
+         * was appearing for a concept the tenant does not use.
+         */
+        assertThat(stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now(), true))
+                .as("tracking ON: G1 still excludes it")
+                .isEmpty();
+        assertThat(stockEntryRepository.findForFefo(PRODUCT, ORG, USER, LocalDate.now(), false))
+                .as("tracking OFF: it is ordinary stock the allocator may pick")
+                .hasSize(1);
+    }
+
+    @Test
+    @DisplayName("⭐⭐ EXP-1 — with tracking off the split reports NO expired units, and counts them sellable")
+    void without_expiry_tracking_the_split_reports_nothing_expired() {
+        batch(100f, EXPIRED);
+        stockLevel(100f);
+        LocalDate today = LocalDate.now();
+
+        Object[] on = stockEntryRepository.sellableExpiredByScope(ORG, USER, today, true).get(0);
+        Object[] off = stockEntryRepository.sellableExpiredByScope(ORG, USER, today, false).get(0);
+
+        // ON: 0 sellable, 100 expired — the badge that explains why the shelf figure is lower.
+        assertThat(((Number) on[1]).doubleValue()).as("tracking ON: nothing sellable").isEqualTo(0d);
+        assertThat(((Number) on[2]).doubleValue()).as("tracking ON: 100 expired").isEqualTo(100d);
+
+        /*
+         * OFF: 100 sellable, 0 expired. The UI needs no change for the badge to disappear — it renders only
+         * when expired > 0 — and, more importantly, the number beside it stops being lower than the shelf.
+         * Hiding the badge alone would have left a 0 with no explanation while the allocator still refused
+         * the stock, which is worse than the label it removed.
+         */
+        assertThat(((Number) off[1]).doubleValue()).as("tracking OFF: all of it sellable").isEqualTo(100d);
+        assertThat(((Number) off[2]).doubleValue()).as("tracking OFF: nothing is 'expired'").isEqualTo(0d);
     }
 }

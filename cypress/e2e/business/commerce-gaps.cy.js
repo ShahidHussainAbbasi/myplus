@@ -6,6 +6,21 @@
 
 // ─── G3 — Tax engine ─────────────────────────────────────────────────────────
 describe('G3 — Tax engine', () => {
+  /*
+   * ⚠ The save case below turns tax ON at 17% for the whole tenant. Without a restore that rate stayed on and taxed
+   * every money spec that ran after this one — found 2026-09-16 when e2e-pack-purchase-sell-finance (run later,
+   * alphabetically) billed a 60.00 half-pack line as 70.20. Snapshot first, put it back after.
+   */
+  let taxBefore
+  before(() => {
+    cy.loginAsBusiness()
+    cy.snapshotTaxSetting().then((s) => { taxBefore = s })
+  })
+  after(() => {
+    cy.loginAsBusiness()
+    cy.restoreTaxSetting(taxBefore)
+  })
+
   beforeEach(() => { cy.loginAsBusiness() })
 
   it('getTaxSetting returns the org tax policy', () => {

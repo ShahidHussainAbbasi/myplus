@@ -1,6 +1,10 @@
 # COGS-1 — a batch costs the same per unit on every sale
 
-**Status: BUILT, unit tests written — awaiting the inventory-service rebuild and the gate.** Raised 2026-09-16.
+**Status: ✅ DONE + GATED 2026-09-16.** Code committed `c7c85040`; inventory rebuilt 15:35:16, V12 applied.
+Gate `e2e-pack-purchase-sell-finance.cy.js`: **RED on the unfixed build** (case 5: "expected 210 to be close to 200"),
+**5/5 after**. Regressions 88/88 (sell-loose 12, gl-posting 2, purchase-in-boxes 9, bonus-schemes-p3 14, sell 31,
+pos-checkout-chain 15). Unit: inventory-service 62/62, 0 skipped. Verification query on dev after V12: 692
+paid-total batches / 0 still NULL / 405 never sold / 287 agree / **0 disagree**. Raised 2026-09-16.
 Scope and fix shape chosen by the user: *store the quantity a batch was received with*.
 
 ## 1. How it was found

@@ -92,7 +92,10 @@ public class RegistrationController {
     @ResponseBody
     public GenericResponse changeUserPassword(final Locale locale, @Valid PasswordDto passwordDto) {
         try {
-            authServerClient.changePassword(tokenStore.getAccessToken(), passwordDto.getOldPassword(), passwordDto.getNewPassword());
+            // P5: the refresh token identifies THIS device, so changing a password signs out the OTHER
+            // sessions and leaves the person who did it signed in where they are.
+            authServerClient.changePassword(tokenStore.getAccessToken(), tokenStore.getRefreshToken(),
+                    passwordDto.getOldPassword(), passwordDto.getNewPassword());
         } catch (HttpStatusCodeException e) {
             // auth-service returns 4xx when the current password is wrong / new password rejected.
             throw new InvalidOldPasswordException();

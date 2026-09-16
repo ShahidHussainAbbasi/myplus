@@ -122,8 +122,13 @@ class RefreshTokenServiceTest {
     void describesTheCap() {
         User u = user(74L);
         when(users.findById(74L)).thenReturn(Optional.of(u));
-        when(tokens.findByUserOrderByExpiryDateAsc(u)).thenReturn(List.of(
-                session(1, "a", 3_000), session(2, "b", 2_000), session(3, "c", 1_000)));
+        /*
+          * P6: the service now asks for a COUNT and the single OLDEST row, instead of loading every row and
+          * using two things from the list. The ASSERTIONS below are untouched on purpose — what the shopkeeper
+          * is shown must not change because the queries behind it did.
+          */
+        when(tokens.countByUser(u)).thenReturn(3L);
+        when(tokens.findFirstByUserOrderByExpiryDateAsc(u)).thenReturn(Optional.of(session(3, "c", 1_000)));
 
         Map<String, Object> out = service(5).describeSessions(74L);
 
@@ -138,9 +143,8 @@ class RefreshTokenServiceTest {
     void atCapIsTrueAtTheCap() {
         User u = user(74L);
         when(users.findById(74L)).thenReturn(Optional.of(u));
-        when(tokens.findByUserOrderByExpiryDateAsc(u)).thenReturn(List.of(
-                session(1, "a", 5_000), session(2, "b", 4_000), session(3, "c", 3_000),
-                session(4, "d", 2_000), session(5, "e", 1_000)));
+        when(tokens.countByUser(u)).thenReturn(5L);
+        when(tokens.findFirstByUserOrderByExpiryDateAsc(u)).thenReturn(Optional.of(session(5, "e", 1_000)));
 
         assertThat(service(5).describeSessions(74L).get("atCap")).isEqualTo(true);
     }
@@ -150,12 +154,14 @@ class RefreshTokenServiceTest {
     void describesAnEmptyAccount() {
         User u = user(74L);
         when(users.findById(74L)).thenReturn(Optional.of(u));
-        when(tokens.findByUserOrderByExpiryDateAsc(u)).thenReturn(List.of());
+        when(tokens.countByUser(u)).thenReturn(0L);
 
         Map<String, Object> out = service(5).describeSessions(74L);
 
         assertThat(out.get("count")).isEqualTo(0);
         assertThat(out.get("oldestSignedInAt")).isNull();
+        // An empty account must not ask for an oldest row at all — the count already answered the question.
+        verify(tokens, never()).findFirstByUserOrderByExpiryDateAsc(u);
     }
 
     // ── sign out my other devices ─────────────────────────────────────────────────────────────────

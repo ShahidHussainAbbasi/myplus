@@ -60,9 +60,27 @@ public class UserService {
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        // AUTH-SESS-1 — the point of changing a password is that the old one stops working. A session opened with it
-        // would otherwise keep refreshing for up to 7 days. Note the ORDER: the wrong current password throws above,
-        // so a failed attempt revokes nothing.
+        /*
+         * AUTH-SESS-1 — the point of changing a password is that the old one stops working. A session opened with
+         * it would otherwise keep refreshing for up to 7 days. Note the ORDER: the wrong current password throws
+         * above, so a failed attempt revokes nothing.
+         *
+         * ⚠ P5 (2026-09-16, found reviewing for the production deploy) — EVERY OTHER SESSION, not this one.
+         *
+         * As first written this revoked ALL sessions, the caller's included. Nothing failed immediately — the
+         * browser holds an access token good for another 15 minutes — so the person who changed their password
+         * carried on working and was thrown to the login page a quarter of an hour later, mid-whatever, by a
+         * routine action they had completed successfully. At a till that is a cashier with a customer in front of
+         * them, and the cause is fifteen minutes in the past and looks nothing like a password change.
+         *
+         * Revoking the OTHERS is what the requirement actually is: whoever holds the old password is shut out, and
+         * the person who has just proved they know the new one stays where they are. No token (a client older than
+         * this) still revokes everything — that is the safe direction to fail in.
+         */
+        if (request.getRefreshToken() != null && !request.getRefreshToken().isBlank()) {
+            refreshTokenService.revokeOtherSessions(userId, request.getRefreshToken());
+            return;
+        }
         refreshTokenService.deleteByUserId(userId);
     }
 

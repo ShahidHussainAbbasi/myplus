@@ -137,13 +137,28 @@ public class AuthServerClient {
      * {@link org.springframework.web.client.HttpStatusCodeException} if the current password is wrong
      * or the new password is rejected.
      */
-    public void changePassword(String accessToken, String currentPassword, String newPassword) {
+    public void changePassword(String accessToken, String refreshToken,
+            String currentPassword, String newPassword) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
         Map<String, String> body = new HashMap<>();
         body.put("currentPassword", currentPassword);
         body.put("newPassword", newPassword);
+        /*
+         * P5 — send THIS session's refresh token so the person changing their password keeps working.
+         *
+         * auth-service revokes every OTHER session when it receives this, and every session INCLUDING this one
+         * when it does not. Omitting it therefore signs the user out of the device they are sitting at — not at
+         * once, but 15 minutes later when the access token ages out, which is far harder to connect back to the
+         * password change that caused it.
+         *
+         * Null is not an error: a session that somehow holds no refresh token still gets its password changed,
+         * and everything is revoked. Shutting the old password out is the part that must never be skipped.
+         */
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            body.put("refreshToken", refreshToken);
+        }
         restTemplate.exchange(baseUrl + "/api/auth/users/me/password", HttpMethod.PUT,
                 new HttpEntity<>(body, headers), Void.class);
     }

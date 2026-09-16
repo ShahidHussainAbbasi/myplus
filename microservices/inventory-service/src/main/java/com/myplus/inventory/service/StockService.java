@@ -28,6 +28,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class StockService {
 
+    /**
+      * EXP-1 — whether this tenant keeps expiry dates at all.
+      *
+      * <p>In every service but auth this resolves from the {@code caps} claim in the caller's JWT, so it costs
+      * nothing per call. ⚠ Capabilities are baked in at MINT, so switching the setting reaches a till when its
+      * access token next refreshes (up to {@code jwt.access-token-expiration-ms}, 15 min) — the same delay every
+      * other capability already has.
+      */
+    private final com.myplus.common.settings.CapabilityService capabilityService;
+
     private final StockLevelRepository stockLevelRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockEntryRepository stockEntryRepository;
@@ -211,8 +221,21 @@ public class StockService {
             out.put(sl.getProductId(), m);
         }
         // Overlay the batch-derived sellable/expired/held split.
-        for (Object[] row : (scoped ? stockEntryRepository.sellableExpiredByScopeAndIds(ids, orgId, userId, today)
-                                    : stockEntryRepository.sellableExpiredByScope(orgId, userId, today))) {
+        /*
+         * EXP-1 — a tenant that does not track expiry has no expired stock, by definition.
+         *
+         * With the capability off, a date sitting on an old row (imported, or entered while the tenant did
+         * track expiry) is not a reason to withhold goods: `expired` comes back 0 and that stock counts as
+         * sellable. The "N expired" badge then stops rendering on its own, because the UI draws it only when
+         * expired > 0 — nothing in the browser had to learn about the capability.
+         *
+         * ⚠ The ALLOCATOR uses the same flag (findForFefo). That is the half that makes this honest rather
+         * than cosmetic: hiding the badge while the allocator still refused the stock would leave the grid
+         * showing a number the till would not sell, which is the lie this column was built to end.
+         */
+        boolean trackExpiry = capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
+        for (Object[] row : (scoped ? stockEntryRepository.sellableExpiredByScopeAndIds(ids, orgId, userId, today, trackExpiry)
+                                    : stockEntryRepository.sellableExpiredByScope(orgId, userId, today, trackExpiry))) {
             Long pid = (Long) row[0];
             float sellable = row[1] == null ? 0f : ((Number) row[1]).floatValue();
             float expired = row[2] == null ? 0f : ((Number) row[2]).floatValue();
@@ -243,7 +266,10 @@ public class StockService {
         m.put("sellable", 0f);
         m.put("expired", 0f);
         m.put("held", 0f);              // OMS O5a — see getLevelDetail
-        for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today)) {
+        // EXP-1 — the same flag as getLevelDetail. This feeds the SELL screen's badge and its quantity guard,
+        // so if the two disagreed the product grid and the till would report different stock for one product.
+        boolean trackExpiry = capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
+        for (Object[] row : stockEntryRepository.sellableExpiredByScope(orgId, userId, today, trackExpiry)) {
             if (!productId.equals(row[0])) continue;
             m.put("sellable", Math.max(0f, row[1] == null ? 0f : ((Number) row[1]).floatValue()));
             m.put("expired", Math.max(0f, row[2] == null ? 0f : ((Number) row[2]).floatValue()));
@@ -383,7 +409,10 @@ public class StockService {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
         List<StockBatch> out = new ArrayList<>();
-        for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now())) {
+        // EXP-1 — a tenant that does not track expiry sees dated batches here too, because those are the
+        // batches its sales will actually draw from (findForFefo below uses the identical flag).
+        for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now(),
+                capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
             BigDecimal available = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
             if (available.signum() <= 0) continue;
             // #17 P2: paidTotal rides along so a caller can reconcile the batch exactly. Falls back to

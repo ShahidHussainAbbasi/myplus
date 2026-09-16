@@ -57,9 +57,35 @@ class UserServiceTest {
         return r;
     }
 
+    private static ChangePasswordRequest change(String current, String next, String refreshToken) {
+        ChangePasswordRequest r = change(current, next);
+        r.setRefreshToken(refreshToken);
+        return r;
+    }
+
     @Test
-    @DisplayName("⭐ changing a password signs out every session opened with the old one")
-    void changePasswordRevokesEverySession() {
+    @DisplayName("⭐⭐ P5 — changing a password keeps THIS session and signs out the others")
+    void changePasswordKeepsTheCallersOwnSession() {
+        User u = user();
+        when(users.findById(USER_ID)).thenReturn(Optional.of(u));
+        when(encoder.matches("old", "ENCODED-OLD")).thenReturn(true);
+        when(encoder.encode("new")).thenReturn("ENCODED-NEW");
+
+        service.changePassword(USER_ID, change("old", "new", "THIS-DEVICE"));
+
+        verify(users).save(u);
+        /*
+         * The defect this pins: revoking ALL sessions here signed the user out of the device they were sitting
+         * at — not immediately (the access token has ~15 minutes left) but a quarter of an hour later, by which
+         * time nothing on screen connects the sign-out to the password change that caused it.
+         */
+        verify(sessions).revokeOtherSessions(USER_ID, "THIS-DEVICE");
+        verify(sessions, never()).deleteByUserId(any());
+    }
+
+    @Test
+    @DisplayName("⭐ a client that sends no refresh token still revokes EVERYTHING (the compatibility path)")
+    void changePasswordWithoutATokenRevokesEverySession() {
         User u = user();
         when(users.findById(USER_ID)).thenReturn(Optional.of(u));
         when(encoder.matches("old", "ENCODED-OLD")).thenReturn(true);
@@ -81,7 +107,11 @@ class UserServiceTest {
                 .isInstanceOf(ValidationException.class);
 
         // Otherwise anyone who knows an email could sign a shop's tills out by guessing at the password form.
+        // BOTH revoke paths are forbidden here, not just the one this method happens to take today: the check
+        // that matters is "a failed attempt revokes nothing", and an assertion naming only one call would go
+        // green if the other were ever moved above the password check.
         verify(sessions, never()).deleteByUserId(any());
+        verify(sessions, never()).revokeOtherSessions(any(), any());
         verify(users, never()).save(any(User.class));
     }
 

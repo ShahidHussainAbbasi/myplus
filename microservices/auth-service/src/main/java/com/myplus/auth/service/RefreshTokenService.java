@@ -119,15 +119,30 @@ public class RefreshTokenService {
     public Map<String, Object> describeSessions(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-        List<RefreshToken> sessions = refreshTokenRepository.findByUserOrderByExpiryDateAsc(user);
+        /*
+         * ⚠ P6 (2026-09-16) — a COUNT and ONE row, not the whole list.
+         *
+         * This loaded every refresh-token row for the user via findByUserOrderByExpiryDateAsc and then used
+         * exactly two things: how many there were, and the first one. The repository's countByUser had been
+         * added for precisely this and was never called — its own comment claimed the chip "costs one COUNT per
+         * read" while the code beneath it did the opposite. Small per call, and this is the call every signed-in
+         * dashboard makes, so it is the shape that turns a convenience query into load.
+         */
+        // int, not long: this is bounded by the cap, and the chip's JSON shape is already gated — a slice
+        // that changes a field's type on the wire while claiming to be a query optimisation is two changes.
+        int count = (int) refreshTokenRepository.countByUser(user);
+        Optional<RefreshToken> oldest = count == 0
+                ? Optional.empty()
+                : refreshTokenRepository.findFirstByUserOrderByExpiryDateAsc(user);
 
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("count", sessions.size());
+        out.put("count", count);
         out.put("max", maxSessionsPerUser);
-        out.put("atCap", sessions.size() >= maxSessionsPerUser);
+        out.put("atCap", count >= maxSessionsPerUser);
         // The oldest row's issue time, derived from its expiry — the table stores no createdAt.
-        out.put("oldestSignedInAt", sessions.isEmpty() ? null
-                : sessions.get(0).getExpiryDate().minusMillis(refreshTokenExpirationMs).toString());
+        out.put("oldestSignedInAt", oldest
+                .map(t -> t.getExpiryDate().minusMillis(refreshTokenExpirationMs).toString())
+                .orElse(null));
         return out;
     }
 

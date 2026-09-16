@@ -49,12 +49,17 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // G1 (compliance, slice 33): EXCLUDE already-expired batches (expiryDate < today) so a sale/dispense never
     // allocates expired stock — if only expired batches remain, the allocator sees 0 available -> OUT_OF_STOCK.
     // P11 (slice 55): also exclude quarantined (restockable=false) entries — never allocate returned, non-sellable stock.
+    // EXP-1: :trackExpiry is the tenant's expiryTracking capability. FALSE means this business does not keep
+    // expiry dates, so a date sitting on an old row is not a reason to withhold stock — the allocator treats
+    // dated batches as ordinary stock. The ORDER BY is left alone: earliest-first is a harmless order to pick
+    // in either case, and a pharmacy (which cannot switch the capability off — Shape's floor) is unaffected.
     @Query("SELECT se FROM StockEntry se WHERE se.productId = :productId AND " + SCOPE
-            + " AND (se.expiryDate IS NULL OR se.expiryDate >= :today)"
+            + " AND (:trackExpiry = FALSE OR se.expiryDate IS NULL OR se.expiryDate >= :today)"
             + " AND (se.restockable IS NULL OR se.restockable = true)"
             + " ORDER BY CASE WHEN se.expiryDate IS NULL THEN 1 ELSE 0 END, se.expiryDate ASC, se.id ASC")
     List<StockEntry> findForFefo(@Param("productId") Long productId, @Param("orgId") Long orgId,
-                                 @Param("userId") Long userId, @Param("today") LocalDate today);
+                                 @Param("userId") Long userId, @Param("today") LocalDate today,
+                                 @Param("trackExpiry") boolean trackExpiry);
 
     // Public storefront availability (slice 49 follow-up): per-product sellable quantity for a store (org). Mirrors
     // what the reservation allocator can actually hold — (quantity − reserved) over non-expired batches — so the
@@ -63,11 +68,15 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     @Query("SELECT se FROM StockEntry se WHERE se.restockable = false AND " + SCOPE + " ORDER BY se.id DESC")
     List<StockEntry> findQuarantinedScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    // EXP-1: mirrors findForFefo, including :trackExpiry. These two must agree or the storefront offers goods
+    // the checkout cannot reserve — the defect this query's own comment was written to prevent.
     @Query("SELECT se.productId, SUM(se.quantity - COALESCE(se.reservedQuantity, 0)) FROM StockEntry se "
-            + "WHERE se.organizationId = :orgId AND (se.expiryDate IS NULL OR se.expiryDate >= :today) "
+            + "WHERE se.organizationId = :orgId "
+            + "AND (:trackExpiry = FALSE OR se.expiryDate IS NULL OR se.expiryDate >= :today) "
             + "AND (se.restockable IS NULL OR se.restockable = true) "   // P11: exclude quarantined stock
             + "GROUP BY se.productId")
-    List<Object[]> availableByOrg(@Param("orgId") Long orgId, @Param("today") LocalDate today);
+    List<Object[]> availableByOrg(@Param("orgId") Long orgId, @Param("today") LocalDate today,
+            @Param("trackExpiry") boolean trackExpiry);
 
     // Stock screen honesty (sellable + expired badge): per product, SELLABLE = (qty − reserved) over non-expired,
     // non-quarantined batches (exactly what the FEFO allocator can hold), and EXPIRED = physical qty locked in
@@ -79,13 +88,14 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
     // difference is the operator-facing half of the OMS-6 fix.
     // Returns [productId, sellable, expired, held] rows.
     @Query("SELECT se.productId, "
-            + "SUM(CASE WHEN (se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
+            + "SUM(CASE WHEN (:trackExpiry = FALSE OR se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
             + "         THEN (se.quantity - COALESCE(se.reservedQuantity, 0)) ELSE 0 END), "
-            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
+            + "SUM(CASE WHEN :trackExpiry = TRUE AND se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
             + "SUM(COALESCE(se.reservedQuantity, 0)) "
             + "FROM StockEntry se WHERE " + SCOPE + " GROUP BY se.productId")
     List<Object[]> sellableExpiredByScope(@Param("orgId") Long orgId, @Param("userId") Long userId,
-                                          @Param("today") LocalDate today);
+                                          @Param("today") LocalDate today,
+                                          @Param("trackExpiry") boolean trackExpiry);
 
     /**
      * The same split, narrowed to the products on screen (PS-1a) — see
@@ -95,11 +105,12 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
      * is what keeps the GROUP BY proportional to the page rather than to the catalogue.
      */
     @Query("SELECT se.productId, "
-            + "SUM(CASE WHEN (se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
+            + "SUM(CASE WHEN (:trackExpiry = FALSE OR se.expiryDate IS NULL OR se.expiryDate >= :today) AND (se.restockable IS NULL OR se.restockable = true) "
             + "         THEN (se.quantity - COALESCE(se.reservedQuantity, 0)) ELSE 0 END), "
-            + "SUM(CASE WHEN se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
+            + "SUM(CASE WHEN :trackExpiry = TRUE AND se.expiryDate IS NOT NULL AND se.expiryDate < :today THEN se.quantity ELSE 0 END), "
             + "SUM(COALESCE(se.reservedQuantity, 0)) "
             + "FROM StockEntry se WHERE se.productId IN :ids AND " + SCOPE + " GROUP BY se.productId")
     List<Object[]> sellableExpiredByScopeAndIds(@Param("ids") java.util.Collection<Long> ids,
-            @Param("orgId") Long orgId, @Param("userId") Long userId, @Param("today") LocalDate today);
+            @Param("orgId") Long orgId, @Param("userId") Long userId, @Param("today") LocalDate today,
+            @Param("trackExpiry") boolean trackExpiry);
 }
