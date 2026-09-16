@@ -60,3 +60,11 @@ node_modules
 u5-backups/
 *-backups/
 *.sql.bak
+
+# Saved browser pages dropped in the REPO ROOT ("Save page as" of a walkthrough, report or status board).
+# 22 bundles — 106 files, ~8 MB — were tracked this way across ~12 commits from 2026-07-28 to 2026-09-16, each
+# swept in by `git commit -a`. They are captures of generated pages: nothing in the build, the specs or the docs
+# references them, and they are re-creatable from the page they came from. Kept locally, untracked from 2026-09-16.
+# Scoped to the root (leading slash) so templates under src/main/resources/templates are untouched.
+/*.html
+/*_files/
