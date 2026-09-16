@@ -446,7 +446,52 @@ public class ProductService {
      *  foreign ids are simply omitted. readOnly tx keeps the session open for toRef()'s lazy category (see getRef). */
     @Transactional(readOnly = true)
     public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(java.util.List<Long> ids) {
+        return getRefs(ids, false);
+    }
+
+    /**
+     * CACHE-3 — the same batch, cache-aside, with one deliberate way out.
+     *
+     * <p><b>{@code fresh} exists because this endpoint serves two different kinds of caller.</b> A read screen wants
+     * names and prices to paint a grid; the SELL SAGA prices the line a customer pays from the very same ref
+     * ({@code SagaSellService}: sellingPrice → catalogPrice → lineRate) and reads {@code rxRequired} to refuse a
+     * prescription-only medicine. The user's rule is that nothing decides money or safety from a remembered row, so
+     * the saga asks {@code fresh=true} and always reads MySQL. Batching its lookups (CACHE-3 part 1) must not become
+     * a back door into this cache.
+     *
+     * <p>Cached reads are per PRODUCT, not per id-list: the hits are returned from the cache and only the misses are
+     * queried — one query, however many were missing. ⚠ The result is therefore in cache-hits-then-misses order, not
+     * the caller's; every caller today indexes it by id ({@code CatalogRefs.byId}, and the grids through it), which is
+     * why that is safe to do.
+     */
+    @Transactional(readOnly = true)
+    public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(java.util.List<Long> ids, boolean fresh) {
         if (ids == null || ids.isEmpty()) return java.util.Collections.emptyList();
+        if (fresh) return loadRefs(ids);
+
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        var cached = refsCache.refs(org, user);
+
+        java.util.List<com.myplus.commerce.contracts.dto.ProductRef> out = new java.util.ArrayList<>(ids.size());
+        java.util.List<Long> misses = new java.util.ArrayList<>();
+        for (Long id : ids) {
+            if (id == null) continue;
+            com.myplus.commerce.contracts.dto.ProductRef hit = cached.getIfPresent(CatalogRefsCache.refKey(id));
+            if (hit != null) out.add(hit);
+            else misses.add(id);
+        }
+        if (!misses.isEmpty()) {
+            for (com.myplus.commerce.contracts.dto.ProductRef r : loadRefs(misses)) {
+                if (r.getId() != null) cached.put(CatalogRefsCache.refKey(r.getId()), r);
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    /** The database read behind both paths: one tax-code resolution for the whole batch, then one scoped query. */
+    private java.util.List<com.myplus.commerce.contracts.dto.ProductRef> loadRefs(java.util.List<Long> ids) {
         java.util.Map<Long, BigDecimal> codeRates = orgCodeRates();   // resolved once for the batch (no N+1)
         return productRepository.findAllByIdScoped(ids, CurrentUser.organizationId(), CurrentUser.userId())
                 .stream().map(p -> toRef(p, codeRates)).toList();

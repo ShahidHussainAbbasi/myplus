@@ -112,55 +112,24 @@ public class SellController {
 	com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // M4d: resolve line display fields from catalog
 
 	/**
-	 * How many product ids go in ONE catalog lookup.
+	 * M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
+	 * replacing the local Item entity load. Best-effort — on a catalog hiccup names fall back to blank, never throws.
 	 *
-	 * <h3>⚠ PERF-12 — this was UNBOUNDED, and it silently broke the Sale grid</h3>
-	 * {@code getProducts} is a {@code @GetExchange}, so every id rides in the QUERY STRING. Org 13 has 730
-	 * distinct products on its sale rows, and {@code /getUserSell} asked for all 730 in one GET. Tomcat
-	 * rejected it before Spring ever saw it — a bare {@code HTTP Status 400 – Bad Request} HTML page, which
-	 * is what a request line plus headers over {@code maxHttpHeaderSize} (8 KB default) looks like: ~3.7 KB
-	 * of ids, plus a bearer JWT carrying the caps claim, plus the internal headers.
+	 * <p>CACHE-3: the chunking moved to {@link com.myplus.business_service.service.CatalogRefs}, which is now the ONE
+	 * copy for this grid, the Purchase grid and the sell saga. Nothing about the rule changed — 100 ids per call, a
+	 * failed chunk skipped rather than fatal — only where it is written.
 	 *
-	 * <p><b>It failed on every single call</b>, and the catch below turned that into a WARNING and an empty
-	 * map — so the grid rendered with <b>no product name, SKU or description on any row</b>, with nothing on
-	 * screen to say why. Found only by reading the container log while investigating something else.
-	 *
-	 * <p>And it gets WORSE with tenant size, which is exactly the population that reported slowness: the more
-	 * products a shop has sold, the longer the URL, the more certain the failure.
-	 *
-	 * <p>100 keeps a chunk near 500 bytes of ids — far under any header limit — while still turning what
-	 * would be 730 single lookups into 8 calls. The batching this method exists for is preserved; only its
-	 * unbounded-ness is removed.
+	 * <h3>⚠ PERF-12, kept here because this screen is where it was found</h3>
+	 * {@code getProducts} is a {@code @GetExchange}, so every id rides in the QUERY STRING. Org 13 has 730 distinct
+	 * products on its sale rows, and {@code /getUserSell} asked for all 730 in one GET. Tomcat rejected it before
+	 * Spring ever saw it — a bare {@code HTTP Status 400 – Bad Request}, which is what a request line plus a bearer
+	 * JWT over {@code maxHttpHeaderSize} (8 KB) looks like. <b>It failed on every single call</b>, was caught, logged
+	 * as a warning, and rendered the grid with <b>no product name, SKU or description on any row</b>, with nothing on
+	 * screen to say why — found only by reading the container log while investigating something else. And it got
+	 * WORSE with tenant size, i.e. exactly the shops that reported slowness.
 	 */
-	private static final int PRODUCT_REF_BATCH = 100;
-
-	/** M4d (slice 94): batch-resolve catalog ProductRef by productId for the read screens (name/sku/description),
-	 *  replacing the local Item entity load. Best-effort — on a catalog hiccup names fall back to blank, never throws. */
 	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
-		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
-		try {
-			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> out = new java.util.HashMap<>();
-			/*
-			 * Chunked — see PRODUCT_REF_BATCH. A partial failure degrades PARTIALLY: the chunks that answered
-			 * still name their rows, instead of one oversized request blanking every name on the screen.
-			 */
-			for (int i = 0; i < productIds.size(); i += PRODUCT_REF_BATCH) {
-				java.util.List<Long> chunk =
-						productIds.subList(i, Math.min(i + PRODUCT_REF_BATCH, productIds.size()));
-				try {
-					for (com.myplus.commerce.contracts.dto.ProductRef r : catalogClient.getProducts(chunk)) {
-						if (r != null && r.getId() != null) out.putIfAbsent(r.getId(), r);
-					}
-				} catch (Exception chunkFailed) {
-					LOGGER.warn("M4d: catalog getProducts failed for a chunk of {} id(s); "
-							+ "those line names will be blank", chunk.size(), chunkFailed);
-				}
-			}
-			return out;
-		} catch (Exception e) {
-			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); line names may be blank", productIds.size(), e);
-			return java.util.Collections.emptyMap();
-		}
+		return com.myplus.business_service.service.CatalogRefs.byId(catalogClient, productIds);
 	}
 
 	@Autowired

@@ -270,3 +270,70 @@ owner session).
 committed with it red. CACHE-1's recorded unit run was 38/38, fewer than the 86 tests the module then held, so it did not
 cover the whole module. Fixed in the test (a mocked publisher); the full module is now 112/112. **Lesson: a slice's unit
 gate is the whole module's `mvn test`, not the classes it added.**
+
+---
+
+## 9. CACHE-3 — product refs: batch the sale, cache the screens (the user chose this shape 2026-09-16)
+
+### 9.1 What a ref is, and why it is not CACHE-1 again
+
+`ProductRef` is the cross-service view of a product, and it carries **`sellingPrice` and `taxRate`** — the sell saga
+prices each line from it (`SagaSellService`: `sellingPrice` → `catalogPrice` → `lineRate` whenever the cashier does not
+override) and refuses a prescription-only medicine on its `rxRequired`. So this read decides money and safety, which
+puts it squarely under the user's standing rule.
+
+**14 reader call sites in 4 services** (RULE 0): `SagaSellService:760` (per LINE, inside the sale write) ·
+marketplace `CartService:70` (cart price) · pharma `SafetyService:134` (clinical flags) · ten read screens
+(Sell/Purchase/Stock/Serial/Dashboard grids, `looseInfo`) · `inventory StockService:44` (existence check).
+
+### 9.2 The finding that shaped the slice: an N+1, not a missing cache
+
+A ten-line sale made **ten HTTP round trips** to catalog, each running its own `orgCodeRates()` query at the far end —
+~20 queries where 2 would do — while the basket's PRICE QUOTE three lines above it was already resolved in one call.
+The standard's own words apply: *a slow read that does too much work is fixed, not cached* (§1d K5).
+
+**Part 1 — batch (no cache).** The saga resolves every line's ref in one call, beside the quote.
+⚠ **The fallback is the safety-critical part.** A batch OMITS an id it cannot resolve; the single call THROWS. Letting
+a null reach the loop would price that line off a ZERO catalog price — a sale at zero instead of a refusal — so any id
+the batch did not return still gets its own `getProduct(id)`, preserving today's failure behaviour exactly.
+
+**Part 2 — cache the screens.** Catalog serves `/products/refs` cache-aside, **one entry per product** (a grid asking
+for 730 ids and one asking for 729 share every row; a key built from the id-list would share nothing). Hits come from
+the cache, and the misses are loaded in ONE query.
+
+**`fresh=true` is the door out**, passed by the money/safety callers so that batching the saga did not quietly move
+pricing onto a cache: `CatalogRefs.byIdFresh` → `CatalogClient.getProductsFresh` → `ProductService.getRefs(ids, true)`.
+
+### 9.3 ⚠ All THREE events evict the refs
+
+A `ProductRef` is not built from the product row alone (read `toRef`): it carries the **category NAME** and a
+`taxRate` resolved through `resolveRate` from the tenant's **tax codes**. Wiring it to product writes alone would have
+left a renamed category and a re-rated tax code showing old values on every read screen until the TTL. So
+`CatalogProductsChanged`, `CatalogCategoriesChanged` and `CatalogTaxCodesChanged` all invalidate `catalog.refs`.
+
+### 9.4 One new primitive, and the race it must not reopen
+
+`TenantPagedCache.snapshotFor(org, user)` returns a view with `getIfPresent` / `put` for this shape (`get(loader)`
+called per id would put an N+1 *inside* catalog — the very cost being removed). **The generation is pinned when the
+snapshot is taken**, so rows loaded before a write commits are stored under a generation no later read looks at —
+orphaned and expiring — rather than served as current. A bare `put` resolving the generation at put-time would
+reintroduce exactly the race §4.1's generation exists to close.
+
+### 9.5 DRY: three copies of the PERF-12 chunking became one
+
+`SellController` and `PurchaseController` each held the chunked-by-100 loop, and had already drifted (named constant
+vs hardcoded `100`); the saga would have been a third. Now `business-service` `CatalogRefs` — one copy, both callers
+delegating. The PERF-12 history (730 ids in one GET → Tomcat 400 → a grid with no names on any row) stays documented
+at the screen where it was found.
+
+### 9.6 Gate
+
+**Unit:** `TenantPagedCacheTest` +4 (snapshot stores/serves; ⭐ a put under a superseded generation is never served;
+no tenant caches nothing; tenant scoping) · `SagaSellServiceTest` +2 (⭐ one batch call and NO per-line lookup; a line
+the batch could not resolve still falls back to its own lookup) · catalog refs cache cases alongside CACHE-2's.
+
+**Cypress:** extend `catalog-refs-cache.cy.js` — a product's price edit shows on the next read-screen ref; a category
+rename shows in the ref's category name; the `catalog.refs` hit counter rises on a repeat grid read; and a sale prices
+from the LIVE row after a price change with the cache warm.
+
+**Rebuild:** `catalog-service` (server) and `business-service` (saga + client). Not the monolith, not auth.

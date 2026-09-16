@@ -92,6 +92,52 @@ public final class TenantPagedCache<V> {
         cache.invalidateAll();
     }
 
+    /**
+     * CACHE-3 — a read that resolves MANY keys and can load all of its misses in ONE query.
+     *
+     * <p>{@link #get} is wrong for that shape: called per key it would put an N+1 inside the service, which is the
+     * cost the cache was meant to remove. This hands back a view that can be asked key by key and filled key by key,
+     * while the caller does a single query for whatever was missing.
+     *
+     * <h3>⚠ Why a snapshot rather than a bare {@code put}</h3>
+     * The generation is captured HERE, once, before the caller reads anything — and every put goes under that
+     * generation. That is what keeps the §"race" guarantee above intact: if a write commits and evicts midway through
+     * the caller's load, the rows it then stores land under a generation no later read looks at, so they are orphaned
+     * and expire, rather than being served as current. A {@code put} that resolved the generation at put-time would
+     * reintroduce exactly the race the generation exists to close — the stale value would be written as the new one.
+     *
+     * <p>A null {@code org} yields a view that never hits and never stores, matching {@link #get}.
+     */
+    public Snapshot snapshotFor(Long org, Long user) {
+        return new Snapshot(org, user, org == null ? 0L : generations.getOrDefault(org, 0L));
+    }
+
+    /** One tenant+user view of this cache, pinned to the generation it was taken under. */
+    public final class Snapshot {
+
+        private final Long org;
+        private final Long user;
+        private final long generation;
+
+        private Snapshot(Long org, Long user, long generation) {
+            this.org = org;
+            this.user = user;
+            this.generation = generation;
+        }
+
+        /** The cached value, or null — never loads. */
+        public V getIfPresent(String page) {
+            if (org == null || page == null) return null;
+            return cache.getIfPresent(new Key(org, generation, user, page));
+        }
+
+        /** Store a freshly loaded value. Null values are not cached, as in {@link TenantPagedCache#get}. */
+        public void put(String page, V value) {
+            if (org == null || page == null || value == null) return;
+            cache.put(new Key(org, generation, user, page), value);
+        }
+    }
+
     /** Pages currently resident — so a test can prove the bound is real rather than declared. */
     public long size() {
         cache.cleanUp();

@@ -38,9 +38,23 @@ public interface CatalogClient {
     ProductRef getProduct(@PathVariable Long id);
 
     /** M4d (slice 93): batch-resolve product references by id (for list/read screens — one call instead of N).
-     *  Tenant-scoped via headers; missing/foreign ids are simply omitted from the result. */
+     *  Tenant-scoped via headers; missing/foreign ids are simply omitted from the result.
+     *  <p>CACHE-3: catalog serves this from its per-product cache, evicted after every committed product, category or
+     *  tax-code write. Right for a screen painting names and prices; see {@link #getProductsFresh} for the rest. */
     @GetExchange("/products/refs")
     List<ProductRef> getProducts(@RequestParam("ids") List<Long> ids);
+
+    /**
+     * CACHE-3 — the same batch, read LIVE from MySQL, for callers that decide money or safety from the answer.
+     *
+     * <p>The sell saga prices a line from {@code sellingPrice} and refuses a prescription-only medicine on
+     * {@code rxRequired}: the user's rule is that neither is ever decided from a remembered row. Batching the saga's
+     * per-line lookups removed N round trips per sale — this keeps that from quietly becoming a cached read.
+     *
+     * <p>{@code fresh} is a parameter rather than a separate path so the two callers cannot drift apart; pass true.
+     */
+    @GetExchange("/products/refs")
+    List<ProductRef> getProductsFresh(@RequestParam("ids") List<Long> ids, @RequestParam("fresh") boolean fresh);
 
     /** M4e.c (slice 103): tenant-scoped product count (dashboard KPI). */
     @GetExchange("/products/count")

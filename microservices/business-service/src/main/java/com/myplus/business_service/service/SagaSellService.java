@@ -752,12 +752,35 @@ public class SagaSellService {
         // B2B-P2 (#10): resolve contract/tier prices for the WHOLE basket in ONE call, before the line loop.
         // Per-line would double the catalog round trips this method already makes, on every sale.
         java.util.Map<Long, com.myplus.commerce.contracts.dto.PriceQuoteLine> quoted = quoteBasket(dto);
+        /*
+         * CACHE-3 — resolve EVERY line's ref in one call, beside the basket quote above.
+         *
+         * This was one HTTP round trip to catalog PER LINE, and each of those did its own tax-code query at the far
+         * end: a ten-line sale paid twenty queries to learn what two would answer, with the customer at the counter.
+         * The basket quote three lines up already had the right shape; the ref fetch simply never got it.
+         *
+         * ⚠ NOT a cache. The price and the clinical flags a sale is built from are read LIVE, every time — the
+         * user's rule, and the reason CACHE-3 caches the read screens and leaves this path alone. Fewer queries for
+         * the same authoritative rows, rather than the same queries against remembered ones.
+         */
+        java.util.List<Long> basketIds = new ArrayList<>();
+        for (SellDTO sd : dto.getSales()) {
+            if (sd != null && sd.getProductId() != null) basketIds.add(sd.getProductId());
+        }
+        java.util.Map<Long, ProductRef> basketRefs = CatalogRefs.byIdFresh(catalogClient, basketIds);
         List<SagaLine> lines = new ArrayList<>();
         for (SellDTO s : dto.getSales()) {
             // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now.
             Long productId = s.getProductId();
             if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
-            ProductRef product = catalogClient.getProduct(productId);
+            /*
+             * The batch OMITS an id it cannot resolve, where the single call THROWS. Falling through to the single
+             * call for a missing id keeps this path's failure behaviour exactly as it was — an unresolvable product
+             * stops the sale. Letting a null reach the loop instead would price the line off a ZERO catalog price,
+             * which is a sale at zero rather than a refusal. Never hit on a healthy catalog: one call, then none.
+             */
+            ProductRef product = basketRefs.get(productId);
+            if (product == null) product = catalogClient.getProduct(productId);
             String pName = (product != null && product.getName() != null) ? product.getName()
                     : (s.getItemName() != null ? s.getItemName() : ("product " + productId));
             // B1: a prescription-only medicine may not leave the counter on a sale that declares no prescription.

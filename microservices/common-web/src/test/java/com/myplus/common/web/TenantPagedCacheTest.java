@@ -58,6 +58,59 @@ class TenantPagedCacheTest {
         assertThat(cache.get(2L, 10L, "0:50", () -> "WRONG")).isEqualTo("other");
     }
 
+    // ── CACHE-3: the snapshot, for a read that resolves many keys and loads its misses in ONE query ──
+
+    @Test
+    @DisplayName("a snapshot serves what it stored, and says nothing about what it did not")
+    void snapshot_stores_and_serves() {
+        var snapshot = cache.snapshotFor(1L, 10L);
+
+        assertThat(snapshot.getIfPresent("ref:1")).isNull();
+        snapshot.put("ref:1", "product-1");
+
+        assertThat(snapshot.getIfPresent("ref:1")).isEqualTo("product-1");
+        assertThat(snapshot.getIfPresent("ref:2")).isNull();
+        // And a later reader sees it too — this is the same cache, not a per-request map.
+        assertThat(cache.get(1L, 10L, "ref:1", () -> "WRONG")).isEqualTo("product-1");
+    }
+
+    @Test
+    @DisplayName("⭐ rows loaded BEFORE an eviction are not served AFTER it — the race the generation closes")
+    void a_put_under_a_superseded_generation_is_never_served() {
+        // The sequence that makes a plain cache-aside wrong: the reader misses, goes to the database, and while it
+        // is away a write commits and evicts. Its rows are now stale before it has even stored them.
+        var readerInFlight = cache.snapshotFor(1L, 10L);
+        assertThat(readerInFlight.getIfPresent("ref:1")).isNull();
+
+        cache.invalidateTenant(1L);          // a write committed while the reader was loading
+
+        readerInFlight.put("ref:1", "STALE");  // stored under the generation the read began with
+
+        // A later read must go to the database rather than be handed the stale row.
+        assertThat(cache.get(1L, 10L, "ref:1", () -> "fresh")).isEqualTo("fresh");
+    }
+
+    @Test
+    @DisplayName("a snapshot for a caller with no tenant never stores and never hits")
+    void snapshot_without_a_tenant_caches_nothing() {
+        var snapshot = cache.snapshotFor(null, 10L);
+
+        snapshot.put("ref:1", "no-tenant");
+
+        assertThat(snapshot.getIfPresent("ref:1")).isNull();
+        assertThat(cache.get(null, 10L, "ref:1", () -> "loaded")).isEqualTo("loaded");
+    }
+
+    @Test
+    @DisplayName("two tenants' snapshots never see each other's rows")
+    void snapshots_are_tenant_scoped() {
+        cache.snapshotFor(1L, 10L).put("ref:1", "org-1");
+        cache.snapshotFor(2L, 10L).put("ref:1", "org-2");
+
+        assertThat(cache.snapshotFor(1L, 10L).getIfPresent("ref:1")).isEqualTo("org-1");
+        assertThat(cache.snapshotFor(2L, 10L).getIfPresent("ref:1")).isEqualTo("org-2");
+    }
+
     @Test
     @DisplayName("THE RACE — a read that loaded old rows before a write committed cannot survive that write's eviction")
     void a_load_in_flight_across_an_invalidation_is_not_served_afterwards() throws Exception {

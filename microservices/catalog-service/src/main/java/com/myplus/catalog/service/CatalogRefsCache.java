@@ -54,6 +54,8 @@ public class CatalogRefsCache {
     public static final String CATEGORIES = "catalog.categories";
     public static final String TAX_CODES = "catalog.tax-codes";
     public static final String MANUFACTURERS = "catalog.manufacturers";
+    /** CACHE-3 — one entry per PRODUCT, for the read screens' batch ref lookups. */
+    public static final String REFS = "catalog.refs";
 
     static final long DEFAULT_TTL_SECONDS = 300;
     static final String ALL = "all";
@@ -62,6 +64,12 @@ public class CatalogRefsCache {
     private final TenantPagedCache<List<CategoryDTO>> categories;
     private final TenantPagedCache<List<TaxCodeDTO>> taxCodes;
     private final TenantPagedCache<List<String>> manufacturers;
+    /**
+     * CACHE-3 — product refs, keyed one per product rather than per id-list: a grid asking for 730 ids and one asking
+     * for 729 of them share every row, where a key built from the id list would share nothing and fill the cache with
+     * near-duplicates. 20,000 entries covers several tenants' whole catalogues (the largest here holds ~6,000).
+     */
+    private final TenantPagedCache<com.myplus.commerce.contracts.dto.ProductRef> refs;
 
     public CatalogRefsCache(@Value("${app.cache.catalog-refs.ttl-seconds:300}") long ttlSeconds,
                             ObjectProvider<MeterRegistry> registry) {
@@ -69,12 +77,31 @@ public class CatalogRefsCache {
         this.categories = TenantPagedCache.of(ttl, MAX_ENTRIES);
         this.taxCodes = TenantPagedCache.of(ttl, MAX_ENTRIES);
         this.manufacturers = TenantPagedCache.of(ttl, MAX_ENTRIES);
+        this.refs = TenantPagedCache.of(ttl, 20_000);
         MeterRegistry r = registry.getIfAvailable();
         if (r != null) {
             CaffeineCacheMetrics.monitor(r, categories.nativeCache(), CATEGORIES);
             CaffeineCacheMetrics.monitor(r, taxCodes.nativeCache(), TAX_CODES);
             CaffeineCacheMetrics.monitor(r, manufacturers.nativeCache(), MANUFACTURERS);
+            CaffeineCacheMetrics.monitor(r, refs.nativeCache(), REFS);
         }
+    }
+
+    /**
+     * CACHE-3 — a per-product view for ONE read: ask it id by id, fill it id by id, and load every miss in a single
+     * query. The generation is pinned when this is taken, so rows loaded before a write commits cannot be stored as
+     * current after its eviction (see {@code TenantPagedCache.snapshotFor}).
+     *
+     * <p>⚠ Only for the READ SCREENS. The sell saga passes {@code fresh} and never reaches this — what a customer is
+     * charged is read live, every time.
+     */
+    public TenantPagedCache<com.myplus.commerce.contracts.dto.ProductRef>.Snapshot refs(Long org, Long user) {
+        return refs.snapshotFor(org, user);
+    }
+
+    /** The cache key for one product's ref. */
+    public static String refKey(Long productId) {
+        return "ref:" + productId;
     }
 
     /** This tenant's categories — from the cache, or {@code loader} (the database) on a miss. */
@@ -98,19 +125,36 @@ public class CatalogRefsCache {
      * saveAll, which commit by themselves): they publish after the save returned, i.e. after its commit.
      */
 
+    /*
+     * ⚠ CACHE-3 — ALL THREE events evict the refs, because a ProductRef is not built from the product row alone
+     * (RULE 0, read toRef): it carries the CATEGORY NAME (so a rename must reach it) and a taxRate resolved through
+     * resolveRate from the tenant's TAX CODES (so a rate change must too), on top of the product's own fields. Wiring
+     * refs to product writes alone would have left a renamed category and a re-rated tax code showing the old values
+     * on every read screen until the TTL.
+     */
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onCategoriesChanged(CatalogCategoriesChanged event) {
-        for (Long org : event.orgs()) categories.invalidateTenant(org);
+        for (Long org : event.orgs()) {
+            categories.invalidateTenant(org);
+            refs.invalidateTenant(org);
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onTaxCodesChanged(CatalogTaxCodesChanged event) {
-        for (Long org : event.orgs()) taxCodes.invalidateTenant(org);
+        for (Long org : event.orgs()) {
+            taxCodes.invalidateTenant(org);
+            refs.invalidateTenant(org);
+        }
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void onProductsChanged(CatalogProductsChanged event) {
-        for (Long org : event.orgs()) manufacturers.invalidateTenant(org);
+        for (Long org : event.orgs()) {
+            manufacturers.invalidateTenant(org);
+            refs.invalidateTenant(org);
+        }
     }
 
     /** Entries resident per cache — for tests. */

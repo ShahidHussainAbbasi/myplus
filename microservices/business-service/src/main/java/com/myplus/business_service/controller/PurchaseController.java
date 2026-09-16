@@ -75,36 +75,17 @@ public class PurchaseController {
 	@Autowired
 	com.myplus.business_service.repository.PurchaseReturnRepo purchaseReturnRepo;   // task #15: debit-note document
 
-	/** M4d (slice 96): batch-resolve catalog ProductRef by productId for the read grid (name/sku); best-effort. */
+	/**
+	 * M4d (slice 96): batch-resolve catalog ProductRef by productId for the read grid (name/sku); best-effort.
+	 *
+	 * <p>CACHE-3: the chunking itself now lives in {@link com.myplus.business_service.service.CatalogRefs} — ONE copy
+	 * for the three callers that need it (this grid, the Sale grid, and the sell saga). ⚠ This class used to hold its
+	 * own copy and hardcoded {@code 100} where {@code SellController} used a named constant: two statements of one
+	 * rule about a URL length limit, already disagreeing about how to say it. The PERF-12 reasoning — why unbounded
+	 * ids blank every name on a big tenant's grid — is documented there.
+	 */
 	private java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productRefs(java.util.List<Long> productIds) {
-		if (productIds == null || productIds.isEmpty()) return java.util.Collections.emptyMap();
-		try {
-			/*
-			 * ⚠ PERF-12 — CHUNKED, for the reason documented on SellController.productRefs.
-			 *
-			 * These ids ride in the QUERY STRING of a @GetExchange. Unbounded, a large tenant's request line
-			 * plus its bearer JWT exceeds Tomcat's 8 KB header limit and comes back as a bare
-			 * "HTTP Status 400 – Bad Request" — caught below, logged as a warning, and rendered as a grid with
-			 * NO product names on any row. Confirmed happening on the Sale grid for org 13 (730 ids); this is
-			 * the same call on the Purchase grid and fails the same way once a tenant's catalogue is big
-			 * enough.
-			 */
-			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> out = new java.util.HashMap<>();
-			for (int i = 0; i < productIds.size(); i += 100) {
-				java.util.List<Long> chunk = productIds.subList(i, Math.min(i + 100, productIds.size()));
-				try {
-					for (com.myplus.commerce.contracts.dto.ProductRef r : catalogClient.getProducts(chunk)) {
-						if (r != null && r.getId() != null) out.putIfAbsent(r.getId(), r);
-					}
-				} catch (Exception chunkFailed) {
-					LOGGER.warn("M4d: catalog getProducts failed for a chunk of {} id(s)", chunk.size(), chunkFailed);
-				}
-			}
-			return out;
-		} catch (Exception e) {
-			LOGGER.warn("M4d: catalog getProducts failed for {} id(s); purchase line names may be blank", productIds.size(), e);
-			return java.util.Collections.emptyMap();
-		}
+		return com.myplus.business_service.service.CatalogRefs.byId(catalogClient, productIds);
 	}
 
 	@Autowired

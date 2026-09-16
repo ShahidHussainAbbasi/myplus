@@ -201,6 +201,70 @@ class SagaSellServiceTest {
         verify(saleWriter).markStatus(1000L, "CONFIRMED");
     }
 
+    // ── CACHE-3: the basket's refs in ONE call ────────────────────────────────────────────────────────
+
+    /** Two lines, two products — the shape that used to cost one HTTP round trip to catalog per line. */
+    private CustomerHistoryDTO dtoWithTwoLines() {
+        SellDTO a = new SellDTO();
+        a.setProductId(50L);
+        a.setQuantity(2f);
+        a.setTotalAmount(new BigDecimal("20.00"));
+        a.setNetAmount(new BigDecimal("20.00"));
+        SellDTO b = new SellDTO();
+        b.setProductId(51L);
+        b.setQuantity(1f);
+        b.setTotalAmount(new BigDecimal("30.00"));
+        b.setNetAmount(new BigDecimal("30.00"));
+        CustomerHistoryDTO dto = new CustomerHistoryDTO();
+        dto.setSales(List.of(a, b));
+        return dto;
+    }
+
+    @Test
+    void every_line_is_resolved_in_one_catalog_call_not_one_per_line() {
+        when(catalogClient.getProductsFresh(any(), eq(true))).thenReturn(List.of(
+                new ProductRef(50L, "SKU50", "Fifty", "ea", new BigDecimal("10.00"), null),
+                new ProductRef(51L, "SKU51", "Fifty-one", "ea", new BigDecimal("30.00"), null)));
+        when(inventoryClient.reserve(any(StockReservationRequest.class)))
+                .thenReturn(new StockReservationResponse("R1", ReservationStatus.RESERVED, List.of(), null));
+        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList(), anyList()))
+                .thenReturn(invoice(1000L, "INV-000003"));
+
+        assertThat(service.addSell(dtoWithTwoLines())).isEqualTo("INV-000003");
+
+        // ONE batch for the whole basket…
+        verify(catalogClient).getProductsFresh(any(), eq(true));
+        // …and not a single per-line lookup. A ten-line sale used to make ten of these, each doing its own
+        // tax-code query at the far end, with the customer waiting at the counter.
+        verify(catalogClient, never()).getProduct(anyLong());
+        /*
+         * ⭐ And NEVER the cached endpoint. CACHE-3 caches /products/refs for the read screens; this line is what
+         * stops the batching above from quietly moving the price a customer pays onto a remembered row. If someone
+         * ever "simplifies" byIdFresh to byId, this is the assertion that says so.
+         */
+        verify(catalogClient, never()).getProducts(any());
+    }
+
+    @Test
+    void a_line_the_batch_could_not_resolve_still_falls_back_to_its_own_lookup() {
+        // The batch OMITS what it cannot resolve; the single call THROWS. Losing that difference would let an
+        // unresolved product reach the line loop as a null and be priced off a ZERO catalog price — a sale at
+        // zero instead of a refusal. So the fallback must fire, for exactly the missing id and no other.
+        when(catalogClient.getProductsFresh(any(), eq(true))).thenReturn(List.of(
+                new ProductRef(50L, "SKU50", "Fifty", "ea", new BigDecimal("10.00"), null)));
+        when(catalogClient.getProduct(51L))
+                .thenReturn(new ProductRef(51L, "SKU51", "Fifty-one", "ea", new BigDecimal("30.00"), null));
+        when(inventoryClient.reserve(any(StockReservationRequest.class)))
+                .thenReturn(new StockReservationResponse("R1", ReservationStatus.RESERVED, List.of(), null));
+        when(saleWriter.writePending(any(), eq("R1"), anyString(), any(), anyList(), anyList()))
+                .thenReturn(invoice(1000L, "INV-000004"));
+
+        assertThat(service.addSell(dtoWithTwoLines())).isEqualTo("INV-000004");
+
+        verify(catalogClient).getProduct(51L);
+        verify(catalogClient, never()).getProduct(50L);
+    }
+
     @Test
     void out_of_stock_rejects_before_writing_anything() {
         when(catalogClient.getProduct(50L))

@@ -170,11 +170,20 @@ public class ProductController {
         return productService.lookup(code);
     }
 
-    /** M4d (slice 93): batch refs by id for the POS read screens — GET /products/refs?ids=1,2,3 (tenant-scoped). */
+    /**
+     * M4d (slice 93): batch refs by id for the POS read screens — GET /products/refs?ids=1,2,3 (tenant-scoped).
+     *
+     * <p>CACHE-3: cache-aside per product, evicted after every committed product, category or tax-code write.
+     * {@code fresh=true} bypasses it and reads MySQL — for the callers that decide MONEY or SAFETY from the answer
+     * (the sell saga prices a line from {@code sellingPrice} and refuses a prescription-only medicine on
+     * {@code rxRequired}). Defaults false, so a read screen gets the cache without asking.
+     */
     @GetMapping("/refs")
     public java.util.List<com.myplus.commerce.contracts.dto.ProductRef> getRefs(
-            @org.springframework.web.bind.annotation.RequestParam java.util.List<Long> ids) {
-        return productService.getRefs(ids);
+            @org.springframework.web.bind.annotation.RequestParam java.util.List<Long> ids,
+            @org.springframework.web.bind.annotation.RequestParam(name = "fresh", required = false,
+                    defaultValue = "false") boolean fresh) {
+        return productService.getRefs(ids, fresh);
     }
 
     /**

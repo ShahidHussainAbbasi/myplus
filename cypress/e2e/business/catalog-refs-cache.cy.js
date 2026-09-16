@@ -261,3 +261,142 @@ describe('CACHE-2 — categories, tax codes and manufacturers are cache-aside an
     })
   })
 })
+
+/**
+ * CACHE-3 — product refs: the read screens are cached, the SALE is not.
+ *
+ * Design: microservices/docs/slices/cache-1-tenant-cache-aside.md §9. A ProductRef carries sellingPrice, taxRate and
+ * rxRequired, so the sell saga prices a line and refuses a prescription-only medicine from the same object a grid
+ * uses to paint a name. The screens read it cache-aside; the saga passes fresh=true and always reads MySQL.
+ *
+ * Case 4 is the one that defends the user's rule: a real sale must not move the refs cache's hit counter at all.
+ */
+const refsOf = (headers, id, fresh) =>
+  cy.request({ url: `${GW}/products/refs?ids=${id}${fresh ? '&fresh=true' : ''}`, headers, failOnStatusCode: false })
+    .then((r) => {
+      expect(r.status, `refs read for ${id}`).to.eq(200)
+      const row = (r.body || []).find((p) => String(p.id) === String(id))
+      expect(row, `product ${id} must be in the refs answer`).to.exist
+      return row
+    })
+
+/** A sale of one unit at the price the till was shown — the shape b2b-customer-type uses. */
+const sell = (productId, qty, rate) =>
+  cy.request({
+    method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    body: {
+      customer: { name: `CACHE3_${uniq()}`, contact: `0300${uniq()}`, paidAmount: qty * rate, dueAmount: 0 },
+      sales: [{ productId, quantity: qty, sellRate: rate, totalAmount: qty * rate, netAmount: qty * rate }],
+      tenders: [{ method: 'CASH', amount: qty * rate }],
+      paidAmount: qty * rate, dueAmount: 0, grandTotal: qty * rate,
+    },
+  })
+
+describe('CACHE-3 — refs are cached for the screens and read live for the sale', () => {
+  beforeEach(() => {
+    cy.loginAsOwner()
+  })
+
+  it('⭐ 1 — the refs cache FIRES: a repeat read of the same product is a hit', () => {
+    cy.seedProduct({ name: `CACHE3 hit ${uniq()}`, sellingPrice: 40 }).then(({ productId }) => {
+      asAdmin((headers) => {
+        hits('catalog.refs').then((before) => {
+          refsOf(headers, productId)
+          refsOf(headers, productId)
+          hits('catalog.refs').then((after) => {
+            expect(after, `repeat ref reads must be served from the cache (${before} → ${after})`)
+              .to.be.greaterThan(before)
+          })
+        })
+      })
+      removeForGood(productId)
+    })
+  })
+
+  it('⭐⭐ 2 — a price edit shows in the very next cached read', () => {
+    cy.seedProduct({ name: `CACHE3 price ${uniq()}`, sellingPrice: 20 }).then(({ productId, name }) => {
+      asAdmin((headers) => {
+        refsOf(headers, productId).then((row) => {
+          expect(Number(row.sellingPrice), 'cached at the old price').to.eq(20)
+        })
+      })
+
+      cy.request(`/getCatalogProduct?id=${productId}`).then((r) => {
+        const version = r.body && r.body.data && r.body.data.version
+        post('/updateProduct', { id: productId, name, sellingPrice: 27, version })
+      })
+
+      asAdmin((headers) => {
+        refsOf(headers, productId).then((row) => {
+          expect(Number(row.sellingPrice),
+            'the grid must show the new price at once — a product write evicts the refs').to.eq(27)
+        })
+      })
+      removeForGood(productId)
+    })
+  })
+
+  it('⭐ 3 — a CATEGORY rename shows in the cached ref: a ref carries the category NAME', () => {
+    const cat = `CACHE3 cat ${uniq()}`
+    cy.seedProduct({ name: `CACHE3 catprod ${uniq()}`, sellingPrice: 15, category: cat }).then(({ productId }) => {
+      asAdmin((headers) => {
+        refsOf(headers, productId).then((row) => expect(row.category, 'cached with the old name').to.eq(cat))
+      })
+
+      categories().then((list) => {
+        const c = list.find((x) => x.name === cat)
+        expect(c, 'the seeded category exists').to.exist
+        renameCategory(c.id, `${cat} renamed`)
+
+        asAdmin((headers) => {
+          refsOf(headers, productId).then((row) => {
+            expect(row.category,
+              'a category write must evict the refs too — otherwise every grid shows the old name until the TTL')
+              .to.eq(`${cat} renamed`)
+          })
+        })
+
+        removeForGood(productId)
+        deleteCategory(c.id)
+      })
+    })
+  })
+
+  it('⭐⭐ 4 — a SALE does not read the refs cache: the price a customer pays comes from MySQL', () => {
+    cy.seedProduct({ name: `CACHE3 sale ${uniq()}`, sellingPrice: 50, stock: 5 }).then(({ productId }) => {
+      // WARM the screens' cache for this very product, so a saga that used it would score a hit.
+      asAdmin((headers) => refsOf(headers, productId))
+
+      hits('catalog.refs').then((before) => {
+        sell(productId, 1, 50).then((r) => {
+          expect(r.status, `addSell: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq(200)
+        })
+        hits('catalog.refs').then((after) => {
+          expect(after,
+            `a sale must not touch the refs cache (hits ${before} → ${after}) — it passes fresh=true and reads the `
+            + 'live row. If this rises, batching the saga has put pricing behind a cache.').to.eq(before)
+        })
+      })
+      // The product sold, so it cannot be deleted for good; deactivating is enough to keep it off the screens.
+      post('/removeProducts', { checked: String(productId) })
+    })
+  })
+
+  it('⭐⭐ 5 — another tenant never reads this tenant\'s cached refs', () => {
+    cy.seedProduct({ name: `CACHE3 tenancy ${uniq()}`, sellingPrice: 60 }).then(({ productId }) => {
+      asAdmin((headers) => refsOf(headers, productId))   // org A caches it
+
+      cy.asOtherTenant((headers) => {
+        // Twice: the first fills org B's entry, the second is served from the cache — neither may contain org A's row.
+        [1, 2].forEach((n) => {
+          cy.request({ url: `${GW}/products/refs?ids=${productId}`, headers, failOnStatusCode: false }).then((r) => {
+            expect(r.status, `org B refs read ${n}`).to.eq(200)
+            expect((r.body || []).length, `org B read ${n}: no org-A ref`).to.eq(0)
+          })
+        })
+      }, 'owner.pharma@myplus.com')
+
+      removeForGood(productId)
+    })
+  })
+})
