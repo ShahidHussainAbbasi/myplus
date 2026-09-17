@@ -470,6 +470,33 @@ public class AuthService {
     }
 
     /**
+     * PERM-2 — does this tenant TRADE? Only a trading tenant is minted PERM-1 permission codes.
+     *
+     * <h3>Why PHARMA belongs here, and why its absence was a live defect</h3>
+     * A pharmacy reuses the commerce core entirely: it signs in to {@code /businessDashboard}, sells on the same
+     * till, receives the same purchases, and its screens are gated by the same {@code PermissionInterceptor} map.
+     * But its organisation's type is {@code PHARMA}, and the mint was keyed on {@code BUSINESS} alone — so every
+     * non-owner pharmacy member carried ZERO codes and was refused every mapped action. Verified on dev before
+     * this change: {@code admin.pharma@} and {@code user.pharma@} held no {@code product.create}, so "Register a
+     * new product" on the purchase screen ({@code sec:authorize="hasAuthority('product.create')"}) was invisible
+     * to them — and so was it to their OWNER, because that check is a literal authority with no owner bypass,
+     * unlike the server-side one.
+     *
+     * <h3>Why this is not simply "every tenant"</h3>
+     * V14 is the scar. V12 placed EVERY user on a shop set, including a {@code ROLE_GUARDIAN} parent, who then
+     * carried {@code sale.create}. Education, welfare, agriculture, appointment, campaign and analytics do not
+     * trade and must keep falling through to their role privileges alone.
+     *
+     * <p>⚠ MARKETPLACE is deliberately NOT here yet, though it is the obvious next question: its members also
+     * hold no codes, and {@code storefront-gl.cy.js} shows a marketplace tenant posting {@code /addProduct}. It
+     * reaches a different dashboard, so whether its staff should hold shop permissions is a product decision, not
+     * a bug fix — it needs its own ruling rather than being swept in here.
+     */
+    static boolean tradeTenant(String orgType) {
+        return "BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType);
+    }
+
+    /**
      * B2B P0.5 — the location module for the tenant the user is actually working in.
      *
      * <p>Resolution order is the platform-wide one: the ACTIVE ORG's type, then the user's own type when the
@@ -953,8 +980,8 @@ public class AuthService {
         try {
             boolean isOwner = CustomUserDetailsService.getRoleNames(user.getRoles()).contains("ROLE_OWNER");
             /*
-             * ⚠ BUSINESS TENANTS ONLY. The catalog is business-shaped — sale, purchase, till, opening
-             * balances — so minting it for a member of another module grants them permissions their
+             * ⚠ TRADE TENANTS ONLY — see {@link #tradeTenant}. The catalog is business-shaped — sale, purchase,
+             * till, opening balances — so minting it for a member of another module grants them permissions their
              * dashboard has no use for and their role never carried.
              *
              * V12 taught this the expensive way: its migration read "everyone not already placed" and
@@ -965,8 +992,7 @@ public class AuthService {
              * A member of another module falls through to the role privileges alone — exactly the token
              * this method produced before PERM-1 existed.
              */
-            boolean businessTenant = activeOrg != null && "BUSINESS".equalsIgnoreCase(
-                    String.valueOf(activeOrg.getType()));
+            boolean businessTenant = tradeTenant(activeOrg == null ? null : String.valueOf(activeOrg.getType()));
             PermissionService permissionService = permissionServiceProvider.getObject();
             if (businessTenant) {
                 authorities.addAll(isOwner ? permissionService.everything()
