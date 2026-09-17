@@ -27,6 +27,29 @@ const perms = () =>
 describe('PERM-1 — permission sets', () => {
   beforeEach(() => cy.loginAsOwner())
 
+  /*
+   * ⚠ RESTORE THE MEMBER IN A HOOK, not at the end of a case.
+   *
+   * Case 15 moves user.business@ onto a throwaway set and put them back with a trailing cy.then — which never ran
+   * when an assertion in the case failed, because Cypress abandons the rest of a failing test. A run on 2026-09-17
+   * therefore left that member on "Scope <run>" with scope ALL, i.e. seeing the whole shop, for every later spec
+   * and every later run. An after() hook runs whatever the cases did.
+   */
+  after(() => {
+    cy.loginAsOwner()
+    cy.request({ url: '/team/users', failOnStatusCode: false }).then((r) => {
+      const member = ((r.body && (r.body.data || r.body.object)) || [])
+        .find((u) => String(u.email || '').startsWith('user.business@'))
+      if (!member) return
+      perms().then((d) => {
+        const std = (d.sets || []).find((x) => x.name === 'Standard')
+        if (!std) return
+        cy.request({ method: 'POST', url: '/team/permissions/assign', failOnStatusCode: false,
+          body: { userId: member.userId || member.id, setId: std.id } })
+      })
+    })
+  })
+
   // ── ⭐⭐ 1. the deploy changes nothing ────────────────────────────────────────────────────────────
 
   it('⭐⭐ 1 — the built-in sets reproduce what staff could already do', () => {
@@ -403,7 +426,9 @@ describe('PERM-1 — permission sets', () => {
     let ownRows = null
 
     // OWN: user.business@ is on Standard, whose scope is OWN, and has created nothing here.
-    cy.loginAsTier('user', 'business')
+    // ⚠ cacheKeyExtra — otherwise a session cached by an earlier case (or an earlier RUN, where this member was
+    // left on a widened set) is reused and this reads the authorities of whatever that session held.
+    cy.loginAsTier('user', 'business', undefined, `own-${uniq()}`)
     cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r) => {
       ownRows = ((r.body && (r.body.collection || r.body.data || r.body.object)) || []).length
     })
@@ -454,7 +479,13 @@ describe('PERM-1 — permission sets', () => {
         body: { userId, setId } })
         .then((r) => expect(r.body && r.body.success, JSON.stringify(r.body)).to.eq(true))
 
-      cy.loginAsTier('user', 'business')     // a fresh sign-in re-mints the token; see the 15-minute rule
+      /*
+       * ⚠ THE cacheKeyExtra IS THE WHOLE CASE. Authorities are minted at login and held in the session, and
+       * cy.session caches on email+password+validatePath — so without a key that changes with the grant, this
+       * "fresh sign-in" returns the SAME session and the scope just assigned is never in the token. Measured
+       * 2026-09-17: both halves answered 157 (the whole shop), so the case compared a number with itself.
+       */
+      cy.loginAsTier('user', 'business', undefined, `own-${run}`)
       cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r) => {
         const narrow = ((r.body && (r.body.collection || r.body.data || r.body.object)) || []).length
 
@@ -464,7 +495,7 @@ describe('PERM-1 — permission sets', () => {
           body: { id: setId, name: `Scope ${run}`, scope: 'ALL', codes: ['customer.view', 'sale.view'] } })
           .then((r2) => expect(r2.body && r2.body.success, JSON.stringify(r2.body)).to.eq(true))
 
-        cy.loginAsTier('user', 'business')
+        cy.loginAsTier('user', 'business', undefined, `all-${run}`)   // a DIFFERENT key: re-mint with ALL
         cy.request({ url: '/getUserCustomer?q=-1', failOnStatusCode: false }).then((r3) => {
           const wide = ((r3.body && (r3.body.collection || r3.body.data || r3.body.object)) || []).length
           expect(wide, `ALL widened the member: ${narrow} -> ${wide}`).to.be.greaterThan(narrow)

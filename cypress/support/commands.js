@@ -221,12 +221,21 @@ const MODULE_VALIDATE_PATH = {
   appointment: '/appointmentDashboard',
 }
 
-Cypress.Commands.add('loginAsTier', (tier, module, password = DEMO_PW) => {
+/**
+ * ⚠ `cacheKeyExtra` matters whenever the account's PERMISSIONS changed between two sign-ins.
+ *
+ * Authorities are minted at login and held in the session, and cy.session caches that session on
+ * email+password+validatePath. So "sign in again to pick up the new set" silently returns the OLD session and the
+ * token is never re-minted. permission-sets.cy.js cases 14/15 measured 157 rows both before and after widening a
+ * member for exactly this reason — the read was right, the sign-in was a no-op. Pass anything that changes with the
+ * grant (the scope, a run tag) and the session is rebuilt.
+ */
+Cypress.Commands.add('loginAsTier', (tier, module, password = DEMO_PW, cacheKeyExtra) => {
   const validatePath = MODULE_VALIDATE_PATH[module]
   // Fail loudly rather than silently logging in and validating against the wrong endpoint.
   expect(validatePath, `no monolith validate path for module "${module}" — use the gateway token flow instead`)
     .to.be.a('string')
-  cy.loginAs(`${tier}.${module}@myplus.com`, password, validatePath)
+  cy.loginAs(`${tier}.${module}@myplus.com`, password, validatePath, cacheKeyExtra)
 })
 
 Cypress.Commands.add('loginAsTeacherA', (email = 'teacher.a@myplus.com', password = DEMO_PW) => {
