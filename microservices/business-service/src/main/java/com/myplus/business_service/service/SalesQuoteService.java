@@ -77,6 +77,14 @@ public class SalesQuoteService {
     @Autowired(required = false)
     private com.myplus.common.settings.SettingsService settingsService;
 
+    /** U14 — a loose quote line needs the product's pack rules, read LIVE (this prices what a customer will pay). */
+    @Autowired(required = false)
+    private com.myplus.commerce.contracts.client.CatalogClient catalogClient;
+
+    /** U14 — a shop that does not trade in part-packs cannot quote one either. */
+    @Autowired(required = false)
+    private com.myplus.common.settings.CapabilityService capabilityService;
+
     /** Refused for a reason the operator should see verbatim. */
     public static class QuoteRefused extends RuntimeException {
         public QuoteRefused(String message) { super(message); }
@@ -135,7 +143,11 @@ public class SalesQuoteService {
             l.setUnitPrice(nz(line.getUnitPrice()));
             l.setPriceReason(line.getPriceReason());
             l.setDiscount(nz(line.getDiscount()));
-            l.setLineTotal(lineTotal(l));
+            if ("LOOSE".equalsIgnoreCase(blankToNull(line.getSoldUnit()))) {
+                priceLooseLine(l, line.getSoldQuantity());   // sets quantity, soldRate, snapshots and lineTotal
+            } else {
+                l.setLineTotal(lineTotal(l));
+            }
             q.getLines().add(l);
         }
         if (q.getLines().isEmpty()) throw new QuoteRefused("A quote needs at least one line with a product.");
@@ -241,7 +253,8 @@ public class SalesQuoteService {
             throw new QuoteRefused("Only an accepted quote can be converted — this one is " + current + ".");
 
         CustomerHistoryDTO dto = toSaleRequest(q);
-        String invoiceNo = sagaSellService.addSell(dto);   // reserve + invoice + tax + COGS + GL + audit
+        // U14: loose lines replay the markup and pack size the customer accepted, so the invoice charges the quote.
+        String invoiceNo = sagaSellService.addSell(dto, looseLocksFor(q));   // reserve + invoice + tax + COGS + GL + audit
 
         q.setStatus(QuoteStatus.CONVERTED);
         q.setConvertedInvoiceNo(invoiceNo);
@@ -275,6 +288,13 @@ public class SalesQuoteService {
             s.setQuantity(l.getQuantity());
             // The SNAPSHOTTED price, not a fresh calculation: the customer accepted these numbers.
             s.setSellRate(l.getUnitPrice());
+            // U14: a loose line crosses as pieces; the sale derives the shelf quantity from them with the SAME rule
+            // that priced the quote, replaying its locked markup and pack size (looseLocksFor). unitPrice is the
+            // PACK price, which is what looseLine expects as sellRate.
+            if ("LOOSE".equalsIgnoreCase(l.getSoldUnit())) {
+                s.setSoldUnit("LOOSE");
+                s.setSoldQuantity(l.getSoldQuantity());
+            }
             s.setDiscount(l.getDiscount());
             s.setPriceReason(l.getPriceReason());
             sales.add(s);
@@ -350,15 +370,32 @@ public class SalesQuoteService {
             }
         }
 
+        // U14: the piece label ("tablets") for loose lines, in ONE batch — a display word, so the read-screen cache is
+        // the right source (CatalogRefs.byId), and a document with no loose line makes no catalogue call at all.
+        java.util.List<Long> looseIds = q.getLines().stream()
+                .filter(l -> "LOOSE".equalsIgnoreCase(l.getSoldUnit()) && l.getProductId() != null)
+                .map(SalesQuoteLine::getProductId).distinct().toList();
+        java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> looseRefs = looseIds.isEmpty()
+                ? java.util.Map.of() : CatalogRefs.byId(catalogClient, looseIds);
+
         List<QuoteDocumentDTO.Line> lines = q.getLines().stream()
-                .map(l -> QuoteDocumentDTO.Line.builder()
-                        .productId(l.getProductId())
-                        .productName(l.getProductName())
-                        .quantity(l.getQuantity() == null ? null : BigDecimal.valueOf(l.getQuantity()))
-                        .unitPrice(l.getUnitPrice())
-                        .discount(l.getDiscount())
-                        .lineTotal(l.getLineTotal())
-                        .build())
+                .map(l -> {
+                    boolean loose = "LOOSE".equalsIgnoreCase(l.getSoldUnit());
+                    com.myplus.commerce.contracts.dto.ProductRef ref = loose ? looseRefs.get(l.getProductId()) : null;
+                    return QuoteDocumentDTO.Line.builder()
+                            .productId(l.getProductId())
+                            .productName(l.getProductName())
+                            .quantity(l.getQuantity() == null ? null : BigDecimal.valueOf(l.getQuantity()))
+                            .unitPrice(l.getUnitPrice())
+                            .discount(l.getDiscount())
+                            .lineTotal(l.getLineTotal())
+                            .soldUnit(loose ? "LOOSE" : null)
+                            .soldQuantity(loose && l.getSoldQuantity() != null ? BigDecimal.valueOf(l.getSoldQuantity()) : null)
+                            .soldRate(loose ? l.getSoldRate() : null)
+                            .looseUnitPlural(ref == null ? null
+                                    : (ref.getLooseUnitPlural() != null ? ref.getLooseUnitPlural() : ref.getLooseUnit()))
+                            .build();
+                })
                 .toList();
 
         return QuoteDocumentDTO.builder()
@@ -424,6 +461,83 @@ public class SalesQuoteService {
         // duplicating the tax rules here is how two systems end up disagreeing about the same invoice.
         q.setTaxTotal(nz(q.getTaxTotal()));
         q.setGrandTotal(nz(q.getSubTotal()).add(nz(q.getTaxTotal())));
+    }
+
+    /**
+     * U14 — price a quote line offered in pieces ("10 tablets"), with the till's OWN rule.
+     *
+     * <p>Calls {@code SagaSellService.looseLine} — the single implementation of loose arithmetic (per-piece ceiling,
+     * whole packs at the pack price, the rate derived so {@code quantity × rate} is the total to the cent). A second
+     * copy here would drift from the till's the day either changed, and the visible symptom would be a quote and an
+     * invoice for the same goods disagreeing.
+     *
+     * <p>{@code unitPrice} stays the PACK price. That is load-bearing: conversion passes it as the sale line's
+     * {@code sellRate}, which {@code looseLine} treats as the pack rate — storing the marked-up per-shelf-unit rate
+     * here instead would apply the markup twice on conversion.
+     *
+     * <p>Snapshots the pack size and markup that produced the price, so an accepted quote converts to exactly the
+     * total the customer accepted (the user's ruling, 2026-09-17) — see {@link #looseLocksFor}.
+     */
+    void priceLooseLine(SalesQuoteLine l, Float pieces) {
+        try {
+            priceLooseLineOrThrow(l, pieces);
+        } catch (com.myplus.common.web.exception.ValidationException refusal) {
+            /*
+             * The loose rule's refusals ("not sold by the piece", "not a whole number", "not switched on for your
+             * business") are ValidationExceptions, and SalesQuoteController answers anything that is not a
+             * QuoteRefused with a bare "Could not create the quote." — so the pharmacist would be told THAT it
+             * failed and never WHY. Only this type is converted: a genuine bug must still surface as an error.
+             */
+            throw new QuoteRefused(refusal.getMessage());
+        }
+    }
+
+    private void priceLooseLineOrThrow(SalesQuoteLine l, Float pieces) {
+        String name = l.getProductName() != null ? l.getProductName() : ("product " + l.getProductId());
+        if (capabilityService != null) {
+            capabilityService.assertEnabled(com.myplus.common.settings.Capability.LOOSE_SELLING);
+        }
+        if (catalogClient == null) throw new QuoteRefused(name + " cannot be quoted loose: the catalogue is unavailable.");
+        com.myplus.commerce.contracts.dto.ProductRef product = catalogClient.getProduct(l.getProductId());
+
+        // The pack price the quote is offered at: the operator's, else today's catalogue price.
+        BigDecimal packRate = (l.getUnitPrice() != null && l.getUnitPrice().signum() > 0) ? l.getUnitPrice()
+                : (product != null && product.getSellingPrice() != null ? product.getSellingPrice() : BigDecimal.ZERO);
+        BigDecimal markup = settingsService == null ? BigDecimal.ZERO
+                : settingsService.getDecimal("pos.sale.looseMarkupPct", BigDecimal.ZERO);
+
+        com.myplus.business_service.dto.SellDTO probe = new com.myplus.business_service.dto.SellDTO();
+        probe.setSoldQuantity(pieces);
+        // Refusals (not splittable, no pack size, fractional or zero pieces) are the till's own messages.
+        SagaSellService.LooseLine ll = SagaSellService.looseLine(probe, product, name, packRate, markup);
+
+        l.setUnitPrice(packRate);
+        l.setQuantity(ll.quantity().floatValue());
+        l.setSoldUnit("LOOSE");
+        l.setSoldQuantity(ll.pieces());
+        l.setSoldRate(ll.perPiece());
+        l.setPackSizeSnapshot(ll.packSize());
+        l.setLooseMarkupPct(markup);
+        l.setLineTotal(ll.lineTotal().subtract(nz(l.getDiscount())).max(BigDecimal.ZERO)
+                .setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * U14 — the price locks for a quote's loose lines, keyed by the line's position, which is the position it takes
+     * in the sale request ({@link #toSaleRequest} adds every line, in order, skipping none).
+     *
+     * <p>Package-private and static so the mapping is tested on its own.
+     */
+    static java.util.Map<Integer, SagaSellService.LoosePriceLock> looseLocksFor(SalesQuote q) {
+        java.util.Map<Integer, SagaSellService.LoosePriceLock> locks = new java.util.HashMap<>();
+        int i = 0;
+        for (SalesQuoteLine l : q.getLines()) {
+            if ("LOOSE".equalsIgnoreCase(l.getSoldUnit())) {
+                locks.put(i, new SagaSellService.LoosePriceLock(l.getPackSizeSnapshot(), l.getLooseMarkupPct()));
+            }
+            i++;
+        }
+        return locks;
     }
 
     private static BigDecimal lineTotal(SalesQuoteLine l) {

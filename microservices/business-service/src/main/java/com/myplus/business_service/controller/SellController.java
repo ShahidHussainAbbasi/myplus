@@ -1576,6 +1576,49 @@ public class SellController {
 		return false;
 	}
 
+	/**
+	 * U13 — how many SHELF units (packs) a return of {@code pieces} loose units takes back.
+	 *
+	 * <p>A proportion of what the sale actually stored, never {@code pieces / packSize}: the sale derived the shelf
+	 * figure once, and a second derivation here would disagree with it whenever the division does not terminate — a
+	 * box of 3, one tablet, is 0.333... So returning every piece gives back EXACTLY the stored quantity, which is
+	 * what makes a full return close the line rather than leave a sliver of a box on the invoice.
+	 *
+	 * <p>Package-private and static so the arithmetic is tested on its own, with no database and no HTTP.
+	 */
+	static float packsForLooseReturn(float storedPacks, float soldPieces, float returnedPieces) {
+		if (soldPieces <= 0f) return 0f;
+		if (returnedPieces >= soldPieces) return storedPacks;   // all of it: the stored figure, to the last decimal
+		return storedPacks * (returnedPieces / soldPieces);
+	}
+
+	/**
+	 * CN-1 — how many PIECES a return took back, for the credit note's snapshot.
+	 *
+	 * <p>The inverse of {@link #packsForLooseReturn}, and needed because a return can be asked for in either
+	 * unit. A {@code returnUnit=LOOSE} caller states the pieces outright ({@code retPieces}). A caller using the
+	 * old shelf-unit contract states a fraction of a box, and the pieces are that same PROPORTION of the line —
+	 * mirroring U13's kept-pieces expression rather than dividing by the pack size, so the two halves of one
+	 * return can never disagree about how many tablets moved.
+	 *
+	 * <p>Rounded, because pieces are whole things: 3 tablets, never 2.9999998.
+	 *
+	 * <p>Package-private and static for the same reason as its twin — the arithmetic is tested with no database
+	 * and no HTTP.
+	 */
+	static float piecesReturned(boolean looseRequest, float retPieces, float soldPieces,
+			float returnedPacks, float storedPacks) {
+		if (looseRequest) return Math.round(retPieces);
+		if (storedPacks <= 0f || soldPieces <= 0f) return 0f;
+		if (returnedPacks >= storedPacks) return Math.round(soldPieces);   // the whole line came back
+		return Math.round(soldPieces * returnedPacks / storedPacks);
+	}
+
+	/** "10" rather than "10.0" — the message is read by whoever is standing at the counter. */
+	static String fmtPieces(float pieces) {
+		return pieces == Math.rint(pieces) ? String.valueOf((long) pieces) : String.valueOf(pieces);
+	}
+
 	@Transactional
 	@PostMapping(value = "/saleReturn")
 	@ResponseBody
@@ -1598,6 +1641,44 @@ public class SellController {
 			// otherwise the fallback restock would inflate StockLevel beyond what left. (Bean-Validation standard, slice 26.)
 			float soldQty = existingSell.getQuantity() != null ? existingSell.getQuantity() : 0f;
 			float retQty = dto.getQuantity() != null ? dto.getQuantity() : 0f;
+
+			/*
+			 * U13 — RETURN WHAT THE CUSTOMER BOUGHT: "10 tablets", not "0.25 of a box".
+			 *
+			 * A loose line stores two views of one transaction: `quantity` is what left the SHELF (0.25 of a box)
+			 * and `soldQuantity`/`soldRate` are what the CUSTOMER bought (10 tablets at 7.79). Everything below —
+			 * stock restore, refund fraction, COGS, the line adjustment — works in shelf units, and did so before
+			 * loose selling existed.
+			 *
+			 * So the unit is a property of the REQUEST. `returnUnit=LOOSE` means "quantity is in pieces"; absent or
+			 * PACK keeps the old contract exactly, which is what /voidSell and every existing caller send.
+			 *
+			 * ⚠ THE CONVERSION IS A PROPORTION OF THE STORED LINE, never pieces ÷ packSize. A box of 3 sold as one
+			 * tablet is 0.333... — dividing again here would produce a second, slightly different number from the
+			 * one the sale stored, and the two would disagree about whether the line is fully returned. Returning
+			 * every piece therefore returns EXACTLY the stored quantity, to the last decimal.
+			 */
+			String returnUnit = request.getParameter("returnUnit");
+			boolean looseRequest = "LOOSE".equalsIgnoreCase(returnUnit);
+			Float soldPiecesBoxed = existingSell.getSoldQuantity();
+			float soldPieces = soldPiecesBoxed != null ? soldPiecesBoxed : 0f;
+			boolean looseLine = "LOOSE".equalsIgnoreCase(existingSell.getSoldUnit()) && soldPieces > 0f;
+			float retPieces = 0f;
+			if (looseRequest) {
+				// Refused rather than reinterpreted: silently treating "10" as ten BOXES of a sealed product would
+				// restock forty times what left the shelf and refund forty times the money.
+				if (!looseLine)
+					return new GenericResponse("FAILED", "This line was not sold in loose units.");
+				retPieces = retQty;
+				if (retPieces <= 0f)
+					return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
+				if (retPieces > soldPieces)
+					return new GenericResponse("FAILED",
+							"Cannot return more than the sold quantity (" + fmtPieces(soldPieces) + ").");
+				retQty = packsForLooseReturn(soldQty, soldPieces, retPieces);
+				dto.setQuantity(retQty);   // everything downstream keeps working in shelf units
+			}
+
 			if(retQty <= 0f)
 				return new GenericResponse("FAILED", "Return quantity must be greater than 0.");
 			if(retQty > soldQty)
@@ -1689,6 +1770,23 @@ public class SellController {
 				java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - retQty)
 						.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
 				existingSell.setQuantity(soldQty - retQty);
+				/*
+				 * U13 — the CUSTOMER's view of the line must shrink with the shelf's view.
+				 *
+				 * Only `quantity` was reduced here, so after returning 3 of 10 tablets the line held 0.175 of a box
+				 * while still claiming `soldQuantity = 10`. Every screen that reads the loose fields — the sale
+				 * detail report, the receipt, the grid — then showed ten tablets on a line that had seven, and the
+				 * two figures disagreed about the same sale for the rest of its life. Pieces are whole things, so
+				 * this rounds rather than leaving 6.999999.
+				 *
+				 * soldRate and packSizeSnapshot are deliberately untouched: the per-piece price and the pack size
+				 * that applied AT THE SALE do not change because some of the goods came back.
+				 */
+				if (looseLine) {
+					float keptPieces = looseRequest ? (soldPieces - retPieces)
+							: soldPieces * (soldQty - retQty) / soldQty;
+					existingSell.setSoldQuantity((float) Math.round(keptPieces));
+				}
 				existingSell.setTotalAmount(nzbd(existingSell.getTotalAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
 				existingSell.setNetAmount(nzbd(existingSell.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
 				existingSell.setTaxAmount(nzbd(existingSell.getTaxAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
@@ -1794,6 +1892,39 @@ public class SellController {
 				cn.setUserId(userId());
 				cn.setStoreId(existingSell.getStoreId());   // the return belongs to the store that made the sale
 				cn.setDated(java.time.LocalDateTime.now());
+
+				/*
+				 * ── CN-1 (V65): snapshot what the CUSTOMER bought, so the document can print itself later ──
+				 *
+				 * ⚠ FROM THE PRE-ADJUSTMENT LOCALS, never from existingSell here. By this line a PARTIAL return
+				 * has already shrunk existingSell.soldQuantity to what the customer KEEPS (U13), and a FULL
+				 * return has already deleted the row — so reading the line now would record the wrong pieces or
+				 * none. `soldPieces`, `soldQty`, `retPieces` and `retQty` were all captured before any of that.
+				 *
+				 * soldRate and packSizeSnapshot ARE read from existingSell: the partial block leaves them
+				 * untouched on purpose (the per-piece price and the pack size that applied at the sale do not
+				 * change because goods came back), and on a full return the entity is detached-but-in-memory,
+				 * which the line above already relies on for storeId.
+				 */
+				if (looseLine) {
+					cn.setSoldUnit("LOOSE");
+					/*
+					 * Pieces returned. A LOOSE request states them outright. A loose line returned the OLD way —
+					 * no returnUnit, i.e. in shelf units — states a fraction, so the pieces are that same
+					 * PROPORTION of the line, mirroring U13's kept-pieces expression rather than dividing by the
+					 * pack size: a box of 3 is 0.333… and a second derivation would disagree with the first.
+					 */
+					cn.setSoldQuantity(piecesReturned(looseRequest, retPieces, soldPieces, retQty, soldQty));
+					cn.setSoldRate(existingSell.getSoldRate());
+					cn.setPackSizeSnapshot(existingSell.getPackSizeSnapshot());
+				}
+				/*
+				 * The SHELF rate, on EVERY return — this is the half that is not about loose selling.
+				 * SellController.creditNote resolves the rate as `sold != null ? sold.getSellRate() : null`, and
+				 * a full return deletes that row, so without this every fully-returned credit note prints with
+				 * no rate at all, pack sales included.
+				 */
+				cn.setUnitRate(existingSell.getSellRate());
 				saleReturnRepo.save(cn);
 			} catch (Exception auditOnly) {
 				LOGGER.warn(this.getClass().getName() + " > saleReturn audit write failed (return applied)", auditOnly);
@@ -1996,8 +2127,26 @@ public class SellController {
 						.productName(p != null ? p.getName() : null)
 						.sku(p != null ? p.getSku() : null)
 						.quantity(r.getQuantity() != null ? java.math.BigDecimal.valueOf(r.getQuantity()) : null)
-						.rate(rate)
+						/*
+						 * CN-1 — the SNAPSHOT wins, and the passed-in rate is the fallback.
+						 *
+						 * `rate` is resolved by the callers from the Sell row, which a FULL return has deleted —
+						 * so it is null for every fully returned note, pack sales included. V65 records the
+						 * shelf rate on the return itself; rows written before it still fall back to whatever
+						 * the sell row can supply, which is exactly today's behaviour and never worse.
+						 */
+						.rate(r.getUnitRate() != null ? r.getUnitRate() : rate)
 						.amount(r.getCreditAmount())
+						// The customer's view, when there is one. Null on a pack line and on pre-V65 rows, which
+						// is what lets the document keep its old rendering for them.
+						.soldUnit(r.getSoldUnit())
+						.soldQuantity(r.getSoldQuantity())
+						.soldRate(r.getSoldRate())
+						.packSize(r.getPackSizeSnapshot())
+						// The noun comes from the product, not the snapshot — see the DTO's note on why the
+						// word may move while the numbers may not.
+						.looseUnit(p != null ? p.getLooseUnit() : null)
+						.looseUnitPlural(p != null ? p.getLooseUnitPlural() : null)
 						.build()))
 				.build();
 	}

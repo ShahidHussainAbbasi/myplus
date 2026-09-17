@@ -1378,7 +1378,13 @@
                     itemName: l.productName,
                     quantity: l.quantity,
                     sellRate: l.unitPrice,
-                    totalAmount: l.lineTotal
+                    totalAmount: l.lineTotal,
+                    // U14: a line quoted in pieces. Same field names as a Sell row, so the document builder's
+                    // looseDisplay prints "10 tablets @ 7.79" — the customer's terms — instead of 0.25 × 311.60.
+                    soldUnit: l.soldUnit,
+                    soldQuantity: l.soldQuantity,
+                    soldRate: l.soldRate,
+                    looseUnitPlural: l.looseUnitPlural
                 };
             }),
             totalAmount: doc.grandTotal
@@ -1623,13 +1629,35 @@
              * asserted the API response rather than the rendered page, so nothing ever looked at the paper.
              */
             sales: (doc.lines || []).map(function (l) {
+                /*
+                 * CN-1 — print what the CUSTOMER bought.
+                 *
+                 * A loose return stored 0.075 of a box at 311.60 and printed exactly that, on the one piece of
+                 * paper the customer keeps. The sale grid and the return dialog were converted by U13; this
+                 * document was not, so a pharmacist handed over a note reading "0.075 × 311.60" for three
+                 * tablets.
+                 *
+                 * ⚠ NUMERIC, not looseQtyText: the quantity here feeds lineMath (quantity x sellRate), so a
+                 * string like "3 tablets" would break the arithmetic on the document. The pieces and the
+                 * per-piece rate multiply to the SAME line value as the shelf pair did — 3 x 7.79 = 0.075 x
+                 * 311.60 — so only the units a person reads change, never the money.
+                 *
+                 * The loose fields ride along untouched so the renderer's own field bindings (and the document
+                 * designer's whitelist) can say "3 tablets" where a column has room for the noun.
+                 */
+                var loose = String(l.soldUnit || '').toUpperCase() === 'LOOSE' && l.soldQuantity != null;
                 return {
                     itemCode: l.sku,
                     itemName: l.productName,
                     // The three names lineMath reads. Nothing else is needed for these columns.
-                    quantity: l.quantity,
-                    sellRate: l.rate,
-                    totalAmount: l.amount
+                    quantity: loose ? l.soldQuantity : l.quantity,
+                    sellRate: loose && l.soldRate != null ? l.soldRate : l.rate,
+                    totalAmount: l.amount,
+                    soldUnit: l.soldUnit,
+                    soldQuantity: l.soldQuantity,
+                    soldRate: l.soldRate,
+                    looseUnit: l.looseUnit,
+                    looseUnitPlural: l.looseUnitPlural
                 };
             }),
             totalAmount: doc.totalAmount

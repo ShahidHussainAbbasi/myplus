@@ -861,6 +861,13 @@ tr.row-voided .js-edit-row{display:none !important}
 						<select id="qtItemDD" class="form-control" style="margin:0 8px"></select>
 						<label for="qtQty" th:text="#{ui.qty}">Qty</label>
 						<input type="number" step="any" min="1" id="qtQty" class="form-control" style="width:90px;margin:0 8px" value="1">
+						<!-- U14: quote in whole packs, or in loose pieces ("10 tablets"). The server prices a loose line with
+						     the till's own rule and refuses a product that may not be split — the choice here is a
+						     request, not a permission. -->
+						<select id="qtUnit" class="form-control" style="margin:0 8px">
+							<option value="" th:text="#{ui.js.pack}">Pack</option>
+							<option value="LOOSE" th:text="#{ui.js.loosePieces}">loose</option>
+						</select>
 						<label for="qtRate" th:text="#{ui.rate}">Rate</label>
 						<input type="number" step="any" min="0" id="qtRate" class="form-control" style="width:110px;margin:0 8px">
 						<button type="button" class="btn btn-default" onclick="addQuoteLine()" th:text="#{ui.addLine}">Add line</button>

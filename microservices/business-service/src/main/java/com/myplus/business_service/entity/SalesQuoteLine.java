@@ -69,4 +69,35 @@ public class SalesQuoteLine implements Serializable {
 
     @Column(name = "line_total", precision = 19, scale = 2)
     private BigDecimal lineTotal;
+
+    // ── U14 · a quote line offered in loose units (V66) ─────────────────────────────────────────────────────────
+    // The first four mirror Sell's (V51) exactly: a converted quote line becomes a sell line. NULL soldUnit is an
+    // ordinary line, which every quote line was before this. ON THE WAY IN only soldUnit + soldQuantity are read;
+    // the rest are SERVER-POPULATED by SalesQuoteService, so a caller cannot state its own per-piece rate.
+
+    /** PACK | LOOSE — what the customer was quoted. */
+    @Column(name = "sold_unit", length = 8)
+    private String soldUnit;
+
+    /** Pieces quoted ("10" tablets). */
+    @Column(name = "sold_quantity")
+    private Float soldQuantity;
+
+    /** Per-piece rate the quote was priced at — display only; the money is unitPrice × quantity. */
+    @Column(name = "sold_rate", precision = 19, scale = 2)
+    private BigDecimal soldRate;
+
+    /** The pack size AT THE QUOTE, frozen — conversion replays it rather than today's product. */
+    @Column(name = "pack_size_snapshot")
+    private Integer packSizeSnapshot;
+
+    /**
+     * The shop's loose markup AT THE QUOTE, frozen. Quote-only (a sale reads the live setting at the till).
+     *
+     * <p>An accepted quote binds (the user's ruling, 2026-09-17): if the owner changes the markup between acceptance
+     * and conversion, replaying with today's value would invoice a different amount from the one the customer
+     * accepted. Conversion replays this snapshot instead.
+     */
+    @Column(name = "loose_markup_pct", precision = 9, scale = 4)
+    private BigDecimal looseMarkupPct;
 }

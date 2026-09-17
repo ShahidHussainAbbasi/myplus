@@ -2134,7 +2134,11 @@ function loadDataTable(){
 							"<div id=sellCustomerName>"+escHtml(custName)+"</div>",
 							"<div id=sellItemName>"+escHtml(obj.itemName||'')+"</div>",
 							// #17 P3: the grid shows what LEFT, free goods included — see bonusSuffix.
-							"<div id=sellItems>"+obj.quantity+bonusSuffix(obj)+"</div>",
+							// U13: the quantity the CUSTOMER bought — "10 tablets", not "0.25". looseQtyText is an
+							// identity for an ordinary line, so a pack sale reads exactly as it always did. This grid
+							// was one of two screens that never adopted the shared formatter; the other was the
+							// return dialog below, which is how a pharmacist came to be shown 0.25 to return.
+							"<div id=sellItems>"+escHtml(looseQtyText(obj))+bonusSuffix(obj)+"</div>",
 							// The rate the line SOLD at. Read obj.sellRate FIRST: it is the server's authoritative
 							// value; stock.bsellRate is the form's echo and is not what was persisted.
 							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
@@ -2159,6 +2163,12 @@ function loadDataTable(){
 									+ " data-sellid='"+obj.sellId+"'"
 									+ " data-stockid='"+(obj.stock&&obj.stock.stockId!=null?obj.stock.stockId:'')+"'"
 									+ " data-qty='"+(obj.quantity!=null?obj.quantity:'')+"'"
+									// U13: what the customer bought, so the dialog can ask in tablets and post
+									// returnUnit=LOOSE. The SERVER converts to shelf units from the figures it
+									// stored — the browser never divides money or stock.
+									+ " data-soldunit='"+escHtml(obj.soldUnit||'')+"'"
+									+ " data-soldqty='"+(obj.soldQuantity!=null?obj.soldQuantity:'')+"'"
+									+ " data-unitlabel='"+escHtml(obj.looseUnitPlural||obj.looseUnit||'')+"'"
 									+ " data-invoice='"+escHtml(ch?(ch.invoiceNo||''):'')+"'"
 									+ " data-item='"+escHtml(obj.itemName||'')+"'>"
 									+ "<span class='glyphicon glyphicon-share-alt'></span> Return</button>"
@@ -3527,11 +3537,19 @@ function toggleSRCustomRange(){
 // KPI summary — aggregates the line collection. Invoice-level figures (due) are counted once per
 // distinct invoice so multiple lines on the same invoice don't double-count.
 function renderSRKpis(rows){
-	var gross = 0, tax = 0, qty = 0, invoices = {}, dueByInv = {};
+	/*
+	 * U13 gap #3 — "Products sold" added every line's SHELF quantity together, so two boxes and ten tablets out of a
+	 * box of forty read 2.25: a number that means neither two nor twelve, and that shifts with each product's pack
+	 * size. Loose pieces are now counted as pieces, beside the whole units, the same way the grid already shows
+	 * "+ 1 free" beside a quantity: "2 + 10 loose". A report with no loose lines reads exactly as it did.
+	 */
+	var gross = 0, tax = 0, qty = 0, loosePieces = 0, invoices = {}, dueByInv = {};
 	rows.forEach(function(o){
 		gross += parseFloat(o.totalAmount) || 0;
 		tax   += parseFloat(o.taxAmount)   || 0;
-		qty   += parseFloat(o.quantity)    || 0;
+		var d = (typeof looseDisplay === 'function') ? looseDisplay(o) : { isLoose: false };
+		if (d.isLoose) loosePieces += Number(d.qty) || 0;
+		else           qty         += parseFloat(o.quantity) || 0;
 		var inv = o.invoiceNo || ('#' + (o.sellId || ''));
 		invoices[inv] = true;
 		if (!(inv in dueByInv)){
@@ -3544,7 +3562,7 @@ function renderSRKpis(rows){
 	$('#srkGross').text(srMoney(gross));
 	$('#srkTax').text(srMoney(tax));
 	$('#srkBilled').text(srMoney(gross + tax));
-	$('#srkItems').text(srNum(qty));
+	$('#srkItems').text(srNum(qty) + (loosePieces > 0 ? ' + ' + srNum(loosePieces) + ' ' + t('ui.js.loosePieces') : ''));
 	$('#srkInvoices').text(Object.keys(invoices).length);
 	$('#srkDue').text(srMoney(due));
 	$('#srKpis').css('display', 'grid');
@@ -4197,16 +4215,39 @@ function buildSaleReturnDialog(){
 
 function openSaleReturn(btn){
 	var d = buildSaleReturnDialog();
-	var sold = parseFloat(btn.getAttribute('data-qty')) || 0;
+	var packs = parseFloat(btn.getAttribute('data-qty')) || 0;
+	/*
+	 * U13 — ASK IN WHAT THE CUSTOMER BOUGHT.
+	 *
+	 * This dialog used to show `quantity`, which for a loose sale is the SHELF figure: a pharmacist who sold ten
+	 * tablets out of a box of forty was shown "0.25" and asked how much of a box to take back. They now see ten
+	 * tablets, with the box figure beside it so the stock movement is still visible, and the server is told which
+	 * unit the number is in (`returnUnit`). The browser does no arithmetic on money or stock — dividing pieces by
+	 * pack size here would produce a second, slightly different number from the one the sale stored.
+	 */
+	var soldUnit  = (btn.getAttribute('data-soldunit') || '').toUpperCase();
+	var pieces    = parseFloat(btn.getAttribute('data-soldqty'));
+	var unitLabel = btn.getAttribute('data-unitlabel') || '';
+	var isLoose   = soldUnit === 'LOOSE' && isFinite(pieces) && pieces > 0;
+	var sold      = isLoose ? pieces : packs;
+
 	d.dataset.sellid  = btn.getAttribute('data-sellid') || '';
 	d.dataset.stockid = btn.getAttribute('data-stockid') || '';
 	d.dataset.sold    = sold;
+	d.dataset.unit    = isLoose ? 'LOOSE' : '';
 	document.getElementById('srInvoice').textContent = btn.getAttribute('data-invoice') || '—';
 	document.getElementById('srItem').textContent    = btn.getAttribute('data-item') || '';
-	document.getElementById('srSold').textContent    = sold;
+	// "10 tablets (0.25 of a pack)" — the second figure is what leaves the shelf, kept visible on purpose.
+	// ui.js.pack already exists in all six locales — a seventh string saying the same thing is a translation
+	// to keep in step for no gain.
+	document.getElementById('srSold').textContent    = isLoose
+		? (sold + (unitLabel ? ' ' + unitLabel : '') + ' (' + packs + ' ' + t('ui.js.pack') + ')')
+		: sold;
 	var qtyInput = document.getElementById('srQty');
 	qtyInput.value = sold;
 	qtyInput.max   = sold;
+	// Whole tablets: half a tablet cannot go back on a shelf, and the sale could not have sold one.
+	qtyInput.step  = isLoose ? 1 : 'any';
 	document.getElementById('srReason').value = '';
 	// Pharmacy returns default to quarantine (returned meds can't be re-dispensed); other verticals default off.
 	document.getElementById('srQuarantine').checked = (window.MODULE === 'PHARMA');
@@ -4235,7 +4276,10 @@ function submitSaleReturn(){
 		// BLK-2: the confirm button carries the wait ("Posting…") and is released on this request's ajaxComplete.
 		// Keeps the veil: a sale return has no server de-duplication yet (BLK-13).
 		busyControl: '#srSubmit', busyKind: 'post',
+		// U13: `returnUnit` says which unit `quantity` is in. LOOSE = pieces (tablets); absent = shelf units, the
+		// contract every earlier caller used and which is unchanged.
 		data: { 'sellId': sellId, 'sellSId': stockId, 'quantity': qty, 'reason': document.getElementById('srReason').value,
+			'returnUnit': (d.dataset.unit || ''),
 			'quarantine': document.getElementById('srQuarantine').checked,
 			'refundAs': document.getElementById('srRefundAs').value },
 		success: function(data){
@@ -5944,12 +5988,23 @@ function addQuoteLine() {
 	if (!productId) { showFormError(t('ui.js.qtPickProduct')); return; }
 	if (!(qty > 0)) { showFormError(t('ui.js.qtQtyPositive')); return; }
 	if (!(rate >= 0)) { showFormError(t('ui.js.qtRateRequired')); return; }
-	quoteLines.push({
+	/*
+	 * U14 — a line quoted in PIECES. `quantity` is then the number of pieces, sent as soldQuantity; the server
+	 * derives the shelf quantity, the per-piece rate and the line total with the till's own rule, so this screen does
+	 * no loose arithmetic. `rate` stays the PACK price (the rule divides it). Whole pieces only, as at the till.
+	 */
+	var loose = $('#qtUnit').val() === 'LOOSE';
+	if (loose && Math.floor(qty) !== qty) { showFormError(t('ui.js.loosePiecesWhole')); return; }
+	quoteLines.push(loose ? {
+		productId: Number(productId),
+		productName: $('#qtItemDD option:selected').text(),
+		soldUnit: 'LOOSE', soldQuantity: qty, unitPrice: rate
+	} : {
 		productId: Number(productId),
 		productName: $('#qtItemDD option:selected').text(),
 		quantity: qty, unitPrice: rate
 	});
-	$('#qtQty').val(1); $('#qtRate').val('');
+	$('#qtQty').val(1); $('#qtRate').val(''); $('#qtUnit').val('');
 	renderQuoteLines();
 }
 
@@ -5960,9 +6015,12 @@ function renderQuoteLines() {
 	quoteLines.forEach(function (l, i) {
 		var tr = $('<tr>');
 		tr.append($('<td>').text(l.productName));
-		tr.append($('<td>').text(l.quantity));
+		// U14: a loose line reads as pieces, and its total is the SERVER's (priced on save with the till's rule) —
+		// quantity × pack rate here would show a pack's price for ten tablets.
+		var looseLine = l.soldUnit === 'LOOSE';
+		tr.append($('<td>').text(looseLine ? (l.soldQuantity + ' ' + t('ui.js.loosePieces')) : l.quantity));
 		tr.append($('<td>').text(Number(l.unitPrice).toFixed(2)));
-		tr.append($('<td>').text((l.quantity * l.unitPrice).toFixed(2)));
+		tr.append($('<td>').text(looseLine ? '—' : (l.quantity * l.unitPrice).toFixed(2)));
 		tr.append($('<td>').html("<button type=button class='btn btn-xs btn-danger' onclick='removeQuoteLine("
 			+ i + ")'>&times;</button>"));
 		$b.append(tr);

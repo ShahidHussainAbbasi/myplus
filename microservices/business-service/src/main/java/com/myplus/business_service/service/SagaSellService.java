@@ -165,7 +165,29 @@ public class SagaSellService {
         }
     }
 
+    /**
+     * U14 — the inputs that priced a LOOSE line when a quote was accepted, replayed at conversion.
+     *
+     * <p>A per-piece price is {@code packRate ÷ packSize × (1 + markup)}. The quote snapshots its pack price, but
+     * markup is a shop setting and pack size lives on the product — both read when the sale happens. An accepted
+     * quote binds (the user's ruling, 2026-09-17), so a converted quote replays the values the customer accepted.
+     *
+     * <p>⚠ IN-PROCESS ONLY, on purpose. This is NOT a field on {@link SellDTO}: {@code addSell} and
+     * {@code saleReturn} bind that DTO from HTTP, and {@code @JsonIgnore} does not stop FORM binding — a till request
+     * could then state its own markup. Passed as a separate argument, it can only come from code in this service's
+     * module ({@code SalesQuoteService.convert}).
+     */
+    public record LoosePriceLock(Integer packSize, BigDecimal markupPct) {}
+
     public String addSell(CustomerHistoryDTO dto) {
+        return addSell(dto, java.util.Map.of());
+    }
+
+    /**
+     * {@link #addSell(CustomerHistoryDTO)}, with per-line price locks keyed by the line's INDEX in
+     * {@code dto.getSales()}. An empty map is exactly the till's path.
+     */
+    public String addSell(CustomerHistoryDTO dto, java.util.Map<Integer, LoosePriceLock> looseLocks) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new sale is a today-dated entry
 
@@ -190,7 +212,7 @@ public class SagaSellService {
         // SF-1/SF-2: the ONE authoritative line build (catalog price + sold rate + discount + tax + catalog
         // snapshot), shared with updateSell so add and edit produce identical lines.
         java.util.Map<Long, String> productNames = new java.util.HashMap<>();   // for a friendly out-of-stock message
-        List<SagaLine> lines = buildLines(dto, productNames);
+        List<SagaLine> lines = buildLines(dto, productNames, looseLocks);
 
         // B2B-P0 (#3): whole-invoice margin policy, checked BEFORE anything is reserved or written — a sale
         // refused here has touched no stock and no ledger. The per-line warning on the sell screen cannot do
@@ -739,6 +761,12 @@ public class SagaSellService {
     }
 
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
+        return buildLines(dto, productNames, java.util.Map.of());
+    }
+
+    /** U14 — {@link #buildLines(CustomerHistoryDTO, java.util.Map)} with per-line loose price locks (by line index). */
+    public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames,
+                                     java.util.Map<Integer, LoosePriceLock> looseLocks) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         Long orgId = user.getOrganizationId();
         Long userId = user.getUserId();
@@ -769,7 +797,9 @@ public class SagaSellService {
         }
         java.util.Map<Long, ProductRef> basketRefs = CatalogRefs.byIdFresh(catalogClient, basketIds);
         List<SagaLine> lines = new ArrayList<>();
+        int lineIndex = -1;   // U14: a price lock is addressed by the line's position in dto.getSales()
         for (SellDTO s : dto.getSales()) {
+            lineIndex++;
             // M4e (slice 101): productId-native — every caller (POS + pharmacy) submits productId now.
             Long productId = s.getProductId();
             if (productId == null) throw new RuntimeException("Sale line has no productId — submit productId-native.");
@@ -859,7 +889,14 @@ public class SagaSellService {
                  * lookup from there would trade that away for nothing; the caller is the one with context.
                  */
                 capabilityService.assertEnabled(com.myplus.common.settings.Capability.LOOSE_SELLING);
-                LooseLine ll = looseLine(s, product, pName, lineRate, looseMarkupPct);
+                // U14: a converted quote replays the markup and pack size the customer accepted; the till passes
+                // no lock and reads today's, exactly as before. Product rules (allowLoose, the capability above)
+                // are NOT locked — a quote binds its price, not permission to break a pack the shop no longer splits.
+                LoosePriceLock lock = (looseLocks == null) ? null : looseLocks.get(lineIndex);
+                LooseLine ll = (lock == null)
+                        ? looseLine(s, product, pName, lineRate, looseMarkupPct)
+                        : looseLine(s, product, pName, lineRate,
+                                lock.markupPct() != null ? lock.markupPct() : looseMarkupPct, lock.packSize());
                 qty = ll.quantity();
                 lineTotal = ll.lineTotal();
                 lineRate = ll.lineRate();
@@ -962,6 +999,19 @@ public class SagaSellService {
     // resolved packRate in — so nothing is lost by making that explicit. (Standard D2.)
     static LooseLine looseLine(SellDTO s, ProductRef product, String pName,
                                BigDecimal packRate, BigDecimal markupPct) {
+        return looseLine(s, product, pName, packRate, markupPct, null);
+    }
+
+    /**
+     * U14 — the same rule, with the pack size supplied rather than read off today's product.
+     *
+     * <p>ONE implementation still: a quote prices its loose line with this exact method at creation (with no
+     * override) and replays it at conversion with the pack size it snapshotted. {@code packSizeOverride = null} is
+     * the till's path and reads the product, as it always has. {@code allowLoose} is always read from the CURRENT
+     * product: a quote binds a price, not permission to split a pack the shop no longer splits.
+     */
+    static LooseLine looseLine(SellDTO s, ProductRef product, String pName,
+                               BigDecimal packRate, BigDecimal markupPct, Integer packSizeOverride) {
         if (product == null) {
             throw new com.myplus.common.web.exception.ValidationException(
                     pName + " could not be read from the catalogue, so it cannot be split.");
@@ -970,7 +1020,7 @@ public class SagaSellService {
             throw new com.myplus.common.web.exception.ValidationException(
                     pName + " is not sold by the piece. Switch on 'may be sold loose' for this product first.");
         }
-        Integer packSize = product.getPackSize();
+        Integer packSize = (packSizeOverride != null) ? packSizeOverride : product.getPackSize();
         if (packSize == null || packSize <= 1) {
             throw new com.myplus.common.web.exception.ValidationException(
                     pName + " has no pack size, so there is nothing to divide.");

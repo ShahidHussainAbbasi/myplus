@@ -108,5 +108,37 @@ public class ReturnDocumentDTO {
 
         /** This line's share of the note's value. With one line per note it equals the total. */
         private BigDecimal amount;
+
+        /*
+         * ── CN-1: the customer's view of the returned line ────────────────────────────────────────
+         *
+         * `quantity` and `rate` above stay the SHELF figures — stock, money and the GL all work in them, and
+         * every existing caller reads them. These four are what the printed document shows a person: three
+         * TABLETS at 7.79, not 0.075 of a box at 311.60.
+         *
+         * Null for a pack line and for any return written before V65, which is what keeps the old rendering
+         * path correct without a version check in the template.
+         */
+
+        /** LOOSE when this line was sold by the piece; null otherwise. */
+        private String soldUnit;
+
+        /** PIECES returned (3 tablets). */
+        private Float soldQuantity;
+
+        /** Price per PIECE at the time of sale. */
+        private BigDecimal soldRate;
+
+        /** Pack size that applied at the sale, so "3 of 40" can be said without re-deriving it. */
+        private Integer packSize;
+
+        /*
+         * The unit word, resolved from the product ("tablet" / "tablets"). It is NOT snapshotted on the return
+         * row: a shop correcting the word from "tabs" to "tablets" should see the corrected word on a reprint,
+         * whereas the NUMBERS must never move. That is the same split loose-format.js already draws — the pack
+         * size is frozen because it changes the arithmetic; the noun is not, because it does not.
+         */
+        private String looseUnit;
+        private String looseUnitPlural;
     }
 }

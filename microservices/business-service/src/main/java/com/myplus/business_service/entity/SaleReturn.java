@@ -81,4 +81,42 @@ public class SaleReturn implements Serializable {
 
 	@Column(name = "dated")
 	private LocalDateTime dated;
+
+	/*
+	 * ── CN-1: the document's own copy of what was returned (V65) ─────────────────────────────────
+	 *
+	 * A credit note must be reproducible from its own row. `quantity` above is the SHELF figure — 0.075 of a
+	 * box — which is the right unit for stock and money and the wrong one for the piece of paper the customer
+	 * keeps. The customer's view lives on the Sell line, and a FULL return DELETES that line, so there is
+	 * nothing to look up at print time. These five columns are copied at return time for the same reason
+	 * Sell.packSizeSnapshot and CustomerHistory.issuedTotal exist.
+	 *
+	 * All nullable: rows written before V65 have none of it and fall back to the old behaviour.
+	 */
+
+	/** LOOSE when the returned line was sold by the piece; null/PACK otherwise. */
+	@Column(name = "sold_unit", length = 16)
+	private String soldUnit;
+
+	/** PIECES returned (3 tablets) — not the shelf fraction. Float to match {@code Sell.soldQuantity}. */
+	@Column(name = "sold_quantity")
+	private Float soldQuantity;
+
+	/** Price per PIECE at the time of sale. */
+	@Column(name = "sold_rate", precision = 19, scale = 2)
+	private BigDecimal soldRate;
+
+	/** The pack size that applied AT THE SALE — a product's pack size can be edited afterwards. */
+	@Column(name = "pack_size_snapshot")
+	private Integer packSizeSnapshot;
+
+	/**
+	 * The SHELF-unit (pack) rate at the time of sale.
+	 *
+	 * <p>⚠ Not a loose-selling field: this is what makes a FULLY returned credit note printable at all. The
+	 * reader resolved the rate from the Sell row, and a full return deletes it, so every fully-returned note
+	 * printed with no rate — pack sales included.
+	 */
+	@Column(name = "unit_rate", precision = 19, scale = 2)
+	private BigDecimal unitRate;
 }

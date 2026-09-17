@@ -112,5 +112,16 @@ public class QuoteDocumentDTO {
         private BigDecimal discount;
 
         private BigDecimal lineTotal;
+
+        /*
+         * U14 — a line quoted in pieces. Named exactly as on a Sell row so the shared `looseDisplay` formatter reads
+         * a quote line and a sale line the same way: "10 tablets @ 7.79" instead of "0.25 × 311.60". Null on an
+         * ordinary line, which the formatter treats as an identity.
+         */
+        private String soldUnit;
+        private BigDecimal soldQuantity;
+        private BigDecimal soldRate;
+        /** Display label for the pieces ("tablets"), read from the catalogue when the document is drawn. */
+        private String looseUnitPlural;
     }
 }
