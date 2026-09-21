@@ -224,12 +224,26 @@ $(document).ready(function() {
 			// obj.item = item;
 
         	// (cart insert handled below: append, or replace-in-place when editing)
+			/*
+			 * U15-A2 — the PRICE column on a loose line.
+			 *
+			 * U4 made the QTY column read "10 tablets"; this column went on showing `stock.bsellRate`, the
+			 * PACK price. So the row said 10 tablets · 311.60 · 77.90 — arithmetic that does not work, on the
+			 * screen the customer is watching. The per-piece rate is already on the line (`soldRate`, set by
+			 * LooseSell.decorate); looseDisplay is the formatter that reads it.
+			 *
+			 * An ordinary line keeps the RAW form value, not a reformatted number: looseDisplay returns a
+			 * Number, and "311.60" rendered as 311.6 would change every pack row in every tenant's cart.
+			 */
+			var rateCell = obj.stock.bsellRate;
+			var looseCell = (typeof looseDisplay === 'function') ? looseDisplay(obj) : null;
+			if (looseCell && looseCell.isLoose) rateCell = Number(looseCell.rate).toFixed(2);
 			var arr = [
 				// SF-9: show the discount WITH its type so "10" is unambiguous — "10%" (percent) vs "10 (Amt)" (fixed).
 				// U4: "5 tablets" on a loose line, obj.quantity on every other. Before this, the manual add
 				// showed 0.5 while a `5L*CODE` scan of the SAME product showed 5 — two unlabelled numbers
 				// for one sale, on the screen a cashier watches while ringing up.
-				obj.productId,obj.itemName,looseQtyText(obj),obj.stock.bsellRate,
+				obj.productId,obj.itemName,looseQtyText(obj),rateCell,
 				(obj.stock && obj.stock.bsellDiscount ? (Number(obj.stock.bsellDiscount) + ((obj.stock.bsellDiscountType==='1'||obj.stock.bsellDiscountType==='%') ? '%' : ' (Amt)')) : (obj.stock ? obj.stock.bsellDiscount : '')),
 				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
 				];
@@ -408,14 +422,16 @@ function sellScanAdd(){
 					if(!li || !li.allowLoose){
 						sellScanMsg(t('ui.js.looseNotAllowed'), true); $in.focus(); return;
 					}
-					scanAddToCart(ref, qty, 'LOOSE', li);
+					// U15-A4: a REFUSED scan must not be announced as a success — scanAddToCart has already
+					// said why, and overwriting it with "Added" tells the cashier a line exists that does not.
+					if(scanAddToCart(ref, qty, 'LOOSE', li) === false){ $in.focus(); return; }
 					sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
 					$in.focus();
 				})
 				.fail(function(){ sellScanMsg(t('ui.js.looseUnavailable'), true); $in.focus(); });
 			return;
 		}
-		scanAddToCart(ref, qty, 'PACK', null);
+		if(scanAddToCart(ref, qty, 'PACK', null) === false){ $in.focus(); return; }
 		sellScanMsg('Added ' + (ref.name || ref.sku || ('#' + ref.id)) + ' ×' + cartQty(ref.id), false);
 		$in.focus();
 	}, 'json').fail(function(){ sellScanMsg('Lookup failed (is catalog-service up?).', true); $in.focus(); });
@@ -431,6 +447,11 @@ function cartQty(pid){ var d = data.find(function(x){ return String(x.productId)
  * ⚠ `li` is passed in rather than read from LooseSell, because LooseSell holds the rules for the product on
  * the LINE — which on a scan is usually a different product entirely. Reading it here would price the scanned
  * item using another product's pack size.
+ *
+ * @return {boolean} FALSE when the scan was refused (and the reason already shown). U15-A4: the caller
+ *         announces "Added ×n" on success, and without an answer here it announced it on a refusal too —
+ *         the cart was correctly untouched and the cashier was told otherwise, which is the shape BLK-2
+ *         removed from the return dialogs (STANDARDS §0b: never optimistic).
  */
 function scanAddToCart(ref, qty, unit, li){
 	var pid = ref.id;
@@ -453,14 +474,62 @@ function scanAddToCart(ref, qty, unit, li){
 
 	if(idx >= 0){
 		// Already scanned â†’ bump qty on the existing line (cart + grid), and move its money with it.
-		data[idx].quantity = (Number(data[idx].quantity) || 0) + n;
-		var mUp = lineMath(data[idx].quantity);
-		data[idx].totalAmount = mUp.total;
-		data[idx].netAmount = mUp.profit;
+		/*
+		 * U15-A4 — BUMPING AN EXISTING LINE MUST SPEAK THAT LINE'S UNIT.
+		 *
+		 * This added `n` to `quantity` whatever either side meant, and a loose line holds PACKS in
+		 * `quantity` while a loose scan carries PIECES in `n`. Three ways that went wrong, all reachable:
+		 *
+		 *   - 5 tablets scanned onto a line already holding 5 tablets: 0.125 packs + 5 = 5.125 "packs",
+		 *     and `soldQuantity` never moved — so the server sold the ORIGINAL five and the rest vanished.
+		 *   - a plain barcode (PACK) scanned onto a loose line: quantity grew by one, `soldUnit` stayed
+		 *     LOOSE and `soldQuantity` stayed five, so the sealed pack was never billed at all.
+		 *   - `5L*CODE` scanned onto an ordinary PACK line: the line stayed PACK and sold five PACKS. For a
+		 *     120.00 pack that is 600.00 charged for 15.00 of tablets.
+		 *
+		 * The first two are converted to PIECES and re-priced through the one rule. The third cannot be
+		 * represented on a single line, so it is REFUSED rather than guessed at — the only answer that
+		 * cannot mis-sell (STANDARDS §0b).
+		 */
+		var ex = data[idx];
+		var exLoose = String(ex.soldUnit || '').toUpperCase() === 'LOOSE';
+		var exPack  = Number(ex.packSizeSnapshot) || (li && Number(li.packSize)) || 0;
+		var addPieces = null;
+		if(exLoose){
+			if(unit === 'LOOSE') addPieces = n;              // pieces onto pieces
+			else if(exPack > 0)  addPieces = n * exPack;     // a sealed pack IS packSize pieces
+		}
+		if((exLoose && addPieces == null) || (!exLoose && unit === 'LOOSE')){
+			sellScanMsg(t('ui.js.mixedUnitLine'), true);
+			return false;
+		}
+		var mUp;
+		if(exLoose){
+			// PRICE FIRST, COMMIT AFTER. Mutating soldQuantity before the quote could fail would leave the
+			// line holding more tablets than its quantity and totals describe — a silent inconsistency in
+			// the payload `data[]` submits, rather than a refusal the cashier can see and act on.
+			var newPieces = (Number(ex.soldQuantity) || 0) + addPieces;
+			// The line's OWN stored rates when this is a PACK scan — no /looseInfo was fetched for it.
+			var exInfo = { allowLoose: true, packSize: exPack,
+				packRate:  (li && li.packRate  != null) ? li.packRate  : ex.sellRate,
+				looseRate: (li && li.looseRate != null) ? li.looseRate : ex.soldRate };
+			var q2 = (window.LooseSell) ? LooseSell.quoteFor(exInfo, newPieces) : null;
+			if(!q2){ sellScanMsg(t('ui.js.looseUnavailable'), true); return false; }
+			ex.soldQuantity = newPieces;
+			ex.quantity = q2.packs;
+			ex.soldRate = q2.perPiece;
+			mUp = sellLineMath(q2.total / q2.packs, q2.packs, 0, 0, '0');
+		} else {
+			ex.quantity = (Number(ex.quantity) || 0) + n;
+			mUp = lineMath(ex.quantity);
+		}
+		ex.totalAmount = mUp.total;
+		ex.netAmount = mUp.profit;
 		tablesi.rows().every(function(){
 			var row = this.data();
 			if(String(row[0]) === String(pid)){
-				row[2] = data[idx].quantity;
+				row[2] = looseQtyText(ex);   // "10 tablets" on a loose line, the plain number otherwise
+				if(exLoose) row[3] = Number(ex.soldRate).toFixed(2);
 				row[5] = mUp.receivable;     // the footer sums THIS column — a blank here reads as zero
 				this.data(row);
 			}
@@ -489,16 +558,39 @@ function scanAddToCart(ref, qty, unit, li){
 		// what the browser computes here is DISPLAY only — it cannot mis-sell, only mis-show.
 		// U8b: the scanned ProductRef carries packSize, so a PACK line of a divisible product records it too.
 		if(ref && ref.packSize > 1 && obj.packSizeSnapshot == null) obj.packSizeSnapshot = ref.packSize;
-		if(unit === 'LOOSE' && li && li.allowLoose && li.packSize > 0){
+		var scanRate = price;
+		/*
+		 * U15-A4 — a loose SCAN was priced as `pieces x PACK price`.
+		 *
+		 * `lineMath(n)` above multiplies the pack price by n, and on a `5L*CODE` scan n is PIECES: five
+		 * tablets of a 120.00 pack of 40 produced 600.00. That figure went into the cart's Total column —
+		 * whose footer is #sellTotal, which `calculateChange()` reads to show Change and Due — and into
+		 * line.totalAmount. The books were safe (the server derives a loose line from soldQuantity) but the
+		 * counter was told the wrong money, which is the same lie U4 removed from the manual path.
+		 *
+		 * Priced through LooseSell.quoteFor so the scan, the manual add and the hint line share ONE
+		 * implementation of the rule rather than three.
+		 */
+		var lq = (window.LooseSell && unit === 'LOOSE') ? LooseSell.quoteFor(li, n) : null;
+		if(lq){
 			obj.soldUnit = 'LOOSE';
 			obj.soldQuantity = n;
-			obj.quantity = Math.round((n / li.packSize) * 10000) / 10000;
-			obj.sellRate = Number(li.packRate) || price;
+			obj.quantity = lq.packs;
+			obj.sellRate = lq.packRate || price;
 			obj.stock.bsellRate = obj.sellRate;
+			// The per-piece rate the row shows and the receipt reprints — the manual path sets it in decorate().
+			obj.soldRate = lq.perPiece;
+			// packs × (total ÷ packs), exactly as LooseSell.lineOverride() substitutes on the manual path:
+			// packs × packRate would DRIFT from the bill as soon as the shop sets a broken-pack markup.
+			var lm = sellLineMath(lq.total / lq.packs, lq.packs, 0, 0, '0');
+			obj.totalAmount = lm.total;
+			obj.netAmount = lm.profit;
+			m = lm;
+			scanRate = Number(lq.perPiece).toFixed(2);
 		}
 		data.push(obj);
 		// U4: the same formatter as the manual path, so the two can no longer disagree.
-		tablesi.row.add([pid, name, looseQtyText(obj), price, '', m.receivable,
+		tablesi.row.add([pid, name, looseQtyText(obj), scanRate, '', m.receivable,
 			"<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
 	}
 	// A scanned line must be priced for the buyer exactly like a manually added one.
@@ -506,6 +598,7 @@ function scanAddToCart(ref, qty, unit, li){
 	// B1 (pharmacy): warn early if this is a prescription-only medicine; the server still refuses it at submit.
 	if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(pid, name);
 	calculateChange();   // recompute Change & Due from the live cart total
+	return true;
 }
 
 // â”€â”€â”€ Edit an existing sale (invoice) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2409,9 +2502,31 @@ function requoteSellCart(){
 			var row = this.data();
 			var d = data.filter(function(x){ return String(x.productId) === String(row[0]); })[0];
 			if(!d) return;
-			row[3] = d.sellRate;
-			row[5] = sellLineMath(d.sellRate, d.quantity, 0,
-				(d.stock && d.stock.bsellDiscount) || 0, (d.stock && d.stock.bsellDiscountType) || '0').receivable;
+			var rm = sellLineMath(d.sellRate, d.quantity, 0,
+				(d.stock && d.stock.bsellDiscount) || 0, (d.stock && d.stock.bsellDiscountType) || '0');
+			/*
+			 * U15-A2 — the THIRD place this column is written, and it must not put the pack price back.
+			 *
+			 * A contract price re-quotes the PACK rate, and `d.quantity` on a loose line is packs — so the
+			 * row would read "10 tablets · 311.60" again the moment a customer was chosen, undoing the fix
+			 * on both add paths.
+			 *
+			 * The per-piece figure is derived as total ÷ pieces: a DIVISION of numbers already computed,
+			 * not a second copy of the ceiling rule (which stays in SagaSellService.looseLine). It keeps the
+			 * row internally consistent — qty × rate = total — which is what the customer reads.
+			 *
+			 * ⚠ Still ADVISORY on a contract price, exactly as /looseInfo's javadoc says: the server
+			 * re-derives the loose rate from the contract rate at submit, and that answer wins.
+			 */
+			var rd = (typeof looseDisplay === 'function') ? looseDisplay(d) : null;
+			if(rd && rd.isLoose && Number(d.soldQuantity) > 0){
+				d.soldRate = Math.round((Number(rm.receivable) / Number(d.soldQuantity)) * 100) / 100;
+				row[2] = looseQtyText(d);
+				row[3] = d.soldRate.toFixed(2);
+			} else {
+				row[3] = d.sellRate;
+			}
+			row[5] = rm.receivable;
 			this.data(row);
 		});
 		tablesi.draw(false);

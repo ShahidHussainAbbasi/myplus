@@ -28,7 +28,10 @@
     /** The unit for the line being composed. Reset whenever the product changes. */
     var unit = 'PACK';
 
-    /** productId -> {allowLoose, packSize, looseUnit, looseUnitPlural, looseRate, packRate}. One fetch each. */
+    /**
+     * productId -> {allowLoose, packSize, looseUnit, looseUnitPlural, looseRate, packRate, defaultSellUnit}.
+     * One fetch each.
+     */
     var info = {};
 
     var current = null;   // the loose info for the product on the line right now, or null
@@ -45,6 +48,22 @@
 
     function isLoose() { return unit === 'LOOSE' && !!(current && current.allowLoose); }
 
+    /**
+     * U15-A3 — open the line in the unit the PRODUCT says it sells in.
+     *
+     * <p>`defaultSellUnit` has been on the product form, the entity and `ProductRef` since U1, and until now
+     * nothing read it: this file forced PACK on every pick, so a pharmacy that chose "Sales start as pieces"
+     * pressed the toggle on every line, all day. The design called it "the keystroke that disappears".
+     *
+     * <p>Only ever LOOSE on a product the SERVER said may be split — `allowLoose` now carries the tenant's
+     * capability too (U15-A1), so this cannot open a line in a unit the sale would refuse. Anything else,
+     * including a missing field on an older server, is PACK: the behaviour every caller already assumes.
+     */
+    function openInDefaultUnit() {
+        unit = (current && current.allowLoose
+                && String(current.defaultSellUnit || 'PACK').toUpperCase() === 'LOOSE') ? 'LOOSE' : 'PACK';
+    }
+
     /* ── state ────────────────────────────────────────────────────────────────────────────────────────── */
 
     /**
@@ -59,13 +78,13 @@
         render();
         if (!productId) return;
 
-        if (info[productId]) { current = info[productId]; render(); return; }
+        if (info[productId]) { current = info[productId]; settle(); return; }
 
         $.get(serverContext + 'looseInfo', { productId: productId })
             .done(function (resp) {
                 var d = (typeof apiOk === 'function' && apiOk(resp)) ? apiData(resp) : null;
                 info[productId] = d || { allowLoose: false };
-                if (selectedProductId() === productId) { current = info[productId]; render(); }
+                if (selectedProductId() === productId) { current = info[productId]; settle(); }
             })
             .fail(function () {
                 info[productId] = { allowLoose: false };
@@ -89,6 +108,19 @@
     }
 
     function toggleUnit() { return setUnit(unit === 'LOOSE' ? 'PACK' : 'LOOSE'); }
+
+    /**
+     * The product's rules have arrived (or came from the cache): open the line in its unit and price it.
+     *
+     * <p>`calculateNetSell` is called for the same reason `setUnit` calls it — opening in LOOSE changes what
+     * the quantity box MEANS, so the running total and the stock check must be recomputed. Without it a line
+     * that opens in pieces would price itself as packs until the next keystroke.
+     */
+    function settle() {
+        openInDefaultUnit();
+        render();
+        if (typeof calculateNetSell === 'function') calculateNetSell();
+    }
 
     /**
      * U8b — stamp `packSizeSnapshot` on a cart line even when it is sold as a PACK.
@@ -115,18 +147,42 @@
         return (n > 0) ? n : 0;
     }
 
+    /**
+     * U15-A4 — price a loose line from ANY loose-info object, not just the one for the product on the form.
+     *
+     * <p><b>The one arithmetic, for both add paths.</b> The scan path (`scanAddToCart`) holds its own
+     * `/looseInfo` answer and was doing `pieces x PACK price` — so a `5L*CODE` scan of a 120.00 pack of 40
+     * put 600.00 in the cart's Total column for a line that bills 15.00, and `calculateChange()` derives the
+     * customer's change from that column. Exporting the rule is what stops a second copy of it appearing
+     * there.
+     *
+     * <p>`total` is wholePacks x packRate + remainder x looseRate — a whole pack is never charged the broken
+     * rate, so ten tablets out of a pack of ten never cost more than the sealed pack beside it.
+     *
+     * @return {{packs:number, packRate:number, perPiece:number, total:number}} or null when not a loose line
+     */
+    function quoteFor(li, n) {
+        if (!li || !li.allowLoose || !(li.packSize > 0) || !(n > 0)) return null;
+        var whole = Math.floor(n / li.packSize);
+        var rem = n % li.packSize;
+        return {
+            packs: Math.round((n / li.packSize) * 10000) / 10000,
+            packRate: Number(li.packRate),
+            perPiece: Number(li.looseRate),
+            total: whole * Number(li.packRate) + rem * Number(li.looseRate)
+        };
+    }
+
     /** packs = pieces ÷ packSize. Display only — the SERVER derives the stored quantity. */
     function packsFor(n) {
-        if (!current || !current.packSize) return n;
-        return Math.round((n / current.packSize) * 10000) / 10000;
+        var q = quoteFor(current, n);
+        return q ? q.packs : n;
     }
 
     /** total = wholePacks × packRate + remainder × looseRate. Mirrors the server so the hint matches the bill. */
     function lineTotal(n) {
-        if (!current) return 0;
-        var whole = Math.floor(n / current.packSize);
-        var rem = n % current.packSize;
-        return whole * Number(current.packRate) + rem * Number(current.looseRate);
+        var q = quoteFor(current, n);
+        return q ? q.total : 0;
     }
 
     function render() {
@@ -261,6 +317,8 @@
         reset: reset,
         render: render,
         isLoose: isLoose,
+        /** U15-A4: price a loose line from a caller's own /looseInfo answer — see quoteFor. */
+        quoteFor: quoteFor,
         info: function () { return current; },
         /** Used by the scan path: force the unit after a `5L*CODE` entry. */
         applyScanUnit: function (u) { if (u === 'LOOSE') setUnit('LOOSE'); else unit = 'PACK'; }

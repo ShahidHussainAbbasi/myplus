@@ -418,8 +418,20 @@ public class SellController {
 	 *
 	 * <pre>
 	 *   GET /looseInfo?productId=88
-	 *   -> { allowLoose, packSize, looseUnit, looseUnitPlural, looseRate, packRate }
+	 *   -> { allowLoose, packSize, looseUnit, looseUnitPlural, looseRate, packRate, defaultSellUnit }
 	 * </pre>
+	 *
+	 * <h3>U15-A1 - {@code allowLoose} means "the till may OFFER this", not "the product permits it"</h3>
+	 *
+	 * This answered from {@link ProductRef#getAllowLoose()} alone, while {@link SagaSellService} asserts the
+	 * {@code LOOSE_SELLING} capability at submit. A tenant carrying {@code allowLoose} without the capability -
+	 * a CSV import (U9), or a plan downgrade - was shown the Pack|Piece toggle, rang up ten tablets, and lost
+	 * the WHOLE BASKET to a refusal at Complete Sale. The two answers now come from one expression.
+	 *
+	 * <p>{@link CapabilityService#isEnabled} is the render-side reader and fails OPEN by design, so a settings
+	 * outage still shows the toggle and the saga still refuses - unchanged from today, and the narrow case.
+	 * The saga's {@code assertEnabled} remains the control; this only stops the till offering what it will
+	 * refuse.
 	 *
 	 * <h3>Why this exists rather than the browser doing the arithmetic</h3>
 	 *
@@ -450,8 +462,10 @@ public class SellController {
 		try {
 			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
 			java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+			// U15-A1: the capability is part of the answer, not a separate question the till never asks.
 			boolean loose = p != null && Boolean.TRUE.equals(p.getAllowLoose())
-					&& p.getPackSize() != null && p.getPackSize() > 1;
+					&& p.getPackSize() != null && p.getPackSize() > 1
+					&& capabilityService.isEnabled(com.myplus.common.settings.Capability.LOOSE_SELLING);
 			out.put("allowLoose", loose);
 			if (!loose) {
 				// An ordinary product answers plainly. The till hides its unit toggle on this, so the
@@ -465,6 +479,18 @@ public class SellController {
 			out.put("packSize", p.getPackSize());
 			out.put("looseUnit", p.getLooseUnit());
 			out.put("looseUnitPlural", p.getLooseUnitPlural());
+			/*
+			 * U15-A3 - the unit a line OPENS in.
+			 *
+			 * `defaultSellUnit` was saved by the product form, stored on the entity and carried on ProductRef,
+			 * and then read by nobody: the till forced PACK on every pick. A pharmacy that set "Sales start as
+			 * pieces" still pressed the toggle on every line, all day. The design named this "the keystroke
+			 * that disappears" (pack-and-loose-selling-design.md 3.3(4)); it never disappeared.
+			 *
+			 * Sent only on a product the till may actually split, so it can never ask the browser to open in a
+			 * unit the server would refuse. Absent = PACK, which is what every caller already assumes.
+			 */
+			out.put("defaultSellUnit", "LOOSE".equalsIgnoreCase(p.getDefaultSellUnit()) ? "LOOSE" : "PACK");
 			out.put("packRate", packRate);
 			out.put("looseRate", com.myplus.business_service.service.SagaSellService.looseRateOf(packRate, p.getPackSize(), markup));
 			return new GenericResponse("SUCCESS", "", out);
@@ -2085,9 +2111,34 @@ public class SellController {
 						.collect(java.util.stream.Collectors.toList());
 			}
 
+			/*
+			 * CN-1b — the party for notes whose SELL LINE IS GONE, resolved from the INVOICE.
+			 *
+			 * customerBySellId above is built from sellService.findAllById(sellIds), and a FULL return runs
+			 * sellService.deleteById — so a fully returned note had no party at all: the register printed an
+			 * em-dash and the document named nobody. Exactly the same shape as the missing RATE that V65's
+			 * unit_rate fixed; this is the other half of it, and it is resolved rather than snapshotted
+			 * because the invoice header outlives its lines and already holds the customer.
+			 *
+			 * ONE query for the page, and only for the rows that actually need it.
+			 */
+			java.util.Set<String> unresolvedInvoices = rows.stream()
+					.filter(r -> customerBySellId.get(r.getSellId()) == null)
+					.map(com.myplus.business_service.entity.SaleReturn::getInvoiceNo)
+					.filter(java.util.Objects::nonNull)
+					.collect(java.util.stream.Collectors.toSet());
+			java.util.Map<String, String> nameByInvoiceNo = new java.util.HashMap<>();
+			for (CustomerHistory h : customerHistoryService.findByOrgAndInvoiceNos(orgId(), unresolvedInvoices)) {
+				if (h.getInvoiceNo() != null && h.getCustomer() != null && h.getCustomer().getName() != null)
+					nameByInvoiceNo.put(h.getInvoiceNo(), h.getCustomer().getName());
+			}
+
 			java.util.List<ReturnDocumentDTO> out = rows.stream()
 					.map(r -> toCreditNoteDto(r, productById.get(r.getProductId()),
-							customerBySellId.get(r.getSellId()), rateBySellId.get(r.getSellId())))
+							customerBySellId.get(r.getSellId()) != null
+									? customerBySellId.get(r.getSellId())
+									: nameByInvoiceNo.get(r.getInvoiceNo()),
+							rateBySellId.get(r.getSellId())))
 					.collect(java.util.stream.Collectors.toList());
 
 			return new GenericResponse("SUCCESS", "Sale returns loaded", out);
@@ -2203,6 +2254,19 @@ public class SellController {
 			// Same catalog resolve the sell grid does — one batched call, not a lookup per field.
 			com.myplus.commerce.contracts.dto.ProductRef p = r.getProductId() != null
 					? productRefs(java.util.List.of(r.getProductId())).get(r.getProductId()) : null;
+
+			/*
+			 * CN-1b — a fully returned note still names its customer. `sold` is null once the line has been
+			 * deleted, so without this the printed document had no party block at all ("the note names a
+			 * party: .empty was passed non-string primitive null"). One lookup, on the path that draws one
+			 * document.
+			 */
+			if (customerName == null && r.getInvoiceNo() != null) {
+				customerName = customerHistoryService.findByOrgAndInvoiceNo(orgId(), r.getInvoiceNo())
+						.map(CustomerHistory::getCustomer)
+						.map(com.myplus.business_service.entity.Customer::getName)
+						.orElse(null);
+			}
 
 			return new GenericResponse("SUCCESS", "Credit note loaded",
 					toCreditNoteDto(r, p, customerName, sold != null ? sold.getSellRate() : null));
