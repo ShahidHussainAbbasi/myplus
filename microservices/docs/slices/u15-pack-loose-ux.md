@@ -1,8 +1,8 @@
 # U15 — pack/loose selling that anyone can use
 
-**Status: Slice A ✅ DONE + COMMITTED (abdca9e9) — 295/0, gate RED 6/7 → GREEN 7/7.
-Slice B ✅ DONE, UNCOMMITTED — 299/0, gate RED 0/6 → GREEN 6/6, plus pos-cell-layout 12/12.**
-Slice C vocabulary RULED (§5.4), not built. D awaits its ruling.
+**Status: A ✅ COMMITTED abdca9e9 (295/0, RED 6/7 → GREEN 7/7) · B ✅ COMMITTED 73b00077 (299/0, RED 0/6 →
+GREEN 6/6, + pos-cell-layout 12/12) · C ✅ DONE, UNCOMMITTED (catalog 128/0, RED 0/6 → GREEN 6/6).**
+D awaits its ruling.
 
 ### The red run — `pack-loose-ux-till.cy.js`, 2026-09-21, against the deployed (pre-fix) build
 
@@ -316,7 +316,56 @@ auto-fills would re-open exactly the tenfold cost error U5 exists to prevent.
 keep their names and values — stored identifiers carry no meaning for a shopkeeper, and renaming them buys
 nothing. Only the words on screen change, plus one new nullable column.
 
-### 5.6 Migration
+### 5.6 ✅ DONE 2026-09-22 — catalog 128/0, gate RED 0/6 → GREEN 6/6
+
+`Product.purchaseUnitName` (nullable, 32) + `purchasePackCount` (nullable int), V18, idempotent. Blank = no
+toggle at all.
+
+⚠ **The write contract deliberately differs from the pack rules beside it.** `packSize`/`allowLoose` use
+"null means not supplied" so a partial payload cannot clear them. `purchaseUnitName` is assigned
+unconditionally, because here a blank **is** the answer and is the common case — under the other idiom a
+shop could set a purchase unit and never remove it, a one-way door nobody finds until they try to undo it.
+`ProductPurchaseUnitTest` pins both, including a control that fails if a later tidy-up makes the whole apply
+block uniformly unconditional.
+
+⚠ **SER-7 conflict, found by tracing rather than by a failure.** The serial rule hides
+`.purchase-unit-wrap` and released it with a bare `.show()`. This slice gives that toggle a SECOND reason to
+be hidden, so the release would have resurrected it for every product whose supplier sells singles — and
+only on tenants using serial tracking, so it would have looked random. The release now defers to
+`applyPurchaseUnitLabels()`, which checks the serial lock LAST: a locked toggle stays hidden but correctly
+labelled for when the serials are cleared.
+
+**The red run — `pack-loose-ux-purchase-unit.cy.js`, 0 of 6:**
+
+| Case | Expected | Actual, before the fix |
+|---|---|---|
+| 1 · the name round-trips | `peti` | **undefined** |
+| 2 · a shop can clear it | null | **undefined** |
+| 3 · the form offers the row | exists | element does not exist |
+| 4 · the toggle uses the shop's word | `peti` | **`Box`** — the collision itself |
+| 5 · no name = no toggle | hidden | **visible** |
+| 6 · the hint is a sentence | `10 peti` | **`10 × 12 = 120 · 100.00 · 12000.00`** |
+
+Case 5's failure also **measures** a premise §5.1 had only asserted from the markup: the toggle is currently
+rendered for every tenant, including shops that never buy cartons.
+
+⚠ **Three attempts were needed for a valid red, and both spec bugs are worth knowing:**
+1. `#PurchaseModal` is `display:none` until `newPurchase()` opens it. Opening the purchase *section* is not
+   opening the *form* — so case 5 ("the toggle is hidden") passed because nothing was open, and case 4 failed
+   saying "not visible" when the truth was "no form exists yet". Case 5 now asserts a positive control
+   (`#purchaseQuantity` visible) before the absence.
+2. `#purchaseBoxHint` is a `.pos-cell` measuring 0×0 in the modal grid, so `be.visible` could never go green —
+   this slice changes only what it *says*. The same trap `#sellSellableInfo` set in Slice B, the second time
+   it has cost a red run.
+
+⚠ **And a third, on the GREEN run** — the product was right and the spec was wrong. Case 6 read
+`101 peti = 1212 box`: picking a product fires `/productStock`, whose handler writes
+`$("#purchaseQuantity").val(1)` **asynchronously**, so a `.clear().type('10')` racing it yields "101". Fixed
+by waiting for the default to land (`should('have.value', '1')`) before typing, then asserting each typed
+value — deterministic instead of hoping the request is slow. Worth noting that the failure LOOKED like a
+formatting defect in the new hint; the figures were simply built from inputs the spec had corrupted.
+
+### 5.7 Migration
 
 Nothing moves. The hard part — the conversion factor — already exists. One nullable column
 (`purchase_unit_name`), Flyway, idempotent; blank on every existing row, which renders as today minus the

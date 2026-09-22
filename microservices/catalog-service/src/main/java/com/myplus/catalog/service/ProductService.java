@@ -538,6 +538,10 @@ public class ProductService {
                 .looseUnitPlural(p.getLooseUnitPlural())
                 .allowLoose(Boolean.TRUE.equals(p.getAllowLoose()))
                 .defaultSellUnit(p.getDefaultSellUnit())
+                // U15-C: read back so the purchase-unit row ROUND-TRIPS on the product form, for the same
+                // reason the pack rules above do.
+                .purchaseUnitName(p.getPurchaseUnitName())
+                .purchasePackCount(p.getPurchasePackCount())
                 .manufacturer(p.getManufacturer())
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
@@ -614,6 +618,20 @@ public class ProductService {
             p.setAllowLoose(dto.getAllowLoose());
         }
         if (dto.getDefaultSellUnit() != null) p.setDefaultSellUnit(dto.getDefaultSellUnit());
+        /*
+         * U15-C — ASSIGNED UNCONDITIONALLY, unlike the pack rules above, and that difference is deliberate.
+         *
+         * Those use "null means not supplied" so a partial payload cannot silently clear them. Here a blank
+         * IS the answer — "this shop does not buy in multiples" — and it is the common case. Under the
+         * != null idiom a shop could set a purchase unit and then never remove it: clearing the box would
+         * post an empty string, `normalize` would make it null, and the guard would skip the write, leaving
+         * the old word on screen with no way to get rid of it.
+         *
+         * normalize() keeps the optional-code contract the SKU already follows: a blank is stored as NULL,
+         * never as '', so "has the shop named one?" is a single null check everywhere downstream.
+         */
+        p.setPurchaseUnitName(normalize(dto.getPurchaseUnitName()));
+        p.setPurchasePackCount(dto.getPurchasePackCount());
 
         p.setManufacturer(dto.getManufacturer());
         p.setSellingPrice(dto.getSellingPrice());

@@ -2173,6 +2173,14 @@ tr.row-voided .js-edit-row{display:none !important}
 							<input type="number" step="1" min="1" class="form-control" id="purchasePacksPerBox"
 							       name="packsPerBox" th:placeholder="#{ui.packsPerBox}" placeholder="Packs per box"
 							       onkeyup="calculateNetPurchase()" onblur="calculateNetPurchase()"/>
+							<!--
+								U15-C — what this multiple USUALLY holds, shown beside an EMPTY input.
+								Never pre-filled: U5 requires the factor to be typed for every delivery,
+								because a stale default is silently wrong for THIS shipment with the
+								confidence of a filled field behind it.
+							-->
+							<div id="purchasePpbHint" class="help-block"
+							     style="display:none;margin:3px 0 0;font-size:11px"></div>
 						</div>
 						<!-- U5: the buyer sees what will actually be stored, before saving, so a wrong box
 						     size is caught by the person who knows the answer. -->
@@ -3794,6 +3802,44 @@ tr.row-voided .js-edit-row{display:none !important}
 								<option value="PACK" th:text="#{ui.js.startsAsPack}">Sales start as whole units</option>
 								<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
 							</select>
+						</div>
+					</div>
+
+					<!--
+						U15-C — WHAT THE SHOP CALLS THE MULTIPLE IT BUYS IN.
+
+						The purchase screen offered "Pack | Box" where Pack meant the shop's own box and Box
+						meant a carton of N of them. One word, two meanings, on one form. This row is the fix:
+						the shop names the level, exactly as it already names the piece two rows above.
+
+						⚠ OPTIONAL, AND BLANK IS THE COMMON ANSWER. Leave it empty and the purchase toggle does
+						not render at all — which is SIMPLER than today, where the toggle showed whether or not
+						the shop had ever bought a carton.
+
+						⚠ The count is a HINT and must never pre-fill "packs per box" on the purchase form. U5
+						makes that factor typed every time on purpose: box sizes vary by shipment, and a stale
+						default is silently wrong for this delivery with the confidence of a filled field
+						behind it. That is the tenfold cost error U5 exists to prevent.
+					-->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="prodPurchaseUnit"
+						       th:text="#{ui.js.boughtFromSupplierAs}">Bought from supplier as</label>
+						<div class="col-sm-4">
+							<div class="row">
+								<div class="col-xs-6">
+									<input type="text" class="form-control" id="prodPurchaseUnit" maxlength="32"
+									       th:placeholder="#{ui.js.purchaseUnitEg}" placeholder="peti">
+								</div>
+								<div class="col-xs-6">
+									<div class="input-group input-group-sm">
+										<span class="input-group-addon" th:text="#{ui.js.packHolds}">Holds</span>
+										<input type="number" min="1" step="1" class="form-control"
+										       id="prodPurchasePackCount" placeholder="12">
+									</div>
+								</div>
+							</div>
+							<div class="help-block" style="margin:4px 0 0;font-size:12px"
+							     th:text="#{ui.js.purchaseUnitHelp}">Leave blank if you buy in single units.</div>
 						</div>
 					</div>
 

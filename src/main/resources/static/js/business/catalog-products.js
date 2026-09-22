@@ -902,6 +902,9 @@
             $('#prodLooseUnitPlural').val(p.looseUnitPlural || '');
             $('#prodAllowLoose').prop('checked', p.allowLoose === true);
             $('#prodDefaultSellUnit').val(p.defaultSellUnit || 'PACK');
+            // U15-C: round-trips like the pack rules — without this an edit would post blank and clear it.
+            $('#prodPurchaseUnit').val(p.purchaseUnitName || '');
+            $('#prodPurchasePackCount').val(p.purchasePackCount != null ? p.purchasePackCount : '');
             // C6 — per-product tracking policy. Read from the ref so the form shows what the TILLS will
             // enforce, not a separate copy that could disagree with it.
             $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
@@ -1027,6 +1030,14 @@
             looseUnitPlural: $('#prodLooseUnitPlural').val() || null,
             allowLoose: $('#prodAllowLoose').is(':checked'),
             defaultSellUnit: $('#prodDefaultSellUnit').val() || 'PACK',
+            /*
+             * U15-C. Sent as '' when cleared, NOT omitted: the server assigns this one unconditionally
+             * (normalize turns blank into NULL) precisely so a shop can REMOVE a purchase unit it no
+             * longer uses. The pack rules above use "null means not supplied" and cannot be cleared that
+             * way — the difference is deliberate and documented in ProductService.
+             */
+            purchaseUnitName: $('#prodPurchaseUnit').val() || '',
+            purchasePackCount: s2n($('#prodPurchasePackCount').val()) || null,
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
         };

@@ -95,6 +95,37 @@ public class Product {
     private String defaultSellUnit = "PACK";
 
     /**
+     * U15-C — what the SHOP calls the multiple it buys in: "peti", "carton", "case", "dozen".
+     *
+     * <p>The purchase screen offered a Pack | Box toggle in which "Pack" meant the shop's own box and "Box"
+     * meant a carton of N of them — one word, two meanings, on one form. This is the third and last level to
+     * become the shop's own word rather than ours: {@link #looseUnit} named the piece, {@code unit} names the
+     * shelf unit, and the carton was the one we kept hardcoding.
+     *
+     * <p><b>Why a column rather than a better noun.</b> Renaming our "Box" to "Carton" would still leave a
+     * word every shop must learn. SAP, Odoo, Tally and Marg ERP all own the ROLES and let the customer own the
+     * WORDS; only a single-vertical product can hardcode nouns. Design §5.3-5.4.
+     *
+     * <p>⚠ {@code null} is the COMMON case and a real answer: this shop does not buy in multiples, and the
+     * purchase toggle does not render at all. Most shops therefore get a simpler purchase screen than before,
+     * where the toggle showed whether or not they had ever bought a carton.
+     */
+    @Column(name = "purchase_unit_name", length = 32)
+    private String purchaseUnitName;
+
+    /**
+     * How many shelf units that multiple USUALLY holds — a hint, never a default.
+     *
+     * <p>⚠ THE PURCHASE FORM MAY ONLY DISPLAY THIS ("usually 12"). It must never pre-fill {@code packsPerBox}.
+     * U5 made that factor typed on every purchase deliberately: "box sizes vary by shipment, and a stale
+     * default would be silently wrong for this delivery with the confidence of a pre-filled field behind it".
+     * A per-product default that auto-filled would re-open the tenfold cost error U5 exists to prevent —
+     * which is why this is a separate, advisory field and not a conversion factor.
+     */
+    @Column(name = "purchase_pack_count")
+    private Integer purchasePackCount;
+
+    /**
      * WHO last changed a pack rule, and WHEN.
      *
      * <p>{@code packSize} and {@code allowLoose} decide what a customer is charged and whether a sealed course

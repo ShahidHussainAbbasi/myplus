@@ -3055,6 +3055,16 @@ function loadStock(label,value){
     // U3: fetch this product's pack rules ONCE (cached per product) so the unit toggle and the live
     // per-piece hint can appear. Fire-and-forget: a failure leaves the line pack-only, exactly as today.
     if (window.LooseSell) LooseSell.onProductPicked(Number($('#sellItemDD').val()) || null);
+    /*
+     * U15-C — the PURCHASE form's counterpart: fetch this product's unit vocabulary so the toggle can carry
+     * the shop's own words, or hide when the shop never buys in multiples.
+     *
+     * Guarded on tableV so it costs the TILL nothing — loadStock serves both screens, and the sale path
+     * already makes two calls per pick. One call per pick on the purchase screen only, mirroring /looseInfo.
+     */
+    if (tableV === 'Purchase' && typeof loadPurchaseUnitInfo === 'function') {
+        loadPurchaseUnitInfo(Number($('#purchaseItemDD').val()) || null);
+    }
     // SER-6: show the serial box only for a product that has one. Synchronous and local — the flag rides
     // on the option (data-requires-serial), so picking an item costs no extra call to learn this.
     if (typeof applySerialFieldVisibility === 'function') applySerialFieldVisibility();
@@ -3321,6 +3331,72 @@ function setPurchaseUnit(unit){
 	calculateNetPurchase();
 }
 
+/*
+ * U15-C — THE PURCHASE SCREEN SPEAKS THE SHOP'S WORDS.
+ *
+ * "Pack | Box" meant, on this one form, the shop's own box and a carton of N of them. Both levels now carry
+ * the shop's nouns: `unit` names the shelf unit and `purchaseUnitName` names the multiple.
+ *
+ * ⚠ NO NAME = NO TOGGLE. Blank is the common answer, and hiding the control is what makes this screen
+ * SIMPLER than before for the shops that never buy cartons — the toggle used to render for everyone.
+ *
+ * ⚠ purchasePackCount IS SHOWN, NEVER FILLED IN. U5 makes the factor typed on every purchase on purpose:
+ * box sizes vary by shipment, and a stale default would be silently wrong for this delivery with the
+ * confidence of a pre-filled field behind it. So the product's figure appears only as "usually 12" beside
+ * an EMPTY input.
+ */
+var purchaseUnitInfo = null;      // {unit, purchaseUnitName, purchasePackCount} for the picked product
+
+function applyPurchaseUnitLabels(){
+	var $wrap = $('.purchase-unit-wrap');
+	if(!$wrap.length) return;
+	var named = purchaseUnitInfo && purchaseUnitInfo.purchaseUnitName;
+	if(!named){
+		// Force back to PACK before hiding: setPurchaseUnit also clears packsPerBox and the hint, so a factor
+		// typed against the previous product cannot ride along on a product that has no multiple.
+		if($('#purchaseUnit').val() === 'BOX') setPurchaseUnit('PACK');
+		$wrap.hide();
+		$('#purchasePpbHint').hide().empty();
+		return;
+	}
+	// LABEL FIRST, then decide visibility — so a toggle released from the serial lock is already correct
+	// when it reappears, rather than showing the previous product's words for a frame.
+	var shelf = purchaseUnitInfo.unit || t('ui.js.pack');
+	// .text(): both nouns are tenant-typed and reach the DOM (XSS-safe rendering standard).
+	$('#purchaseUnitPack').text(shelf);
+	$('#purchaseUnitBox').text(named);
+	$('#purchasePacksPerBox').attr('placeholder', t('ui.js.perPurchaseUnit', shelf, named));
+	var n = Number(purchaseUnitInfo.purchasePackCount);
+	if(n > 0) $('#purchasePpbHint').text(t('ui.js.usuallyHolds', n)).show();
+	else $('#purchasePpbHint').hide().empty();
+	/*
+	 * ⚠ SER-7's lock OUTRANKS this, and is checked LAST. A serialled line cannot be a box — one IMEI
+	 * identifies one physical thing — so when that rule has hidden the toggle it stays hidden, labelled and
+	 * ready for when the serials are cleared. Showing it here would hand back a control whose only outcomes
+	 * are a refused receipt or one unit booked in as a hundred with a single IMEI against it.
+	 */
+	if ($wrap.hasClass('is-locked-by-serial')) return;
+	$wrap.show();
+}
+
+/** Fetch the picked product's unit vocabulary. One call per pick, like the till's /looseInfo. */
+function loadPurchaseUnitInfo(productId){
+	purchaseUnitInfo = null;
+	applyPurchaseUnitLabels();
+	if(!productId) return;
+	$.get(serverContext + 'getCatalogProduct?id=' + encodeURIComponent(productId))
+		.done(function(resp){
+			var p = (resp && resp.data) ? resp.data : null;
+			if(!p) return;
+			// Ignore a late answer for a product the operator has already moved off.
+			if(String($('#purchaseItemDD').val()) !== String(productId)) return;
+			purchaseUnitInfo = { unit: p.unit, purchaseUnitName: p.purchaseUnitName,
+				purchasePackCount: p.purchasePackCount };
+			applyPurchaseUnitLabels();
+		})
+		.fail(function(){ /* a missing label must never block a purchase — the toggle stays hidden */ });
+}
+
 /** "10 boxes = 100 packs · 100.00 per pack · 10,000.00" — or hidden, on an ordinary purchase. */
 function renderPurchaseBoxHint(){
 	var $hint = $('#purchaseBoxHint');
@@ -3338,8 +3414,19 @@ function renderPurchaseBoxHint(){
 	// Math.ceil to the paisa — the SERVER rounds a cost UP so it can never be understated, and a hint that
 	// rounded the other way would promise a lower cost than the one actually recorded.
 	var perPack = cost > 0 ? Math.ceil((cost / ppb) * 100) / 100 : 0;
-	$hint.text(boxes + ' × ' + ppb + ' = ' + packs + ' · ' + perPack.toFixed(2) + ' · '
-			+ (boxes * cost).toFixed(2)).show();
+	/*
+	 * U15-C — four bare numbers became a sentence in the shop's own words. This is the line the buyer reads
+	 * to catch a wrong carton size, which is the whole reason U5 refuses to default the factor; "10 × 12 =
+	 * 120 · 100.00 · 12000.00" made them count the columns to know which number was which.
+	 */
+	var shelf = (purchaseUnitInfo && purchaseUnitInfo.unit) || t('ui.js.unitPacks');
+	var multi = purchaseUnitInfo && purchaseUnitInfo.purchaseUnitName;
+	// BOX mode is only reachable once the product has named its multiple, so `multi` is set here. If some
+	// future path reaches it without one, say the arithmetic plainly rather than invent a noun.
+	var lhs = multi ? (boxes + ' ' + multi) : String(boxes);
+	$hint.text(lhs + ' = ' + packs + ' ' + shelf
+			+ ' · ' + perPack.toFixed(2) + ' ' + t('ui.js.perEach', shelf)
+			+ ' · ' + (boxes * cost).toFixed(2)).show();
 }
 
 function calculateNetPurchase(){
@@ -4090,9 +4177,17 @@ function applyPurchaseSerialQuantityLock() {
 	} else if ($qty.hasClass('is-locked-by-serial')) {
 		// Release only a lock THIS rule applied — a quantity made readonly by anything else is not ours.
 		$qty.prop('readonly', false).removeClass('is-locked-by-serial').removeAttr('title');
-		// Same rule for the unit toggle: only restore the one this lock hid. A shop whose products are not
-		// divisible may have it hidden for its own reasons, and un-hiding that would be inventing a control.
-		$('.purchase-unit-wrap.is-locked-by-serial').removeClass('is-locked-by-serial').show();
+		/*
+		 * Same rule for the unit toggle: only restore the one this lock hid. A shop whose products are not
+		 * divisible may have it hidden for its own reasons, and un-hiding that would be inventing a control.
+		 *
+		 * ⚠ U15-C: releasing the lock RE-ASKS rather than showing. The toggle is now hidden for a second,
+		 * unrelated reason — the product has not named a multiple it is bought in — and a bare .show() here
+		 * would resurrect it for every product whose supplier sells singles. Deferring to the one function
+		 * that owns the decision keeps both reasons in one place instead of two that can disagree.
+		 */
+		$('.purchase-unit-wrap.is-locked-by-serial').removeClass('is-locked-by-serial');
+		if (typeof applyPurchaseUnitLabels === 'function') applyPurchaseUnitLabels();
 	}
 	// SER-7: the hint belongs to the lock, not to the keystroke handler — three other callers clear or
 	// restore this line (P6 Save & Add Another, editRecord, the settings re-apply) and each would otherwise

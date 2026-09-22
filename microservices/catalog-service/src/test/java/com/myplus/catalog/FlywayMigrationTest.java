@@ -114,6 +114,16 @@ class FlywayMigrationTest {
     }
 
     @Test
+    @DisplayName("⭐ U15-C's purchase-unit columns are actually on the table")
+    void purchase_unit_columns_exist() {
+        // Same property as U1's above, for the same reason: V18 is idempotent (dev runs ddl-auto:update and
+        // may already have added these from the entity), so it can report success having done nothing. The
+        // purchase screen's toggle reads purchase_unit_name to decide whether to render at all.
+        assertThat(columnType("products", "purchase_unit_name")).as("purchase_unit_name").isEqualTo("varchar(32)");
+        assertThat(columnType("products", "purchase_pack_count")).as("purchase_pack_count").isEqualTo("int");
+    }
+
+    @Test
     @DisplayName("a pack rule change can be attributed — who and when")
     void pack_audit_columns_exist() {
         // The standards require pricing controls to be auditable, and `products` recorded created_by only:

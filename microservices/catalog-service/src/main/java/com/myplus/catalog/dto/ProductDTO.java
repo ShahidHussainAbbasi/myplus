@@ -30,6 +30,10 @@ public class ProductDTO {
     private String looseUnitPlural;
     private Boolean allowLoose;
     private String defaultSellUnit;
+    /** U15-C — the shop's own word for the multiple it buys in ("peti", "carton"); null = it does not. */
+    private String purchaseUnitName;
+    /** How many shelf units that multiple usually holds. ⚠ A HINT for the purchase form — never a default. */
+    private Integer purchasePackCount;
 
     private String manufacturer;
     private BigDecimal sellingPrice;
