@@ -858,13 +858,27 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="form-inline" style="margin-bottom:8px">
 						<label for="qtItemDD" th:text="#{ui.product}">Product</label>
-						<select id="qtItemDD" class="form-control" style="margin:0 8px"></select>
+						<select id="qtItemDD" class="form-control" style="margin:0 8px" onchange="onQuoteProductPicked()"></select>
 						<label for="qtQty" th:text="#{ui.qty}">Qty</label>
 						<input type="number" step="any" min="1" id="qtQty" class="form-control" style="width:90px;margin:0 8px" value="1">
-						<!-- U14: quote in whole packs, or in loose pieces ("10 tablets"). The server prices a loose line with
-						     the till's own rule and refuses a product that may not be split — the choice here is a
-						     request, not a permission. -->
-						<select id="qtUnit" class="form-control" style="margin:0 8px">
+						<!--
+							U14: quote in whole packs, or in loose pieces ("10 tablets"). The server prices a loose
+							line with the till's own rule and refuses a product that may not be split — the choice
+							here is a request, not a permission.
+
+							U15-D1 — SAME CONTROL AS THE TILL, for the same decision. This was a <select> offering
+							the generic words "Pack" and "loose" on EVERY product, including the ones the server
+							would refuse; the till uses a Pack|Piece toggle carrying the shop's own noun and hides
+							it entirely when a product cannot be split. Two controls for one decision is how a
+							shop learns a screen twice, and offering a choice that will be refused is the same
+							lost-basket shape Slice A removed from the till.
+
+							Kept as a <select> rather than rebuilt as a button group: a quote is composed with the
+							keyboard down a row of fields, where a select is reached by Tab and answered by typing
+							its first letter. Matching the till's BEHAVIOUR is the point — appear only when the
+							product may be split, and say the shop's own word — not matching its markup.
+						-->
+						<select id="qtUnit" class="form-control" style="display:none;margin:0 8px">
 							<option value="" th:text="#{ui.js.pack}">Pack</option>
 							<option value="LOOSE" th:text="#{ui.js.loosePieces}">loose</option>
 						</select>

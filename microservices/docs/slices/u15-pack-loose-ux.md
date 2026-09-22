@@ -1,8 +1,9 @@
 # U15 — pack/loose selling that anyone can use
 
-**Status: A ✅ COMMITTED abdca9e9 (295/0, RED 6/7 → GREEN 7/7) · B ✅ COMMITTED 73b00077 (299/0, RED 0/6 →
-GREEN 6/6, + pos-cell-layout 12/12) · C ✅ DONE, UNCOMMITTED (catalog 128/0, RED 0/6 → GREEN 6/6).**
-D awaits its ruling.
+**Status: ALL FOUR SLICES DONE.**
+A ✅ `abdca9e9` (295/0, RED 6/7 → GREEN 7/7) · B ✅ `73b00077` (299/0, RED 0/6 → GREEN 6/6, + pos-cell-layout
+12/12) · C ✅ `84bf9620` (catalog 128/0, RED 0/6 → GREEN 6/6) · D ✅ **uncommitted** (RED 1/4 → GREEN 4/4,
++ U14 quote-loose-units 3/3). D2 retracted as not-a-defect — §7.1.
 
 ### The red run — `pack-loose-ux-till.cy.js`, 2026-09-21, against the deployed (pre-fix) build
 
@@ -413,10 +414,68 @@ totals in step with on-hand); noted here because pack/loose products are the one
 
 ## 7 · Polish — Slice D
 
-| # | Gap | Where |
+| # | Gap | Where | Outcome |
+|---|---|---|---|
+| D1 | The quote asks for the unit with an always-visible `<select>` saying our generic words, while the till hides its control unless the product may be split and says the shop's own noun | `businessDashboard.html` quote form | ✅ fixed |
+| D2 | The loose markup is declared `SettingEntry.money` though it is a **percentage** | `BusinessSettingsCatalog.java:634` | ❌ **RETRACTED — not a defect** |
+
+### 7.1 ⚠ D2 was wrong, and the correction is worth more than the fix would have been
+
+I raised it from the factory's NAME. Reading the code retired it:
+
+- `SettingEntry.money`'s own javadoc says *"A money / decimal setting — a delivery fee, a free-shipping
+  threshold, **a discount percentage**."* A percentage is a documented, intended use.
+- `settings-form.js:55` renders `MONEY` as `<input type="number" step="any" min="0">` — a plain decimal box,
+  **no currency symbol**. The type exists to distinguish decimals from `INT`'s whole-number spinner, which is
+  exactly what `2.5%` needs.
+
+So the owner sees a correct control and the value round-trips through `getDecimal`. Changing it would have
+churned a setting key for a misreading. **A gap found by reading a name rather than the code is not a gap** —
+RULE 0, applied to my own list.
+
+### 7.2 What D1 actually fixes
+
+Not tidiness. The quote's `<select>` offered "loose" on **every** product, including ones the server refuses,
+so a bookkeeper could compose a whole quote in pieces and learn at save that the product may not be split —
+the same lost-work shape Slice A removed from the till. It now reads `/looseInfo`, which since U15-A1 also
+carries the tenant's `LOOSE_SELLING` capability, so the form cannot offer what the sale path would refuse.
+And a pharmacy reads "tablets" where it previously read our word, "loose".
+
+Kept as a `<select>` rather than rebuilt as the till's button group: a quote is composed with the keyboard
+down a row of fields, where a select is reached by Tab and answered by its first letter. The BEHAVIOUR is
+what had to match — appear only when the product may be split, say the shop's own word — not the markup.
+
+### 7.3 ⚠ The red run found a defect IN THE FIX — a select is not what the operator sees
+
+`searchable-selects.js` enhances **every** eligible `<select>`, so bootstrap-select hides the native element
+permanently and renders a button inside a sibling `.bootstrap-select` wrapper. Two consequences, both of
+which the first attempt got wrong:
+
+| | Wrong | Right |
 |---|---|---|
-| D1 | The quote asks for the unit with a `<select>` while the till uses a Pack\|Piece toggle — two controls for one decision. Worth aligning before U14's pattern sets | `businessDashboard.html:869` |
-| D2 | The loose markup is declared `SettingEntry.money` though it is a **percentage**, and lives in POS settings with no path from the product form where the owner is deciding | `BusinessSettingsCatalog.java:634` |
+| The fix | `$u.hide()` / `$u.show()` on `#qtUnit` — **invisible**, the button stays on screen | move the wrapper, `$u.next('.bootstrap-select')` (the handle `business.js:4326` already uses) |
+| The fix | relabel an `<option>` and expect the button to change | `repaintSearchableSelect($u)`, or the button shows the old word while the DOM holds the new |
+| The gate | `should('be.visible')` on `#qtUnit` — **can never pass** | assert the WRAPPER (what a person sees) |
+| The gate | `should('not.be.visible')` on `#qtUnit` — **passes either way** | same |
+
+So the first run produced one impossible failure and one coincidental pass, in one spec. Counting "3 red,
+good enough" would have shipped a fix that does nothing visible behind a gate that could not detect it.
+
+**General rule this leaves:** in this application, any assertion about a `<select>`'s visibility is an
+assertion about its wrapper, not the select.
+
+**✅ GREEN 4/4** after the monolith rebuild (2026-09-22). And `quote-loose-units.cy.js` (U14) re-run as a
+regression: **3/3**, including the honour-the-accepted-quote ruling — the first time that spec has been run
+green, since U14 shipped before its gate could be taken.
+
+**The red run — `pack-loose-ux-quote-unit.cy.js`, 1 of 4:**
+
+| Case | Expected | Actual, before the fix |
+|---|---|---|
+| 1 · a sealed product offers no loose option | hidden | **visible** — offered, then refused at save |
+| 2 · the shop's word | `tablets` | **`loose`** |
+| 3 · the word survives Add line | `tablets` | **`loose`** |
+| 4 · U14's payload contract | passes | **passes** — the control, green on both sides |
 
 ---
 

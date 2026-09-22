@@ -6277,6 +6277,70 @@ function cancelQuoteForm() {
 	$('#QuoteFormWrap').hide();
 }
 
+/*
+ * U15-D1 — the quote's unit control behaves like the till's.
+ *
+ * It was a <select> offering "Pack" and "loose" on every product, always visible, in our words rather than
+ * the shop's. So a bookkeeper could quote "10 loose" of a sealed product and learn it was impossible only
+ * when the server refused the whole quote — the same lost-work shape Slice A removed from the till — and a
+ * pharmacy read "loose" where every other screen says "tablets".
+ *
+ * Reads /looseInfo, exactly as loose-sell.js does, so the answer includes the tenant's LOOSE_SELLING
+ * capability (U15-A1) and cannot offer what the sale path would refuse.
+ */
+var quoteLooseInfo = {};   // productId -> the /looseInfo answer. One fetch each, as at the till.
+
+/*
+ * ⚠ THIS SELECT IS A BOOTSTRAP-SELECT, AND THAT CHANGES BOTH HALVES OF THE JOB.
+ *
+ * searchable-selects.js enhances EVERY eligible <select> on the page, so what the operator sees is a
+ * rendered BUTTON in a `.bootstrap-select` wrapper; the native <select> is hidden by the plugin at all
+ * times. So:
+ *   - hiding/showing `#qtUnit` itself is invisible — the wrapper must move (`$dd.next('.bootstrap-select')`,
+ *     the pattern the purchase screen already uses at business.js:4326);
+ *   - relabelling an <option> does not repaint the button — the widget needs a refresh, or the operator
+ *     reads the old word while the DOM holds the new one.
+ *
+ * Found by the Slice D red run: the case asserting the control was VISIBLE could never pass (the native
+ * select never is), and the case asserting it was HIDDEN passed for the wrong reason (it never is either).
+ * Both the fix and its gate were wrong in the same way, which is why a red run is read rather than counted.
+ */
+function applyQuoteUnitControl(li) {
+	var $u = $('#qtUnit');
+	if (!$u.length) return;
+	var $visible = $u.next('.bootstrap-select');
+	if (!$visible.length) $visible = $u;   // plugin not applied (test harness, or an opted-out select)
+	if (!(li && li.allowLoose)) {
+		// Absent, not disabled — a shop that never splits a pack sees the form it has always seen.
+		$u.val('');
+		$visible.hide();
+		return;
+	}
+	// .text(): the unit noun is tenant-authored and reaches the DOM (XSS-safe rendering standard).
+	$u.find('option[value="LOOSE"]').text(li.looseUnitPlural || li.looseUnit || t('ui.js.loosePieces'));
+	$u.val('');
+	// Repaint the BUTTON so it shows the shop's noun, not the label the widget was built with.
+	if (typeof repaintSearchableSelect === 'function') repaintSearchableSelect($u);
+	else if ($u.data('selectpicker')) { try { $u.selectpicker('refresh'); } catch (e) {} }
+	$visible.show();
+}
+
+function onQuoteProductPicked() {
+	var id = Number($('#qtItemDD').val()) || null;
+	if (!id) { applyQuoteUnitControl(null); return; }
+	if (quoteLooseInfo[id]) { applyQuoteUnitControl(quoteLooseInfo[id]); return; }
+	$.get(serverContext + 'looseInfo', { productId: id })
+		.done(function (resp) {
+			var d = (typeof apiOk === 'function' && apiOk(resp)) ? apiData(resp) : null;
+			quoteLooseInfo[id] = d || { allowLoose: false };
+			// Ignore a late answer for a product the operator has already moved off.
+			if (Number($('#qtItemDD').val()) === id) applyQuoteUnitControl(quoteLooseInfo[id]);
+		})
+		// A failure leaves the quote pack-only, which is what this screen did before U14. Losing an option is
+		// a degraded form; blocking the quote would be a stopped desk.
+		.fail(function () { quoteLooseInfo[id] = { allowLoose: false }; applyQuoteUnitControl(null); });
+}
+
 function addQuoteLine() {
 	var productId = $('#qtItemDD').val();
 	var qty = parseFloat($('#qtQty').val());
@@ -6300,7 +6364,10 @@ function addQuoteLine() {
 		productName: $('#qtItemDD option:selected').text(),
 		quantity: qty, unitPrice: rate
 	});
-	$('#qtQty').val(1); $('#qtRate').val(''); $('#qtUnit').val('');
+	$('#qtQty').val(1); $('#qtRate').val('');
+	// U15-D1: re-apply rather than just clearing the value — the product stays selected after a line is
+	// added, so the control must keep ITS noun and ITS visibility for the next line of the same product.
+	applyQuoteUnitControl(quoteLooseInfo[Number(productId)]);
 	renderQuoteLines();
 }
 
