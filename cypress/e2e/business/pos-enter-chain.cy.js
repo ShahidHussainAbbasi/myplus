@@ -88,7 +88,18 @@ describe('P5 — the line chain includes the discount TYPE', () => {
           w.posFields = { discountType: false }
           w.applyPosFieldVisibility()
         })
-        cy.get('#sellDiscountTypeDD').should('not.be.visible')
+        /*
+         * ⚠ THE WRAPPER, not the <select>. #sellDiscountTypeDD carries class="selectpicker", so
+         * bootstrap-select hides the native element PERMANENTLY and renders a button in a sibling
+         * .bootstrap-select div. Asserting not.be.visible on the select itself therefore passed whether the
+         * chooser was switched off or left on screen — a coincidental pass that could never fail, guarding
+         * the very thing this case exists to prove.
+         *
+         * Found 2026-09-22 by grepping the suite after myplus-f9 hit the same trap from the other side in
+         * Slice D (be.visible on a selectpicker, which can never pass). returns-parity.cy.js:125 already
+         * records the rule; this line predates it.
+         */
+        cy.get('#sellDiscountTypeDD').next('.bootstrap-select').should('not.be.visible')
 
         // The picker fills from PagedFetch across every page of the catalogue, so a product seeded
         // moments ago may not be in the <select> yet. Wait for the option, or cy.select() fails with
