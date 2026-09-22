@@ -497,6 +497,37 @@ public class AuthService {
     }
 
     /**
+     * SCOPE-1 — tenants whose rows belong to the MEMBER who made them, so "own records only" is a meaningful
+     * answer and must be honoured.
+     *
+     * <h3>The defect this closes</h3>
+     * Row scope used to be decided by {@link #tradeTenant} alone: {@code (!businessTenant || isOwner) -> "ALL"}.
+     * MARKETPLACE is not a trade tenant, so EVERY marketplace member — an order booker holding
+     * ROLE_ORDER_BOOKER, no ADMIN_PRIVILEGE, no SUPER_PRIVILEGE and no permission set at all — was minted with
+     * {@code scope.ALL}, and {@code LocationScope.seesWholeOrg()} reads that authority. The services were
+     * written correctly ({@code SalesQuoteService.list()} and {@code load()} both branch on
+     * {@code callerSeesWholeOrg()} and fall back to own-scoped queries, with "foreign == missing" anti-IDOR);
+     * the scoping was defeated UPSTREAM, at token mint. A booker could list, open BY ID and print every other
+     * member's quotes — the exact IDOR #27 was written to close — and an audit-scoped read returned outlets
+     * the owner had created.
+     *
+     * <h3>Why this is a SEPARATE question from {@link #tradeTenant}</h3>
+     * That flag decides whether PERM-1 ACTION CODES are minted, and widening it would hand marketplace members
+     * codes their role never carried — the V12 mistake that left a ROLE_GUARDIAN holding {@code sale.create}.
+     * Who may DO what and whose rows they may SEE are different questions, so they now have different helpers.
+     * Marketplace members' action codes are unchanged by this: they still fall through to their role privileges.
+     *
+     * <h3>Deliberately not every module</h3>
+     * EDUCATION, WELFARE, AGRICULTURE and APPOINTMENT keep today's whole-org answer. Their screens were built
+     * on shared org-wide reads — a school's staff all see the same students and fee collections — and silently
+     * narrowing them to "own records" would hide data those modules expect to share. That is a product decision
+     * per module, not a side effect of fixing marketplace.
+     */
+    static boolean rowScopedTenant(String orgType) {
+        return tradeTenant(orgType) || "MARKETPLACE".equalsIgnoreCase(orgType);
+    }
+
+    /**
      * B2B P0.5 — the location module for the tenant the user is actually working in.
      *
      * <p>Resolution order is the platform-wide one: the ACTIVE ORG's type, then the user's own type when the
@@ -1000,7 +1031,16 @@ public class AuthService {
             }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).
-            String scope = (!businessTenant || isOwner) ? "ALL" : permissionService.scopeFor(user.getId());
+            /*
+             * SCOPE-1 — row scope follows rowScopedTenant(), NOT tradeTenant().
+             *
+             * An owner always sees the whole shop. Everyone else in a tenant whose rows are member-owned gets
+             * the scope their permission set says — which is OWN when they are on no set at all, the state
+             * every marketplace member is in today. See rowScopedTenant for why this is not the same question
+             * as whether PERM-1 codes are minted.
+             */
+            boolean rowScoped = rowScopedTenant(activeOrg == null ? null : String.valueOf(activeOrg.getType()));
+            String scope = (!rowScoped || isOwner) ? "ALL" : permissionService.scopeFor(user.getId());
             claims.put("dataScope", scope);
             /*
              * ⭐ And as an AUTHORITY, which is what actually makes it work.

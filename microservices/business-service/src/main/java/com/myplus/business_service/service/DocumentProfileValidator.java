@@ -49,13 +49,37 @@ public class DocumentProfileValidator {
             // Task #15 — return documents (credit note / debit note). These do NOT reuse invoiceNo even
             // though they resolve the same kind of string: the LABEL is the point, and a credit note printed
             // under an "Invoice #" heading is the confusion the note numbers exist to end.
-            "creditNoteNo", "debitNoteNo", "referenceNo", "returnReason", "supplierName");
+            "creditNoteNo", "debitNoteNo", "referenceNo", "returnReason", "supplierName",
+            /*
+             * Task #28 — the QUOTE document. These shipped in receipt.js (with their own ui.js.doc* labels and
+             * resolvers, and bound by the QUOTE_A4 preset) and were never added here, so the two lists this
+             * class exists to keep in step had drifted apart.
+             *
+             * ⚠ The consequence was not cosmetic: FIELD_WHITELIST is what the DESIGNER offers, so a shop could
+             * place "Quote #" or "Valid until" on a quote layout, press save, and be refused by the server —
+             * for a field the product had put in front of them. The renderer's own QUOTE preset binds quoteNo
+             * and quoteValidUntil, so saving that layout unmodified was refused too.
+             *
+             * Found by document-designer.cy.js's contract case, which is exactly what it is for: the two lists
+             * are duplicated across the language boundary on purpose, and duplication that must agree is what
+             * a test should pin.
+             */
+            "quoteNo", "quoteStatus", "quoteValidUntil", "quotePoNumber", "quoteInvoiceNo");
 
     /** Mirrors LINE_FIELDS in receipt.js. */
     private static final Set<String> LINE_FIELDS = Set.of(
             "lineNo", "itemCode", "itemName", "packing", "batchNo", "expiryDate",
             "quantity", "bonusQty", "tradePrice", "lineValue", "discountPct", "discount",
-            "netTradePrice", "taxRate", "taxAmount", "lineTotal");
+            "netTradePrice", "taxRate", "taxAmount", "lineTotal",
+            /*
+             * ⚠ The SAME drift as the quote header fields, one level down, found by comparing the two lists
+             * in BOTH directions rather than only the one the gate happened to report.
+             *
+             * `unitRate` has a label (ui.js.docRate), a resolver, and is bound by two presets in receipt.js —
+             * so a shop could lay out a document with a Rate column, press save, and be refused. Offered by
+             * the designer, rejected by the validator, exactly like "Quote #".
+             */
+            "unitRate");
 
     /** Mirrors TOTAL_ROWS in receipt.js. */
     private static final Set<String> TOTAL_ROWS = Set.of(

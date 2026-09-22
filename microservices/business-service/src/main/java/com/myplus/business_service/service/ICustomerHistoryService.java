@@ -11,6 +11,10 @@ public interface ICustomerHistoryService extends org.springframework.data.jpa.re
     /** Audit #3: resolve an invoice by its per-org invoice number (Void by invoiceNo). */
     java.util.Optional<CustomerHistory> findByOrgAndInvoiceNo(Long organizationId, String invoiceNo);
 
+    /** CN-1b: resolve many invoices at once, for the credit-note register's party column. */
+    java.util.List<CustomerHistory> findByOrgAndInvoiceNos(Long organizationId,
+            java.util.Collection<String> invoiceNos);
+
 // Here DSL queries can be tried
 //	void updateItemStock(PurchaseDTO dto);
 

@@ -49,6 +49,58 @@ const fx = {}
 /** A raw request as whatever session is active — used to probe what a guardian may reach. */
 const probe = (url) => cy.request({ url, failOnStatusCode: false })
 
+/*
+ * ⚠ THE SWITCH IS FLIPPED WITH A TOKEN, NOT BY SWITCHING BROWSER SESSIONS.
+ *
+ * THE DEFECT THIS REPLACES (2026-09-21): the two cases below read
+ *
+ *     cy.loginAsEduOwner(); setConfig('edu.portal.enabled', 'false'); cy.loginAsPortalGuardian(); probe(...)
+ *
+ * and failed inside cy.session rather than in their own assertions:
+ *   - "session validate: downstream rejected the call — NOT_FOUND", and
+ *   - "expected 'http://localhost:8080/login?unverified=true' to not include '/login'".
+ *
+ * loginAsPortalGuardian VALIDATES its cached session against /portal/me — the endpoint these cases have
+ * just closed or revoked. cy.session re-validates on restore, reads the closed portal as a dead session,
+ * and tries to recreate it by logging in, which a revoked portal account cannot do. The product was doing
+ * exactly what the cases set out to prove; the cases destroyed their own session doing it.
+ *
+ * The owner's write now goes to education-service through the gateway with the owner's JWT
+ * (Path=/api/education/**, StripPrefix=2 → /saveConfig, key/value as request params), so the browser
+ * session is never switched inside the closed window.
+ */
+const GW = 'http://localhost:8765'
+const EDU_OWNER = 'owner.education@myplus.com'
+let ownerJwt = null
+
+/** The owner's bearer token, fetched once per spec file. */
+const ownerToken = () =>
+  ownerJwt
+    ? cy.wrap(ownerJwt)
+    : cy.request({
+        method: 'POST', url: `${GW}/api/auth/login`, headers: { 'Content-Type': 'application/json' },
+        body: { email: EDU_OWNER, password: 'Demo@2025!' },
+      }).then((r) => {
+        const t = r.body && r.body.data && r.body.data.accessToken
+        expect(t, `owner login for the portal switch: ${JSON.stringify(r.body).slice(0, 160)}`).to.be.a('string')
+        ownerJwt = t
+        return t
+      })
+
+/** An owner-authorised education write that leaves the browser session alone. */
+const asOwner = (path, what) =>
+  ownerToken().then((token) =>
+    cy.request({
+      method: 'POST', url: `${GW}/api/education/${path}`,
+      headers: { Authorization: `Bearer ${token}` }, failOnStatusCode: false,
+    }).then((r) => {
+      expect(JSON.stringify(r.body), what).to.match(/SUCCESS/i)
+      return r
+    }))
+
+const setSwitch = (key, value) => asOwner(`saveConfig?key=${key}&value=${value}`, `setSwitch ${key}=${value}`)
+
+
 describe('Education — portal sign-in (slice 3.1b)', () => {
   before(() => {
     cy.loginAsEduOwner()
@@ -343,26 +395,31 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
   // ── withdrawal and the kill switch ──────────────────────────────────────────────────────────────
 
   it('turning the portal OFF closes it even for a valid signed-in account', () => {
-    cy.loginAsEduOwner()
-    setConfig('edu.portal.enabled', 'false')
+    // The guardian is signed in FIRST — which is what "a valid signed-in account" means — and only then is
+    // the portal closed underneath them, with the owner's token rather than the owner's session.
     cy.loginAsPortalGuardian()
+    setSwitch('edu.portal.enabled', 'false')
     probe('/portal/children').then((r) => {
       // 3.1's kill switch still wins over a working login — the two controls are independent.
       expect(parse(r.body).status).to.eq('NOT_FOUND')
     })
-    cy.loginAsEduOwner()
-    setConfig('edu.portal.enabled', 'true')
+    setSwitch('edu.portal.enabled', 'true')
   })
 
   it('revoking access stops the portal reads', () => {
-    cy.loginAsEduOwner()
-    post('/revokePortalAccess', { id: fx.access.id }).then((r) => ok(r, 'revoke'))
+    /*
+     * ⚠ THE SESSION FIRST, THE REVOKE SECOND. A revoked portal account cannot log in at all — the attempt
+     * redirects to /login?unverified=true — so revoking before the login made cy.session try to create a
+     * session that could not exist, and the case died in setup without ever testing the reads.
+     */
     cy.loginAsPortalGuardian()
+    asOwner(`revokePortalAccess?id=${fx.access.id}`, 'revoke')
+
     probe('/portal/children').then((r) => {
       expect(parse(r.body).status, 'a revoked guardian reads nothing').to.eq('NOT_FOUND')
     })
-    // Restore for re-runs.
-    cy.loginAsEduOwner()
-    post('/invitePortalAccess', { guardianId: fx.guardian.id })
+
+    // Restore by token too: a browser login would be refused while access is still revoked.
+    asOwner(`invitePortalAccess?guardianId=${fx.guardian.id}`, 'restore the invitation')
   })
 })

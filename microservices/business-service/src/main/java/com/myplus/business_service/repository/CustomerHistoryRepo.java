@@ -43,6 +43,18 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     // Receipt lookup by the per-org invoice number (G6 receipts, slice 38).
     java.util.Optional<CustomerHistory> findByOrganizationIdAndInvoiceNo(Long organizationId, String invoiceNo);
 
+    /**
+     * CN-1b — the invoices behind a PAGE of credit notes, in one query.
+     *
+     * <p>A credit note resolves its party from the Sell line, and a FULL return DELETES that line — so every
+     * fully returned note showed "—" in the register and printed with no customer at all. The invoice number
+     * survives on the return row itself, and the invoice header outlives its lines, so that is what the party
+     * is resolved from now. Batched for the same reason the register batches everything else: one query per
+     * page, never one per row.
+     */
+    java.util.List<CustomerHistory> findByOrganizationIdAndInvoiceNoIn(Long organizationId,
+            java.util.Collection<String> invoiceNos);
+
     // SF-3: dedup an idempotent sale submission — an existing invoice for the caller's key means the sale was
     // already recorded (a double-click / retry), so addSell returns it instead of writing a second invoice.
     java.util.Optional<CustomerHistory> findFirstByOrganizationIdAndIdempotencyKey(Long organizationId, String idempotencyKey);

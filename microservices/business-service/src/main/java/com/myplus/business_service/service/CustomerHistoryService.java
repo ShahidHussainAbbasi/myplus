@@ -117,6 +117,13 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		return CustomerHistoryRepo.findByOrganizationIdAndInvoiceNo(organizationId, invoiceNo);
 	}
 
+	/** CN-1b: the invoices behind a page of credit notes, in ONE query — see the repository's note. */
+	public java.util.List<CustomerHistory> findByOrgAndInvoiceNos(Long organizationId,
+			java.util.Collection<String> invoiceNos) {
+		if (invoiceNos == null || invoiceNos.isEmpty()) return java.util.List.of();
+		return CustomerHistoryRepo.findByOrganizationIdAndInvoiceNoIn(organizationId, invoiceNos);
+	}
+
 	public boolean existsById(Long id) {
 		return CustomerHistoryRepo.existsById(id);
 	}

@@ -32,7 +32,20 @@ describe('Pharmacy — batch/expiry on dispense (P10)', () => {
     cy.get('#sellType', { timeout: 10000 }).select('sellDiv', { force: true })   // open the Sell/dispense screen
     cy.get('#sellDiv').should('be.visible')
     cy.window().then((w) => { w.tableV = 'Sell'; w.loadStock(pname, productId) })   // M5: pick by productId
-    cy.get('#sellBatchInfo', { timeout: 10000 }).should('be.visible')
-      .and('contain', batch).and('contain', expiry)
+    /*
+     * ⚠ contain.text, NOT be.visible — the visibility depends on the tenant's POS LAYOUT, not on the feature.
+     *
+     * #sellBatchInfo sits inside .form-group.pos-fullrow.pos-notice-empty, and that wrapper is
+     * display:none in the pos-rowentry layout. So `be.visible` failed as "not visible because its parent has
+     * display: none", which reads as "the dispense screen never showed the FEFO batch" — when the batch and
+     * expiry were resolved and written into the element correctly.
+     *
+     * A case that passes or fails on which layout a tenant happens to use is testing the layout, not the
+     * dispense rule. pos-cell-layout.cy.js:285 already settled this for #sellSellableInfo; this is that
+     * pattern, not a new one.
+     */
+    cy.get('#sellBatchInfo', { timeout: 10000 })
+      .should('contain.text', batch)
+      .and('contain.text', expiry)
   })
 })

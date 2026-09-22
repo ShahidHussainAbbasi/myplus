@@ -1,5 +1,8 @@
 # CN-1 — the credit note prints what the customer bought, and still prints after a full return
 
+**Status 2026-09-21: CN-1 DEPLOYED and GATED GREEN 4/4. ⚠ CN-1b (§2b) written and compiling, NOT deployed —
+needs business-service rebuilt, and its gate case (2b) cannot pass until then.**
+
 **Status 2026-09-17: BUILT, unit-green, NOT deployed and NOT gated.** Written under the build freeze while the
 production survey runs. `CreditNoteSnapshotTest` 6/6 · `LooseReturnQuantityTest` 6/6 unaffected · business-service
 compiles. Gate `cypress/e2e/business/credit-note-loose-units.cy.js` **written, deliberately not run** — V65 is not
@@ -28,6 +31,25 @@ return deletes the sell row** (`sellService.deleteById(dto.getSellId())`).
 
 It is the commoner case of the two, and it was invisible because the register and the note share one mapper, so both
 were wrong in the same way and agreed with each other.
+
+## 2b. ⚠ CN-1b — the SAME defect had a third victim: the PARTY
+
+Found 2026-09-21 by the survey, after CN-1 was already deployed and gated. `return-documents` and `returns-list`
+failed with *"the note names a party: .empty was passed non-string primitive null"* and *"the party column carries a
+NAME, not an id or a dash: expected '—'"*.
+
+Same root cause, one step further: the party is resolved from the **Sell line** (`customerBySellId`, built from
+`sellService.findAllById`), and a full return deletes that line. So a fully returned note had **no rate AND no
+party**. V65 fixed the rate and stopped there — the review found one victim of the deleted row and missed the other
+sitting beside it in the same method.
+
+⚠ **This spec's own fixtures made it worse:** case 2 performs a full return, so the newest register row is often
+one of ours, and both failing specs read the FIRST row.
+
+**Fix:** resolve the party from the **invoice header**, which outlives its lines and already holds the customer —
+batched in the register (one query per page, only for rows that need it), a single lookup for the printed note.
+Resolved rather than snapshotted: the invoice number is already recorded on the return row, and adding a second
+frozen copy of a name the invoice already owns buys nothing.
 
 ## 3. Why a snapshot, not a lookup
 

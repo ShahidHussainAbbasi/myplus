@@ -61,6 +61,24 @@ describe('SER-7 — several serials on one purchase line', () => {
   beforeEach(() => {
     // The mobile shop: the vertical that actually has serial tracking, so the row is rendered.
     cy.loginAsMobileOwner()
+    /*
+     * ⚠ ENABLE THE CAPABILITY THIS SPEC NEEDS — it used to inherit it from whatever ran first.
+     *
+     * The serial box lives in a [data-capability="serialTracking"] group, and org 44's shape is RETAIL,
+     * whose preset does NOT include serialTracking. So the row renders only while an explicit override says
+     * so. serial-register.cy.js sets that override; this spec did not, and simply relied on having run
+     * after it.
+     *
+     * capability-fields.cy.js then made that dependency bite: it deliberately restores both tenants to
+     * "seeded shape, no overrides" in its after(), and alphabetically it runs before every purchase-* spec.
+     * All 8 cases here failed with the textarea "not visible because its parent has display:none" — the
+     * cap-off class — which reads like a UI defect and is a missing precondition. Worse, whether this spec
+     * passed depended on run ORDER, so a green run proved nothing.
+     *
+     * Set here rather than in a before(): testIsolation clears the browser session between cases, and the
+     * capability write is cheap and idempotent.
+     */
+    cy.setCapability('serialTracking', true)
   })
 
   it('⭐ 1 — COMMA separated: three IMEIs make a quantity of three', () => {

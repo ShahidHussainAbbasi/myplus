@@ -151,6 +151,47 @@ describe('CN-1 — a credit note prints in the customer\'s units', () => {
     })
   })
 
+  it('⭐⭐ 2b — a fully returned note still NAMES ITS CUSTOMER (CN-1b)', () => {
+    /*
+     * The other half of case 2's defect, and it was missed the first time.
+     *
+     * A full return deletes the Sell line, and BOTH the rate and the party were resolved from that line. V65
+     * snapshotted the rate; the party was left resolving to nothing, so a fully returned note printed with no
+     * customer at all ("the note names a party: .empty was passed non-string primitive null") and the register
+     * showed an em-dash where a name belongs. Two other specs — return-documents and returns-list — failed on
+     * exactly that, made likelier by THIS spec's own full returns sitting at the top of the register.
+     *
+     * CN-1b resolves the party from the INVOICE HEADER, which outlives its lines. Resolved rather than
+     * snapshotted: the invoice number is already on the return row, and the header already holds the customer.
+     */
+    sell([{ productId, quantity: 1, sellRate: PACK_RATE, totalAmount: PACK_RATE }], PACK_RATE)
+      .then((invoiceNo) => lineIdOf(invoiceNo))
+      .then((id) => cy.request({
+        method: 'POST', url: '/saleReturn', form: true,
+        body: { sellId: id, quantity: 1, reason: 'CN-1b gate — full return, party must survive' },
+      }))
+      .then((r) => {
+        expect(r.body.status, `saleReturn: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+        return cy.wrap(r.body.object)
+      })
+      .then((creditNoteNo) => {
+        cy.request({ url: `/creditNote?no=${encodeURIComponent(creditNoteNo)}`, failOnStatusCode: false })
+          .then((res) => {
+            const doc = res.body.object
+            expect(doc.partyName, 'the printed note names its customer even though the line is gone')
+              .to.be.a('string').and.not.be.empty
+          })
+        // ...and the register agrees, since a shop finds the note there before printing it.
+        cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((res) => {
+          const all = res.body.collection || res.body.object || []
+          const row = all.find((d) => d.documentNo === creditNoteNo)
+          expect(row, 'the note is in the register').to.exist
+          expect(row.partyName, 'and the register names the party, not an em-dash')
+            .to.be.a('string').and.not.be.empty
+        })
+      })
+  })
+
   it('⭐⭐ 3 — the REGISTER and the printed note agree (one mapper, or they drift)', () => {
     /*
      * toCreditNoteDto serves both the single-note read and the register. They were changed together on
@@ -158,8 +199,28 @@ describe('CN-1 — a credit note prints in the customer\'s units', () => {
      */
     cy.request({ url: '/getSaleReturns', failOnStatusCode: false }).then((r) => {
       expect(r.body.status, 'getSaleReturns').to.eq('SUCCESS')
-      const rows = (r.body.object || []).filter((d) => (d.lines || []).some((l) => l.productId === productId))
-      expect(rows.length, 'the register lists this product\'s notes').to.be.greaterThan(0)
+      /*
+       * ⚠ Number() on BOTH sides, not ===.
+       *
+       * The id crosses a JSON boundary more than once (product list → sell payload → register DTO) and can come
+       * back as a number or a string. A strict === then matches nothing while the sale and the return still work
+       * perfectly, because the server coerces — so this case failed on its own filter and reported it as "the
+       * register lists no notes", which reads like a register defect and is not one.
+       */
+      const same = (a, b) => Number(a) === Number(b)
+      /*
+       * ⚠ `collection`, NOT `object`. getSaleReturns answers with GenericResponse("SUCCESS", msg, List) and
+       * Java picks the MOST SPECIFIC overload — Collection<?> over Object — so a LIST payload lands in
+       * `collection` while `object` stays null. Reading `object` yielded an empty register and looked exactly
+       * like a product defect: "the register lists none of this product's notes", against a register that was
+       * working perfectly. This is why the other specs carry a list() helper that tries both.
+       */
+      const all = r.body.collection || r.body.object || r.body.data || []
+      const rows = all.filter((d) => (d.lines || []).some((l) => same(l.productId, productId)))
+      expect(rows.length,
+        `register holds ${all.length} notes; productId=${productId}; ` +
+        `first note lines: ${JSON.stringify(((all[0] || {}).lines || []).map((l) => l.productId))}`)
+        .to.be.greaterThan(0)
 
       const looseRow = rows.find((d) => (d.lines || []).some((l) => l.soldUnit === 'LOOSE'))
       expect(looseRow, 'including the loose one').to.exist

@@ -26,8 +26,27 @@ const rows = (body) => {
   return (page && Array.isArray(page.content)) ? page.content : []
 }
 
-const picker = () =>
-  cy.request('/catalogProductPicker?page=0&size=2000').then((r) => rows(r.body))
+/*
+ * ⚠ FOLLOW THE PAGES. This read page 0 only, with size=2000, and that was fine when it was written.
+ *
+ * org 6 now holds 3,416 products (3,343 active) and findPickerScoped orders by NAME, so a freshly seeded
+ * "PickerActive <ts>" sorts at roughly position 2,265 — on page 1, which this never asked for. The cases
+ * failed as "a new product is pickable: expected undefined to exist", which reads as a broken cache or a
+ * broken scope, and is neither: the product is there, on the page nobody fetched.
+ *
+ * It also explains why flow.cy.js looked intermittent rather than broken — a generated name beginning with
+ * "A" passes and one beginning with "P" fails, purely on where it sorts.
+ *
+ * The app's own picker (common/product-picker.js) follows totalPages; this helper now does the same, so the
+ * gate reads what the application reads.
+ */
+const picker = (page = 0, acc = []) =>
+  cy.request(`/catalogProductPicker?page=${page}&size=2000`).then((r) => {
+    const body = r.body || {}
+    const all = acc.concat(rows(body))
+    const totalPages = Number(body.totalPages != null ? body.totalPages : (body.data && body.data.totalPages))
+    return (totalPages > page + 1) ? picker(page + 1, all) : cy.wrap(all)
+  })
 
 describe('PERF-8 — product picker', () => {
   beforeEach(() => {
@@ -36,12 +55,23 @@ describe('PERF-8 — product picker', () => {
 
   // ── the projection ────────────────────────────────────────────────────────────────────────────────────
 
-  it('returns only the three fields a picker needs — not the whole product', () => {
+  it('returns only the fields a picker needs — not the whole product', () => {
     picker().then((list) => {
       expect(list.length, 'the tenant has products to pick').to.be.greaterThan(0)
 
       const p = list[0]
-      expect(Object.keys(p).sort()).to.deep.eq(['id', 'name', 'sellingPrice'])
+      /*
+       * ⚠ FOUR fields, not three — `requiresSerial` was added DELIBERATELY by SER-6, "when the sale screen
+       * gained a reason to know before the line is added" (ProductPickerDTO's own note), and CACHE-1 evicts
+       * the cached picker pages when that flag changes. The gate was never updated, so it failed as
+       * "expected [ 'id', 'name', 'requiresSerial', 'sellingPrice' ] to deeply equal [ 'id', 'name',
+       * 'sellingPrice' ]" — which reads as payload growth and is a documented decision.
+       *
+       * Kept as an EXACT list rather than loosened to "contains": the point of this gate is that a FIFTH
+       * field cannot ride along unnoticed, which is how the picker came to be 538 bytes per product. A
+       * deliberate addition should have to change this line and say why — as this one now does.
+       */
+      expect(Object.keys(p).sort()).to.deep.eq(['id', 'name', 'requiresSerial', 'sellingPrice'])
 
       // The wide columns that made this 538 bytes per product must not be here. `description` alone is
       // varchar(2000), and four timestamps and the stamped rate fields rode along with it.
@@ -158,6 +188,15 @@ describe('PERF-8 — product picker', () => {
   it('switching sections re-uses the cache — one request, not one per open', () => {
     cy.intercept('GET', '**/catalogProductPicker*').as('pick')
 
+    // How many pages this tenant's catalogue legitimately needs, read from the server rather than assumed —
+    // the number that made this gate wrong was a constant somebody believed would never be reached.
+    let pagesExpected = 1
+    cy.request('/catalogProductPicker?page=0&size=2000').then((r) => {
+      const tp = Number((r.body || {}).totalPages || ((r.body || {}).data || {}).totalPages || 1)
+      pagesExpected = Math.max(1, tp)
+      cy.log(`catalogue needs ${pagesExpected} page(s) at size 2000`)
+    })
+
     // NOTE: the section is switched IN PAGE, not via cy.openSellSection — that helper calls cy.visit,
     // and a page reload legitimately clears a per-page-load cache. The first draft used it and then
     // asserted the cache had survived, which contradicted the design under test rather than checking
@@ -170,9 +209,19 @@ describe('PERF-8 — product picker', () => {
     cy.get('#sellItemDD option', { timeout: 10000 }).should('have.length.greaterThan', 1)
 
     cy.get('@pick.all').then((first) => {
-      // ONE request for the whole catalogue — this is what removes the two-wave head+tail pattern
-      // that left a gap where the app looked idle but was not.
-      expect(first.length, 'one request, not a head plus a parallel tail').to.eq(1)
+      /*
+       * ⚠ ONE REQUEST PER PAGE, not one request full stop.
+       *
+       * This asserted exactly 1 and failed with 2 once org 6 passed 2,000 active products:
+       * ProductPicker.PAGE_SIZE is 2000, so 3,343 active products are legitimately two fetches. The gate was
+       * counting PAGES while believing it counted the head-plus-tail pattern it was written to forbid.
+       *
+       * What it must still catch is a SECOND WAVE for the same page — the pattern that left the app looking
+       * idle while it was not. So: at most one request per page of the catalogue, and the second open adds
+       * none at all (the assertion below, which is the real subject and is unchanged).
+       */
+      expect(first.length, 'one request per page of the catalogue, no head-plus-tail')
+        .to.be.at.least(1).and.at.most(pagesExpected)
 
       // Away and back, no reload.
       cy.get('#registrationType').select('CustomerDiv', { force: true })
@@ -181,7 +230,8 @@ describe('PERF-8 — product picker', () => {
       cy.get('#sellItemDD option', { timeout: 10000 }).should('have.length.greaterThan', 1)
 
       cy.get('@pick.all').then((second) => {
-        expect(second.length, 'the second open is served from cache — no new request').to.eq(1)
+        expect(second.length, 'the second open is served from cache — NO new request')
+          .to.eq(first.length)
       })
     })
   })

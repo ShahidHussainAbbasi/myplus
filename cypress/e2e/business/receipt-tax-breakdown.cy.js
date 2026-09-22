@@ -23,10 +23,31 @@ describe('common-settings: receipt tax breakdown honours the owner toggle', () =
   const receiptOf = (invoiceNo) =>
     cy.request('/getReceipt?invoiceNo=' + encodeURIComponent(invoiceNo)).then((rc) => rc.body.object || rc.body.data)
 
+  /*
+   * ⚠ ENABLE THE ORG'S TAX — this spec used to INHERIT it.
+   *
+   * The case seeds a product at taxRate 17 and asserts "sale is taxed (17%)", but TaxService.taxForLine
+   * returns ZERO tax whenever the org's tax policy is absent or disabled — the product's rate alone is not
+   * enough. The spec never enabled it, and passed only because commerce-gaps.cy.js left the tenant's tax
+   * switched on at 17% and never restored it. When that leak was fixed (2026-09-21) this spec's own missing
+   * precondition surfaced as "sale is taxed (17%): expected 0 to be above 0", which reads like a tax defect
+   * and is a fixture gap.
+   *
+   * Snapshotted and restored, so closing one leak does not open another.
+   */
+  let taxSnap = null
+
+  before(() => {
+    cy.loginAsBusiness()
+    cy.snapshotTaxSetting().then((snap) => { taxSnap = snap })
+    cy.setTaxSetting({ enabled: 'true', taxMode: 'EXCLUSIVE', defaultRate: 17 })
+  })
+
   after(() => {
     // Leave the org on the default (on) regardless of where the test stopped.
     cy.loginAsBusiness()
     setFlag('true')
+    cy.restoreTaxSetting(taxSnap)
   })
 
   it('the receipt reflects the flag: off → showTaxBreakdown=false, on → true', () => {

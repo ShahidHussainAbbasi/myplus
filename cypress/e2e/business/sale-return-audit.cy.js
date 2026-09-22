@@ -32,9 +32,25 @@ describe('SF-11 — sale return is captured in the credit-note audit log', () =>
             const rows = sr.body.collection || sr.body.data || []
             const mine = rows.find((x) => x.reason === reason)
             expect(mine, 'audit record for this return').to.exist
-            expect(mine.sellId, 'links the returned line').to.eq(line.sellId)
-            expect(Number(mine.quantity), 'returned qty').to.eq(1)
-            expect(mine.invoiceNo, 'links the invoice').to.eq(invoiceNo)
+            /*
+             * ⚠ ASSERT THE DOCUMENT SHAPE, not the raw row.
+             *
+             * /getSaleReturns answers with ReturnDocumentDTO — the same shape the printable credit note
+             * uses — since Task #21. That shape deliberately carries no sellId and no bare quantity at the
+             * top level: "a register built from raw rows would be a table of ids". This spec was written
+             * against the old row shape and kept asserting `mine.sellId`, which has been undefined ever
+             * since; it failed as "links the returned line: expected undefined to equal 4378", which reads
+             * like a broken audit link and is a stale assertion.
+             *
+             * What the document DOES carry, and what actually proves the link: the invoice it credits, the
+             * returned line's product, and the quantity on that line.
+             */
+            expect(mine.referenceNo, 'links the invoice it credits').to.eq(invoiceNo)
+            expect(mine.documentNo, 'and is a real credit note').to.match(/^CRN-/)
+            const l = (mine.lines || [])[0]
+            expect(l, 'the note has the returned line').to.exist
+            expect(l.productId, 'links the returned product').to.eq(productId)
+            expect(Number(l.quantity), 'returned qty').to.eq(1)
           })
         })
       })

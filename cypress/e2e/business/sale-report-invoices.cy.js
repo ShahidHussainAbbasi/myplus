@@ -90,10 +90,20 @@ describe('Sale Detail Report — invoice documents', () => {
     /*
      * downloadInvoicePdf existed with no caller. Asserted as INVOKED with a real invoice number — a button
      * that renders but calls nothing would pass a DOM check and do nothing for the manager.
+     *
+     * ⚠ STUB THE PLURAL. This stubbed `downloadInvoicePdf` (singular) and failed as "downloadInvoicePdf is
+     * actually invoked: expected false to equal true", which reads like a dead button. The button is fine:
+     * the handler has called `downloadInvoicesPdf` — the BATCH emitter — since one-file-per-page replaced
+     * N separate downloads, because Chrome treats the second automatic download from a page as a permission
+     * decision and silently drops the rest. So the spec was asserting the very call the fix removed.
+     *
+     * Asserting the batch call is also the better test: it proves ONE call carrying ALL the invoice numbers,
+     * which is the property that change exists for. A per-invoice stub would go green again the day someone
+     * reintroduced the burst.
      */
     openReportWithRows()
     cy.window().then((w) => {
-      const spy = cy.stub(w, 'downloadInvoicePdf').as('pdf')
+      const spy = cy.stub(w, 'downloadInvoicesPdf').as('pdf')
       const nos = w.srVisibleInvoiceNos()
       expect(nos.length).to.be.greaterThan(0)
 
@@ -105,8 +115,11 @@ describe('Sale Detail Report — invoice documents', () => {
         }
       })
       cy.wrap(null, { timeout: 20000 }).should(() => {
-        expect(spy.called, 'downloadInvoicePdf is actually invoked').to.eq(true)
-        expect(spy.getCall(0).args[0], 'with a real invoice number').to.match(/^INV-/)
+        expect(spy.called, 'downloadInvoicesPdf is actually invoked').to.eq(true)
+        const arg = spy.getCall(0).args[0]
+        expect(arg, 'ONE call carrying every visible invoice, not one call per invoice').to.be.an('array')
+        expect(arg.length, 'all of them').to.eq(nos.length)
+        expect(arg[0], 'with real invoice numbers').to.match(/^INV-/)
       })
     })
   })

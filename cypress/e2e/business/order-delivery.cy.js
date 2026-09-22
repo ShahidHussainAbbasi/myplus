@@ -131,9 +131,22 @@ describe('OMS O7 D4 — what happened at the shop door', () => {
       // case; it would only have misled whoever copied it next.
       const rows = r.body.object || r.body.collection || r.body.data || []
       expect(rows.length, 'positive control: the returns read is live and returning rows').to.be.greaterThan(0)
-      const mine = rows.filter((x) => x.invoiceNo === invoiceNo)
+      /*
+       * ⚠ `referenceNo`, NOT `invoiceNo`. Since Task #21 this endpoint answers with ReturnDocumentDTO — the
+       * same shape the printable credit note uses — and that shape names the credited invoice `referenceNo`.
+       * There is no `invoiceNo` on it at all, so this filter matched NOTHING on every run, and the case failed
+       * as "the return is recorded against this parcel's invoice" — which reads as the delivery flow failing
+       * to raise a credit note. It raises one: the positive control above proves the read is live, and the
+       * note carries this parcel's number in referenceNo.
+       *
+       * Same stale-shape bug as sale-return-audit.cy.js (fixed 2026-09-21), and the same root as the comment
+       * above: a register that moved from raw rows to a document shape, with its readers left behind.
+       */
+      const mine = rows.filter((x) => x.referenceNo === invoiceNo)
       expect(mine.length, 'the return is recorded against this parcel\'s invoice').to.be.greaterThan(0)
-      expect(mine[0].creditNoteNo, 'and it is a real credit-note document').to.match(/^CRN-/)
+      // `documentNo` for the same reason as referenceNo above: the document shape names the note's own
+      // number that way. `creditNoteNo` is the COLUMN on the SaleReturn row, not a field of the DTO.
+      expect(mine[0].documentNo, 'and it is a real credit-note document').to.match(/^CRN-/)
     })
   })
 
