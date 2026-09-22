@@ -120,6 +120,13 @@
         openInDefaultUnit();
         render();
         if (typeof calculateNetSell === 'function') calculateNetSell();
+        /*
+         * U15-B2 — the sellable badge counts in PACKS until it learns the pack size, so it redraws here.
+         * `/productSellable` and this call race and can land in either order; each redraws, so whichever is
+         * second wins and a divisible product never keeps a bare "0.25" on screen. Guarded by typeof for
+         * the same reason calculateNetSell is: this file is also loaded by screens that have no till.
+         */
+        if (typeof renderSellableBadge === 'function') renderSellableBadge();
     }
 
     /**

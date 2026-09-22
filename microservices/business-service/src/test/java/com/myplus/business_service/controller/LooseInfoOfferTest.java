@@ -123,6 +123,53 @@ class LooseInfoOfferTest {
         assertThat(answer().get("defaultSellUnit")).isEqualTo("PACK");
     }
 
+    // ── U15-B1: pricing a pack price the owner is still typing ───────────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> preview(String packRate, Integer packSize) {
+        return (Map<String, Object>) controller.looseRatePreview(
+                packRate == null ? null : new BigDecimal(packRate), packSize).getObject();
+    }
+
+    @Test
+    @DisplayName("⭐⭐ the product form is told what ONE PIECE costs — from the till's rule, not a browser divide")
+    void thePreviewPricesOnePiece() {
+        Map<String, Object> out = preview("311.60", 40);
+
+        assertThat((BigDecimal) out.get("looseRate")).isEqualByComparingTo("7.79");
+        assertThat((BigDecimal) out.get("packRate")).isEqualByComparingTo("311.60");
+        assertThat(out.get("packSize")).isEqualTo(40);
+    }
+
+    @Test
+    @DisplayName("⭐ the shop's broken-pack markup is applied, and rounded UP to the paisa")
+    void thePreviewAppliesTheMarkup() {
+        when(settings.getDecimal(eq("pos.sale.looseMarkupPct"), any())).thenReturn(new BigDecimal("10"));
+
+        // 311.60 × 1.10 ÷ 40 = 8.569 → 8.57. Rounding DOWN would lose money on every broken pack.
+        assertThat((BigDecimal) preview("311.60", 40).get("looseRate")).isEqualByComparingTo("8.57");
+    }
+
+    @Test
+    @DisplayName("⭐ the preview MATCHES what the till will charge — one rule, or the form lies")
+    void thePreviewAgreesWithTheTill() {
+        Map<String, Object> formSays = preview("311.60", 40);
+        Map<String, Object> tillSays = answer();          // /looseInfo, the till's own source
+
+        assertThat((BigDecimal) formSays.get("looseRate"))
+                .isEqualByComparingTo((BigDecimal) tillSays.get("looseRate"));
+    }
+
+    @Test
+    @DisplayName("mid-keystroke figures answer with nothing to show, never an error the form must handle")
+    void anIncompleteFormIsNotAnError() {
+        // The owner has typed a price but no pack size yet, or a pack of one, or is still on the first digit.
+        assertThat(preview("311.60", null)).isEmpty();
+        assertThat(preview("311.60", 1)).isEmpty();
+        assertThat(preview("0", 40)).isEmpty();
+        assertThat(preview(null, 40)).isEmpty();
+    }
+
     @Test
     @DisplayName("⭐⭐ a LOOSE default on a product the tenant may not split never reaches the till")
     void theDefaultCannotSmuggleInARefusedUnit() {

@@ -282,7 +282,19 @@ describe('POS line entry — one cell per field', () => {
         cy.get('#sellQuantity', { timeout: 15000 }).should(($q) => {
           expect(Number($q.val()), 'loadStock filled the default quantity').to.be.greaterThan(0)
         })
-        cy.get('#sellSellableInfo', { timeout: 15000 }).should('contain.text', 'Sellable')
+        /*
+         * ⚠ Waits for the badge to CARRY A COUNT, not for the word "Sellable".
+         *
+         * The purpose of this line is the one described above — block until /productSellable has painted —
+         * and it was pinned to an English literal that U15-B then changed: the badge now reads
+         * "In stock: 2 + 5 tablets" (a translated label plus shelfText, so a pharmacist counts packs and
+         * pieces rather than reading "0.25"). Asserting a digit keeps the wait exactly as strong, because
+         * the badge is emptied when loadStock starts and only the count can refill it — and it survives
+         * both the wording and the five other languages this product ships in.
+         */
+        cy.get('#sellSellableInfo', { timeout: 15000 }).should(($el) => {
+          expect($el.text().trim(), 'the sellable badge has been painted with a count').to.match(/\d/)
+        })
 
         // Bonus off: this case is about the PRICE stop, and #sellBonus now sits between Qty and
         // Price in the chain (it always did on screen). Pinned rather than inherited -

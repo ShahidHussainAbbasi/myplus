@@ -447,7 +447,55 @@
             $('#prodAllowLoose').prop('checked', false);
             $('#prodDefaultSellUnit').val('PACK');
         }
+        refreshPerPiecePrice();
     };
+
+    /*
+     * U15-B1 — "311.60 per box · 7.79 per tablet", under the price box, live.
+     *
+     * The owner is deciding a number whose meaning the form never stated: "Sell Price" is the price of ONE
+     * PACK. Registering a box of 40 at the TABLET price is a 40x error that nothing on screen would have
+     * contradicted, and it reaches the till, the receipt and the margin guard.
+     *
+     * ⚠ The per-piece figure is FETCHED, never divided here. ceil(packRate x (1+markup/100) / packSize) is a
+     * rounding rule plus a shop-wide markup, and SagaSellService.looseRateOf is its only implementation —
+     * a copy in this file would drift and the shop would quote one price here and charge another at the till.
+     *
+     * Debounced because it is bound to keyup on a price field: one request when typing stops, not one per
+     * digit. A failure hides the hint and nothing else — this must never be able to block saving a product.
+     */
+    var perPieceTimer = null;
+    var perPieceSeq = 0;
+    function refreshPerPiecePrice() {
+        var $out = $('#prodPricePerPiece');
+        if (!$out.length) return;
+        var packRate = Number($('#prodPrice').val());
+        var packSize = Number($('#prodPackSize').val());
+        if (!(packSize > 1) || !(packRate > 0)) { $out.hide().empty(); return; }
+
+        clearTimeout(perPieceTimer);
+        perPieceTimer = setTimeout(function () {
+            // Sequence guard: two answers can land out of order, and the LAST TYPED value must win — not
+            // the last to arrive, which would leave the form showing a price for a figure no longer there.
+            var mine = ++perPieceSeq;
+            $.get(serverContext + 'looseRatePreview', { packRate: packRate, packSize: packSize })
+                .done(function (resp) {
+                    if (mine !== perPieceSeq) return;
+                    var d = (typeof apiOk === 'function' && apiOk(resp)) ? apiData(resp) : null;
+                    if (!d || d.looseRate == null) { $out.hide().empty(); return; }
+                    // ⚠ ui.js.* only — LocaleInterceptor.JS_PREFIX ships no other keys to the browser, so
+                    // t('ui.pack') would render the literal string "ui.pack" on the form.
+                    var packNoun  = $('#prodUnit').val() || t('ui.js.pack');
+                    var pieceNoun = $('#prodLooseUnit').val() || t('ui.js.unitPieces');
+                    // .text(): both nouns are tenant-typed and reach the DOM (XSS-safe rendering standard).
+                    $out.text(t('ui.js.perPiecePreview',
+                        Number(d.packRate).toFixed(2), packNoun,
+                        Number(d.looseRate).toFixed(2), pieceNoun)).show();
+                })
+                .fail(function () { if (mine === perPieceSeq) $out.hide().empty(); });
+        }, 350);
+    }
+    global.refreshPerPiecePrice = refreshPerPiecePrice;
 
     /**
      * C6 — save the per-product tracking policy (serial/IMEI, batch).

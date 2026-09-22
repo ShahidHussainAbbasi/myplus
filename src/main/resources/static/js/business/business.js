@@ -2994,6 +2994,40 @@ function calculateNet(val){
 	}
 }
 
+/**
+ * U15-B2 — the sellable badge, in the language of the person counting the shelf.
+ *
+ * <p>It read "Sellable: 0.25" while the cashier was typing TABLETS. 0.25 is arithmetically true and
+ * operationally useless: it means a quarter of a box, and nobody counts a quarter of a box. `shelfText`
+ * (U6, already used by the product list and the stock count) renders "2 + 5 tablets" instead.
+ *
+ * <p>⚠ Called from TWO places because the figures arrive from two async calls in either order:
+ * `/productSellable` supplies the count, `/looseInfo` supplies the pack rules. Whichever lands second
+ * redraws, so the badge is never left showing a bare number for a divisible product.
+ *
+ * <p>Deliberately NOT written into `#sellStock`: that input is read back numerically
+ * (`$("#sellStock").val()*ONE`) when an invoice is edited, and a word in it becomes NaN — the same trap
+ * that keeps the unit out of `#sellQuantity`.
+ */
+function renderSellableBadge(){
+	var el = $("#sellSellableInfo");
+	if(!el.length || window._sellSellable == null) return;
+	var sellable = Number(window._sellSellable) || 0;
+	var expired  = Number(window._sellExpired) || 0;
+	var li = (window.LooseSell && LooseSell.info) ? LooseSell.info() : null;
+	var text = String(sellable);
+	if(li && li.allowLoose && li.packSize > 1 && typeof shelfText === 'function'){
+		text = shelfText(sellable, li.packSize, li.looseUnitPlural || li.looseUnit).text;
+	}
+	// escHtml: the unit noun is tenant-authored text reaching the DOM (XSS-safe rendering standard).
+	var badge = escHtml(t('ui.js.inStock')) + ': <b>' + escHtml(text) + '</b>';
+	if(expired > 0){
+		badge += ' <span class="label label-danger" title="' + escHtml(t('ui.js.expiredNotSellable'))
+			+ '">' + expired + ' ' + escHtml(t('ui.js.expired')) + '</span>';
+	}
+	el.html(badge).show();
+}
+
 var batchStock = 0;
 var discountType = "";
 var discountValue = "0";
@@ -3104,10 +3138,13 @@ function loadStock(label,value){
 			    		var sellable = (sd && sd.success && sd.sellable!=null) ? Number(sd.sellable) : Number(batchStock||0);
 			    		var expired  = (sd && sd.success && sd.expired!=null)  ? Number(sd.expired)  : 0;
 			    		batchStock = sellable;
+			    		// ⚠ #sellStock stays a PURE NUMBER — business.js reads it back as
+			    		// `$("#sellStock").val()*ONE` when editing an invoice, so shelf text here would
+			    		// become NaN. The words go in the badge, which nothing parses.
 			    		$("#sellStock").val(sellable);
-			    		var badge = 'Sellable: <b>'+sellable+'</b>';
-			    		if(expired>0) badge += ' <span class="label label-danger" title="expired stock is not sellable">'+expired+' expired</span>';
-			    		$("#sellSellableInfo").html(badge).show();
+			    		window._sellSellable = sellable;
+			    		window._sellExpired = expired;
+			    		renderSellableBadge();
 				syncSellNoticeRow();
 			    		// #23: the badge above still SAYS "Sellable: 0 (+2 expired)" — the cashier is told.
 			    		// What is opt-in is refusing the line and discarding their selection.
@@ -4305,24 +4342,36 @@ function buildSaleReturnDialog(){
 	d.innerHTML =
 		"<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;"
 		+ "box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
-		+ "<h4 style='margin:0 0 4px;font-weight:700'>Sale Return</h4>"
-		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>Take back some or all items — restocks them and refunds the returned portion. The invoice stays active. (To cancel the whole sale, use Void.)</div>"
+		/*
+		 * U15-B4 — this dialog was built in hardcoded English in a product that ships six languages, while
+		 * the error lines a few functions below were already translated. A pharmacist working in Urdu met
+		 * "Quarantine returned stock (do not restock)" at the moment they were handling a customer's money.
+		 *
+		 * The labels that name a QUANTITY carry the unit as {0} and are filled in openSaleReturn, where the
+		 * line's own noun is known — "How many tablets are coming back?" rather than "Return quantity".
+		 */
+		+ "<h4 style='margin:0 0 4px;font-weight:700'>" + escHtml(t('ui.js.srTitle')) + "</h4>"
+		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>" + escHtml(t('ui.js.srBlurb')) + "</div>"
 		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
-		+ "Invoice <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
-		+ "Sold quantity: <b id='srSold'></b></div>"
-		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Return quantity</label>"
+		// ⚠ ui.js.* — LocaleInterceptor.JS_PREFIX only ships that subset to the browser, so `t('ui.invoice')`
+		// would render the literal key "ui.invoice" on screen.
+		+ escHtml(t('ui.js.invoice')) + " <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
+		+ escHtml(t('ui.js.srSoldLabel')) + ": <b id='srSold'></b></div>"
+		+ "<label id='srQtyLabel' style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'></label>"
 		+ "<input type='number' id='srQty' class='form-control' step='any' min='1' style='margin-bottom:12px'>"
-		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
-		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='e.g. damaged, expired, customer change' style='margin-bottom:8px'>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>" + escHtml(t('ui.js.srReason')) + "</label>"
+		+ "<input type='text' id='srReason' class='form-control' maxlength='200' placeholder='" + escHtml(t('ui.js.srReasonEg')) + "' style='margin-bottom:8px'>"
 		// SF-5 Model B: any overpayment on the return goes back as cash (default) or as store credit.
-		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Refund overpayment as</label>"
-		+ "<select id='srRefundAs' class='form-control' style='margin-bottom:8px'><option value='CASH'>Cash</option><option value='CREDIT'>Store credit</option></select>"
-		+ "<label style='display:block;font-size:13px;margin-bottom:8px'><input type='checkbox' id='srQuarantine' style='margin-right:6px'>Quarantine returned stock (do not restock)</label>"
+		+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>" + escHtml(t('ui.js.srRefundAs')) + "</label>"
+		+ "<select id='srRefundAs' class='form-control' style='margin-bottom:8px'><option value='CASH'>"
+		+ escHtml(t('ui.js.srRefundCash')) + "</option><option value='CREDIT'>" + escHtml(t('ui.js.srRefundCredit')) + "</option></select>"
+		+ "<label style='display:block;font-size:13px;margin-bottom:8px'><input type='checkbox' id='srQuarantine' style='margin-right:6px'>"
+		+ escHtml(t('ui.js.srQuarantine')) + "</label>"
 		+ "<div id='srError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
 		+ "<div style='text-align:right'>"
-		+ "<button type='button' class='btn btn-default' onclick='closeSaleReturn()'>Cancel</button> "
+		+ "<button type='button' class='btn btn-default' onclick='closeSaleReturn()'>" + escHtml(t('ui.js.cancel')) + "</button> "
 		+ "<button type='button' id='srSubmit' class='btn btn-warning' onclick='submitSaleReturn()'>"
-		+ "<span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button>"
+		+ "<span class='glyphicon glyphicon-share-alt'></span> <span id='srSubmitText'></span></button>"
 		+ "</div></div>";
 	document.body.appendChild(d);
 	return d;
@@ -4358,11 +4407,27 @@ function openSaleReturn(btn){
 	document.getElementById('srSold').textContent    = isLoose
 		? (sold + (unitLabel ? ' ' + unitLabel : '') + ' (' + packs + ' ' + t('ui.js.pack') + ')')
 		: sold;
+	/*
+	 * U15-B4 — ask in the shop's own noun.
+	 *
+	 * "Return quantity" is our word for it; "How many tablets are coming back?" is a question the person
+	 * holding the tablets can answer. On a pack line the noun falls back to the generic plural, so an
+	 * ordinary shop reads "How many packs are coming back?" rather than a word it never used.
+	 */
+	var noun = isLoose ? (unitLabel || t('ui.js.unitPieces')) : t('ui.js.unitPacks');
+	document.getElementById('srQtyLabel').textContent = t('ui.js.srHowMany', noun);
+	document.getElementById('srSubmitText').textContent = t('ui.js.srConfirm', sold + ' ' + noun);
 	var qtyInput = document.getElementById('srQty');
 	qtyInput.value = sold;
 	qtyInput.max   = sold;
 	// Whole tablets: half a tablet cannot go back on a shelf, and the sale could not have sold one.
 	qtyInput.step  = isLoose ? 1 : 'any';
+	// The button names what it will do, and follows the number the operator types.
+	qtyInput.oninput = function () {
+		var n = parseFloat(qtyInput.value);
+		document.getElementById('srSubmitText').textContent =
+			t('ui.js.srConfirm', (isFinite(n) && n > 0 ? n : sold) + ' ' + noun);
+	};
 	document.getElementById('srReason').value = '';
 	// Pharmacy returns default to quarantine (returned meds can't be re-dispensed); other verticals default off.
 	document.getElementById('srQuarantine').checked = (window.MODULE === 'PHARMA');
@@ -4635,22 +4700,43 @@ function openPurchaseReturn(purchaseId, soldQty, inv){
 	if(!d){
 		d = document.createElement('div'); d.id = 'purchaseReturnDialog';
 		d.style.cssText = 'position:fixed;inset:0;z-index:10000;display:none;background:rgba(0,0,0,.45);align-items:center;justify-content:center';
+		/*
+		 * U15-B3/B4 — this dialog said "purchased qty 10" with NO UNIT AT ALL. Packs? Cartons? The buyer
+		 * standing at the delivery door could not tell, and every label was hardcoded English besides.
+		 */
 		d.innerHTML = "<div style='background:#fff;border-radius:10px;max-width:420px;width:92%;padding:22px 24px;box-shadow:0 12px 40px rgba(0,0,0,.3)'>"
-			+ "<h4 style='margin:0 0 12px;font-weight:700'>Return to Vendor</h4>"
-			+ "<div style='font-size:13px;color:#444;margin-bottom:10px'>Purchase <b id='prInv'></b> &middot; purchased qty <b id='prSold'></b></div>"
-			+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Return quantity</label>"
+			+ "<h4 style='margin:0 0 12px;font-weight:700'>" + escHtml(t('ui.js.prTitle')) + "</h4>"
+			+ "<div style='font-size:13px;color:#444;margin-bottom:10px'>" + escHtml(t('ui.js.purchaseBill'))
+			+ " <b id='prInv'></b><br>" + escHtml(t('ui.js.prBought')) + " <b id='prSold'></b></div>"
+			+ "<label id='prQtyLabel' style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'></label>"
 			+ "<input type='number' id='prQty' class='form-control' step='any' min='1' style='margin-bottom:10px'>"
-			+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>Reason (optional)</label>"
-			+ "<input type='text' id='prReason' class='form-control' maxlength='200' placeholder='e.g. damaged, wrong item' style='margin-bottom:8px'>"
+			+ "<label style='display:block;font-size:13px;font-weight:600;margin-bottom:4px'>" + escHtml(t('ui.js.srReason')) + "</label>"
+			+ "<input type='text' id='prReason' class='form-control' maxlength='200' placeholder='" + escHtml(t('ui.js.prReasonEg')) + "' style='margin-bottom:8px'>"
 			+ "<div id='prError' style='color:#c0392b;font-size:12px;min-height:16px;margin-bottom:8px'></div>"
-			+ "<div style='text-align:right'><button type='button' class='btn btn-default' onclick=\"document.getElementById('purchaseReturnDialog').style.display='none'\">Cancel</button> "
-			+ "<button type='button' id='prSubmit' class='btn btn-warning' onclick='submitPurchaseReturn()'><span class='glyphicon glyphicon-share-alt'></span> Confirm Return</button></div></div>";
+			+ "<div style='text-align:right'><button type='button' class='btn btn-default' onclick=\"document.getElementById('purchaseReturnDialog').style.display='none'\">"
+			+ escHtml(t('ui.js.cancel')) + "</button> "
+			+ "<button type='button' id='prSubmit' class='btn btn-warning' onclick='submitPurchaseReturn()'><span class='glyphicon glyphicon-share-alt'></span> <span id='prSubmitText'></span></button></div></div>";
 		document.body.appendChild(d);
 	}
 	d.dataset.pid = purchaseId; d.dataset.sold = soldQty;
 	document.getElementById('prInv').textContent = inv || '—';
-	document.getElementById('prSold').textContent = soldQty;
+	/*
+	 * U15-B3 — SAY THE UNIT. This read "purchased qty 10" with nothing to say what ten of. The figure is
+	 * in SHELF units (packs): U5's Box mode converts quantity x packsPerBox on the SERVER, so nothing
+	 * downstream of the purchase form is ever counted in cartons. "packs" is therefore correct here, and
+	 * generic on purpose — the bill row carries no product, so a lookup per dialog open would be a round
+	 * trip to name a noun.
+	 */
+	var packs = t('ui.js.unitPacks');
+	document.getElementById('prSold').textContent = soldQty + ' ' + packs;
+	document.getElementById('prQtyLabel').textContent = t('ui.js.prHowMany', packs);
 	var q = document.getElementById('prQty'); q.value = soldQty; q.max = soldQty;
+	var prBtn = document.getElementById('prSubmitText');
+	prBtn.textContent = t('ui.js.srConfirm', soldQty + ' ' + packs);
+	q.oninput = function () {
+		var n = parseFloat(q.value);
+		prBtn.textContent = t('ui.js.srConfirm', (isFinite(n) && n > 0 ? n : soldQty) + ' ' + packs);
+	};
 	document.getElementById('prReason').value = ''; document.getElementById('prError').textContent = '';
 	d.style.display = 'flex';
 }

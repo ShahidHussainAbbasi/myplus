@@ -309,6 +309,26 @@ public class SellController {
         }
     }
 
+    /**
+     * U15-B1 — the per-piece price for a pack price being typed on the product form.
+     *
+     * <p>Both parameters are relayed because the downstream prices a HYPOTHETICAL: the product may not be
+     * saved yet, so there is no id to send. See business-service {@code SellController#looseRatePreview} for
+     * why this is not a division done in the browser.
+     */
+    @GetMapping("/looseRatePreview")
+    @ResponseBody
+    public Map<String, Object> looseRatePreview(final HttpServletRequest request) {
+        try {
+            return client.get("/looseRatePreview",
+                    "packRate=" + request.getParameter("packRate")
+                            + "&packSize=" + request.getParameter("packSize"));
+        } catch (Exception e) {
+            LOGGER.error("looseRatePreview proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     @RequestMapping(value = "/addSell", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> addSell(@RequestBody final CustomerHistoryDTO dto, final HttpServletRequest request) {

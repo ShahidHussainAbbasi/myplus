@@ -1,7 +1,8 @@
 # U15 — pack/loose selling that anyone can use
 
-**Status (2026-09-21): Slice A ✅ DONE — unit-green 295/0, GATED RED 6/7 then GREEN 7/7 on the rebuilt
-stack. Uncommitted.** Slice C vocabulary RULED (§5.4), not built. B and D await their rulings.
+**Status: Slice A ✅ DONE + COMMITTED (abdca9e9) — 295/0, gate RED 6/7 → GREEN 7/7.
+Slice B ✅ DONE, UNCOMMITTED — 299/0, gate RED 0/6 → GREEN 6/6, plus pos-cell-layout 12/12.**
+Slice C vocabulary RULED (§5.4), not built. D awaits its ruling.
 
 ### The red run — `pack-loose-ux-till.cy.js`, 2026-09-21, against the deployed (pre-fix) build
 
@@ -188,6 +189,53 @@ allows loose. The toggle still overrides, and a product that may not be split st
 | B4 | Both return dialogs are hardcoded English in a 6-locale product | `business.js:4200-4211, 4523-4532` | `t()` for every label, as the error lines already do |
 
 B4 is the cheapest real win in this document: two dialogs, no logic, six locales.
+
+### ✅ DONE — unit 299/0, gate RED 0/6 → GREEN 6/6 (2026-09-22)
+
+⚠ **Slice B broke one existing gate, and the fix ships in this slice.** `pos-cell-layout.cy.js:285` asserted
+the literal `'Sellable'`; the badge now reads "In stock: 2 + 5 tablets". The line's own purpose — per its
+comment — is to block until `/productSellable` has painted, so it now asserts a DIGIT: the wait is exactly as
+strong (the badge is emptied when `loadStock` starts, so only the count can refill it) and it survives both
+the rewording and the other five locales. `grep -rn "Sellable" cypress/e2e` confirmed this was the ONLY
+assertion on that literal — every other hit is the `/productSellable` endpoint or a comment.
+Re-run after the fix: **pos-cell-layout 12/12**.
+
+⚠ This is a NEW break, fully explained and caused by a label change made in this slice. It must NOT be used
+to close the older UNEXPLAINED pos-cell-layout red recorded in the PSEL-1 notes; that one is unrelated and
+still open.
+
+`/looseRatePreview?packRate=&packSize=` is the only server addition: the product form must price a pack rate
+the owner is **still typing**, before a new product has an id. It prices a hypothetical and reads nothing.
+
+⚠ **It had to be server-side.** `ceil(packRate × (1 + markup/100) / packSize)` is `SagaSellService.looseRateOf`
+and that is deliberately its only implementation — a copy in `catalog-products.js` would drift the day either
+the rounding or the markup changed, and the visible symptom is a shop quoting one price on the product screen
+and charging another at the till. The gate's case 3 asserts the form's figure **equals** `/looseInfo`'s, which
+is the point of the slice; that a hint merely appears would pass on a drifting copy.
+
+`#sellStock` deliberately keeps a bare number — it is read back as `val()*ONE` when an invoice is edited, so
+shelf text there becomes NaN. The words go in the badge, which nothing parses.
+
+**The red run — `pack-loose-ux-labels.cy.js`, 0 of 6 passing:**
+
+| Case | Expected | Actual, before the fix |
+|---|---|---|
+| 1 · form names the per-piece price | "311.60 per box · 7.79 per tablet" | `#prodPricePerPiece` does not exist |
+| 2 · a pack of one says nothing | hidden | element does not exist |
+| 3 · form figure = till figure | 200 | **404** — `/looseRatePreview` does not exist |
+| 4 · the shelf, counted | `2 + 5 tablets` | **`Sellable: 2.12`** |
+| 5 · return asks in tablets | "How many tablets…" | `#srQtyLabel` does not exist |
+| 6 · purchase return names the unit | `4 packs` | **`4`** |
+
+⚠ **Two invalid red runs preceded this one, both my own doing** — the same disease as Slice A's, and worth
+recording because it is now three for three:
+1. The spec typed into `#prodLooseUnit` before setting the pack size, but U1 keeps that row `display:none`
+   until the unit holds more than one. It failed "this element is not visible", which reads as a broken form.
+2. It posted a bare `{sales:[…]}` to `/addSell`, which answers "An unexpected error occurred" without a
+   customer, tenders and an idempotency key — a refusal that reads as a stock or pricing failure.
+3. It asserted the sellable badge `be.visible`, but `.pos-fullrow.pos-notice-empty{display:none}` hides its
+   wrapper in pos-rowentry layout — so the case tested which POS layout the tenant was in.
+   `pos-cell-layout.cy.js:285` already knew: assert `contain.text`.
 
 ---
 

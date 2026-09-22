@@ -3677,7 +3677,22 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="prodPrice" th:text="#{ui.sellPrice}">Sell Price</label>
-						<div class="col-sm-4"><input type="number" step="any" min="0" class="form-control" id="prodPrice"></div>
+						<div class="col-sm-4">
+							<input type="number" step="any" min="0" class="form-control" id="prodPrice">
+							<!--
+								U15-B1 — "Sell Price" is the price of ONE PACK, and nothing on this form said so.
+								An owner registering a box of 40 tablets at 311.60 had no way to check whether
+								they had typed the box price or the tablet price, and the two differ by 40x.
+
+								The per-piece figure comes from the SERVER (/looseRatePreview): the rule is
+								ceil(packRate x (1+markup/100) / packSize) and SagaSellService.looseRateOf is its
+								only implementation. Dividing here would be a second copy that drifts.
+
+								Hidden until the product is divisible AND has a price — there is nothing useful
+								to say otherwise.
+							-->
+							<div id="prodPricePerPiece" class="help-block" style="display:none;margin:4px 0 0;font-size:12px"></div>
+						</div>
 						<label class="control-label col-sm-2" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>
 						<div class="col-sm-4">
 							<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rate…" for a one-off %. -->

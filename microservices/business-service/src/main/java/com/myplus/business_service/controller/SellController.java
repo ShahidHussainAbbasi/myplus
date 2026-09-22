@@ -502,6 +502,54 @@ public class SellController {
 		}
 	}
 
+	/**
+	 * U15-B1 — what ONE PIECE would cost, for a pack price the owner is still typing.
+	 *
+	 * <pre>
+	 *   GET /looseRatePreview?packRate=311.60&amp;packSize=40  ->  { packRate, packSize, looseRate, markupPct }
+	 * </pre>
+	 *
+	 * <h3>Why a round trip for a number the browser could divide</h3>
+	 * It could not. The rule is {@code ceil(packRate x (1 + markup/100) / packSize)} — a rounding direction
+	 * and a shop-wide markup — and {@link SagaSellService#looseRateOf} is deliberately its ONLY
+	 * implementation. A copy in JavaScript drifts from this one the day either changes, and the visible
+	 * symptom is a shop quoting one price on the product screen and charging another at the till. The same
+	 * reasoning already keeps {@code /looseInfo} on the server.
+	 *
+	 * <p>Takes the figures rather than a productId because the product form must answer this WHILE TYPING,
+	 * before a new product has been saved and while an existing one's price is being changed. Nothing is
+	 * read or written: it prices a hypothetical, so it is safe for an unsaved product and carries no
+	 * tenant data beyond the caller's own markup setting.
+	 *
+	 * <p>Advisory, like {@code /looseInfo}: a customer on a contract price is priced from THAT price at
+	 * submit, and {@link SagaSellService#looseLine} remains authoritative.
+	 */
+	@RequestMapping(value = "/looseRatePreview", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse looseRatePreview(@RequestParam java.math.BigDecimal packRate,
+			@RequestParam Integer packSize) {
+		try {
+			if (packRate == null || packSize == null || packSize <= 1
+					|| packRate.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+				// Not an error: the owner is mid-keystroke. The form simply shows nothing yet.
+				return new GenericResponse("SUCCESS", "", java.util.Map.of());
+			}
+			java.math.BigDecimal markup = settingsService.getDecimal("pos.sale.looseMarkupPct",
+					java.math.BigDecimal.ZERO);
+			java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+			out.put("packRate", packRate);
+			out.put("packSize", packSize);
+			out.put("markupPct", markup);
+			out.put("looseRate", com.myplus.business_service.service.SagaSellService
+					.looseRateOf(packRate, packSize, markup));
+			return new GenericResponse("SUCCESS", "", out);
+		} catch (Exception e) {
+			LOGGER.error("looseRatePreview failed for {} / {}", packRate, packSize, e);
+			// A hint that cannot be computed is a hint that is not shown — never a form that cannot be saved.
+			return new GenericResponse("ERROR", "Could not work out the per-piece price.");
+		}
+	}
+
 	@RequestMapping(value = "/getUserSell", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getUserSell(@RequestParam(required=false) Integer page,
