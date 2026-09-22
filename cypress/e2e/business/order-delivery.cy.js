@@ -123,9 +123,12 @@ describe('OMS O7 D4 — what happened at the shop door', () => {
     // The credit note exists in the BOOKS, not just on the order — this is the assertion that proves the
     // contract op ran business-service's own return path rather than marketplace inventing accounting.
     cy.then(() => cy.request('/getSaleReturns')).then((r) => {
-      // `object`, not `collection`. GenericResponse has BOTH, and which one a list lands in depends on the
-      // constructor the endpoint happened to use: the 3-arg (status, message, Object) puts it in `object`,
-      // the (status, message, Collection) overload in `collection`. getSaleReturns uses the former.
+      // ⚠ `collection`, NOT `object` — this comment said the opposite until 2026-09-21 (found by myplus-54
+      // while gating CN-1, whose last red was exactly this). GenericResponse has BOTH, and which one a list
+      // lands in is decided by OVERLOAD RESOLUTION, not by intent: getSaleReturns passes a List to
+      // (status, message, …), and Java picks Collection<?> over Object — so the rows arrive in `collection`
+      // and `object` stays null. The read below tries both, which is why the wrong comment never failed a
+      // case; it would only have misled whoever copied it next.
       const rows = r.body.object || r.body.collection || r.body.data || []
       expect(rows.length, 'positive control: the returns read is live and returning rows').to.be.greaterThan(0)
       const mine = rows.filter((x) => x.invoiceNo === invoiceNo)
