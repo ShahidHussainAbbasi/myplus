@@ -102,57 +102,68 @@
 							</span>
 						</div>
 						<div class="snav-actions">
-							<div class="snav-dd" id="snavRegister">
-								<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
-									<span class="glyphicon glyphicon-pencil"></span>
-									<span th:text="#{ui.register}">Register</span>
-									<span class="snav-caret">&#9660;</span>
-								</button>
-								<ul class="snav-menu">
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','OwnerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.owners}">Owners</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavRegister')"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.campus}">Campus</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavRegister')"><span class="glyphicon glyphicon-road"></span> <span th:text="#{ui.vehicles}">Vehicles</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavRegister')"><span class="glyphicon glyphicon-th-large"></span> <span th:text="#{ui.classes}">Classes</span></a></li>
-									<!-- Slice 1.1: the academic spine — exams, marks and promotion all hang off a term. -->
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','AcademicYearDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.academicYear}">Academic Year</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','ExamDiv','snavRegister')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.examinations}">Examinations</span></a></li>
-									<li><a onclick="snavGo('registrationType','MarksDiv','snavRegister')"><span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.marksEntry}">Marks Entry</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradingDiv','snavRegister')"><span class="glyphicon glyphicon-star"></span> <span th:text="#{ui.gradingScale}">Grading Scale</span></a></li>
-									<!-- Slice 1.5: preview is open (it shows the same marks the marksheet does); PUBLISHING is
-									     ADMIN and enforced server-side, so this entry stays visible to teachers. -->
-									<li><a onclick="snavGo('registrationType','ReportCardDiv','snavRegister')"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.reportCards}">Report Cards</span></a></li>
-									<!-- Slice 1.6: the most destructive operation in the product — ADMIN only, and the
-									     server enforces it regardless of what this menu shows. -->
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PromotionDiv','snavRegister')"><span class="glyphicon glyphicon-circle-arrow-up"></span> <span th:text="#{ui.promotion}">Promotion</span></a></li>
-									<!-- Slice 2.1: everyone reads the timetable; only ADMIN edits it (enforced server-side). -->
-									<li><a onclick="snavGo('registrationType','TimetableDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.timetable}">Timetable</span></a></li>
-									<!-- Slice 2.2: everyone reads today's cover list; only ADMIN assigns it (enforced server-side). -->
-									<li><a onclick="snavGo('registrationType','SubstitutionDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.substitution}">Substitution</span></a></li>
-									<!-- Slice 2.3: the register is ADMIN (it decides who was paid to be here);
-									     Leave is open because a teacher requests their own. -->
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffRegisterDiv','snavRegister')"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.staffRegister}">Staff Register</span></a></li>
-									<li><a onclick="snavGo('registrationType','LeaveDiv','snavRegister')"><span class="glyphicon glyphicon-plane"></span> <span th:text="#{ui.leave}">Leave</span></a></li>
-									<!-- Slice 2.4: teacher work (WRITE tier), like marks entry — not the ADMIN policy tier. -->
-									<li><a onclick="snavGo('registrationType','HomeworkDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.homework}">Homework</span></a></li>
-									<!-- Slice 2.5: teacher work (WRITE tier). Notes are append-only — there is no edit
-									     or delete anywhere in the stack. -->
-									<li><a onclick="snavGo('registrationType','MeetingsDiv','snavRegister')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.meetings}">Parents' evenings</span></a></li>
-									<li><a onclick="snavGo('registrationType','NoticesDiv','snavRegister')"><span class="glyphicon glyphicon-bullhorn"></span> <span th:text="#{ui.notices}">Notices</span></a></li>
-									<li><a onclick="snavGo('registrationType','BehaviourDiv','snavRegister')"><span class="glyphicon glyphicon-flag"></span> <span th:text="#{ui.behaviour}">Behaviour</span></a></li>
-									<!-- Slice 3.1: granting an OUTSIDER sight of a child's record is ADMIN policy,
-									     the same tier as fee settings — never day-to-day teacher work. -->
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PortalAccessDiv','snavRegister')"><span class="glyphicon glyphicon-log-in"></span> <span th:text="#{ui.portalAccess}">Guardian Portal Access</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavRegister')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavRegister')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.guardians}">Guardians</span></a></li>
-									<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavRegister')"><span class="glyphicon glyphicon-education"></span> <span th:text="#{ui.manageStudents}">Manage Students</span></a></li>
-									<!-- P4: add teachers/admins and assign them to branches (the education twin of the POS
-									     Manage Users screen; showTeam lives in /js/common/team.js). -->
-									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a onclick="showTeam();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.manageUsers}">Manage Users</span></a></li>
-								</ul>
-							</div>
-							<div class="snav-dd" id="snavFee">
+													<div class="snav-dd" id="snavStudents">
+							<button class="snav-btn" onclick="snavToggle(event,'snavStudents')">
+								<span class="glyphicon glyphicon-education"></span>
+								<span th:text="#{ui.students}">Students</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StudentDiv','snavStudents')"><span class="glyphicon glyphicon-education"></span> <span th:text="#{ui.manageStudents}">Manage Students</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GuardianDiv','snavStudents')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.guardians}">Guardians</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PortalAccessDiv','snavStudents')"><span class="glyphicon glyphicon-log-in"></span> <span th:text="#{ui.portalAccess}">Guardian Portal Access</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','PromotionDiv','snavStudents')"><span class="glyphicon glyphicon-circle-arrow-up"></span> <span th:text="#{ui.promotion}">Promotion</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','DiscountDiv','snavStudents')"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.manageDiscountsCharges}">Manage Discounts/Charges</span></a></li>
+								<li><a onclick="snavGo('registrationType','BehaviourDiv','snavStudents')"><span class="glyphicon glyphicon-flag"></span> <span th:text="#{ui.behaviour}">Behaviour</span></a></li>
+							</ul>
+						</div>
+						<div class="snav-dd" id="snavStaff">
+							<button class="snav-btn" onclick="snavToggle(event,'snavStaff')">
+								<span class="glyphicon glyphicon-briefcase"></span>
+								<span th:text="#{ui.staffHr}">Staff &amp; HR</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffDiv','snavStaff')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.employee}">Employee</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','StaffRegisterDiv','snavStaff')"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.staffRegister}">Staff Register</span></a></li>
+								<li><a onclick="snavGo('registrationType','LeaveDiv','snavStaff')"><span class="glyphicon glyphicon-plane"></span> <span th:text="#{ui.leave}">Leave</span></a></li>
+								<li><a onclick="snavGo('registrationType','SubstitutionDiv','snavStaff')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.substitution}">Substitution</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','OwnerDiv','snavStaff')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.owners}">Owners</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a onclick="showTeam();document.getElementById('snavStaff').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.manageUsers}">Manage Users</span></a></li>
+							</ul>
+						</div>
+						<div class="snav-dd" id="snavAcademics">
+							<button class="snav-btn" onclick="snavToggle(event,'snavAcademics')">
+								<span class="glyphicon glyphicon-book"></span>
+								<span th:text="#{ui.academics}">Academics</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradeDiv','snavAcademics')"><span class="glyphicon glyphicon-th-large"></span> <span th:text="#{ui.classes}">Classes</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SubjectDiv','snavAcademics')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.subjects}">Subjects</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','AcademicYearDiv','snavAcademics')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.academicYear}">Academic Year</span></a></li>
+								<li><a onclick="snavGo('registrationType','TimetableDiv','snavAcademics')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.timetable}">Timetable</span></a></li>
+								<li><a onclick="snavGo('registrationType','HomeworkDiv','snavAcademics')"><span class="glyphicon glyphicon-book"></span> <span th:text="#{ui.homework}">Homework</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','ExamDiv','snavAcademics')"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.examinations}">Examinations</span></a></li>
+								<li><a onclick="snavGo('registrationType','MarksDiv','snavAcademics')"><span class="glyphicon glyphicon-pencil"></span> <span th:text="#{ui.marksEntry}">Marks Entry</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','GradingDiv','snavAcademics')"><span class="glyphicon glyphicon-star"></span> <span th:text="#{ui.gradingScale}">Grading Scale</span></a></li>
+								<li><a onclick="snavGo('registrationType','ReportCardDiv','snavAcademics')"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.reportCards}">Report Cards</span></a></li>
+							</ul>
+						</div>
+						<div class="snav-dd" id="snavSchool">
+							<button class="snav-btn" onclick="snavToggle(event,'snavSchool')">
+								<span class="glyphicon glyphicon-home"></span>
+								<span th:text="#{ui.school}">School</span>
+								<span class="snav-caret">&#9660;</span>
+							</button>
+							<ul class="snav-menu">
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','SchoolDiv','snavSchool')"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.campus}">Campus</span></a></li>
+								<li sec:authorize="hasAnyAuthority('ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="snavGo('registrationType','VehicleDiv','snavSchool')"><span class="glyphicon glyphicon-road"></span> <span th:text="#{ui.vehicles}">Vehicles</span></a></li>
+								<li><a onclick="snavGo('registrationType','NoticesDiv','snavSchool')"><span class="glyphicon glyphicon-bullhorn"></span> <span th:text="#{ui.notices}">Notices</span></a></li>
+								<li><a onclick="snavGo('registrationType','MeetingsDiv','snavSchool')"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.meetings}">Parents' evenings</span></a></li>
+							</ul>
+						</div>
+						<div class="snav-dd" id="snavFee">
 								<button class="snav-btn" onclick="snavToggle(event,'snavFee')">
 									<span class="glyphicon glyphicon-usd"></span>
 									<span th:text="#{ui.fee}">Fee</span>

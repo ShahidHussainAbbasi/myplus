@@ -64,14 +64,29 @@ body.has-sidebar.sidebar-collapsed{ padding-left:var(--sb-w-collapsed); }
    snavGo() marks the picked group's button .snav-active (persists until another group is chosen); this forces
    that group's submenu open even though snavGo/outside-click removed .snav-open. Other (browsing) groups still
    collapse normally. (:has() is supported in all current browsers.) */
-.app-sidebar .snav-dd:has(> .snav-btn.snav-active) .snav-menu{ max-height:520px; }
+.app-sidebar .snav-dd:has(> .snav-btn.snav-active) .snav-menu{ max-height:min(520px, 60vh); overflow-y:auto; }
 
 /* submenu (was a floating dropdown → now inline accordion) */
 .app-sidebar .snav-menu{
   list-style:none; margin:0; padding:0; position:static; box-shadow:none; background:rgba(0,0,0,.16);
   max-height:0; overflow:hidden; transition:max-height .2s ease; opacity:1; visibility:visible; transform:none; min-width:0;
 }
-.app-sidebar .snav-dd.snav-open .snav-menu{ max-height:520px; }
+/*
+ * ⚠ AN OPEN GROUP SCROLLS; IT MUST NEVER CLIP.
+ *
+ * This was `max-height:520px` against a `.snav-menu` whose collapsed rule sets `overflow:hidden` — so a
+ * group taller than 520px simply lost its tail, with no scrollbar to reveal it and nothing on screen
+ * saying anything was missing. Education's Register group reached 25 entries (~975px): 12 of them,
+ * INCLUDING Subjects and Manage Students, were unreachable. It read as a permissions fault, and the two
+ * accounts reporting it held every privilege the entries ask for.
+ *
+ * The sidebar's own `overflow-y:auto` could not save it either — clipped content contributes nothing to
+ * scrollHeight, so the sidebar offered 30px of scroll against a 265px shortfall.
+ *
+ * `min()` keeps the 520px feel on a tall screen while never exceeding 60% of a short one, so the cap
+ * cannot outgrow the viewport on a laptop. `auto` means a long group scrolls rather than disappearing.
+ */
+.app-sidebar .snav-dd.snav-open .snav-menu{ max-height:min(520px, 60vh); overflow-y:auto; }
 .app-sidebar .snav-menu>li{ margin:0; }
 .app-sidebar .snav-menu>li>a{
   display:flex; align-items:center; gap:10px; padding:9px 18px 9px 48px;
