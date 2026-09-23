@@ -86,8 +86,29 @@ describe('CN-1 — a credit note prints in the customer\'s units', () => {
   let looseSellId
   let packSellId
 
+  /*
+   * ⚠ PIN THE LOOSE MARKUP, and put it back. This spec asserts an exact per-piece rate (311.60 / 40 = 7.79),
+   * which is only true when the tenant adds no markup on a broken pack.
+   *
+   * It went red on 2026-09-22 with "expected 8.57 to be close to 7.79" — 7.79 x 1.1 — because a U15 run had
+   * left pos.sale.looseMarkupPct at 10 on org 6. Nothing about the credit note had changed; the spec was
+   * reading a tenant setting it never established, which is the same class of failure this survey spent a day
+   * fixing in other people's specs. Mine had it too.
+   */
+  let markupSnap = null
+
   before(() => {
     cy.loginAsBusiness()
+    cy.request('/getBusinessConfig').then((r) => {
+      const list = (r.body && r.body.data) || []
+      const e = list.find((x) => x.key === 'pos.sale.looseMarkupPct')
+      expect(e, 'the loose markup setting exists to be pinned').to.be.an('object')
+      markupSnap = { absent: e.isDefault === true || e.value == null, value: e.value }
+    })
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
+      body: { key: 'pos.sale.looseMarkupPct', value: '0' }, failOnStatusCode: false })
+      .then((r) => expect(r.body && r.body.success, `pin markup 0: ${JSON.stringify(r.body)}`).to.eq(true))
+
     packProduct(`CN1_${run}`).then((p) => { productId = p.id || p.productId })
     cy.then(() => cy.request({
       method: 'POST', url: '/addProductStock', headers: { 'Content-Type': 'application/json' },
@@ -96,6 +117,17 @@ describe('CN-1 — a credit note prints in the customer\'s units', () => {
   })
 
   beforeEach(() => cy.loginAsBusiness())
+
+  after(() => {
+    // Leave the tenant as found — including "absent", which is not the same as "0": an absent row lets the
+    // catalog default decide, and writing a literal value would silently take that choice away.
+    cy.loginAsBusiness()
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
+      body: markupSnap && !markupSnap.absent
+        ? { key: 'pos.sale.looseMarkupPct', value: String(markupSnap.value) }
+        : { key: 'pos.sale.looseMarkupPct' },
+      failOnStatusCode: false })
+  })
 
   it('⭐⭐ 1 — three tablets returned print as 3 at the per-piece rate, not 0.075 of a box', () => {
     /*

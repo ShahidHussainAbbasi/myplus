@@ -3035,6 +3035,25 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th data-field="sellDiscount" title="Discount applied to this line — % of the line, or a flat amount" th:title="#{ui.discountAppliedToThisLineOf}" th:text="#{ui.discount}">Discount</th>
 							<th data-field="sellTaxAmount" th:text="#{ui.tax2}">Tax</th>
 							<th data-field="sellNetAmount" title="What this line was charged: (qty × unit price − discount) + tax" th:title="#{ui.whatThisLineWasChargedQty}" th:text="#{ui.lineTotal}">Line Total</th>
+							<!--
+								COGS-2 reporting — what the sale actually MADE, beside what it charged.
+
+								Three columns, because profit is a subtraction and an owner must be able to see
+								each term. "Invoice Disc." is the WHOLE-ORDER trade discount and belongs to the
+								document, not the line, so it repeats on every line of one invoice and is
+								labelled as the invoice's — never summed as though it were per-line.
+
+								⚠ Profit APPORTIONS that discount pro rata by line value, for display only. The
+								stored line prices are untouched — keeping them intact is the entire reason the
+								concession lives on the document — but a Profit column that ignored it would
+								answer the wrong question, which is what prompted this work.
+							-->
+							<th data-field="sellCostAmount" title="What these goods cost: the batches this line actually consumed" th:title="#{ui.js.colCostHelp}" th:text="#{ui.js.colCost}">Cost</th>
+							<!-- data-field is `sellInvoiceDiscount`, deliberately NOT `sellTradeDiscount`: that id
+							     belongs to the sale FORM's input, and editRecord() fills the form by matching
+							     field ids to row cells. See the note in business.js where this cell is built. -->
+							<th data-field="sellInvoiceDiscount" title="The whole-invoice trade discount. It belongs to the invoice, not this line — the same figure shows on every line of the invoice." th:title="#{ui.js.colInvDiscHelp}" th:text="#{ui.js.colInvDisc}">Invoice Disc.</th>
+							<th data-field="sellProfit" title="Line total excluding tax, minus cost, minus this line's pro-rata share of the invoice trade discount. Sums across an invoice to its true profit." th:title="#{ui.js.colProfitHelp}" th:text="#{ui.profit}">Profit</th>
 							<th data-field="sellPaymentMode" th:text="#{ui.payment}">Payment</th>
 							<th data-field="sellDueAmount" title="Amount still owed on THIS invoice only" th:title="#{ui.amountStillOwedOnThisInvoice}" th:text="#{ui.invoiceDue}">Invoice Due</th>
 							<th data-field="sellAction" th:text="#{ui.actions}">Actions</th>

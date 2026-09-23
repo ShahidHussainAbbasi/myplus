@@ -27,11 +27,17 @@
 
 const OWNER = 'owner.business@myplus.com'
 
-/** Ensure the tenant has at least one sale today, so "this month" cannot be legitimately empty. */
+/**
+ * Ensure the tenant has at least one sale today, so "this month" cannot be legitimately empty.
+ *
+ * ⚠ It used to only ASSERT that, despite the name — and on 2026-09-22 a full-suite run reached
+ * demo-reset.cy.js, which clears this very tenant, leaving every case below failing on "the tenant has
+ * sales history" as though the report had broken. cy.ensureSale seeds one when there is none.
+ */
 function seedSaleToday() {
-  return cy.request({ url: '/getUserSell?q=-1' }).then((r) => {
+  return cy.ensureSale().then((r) => {
     const rows = (r.body && r.body.collection) || []
-    expect(rows.length, 'the tenant has sales history').to.be.greaterThan(0)
+    expect(rows.length, 'sales history — seeded if the tenant had none').to.be.greaterThan(0)
   })
 }
 

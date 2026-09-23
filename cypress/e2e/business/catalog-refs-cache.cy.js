@@ -90,12 +90,21 @@ const removeForGood = (productId) => {
 }
 
 /** Org A's product id by exact name — for a row the CSV import created. */
-const productIdByName = (name) =>
-  cy.request('/catalogProductPicker?page=0&size=2000').then((r) => {
-    const page = (r.body && r.body.data) ? r.body.data : r.body
-    const row = ((page && page.content) || []).find((p) => p.name === name)
-    expect(row, `imported product "${name}" must exist`).to.exist
-    return row.id
+const productIdByName = (name, page = 0) =>
+  cy.request(`/catalogProductPicker?page=${page}&size=2000`).then((r) => {
+    /*
+     * ⚠ FOLLOW THE PAGES. findPickerScoped orders by NAME, so `sort=id,desc` is not available here and
+     * page 0 is not the catalogue: org 6 holds 3,416 products, and an imported name sorting past position
+     * 2,000 made this fail as `imported product "…" must exist` — a CSV-import defect that was not one.
+     * The app's own picker (common/product-picker.js) follows totalPages; so does this now.
+     */
+    const body = r.body || {}
+    const data = body.data ? body.data : body
+    const row = ((data && data.content) || []).find((p) => p.name === name)
+    if (row) return cy.wrap(row.id)
+    const totalPages = Number(data.totalPages != null ? data.totalPages : 1)
+    expect(totalPages > page + 1, `imported product "${name}" must exist`).to.eq(true)
+    return productIdByName(name, page + 1)
   })
 
 /** One cache's hit counter (Micrometer cache.gets{cache=<name>,result=hit}). */

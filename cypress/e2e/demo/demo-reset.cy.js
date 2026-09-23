@@ -3,9 +3,20 @@
  * write counters and (2) purges the caller's own org data in EVERY purge-capable service (shared common-service
  * DemoPurgeController, org-scoped, privilege-guarded). Requires the stack up.
  *
- * ⚠ The second test genuinely WIPES the owner.business@myplus.com org (that is the feature). That account is a
- * dev test fixture and every other spec builds its own data at runtime, but run this one on its own if you have
- * hand-made data sitting in the owner org.
+ * ⚠ THE OWNER CASE IS OPT-IN, because it genuinely WIPES the owner.business@myplus.com org — org 13, the shared
+ * dev tenant and the account the developer signs in with. This file used to carry that as a warning in prose:
+ * "run this one on its own if you have hand-made data sitting in the owner org". On 2026-09-22 a full-suite
+ * sweep ran it in a batch of ten. It passed — clearing the org IS the feature — and the damage landed on the
+ * specs that ran afterwards: return-documents, returns-list, returns-parity and sale-report-period all failed
+ * preconditions that read like broken returns and reporting features. Nothing was wrong with any of them.
+ *
+ * A comment cannot stop a spec runner, so the gate is now executable, per the opt-in pattern cypress.config.js
+ * documents (excludeSpecPattern would make it unrunnable even by name):
+ *
+ *     npm run test:e2e:demo-reset          # or: npx cypress run --spec … --env destructive=1
+ *
+ * The first two cases stay in the ordinary run: they purge demo.appointment@, a throwaway demo tenant that
+ * exists to be purged, and the "Cancel" case writes nothing at all.
  */
 describe('Reset demo clears data + counter', () => {
   it('purges the demo account data and resets the cap from the banner button', () => {
@@ -36,7 +47,10 @@ describe('Reset demo clears data + counter', () => {
     cy.get('@reset.all').should('have.length', 0)
   })
 
-  it('lets the OWNER demo account reset too, and clears data beyond its own module', () => {
+  // ⚠ DESTRUCTIVE — wipes org 13. Opt in with --env destructive=1; see the header.
+  const destructive = Cypress.env('destructive') ? it : it.skip
+
+  destructive('lets the OWNER demo account reset too, and clears data beyond its own module', () => {
     // owner.business is demo=false (uncapped) and carries DEMO_RESET_PRIVILEGE via its own role — so it gets the
     // button without ROLE_OWNER granting a real customer's owner a one-click "delete my organisation".
     cy.loginAs('owner.business@myplus.com', 'Demo@2025!', '/businessDashboard')

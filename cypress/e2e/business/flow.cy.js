@@ -204,7 +204,10 @@ describe('E2E Flow — Full Sale Transaction', () => {
       if (c) cy.log(`Customer ${custName} found ✓`)
       else cy.log('Customer not found — duplicate-check bug may have blocked save')
     })
-    cy.request('/catalogProducts?size=1000').then((res) => {
+    // size=50&sort=id,desc for the same reason as the case above: on a long-lived dev DB (org 6 holds
+    // 3,416 products) a newly created row falls beyond page 0, and this would log "may not have been
+    // saved" about a product that was saved perfectly well.
+    cy.request('/catalogProducts?size=50&sort=id,desc').then((res) => {
       const content = (res.body && res.body.data && res.body.data.content) || []
       const p = content.find(i => i.name === iname)
       if (p) cy.log(`Product ${iname} found ✓`)
@@ -325,7 +328,10 @@ describe('E2E Flow — Cross-Entity Consistency', () => {
     const iname = `DDItem_${Date.now()}`
     // M4e.d (slice 104): create via the catalog Product master; the sell/purchase picker lists it via /catalogProducts.
     cy.seedProduct({ name: iname }).then(() => {
-      cy.request('/catalogProducts?size=1000').then((res) => {
+      // Newest-first and a small page — slice 106's fix, which this occurrence never received. With
+      // 3,416 products on org 6, `size=1000` cannot see a row created a second ago, and the failure reads
+      // as "the catalog lost my product".
+      cy.request('/catalogProducts?size=50&sort=id,desc').then((res) => {
         const content = (res.body && res.body.data && res.body.data.content) || []
         expect(content.some((p) => p.name === iname), `${iname} in catalog picker`).to.be.true
       })

@@ -191,9 +191,13 @@ describe('OMS O7 D2b — a rep can actually book an order', () => {
     const label = 'RejectedOnScreen ' + run
     // Booked through the API rather than the form: this case is about what the rep READS afterwards, and
     // driving the form again would only re-prove the previous case.
-    cy.request('/catalogProducts?size=2000').then((r) => {
+    // Newest-first: PRODUCT is seeded by this spec, so it has the highest id. Reading page 0 of a
+    // name-ordered 3,416-row catalogue found nothing and threw on `p.id` — a TypeError that says nothing
+    // about booking.
+    cy.request('/catalogProducts?size=50&sort=id,desc').then((r) => {
       const list = (r.body.data && r.body.data.content) || []
       const p = list.find((x) => x.name === PRODUCT)
+      expect(p, `the seeded product "${PRODUCT}" is readable`).to.exist
       return cy.request({
         method: 'POST', url: '/bookOrder', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
         body: {

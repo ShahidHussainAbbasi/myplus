@@ -43,9 +43,11 @@ describe('Returns register — credit notes and debit notes', () => {
      * SEED first, so this cannot pass vacuously on a shop with no returns. `getSaleReturns` is scoped to the
      * caller, so seeding as this owner guarantees the row is visible to the assertions below.
      */
-    cy.request({ url: '/getUserSell?q=-1' }).then((r) => {
+    cy.ensureSale().then((r) => {
       const rows = (r.body && r.body.collection) || []
-      expect(rows.length, 'the tenant has a sale to return').to.be.greaterThan(0)
+      // cy.ensureSale seeds one if the tenant has none, so this cannot fail merely because something
+      // earlier in the run (demo-reset) cleared the tenant. See its note in commands.js.
+      expect(rows.length, 'a sale to return — seeded if the tenant had none').to.be.greaterThan(0)
       const line = rows.find((s) => Number(s.quantity) > 1) || rows[0]
       return cy.request({
         method: 'POST', url: '/saleReturn', form: true,

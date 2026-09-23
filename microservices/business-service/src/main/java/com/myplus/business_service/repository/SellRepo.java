@@ -107,14 +107,31 @@ public interface SellRepo extends JpaRepository<Sell, Long>,QueryByExampleExecut
     // OWN rows only (role-aware visibility, Phase 7a): a non-SUPER caller sees just what they created —
     // Multi-location (P2b): store-aware variants — used only when the caller has store grants (non-empty set).
     // Legacy store-NULL rows remain visible so nothing disappears before data is re-saved with a store.
+    /*
+     * ⚠ SR-2 — `order by s.sellId desc` IS PART OF THE CONTRACT, not a preference.
+     *
+     * These two store-aware queries carried NO ordering at all, while the three paths beside them
+     * (findScoped ×2, findOwnScoped) all ordered newest-first — and getUserSell's own comment claimed
+     * "tenant-scoped, newest-first" for every one of them. So a multi-location tenant got whatever order
+     * the database felt like returning, and the comment said otherwise.
+     *
+     * It is worse than a display annoyance. getUserSell implements "the recent N" as
+     * `objs.subList(0, limit)` — it TRUNCATES the list it was handed. On an unordered query that takes an
+     * ARBITRARY N rows, so "show me the last 50 sales" could answer with 50 sales from any point in the
+     * tenant's history, with nothing on screen to say so.
+     *
+     * sellId, not invoice number: it is monotonic, never null and unique, whereas invoice_no is a STRING
+     * ("INV-000011") that sorts lexically, is null on legacy rows, and restarts per org. Lines of one
+     * invoice are inserted together, so ordering by sellId also keeps an invoice's lines contiguous.
+     */
     @Query("select s from Sell s where s.organizationId = :orgId "
-         + "and (s.storeId in :storeIds or s.storeId is null)")
+         + "and (s.storeId in :storeIds or s.storeId is null) order by s.sellId desc")
     /** Same graph and the same reason as {@link #findScoped(Long, Long)} above. */
     @EntityGraph(attributePaths = {"customerHistory", "customerHistory.customer"})
     List<Sell> findScopedByStores(@Param("orgId") Long orgId, @Param("storeIds") java.util.Collection<Long> storeIds);
 
     @Query("select s from Sell s where s.organizationId = :orgId and s.userId = :userId "
-         + "and (s.storeId in :storeIds or s.storeId is null)")
+         + "and (s.storeId in :storeIds or s.storeId is null) order by s.sellId desc")
     List<Sell> findOwnScopedByStores(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                      @Param("storeIds") java.util.Collection<Long> storeIds);
 

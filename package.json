@@ -7,6 +7,7 @@
     "pretest:e2e": "npm run e2e:clean --silent",
     "test:e2e": "cypress run",
     "test:e2e:open": "cypress open",
+    "test:e2e:demo-reset": "cypress run --spec cypress/e2e/demo/demo-reset.cy.js --env destructive=1",
     "pretest:e2e:business": "npm run e2e:clean --silent",
     "test:e2e:business": "cypress run --spec 'cypress/e2e/business/**/*.cy.js'",
     "pretest:e2e:auth": "npm run e2e:clean --silent",

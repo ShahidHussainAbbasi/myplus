@@ -959,6 +959,46 @@ Cypress.Commands.add('setShape', (code) => {
 })
 
 /**
+ * The tenant HAS a sale — seeded if it does not. Yields the /getUserSell response.
+ *
+ * ⚠ WHY THIS EXISTS. Three places asserted "the tenant has at least one sale" as a precondition, including a
+ * function called seedSaleToday() that seeded nothing. That held until 2026-09-22, when a full-suite run
+ * reached demo-reset.cy.js — it signs in as owner.business@ and exercises /demo/reset, which clears that
+ * tenant end to end. The reset spec passed. Every later spec that needed a sale failed a precondition that
+ * reads like a broken returns or reporting feature, and none of them had changed.
+ *
+ * A precondition a spec can create for itself must not be a precondition at all. See
+ * feedback_fixture_eligibility: existence is not eligibility — SEED.
+ */
+Cypress.Commands.add('ensureSale', () => {
+  const makeOne = () => {
+    const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+    // cy.seedProduct creates the catalog product AND its opening stock, and defaults a purchase cost so the
+    // sale below posts real COGS rather than zero (its own note explains why that matters).
+    return cy.seedProduct({ name: `SeedCN_${stamp}`, sellingPrice: 100, stock: 10 }).then(({ productId }) =>
+      cy.request({
+        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+        failOnStatusCode: false,
+        body: {
+          customer: { name: `SeedCNC_${stamp}`, contact: '03009999999' },
+          // quantity 2 so the caller's "a line with quantity > 1" preference is satisfied and returning 1
+          // cannot exceed what was sold.
+          sales: [{ productId, quantity: 2, sellRate: 100, totalAmount: 200 }],
+          tenders: [{ method: 'CASH', amount: 200 }],
+          paidAmount: 200, grandTotal: 200, idempotencyKey: `cy-seedcn-${stamp}`,
+        },
+      })).then((sr) => {
+        expect(sr.body.status, `seed sale: ${JSON.stringify(sr.body).slice(0, 200)}`).to.eq('SUCCESS')
+        return cy.request({ method: 'GET', url: '/getUserSell?q=-1' })
+      })
+  }
+
+  return cy
+    .request({ method: 'GET', url: '/getUserSell?q=-1' })
+    .then((r) => (((r.body && r.body.collection) || []).length ? cy.wrap(r) : makeOne()))
+})
+
+/**
  * Seed ONE sale return, and yield its credit-note number.
  *
  * Promoted here from return-documents.cy.js when returns-parity.cy.js needed the same thing (#24). Two
@@ -972,12 +1012,24 @@ Cypress.Commands.add('setShape', (code) => {
 // exact row leaked. Document numbers cannot answer that — they are a per-org sequence and every
 // tenant owns a CRN-000001. Defaulted, so existing callers are unchanged.
 Cypress.Commands.add('seedCreditNote', (opts = {}) => {
+  /*
+   * ⚠ IT NOW ACTUALLY SEEDS. The comment above always said "SEEDS, never asserts-or-skips", but the code
+   * asserted that a sale already existed and failed with "the tenant has at least one sale to return" when
+   * one did not.
+   *
+   * That came true on 2026-09-22: demo-reset.cy.js signs in as owner.business@ and exercises /demo/reset,
+   * which clears that tenant end to end — so a full-suite run WIPES the sales this helper depends on, and
+   * every spec using it (return-documents, returns-list, returns-parity) then fails a precondition that
+   * reads like a broken returns feature. The reset spec passes; the damage lands on whatever runs after it.
+   *
+   * A helper that requires state it can create is a helper that depends on run order. So: if the tenant has
+   * no sale, make one — a product, stock for it, and a paid sale of 2 — then carry on.
+   */
   return cy
-    .request({ method: 'GET', url: '/getUserSell?q=-1' })
+    .ensureSale()
     .then((r) => {
       const rows = (r.body && r.body.collection) || []
-      expect(rows.length, 'the tenant has at least one sale to return').to.be.greaterThan(0)
-
+      expect(rows.length, 'a sale to return — seeded if the tenant had none').to.be.greaterThan(0)
       // A line with quantity > 1 so returning 1 cannot exceed what was sold.
       const line = rows.find((s) => Number(s.quantity) > 1) || rows[0]
       return cy.request({

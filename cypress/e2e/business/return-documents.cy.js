@@ -97,7 +97,20 @@ describe('Return documents — credit note and debit note', () => {
     cy.loginAsOwner(OWNER)
     cy.visitSaleScreen()
 
-    cy.get('#tableSell tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 0)
+    /*
+     * ⚠ NOT a bare `tbody tr` count — that is satisfied by the LOADING PLACEHOLDER.
+     *
+     * grid-loading.js fills an empty grid with `<tr class="grid-loading-row">`, and an empty one with a
+     * `td.dataTables_empty` inside the same row. So `tbody tr` is >= 1 from the moment the screen paints,
+     * whether or not the tenant has a single sale — and this precondition passed on a grid showing "No data
+     * yet", leaving the real failure to surface 30 seconds later as "the Return button was never found",
+     * which reads like a missing feature.
+     *
+     * Excluding both classes is the same predicate grid-loading.js:139 uses for "has real rows".
+     */
+    cy.get('#tableSell tbody tr:not(.grid-loading-row)', { timeout: 30000 })
+      .should('have.length.greaterThan', 0)
+      .and('not.have.descendants', 'td.dataTables_empty')
 
     /*
      * The dialog opens from a PER-ROW Return button, not from clicking the row — a first version of this test

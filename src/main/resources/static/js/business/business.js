@@ -2030,7 +2030,26 @@ function loadDataTable(){
 		lengthMenu: [[5, 20, 50, 100, -1], ['5', '20', '50', '100', 'All']],
 		"iDisplayLength": offset,
 		"pageLength": (offset == -1 ? 100 : Number(offset)),
+		/*
+		 * ⭐ SR-2 — "newest on top" has to be TRUE, not merely requested.
+		 *
+		 * `order: [[0,'desc']]` was already here and already meant the wrong thing on the Sell grid: column 0
+		 * holds `dd-MM-yyyy HH:mm:ss` text, and DataTables types that as a STRING — so it sorted by
+		 * day-of-month, then month, then year. A sale from the 30th of last month outranked today's. SR-1
+		 * fixed exactly this on the Sale Detail Report (see #tableSellReport above); the Sell section, which
+		 * is the grid a shopkeeper actually opens to find their last sale, was never given the same type.
+		 *
+		 * ⚠ SELL ONLY, and the scope was CHECKED rather than assumed. This config is shared by every
+		 * section, and column 0 is not a date on most of them — #tablePurchase starts with `purchaseId`,
+		 * for instance. Declaring `date-dmy` there would make every value unparseable, the pre-sort would
+		 * return -1 for all of them, and the grid would silently lose its ordering entirely. Sell's column 0
+		 * is `updated`; verified in businessDashboard.html before this line was written.
+		 *
+		 * The server orders newest-first too (SellRepo, all five scoped paths). Both are wanted: the API is
+		 * correct for every other consumer, and the grid must not undo it on arrival.
+		 */
 		"order": [[0, "desc"]],
+		"columnDefs": (tableV === 'Sell') ? [{ targets: 0, type: 'date-dmy' }] : [],
 		"autoWidth": true,
 		// A voided sale/purchase is a finalized, read-only record — grey the row so it reads as inactive. The
 		// VOID badge (instead of edit/return actions) + the row-click guard already prevent any action on it.
@@ -2218,6 +2237,39 @@ function loadDataTable(){
 									: ((obj.stock && obj.stock.bsellDiscountType != null) ? obj.stock.bsellDiscountType : '');
 						var discCell = (discAmt === '' || Number(discAmt) === 0) ? ''
 									: (discType === '1' || discType === '%') ? (discAmt + '%') : (discAmt + ' (Amt)');
+						/*
+						 * COGS-2 — what this line COST and what it MADE.
+						 *
+						 * cost   = the unit cost recorded on the line x quantity. Blank when the product has
+						 *          never been purchased in this tenant, because a zero there would read as
+						 *          "free goods" rather than "not known".
+						 * exTax  = line total - tax. Tax is collected for the state and is not revenue, so it
+						 *          can take no part in a margin.
+						 * share  = this line's pro-rata slice of the INVOICE's trade discount, by line value.
+						 *
+						 * The apportionment is for DISPLAY ONLY and is computed here, never stored. The
+						 * concession sits on the document precisely so the stored line prices keep saying what
+						 * each product sold for - spreading it across them would corrupt margin history and the
+						 * "last sale rate" stamped on each product. But a Profit column that ignored it would
+						 * overstate every discounted invoice, which is the question that prompted this work: on
+						 * INV-000011, 700 of goods costing 600 with a 20 concession is 80 of profit, and these
+						 * two lines show 41.43 and 38.57 - which sum to exactly that.
+						 *
+						 * `ch.subTotal` is already NET of the discount (SagaSaleWriter), so the invoice's goods
+						 * value is subTotal + tradeDiscount. Guarded against a zero denominator: an invoice of
+						 * nothing gets no share rather than a NaN in a money column.
+						 */
+						var lineTax = Number(obj.taxAmount) || 0;
+						var lineExTax = (Number(obj.netAmount) || 0) - lineTax;
+						var unitCost = (obj.costPrice != null && obj.costPrice !== '') ? Number(obj.costPrice) : null;
+						var lineCost = (unitCost != null) ? unitCost * (Number(obj.quantity) || 0) : null;
+						var invDisc = (ch && ch.tradeDiscount != null) ? Number(ch.tradeDiscount) : 0;
+						var invGoods = (ch && ch.subTotal != null) ? (Number(ch.subTotal) || 0) + invDisc : 0;
+						var discShare = (invDisc > 0 && invGoods > 0) ? invDisc * (lineExTax / invGoods) : 0;
+						// Profit needs a cost to BE a profit. Without one the cell stays blank rather than
+						// reporting the whole line total as margin.
+						var lineProfit = (lineCost != null) ? (lineExTax - discShare - lineCost) : null;
+
 						// Columns must match tableSell's <thead> exactly, in order:
 						// Dated Â· Invoice Â· Customer Â· Product Â· Qty Â· Unit Price Â· Discount Â· Tax Â· Line Total Â·
 						// Payment Â· Invoice Due Â· Actions
@@ -2239,6 +2291,25 @@ function loadDataTable(){
 							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
 							// Line Total = what this line was charged (discounted base + tax) — the server derives it.
 							"<div id=sellNetAmount>"+(obj.netAmount!=null?obj.netAmount:'')+"</div>",
+							// COGS-2. Numbers only, so no escaping is needed — and a blank says "not known",
+							// which is the honest answer for a product that was never purchased here.
+							"<div id=sellCostAmount>"+(lineCost!=null?lineCost.toFixed(2):'')+"</div>",
+							// The INVOICE's concession, repeated on each of its lines and labelled as such in
+							// the header. Blank when there is none, so an ordinary till sale shows an empty
+							// column rather than a row of zeros.
+							/*
+							 * ⚠ `sellInvoiceDiscount`, NOT `sellTradeDiscount` — and the difference matters.
+							 *
+							 * editRecord() populates the sale form by matching each FORM FIELD's id to a cell
+							 * of the same id in the clicked row. The sale form already owns an input called
+							 * `sellTradeDiscount`, so naming this cell that would have made editing any line
+							 * silently start re-sending the concession from the grid. Today an edit that omits
+							 * it keeps what the invoice already carries (SagaSaleWriter's deliberate
+							 * fallback), and changing that as a side effect of adding a REPORT COLUMN is
+							 * exactly the kind of coupling nobody would think to look for later.
+							 */
+							"<div id=sellInvoiceDiscount>"+(invDisc>0?invDisc.toFixed(2):'')+"</div>",
+							"<div id=sellProfit>"+(lineProfit!=null?lineProfit.toFixed(2):'')+"</div>",
 							"<div id=sellPaymentMode>"+escHtml(ch&&ch.paymentMode?ch.paymentMode:'')+"</div>",
 							"<div id=sellDueAmount>"+owed.toFixed(2)+"</div>",
 							// Actions: G6 (slice 38) Print receipt + G2 (slice 34) Sale Return. Print uses the

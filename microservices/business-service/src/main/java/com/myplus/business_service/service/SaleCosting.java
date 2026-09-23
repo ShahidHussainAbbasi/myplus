@@ -55,15 +55,33 @@ public class SaleCosting {
         BigDecimal fromBatches = BigDecimal.ZERO;
         boolean anyBatches = false;
 
+        int costlessBatches = 0;
         if (sellIds != null && !sellIds.isEmpty()) {
             // ONE batched read for the whole sale — never a query per line.
             for (SellBatch b : sellBatchRepo.findBySellIds(sellIds)) {
-                if (b.getUnitCost() == null || b.getQuantity() == null) continue;
+                if (b.getQuantity() == null) continue;
+                if (b.getUnitCost() == null) { costlessBatches++; continue; }
                 anyBatches = true;
                 fromBatches = fromBatches.add(b.getUnitCost().multiply(b.getQuantity()));
             }
         }
-        if (anyBatches) return fromBatches.setScale(2, java.math.RoundingMode.HALF_UP);
+        /*
+         * ⚠ COGS-2 — the same all-or-nothing trap {@link #cogsFromPicks} carried, on the edit/return path.
+         *
+         * A sale whose batches are PARTLY costed returned only the costed ones and said nothing, because
+         * `anyBatches` was true. The uncosted rows silently contributed zero. Here the read is per-BATCH and
+         * the batch does not carry the line's snapshot, so the honest repair is to say the total is
+         * incomplete rather than to pretend otherwise — the caller then sees a warning naming the shortfall
+         * instead of a clean-looking figure.
+         */
+        if (anyBatches) {
+            if (costlessBatches > 0) {
+                log.warn("COGS: {} recorded batch(es) on this sale carry NO unit cost and contributed zero; "
+                        + "the posted cost ({}) is INCOMPLETE. sellIds={}",
+                        costlessBatches, fromBatches, sellIds);
+            }
+            return fromBatches.setScale(2, java.math.RoundingMode.HALF_UP);
+        }
 
         /*
          * The fallback is CORRECT for a sale written before P3 — but on a NEW sale it means the batch costs
@@ -97,16 +115,63 @@ public class SaleCosting {
             log.warn("COGS: the reservation returned NO PICKS; using the line snapshot and recording no batches");
             return snapshotCogs(lines);
         }
-        BigDecimal cost = BigDecimal.ZERO;
-        boolean any = false;
-        for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
-            if (p == null || p.getUnitCost() == null || p.getQuantity() == null) continue;
-            any = true;
-            cost = cost.add(p.getUnitCost().multiply(p.getQuantity()));
+        /*
+         * ⚠ COGS-2 — THE FALLBACK IS PER PRODUCT, NEVER PER INVOICE.
+         *
+         * This summed only the picks that HAD a cost and fell back only when NONE did. A sale mixing the two
+         * therefore posted a PARTIAL cost and said nothing: the `any` flag was true, so no fallback ran and
+         * no warning was logged.
+         *
+         * INV-000011 (org 13, 2026-09-23) is the worked example. Two lines, costing 250 and 350. FEFO drew
+         * the first from a batch carrying NO purchase price, so its pick had no unit cost and was skipped —
+         * while the second line's 350 kept `any` true. COGS posted 350 against a true cost of 600, and the
+         * invoice reported a profit of 330 where 80 was right. The trial balance still balanced to the penny,
+         * because the entry was internally consistent; it was simply missing a quarter of the cost.
+         *
+         * So an uncosted pick now falls back to ITS OWN LINE's snapshot (SF-10's latest purchase rate), which
+         * on that invoice held the correct 250. Same principle as {@link #cogs}: never return zero cost for
+         * goods that left the shelf — that is a 100% margin on real stock.
+         */
+        java.util.Map<Long, BigDecimal> snapshotByProduct = new java.util.HashMap<>();
+        if (lines != null) {
+            for (SagaLine l : lines) {
+                if (l == null || l.productId() == null || l.costPrice() == null) continue;
+                snapshotByProduct.put(l.productId(), l.costPrice());
+            }
         }
-        if (!any) {
-            log.warn("COGS: the reservation returned picks with no unit cost; using the line snapshot");
-            return snapshotCogs(lines);
+
+        BigDecimal cost = BigDecimal.ZERO;
+        java.util.List<Long> uncosted = new java.util.ArrayList<>();
+        java.util.List<Long> unpriceable = new java.util.ArrayList<>();
+        for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
+            if (p == null || p.getQuantity() == null) continue;
+            if (p.getUnitCost() != null) {
+                cost = cost.add(p.getUnitCost().multiply(p.getQuantity()));
+                continue;
+            }
+            // This batch recorded no purchase price. Cost the goods from the line's own snapshot rather than
+            // dropping them: the units physically left, so they must carry a cost.
+            BigDecimal snap = snapshotByProduct.get(p.getItemId());
+            if (snap != null) {
+                cost = cost.add(snap.multiply(p.getQuantity()));
+                uncosted.add(p.getItemId());
+            } else {
+                // Nothing knows what this cost — neither the batch nor the product's purchase history. It
+                // contributes zero, which is wrong, but it is the only honest answer available and it is
+                // said out loud rather than buried in a total.
+                unpriceable.add(p.getItemId());
+            }
+        }
+        if (!uncosted.isEmpty()) {
+            log.warn("COGS: {} pick(s) had no batch cost and were costed from the line snapshot instead "
+                    + "(products {}). The batches they drew from carry no purchase price.",
+                    uncosted.size(), uncosted);
+        }
+        if (!unpriceable.isEmpty()) {
+            log.error("COGS: {} pick(s) have NO COST AT ALL — neither a batch cost nor a line snapshot "
+                    + "(products {}). Those goods are booked at zero cost and the margin on this sale is "
+                    + "overstated. Record a purchase price for them.",
+                    unpriceable.size(), unpriceable);
         }
         return cost.setScale(2, java.math.RoundingMode.HALF_UP);
     }
