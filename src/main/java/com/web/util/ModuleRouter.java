@@ -44,11 +44,28 @@ public final class ModuleRouter {
     /** Fallback when no module resolves: the public landing page, which never 404s. */
     public static final String LANDING = "/";
 
-    /**
-     * Commerce verticals all share the ONE dashboard, white-labelled by module (slice 36):
-     * POS = BUSINESS, Pharmacy = PHARMA, Store = MARKETPLACE. No per-vertical routes.
+    /*
+     * VERT-1 — "is this commerce?" is DERIVED, not enumerated. Design: docs/vertical-profile-any-business-design.md §2.
+     *
+     * This was `Set.of("BUSINESS", "PHARMA", "MARKETPLACE")`: a hand-maintained list of the commerce
+     * verticals, sitting three fields away from DASHBOARD_BY_TYPE, which already records the same fact by
+     * pointing each of those types at COMMERCE_DASHBOARD. Two statements of one truth, and the cost was paid
+     * on every new business type — add RESTAURANT to the map, forget it here, and `isCommerce("RESTAURANT")`
+     * answers false while the tenant is sitting on the commerce dashboard.
+     *
+     * A commerce vertical IS a type whose dashboard is the commerce dashboard. Said that way the list cannot
+     * drift from the map, because it is computed from it. The platform's own goal is that a new business type
+     * is configuration rather than a Java edit; this removes one of the edits.
+     *
+     * Derived at class-init from the map below, so it stays a constant-time lookup on the hot path — the
+     * saving is a maintenance one, never a runtime cost.
      */
-    private static final Set<String> COMMERCE_TYPES = Set.of("BUSINESS", "PHARMA", "MARKETPLACE");
+    private static Set<String> commerceTypes() {
+        return DASHBOARD_BY_TYPE.entrySet().stream()
+                .filter(e -> COMMERCE_DASHBOARD.equals(e.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
 
     /**
      * The dashboard a KNOWN module owns in the monolith UI.
@@ -107,6 +124,15 @@ public final class ModuleRouter {
              * unrecognised BUSINESS type; it was never meant to answer for a user who is not a customer.
              */
             "ADMIN",       PLATFORM_DASHBOARD);
+
+    /**
+     * The commerce verticals, computed from the map above rather than restated. See {@link #commerceTypes()}.
+     *
+     * <p>⚠ Declared AFTER {@code DASHBOARD_BY_TYPE} and not before: static initialisers run in source order,
+     * so a field placed above the map it reads would silently initialise from a null map and leave every
+     * type looking non-commerce. The ordering is load-bearing, not tidiness.
+     */
+    private static final Set<String> COMMERCE_TYPES = commerceTypes();
 
     /**
      * Slice 3.3 — the PORTAL audiences, routed by ROLE and not by module.

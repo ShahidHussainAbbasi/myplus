@@ -154,6 +154,39 @@ class ModuleRouterTest {
         }
 
         @Test
+        @DisplayName("⭐ VERT-1: isCommerce is DERIVED from the dashboard map, not a second list")
+        void isCommerceFollowsTheDashboardMap() {
+            /*
+             * The property, stated so it cannot be satisfied by a hand-maintained list that happens to agree
+             * today: for EVERY type the router knows, "is it commerce?" and "does it route to the commerce
+             * dashboard?" are the SAME answer.
+             *
+             * This is what makes a new business type configuration rather than a Java edit. Adding RESTAURANT
+             * to DASHBOARD_BY_TYPE and forgetting a second set would have left isCommerce("RESTAURANT") false
+             * while the tenant sat on the commerce dashboard — the drift this case exists to prevent.
+             */
+            for (String type : new String[]{"BUSINESS", "PHARMA", "MARKETPLACE", "EDUCATION", "WELFARE",
+                    "AGRICULTURE", "APPOINTMENT", "ADMIN"}) {
+                boolean routesToCommerce =
+                        ModuleRouter.COMMERCE_DASHBOARD.equals(ModuleRouter.dashboardForModule(type));
+                assertEquals(routesToCommerce, ModuleRouter.isCommerce(type),
+                        type + ": isCommerce must agree with where the router actually sends it");
+            }
+
+            /*
+             * ⚠ And the case that would have caught the drift. An unknown-but-present type FALLS BACK to the
+             * commerce dashboard (C2), so it is commerce by where it lands — but it is not a KNOWN commerce
+             * vertical, and isCommerce answers about the known set. Pinned because the two readings are easy
+             * to conflate, and a future "simplification" that made isCommerce true for every unknown string
+             * would silently hand marketplace behaviour to education typos.
+             */
+            assertEquals(ModuleRouter.COMMERCE_DASHBOARD, ModuleRouter.dashboardForModule("RESTAURANT"),
+                    "an unknown type still reaches a working dashboard");
+            assertFalse(ModuleRouter.isCommerce("RESTAURANT"),
+                    "but it is not yet a registered commerce vertical — registering it is the deliberate act");
+        }
+
+        @Test
         @DisplayName("blank → landing; unknown → a working dashboard; never a null path")
         void unknownModule() {
             // C2 splits what used to be one answer. BLANK means we do not know who this user is, and saying
