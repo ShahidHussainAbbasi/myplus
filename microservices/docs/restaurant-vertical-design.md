@@ -1,6 +1,8 @@
 # RST — the restaurant vertical, on the existing commerce core
 
-**Status: DESIGN. No code written. Awaiting rulings on §3 and §9.**
+**Status (2026-09-24): DESIGN. R1 gate WRITTEN and GREEN 6/6 — and it found a design error, see §4.1.**
+⚠ The R1 "no new capability" claim was WRONG and is corrected in §4.1: a restaurant cannot sell a
+made-to-order item, because every sale line reserves stock unconditionally. Awaiting rulings on §3 and §9.
 Raised 2026-09-24: a prospective tenant, *24/7 BBQ & Fast Food*, supplied a two-page printed menu.
 
 Related: [capability platform](capability-platform-design.md) · [vertical profile](vertical-profile-any-business-design.md) · [commerce verticals blueprint](commerce-verticals-blueprint.md)
@@ -191,14 +193,15 @@ The brief proposed ~13 capabilities. **Most are not capabilities.** Applying `Sh
 | `WASTE_TRACKING` | ✅ real capability, useful beyond restaurants |
 | `TABLE_RESERVATIONS`, `LOYALTY`, `ONLINE_ORDERING`, `DELIVERY_RIDER_MANAGEMENT`, `MULTI_BRANCH` | later, and three already exist (storefront, OMS O7, multi-location) |
 
-**Net: 5 new capabilities, not 13.**
+**Net: 6 new capabilities, not 13** — five below, plus `MADE_TO_ORDER` which the R1 gate forced out (§4.1).
 
 ```
-ORDER_TYPES       dine-in / takeaway / delivery, and tables
-MENU_MODIFIERS    per-line options and kitchen instructions
-KITCHEN_TICKETS   route lines to stations; prep states
-RECIPES           menu item → ingredients; consumption and food cost
-WASTE_TRACKING    spoilage with a reason and a value
+MADE_TO_ORDER     assembled on demand; skip the stock reservation (§4.1) — R1
+ORDER_TYPES       dine-in / takeaway / delivery, and tables                  — R2
+MENU_MODIFIERS    per-line options and kitchen instructions                  — R2
+KITCHEN_TICKETS   route lines to stations; prep states                       — R2
+RECIPES           menu item → ingredients; consumption and food cost         — R3
+WASTE_TRACKING    spoilage with a reason and a value                         — R3
 ```
 
 ### 3.2 What the restaurant must NOT see
@@ -217,16 +220,52 @@ Phase R2 (ingredients) this may be wanted ON. Raised rather than decided — §9
 The requirement is that a user may begin basic or begin complete. Each phase is **independently shippable and
 independently valuable**, and nothing in a later phase is required to run an earlier one.
 
-### Phase R1 — take orders and get paid *(no new capability required)*
+### Phase R1 — take orders and get paid *(needs ONE capability — see §4.1)*
 
-Menu as products, 16 categories, prices, POS, cash, receipt, daily sales. **This is achievable on today's
-build with configuration only** — the shape and a menu import.
+Menu as products, 16 categories, prices, POS, cash, receipt, daily sales.
+
+⚠ **This section originally claimed R1 was "achievable on today's build with configuration only". That was
+wrong, and the R1 gate caught it** — see §4.1.
 
 | Delivers | Does not yet do |
 |---|---|
 | Ring up an order, tender, print | Order type (everything is one flow) |
 | Daily sales, top items | Kitchen ticket |
 | Customer name/phone for delivery | Ingredient stock or true food cost |
+
+### 4.1 ⚠ MADE TO ORDER — the gap the R1 gate found
+
+**A restaurant holds no finished Zinger Burgers.** It holds buns, fillets and oil, and assembles one when the
+order lands. But `SagaSellService` builds a `StockReservationLine` for **every** sale line with no exemption,
+so the platform cannot sell anything it does not physically hold. Running the R1 gate produced exactly that:
+
+> `Not enough sellable stock — 'Zinger Burger': only 0 sellable, 2 requested.`
+
+There is no service or non-stock product concept, and `BusinessSettingsCatalog` records that a
+`pos.sale.negativeStockAllowed` toggle was **deliberately removed**, with a warning not to re-add one without
+building the cross-service oversell path behind it. That rule is correct and hard-won for retail. It is wrong
+in kind for a kitchen — and for every service business: a salon cannot stock a haircut.
+
+**Both workarounds are bad.** Stocking phantom quantities of each menu item puts a lie in the inventory and
+makes every stock report meaningless. Requiring recipes first collapses R1 into R3 and removes the
+"start basic" offer entirely.
+
+**So R1 needs one capability after all:**
+
+```
+MADE_TO_ORDER   this product is assembled on demand; skip the stock reservation
+```
+
+Per-product, not per-tenant — a restaurant still buys and stocks **cold drinks**, which must reserve
+normally. It is also the capability a salon, a clinic and a repair shop need, so it is not restaurant-specific
+and belongs in the shared catalogue.
+
+⚠ **It must not become an oversell switch.** The exemption applies only to products flagged made-to-order,
+never to stocked goods, or it silently re-opens the negative-stock path the platform removed on purpose.
+
+**Gate:** `restaurant-menu-setup.cy.js` case 2b currently asserts the REFUSAL, because that is today's truth.
+When `MADE_TO_ORDER` lands the case is **inverted, not deleted** — the refusal is the current behaviour, not
+the desired one.
 
 ### Phase R2 — order types, tables, kitchen *(`ORDER_TYPES`, `KITCHEN_TICKETS`, `MENU_MODIFIERS`)*
 

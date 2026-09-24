@@ -121,8 +121,27 @@ const addMenuItem = (category, name, price) =>
 describe('RST-R1 — a restaurant trades on day one, with no new capability', () => {
   const created = {}
 
+  /*
+   * ⚠ THE CLAIM IS ONLY LOAD-BEARING IF THE CAPABILITIES ARE EXPLICITLY OFF.
+   *
+   * R1's whole promise is "a restaurant trades with NO new capability". A spec that merely leaves them unset
+   * can pass because some earlier spec left one on — the run-order trap this suite has already been bitten by
+   * five times. Turning the restaurant-adjacent capabilities off by name makes the claim mean something.
+   * (myplus-54's point, 2026-09-24.)
+   */
+  const OFF = ['looseSelling', 'bonusSchemes', 'dealerPricing', 'batchTracking', 'expiryTracking'];
+  let capsBefore = {}
+
   before(() => {
     cy.loginAsBusiness()
+    cy.request({ url: '/getBusinessConfig', failOnStatusCode: false }).then((r) => {
+      const rows = (r.body && r.body.data) || []
+      OFF.forEach((c) => {
+        const row = rows.find((x) => x.key === 'org.cap.' + c)
+        capsBefore[c] = row ? row.value : null
+      })
+    })
+    OFF.forEach((c) => cy.setCapability(c, false))
     // A representative slice of each page rather than all 87: the case is that the SHAPE of the menu is
     // expressible, and 87 sequential POSTs would make this spec a load test with a 30-minute runtime.
     Object.keys(PAGE_1).forEach((cat) => {
@@ -132,6 +151,15 @@ describe('RST-R1 — a restaurant trades on day one, with no new capability', ()
     Object.keys(PAGE_2).forEach((cat) => {
       const [name, price] = PAGE_2[cat][0]
       addMenuItem(cat, name, price).then((id) => { created[name] = { id, price, cat } })
+    })
+  })
+
+  // Leave no server state: capabilities are org-wide, so a spec that flips them puts them back. Restored in
+  // after() rather than a trailing cy.then, because Cypress abandons the rest of a failing test.
+  after(() => {
+    cy.loginAsBusiness()
+    OFF.forEach((c) => {
+      if (capsBefore[c] != null) cy.setCapability(c, capsBefore[c] === 'true' || capsBefore[c] === true)
     })
   })
 
@@ -154,24 +182,68 @@ describe('RST-R1 — a restaurant trades on day one, with no new capability', ()
     })
   })
 
-  it('⭐⭐ 2 — a menu item is sellable at its printed price, with no restaurant capability enabled', () => {
-    // The whole claim of Phase R1: today's POS can ring up food. If this fails, "start basic" is not on offer.
+  /** Ring up a line and return the raw response, so a case can assert success OR refusal. */
+  const sell = (item, qty) => cy.request({
+    method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+    failOnStatusCode: false,
+    body: {
+      customer: { name: `R1_${uniq()}`, contact: '03352456847' },
+      sales: [{ productId: item.id, itemName: item.name, quantity: qty, sellRate: item.price }],
+      tenders: [{ method: 'CASH', amount: item.price * qty }],
+      paidAmount: item.price * qty, grandTotal: item.price * qty,
+      idempotencyKey: `cy-r1-${uniq()}`,
+    },
+  })
+
+  it('⭐⭐ 2 — a menu item with stock sells at its printed price', () => {
+    // The POS half of the R1 claim: today's till can ring up food, tender it and issue an invoice.
     const item = created['Zinger Burger']
     expect(item, 'the fixture created Zinger Burger').to.exist
 
     cy.request({
-      method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
-      failOnStatusCode: false,
-      body: {
-        customer: { name: `R1_${uniq()}`, contact: '03352456847' },
-        sales: [{ productId: item.id, itemName: 'Zinger Burger', quantity: 2, sellRate: item.price }],
-        tenders: [{ method: 'CASH', amount: item.price * 2 }],
-        paidAmount: item.price * 2, grandTotal: item.price * 2,
-        idempotencyKey: `cy-r1-${uniq()}`,
-      },
-    }).then((r) => {
+      method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+      body: { productId: item.id, quantity: 20, 'stock.batchNo': `R1B${uniq()}`,
+        'stock.bpurchaseRate': 180, 'stock.bsellRate': item.price,
+        totalAmount: 20 * 180, netAmount: 20 * 180, purchaseInvoiceNo: `R1-${uniq()}` },
+    }).then((r) => expect(r.body.status, 'stock in').to.eq('SUCCESS'))
+
+    sell(Object.assign({ name: 'Zinger Burger' }, item), 2).then((r) => {
       expect(r.body.status, `the sale: ${JSON.stringify(r.body).slice(0, 220)}`).to.eq('SUCCESS')
       expect(r.body.object, 'it produced a real invoice number').to.match(/^INV-/)
+    })
+  })
+
+  it('⭐⭐ 2b — ⚠ THE GAP: a made-to-order item cannot be sold without stock', () => {
+    /*
+     * ⚠ THIS CASE RECORDS A DESIGN ERROR THAT THIS GATE CAUGHT, and it is the most valuable thing here.
+     *
+     * The design doc claimed Phase R1 was "achievable on today's build with configuration only". It is not.
+     * Every sale line is reserved against inventory unconditionally — SagaSellService builds a
+     * StockReservationLine for EVERY line with no exemption — so the platform cannot sell anything it does
+     * not physically hold. There is no service/non-stock product concept, and BusinessSettingsCatalog
+     * records that a `pos.sale.negativeStockAllowed` toggle was deliberately REMOVED, with a warning not to
+     * re-add one without building the cross-service oversell path behind it.
+     *
+     * For retail that rule is correct and hard-won. For a kitchen it is wrong in kind: a restaurant holds no
+     * finished Zinger Burgers. It holds buns, fillets and oil, and assembles a burger when the order lands.
+     * The same is true of every service business — a salon cannot stock a haircut.
+     *
+     * The two workarounds are both bad. Stocking phantom quantities of each menu item puts a lie in the
+     * inventory and makes every stock report meaningless. Requiring recipes first collapses R1 into R3 and
+     * removes the "start basic" offer entirely.
+     *
+     * So R1 needs a small, honest capability — a product that is MADE TO ORDER and skips reservation — and
+     * until it exists this case documents exactly what a restaurant hits on day one. When that capability
+     * lands, this case must be INVERTED rather than deleted: the refusal is the current truth, not the
+     * desired one.
+     */
+    const item = created['Chicken Tikka Leg']
+    expect(item, 'the fixture created Chicken Tikka Leg').to.exist
+
+    sell(Object.assign({ name: 'Chicken Tikka Leg' }, item), 1).then((r) => {
+      expect(r.body.status, 'refused — the platform will not sell what it does not hold').to.eq('ERROR')
+      expect(String(r.body.message || ''), 'and it says why, in the operator\'s language')
+        .to.match(/sellable stock/i)
     })
   })
 
