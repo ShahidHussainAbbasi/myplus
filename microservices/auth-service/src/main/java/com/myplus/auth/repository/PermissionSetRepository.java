@@ -20,6 +20,17 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, Lo
          + "order by s.builtin desc, s.name asc")
     List<PermissionSet> findVisibleTo(@Param("orgId") Long orgId);
 
+    /**
+     * The same list, narrowed to one module — what a tenant actually chooses from.
+     *
+     * <p>Built-ins carry {@code organization_id IS NULL}, so without the module filter EVERY built-in
+     * is visible to everyone: a school would be offered Cashier and Storekeeper, and a shop would be
+     * offered Teacher and Principal.
+     */
+    @Query("select s from PermissionSet s where (s.organizationId = :orgId or s.organizationId is null) "
+         + "and s.module = :module order by s.builtin desc, s.name asc")
+    List<PermissionSet> findVisibleTo(@Param("orgId") Long orgId, @Param("module") String module);
+
     Optional<PermissionSet> findByOrganizationIdIsNullAndName(String name);
 
     /** ⚠ Scoped: a set id from another tenant must resolve to nothing, never to that tenant's set. */

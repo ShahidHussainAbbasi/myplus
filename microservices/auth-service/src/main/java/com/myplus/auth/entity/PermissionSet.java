@@ -58,4 +58,8 @@ public class PermissionSet {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /** The module this set belongs to — a school never offers a shop's set, or the reverse. */
+    @Column(name = "module", nullable = false, length = 16)
+    private String module;
 }

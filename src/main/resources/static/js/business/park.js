@@ -16,7 +16,12 @@
         };
         var tenders = [];
         if (received > 0 || payMethod === 'CREDIT') tenders.push({ method: payMethod, amount: received, reference: '' });
-        return { customer: customer, sales: data, tenders: tenders };
+        var cart = { customer: customer, sales: data, tenders: tenders };
+        // TRADE-DISC-1: the trade discount is part of the basket. It was never stored, so a resumed sale lost it
+        // — and because the field was not cleared either, the NEXT customer got it instead.
+        var td = Number($('#sellTradeDiscount').val()) || 0;
+        if (td > 0) cart.tradeDiscount = td;
+        return cart;
     }
 
     global.parkCurrentSale = function () {
@@ -24,8 +29,10 @@
         var cart = buildCartPayload();
         var label = (cart.customer.name && cart.customer.name.trim())
             ? cart.customer.name.trim() : ('Parked ' + new Date().toLocaleTimeString());
+        // The list shows what the customer will PAY (after line and trade discounts) when business.js is present.
         var total = 0;
-        data.forEach(function (d) { total += Number(d.totalAmount) || 0; });
+        if (typeof sellPayable === 'function') total = sellPayable();
+        else data.forEach(function (d) { total += Number(d.totalAmount) || 0; });
 
         $.ajax({
             type: 'POST', url: serverContext + 'parkSale', contentType: 'application/json', dataType: 'json',
@@ -69,15 +76,26 @@
     }
     global.loadParkedSales = loadParkedSales;
 
+    /*
+     * PARK-CLAIM-1 — resume TAKES the parked sale: one server call reads and removes it.
+     *
+     * This used to GET the cart and then call discardParked(id, true) to remove it. /deleteParked needs
+     * DELETE_PRIVILEGE, which a USER-role cashier does not hold, and `silent` swallowed the refusal — so for an
+     * ordinary cashier the parked sale stayed in the list after every resume, could be resumed and completed
+     * again, and became a second invoice for the same goods. /claimParked removes it in the same transaction
+     * that returns it, and a second claim of the same id is told it is gone.
+     */
     global.resumeParked = function (id) {
-        $.get(serverContext + 'resumeParked?id=' + encodeURIComponent(id), function (resp) {
+        $.post(serverContext + 'claimParked', { id: id }, function (resp) {
             if (resp && resp.status === 'SUCCESS' && resp.object) {
                 $('#sellType').val('sellDiv').trigger('change');   // open the New Sale section
                 rebuildCartFromResumed(resp.object);
-                discardParked(id, true);                            // it's back in the cart now
                 showSaleSuccess(t('ui.js.parkedSaleResumed'));
-            } else { showFormError(apiMessage(resp, 'Could not resume the parked sale.')); }
-        }).fail(function () { showFormError(t('ui.js.couldNotResumeTheParkedSale')); });
+            } else {
+                showFormError(apiMessage(resp, 'Could not resume the parked sale.'));
+                if (resp && resp.status === 'NOT_FOUND') loadParkedSales();   // it is gone — drop the stale row
+            }
+        }, 'json').fail(function () { showFormError(t('ui.js.couldNotResumeTheParkedSale')); });
     };
 
     global.discardParked = function (id, silent) {
@@ -87,29 +105,25 @@
         }, 'json').fail(function () { if (!silent) showFormError(t('ui.js.couldNotDiscardTheParkedSale')); });
     };
 
+    /*
+     * CART-1 — the resumed basket goes into data[] and the grid is DRAWN from it by business.js's renderCart():
+     * the same row builder as every other add path. This used to hand-build rows that printed the raw
+     * quantity ("0.25" for ten tablets — the U13 defect) and needed its own copy of the discount rule.
+     */
     function rebuildCartFromResumed(cart) {
         data.length = 0;
-        if (typeof tablesi !== 'undefined' && tablesi) tablesi.clear();
-        (cart.sales || []).forEach(function (line) {
-            data.push(line);
-            var stk = line.stock || {};
-            if (typeof tablesi !== 'undefined' && tablesi) {
-                tablesi.row.add([
-                    line.itemId, escHtml(line.itemName || ''), line.quantity,
-                    (line.sellRate != null ? line.sellRate : (stk.bsellRate != null ? stk.bsellRate : '')),
-                    (line.discount != null ? line.discount : (stk.bsellDiscount != null ? stk.bsellDiscount : '')),
-                    (line.totalAmount != null ? line.totalAmount : ''),
-                    "<button id='DII' onclick=UIT(" + line.itemId + ")>Del</button>"
-                ]);
-            }
-        });
-        if (typeof tablesi !== 'undefined' && tablesi) tablesi.draw();
+        (cart.sales || []).forEach(function (line) { data.push(line); });
         var c = cart.customer || {};
         if (typeof onCustomerModeChange === 'function') onCustomerModeChange('manual');
         $('#sellCN').val(c.name || '');
         $('#sellCC').val(c.contact || '');
         $('#sellRec').val('');
         $('#sellCh,#sellDueThis').val('');
+        // TRADE-DISC-1: the basket's trade discount comes back with it (absent on rows parked before this = none).
+        // Set BEFORE the render, so the Change/Due it computes already include it.
+        $('#sellTradeDiscount').val(cart.tradeDiscount != null && Number(cart.tradeDiscount) > 0
+            ? Number(cart.tradeDiscount).toFixed(2) : '');
+        if (typeof renderCart === 'function') renderCart();
     }
     global.rebuildCartFromResumed = rebuildCartFromResumed;
 })(window);

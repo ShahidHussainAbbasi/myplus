@@ -104,7 +104,13 @@
 		return $.trim($('#sellSerials').val() || '') || null;
 	}
 
+	/*
+	 * TRADE-DISC-1: the PAYABLE — goods less the trade discount — because that is what the invoice charges
+	 * (grandTotal), and syncInvoiceFromPlan derives the invoice's paid/due from the bill minus what the plan
+	 * still owes. A plan built on the gross would finance the discount as well.
+	 */
 	function cartTotal() {
+		if (typeof global.sellPayable === 'function') return global.sellPayable();
 		var el = $('#sellTotal')[0];
 		if (!el) return 0;
 		return Number(String(el.innerHTML).replace(/[^0-9.\-]/g, '')) || 0;

@@ -903,6 +903,7 @@
             $('#prodAllowLoose').prop('checked', p.allowLoose === true);
             $('#prodDefaultSellUnit').val(p.defaultSellUnit || 'PACK');
             // U15-C: round-trips like the pack rules — without this an edit would post blank and clear it.
+            $('#prodMadeToOrder').prop('checked', p.madeToOrder === true);
             $('#prodPurchaseUnit').val(p.purchaseUnitName || '');
             $('#prodPurchasePackCount').val(p.purchasePackCount != null ? p.purchasePackCount : '');
             // C6 — per-product tracking policy. Read from the ref so the form shows what the TILLS will
@@ -1036,6 +1037,9 @@
              * longer uses. The pack rules above use "null means not supplied" and cannot be cleared that
              * way — the difference is deliberate and documented in ProductService.
              */
+            // RST: always sent, so an explicit untick clears it. The SERVER uses the pack rules'
+            // "null means not supplied" idiom, so omitting it would leave the old value standing.
+            madeToOrder: $('#prodMadeToOrder').is(':checked'),
             purchaseUnitName: $('#prodPurchaseUnit').val() || '',
             purchasePackCount: s2n($('#prodPurchasePackCount').val()) || null,
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,

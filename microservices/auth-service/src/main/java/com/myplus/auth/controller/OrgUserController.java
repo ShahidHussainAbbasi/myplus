@@ -33,6 +33,20 @@ public class OrgUserController {
     private final AuthService authService;
     private final com.myplus.auth.service.PermissionService permissionService;
     private final JwtService jwtService;
+    private final com.myplus.auth.repository.OrganizationRepository organizationRepo;
+
+    /**
+     * Which permission vocabulary this tenant speaks — see {@code PermissionService.moduleOf}.
+     *
+     * <p>The matrix must be drawn from the tenant's OWN catalogue. Read unfiltered, a school is offered
+     * sale.create, purchase.create and Cashier — codes and sets that mean nothing on its screens and that
+     * would be minted the moment somebody ticked one.
+     */
+    private String callerModule(Long orgId) {
+        return organizationRepo.findById(orgId)
+                .map(o -> com.myplus.auth.service.PermissionService.moduleOf(String.valueOf(o.getType())))
+                .orElse(null);
+    }
     private final com.myplus.auth.service.OrganizationAdminService organizationAdminService;
 
     /**
@@ -99,7 +113,8 @@ public class OrgUserController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> permissions() {
         Long org = com.myplus.common.security.CurrentUser.organizationId();
         Map<String, Object> out = new java.util.LinkedHashMap<>();
-        out.put("catalog", permissionService.catalog().stream().map(p -> {
+        String module = callerModule(org);
+        out.put("catalog", permissionService.catalog(module).stream().map(p -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("code", p.getCode());
             m.put("area", p.getArea());
@@ -108,7 +123,7 @@ public class OrgUserController {
             m.put("implies", p.getImplies());
             return m;
         }).toList());
-        out.put("sets", permissionService.setsFor(org).stream().map(ps -> {
+        out.put("sets", permissionService.setsFor(org, module).stream().map(ps -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id", ps.getId());
             m.put("name", ps.getName());
@@ -132,7 +147,7 @@ public class OrgUserController {
     @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> saveSet(@RequestBody Map<String, Object> body) {
         Long org = com.myplus.common.security.CurrentUser.organizationId();
-        var set = permissionService.save(org, toLong(body.get("id")), str(body.get("name")),
+        var set = permissionService.save(org, callerModule(org), toLong(body.get("id")), str(body.get("name")),
                 str(body.get("description")), str(body.get("scope")), toStringList(body.get("codes")));
         Map<String, Object> m = new java.util.LinkedHashMap<>();
         m.put("id", set.getId());

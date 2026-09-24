@@ -46,6 +46,17 @@ public class ParkedSaleController {
         catch (Exception e) { LOGGER.error("resumeParked proxy error", e); return ProxyErrors.statusError(e); }
     }
 
+    /** PARK-CLAIM-1: resume + remove in one step, so a resumed parked sale can never be completed twice. */
+    @RequestMapping(value = "/claimParked", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> claimParked(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            params.put("id", request.getParameter("id"));
+            return client.postForm("/claimParked", params);
+        } catch (Exception e) { LOGGER.error("claimParked proxy error", e); return ProxyErrors.statusError(e); }
+    }
+
     @RequestMapping(value = "/deleteParked", method = RequestMethod.POST)
     @ResponseBody
     public Map<String, Object> deleteParked(final HttpServletRequest request) {

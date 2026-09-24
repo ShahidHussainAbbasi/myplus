@@ -517,6 +517,9 @@ public class ProductService {
                 .looseUnitPlural(p.getLooseUnitPlural())
                 .allowLoose(Boolean.TRUE.equals(p.getAllowLoose()))
                 .defaultSellUnit(p.getDefaultSellUnit())
+                // RST: the checkout decides whether to reserve from the ref it already holds — never a
+                // second catalog call on the hot path.
+                .madeToOrder(Boolean.TRUE.equals(p.getMadeToOrder()))
                 .build();
     }
 
@@ -538,6 +541,7 @@ public class ProductService {
                 .looseUnitPlural(p.getLooseUnitPlural())
                 .allowLoose(Boolean.TRUE.equals(p.getAllowLoose()))
                 .defaultSellUnit(p.getDefaultSellUnit())
+                .madeToOrder(Boolean.TRUE.equals(p.getMadeToOrder()))
                 // U15-C: read back so the purchase-unit row ROUND-TRIPS on the product form, for the same
                 // reason the pack rules above do.
                 .purchaseUnitName(p.getPurchaseUnitName())
@@ -618,6 +622,14 @@ public class ProductService {
             p.setAllowLoose(dto.getAllowLoose());
         }
         if (dto.getDefaultSellUnit() != null) p.setDefaultSellUnit(dto.getDefaultSellUnit());
+        /*
+         * RST — "null means not supplied", the pack rules' idiom rather than purchaseUnitName's.
+         *
+         * This decides whether a sale reserves stock, so a partial payload must never clear it: an
+         * integration that omits the field would silently turn every made-to-order item back into one the
+         * till refuses to sell. Clearing it is a deliberate false, not an omission.
+         */
+        if (dto.getMadeToOrder() != null) p.setMadeToOrder(dto.getMadeToOrder());
         /*
          * U15-C — ASSIGNED UNCONDITIONALLY, unlike the pack rules above, and that difference is deliberate.
          *

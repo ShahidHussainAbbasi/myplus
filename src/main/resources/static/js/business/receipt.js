@@ -389,7 +389,16 @@
         netTradePrice: { key: 'ui.js.docNetTradePrice', align: 'right',             resolve: function (c) { return money(c.m.netRate); } },
         taxRate:       { key: 'ui.js.docTaxRate',  align: 'right',                  resolve: function (c) { return c.s.taxRate != null ? num(c.s.taxRate) + '%' : ''; } },
         taxAmount:     { key: 'ui.js.docTaxAmount', align: 'right', sum: 'tax',     resolve: function (c) { return money(c.m.tax); } },
-        lineTotal:     { key: 'ui.js.docTotal',    align: 'right', sum: 'total',    resolve: function (c) { return money(c.m.total); } }
+        lineTotal:     { key: 'ui.js.docTotal',    align: 'right', sum: 'total',    resolve: function (c) { return money(c.m.total); } },
+        /*
+         * ONE-DISCOUNT-ROW — the line's AMOUNT, qty × rate, before any discount.
+         *
+         * The till slips print a single Discount row at the foot (line discounts + the trade discount), so the
+         * lines above it must be what the goods cost BEFORE that row, or the slip takes the line discount off
+         * twice: once inside lineTotal and again in the row. Qty × Rate = Amount is also the arithmetic a customer
+         * checks on a slip. lineTotal keeps its meaning for the trade documents that print a Disc column.
+         */
+        lineAmount:    { key: 'ui.js.docTotal',    align: 'right', sum: 'value',    resolve: function (c) { return money(c.m.value); } }
     };
 
     // Summary rows. `strong` renders the emphasised total rule.
@@ -400,7 +409,19 @@
         valueTotal:      { key: 'ui.js.docValueTotal',     resolve: function (c) { return money(c.sums.value); } },
         discountTotal:   { key: 'ui.js.docDiscountTotal',  resolve: function (c) { return money(c.sums.discount); } },
         subTotal:        { key: 'ui.js.docSubtotal',       resolve: function (c) { return c.inv.subTotal != null ? money(c.inv.subTotal) : ''; } },
-        taxTotal:        { key: null, dynamicLabel: function (c) { return c.taxLabel; },
+        /*
+         * ONE-DISCOUNT-ROW (user rule, 2026-09-24): the goods before any discount, and ONE Discount row = every
+         * line discount + the invoice's trade discount, printed only when there is one. INV-000050 showed why:
+         * its slip printed a 72.00 line over "Subtotal 70.00" and nothing saying where the 2.00 went.
+         *   Subtotal (gross) − Discount + Tax + Delivery = TOTAL          (tax-exclusive)
+         *   Subtotal (gross) − Discount + Delivery = TOTAL, tax "incl."    (tax-inclusive: already in the lines)
+         */
+        subTotalGross:   { key: 'ui.js.docSubtotal',       resolve: function (c) { return money(c.sums.value); } },
+        totalDiscount:   { key: 'ui.js.docDiscount',       resolve: function (c) {
+            return c.totalDiscount >= 0.005 ? '-' + money(c.totalDiscount) : ''; } },
+        taxTotal:        { key: null, dynamicLabel: function (c) {
+                               // Tax already inside the prices is information, not a charge added on top.
+                               return c.taxInside ? c.taxLabel + ' (' + t('ui.js.docTaxIncluded') + ')' : c.taxLabel; },
                            resolve: function (c) { return (c.inv.taxTotal != null && num(c.inv.taxTotal) > 0) ? money(c.inv.taxTotal) : ''; } },
         tradeDiscount:   { key: 'ui.js.docTradeDiscount',  resolve: function (c) { return c.inv.tradeDiscount != null ? money(c.inv.tradeDiscount) : ''; } },
         // V39: delivery charged to the customer. Added after tax and already inside grandTotal, so a document
@@ -599,13 +620,16 @@
             // tying a till slip to the person who rang it up.
             header: { titleStyle: 'plain', showLogo: false,
                 columns: [['invoiceNo', 'datedTime', 'customerName', 'bookedBy']] },
+            // ONE-DISCOUNT-ROW: Qty × Rate = Amount on every line, and every discount — per line AND the
+            // invoice's trade discount — in ONE row at the foot, absent when there is none. The per-line Disc
+            // column is gone: its money is in that row, and printing it twice is how a slip stops adding up.
             lines: [
-                col('lineNo', 5, 'left'), col('itemName', 39, 'left'),
+                col('lineNo', 5, 'left'), col('itemName', 52, 'left'),
                 col('quantity', 12, 'right'), col('unitRate', 15, 'right'),
-                col('discount', 13, 'right'), col('lineTotal', 16, 'right')
+                col('lineAmount', 16, 'right')
             ],
-            totals: ['subTotal', 'taxTotal', 'grandTotal', 'paidBy', 'tendered', 'change',
-                'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
+            totals: ['subTotalGross', 'totalDiscount', 'taxTotal', 'shippingFee', 'grandTotal', 'paidBy',
+                'tendered', 'change', 'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
             footer: { text: '', showSignature: false }
         },
 
@@ -676,10 +700,12 @@
                 columns: [['invoiceNo', 'datedTime', 'customerName']] },
             lines: [
                 col('lineNo', 6, 'left'), col('itemName', 40, 'left'), col('batchNo', 12, 'left'),
-                col('quantity', 12, 'right'), col('unitRate', 14, 'right'), col('lineTotal', 16, 'right')
+                col('quantity', 12, 'right'), col('unitRate', 14, 'right'), col('lineAmount', 16, 'right')
             ],
-            totals: ['subTotal', 'taxTotal', 'grandTotal', 'paidBy', 'tendered', 'change',
-                'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
+            // Same foot as the retail slip. This preset had NO discount of any kind, so a discounted line
+            // printed qty × rate ≠ its total with nothing to explain the difference.
+            totals: ['subTotalGross', 'totalDiscount', 'taxTotal', 'shippingFee', 'grandTotal', 'paidBy',
+                'tendered', 'change', 'storeCredit', 'storeCreditBalance', 'due', 'previousBalance', 'currentBalance'],
             footer: { text: '', showSignature: false }
         }
     };
@@ -749,14 +775,45 @@
             sums.discount += m.discount; sums.tax += m.tax; sums.total += m.total;
             return m;
         });
+        /*
+         * TAX INSIDE OR ON TOP — read from THIS invoice's own stored figures, never from today's tenant setting.
+         *
+         * lineMath adds each line's tax on top of its value. Under a tax-INCLUSIVE setting the tax is already
+         * inside the value (TaxService backs it out), so every line — and the in-table total — printed high by
+         * its tax. The receipt payload carries no tax mode, and the tenant's CURRENT mode is the wrong source
+         * anyway: a reprint must show what was charged THEN. The stored grand total settles it: it equals the
+         * goods less discounts plus delivery either with the tax added (exclusive) or without it (inclusive).
+         */
+        var tradeDisc = num(inv.tradeDiscount), shipping = num(inv.shippingFee);
+        var taxInside = false;
+        if (inv.grandTotal != null && sums.tax >= 0.005) {
+            var onTop = sums.value - sums.discount + sums.tax - tradeDisc + shipping;
+            var inside = onTop - sums.tax;
+            taxInside = Math.abs(num(inv.grandTotal) - inside) < 0.01 && Math.abs(num(inv.grandTotal) - onTop) >= 0.01;
+        }
+        if (taxInside) {
+            sums.total = 0;
+            maths.forEach(function (m) { m.total = m.value - m.discount; sums.total += m.total; });
+        }
         var grand = inv.grandTotal != null ? num(inv.grandTotal)
             : (inv.subTotal != null ? num(inv.subTotal) : sums.total);
+        var totalDiscount = Math.round((sums.discount + tradeDisc) * 100) / 100;
+        // A slip that prints Subtotal − Discount (+ Tax) + Delivery must reach the TOTAL it prints. The server's
+        // grandTotal is always what prints; a disagreement is reported, never papered over by a derived total.
+        if ((profile.totals || []).indexOf('subTotalGross') !== -1) {
+            var derived = sums.value - totalDiscount + (taxInside ? 0 : sums.tax) + shipping;
+            if (Math.abs(derived - grand) >= 0.01 && global.console) {
+                global.console.warn('receipt ' + (inv.invoiceNo || '') + ': subtotal - discount + tax + delivery = '
+                    + derived.toFixed(2) + ' but the invoice total is ' + grand.toFixed(2));
+            }
+        }
         var owed = (inv.dueAmount != null && num(inv.dueAmount) < 0) ? -num(inv.dueAmount) : 0;
         var after = inv.balanceAfter != null ? num(inv.balanceAfter) : null;
         var previous = after == null ? null : Math.max(after - owed, 0);
         var ctx = {
             inv: inv, cust: cust, lines: lines, maths: maths, sums: sums,
             grand: grand, owed: owed, previousBalance: previous,
+            taxInside: taxInside, totalDiscount: totalDiscount,
             taxLabel: inv.taxLabel || 'Tax',
             showDrCr: profile.showDrCr === true
         };

@@ -61,6 +61,15 @@ class DocumentFieldWhitelistTest {
     }
 
     @Test
+    @DisplayName("⭐ ONE-DISCOUNT-ROW: the till slips' new fields are accepted, so a shop can lay them out and save")
+    void oneDiscountRowFieldsAreAccepted() {
+        // receipt.js's two 80mm presets bind these; a designer that offers them and a server that refuses them
+        // is the unitRate / "Quote #" drift again.
+        assertThat(whitelist.get("line")).contains("lineAmount");
+        assertThat(whitelist.get("totals")).contains("subTotalGross", "totalDiscount");
+    }
+
+    @Test
     @DisplayName("the three groups are all published, sorted, and none is empty")
     void everyGroupIsPublished() {
         // A group that quietly became empty would make the designer offer nothing for it while the renderer

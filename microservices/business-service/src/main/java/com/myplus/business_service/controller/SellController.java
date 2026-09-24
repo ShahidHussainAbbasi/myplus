@@ -679,6 +679,9 @@ public class SellController {
 			out.setPaidAmount(ch.getPaidAmount());
 			out.setDueAmount(ch.getDueAmount());
 			out.setDueDate(ch.getDueDate());
+			// TRADE-DISC-1: the edit screen must show the invoice's own trade discount. Without it the box kept
+			// the previous sale's value, and saving the edit sent THAT over this invoice's discount.
+			out.setTradeDiscount(ch.getTradeDiscount());
 			if (ch.getCustomer() != null) {
 				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 			}

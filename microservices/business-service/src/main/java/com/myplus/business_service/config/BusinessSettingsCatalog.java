@@ -160,6 +160,23 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                                 + "and can be added with Alt+1 to Alt+9 — for goods with no barcode, "
                                 + "like loose produce, bakery items or services.",
                         false, "Sale entry"),
+                /*
+                 * RST — THE TILE-FIRST COUNTER, for a shop that sells a fixed menu.
+                 *
+                 * Distinct from quick-pick, which is an accelerator layered ON the line-entry form and capped
+                 * at the nine best sellers. A restaurant, café or juice bar never types into that form at all:
+                 * the cashier taps a category, taps an item, and the whole menu has to be reachable — 87
+                 * items across 16 categories for the tenant this was built for.
+                 *
+                 * Fails CLOSED, like every entry around it. A config hiccup must not replace the sale screen
+                 * a shop has trained its staff on.
+                 */
+                SettingEntry.bool("pos.counter.enabled",
+                        "Tile counter for a fixed menu",
+                        "Off (default). On: the sale screen leads with your categories and items as tiles, "
+                                + "for a counter that sells a set menu — food, drinks, services. The typed "
+                                + "line form stays available underneath for anything not on a tile.",
+                        false, "Sale entry"),
                 SettingEntry.intOf("pos.quickpick.count",
                         "How many quick-pick tiles to show",
                         "9 by default, which is what Alt+1 to Alt+9 can reach. More tiles are still "

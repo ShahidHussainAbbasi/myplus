@@ -30,6 +30,8 @@ public class ProductDTO {
     private String looseUnitPlural;
     private Boolean allowLoose;
     private String defaultSellUnit;
+    /** RST — assembled when ordered, so a sale does not reserve stock for it. Default false. */
+    private Boolean madeToOrder;
     /** U15-C — the shop's own word for the multiple it buys in ("peti", "carton"); null = it does not. */
     private String purchaseUnitName;
     /** How many shelf units that multiple usually holds. ⚠ A HINT for the purchase form — never a default. */

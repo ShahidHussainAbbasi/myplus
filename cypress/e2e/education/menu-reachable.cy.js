@@ -22,9 +22,14 @@
  * own painted box, or that the menu can scroll to it — which is what "the operator can click it"
  * actually means.
  *
- * Run:  npx cypress run --spec cypress/e2e/diag/education-register-menu.cy.js --env diag=1
+ * ⚠ THIS RUNS IN THE ORDINARY SUITE. It began life as an opt-in diagnostic under e2e/diag, which was the
+ * wrong home the moment it became a gate: the defect it guards is a layout cap that ANY new menu entry can
+ * re-trigger, and a gate that only runs when somebody remembers `--env diag=1` would not be there when that
+ * happens.
+ *
+ * Run:  npx cypress run --spec cypress/e2e/education/menu-reachable.cy.js
  */
-const run = Cypress.env('diag') ? describe : describe.skip
+const run = describe
 
 const GROUPS = ['snavStudents', 'snavStaff', 'snavAcademics', 'snavSchool']
 

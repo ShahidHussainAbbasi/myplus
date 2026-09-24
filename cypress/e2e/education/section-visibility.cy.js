@@ -80,7 +80,12 @@ ACCOUNTS.forEach(([email, cmd]) => {
       cy.get('#registrationType').should('exist')
       cy.get('.formDiv:visible').should('have.length', 1)
 
-      cy.window().then((w) => w.snavGo('registrationType', 'StudentDiv', 'snavRegister'))
+      // EDU-MENU: the 25-entry Register group was split into four (Students / Staff & HR /
+      // Academics / School) because 12 entries were being clipped unreachably. Manage Students
+      // now lives under snavStudents. snavGo tolerates an unknown group id — it only marks the
+      // button active — so this kept passing against the retired id while naming something that
+      // no longer exists.
+      cy.window().then((w) => w.snavGo('registrationType', 'StudentDiv', 'snavStudents'))
       cy.get('#StudentDiv').should('be.visible')
     })
   })

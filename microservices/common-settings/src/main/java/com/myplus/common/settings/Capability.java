@@ -95,7 +95,34 @@ public enum Capability {
      * state where an offer can be authored but never applied.
      */
     BONUS_SCHEMES("bonusSchemes", "Bonus and free-goods offers",
-            "Buy-and-get offers from suppliers and to customers, with the free goods counted in stock.");
+            "Buy-and-get offers from suppliers and to customers, with the free goods counted in stock."),
+
+    /**
+     * RST — goods ASSEMBLED WHEN ORDERED, which therefore hold no finished stock of their own.
+     *
+     * <h3>The gap this closes, found by a gate</h3>
+     * {@code SagaSellService} builds a {@code StockReservationLine} for EVERY sale line with no exemption, so
+     * the platform cannot sell anything it does not physically hold. That is correct and hard-won for retail.
+     * It is wrong in kind for a kitchen: a restaurant holds buns, fillets and oil, and assembles a burger when
+     * the order lands — it never holds a finished burger. The R1 gate ran expecting to pass and answered
+     * {@code "only 0 sellable, 2 requested"}, which proved the design wrong rather than the product.
+     *
+     * <p>The same is true of every service trade. A salon cannot stock a haircut; a workshop cannot stock a
+     * repair. So this is not restaurant-specific and does not belong behind a restaurant shape.
+     *
+     * <h3>⚠ WHY IT IS NOT A NEGATIVE-STOCK TOGGLE</h3>
+     * {@code BusinessSettingsCatalog} records that a {@code pos.sale.negativeStockAllowed} switch was
+     * deliberately REMOVED, with a warning not to re-add one without building the cross-service oversell path
+     * behind it. A tenant-wide switch would re-open exactly that, and for every product at once — including
+     * the ones the shop genuinely holds, where "only 0 sellable" is the system working.
+     *
+     * <p>So the exemption is decided PER PRODUCT ({@code Product.madeToOrder}) and this capability only
+     * governs whether a tenant may mark products that way at all. A restaurant still stocks cold drinks, and
+     * those keep reserving normally — which is the property the gate asserts.
+     */
+    MADE_TO_ORDER("madeToOrder", "Sell items made to order",
+            "For food, services and repairs — items assembled when ordered, which hold no stock of their own. "
+                    + "Marked per product, so anything you really do stock still checks its stock.");
 
     private final String code;
     private final String label;

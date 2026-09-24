@@ -2738,6 +2738,20 @@ tr.row-voided .js-edit-row{display:none !important}
 				<!-- UI/UX P3 — quick-pick tiles: the shop's best sellers, one keystroke each (Alt+1..9).
 				     For goods with no barcode (loose produce, bakery, services) this is the only route to
 				     scan-path speed. Hidden unless pos.quickpick.enabled; filled by renderQuickPick(). -->
+				<!--
+					RST — THE TILE COUNTER, for a shop that sells a fixed menu (counter.js).
+					Hidden unless pos.counter.enabled, so every existing till is untouched. Distinct from quick-pick
+					below: that shows nine best sellers as an accelerator on the typed form; this leads with the WHOLE
+					menu by category, for a counter where nobody types.
+				-->
+				<div id="counterWrap" class="ctr-wrap" style="display:none">
+					<div class="ctr-head">
+						<span th:text="#{ui.js.counterTitle}">Menu</span>
+						<span id="counterMsg" class="ctr-msg" style="display:none"></span>
+					</div>
+					<div id="counterCats" class="ctr-cats" role="tablist" aria-label="Menu categories"></div>
+					<div id="counterItems" class="ctr-items"></div>
+				</div>
 				<div id="quickPickWrap" class="qp-wrap" style="display:none">
 					<div class="qp-head">
 						<span th:text="#{ui.quickPick}">Quick pick</span>
@@ -2779,6 +2793,19 @@ tr.row-voided .js-edit-row{display:none !important}
 					        </tfoot>
 						</table>
 						</div><!-- /sellCartScroll -->
+						<!-- TRADE-DISC-1: what the customer actually pays once the invoice-level trade discount is
+						     taken off. The cart footer above stays "sum of the Total column"; this line adds the
+						     discount and the payable, and only when there IS a discount, so every other sale looks
+						     exactly as before. Filled by sellRefreshPayable() in business.js. -->
+						<div id="sellPayableRow" hidden style="text-align:right;padding:6px 12px;font-size:14px">
+							<!-- CART-2: EVERY discount on the sale (the Disc column's lines + the trade discount), the same
+							     one figure the receipt's Discount row prints. -->
+							<span th:text="#{ui.js.docDiscount}">Discount</span>
+							<span id="sellDiscountShown"></span>
+							&nbsp;&middot;&nbsp;
+							<b th:text="#{ui.js.payable}">Payable</b>
+							<b id="sellPayable"></b>
+						</div>
 						<!-- Select mode: pick from existing customers -->
 
 						<!-- INST-1 — selling on installment. HIDDEN unless the tenant turned on
@@ -3839,6 +3866,26 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 
 					<!--
+						RST — MADE TO ORDER. Assembled when ordered, so the sale does not reserve stock for it.
+
+						Per product and capability-gated: a shop that stocks what it sells never sees the box, and a
+						restaurant's cold drinks stay unticked so they keep checking their stock. This is deliberately
+						NOT a tenant-wide switch — see Capability.MADE_TO_ORDER for why that would re-open the
+						negative-stock path this platform removed on purpose.
+					-->
+					<div class="form-group" data-capability="madeToOrder">
+						<label class="control-label col-sm-2" th:text="#{ui.js.madeToOrder}">Made to order</label>
+						<div class="col-sm-10">
+							<div class="checkbox" style="margin-top:0">
+								<label>
+									<input type="checkbox" id="prodMadeToOrder">
+									<span th:text="#{ui.js.madeToOrderHelp}">Assembled when ordered — do not check stock</span>
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<!--
 						U15-C — WHAT THE SHOP CALLS THE MULTIPLE IT BUYS IN.
 
 						The purchase screen offered "Pack | Box" where Pack meant the shop's own box and Box
@@ -4689,6 +4736,7 @@ tr.row-voided .js-edit-row{display:none !important}
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->
     <script th:src="@{/js/business/pos-keyboard.js}"></script>
     <script th:src="@{/js/business/loose-sell.js}"></script>
+    <script th:src="@{/js/business/counter.js}"></script>
     <!-- SER-4: shows what the register knows about the unit being sold — its condition, or that it is not on
          the shelf. Its own file for the same reason loose-sell.js is: a distinct surface with distinct rules.
          Inert for a tenant without serial tracking, since the input it binds to is not rendered. -->

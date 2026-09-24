@@ -43,4 +43,19 @@ public class Permission {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    /**
+     * Which module this code belongs to: {@code BUSINESS}, {@code EDUCATION}, or {@code COMMON}.
+     *
+     * <p>⚠ The catalogue is read by MODULE, never wholesale. {@code code} is the primary key, so a code
+     * exists once for the whole platform — and without this column a school's matrix would offer
+     * {@code sale.create} and an education owner would be MINTED it, which is the V12 failure
+     * (a ROLE_GUARDIAN holding sale.create) arriving by a different road.
+     *
+     * <p>{@code COMMON} is for codes that mean the same thing everywhere — report.*, settings.*, team.*.
+     * Duplicating those per module would give one concept two authority strings, and the two would
+     * eventually disagree about the same question.
+     */
+    @Column(name = "module", nullable = false, length = 16)
+    private String module;
 }

@@ -212,7 +212,9 @@ public class SagaSellService {
         // SF-1/SF-2: the ONE authoritative line build (catalog price + sold rate + discount + tax + catalog
         // snapshot), shared with updateSell so add and edit produce identical lines.
         java.util.Map<Long, String> productNames = new java.util.HashMap<>();   // for a friendly out-of-stock message
-        List<SagaLine> lines = buildLines(dto, productNames, looseLocks);
+        // RST: which lines are made to order, filled by buildLines from the refs it already fetched.
+        java.util.Set<Long> madeToOrder = new java.util.HashSet<>();
+        List<SagaLine> lines = buildLines(dto, productNames, madeToOrder, looseLocks);
 
         // B2B-P0 (#3): whole-invoice margin policy, checked BEFORE anything is reserved or written — a sale
         // refused here has touched no stock and no ledger. The per-line warning on the sell screen cannot do
@@ -237,14 +239,47 @@ public class SagaSellService {
          */
         List<StockReservationLine> reservationLines = new ArrayList<>();
         for (SagaLine l : lines) {
+            /*
+             * ⚠ RST — A MADE-TO-ORDER LINE RESERVES NOTHING, because there is nothing to reserve.
+             *
+             * A restaurant holds buns, fillets and oil; it never holds a finished burger. A salon holds no
+             * haircuts. Reserving a finished good the shop does not keep refuses every sale with
+             * "only 0 sellable", which is what the R1 gate found and what this exemption exists for.
+             *
+             * ⚠ PER PRODUCT, NEVER PER TENANT. `pos.sale.negativeStockAllowed` was deliberately removed from
+             * BusinessSettingsCatalog with a warning not to re-add it without the cross-service oversell
+             * path. A tenant-wide switch would re-open exactly that for EVERY product — including the ones
+             * the shop really holds, where "only 0 sellable" is the system working. A restaurant's cold
+             * drinks are stocked and keep reserving normally; only the flagged item skips.
+             *
+             * ⚠ COGS FOLLOWS. No reservation means no picks, so SaleCosting falls back to the line's cost
+             * snapshot rather than batches. That is correct here — there were no batches — and it is exactly
+             * the path COGS-2 made safe per product instead of per invoice.
+             */
+            if (madeToOrder.contains(l.productId())) continue;
             BigDecimal issued = BigDecimal.valueOf(l.quantity())
                     .add(BigDecimal.valueOf(l.bonusQuantity() != null ? l.bonusQuantity() : 0f));
             reservationLines.add(new StockReservationLine(l.productId(), issued));
         }
 
-        // 3: reserve (FEFO). OUT_OF_STOCK -> reject the sale (nothing held, nothing written).
-        StockReservationResponse reservation =
-                inventoryClient.reserve(new StockReservationRequest(idempotencyKey, reservationLines));
+        /*
+         * 3: reserve (FEFO). OUT_OF_STOCK -> reject the sale (nothing held, nothing written).
+         *
+         * ⚠ RST — AN ALL-MADE-TO-ORDER SALE RESERVES NOTHING, and must not ask inventory to.
+         *
+         * A counter selling only food has an empty reservation list. Sending an empty request would make the
+         * sale depend on how the allocator answers a question with no lines in it — an answer nothing in this
+         * contract promises, and one that would differ between "held nothing because there was nothing to
+         * hold" and "held nothing because it failed". Both would arrive here as the same object.
+         *
+         * So the call is skipped and the outcome stated locally: reserved, no batches, nothing to release.
+         * The reservation id carries a `-mto` suffix so a hold that never existed is recognisable in a log
+         * rather than looking like a lost one, and `confirm`/`release` downstream have no picks to act on.
+         */
+        StockReservationResponse reservation = reservationLines.isEmpty()
+                ? new StockReservationResponse(idempotencyKey + "-mto", ReservationStatus.RESERVED,
+                        java.util.List.of(), null, null)
+                : inventoryClient.reserve(new StockReservationRequest(idempotencyKey, reservationLines));
 
         /*
          * #17 P3 (D11) — SHORT STOCK REDUCES THE BONUS. IT NEVER BLOCKS THE PAID LINE.
@@ -761,11 +796,12 @@ public class SagaSellService {
     }
 
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames) {
-        return buildLines(dto, productNames, java.util.Map.of());
+        return buildLines(dto, productNames, null, java.util.Map.of());
     }
 
     /** U14 — {@link #buildLines(CustomerHistoryDTO, java.util.Map)} with per-line loose price locks (by line index). */
     public List<SagaLine> buildLines(CustomerHistoryDTO dto, java.util.Map<Long, String> productNames,
+                                     java.util.Set<Long> madeToOrderOut,
                                      java.util.Map<Integer, LoosePriceLock> looseLocks) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         Long orgId = user.getOrganizationId();
@@ -823,6 +859,16 @@ public class SagaSellService {
                         + " prescription first.");
             }
             if (productNames != null) productNames.put(productId, pName);
+            /*
+             * RST — this item is ASSEMBLED WHEN ORDERED, so it holds no finished stock and must not reserve.
+             *
+             * Collected here rather than widened onto SagaLine: that record carries an explicit warning that
+             * every component is spelled out positionally in MarginPolicyTest's helper, and adding one has
+             * broken the unit suite four times. An out-parameter is the pattern `productNames` beside it
+             * already uses, and the flag rides on the ref this loop has in hand — no extra catalog call.
+             */
+            if (madeToOrderOut != null && product != null && Boolean.TRUE.equals(product.getMadeToOrder()))
+                madeToOrderOut.add(productId);
             // B2B-P2: a resolved contract/tier price REPLACES the catalog price for this line — it is the
             // price this customer is entitled to, so discount, tax and the margin/credit guards all work off
             // it exactly as they work off the catalog price for a walk-in.

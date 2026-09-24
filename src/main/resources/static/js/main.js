@@ -569,6 +569,13 @@ $(document).ready(function() {
 					var tradeDisc = $("#sellTradeDiscount").val();
 					if (tradeDisc != null && tradeDisc !== '' && Number(tradeDisc) > 0) {
 						customerHistory.tradeDiscount = Number(tradeDisc);
+					} else if (window.editingInvoice && window.editingInvoice.chId
+							&& !$('[data-pos-field="tradeDiscount"]').hasClass('pos-hidden')) {
+						// TRADE-DISC-1: on an EDIT, an emptied box means "remove the discount". The server keeps
+						// the stored discount whenever the field is absent, so blank has to travel as an explicit 0
+						// or it can never be taken off. Only when the tenant can SEE the field: a till with it
+						// switched off must never wipe a discount it cannot display.
+						customerHistory.tradeDiscount = 0;
 					}
 					// B1 (pharmacy): declare the prescription this sale dispenses. Its presence is what lets a
 					// prescription-only medicine through the server-side sell guard; the post-sale dispense call
@@ -647,8 +654,10 @@ $(document).ready(function() {
 						if (window.posConfirmOnComplete === true && typeof uiConfirm === 'function') {
 							uiConfirm({
 								title: t ? t('ui.js.completeSaleTitle') : 'Complete this sale?',
+								// TRADE-DISC-1: the amount the customer PAYS, not the gross cart footer.
 								message: (t ? t('ui.js.completeSaleAmount') : 'Total') + ' ' +
-									($('#sellTotal').text() || '').trim(),
+									(typeof sellPayable === 'function' ? sellPayable().toFixed(2)
+										: ($('#sellTotal').text() || '').trim()),
 								/*
 								 * ⚠ ui.js.* — NOT ui.*. LocaleInterceptor ships only the `ui.js.` prefix to
 								 * the browser, and t() returns the KEY when it is missing, so these three

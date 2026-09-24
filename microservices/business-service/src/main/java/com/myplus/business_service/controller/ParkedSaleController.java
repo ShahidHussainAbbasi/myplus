@@ -65,6 +65,24 @@ public class ParkedSaleController {
         }
     }
 
+    /**
+     * PARK-CLAIM-1 — resume AND remove in one step (see {@link ParkedSaleService#claim}). No privilege beyond
+     * login, like /parkSale: a cashier takes back what that cashier parked, and the query is scoped to their rows.
+     * Discarding a basket (/deleteParked) keeps its DELETE_PRIVILEGE — throwing one away is still an admin act.
+     */
+    @RequestMapping(value = "/claimParked", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse claimParked(@RequestParam("id") Long id) {
+        try {
+            return new GenericResponse("SUCCESS", null, parkedSaleService.claim(id, orgId(), userId()));
+        } catch (com.myplus.common.web.exception.ResourceNotFoundException e) {
+            return new GenericResponse("NOT_FOUND", "This parked sale was already resumed or discarded.");
+        } catch (Exception e) {
+            LOGGER.error(getClass().getName() + " > claimParked " + e.getMessage(), e);
+            return new GenericResponse("ERROR", "Could not resume the parked sale. It is still parked.");
+        }
+    }
+
     @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @RequestMapping(value = "/deleteParked", method = RequestMethod.POST)
     @ResponseBody

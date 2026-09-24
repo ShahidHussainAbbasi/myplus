@@ -50,6 +50,14 @@ public class ProductRef {
     /** {@code PACK} or {@code LOOSE} — which unit a line starts in. */
     private String defaultSellUnit;
 
+    /**
+     * RST — assembled when ordered; holds no finished stock, so the sale path must NOT reserve it.
+     *
+     * <p>Carried on the ref the sale already fetches, for the same reason the pack rules are: the checkout
+     * must not make a second catalog call to learn it. Null/false on every product until a shop marks one.
+     */
+    private Boolean madeToOrder;
+
     private Boolean rxRequired;
     private Boolean controlledSubstance;
 

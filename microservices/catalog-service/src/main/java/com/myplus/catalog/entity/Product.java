@@ -95,6 +95,22 @@ public class Product {
     private String defaultSellUnit = "PACK";
 
     /**
+     * RST — this item is ASSEMBLED WHEN ORDERED and holds no finished stock, so a sale does not reserve it.
+     *
+     * <p>A restaurant holds buns and fillets, never a finished burger. A salon holds no haircuts. Selling one
+     * must therefore skip the stock reservation that every other line goes through — see
+     * {@link com.myplus.common.settings.Capability#MADE_TO_ORDER} for why this is a per-PRODUCT decision and
+     * never a tenant-wide negative-stock switch.
+     *
+     * <p>⚠ FALSE for every existing row and every new product by default. The exemption is opt-in per item, so
+     * a shop that stocks what it sells is completely unaffected — and a restaurant's cold drinks, which it
+     * really does hold, keep checking their stock.
+     */
+    @Builder.Default
+    @Column(name = "made_to_order", nullable = false)
+    private Boolean madeToOrder = Boolean.FALSE;
+
+    /**
      * U15-C — what the SHOP calls the multiple it buys in: "peti", "carton", "case", "dozen".
      *
      * <p>The purchase screen offered a Pack | Box toggle in which "Pack" meant the shop's own box and "Box"

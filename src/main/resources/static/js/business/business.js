@@ -1,6 +1,6 @@
 var data=[]; // use a global for the submit and return data rendering in the examples
 var tablesi;
-var removed = false;
+// (CART-1: the `removed` flag is gone — UIT() removes a line from data[] and redraws; see renderCart.)
 var tableSellReport;
 
 
@@ -119,12 +119,14 @@ $(document).ready(function() {
  	    "footerCallback": function ( row, data, start, end, display ) {
  	        var api = this.api(), data;
  	
- 	        // Remove the formatting to get integer data for summation
+ 	        // Remove the formatting to get integer data for summation. The LEADING number only: a cell reads
+ 	        // "10 tablets" (U4) or "10 (Amt)" (SF-9), and `"10 tablets"*1` is NaN — which printed "NaN" in the
+ 	        // footer the moment one such line was in the cart.
  	        var intVal = function ( i ) {
- 	            return typeof i === 'string' ?
- 	                i.replace(/[\$,]/g, '')*1 :
- 	                typeof i === 'number' ?
- 	                    i : 0;
+ 	            if (typeof i === 'number') return i;
+ 	            if (typeof i !== 'string') return 0;
+ 	            var n = parseFloat(i.replace(/[\$,]/g, ''));
+ 	            return isNaN(n) ? 0 : n;
  	        };
  	
  	        // quantity Total over all pages
@@ -141,12 +143,10 @@ $(document).ready(function() {
  	        // Update footer
  	        $( api.column(3).footer() ).html(total);
 
- 	        // discount Total over all pages
-  	       total = api.column(4).data().reduce( function (a, b) {
-  	                	return intVal(a) + intVal(b);
-  	            	}, 0 );
-  	        // Update footer
-  	        $( api.column(4).footer() ).html(total);
+ 	        // CART-2: the Disc column's footer is the MONEY taken off the lines. Its cells are labels ("10%",
+ 	        // "10 (Amt)") and a percent is not an amount, so summing the cell text was never money — it was NaN.
+ 	        // Computed from the cart itself (window.data: `data` in this callback is DataTables' row data).
+  	        $( api.column(4).footer() ).html(sellLineDiscountTotal().toFixed(2));
 
  	        // totals Total over all pages
    	       total = api.column(5).data().reduce( function (a, b) {
@@ -154,6 +154,8 @@ $(document).ready(function() {
    	            	}, 0 );
    	        // Update footer
    	        $( api.column(5).footer() ).html(total);
+   	        // TRADE-DISC-1: the payable line under the cart follows every redraw, including a deleted line.
+   	        if (typeof sellRefreshPayable === 'function') sellRefreshPayable();
 
  	        
  	    }    
@@ -161,16 +163,14 @@ $(document).ready(function() {
     
     tablesi.columns( [0] ).visible( false );
     
+    // Row click only SELECTS now. Removing a line is UIT()'s job alone (CART-1): it used to happen here, gated on
+    // a global flag, which is how the grid and data[] came to disagree.
     $('#tablesi tbody').on( 'click', 'tr', function () {
         if ( $(this).hasClass('selected') ) {
             $(this).removeClass('selected');
         }else {
         	tablesi.$('tr.selected').removeClass('selected');
             $(this).addClass('selected');
-            if(removed)
-            	tablesi.row(this).remove().draw( false );
-            
-            removed = false;
         }
     } );
  
@@ -223,56 +223,28 @@ $(document).ready(function() {
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
-        	// (cart insert handled below: append, or replace-in-place when editing)
-			/*
-			 * U15-A2 — the PRICE column on a loose line.
-			 *
-			 * U4 made the QTY column read "10 tablets"; this column went on showing `stock.bsellRate`, the
-			 * PACK price. So the row said 10 tablets · 311.60 · 77.90 — arithmetic that does not work, on the
-			 * screen the customer is watching. The per-piece rate is already on the line (`soldRate`, set by
-			 * LooseSell.decorate); looseDisplay is the formatter that reads it.
-			 *
-			 * An ordinary line keeps the RAW form value, not a reformatted number: looseDisplay returns a
-			 * Number, and "311.60" rendered as 311.6 would change every pack row in every tenant's cart.
-			 */
-			var rateCell = obj.stock.bsellRate;
-			var looseCell = (typeof looseDisplay === 'function') ? looseDisplay(obj) : null;
-			if (looseCell && looseCell.isLoose) rateCell = Number(looseCell.rate).toFixed(2);
-			var arr = [
-				// SF-9: show the discount WITH its type so "10" is unambiguous — "10%" (percent) vs "10 (Amt)" (fixed).
-				// U4: "5 tablets" on a loose line, obj.quantity on every other. Before this, the manual add
-				// showed 0.5 while a `5L*CODE` scan of the SAME product showed 5 — two unlabelled numbers
-				// for one sale, on the screen a cashier watches while ringing up.
-				obj.productId,obj.itemName,looseQtyText(obj),rateCell,
-				(obj.stock && obj.stock.bsellDiscount ? (Number(obj.stock.bsellDiscount) + ((obj.stock.bsellDiscountType==='1'||obj.stock.bsellDiscountType==='%') ? '%' : ' (Amt)')) : (obj.stock ? obj.stock.bsellDiscount : '')),
-				($("#sellrm").val()),"<button id='DII' onclick=UIT("+obj.productId+")>Del</button>"
-				];
-			tablesi.row.add(arr).draw();
+        	// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in place (no
+			// duplicate). A brand-new item is still appended. New-sale mode always appends.
+			var existingIdx = window.editingInvoice
+				? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
+				: -1;
+			if (existingIdx >= 0) {
+				// The item is locked in edit mode, so carry the original line's stock identity onto the edited line.
+				// updateSell keys stock by stockId — the sell form never sets it, so without this the line would save
+				// with NULL stock and drop out of the report.
+				var prevStock = data[existingIdx].stock || {};
+				if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
+				if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
+				data[existingIdx] = obj;
+			} else {
+				data.push(obj);
+			}
+			// CART-1: the grid is drawn from data[] (sellCartRow keeps the U15-A2 loose rate, the SF-9 discount label and
+			// the counter's +/- in the ACTION cell). Replacing a line in edit mode used to APPEND a second row.
+			renderCart();
 			// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
 			// only when the customer or the product SET differs from what it last asked.
 			if (typeof LastRate !== 'undefined') LastRate.refresh();
-			// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in
-				// place (no duplicate). A brand-new item is still appended. New-sale mode always appends.
-				var existingIdx = window.editingInvoice
-					? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
-					: -1;
-				if (existingIdx >= 0) {
-					// The item is locked in edit mode, so carry the original line's stock identity onto the
-						// edited line. updateSell keys stock by stockId — the sell form never sets it, so without
-						// this the line would save with NULL stock and drop out of the report.
-						var prevStock = data[existingIdx].stock || {};
-						if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
-						if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
-						data[existingIdx] = obj;
-					// tablesi.rows().every(function(){
-					// 	// if (String(this.data()[0]) === String(obj.itemId)) { this.data(arr); }
-					// 	this.data(arr);
-					// });
-					// tablesi.draw(false);
-				} else {
-					data.push(obj);
-					// tablesi.row.add(arr).draw();
-				}
 			// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
 			if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
 			resetForm();
@@ -287,14 +259,84 @@ $(document).ready(function() {
     });
 } );
 
-function UIT(id){
-	// M4e.1b (slice 98): cart lines key by productId now.
-	data.forEach(function(d,i){
-		if(id==d.productId){
-			removed = true;
-			data.splice(i,1);
-		}
-	});
+/*
+ * CART-1 — THE CART GRID IS DRAWN FROM data[], THE CART THAT IS SUBMITTED. Nothing else writes its rows.
+ *
+ * Every path used to patch the grid its own way, and they drifted from data[]:
+ *   - Del spliced data[] but left the ROW — removal hung off a separate row-click handler, gated on a global
+ *     `removed` flag and skipped when the row was already selected. The footer, the payable, Change and Due
+ *     then all counted a line that would never be sold. counter.js's "−" to zero called UIT with no click at
+ *     all, so its row was never removed, and the leaked flag deleted the NEXT row the cashier clicked.
+ *   - an invoice opened for edit put its lines in data[] and drew NO rows, so the edit screen's totals
+ *     described an empty cart; "Update Item" then APPENDED a row for a line it had replaced in data[].
+ *   - the scan path drew rows without the counter's +/- buttons, so tiles added lines that could not be stepped.
+ * One row builder, one renderer: whatever changes data[] calls renderCart(), and the grid cannot disagree.
+ */
+/**
+ * CART-2 — the MONEY a line's discount takes off: the server's resolveDiscount rule ("1"/"%" = percent of the
+ * line's gross, anything else an amount), clamped so a line never goes negative. ONE definition for the row's
+ * Total, the Disc column's footer and the Discount on the payable line.
+ */
+function sellLineDiscount(line){
+	var st = (line && line.stock) || {};
+	var dv = Number(st.bsellDiscount) || 0;
+	if (dv <= 0) return 0;
+	var gross = Number(line.totalAmount) || 0;
+	var pct = (st.bsellDiscountType === '1' || st.bsellDiscountType === '%');
+	var disc = pct ? gross * dv / 100 : dv;
+	if (disc > gross) disc = gross;
+	return Math.round(disc * 100) / 100;
+}
+function sellLineDiscountTotal(){
+	var sum = 0;
+	(window.data || []).forEach(function(l){ sum += sellLineDiscount(l); });
+	return Math.round(sum * 100) / 100;
+}
+
+function sellCartRow(line, idx){
+	var st = line.stock || {};
+	// Rate: the per-piece rate on a loose line (U15-A2); the RAW value otherwise, so "311.60" stays "311.60".
+	var ld = (typeof looseDisplay === 'function') ? looseDisplay(line) : null;
+	var rate = (ld && ld.isLoose) ? Number(ld.rate).toFixed(2)
+		: (st.bsellRate != null && st.bsellRate !== '' ? st.bsellRate : (line.sellRate != null ? line.sellRate : ''));
+	// SF-9: a discount carries its type — "10%" vs "10 (Amt)".
+	var dv = Number(st.bsellDiscount) || 0;
+	var pct = (st.bsellDiscountType === '1' || st.bsellDiscountType === '%');
+	var discCell = dv > 0 ? (dv + (pct ? '%' : ' (Amt)')) : '';
+	// What the line adds to the bill: its gross less its discount.
+	var gross = Number(line.totalAmount) || 0;
+	var receivable = (Math.round((gross - sellLineDiscount(line)) * 100) / 100).toFixed(2);
+	var pid = line.productId;
+	var action = ((window.Counter && Counter.isEnabled())
+			? "<span class='ctr-qty'><button type=button class='ctr-step' data-d='-1' data-pid='" + pid
+				+ "' aria-label='One fewer'>&minus;</button><button type=button class='ctr-step' data-d='1' data-pid='"
+				+ pid + "' aria-label='One more'>+</button></span> "
+			: "")
+		+ "<button id='DII' onclick='UIT(" + JSON.stringify(String(pid)) + "," + idx + ")'>Del</button>";
+	return [pid, escHtml(line.itemName || ''), looseQtyText(line), rate, discCell, receivable, action];
+}
+function renderCart(){
+	if (typeof tablesi === 'undefined' || !tablesi) return;
+	tablesi.clear();
+	data.forEach(function(line, i){ tablesi.row.add(sellCartRow(line, i)); });
+	tablesi.draw(false);             // footerCallback → #sellTotal + the payable line
+	if (typeof CIT === 'function') CIT(data);
+	calculateChange();               // Change and Due follow every cart change
+}
+
+/**
+ * Remove ONE cart line. `idx` is the row the Del button was drawn for; without it the first line for the product
+ * goes. Two lines of the same product are two lines: matching on productId alone removed the FIRST from data[]
+ * while the grid removed the CLICKED row, so Del on the second line left the screen and the submitted cart
+ * holding different lines (verified by cart-grid-sync.cy.js case 2 against the old code).
+ */
+function UIT(id, idx){
+	var at = (idx != null && data[idx] && String(data[idx].productId) === String(id)) ? idx
+		: data.findIndex(function(d){ return String(d.productId) === String(id); });
+	if (at < 0) return;
+	data.splice(at, 1);
+	renderCart();
+	if (typeof LastRate !== 'undefined') LastRate.refresh();
 }
 
 // â”€â”€â”€ Barcode-first sell: scan a barcode/SKU â†’ resolve â†’ add a cart line â”€â”€â”€â”€â”€â”€â”€â”€
@@ -525,16 +567,8 @@ function scanAddToCart(ref, qty, unit, li){
 		}
 		ex.totalAmount = mUp.total;
 		ex.netAmount = mUp.profit;
-		tablesi.rows().every(function(){
-			var row = this.data();
-			if(String(row[0]) === String(pid)){
-				row[2] = looseQtyText(ex);   // "10 tablets" on a loose line, the plain number otherwise
-				if(exLoose) row[3] = Number(ex.soldRate).toFixed(2);
-				row[5] = mUp.receivable;     // the footer sums THIS column — a blank here reads as zero
-				this.data(row);
-			}
-		});
-		tablesi.draw(false);
+		// CART-1: redraw from data[] — "10 tablets", the per-piece rate and the Total column come from the line.
+		renderCart();
 	} else {
 		// New line — mirror the shape a manual "Add to Cart" pushes (data[] is submitted as `sales`).
 		var m = lineMath(n);
@@ -589,9 +623,9 @@ function scanAddToCart(ref, qty, unit, li){
 			scanRate = Number(lq.perPiece).toFixed(2);
 		}
 		data.push(obj);
-		// U4: the same formatter as the manual path, so the two can no longer disagree.
-		tablesi.row.add([pid, name, looseQtyText(obj), scanRate, '', m.receivable,
-			"<button id='DII' onclick=UIT(" + pid + ")>Del</button>"]).draw();
+		// CART-1 (was U4's hand-built row): the SAME row builder as the manual path, so the two cannot disagree —
+		// and the name is now escaped (it went into the grid raw), and a tile-counter line gets its +/- buttons.
+		renderCart();
 	}
 	// A scanned line must be priced for the buyer exactly like a manually added one.
 	requoteSellCart();
@@ -615,12 +649,24 @@ function loadSellForEdit(sellId){
 		var inv = resp.object;
 		// 1) clear the current cart
 		data.length = 0;
-		if(tablesi){ tablesi.clear(); }
 		// 2) rebuild the cart from the invoice's line items
 		(inv.sales || []).forEach(function(line){
 			var stk = line.stock || {};
 			stk.itemId = line.itemId;
 			stk.itemName = line.itemName;
+			if (stk.bsellRate == null && line.sellRate != null) stk.bsellRate = line.sellRate;
+			/*
+			 * CART-1 — carry the line's DISCOUNT where the server reads it.
+			 *
+			 * updateSell re-prices every line through resolveDiscount(), which reads stock.bsellDiscount — not
+			 * line.discount. The stored discount is the RESOLVED amount (a 10% line holds 10.00), so it rides
+			 * back as a flat amount ('0'), which reproduces it exactly whatever type was chosen at the counter.
+			 * Without this an edit of ONE line re-priced every other discounted line at full price.
+			 */
+			if ((stk.bsellDiscount == null || stk.bsellDiscount === '') && Number(line.discount) > 0) {
+				stk.bsellDiscount = Number(line.discount);
+				stk.bsellDiscountType = '0';
+			}
 			var item = {
 				sellId: line.sellId,            // original line — lets updateSell revert the right stock
 				quantity: line.quantity,
@@ -633,17 +679,21 @@ function loadSellForEdit(sellId){
 				discount: line.discount,
 				dt: line.dt,
 				srp: line.srp,
+				// CART-1: a loose line stays loose ("6 tablets", its per-piece rate and pack size) and a bonus
+				// stays given. Dropped here, an untouched loose line was saved back as a bare pack fraction.
+				soldUnit: line.soldUnit,
+				soldQuantity: line.soldQuantity,
+				soldRate: line.soldRate,
+				packSizeSnapshot: line.packSizeSnapshot,
+				bonusQuantity: line.bonusQuantity,
 				stock: stk
 			};
 			data.push(item);
-			$("#sellRec").val('');
-			// tablesi.row.add([
-			// 	item.itemId, escHtml(item.itemName || ''), item.quantity,
-			// 	stk.bsellRate, stk.bsellDiscount, item.totalAmount,
-			// 	"<button id='DII' onclick=UIT(" + item.itemId + ")>Del</button>"
-			// ]);
 		});
-		// if(tablesi){ tablesi.draw(); }
+		$("#sellRec").val('');
+		// CART-1: DRAW the invoice's lines. They went into data[] and never onto the grid, so the edit screen's
+		// footer, payable, Change and Due all described an empty cart while the whole invoice was being saved.
+		renderCart();
 		// 3) LOCK the customer — in edit mode you change quantities/payment, not WHO the customer is.
 		//    If the invoice's customer is in the dropdown, show Select mode with it chosen + disabled;
 		//    otherwise show Manual mode. Either way the name field is filled (the save reads it) and the
@@ -658,6 +708,11 @@ function loadSellForEdit(sellId){
 		$("#sellCC").val(inv.customer ? (inv.customer.contact || '') : '');
 		// SF-1/SF-2: show what was already paid on this invoice; "Amount Received" now means ADDITIONAL payment
 		// (the server keeps the prior payment and adds the new tender). Received stays empty by default.
+		// TRADE-DISC-1: show the invoice's OWN trade discount. Before, the box kept whatever the last sale left
+		// in it, and the save sent that — overwriting this invoice's discount with another customer's.
+		$("#sellTradeDiscount").val(inv.tradeDiscount != null && Number(inv.tradeDiscount) > 0
+			? Number(inv.tradeDiscount).toFixed(2) : '');
+		sellRefreshPayable();
 		window.editingPaid = Number(inv.paidAmount != null ? inv.paidAmount : 0);
 		$("#sellPaidSoFar").val(window.editingPaid.toFixed(2));
 		$("#sellPaidSoFarWrap").show();
@@ -679,6 +734,9 @@ function loadSellForEdit(sellId){
 		// 5) bring the form into view
 		try { $('html, body').animate({ scrollTop: $('#sellDiv').offset().top }, 300); } catch(e){}
 		updateReadOnly(true);
+		// CART-1: now that the edit state (already-paid, the invoice's trade discount) is set, show the real
+		// Change/Due for the invoice as loaded.
+		calculateChange();
 	}).fail(function(){
 		showFormError("Could not load this sale for editing.");
 	});
@@ -776,6 +834,8 @@ function cancelSellEdit(){
 	data.length = 0;
 	if(tablesi){ tablesi.clear().draw(); }
 	$("#sellCN,#sellCC,#sellRec").val('');
+	$("#sellTradeDiscount").val('');   // TRADE-DISC-1: the edited invoice's discount must not leak into the next sale
+	sellRefreshPayable();
 	if(typeof resetForm === 'function') resetForm();
 	exitSellEditMode();
 	updateReadOnly(false);
@@ -1844,6 +1904,10 @@ function resetCart(){
 	data = [];
 	tablesi.clear().draw();
 	$("#sellRec,#sellCh,#sellDueThis,#sellPrevDue,#sellNewTotalDue").val('');
+	// TRADE-DISC-1: the discount belongs to the sale that just finished (or was parked). Left in the box it was
+	// silently granted to the NEXT customer too, because main.js sends whatever the field holds.
+	$("#sellTradeDiscount").val('');
+	sellRefreshPayable();
 	window.selectedCustomerDue = null;
 	$("#sellAccountRow").hide();
 	onCustomerModeChange('select');
@@ -2569,38 +2633,22 @@ function requoteSellCart(){
 			changed++;
 		});
 		if(!changed) return;
-		tablesi.rows().every(function(){
-			var row = this.data();
-			var d = data.filter(function(x){ return String(x.productId) === String(row[0]); })[0];
-			if(!d) return;
-			var rm = sellLineMath(d.sellRate, d.quantity, 0,
-				(d.stock && d.stock.bsellDiscount) || 0, (d.stock && d.stock.bsellDiscountType) || '0');
+		data.forEach(function(d){
 			/*
-			 * U15-A2 — the THIRD place this column is written, and it must not put the pack price back.
-			 *
-			 * A contract price re-quotes the PACK rate, and `d.quantity` on a loose line is packs — so the
-			 * row would read "10 tablets · 311.60" again the moment a customer was chosen, undoing the fix
-			 * on both add paths.
-			 *
-			 * The per-piece figure is derived as total ÷ pieces: a DIVISION of numbers already computed,
-			 * not a second copy of the ceiling rule (which stays in SagaSellService.looseLine). It keeps the
-			 * row internally consistent — qty × rate = total — which is what the customer reads.
-			 *
-			 * ⚠ Still ADVISORY on a contract price, exactly as /looseInfo's javadoc says: the server
-			 * re-derives the loose rate from the contract rate at submit, and that answer wins.
+			 * U15-A2 — a contract price re-quotes the PACK rate, and `d.quantity` on a loose line is packs, so the
+			 * per-piece rate the row shows must be re-derived or it reads "10 tablets · 311.60" again. Derived as
+			 * total ÷ pieces — a DIVISION of numbers already computed, not a second copy of the ceiling rule (which
+			 * stays in SagaSellService.looseLine). ⚠ Still ADVISORY on a contract price: the server re-derives the
+			 * loose rate at submit, and that answer wins.
 			 */
 			var rd = (typeof looseDisplay === 'function') ? looseDisplay(d) : null;
 			if(rd && rd.isLoose && Number(d.soldQuantity) > 0){
+				var rm = sellLineMath(d.sellRate, d.quantity, 0,
+					(d.stock && d.stock.bsellDiscount) || 0, (d.stock && d.stock.bsellDiscountType) || '0');
 				d.soldRate = Math.round((Number(rm.receivable) / Number(d.soldQuantity)) * 100) / 100;
-				row[2] = looseQtyText(d);
-				row[3] = d.soldRate.toFixed(2);
-			} else {
-				row[3] = d.sellRate;
 			}
-			row[5] = rm.receivable;
-			this.data(row);
 		});
-		tablesi.draw(false);
+		renderCart();   // CART-1: rows are drawn from data[], which now carries the re-quoted rates
 		CIT(data);                                    // cart subtotals read data[], so refresh them too
 		if(typeof calculateChange === 'function') calculateChange();
 		if(typeof refreshAccountDuePreview === 'function') refreshAccountDuePreview();
@@ -3102,7 +3150,23 @@ function renderSellableBadge(){
 var batchStock = 0;
 var discountType = "";
 var discountValue = "0";
+/*
+ * QTY-RACE-1 — a late default never overwrites the operator.
+ *
+ * loadStock() answers ASYNCHRONOUSLY and then fills the tenant's default quantity into an EMPTY box. A cashier
+ * who picks a product, clears the box and starts typing before that answer lands had the default written in
+ * the gap: "1" then their "5" = 15. Found by a probe on a flaky gate ("1" + "1" = 11 → a 1,100 bill). Same
+ * rule as SALE-DEF: the default only fills a box the operator has not touched since picking the product.
+ */
+window._sellQtyTouched = false;
+$(document).on('input', '#sellQuantity', function () { window._sellQtyTouched = true; });
+function sellQtyDefaultAllowed() {
+	return !window._sellQtyTouched && $("#sellQuantity").val()*1 <= 0;
+}
+
 function loadStock(label,value){
+	window._sellQtyTouched = false;   // QTY-RACE-1: a new product — its default may fill an untouched box
+	window._sellStockPending = true;  // STOCK-RACE-1: this product's stock is not known until /productStock answers
 	bpurchaseDiscount: 0
 	bpurchaseDiscountType: "%"
 	bpurchaseRate: 0
@@ -3160,6 +3224,7 @@ function loadStock(label,value){
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
 	    	batchStock = data.stock;
+	    	window._sellStockPending = false;   // STOCK-RACE-1: now the quantity guard may judge
     		if(value && tableV=="Purchase"){
         		$("#discountTypeDD").val(discountType);    			
     			$("#purchaseDiscount").val(discountValue);//*1>0?$("#bpurchaseDiscount").val():0;
@@ -3201,7 +3266,7 @@ function loadStock(label,value){
 					window._sellAutoRate = Number($("#sellSellRate").val());
 					quoteSellFormPrice(value);
 			    	$("#sellDiscount").val(discountValue);
-			    	if($("#sellQuantity").val()*1<=0){
+			    	if(sellQtyDefaultAllowed()){   // QTY-RACE-1: never over a box the cashier has typed in
 			    		// Per-tenant starting quantity: 1 at a retail counter, a carton size for a
 			    		// wholesaler. Absent/invalid config falls back to 1 (posSettingInt guards it).
 			    		$("#sellQuantity").val(window.posDefaultQty || 1);
@@ -3303,6 +3368,7 @@ function getStockByBatch(batchNo){
 		    	discountValue = data.bsellDiscount;
 		    	discountType = data.bsellDiscountType;
 		    	batchStock = data.stock;
+		    	window._sellStockPending = false;   // STOCK-RACE-1: a batch's own stock is known
 	    		if(tableV=="Purchase"){
 	        		$("#discountTypeDD").val(discountType);    			
 	    			$("#purchaseDiscount").val(discountValue);//*1>0?$("#bpurchaseDiscount").val():0;
@@ -3333,7 +3399,7 @@ function getStockByBatch(batchNo){
 			    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 				    	$("#sellSellRate").val(data.bsellRate)
 				    	$("#sellDiscount").val(discountValue);
-				    	if($("#sellQuantity").val()*1<=0){
+				    	if(sellQtyDefaultAllowed()){   // QTY-RACE-1: never over a box the cashier has typed in
 				    		$("#sellQuantity").val(1);
 				    	}
 				    	// $("#sellItemDesc").val(data.idesc);
@@ -3587,11 +3653,25 @@ function calculateNetSell(){
 	 * Off (default) the line prices normally and the sellable badge still tells the cashier where stock
 	 * stands. The server's FEFO reservation at submit remains the real gate.
 	 */
-	if(batchStock < qty && window.posValidateStockOnSelect === true){
+	/*
+	 * STOCK-RACE-1 — judge the quantity only against THIS product's stock, and withdraw the refusal when it no
+	 * longer holds.
+	 *
+	 * The guard ran whenever calculateNetSell ran — and loose-sell.js runs it the moment /looseInfo answers
+	 * (synchronously, from its cache, on a product seen before). /productStock had often not answered yet, so
+	 * batchStock was 0 (first product) or the PREVIOUS product's stock, and an empty box counts as 1: "Quantity
+	 * exceeds available stock" on a product with 3 in stock and a quantity of 1. The real stock then arrived and
+	 * the check passed silently — but nothing cleared the message, so the cashier read stock 3, quantity 1, and
+	 * a refusal. Reproduced on BLK5 Rx 55482396316 (org 15). A pending stock does not refuse (the server's FEFO
+	 * reservation at submit is the real gate either way), and a passing check clears ITS OWN message only.
+	 */
+	var exceedsMsg = t('ui.js.quantityExceedsAvailableStockPleaseReduceThe');
+	if(!window._sellStockPending && batchStock < qty && window.posValidateStockOnSelect === true){
 		$("#sellQuantity").addClass("alert-danger");
- 		showFormError(t('ui.js.quantityExceedsAvailableStockPleaseReduceThe'));
+		showFormError(exceedsMsg);
 		return false;
 	}
+	if ($('#globalError').text() === exceedsMsg && typeof clearFormError === 'function') clearFormError();
 	var m = sellLineMath(s, qty, p, $("#sellDiscount").val(), discountType);
 	sellTotalAmount = m.total;
 	$("#sellNetAmount").val(m.profit);
@@ -3663,12 +3743,85 @@ function calculateSRP(){
 	$("#sellReturn").val($("#sellrm").val()*ONE+srp);
 }
 
+/*
+ * TRADE-DISC-1 — WHAT THE CUSTOMER PAYS: the cart's goods total less the invoice-level trade discount.
+ *
+ * The server has always charged this figure (SagaSaleWriter nets the trade discount into grandTotal) while the
+ * till showed, tendered and computed change against the GROSS cart. The difference came back as "Change" on the
+ * receipt — INV-000050: 72.00 of goods, 2.00 trade discount, Received 72.00, and the receipt printed Change 2.00
+ * for a discount the screen never showed.
+ *
+ * ONE definition, read by every place that means "the bill": change and due, the account preview, F8 exact
+ * cash, the installment plan and the confirm dialog. #sellTotal itself keeps meaning "sum of the cart's Total
+ * column" — it is that column's footer, and a footer that is not its column's sum would be a new lie.
+ *
+ * The discount is clamped to [0, goods] exactly as the server clamps it, so the two cannot disagree about a
+ * discount larger than the bill.
+ */
+function sellGoodsTotal() {
+	var el = $("#sellTotal")[0];
+	return el ? (Number(String(el.innerHTML).replace(/[^0-9.\-]/g, '')) || 0) : 0;
+}
+function sellTradeDiscountApplied() {
+	var goods = sellGoodsTotal();
+	var d = Number($("#sellTradeDiscount").val()) || 0;
+	if (d < 0) d = 0;
+	if (d > goods) d = goods;
+	return Math.round(d * 100) / 100;
+}
+function sellPayable() {
+	return Math.round((sellGoodsTotal() - sellTradeDiscountApplied()) * 100) / 100;
+}
+/** Show "Trade Discount −X · Payable Y" under the cart — only while there is a discount to show. */
+/** What is still to be collected on this bill: the payable, less what an invoice being edited already has. */
+function sellAmountDue() {
+	var prior = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
+	var due = Math.round((sellPayable() - prior) * 100) / 100;
+	return due > 0 ? due : 0;
+}
+/*
+ * "Discount −X · Payable Y" under the cart. X is EVERY discount on the sale — the Disc column's line discounts
+ * plus the trade discount — the same one figure the receipt prints (ONE-DISCOUNT-ROW). It showed only the trade
+ * discount before, so adding or deleting a discounted line never moved it. Shown whenever there is any discount.
+ */
+function sellRefreshPayable() {
+	window._sellLastDue = sellAmountDue();   // what Received "exactly the bill" meant before the next change
+	var d = Math.round((sellLineDiscountTotal() + sellTradeDiscountApplied()) * 100) / 100;
+	var row = document.getElementById('sellPayableRow');
+	if (!row) return;
+	row.hidden = !(d > 0);
+	$('#sellDiscountShown').text('−' + d.toFixed(2));
+	$('#sellPayable').text(sellPayable().toFixed(2));
+}
+/*
+ * Typing a discount changes what is owed NOW — not at the next cart edit.
+ *
+ * RECEIVED FOLLOWS THE BILL — ONLY WHEN IT WAS THE BILL. The checkout walk is Pay method → Received → Trade
+ * discount, so a cashier routinely enters Received = the bill (or presses F8) and THEN the discount. Left alone,
+ * Received stays at the old bill and the discount comes back as Change — INV-000050 again, on screen. So a
+ * Received that held exactly the amount due moves with it. A Received that differs is CASH IN HAND (a customer
+ * handing over 100 for 72): the system never rewrites what the operator counted, and the change grows instead.
+ * An empty Received stays empty — the till must not claim money it was not told about.
+ */
+$(document).on('input change', '#sellTradeDiscount', function () {
+	var dueBefore = window._sellLastDue;
+	var rec = Number($('#sellRec').val());
+	var heldTheBill = dueBefore != null && rec > 0 && Math.abs(rec - dueBefore) < 0.005
+		&& $('#sellPayMethod').val() !== 'CREDIT';
+	sellRefreshPayable();
+	if (heldTheBill) $('#sellRec').val(sellAmountDue().toFixed(2));
+	calculateChange();
+	if (typeof previewInstallmentSchedule === 'function') previewInstallmentSchedule();
+});
+
 function calculateChange() {
 
 	var recAm = ($("#sellRec").val() * ONE) || 0;
     // P12 (slice 59): insurance covers part of the bill; the patient only owes the remainder (the co-pay).
     var insured = ($("#sellInsured") && $("#sellInsured").val() ? $("#sellInsured").val() * ONE : 0) || 0;
-    var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+    // TRADE-DISC-1: the bill is the PAYABLE, not the gross cart — see sellPayable().
+    var sellTotal = sellPayable();
+    sellRefreshPayable();
     // SF-1/SF-2: while EDITING, the bill is already partly covered by what was paid before, so the preview must
     // count it: due = bill − (priorPaid + additionalReceived + insured). The server derives the real due the same way.
     var priorPaid = (window.editingInvoice && window.editingPaid) ? Number(window.editingPaid) : 0;
@@ -3753,7 +3906,7 @@ function refreshCreditLimitHint(newTotalDue) {
 function refreshAccountDuePreview(dueThis) {
 	if (dueThis == null) {
 		var recAm = ($("#sellRec").val() * ONE) || 0;
-		var sellTotal = ($("#sellTotal")[0] ? $("#sellTotal")[0].innerHTML * ONE : 0) || 0;
+		var sellTotal = sellPayable();   // TRADE-DISC-1: the payable, not the gross cart
 		var ch = Math.round((recAm - sellTotal) * 100) / 100;   // SF-7: round money to 2dp
 		dueThis = ch < 0 ? -ch : 0;
 	}
@@ -5383,6 +5536,9 @@ function loadPosFeatureFlags(){
 		// function keys, or change what a '*' in a scanned code means, because a settings call hiccuped.
 		window.posShortcutsEnabled = byKey['pos.keyboard.shortcuts.enabled'] === true;
 		// P3 (quick-pick tiles). Fails CLOSED — never put an unexpected grid above the cart on a live till.
+		// RST — the tile counter. Fails CLOSED like its neighbours: a config hiccup must never replace
+		// the sale screen a shop has trained its staff on.
+		window.posCounterEnabled = byKey['pos.counter.enabled'] === true;
 		window.posQuickPickEnabled = byKey['pos.quickpick.enabled'] === true;
 		window.posQuickPickCount = posSettingInt(res, 'pos.quickpick.count', 9);
 		window.posQuickPickDays = posSettingInt(res, 'pos.quickpick.days', 30);
@@ -5415,6 +5571,7 @@ function loadPosFeatureFlags(){
 		applyPosFieldVisibility();
 		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
 		if (typeof renderQuickPick === 'function') renderQuickPick();
+		if (window.Counter) Counter.open();
 	}, 'json').fail(function(){
 		window.posBarcodeEnabled = false;       // fail CLOSED — a config hiccup must not conjure a scan box
 		window.posAutoPrintReceipt = true; window.pharmaBlockSevere = true;
@@ -5422,6 +5579,7 @@ function loadPosFeatureFlags(){
 		window.kbdFormNavEnabled = true;        // fail OPEN — losing form nav to a hiccup is the worse outcome
 		window.kbdEnterSubmits = true;
 		window.posShortcutsEnabled = false;     // fail CLOSED
+		window.posCounterEnabled = false;       // fail CLOSED — see above
 		window.posQuickPickEnabled = false;     // fail CLOSED
 		window.posQuickPickCount = 9;
 		window.posQuickPickDays = 30;
@@ -5437,6 +5595,7 @@ function loadPosFeatureFlags(){
 		applyPosFieldVisibility();
 		if (typeof applyPosKeyboard === 'function') applyPosKeyboard();
 		if (typeof renderQuickPick === 'function') renderQuickPick();
+		if (window.Counter) Counter.open();
 	});
 }
 

@@ -79,13 +79,17 @@ public class DocumentProfileValidator {
              * so a shop could lay out a document with a Rate column, press save, and be refused. Offered by
              * the designer, rejected by the validator, exactly like "Quote #".
              */
-            "unitRate");
+            "unitRate",
+            // ONE-DISCOUNT-ROW: qty × rate before any discount — the till slips' line amount.
+            "lineAmount");
 
     /** Mirrors TOTAL_ROWS in receipt.js. */
     private static final Set<String> TOTAL_ROWS = Set.of(
             "itemCount", "qtyTotal", "bonusTotal", "valueTotal", "discountTotal", "subTotal", "taxTotal",
             "tradeDiscount", "shippingFee", "grandTotal", "amountInWords", "paidBy", "tendered", "change",
-            "storeCredit", "storeCreditBalance", "due", "previousBalance", "currentBalance");
+            "storeCredit", "storeCreditBalance", "due", "previousBalance", "currentBalance",
+            // ONE-DISCOUNT-ROW: the gross subtotal, and ONE row = line discounts + trade discount.
+            "subTotalGross", "totalDiscount");
 
     private static final Set<String> PAPERS = Set.of("A4", "A5", "80mm", "58mm");
     private static final Set<String> ALIGNS = Set.of("left", "right", "center");

@@ -287,11 +287,15 @@ public class AuthService {
          */
         final Long newUserId = user.getId();
         try {
+            /*
+             * ⚠ BY MODULE, NOT BY NAME. This read `"Administrator"` or `"Standard"` — both BUSINESS
+             * built-ins — and setsFor(orgId) returns every built-in whatever its module, so creating a
+             * teacher in a SCHOOL placed them on the shop's Standard set: sale.create, purchase.create,
+             * till.create and twenty more, minted into a school token. Five accounts were found in that
+             * state. defaultSetFor picks the right built-in for the tenant's own vocabulary.
+             */
             PermissionService perms = permissionServiceProvider.getObject();
-            String setName = "ADMIN".equals(rc) ? "Administrator" : PermissionService.SET_STANDARD;
-            perms.setsFor(callerOrgId).stream()
-                    .filter(ps -> ps.isBuiltin() && setName.equals(ps.getName()))
-                    .findFirst()
+            perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
                     .ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
         } catch (Exception e) {
             log.warn("Could not place new member {} on a permission set", user.getEmail(), e);
@@ -1023,10 +1027,25 @@ public class AuthService {
              * A member of another module falls through to the role privileges alone — exactly the token
              * this method produced before PERM-1 existed.
              */
-            boolean businessTenant = tradeTenant(activeOrg == null ? null : String.valueOf(activeOrg.getType()));
+            /*
+             * EDU-PERM-1 — the gate is now WHICH CATALOGUE, not whether there is one.
+             *
+             * This read `if (tradeTenant(...))`, which was right while only shops had a vocabulary: the
+             * codes are sale, purchase, till and opening balances, and a school has none of those. Now
+             * EDUCATION has a catalogue of its own, so the question changed from "does PERM-1 apply?" to
+             * "whose words?" — and moduleOf answers it. A module with no catalogue still returns null and
+             * still falls through to the role privileges alone, exactly as V14 described.
+             *
+             * ⚠ everything(module), NOT everything(). The unfiltered call hands a school's owner every
+             * business code — the V12 failure (a ROLE_GUARDIAN holding sale.create) by another road. The
+             * member path needs no filter: their set is already module-bound, so it cannot contain a code
+             * from another module's vocabulary.
+             */
+            String permModule = PermissionService.moduleOf(
+                    activeOrg == null ? null : String.valueOf(activeOrg.getType()));
             PermissionService permissionService = permissionServiceProvider.getObject();
-            if (businessTenant) {
-                authorities.addAll(isOwner ? permissionService.everything()
+            if (permModule != null) {
+                authorities.addAll(isOwner ? permissionService.everything(permModule)
                                            : permissionService.effectiveFor(user.getId()));
             }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A

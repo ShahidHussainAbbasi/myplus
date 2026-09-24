@@ -655,8 +655,12 @@
 
     /** The live cart total, read from the footer cell the cart itself maintains. There is no second
      *  arithmetic here on purpose: a tender that disagreed with the printed total by a rounding step
-     *  would be a bug nobody could explain at the counter. */
+     *  would be a bug nobody could explain at the counter.
+     *
+     *  TRADE-DISC-1: the PAYABLE (goods less the trade discount), from business.js's one definition. Reading
+     *  the gross footer made F8 tender the discount too, and the receipt then printed it back as Change. */
     function cartTotal() {
+        if (typeof global.sellPayable === 'function') return global.sellPayable();
         var el = document.getElementById('sellTotal');
         var v = el ? Number(String(el.innerHTML).replace(/[^0-9.\-]/g, '')) : NaN;
         return isNaN(v) ? 0 : v;

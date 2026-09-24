@@ -30,10 +30,18 @@
 
     /** Areas in the order the matrix draws them, and the label an owner reads. */
     var AREA_LABEL = {
+        // shop
         sale: 'Sale', purchase: 'Purchase', customer: 'Customers', product: 'Products',
-        supplier: 'Suppliers', stock: 'Stock', till: 'Till & shifts', report: 'Reports',
-        finance: 'Finance & ledger', settings: 'Settings', team: 'Team & users',
-        opening: 'Opening balances'
+        supplier: 'Suppliers', stock: 'Stock', till: 'Till & shifts',
+        finance: 'Finance & ledger', opening: 'Opening balances',
+        // school (EDU-PERM-1). The matrix labels every row from this map, so an area missing here
+        // renders as its raw slug — "reportcard", "behaviour" — which is the screen looking unfinished.
+        student: 'Students', guardian: 'Guardians', staff: 'Staff', attendance: 'Attendance',
+        'class': 'Classes', subject: 'Subjects', timetable: 'Timetable', exam: 'Examinations',
+        marks: 'Marks', reportcard: 'Report cards', homework: 'Homework', behaviour: 'Behaviour',
+        communication: 'Notices & meetings', fee: 'Fees', school: 'Campus', transport: 'Transport',
+        // shared by both — see the COMMON module in V16
+        report: 'Reports', settings: 'Settings', team: 'Team & users'
     };
     /** The columns every area is measured against. Anything else is a SPECIAL, shown in its own cell. */
     var CORE = ['view', 'create', 'edit', 'delete'];
@@ -187,10 +195,22 @@
          * ring up a credit sale at all. The preview has to carry both halves or it predicts the wrong
          * screen, which is worse than predicting nothing.
          */
-        var scopeAll = $('#permScope').val() === 'ALL';
-        $('#permPreviewScope').text(scopeAll
-            ? tr('ui.js.permPreviewAll', 'Sees every record in the shop')
-            : tr('ui.js.permPreviewOwn', 'Sees only the records they create themselves'));
+        /*
+         * ⚠ SOME TENANTS HAVE NO ROW SCOPE TO CHOOSE. `scope` means "rows this member CREATED", and in a
+         * school a teacher created none of them — the office did — so OWN would show a teacher nothing at
+         * all. AuthService mints EDUCATION as scope.ALL whatever a set says (rowScopedTenant is false for
+         * it), so the control is fixed and hidden there rather than offered and ignored.
+         *
+         * `data-scope-fixed` on #permWrap is how the page says so. The preview still states whose records
+         * they see, because the preview predicting only half the screen is what this block exists for.
+         */
+        var scopeFixed = $('#permWrap').attr('data-scope-fixed');
+        var scopeAll = scopeFixed ? scopeFixed === 'ALL' : $('#permScope').val() === 'ALL';
+        $('#permPreviewScope').text(scopeFixed
+            ? tr('ui.js.permPreviewShared', 'Sees every record — a school shares its students')
+            : (scopeAll
+                ? tr('ui.js.permPreviewAll', 'Sees every record in the shop')
+                : tr('ui.js.permPreviewOwn', 'Sees only the records they create themselves')));
 
         $('#permPreviewOn').html(visible.length
             ? visible.map(function (a) {
@@ -232,7 +252,8 @@
         if (current) (current.codes || []).forEach(function (c) { chosen[c] = true; });
 
         $('#permSetName').val(current ? current.name : '');
-        $('#permScope').val(current ? current.scope : 'OWN');
+        var fixed = $('#permWrap').attr('data-scope-fixed');
+        $('#permScope').val(fixed ? fixed : (current ? current.scope : 'OWN'));
 
         // A built-in is the CONTRACT that this feature's deploy changed nothing for anybody. Editing one
         // in place would rewrite that contract for every member already migrated onto it, so the screen

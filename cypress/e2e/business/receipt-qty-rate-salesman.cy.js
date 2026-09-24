@@ -144,7 +144,15 @@ describe('receipt — a count, a rate and a person', () => {
 
       expect(keys, '⭐ the retail slip carries unitRate').to.include('unitRate')
       expect(keys, 'and no longer the distributor abbreviation').to.not.include('tradePrice')
-      expect(keys, 'and a Disc column, as the reference invoice has').to.include('discount')
+      /*
+       * ONE-DISCOUNT-ROW (user rule, 2026-09-24) supersedes the per-line Disc column this used to require:
+       * every discount — per line AND the trade discount — prints as ONE row at the foot, and the lines show
+       * Qty × Rate = Amount. A Disc column beside it would take the line discounts off twice. The per-line
+       * detail stays on the A4 trade invoice, whose readers reconcile line by line.
+       */
+      expect(keys, 'no per-line Disc column — its money is in the one Discount row').to.not.include('discount')
+      expect(keys, 'the line prints its gross amount').to.include('lineAmount')
+      expect(retail.totals, 'the one Discount row').to.include('totalDiscount')
 
       // The A4 trade invoice must be UNTOUCHED — its readers expect TP.
       const trade = w.DocumentRenderer.PRESETS.TRADE_INVOICE_A4.lines.map((c) => c.key)
