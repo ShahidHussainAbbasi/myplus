@@ -75,6 +75,35 @@ public final class TestTenant {
         }
     }
 
+    /**
+     * Authenticate with an EXPLICIT capability set — for a test of a capability-gated write.
+     *
+     * <h3>Why this is not just another constructor argument</h3>
+     * {@code CurrentUser.capabilityAllowed} is deliberately permissive when capabilities are <b>null</b>
+     * ("unresolved — a token minted before C3c"), and {@link #authenticate()} produces exactly that. So a
+     * test that simply authenticates normally is entitled to everything, and a case asserting a refusal
+     * would pass there for the wrong reason forever.
+     *
+     * <p>Pass an EMPTY set to mean "resolved, and this tenant has nothing" — that is the state a real
+     * unentitled tenant is in, and it is a different thing from null.
+     *
+     * <p>Set through the setter rather than the all-args constructor <b>on purpose</b>: that constructor has
+     * twelve parameters, several of them {@code Set} / {@code Long} / {@code null}, and this class exists
+     * because positional construction of an identity already produced a silent wrong answer once. A setter
+     * names the field it writes and cannot be transposed with its neighbour.
+     */
+    public static void authenticateWithCapabilities(java.util.Set<String> capabilities) {
+        authenticate();
+        AuthenticatedUser user = CurrentUser.get().orElseThrow(
+                () -> new IllegalStateException("authenticate() left no identity to attach capabilities to"));
+        user.setCapabilities(capabilities);
+
+        if (capabilities != null && !capabilities.equals(CurrentUser.capabilities())) {
+            throw new IllegalStateException("CurrentUser does not see the test capabilities: expected "
+                    + capabilities + " but got " + CurrentUser.capabilities() + ".");
+        }
+    }
+
     /** Clear the context. Call from {@code @AfterEach} — leave no state behind for the next test. */
     public static void clear() {
         SecurityContextHolder.clearContext();

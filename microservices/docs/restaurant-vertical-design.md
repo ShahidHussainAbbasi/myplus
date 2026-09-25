@@ -174,12 +174,43 @@ Footer: **DINE IN · TAKE AWAY · HOME DELIVERY** · 0335-2456847 · 0310-453275
 
 ## 3 · Proposed shape and capabilities
 
-### 3.1 One new Shape, not a fork
+### 3.1 ⚠ RULED 2026-09-25 — the new Shape is DEFERRED to R2, and this section was wrong
+
+**What this section originally proposed:**
 
 ```java
 RESTAURANT("restaurant", "Restaurant / food service",
         EnumSet.of(Capability.MENU_MODIFIERS, Capability.ORDER_TYPES, Capability.KITCHEN_TICKETS))
 ```
+
+**Why it is not being added yet.** That preset names three capabilities that do not exist — they are R2 work.
+Strip them and what is left, on the build that ships today, is `RETAIL` **plus `MADE_TO_ORDER`**: one
+capability, the same screens, the same dashboard, the same navigation. `Shape`'s own rule refuses exactly
+that case, using almost these words:
+
+> "Mobile shop" is not a shape — it is `RETAIL` plus serial tracking, condition grading and installments,
+> which is precisely the point of having two axes.
+
+A shape is *"the information architecture — what the screens are called and which dashboard opens"*. A
+restaurant does not yet open a different product; it opens the same till with one extra switch. Adding the
+entry now would buy a friendlier word in one dropdown and spend the two-axis distinction to get it — and the
+next person wanting a shape for their trade would cite it as precedent.
+
+**The consequence for onboarding, which is not an apology.** A food counter picks **Retail counter / POS**
+and switches ON **"Sell items made to order"**. That is an accurate description of what the business is on
+this build, and the manual walkthrough now says so rather than presenting it as a workaround.
+
+**The trigger that makes it legitimate** — R2, when the answer to "what are the screens called" actually
+changes: order types that alter the workflow, tables and open tabs, and a kitchen display with station
+routing and staff who see no prices. Then `FOOD_SERVICE` is one enum entry, preset `MADE_TO_ORDER` plus
+whichever of the R2 capabilities have landed.
+
+⚠ **`EXPIRY_TRACKING` stays OFF in that preset when it comes** — revisit at R3, not R2. The flag is read by
+the **allocator** (`ReservationService`), so it decides what a sale may take off the shelf, not what a screen
+says. Raw meat and dairy are not stock rows until recipes land in R3; today the only stocked items are
+bought-in drinks, where a careless date would refuse a sellable crate and protect nothing.
+
+The capability analysis below stands — it was right, and it is what R2 builds.
 
 The brief proposed ~13 capabilities. **Most are not capabilities.** Applying `Shape`'s own rule:
 
@@ -206,12 +237,22 @@ WASTE_TRACKING    spoilage with a reason and a value                         —
 
 ### 3.2 What the restaurant must NOT see
 
-`Shape.RESTAURANT` presets these OFF, and the dashboard is assembled from capabilities, so they simply are not
-there: FEFO, expiry batches, prescriptions, serial/IMEI, condition grading, dealer pricing, journey planning.
+FEFO, expiry batches, prescriptions, serial/IMEI, condition grading, dealer pricing, journey planning — none
+of these should be on a food counter's screens, and the dashboard is assembled from capabilities, so once
+they are off they simply are not there.
 
-⚠ **But `EXPIRY_TRACKING` deserves a second look before it is switched off.** A kitchen holds perishable raw
-meat and dairy, and the pharmacy floor rule exists because switching expiry off changes the stock engine. For
-Phase R2 (ingredients) this may be wanted ON. Raised rather than decided — §9 Q7.
+**Today that is `Shape.RETAIL`'s job, not a restaurant shape's** (§3.1). Its preset is
+`{INSTALLMENTS, DEALER_PRICING}`, so picking Retail already removes the pharmacy and distribution half of the
+product. The two it leaves ON — quotes and installment plans — are one more tick each in the same group, and
+the walkthrough says so rather than pretending they vanish.
+
+⚠ **`EXPIRY_TRACKING` — DECIDED 2026-09-25: stays OFF, revisit at R3, not R2.** It was raised as Q7 on the
+grounds that a kitchen holds perishable raw meat and dairy. The deciding fact is *where the flag is read*:
+`ReservationService` — the **allocator**. With it ON, a dated batch past today is excluded and the sale is
+refused. Raw meat and dairy are not stock rows until recipes land in **R3**; on R1/R2 the only stocked items
+are bought-in drinks and packaged goods, so switching it on would let a careless or supplier-side date refuse
+a sellable crate while protecting nothing that exists yet. R3 is the phase where it starts protecting
+something real, and that is when to turn it on.
 
 ---
 
@@ -376,7 +417,8 @@ Per phase, each asserting what the defect would break:
 | Phase | Spec | Must fail before |
 |---|---|---|
 | R1 | `restaurant-menu-setup.cy.js` | 16 categories and 87 items import; a platter is not importable as a flat price |
-| R1 | `restaurant-shape.cy.js` | choosing RESTAURANT hides FEFO/expiry/Rx/IMEI; GENERAL tenants unaffected |
+| ~~R1~~ | ~~`restaurant-shape.cy.js`~~ | **dropped** — there is no restaurant shape to choose (§3.1). The equivalent assertion, that Retail hides FEFO/expiry/Rx/IMEI, is already covered by `capability-shapes.cy.js`; re-asserting it under a restaurant name would gate nothing new. Reinstate with the shape at R2 |
+| R2a | `restaurant-counter.cy.js` | ✅ **green 7/7** — a made-to-order item sells with no stock, **and a stocked one on the same invoice is still refused**; one tap adds; quantity corrects on the line |
 | R2 | `restaurant-order-types.cy.js` | an order carries its type; dine-in holds a table open; totals split by type |
 | R2 | `restaurant-kitchen.cy.js` | a line routes to its station; prep state moves independently of payment |
 | R2 | `restaurant-modifiers.cy.js` | "extra cheese +80" reaches the line, the receipt and the kitchen note |

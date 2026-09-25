@@ -629,6 +629,26 @@ public class ProductService {
          * integration that omits the field would silently turn every made-to-order item back into one the
          * till refuses to sell. Clearing it is a deliberate false, not an omission.
          */
+        /*
+         * ⚠ CAPABILITY-GATED, like every other per-product policy — rxRequired, serialTracking, batchTracking.
+         *
+         * This flag is the only one of the four that decides whether a sale SKIPS THE STOCK CHECK, so it was
+         * the worst one to leave on the honour system. It shipped with only `data-capability` on the form,
+         * which hides the checkbox and nothing more: a POST to /addProduct or /updateProduct set it anyway,
+         * and SagaSellService reads the product flag without consulting the capability — so a tenant the
+         * platform had deliberately withheld made-to-order from could switch the stock check off, one product
+         * at a time. "Enforcement is the point, not hiding."
+         *
+         * requireIfSetting, not require: turning it OFF stays possible after the capability is withdrawn, or
+         * a product is stuck made-to-order with no way back. Null is "not supplied" and never a refusal.
+         *
+         * ⚠ The SALE PATH is deliberately NOT gated to match. The asymmetry is the point: a configuration
+         * write fails closed so an unentitled tenant cannot newly enable this, while a sale keeps honouring a
+         * flag already set, so a plan change never stops a working kitchen mid-service. That is the same harm
+         * Plan.FREE was just corrected for, and gating the sale here would reintroduce it by the back door.
+         */
+        requireCapability(dto.getMadeToOrder(), "madeToOrder",
+                "Selling items made to order is not switched on for your business.");
         if (dto.getMadeToOrder() != null) p.setMadeToOrder(dto.getMadeToOrder());
         /*
          * U15-C — ASSIGNED UNCONDITIONALLY, unlike the pack rules above, and that difference is deliberate.

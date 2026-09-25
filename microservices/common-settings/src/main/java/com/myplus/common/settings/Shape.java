@@ -80,6 +80,31 @@ public enum Shape {
     STOREFRONT("storefront", "Online storefront",
             EnumSet.of(Capability.DEALER_PRICING));
 
+    /*
+     * ⚠ WHY THERE IS NO "RESTAURANT" / FOOD_SERVICE SHAPE HERE (decided 2026-09-25, RST vertical)
+     *
+     * It was proposed and refused, by the rule at the top of this file. On today's build a restaurant is
+     * RETAIL plus MADE_TO_ORDER: one capability, the same screens, the same dashboard, the same navigation.
+     * That is the "Mobile shop" case word for word — and Mobile shop is the example this class uses to
+     * explain why two axes exist. Adding the entry would buy a friendlier word in one dropdown and spend the
+     * distinction to get it.
+     *
+     * The onboarding instruction that follows from this is not a workaround, and should not be apologised
+     * for: a food counter picks "Retail counter / POS" and switches ON "Sell items made to order". That is
+     * an accurate description of what the business is here.
+     *
+     * WHAT WOULD MAKE IT A SHAPE — the test is this class's own definition, "what the screens are called and
+     * which dashboard opens", not how distinctive the trade feels:
+     *   - order types (dine-in / take-away / delivery) that change the workflow,
+     *   - tables and open tabs — a sale held open and added to over an hour,
+     *   - a kitchen display with its own station routing and its own staff who see no prices.
+     * Those are phase R2 of microservices/docs/restaurant-vertical-design.md. When they exist, a food counter
+     * genuinely opens a different product and FOOD_SERVICE becomes one enum entry here — preset
+     * MADE_TO_ORDER, and revisit EXPIRY_TRACKING then rather than now, because raw meat and dairy are not
+     * stock rows until recipes land in R3 and this flag is read by the ALLOCATOR (see ReservationService):
+     * switching it on today would let a careless date on a crate of drinks refuse a sale, protecting nothing.
+     */
+
     private final String code;
     private final String label;
     private final Set<Capability> preset;
