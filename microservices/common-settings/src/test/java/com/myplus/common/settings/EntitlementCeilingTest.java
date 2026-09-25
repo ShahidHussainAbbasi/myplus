@@ -244,6 +244,42 @@ class EntitlementCeilingTest {
     }
 
     @Test
+    @DisplayName("⭐ FREE includes every capability a shop needs to ring up a sale AT ALL")
+    void free_includes_the_can_this_shop_trade_capabilities() {
+        /*
+         * ⚠ THE CASE {@link #every_capability_is_in_some_plan()} CANNOT BE.
+         *
+         * That one passes for any capability, always, because TRIAL/DEMO/PRO are allOf — so a capability
+         * missing from FREE satisfies it while being denied to every FREE tenant. This is the case that
+         * fails instead, and it was RED before MADE_TO_ORDER was added to FREE.
+         *
+         * The distinction it pins is not "basic vs advanced". It is whether the capability's ABSENCE hides a
+         * screen or REFUSES A SALE:
+         *   - LOOSE_SELLING — a pharmacy selling 5 tablets out of a pack of 40 cannot ring it up without it.
+         *   - MADE_TO_ORDER — a kitchen holds buns and fillets, never finished burgers, so every line is
+         *     refused "only 0 sellable". A salon cannot stock a haircut either.
+         * A tenant in that state is not on a reduced tier; its till does not work. FREE "bounds what may be
+         * switched ON; it may never turn anything off" (see Plan.FREE) — and a shop that cannot complete a
+         * sale has had something turned off.
+         *
+         * Two facts make this worth a permanent case rather than a one-off fix. FREE is an ALLOWLIST while
+         * every other tier is allOf, so each new capability is excluded from it by construction, silently.
+         * And per Plan.FREE's own note, every pre-E1 organization sits on FREE by a @Builder.Default rather
+         * than by any pricing decision — so the exclusion lands hardest on tenants nobody ever priced.
+         *
+         * ADDING TO THIS SET IS A PRICING DECISION. The bar is narrow and testable: without it, can the shop
+         * complete a sale? If the answer is "no", it belongs here. If it is "the sale works but a screen is
+         * missing", it does not.
+         */
+        for (Capability c : EnumSet.of(Capability.LOOSE_SELLING, Capability.MADE_TO_ORDER)) {
+            assertThat(Plan.FREE.includes(c))
+                    .as("%s decides whether a shop can complete a sale, so FREE must permit it — "
+                            + "without it that tenant's till refuses every line", c.code())
+                    .isTrue();
+        }
+    }
+
+    @Test
     @DisplayName("every capability is sellable — no capability is absent from every plan")
     void every_capability_is_in_some_plan() {
         // A capability in no plan can never be bought, only granted by hand. That is a pricing mistake that

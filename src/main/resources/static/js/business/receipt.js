@@ -439,10 +439,16 @@
             return (num(c.inv.storeCreditApplied) > 0 && c.cust.creditBalance != null) ? money(c.cust.creditBalance) : ''; } },
         due:             { key: 'ui.js.docDue',            resolve: function (c) { return c.owed > 0 ? money(c.owed) : ''; } },
         // DR/CR is what makes an account figure readable: DR = the customer owes us, CR = they are in credit.
+        /*
+         * ACCOUNT lines. On a till slip they print only when the customer HAS an account balance, before or after
+         * this sale: "Previous balance 0.00 / New balance 0.00" under a walk-in cash sale reads as an account the
+         * customer does not have (reported on INV-000054). A trade document keeps printing them even at zero — a
+         * distributor's buyer reconciles the running balance on every invoice, and a zero there is information.
+         */
         previousBalance: { key: 'ui.js.previousBalance',   resolve: function (c) {
-            return c.inv.balanceAfter == null ? '' : drcr(c.previousBalance, c); } },
+            return (c.inv.balanceAfter == null || c.hideZeroBalance) ? '' : drcr(c.previousBalance, c); } },
         currentBalance:  { key: 'ui.js.newBalance', strong: true, resolve: function (c) {
-            return c.inv.balanceAfter == null ? '' : drcr(num(c.inv.balanceAfter), c); } }
+            return (c.inv.balanceAfter == null || c.hideZeroBalance) ? '' : drcr(num(c.inv.balanceAfter), c); } }
     };
 
     function drcr(v, c) {
@@ -814,6 +820,9 @@
             inv: inv, cust: cust, lines: lines, maths: maths, sums: sums,
             grand: grand, owed: owed, previousBalance: previous,
             taxInside: taxInside, totalDiscount: totalDiscount,
+            // A till slip (B2C) with no balance before or after this sale has no account to show.
+            hideZeroBalance: profile.channel === 'B2C' && Math.abs(num(after)) < 0.005
+                && Math.abs(num(previous)) < 0.005,
             taxLabel: inv.taxLabel || 'Tax',
             showDrCr: profile.showDrCr === true
         };

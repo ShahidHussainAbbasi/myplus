@@ -13,7 +13,12 @@
  *   npx cypress run --spec cypress/e2e/business/receipt-one-discount-row.cy.js --headed --browser chrome
  */
 const uniq = () => `${Date.now()}`.slice(-8) + Math.floor(Math.random() * 900 + 100)
-const num = (s) => Number(String(s).replace(/[^0-9.\-]/g, ''))
+/** The NUMBER in a printed value — "Rs.185.00", "-2.00", "1,234.50". Stripping every non-digit kept the dot
+ *  after "Rs" and read "Rs.185.00" as ".185.00" = NaN. */
+const num = (s) => {
+  const m = String(s).match(/-?\d[\d,]*(?:\.\d+)?/)
+  return m ? Number(m[0].replace(/,/g, '')) : NaN
+}
 
 const rows = (model) => {
   const out = {}
@@ -128,6 +133,9 @@ describe('ONE-DISCOUNT-ROW — one Discount row, none when zero, and the slip ad
 
   it('⭐⭐ 6 — end to end: a real sale with a line discount and a trade discount prints one row and adds up', () => {
     cy.seedProduct({ name: `ODR_${uniq()}`, sellingPrice: 100, stock: 10 }).then(({ productId }) => {
+      // Re-open the till AFTER seeding: beforeEach loaded it before this product existed, so its picker lacked it.
+      cy.visit('/businessDashboard')
+      cy.waitForAppReady()
       cy.window().its('posConfirmOnComplete', { timeout: 15000 }).should('eq', true)
       cy.get('#sellType').select('sellDiv', { force: true })
       cy.get('#sellItemDD', { timeout: 15000 }).select(String(productId), { force: true })
@@ -161,6 +169,53 @@ describe('ONE-DISCOUNT-ROW — one Discount row, none when zero, and the slip ad
           })
         })
       })
+    })
+  })
+  /*
+   * RCPT-LBL — INV-000054 (org 15): "Previous balance 0.00 / New balance 0.00" under a walk-in cash sale read as an
+   * account the customer does not have, and "Tendered" is jargon at a counter. Account lines print on a till slip
+   * only when there IS a balance; the A4 trade invoice keeps them at zero (its buyer reconciles every invoice).
+   */
+  const cashSale = (balanceAfter, dueAmount) => ({
+    invoiceNo: 'RB', subTotal: 42, taxTotal: 0, tradeDiscount: 3, grandTotal: 42, paymentMode: 'CASH',
+    tenderedAmount: 272, changeAmount: 230, dueAmount: dueAmount, balanceAfter: balanceAfter,
+    sales: [{ itemName: 'A', quantity: 1, sellRate: 50, totalAmount: 50, discount: 5, taxAmount: 0 }],
+  })
+
+  it('⭐ 8 — a walk-in slip with no account balance prints NO Previous/New balance lines', () => {
+    cy.window().then((w) => {
+      const keys = slip(w, cashSale(0, 0)).totals.map((t) => t.key)
+      expect(keys, 'no account lines for a customer with no account balance')
+        .to.not.include.members(['previousBalance', 'currentBalance'])
+      expect(keys, "the cash lines stay — they are the customer's proof of change").to.include.members(['paidBy', 'tendered', 'change'])
+    })
+  })
+
+  it('9 — a customer WITH a balance still sees both account lines on the slip', () => {
+    cy.window().then((w) => {
+      const keys = slip(w, cashSale(150, 0)).totals.map((t) => t.key)
+      expect(keys).to.include.members(['previousBalance', 'currentBalance'])
+    })
+  })
+
+  it('10 — the A4 trade invoice keeps its account lines even at zero', () => {
+    cy.window().then((w) => {
+      const m = w.DocumentRenderer.toPrintModel(cashSale(0, 0), w.DocumentRenderer.PRESETS.TRADE_INVOICE_A4)
+      const keys = m.totals.map((t) => t.key)
+      if (w.DocumentRenderer.PRESETS.TRADE_INVOICE_A4.totals.indexOf('currentBalance') !== -1) {
+        expect(keys, 'unchanged for the trade document').to.include('currentBalance')
+      }
+    })
+  })
+
+  it('11 — English labels read as plain words: "Amount received", "Change returned"', () => {
+    cy.window().then((w) => {
+      if (String(w.document.documentElement.lang || 'en').slice(0, 2) !== 'en') return   // English run only
+      const rows = slip(w, cashSale(0, 0)).totals
+      const byKey = {}
+      rows.forEach((r) => { byKey[r.key] = r })
+      expect(byKey.tendered.label).to.eq('Amount received')
+      expect(byKey.change.label).to.eq('Change returned')
     })
   })
 })

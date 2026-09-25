@@ -173,6 +173,7 @@ public class SagaSaleWriter {
         java.math.BigDecimal existingPaid = replaceLines ? nz(ch.getPaidAmount()) : java.math.BigDecimal.ZERO;
         boolean hasTenders = dto.getTenders() != null && !dto.getTenders().isEmpty();
         java.math.BigDecimal paid = existingPaid;
+        java.math.BigDecimal changeGiven = java.math.BigDecimal.ZERO;
         if (hasTenders) {
             // Settle the NEW tender against what's still owed (grandTotal − alreadyPaid), so an edit's extra
             // payment is capped at the remaining balance and never double-counts the prior payment. For a new
@@ -183,15 +184,18 @@ public class SagaSaleWriter {
             ch.setPaymentMode(st.paymentMode());
             ch.setTenderedAmount(st.tendered());
             ch.setChangeAmount(st.change());
+            // PAID-1: st.paid() is what the shop KEEPS (capped at what is owed) — never the change handed back.
             paid = existingPaid.add(st.paid());
+            changeGiven = st.change();
         }
         ch.setPaidAmount(paid);
         ch.setDueAmount(paid.subtract(grandTotal));   // negative while owing (recomputeDue convention)
         customerHistoryService.save(ch);
 
         if (hasTenders) {
+            // The tenders as handed over, plus a CASH −change row: the shift's expected cash nets to what was kept.
             paymentService.record(ch.getCustomer_history_id(), dto.getTenders(),
-                    user.getOrganizationId(), user.getUserId());
+                    user.getOrganizationId(), user.getUserId(), changeGiven);
         }
 
         // (Re)write the Sell lines authoritatively (discount + catalog snapshot + tax + sold rate).

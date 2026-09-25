@@ -46,12 +46,21 @@ describe('STOCK-RACE-1 — no refusal against stock that has not loaded', () => 
   }
 
   it('⭐⭐ 1 — stock 3, quantity 1: NO refusal, even when /looseInfo answers before /productStock', () => {
+    // Two products: stock 3 (the reported case) and stock 0, picked first so batchStock holds a WRONG number
+    // when the race runs — the guard must not judge product 1's quantity against product 0's stock.
+    cy.seedProduct({ name: `SR0_${uniq()}`, sellingPrice: 50, stock: 0 }).then(({ productId: otherId }) =>
     cy.seedProduct({ name: `SR1_${uniq()}`, sellingPrice: 50, stock: 3 }).then(({ productId }) => {
       openTill()
       // First selection warms loose-sell's cache — the next one settles SYNCHRONOUSLY, the reported case.
       cy.get('#sellItemDD', { timeout: 15000 }).select(String(productId), { force: true })
       cy.get('#sellStock', { timeout: 15000 }).should('have.value', '3')
-      cy.get('#resetSellItem').click({ force: true })
+      // Move to ANOTHER product so re-picking the first really fires loadStock (re-selecting the same value does
+      // not change the select — the earlier version never reached the held request).
+      cy.get('#sellItemDD').select(String(otherId), { force: true })
+      // No inventory → the sellable guard answers 0 (and may reset the picker, which is fine: the next pick is a
+      // real change). What the race depends on is batchStock holding this WRONG product's 0.
+      cy.window({ timeout: 15000 }).should((w) => expect(w.batchStock, 'batchStock holds the other product').to.eq(0))
+      cy.window().then((w) => { if (w.clearFormError) w.clearFormError() })   // start the race from a clean slate
 
       let release
       const gate = new Promise((r) => { release = r })
@@ -64,7 +73,7 @@ describe('STOCK-RACE-1 — no refusal against stock that has not loaded', () => 
       cy.get('#sellStock', { timeout: 10000 }).should('have.value', '3')
       cy.get('#sellQuantity').should('have.value', '1')
       cy.get('#globalError').should(($e) => expect($e.text(), '⭐ stock 3, qty 1 — nothing to refuse').not.to.match(EXCEEDS))
-    })
+    }))
   })
 
   it('⭐ 2 — the guard still refuses a real excess, and withdraws it when the quantity is corrected', () => {

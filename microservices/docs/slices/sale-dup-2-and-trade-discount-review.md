@@ -293,6 +293,119 @@ Change 0.00. So on the two 80mm presets:
 
 ---
 
+# Part J — PAID-1: change handed back is NOT money kept — DESIGN (user go-ahead for design, 2026-09-24)
+
+Status: **IMPLEMENTED 2026-09-25 (user go-ahead), browser gate pending the business-service rebuild.**
+- `PaymentService.settle`: paid = min(non-credit tenders, amount due); change reported separately.
+  `PaymentService.record(…, change)` adds `CASH −change reference 'CHANGE'`. `SagaSaleWriter` passes it.
+- Unit: `PaymentServiceTest` 13/13 (the old case asserting paid = 150 on a 100 bill WAS the defect — corrected),
+  `PaymentRecordChangeTest` 3/3.
+- `V67__paid1_change_is_not_paid.sql` + `docs/deploy/preflight-paid1.sql`. Preflight on dev: 72 invoices in orgs
+  6/20/15/13; balances that RISE: org 13 cust 10823 0 → 10.00, **org 20 cust 4663 0 → 6000.00**; no voids/returns
+  with change. **V67 tested twice on a COPY of dev data** (scratch schema, dropped after): 72 → 0 inflated, 72
+  before-images, 72 change rows, INV-000054 org 15 paid 42 / due 0 / cash net 42, balances = preflight; run 2 changed
+  nothing (idempotent — needed because customer_history/customer are MyISAM).
+- **RULING (user, 2026-09-25): REPAIR IN PLACE — V67 runs on deploy.** Put to the user explicitly because the
+  platform set the opposite precedent once (COGS cost fix c7c85040 did NOT restate past journals). Facts behind the
+  choice, verified: (1) closed shifts are NOT restated — expectedCash/variance are stamped on cashier_shift at close
+  (ShiftService:86-88) and V67 does not touch that table; (2) fix-forward would leave the 72 invoices ARMED — a void
+  or return on any of them refunds the change a second time; (3) recomputeDue re-runs on the customer's next sale
+  anyway, so the hidden debt would surface later at an unpredictable moment. Customer balances that rise are listed
+  by `preflight-paid1.sql` for the owner BEFORE the prod deploy.
+- business-service unit suite **330/0/0/0** (322 + 8 new).
+- **DEPLOYED to Docker 2026-09-25 and VERIFIED:** Flyway V67 success=1; 81 before-images (72 predicted + 9 created
+  by this session's own red PAID-1 runs after the preflight, all dated ≥ 02:41); 0 still inflated; 81 CHANGE rows;
+  INV-000054 org 15 → paid 42 / due 0 / CASH +272, −230 CHANGE; customers 4663 → 6000.00 and 10823 → 10.00 exactly
+  as the preflight said; preflight now returns nothing.
+- **Regression 2026-09-25 (30 specs, 3 memory-safe batches after the first run was reaped for low RAM):**
+  first 9 specs 80/80; batch 1 (shift/void/returns/audit) 12/12; batch 2 (receipts) 42/42; batch 3 39 + re-runs
+  pos-enter-chain 7/7 and returns-parity 10/10 on a stable stack. Not code results, re-run or pending:
+  pos-enter-chain's first run hit the peer's auth restart at 10:25 (login?error=true in before-each);
+  **returns-parity case 6 failed once at ~10:23 (13 rows where a filter by an impossible customer should show 0),
+  passed on re-run — recorded FLAKY. It COINCIDED with a concurrent auth-service Maven build (common-settings jar
+  10:22, 92 MB auth fat jar 10:23, per peer myplus-f9) on a machine with ~2 GB free — a plausible load cause
+  against the case's 20 s wait, NOT reproduced (test: run the spec during a `mvn package`). Not a code defect in
+  this slice (the returns register was not changed)**; **bonus-schemes-p3 NOT RUN** — it logs in as the
+  marketplace owner and marketplace-service was stopped (with 6 others) to free memory.
+- **Gate GREEN 35/35** (paid-change 3, cart-grid-sync 7, receipt-one-discount-row 10, qty-default-race 4,
+  stock-guard-race 2, trade-discount 6, park-claim 3), each PAID-1 case checked in the DB: 150-for-100 → paid 100
+  due 0; its VOID → REFUND −100 (not 150); debtor's 100 intact after a 50-for-30 sale. No shift left open.
+  Note INV-000088: paid 100 on a 90 bill (10 change), discount then removed on edit → total 100, paid 90, **due −10**
+  — correct (the customer does now owe 10); the old code showed it settled.
+- Gate `paid-change.cy.js` — **RED on the old build on exactly the money**: paid 150 (want 100), shift cash 150
+  (want 100), a debtor's 100 became 80 after a later sale with 20 change. A red run once left a shift OPEN; the spec
+  now closes it in `after()`.
+(Receipt items #2 "Amount received / Change returned" and #3 "account lines only when there is a balance" were
+implemented alongside — see end.)
+
+## J.1 The defect, on a real invoice
+INV-000054, org 15, 22:27: goods 50 − line disc 5 − trade disc 3 = **42.00**; customer handed **272.00**, got
+**230.00** back. Stored: `paid_amount` **272.00**, `due_amount` **+230.00**, payment row CASH **272.00**.
+Root: `PaymentService.settle()` returns `paid` = Σ non-credit tenders, UNCAPPED; `SagaSaleWriter:188` stores it;
+`PaymentService.record()` stores each tender's full amount.
+
+## J.2 Trace (Rule 0) — every reader of the inflated figures, classified
+
+**`paid_amount` readers (business-service, excl. DTO copies): 12**
+| Reader | Effect of paid 272 / due +230 | Class |
+|---|---|---|
+| `SaleVoidService:170` refund = paid | **voiding refunds 272 — the 230 change handed back TWICE** | ⚠ MONEY |
+| `SellController:1927` return refund = paid − new grand | **any return refunds the change again** | ⚠ MONEY |
+| `CustomerService.recomputeDue` −Σ due, floored after summing | **+230 hides 230 of the customer's other debt** | ⚠ MONEY |
+| `ShiftService` ← `PaymentRepo.sumByMethodForShift` (payment rows) | **Z-report expects 230 more cash than kept** | ⚠ MONEY |
+| `BusinessDashboardController:299` paid + due | "sales by customer" = 502 for a 42 sale | report |
+| `SellController:2403` installment `collected` = paid | change counted as deposit received | rule |
+| `FinanceReportService:108` aging uses −due | a +230 invoice enters aging as −230 | report |
+| `InternalRoundFiguresController:97` outstanding = −due | negative outstanding on route sheets | report |
+| `CustomerService:407-414` receivePayment FIFO over due | skips positive-due rows correctly | unaffected |
+| `SagaSellService:424` / `SellController:1596` GL `paidAmount` | finance caps paid at grand (`PostingService:282`) | unaffected ✅ |
+| `SellController:679/758` DTO out (edit load, receipt) | receipt prints tendered/change from the header | unaffected |
+| `OpeningBalanceService:256`, `RepossessionService:223` | opening/repossession rows never have change | unaffected |
+
+**`payment` row readers: 4** — receipt store-credit sum, edit guard, void `scPaid` (all filter
+`STORE_CREDIT` → unaffected) and the shift sum (⚠ above). No native SQL reads `payment`.
+
+**Dev data (Docker `myplusdb`): 78 invoices with change, 4 tenants; 72 with paid > total and due > 0; 72 cash rows
+over the bill; 0 returns/voids hit yet; 2 customers whose real debt is hidden by change credit.**
+
+## J.3 Design
+
+```mermaid
+flowchart LR
+  T[tenders: CASH 272] --> S[settle vs remaining 42]
+  S --> H["header: tendered 272 · change 230 · paid 42 · due 0"]
+  S --> P1["payment: CASH +272 (tender)"]
+  S --> P2["payment: CASH −230 ref CHANGE"]
+  P1 & P2 --> Z["Z-report CASH = 42 ✔"]
+  H --> V["void refunds 42 ✔ · return refunds ≤ 42 ✔ · recomputeDue sees 0 ✔"]
+```
+
+1. **Write rule (one place, `SagaSaleWriter`):** `paid = existingPaid + min(Σ non-credit tenders, remaining)`;
+   `change = max(0, Σ non-credit tenders − remaining)`; `due = paid − grand`. `tendered_amount` and
+   `change_amount` keep recording what happened at the counter (the receipt prints them).
+2. **Payment rows — the Odoo POS model, no schema change:** keep each tender row as handed over (audit: cash IN),
+   and when there is change add ONE row `method=CASH, amount=−change, reference='CHANGE'` (cash OUT). The shift sum
+   groups by method, so CASH nets to what was kept; the three STORE_CREDIT readers are unaffected by construction.
+   Change comes out of the drawer as cash even on a split tender (card is charged exactly).
+3. **Readers fixed by the write rule, no reader change needed:** void, return, recomputeDue, dashboard,
+   installment, aging, round figures all read `paid`/`due`, which are now true.
+4. **Existing rows — Flyway migration (deploy-reproducible, no manual step), guarded + audited:**
+   - snapshot the rows it will change into `paid1_backup` (invoice id, old paid/due, old payment amounts) —
+     irreversible data changes keep their before-image;
+   - for invoices with `change_amount > 0` and `paid_amount > grand_total` and NOT VOID: `paid = paid − change`
+     (floored at grand), `due = paid − grand`; insert the missing `CASH −change 'CHANGE'` row;
+   - then `recomputeDue` for every touched customer (done by a one-off startup task keyed on a marker row, since
+     it is Java logic, or by the equivalent SQL — decided at implementation).
+   - ⚠ **Customer balances will RISE** where change was hiding real debt (dev: 2 customers). That is correct, but
+     it changes statements a shop has already seen — run `preflight-paid1.sql` on prod first and show the owner
+     the list (see `project_prod_migration_data_loss`).
+   - Voids/returns that ALREADY refunded inflated change cannot be undone by SQL (cash left the drawer): the
+     preflight lists them for the owner. Dev count: 0.
+5. **Gate:** `mvn test` — `PaymentService.settle`/writer unit cases (exact cash, change, split cash+card with change,
+   credit + part cash, edit with prior paid); Cypress — sale with change → paid = grand, due 0, payment rows +272/−230,
+   shift expected cash +42, void refunds 42, a partial return refunds only the goods, a customer with prior debt keeps
+   it after a change sale; migration test on a copy of dev data (72 rows → paid = grand, customers recomputed).
+
 # Part I — CART-2 (total discount) and STOCK-RACE-1 (false "Quantity exceeds") — 2026-09-24
 
 **CART-2.** User: *"addInviceItem or DII still not updating the discount … there should be a total discount of

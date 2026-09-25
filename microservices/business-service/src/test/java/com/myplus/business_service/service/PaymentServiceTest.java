@@ -31,12 +31,58 @@ class PaymentServiceTest {
         assertThat(r.paymentMode()).isEqualTo("CASH");
     }
 
+    /*
+     * PAID-1: this case used to assert paid = 150.00 — the DEFECT, written down as a test. The shop keeps 100.00;
+     * the other 50.00 went back to the customer. Recorded as paid, it made due +50 (hiding 50 of the customer's
+     * other debt), a void refund 150 and a return refund the change again.
+     */
     @Test
-    void cash_overpayment_returns_change() {
+    void cash_overpayment_returns_change_and_the_shop_keeps_only_the_bill() {
         SettleResult r = PaymentService.settle(new BigDecimal("100.00"), List.of(tender("CASH", "150.00")));
-        assertThat(r.paid()).isEqualByComparingTo("150.00");
+        assertThat(r.paid()).as("what the shop keeps").isEqualByComparingTo("100.00");
         assertThat(r.due()).isEqualByComparingTo("0.00");
         assertThat(r.change()).isEqualByComparingTo("50.00");
+        assertThat(r.tendered()).as("what was handed over — still printed on the receipt").isEqualByComparingTo("150.00");
+    }
+
+    @Test
+    void INV_000054_272_handed_over_for_42_keeps_42_and_returns_230() {   // the reported invoice, org 15
+        SettleResult r = PaymentService.settle(new BigDecimal("42.00"), List.of(tender("CASH", "272.00")));
+        assertThat(r.paid()).isEqualByComparingTo("42.00");
+        assertThat(r.change()).isEqualByComparingTo("230.00");
+        assertThat(r.due()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void split_cash_and_card_over_the_bill_keeps_the_bill_and_returns_the_excess() {
+        SettleResult r = PaymentService.settle(new BigDecimal("1000.00"),
+                List.of(tender("CARD", "600.00"), tender("CASH", "500.00")));
+        assertThat(r.paid()).isEqualByComparingTo("1000.00");
+        assertThat(r.change()).isEqualByComparingTo("100.00");
+        assertThat(r.tendered()).isEqualByComparingTo("1100.00");
+    }
+
+    @Test
+    void credit_with_a_part_cash_payment_is_never_capped_below_what_was_paid() {
+        SettleResult r = PaymentService.settle(new BigDecimal("500.00"),
+                List.of(tender("CASH", "200.00"), tender("CREDIT", "0")));
+        assertThat(r.paid()).isEqualByComparingTo("200.00");
+        assertThat(r.due()).isEqualByComparingTo("300.00");
+        assertThat(r.change()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void an_edit_settles_only_what_is_still_owed() {   // SagaSaleWriter passes remaining = grand − alreadyPaid
+        SettleResult r = PaymentService.settle(new BigDecimal("30.00"), List.of(tender("CASH", "50.00")));
+        assertThat(r.paid()).as("the 30 still owed, not the 50 handed over").isEqualByComparingTo("30.00");
+        assertThat(r.change()).isEqualByComparingTo("20.00");
+    }
+
+    @Test
+    void nothing_owed_keeps_nothing_and_returns_everything() {   // remaining floored at 0 by the writer
+        SettleResult r = PaymentService.settle(new BigDecimal("0.00"), List.of(tender("CASH", "20.00")));
+        assertThat(r.paid()).isEqualByComparingTo("0.00");
+        assertThat(r.change()).isEqualByComparingTo("20.00");
     }
 
     @Test

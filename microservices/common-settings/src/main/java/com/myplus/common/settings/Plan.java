@@ -52,7 +52,26 @@ public enum Plan {
      * the deploy that introduced the ceiling. A column default is not a decision. This set bounds what may be
      * switched ON; it may never turn anything off.
      */
-    FREE("FREE", EnumSet.of(Capability.BATCH_TRACKING, Capability.EXPIRY_TRACKING, Capability.LOOSE_SELLING)),
+    /*
+     * ⚠ MADE_TO_ORDER is here for the same reason LOOSE_SELLING is: it is not an advanced feature, it is
+     * whether a KIND OF BUSINESS can ring up a sale at all.
+     *
+     * Without it every line a restaurant, salon or repair shop sells is refused — "only 0 sellable" — because
+     * the shop holds ingredients, not finished burgers. That is not a reduced free tier, it is a till that
+     * does not work, and this set "bounds what may be switched ON; it may never turn anything off".
+     *
+     * Found by the RST-R2a gate, which could not set the capability on org 13 and answered
+     * "not included in your current plan". Two things made that more than a fixture problem:
+     *   - a new capability is excluded from FREE by construction (this is an allowlist; TRIAL/DEMO/PRO are
+     *     allOf), so it ships denied to every FREE tenant with no code change to cause it; and
+     *   - per the note above, every pre-E1 organization sits on FREE BY ACCIDENT — a @Builder.Default, not a
+     *     decision. So the denial would have landed on legacy tenants nobody ever priced.
+     *
+     * The live path to a customer: self-signup gets TRIAL (allOf), so a restaurant trials perfectly and then
+     * loses its till on the day someone converts it to FREE.
+     */
+    FREE("FREE", EnumSet.of(Capability.BATCH_TRACKING, Capability.EXPIRY_TRACKING, Capability.LOOSE_SELLING,
+            Capability.MADE_TO_ORDER)),
 
     /**
      * Self-signup, time-boxed by {@code Organization.trialEndsAt} (ruling D-4).

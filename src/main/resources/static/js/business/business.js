@@ -1889,9 +1889,14 @@ function switchStore(){
 function CIT(data){
 	var q=ZERO,sr=ZERO,dis=ZERO,t=ZERO;
 	data.forEach(function(d){
+		// CART-1: renderCart() now calls this on EVERY cart change, so it must survive a line with no `stock`
+		// object (a parked basket, an API-built line) — `d.stock.bsellRate` threw and stopped the render before
+		// Change and Due were recomputed. The discount is the line's MONEY discount (sellLineDiscount), not its
+		// raw setting: "10" meant 10% on one line and 10.00 on another, and they were being added together.
+		var st = d.stock || {};
 		q=d.quantity*ONE+q;
-		sr=d.stock.bsellRate*ONE+sr;
-		dis=d.stock.bsellDiscount*ONE+dis;
+		sr=(Number(st.bsellRate != null ? st.bsellRate : d.sellRate) || 0)+sr;
+		dis=sellLineDiscount(d)+dis;
 		t=d.totalAmount*ONE+t;
 	});
 	$("#itq").text(q);
@@ -3163,6 +3168,16 @@ $(document).on('input', '#sellQuantity', function () { window._sellQtyTouched = 
 function sellQtyDefaultAllowed() {
 	return !window._sellQtyTouched && $("#sellQuantity").val()*1 <= 0;
 }
+/*
+ * The default can land while the cashier is already IN the empty box (tabbed in, about to type). Written plainly,
+ * their first keystroke APPENDS to it — "1" then "5" = 15. Written SELECTED, the first keystroke replaces it: the
+ * spreadsheet rule. Called right after each default fill. (A probe showed clearing an EMPTY box fires no input
+ * event, so "untouched" alone cannot protect this case.)
+ */
+function sellQtySelectIfFocused() {
+	var el = document.getElementById('sellQuantity');
+	if (el && document.activeElement === el && typeof el.select === 'function') el.select();
+}
 
 function loadStock(label,value){
 	window._sellQtyTouched = false;   // QTY-RACE-1: a new product — its default may fill an untouched box
@@ -3270,6 +3285,7 @@ function loadStock(label,value){
 			    		// Per-tenant starting quantity: 1 at a retail counter, a carton size for a
 			    		// wholesaler. Absent/invalid config falls back to 1 (posSettingInt guards it).
 			    		$("#sellQuantity").val(window.posDefaultQty || 1);
+		    		sellQtySelectIfFocused();   // QTY-RACE-1: typing replaces the default, never appends to it
 			    	}
 			    	$("#sellItemDesc").val(data.idesc);
 			    	renderSellBatches(data.batches);   // P10: show the FEFO batch/expiry being dispensed
@@ -3401,6 +3417,7 @@ function getStockByBatch(batchNo){
 				    	$("#sellDiscount").val(discountValue);
 				    	if(sellQtyDefaultAllowed()){   // QTY-RACE-1: never over a box the cashier has typed in
 				    		$("#sellQuantity").val(1);
+			    		sellQtySelectIfFocused();
 				    	}
 				    	// $("#sellItemDesc").val(data.idesc);
 				    	calculateNetSell();

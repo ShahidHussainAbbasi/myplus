@@ -34,23 +34,33 @@ public class PaymentService {
         catch (Exception e) { return PaymentMethod.CASH; }
     }
 
-    /** Settle the sale: paid = Σ non-credit tenders; due = max(0, grandTotal − paid); change = overpayment. */
+    /**
+     * Settle the sale against what is still owed.
+     *
+     * <p>PAID-1 — {@code paid} is what the shop KEEPS: {@code min(Σ non-credit tenders, amountDue)}. It used to be
+     * the whole tender, so a customer who handed over 272.00 for a 42.00 bill was recorded as having paid 272.00
+     * (INV-000054): the invoice showed due +230, voiding it refunded 272, a return refunded the change again, the
+     * customer's other debt shrank by 230 and the shift expected 230 more cash than the drawer held. The change is
+     * still reported ({@code change}) — it is a fact about the counter, printed on the receipt — it is just not money
+     * the shop received.
+     */
     public static SettleResult settle(BigDecimal grandTotal, List<TenderDTO> tenders) {
         BigDecimal amountDue = scale(grandTotal);
-        BigDecimal paid = BigDecimal.ZERO, tendered = BigDecimal.ZERO;
+        BigDecimal handedOver = BigDecimal.ZERO, tendered = BigDecimal.ZERO;
         if (tenders != null) {
             for (TenderDTO t : tenders) {
                 BigDecimal amt = nz(t.getAmount());
                 if (amt.signum() == 0) continue;
                 tendered = tendered.add(amt);
-                if (parse(t.getMethod()) != PaymentMethod.CREDIT) paid = paid.add(amt);
+                if (parse(t.getMethod()) != PaymentMethod.CREDIT) handedOver = handedOver.add(amt);
             }
         }
-        paid = scale(paid);
+        handedOver = scale(handedOver);
         tendered = scale(tendered);
+        BigDecimal paid = handedOver.min(amountDue.max(BigDecimal.ZERO));          // what the shop keeps
         BigDecimal due = scale(amountDue.subtract(paid).max(BigDecimal.ZERO));
-        BigDecimal change = scale(paid.subtract(amountDue).max(BigDecimal.ZERO));
-        return new SettleResult(paid, due, change, tendered, mode(tenders));
+        BigDecimal change = scale(handedOver.subtract(amountDue).max(BigDecimal.ZERO));   // what went back
+        return new SettleResult(scale(paid), due, change, tendered, mode(tenders));
     }
 
     /** Summary mode: single method's name, SPLIT for several, or null when nothing was tendered. */
@@ -64,9 +74,37 @@ public class PaymentService {
         return methods.size() == 1 ? methods.get(0).name() : "SPLIT";
     }
 
-    /** Persist each non-zero tender against the invoice. */
+    /** Marks the payment row that records change handed back — see {@link #record(Long, List, Long, Long, BigDecimal)}. */
+    public static final String CHANGE_REFERENCE = "CHANGE";
+
+    /** Persist each non-zero tender against the invoice (no change handed back). */
     @Transactional
     public void record(Long customerHistoryId, List<TenderDTO> tenders, Long orgId, Long userId) {
+        record(customerHistoryId, tenders, orgId, userId, BigDecimal.ZERO);
+    }
+
+    /**
+     * Persist each tender AS HANDED OVER, plus — when there was change — ONE row for the cash that went back:
+     * {@code CASH −change, reference "CHANGE"}. The Odoo POS model: the audit trail shows cash in AND cash out, and
+     * every reader that sums a method (the shift's expected cash) nets to what the drawer actually kept. Change is
+     * always cash out of the drawer, whatever the tender (a card is charged exactly).
+     */
+    @Transactional
+    public void record(Long customerHistoryId, List<TenderDTO> tenders, Long orgId, Long userId, BigDecimal change) {
+        recordTenders(customerHistoryId, tenders, orgId, userId);
+        if (change != null && change.signum() > 0) {
+            paymentRepo.save(Payment.builder()
+                    .customerHistoryId(customerHistoryId)
+                    .method(PaymentMethod.CASH)
+                    .amount(scale(change).negate())
+                    .reference(CHANGE_REFERENCE)
+                    .organizationId(orgId).userId(userId)
+                    .storeId(requestUtil.activeStoreId())
+                    .build());
+        }
+    }
+
+    private void recordTenders(Long customerHistoryId, List<TenderDTO> tenders, Long orgId, Long userId) {
         if (tenders == null) return;
         for (TenderDTO t : tenders) {
             if (nz(t.getAmount()).signum() == 0) continue;
