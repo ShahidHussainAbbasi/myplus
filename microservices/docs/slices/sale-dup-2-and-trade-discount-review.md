@@ -322,7 +322,7 @@ Status: **IMPLEMENTED 2026-09-25 (user go-ahead), browser gate pending the busin
   pos-enter-chain 7/7 and returns-parity 10/10 on a stable stack. Not code results, re-run or pending:
   pos-enter-chain's first run hit the peer's auth restart at 10:25 (login?error=true in before-each);
   **returns-parity case 6 failed once at ~10:23 (13 rows where a filter by an impossible customer should show 0),
-  passed on re-run — recorded FLAKY. It COINCIDED with a concurrent auth-service Maven build (common-settings jar
+  passed on re-run — recorded FLAKY [bonus-schemes-p3 later run with marketplace started: 14/14 → **30/30 specs**]. It COINCIDED with a concurrent auth-service Maven build (common-settings jar
   10:22, 92 MB auth fat jar 10:23, per peer myplus-f9) on a machine with ~2 GB free — a plausible load cause
   against the case's 20 s wait, NOT reproduced (test: run the spec during a `mvn package`). Not a code defect in
   this slice (the returns register was not changed)**; **bonus-schemes-p3 NOT RUN** — it logs in as the
