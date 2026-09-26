@@ -194,7 +194,14 @@ describe('Product form — already-registered panel + duplicate-name check', () 
     cy.visit('/businessDashboard')
     cy.window().then((w) => w.showProducts())
     // Break the fetch the panel depends on, then open the form.
-    cy.intercept('GET', '**/getUserProduct*', { statusCode: 500, body: {} }).as('brokenList')
+    //
+    // PS-1 moved the panel from /getUserProduct to /getProductPage — which the product GRID also reads. This used
+    // to intercept the old endpoint and waited forever for a request that no longer exists. Matched on the panel's
+    // own parameters (catalog-products.js refreshExistingRows: size = EXISTING_MAX_ROWS = 40, includeInactive
+    // always true; the grid sends its page length and includeInactive only when "show inactive" is on), so only
+    // the panel's read is broken and the grid keeps working.
+    cy.intercept({ method: 'GET', pathname: '/getProductPage', query: { size: '40', includeInactive: 'true' } },
+      { statusCode: 500, body: {} }).as('brokenList')
     cy.get('#newProduct').click()
     cy.wait('@brokenList')
 

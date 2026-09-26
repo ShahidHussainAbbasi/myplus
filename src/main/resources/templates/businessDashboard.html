@@ -3728,27 +3728,6 @@ tr.row-voided .js-edit-row{display:none !important}
 											<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
 										</select>
 									</div>
-									<!--
-									  U7 — the shop's OWN sticker codes ("LP-4471" on the strip holder sells ONE TABLET on a scan).
-									  Kept INSIDE the loose row, where it has always been (so it shows and hides with it), and shown
-									  only on a SAVED product — a sticker needs a product to point at (loadProductStickers).
-									-->
-									<div class="fg-cell fg-full" id="prodStickerWrap" style="display:none">
-										<label class="fg-label" th:text="#{ui.ownStickers}">Own stickers</label>
-										<div id="prodStickerList" class="table-scroll"></div>
-										<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-											<input type="text" class="form-control" id="prodStickerCode" style="max-width:170px"
-											       th:placeholder="#{ui.stickerCode}" placeholder="Code on the label"/>
-											<select class="form-control" id="prodStickerUnit" style="max-width:130px">
-												<option value="LOOSE" th:text="#{ui.piece}">Piece</option>
-												<option value="PACK" th:text="#{ui.pack}">Pack</option>
-											</select>
-											<input type="number" min="1" step="1" class="form-control" id="prodStickerQty"
-											       style="max-width:110px" value="1" th:placeholder="#{ui.howMany}" placeholder="How many"/>
-											<button type="button" class="btn btn-sm btn-default" id="prodStickerAdd"
-											        onclick="addProductSticker()" th:text="#{ui.add}">Add</button>
-										</div>
-									</div>
 								</div>
 							</div>
 						</div>
@@ -3797,6 +3776,28 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="fg-cell fg-full">
 								<label class="fg-label" for="prodDesc" th:text="#{ui.description}">Description</label>
 								<input type="text" class="form-control" id="prodDesc">
+							</div>
+							<!--
+							  U7 — the shop's OWN sticker codes ("LP-4471" on the strip holder sells ONE TABLET on a scan).
+							  UI-FORM-1 follow-up: its OWN cell — no longer inside the loose row, where a PACK sticker (valid for any
+							  product) was unreachable unless the product was divisible. Shown only on a SAVED product (a sticker needs a
+							  product to point at); Piece is offered only while it may be sold by the piece (syncStickerUnit).
+							-->
+							<div class="fg-cell fg-full" id="prodStickerWrap" style="display:none">
+								<label class="fg-label" th:text="#{ui.ownStickers}">Own stickers</label>
+								<div id="prodStickerList" class="table-scroll"></div>
+								<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+									<input type="text" class="form-control" id="prodStickerCode" style="max-width:170px"
+									       th:placeholder="#{ui.stickerCode}" placeholder="Code on the label"/>
+									<select class="form-control" id="prodStickerUnit" style="max-width:130px" data-width="130px">
+										<option value="LOOSE" th:text="#{ui.piece}">Piece</option>
+										<option value="PACK" th:text="#{ui.pack}">Pack</option>
+									</select>
+									<input type="number" min="1" step="1" class="form-control" id="prodStickerQty"
+									       style="max-width:110px" value="1" th:placeholder="#{ui.howMany}" placeholder="How many"/>
+									<button type="button" class="btn btn-sm btn-default" id="prodStickerAdd"
+									        onclick="addProductSticker()" th:text="#{ui.add}">Add</button>
+								</div>
 							</div>
 						</div>
 					</div>

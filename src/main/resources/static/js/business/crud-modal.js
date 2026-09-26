@@ -13,7 +13,10 @@
     'use strict';
 
     global.openModal  = function (id) {
-        $('#' + id).addClass('open');
+        // Always open at the TOP. The overlay is the scroll container and closeModal only removes a class, so a
+        // modal re-opened after being scrolled (or after Cancel was clicked at the bottom of a tall form) kept its
+        // old scroll: the next product opened mid-form with its title — "New" or "Edit" — out of sight.
+        $('#' + id).scrollTop(0).addClass('open');
         // Land the cursor in the first field so a record can be typed straight away — on a tall form the modal
         // opens with its inputs below the fold otherwise. Desktop only (focus-flow skips touch/narrow screens).
         if (typeof focusFirstField === 'function') {

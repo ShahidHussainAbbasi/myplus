@@ -93,3 +93,12 @@ flowchart LR
 - Formula is descriptive text, not a policy → no capability guard (unlike madeToOrder's).
 - Test note: `TestTenant.authenticate()` leaves capabilities unresolved (= allow-all); any refusal case must use
   `authenticateWithCapabilities(...)`. No formula case asserts a capability refusal.
+
+## 7. CSV import vs prescription control — CLOSED 2026-09-26
+The import built the Product entity directly (`ProductImportSpec.build` → `saveAll`) and copied `rxRequired` from the
+file, so it bypassed C6 (`updateClinicalFlags` refuses a tenant without the `rxRequired` capability). Now
+`validateRow` refuses a row with rxRequired=true for such a tenant — with a reason, never silently cleared; the engine
+rejects the whole file. Only when switching ON (false/blank always fine); same permissive-when-unresolved rule
+(`CurrentUser.capabilityAllowed`). `controlledSubstance`/`allowLoose` carry no capability guard on the form path
+either, so the import is not a bypass for them. `ProductImportSpecTest` 21/21 (3 new; red 1/21 with the guard
+disabled). Needs a catalog-service rebuild.

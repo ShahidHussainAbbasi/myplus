@@ -406,10 +406,35 @@
      * the fields would have nowhere to save to, and an input that silently discards what you type is worse
      * than one that is not there.
      */
+    /*
+     * UI-FORM-1 follow-up — offer "Piece" only while the product may be sold by the piece.
+     *
+     * The panel is no longer inside the loose row (a PACK sticker is valid for any product), so it must not offer a
+     * choice the server refuses: ProductBarcodeService.register rejects a LOOSE sticker on a product that is not sold
+     * by the piece. "May be sold by the piece" is the form's own statement of that — unticked automatically when the
+     * pack size stops being divisible, and hidden with the whole loose row when the shop has no loose selling.
+     */
+    function syncStickerUnit() {
+        var $u = $('#prodStickerUnit');
+        if (!$u.length) return;
+        var loose = $('#prodAllowLoose').is(':checked');
+        $u.find('option[value="LOOSE"]').prop('disabled', !loose).prop('hidden', !loose);
+        // NOT `$u.val() === 'LOOSE'`: jQuery's val() answers null once the selected option is DISABLED, so that test
+        // never matched and the unit stayed on a refused choice (product-own-stickers, first run).
+        if (!loose) $u.val('PACK');
+        if (loose && !$u.data('touched')) $u.val('LOOSE');    // the loose sticker is the common case where it exists
+        if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($u[0]);
+    }
+    global.syncStickerUnit = syncStickerUnit;
+    $(document).on('change', '#prodAllowLoose', syncStickerUnit);
+    $(document).on('change', '#prodStickerUnit', function () { $(this).data('touched', true); });
+
     global.loadProductStickers = function (productId) {
         var $wrap = $('#prodStickerWrap');
         if (!productId) { $wrap.hide(); $('#prodStickerList').empty(); return; }
         $wrap.show();
+        $('#prodStickerUnit').removeData('touched');
+        syncStickerUnit();
         $.get(serverContext + 'productBarcodes', { productId: productId })
             .done(function (resp) {
                 var rows = (typeof apiList === 'function') ? apiList(resp)
@@ -485,6 +510,7 @@
             $('#prodAllowLoose').prop('checked', false);
             $('#prodDefaultSellUnit').val('PACK');
         }
+        syncStickerUnit();   // unticked above → a Piece sticker is no longer offered
         refreshPerPiecePrice();
     };
 

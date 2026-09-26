@@ -69,6 +69,8 @@ public class ProductImportSpec implements ImportSpec<Product> {
     static final String BARCODE = "barcode";
     static final String RX_REQUIRED = "rxRequired";
     static final String CONTROLLED = "controlledSubstance";
+    /** The capability ProductService.updateClinicalFlags requires to switch rxRequired on (C6). */
+    static final String RX_REQUIRED_CAPABILITY = "rxRequired";
     /*
      * U9 - the pack rules, importable.
      *
@@ -216,6 +218,22 @@ public class ProductImportSpec implements ImportSpec<Product> {
      */
     @Override
     public String validateRow(CsvReader.Row row) {
+        /*
+         * C6 closed on the IMPORT path (review 2026-09-26). The product form marks a product prescription-only only
+         * through ProductService.updateClinicalFlags, which refuses a tenant without prescription control — a
+         * hardware shop's tills would otherwise refuse to sell the product for a reason nobody could explain. build()
+         * below writes the flag straight onto the entity, so a CSV was a way around that guard.
+         *
+         * Same rule as the guard, and only when the flag is being switched ON: a file carrying rxRequired=false (or
+         * blank) is always fine. Same permissive-when-unresolved decision (CurrentUser.capabilityAllowed). Refused
+         * with a reason, never silently cleared — the engine rejects the whole file, so nothing is half-imported.
+         * The message names the COLUMN (the operator's own file), never the tenant's settings key.
+         */
+        if (bool(row.get(RX_REQUIRED))
+                && !com.myplus.common.security.CurrentUser.capabilityAllowed(RX_REQUIRED_CAPABILITY)) {
+            return "rxRequired is true, but prescription control is not switched on for your business — "
+                    + "set rxRequired to false (or leave it blank) for this product.";
+        }
         boolean wantsLoose = bool(row.get(ALLOW_LOOSE));
         if (!wantsLoose) return null;
         Integer packSize = intOrNull(row.get(PACK_SIZE));

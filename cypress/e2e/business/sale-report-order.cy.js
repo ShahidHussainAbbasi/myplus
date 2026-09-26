@@ -42,47 +42,31 @@ describe('SR-1 — the newest sale is on top', () => {
     cy.loginAsOwner(OWNER)
   })
 
-  it('⭐ 1 — the first row on screen carries the newest date this shop has', () => {
-    /*
-     * SEED, never assert-or-skip: the tenant must own sales on several dates spanning more than one month,
-     * or neither sort could be told from the other. Read from the product's own report.
-     */
-    cy.request({ method: 'POST', url: '/loadSR', form: true, body: WIDE }).then((r) => {
-      expect(r.body.status, 'the wide-range report answers').to.eq('SUCCESS')
-      const dates = [...new Set((r.body.collection || []).map((x) => x.dated).filter(Boolean))]
-      expect(dates.length, 'sales on several dates — one date proves nothing').to.be.greaterThan(2)
-      expect(new Set(dates.map((d) => d.slice(3))).size, 'spanning more than one month').to.be.greaterThan(1)
-
-      const newest = dates.slice().sort((a, b) => num(b) - num(a))[0]
-      const stringTop = dates.slice().sort().reverse()[0]
-      cy.log(`newest=${newest}   a string sort would show=${stringTop}`)
-
-      openReport()
-      cy.window().then((win) => {
-        win.$('#dateRangeDDSR').val('4')
-        win.toggleSRCustomRange()
-        win.$('#srsd').val(WIDE.sd)
-        win.$('#sred').val(WIDE.ed)
-        win.loadSR()
+  /*
+   * ⚠ FIXTURE (2026-09-26): these two cases used to need the tenant to OWN sales in several months. They cannot seed
+   * that — a sale is always stamped now (SagaSaleWriter: sell.setDated(now)); back-dating is not a feature — so they
+   * passed only while an old tenant still had August sales, and failed the day those were gone.
+   *
+   * The defect lives in the GRID'S SORT (dd-MM-yyyy typed as a string), not in the server. So the fixture is built
+   * at the one boundary that matters: the REAL /loadSR request goes out, and its answer is replaced with clones of a
+   * real row carrying dates across a month AND a year boundary. Everything after that — the product's loadSR
+   * success handler, the column types, `order`, the rendering — is the product's own code, unchanged.
+   *
+   * The dates are chosen so the two sorts DISAGREE at the top: a string sort puts "31-12-2025" first; a date sort
+   * puts "06-09-2026". A cloned row from the real response keeps the exact shape the grid's columns read.
+   */
+  const CROSS = ['30-08-2026', '06-09-2026', '31-12-2025', '15-08-2026', '02-01-2026', '01-09-2026']
+  const NEWEST = '06-09-2026'
+  const crossMonthReport = () => {
+    cy.intercept('POST', '**/loadSR*', (req) => {
+      req.continue((res) => {
+        const rows = (res.body && res.body.collection) || []
+        if (!rows.length) throw new Error('the report returned no rows at all — nothing to clone the fixture from')
+        res.body.collection = CROSS.map((d, i) => Object.assign({}, rows[0], {
+          dated: d, sellId: (Number(rows[0].sellId) || 0) * 100 + i, invoiceNo: `SR1-${i}`,
+        }))
       })
-      cy.get('#tableSellReport tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 1)
-      cy.get('#tableSellReport tbody tr:first td:first').should((cell) => {
-        expect(cell.text().trim(), 'the FIRST row is the newest sale, not the highest day number').to.eq(newest)
-      })
-    })
-  })
-
-  it('⭐ 2 — every visible row is in descending date order across a month boundary', () => {
-    /*
-     * Case 1 checks the top row; this checks that EVERY row is ordered, which is what a manager scrolling a
-     * report actually relies on.
-     *
-     * ⚠ Read through the DataTables API, not off the screen. The grid renders one page — 50 rows — and
-     * sorted newest-first those all fall inside the newest month. So a check on the visible cells can only
-     * ever see a single month, which is exactly the case where a string sort and a date sort agree: it would
-     * pass just as happily on the broken build. `{ page: 'all' }` returns every row in the applied order,
-     * which is where the month boundary the defect lives on actually is.
-     */
+    }).as('sr')
     openReport()
     cy.window().then((win) => {
       win.$('#dateRangeDDSR').val('4')
@@ -91,7 +75,24 @@ describe('SR-1 — the newest sale is on top', () => {
       win.$('#sred').val(WIDE.ed)
       win.loadSR()
     })
-    cy.get('#tableSellReport tbody tr', { timeout: 30000 }).should('have.length.greaterThan', 1)
+    cy.wait('@sr')
+    cy.get('#tableSellReport tbody tr', { timeout: 30000 }).should('have.length', CROSS.length)
+  }
+
+  it('⭐ 1 — the first row on screen carries the newest date, not the highest day number', () => {
+    const stringTop = CROSS.slice().sort().reverse()[0]
+    expect(stringTop, 'the fixture really separates the two sorts').to.not.eq(NEWEST)
+    crossMonthReport()
+    cy.get('#tableSellReport tbody tr:first td:first').should((cell) => {
+      expect(cell.text().trim(), 'the FIRST row is the newest sale, not the highest day number').to.eq(NEWEST)
+    })
+  })
+
+  it('⭐ 2 — every row is in descending date order across a month AND a year boundary', () => {
+    /*
+     * Read through the DataTables API ({ page: 'all' }), in the APPLIED order — every row, not only the page.
+     */
+    crossMonthReport()
     cy.window().then((win) => {
       const dates = win.tableSellReport
         .column(0, { order: 'applied', page: 'all', search: 'none' })
@@ -99,14 +100,10 @@ describe('SR-1 — the newest sale is on top', () => {
         .toArray()
         .map((cell) => String(cell).replace(/<[^>]*>/g, '').trim())
 
-      expect(dates.length, 'every row, not just the rendered page').to.be.greaterThan(1)
-      const months = new Set(dates.map((d) => d.slice(3)))
-      expect(months.size, 'the report spans more than one month — where a string sort fails')
-        .to.be.greaterThan(1)
-
+      expect(dates.length, 'every fixture row is in the grid').to.eq(CROSS.length)
       const seen = dates.map(num)
       for (let i = 1; i < seen.length; i++) {
-        expect(seen[i], `row ${i} (${dates[i]}) is newer than the row above it (${dates[i - 1]})`)
+        expect(seen[i], `row ${i} (${dates[i]}) is not newer than the row above it (${dates[i - 1]})`)
           .to.be.at.most(seen[i - 1])
       }
     })

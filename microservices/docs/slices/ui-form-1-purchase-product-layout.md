@@ -37,8 +37,11 @@ the monolith rebuild.** NOT committed.
   `data-pos-field="serial"` is now on BOTH cells (serial and condition), toggled per element (business.js 5907).
   Barcode: the label moved INSIDE `#prodBarcodeWrap`; business.js toggles both ids with the same flag.
 - **Stickers (#prodStickerWrap) stay inside the loose row**, as before, so they still show and hide with it.
-  Observation (not changed): that means a non-divisible product can never show its stickers, although a sticker can
-  be a PACK sticker. Raise separately.
+  **Resolved 2026-09-26 (follow-up):** the panel is now its OWN cell in Details. The server
+  (ProductBarcodeService.register) always accepted a PACK sticker for any product and refuses only LOOSE on a product
+  not sold by the piece — so "Piece" is offered only while "May be sold by the piece" is ticked (syncStickerUnit).
+  Gate `product-own-stickers.cy.js` 2 — red 2/2 on the old build (panel invisible on a plain product; Piece still
+  offered after unticking).
 - "Already registered" is FOLDED, not removed: `.is-idle` hides the list box only; rows stay rendered; never folded on
   a load failure, "nothing registered yet", or a flagged duplicate (`syncExistingIdle`).
 - Product title via `t('ui.js.newProduct' / 'ui.js.editProduct')` (it was an English literal). 11 new message keys in 6
@@ -146,3 +149,10 @@ Estimated: purchase desktop ~582 → ~420 px, phone ~1461 → ~1000 px with acti
   rows; the buttons are visible without scrolling; the product modal shows "New Product"/"Edit Product".
 - Re-run: purchase-rapid-entry, purchase-paid-autofill, purchase-inline-product, purchase-in-boxes,
   purchase-multi-serial, pharma-formula, and the catalog-product specs.
+
+**Stickers follow-up — GREEN 2026-09-26:** product-own-stickers 2/2, form-layout 12/12. First run found two defects of
+the follow-up: (1) syncStickerUnit tested `$u.val() === 'LOOSE'`, but jQuery's val() is null once the selected option
+is DISABLED — now `if (!loose) val('PACK')`; (2) `openModal` did not reset the overlay's scroll, so a modal re-opened
+after being scrolled (Cancel at the foot of a tall form) showed mid-form with its title hidden — now `scrollTop(0)` on
+every open (crud-modal.js, all modals). Sticker row: `data-width="130px"` on the upgraded select — code / unit / qty /
+Add measured on ONE line (top 646/646/646/647px).

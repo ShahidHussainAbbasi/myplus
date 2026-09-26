@@ -153,6 +153,52 @@ class ProductImportSpecTest {
         assertThat(r.getRows().get(0).getMessage()).contains("rxRequired");
     }
 
+    // ── C6 on the import path: rxRequired needs the tenant's prescription capability ─────────────────────────
+    //
+    // The form can only switch rxRequired on through updateClinicalFlags, which refuses a tenant without the
+    // capability. build() writes the flag straight onto the entity, so before this the CSV was a way around it.
+
+    @Test
+    void rxRequired_true_is_refused_for_a_tenant_without_prescription_control() {
+        com.myplus.catalog.support.TestTenant.authenticateWithCapabilities(java.util.Set.of());   // resolved: nothing
+        try {
+            ImportReport r = engine.commit(spec, HEADERS + "A1,Widget,,,,,,,,true,\n" + minimal("A2", "Gadget"), ORG, USER);
+
+            assertThat(r.isCommitted()).as("one refused row stops the file").isFalse();
+            assertThat(r.getRefused()).isEqualTo(1);
+            assertThat(r.getRows().get(0).getMessage()).contains("rxRequired").contains("prescription control");
+            verify(productRepository, never()).saveAll(any());
+        } finally {
+            com.myplus.catalog.support.TestTenant.clear();
+        }
+    }
+
+    @Test
+    void rxRequired_false_or_blank_still_imports_for_a_tenant_without_prescription_control() {
+        com.myplus.catalog.support.TestTenant.authenticateWithCapabilities(java.util.Set.of());
+        try {
+            ImportReport r = engine.commit(spec, HEADERS + "A1,Widget,,,,,,,,false,\n" + minimal("A2", "Gadget"), ORG, USER);
+
+            assertThat(r.isCommitted()).isTrue();
+            assertThat(captureSaved()).extracting(Product::getRxRequired).containsOnly(false);
+        } finally {
+            com.myplus.catalog.support.TestTenant.clear();
+        }
+    }
+
+    @Test
+    void rxRequired_true_imports_for_a_tenant_that_has_prescription_control() {
+        com.myplus.catalog.support.TestTenant.authenticateWithCapabilities(java.util.Set.of("rxRequired"));
+        try {
+            ImportReport r = engine.commit(spec, HEADERS + "A1,Widget,,,,,,,,true,\n", ORG, USER);
+
+            assertThat(r.isCommitted()).isTrue();
+            assertThat(captureSaved().get(0).getRxRequired()).isTrue();
+        } finally {
+            com.myplus.catalog.support.TestTenant.clear();
+        }
+    }
+
     // ── duplicates ──────────────────────────────────────────────────────────────────────────────────────────
 
     @Test
