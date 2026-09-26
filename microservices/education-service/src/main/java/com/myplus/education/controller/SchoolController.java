@@ -175,7 +175,7 @@ public class SchoolController {
     }
 
     // D-3 privilege map: money / structure / policy — not routine data entry
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('school.edit')")
     @RequestMapping(value = "/addSchool", method = RequestMethod.POST)
     @ResponseBody
     @Transactional

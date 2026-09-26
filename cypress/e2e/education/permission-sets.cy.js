@@ -182,6 +182,16 @@ describe('EDU-PERM-1 — a school speaks its own permission vocabulary', () => {
         // it must never pick up a code from the other module's vocabulary
         expect(codes.filter((c) => c.startsWith('sale.') || c.startsWith('purchase.')),
           'a school set holding shop codes').to.have.length(0)
+
+        /*
+         * ⚠ LEAVE NO SERVER STATE. A spec that CREATES a set must remove it: without this, every run
+         * leaves another "EduSet <ts>" in the tenant's picker for ever, and the owner's real screen fills
+         * with test debris. Found by reading the set list after a few runs and seeing one sitting there.
+         */
+        if (saved.id) {
+          cy.request({ method: 'DELETE', url: `/team/permissions/sets/${saved.id}`,
+                       failOnStatusCode: false })
+        }
       })
     })
 

@@ -71,6 +71,18 @@ public class CustomerHistoryDTO {
 
     private BigDecimal storeCreditApplied;   // SF-5 Model B: store credit redeemed on this sale (for the receipt)
 
+    /**
+     * RST-R2a — how the sale was served: {@code DINE_IN} / {@code TAKE_AWAY} / {@code DELIVERY}, or null.
+     *
+     * <p>A STRING on the wire rather than the enum, matching {@code customerType} beside it. The monolith
+     * proxy re-serialises this payload, and a value it does not recognise must arrive as an unrecognised
+     * string that {@code OrderType.byCode} resolves to null — not as a deserialisation failure that loses
+     * the whole sale. Parsing happens once, server-side, where the refusal can be explained.
+     *
+     * <p>Null means "not recorded", which is what every sale in a shop without the capability sends.
+     */
+    private String orderType;
+
     // SF-3: client-supplied idempotency key (one per checkout attempt). addSell dedups on (org, key) so a
     // double-click / network retry records ONE invoice instead of two. Null for legacy callers.
     private String idempotencyKey;

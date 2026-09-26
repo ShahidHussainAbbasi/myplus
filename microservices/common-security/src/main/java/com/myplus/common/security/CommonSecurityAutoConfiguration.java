@@ -39,6 +39,27 @@ public class CommonSecurityAutoConfiguration {
     public static final class GatewayForwardingSecret {}
 
     /**
+     * TZ-1 — the zone a browser-bound response is rendered in, from {@code X-Render-Tz} (set only by the monolith,
+     * never forwarded service-to-service). See {@link com.myplus.common.security.time.RenderZone}.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    // TZ-1: OFF until P1 lands with its gate — until then the web layer's JSON converter is exactly Spring's.
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.tz.render-zone.enabled", havingValue = "true")
+    public com.myplus.common.security.time.RenderZoneFilter renderZoneFilter() {
+        return new com.myplus.common.security.time.RenderZoneFilter();
+    }
+
+    /** TZ-1 — UTC ⇄ render zone for LocalDateTime, in the WEB LAYER's JSON converter only. */
+    @Bean
+    @ConditionalOnMissingBean
+    // TZ-1: OFF until P1 lands with its gate — until then the web layer's JSON converter is exactly Spring's.
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.tz.render-zone.enabled", havingValue = "true")
+    public com.myplus.common.security.time.RenderZoneWebConfig renderZoneWebConfig() {
+        return new com.myplus.common.security.time.RenderZoneWebConfig();
+    }
+
+    /**
      * Stamps tenant/user identity (X-Org-Id / X-User-Id) onto logs (MDC), the current span, and
      * OpenTelemetry baggage so telemetry is filterable per tenant. No-op when no OTel SDK is present.
      */

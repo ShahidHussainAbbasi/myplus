@@ -43,7 +43,7 @@ public class AppUtil {
     }
 
     public String getLocalDateTimeStr(LocalDateTime date) {
-        return date == null ? "" : dateTimeFormatter.format(date);
+        return date == null ? "" : dateTimeFormatter.format(com.myplus.common.security.time.RenderZone.toDisplay(date));   // TZ-1: UTC → business time
     }
 
     public String getLocalDateStr(LocalDate date) {

@@ -1,0 +1,2 @@
+# TZ-1: pin every service's JVM to UTC before Spring builds anything (see UtcDefaultTimeZone).
+org.springframework.boot.env.EnvironmentPostProcessor=com.myplus.common.security.time.UtcDefaultTimeZone

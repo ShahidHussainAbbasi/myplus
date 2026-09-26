@@ -30,6 +30,7 @@ public class AlertChannelController {
         return ApiResponse.success(alertChannelService.get(id));
     }
 
+    @PreAuthorize("hasAuthority('communication.publish')")   // reaches parents; not a teacher's act
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<?> create(@RequestBody AlertChannelDTO dto,
@@ -38,6 +39,7 @@ public class AlertChannelController {
         return ApiResponse.success(alertChannelService.create(dto));
     }
 
+    @PreAuthorize("hasAuthority('communication.publish')")
     @PutMapping("/{id}")
     public ApiResponse<?> update(@PathVariable Long id, @RequestBody AlertChannelDTO dto) {
         return ApiResponse.success(alertChannelService.update(id, dto));

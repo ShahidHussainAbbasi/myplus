@@ -77,7 +77,7 @@ public class FeeController {
         }
     }
 
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('fee.structure')")
     @RequestMapping(value = "/saveFeeSetting", method = RequestMethod.POST)
     @ResponseBody
     @Transactional
@@ -172,6 +172,7 @@ public class FeeController {
 
     // ---- Report (org income, filtered + totals) ----
 
+    @PreAuthorize("hasAuthority('fee.view')")   // a fee report is money; it was the only unguarded read left on this controller
     @RequestMapping(value = "/loadFR", method = RequestMethod.POST)
     @ResponseBody
     @Transactional(readOnly = true)

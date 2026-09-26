@@ -114,7 +114,7 @@ public class PortalAccessController {
      */
     @RequestMapping(value = "/invitePortalAccess", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('guardian.portal')")
     @Transactional
     public GenericResponse invitePortalAccess(final HttpServletRequest request) {
         try {
@@ -206,7 +206,7 @@ public class PortalAccessController {
      */
     @RequestMapping(value = "/revokePortalAccess", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('guardian.portal')")
     @Transactional
     public GenericResponse revokePortalAccess(final HttpServletRequest request) {
         try {

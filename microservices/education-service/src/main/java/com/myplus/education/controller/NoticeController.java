@@ -187,7 +187,7 @@ public class NoticeController {
      */
     @RequestMapping(value = "/publishNotice", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('communication.publish')")
     @Transactional
     public GenericResponse publishNotice(final HttpServletRequest request) {
         try {
@@ -232,7 +232,7 @@ public class NoticeController {
     /** Delete a notice. ADMIN, because removing what a school told its families is a policy act too. */
     @RequestMapping(value = "/deleteNotice", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('communication.publish')")
     @Transactional
     public GenericResponse deleteNotice(final HttpServletRequest request) {
         try {

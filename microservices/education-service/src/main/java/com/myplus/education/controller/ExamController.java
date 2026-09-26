@@ -199,7 +199,7 @@ public class ExamController {
 
     @RequestMapping(value = "/addExam", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('exam.edit')")
     public GenericResponse addExam(final HttpServletRequest request) {
         try {
             Long org = orgId(), uid = userId();
@@ -260,7 +260,7 @@ public class ExamController {
 
     @RequestMapping(value = "/addExamPaper", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('exam.edit')")
     public GenericResponse addExamPaper(final HttpServletRequest request) {
         try {
             Long org = orgId(), uid = userId();
@@ -325,7 +325,7 @@ public class ExamController {
      */
     @RequestMapping(value = "/setExamStatus", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('exam.edit')")
     public GenericResponse setExamStatus(final HttpServletRequest request) {
         try {
             Long org = orgId(), uid = userId();

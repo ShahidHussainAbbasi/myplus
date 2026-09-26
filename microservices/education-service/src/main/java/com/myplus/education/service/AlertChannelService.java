@@ -3,6 +3,7 @@ package com.myplus.education.service;
 import com.myplus.education.dto.EducationDTOs.AlertChannelDTO;
 import com.myplus.education.entity.AlertChannel;
 import com.myplus.education.exception.ResourceNotFoundException;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.education.repository.AlertChannelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -53,8 +54,14 @@ public class AlertChannelService {
         alertChannelRepository.delete(getEntity(id));
     }
 
+    /*
+     * ANTI-IDOR -- see the identical note in AlertsService. get, update and delete all resolve through
+     * here, and this read findById(id): a client-supplied id straight out of the table, with no tenant
+     * check, on a REST controller whose list endpoint scopes by user. findByIdScoped was added to the
+     * repository for this; the sibling AlertsRepository had carried one all along.
+     */
     public AlertChannel getEntity(Long id) {
-        return alertChannelRepository.findById(id)
+        return alertChannelRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("AlertChannel not found: " + id));
     }
 

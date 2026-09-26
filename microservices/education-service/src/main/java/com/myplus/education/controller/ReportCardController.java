@@ -225,7 +225,7 @@ public class ReportCardController {
      */
     @RequestMapping(value = "/publishReportCard", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('reportcard.publish')")
     @Transactional
     public GenericResponse publishReportCard(final HttpServletRequest request) {
         try {
@@ -283,7 +283,7 @@ public class ReportCardController {
      */
     @RequestMapping(value = "/withdrawReportCard", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('reportcard.publish')")
     @Transactional
     public GenericResponse withdrawReportCard(final HttpServletRequest request) {
         try {

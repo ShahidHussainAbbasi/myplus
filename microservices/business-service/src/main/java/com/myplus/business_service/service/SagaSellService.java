@@ -4,6 +4,7 @@ import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
+import com.myplus.business_service.entity.enums.OrderType;
 import com.myplus.business_service.util.RequestUtil;
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.client.InventoryClient;
@@ -190,6 +191,7 @@ public class SagaSellService {
     public String addSell(CustomerHistoryDTO dto, java.util.Map<Integer, LoosePriceLock> looseLocks) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
         periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new sale is a today-dated entry
+        assertOrderTypeAllowed(dto);                             // RST-R2a — before the key, the reserve, the write
 
         // SF-3: idempotent submission — one key per checkout attempt (client-supplied; fall back to a generated one
         // for legacy callers). If an invoice already exists for (org, key), this is a double-click / retry: return
@@ -1166,6 +1168,42 @@ public class SagaSellService {
 
     /** Turn the reserve's raw "product 891: only 7 sellable, 10 requested" reason into a name-resolved, cashier-
      *  friendly sentence. Falls back to a generic line when the reserve gave no detail. */
+    /**
+     * RST-R2a — may this sale carry the order type it claims, and is that type servable?
+     *
+     * <p>Called FIRST in {@code addSell}, before the idempotency key, the reserve and any write. Both
+     * outcomes here are refusals, and a refusal after a reserve leaks held stock until the lease lapses.
+     *
+     * <h3>⚠ A sale with NO order type is never refused</h3>
+     * That is every sale in every shop that does not do service modes — which is almost all of them. The
+     * capability is asked about only when the till actually sends a type, so switching the capability off
+     * hides a feature and cannot break a till. A guard that refuses the common case to protect a rare one
+     * is worse than no guard.
+     *
+     * <h3>⚠ DELIVERY needs somewhere to deliver to</h3>
+     * The ruling (2026-09-25) is that a delivery with no contact is refused rather than warned about: an
+     * order nobody can deliver is not a sale, it is a problem discovered at the door. Dine-in and take-away
+     * stay no-customer-needed so the counter's fast path is untouched — this costs a cashier one field, on
+     * delivery orders only.
+     *
+     * <p>An unreadable type resolves to null ({@code OrderType.byCode}) and is treated as "not recorded",
+     * not as an error: a value this version does not know must not lose the whole sale.
+     */
+    private void assertOrderTypeAllowed(CustomerHistoryDTO dto) {
+        OrderType type = OrderType.byCode(dto == null ? null : dto.getOrderType());
+        if (type == null) return;
+
+        capabilityService.assertEnabled(com.myplus.common.settings.Capability.ORDER_TYPES);
+
+        if (type.requiresCustomerContact()) {
+            String contact = (dto.getCustomer() == null) ? null : dto.getCustomer().getContact();
+            if (contact == null || contact.isBlank()) {
+                throw new com.myplus.common.web.exception.ValidationException(
+                        "A delivery order needs a customer contact — there is nowhere to send it otherwise.");
+            }
+        }
+    }
+
     private String friendlyOutOfStock(String reason, java.util.Map<Long, String> names) {
         if (reason == null || reason.isBlank()) return "Not enough sellable stock to complete the sale.";
         for (java.util.Map.Entry<Long, String> e : names.entrySet()) {

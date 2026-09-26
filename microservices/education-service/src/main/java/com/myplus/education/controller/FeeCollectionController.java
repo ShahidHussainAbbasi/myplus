@@ -375,7 +375,7 @@ public class FeeCollectionController {
     }
 
     // D-3 privilege map: money / structure / policy — not routine data entry
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('fee.view')")
     @RequestMapping(value = "/addFc", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addFc(final FeeCollectionDTO dto, final HttpServletRequest request) {

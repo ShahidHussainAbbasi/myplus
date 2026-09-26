@@ -97,7 +97,7 @@ public class GradingController {
      */
     @RequestMapping(value = "/saveGradeBand", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('exam.edit')")
     @Transactional
     public GenericResponse saveGradeBand(final HttpServletRequest request) {
         try {
@@ -177,7 +177,7 @@ public class GradingController {
      */
     @RequestMapping(value = "/applyGradingPreset", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('exam.edit')")
     @Transactional
     public GenericResponse applyGradingPreset(final HttpServletRequest request) {
         try {

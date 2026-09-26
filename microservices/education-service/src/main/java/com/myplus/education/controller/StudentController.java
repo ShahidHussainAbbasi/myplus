@@ -316,6 +316,7 @@ public class StudentController {
 
     // ---- Slice 15: CSV bulk import ----
     // Header: enrollNo,name,gradeName,gender,guardianName,mobile,status
+    @PreAuthorize("hasAuthority('student.create')")   // bulk import -- the single-student path already requires a privilege
     @RequestMapping(value = "/impStudents", method = RequestMethod.POST)
     @ResponseBody
     @Transactional

@@ -142,6 +142,7 @@ public class AlertController {
         return true;
     }
 
+    @PreAuthorize("hasAuthority('communication.publish')")   // sends to parents; publishing is not a teacher's act
     @RequestMapping(value = "/sendAlerts", method = RequestMethod.POST)
     @ResponseBody
     @Transactional
@@ -206,7 +207,7 @@ public class AlertController {
 
     // CSV columns: name,email,mobile,userType
     // D-3 privilege map: money / structure / policy — not routine data entry
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('student.create')")
     @RequestMapping(value = "/importCSV", method = RequestMethod.POST)
     @ResponseBody
     @Transactional
@@ -246,6 +247,7 @@ public class AlertController {
         return new GenericResponse("SUCCESS", "Imported " + created + " contact(s)", summary);
     }
 
+    @PreAuthorize("hasAuthority('communication.publish')")   // sends to parents; publishing is not a teacher's act
     @RequestMapping(value = "/sendPA", method = RequestMethod.POST)
     @ResponseBody
     @Transactional(readOnly = true)

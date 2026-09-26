@@ -3,6 +3,7 @@ package com.myplus.education.service;
 import com.myplus.education.dto.EducationDTOs.AlertsDTO;
 import com.myplus.education.entity.Alerts;
 import com.myplus.education.exception.ResourceNotFoundException;
+import com.myplus.common.security.CurrentUser;
 import com.myplus.education.repository.AlertsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -67,8 +68,20 @@ public class AlertsService {
         alertsRepository.delete(getEntity(id));
     }
 
+    /*
+     * ANTI-IDOR -- resolve by id WITHIN THE CALLER'S TENANT, never by id alone.
+     *
+     * This read findById(id). The list endpoint scopes by user, but every by-id path -- get, update and
+     * delete -- resolved a client-supplied id straight out of the table, so any signed-in education user
+     * could read, rewrite or delete another school's row by guessing a number. The same shape as the
+     * marketplace quote defect (SCOPE-1): the list is scoped, open-by-id is not.
+     *
+     * The tenancy data was never missing. The entity carries organizationId and userId, this repository
+     * ALREADY had findByIdScoped, and the rest of the module uses it in twenty places. Only this newer
+     * REST-style controller/service pair skipped it.
+     */
     public Alerts getEntity(Long id) {
-        return alertsRepository.findById(id)
+        return alertsRepository.findByIdScoped(id, CurrentUser.organizationId(), CurrentUser.userId())
                 .orElseThrow(() -> new ResourceNotFoundException("Alert not found: " + id));
     }
 

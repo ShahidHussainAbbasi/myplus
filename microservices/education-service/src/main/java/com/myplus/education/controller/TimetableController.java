@@ -90,7 +90,7 @@ public class TimetableController {
 
     @RequestMapping(value = "/savePeriod", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.edit')")
     @Transactional
     public GenericResponse savePeriod(final HttpServletRequest request) {
         try {
@@ -224,7 +224,7 @@ public class TimetableController {
 
     @RequestMapping(value = "/saveTimetableEntry", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.edit')")
     @Transactional
     public GenericResponse saveTimetableEntry(final HttpServletRequest request) {
         try {
@@ -342,7 +342,7 @@ public class TimetableController {
      */
     @RequestMapping(value = "/copyTimetable", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.edit')")
     @Transactional
     public GenericResponse copyTimetable(final HttpServletRequest request) {
         try {

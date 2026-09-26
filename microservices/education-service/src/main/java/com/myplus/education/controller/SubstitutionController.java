@@ -188,7 +188,7 @@ public class SubstitutionController {
 
     @RequestMapping(value = "/markStaffAbsent", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.substitute')")
     @Transactional
     public GenericResponse markStaffAbsent(final HttpServletRequest request) {
         try {
@@ -221,7 +221,7 @@ public class SubstitutionController {
      */
     @RequestMapping(value = "/clearStaffAbsence", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.substitute')")
     @Transactional
     public GenericResponse clearStaffAbsence(final HttpServletRequest request) {
         try {
@@ -253,7 +253,7 @@ public class SubstitutionController {
      */
     @RequestMapping(value = "/assignSubstitute", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.substitute')")
     @Transactional
     public GenericResponse assignSubstitute(final HttpServletRequest request) {
         try {
@@ -342,7 +342,7 @@ public class SubstitutionController {
     /** Withdraw a cover: back to UNCOVERED, because the class still needs someone. */
     @RequestMapping(value = "/clearSubstitute", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('timetable.substitute')")
     @Transactional
     public GenericResponse clearSubstitute(final HttpServletRequest request) {
         try {

@@ -19,4 +19,14 @@ public interface AlertChannelRepository extends JpaRepository<AlertChannel, Long
     @Query("select c from AlertChannel c where c.organizationId = :orgId "
             + "or (c.organizationId is null and c.userId = :userId)")
     List<AlertChannel> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /**
+     * Anti-IDOR: resolve ONE channel by a client-supplied id within the caller's tenant. The sibling
+     * AlertsRepository has carried this since it was written; this one did not, and its service resolved
+     * by bare id on the get, update and delete paths.
+     */
+    @Query("select c from AlertChannel c where c.id = :id and (c.organizationId = :orgId "
+            + "or (c.organizationId is null and c.userId = :userId))")
+    java.util.Optional<AlertChannel> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                                    @Param("userId") Long userId);
 }

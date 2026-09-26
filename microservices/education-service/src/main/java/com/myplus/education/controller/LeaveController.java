@@ -113,7 +113,7 @@ public class LeaveController {
 
     @RequestMapping(value = "/saveLeaveType", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('attendance.staff')")
     @Transactional
     public GenericResponse saveLeaveType(final HttpServletRequest request) {
         try {
@@ -363,7 +363,7 @@ public class LeaveController {
      */
     @RequestMapping(value = "/decideLeaveRequest", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('attendance.staff')")
     @Transactional
     public GenericResponse decideLeaveRequest(final HttpServletRequest request) {
         try {

@@ -136,7 +136,7 @@ public class AppUtil {
     public String getLocalDateTimeStr(LocalDateTime date) {
     	if(date==null)
     		return "";
-    	return dateTimeFormatter.format(date);
+    	return dateTimeFormatter.format(com.myplus.common.security.time.RenderZone.toDisplay(date));   // TZ-1: UTC → the reader's business time
     }
 
     //Get current date
@@ -151,7 +151,7 @@ public class AppUtil {
     	if(StringUtils.isEmpty(dateTimeStr))
     		return LocalDateTime.now();
     	LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, dateTimeFormatter);
-    	return dateTime;
+    	return com.myplus.common.security.time.RenderZone.fromDisplay(dateTime);   // TZ-1: typed in business time → UTC
     }
    	//Get current date
     public LocalDate getLocalDate(String dateStr) throws ParseException {
@@ -211,12 +211,12 @@ public class AppUtil {
     public String getDateTimeStr(LocalDateTime dateTime){
     	if(StringUtils.isEmpty(dateTime))
     		return "";
-        return dateTimeFormatter.format(dateTime);
+        return dateTimeFormatter.format(com.myplus.common.security.time.RenderZone.toDisplay(dateTime));   // TZ-1
     }
 
     //Get current date time
     public String todayDateTimeStr() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = com.myplus.common.security.time.RenderZone.toDisplay(LocalDateTime.now());   // TZ-1: "now" as the reader sees it
         return now.format(dateTimeFormatter);
     }
 
@@ -537,24 +537,25 @@ public class AppUtil {
 	// Parse a String into LocalDateTime, accepting both "dd-MM-yyyy HH:mm:ss" and
 	// date-only "dd-MM-yyyy" (date-only falls back to start of day).
 	private LocalDateTime parseFlexibleDateTime(String s) {
+		// TZ-1: a time (or a date's midnight) typed in the business's zone → the UTC the services work in.
 		try {
-			return LocalDateTime.parse(s, dateTimeFormatter);
+			return com.myplus.common.security.time.RenderZone.fromDisplay(LocalDateTime.parse(s, dateTimeFormatter));
 		} catch (DateTimeParseException e) {
-			return LocalDate.parse(s, dateformatter).atStartOfDay();
+			return com.myplus.common.security.time.RenderZone.fromDisplay(LocalDate.parse(s, dateformatter).atStartOfDay());
 		}
 	}
 
 	public Converter<LocalDateTime,String> localDateTimeToString = new Converter<LocalDateTime,String>() {
     	@Override
     	public String convert(MappingContext<LocalDateTime,String> arg0) {
-    		return isEmptyOrNull(arg0.getSource()) ? LocalDateTime.now().format(dateTimeFormatter) : dateTimeFormatter.format(arg0.getSource());//arg0.getSource().toUppercase();
+    		return isEmptyOrNull(arg0.getSource()) ? com.myplus.common.security.time.RenderZone.toDisplay(LocalDateTime.now()).format(dateTimeFormatter) : dateTimeFormatter.format(com.myplus.common.security.time.RenderZone.toDisplay(arg0.getSource()));   // TZ-1//arg0.getSource().toUppercase();
     	}
 	}; 
 
 	public Converter<LocalDateTime,String> localDateTimeToStringIgnoreEmptyOrNull = new Converter<LocalDateTime,String>() {
     	@Override
     	public String convert(MappingContext<LocalDateTime,String> arg0) {
-    		return isEmptyOrNull(arg0.getSource()) ? null : dateTimeFormatter.format(arg0.getSource());//arg0.getSource().toUppercase();
+    		return isEmptyOrNull(arg0.getSource()) ? null : dateTimeFormatter.format(com.myplus.common.security.time.RenderZone.toDisplay(arg0.getSource()));   // TZ-1//arg0.getSource().toUppercase();
     	}
 	};
 

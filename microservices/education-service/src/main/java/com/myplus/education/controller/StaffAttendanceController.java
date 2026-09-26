@@ -160,7 +160,7 @@ public class StaffAttendanceController {
      */
     @RequestMapping(value = "/markStaffAttendanceBulk", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('attendance.mark')")
     @Transactional
     public GenericResponse markStaffAttendanceBulk(@RequestBody BulkRegisterRequest req) {
         try {

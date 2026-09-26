@@ -139,7 +139,7 @@ public class AcademicYearController {
 
     @RequestMapping(value = "/addAcademicYear", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('class.edit')")
     public GenericResponse addAcademicYear(final HttpServletRequest request) {
         try {
             String name = request.getParameter("name");
@@ -170,7 +170,7 @@ public class AcademicYearController {
 
     @RequestMapping(value = "/addTerm", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('class.edit')")
     public GenericResponse addTerm(final HttpServletRequest request) {
         try {
             String name = request.getParameter("name");
@@ -214,7 +214,7 @@ public class AcademicYearController {
      */
     @RequestMapping(value = "/pinCurrentTerm", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('class.edit')")
     public GenericResponse pinCurrentTerm(final HttpServletRequest request) {
         try {
             String idStr = request.getParameter("id");

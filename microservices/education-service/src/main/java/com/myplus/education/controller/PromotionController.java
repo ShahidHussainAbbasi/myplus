@@ -188,7 +188,7 @@ public class PromotionController {
      */
     @RequestMapping(value = "/runPromotion", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('student.promote')")
     @Transactional
     public GenericResponse runPromotion(@RequestBody RunRequest req) {
         try {
@@ -241,7 +241,7 @@ public class PromotionController {
     /** Undo one decision: restore the class, keep the row as REVERSED (D7). */
     @RequestMapping(value = "/undoPromotion", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('student.promote')")
     @Transactional
     public GenericResponse undoPromotion(final HttpServletRequest request) {
         try {

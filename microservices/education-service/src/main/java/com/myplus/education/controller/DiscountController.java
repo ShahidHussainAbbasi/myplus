@@ -136,7 +136,7 @@ public class DiscountController {
     }
 
     // D-3 privilege map: money / structure / policy — not routine data entry
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('fee.structure')")
     @RequestMapping(value = "/addDiscount", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addDiscount(final DiscountDTO dto, final HttpServletRequest request) {

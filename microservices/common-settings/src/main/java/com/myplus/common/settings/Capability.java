@@ -122,7 +122,35 @@ public enum Capability {
      */
     MADE_TO_ORDER("madeToOrder", "Sell items made to order",
             "For food, services and repairs — items assembled when ordered, which hold no stock of their own. "
-                    + "Marked per product, so anything you really do stock still checks its stock.");
+                    + "Marked per product, so anything you really do stock still checks its stock."),
+
+    /**
+     * RST-R2a — the sale records HOW it is served: eaten in, taken away, or delivered.
+     *
+     * <h3>Why this is not the existing {@code Channel}</h3>
+     * {@code Channel} is the COMMERCIAL axis — retail or wholesale — and it is derived from
+     * {@code CustomerType}. Service mode is orthogonal to it: a wholesale customer can take away and a
+     * walk-in can dine in. Overloading one field to answer both questions is the same mistake the
+     * shape-versus-capability split exists to prevent on the other axis.
+     *
+     * <h3>Why it is not {@code FulfilmentStatus} either</h3>
+     * That lifecycle lives in marketplace-service on {@code Order}, and its states — PACKED, SHIPPED,
+     * DELIVERED — describe goods leaving a warehouse on a van. A counter sale has no such journey, and
+     * borrowing the enum would print "PACKED" on a burger.
+     *
+     * <h3>⚠ It is a PROPERTY of the sale, never a status</h3>
+     * Kitchen state and money state advance independently: a take-away is normally paid before it is cooked,
+     * a dine-in table an hour after. Nothing may read this to decide whether money is owed, and paying must
+     * never change it. The kitchen lifecycle that does move is R2b's, and it is separate on purpose.
+     *
+     * <h3>Deliberately NOT in {@link Plan#FREE}</h3>
+     * The rule recorded there is "without it, can the shop complete a sale?" A shop sells perfectly well
+     * with no order types — it simply does not record how the food left. That makes this an ordinary paid
+     * capability, unlike {@code MADE_TO_ORDER}, whose absence stops a kitchen trading at all.
+     */
+    ORDER_TYPES("orderTypes", "Dine-in, take-away and delivery",
+            "For food service — each sale records how it was served, and the day's takings split by it. "
+                    + "Leave off if every sale is the same kind.");
 
     private final String code;
     private final String label;

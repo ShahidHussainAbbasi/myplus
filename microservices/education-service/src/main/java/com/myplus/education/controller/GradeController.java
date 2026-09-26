@@ -143,7 +143,7 @@ public class GradeController {
     }
 
     // D-3 privilege map: money / structure / policy — not routine data entry
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('class.edit')")
     @RequestMapping(value = "/addGrade", method = RequestMethod.POST)
     @ResponseBody
     public GenericResponse addGrade(final GradeDTO dto, final HttpServletRequest request) {

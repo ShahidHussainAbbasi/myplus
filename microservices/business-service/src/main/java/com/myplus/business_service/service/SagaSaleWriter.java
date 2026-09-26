@@ -53,6 +53,16 @@ public class SagaSaleWriter {
         ch.setReservationId(reservationId);
         ch.setIdempotencyKey(idempotencyKey);
         ch.setSagaStatus("PENDING");
+        /*
+         * RST-R2a — stamp how the sale was served.
+         *
+         * Resolved here rather than trusted from the wire: byCode is null-safe and case-tolerant, and an
+         * unrecognised value becomes "not recorded" instead of throwing away a sale that is otherwise
+         * complete. Whether the tenant is ALLOWED a type at all, and whether a delivery has somewhere to
+         * go, were both settled in SagaSellService.assertOrderTypeAllowed before any of this ran — those
+         * are refusals, and a refusal belongs before the reserve, not after it.
+         */
+        ch.setOrderType(com.myplus.business_service.entity.enums.OrderType.byCode(dto.getOrderType()));
         // POS day-close (slice 39): stamp the cashier's open shift (if any) so the X/Z report can aggregate it.
         cashierShiftRepo.findFirstByOrganizationIdAndUserIdAndStatusOrderByOpenedAtDesc(
                 user.getOrganizationId(), user.getUserId(), com.myplus.business_service.entity.ShiftStatus.OPEN)

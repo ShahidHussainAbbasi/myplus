@@ -140,7 +140,7 @@ public class MeetingController {
      */
     @RequestMapping(value = "/publishMeetingSlots", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('communication.publish')")
     public GenericResponse publishMeetingSlots(final HttpServletRequest request) {
         try {
             Long eventId = parseLong(request.getParameter("eventId"));
@@ -190,7 +190,7 @@ public class MeetingController {
      */
     @RequestMapping(value = "/setMeetingEventStatus", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAuthority('communication.publish')")
     @Transactional
     public GenericResponse setMeetingEventStatus(final HttpServletRequest request) {
         try {

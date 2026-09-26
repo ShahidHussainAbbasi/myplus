@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
@@ -183,6 +185,25 @@ public class CustomerHistory implements Serializable {
     // X/Z report aggregation.
     @Column(name = "shift_id")
     private Long shiftId;
+
+    /**
+     * RST-R2a — how this sale was served: eaten in, taken away, or delivered.
+     *
+     * <p>⚠ NULL is an answer, not an absence of one: "this tenant does not work in service modes". Every
+     * invoice written before V68, and every sale in a shop without the {@code orderTypes} capability, is
+     * null and must render as blank rather than as a default — a seeded DINE_IN would retro-label years of
+     * retail sales.
+     *
+     * <p>⚠ It is a PROPERTY, never a status. Nothing may read it to decide whether money is owed, and
+     * settling must never change it: a take-away is normally paid before it is cooked and a dine-in table
+     * an hour after. The kitchen lifecycle that does move is R2b's own field.
+     *
+     * <p>{@code STRING}, against {@code VARCHAR(16)} — never a MySQL ENUM, which is the mapping that
+     * crash-looped two services under {@code ddl-auto=validate}.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_type", length = 16)
+    private com.myplus.business_service.entity.enums.OrderType orderType;
 
     // Sell↔stock saga state (slice 33, U3). Null for legacy local-Stock sells. UD1 = invoice-as-saga-state:
     // a stuck PENDING (with reservationId) is re-driven to CONFIRMED by the scheduled recovery relay (U3c).

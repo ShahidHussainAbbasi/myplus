@@ -2041,6 +2041,81 @@ public class SellController {
 	 * it read-only. Rejected if already VOID or if any partial return was already recorded (would double-reverse).
 	 */
 	@Transactional
+	/**
+	 * RST-R2a — correct how a settled sale was served.
+	 *
+	 * <h3>Why this exists at all, and why it is audited</h3>
+	 * A cashier mis-taps. The alternative to a correction is a credit note and a re-ring, which moves real
+	 * money to fix a label. The ruling (2026-09-25) is that owner and admin may change it at any time —
+	 * the most permissive of the three options considered — and that choice is only defensible WITH a
+	 * record, because the day's takings split can change after somebody has read it. So every change writes
+	 * an audit row carrying the old value and the new one; without that the report would simply differ from
+	 * what was reported, with nothing to explain it.
+	 *
+	 * <h3>ADMIN_PRIVILEGE, not a new privilege</h3>
+	 * This corrects a label on a settled document. It moves no money, no stock and no ledger entry — so it
+	 * is not VOID_INVOICE's neighbour, and minting a privilege per field would make the privilege list a
+	 * catalogue of fields rather than of powers.
+	 *
+	 * <h3>⚠ It does NOT touch money, and must not start to</h3>
+	 * Order type is a property, not a status: nothing reads it to decide what is owed. In particular this
+	 * endpoint never re-posts to the ledger and never re-settles — if a future delivery charge depends on
+	 * the type, that is a money change and it gets its own slice and its own gate, not a quiet addition here.
+	 */
+	@PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+	@PostMapping(value = "/changeOrderType")
+	@ResponseBody
+	public GenericResponse changeOrderType(final HttpServletRequest request) {
+		try {
+			capabilityService.assertEnabled(com.myplus.common.settings.Capability.ORDER_TYPES);
+
+			Long chId = appUtil.isEmptyOrNull(request.getParameter("customerHistoryId")) ? null
+					: Long.valueOf(request.getParameter("customerHistoryId"));
+			String invoiceNo = request.getParameter("invoiceNo");
+			if (chId == null && !appUtil.isEmptyOrNull(invoiceNo))
+				chId = customerHistoryService.findByOrgAndInvoiceNo(orgId(), invoiceNo)
+						.map(CustomerHistory::getCustomer_history_id).orElse(null);
+			if (chId == null)
+				return new GenericResponse("NOT_FOUND", "No invoice id provided.");
+
+			CustomerHistory ch = customerHistoryService.findById(chId).orElse(null);
+			// anti-IDOR: org AND store, the same pair voidSell checks. A 404 rather than a 403, so the
+			// refusal does not confirm that the invoice exists in someone else's tenant.
+			if (ch == null || !inMyTenant(ch.getOrganizationId(), ch.getUserId()) || !myStore(ch.getStoreId()))
+				return new GenericResponse("NOT_FOUND", "Invoice not found.");
+
+			com.myplus.business_service.entity.enums.OrderType next =
+					com.myplus.business_service.entity.enums.OrderType.byCode(request.getParameter("orderType"));
+			if (next == null)
+				// byCode is deliberately lenient on the SALE path — an unknown value there means "not
+				// recorded" rather than losing the sale. Here the caller is explicitly setting one, so an
+				// unreadable value is a mistake worth reporting instead of silently clearing the field.
+				return new GenericResponse("FAILED", "Choose dine-in, take-away or delivery.");
+
+			if (next.requiresCustomerContact()) {
+				String contact = ch.getCustomer() == null ? null : ch.getCustomer().getContact();
+				if (contact == null || contact.isBlank())
+					return new GenericResponse("FAILED",
+							"A delivery order needs a customer contact — there is nowhere to send it otherwise.");
+			}
+
+			com.myplus.business_service.entity.enums.OrderType previous = ch.getOrderType();
+			if (previous == next) return new GenericResponse("SUCCESS", "Order type unchanged.");
+
+			ch.setOrderType(next);
+			customerHistoryService.save(ch);
+
+			// The old value is the point of the record: "changed to delivery" explains nothing on its own,
+			// and reconstructing the previous split from an audit trail that omits it is impossible.
+			auditService.record("SALE_ORDER_TYPE_CHANGE", "INVOICE", ch.getInvoiceNo(), null,
+					(previous == null ? "none" : previous.name()) + " -> " + next.name());
+			return new GenericResponse("SUCCESS", "Order type updated.");
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > changeOrderType " + e.getCause(), e);
+			return new GenericResponse("FAILED", "An unexpected error occurred. Please contact support.");
+		}
+	}
+
 	@PreAuthorize("hasAuthority('VOID_INVOICE')")
 	@PostMapping(value = "/voidSell")
 	@ResponseBody
