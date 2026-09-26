@@ -88,6 +88,18 @@
 }
 .crud-existing-row .ce-edit:hover{ color:#0D3B8C; }
 .crud-existing-msg{ font-size:12px; margin-top:6px; }
+/* UI-FORM-1: folded until something is typed (catalog-products.js syncExistingIdle). The rows stay rendered. */
+.crud-existing-idle{ display:none; font-weight:normal; font-size:12px; }
+.crud-existing.is-idle{ padding:7px 12px; }
+.crud-existing.is-idle .crud-existing-head{ margin-bottom:0; }
+.crud-existing.is-idle .crud-existing-idle{ display:inline; }
+.crud-existing.is-idle .crud-existing-list{ display:none; }
+/* Unfolded, the list RESERVES its height: results arriving (40 rows -> 1 match -> none) must not move the form or the
+ * Save buttons under the operator's pointer. The one height change is the unfold itself, on the keystroke. */
+#prodExistingWrap:not(.is-idle){ display:flex; flex-direction:column; height:230px; }
+#prodExistingWrap:not(.is-idle) .crud-existing-list{ flex:1 1 auto; min-height:0; max-height:none; }
+#prodExistingWrap:not(.is-idle) .crud-existing-msg{ flex:0 0 auto; }
+@media (max-width:767px){ #prodExistingWrap:not(.is-idle){ height:190px; } }
 
 @media (max-width:767px){
   /* The form is the task; on a phone give the panel less of the sheet. */
@@ -178,4 +190,84 @@ td.row-actions-cell{ vertical-align:middle; width:1%; }
   .row-actions .js-edit-row{ padding:6px 9px; }         /* comfortable tap target */
   .row-actions .js-edit-row .row-actions__label{ display:none; }
   .row-actions .js-edit-row .glyphicon{ margin:0; }
+}
+
+/* ── UI-FORM-1: the form GRID — labels above fields, titled sections, a sticky action bar ────────────────
+ * docs/slices/ui-form-1-purchase-product-layout.md. Opt-in per modal (.fg-modal on .crud-box, .fg-form on the
+ * form), so every other CRUD form keeps its Bootstrap label-beside-field layout untouched.
+ *
+ * WHY A GRID: the purchase QTY row hand-counted Bootstrap columns to 20 of 12 and wrapped the Pack/Box toggle
+ * to the far edge. A grid cannot overflow — a cell that does not fit starts the next row.
+ *
+ * ⚠ The form KEEPS class="form-horizontal": main.js finds forms by their ORDINAL among .form-horizontal
+ * (getElementsByClassName('form-horizontal')[tableV]), so dropping it would re-point every later form.
+ * Cells therefore use .fg-label, never .control-label, which .form-horizontal right-aligns.
+ */
+.crud-box.fg-modal{ overflow:visible; }                /* hidden would stop the sticky footer from sticking */
+.fg-modal .crud-head{ border-radius:12px 12px 0 0; }
+.fg-modal .crud-body{ padding-bottom:0; }
+
+.fg-section{ margin-bottom:14px; }
+.fg-caption{
+  display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+  font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+  color:#0D3B8C; border-bottom:1px solid #e6eaf0; padding-bottom:5px; margin-bottom:10px;
+}
+.fg-caption .fg-caption-note{ text-transform:none; letter-spacing:0; font-weight:500; color:#6b7a8c; }
+.fg-caption .fg-caption-end{ margin-left:auto; text-transform:none; letter-spacing:0; font-weight:600; color:#1565C0; }
+[dir="rtl"] .fg-caption .fg-caption-end{ margin-left:0; margin-right:auto; }
+
+.fg-grid{
+  display:grid; grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:10px 14px; align-items:start;
+}
+.fg-cell{ min-width:0; }
+.fg-span-2{ grid-column:span 2; }
+.fg-span-3{ grid-column:span 3; }
+.fg-full{ grid-column:1 / -1; }
+.fg-label{
+  display:block; margin:0 0 4px; font-size:12px; font-weight:600; color:#3D5166; line-height:1.3;
+}
+.fg-label.req::after{ content:" *"; color:#c62828; }
+.fg-cell .help-block{ margin:3px 0 0; font-size:12px; }
+.fg-note{ font-size:12px; color:#4a5a6e; }
+
+/* Read-only figures the form WORKS OUT (description, stock, total, profit): still inputs, because
+ * populateFormData posts them, but styled as information so nobody tries to type into them. */
+.fg-display .form-control[readonly],
+.fg-display .form-control[disabled]{
+  background:#f4f6f9; border-color:transparent; box-shadow:none; color:#22303f;
+  font-weight:600; cursor:default;
+}
+.fg-display .form-control::placeholder{ font-weight:400; }
+
+/* Inline options (checkboxes) on one line. */
+.fg-options{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 22px; }
+.form-horizontal .fg-options .checkbox{ margin:0; padding-top:0; min-height:0; }
+
+/* The action bar sticks to the bottom of the visible area while the form scrolls (the OVERLAY scrolls). It stays the
+ * LAST thing in the form: validateForm() skips the last two elements as "the buttons". */
+.fg-actions{
+  position:sticky; bottom:0; z-index:3;
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px;
+  margin:14px -22px 0; padding:12px 22px;
+  background:#fff; border-top:1px solid #e6eaf0; border-radius:0 0 12px 12px;
+  box-shadow:0 -6px 14px -10px rgba(9,30,66,.35);
+}
+.fg-actions .fg-actions-info{ margin-right:auto; font-size:12px; color:#6b7a8c; }
+[dir="rtl"] .fg-actions .fg-actions-info{ margin-right:0; margin-left:auto; }
+
+@media (max-width:991px){
+  .fg-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .fg-span-3{ grid-column:1 / -1; }
+}
+@media (max-width:767px){
+  /* Two columns on a phone: short numeric boxes (.fg-sm) pair up, everything else takes the row. */
+  .fg-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+  .fg-cell{ grid-column:1 / -1; }
+  .fg-cell.fg-sm{ grid-column:auto; }
+  .fg-modal .crud-body{ padding-bottom:0; }
+  .fg-actions{ margin:14px -16px 0; padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); border-radius:0; }
+  .fg-actions .btn{ flex:1 1 auto; }
+  .fg-actions .fg-kbd{ display:none; }                  /* keyboard hints mean nothing on a touch screen */
 }

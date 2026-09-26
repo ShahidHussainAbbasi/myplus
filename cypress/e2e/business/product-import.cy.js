@@ -35,6 +35,13 @@ const HEADERS =
   'sku,name,description,categoryName,unit,manufacturer,sellingPrice,taxRate,barcode,rxRequired,controlledSubstance,'
   + 'packSize,looseUnit,looseUnitPlural,allowLoose'
 
+/**
+ * The TEMPLATE's header. PH-FORMULA (1081faf4) added the optional `formula` column after manufacturer. HEADERS above
+ * stays as it is: the parser matches columns by NAME, so the files this spec builds (positional rows against
+ * HEADERS) are still valid without it — and inserting it there would shift every positional row below.
+ */
+const TEMPLATE_HEADERS = HEADERS.replace('manufacturer,sellingPrice', 'manufacturer,formula,sellingPrice')
+
 /** One CSV line with everything after `name` blank. */
 const row = (sku, name, rest = ',,,,,,,,,') => `${sku},${name}${rest}`
 
@@ -85,7 +92,7 @@ describe('I2 — Product CSV import', () => {
 
       const header = String(r.body).split(/\r?\n/)[0].trim()
       // Exact equality: a "contains sku" check would pass while the order or the optional set drifted.
-      expect(header).to.eq(HEADERS)
+      expect(header).to.eq(TEMPLATE_HEADERS)
     })
   })
 

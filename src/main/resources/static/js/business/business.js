@@ -2691,26 +2691,42 @@ function getDashboardData() {
     bgJson(serverContext + 'getBusinessDashboardStats', function(res) {
         if (res.status === 'SUCCESS' && res.object) {
             var s = res.object;
-            $('#dashCompanies').text(s.companies);
-            $('#dashVenders').text(s.venders);
-            $('#dashCustomers').text(s.customers);
-            $('#dashItems').text(s.items);
+            /*
+             * UI-DASH-1 — grouped figures ("165,710", not "165710"), whole on the tile, exact in the tooltip. A money
+             * tile rounds to the unit so a 9-digit revenue still fits; the paisa are one hover away. srNum/srMoney
+             * are the Sale Report's formatters (browser-locale grouping) — reused, not copied.
+             */
+            function kpi(id, v, isMoney) {
+                var $el = $('#' + id);
+                if (v === undefined || v === null || v === '') { $el.text('—').removeAttr('title'); return; }
+                var n = Number(v);
+                if (isNaN(n)) { $el.text(String(v)).attr('title', String(v)); return; }
+                $el.text(isMoney ? Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 }) : srNum(n))
+                   .attr('title', isMoney ? srMoney(n) : srNum(n));
+            }
+            kpi('dashCompanies', s.companies);
+            kpi('dashVenders', s.venders);
+            kpi('dashCustomers', s.customers);
+            kpi('dashItems', s.items);
             /*
              * Task #20 — stock value. ABSENT rather than zero when inventory-service could not answer: the
              * dashboard omits the key entirely in that case, and printing 0 for "we could not reach the
              * service" would be a lie about the shop's stock being worthless.
              */
-            $('#dashStockValue').text(s.stockValue != null ? s.stockValue : '—');
-            $('#dashMonthlySales').text(s.monthlySales);
-            $('#dashMonthlyRevenue').text(s.monthlyRevenue);
+            kpi('dashStockValue', s.stockValue, true);          // absent = inventory could not answer → "—", never 0
+            kpi('dashMonthlySales', s.monthlySales);
+            kpi('dashMonthlyRevenue', s.monthlyRevenue, true);
             // C5 — present only when the tenant has the installments capability: the server skips the COUNT
             // entirely for everyone else, so the key is ABSENT rather than zero. Guarded on that, because
             // writing an undefined would print "undefined" in the tile for every other tenant — and the tile
             // is hidden for them, which is exactly the kind of bug nobody sees until the capability is
             // switched on and the number is wrong from the first render.
-            if (s.installmentsDue !== undefined && s.installmentsDue !== null) {
-                $('#dashInstallmentsDue').text(s.installmentsDue);
-            }
+            //
+            // UI-DASH-1: ONB-2 (BusinessDashboardController) later made the key ABSENT whenever there are no open
+            // plans — for EVERY tenant — so a shop that sells on terms but has nothing open showed the loading "-"
+            // forever, which reads as broken. Absent now means 0. The tile itself is still hidden by its
+            // data-capability for a shop that never sells on terms, so writing 0 there is invisible.
+            kpi('dashInstallmentsDue', (s.installmentsDue !== undefined && s.installmentsDue !== null) ? s.installmentsDue : 0);
         }
     }).fail(function() {
         console.log('Error loading dashboard stats');
@@ -3648,6 +3664,13 @@ function refreshPurchasePaid(typing){
 		var shown = bill > 0 ? bill.toFixed(2) : '';
 		$paid.val(shown).data('auto', shown);
 	}
+	// UI-FORM-1: with purchase tax on, the bill is more than the Total box shows — say what it comes to.
+	var ts = window.purchaseTaxSetting || {};
+	var net = Math.round((($('#purchaseQuantity').val() * 1 || 0) * ($('#purchasePurchaseRate').val() * 1 || 0)) * 100) / 100;
+	var taxed = ts.inputTaxEnabled === true && bill > 0 && Math.round((bill - net) * 100) >= 1;
+	var $note = $('#purchaseBillNote');
+	if (taxed) $note.text(t('ui.js.purchaseBillInclTax', bill.toFixed(2), (Math.round((bill - net) * 100) / 100).toFixed(2))).show();
+	else $note.hide().text('');
 	var paid = $paid.val() === '' ? bill : $paid.val() * 1;
 	var diff = Math.round((bill - paid) * 100) / 100;
 	var $hint = $('#purchasePaidHint');
@@ -4178,8 +4201,16 @@ function mountSRFilters(){
 	});
 }
 
+// PERF (review 2026-09-26): the rail is mounted at page load but its Customer/Product lists are filled only when the
+// report screen is OPENED (here — the section picker and every dashboard drill-down go through #sellType), when the
+// report runs (loadSR), or when the operator reaches into the rail — never on every dashboard load.
+$(document).on('change', '#sellType', function(){
+	if ($(this).val() === 'SRDiv' && window.srFilters && window.srFilters.loadLists) window.srFilters.loadLists();
+});
+
 function loadSR(){
 	mountSRFilters();
+	if (window.srFilters && window.srFilters.loadLists) window.srFilters.loadLists();   // lazy — see report-filters.js
 	tableSellReport.clear().draw();
 	$('#srKpis').hide();
 	clearFormError();

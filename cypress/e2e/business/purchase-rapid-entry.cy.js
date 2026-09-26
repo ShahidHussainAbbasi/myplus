@@ -343,11 +343,16 @@ describe('P6 — Purchase rapid line entry', () => {
        * and derivedChain filters on visibility. This runs as demo.business@ (org 6), which holds
        * serialTracking, conditionGrading and bonusSchemes and has no pos.entry.* overrides.
        */
+      /*
+       * UI-FORM-1 (2026-09-26) re-laid the form as BILL then ITEM, so the walk follows: the bill's invoice, vendor
+       * and date first (they are kept for the next line), then the line — product, serial, condition, qty, bonus,
+       * batch, expiry, cost, sell — then Paid. Serial still precedes the quantity (SER-3d).
+       */
       expect(w.EnterChain.fieldsIn('#Purchase')).to.deep.eq([
-        'purchaseInvoiceNo', 'purchaseBatchNo', 'purchaseVenderDD',
+        'purchaseInvoiceNo', 'purchaseVenderDD', 'purchaseDate',
         'purchaseItemDD', 'purchaseSerials', 'purchaseCondition',
-        'purchaseQuantity', 'purchaseBonusQuantity', 'purchasePurchaseRate', 'purchaseSellRate',
-        'purchaseDate', 'purchaseExpiry', 'purchasePaid',
+        'purchaseQuantity', 'purchaseBonusQuantity', 'purchaseBatchNo', 'purchaseExpiry',
+        'purchasePurchaseRate', 'purchaseSellRate', 'purchasePaid',
       ])
     })
   })
@@ -373,12 +378,9 @@ describe('P6 — Purchase rapid line entry', () => {
       w.document.getElementById('purchaseBatchNo').setAttribute('data-kbd-skip', '')
       expect(w.EnterChain.fieldsIn('#Purchase')).to.not.include('purchaseBatchNo')
     })
-    // ...and the walk really steps over it: invoice -> vendor, not invoice -> batch.
-    cy.get('#purchaseInvoiceNo').focus().type('{enter}')
-    cy.focused().should(($el) => {
-      expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
-             'batch was skipped').to.eq(1)
-    })
+    // ...and the walk really steps over it: bonus -> expiry, not bonus -> batch (UI-FORM-1 order).
+    cy.get('#purchaseBonusQuantity').focus().type('{enter}')
+    cy.focused().should('have.id', 'purchaseExpiry')
   })
 
   it('the derived chain FOLLOWS configuration — the tax field joins it when the org uses tax', () => {
@@ -393,9 +395,9 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.window().then((w) => {
       const chain = w.EnterChain.fieldsIn('#Purchase')
       expect(chain).to.include('purchaseTaxRate')
-      // and in its LAYOUT position — after the vendor, before the item
-      expect(chain.indexOf('purchaseTaxRate')).to.be.greaterThan(chain.indexOf('purchaseVenderDD'))
-      expect(chain.indexOf('purchaseTaxRate')).to.be.lessThan(chain.indexOf('purchaseItemDD'))
+      // and in its LAYOUT position — a LINE field since UI-FORM-1: after the sell rate, before Paid
+      expect(chain.indexOf('purchaseTaxRate')).to.be.greaterThan(chain.indexOf('purchaseSellRate'))
+      expect(chain.indexOf('purchaseTaxRate')).to.be.lessThan(chain.indexOf('purchasePaid'))
     })
   })
 
@@ -413,20 +415,22 @@ describe('P6 — Purchase rapid line entry', () => {
     answerVendor()
     answerItem(productA)
     // The first stop, read off the screen like the rest of the walk below.
+    // UI-FORM-1: that Enter already lands on the vendor (the invoice # is followed by the vendor now, not by
+    // Batch #), so there is no second Enter here — one would walk straight past the vendor.
     cy.assertEnterFollowsScreen('#Purchase', 'purchaseInvoiceNo')
-
-    cy.focused().type('{enter}')
     cy.focused().should(($el) => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
              'reached the vendor picker').to.eq(1)
     })
 
     // Enter on a picker that is CLOSED and ALREADY ANSWERED advances like any other field — it does
-    // not re-open the list to ask a question the operator has answered.
+    // not re-open the list to ask a question the operator has answered. UI-FORM-1: the bill's date is next.
+    cy.focused().type('{enter}')
+    cy.focused().should('have.id', 'purchaseDate')
     cy.focused().type('{enter}')
     cy.focused().should(($el) => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseItemDD').length,
-             'Enter on the vendor picker reached the item picker').to.eq(1)
+             'Enter on the date reached the item picker').to.eq(1)
     })
     // Serial, then Condition, then Quantity — the layout order, and the order SER-3d chose on purpose:
     // typing a serial locks QTY to 1, so asking for it after the quantity would overwrite what was typed.
@@ -453,10 +457,10 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.assertEnterFollowsScreen('#Purchase', 'purchaseCondition')
     cy.assertEnterFollowsScreen('#Purchase', 'purchaseQuantity')
     cy.assertEnterFollowsScreen('#Purchase', 'purchaseBonusQuantity')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseBatchNo')
+    cy.assertEnterFollowsScreen('#Purchase', 'purchaseExpiry')
     cy.assertEnterFollowsScreen('#Purchase', 'purchasePurchaseRate')
     cy.assertEnterFollowsScreen('#Purchase', 'purchaseSellRate')
-    cy.assertEnterFollowsScreen('#Purchase', 'purchaseDate')
-    cy.assertEnterFollowsScreen('#Purchase', 'purchaseExpiry')
   })
 
   it('Shift+Enter walks BACK up the chain', () => {
@@ -488,14 +492,12 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.window().then((w) => {
       expect(w.EnterChain.usable('purchaseTaxRate'), 'a visible tax rate is in the chain').to.be.true
     })
-    // Vendor -> tax rate: with the row shown it is a real stop.
-    answerVendor()                      // an unanswered picker would open instead of advancing
-    cy.get('#purchaseBatchNo').focus().type('{enter}')
-    cy.focused().type('{enter}')
+    // Sell rate -> tax rate: with the row shown it is a real stop (a LINE field since UI-FORM-1).
+    cy.get('#purchaseSellRate').focus().type('{enter}')
     cy.focused().should('have.id', 'purchaseTaxRate')
   })
 
-  it('a HIDDEN field is skipped — vendor goes straight to the item', () => {
+  it('a HIDDEN field is skipped — the sell rate goes straight to Paid', () => {
     cy.intercept('GET', '**/getTaxSetting', {
       body: { status: 'SUCCESS', object: { inputTaxEnabled: false } },
     }).as('taxOff')
@@ -505,14 +507,9 @@ describe('P6 — Purchase rapid line entry', () => {
     cy.window().then((w) => {
       expect(w.EnterChain.usable('purchaseTaxRate'), 'hidden tax rate drops out of the chain').to.be.false
     })
-    // batch -> vendor -> ITEM, stepping over the tax rate entirely.
-    answerVendor()                      // an unanswered picker would open instead of advancing
-    cy.get('#purchaseBatchNo').focus().type('{enter}')
-    cy.focused().type('{enter}')
-    cy.focused().should(($el) => {
-      expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseItemDD').length,
-             'the hidden tax rate was skipped').to.eq(1)
-    })
+    // sell rate -> PAID, stepping over the tax rate entirely.
+    cy.get('#purchaseSellRate').focus().type('{enter}')
+    cy.focused().should('have.id', 'purchasePaid')
   })
 
   // ── the picker rule itself, on its own ─────────────────────────────────────
@@ -528,7 +525,7 @@ describe('P6 — Purchase rapid line entry', () => {
   it('Enter OPENS an unanswered vendor picker instead of stepping over it', () => {
     openFreshPurchaseModal()
     cy.get('#purchaseVenderDD').should('have.value', '')      // genuinely unanswered
-    cy.get('#purchaseBatchNo').focus().type('{enter}')
+    cy.get('#purchaseInvoiceNo').focus().type('{enter}')      // the stop before the vendor (UI-FORM-1)
     cy.focused().should(($el) => {
       expect(Cypress.$($el).closest('.bootstrap-select').prev('#purchaseVenderDD').length,
              'reached the vendor picker').to.eq(1)
@@ -549,10 +546,10 @@ describe('P6 — Purchase rapid line entry', () => {
     // and an empty required dropdown would be a one-way door.
     openFreshPurchaseModal()
     cy.get('#purchaseVenderDD').should('have.value', '')
-    cy.get('#purchaseBatchNo').focus().type('{enter}')
+    cy.get('#purchaseInvoiceNo').focus().type('{enter}')
     cy.focused().type('{shift}{enter}')
     cy.get('#purchaseVenderDD').next('.bootstrap-select').should('not.have.class', 'open')
-    cy.focused().should('have.id', 'purchaseBatchNo')
+    cy.focused().should('have.id', 'purchaseInvoiceNo')
   })
 
   // ── date fields must be TYPEABLE, not calendar-only ────────────────────────

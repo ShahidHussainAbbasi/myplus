@@ -353,8 +353,10 @@ tr.row-voided .js-edit-row{display:none !important}
 				</div>
 
 				<!-- KPI stat cards -->
-				<div class="row" style="margin-bottom:22px">
-					<div data-widget="companies" data-drill="registrationType:CompanyDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+				<!-- UI-DASH-1: a grid, not col-sm-2 — 8 tiles in 6 columns wrapped to a ragged 6+2 and squeezed each tile to 98px on a
+				     tablet. The tiles keep their data-widget / data-drill: dashboard-widgets.js reorders them within this parent. -->
+				<div class="kpi-grid">
+					<div data-widget="companies" data-drill="registrationType:CompanyDiv">
 						<div class="kpi-card kpi-blue">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-briefcase"></span></div>
 							<div class="kpi-body">
@@ -363,7 +365,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="venders" data-drill="registrationType:VenderDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="venders" data-drill="registrationType:VenderDiv">
 						<div class="kpi-card kpi-green">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-grain"></span></div>
 							<div class="kpi-body">
@@ -372,7 +374,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="customers" data-drill="registrationType:CustomerDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="customers" data-drill="registrationType:CustomerDiv">
 						<div class="kpi-card kpi-teal">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-user"></span></div>
 							<div class="kpi-body">
@@ -381,7 +383,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="products" data-drill="fn:showProducts" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="products" data-drill="fn:showProducts">
 						<div class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-list-alt"></span></div>
 							<div class="kpi-body">
@@ -397,7 +399,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						balance. An unqualified "stock value" is the kind of figure people trust without
 						checking, and it would disagree with the books the moment a buying price moves.
 					-->
-					<div data-widget="stockValue" data-drill="fn:showProducts" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="stockValue" data-drill="fn:showProducts">
 						<div class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-scale"></span></div>
 							<div class="kpi-body">
@@ -406,7 +408,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="monthlySales" data-drill="sellType:SRDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlySales" data-drill="sellType:SRDiv">
 						<div class="kpi-card kpi-purple">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
 							<div class="kpi-body">
@@ -415,7 +417,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<div data-widget="monthlyRevenue" data-drill="sellType:SRDiv" class="col-sm-2 col-xs-6" style="margin-bottom:14px">
+					<div data-widget="monthlyRevenue" data-drill="sellType:SRDiv">
 						<div class="kpi-card kpi-red">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
 							<div class="kpi-body">
@@ -436,7 +438,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						for wording, and a widget registry that rendered its own labels in JS would quietly
 						create a second one.
 					-->
-					<div class="col-sm-2 col-xs-6" style="margin-bottom:14px"
+					<div
 					     data-widget="installmentsDue" data-drill="fn:showInstallments" data-capability="installments">
 						<div class="kpi-card kpi-indigo">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-calendar"></span></div>
@@ -1955,337 +1957,235 @@ tr.row-voided .js-edit-row{display:none !important}
 					</span>
 				</div>
 				<div id="PurchaseModal" class="crud-overlay" data-kbd-custom>
-				  <div class="crud-box">
+				  <div class="crud-box fg-modal">
 					<div class="crud-head">
 						<h4 id="PurchaseModalTitle" th:text="#{ui.newPurchase}">New Purchase</h4>
 						<button type="button" class="crud-x" onclick="resetPurchaseForm();closeModal('PurchaseModal')">&times;</button>
 					</div>
 					<div class="crud-body">
-				<!-- <form class="form-horizontal" role="form"> -->
-				<form action="/" method="POST" class="form-horizontal" role="form"
+				<!--
+					UI-FORM-1 — labels above fields in a grid, in the order a bill is read: the BILL (kept for the next line),
+					then the ITEM (cleared by Save & Add Another), then what it comes to. docs/slices/ui-form-1-*.md.
+
+					⚠ Every id and name is unchanged: main.js populateFormData, PURCHASE_LINE_FIELDS/PURCHASE_HEADER_FIELDS
+					(whose guard throws on an unlisted field) and the specs address them. ⚠ class="form-horizontal" stays:
+					main.js finds forms by their ORDINAL among .form-horizontal. ⚠ The Enter chain is DERIVED from DOM order
+					(EnterChain.bind('purchase', {container:'#Purchase'})), so this order IS the keyboard walk.
+				-->
+				<form action="/" method="POST" class="form-horizontal fg-form" role="form"
 					onsubmit="return false" id="Purchase" autocomplete="off">
-					<div class="form-group" style="display: none">
-						<div class="col-sm-12">
-							<input type="number" class="form-control" id="purchaseId" name="purchaseId" readonly="readonly"/> 
-						</div>
+					<div style="display: none">
+						<input type="number" class="form-control" id="purchaseId" name="purchaseId" readonly="readonly"/>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseInvoiceNo" th:text="#{ui.purchaseInvoice}">Purchase Invoice #</label> 
-						<div class="col-sm-4">
-							<input type="text" placeholder="Purchase Invoice #" th:placeholder="#{ui.purchaseInvoice}" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
+
+					<!-- ── BILL ─────────────────────────────────────────────────────────────────────────────── -->
+					<div class="fg-section">
+						<div class="fg-caption">
+							<span th:text="#{ui.formBill}">Bill</span>
+							<span class="fg-caption-note" th:text="#{ui.formBillKept}">kept for the next line</span>
 						</div>
-						<!-- ONB-2 R1a: a mobile shop has a purchase form and no batches. The SECTION is shared by
-						     every tenant, so the gate belongs on the field. The write is already refused
-						     server-side; this stops the field being offered at all. -->
-						<label class="control-label col-sm-2" for="purchaseBatchNo" th:text="#{ui.batchNo}"
-						       data-capability="batchTracking">Batch #</label>
-						<div class="col-sm-4" data-capability="batchTracking">
-							<!-- B2B-P3a (#2): optional — a pharmacy needs batches, a hardware shop does not.
-							     Feeds inventory's FEFO, which already keys on batch + expiry. Nested "stock.*"
-							     like every sibling field here: StockDTO already carries batchNo, and ModelMapper
-							     flattens it onto Purchase.batchNo — no DTO change needed. -->
-							<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
-							       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
-						</div>
-					</div>
-					<!-- F1 (AP): Vendor the purchase is billed from + how much was paid now. Blank paid = paid in full (cash); paid < total = on credit -> a vendor payable. Vendor needed only for a credit purchase. -->
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseVenderDD" th:text="#{ui.vendor}">Vendor</label>
-						<div class="col-sm-4">
-							<select class="form-control selectpicker" id="purchaseVenderDD" name="venderId" data-live-search="true" title="Cash purchase (no vendor)" th:title="#{ui.cashPurchaseNoVendor}">
-								<option value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
-							</select>
-						</div>
-					</div>
-						<!-- B2B-P0 (#8): what this vendor is already owed, shown BEFORE the buyer commits to more credit.
-						     The sell screen has shown the customer's balance for a while; the purchase screen never did, so
-						     the one person deciding whether to buy on account was the one without the number. Read-only,
-						     hidden until a vendor is picked (a cash purchase has no payable to report). -->
-						<div class="form-group" id="purchaseVendorDuesWrap" style="display:none">
-							<label class="control-label col-sm-2" for="purchaseVendorDues" th:text="#{ui.outstandingDue2}">Outstanding due</label>
-							<div class="col-sm-4">
+						<div class="fg-grid">
+							<div class="fg-cell">
+								<label class="fg-label" for="purchaseInvoiceNo" th:text="#{ui.purchaseInvoice}">Purchase Invoice #</label>
+								<input type="text" placeholder="Purchase Invoice #" th:placeholder="#{ui.purchaseInvoice}" class="form-control" id="purchaseInvoiceNo" name="purchaseInvoiceNo"/>
+							</div>
+							<!-- F1 (AP): the vendor the purchase is billed from. Blank = a cash purchase (no payable). -->
+							<div class="fg-cell">
+								<label class="fg-label" for="purchaseVenderDD" th:text="#{ui.vendor}">Vendor</label>
+								<select class="form-control selectpicker" id="purchaseVenderDD" name="venderId" data-live-search="true" title="Cash purchase (no vendor)" th:title="#{ui.cashPurchaseNoVendor}">
+									<option value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
+								</select>
+							</div>
+							<!-- B2B-P0 (#8): what this vendor is already owed, shown BEFORE the buyer commits to more credit.
+							     Read-only, hidden until a vendor is picked (a cash purchase has no payable to report). -->
+							<div class="fg-cell fg-display" id="purchaseVendorDuesWrap" style="display:none">
+								<label class="fg-label" for="purchaseVendorDues" th:text="#{ui.outstandingDue2}">Outstanding due</label>
 								<input type="number" step="any" class="form-control" id="purchaseVendorDues" readonly="readonly"
-								       placeholder="0" style="background-color:#fff7e6;"
+								       placeholder="0" style="color:#b45309"
 								       title="What this vendor was already owed before this purchase"
 								       th:title="#{ui.whatThisVendorWasAlreadyOwed}">
 							</div>
+							<div class="fg-cell">
+								<label class="fg-label" for="purchaseDate" th:text="#{ui.purchaseDate}">Purchase Date</label>
+								<input type="text" placeholder="Purchase Date" th:placeholder="#{ui.purchaseDate}" class="form-control datePicker" id="purchaseDate" name="updated" required="required"/>
+							</div>
 						</div>
-					<!-- Tax register Phase B: input-tax rate. Only effective when the org's "Purchase tax" toggle is on;
-					     hidden otherwise (shown by loadTaxSetting / newPurchase based on the tax setting). -->
-					<div class="form-group" id="purchaseTaxRow" style="display:none">
-						<label class="control-label col-sm-2" for="purchaseTaxRate" th:text="#{ui.purchaseTax}">Purchase tax (%)</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchaseTaxRate" name="taxRate" placeholder="Blank = org default rate" th:placeholder="#{ui.blankOrgDefaultRate}"/>
-						</div>
-						<div class="col-sm-5 help-block" style="padding-top:8px" th:text="#{ui.inputTaxPaidToTheVendor}">Input tax paid to the vendor (VAT/GST) — added to the bill.</div>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req" th:text="#{label.product}">Select Product</label> 
-						<div class="col-sm-4">
-							<select
-								class="form-control onChangeSelect selectpicker" id="purchaseItemDD" name="itemId" data-live-search="true" required="required">
-							</select>
-							<!-- PUR-INLINE: receiving a delivery that contains something never registered used to
-							     cost the operator the whole bill. This opens the REAL product form over this one
-							     (same ProductModal, same newProduct()) and hands the new product straight back to
-							     the picker above, with the bill header untouched.
 
-							     GATED ON THE PERMISSION THAT GOVERNS THE POST, not on a role: PermissionInterceptor
-							     maps POST /addProduct to product.create, so an affordance visible without it would
-							     be a button that always refuses. The owner holds everything (AuthService mints
-							     everything() for ROLE_OWNER) and the built-in Standard set includes product.create,
-							     so no existing member loses it.
-
-							     data-kbd-skip is belt and braces: FocusFlow.skip() already excludes type="button",
-							     so the Enter walk never lands here. The attribute states the intent so a later
-							     change of element (to an <a>, say) does not quietly insert "register a product"
-							     into the middle of typing a bill line. -->
-							<button type="button" id="newProductFromPurchase" class="btn btn-link btn-sm"
-									style="padding-left:0" data-kbd-skip
-									sec:authorize="hasAuthority('product.create')"
-									onclick="newProductForPurchase()"
-									th:title="#{ui.newProduct}" title="Register a new product">
-								<span class="glyphicon glyphicon-plus"></span>
-								<span th:text="#{ui.newProduct}">New product</span>
-							</button>
+					<!-- ── ITEM ─────────────────────────────────────────────────────────────────────────────── -->
+					<div class="fg-section">
+						<div class="fg-caption">
+							<span th:text="#{ui.formItem}">Item</span>
+							<!-- P6: "N lines on this bill" — filled after each Save & Add Another. -->
+							<span id="purchaseLineCount" class="fg-caption-end" style="display:none"></span>
 						</div>
-						<div>
-							<label class="control-label col-sm-2" for="purchaseItemDesc" th:text="#{ui.description}">Description</label> 
-							<div class="col-sm-4">
+						<div class="fg-grid">
+							<div class="fg-cell fg-span-2">
+								<label class="fg-label req" for="purchaseItemDD" th:text="#{label.product}">Select Product</label>
+								<select
+									class="form-control onChangeSelect selectpicker" id="purchaseItemDD" name="itemId" data-live-search="true" required="required">
+								</select>
+								<!-- PUR-INLINE: register a product that is not in the list yet, without losing the bill. Gated on
+								     the permission that governs POST /addProduct (product.create), not on a role. data-kbd-skip:
+								     the Enter walk never lands on "register a product" in the middle of typing a line. -->
+								<button type="button" id="newProductFromPurchase" class="btn btn-link btn-sm"
+										style="padding-left:0" data-kbd-skip
+										sec:authorize="hasAuthority('product.create')"
+										onclick="newProductForPurchase()"
+										th:title="#{ui.newProduct}" title="Register a new product">
+									<span class="glyphicon glyphicon-plus"></span>
+									<span th:text="#{ui.newProduct}">New product</span>
+								</button>
+							</div>
+							<div class="fg-cell fg-display">
+								<label class="fg-label" for="purchaseItemDesc" th:text="#{ui.description}">Description</label>
 								<input type="text" placeholder="Item Description" th:placeholder="#{ui.itemDescription}" class="form-control" id="purchaseItemDesc" name="description" readonly="readonly"/>
 							</div>
-						</div>
-					</div>
-					
-					<!--
-						SER-3d: the serial comes BEFORE the quantity, because it DECIDES the quantity.
+							<div class="fg-cell fg-display fg-sm">
+								<label class="fg-label" for="purchaseStock" th:text="#{ui.stockInHand}">Stock In Hand</label>
+								<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock" disabled="disabled"/>
+							</div>
 
-						Entering a serial locks QTY to 1 — a serial identifies one physical thing — so with the
-						old order the operator typed a quantity and then watched the next field overwrite it.
-						Scan first and the quantity answers itself, which is also the order goods arrive in:
-						you have the box in your hand before you know how many you are booking in.
-					-->
-					<!--
-						SER-2 — the serial / IMEI of each unit received, and the condition they arrived in.
-
-						Capability-gated, so a shop that does not track serials never sees the row. Within a shop
-						that does, the SERVER still decides per product: a handset requires serials, a charger on
-						the same receipt does not (ProductRef.requiresSerial).
-
-						⭐ SER-7: MANY serials in one box again — comma, space or new line.
-
-						The history is worth keeping, because this reverses a deliberate decision and the
-						reason it was made still matters.
-
-						It began as a three-row textarea holding one IMEI per line. The count had to match the
-						quantity EXACTLY or the whole receipt was refused, and a miscount was only found at
-						submit — after everything had been typed. SER-3c answered that by making a line one
-						unit: enter a serial, the quantity locks to 1, ten handsets are ten lines.
-
-						That is correct and slow. Ten lines is ten trips through the form for a carton that
-						arrives as one carton, and "Save & Add Another" still asks for the vendor, rate and
-						product each time.
-
-						SER-7 brings the box back WITHOUT bringing back the miscount: the quantity is now
-						DERIVED from the number of serials typed, live, and stays read-only. The operator
-						never keeps two numbers in step, so the server's count rule — which is still there and
-						still right — can no longer fire by accident. Scan ten, the quantity says ten.
-					-->
-					<!-- SER-3d: data-pos-field="serial" is the same hook the sale line carries, so ONE setting
-					     (pos.entry.showSerial) governs both screens. data-capability still gates whether this
-					     shop does serials at all; the setting only decides whether the field is on the form. -->
-					<div class="form-group" data-pos-field="serial" data-capability="serialTracking,conditionGrading">
-						<label class="control-label col-sm-2" for="purchaseSerials"
-						       th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
-						<div class="col-sm-4" data-capability="serialTracking">
 							<!--
-								SER-7 — a TEXTAREA, and that is the point of the change.
-
-								maxlength="64" was the server's per-SERIAL cap applied to the whole box, so it
-								stopped at about four IMEIs; and an <input> cannot hold a newline at all, so
-								two of the three separators the server accepts were untypeable. The cap is
-								gone from here because it belongs per serial, where SerialUnitService already
-								enforces it (MAX_SERIAL_LEN) and can name the offending one.
-
-								rows="2" so the common single-serial case still looks like a field rather than
-								a form, and a carton of ten scrolls rather than pushing the rest of the line
-								off screen.
+								SER-3d: the serial comes BEFORE the quantity, because it DECIDES the quantity (a serial locks QTY;
+								SER-7 derives QTY from the number of serials typed). data-pos-field="serial" is the hook the sale
+								line carries too, so ONE setting (pos.entry.showSerial) governs both screens; data-capability still
+								decides whether this shop does serials / condition grading at all. Both cells carry the serial
+								field hook, exactly as the single row that held them did.
 							-->
-							<textarea class="form-control" id="purchaseSerials" rows="2"
-							          th:placeholder="#{ui.js.serialNumbersHint}"
-							          placeholder="Scan or type one IMEI per unit — separate with a comma, a space or a new line"></textarea>
-							<!-- SER-7: what the box parsed to, and a duplicate named while it can still be
-							     corrected. Filled by updatePurchaseSerialHint(). -->
-							<span id="purchaseSerialHint" class="help-block" style="margin:2px 0"></span>
-						</div>
-						<label class="control-label col-sm-2" for="purchaseCondition"
-						       data-capability="conditionGrading" th:text="#{ui.js.condition}">Condition</label>
-						<div class="col-sm-4" data-capability="conditionGrading">
-							<select class="form-control" id="purchaseCondition">
-								<option value="NEW" th:text="#{ui.js.conditionNew}">New</option>
-								<option value="USED" th:text="#{ui.js.conditionUsed}">Used</option>
-								<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
-							</select>
-						</div>
-					<!--
-						This close was MISSING, and the QTY / Bonus / Pack / Stock-in-hand group below was
-						therefore parsed as a CHILD of the serial row rather than its sibling. So a tenant with
-						`pos.entry.showSerial=false` — which hides this group — lost the quantity field with it,
-						and could not enter a purchase at all. The markup balanced, so nothing complained.
-					-->
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseQuantity" th:text="#{ui.qty2}">QTY</label>
-						<!--
-							col-sm-4, not col-lg-4. Bootstrap 3 applies `col-lg-*` only from 1200px, and these three
-							divs carried NO col-sm companion — so between 768px and 1199px, which is most laptops,
-							the column class did not apply at all and each input fell back to a full-width block
-							while its `col-sm-2` label stayed floated beside it. QTY, Bonus and Stock In Hand each
-							took a row of their own, out of line with every other field on this form.
+							<div class="fg-cell fg-span-2" data-pos-field="serial" data-capability="serialTracking">
+								<label class="fg-label" for="purchaseSerials" th:text="#{ui.js.serialNumbers}">Serial / IMEI</label>
+								<!-- SER-7: a TEXTAREA — many serials, separated by comma, space or new line; the per-serial
+								     length cap is enforced server-side (SerialUnitService) where it can name the offender. -->
+								<textarea class="form-control" id="purchaseSerials" rows="2"
+								          th:placeholder="#{ui.js.serialNumbersHint}"
+								          placeholder="Scan or type one IMEI per unit — separate with a comma, a space or a new line"></textarea>
+								<span id="purchaseSerialHint" class="help-block" style="margin:2px 0"></span>
+							</div>
+							<div class="fg-cell fg-span-2" data-pos-field="serial" data-capability="conditionGrading">
+								<label class="fg-label" for="purchaseCondition" th:text="#{ui.js.condition}">Condition</label>
+								<select class="form-control" id="purchaseCondition">
+									<option value="NEW" th:text="#{ui.js.conditionNew}">New</option>
+									<option value="USED" th:text="#{ui.js.conditionUsed}">Used</option>
+									<option value="REFURBISHED" th:text="#{ui.js.conditionRefurbished}">Refurbished</option>
+								</select>
+							</div>
 
-							Every other row here is col-sm-2 + col-sm-4; these now match. QTY(6) + Bonus(6) fills
-							one row exactly, and the Pack/Box toggle and Stock In Hand follow on the next.
-						-->
-						<div class="col-sm-4">
-							<input type="number" step="any" min="1" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="purchaseQuantity" 
-							name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
-						</div>
-						<!--
-							#17 P2 — FREE units received on top of the billed quantity.
-							Entered separately, never folded into QTY: the supplier bills for one number and
-							delivers another, and an operator must be able to see why stock rose by 11 on an
-							invoice for 10. A merged figure is unauditable and reads as a typo.
-							Capability-gated: a shop that receives no bonus offers should not see the box.
-						-->
-						<label class="control-label col-sm-2" for="purchaseBonusQuantity" data-capability="bonusSchemes" th:text="#{ui.bonusQty}">Bonus</label>
-						<div class="col-sm-4" data-capability="bonusSchemes">
-							<input type="number" step="any" min="0" class="form-control" id="purchaseBonusQuantity"
-							name="bonusQuantity" th:placeholder="#{ui.freeUnitsReceived}" placeholder="Free units received"/>
-						</div>
-						<!--
-						  U5 - what the buyer is counting. A shop buys a BOX of 10 packs for 1000; the form asks
-						  for a quantity and a rate, so "10" and "1000" records a pack cost of 1000 instead of
-						  100 - a tenfold error in the number COGS and the margin guard read.
+							<div class="fg-cell fg-sm">
+								<label class="fg-label" for="purchaseQuantity" th:text="#{ui.qty2}">QTY</label>
+								<input type="number" step="any" min="1" placeholder=" Enter total item" th:placeholder="#{ui.enterTotalItem}" class="form-control" id="purchaseQuantity"
+								name="quantity" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()" required="required"/>
+							</div>
+							<!-- #17 P2 — FREE units received on top of the billed quantity; never folded into QTY, so stock rising
+							     by 11 on an invoice for 10 stays explainable. -->
+							<div class="fg-cell fg-sm" data-capability="bonusSchemes">
+								<label class="fg-label" for="purchaseBonusQuantity" th:text="#{ui.bonusQty}">Bonus</label>
+								<input type="number" step="any" min="0" class="form-control" id="purchaseBonusQuantity"
+								name="bonusQuantity" th:placeholder="#{ui.freeUnitsReceived}" placeholder="Free units received"/>
+							</div>
+							<!--
+							  U5 / U15-C - what the buyer is counting: the shop's unit or the multiple it buys in. Converted on the
+							  SERVER (quantity x packsPerBox, cost / packsPerBox). Hidden when the product names no multiple
+							  (applyPurchaseUnitLabels) and while serials are typed (SER-7). `packs per box` is typed EVERY time,
+							  never defaulted: box sizes vary by shipment.
+							-->
+							<div class="fg-cell fg-sm purchase-unit-wrap">
+								<label class="fg-label" th:text="#{ui.purchaseUnitLabel}">Counted in</label>
+								<div class="btn-group purchase-unit-toggle" role="group" aria-label="Purchase unit">
+									<button type="button" class="btn btn-default active" id="purchaseUnitPack"
+									        onclick="setPurchaseUnit('PACK')" th:text="#{ui.pack}">Pack</button>
+									<button type="button" class="btn btn-default" id="purchaseUnitBox"
+									        onclick="setPurchaseUnit('BOX')" th:text="#{ui.box}">Box</button>
+								</div>
+							</div>
+							<input type="hidden" id="purchaseUnit" name="purchaseUnit" value="PACK"/>
+							<div class="fg-cell fg-sm purchase-ppb-wrap" id="purchasePpbWrap" style="display:none">
+								<label class="fg-label" for="purchasePacksPerBox" th:text="#{ui.packsPerBox}">Packs per box</label>
+								<input type="number" step="1" min="1" class="form-control" id="purchasePacksPerBox"
+								       name="packsPerBox" th:placeholder="#{ui.packsPerBox}" placeholder="Packs per box"
+								       onkeyup="calculateNetPurchase()" onblur="calculateNetPurchase()"/>
+								<!-- U15-C — what this multiple USUALLY holds, beside an EMPTY input (never pre-filled). -->
+								<div id="purchasePpbHint" class="help-block" style="display:none;font-size:11px"></div>
+							</div>
+							<!-- U5: what will actually be stored, before saving, so a wrong box size is caught. -->
+							<div class="fg-cell fg-full fg-note purchase-box-hint" id="purchaseBoxHint" style="display:none"></div>
 
-						  Choosing BOX converts on the SERVER: quantity x packsPerBox, cost / packsPerBox.
-						  Nothing downstream ever hears the word "box".
-
-						  `packs per box` is typed EVERY TIME and never defaulted from the product: box sizes
-						  vary by shipment, and a stale default would be silently wrong for this delivery with
-						  the confidence of a pre-filled field behind it.
-						-->
-						<div class="col-sm-2 purchase-unit-wrap">
-							<div class="btn-group btn-group-sm purchase-unit-toggle" role="group" aria-label="Purchase unit">
-								<button type="button" class="btn btn-default active" id="purchaseUnitPack"
-								        onclick="setPurchaseUnit('PACK')" th:text="#{ui.pack}">Pack</button>
-								<button type="button" class="btn btn-default" id="purchaseUnitBox"
-								        onclick="setPurchaseUnit('BOX')" th:text="#{ui.box}">Box</button>
+							<!-- ONB-2 R1a: batch and expiry are gated on the FIELD — a mobile shop has a purchase form and no
+							     batches. The write is refused server-side too. B2B-P3a: batch feeds inventory's FEFO. -->
+							<div class="fg-cell fg-sm" data-capability="batchTracking">
+								<label class="fg-label" for="purchaseBatchNo" th:text="#{ui.batchNo}">Batch #</label>
+								<input type="text" class="form-control" id="purchaseBatchNo" name="stock.batchNo"
+								       placeholder="Batch / lot number" th:placeholder="#{ui.batchNoPlaceholder}"/>
+							</div>
+							<div class="fg-cell fg-sm" data-capability="expiryTracking">
+								<label class="fg-label" for="purchaseExpiry" th:text="#{ui.expireDate}">Expire Date</label>
+								<input type="text" class="form-control datePicker" id="purchaseExpiry"
+								name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
+							</div>
+							<div class="fg-cell fg-sm">
+								<label class="fg-label req" for="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</label>
+								<!-- min=0.01: `required` alone accepts "0", and a zero-cost bill wrecks margin/COGS. -->
+								<input type="number" step="any" min="0.01" class="form-control" id="purchasePurchaseRate"
+									name="stock.bpurchaseRate" placeholder=" Purchase Amount 0.0" th:placeholder="#{ui.purchaseAmount00}" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+							</div>
+							<div class="fg-cell fg-sm">
+								<label class="fg-label" for="purchaseSellRate" th:text="#{ui.sUPrice}">S/U Price</label>
+								<input type="number" step="any" class="form-control" id="purchaseSellRate"
+									name="stock.bsellRate" placeholder=" Sell Amount 0.0" th:placeholder="#{ui.sellAmount00}" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+							</div>
+							<!-- Tax register Phase B: input-tax rate, a LINE field (cleared per line). Shown only when the org's
+							     "Purchase tax" is on (refreshPurchaseTaxRow). -->
+							<div class="fg-cell fg-sm" id="purchaseTaxRow" style="display:none">
+								<label class="fg-label" for="purchaseTaxRate" th:text="#{ui.purchaseTax}">Purchase tax (%)</label>
+								<input type="number" step="any" min="0" class="form-control" id="purchaseTaxRate" name="taxRate" placeholder="Blank = org default rate" th:placeholder="#{ui.blankOrgDefaultRate}"
+								       th:title="#{ui.inputTaxPaidToTheVendor}" title="Input tax paid to the vendor (VAT/GST) — added to the bill."/>
 							</div>
 						</div>
-						<input type="hidden" id="purchaseUnit" name="purchaseUnit" value="PACK"/>
-						<div class="col-sm-2 purchase-ppb-wrap" id="purchasePpbWrap" style="display:none">
-							<input type="number" step="1" min="1" class="form-control" id="purchasePacksPerBox"
-							       name="packsPerBox" th:placeholder="#{ui.packsPerBox}" placeholder="Packs per box"
-							       onkeyup="calculateNetPurchase()" onblur="calculateNetPurchase()"/>
-							<!--
-								U15-C — what this multiple USUALLY holds, shown beside an EMPTY input.
-								Never pre-filled: U5 requires the factor to be typed for every delivery,
-								because a stale default is silently wrong for THIS shipment with the
-								confidence of a filled field behind it.
-							-->
-							<div id="purchasePpbHint" class="help-block"
-							     style="display:none;margin:3px 0 0;font-size:11px"></div>
-						</div>
-						<!-- U5: the buyer sees what will actually be stored, before saving, so a wrong box
-						     size is caught by the person who knows the answer. -->
-						<div class="pos-cell purchase-box-hint" id="purchaseBoxHint" style="display:none"></div>
-						<label class="control-label col-sm-2" for="purchaseStock" th:text="#{ui.stockInHand}">Stock In Hand</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchaseStock" name="stock.stock"  disabled="disabled"/>
+					</div>
+
+					<!-- ── WHAT IT COMES TO ─────────────────────────────────────────────────────────────────── -->
+					<div class="fg-section">
+						<div class="fg-grid">
+							<div class="fg-cell fg-display fg-sm">
+								<label class="fg-label" for="purchaseTotalAmount" th:text="#{ui.total}">Total</label>
+								<input type="number" step="any" class="form-control" id="purchaseTotalAmount" name="totalAmount" disabled="disabled">
+							</div>
+							<div class="fg-cell fg-display fg-sm">
+								<label class="fg-label" for="purchaseNetAmount" th:text="#{ui.profit}">Profit</label>
+								<input type="number" step=any class="form-control" id="purchaseNetAmount" name="netAmount" disabled="disabled">
+							</div>
+							<div class="fg-cell fg-span-2">
+								<label class="fg-label" for="purchasePaid" th:text="#{ui.amountPaid}">Amount Paid</label>
+								<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
+								<!-- PUR-PAID-1: the bill incl. input tax (only when purchase tax is on), and a due or over-payment
+								     line when the amount typed differs from it. Filled by refreshPurchasePaid(). -->
+								<div id="purchaseBillNote" class="help-block fg-note" style="display:none"></div>
+								<div id="purchasePaidHint" class="help-block" style="display:none;font-weight:600;color:#b45309"></div>
+							</div>
 						</div>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="purchasePurchaseRate" th:text="#{ui.pUPrice}">P/U Price</label>
-						<div class="col-sm-4">
-							<!-- min=0.01: `required` alone accepts "0", and a zero-cost bill wrecks margin/COGS. 0.01 is the
-							     smallest representable amount (money is BigDecimal(19,2)). The JS submit guard checks it too. -->
-							<input type="number" step="any" min="0.01" class="form-control" id="purchasePurchaseRate"
-								name="stock.bpurchaseRate" placeholder=" Purchase Amount 0.0" th:placeholder="#{ui.purchaseAmount00}" required="required" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
+
+					<!-- P6: a delivery is many items on ONE bill. "Save & Add Another" keeps the modal open and retains the
+					     bill header; #addPurchase saves and closes. The bar sticks to the bottom so it is always reachable,
+					     and it stays the LAST thing in the form (validateForm skips the last two elements as the buttons). -->
+					<div class="fg-actions">
+						<div id="purchaseKbdHint" class="fg-actions-info fg-kbd">
+							<kbd>Enter</kbd> <span th:text="#{ui.kbd.nextField}">next field</span>
+							&nbsp;·&nbsp; <kbd>Shift</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.kbd.prevField}">back</span>
+							&nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
+							&nbsp;·&nbsp; <kbd>Esc</kbd> <span th:text="#{ui.cancel2}">Cancel</span>
 						</div>
-						<label class="control-label col-sm-2" for="purchaseSellAmount" th:text="#{ui.sUPrice}">S/U Price</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="purchaseSellRate"
-								name="stock.bsellRate" placeholder=" Sell Amount 0.0" th:placeholder="#{ui.sellAmount00}" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
-						</div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseTotalAmount" th:text="#{ui.total}">Total</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" class="form-control" id="purchaseTotalAmount" name="totalAmount" disabled="disabled">
-							<!-- <output class="form-control" id="purchaseTotalAmountOut"> -->
-						</div>
-						<label class="control-label col-sm-2" for="net" th:text="#{ui.profit}">Profit</label>
-						<div class="col-sm-4">
-							<input type="number" step=any class="form-control" id="purchaseNetAmount" name="netAmount" disabled="disabled">
-						</div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="purchaseDate" th:text="#{ui.purchaseDate}">Purchase Date</label>
-						<div class="col-sm-4">
-							<input type="text" placeholder="Purchase Date" th:placeholder="#{ui.purchaseDate}" class="form-control datePicker" id="purchaseDate" name="updated" required="required"/> 
-						</div>
-						<!-- ONB-2 R1a: same rule as Batch # above. -->
-						<label class="control-label col-sm-2" for="purchaseExpiry" th:text="#{ui.expireDate}"
-						       data-capability="expiryTracking">Expire Date</label>
-						<!-- The INPUT's column needs the gate too, not only the label. Gating the label alone
-						     left a retail tenant with an unlabelled date box - which is worse than the
-						     original bug, because there is nothing left on screen to say what it is for. -->
-						<div class="col-sm-4" data-capability="expiryTracking">
-							<input type="text" class="form-control datePicker" id="purchaseExpiry"
-							name="stock.bexpDate" placeholder="Expiry date" th:placeholder="#{ui.expiryDate}"/>
-						</div>
-					</div>
-					<div>
-						<label class="control-label col-sm-2" for="purchasePaid" th:text="#{ui.amountPaid}">Amount Paid</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
-							<!-- PUR-PAID-1: shown only when the amount typed differs from this line's bill, so a due
-							     (or an over-payment) is visible and deliberate. Filled by refreshPurchasePaid(). -->
-							<div id="purchasePaidHint" class="help-block" style="display:none;margin:4px 0 0;font-weight:600;color:#b45309"></div>
-						</div>
-					</div>
-					<div class="form-group text-center">
-						<!-- P6: a delivery is many items on ONE bill. "Save & Add Another" keeps the modal open and
-						     retains vendor/invoice#/date so only the line fields are retyped. #addPurchase keeps the
-						     original behaviour byte-for-byte (save + close), so single-line entry cannot regress. -->
+						<button type="button" id="resetPurchase" class="btn btn-default" onclick="closeModal('PurchaseModal')">
+							<span th:text="#{ui.cancel2}">Cancel</span>
+						</button>
 						<button type="button" id="addPurchaseAnother" class="btn btn-primary">
 							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
 						</button>
 						<button type="button" id="addPurchase" class="btn btn-success">
 							<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
 						</button>
-						<button type="button" id="resetPurchase" class="btn btn-warning" onclick="closeModal('PurchaseModal')">
-							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
-						</button>
 						<button type="reset" class="resetForm" style="display:none"></button>
-						<div id="purchaseLineCount" class="text-muted" style="display:none;margin-top:8px;font-weight:600"></div>
-						<!-- P6: the chain is only useful if the operator knows it is there. -->
-						<div id="purchaseKbdHint" class="text-muted" style="margin-top:10px;font-size:12px">
-							<kbd>Enter</kbd> <span th:text="#{ui.kbd.nextField}">next field</span>
-							&nbsp;·&nbsp; <kbd>Shift</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.kbd.prevField}">back</span>
-							&nbsp;·&nbsp; <kbd>Ctrl</kbd>+<kbd>Enter</kbd> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
-							&nbsp;·&nbsp; <kbd>Esc</kbd> <span th:text="#{ui.cancel2}">Cancel</span>
-						</div>
 					</div>
-					<!-- <div class="form-group text-center">
-						<button type="button" id="addPurchase" class="btn btn-success">
-							<span class="glyphicon glyphicon-plus-sign"></span> Submit
-						</button>
-						<button type="reset" id="resetPurchase" class="btn btn-warning" onclick="closeModal('PurchaseModal')">
-							<span class="glyphicon glyphicon-refresh"></span> Cancel
-						</button>
-						<button type="reset" class="resetForm" style="display:none"/>
-					</div> -->
 				</form>
 					</div>
 				  </div>
@@ -3714,242 +3614,214 @@ tr.row-voided .js-edit-row{display:none !important}
 			     It stays AFTER #PurchaseModal in document order, which is what puts it on top when both are
 			     open (they share z-index 1050) and what isTopModal() reads. -->
 <div id="ProductModal" class="crud-overlay">
-				  <div class="crud-box">
+				  <div class="crud-box fg-modal">
 					<div class="crud-head">
-						<!-- <h4 id="ProductModalTitle">New Product</h4> -->
+						<!-- UI-FORM-1: the title was commented out while catalog-products.js kept setting it, so nobody could
+						     tell a NEW product from an EDIT. newProduct()/editProduct() set it via t(). -->
+						<h4 id="ProductModalTitle" th:text="#{ui.newProduct}">New Product</h4>
 						<button type="button" class="crud-x" onclick="resetProductForm();closeModal('ProductModal')">&times;</button>
 					</div>
 					<div class="crud-body">
-				<!-- What is already registered, shown WHILE a new product is entered. #tableProduct below carries
-				     the same list, but this form opens in a fixed full-viewport overlay that covers it. Typing in
-				     Name / SKU / Barcode narrows this panel; each row offers "edit this one" so a near-miss is
-				     corrected rather than duplicated. Populated by catalog-products.js (renderExisting). -->
+				<!-- What is already registered, shown WHILE a new product is entered (the grid behind this overlay is
+				     covered). Typing in Name / SKU / Barcode narrows it; each row offers "edit this one". Populated by
+				     catalog-products.js (renderExisting). UI-FORM-1: until 2+ characters are typed it is ONE line (the
+				     count and a prompt) — the rows are still rendered, the list is simply folded (.is-idle). -->
 				<div id="prodExistingWrap" class="crud-existing">
 					<div class="crud-existing-head">
 						<span th:text="#{ui.alreadyRegistered}">Already registered</span>
 						<span id="prodExistingCount" class="text-muted"></span>
+						<span class="crud-existing-idle text-muted" th:text="#{ui.js.typeToCheckExisting}">type a name, code or barcode to check</span>
 					</div>
 					<div id="prodExistingList" class="crud-existing-list"></div>
 					<div id="prodExistingMsg" class="text-muted crud-existing-msg" style="display:none"></div>
 				</div>
-				<form class="form-horizontal" role="form" id="Product" autocomplete="off" onsubmit="return false;">
-					<div class="form-group" style="display: none">
-						<div class="col-sm-6">
-							<input type="number" class="form-control" id="productId" name="productId" readonly="readonly"/>
-						</div>
+				<!-- UI-FORM-1: labels above fields in a grid. ⚠ Every id is unchanged (catalog-products.js reads them by id).
+				     ⚠ class="form-horizontal" stays: main.js finds forms by their ORDINAL among .form-horizontal. -->
+				<form class="form-horizontal fg-form" role="form" id="Product" autocomplete="off" onsubmit="return false;">
+					<div style="display: none">
+						<input type="number" class="form-control" id="productId" name="productId" readonly="readonly"/>
 					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2 req" for="prodName" th:text="#{ui.name}">Name</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodName"></div>
-						<label class="control-label col-sm-2" for="prodSku" th:text="#{ui.skuCode}">SKU / Code</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodSku"></div>
-						<label class="control-label col-sm-2" for="prodBarcode" id="prodBarcodeLabel" style="display:none" th:text="#{ui.barcode}">Barcode</label>
-						<div class="col-sm-4" id="prodBarcodeWrap" style="display:none"><input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)" th:placeholder="#{ui.eanUpcScannable}"></div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="prodPrice" th:text="#{ui.sellPrice}">Sell Price</label>
-						<div class="col-sm-4">
-							<input type="number" step="any" min="0" class="form-control" id="prodPrice">
-							<!--
-								U15-B1 — "Sell Price" is the price of ONE PACK, and nothing on this form said so.
-								An owner registering a box of 40 tablets at 311.60 had no way to check whether
-								they had typed the box price or the tablet price, and the two differ by 40x.
 
-								The per-piece figure comes from the SERVER (/looseRatePreview): the rule is
-								ceil(packRate x (1+markup/100) / packSize) and SagaSellService.looseRateOf is its
-								only implementation. Dividing here would be a second copy that drifts.
-
-								Hidden until the product is divisible AND has a price — there is nothing useful
-								to say otherwise.
-							-->
-							<div id="prodPricePerPiece" class="help-block" style="display:none;margin:4px 0 0;font-size:12px"></div>
-						</div>
-						<label class="control-label col-sm-2" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>
-						<div class="col-sm-4">
-							<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rate…" for a one-off %. -->
-							<select class="form-control" id="prodTaxCode" onchange="onProdTaxCodeChange()">
-								<option value="" th:text="#{ui.customRate}">Custom rate…</option>
-							</select>
-							<input type="number" step="any" min="0" class="form-control" id="prodTax" placeholder="Tax %" th:placeholder="#{ui.tax}" style="margin-top:6px">
-						</div>
-					</div>
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="prodUnit" th:text="#{ui.unit}">Unit</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="prodUnit" placeholder="pcs" th:placeholder="#{ui.pcs}">
-							<!--
-								U1 — how many pieces this unit holds. Blank or 1 = not divisible, which is every
-								product until a shop says otherwise. The loose row below stays HIDDEN until this
-								has a value: asking what one tablet is called, on a product nobody sells by the
-								tablet, is four boxes of noise on the most-used screen in the app.
-							-->
-							<div class="input-group input-group-sm" style="margin-top:6px">
-								<span class="input-group-addon" th:text="#{ui.js.packHolds}">Holds</span>
-								<input type="number" min="0" step="1" class="form-control" id="prodPackSize"
-									placeholder="10" onchange="prodPackSizeChanged()" onkeyup="prodPackSizeChanged()">
-								<span class="input-group-addon" th:text="#{ui.js.piecesPerUnit}">pieces</span>
+					<!-- ── BASICS ───────────────────────────────────────────────────────────────────────────── -->
+					<div class="fg-section">
+						<div class="fg-caption"><span th:text="#{ui.formBasics}">Basics</span></div>
+						<div class="fg-grid">
+							<div class="fg-cell fg-span-2">
+								<label class="fg-label req" for="prodName" th:text="#{ui.name}">Name</label>
+								<input type="text" class="form-control" id="prodName">
 							</div>
-						</div>
-						<label class="control-label col-sm-2" for="prodCategory" th:text="#{ui.category}">Category</label>
-						<div class="col-sm-4">
-							<select class="form-control" id="prodCategory"></select>
-							<div class="input-group" style="margin-top:6px">
-								<input type="text" class="form-control input-sm" id="prodCategoryNew" placeholder="+ New category" th:placeholder="#{ui.newCategory}">
-								<span class="input-group-btn">
-									<button type="button" class="btn btn-success btn-sm" onclick="addCategoryInline()" title="Add category" th:title="#{ui.addCategory}"><span class="glyphicon glyphicon-plus"></span></button>
-								</span>
+							<div class="fg-cell">
+								<label class="fg-label" for="prodSku" th:text="#{ui.skuCode}">SKU / Code</label>
+								<input type="text" class="form-control" id="prodSku">
 							</div>
-						</div>
-					</div>
-					<!--
-						U1 — selling by the piece. Hidden entirely unless the unit holds more than one, so a shop
-						that never breaks a pack sees the form it has always seen.
-					-->
-					<div class="form-group" id="prodLooseWrap" style="display:none"
-					     data-capability="looseSelling">
-						<label class="control-label col-sm-2" for="prodLooseUnit" th:text="#{ui.js.looseUnit}">One piece is a</label>
-						<div class="col-sm-4">
-							<div class="row">
-								<div class="col-xs-6">
-									<input type="text" class="form-control" id="prodLooseUnit" placeholder="tablet"
-										th:placeholder="#{ui.js.looseUnitEg}">
-								</div>
-								<div class="col-xs-6">
-									<!-- Two words, not an appended "s": "5 tablet" is wrong in every language this
-									     platform ships in, and no rule covers Urdu, Arabic and Hindi alike. -->
-									<input type="text" class="form-control" id="prodLooseUnitPlural" placeholder="tablets"
-										th:placeholder="#{ui.js.looseUnitPluralEg}">
-								</div>
-						<!--
-						  U7 — the shop's OWN sticker codes. A pharmacy prints "LP-4471", sticks it on the strip
-						  holder, and scanning it sells ONE TABLET with no keystroke.
+							<!-- Barcode: shown by the tenant's barcode setting (business.js toggles #prodBarcodeLabel AND
+							     #prodBarcodeWrap; the label now lives inside the wrap, so both toggles still agree). -->
+							<div class="fg-cell" id="prodBarcodeWrap" style="display:none">
+								<label class="fg-label" for="prodBarcode" id="prodBarcodeLabel" style="display:none" th:text="#{ui.barcode}">Barcode</label>
+								<input type="text" class="form-control" id="prodBarcode" placeholder="EAN / UPC (scannable)" th:placeholder="#{ui.eanUpcScannable}">
+							</div>
 
-						  Lives here, under the pack rules, because it is the same decision expressed for the
-						  scanner: an owner who has just said what a pack holds and whether it may be split is
-						  in exactly the right place to say what a label means.
-
-						  Hidden until the product is saved — a sticker needs a product to point at.
-						-->
-						<div class="form-group" id="prodStickerWrap" style="display:none">
-							<label class="control-label col-sm-2" th:text="#{ui.ownStickers}">Own stickers</label>
-							<div class="col-sm-10">
-								<div id="prodStickerList" class="table-scroll"></div>
-								<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-									<input type="text" class="form-control" id="prodStickerCode" style="max-width:170px"
-									       th:placeholder="#{ui.stickerCode}" placeholder="Code on the label"/>
-									<select class="form-control" id="prodStickerUnit" style="max-width:130px">
-										<option value="LOOSE" th:text="#{ui.piece}">Piece</option>
-										<option value="PACK" th:text="#{ui.pack}">Pack</option>
-									</select>
-									<input type="number" min="1" step="1" class="form-control" id="prodStickerQty"
-									       style="max-width:110px" value="1" th:placeholder="#{ui.howMany}" placeholder="How many"/>
-									<button type="button" class="btn btn-sm btn-default" id="prodStickerAdd"
-									        onclick="addProductSticker()" th:text="#{ui.add}">Add</button>
+							<div class="fg-cell">
+								<label class="fg-label" for="prodPrice" th:text="#{ui.sellPrice}">Sell Price</label>
+								<input type="number" step="any" min="0" class="form-control" id="prodPrice">
+								<!-- U15-B1 — the price is for ONE unit; the per-piece figure comes from the SERVER
+								     (/looseRatePreview), never divided here. Hidden until divisible AND priced. -->
+								<div id="prodPricePerPiece" class="help-block" style="display:none"></div>
+							</div>
+							<div class="fg-cell">
+								<label class="fg-label" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>
+								<!-- Multi-rate tax: pick a tax code (its rate applies), or "Custom rate…" for a one-off %. -->
+								<select class="form-control" id="prodTaxCode" onchange="onProdTaxCodeChange()">
+									<option value="" th:text="#{ui.customRate}">Custom rate…</option>
+								</select>
+								<input type="number" step="any" min="0" class="form-control" id="prodTax" placeholder="Tax %" th:placeholder="#{ui.tax}" style="margin-top:6px">
+							</div>
+							<div class="fg-cell">
+								<label class="fg-label" for="prodUnit" th:text="#{ui.unit}">Unit</label>
+								<input type="text" class="form-control" id="prodUnit" placeholder="pcs" th:placeholder="#{ui.pcs}">
+								<!-- U1 — how many pieces this unit holds. Blank or 1 = not divisible; the loose row below stays
+								     HIDDEN until this has a value. -->
+								<div class="input-group input-group-sm" style="margin-top:6px">
+									<span class="input-group-addon" th:text="#{ui.js.packHolds}">Holds</span>
+									<input type="number" min="0" step="1" class="form-control" id="prodPackSize"
+										placeholder="10" onchange="prodPackSizeChanged()" onkeyup="prodPackSizeChanged()">
+									<span class="input-group-addon" th:text="#{ui.js.piecesPerUnit}">pieces</span>
 								</div>
 							</div>
-						</div>
+							<div class="fg-cell">
+								<label class="fg-label" for="prodCategory" th:text="#{ui.category}">Category</label>
+								<select class="form-control" id="prodCategory"></select>
+								<div class="input-group" style="margin-top:6px">
+									<input type="text" class="form-control input-sm" id="prodCategoryNew" placeholder="+ New category" th:placeholder="#{ui.newCategory}">
+									<span class="input-group-btn">
+										<button type="button" class="btn btn-success btn-sm" onclick="addCategoryInline()" title="Add category" th:title="#{ui.addCategory}"><span class="glyphicon glyphicon-plus"></span></button>
+									</span>
+								</div>
+							</div>
 
+							<!-- U1 — selling by the piece. Hidden entirely unless the unit holds more than one
+							     (catalog-products.js toggles #prodLooseWrap). -->
+							<div class="fg-full" id="prodLooseWrap" style="display:none" data-capability="looseSelling">
+								<div class="fg-grid">
+									<div class="fg-cell fg-span-2">
+										<label class="fg-label" for="prodLooseUnit" th:text="#{ui.js.looseUnit}">One piece is a</label>
+										<div class="fg-grid" style="grid-template-columns:1fr 1fr;gap:8px">
+											<input type="text" class="form-control" id="prodLooseUnit" placeholder="tablet"
+												th:placeholder="#{ui.js.looseUnitEg}">
+											<!-- Two words, not an appended "s": no plural rule covers Urdu, Arabic and Hindi alike. -->
+											<input type="text" class="form-control" id="prodLooseUnitPlural" placeholder="tablets"
+												th:placeholder="#{ui.js.looseUnitPluralEg}">
+										</div>
+									</div>
+									<div class="fg-cell fg-span-2">
+										<label class="fg-label" th:text="#{ui.js.looseSelling}">Loose selling</label>
+										<div class="checkbox" style="margin:0;padding-top:0;min-height:0">
+											<label>
+												<input type="checkbox" id="prodAllowLoose">
+												<span th:text="#{ui.js.allowLoose}">May be sold by the piece</span>
+											</label>
+										</div>
+										<!-- Separate from the pack size on purpose: a pharmacy knows a course holds 10 tablets
+										     and must still refuse to split it. -->
+										<select class="form-control input-sm" id="prodDefaultSellUnit" style="margin-top:4px">
+											<option value="PACK" th:text="#{ui.js.startsAsPack}">Sales start as whole units</option>
+											<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
+										</select>
+									</div>
+									<!--
+									  U7 — the shop's OWN sticker codes ("LP-4471" on the strip holder sells ONE TABLET on a scan).
+									  Kept INSIDE the loose row, where it has always been (so it shows and hides with it), and shown
+									  only on a SAVED product — a sticker needs a product to point at (loadProductStickers).
+									-->
+									<div class="fg-cell fg-full" id="prodStickerWrap" style="display:none">
+										<label class="fg-label" th:text="#{ui.ownStickers}">Own stickers</label>
+										<div id="prodStickerList" class="table-scroll"></div>
+										<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+											<input type="text" class="form-control" id="prodStickerCode" style="max-width:170px"
+											       th:placeholder="#{ui.stickerCode}" placeholder="Code on the label"/>
+											<select class="form-control" id="prodStickerUnit" style="max-width:130px">
+												<option value="LOOSE" th:text="#{ui.piece}">Piece</option>
+												<option value="PACK" th:text="#{ui.pack}">Pack</option>
+											</select>
+											<input type="number" min="1" step="1" class="form-control" id="prodStickerQty"
+											       style="max-width:110px" value="1" th:placeholder="#{ui.howMany}" placeholder="How many"/>
+											<button type="button" class="btn btn-sm btn-default" id="prodStickerAdd"
+											        onclick="addProductSticker()" th:text="#{ui.add}">Add</button>
+										</div>
+									</div>
+								</div>
 							</div>
-						</div>
-						<label class="control-label col-sm-2" th:text="#{ui.js.looseSelling}">Loose selling</label>
-						<div class="col-sm-4">
-							<div class="checkbox" style="margin-top:0">
-								<label>
-									<input type="checkbox" id="prodAllowLoose">
-									<span th:text="#{ui.js.allowLoose}">May be sold by the piece</span>
-								</label>
-							</div>
-							<!-- Separate from the pack size on purpose: a pharmacy knows a course holds 10 tablets
-							     and must still refuse to split it. -->
-							<select class="form-control input-sm" id="prodDefaultSellUnit" style="margin-top:4px">
-								<option value="PACK" th:text="#{ui.js.startsAsPack}">Sales start as whole units</option>
-								<option value="LOOSE" th:text="#{ui.js.startsAsLoose}">Sales start as pieces</option>
-							</select>
 						</div>
 					</div>
 
-					<!--
-						RST — MADE TO ORDER. Assembled when ordered, so the sale does not reserve stock for it.
-
-						Per product and capability-gated: a shop that stocks what it sells never sees the box, and a
-						restaurant's cold drinks stay unticked so they keep checking their stock. This is deliberately
-						NOT a tenant-wide switch — see Capability.MADE_TO_ORDER for why that would re-open the
-						negative-stock path this platform removed on purpose.
-					-->
-					<div class="form-group" data-capability="madeToOrder">
-						<label class="control-label col-sm-2" th:text="#{ui.js.madeToOrder}">Made to order</label>
-						<div class="col-sm-10">
-							<div class="checkbox" style="margin-top:0">
-								<label>
-									<input type="checkbox" id="prodMadeToOrder">
-									<span th:text="#{ui.js.madeToOrderHelp}">Assembled when ordered — do not check stock</span>
-								</label>
+					<!-- ── DETAILS ──────────────────────────────────────────────────────────────────────────── -->
+					<div class="fg-section">
+						<div class="fg-caption"><span th:text="#{ui.formDetails}">Details</span></div>
+						<div class="fg-grid">
+							<!-- Manufacturer mirrors Category: pick one already in use, or type a new one. Not a master table
+							     — the options are the distinct manufacturers on this org's products (loadManufacturers). -->
+							<div class="fg-cell">
+								<label class="fg-label" for="prodManufacturer" th:text="#{ui.manufacturer}">Manufacturer</label>
+								<select class="form-control" id="prodManufacturer"></select>
+								<div class="input-group" style="margin-top:6px">
+									<input type="text" class="form-control input-sm" id="prodManufacturerNew" placeholder="+ New manufacturer" th:placeholder="#{ui.newManufacturer}">
+									<span class="input-group-btn">
+										<button type="button" class="btn btn-success btn-sm" onclick="addManufacturerInline()" title="Add manufacturer" th:title="#{ui.addManufacturer}"><span class="glyphicon glyphicon-plus"></span></button>
+									</span>
+								</div>
 							</div>
-						</div>
-					</div>
-
-					<!--
-						U15-C — WHAT THE SHOP CALLS THE MULTIPLE IT BUYS IN.
-
-						The purchase screen offered "Pack | Box" where Pack meant the shop's own box and Box
-						meant a carton of N of them. One word, two meanings, on one form. This row is the fix:
-						the shop names the level, exactly as it already names the piece two rows above.
-
-						⚠ OPTIONAL, AND BLANK IS THE COMMON ANSWER. Leave it empty and the purchase toggle does
-						not render at all — which is SIMPLER than today, where the toggle showed whether or not
-						the shop had ever bought a carton.
-
-						⚠ The count is a HINT and must never pre-fill "packs per box" on the purchase form. U5
-						makes that factor typed every time on purpose: box sizes vary by shipment, and a stale
-						default is silently wrong for this delivery with the confidence of a filled field
-						behind it. That is the tenfold cost error U5 exists to prevent.
-					-->
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="prodPurchaseUnit"
-						       th:text="#{ui.js.boughtFromSupplierAs}">Bought from supplier as</label>
-						<div class="col-sm-4">
-							<div class="row">
-								<div class="col-xs-6">
+							<!-- PH-FORMULA — a medicine's formula (generic / salt). Shown only where the tenant turned it on
+							     (pos.product.showFormula; the Pharmacy preset does). While hidden it is NOT sent, so saving a
+							     product never deletes its formula (catalog-products.js saveProduct). -->
+							<div class="fg-cell" data-pos-field="formula">
+								<label class="fg-label" for="prodFormula" th:text="#{ui.formula}">Formula</label>
+								<input type="text" class="form-control" id="prodFormula" list="prodFormulaList" maxlength="191"
+								       autocomplete="off" placeholder="e.g. Paracetamol 500mg" th:placeholder="#{ui.formulaPlaceholder}">
+								<datalist id="prodFormulaList"></datalist>
+							</div>
+							<!-- U15-C — what the shop calls the multiple it buys in. OPTIONAL; blank is the common answer and
+							     hides the purchase toggle. The count is a HINT, never a pre-fill of "packs per box" (U5). -->
+							<div class="fg-cell fg-span-2">
+								<label class="fg-label" for="prodPurchaseUnit" th:text="#{ui.js.boughtFromSupplierAs}">Bought from supplier as</label>
+								<div class="fg-grid" style="grid-template-columns:1fr 1fr;gap:8px">
 									<input type="text" class="form-control" id="prodPurchaseUnit" maxlength="32"
 									       th:placeholder="#{ui.js.purchaseUnitEg}" placeholder="peti">
-								</div>
-								<div class="col-xs-6">
-									<div class="input-group input-group-sm">
+									<div class="input-group">
 										<span class="input-group-addon" th:text="#{ui.js.packHolds}">Holds</span>
 										<input type="number" min="1" step="1" class="form-control"
 										       id="prodPurchasePackCount" placeholder="12">
 									</div>
 								</div>
+								<div class="help-block" th:text="#{ui.js.purchaseUnitHelp}">Leave blank if you buy in single units.</div>
 							</div>
-							<div class="help-block" style="margin:4px 0 0;font-size:12px"
-							     th:text="#{ui.js.purchaseUnitHelp}">Leave blank if you buy in single units.</div>
+							<div class="fg-cell fg-full">
+								<label class="fg-label" for="prodDesc" th:text="#{ui.description}">Description</label>
+								<input type="text" class="form-control" id="prodDesc">
+							</div>
 						</div>
 					</div>
 
-					<!--
-						C6 — per-product TRACKING policy.
-
-						Each control carries its own data-capability, so a tenant without the capability never
-						sees the box at all. That is the two-level rule expressed in the UI: the capability
-						decides whether the shop may ask, the checkbox decides whether THIS product does.
-						The server enforces the same rule independently (ProductService.requireCapability) —
-						hiding the box is convenience, not the control.
-
-						Its own row rather than fields on the general product save: these are POLICY, written
-						through /setProductTracking, exactly as the clinical flags are. Folding them into the
-						ordinary update would mean every product edit carried a payload that can be refused for
-						a reason unrelated to what the operator changed.
-					-->
-					<div class="form-group" data-capability="serialTracking,batchTracking">
-						<label class="control-label col-sm-2" th:text="#{ui.js.tracking}">Tracking</label>
-						<div class="col-sm-4">
-							<div class="checkbox" style="margin-top:0" data-capability="serialTracking">
+					<!-- ── OPTIONS ──────────────────────────────────────────────────────────────────────────────
+					     Each checkbox keeps its OWN data-capability: the capability decides whether the shop may ask, the
+					     box decides whether THIS product does; the server enforces the same rule (requireCapability).
+					     RST made-to-order is per product, never a tenant switch (Capability.MADE_TO_ORDER). C6 tracking is
+					     POLICY written through /setProductTracking. The section hides when the shop has none of the three. -->
+					<div class="fg-section" data-capability="madeToOrder,serialTracking,batchTracking">
+						<div class="fg-caption"><span th:text="#{ui.formOptions}">Options</span></div>
+						<div class="fg-options">
+							<div class="checkbox" data-capability="madeToOrder">
+								<label>
+									<input type="checkbox" id="prodMadeToOrder">
+									<span th:text="#{ui.js.madeToOrderHelp}">Assembled when ordered — do not check stock</span>
+								</label>
+							</div>
+							<div class="checkbox" data-capability="serialTracking">
 								<label>
 									<input type="checkbox" id="prodRequiresSerial">
 									<span th:text="#{ui.js.requiresSerial}">Needs a serial / IMEI</span>
 								</label>
 							</div>
-							<div class="checkbox" style="margin-top:0" data-capability="batchTracking">
+							<div class="checkbox" data-capability="batchTracking">
 								<label>
 									<input type="checkbox" id="prodTracksBatch">
 									<span th:text="#{ui.js.tracksBatch}">Arrives in batches</span>
@@ -3958,54 +3830,19 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 
-					<div class="form-group">
-						<!-- Manufacturer mirrors the Category control above: pick one already in use, or type a new
-						     one. It is NOT backed by a master table — the options are the distinct manufacturers
-						     already on this org's products, so "registering" one means saving a product with it.
-						     See loadManufacturers() in catalog-products.js. -->
-						<label class="control-label col-sm-2" for="prodManufacturer" th:text="#{ui.manufacturer}">Manufacturer</label>
-						<div class="col-sm-4">
-							<select class="form-control" id="prodManufacturer"></select>
-							<div class="input-group" style="margin-top:6px">
-								<input type="text" class="form-control input-sm" id="prodManufacturerNew" placeholder="+ New manufacturer" th:placeholder="#{ui.newManufacturer}">
-								<span class="input-group-btn">
-									<button type="button" class="btn btn-success btn-sm" onclick="addManufacturerInline()" title="Add manufacturer" th:title="#{ui.addManufacturer}"><span class="glyphicon glyphicon-plus"></span></button>
-								</span>
-							</div>
-						</div>
-						<label class="control-label col-sm-2" for="prodDesc" th:text="#{ui.description}">Description</label>
-						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
-					</div>
-					<!-- PH-FORMULA — a medicine's formula (generic / salt composition). Shown only where the tenant
-					     turned it on (pos.product.showFormula; the Pharmacy preset does). A plain box with a native
-					     <datalist> of the formulas already on this shop's products: suggestions as you type, and a
-					     new formula is simply typed — no "add" step, and no dropdown that silently falls back to its
-					     first option when a value is missing. While hidden it is NOT sent, so saving a product never
-					     deletes its formula (catalog-products.js saveProduct). -->
-					<div class="form-group" data-pos-field="formula">
-						<label class="control-label col-sm-2" for="prodFormula" th:text="#{ui.formula}">Formula</label>
-						<div class="col-sm-4">
-							<input type="text" class="form-control" id="prodFormula" list="prodFormulaList" maxlength="191"
-							       autocomplete="off" placeholder="e.g. Paracetamol 500mg" th:placeholder="#{ui.formulaPlaceholder}">
-							<datalist id="prodFormulaList"></datalist>
-						</div>
-					</div>
-					<div class="form-group text-center">
-						<!-- Cataloguing is repetitive in exactly the way receiving a delivery is: a run of products
-						     that share a brand, a category and a tax code. "Save & Add Another" keeps the modal open
-						     and retains those three (plus Unit), so only the identity fields — name, SKU, barcode,
-						     price, description — are retyped. Mirrors #addPurchaseAnother (P6); #addProduct keeps its
-						     original save-and-close behaviour byte-for-byte, so single-product entry cannot regress. -->
+					<!-- Cataloguing is repetitive: "Save & Add Another" keeps the modal open and retains brand, category, tax
+					     and unit. The bar sticks to the bottom and stays the LAST thing in the form (validateForm). -->
+					<div class="fg-actions">
+						<span id="productSaveCount" class="fg-actions-info" style="display:none"></span>
+						<button type="button" id="resetProduct" class="btn btn-default" onclick="resetProductForm(); closeModal('ProductModal')">
+							<span th:text="#{ui.cancel2}">Cancel</span>
+						</button>
 						<button type="button" id="addProductAnother" class="btn btn-primary">
 							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.saveAddAnother}">Save &amp; Add Another</span>
 						</button>
 						<button type="button" id="addProduct" class="btn btn-success" onclick="saveProduct()">
-							<span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.submit}">Submit</span>
+							<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.saveAndClose}">Save &amp; Close</span>
 						</button>
-						<button type="button" id="resetProduct" class="btn btn-warning" onclick="resetProductForm(); closeModal('ProductModal')">
-							<span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.cancel2}">Cancel</span>
-						</button>
-						<span id="productSaveCount" class="text-muted" style="display:none;margin-left:10px"></span>
 						<button type="reset" class="resetForm" style="display:none"></button>
 					</div>
 				</form>

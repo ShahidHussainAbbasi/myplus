@@ -237,9 +237,33 @@
             + '</div>';
     }
 
+    /**
+     * UI-FORM-1 — FOLD the list until the operator has typed something to check.
+     *
+     * The unfiltered list (the newest 40 of thousands) says nothing about the product being entered, and it pushed
+     * the form ~250px down on every open. Folded = one line: the count and "type a name, code or barcode to check".
+     * The ROWS are still rendered (only the list box is hidden), and the panel is never folded while it has
+     * something to SAY: a load failure, "nothing registered yet", or a duplicate the name check flagged.
+     */
+    var existingTyped = false;   // the OPERATOR typed in Name/SKU/Barcode during this fill (not a programmatic fill)
+    function syncExistingIdle() {
+        var terms = existingTerms();
+        if (!terms.length) existingTyped = false;         // everything cleared → fold again
+        /*
+         * Unfold only for what the operator TYPED. Opening a product for EDIT fills Name programmatically; the panel
+         * then excludes that very product, so unfolding showed an empty 230px box that pushed the form down and
+         * scrolled the modal's title out of view (form-layout R1, 2026-09-26).
+         */
+        var typed = existingTyped && terms.some(function (v) { return v.length >= 2; });
+        var idle = panelState === 'loaded' && productTotal !== 0 && !typed && flaggedId == null;
+        $('#prodExistingWrap').toggleClass('is-idle', idle);
+        return idle;
+    }
+
     function renderExisting() {
         var $list = $('#prodExistingList'), $msg = $('#prodExistingMsg'), $count = $('#prodExistingCount');
         if (!$list.length) return;                       // panel not on this page
+        var idle = syncExistingIdle();
 
         if (panelState === 'failed') {
             $list.empty();
@@ -284,7 +308,7 @@
 
         $list.html(matches.map(existingRowHtml).join(''));
         applyFlag();                                     // repaint dropped the highlight — put it back
-        if (existingTotal > matches.length) {
+        if (existingTotal > matches.length && !idle) {
             $msg.text(t('ui.js.showingFirstNKeepTyping', matches.length, existingTotal)).show();
         } else {
             $msg.hide();
@@ -298,6 +322,7 @@
      */
     function markExistingRow(id) {
         flaggedId = (id == null) ? null : String(id);
+        syncExistingIdle();                              // a flagged duplicate always unfolds the list
         applyFlag();
     }
 
@@ -363,7 +388,8 @@
         loadTaxCodes('');        // multi-rate tax: fresh dropdown (defaults to "Custom rate…")
         loadManufacturers('');   // draw from the CURRENT index immediately; refresh below repaints it
         refreshProductPanel();   // re-read the catalogue each time the form opens, then paint the panel
-        $('#ProductModalTitle').text('New Product');
+        existingTyped = false;
+        $('#ProductModalTitle').text(t('ui.js.newProduct'));
         openModal('ProductModal');
     };
 
@@ -933,7 +959,8 @@
             loadManufacturers(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
             $('#prodFormula').val(p.formula || '');   // PH-FORMULA
-            $('#ProductModalTitle').text('Edit Product');
+            existingTyped = false;   // the name was FILLED, not typed — keep the panel folded
+            $('#ProductModalTitle').text(t('ui.js.editProduct'));
             formEpoch++;               // this is a different product now — drop any in-flight name check
             refreshProductPanel();     // refresh the index so the checks + panel exclude only THIS product
             openModal('ProductModal');
@@ -1276,7 +1303,10 @@
         // Typing in any of the three identifying fields narrows the panel.
         // Typing must now ASK the server — the rows are no longer sitting in memory to re-filter.
         // refreshExistingRows() debounces and sequence-guards, so a keystroke does not mean a request.
-        $(document).on('input', '#prodName, #prodSku, #prodBarcode', function () { refreshExistingRows(); });
+        // UI-FORM-1: unfold on the KEYSTROKE, not when the search lands — so the panel's one height change happens
+        // while the operator is typing, never between their pointer going down on Save and the click (it did: the
+        // click missed the moving button, BLK-2 case 8).
+        $(document).on('input', '#prodName, #prodSku, #prodBarcode', function () { existingTyped = true; syncExistingIdle(); refreshExistingRows(); });
 
         // ── Server-side duplicate-NAME check, on focus-out of Name ──────────────
         // Server-side and not just a scan of the loaded index, because the index is a snapshot taken when the
