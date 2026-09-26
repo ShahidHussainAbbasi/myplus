@@ -264,6 +264,12 @@ public class ProductController {
         return ResponseEntity.ok(ApiResponse.success(productService.manufacturers()));
     }
 
+    /** PH-FORMULA — the tenant's distinct formulas, for the Product form's autocomplete (org-scoped, cached). */
+    @GetMapping("/formulas")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> formulas() {
+        return ResponseEntity.ok(ApiResponse.success(productService.formulas()));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> update(@PathVariable Long id, @RequestBody ProductDTO dto) {
         return ResponseEntity.ok(ApiResponse.success(productService.update(id, dto), "Updated"));

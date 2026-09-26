@@ -232,6 +232,18 @@ class ProductImportSpecTest {
     }
 
     @Test
+    void PH_FORMULA_an_imported_formula_is_normalised_exactly_as_the_form_normalises_it() {
+        // Same rule as the product form: trimmed, inner spaces collapsed, so a file cannot split one formula in two.
+        engine.commit(spec, "name,formula\nPanadol,\"  Paracetamol   500mg \"\nWidget,\n", ORG, USER);
+        List<Product> saved = captureSaved();
+
+        assertThat(saved).filteredOn(p -> "Panadol".equals(p.getName())).singleElement()
+                .extracting(Product::getFormula).isEqualTo("Paracetamol 500mg");
+        assertThat(saved).filteredOn(p -> "Widget".equals(p.getName())).singleElement()
+                .extracting(Product::getFormula).as("blank → NULL, never ''").isNull();
+    }
+
+    @Test
     void an_imported_product_is_active_and_its_clinical_flags_default_to_false() {
         engine.commit(spec, HEADERS + minimal("A1", "Widget"), ORG, USER);
         Product p = captureSaved().get(0);

@@ -144,6 +144,15 @@
              // Emitted only when TRUE: absent is the common case and the safe reading. A product
              // nobody has flagged is not a tracked one.
              + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
+             /*
+              * PH-FORMULA — the formula as grey sub-text, which is ALSO what makes it searchable: bootstrap-select
+              * 1.6.2's live search matches the rendered option text, sub-text included, and has no hidden
+              * `data-tokens`. So visibility and searchability go together, both following the tenant's
+              * pos.product.showFormula (window.posFields.formula === true): a pharmacy types "paracetamol" and
+              * sees every brand; a shop that never uses formulas sees nothing new. Escaped like the name.
+              */
+             + (p.formula && global.posFields && global.posFields.formula === true
+                    ? " data-subtext='" + esc(p.formula) + "'" : "")
              + ">"
              + esc(p.name || ('Product #' + p.id)) + "</option>";
     }

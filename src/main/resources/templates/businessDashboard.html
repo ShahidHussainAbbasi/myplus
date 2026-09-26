@@ -2249,6 +2249,9 @@ tr.row-voided .js-edit-row{display:none !important}
 						<label class="control-label col-sm-2" for="purchasePaid" th:text="#{ui.amountPaid}">Amount Paid</label>
 						<div class="col-sm-4">
 							<input type="number" step="any" min="0" class="form-control" id="purchasePaid" name="paidAmount" placeholder="Blank = paid in full (cash)" th:placeholder="#{ui.blankPaidInFullCash}"/>
+							<!-- PUR-PAID-1: shown only when the amount typed differs from this line's bill, so a due
+							     (or an over-payment) is visible and deliberate. Filled by refreshPurchasePaid(). -->
+							<div id="purchasePaidHint" class="help-block" style="display:none;margin:4px 0 0;font-weight:600;color:#b45309"></div>
 						</div>
 					</div>
 					<div class="form-group text-center">
@@ -3972,6 +3975,20 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 						<label class="control-label col-sm-2" for="prodDesc" th:text="#{ui.description}">Description</label>
 						<div class="col-sm-4"><input type="text" class="form-control" id="prodDesc"></div>
+					</div>
+					<!-- PH-FORMULA — a medicine's formula (generic / salt composition). Shown only where the tenant
+					     turned it on (pos.product.showFormula; the Pharmacy preset does). A plain box with a native
+					     <datalist> of the formulas already on this shop's products: suggestions as you type, and a
+					     new formula is simply typed — no "add" step, and no dropdown that silently falls back to its
+					     first option when a value is missing. While hidden it is NOT sent, so saving a product never
+					     deletes its formula (catalog-products.js saveProduct). -->
+					<div class="form-group" data-pos-field="formula">
+						<label class="control-label col-sm-2" for="prodFormula" th:text="#{ui.formula}">Formula</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="prodFormula" list="prodFormulaList" maxlength="191"
+							       autocomplete="off" placeholder="e.g. Paracetamol 500mg" th:placeholder="#{ui.formulaPlaceholder}">
+							<datalist id="prodFormulaList"></datalist>
+						</div>
 					</div>
 					<div class="form-group text-center">
 						<!-- Cataloguing is repetitive in exactly the way receiving a delivery is: a run of products

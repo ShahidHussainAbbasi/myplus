@@ -62,6 +62,8 @@ public class ProductImportSpec implements ImportSpec<Product> {
     static final String CATEGORY = "categoryName";
     static final String UNIT = "unit";
     static final String MANUFACTURER = "manufacturer";
+    /** PH-FORMULA — optional; normalised exactly as the product form normalises it. */
+    static final String FORMULA = "formula";
     static final String SELLING_PRICE = "sellingPrice";
     static final String TAX_RATE = "taxRate";
     static final String BARCODE = "barcode";
@@ -100,6 +102,7 @@ public class ProductImportSpec implements ImportSpec<Product> {
                 ColumnSpec.text(CATEGORY, false, 255, "Analgesics"),
                 ColumnSpec.text(UNIT, false, 60, "Box"),
                 ColumnSpec.text(MANUFACTURER, false, 255, "Acme Pharma"),
+                ColumnSpec.text(FORMULA, false, 191, "Paracetamol 500mg"),
                 ColumnSpec.number(SELLING_PRICE, false, "120.00"),
                 ColumnSpec.number(TAX_RATE, false, "17"),
                 ColumnSpec.text(BARCODE, false, 255, "8964000123456"),
@@ -158,6 +161,7 @@ public class ProductImportSpec implements ImportSpec<Product> {
                 .description(row.get(DESCRIPTION))
                 .unit(row.get(UNIT))
                 .manufacturer(row.get(MANUFACTURER))
+                .formula(ProductService.normalizeFormula(row.get(FORMULA)))
                 .barcode(row.get(BARCODE))
                 .sellingPrice(price == null ? null : new BigDecimal(price.replace(",", "")))
                 .taxRate(tax == null ? null : new BigDecimal(tax.replace(",", "")))

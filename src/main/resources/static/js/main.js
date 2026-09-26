@@ -735,6 +735,12 @@ $(document).ready(function() {
 				validateForm();
 			    if(formValidated){
 					var fd = populateFormData();
+					// PUR-PAID-1: while Paid still shows the till's OWN figure for the line's bill, send it BLANK — the server
+					// then records paid = its own exact bill (tax and rounding included), so the displayed estimate can
+					// never disagree with the books. An amount the user typed is sent exactly as typed.
+					if(buttonV=="Purchase" && typeof purchasePaidIsAuto === 'function' && purchasePaidIsAuto()){
+						fd = fd.replace(/(^|&)paidAmount=[^&]*/, '$1paidAmount=');
+					}
 					// M4c (slice 92) / fix: submit the purchase productId-native from the picker's data-product.
 					// populateFormData() returns a URL-encoded STRING ($.param), so productId must be APPENDED to it —
 					// `fd.productId = ppid` was a silent no-op on a string, so productId was never sent and the purchase

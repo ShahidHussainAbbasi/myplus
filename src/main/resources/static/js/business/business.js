@@ -3603,7 +3603,62 @@ function calculateNetPurchase(){
 	}else{
 		$("#purchaseNetAmount").val(0);
 	}
+	refreshPurchasePaid();   // PUR-PAID-1: Paid follows the bill while it is still the till's own figure
 }
+
+/*
+ * PUR-PAID-1 — Paid shows, and follows, this line's bill on a NEW purchase.
+ *
+ * The server has always read a BLANK Paid as "paid in full" (PurchaseService: paid = bill), so forgetting it never
+ * created a due — but an empty box looks unpaid, and a typed part-payment created a due nobody saw. So:
+ *   - the box SHOWS the bill (qty × rate + the input tax the server will add) and follows it as the line changes;
+ *   - while it is still the till's own figure it is SENT BLANK (main.js), so the server records its own exact bill —
+ *     this display can never disagree with the books over a tax rounding;
+ *   - an amount the user typed is theirs: sent as typed, with "Due on this line: X" underneath;
+ *   - an EXISTING purchase (edit) is never auto-filled: its Paid is a payment already recorded.
+ * "Auto" = empty, or still exactly the value this code last wrote — so a new line and Save & Add Another (both
+ * clear the box) are auto again with no flag to keep in step.
+ */
+function purchaseIsEdit(){ var id = $('#purchaseId').val(); return !!(id && id * 1 > 0); }
+function purchaseLineBill(){
+	var net = Math.round((($('#purchaseQuantity').val() * 1 || 0) * ($('#purchasePurchaseRate').val() * 1 || 0)) * 100) / 100;
+	var ts = window.purchaseTaxSetting || {};
+	var tax = 0;
+	if (ts.inputTaxEnabled === true) {
+		var typed = $('#purchaseTaxRate').val();
+		var rate = (typed !== '' && typed != null) ? typed * 1 : (ts.defaultRate * 1 || 0);
+		if (rate > 0) tax = Math.round(net * rate) / 100;   // net × rate / 100, to the paisa
+	}
+	return Math.round((net + tax) * 100) / 100;
+}
+function purchasePaidIsAuto(){
+	if (purchaseIsEdit()) return false;
+	var v = $('#purchasePaid').val();
+	return v === '' || v === $('#purchasePaid').data('auto');
+}
+/**
+ * @param typing true while the user is IN the Paid box: then only the hint updates. Rewriting the box under their
+ *        keystrokes would recreate the append race QTY-RACE-1 fixed (empty it, type 40, get "10040").
+ */
+function refreshPurchasePaid(typing){
+	var $paid = $('#purchasePaid');
+	if (!$paid.length) return;
+	var bill = purchaseLineBill();
+	if (typing !== true && purchasePaidIsAuto()) {
+		var shown = bill > 0 ? bill.toFixed(2) : '';
+		$paid.val(shown).data('auto', shown);
+	}
+	var paid = $paid.val() === '' ? bill : $paid.val() * 1;
+	var diff = Math.round((bill - paid) * 100) / 100;
+	var $hint = $('#purchasePaidHint');
+	if (bill > 0 && diff >= 0.01) $hint.text(t('ui.js.duePurchaseLine', diff.toFixed(2))).attr('data-kind', 'due').show();
+	else if (bill > 0 && diff <= -0.01) $hint.text(t('ui.js.overPurchaseLine', (-diff).toFixed(2))).attr('data-kind', 'over').show();
+	else $hint.hide().text('');
+}
+// Typing in Paid only re-evaluates the hint; LEAVING it empty returns the line to auto (blank = paid in full).
+$(document).on('input', '#purchasePaid', function () { refreshPurchasePaid(true); });
+$(document).on('change blur', '#purchasePaid', function () { refreshPurchasePaid(false); });
+$(document).on('input change', '#purchaseTaxRate', function () { refreshPurchasePaid(false); });
 
 /**
  * The arithmetic of one sale line, in one place.
@@ -4551,6 +4606,8 @@ window.afterSavePurchase = function () {
 	// at 1 and nothing on screen explaining why. Released explicitly, right where the line is cleared.
 	if (typeof applyPurchaseSerialQuantityLock === 'function') applyPurchaseSerialQuantityLock();
 	if (typeof updatePurchaseProjectedOnHand === 'function') updatePurchaseProjectedOnHand();
+	// PUR-PAID-1: same reason — the last line's "Due on this line" would otherwise sit under an empty Paid box.
+	refreshPurchasePaid();
 
 	// Refresh the grid WITHOUT clear().draw() — blanking the table between every line is the flicker
 	// that makes rapid entry feel slow.
@@ -4661,7 +4718,9 @@ $(function () {
 function refreshPurchaseTaxRow(){
 	$.get(serverContext + 'getTaxSetting', function(resp){
 		var s = (resp && resp.object) ? resp.object : {};
+		window.purchaseTaxSetting = s;   // PUR-PAID-1: the Paid box shows the bill WITH the tax the server will add
 		if (s.inputTaxEnabled === true) $('#purchaseTaxRow').show(); else { $('#purchaseTaxRow').hide(); $('#purchaseTaxRate').val(''); }
+		refreshPurchasePaid();
 	});
 }
 
@@ -5702,6 +5761,14 @@ function applyPosRowEntry(){
  * field added to the product in future appears everywhere until a preset deliberately hides it —
  * failing OPEN, exactly as the individual switches do.
  */
+/*
+ * PH-FORMULA — fields that start HIDDEN. Every other field fails OPEN (shown unless a preset or the tenant turns
+ * it off); an opt-in field is the reverse: shown only when a preset turns it on (formula: PHARMACY) or the tenant
+ * saved it on. Without this list the formula field would have appeared on every existing shop's product form the
+ * moment it shipped — a grocery registering a "formula" for bread.
+ */
+var POS_OPT_IN = { formula: true };
+
 var POS_PRESETS = {
 	// Item · Qty · Price · Total. The four fields a counter sale actually needs.
 	RETAIL: {
@@ -5710,9 +5777,11 @@ var POS_PRESETS = {
 	},
 	// Adds BATCH and EXPIRY: on medicines these are a traceability obligation, not a nicety.
 	// Veterinary is the same trade with the same rules, so it is the same preset.
+	// PH-FORMULA: and the medicine's FORMULA on the product form — the one field a preset turns ON.
 	PHARMACY: {
 		description: false, bonus: false, receivable: false,
-		lineDiscount: false, discountType: false
+		lineDiscount: false, discountType: false,
+		formula: true
 	},
 	// Adds BONUS (free goods, "20 billed 2 free") and the line discount a rep negotiates per product.
 	DISTRIBUTION: {
@@ -5767,7 +5836,9 @@ function posFieldsFor(preset, byKey, chosen){
 		receivable:      'pos.entry.showReceivable',
 		tradeDiscount:   'pos.invoice.tradeDiscountEnabled',
 		customerBalance: 'pos.customer.showBalance',
-		park:            'pos.park.enabled'
+		park:            'pos.park.enabled',
+		// PH-FORMULA — on the PRODUCT form, not the sale line; an OPT-IN field (see POS_OPT_IN).
+		formula:         'pos.product.showFormula'
 	};
 
 	var out = {};
@@ -5782,7 +5853,7 @@ function posFieldsFor(preset, byKey, chosen){
 		} else if (field in base) {
 			out[field] = base[field];               // the preset's answer for this kind of shop
 		} else {
-			out[field] = true;                      // platform default: shown
+			out[field] = !POS_OPT_IN[field];        // platform default: shown — except the opt-in fields
 		}
 	});
 	return out;
@@ -5832,9 +5903,13 @@ function applyPosFieldVisibility(){
 	// both screens, and a tenant that hides it on the till but keeps it on goods-in would be describing a
 	// distinction nobody asked for. Scoped to the two containers rather than the document, so a stray
 	// data-pos-field elsewhere cannot be hidden by a setting that was never about it.
-	$('#sellDiv [data-pos-field], #PurchaseModal [data-pos-field]').each(function(){
+	// PH-FORMULA: the PRODUCT form too — its Formula row is the first field on it that a setting controls.
+	$('#sellDiv [data-pos-field], #PurchaseModal [data-pos-field], #ProductModal [data-pos-field]').each(function(){
 		var name = $(this).attr('data-pos-field');
-		$(this).toggleClass('pos-hidden', f[name] === false);   // absent => shown (fail open)
+		// absent => shown (fail open) — EXCEPT an opt-in field (POS_OPT_IN), which shows only on an explicit true.
+		// On a settings FAILURE posFields is {}, and an opt-in field must stay hidden then: a grocery must not
+		// find a "Formula" box on its product form because a config call hiccuped.
+		$(this).toggleClass('pos-hidden', POS_OPT_IN[name] ? f[name] !== true : f[name] === false);
 	});
 
 	// A switched-off line discount must not keep applying a value the cashier can no longer see.

@@ -38,6 +38,9 @@ public class ProductDTO {
     private Integer purchasePackCount;
 
     private String manufacturer;
+    /** PH-FORMULA. null = NOT SUPPLIED (the form omits it while the field is hidden → stored value kept);
+     *  "" = the user cleared it → stored as NULL. */
+    private String formula;
     private BigDecimal sellingPrice;
     private BigDecimal taxRate;
     private Long taxCodeId;         // multi-rate tax: assigned tax-code (null = use taxRate / org default)

@@ -166,6 +166,14 @@ public class Product {
     /** Brand/manufacturer (slice 33, U1 — parity with business Item.company for the item→product migration). */
     private String manufacturer;
 
+    /**
+     * PH-FORMULA — the medicine's formula (generic / salt composition), e.g. "Paracetamol 500mg + Caffeine 65mg".
+     * Pharmacies look up alternatives by it when a brand is out of stock. NULL = none (never ''); normalised at write
+     * (trimmed, inner spaces collapsed) so one formula is one value. 191 chars: indexable with organization_id.
+     */
+    @Column(length = 191)
+    private String formula;
+
     private BigDecimal sellingPrice;
     /** Legacy/custom per-product rate — the fallback when {@code taxCodeId} is null (single-rate orgs unaffected). */
     private BigDecimal taxRate;

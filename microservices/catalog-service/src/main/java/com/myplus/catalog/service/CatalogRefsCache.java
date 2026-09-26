@@ -54,6 +54,8 @@ public class CatalogRefsCache {
     public static final String CATEGORIES = "catalog.categories";
     public static final String TAX_CODES = "catalog.tax-codes";
     public static final String MANUFACTURERS = "catalog.manufacturers";
+    /** PH-FORMULA — the formulas list, the manufacturers list's twin (distinct values on the tenant's products). */
+    public static final String FORMULAS = "catalog.formulas";
     /** CACHE-3 — one entry per PRODUCT, for the read screens' batch ref lookups. */
     public static final String REFS = "catalog.refs";
 
@@ -64,6 +66,7 @@ public class CatalogRefsCache {
     private final TenantPagedCache<List<CategoryDTO>> categories;
     private final TenantPagedCache<List<TaxCodeDTO>> taxCodes;
     private final TenantPagedCache<List<String>> manufacturers;
+    private final TenantPagedCache<List<String>> formulas;
     /**
      * CACHE-3 — product refs, keyed one per product rather than per id-list: a grid asking for 730 ids and one asking
      * for 729 of them share every row, where a key built from the id list would share nothing and fill the cache with
@@ -77,12 +80,14 @@ public class CatalogRefsCache {
         this.categories = TenantPagedCache.of(ttl, MAX_ENTRIES);
         this.taxCodes = TenantPagedCache.of(ttl, MAX_ENTRIES);
         this.manufacturers = TenantPagedCache.of(ttl, MAX_ENTRIES);
+        this.formulas = TenantPagedCache.of(ttl, MAX_ENTRIES);
         this.refs = TenantPagedCache.of(ttl, 20_000);
         MeterRegistry r = registry.getIfAvailable();
         if (r != null) {
             CaffeineCacheMetrics.monitor(r, categories.nativeCache(), CATEGORIES);
             CaffeineCacheMetrics.monitor(r, taxCodes.nativeCache(), TAX_CODES);
             CaffeineCacheMetrics.monitor(r, manufacturers.nativeCache(), MANUFACTURERS);
+            CaffeineCacheMetrics.monitor(r, formulas.nativeCache(), FORMULAS);
             CaffeineCacheMetrics.monitor(r, refs.nativeCache(), REFS);
         }
     }
@@ -119,6 +124,11 @@ public class CatalogRefsCache {
         return manufacturers.get(org, user, ALL, loader);
     }
 
+    /** PH-FORMULA — this tenant's distinct formulas, from the cache or {@code loader} on a miss. */
+    public List<String> formulas(Long org, Long user, Supplier<List<String>> loader) {
+        return formulas.get(org, user, ALL, loader);
+    }
+
     /*
      * Evict AFTER COMMIT — and only then. A rolled-back write changed nothing in MySQL, so it evicts nothing.
      * fallbackExecution = true is for the writers with no surrounding transaction (CSV import's category auto-create and
@@ -153,6 +163,7 @@ public class CatalogRefsCache {
     public void onProductsChanged(CatalogProductsChanged event) {
         for (Long org : event.orgs()) {
             manufacturers.invalidateTenant(org);
+            formulas.invalidateTenant(org);   // PH-FORMULA: a product write can add or remove a formula
             refs.invalidateTenant(org);
         }
     }

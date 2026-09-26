@@ -134,6 +134,18 @@
             loadManufacturers($('#prodManufacturer').val());
         }, 'json');
 
+        // PH-FORMULA — the formulas already on this shop's products, as the Formula box's suggestions. A <datalist>
+        // only SUGGESTS: whatever is typed is kept, so a missing option can never rewrite the field (the trap the
+        // manufacturer <select> has to guard against). Skipped entirely while the field is hidden.
+        if (!$('#ProductModal [data-pos-field="formula"]').hasClass('pos-hidden')) {
+            $.get(serverContext + 'formulas', function (resp) {
+                var list = (resp && resp.success && resp.formulas) ? resp.formulas : [];
+                $('#prodFormulaList').html(list.map(function (f) {
+                    return '<option value="' + escHtml(f) + '"></option>';
+                }).join(''));
+            }, 'json');
+        }
+
         refreshExistingRows();
     }
 
@@ -577,6 +589,7 @@
         // otherwise a new product would silently inherit whichever manufacturer sorts first.
         $('#prodManufacturer').val('');
         $('#prodManufacturerNew').val('');
+        $('#prodFormula').val('');   // PH-FORMULA: a new product starts with none
         refreshPicker('#prodManufacturer');   // else the button keeps showing the cleared brand
         $('#prodSku').removeClass('alert-danger');
         $('#prodName').removeClass('alert-danger');
@@ -919,6 +932,7 @@
             // on a missing option silently selects the first one — which would rewrite the field on save.
             loadManufacturers(p.manufacturer || '');
             $('#prodDesc').val(p.description || '');
+            $('#prodFormula').val(p.formula || '');   // PH-FORMULA
             $('#ProductModalTitle').text('Edit Product');
             formEpoch++;               // this is a different product now — drop any in-flight name check
             refreshProductPanel();     // refresh the index so the checks + panel exclude only THIS product
@@ -1045,6 +1059,13 @@
             categoryId: $('#prodCategory').val() ? Number($('#prodCategory').val()) : null,
             manufacturer: $('#prodManufacturer').val(), description: $('#prodDesc').val()
         };
+        /*
+         * PH-FORMULA — sent ONLY while the Formula row is visible, and then always ("" clears it). While the tenant
+         * has it hidden it is OMITTED, and catalog keeps the stored formula: hiding a field must never delete data.
+         */
+        if (!$('#ProductModal [data-pos-field="formula"]').hasClass('pos-hidden')) {
+            body.formula = $('#prodFormula').val() || '';
+        }
         var url = 'addProduct';
         if (id) { body.id = Number(id); url = 'updateProduct'; }
         /*

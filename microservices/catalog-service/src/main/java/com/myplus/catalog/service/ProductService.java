@@ -124,6 +124,17 @@ public class ProductService {
         return (s == null || s.isBlank()) ? null : s.trim();
     }
 
+    /**
+     * PH-FORMULA — one formula is one value: trimmed, inner whitespace collapsed, blank → NULL. Case is kept as typed
+     * (the column collation matches case-insensitively), so "paracetamol  500mg" and "Paracetamol 500mg" are the
+     * same formula to the list, the search and the picker. Shared with the CSV import.
+     */
+    public static String normalizeFormula(String s) {
+        if (s == null) return null;
+        String t = s.trim().replaceAll("\s+", " ");
+        return t.isEmpty() ? null : t;
+    }
+
     @Transactional
     public ProductDTO create(ProductDTO dto) {
         Long orgId = CurrentUser.organizationId();
@@ -228,6 +239,14 @@ public class ProductService {
                 .map(p -> new NameCheckDTO(true, p.getId(), p.getName(), p.getSku(),
                         !Boolean.FALSE.equals(p.getIsActive())))
                 .orElseGet(NameCheckDTO::none);
+    }
+
+    /** PH-FORMULA — the tenant's distinct formulas for the Product form's autocomplete (manufacturers' twin). */
+    public java.util.List<String> formulas() {
+        Long org = CurrentUser.organizationId();
+        Long user = CurrentUser.userId();
+        return refsCache.formulas(org, user,
+                () -> java.util.List.copyOf(productRepository.findDistinctFormulasScoped(org, user)));
     }
 
     /** The tenant's distinct manufacturer names for the Product form's dropdown (PS-1b). */
@@ -547,6 +566,7 @@ public class ProductService {
                 .purchaseUnitName(p.getPurchaseUnitName())
                 .purchasePackCount(p.getPurchasePackCount())
                 .manufacturer(p.getManufacturer())
+                .formula(p.getFormula())   // PH-FORMULA: round-trips on the product form
                 .sellingPrice(p.getSellingPrice())
                 .taxRate(p.getTaxRate())
                 .taxCodeId(p.getTaxCodeId())
@@ -666,6 +686,12 @@ public class ProductService {
         p.setPurchasePackCount(dto.getPurchasePackCount());
 
         p.setManufacturer(dto.getManufacturer());
+        /*
+         * PH-FORMULA — ABSENT vs BLANK, deliberately different. The form OMITS the field while the tenant has it
+         * hidden, and a hidden field must never delete what is stored (null → keep). A VISIBLE box the user cleared
+         * sends "" — that IS an answer ("no formula") → stored as NULL.
+         */
+        if (dto.getFormula() != null) p.setFormula(normalizeFormula(dto.getFormula()));
         p.setSellingPrice(dto.getSellingPrice());
         p.setTaxRate(dto.getTaxRate());
         p.setTaxCodeId(dto.getTaxCodeId());   // multi-rate tax: assigned code (null clears → taxRate/org default)

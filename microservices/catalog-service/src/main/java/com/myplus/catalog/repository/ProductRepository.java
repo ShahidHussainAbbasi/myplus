@@ -88,8 +88,9 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      * <p>{@code Boolean.TRUE} is compared explicitly because the column is a nullable {@code Boolean} — a
      * pre-migration row with {@code NULL} is not active and must not appear in a till's picker.
      */
+    // PH-FORMULA: formula rides on every option so the till's picker can find a medicine by it.
     @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO("
-         + "p.id, p.name, p.sellingPrice, p.requiresSerial) "
+         + "p.id, p.name, p.sellingPrice, p.requiresSerial, p.formula) "
          + "FROM Product p WHERE p.isActive = TRUE AND " + SCOPE + " ORDER BY p.name ASC")
     Page<com.myplus.catalog.dto.ProductPickerDTO> findPickerScoped(@Param("orgId") Long orgId,
                                                                    @Param("userId") Long userId,
@@ -146,6 +147,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
          + "WHERE p.manufacturer IS NOT NULL AND TRIM(p.manufacturer) <> '' AND " + SCOPE
          + " ORDER BY TRIM(p.manufacturer)")
     List<String> findDistinctManufacturersScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    /** PH-FORMULA — the tenant's distinct formulas (manufacturers' twin); values are normalised at write. */
+    @Query("SELECT DISTINCT p.formula FROM Product p "
+         + "WHERE p.formula IS NOT NULL AND " + SCOPE
+         + " ORDER BY p.formula")
+    List<String> findDistinctFormulasScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
     /**
      * Duplicate-NAME guard for the product form (case-insensitive). SKU is optional, so the duplicate that
@@ -207,6 +214,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             + "         OR LOWER(p.sku) LIKE LOWER(CONCAT('%',:q,'%')) "
             + "         OR LOWER(p.barcode) LIKE LOWER(CONCAT('%',:q,'%')) "
             + "         OR LOWER(p.manufacturer) LIKE LOWER(CONCAT('%',:q,'%')) "
+            + "         OR LOWER(p.formula) LIKE LOWER(CONCAT('%',:q,'%')) "   // PH-FORMULA
             + "         OR LOWER(c.name) LIKE LOWER(CONCAT('%',:q,'%'))) "
             + "AND (:categoryId IS NULL OR c.id = :categoryId) "
             + "AND (:uncategorised = FALSE OR c.id IS NULL) "

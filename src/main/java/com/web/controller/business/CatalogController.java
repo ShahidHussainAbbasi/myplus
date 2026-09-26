@@ -656,6 +656,21 @@ public class CatalogController {
         }
     }
 
+    /** PH-FORMULA — the tenant's distinct formulas for the Product form's suggestions (manufacturers' twin). */
+    @GetMapping("/formulas")
+    @ResponseBody
+    public Map<String, Object> formulas() {
+        try {
+            Map<String, Object> resp = catalog.get("/products/formulas");
+            Object data = (resp != null) ? resp.get("data") : null;
+            return Map.of("success", true,
+                    "formulas", (data instanceof java.util.List<?> l) ? l : java.util.List.of());
+        } catch (Exception e) {
+            LOGGER.error("formulas proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /**
      * How many products this tenant has — for the "N registered" badge (PS-1b).
      *

@@ -326,6 +326,20 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Show the batch expiry date",
                         "On (default). Essential for pharmacy and food; noise for hardware or apparel.",
                         true, "Sale entry"),
+                /*
+                 * PH-FORMULA — a medicine's formula (generic / salt composition) on the PRODUCT form.
+                 *
+                 * OFF by default: a grocery, a mobile shop or a restaurant never registers one, and a field nobody
+                 * uses is noise on every product. The PHARMACY preset turns it on (business.js POS_PRESETS); a
+                 * switch the owner set explicitly still wins, as for every preset. Hiding it NEVER deletes a stored
+                 * formula — the form omits the field and catalog keeps what it has (ProductService.apply).
+                 */
+                SettingEntry.bool("pos.product.showFormula",
+                        "Show the medicine's formula (generic / salt) on the product form",
+                        "Off by default; on with the Pharmacy preset. Pharmacies record the salt composition "
+                                + "(e.g. Paracetamol 500mg) so staff can find another brand with the same formula. "
+                                + "Hiding it never deletes formulas already recorded.",
+                        false, "Sale entry"),
                 SettingEntry.bool("pos.entry.priceEditable",
                         "Let the cashier change the selling price",
                         "On (default): the price is pre-filled but can be typed over — normal for "

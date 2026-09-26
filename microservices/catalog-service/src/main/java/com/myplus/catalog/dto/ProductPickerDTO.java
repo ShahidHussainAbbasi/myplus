@@ -52,4 +52,14 @@ public class ProductPickerDTO {
      * not a tracked one.
      */
     private Boolean requiresSerial;
+
+    /** PH-FORMULA — searched by the till's picker. Omitted from the JSON when null, so the cached picker payload
+     *  (PERF-8) grows only by the products that actually carry a formula. */
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    private String formula;
+
+    /** The pre-formula shape, kept so existing callers and tests construct it unchanged. */
+    public ProductPickerDTO(Long id, String name, BigDecimal sellingPrice, Boolean requiresSerial) {
+        this(id, name, sellingPrice, requiresSerial, null);
+    }
 }
