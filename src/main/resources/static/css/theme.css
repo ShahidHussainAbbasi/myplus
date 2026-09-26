@@ -770,6 +770,44 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   box-shadow: 0 14px 40px rgba(13,71,161,.55);
 }
 
+/* ── UI-DASH-1: the KPI tile GRID (review 2026-09-26) ──────────────────────────────────────────────────
+ * Was a Bootstrap .row of col-sm-2 tiles: 8 tiles in 6 columns = a ragged 6 + 2, each tile a sixth of the width
+ * (98px on a 1024px tablet, where the numbers were cut to their first digit), and every tile as tall as its own
+ * label — 93 to 160px in one row. Now: 4 equal columns (2 on a phone), equal-height rows, and a tile that can never
+ * clip its figure (ellipsis + the exact value in its tooltip, set by getDashboardData).
+ * The children keep data-widget / data-drill — dashboard-widgets.js reorders them within THIS parent. */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.kpi-grid > [data-widget] { min-width: 0; }
+.kpi-grid .kpi-card { height: 100%; }
+.kpi-grid .kpi-body { min-width: 0; flex: 1 1 auto; }
+.kpi-grid .kpi-value {
+  font-size: clamp(20px, 2.1vw, 30px);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.kpi-grid .kpi-label {
+  /* Sentence case, two lines at most: "STOCK VALUE (AT LAST PURCHASE RATE)" in spaced capitals ran to four. */
+  text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Below 1200px four columns are narrow (≈180px on a 1024 tablet): a 52px icon left the figure 72px, and
+   "165,710" needs 83. A smaller icon and padding give it ~105px. */
+@media (max-width: 1199px) {
+  .kpi-grid .kpi-card { padding: 14px 12px; gap: 10px; }
+  .kpi-grid .kpi-icon { width: 38px; height: 38px; font-size: 17px; border-radius: 10px; }
+  .kpi-grid .kpi-value { font-size: 22px; }
+}
+@media (max-width: 767px) {
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .kpi-grid .kpi-value { font-size: 20px; }
+  .kpi-grid .kpi-label { font-size: 11.5px; }
+}
+
 /* ── CHART PANELS — elevated glass card ─────────────────── */
 .chart-panel {
   background: #fff;
