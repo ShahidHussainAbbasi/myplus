@@ -48,19 +48,31 @@
 		return s;
 	}
 
-	/** Fill a select from a GenericResponse collection, escaping every label. */
+	/** Append one <option> per row (textContent — every label is escaped by construction). */
+	function fillRows(sel, rows, valueKey, labelKey) {
+		(rows || []).forEach(function (r) {
+			if (r[valueKey] == null) return;
+			var o = document.createElement('option');
+			o.value = r[valueKey];
+			o.textContent = String(r[labelKey] == null ? r[valueKey] : r[labelKey]);
+			sel.appendChild(o);
+		});
+		/*
+		 * Redraw the searchable widget EXPLICITLY. The shared caches read with global:false (and a warm cache reads
+		 * nothing at all), so the ajaxComplete hook that used to redraw these pickers never fires: the <select> held
+		 * 85 customers while the widget showed one row — an empty filter on screen (dashboard-no-freeze case 5).
+		 * refreshSearchableSelect is the one sanctioned way (it carries the busy-guard: never redraw a picker the
+		 * operator has open).
+		 */
+		if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect(sel);
+	}
+
+	/** Fill a select from a GenericResponse collection — the fallback when no shared loader is on the page. */
 	function fill(sel, url, valueKey, labelKey) {
 		if (!sel) return;
-		$.get(serverContext + url, function (resp) {
-			var rows = (resp && (resp.collection || resp.data)) || [];
-			rows.forEach(function (r) {
-				if (r[valueKey] == null) return;
-				var o = document.createElement('option');
-				o.value = r[valueKey];
-				o.textContent = String(r[labelKey] == null ? r[valueKey] : r[labelKey]);
-				sel.appendChild(o);
-			});
-		}, 'json');
+		$.ajax({ url: serverContext + url, dataType: 'json', global: false }).done(function (resp) {
+			fillRows(sel, (resp && (resp.collection || resp.data)) || [], valueKey, labelKey);
+		});
 	}
 
 	/** Distinct, sorted values of one field across already-loaded rows — used for category. */
@@ -119,9 +131,37 @@
 		var company  = add('company',  'rfCompany',  t('ui.js.allCompanies'));
 		var channel  = add('channel',  'rfChannel',  t('ui.js.allChannels'));
 
-		// PERF: id + name is all a filter needs — the lean projection, not the full customer record.
-		if (customer) fill(customer, 'customerOptions', 'customerId', 'name');
-		if (product)  fill(product,  'getUserProduct',  'id',         'name');
+		/*
+		 * PERF (review 2026-09-26) — the lists load LAZILY, from the SHARED caches.
+		 *
+		 * The rail is mounted on page load (so the report shows its filters before its first run), and it used to
+		 * FILL on page load too: every dashboard open fetched the whole catalogue through /getUserProduct —
+		 * 1.4 MB of JSON, parsed into thousands of <option>s — and a second /customerOptions, for a report most
+		 * sessions never open. Now:
+		 *   - the lists are filled the first time they are needed: loadLists() (the report runs) or the operator
+		 *     reaching for a Customer/Product filter — whichever comes first, once;
+		 *   - products come from ProductPicker (the till's cached, ACTIVE-only id+name projection — the same set
+		 *     /getUserProduct returns by default) and customers from CustomerPicker; both are usually warm
+		 *     already, so opening the report costs no request at all. The URL read stays as the fallback for a
+		 *     page that does not carry the shared pickers.
+		 */
+		var listsLoaded = false;
+		function loadLists() {
+			if (listsLoaded) return;
+			listsLoaded = true;
+			if (customer) {
+				if (global.CustomerPicker) global.CustomerPicker.load(function (rows) { fillRows(customer, rows, 'customerId', 'name'); });
+				else fill(customer, 'customerOptions', 'customerId', 'name');
+			}
+			if (product) {
+				if (global.ProductPicker) global.ProductPicker.load(function (rows) { fillRows(product, rows, 'id', 'name'); });
+				else fill(product, 'getUserProduct', 'id', 'name');
+			}
+		}
+		// On the RAIL, in the capture phase: these selects are upgraded to bootstrap-select, so the operator's click
+		// and focus land on the widget's BUTTON — a listener on the <select> itself would never hear them.
+		host.addEventListener('focusin', loadLists, true);
+		host.addEventListener('mousedown', loadLists, true);
 		// The four values CustomerType actually has — from the ONE list in main.js, never a copy. This filter
 		// shipped with a "RETAIL" that is not one of them (a channel matching no row, ever) and with VIP
 		// missing, so VIP sales could not be filtered at all. The 3e-1 gate counted these options but never
@@ -173,6 +213,8 @@
 		return {
 			values: values,
 			refreshExport: refreshExport,
+			/** Fill the Customer/Product lists (once). Call it when the report is opened or run. */
+			loadLists: loadLists,
 			/** Populate the category list from the rows a report just loaded. */
 			categoriesFrom: function (rows) { fillFromRows(category, rows, 'category'); },
 			// #18: same mechanism, same reason — only companies present in the data are offered.

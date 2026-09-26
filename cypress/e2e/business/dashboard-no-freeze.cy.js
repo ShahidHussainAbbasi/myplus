@@ -113,13 +113,19 @@ describe('PERF — the first dashboard load does not freeze, and the pickers sti
     // hidden. Rebuilding those two WAS the whole remaining freeze (3.2 s + 2.7 s, measured). They now wait until
     // they can be seen — so this proves both halves: nothing built while hidden, everything built once shown,
     // without the menu ever being opened.
+    //
+    // PERF review 2026-09-26: the rail's lists are no longer even FETCHED at page load (that was /getUserProduct —
+    // the whole catalogue, 1.4 MB — on every dashboard open). They fill when the report screen opens, from the
+    // shared picker caches. So "nothing built while hidden" is now stronger: nothing is there to build.
     cy.loginAsOwner()
     cy.visit('/businessDashboard')
-    cy.get('#rfCustomer option', { timeout: 30000 }).should('have.length.greaterThan', 1)
-    cy.wait(2000)   // any pass the fill's own completion scheduled has run
+    cy.waitForAppReady()
+    cy.wait(2000)   // anything the page load would have filled has had its chance
+    cy.get('#rfCustomer option').should('have.length', 1)   // only the placeholder: not filled while hidden
     cy.get('#rfCustomer').next('.bootstrap-select').find('li')
       .should('have.length', 1)   // only the placeholder row: not rebuilt while nobody can see it
     cy.get('#sellType').select('SRDiv', { force: true })
+    cy.get('#rfCustomer option', { timeout: 30000 }).should('have.length.greaterThan', 1)   // filled on opening
     cy.get('#SRDiv').should('be.visible')
     cy.get('#rfCustomer').then(($s) => {
       const n = $s[0].options.length
