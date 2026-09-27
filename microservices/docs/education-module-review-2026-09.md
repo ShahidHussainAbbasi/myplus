@@ -66,7 +66,7 @@ consulted. This is the same shape as the marketplace quote defect (SCOPE-1): the
 is not.
 
 **Not reproduced at runtime** — the service is down. The dev database holds 11 alert rows, all org 24, so a
-probe as `owner.education@` (org 13) would have settled it in one request. Worth doing before the fix, so the
+probe as `owner.education@` (org 14) would have settled it in one request. Worth doing before the fix, so the
 fix has a red to turn green.
 
 ### G2 · 89 reads carry no authority check at all

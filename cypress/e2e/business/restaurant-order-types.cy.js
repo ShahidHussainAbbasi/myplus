@@ -61,11 +61,10 @@ describe('RST-R2a — an order carries how it was served', () => {
         .to.eq(true)
     })
 
-    cy.loginAsOwner()
     cy.request({ url: '/getBusinessConfig', failOnStatusCode: false }).then((r) => {
       const rows = (r.body && r.body.data) || []
       const row = rows.find((x) => x.key === 'org.cap.orderTypes')
-      capBefore = row ? row.value : null
+      capBefore = row ? row.value : null   // read for the record; case 7 is what may write one
     })
     // madeToOrder IS in Plan.FREE, so this write is allowed — the asymmetry is the whole point above.
     cy.setCapability('madeToOrder', true)
@@ -82,29 +81,6 @@ describe('RST-R2a — an order carries how it was served', () => {
     })
   })
 
-  /*
-   * Leave no server state — BOTH layers this spec moved, and the ceiling as the operator who set it.
-   *
-   * ⚠ "NO OVERRIDE" AND "OVERRIDE SET TO FALSE" ARE DIFFERENT STATES, and restoring the wrong one is a
-   * quiet way to change a tenant.
-   *
-   * An override PINS the value against the shape preset; an absent one lets the preset decide. So a
-   * teardown that writes `false` where there was previously nothing does not restore the tenant — it
-   * silently opts it out of every future preset change for that capability. `/resetBusinessConfig` REMOVES
-   * the row, which is the only way to put an absence back (UI-CFG-1; a peer session built it, and before
-   * it existed writing a value was the least-bad option).
-   *
-   * Writing a blank instead is worse than either: CapabilityService.resolve reads any present override and
-   * `"true".equalsIgnoreCase("")` is false, so a blank is an explicit OFF wearing the costume of an
-   * absence. A NULL-valued row is a third state again — it resolves to the PRESET.
-   *
-   * ⚠ ORDER MATTERS HERE, AND ONLY FOR NOW: the reset runs while the tenant is still entitled, and the
-   * ceiling is withdrawn afterwards. On the build this gate first ran against, a reset by an unentitled
-   * tenant was REFUSED — so clearing up after yourself was impossible once the entitlement was gone. That
-   * is being fixed (a peer session's SettingWriteGuard.checkReset, which allows a reset unless removing the
-   * row would switch the capability ON outside the plan). Until that is deployed the sequence below is
-   * load-bearing; afterwards it is merely tidy. Left in this order either way.
-   */
   after(() => {
     /*
      * The only state this gate leaves is an `org.cap.orderTypes` override, written by case 7. RESET removes
@@ -310,18 +286,7 @@ describe('RST-R2a — an order carries how it was served', () => {
     })
   })
 
-  /*
-   * ⚠ SKIPPED UNTIL THE L13 FIX IS DEPLOYED — deliberately, and this must be re-enabled, not deleted.
-   *
-   * This case switches the capability OFF and restores it with a reset. On the CURRENT auth-service build
-   * that reset is refused ("going back to the default would switch on…"), so running it would leave the
-   * tenant stuck OFF with no route back through any API — the exact one-way trap this gate discovered by
-   * doing it to org 13 once already. Repeating it knowingly would be worse than not testing it.
-   *
-   * EntitlementWriteGuard.checkReset now allows every capability reset (peer session, 70/70 green). The
-   * moment auth-service carries it, change this back to `it(` and the case runs.
-   */
-  it.skip('⭐ 7 — a tenant WITHOUT the capability can still sell, and sees no chooser', () => {
+  it('⭐ 7 — a tenant WITHOUT the capability can still sell, and sees no chooser', () => {
     /*
      * The safety property of the whole slice, and the one that would hurt most if it broke: almost every
      * tenant on the platform has no order types. Switching the capability off must hide a feature, never

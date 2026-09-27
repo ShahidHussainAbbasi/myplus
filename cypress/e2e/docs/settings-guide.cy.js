@@ -93,7 +93,8 @@ describe('Settings & Configuration — manual test guide (captured)', () => {
       else Object.values(o).forEach(walk) }; walk(b); return out }
     const cat = {}
     cy.request('/getBusinessConfig').then((r) => { cat.configuration = flat(r.body) })
-    cy.request('/getOrderConfig').then((r) => { cat.orders = flat(r.body) })
+    // Order settings as the business that can actually reach them: the Store menu is marketplace-only.
+    cy.loginAsMarketplaceOwner(); cy.request('/getOrderConfig').then((r) => { cat.orders = flat(r.body) })
     // Every module's settings screen, read as its own owner, in the same run.
     cy.loginAsEduOwner(); cy.request('/getConfig').then((r) => { cat.education = flat(r.body) })
     cy.loginAsWelfareOwner(); cy.request('/getWelfareConfig').then((r) => { cat.welfare = flat(r.body) })
@@ -332,45 +333,8 @@ describe('Settings & Configuration — manual test guide (captured)', () => {
   })
 
   // ── F. The other settings screens ───────────────────────────────────────────────────────────────────
-  const screen = (id, title, open, sel, expected) => it(`${id} — ${title}`, () => {
-    step(id, 'The other settings screens', title, open.how, expected)
-    cy.visit('/businessDashboard'); cy.waitForAppReady()
-    open.go()
-    cy.get(sel, { timeout: 20000 }).should('be.visible')
-    /*
-     * No untranslated text on a settings screen. Found by the guide review: Bonus Offers printed the raw key
-     * "ui.addOffer" (t() only receives ui.js.* keys), and Document Designer printed "Document Designer0…9",
-     * "Paper0…9" and "Columns0…3" — 34 message values commit 9b0a7243 added as placeholders in every language.
-     */
-    cy.get(sel).invoke('text').then((txt) => {
-      const rawKey = txt.match(/\bui\.(js\.)?[a-z][A-Za-z0-9]+\b/)
-      expect(rawKey && rawKey[0], 'no raw message key on the screen').to.eq(null)
-      const junk = txt.match(/\b(Document Designer|Paper|Columns)[0-9]\b/)
-      expect(junk && junk[0], 'no placeholder label with a trailing digit').to.eq(null)
-    })
-    shot('screen')
-  })
-  screen('F1', 'Tax Settings', { how: ['Open **Settings → Tax Settings**.'],
-    go: () => { cy.get('#snavSettings .snav-btn').click(); cy.window().then((w) => w.showTaxSettings()) } },
-  '#TaxSettingDiv', ['Sales tax and purchase (input) tax switches, mode, default rate, label and registration number.'])
-  screen('F2', 'Order settings', { how: ['Open **Store → Order settings**.'],
-    go: () => cy.window().then((w) => w.showOrderConfig()) },
-  '#OrderConfigDiv', ['Delivery fees, cash on delivery, backorders, packing and approval rules for orders.'])
-  screen('F3', 'Price Rules', { how: ['Open **Settings → Price Rules**.'],
-    go: () => cy.window().then((w) => w.showPriceRules()) },
-  '#PriceRuleDiv', ['The list of price rules and the form to add one.'])
-  screen('F4', 'Bonus Schemes', { how: ['Open **Settings → Bonus Schemes** (only when *Bonus and free-goods offers* is on).'],
-    go: () => cy.window().then((w) => w.showBonusSchemes()) },
-  '#BonusSchemeDiv', ['The list of buy-and-get offers and the form to add one.'])
-  screen('F5', 'Document Designer', { how: ['Open **Settings → Document Designer**.'],
-    go: () => cy.window().then((w) => w.showDocumentDesigner()) },
-  '#DocumentDesignerDiv', ['The receipt/invoice designer with a live preview.'])
-  screen('F6', 'Stores', { how: ['Open **Settings → Stores**.'],
-    go: () => cy.window().then((w) => w.showStores()) },
-  '#StoresDiv', ['The shop’s branches and their details.'])
-  screen('F7', 'Opening Balances', { how: ['Open **Settings → Opening Balances**.'],
-    go: () => cy.window().then((w) => w.showOpeningBalances()) },
-  '#OpeningBalanceDiv', ['Where the balances carried in from before this system are entered, and the cutover date.'])
+  // Moved to settings-guide-screens.cy.js: each screen is now a full manual test case (prerequisites, test data,
+  // numbered actions with expected results and pictures, cleanup), not a single picture of the screen.
 
   // ── G. Who may change settings ──────────────────────────────────────────────────────────────────────
   it('G1 — a staff user cannot open Settings', () => {
@@ -503,9 +467,9 @@ describe('Settings & Configuration — manual test guide (captured)', () => {
     })
   })
   moduleStep('I1', 'Order settings (online store)',
-    ['Open **Store → Order settings**.', 'Change **Promise backordered items within (days)** to 5 and click elsewhere.', 'Reopen the screen, then click **Reset to default** on that row.'],
+    ['Log in as the marketplace owner (the **Store** menu is shown only for a marketplace business) and open **Store → Order settings**.', 'Change **Promise backordered items within (days)** to 5 and click elsewhere.', 'Reopen the screen, then click **Reset to default** on that row.'],
     ['Delivery fees, cash on delivery, backorders, packing and approval rules are listed.', 'The change is saved and marked with a dot and a **Reset to default** link.', 'Reset puts it back to the default (7 days).'],
-    { login: () => cy.loginAsOwner(), url: '/businessDashboard', open: (w) => w.showOrderConfig(), screen: '#OrderConfigDiv', body: '#orderConfigBody',
+    { login: () => cy.loginAsMarketplaceOwner(), url: '/businessDashboard', open: (w) => w.showOrderConfig(), screen: '#OrderConfigDiv', body: '#orderConfigBody',
       msg: '#orderConfigMsg', key: 'order.backorder.promiseDays', value: 5, get: '/getOrderConfig', save: '/saveOrderConfig' })
   moduleStep('I2', 'Education → Configuration',
     ['Log in as the school owner and open **Configuration**.', 'Untick **Show attendance on report cards**.', 'Reopen the screen, then click **Reset to default** on that row.'],

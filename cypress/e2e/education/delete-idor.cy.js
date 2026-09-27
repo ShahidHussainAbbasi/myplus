@@ -72,7 +72,7 @@ describe('Security: a tenant cannot delete another tenant\'s rows', () => {
    * module uses -- so the routable URL is /api/education/api/education/alerts/{id}. It looks like a typo
    * and is a real, working route; the odd shape is exactly why this went unnoticed.
    *
-   * Demonstrated before the fix: as owner.education@ (org 13), GET on alert 11 (org 24) returned the whole
+   * Demonstrated before the fix: as owner.education@ (org 14), GET on alert 11 (org 24) returned the whole
    * row -- "Holiday Notice / School closed Friday."
    *
    * The repository already had findByIdScoped, with a docstring saying it guards these very paths.

@@ -28,6 +28,22 @@ const verifyRun = process.argv[3] && fs.existsSync(process.argv[3]) ? JSON.parse
 const readJson = (f, dflt) => (fs.existsSync(path.join(GO, f)) ? JSON.parse(fs.readFileSync(path.join(GO, f), 'utf8')) : dflt)
 
 const manifest = readJson('settings-guide.json', { steps: [], catalog: {} })
+/*
+ * Section F — the feature screens — as REAL manual test cases (cypress/e2e/docs/settings-guide-screens.cy.js,
+ * one file per case so one case can be re-run alone). Each case carries prerequisites, test data, numbered
+ * actions with their expected results and pictures, and cleanup. They REPLACE the old one-picture F steps.
+ */
+const SCREEN_DIR = path.join(GO, 'settings-screens')
+const screenCases = fs.existsSync(SCREEN_DIR)
+  ? fs.readdirSync(SCREEN_DIR).filter((f) => /^F\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(1), 10) - parseInt(b.slice(1), 10))
+    .map((f) => JSON.parse(fs.readFileSync(path.join(SCREEN_DIR, f), 'utf8')))
+  : []
+if (screenCases.length) {
+  const at = manifest.steps.findIndex((s) => /^F\d+$/.test(s.id))
+  const rest = manifest.steps.filter((s) => !/^F\d+$/.test(s.id))
+  const pos = at >= 0 ? at : rest.length
+  manifest.steps = [...rest.slice(0, pos), ...screenCases, ...rest.slice(pos)]
+}
 const certBiz = ['Core', 'Installments', 'Documents', 'Capabilities'].flatMap((g) => (readJson(`cert-business-${g}.json`, { results: [] }).results || []).map((r) => ({ ...r, group: g })))
 const certMod = readJson('cert-modules.json', { cases: [], leftovers: [] })
 const security = readJson('settings-security.json', { results: [] })
@@ -64,7 +80,7 @@ const img = (name) => {
 
 // ── text helpers ──────────────────────────────────────────────────────────────────────────────────────
 const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')
+const md = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 const fmtDate = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -87,7 +103,7 @@ const SCREENS = [
   { id: 'business', name: 'Configuration', module: 'Business (retail, pharmacy, distribution, …)', where: 'Business dashboard → Settings → Configuration',
     who: 'owner.business@myplus.com', rail: true, items: manifest.catalog.configuration || [], ui: 'business-config' },
   { id: 'orders', name: 'Order settings', module: 'Business — online store & field orders', where: 'Business dashboard → Store → Order settings',
-    who: 'owner.business@myplus.com', items: manifest.catalog.orders || [], ui: 'business-orders' },
+    who: 'owner.marketplace@myplus.com (the Store menu is shown only for a marketplace business)', items: manifest.catalog.orders || [], ui: 'business-orders' },
   { id: 'education', name: 'Configuration', module: 'Education (schools)', where: 'Education dashboard → Configuration',
     who: 'owner.education@myplus.com', items: manifest.catalog.education || [], ui: 'education-config' },
   { id: 'welfare', name: 'Configuration', module: 'Welfare (donations)', where: 'Welfare dashboard → Configuration',
@@ -229,10 +245,50 @@ const refSection = SCREENS.map((s) => {
 
 // ── walkthrough (captured steps) ──────────────────────────────────────────────────────────────────────
 const passedSteps = manifest.steps.filter((s) => s.passed)
-const failedSteps = manifest.steps.filter((s) => !s.passed)
+// A screen test case that FAILS is still shown in its place — its steps are the correct behaviour and the
+// tester needs to know it fails on this build — but with no pictures, marked, and with the reason.
+const failedSteps = manifest.steps.filter((s) => !s.passed && !s.actions)
+const failedCases = manifest.steps.filter((s) => !s.passed && s.actions)
 const sections = []
-passedSteps.forEach((s) => { let sec = sections.find((x) => x.name === s.section); if (!sec) sections.push(sec = { name: s.section, steps: [] }); sec.steps.push(s) })
+manifest.steps.filter((s) => s.passed || s.actions).forEach((s) => { let sec = sections.find((x) => x.name === s.section); if (!sec) sections.push(sec = { name: s.section, steps: [] }); sec.steps.push(s) })
+const VIA = {
+  console: '<span class="pill pill-warn" title="There is no button for this on the screen yet">No screen yet — browser console</span>',
+  run: '<span class="pill pill-info" title="The run sent the same request the screen sends; do it on the screen as written">Run through the screen’s own request</span>',
+}
+const FAIL_NOTE = { F4: 'Defect L16: the offer preview never appears in the browser — see Known limitations.' }
+const actHtml = (s, a, key, i) => {
+  const shots = s.passed ? a.shots.map((n) => ({ n, src: img(n) })).filter((x) => x.src) : []
+  return `<li class="act">
+      <div class="act-text">
+        <p class="act-do">${md(a.do)} ${VIA[a.via] || ''}</p>
+        ${a.code ? `<pre class="cmd"><code>${esc(a.code)}</code></pre>` : ''}
+        <ul class="expect">${a.expect.map((e, j) => `<li><label><input type="checkbox" id="chk-${esc(s.id)}-${key}${i + 1}-${j}" data-chk> <span>${md(e)}</span></label></li>`).join('')}</ul>
+      </div>
+      ${shots.length ? `<div class="shots">${shots.map((x) => `<button class="shot" type="button" data-full="${x.src}" aria-label="Enlarge screenshot"><img src="${x.src}" alt="${esc(s.title)} — ${key === 'a' ? 'step' : 'cleanup'} ${i + 1}" loading="lazy"></button>`).join('')}</div>` : ''}
+    </li>`
+}
+const caseHtml = (s) => `
+  <article class="step case" id="step-${esc(s.id)}">
+    <header class="step-head"><span class="step-id">${esc(s.id)}</span><h3>${md(s.title)}</h3>${s.passed
+      ? '<span class="pill pill-ok" title="Every action and its expected result passed in the capture run on this build">Verified</span>'
+      : '<span class="pill pill-bad">Fails on this build</span>'}</header>
+    ${s.passed ? '' : `<div class="case-fail"><b>Not passing on this build.</b> ${esc(FAIL_NOTE[s.id] || '')} <span class="muted">Run message: ${esc((s.error || '').split('\n')[0].slice(0, 220))}</span></div>`}
+    <dl class="case-meta">
+      <div><dt>Tenant</dt><dd>${esc(s.tenant || '')}</dd></div>
+      <div><dt>Role</dt><dd>${esc(s.role || '')}</dd></div>
+      <div class="wide"><dt>What this screen does</dt><dd>${md(s.purpose || '')}</dd></div>
+      <div><dt>Prerequisites</dt><dd><ul>${(s.prereq || []).map((x) => `<li>${md(x)}</li>`).join('')}</ul></dd></div>
+      <div><dt>Test data</dt><dd><ul>${(s.data || []).map((x) => `<li>${md(x)}</li>`).join('')}</ul></dd></div>
+    </dl>
+    <h4>Steps — do each, then tick what you see</h4>
+    <ol class="acts">${s.actions.map((a, i) => actHtml(s, a, 'a', i)).join('')}</ol>
+    <h4>Cleanup — leave the business as you found it</h4>
+    <ol class="acts cleanup">${s.cleanup.map((a, i) => actHtml(s, a, 'c', i)).join('')}</ol>
+    <p class="muted rollback"><b>What stays behind:</b> ${md(s.rollback || '')}</p>
+    <label class="signoff"><input type="checkbox" data-chk id="so-${esc(s.id)}"> Human sign-off: I ran this test case end to end and got every expected result</label>
+  </article>`
 const stepHtml = (s) => {
+  if (s.actions) return caseHtml(s)
   const shots = (s.groups ? [] : s.shots).map((n) => ({ n, src: img(n) })).filter((x) => x.src)
   const groups = (s.groups || []).map((g) => ({ ...g, src: img(g.file) })).filter((g) => g.src)
   return `
@@ -289,6 +345,7 @@ const cond = [
   ['Manual test cases pass', !!manual.passed, manual.passed
     ? `Run by Claude against the live app on ${manual.at ? fmtDate(manual.at) : 'this build'} — same browser, widths, tenants and roles as the tests; ${manual.checked} of ${manual.of || manual.checked} walkthrough screens and 18 layout baselines checked by eye against their expected results (the rest by their passing assertions). Human sign-off: per case, below`
     : 'NOT YET CONFIRMED — the live-app pass has not been recorded for this build'],
+  ['Screen test cases pass (section F)', failedCases.length === 0, `${screenCases.filter((c) => c.passed).length} of ${screenCases.length} end-to-end cases passed${failedCases.length ? ` — failing: ${failedCases.map((c) => c.id + ' ' + (FAIL_NOTE[c.id] || '')).join('; ')}` : ''}`],
   ['No tenant-isolation or authorization defect open', secPass === (security.results || []).length && secPass > 0, `${secPass} of ${(security.results || []).length} security cases; the operator “wrong business” defect (E5b) was found by this review and fixed before publishing`],
   ['Guide matches the running build', true, `${version.branch} @ ${version.commit}${version.dirty ? ` + ${version.dirty} uncommitted files` : ''} — the build every picture and result on this page came from`],
 ]
@@ -361,6 +418,25 @@ ul.expect label,.signoff{display:flex;gap:10px;align-items:flex-start;cursor:poi
 ul.expect input,.signoff input{margin-top:5px;accent-color:var(--ok);width:16px;height:16px;flex:none}
 ul.expect input:checked+span{color:var(--txt3);text-decoration:line-through}
 .shots{display:grid;gap:12px;align-content:start}
+.case .case-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;margin:14px 0 6px;padding:14px 16px;background:var(--bg2);border-radius:10px}
+.case .case-meta .wide{grid-column:1/-1}
+.case .case-meta dt{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3)}
+.case .case-meta dd{margin:2px 0 0}
+.case .case-meta ul{margin:0;padding-left:18px}
+.case h4{margin:18px 0 8px}
+.acts{margin:0;padding-left:0;list-style:none;counter-reset:act;display:grid;gap:14px}
+.acts>li.act{counter-increment:act;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:12px 16px;padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.acts>li.act::before{content:counter(act);grid-column:1/-1;justify-self:start;display:inline-grid;place-items:center;min-width:26px;height:26px;border-radius:13px;background:var(--brand);color:#fff;font-weight:700;font-size:13px;padding-inline:8px}
+.acts.cleanup>li.act::before{background:var(--warn)}
+.act-do{margin:0 0 6px}
+.act .expect{margin:6px 0 0}
+pre.cmd{margin:8px 0;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+pre.cmd code{font-size:12px;color:var(--txt)}
+.case-fail{margin:10px 0 0;padding:10px 12px;border-radius:8px;background:var(--bad-soft);color:var(--bad)}
+.rollback{margin-top:12px}
+.pill-warn{background:var(--warn-soft);color:var(--warn)}
+.pill-info{background:var(--brand-soft);color:var(--brand-dark)}
+@media (max-width:820px){.acts>li.act{grid-template-columns:1fr}.case .case-meta{grid-template-columns:1fr}}
 .shot{display:block;padding:0;border:1px solid var(--border2);border-radius:8px;overflow:hidden;background:var(--bg2);cursor:zoom-in;color:inherit;font:inherit}
 .shot img{display:block;width:100%;height:auto}
 .shot:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
@@ -541,7 +617,12 @@ footer{margin-top:40px;color:var(--txt3);font-size:13px}
     ['L9', 'The opening-balance cutover lock can still be switched off by hand', '<b>Defect, fix ready, not deployed.</b> “Opening balances: cutover date locked” is an ordinary switch (and has Reset to default), so switching it off lets the cutover date move while opening balances are still in the accounts — re-dating them. A server rule that refuses unlocking while any opening balance is recorded is written and unit-tested (<code>docs/patches/cutover-lock-guard.patch</code>, 6 tests) but held back: the opening-balances test tenant would then stay locked after every run, which needs a decision on how that gate resets its tenant. Until then: do not switch this lock off.'],
     ['L10', 'A person signed in on more than five devices', 'Each user keeps at most five sign-in sessions; the oldest is dropped. A dropped session keeps working for up to 15 minutes, but a feature switched on meanwhile does not reach it until the person signs in again.'],
     ['L11', 'Operator: a plan upgrade can take up to a minute to apply', 'Reported by a parallel review, confirmed in the code: changing a business’s plan does not clear the cached entitlements, so for up to 60 seconds the business can be told a feature is “not in your current plan”.'],
-    ['L13', 'A feature outside your plan can be switched off, and then not back on', '<b>Defect, fix ready, awaiting deployment.</b> Found by a parallel review on owner.business (FREE plan, General type). A feature the business type switches on reads as ON even when the plan does not include it; the owner can switch it OFF, but switching it back ON is refused (not in plan) and so is <b>Reset to default</b>. The feature is then lost with no way back for the owner. The fix (Reset always allowed; it only returns the business to the state it had before anyone touched the switch) is written and unit-tested, and needs an auth-service rebuild. Until then: <b>do not switch off a feature marked “Not in plan”.</b>'],
+    ['L13', 'A feature outside your plan could be switched off, and then not back on — fixed', '<b>Fixed and verified on this build.</b> Found by a parallel review on owner.business (FREE plan, General type): a feature the business type switches on reads as ON even when the plan does not include it; the owner could switch it OFF, but switching it back ON was refused (not in plan) and so was <b>Reset to default</b>. Reset is now always allowed — it only returns the business to the state it had before anyone touched the switch. Checked live on the running auth-service: off → saved; on by hand → refused (“not included in your current plan”); Reset to default → back ON. Switching ON by hand is still bounded by the plan.'],
+    ['L14', 'A bonus offer cannot be edited or deleted on screen', '<b>Defect.</b> Settings → Bonus Offers only adds: the table has no Edit or Delete button (the functions exist in <code>business.js</code> but nothing calls them), and it shows products as <code>#id</code> and the type and status as raw codes. To remove an offer use the console command in test case F4.'],
+    ['L15', 'A store cannot be deleted or deactivated on screen — and an inactive store is still offered', '<b>Defect.</b> Settings → Stores only adds. The server accepts status INACTIVE (console command in F6), but the store switcher lists inactive stores anyway — its query has no status filter; seen live, four inactive test stores offered. Adding a store also gives its creator access to it, which F6’s cleanup removes.'],
+    ['L16', 'The bonus offer preview never appears', '<b>Defect.</b> The “30 paid earns 3 free” note on Bonus Offers is refused by the server (403) in the browser: the request is sent with <code>global: false</code>, which skips the page-wide hook that adds the CSRF header. The same request from the test runner answers correctly. One line to fix; awaiting consent.'],
+    ['L17', 'Bonus Offers: “Applies to” shows every picker at once', '<b>Defect.</b> Choosing a scope hides the native list, but each list is drawn by bootstrap-select, whose wrapper stays visible — so the supplier, customer and customer-type pickers all show, and the chosen one twice.'],
+    ['L18', 'Opening balances on the customer statement', 'An opening balance is listed with the type <b>Bill</b>, not “Opening balance”. After it is reversed the statement shows <b>No documents</b> — unlike a voided sale, which keeps its bill and a VOID line. A decision is pending on whether the statement should keep the pair.'],
     ['L12', 'Operator: the tenant list returns at most 100 rows per page', 'Asking for more is silently capped, and search matches the business NAME only (not the owner’s email). Use search or page through.'],
   ].map(([id, t, b]) => `<div class="issue"><span class="step-id">${id}</span><div><h3>${esc(t)}</h3><p>${b}</p></div></div>`).join('')}
     </section>
@@ -553,11 +634,15 @@ footer{margin-top:40px;color:var(--txt3);font-size:13px}
         <tr><td>“No value was given … use Reset to default”</td><td>A request without a value. To go back to the default, click <b>Reset to default</b>.</td></tr>
         <tr><td>A row marked <b>Not in plan</b></td><td>The feature is not in this business’s plan. MaxTheService can grant it from the operator console.</td></tr>
         <tr><td>A row marked <b>Locked</b></td><td>Locked for a reason shown on hover — e.g. the cutover date once opening balances are recorded.</td></tr>
-        <tr><td>Reset refused: “Going back to the default would switch on …”</td><td>Known limitation L13 on this build: the feature is stuck off until the fix is deployed. MaxTheService can restore it from the operator console (grant the capability, reset, then withdraw the grant).</td></tr>
+        <tr><td>A feature marked <b>Not in plan</b> was switched off and will not switch back on</td><td>Switching ON by hand is bounded by the plan. Click <b>Reset to default</b> on the row: the business type’s own choice returns (L13, fixed).</td></tr>
         <tr><td>A feature switched on, but its menu does not appear</td><td>Capabilities travel in the sign-in token; the change applies at the next refresh (up to 15 minutes) or after signing in again.</td></tr>
         <tr><td>The screen looks old after an update</td><td>Force-reload the page (Ctrl+F5) to fetch the new scripts and styles.</td></tr>
         <tr><td>Operator: “Open a support session for this business …”</td><td>Reading or changing a business’s records needs an open, explained support session (Tenants → the business → Open support session).</td></tr>
         <tr><td>“Opening balances are recorded against the cutover date, so the lock cannot come off”</td><td>(After the L9 fix is deployed.) Reverse the opening balances first; the lock can then be switched off.</td></tr>
+        <tr><td>Bonus Offers: no “30 paid earns … free” note beside the quantities</td><td>Known defect L16 on this build — the preview is refused by the server. The offer itself saves correctly.</td></tr>
+        <tr><td>Store → Order settings is not in the menu</td><td>The Store menu is shown only for a marketplace business. Test Order settings as <code>owner.marketplace@myplus.com</code>.</td></tr>
+        <tr><td>Opening Balances: “Set the cutover date before recording any balance.”</td><td>Click <b>Set the cutover date</b>, enter the date in Configuration → Accounts, and come back. The date locks on the first balance.</td></tr>
+        <tr><td>A console command answers 403 or nothing happens</td><td>Run it from a page of the application you are signed in to as the owner (the command needs that page’s session and security token).</td></tr>
         <tr><td>A dot on a row you did not change</td><td>An earlier save stored the default value explicitly. <b>Reset to default</b> removes it.</td></tr>
       </tbody></table></div>
     </section>
