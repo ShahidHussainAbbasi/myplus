@@ -470,8 +470,12 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         0, "Installments"),
                 SettingEntry.intOf("pos.installment.maxOpenPlansPerCustomer",
                         "How many open plans one customer may hold",
-                        "1 by default. Raise it for a shop that finances more than one item per household.",
-                        1, "Installments"),
+                        // SET-CERT F1 (owner ruling 2026-09-26): 0 = no limit. The rule was never enforced, so
+                        // every shop has run unlimited; a default of 1 would have capped every customer the day
+                        // enforcement shipped. An owner who wants a cap now sets one.
+                        "0 by default — no limit. Set 1 for one plan per customer, or more for a shop that "
+                                + "finances several items per household.",
+                        0, "Installments"),
                 SettingEntry.intOf("pos.installment.blockIfOverdueDays",
                         "Refuse a new plan while a payment is this many days late",
                         "0 (off) by default. Set 30 to stop a customer taking a second plan while an "

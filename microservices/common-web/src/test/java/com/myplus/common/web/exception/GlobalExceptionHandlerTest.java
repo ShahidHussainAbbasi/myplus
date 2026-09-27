@@ -28,6 +28,22 @@ class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
 
+    /**
+     * E5b — the console tells "open a support session" apart from "the service is down" by data.code; the bare
+     * "Access denied" handler would have dropped both the sentence and the code.
+     */
+    @Test
+    void anOperatorWithoutASupportSession_isA403_withTheSentenceAndTheCode() {
+        ResponseEntity<ApiResponse<java.util.Map<String, Object>>> r = handler.handleSupportSessionRequired(
+                new com.myplus.common.security.SupportSessionRequiredException(49L));
+        assertEquals(403, r.getStatusCode().value());
+        assertNotNull(r.getBody());
+        assertFalse(r.getBody().isSuccess());
+        assertTrue(r.getBody().getMessage().contains("support session"), r.getBody().getMessage());
+        assertEquals("SUPPORT_SESSION_REQUIRED", r.getBody().getData().get("code"));
+        assertEquals(49L, r.getBody().getData().get("organizationId"));
+    }
+
     @Test
     void aPostToAGetOnlyPath_isA405_carryingAllow_notA500() {
         ResponseEntity<ApiResponse<Void>> r = handler.handleGeneric(

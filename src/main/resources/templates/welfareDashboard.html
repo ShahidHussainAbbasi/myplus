@@ -41,7 +41,7 @@
 		<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
 			<h3 class="dash-page-title" th:text="#{ui.configuration}">Configuration</h3>
 			<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
-			<div id="welfareConfigMsg" class="alert" style="display:none"></div>
+			<div id="welfareConfigMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
 			<div id="welfareConfigBody" th:text="#{ui.loading2}">Loading…</div>
 		</div>
 		<div id=DonatorDiv class="formDiv" style="display:none">

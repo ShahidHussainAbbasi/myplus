@@ -354,6 +354,10 @@ select.form-control {
   letter-spacing: 0.01em;
 }
 .btn:focus { outline: none; }
+/* SET-GUIDE a11y (WCAG 2.4.7) — the line above removed the focus ring from EVERY button for keyboard users too.
+ * :focus-visible restores it only for keyboard focus, so a mouse click still shows no outline. Found on the
+ * Configuration screen's support-session buttons ("Allow changes", "End it"). */
+.btn:focus-visible { outline: 3px solid var(--brand-light, #42A5F5); outline-offset: 2px; }
 .btn .glyphicon { font-size: 12px; }
 
 .btn-success {

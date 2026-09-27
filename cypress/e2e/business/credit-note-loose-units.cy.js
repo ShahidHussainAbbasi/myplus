@@ -121,8 +121,10 @@ describe('CN-1 — a credit note prints in the customer\'s units', () => {
   after(() => {
     // Leave the tenant as found — including "absent", which is not the same as "0": an absent row lets the
     // catalog default decide, and writing a literal value would silently take that choice away.
+    // UI-CFG-1: "absent" goes back through /resetBusinessConfig, which DELETES the row; the old key-with-no-value
+    // post left a NULL row behind that the settings screen showed as "changed".
     cy.loginAsBusiness()
-    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
+    cy.request({ method: 'POST', url: markupSnap && !markupSnap.absent ? '/saveBusinessConfig' : '/resetBusinessConfig', form: true,
       body: markupSnap && !markupSnap.absent
         ? { key: 'pos.sale.looseMarkupPct', value: String(markupSnap.value) }
         : { key: 'pos.sale.looseMarkupPct' },

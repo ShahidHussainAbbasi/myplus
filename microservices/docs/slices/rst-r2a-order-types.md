@@ -1,6 +1,18 @@
 # RST-R2a · Order type, end to end
 
-**Status:** DESIGN — awaiting consent. No code written.
+**Status:** server side BUILT, GATED and DEPLOYED. Monolith side in progress.
+
+⚠ **Where the server side actually landed: commit `48e85e53`, titled "layout fixes".** It is not a layout
+commit. A 53-file, three-session commit swept up all of R2a's server work (the `OrderType` enum,
+`CustomerHistory.orderType`, V68, `Capability.ORDER_TYPES`, `SagaSellService`/`SagaSaleWriter`,
+`SellController.changeOrderType`, both unit classes) alongside another session's TZ-1 core and a third's
+education permissions. Recorded here because the message will not lead anyone to it, and because
+**reverting "layout fixes" as cosmetic would drop a Flyway migration and a capability.**
+
+Gates at that point: business-service **341/341**; V68 verified applied against the live database
+(`order_type varchar(16)`, index present, `flyway_schema_history.success = 1`); the deployed auth jar
+verified to contain the `orderTypes` capability.
+
 **Parent:** `microservices/docs/restaurant-vertical-design.md` §4 Phase R2, gap **G1**.
 **Prerequisite, already green:** `MADE_TO_ORDER` + the tile counter (`restaurant-counter.cy.js` 7/7, commit `7ddbdf77`),
 capability guard on the flag (`f9f23f0e`).

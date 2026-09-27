@@ -2647,6 +2647,15 @@ tr.row-voided .js-edit-row{display:none !important}
 					below: that shows nine best sellers as an accelerator on the typed form; this leads with the WHOLE
 					menu by category, for a counter where nobody types.
 				-->
+				<!--
+					RST-R2a — how this sale is served (order-type.js). Hidden unless the tenant has the
+					`orderTypes` capability, which capabilities.js applies through [data-capability].
+
+					Above the counter and the cart on purpose: the type changes the kitchen ticket header and
+					the delivery charge, so it is chosen FIRST, before anything is rung up — not asked at
+					tender time when the customer is already waiting to pay.
+				-->
+				<div id="orderTypeWrap" class="ot-wrap" data-capability="orderTypes" style="display:none"></div>
 				<div id="counterWrap" class="ctr-wrap" style="display:none">
 					<div class="ctr-head">
 						<span th:text="#{ui.js.counterTitle}">Menu</span>
@@ -4187,7 +4196,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<h4 th:text="#{ui.configuration}">Configuration</h4>
 					<p th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 				</div>
-				<div id="businessConfigMsg" class="alert" style="display:none"></div>
+				<div id="businessConfigMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
 				<!-- E5 - Platform access. Empty unless this business has actually been accessed, so a shop
 				     that support has never opened sees nothing here at all. -->
 				<div id="platformAccessBox"></div>
@@ -4202,7 +4211,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						<h4 th:text="#{ui.orderSettings}">Order settings</h4>
 						<p th:text="#{ui.deliveryChargesAndCheckout}">Delivery charges, free-delivery threshold and payment options for your store. Changes apply to the next checkout.</p>
 					</div>
-					<div id="orderConfigMsg" class="alert" style="display:none"></div>
+					<div id="orderConfigMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
 					<div id="orderConfigBody" th:text="#{ui.loading2}">Loading…</div>
 				</div>
 
@@ -4592,6 +4601,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/pos-keyboard.js}"></script>
     <script th:src="@{/js/business/loose-sell.js}"></script>
     <script th:src="@{/js/business/counter.js}"></script>
+    <script th:src="@{/js/business/order-type.js}"></script>
     <!-- SER-4: shows what the register knows about the unit being sold — its condition, or that it is not on
          the shelf. Its own file for the same reason loose-sell.js is: a distinct surface with distinct rules.
          Inert for a tenant without serial tracking, since the input it binds to is not rendered. -->

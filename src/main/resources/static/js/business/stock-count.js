@@ -111,9 +111,9 @@
 
         var boxes = (row.packSize > 1)
             ? '<input type="number" step="1" min="0" class="form-control cnt-box" id="cntPacks_' + row.id + '" '
-              + 'placeholder="' + escHtml(t('ui.packs', 'packs')) + '"> '
+              + 'placeholder="' + escHtml(t('ui.js.packs', 'packs')) + '"> '
               + '<input type="number" step="1" min="0" class="form-control cnt-box" id="cntPieces_' + row.id + '" '
-              + 'placeholder="' + escHtml(row.unit || t('ui.piece', 'pieces')) + '">'
+              + 'placeholder="' + escHtml(row.unit || t('ui.js.piece', 'pieces')) + '">'
             : '<input type="number" step="any" min="0" class="form-control cnt-box" id="cntPacks_' + row.id + '">';
 
         return '<tr id="cntRow_' + row.id + '">'
@@ -169,10 +169,10 @@
          * button dead: the cashier clicks Apply and nothing happens, with the error only in the console.
          */
         uiConfirm({
-            title: t('ui.stockCount', 'Stock count'),
+            title: t('ui.js.stockCount', 'Stock count'),
             message: t('ui.js.countConfirm', 'Adjust stock for ') + v.length + ' '
                 + t('ui.js.countConfirmProducts', 'product(s)?'),
-            confirmText: t('ui.applyCount', 'Apply count'),
+            confirmText: t('ui.js.applyCount', 'Apply count'),
             tone: 'danger'
         }).then(function (ok) {
             if (ok) applyAll(v);

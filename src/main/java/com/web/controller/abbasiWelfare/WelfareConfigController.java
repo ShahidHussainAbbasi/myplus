@@ -54,4 +54,16 @@ public class WelfareConfigController {
             return ProxyErrors.statusError(e);
         }
     }
+
+    /** SET-GUIDE — "Reset to default": the service REMOVES the override (not a save of the default, which pins it). */
+    @RequestMapping(value = "/resetWelfareConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetConfig(final HttpServletRequest request) {
+        try {
+            return client.postForm("/resetConfig", Map.of("key", String.valueOf(request.getParameter("key"))));
+        } catch (Exception e) {
+            LOGGER.error("welfare resetConfig proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
 }

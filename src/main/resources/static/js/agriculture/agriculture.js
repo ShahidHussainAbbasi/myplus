@@ -186,23 +186,20 @@ function loadConfig(){
 		container:  '#agriConfigBody',
 		loadUrl:    'getAgricultureConfig',
 		onChangeFn: 'saveConfigToggle',
-		fieldPrefix:'acfg'
+		fieldPrefix:'acfg',
+		resetFn:    'resetConfigToggle'   // SET-GUIDE — Reset to default, as on every settings screen
 	});
 }
 
 function saveConfigToggle(el){
-	var key = el.getAttribute('data-key');
-	// By TYPE — a non-checkbox has no .checked, so the old unconditional read saved "false" for every
-	// SELECT/INT/TEXT/MONEY entry in the catalog.
-	var value = (el.type === 'checkbox') ? (el.checked ? 'true' : 'false') : el.value;
-	$.post(serverContext + 'saveAgricultureConfig', { key: key, value: value }, function(res){
-		var ok = res && (res.status === 'SUCCESS');
-		$('#agriConfigMsg').removeClass('alert-success alert-danger')
-			.addClass(ok ? 'alert-success' : 'alert-danger')
-			.text(ok ? 'Saved.' : (apiMessage(res, 'Save failed'))).show();
-		if(!ok){ el.checked = !el.checked; }
-	}).fail(function(){
-		el.checked = !el.checked;
-		$('#agriConfigMsg').removeClass('alert-success').addClass('alert-danger').text('Save failed').show();
+	// SET-GUIDE — the shared saver (reads the control by TYPE) and the shared outcome: the row marker, the banner with
+	// the server's sentence, and a re-read on a refusal so a refused value does not stay in the box looking saved.
+	saveSettingsField(el, 'saveAgricultureConfig', function(ok, res){ settingsOutcome(el, '#agriConfigMsg', ok, res, loadConfig); });
+}
+
+/** SET-GUIDE — "Reset to default": removes the override; the default applies again. */
+function resetConfigToggle(btn){
+	resetSettingsField(btn, 'resetAgricultureConfig', function(ok, res){
+		settingsOutcome(null, '#agriConfigMsg', ok, res, loadConfig, ok ? t('ui.js.cfgResetDone') : null);
 	});
 }

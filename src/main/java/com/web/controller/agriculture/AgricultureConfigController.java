@@ -54,4 +54,16 @@ public class AgricultureConfigController {
             return ProxyErrors.statusError(e);
         }
     }
+
+    /** SET-GUIDE — "Reset to default": the service REMOVES the override (not a save of the default, which pins it). */
+    @RequestMapping(value = "/resetAgricultureConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetConfig(final HttpServletRequest request) {
+        try {
+            return client.postForm("/resetConfig", Map.of("key", String.valueOf(request.getParameter("key"))));
+        } catch (Exception e) {
+            LOGGER.error("agriculture resetConfig proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
 }

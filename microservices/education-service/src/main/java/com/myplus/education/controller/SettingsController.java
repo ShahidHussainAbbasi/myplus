@@ -51,4 +51,23 @@ public class SettingsController {
             return new GenericResponse("ERROR", e.getMessage());
         }
     }
+
+    /**
+     * SET-GUIDE — "Reset to default": REMOVE the override so the catalogue default applies again. Not the same as saving
+     * the default value, which pins it. Same gate as saving.
+     */
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')")
+    @RequestMapping(value = "/resetConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public GenericResponse resetConfig(@RequestParam String key) {
+        try {
+            settingsService.reset(key);
+            return new GenericResponse("SUCCESS", "Setting reset to default");
+        } catch (IllegalArgumentException | UnsupportedOperationException bad) {
+            return new GenericResponse("INVALID", bad.getMessage());
+        } catch (Exception e) {
+            appUtil.le(getClass(), e);
+            return new GenericResponse("ERROR", e.getMessage());
+        }
+    }
 }

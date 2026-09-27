@@ -160,7 +160,14 @@ public class StaffAttendanceController {
      */
     @RequestMapping(value = "/markStaffAttendanceBulk", method = RequestMethod.POST)
     @ResponseBody
-    @PreAuthorize("hasAuthority('attendance.mark')")
+    /*
+     * ⚠ attendance.STAFF, not attendance.MARK. Marking the class register is daily teacher work;
+     * marking the STAFF register decides who was paid to be here, and it feeds the substitution cover
+     * list. The first automated mapping of this slice got it wrong — its rules were ordered so the
+     * generic "Attendance" pattern matched "markStaffAttendanceBulk" before the specific
+     * "StaffAttendance" one — and a teacher could mark the staff register. staff-leave.cy.js caught it.
+     */
+    @PreAuthorize("hasAuthority('attendance.staff')")
     @Transactional
     public GenericResponse markStaffAttendanceBulk(@RequestBody BulkRegisterRequest req) {
         try {

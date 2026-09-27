@@ -764,6 +764,9 @@ public class SellController {
 			out.setPaymentMode(ch.getPaymentMode());
 			out.setTenderedAmount(ch.getTenderedAmount());
 			out.setChangeAmount(ch.getChangeAmount());
+			// RST-R2a — the receipt says how the food left. A kitchen ticket header needs it too (R2b), and
+			// both read this one field rather than deriving it twice. Null prints nothing.
+			out.setOrderType(ch.getOrderType() == null ? null : ch.getOrderType().name());
 			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
 
 			// SF-5 Model B: store credit applied on this sale (Σ STORE_CREDIT tenders) — printed on the receipt.
@@ -990,6 +993,10 @@ public class SellController {
 					dtotemp.setPaymentMode(ch.getPaymentMode());
 					dtotemp.setDueAmount(ch.getDueAmount());
 					dtotemp.setGrandTotal(ch.getGrandTotal());
+					// RST-R2a: the report dimension this column exists for. Null stays null — a blank cell is
+					// the honest rendering for every sale raised before V68 and every shop that does not
+					// work in service modes.
+					dtotemp.setOrderType(ch.getOrderType() == null ? null : ch.getOrderType().name());
 					dtotemp.setDueDate(ch.getDueDate() != null ? ch.getDueDate().toString() : "");
 					if (ch.getCustomer() != null) {
 						dtotemp.setCn(ch.getCustomer().getName());
@@ -1238,6 +1245,39 @@ public class SellController {
 								+ "Take the deposit before completing the sale.");
 					}
 				}
+
+				/*
+				 * SET-CERT F1 (2026-09-26) — the tenant's installment ELIGIBILITY rules, enforced at last.
+				 *
+				 * Require CNIC, max open plans per customer, block while overdue and minimum down payment were on the
+				 * Configuration screen and saved, but nothing ever asked them (InstallmentEligibilityPolicy had no
+				 * caller). Checked here, before anything is written, for the same reason as the two checks above.
+				 * Every rule is off by default, so a shop that configured nothing sells exactly as before.
+				 *
+				 * The CNIC is the one ON FILE for a chosen customer (scoped read — another tenant's id resolves to
+				 * nothing), falling back to one typed on this sale.
+				 */
+				com.myplus.business_service.dto.InstallmentPlanDTO ip = dto.getInstallmentPlan();
+				Long eligCustomerId = dto.getCustomer() == null ? null : dto.getCustomer().getCustomerId();
+				String eligCnic = dto.getCustomer() == null ? null : dto.getCustomer().getCnic();
+				if (eligCustomerId != null) {
+					java.util.Optional<com.myplus.business_service.entity.Customer> onFile =
+							customerService.findByIdScoped(eligCustomerId, orgId(), userId());
+					if (onFile.isPresent() && onFile.get().getCnic() != null && !onFile.get().getCnic().trim().isEmpty()) {
+						eligCnic = onFile.get().getCnic();
+					}
+				}
+				boolean named = eligCustomerId != null || (dto.getCustomer() != null && dto.getCustomer().getName() != null
+						&& !dto.getCustomer().getName().trim().isEmpty());
+				com.myplus.common.installment.PlanTerms eligTerms = new com.myplus.common.installment.PlanTerms(
+						ip.getCashPrice(), ip.getDownPayment(),
+						ip.getInstallmentCount() == null ? 0 : ip.getInstallmentCount(),
+						com.myplus.common.installment.Frequency.fromSetting(ip.getFrequency()),
+						ip.getFirstDueDate(), ip.getMarkupAmount());
+				com.myplus.common.installment.InstallmentEligibilityPolicy.Decision elig =
+						installmentPlanService.eligibility(orgId(), eligCustomerId, eligCnic, named, eligTerms,
+								java.time.LocalDate.now());
+				if (!elig.allowed()) return new GenericResponse("FAILED", elig.reason());
 			}
 
 			// M3c.4d (slice 86): the inventory reservation saga (catalog price + FEFO reserve/confirm) is the ONLY

@@ -39,7 +39,9 @@
  */
 
 const GW = 'http://localhost:8765'
-const OWNER = 'owner.business@myplus.com'
+const OWNER = 'owner.business@myplus.com'
+/** One fresh owner sign-in per run of THIS spec — see loginAsOwner's cacheKeyExtra (refresh-token cap). */
+const OWNER_SESSION = `entitlement-ceiling-${Date.now()}`
 const DEMO_PW = 'Demo@2025!'
 const OPERATOR = 'admin@myplus.com'
 const OPERATOR_PW = Cypress.env('adminPassword') || 'Admin@2025!'
@@ -121,7 +123,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
       orgId = claims(t).activeOrgId
       expect(orgId, 'owner.business@ must have an active org in its token').to.be.a('number')
     })
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.getCapabilities().then((caps) => {
       originalEnabled = caps[CAP]
     })
@@ -129,14 +131,14 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
 
   beforeEach(() => {
     // testIsolation clears the session cookie between tests, so authed cy.request needs the login re-run.
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
   })
 
   after(() => {
     // Leave no server state behind. owner.business@ is the tenant most other specs run on, and an
     // entitlement left suspended would fail them somewhere else entirely, days later.
     if (operatorToken && orgId) grant(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     if (originalEnabled !== null) cy.setCapability(CAP, originalEnabled)
   })
 
@@ -184,7 +186,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
      * control has to be able to succeed for the right reason.
      */
     grant(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     writeCapability(true).then((r) => {
       expect(r.body && r.body.success, `an entitled capability must be writable: ${JSON.stringify(r.body)}`)
         .to.eq(true)
@@ -199,7 +201,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
   it('⭐ WITHDRAWN — switching it on is REFUSED server-side, and does not take effect', () => {
     // Before-state ON, established while still entitled, so "off afterwards" can only mean the guard fired.
     grant(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.setCapability(CAP, true)
     cy.getCapabilities().then((caps) => {
       expect(caps[CAP], 'precondition: the capability is ON before the entitlement is withdrawn').to.eq(true)
@@ -208,7 +210,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
     // The operator withdraws it. The tenant's own write then re-mints its token, so the session sees the
     // ceiling without waiting out the 15-minute access-token lifetime.
     revoke(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.setCapability(CAP, false)          // clear the switch so the attempt below is a genuine turn-ON
 
     writeCapability(true).then((r) => {
@@ -232,7 +234,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
      * left with a policy it can neither use nor clear, and the only way back would be a DBA.
      */
     revoke(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     writeCapability(false).then((r) => {
       expect(r.body && r.body.success, `clearing must stay possible: ${JSON.stringify(r.body)}`).to.eq(true)
     })
@@ -247,7 +249,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
      * cy.request reaches an endpoint whether a UI exists or not; only a screen assertion can fail this way.
      */
     revoke(operatorToken, orgId, CAP)
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.visit('/businessDashboard')
     // The Configuration item lives under the Settings sub-nav; force:true because nav selects are hidden
     // until their parent opens, and a real click on a collapsed item is not what this test is about.
@@ -256,6 +258,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
     // renderSettingsForm ids are `<fieldPrefix>_<key with non-alphanumerics replaced>`; business uses 'bcfg'.
     const rowId = '#bcfg_' + CAP_KEY.replace(/[^A-Za-z0-9]/g, '_')
     cy.get(rowId, { timeout: 15000 }).should('exist').and('be.disabled')
+    cy.revealSetting(CAP_KEY)   // UI-CFG-1: the row is only on screen in its own category
     cy.get(rowId)
       .closest('.cfg-row')
       .should('have.class', 'cfg-row--locked')
@@ -271,7 +274,7 @@ describe('E1 — a tenant cannot switch on a capability it is not entitled to', 
      * applied by whatever job happened to rewrite the status, and a missed run would be free licensing.
      */
     grant(operatorToken, orgId, CAP, { endsAt: '2020-01-01T00:00:00' })
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     writeCapability(true).then((r) => {
       expect(r.body && r.body.success, `an expired entitlement must not entitle: ${JSON.stringify(r.body)}`)
         .to.eq(false)

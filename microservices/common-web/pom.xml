@@ -22,6 +22,9 @@
 
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId><scope>provided</scope></dependency>
+    <!-- E5b: the shared handler renders SupportSessionRequiredException with its sentence and code. Provided: every
+         service already carries common-security; common-security depends on nothing of ours, so no cycle. -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-security</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
     <!-- PERF-D5: TenantCacheTest is pure logic and runs on every `mvn test`. -->

@@ -105,6 +105,32 @@ module.exports = defineConfig({
           }
         },
       })
+      /*
+       * SET-GUIDE — visual regression: a LOCAL pixel diff (jest-image-snapshot under the hood). Baselines live in
+       * cypress/snapshots/ and are committed; nothing leaves this machine. First run writes the baseline; later runs
+       * fail on a difference and write a diff image beside it.
+       */
+      require('@simonsmith/cypress-image-snapshot/plugin').addMatchImageSnapshotPlugin(on)
+      /*
+       * SET-GUIDE — a browser WINDOW larger than any viewport a spec sets. Headless Electron defaults to 1280×720, so
+       * a 1366px viewport was CROPPED at 1280 in every viewport screenshot: controls looked cut off and a scrollbar
+       * appeared that the page does not have (measured: document 1366 wide, nothing wider). Guide pictures and
+       * visual baselines must show what a 1366px screen shows.
+       */
+      on('before:browser:launch', (browser = {}, launchOptions) => {
+        if (browser.name === 'electron') {
+          launchOptions.preferences.width = 1920
+          launchOptions.preferences.height = 1080
+        } else if (browser.family === 'chromium') {
+          launchOptions.args.push('--window-size=1920,1080')
+        }
+        return launchOptions
+      })
+      // SET-GUIDE — accessibility: axe violations are printed to the run output, not only the command log.
+      on('task', {
+        a11yLog(message) { console.log(message); return null },
+        a11yTable(rows) { console.table(rows); return null },
+      })
     },
   },
 })

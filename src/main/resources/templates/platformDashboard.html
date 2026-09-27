@@ -29,7 +29,10 @@
             <span th:text="#{ui.platformConsole}">Platform</span>
         </div>
         <div class="plat__who">
-            <span sec:authentication="name">operator</span>
+            <!-- SET-GUIDE: sec:authentication="name" printed the user record's toString() — "User [id=59, firstName=…,
+                 isUsing2FA=false]" — in the header. The same name + email the other dashboards show (fragments/header.html). -->
+            <span th:text="|${#authentication.principal.firstName} ${#authentication.principal.lastName}|">operator</span>
+            <span class="plat__who-email" th:text="${#authentication.principal.email}">email</span>
             <a th:href="@{/logout}" class="plat__logout" th:text="#{ui.logout}">Logout</a>
         </div>
     </header>

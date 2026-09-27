@@ -81,6 +81,13 @@ public class FeeCollectionController {
         return educationClient.post("/saveConfig", request, requestUtil.getCurrentUser().getId());
     }
 
+    /** SET-GUIDE — "Reset to default": the service REMOVES the override (not a save of the default, which pins it). */
+    @RequestMapping(value = "/resetConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public ResponseEntity<String> resetConfig(HttpServletRequest request) {
+        return educationClient.post("/resetConfig", request, requestUtil.getCurrentUser().getId());
+    }
+
     @RequestMapping(value = "/getAllFc", method = RequestMethod.GET)
     @ResponseBody
     public ResponseEntity<String> getAllFc() {

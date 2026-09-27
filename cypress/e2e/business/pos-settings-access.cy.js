@@ -144,6 +144,7 @@ describe('Configuration — a saved setting takes effect without a reload', () =
     cy.get('#businessConfigBody', { timeout: 30000 }).should('contain', 'Sale entry')
 
     // The checkbox the renderer generated for this key — ids are the key with dots replaced.
+    cy.revealSetting('pos.keyboard.shortcuts.enabled')   // UI-CFG-1: its category may not be the one open
     const box = '#bcfg_pos_keyboard_shortcuts_enabled'
     cy.get(box).should('exist').check()
     cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
@@ -160,6 +161,7 @@ describe('Configuration — a saved setting takes effect without a reload', () =
     openConfiguration()
     cy.get('#businessConfigBody', { timeout: 30000 }).should('contain', 'Sale entry')
 
+    cy.revealSetting('pos.entry.defaultQty')
     cy.get('#bcfg_pos_entry_defaultQty').should('exist').clear().type('4').trigger('change')
     cy.get('#businessConfigMsg', { timeout: 20000 }).should('contain', 'Saved')
     cy.window({ timeout: 20000 }).its('posDefaultQty').should('eq', 4)

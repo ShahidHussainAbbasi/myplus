@@ -123,11 +123,27 @@ describe('SER-7 — several serials on one purchase line', () => {
      * error on this screen, and the server can only answer it by refusing the whole receipt.
      */
     const run = uniq()
+    /*
+     * The hint must say its sentence ONCE. The translator is t(key, …args); these hints passed an English fallback
+     * as the 2nd argument, which was substituted into {0} — the duplicate hint read "…entered twice: The same serial
+     * is entered twice: IMEI…A", and `contain.text` passed on it. Language-agnostic: the opening words never recur.
+     */
+    const saidOnce = (txt) => {
+      const head = txt.trim().slice(0, 12)
+      expect(txt.indexOf(head, 1), `the hint says its sentence once: "${txt}"`).to.eq(-1)
+      expect(txt, 'no raw placeholder').to.not.match(/\{\d\}/)
+    }
     openPurchase()
+    typeSerials(`IMEI${run}A,IMEI${run}B`)
+    cy.get('#purchaseSerialHint').should('not.have.class', 'text-danger').invoke('text').then((txt) => {
+      expect(txt, 'the count hint names the count').to.contain('2')
+      saidOnce(txt)
+    })
     typeSerials(`IMEI${run}A,IMEI${run}B,IMEI${run}A`)
     cy.get('#purchaseSerialHint')
       .should('have.class', 'text-danger')
       .and('contain.text', `IMEI${run}A`)
+      .invoke('text').then(saidOnce)
   })
 
   it('6 — clearing the box releases the quantity and clears the hint', () => {

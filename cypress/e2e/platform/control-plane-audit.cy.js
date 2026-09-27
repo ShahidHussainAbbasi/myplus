@@ -45,6 +45,8 @@ const OPERATOR_PW = Cypress.env('adminPassword') || 'Admin@2025!'
 
 const SUBJECT = 'owner.audit@myplus.com'
 const OWNER = 'owner.business@myplus.com'
+/** One fresh owner sign-in per run of THIS spec — see loginAsOwner's cacheKeyExtra (refresh-token cap). */
+const OWNER_SESSION = `control-plane-audit-${Date.now()}`
 const USER = 'user.business@myplus.com'
 const DEMO_PW = 'Demo@2025!'
 
@@ -268,7 +270,7 @@ describe('E4 — every control-plane change leaves a record that says who, and w
           originalShape = r.body.data.shape
         }),
     )
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.getCapabilities().then((caps) => {
       originalOwnerCap = caps[CAP]
     })
@@ -317,7 +319,7 @@ describe('E4 — every control-plane change leaves a record that says who, and w
     }
 
     // owner.business@ is the tenant most of the suite runs on. Its capability goes back exactly.
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     if (originalOwnerCap !== null) cy.setCapability(CAP, originalOwnerCap)
   })
 
@@ -427,7 +429,7 @@ describe('E4 — every control-plane change leaves a record that says who, and w
       reason: `${RUN} case4 setup`,
     })
 
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     writeCapability(true).then((r) => {
       expect(r.body && r.body.success, `the owner's own write: ${JSON.stringify(r.body)}`).to.eq(true)
     })
@@ -471,7 +473,7 @@ describe('E4 — every control-plane change leaves a record that says who, and w
       readTrail(ownerToken, null, 'CAPABILITY_TOGGLE').then((before) => {
         const n = (Array.isArray(before.body) ? before.body : []).length
 
-        cy.loginAsOwner(OWNER)
+        cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
         writeCapability(true).then((r) => {
           // The envelope, not the status. A refusal is 200 with success:false.
           expect(r.body && r.body.success, `an unentitled write must be refused: ${JSON.stringify(r.body)}`)
@@ -606,6 +608,19 @@ describe('E4 — every control-plane change leaves a record that says who, and w
 
   // ── 10. the screen ──────────────────────────────────────────────────────────────────────────────
 
+  /*
+   * E5b — cases 10 and 11 need NO open session: they assert the platform-only view. The spec's own session is closed
+   * first, and the operator signs in afresh (a new cy.session key), because the console holds a token minted while
+   * the session was open, and a scope carried in a token lasts until the next mint.
+   */
+  const withoutSession = () => {
+    cy.then(() => {
+      if (operatorToken && supportSessionId) closeSupport(operatorToken, supportSessionId)
+      supportSessionId = null
+    })
+    cy.loginAs('admin@myplus.com', Cypress.env('adminPassword') || 'Admin@2025!', '/platform/organizations', `nosession-${RUN}`)
+  }
+
   it('⭐ 10 — the operator console SHOWS the trail, with the platform actor named', () => {
     /*
      * E2's lesson, restated: C6 shipped a policy with a green API gate and no control anywhere, and no
@@ -615,7 +630,7 @@ describe('E4 — every control-plane change leaves a record that says who, and w
      * point of the slice at the UI layer. "Platform" versus "This business" is what stops an owner
      * attributing a platform revocation to a colleague, and a row that renders without it is the defect.
      */
-    cy.loginAsOperator()
+    withoutSession()
     cy.visit(PORTAL)
     cy.get('[data-testid="tenant-row"]', { timeout: 15000 }).should('have.length.greaterThan', 1)
 
@@ -625,6 +640,8 @@ describe('E4 — every control-plane change leaves a record that says who, and w
 
     cy.get('[data-testid="activity"]', { timeout: 15000 }).should('be.visible')
     cy.get('[data-testid="activity-row"]').should('have.length.greaterThan', 0)
+    // E5b — no support session is open here, so the panel says it is showing the platform's own actions only.
+    cy.get('[data-testid="activity-platform-only"]').should('be.visible')
     cy.get('[data-testid="activity"] .plat-badge--platform').should('exist').and('be.visible')
 
     // Before AND after, on the screen and not only in the payload — case 3's rule at the UI layer.
@@ -635,5 +652,26 @@ describe('E4 — every control-plane change leaves a record that says who, and w
     // an incident. The absence is the design, so it is asserted rather than assumed.
     cy.get('[data-testid="activity"]').find('.js-delete, .js-edit, [data-testid="activity-delete"]')
       .should('have.length', 0)
+  })
+
+  it('⭐⭐ 11 — E5b: every Activity row belongs to the SELECTED business — never the operator’s own trail', () => {
+    /*
+     * Found live 2026-09-27: /platform/activity?organizationId=<subject> answered with org 8's events — the
+     * operator's OWN — because the org rule fell back to the caller's org with no support session open. Case 10
+     * still passed whenever an earlier case had left a session open (run order).
+     *
+     * With no session: ONLY the subject's rows, and ONLY platform actions (the owner's split ruling).
+     */
+    withoutSession()
+    cy.request('/platform/activity?organizationId=' + subjectOrgId).then((r) => {
+      expect(r.body && r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true)
+      const rows = r.body.data.rows
+      expect(rows.length, 'the platform has acted on this business in this spec').to.be.greaterThan(0)
+      rows.forEach((e, i) => {
+        expect(e.organizationId, `row ${i} (${e.action}) belongs to the selected business`).to.eq(subjectOrgId)
+        expect(e.actorType, `row ${i} (${e.action}) is a platform action — staff activity needs a session`)
+          .to.eq('PLATFORM_OPERATOR')
+      })
+    })
   })
 })

@@ -35,6 +35,20 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(ex.getMessage(), 400));
     }
 
+    /**
+     * E5b — an operator named another business without a support session. Rendered with its SENTENCE and a stable
+     * {@code data.code}, not the bare "Access denied" below: the console has to tell "open a support session" from
+     * "the service is down". Declared before the general handler for readability; Spring picks the most specific.
+     */
+    @ExceptionHandler(com.myplus.common.security.SupportSessionRequiredException.class)
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> handleSupportSessionRequired(
+            com.myplus.common.security.SupportSessionRequiredException ex) {
+        java.util.Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("code", com.myplus.common.security.SupportSessionRequiredException.CODE);
+        data.put("organizationId", ex.getOrganizationId());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ApiResponse<>(false, ex.getMessage(), data, 403));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("Access denied", 403));

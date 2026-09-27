@@ -104,13 +104,13 @@ describe('EXP-1 — expiry tracking OFF means dated stock is ordinary stock', ()
      * leaves state behind while believing it did not.
      *
      * An absent override is restored as ABSENT: not "false", and not an empty string, which resolve() reads as
-     * false (see clearCapabilityOverrides in commands.js). Omitting `value` is what makes the proxy store NULL
-     * and hand the decision back to the shape preset.
+     * false. UI-CFG-1: through /resetBusinessConfig, which DELETES the row — posting the key with no value (the
+     * old way) left a NULL row that resolved like an absent one but showed as "changed" on the settings screen.
      */
     Object.keys(original).forEach((key) => {
       const o = original[key]
       cy.request({
-        method: 'POST', url: '/saveBusinessConfig', form: true,
+        method: 'POST', url: o.absent ? '/resetBusinessConfig' : '/saveBusinessConfig', form: true,
         body: o.absent ? { key } : { key, value: String(o.value) },
       }).then((res) => {
         expect(res.body && res.body.success, `restore ${key}: ${JSON.stringify(res.body)}`).to.eq(true)

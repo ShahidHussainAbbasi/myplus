@@ -46,4 +46,16 @@ public class SettingsController {
             return ApiResponse.error(bad.getMessage(), 400);
         }
     }
+
+    /** UI-CFG-1 — "Reset to default": remove the override so the default (catalog / preset / business type) applies. */
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')")
+    @PostMapping("/reset")
+    public ApiResponse<Void> reset(@RequestParam String key) {
+        try {
+            settings.reset(key);
+            return ApiResponse.success(null, "Setting reset to default");
+        } catch (IllegalArgumentException | UnsupportedOperationException bad) {
+            return ApiResponse.error(bad.getMessage(), 400);
+        }
+    }
 }

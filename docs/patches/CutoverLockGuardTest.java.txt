@@ -1,0 +1,83 @@
+package com.myplus.business_service.service;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import com.myplus.business_service.config.CutoverDateGuard;
+import com.myplus.business_service.repository.CustomerHistoryRepo;
+import com.myplus.business_service.repository.PurchaseRepo;
+import com.myplus.common.settings.SettingsService;
+
+/**
+ * SET-GUIDE — the cutover LOCK cannot be switched off while opening balances are still recorded against the date.
+ *
+ * <p>Found while reviewing the Accounts category for the settings guide: "cutover date locked" was an ordinary switch
+ * (and, with Reset to default, one click). Switching it off let the cutover date change while opening balances sat in
+ * the ledger dated by it — silently re-dating them. The documented path is: reverse the opening balances, THEN unlock.
+ */
+class CutoverLockGuardTest {
+
+    private static final long ORG = 13L;
+    private CustomerHistoryRepo customerHistory;
+    private PurchaseRepo purchases;
+    private CutoverDateGuard guard;
+
+    @BeforeEach
+    void setUp() {
+        customerHistory = mock(CustomerHistoryRepo.class);
+        purchases = mock(PurchaseRepo.class);
+        SettingsService settings = mock(SettingsService.class);
+        guard = new CutoverDateGuard(settings, customerHistory, purchases);
+    }
+
+    private void live(boolean customerOpening, boolean supplierOpening) {
+        when(customerHistory.existsByOrganizationIdAndDocType(eq(ORG), eq(OpeningBalanceService.DOC_OPENING))).thenReturn(customerOpening);
+        when(purchases.existsByOrganizationIdAndDocType(eq(ORG), eq(OpeningBalanceService.DOC_OPENING))).thenReturn(supplierOpening);
+    }
+
+    @Test
+    void unlocking_is_refused_while_a_CUSTOMER_opening_balance_is_recorded() {
+        live(true, false);
+        assertThatThrownBy(() -> guard.check(ORG, OpeningBalanceService.LOCKED_KEY, "false"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Reverse");
+    }
+
+    @Test
+    void unlocking_is_refused_while_a_SUPPLIER_opening_balance_is_recorded() {
+        live(false, true);
+        assertThatThrownBy(() -> guard.check(ORG, OpeningBalanceService.LOCKED_KEY, "false"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void Reset_to_default_is_refused_too__it_lands_on_the_default_OFF() {
+        live(true, false);
+        assertThatThrownBy(() -> guard.checkReset(ORG, OpeningBalanceService.LOCKED_KEY, "false"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void once_every_opening_balance_is_reversed_the_owner_may_unlock() {
+        live(false, false);
+        assertThatCode(() -> guard.check(ORG, OpeningBalanceService.LOCKED_KEY, "false")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void locking_is_always_allowed() {
+        live(true, true);
+        assertThatCode(() -> guard.check(ORG, OpeningBalanceService.LOCKED_KEY, "true")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void other_settings_are_not_this_guards_business() {
+        when(customerHistory.existsByOrganizationIdAndDocType(anyLong(), eq(OpeningBalanceService.DOC_OPENING))).thenReturn(true);
+        assertThatCode(() -> guard.check(ORG, "pos.park.enabled", "false")).doesNotThrowAnyException();
+    }
+}

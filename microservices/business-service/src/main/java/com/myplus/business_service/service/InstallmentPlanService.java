@@ -333,6 +333,59 @@ public class InstallmentPlanService {
         return planRepo.countOpenForCustomer(orgId, customerId);
     }
 
+    /** Settings keys of the four eligibility rules (BusinessSettingsCatalog "Installments"). */
+    public static final String KEY_REQUIRE_CNIC = "pos.installment.requireCnic";
+    public static final String KEY_MAX_OPEN_PLANS = "pos.installment.maxOpenPlansPerCustomer";
+    public static final String KEY_BLOCK_IF_OVERDUE_DAYS = "pos.installment.blockIfOverdueDays";
+    public static final String KEY_MIN_DOWN_PAYMENT_PCT = "pos.installment.minDownPaymentPct";
+
+    /**
+     * SET-CERT F1 (2026-09-26) — may this customer take a plan, under this tenant's rules?
+     *
+     * <p>The four rules sat on the Configuration screen and were NEVER enforced: {@link
+     * com.myplus.common.installment.InstallmentEligibilityPolicy} was built, tested and referenced by no production
+     * code, so an owner could set "require CNIC" or "minimum down payment 20%", see Saved, and every sale ignored it.
+     * This is the one place that reads the rules and the customer's standing and asks the pure policy.
+     *
+     * <p>Called BEFORE the sale is written (SellController, beside the serial and deposit checks) — the invoice commits
+     * in its own transaction, so a refusal raised at plan creation would arrive after the goods were already sold.
+     *
+     * <p>Standing mirrors the rest of this service: "open" is ACTIVE or DEFAULTED (as {@link #openPlanCount}), and
+     * days overdue is {@code Installment.daysOverdue} over what is still outstanding (as RepossessionService). A customer
+     * typed in by name has no plans and no history yet — identified, zero open, zero overdue.
+     *
+     * @param customerId the chosen customer, or null for one being created by this sale
+     * @param cnic       the CNIC on file for the chosen customer, else the one typed on the sale (may be blank)
+     * @param named      true when the sale names a customer at all (a plan must belong to someone)
+     */
+    public com.myplus.common.installment.InstallmentEligibilityPolicy.Decision eligibility(
+            Long orgId, Long customerId, String cnic, boolean named, PlanTerms terms, LocalDate today) {
+        com.myplus.common.installment.InstallmentEligibilityPolicy.Rules rules = settingsService == null
+                ? com.myplus.common.installment.InstallmentEligibilityPolicy.Rules.permissive()
+                : new com.myplus.common.installment.InstallmentEligibilityPolicy.Rules(
+                        settingsService.getBool(KEY_REQUIRE_CNIC),
+                        Math.max(0, settingsService.getInt(KEY_MAX_OPEN_PLANS,
+                                com.myplus.common.installment.InstallmentEligibilityPolicy.UNLIMITED_PLANS)),
+                        Math.max(0, settingsService.getInt(KEY_BLOCK_IF_OVERDUE_DAYS,
+                                com.myplus.common.installment.InstallmentEligibilityPolicy.OVERDUE_CHECK_OFF)),
+                        Math.max(0, Math.min(100, settingsService.getInt(KEY_MIN_DOWN_PAYMENT_PCT,
+                                com.myplus.common.installment.InstallmentEligibilityPolicy.NO_MINIMUM_DOWN_PAYMENT))));
+        int open = 0, worst = 0;
+        if (customerId != null) {
+            for (InstallmentPlan plan : planRepo.findByCustomerScoped(orgId, customerId)) {
+                if (!InstallmentPlan.ACTIVE.equals(plan.getStatus()) && !InstallmentPlan.DEFAULTED.equals(plan.getStatus())) continue;
+                open++;
+                if (plan.getInstallments() == null) continue;
+                for (com.myplus.business_service.entity.Installment i : plan.getInstallments()) {
+                    if (i.outstanding().signum() > 0) worst = Math.max(worst, (int) i.daysOverdue(today));
+                }
+            }
+        }
+        com.myplus.common.installment.InstallmentEligibilityPolicy.CustomerStanding standing =
+                new com.myplus.common.installment.InstallmentEligibilityPolicy.CustomerStanding(named, cnic, open, worst);
+        return com.myplus.common.installment.InstallmentEligibilityPolicy.evaluate(standing, rules, terms);
+    }
+
     /** Resolve a stored frequency string, tolerating case; unknown falls back to MONTHLY. */
     public static Frequency frequencyOf(String stored) {
         return Frequency.fromSetting(stored);

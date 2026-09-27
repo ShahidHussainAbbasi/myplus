@@ -1,0 +1,79 @@
+diff --git a/microservices/business-service/src/main/java/com/myplus/business_service/config/CutoverDateGuard.java b/microservices/business-service/src/main/java/com/myplus/business_service/config/CutoverDateGuard.java
+index 6e01e95a..407e6ccd 100644
+--- a/microservices/business-service/src/main/java/com/myplus/business_service/config/CutoverDateGuard.java
++++ b/microservices/business-service/src/main/java/com/myplus/business_service/config/CutoverDateGuard.java
+@@ -44,13 +44,37 @@ public class CutoverDateGuard implements SettingWriteGuard {
+      * the service it reads lives in a shared library, and a future refactor that made guard collection eager
+      * would break startup rather than a test. One annotation against a whole class of boot failure.
+      */
++    private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
++    private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;
++
+     @Autowired
+-    public CutoverDateGuard(@Lazy SettingsService settings) {
++    public CutoverDateGuard(@Lazy SettingsService settings,
++                            com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo,
++                            com.myplus.business_service.repository.PurchaseRepo purchaseRepo) {
+         this.settings = settings;
++        this.customerHistoryRepo = customerHistoryRepo;
++        this.purchaseRepo = purchaseRepo;
+     }
+ 
+     @Override
+     public void check(Long organizationId, String key, String value) {
++        /*
++         * SET-GUIDE — the LOCK itself. It used to be an ordinary switch (and, with Reset to default, one click):
++         * switching it off let the date below change while opening balances sat in the ledger dated by it —
++         * silently re-dating them. So it may come off only when no opening balance is recorded any more; the
++         * documented path is "reverse the opening balances first". Reset lands on the default (off), so the same
++         * rule refuses it (SettingWriteGuard.checkReset delegates here with the default).
++         */
++        if (OpeningBalanceService.LOCKED_KEY.equals(key)) {
++            boolean unlocking = value == null || !"true".equalsIgnoreCase(value.trim());
++            if (unlocking && openingBalancesRecorded(organizationId)) {
++                throw new IllegalArgumentException(
++                        "Opening balances are recorded against the cutover date, so the lock cannot come off — "
++                                + "moving the date would re-date entries already in the accounts. Reverse the "
++                                + "opening balances first; the lock can then be switched off.");
++            }
++            return;
++        }
+         if (!OpeningBalanceService.CUTOVER_KEY.equals(key)) return;   // not our key, not our business
+ 
+         boolean locked = settings != null && settings.getBool(OpeningBalanceService.LOCKED_KEY);
+@@ -71,4 +95,11 @@ public class CutoverDateGuard implements SettingWriteGuard {
+                         + "be changed — those entries are in the accounts and moving the date would silently "
+                         + "re-date them. Reverse the opening balances first if the date was wrong.");
+     }
++
++    /** Any customer or supplier opening balance still recorded for this business (a reversal deletes the row). */
++    private boolean openingBalancesRecorded(Long organizationId) {
++        if (organizationId == null) return false;
++        return customerHistoryRepo.existsByOrganizationIdAndDocType(organizationId, OpeningBalanceService.DOC_OPENING)
++                || purchaseRepo.existsByOrganizationIdAndDocType(organizationId, OpeningBalanceService.DOC_OPENING);
++    }
+ }
+diff --git a/microservices/business-service/src/main/java/com/myplus/business_service/repository/CustomerHistoryRepo.java b/microservices/business-service/src/main/java/com/myplus/business_service/repository/CustomerHistoryRepo.java
+index f09fc7a7..1f20d281 100644
+--- a/microservices/business-service/src/main/java/com/myplus/business_service/repository/CustomerHistoryRepo.java
++++ b/microservices/business-service/src/main/java/com/myplus/business_service/repository/CustomerHistoryRepo.java
+@@ -101,4 +101,7 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
+     // the recovery relay re-drives confirm for these (slice 33, U3c).
+     @Query("SELECT ch FROM CustomerHistory ch WHERE ch.sagaStatus = 'PENDING' AND ch.reservationId IS NOT NULL ORDER BY ch.dated ASC")
+     List<CustomerHistory> findPendingSagaSales();
++
++    /** SET-GUIDE — is any customer opening balance still live for this business? (a reversal deletes the row) */
++    boolean existsByOrganizationIdAndDocType(Long organizationId, String docType);
+ }
+diff --git a/microservices/business-service/src/main/java/com/myplus/business_service/repository/PurchaseRepo.java b/microservices/business-service/src/main/java/com/myplus/business_service/repository/PurchaseRepo.java
+index 45576859..3a4b2c42 100644
+--- a/microservices/business-service/src/main/java/com/myplus/business_service/repository/PurchaseRepo.java
++++ b/microservices/business-service/src/main/java/com/myplus/business_service/repository/PurchaseRepo.java
+@@ -134,4 +134,7 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
+ //    @Query(value = "SELECT * FROM appointment a WHERE a.FK_hospital_id =:FK_hospital_id AND a.FK_doctor_id = :doctor_id AND a.date = :date"
+ //    		+" ORDER BY a.patients_appointed DESC LIMIT 1",nativeQuery=true)
+ //    Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date);
++
++    /** SET-GUIDE — is any supplier opening balance still live for this business? */
++    boolean existsByOrganizationIdAndDocType(Long organizationId, String docType);
+ }

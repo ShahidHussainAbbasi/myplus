@@ -408,10 +408,93 @@ public class SettingsService {
         }
     }
 
+    /**
+     * UI-CFG-1 — "Reset to default": REMOVE the caller's org override for {@code key}.
+     *
+     * <p>Mirrors {@link #set}: catalog check, guards BEFORE the write, the previous override read first, eviction in a
+     * finally, listeners after. The guards are asked about the CATALOG DEFAULT — the value the setting falls back to —
+     * so a reset can never hand a tenant something a direct write would refuse (a capability outside its plan). A
+     * tenant with no override is a no-op.
+     */
+    public void reset(String key) {
+        if (!catalog.containsKey(key))
+            throw new IllegalArgumentException("Unknown setting: " + key);
+        Long org = CurrentUser.organizationId();
+        // PRESENCE, not value: a row holding NULL/blank is still an override — the capability resolver reads any present
+        // row as explicit (SET-CERT F4: org.cap.orderTypes=NULL was OFF), and the screen's isDefault uses containsKey too.
+        Map<String, String> current = overridesFor(org);
+        if (!current.containsKey(key)) return;
+        String before = current.get(key);
+        SettingEntry entry = catalog.get(key);
+        String dflt = entry == null ? null : entry.defaultValue();
+        guards.orderedStream().forEach(g -> g.checkReset(org, key, dflt));
+        try {
+            store.remove(org, key);
+        } finally {
+            invalidate(org);
+        }
+        notifyListeners(org, key, before, null);
+    }
+
+    /**
+     * SET-GUIDE — a value must fit its setting's TYPE, checked when it is WRITTEN; returns the canonical form to store.
+     *
+     * <p>Every reader here fails SOFT (an unparseable value reads as the default) because they sit on live paths — a
+     * typo must not stop a sale. That is right for reading and it made the write path matter: without this, "abc" for
+     * a whole number, an option that does not exist, or a cleared number box ("") was stored, shown on the screen as
+     * "changed from default", and silently ignored by the till. Refused here instead, with a sentence for the owner.
+     * TEXT and MULTILINE are free (a blank line on a receipt is a legitimate choice).
+     */
+    static String canonical(SettingEntry entry, String value) {
+        if (entry == null || entry.type() == null) return value;
+        String v = value.trim();
+        String label = entry.label() == null || entry.label().isBlank() ? entry.key() : entry.label();
+        switch (entry.type()) {
+            case BOOL:
+                if ("true".equalsIgnoreCase(v) || "false".equalsIgnoreCase(v)) return v.toLowerCase();
+                throw new IllegalArgumentException("\"" + label + "\" must be switched on or off.");
+            case INT:
+                try {
+                    return Integer.toString(Integer.parseInt(v));
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("\"" + label + "\" must be a whole number.");
+                }
+            case MONEY:
+                try {
+                    return new java.math.BigDecimal(v).toPlainString();
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("\"" + label + "\" must be an amount, for example 250 or 5.50.");
+                }
+            case SELECT:
+                if (entry.options() == null || entry.options().isEmpty()) return value;
+                for (SettingEntry.Option o : entry.options()) {
+                    if (o.value() != null && o.value().equalsIgnoreCase(v)) return o.value();
+                }
+                StringBuilder allowed = new StringBuilder();
+                for (SettingEntry.Option o : entry.options()) {
+                    if (allowed.length() > 0) allowed.append(", ");
+                    allowed.append(o.label() == null ? o.value() : o.label());
+                }
+                throw new IllegalArgumentException("\"" + label + "\" must be one of: " + allowed + ".");
+            default:
+                return value;
+        }
+    }
+
     /** Upsert an override for the caller's org. Rejects keys not in the catalog (no free-form settings). */
     public void set(String key, String value) {
         if (!catalog.containsKey(key))
             throw new IllegalArgumentException("Unknown setting: " + key);
+        /*
+         * UI-CFG-1 — a save must carry a value. A save with none stored a NULL row: PRESENT (the screen showed the
+         * setting as "changed") yet resolving like no override at all — an ambiguous half-state, and the way a test
+         * helper left 14 of them on one tenant. Going back to the default is a different act with its own endpoint
+         * (reset), which removes the row. A blank "" is still a value (a text setting may be blank on purpose).
+         */
+        if (value == null)
+            throw new IllegalArgumentException("No value was given for " + key
+                    + ". To go back to the default, use Reset to default.");
+        value = canonical(catalog.get(key), value);
         Long org = CurrentUser.organizationId();
         // E1 — every registered rule runs BEFORE the upsert, so a refusal cannot leave a half-applied state.
         // Inside the caller's transaction on purpose: the throw rolls back anything the caller had already

@@ -241,8 +241,12 @@ public class PlatformAdminController {
         boolean batchArriving = mentions(on, "batch") || mentions(on, "expiry");
         boolean installmentsGoing = mentions(off, "installment");
 
+        // E5b — a count the service REFUSED because no support session covers this business. Recorded, not
+        // swallowed: the dialog must say "open a session to see this", not quietly print no warning at all.
+        java.util.concurrent.atomic.AtomicBoolean refused = new java.util.concurrent.atomic.AtomicBoolean(false);
+
         if (serialGoing || batchArriving) {
-            Map<String, Object> counts = quietly(() ->
+            Map<String, Object> counts = quietly(refused, () ->
                     gateway.forMap(CATALOG_PREFIX, catalogDirectUrl,
                             "/products/policy-counts?organizationId=" + enc(orgId),
                             HttpMethod.GET, null, null));
@@ -259,7 +263,7 @@ public class PlatformAdminController {
             // the token's own org would answer with the operator's figures under the tenant's name — a wrong
             // number rather than an error, which is the harder kind to notice. business-service honours the
             // parameter only for ROLE_ADMIN, which is exactly who reaches this method.
-            Map<String, Object> imp = quietly(() ->
+            Map<String, Object> imp = quietly(refused, () ->
                     gateway.forMap(BUSINESS_PREFIX, businessDirectUrl,
                             "/installmentImpact?organizationId=" + enc(orgId),
                             HttpMethod.GET, null, null));
@@ -271,6 +275,7 @@ public class PlatformAdminController {
             }
         }
 
+        if (refused.get()) impact.put("needsSupportSession", true);
         data.put("impact", impact);
     }
 
@@ -326,9 +331,17 @@ public class PlatformAdminController {
     }
 
     /** A count that cannot be fetched must not take the dialog with it. */
-    private Map<String, Object> quietly(java.util.function.Supplier<Map<String, Object>> call) {
+    private Map<String, Object> quietly(java.util.concurrent.atomic.AtomicBoolean refused,
+                                        java.util.function.Supplier<Map<String, Object>> call) {
         try {
             return call.get();
+        } catch (org.springframework.web.client.HttpClientErrorException.Forbidden f) {
+            if (String.valueOf(f.getResponseBodyAsString()).contains("SUPPORT_SESSION_REQUIRED")) {
+                refused.set(true);
+            } else {
+                LOGGER.warn("migration preview: a count was refused; the dialog opens without it", f);
+            }
+            return null;
         } catch (Exception unavailable) {
             LOGGER.warn("migration preview: a count was unavailable; the dialog opens without it", unavailable);
             return null;
@@ -384,8 +397,9 @@ public class PlatformAdminController {
      * the {@code organizationId} authorization rule that already lives in {@code AuditIngestService}.
      *
      * <h3>The org parameter is safe to forward, and that is not this class's doing</h3>
-     * audit-service honours it only for {@code ROLE_ADMIN} ({@code CurrentUser.organizationIdFor} — the ONB-3
-     * rule) and silently substitutes the caller's own org for everyone else. So the decision is made on the
+     * audit-service decides (E5b): an operator under an open support session over this business gets its whole
+     * trail; an operator WITHOUT one gets only the platform's own actions on it — never the operator's own trail,
+     * which is what this panel showed before E5b; a tenant's parameter is ignored (their own org). So the decision is made on the
      * authority in the token, where it belongs; the {@code @PreAuthorize} here only stops this proxy answering
      * a customer at all.
      *

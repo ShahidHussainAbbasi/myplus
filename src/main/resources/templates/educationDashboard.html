@@ -3389,7 +3389,7 @@
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.configuration}">Configuration</h4>
 				<p style="color:#7a889c" th:text="#{ui.ownerSetupChangesApplyToThis}">Owner setup. Changes apply to this organization only and take effect immediately.</p>
-				<div id="configMsg" class="alert" style="display:none"></div>
+				<div id="configMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
 				<div id="configBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">

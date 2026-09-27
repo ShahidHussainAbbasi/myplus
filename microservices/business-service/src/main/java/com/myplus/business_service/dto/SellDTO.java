@@ -178,6 +178,17 @@ public class SellDTO implements Serializable {
 
 	private BigDecimal grandTotal;     // invoice tax-inclusive total (repeats per line of the same invoice)
 
+	/**
+	 * RST-R2a — how the invoice was served, flattened onto the line like {@code invoiceNo} and
+	 * {@code grandTotal} above, and repeating per line for the same reason: the report and the receipt read
+	 * rows, and a second round-trip per invoice to fetch one word would be a query per line.
+	 *
+	 * <p>⚠ Null means NOT RECORDED and must render blank. It is null on every invoice raised before V68 and
+	 * on every sale in a shop without the capability — which is almost all of them. A UI that substitutes a
+	 * default here would undo the whole point of the column being nullable.
+	 */
+	private String orderType;
+
 	private Float re=0.0F;
 	
 	private String sd;

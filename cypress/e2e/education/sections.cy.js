@@ -31,8 +31,18 @@ describe('Education — sub-nav menus list their items (owner/super privilege vi
     cy.visit('/educationDashboard')
   })
 
+  /*
+   * ⚠ `snavRegister` IS GONE. It held 25 entries, and sidebar.css capped an open group at 520px with
+   * `overflow:hidden`, so 12 of them — Subjects, Manage Students and Manage Users among them — were
+   * clipped with no scrollbar. EDU-MENU split it into four themed groups, none taller than 9 entries,
+   * and made an open group scroll. Every entry survived the move; see education/menu-reachable.cy.js,
+   * which asserts all 25 are REACHABLE rather than merely present.
+   */
   const MENUS = [
-    { id: 'snavRegister', min: 9 },
+    { id: 'snavStudents', min: 5 },
+    { id: 'snavStaff', min: 5 },
+    { id: 'snavAcademics', min: 8 },
+    { id: 'snavSchool', min: 3 },
     { id: 'snavFee', min: 4 },
     { id: 'snavReport', min: 1 },
     { id: 'snavAttendance', min: 1 },

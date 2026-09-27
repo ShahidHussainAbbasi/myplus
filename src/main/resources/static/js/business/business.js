@@ -1410,8 +1410,8 @@ function resetBonusSchemeForm(){
 	$('#bsPriority').val(100);
 	$('#bsError').text('');
 	$('#bsPreview').text('');
-	$('#bsFormTitle').text(t('ui.addOffer'));
-	$('#bsSaveLabel').text(t('ui.addOffer'));
+	$('#bsFormTitle').text(t('ui.js.addOffer'));
+	$('#bsSaveLabel').text(t('ui.js.addOffer'));
 	onBonusSchemeScope();
 }
 
@@ -1476,8 +1476,8 @@ function editBonusScheme(btn){
 	$('#bsEndsOn').val(r.endsOn || '');
 	$('#bsStatus').val(r.status || 'ACTIVE');
 	$('#bsPriority').val(r.priority);
-	$('#bsFormTitle').text(t('ui.editOffer'));
-	$('#bsSaveLabel').text(t('ui.editOffer'));
+	$('#bsFormTitle').text(t('ui.js.editOffer'));
+	$('#bsSaveLabel').text(t('ui.js.editOffer'));
 	previewBonusScheme();
 	$('#bsCode').focus();
 }
@@ -1912,6 +1912,9 @@ function resetCart(){
 	// TRADE-DISC-1: the discount belongs to the sale that just finished (or was parked). Left in the box it was
 	// silently granted to the NEXT customer too, because main.js sends whatever the field holds.
 	$("#sellTradeDiscount").val('');
+	// RST-R2a: same reasoning one line up. A service mode left over from the finished sale would be posted
+	// for the NEXT customer, and unlike the discount it is silent — nothing on screen would look wrong.
+	if (window.OrderTypeBar) OrderTypeBar.reset();
 	sellRefreshPayable();
 	window.selectedCustomerDue = null;
 	$("#sellAccountRow").hide();
@@ -4547,11 +4550,11 @@ function updatePurchaseSerialHint() {
 	}
 	if (dup) {
 		$hint.addClass('text-danger')
-			.text((t('ui.js.serialDuplicate', 'The same serial is entered twice: {0}')).replace('{0}', dup));
+			.text(t('ui.js.serialDuplicate', dup));   // t(key, …args) — the 2nd argument IS {0}, not a fallback
 		return;
 	}
 	$hint.removeClass('text-danger')
-		.text((t('ui.js.serialCount', '{0} serial(s) — quantity {0}')).replace(/\{0\}/g, String(list.length)));
+		.text(t('ui.js.serialCount', String(list.length)));
 }
 window.updatePurchaseSerialHint = updatePurchaseSerialHint;
 
@@ -4779,7 +4782,7 @@ function buildSaleReturnDialog(){
 		+ "<h4 style='margin:0 0 4px;font-weight:700'>" + escHtml(t('ui.js.srTitle')) + "</h4>"
 		+ "<div style='font-size:12px;color:#7a889c;margin-bottom:12px'>" + escHtml(t('ui.js.srBlurb')) + "</div>"
 		+ "<div style='font-size:13px;color:#444;margin-bottom:12px'>"
-		// ⚠ ui.js.* — LocaleInterceptor.JS_PREFIX only ships that subset to the browser, so `t('ui.invoice')`
+		// ⚠ ui.js.* — LocaleInterceptor.JS_PREFIX only ships that subset to the browser, so `t('ui.js.invoice')`
 		// would render the literal key "ui.invoice" on screen.
 		+ escHtml(t('ui.js.invoice')) + " <b id='srInvoice'></b> &middot; <span id='srItem'></span><br>"
 		+ escHtml(t('ui.js.srSoldLabel')) + ": <b id='srSold'></b></div>"
@@ -6001,6 +6004,26 @@ function applyPosFieldVisibility(){
  * intended ("not about ignoring the owner").
  */
 $(document).on('change', '#sellPayMethod', function () { $(this).data('posDefaulted', true); });
+
+/*
+ * SET-CERT F2 (2026-09-26) — the shop's default payment method never reached the first sale.
+ *
+ * main.js resets EVERY <select> on the page to its markup default on each section switch (the "Selects lose their
+ * default" fix), so opening New Sale put #sellPayMethod back on CASH — AFTER the shop's default had been applied and
+ * the one-shot latch set. The latch then stopped it being applied again: a shop whose default is CARD or CREDIT
+ * started every first sale on CASH, and a cashier who did not notice recorded the wrong payment method. The existing
+ * gate (sale-defaults-race) missed it because it STUBS the settings reply instead of saving them.
+ *
+ * Delegated, so it runs AFTER main.js's directly-bound reset. Only for an EMPTY, non-edit sale — the same guard
+ * applyPosFieldVisibility uses, so a part-rung cart and the cashier's own choice are never overwritten.
+ */
+$(document).on('change', '#sellType', function () {
+	if ($(this).val() !== 'sellDiv') return;
+	var saleInProgress = (typeof data !== 'undefined' && data && data.length > 0) || window.editingInvoice;
+	if (saleInProgress) return;
+	$('#sellPayMethod').removeData('posDefaulted');
+	if (typeof applyPosFieldVisibility === 'function') applyPosFieldVisibility();
+});
 $(document).on('click', '#btnModeSelect, #btnModeManual', function () { window.posCustomerModeChosen = true; });
 
 /* ── SER-3b: a serialled line is ONE unit ────────────────────────────────────────────────────────
@@ -6146,7 +6169,7 @@ function obLoadState(){
 		var d = (resp && (resp.object || resp.data)) || {};
 		var parts = [];
 		if(d.cutoverDate){
-			parts.push(t('ui.js.obCutoverIs','System of record from {0}').replace('{0}', escHtml(d.cutoverDate)));
+			parts.push(t('ui.js.obCutoverIs', escHtml(d.cutoverDate)));   // t(key, …args): the value IS {0}
 		}else{
 			// Said plainly and first: nothing can be recorded until this is set, and the operator should not
 			// discover that by being refused.
@@ -6159,8 +6182,7 @@ function obLoadState(){
 		}
 		var cust = Number(d.customerTotal || 0), supp = Number(d.supplierTotal || 0);
 		if(cust > 0 || supp > 0){
-			parts.push(t('ui.js.obEnteredSoFar','Entered so far: {0} from customers, {1} to suppliers.')
-				.replace('{0}', cust.toLocaleString()).replace('{1}', supp.toLocaleString()));
+			parts.push(t('ui.js.obEnteredSoFar', cust.toLocaleString(), supp.toLocaleString()));
 		}
 		$('#openingBalanceState').html(parts.join(' &middot; '));
 	}).fail(function(){
@@ -6262,16 +6284,16 @@ function shapeImpactLines(impact){
 	var plans  = Number(impact.openInstallmentPlans || 0);
 	var owed   = Number(impact.installmentsOutstanding || 0);
 	if(serial > 0){
-		out.push(t('ui.js.impactSerial','{0} products require a serial number and will stop selling.')
-			.replace('{0}', serial));
+		out.push(t('ui.js.impactSerial', serial));
 	}
 	if(impact.productsTrackingBatch !== undefined && Number(impact.productsTrackingBatch) === 0){
 		out.push(t('ui.js.impactNoBatches',
 			'No products have a batch recorded — expiry ordering will have nothing to sort on.'));
 	}
 	if(plans > 0){
-		out.push(t('ui.js.impactPlans','{0} open installment plans ({1}) stay collectable but leave the dashboard.')
-			.replace('{0}', plans).replace('{1}', owed.toLocaleString()));
+		// t(key, …args): the values ARE {0} and {1}. An English fallback in the 2nd position was substituted into {0}
+		// and produced "… open installment plans ({1}) …" in the dialog (found on the settings-guide review, D3).
+		out.push(t('ui.js.impactPlans', plans, owed.toLocaleString()));
 	}
 	return out;
 }
@@ -6329,7 +6351,22 @@ function loadBusinessConfig(){
 		container:  '#businessConfigBody',
 		loadUrl:    'getBusinessConfig',
 		onChangeFn: 'saveBusinessConfigToggle',
-		fieldPrefix:'bcfg'
+		fieldPrefix:'bcfg',
+		resetFn:    'resetBusinessConfigToggle',
+		/*
+		 * UI-CFG-1 — the 16 catalogue groups folded into the categories an owner recognises (the Shopify / Square
+		 * settings pattern). Group names are the catalogue's own; a group added on the server and not listed here
+		 * lands in "Other" rather than going missing.
+		 */
+		categories: [
+			{ id: 'business',  label: t('ui.js.cfgCatBusiness'),     groups: ['What kind of business this is', 'What this business does'] },
+			{ id: 'selling',   label: t('ui.js.cfgCatSelling'),      groups: ['Sale entry', 'Point of Sale', 'Customer & credit', 'Payment', 'Workflow', 'Data entry'] },
+			{ id: 'documents', label: t('ui.js.cfgCatDocuments'),    groups: ['Receipts', 'Documents'] },
+			{ id: 'installments', label: t('ui.js.cfgCatInstallments'), groups: ['Installments'] },
+			{ id: 'buying',    label: t('ui.js.cfgCatBuying'),       groups: ['Purchasing', 'Sales quotes'] },
+			{ id: 'pharmacy',  label: t('ui.js.cfgCatPharmacy'),     groups: ['Pharmacy'] },
+			{ id: 'accounts',  label: t('ui.js.cfgCatAccounts'),     groups: ['Opening balances'] }
+		]
 	});
 	/*
 	 * E5 - what MaxTheService support has done to this business.
@@ -6342,6 +6379,28 @@ function loadBusinessConfig(){
 	 * card is supplementary, and taking the settings list down with it would be a poor trade.
 	 */
 	if (typeof renderPlatformAccess === 'function') { renderPlatformAccess('#platformAccessBox'); }
+}
+
+/**
+ * UI-CFG-1 — "Reset to default": REMOVES the override (the server's /settings/reset), so the catalog default, the shop
+ * preset or the business type decides again. Re-renders like a save, and re-reads the capability map because a reset
+ * capability changes which screens show.
+ */
+function resetBusinessConfigToggle(btn){
+	var key = btn.getAttribute('data-reset-key');
+	btn.disabled = true;
+	$.post(serverContext + 'resetBusinessConfig', { key: key }, function(res){
+		var ok = res && res.success;
+		$('#businessConfigMsg').removeClass('alert-success alert-danger')
+			.addClass(ok ? 'alert-success' : 'alert-danger')
+			.text(ok ? t('ui.js.cfgResetDone') : (apiMessage(res, t('ui.js.saveFailed','Save failed')))).show();
+		if (!ok) { btn.disabled = false; return; }
+		loadBusinessConfig();
+		if (typeof reloadCapabilities === 'function') reloadCapabilities();
+		// Same as a save: drop the tender latch and re-read every flag, so the reset reaches the till at once.
+		$('#sellPayMethod').removeData('posDefaulted');
+		if (typeof loadPosFeatureFlags === 'function') loadPosFeatureFlags();
+	}).fail(function(xhr){ btn.disabled = false; uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed','Save failed'))); });
 }
 
 function saveBusinessConfigToggle(el){
@@ -6418,7 +6477,15 @@ function loadOrderConfig(){
 		container:  '#orderConfigBody',
 		loadUrl:    'getOrderConfig',
 		onChangeFn: 'saveOrderConfigField',
-		fieldPrefix:'ocfg'
+		fieldPrefix:'ocfg',
+		resetFn:    'resetOrderConfigField'   // SET-GUIDE — Reset to default, as on every settings screen
+	});
+}
+
+/** SET-GUIDE — "Reset to default" for an order setting: removes the override; the default applies again. */
+function resetOrderConfigField(btn){
+	resetSettingsField(btn, 'resetOrderConfig', function(ok, res){
+		settingsOutcome(null, '#orderConfigMsg', ok, res, loadOrderConfig, ok ? t('ui.js.cfgResetDone') : null);
 	});
 }
 

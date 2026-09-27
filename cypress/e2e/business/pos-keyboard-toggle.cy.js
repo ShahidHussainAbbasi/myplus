@@ -21,6 +21,7 @@ function openConfiguration() {
   cy.get('#navConfiguration').should('be.visible').click({ timeout: 30000 })
   cy.get('#ConfigDiv').should('be.visible')
   cy.get('#businessConfigBody', { timeout: 30000 }).should('contain', 'Sale entry')
+  cy.revealSetting('pos.keyboard.enabled')   // UI-CFG-1: open the category that holds it
 }
 
 describe('Configuration — the Keyboard sale entry toggle', () => {

@@ -33,7 +33,9 @@
 const GW = 'http://localhost:8765'
 const OPERATOR = 'admin@myplus.com'
 const OPERATOR_PW = Cypress.env('adminPassword') || 'Admin@2025!'
-const OWNER = 'owner.business@myplus.com'
+const OWNER = 'owner.business@myplus.com'
+/** One fresh owner sign-in per run of THIS spec — see loginAsOwner's cacheKeyExtra (refresh-token cap). */
+const OWNER_SESSION = `operator-portal-${Date.now()}`
 const DEMO_PW = 'Demo@2025!'
 
 const PORTAL = '/platformDashboard'
@@ -162,14 +164,25 @@ describe('E2 — the operator portal', () => {
      * `trialLapsed` is computed SERVER-side — the operator and the resolver must agree what "lapsed" means.
      */
     cy.loginAsOperator()
-    listOrgs().then((r) => {
-      const lapsed = r.body.data.rows.filter((row) => row.trialLapsed)
+    /*
+     * The WHOLE list, not its first page. The list is newest-first and paged; as paid tenants accumulated, every
+     * lapsed trial sank off page 1 and this case went red with 20 lapsed trials in the database (measured
+     * 2026-09-27) — the fixture was there, the query could not see it.
+     */
+    // Every page — the server caps a page at 100 and ignores a larger size without saying so.
+    cy.allOrgs().then((all) => {
+      const lapsed = all.filter((row) => row.trialLapsed)
       // Seeded data has lapsed trials; if it ever does not, this asserts nothing and must say so rather
       // than passing quietly.
       expect(lapsed.length, 'fixture check: at least one lapsed trial exists to badge').to.be.greaterThan(0)
+      // And FIND it on the screen rather than hoping it is on the first page.
+      cy.visit(PORTAL)
+      cy.intercept('GET', '**/platform/organizations*').as('orgs')
+      cy.get('#platSearch', { timeout: 20000 }).clear().type(lapsed[0].name)
+      cy.wait('@orgs')
+      cy.get(`[data-testid="tenant-row"][data-org="${lapsed[0].id}"]`, { timeout: 15000 })
+        .find('[data-testid="trial-lapsed"]').should('be.visible')
     })
-    cy.visit(PORTAL)
-    cy.get('[data-testid="trial-lapsed"]', { timeout: 15000 }).should('exist').and('be.visible')
   })
 
   // ── ⭐ the refusals — the point of the slice ────────────────────────────────────────────────────
@@ -180,14 +193,14 @@ describe('E2 — the operator portal', () => {
      * surface would hand every customer the list of every other customer. This is why every gate here is
      * ROLE_ADMIN, and it is the one case that proves it.
      */
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     listOrgs().then((r) => expectRefused(r, 'owner reading the tenant list'))
   })
 
   it('⭐ 6 — a tenant OWNER visiting the portal does not get the page', () => {
     // The screen half of the same rule. Hiding a menu was never the control, but a page that renders for a
     // customer is a different failure again.
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.request({ url: PORTAL, failOnStatusCode: false }).then((r) => {
       expect(r.status, `owner GET ${PORTAL} → ${r.status}`).to.not.eq(200)
     })
@@ -208,7 +221,7 @@ describe('E2 — the operator portal', () => {
      * End to end through E1's ceiling, driven from the portal's own endpoint. The before-state is
      * established as the OPPOSITE first: "off afterwards" proves nothing against something already off.
      */
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.setCapability(CAP, true)
     cy.getCapabilities().then((caps) => {
       expect(caps[CAP], 'precondition: the tenant has the capability ON').to.eq(true)

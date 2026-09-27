@@ -113,11 +113,32 @@ public final class CurrentUser {
      * <p><b>This is the whole anti-IDOR rule for those endpoints, in one place.</b> A service that writes the
      * {@code requested != null ? requested : own} ternary itself has written a cross-tenant read; the point of
      * naming it here is that the unsafe form stops being the shorter one to type.
+     *
+     * <h3>E5b — an OPERATOR is refused, never substituted</h3>
+     * Since E5 an operator reaches another business only under an open support session covering it. Without one,
+     * the fallback above (the caller's own org) was applied to operators too — and on the console that is not
+     * "learns nothing", it is a WRONG ANSWER under somebody else's name: the platform org's trail, counts and
+     * money printed as the business's, and "Clear flags" writing to the operator's own catalogue. So a platform
+     * operator naming a business other than their own, with no session covering it, gets
+     * {@link SupportSessionRequiredException} (a 403). Tenants are unchanged: their parameter is still ignored.
      */
     public static Long organizationIdFor(Long requestedOrganizationId) {
         if (requestedOrganizationId != null && supportSessionCovers(requestedOrganizationId))
             return requestedOrganizationId;
-        return organizationId();
+        Long own = organizationId();
+        if (requestedOrganizationId != null && !requestedOrganizationId.equals(own) && isPlatformOperator())
+            throw new SupportSessionRequiredException(requestedOrganizationId);
+        return own;
+    }
+
+    /**
+     * E5b — is this an operator asking about a business they have no open support session for? The one case where
+     * {@link #organizationIdFor} refuses. For a read that has a platform-only view of its own (the Activity trail),
+     * so it can answer with that view instead of a refusal.
+     */
+    public static boolean operatorWithoutSessionFor(Long requestedOrganizationId) {
+        if (requestedOrganizationId == null || supportSessionCovers(requestedOrganizationId)) return false;
+        return !requestedOrganizationId.equals(organizationId()) && isPlatformOperator();
     }
 
     /**

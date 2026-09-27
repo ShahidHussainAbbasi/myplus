@@ -23,7 +23,7 @@
 .cfg-page-head h4{
   margin:0 0 4px; font-size:18px; font-weight:700; color:#0D3B8C; letter-spacing:-.01em;
 }
-.cfg-page-head p{ margin:0; font-size:13px; color:#7a889c; max-width:80ch; }
+.cfg-page-head p{ margin:0; font-size:13px; color:#5f6b7c; max-width:80ch; }
 
 /* ── Toolbar: search + count ───────────────────────────────────────────────
  * A forty-item list needs a way in. Filtering is client-side over data-search,
@@ -48,7 +48,7 @@
   position:absolute; left:11px; top:50%; transform:translateY(-50%);
   color:#95a2b5; font-size:12px; pointer-events:none;
 }
-.cfg-count{ font-size:12px; color:#7a889c; white-space:nowrap; }
+.cfg-count{ font-size:12px; color:#5f6b7c; white-space:nowrap; }
 
 /* ── Group card ────────────────────────────────────────────────────────────*/
 .cfg-group{
@@ -63,7 +63,7 @@
 .cfg-group__head h4{
   margin:0; font-size:14px; font-weight:700; color:#0D3B8C; letter-spacing:.2px;
 }
-.cfg-group__head .cfg-group__n{ font-size:11px; color:#8a97aa; }
+.cfg-group__head .cfg-group__n{ font-size:11px; color:#5f6b7c; }
 
 /* ── One setting ───────────────────────────────────────────────────────────
  * Grid rather than flex: the control column keeps a fixed width so every switch
@@ -79,7 +79,7 @@
   display:block; font-size:13.5px; font-weight:650; color:#22303f; margin:0 0 3px;
 }
 .cfg-row__help{
-  display:block; font-size:12px; line-height:1.5; color:#7a889c; max-width:64ch;
+  display:block; font-size:12px; line-height:1.5; color:#5f6b7c; max-width:64ch;
 }
 .cfg-row__control{ justify-self:end; width:100%; max-width:220px; text-align:right; }
 .cfg-row__control .form-control{ height:36px; font-size:13px; }
@@ -144,7 +144,7 @@
 .cfg-row__locked .glyphicon{ font-size:10px; }
 
 /* ── Empty state for the search ────────────────────────────────────────────*/
-.cfg-empty{ padding:22px; text-align:center; color:#7a889c; font-size:13px; }
+.cfg-empty{ padding:22px; text-align:center; color:#5f6b7c; font-size:13px; }
 
 /* ── Phones: stack the control under its description ───────────────────────
  * 220px of control beside a wrapped label is unreadable on a narrow screen, and
@@ -179,7 +179,7 @@
 #DocumentDesignerDiv .dd-card__head h5{
   margin:0; font-size:14px; font-weight:700; color:#0D3B8C;
 }
-#DocumentDesignerDiv .dd-card__head .dd-hint{ font-size:11.5px; color:#8a97aa; font-weight:normal; }
+#DocumentDesignerDiv .dd-card__head .dd-hint{ font-size:11.5px; color:#5f6b7c; font-weight:normal; }
 #DocumentDesignerDiv .dd-card__body{ padding:16px 18px; }
 
 /* Section heading inside the editor card — separates Columns / Header / Summary
@@ -191,7 +191,7 @@
 #DocumentDesignerDiv .dd-section h5{
   margin:0 0 3px; font-size:13px; font-weight:700; color:#22303f;
 }
-#DocumentDesignerDiv .dd-section .help-block{ margin:0 0 10px; font-size:12px; color:#7a889c; }
+#DocumentDesignerDiv .dd-section .help-block{ margin:0 0 10px; font-size:12px; color:#5f6b7c; }
 
 /* The options block reads as a checklist, not four stray checkboxes. */
 #DocumentDesignerDiv .dd-opts{ display:flex; flex-direction:column; gap:9px; }
@@ -225,7 +225,7 @@
 #DocumentDesignerDiv .dd-card__body > .table{ margin-bottom:0; }
 #DocumentDesignerDiv .dd-card__body > .table > thead > tr > th{
   border-top:0; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
-  color:#7a889c; font-weight:700;
+  color:#5f6b7c; font-weight:700;
 }
 
 
@@ -248,9 +248,9 @@
   padding:14px 18px 10px; border-bottom:1px solid #eef2f7;
 }
 .sa-card__head h4{ margin:0; font-size:14px; font-weight:700; color:#0D3B8C; letter-spacing:.02em; }
-.sa-card__n{ font-size:11px; color:#8a97aa; font-variant-numeric:tabular-nums; }
+.sa-card__n{ font-size:11px; color:#5f6b7c; font-variant-numeric:tabular-nums; }
 .sa-card__note{
-  margin:0; padding:10px 18px; font-size:12.5px; color:#7a889c; background:#f7f9fc;
+  margin:0; padding:10px 18px; font-size:12.5px; color:#5f6b7c; background:#f7f9fc;
   border-bottom:1px solid #eef2f7;
 }
 
@@ -266,7 +266,7 @@
   font-size:11px; font-weight:700; letter-spacing:.03em; color:#5a6677;
   background:#eef1f5; border:1px solid #c9d1dd; border-radius:999px; padding:2px 9px;
 }
-.sa-who{ font-size:12px; color:#7a889c; margin-top:3px; overflow-wrap:anywhere; }
+.sa-who{ font-size:12px; color:#5f6b7c; margin-top:3px; overflow-wrap:anywhere; }
 .sa-reason{ font-size:12px; color:#8a5b00; font-style:italic; margin-top:4px; overflow-wrap:anywhere; }
 
 /* Controls only on a session that is still open - a finished one is a record,
@@ -278,3 +278,85 @@
   .sa-actions{ width:100%; }
   .sa-actions .btn{ flex:1 1 auto; }
 }
+
+/* ── UI-CFG-1: category rail (Shopify / Square settings pattern) ───────────────
+ * Rendered only when a screen passes `categories` to renderSettingsForm — every
+ * other Configuration screen keeps the single-column list above, unchanged.
+ */
+.cfg-layout{
+  display:grid; grid-template-columns:230px minmax(0,1fr); gap:22px; align-items:start;
+}
+.cfg-rail{
+  position:sticky; top:calc(env(safe-area-inset-top,0px) + 74px);
+  display:flex; flex-direction:column; gap:2px;
+  background:#fff; border:1px solid #e2e7ef; border-radius:12px; padding:8px;
+  box-shadow:0 3px 14px rgba(20,40,80,.05);
+}
+.cfg-rail__item{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  width:100%; text-align:left; border:0; background:none; cursor:pointer;
+  padding:9px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:#3D5166;
+  border-left:3px solid transparent;
+}
+.cfg-rail__item:hover{ background:#f3f6fb; color:#0D3B8C; }
+.cfg-rail__item:focus-visible{ outline:2px solid #1565C0; outline-offset:1px; }
+.cfg-rail__item.is-active{ background:#E3F2FD; color:#0D3B8C; border-left-color:#1565C0; }
+.cfg-rail__item.is-empty{ opacity:.45; }
+.cfg-rail__meta{ display:flex; align-items:center; gap:6px; font-weight:500; }
+.cfg-rail__n{ font-size:11.5px; color:#5f6b7c; font-variant-numeric:tabular-nums; min-width:18px; text-align:right; }
+.cfg-rail__hits:not(:empty){
+  font-size:11px; font-weight:700; color:#fff; background:#1565C0; border-radius:999px; padding:1px 7px;
+}
+.cfg-searching .cfg-rail__n{ display:none; }
+/* How many settings in this category differ from the default — an amber count, the same colour as the row dot. */
+.cfg-rail__changed{
+  font-size:10.5px; font-weight:700; color:#8a5b00; background:#fff4e0; border:1px solid #f1d49a;
+  border-radius:999px; padding:0 6px; line-height:16px;
+}
+.cfg-pane{ min-width:0; }
+.cfg-pane__title{
+  margin:0 0 12px; font-size:18px; font-weight:800; color:#0D1B2A; letter-spacing:-.01em;
+}
+.cfg-searching .cfg-pane__title{ display:none; }
+
+/* Changed from the default: a small amber dot after the label, and a quiet reset link under the help text. */
+.cfg-row__changed{
+  display:inline-block; width:8px; height:8px; border-radius:50%; background:#e0a020;
+  margin-left:6px; vertical-align:middle; box-shadow:0 0 0 2px #fff4e0;
+}
+.cfg-row__reset{
+  display:inline-block; margin-top:6px; padding:0; border:0; background:none; cursor:pointer;
+  font-size:12px; font-weight:600; color:#1565C0; text-decoration:underline; text-underline-offset:2px;
+}
+.cfg-row__reset:hover{ color:#0D3B8C; }
+.cfg-row__reset:disabled{ opacity:.5; cursor:progress; }
+
+/* Tablet: a narrower rail. Phone: the rail becomes a scrollable chip bar above the pane. */
+@media (max-width:991px){
+  .cfg-layout{ grid-template-columns:190px minmax(0,1fr); gap:16px; }
+}
+@media (max-width:767px){
+  .cfg-layout{ grid-template-columns:1fr; gap:12px; }
+  .cfg-rail{
+    position:static; flex-direction:row; overflow-x:auto; gap:6px; padding:6px;
+    scrollbar-width:thin; -webkit-overflow-scrolling:touch;
+  }
+  .cfg-rail__item{ width:auto; flex:0 0 auto; white-space:nowrap; border-left:0; border-bottom:3px solid transparent; }
+  .cfg-rail__item.is-active{ border-bottom-color:#1565C0; }
+}
+/* Right-to-left (Urdu, Arabic): the accent bar and the dot follow the reading direction. */
+[dir="rtl"] .cfg-rail__item{ text-align:right; border-left:0; border-right:3px solid transparent; }
+[dir="rtl"] .cfg-rail__item.is-active{ border-right-color:#1565C0; }
+[dir="rtl"] .cfg-row__changed{ margin-left:0; margin-right:6px; }
+@media (max-width:767px){ [dir="rtl"] .cfg-rail__item{ border-right:0; } }
+
+/*
+ * SET-GUIDE a11y — muted text meets WCAG 2 AA (4.5:1). #7a889c measured 3.6:1 and #8a97aa 2.96:1 on white (axe
+ * color-contrast, serious, on every settings screen). #5f6b7c keeps the slate hue at 5.4:1 on white and 4.8:1 on
+ * the palest panel. Only a LOCKED row's label stays dimmer: WCAG exempts the text of a disabled control, and the dim
+ * label is how a locked row reads as locked (its help text stays full strength).
+ * Bootstrap's .help-block (#737373) passes on white but not on the Tax panel's tint — darkened on that screen only.
+ */
+#TaxSettingDiv .help-block,
+#TaxSettingDiv .text-muted,
+#TaxSettingDiv h4 small{ color:#5f6b7c; }   /* Bootstrap #777 on the panel tint: under 4.5:1 */

@@ -139,8 +139,12 @@ describe('Sale-line presets — one choice instead of nine switches', () => {
     openTill()
     cy.window().then((w) => {
       const f = w.posFieldsFor('CUSTOM', {}, {})
-      // Fails OPEN, exactly as before this feature existed.
-      Object.keys(f).forEach((k) => expect(f[k], k + ' still shown').to.eq(true))
+      // Fails OPEN, exactly as before this feature existed — for every ORDINARY field. PH-FORMULA added OPT-IN
+      // fields (window.POS_OPT_IN, e.g. formula): shown only by a preset or an explicit switch, so CUSTOM leaves
+      // them hidden by design. Both halves asserted, so a regression either way names itself.
+      const optIn = w.POS_OPT_IN || {}
+      expect(Object.keys(optIn), 'the opt-in list exists').to.have.length.greaterThan(0)
+      Object.keys(f).forEach((k) => expect(f[k], k + (optIn[k] ? ' (opt-in) stays hidden' : ' still shown')).to.eq(!optIn[k]))
     })
   })
 
@@ -150,7 +154,8 @@ describe('Sale-line presets — one choice instead of nine switches', () => {
       // A value from a newer build, or a typo written straight to the database. A till that lost its
       // fields because of an unrecognised string would be a far worse failure than one that ignored it.
       const f = w.posFieldsFor('WHOLESALE_BAKERY_2031', {}, {})
-      Object.keys(f).forEach((k) => expect(f[k], k + ' still shown').to.eq(true))
+      const optIn = w.POS_OPT_IN || {}
+      Object.keys(f).forEach((k) => expect(f[k], k + (optIn[k] ? ' (opt-in) stays hidden' : ' still shown')).to.eq(!optIn[k]))
     })
   })
 

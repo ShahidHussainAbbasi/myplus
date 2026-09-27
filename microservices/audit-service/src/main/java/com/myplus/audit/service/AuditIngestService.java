@@ -25,6 +25,9 @@ public class AuditIngestService {
 
     private final AuditEventRepository repo;
 
+    /** The actor type the platform's own actions are recorded under (AuditEvent.actorType). */
+    static final String PLATFORM_OPERATOR = "PLATFORM_OPERATOR";
+
     @Transactional
     public void record(AuditRecordRequest req) {
         if (req == null || req.getAction() == null) return;
@@ -81,8 +84,20 @@ public class AuditIngestService {
      */
     @Transactional(readOnly = true)
     public List<AuditEvent> list(String action, int limit, Long requestedOrganizationId) {
-        Long org = CurrentUser.organizationIdFor(requestedOrganizationId);
         PageRequest page = PageRequest.of(0, Math.min(Math.max(limit, 1), 500));
+        /*
+         * E5b — the SPLIT (owner ruling 2026-09-27). An operator with no support session over this business sees
+         * the platform's OWN actions on it (plan, suspensions, business type, support sessions — the platform's
+         * record of what it did), never the business's staff activity, and never the operator's own trail. Before
+         * E5b the org rule fell back to the caller's org here, and the console printed org 8's history under the
+         * business's name.
+         */
+        if (CurrentUser.operatorWithoutSessionFor(requestedOrganizationId)) {
+            return (action == null || action.isBlank())
+                    ? repo.findByOrgAndActorType(requestedOrganizationId, PLATFORM_OPERATOR, page)
+                    : repo.findByOrgActionAndActorType(requestedOrganizationId, action, PLATFORM_OPERATOR, page);
+        }
+        Long org = CurrentUser.organizationIdFor(requestedOrganizationId);
         return (action == null || action.isBlank())
                 ? repo.findByOrg(org, page)
                 : repo.findByOrgAndAction(org, action, page);

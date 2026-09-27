@@ -204,7 +204,7 @@
         }
 
         $wrap.show();
-        $('#sellUnitLoose').text(current.looseUnitPlural || current.looseUnit || t('ui.piece', 'Piece'));
+        $('#sellUnitLoose').text(current.looseUnitPlural || current.looseUnit || t('ui.js.piece', 'Piece'));
         $('#sellUnitPack').toggleClass('active', unit === 'PACK');
         $('#sellUnitLoose').toggleClass('active', unit === 'LOOSE');
 
@@ -214,8 +214,8 @@
         var noun = (n === 1 ? (current.looseUnit || '') : (current.looseUnitPlural || current.looseUnit || ''));
         var each = Number(current.looseRate).toFixed(2);
         var packs = packsFor(n);
-        var text = n + ' ' + noun + ' · ' + each + ' ' + t('ui.each', 'each')
-                 + ' · ' + packs + ' ' + t('ui.ofAPack', 'of a pack')
+        var text = n + ' ' + noun + ' · ' + each + ' ' + t('ui.js.each', 'each')
+                 + ' · ' + packs + ' ' + t('ui.js.ofAPack', 'of a pack')
                  + ' · ' + lineTotal(n).toFixed(2);
         // escHtml: the unit noun is tenant data and reaches the DOM (XSS-safe rendering standard).
         $hint.text(text).show();

@@ -63,6 +63,23 @@ public class EntitlementWriteGuard implements SettingWriteGuard {
      * rather than a feature — and the right response to a mistake here is to let the catalog check that already
      * runs decide, not to refuse on a guess.
      */
+    /**
+     * UI-CFG-1 / SET-GUIDE — a RESET of a capability is ALWAYS allowed.
+     *
+     * <p>A reset removes the tenant's own override and returns it to exactly the state of a tenant who never touched
+     * the switch. The read path (E1) subtracts only revocations, never the plan, so "on from the business type while
+     * not in the plan" is simply what an untouched tenant has — a reset grants nothing such a tenant does not hold.
+     *
+     * <p>The first version refused a reset that "would switch on a feature outside the plan". That was a ONE-WAY TRAP
+     * (found on org 13 by a parallel review): the feature read ON; the owner switched it off (allowed); switching it back
+     * on was refused (not in plan) and so was Reset — a feature the owner had had, gone for good. Switching ON by hand
+     * stays bounded by the plan ({@link #check}); Reset is the way back.
+     */
+    @Override
+    public void checkReset(Long organizationId, String key, String defaultValue) {
+        // Intentionally no refusal — see above.
+    }
+
     private Capability capabilityOf(String key) {
         String prefix = "org.cap.";
         if (key == null || !key.startsWith(prefix)) return null;

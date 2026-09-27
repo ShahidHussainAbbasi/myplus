@@ -26,7 +26,9 @@
 const GW = 'http://localhost:8765'
 const OPERATOR = 'admin@myplus.com'
 const OPERATOR_PW = Cypress.env('adminPassword') || 'Admin@2025!'
-const OWNER = 'owner.business@myplus.com'
+const OWNER = 'owner.business@myplus.com'
+/** One fresh owner sign-in per run of THIS spec — see loginAsOwner's cacheKeyExtra (refresh-token cap). */
+const OWNER_SESSION = `onboarding-profile-${Date.now()}`
 const DEMO_PW = 'Demo@2025!'
 
 const stamp = Date.now()
@@ -268,7 +270,7 @@ describe('ONB-1 — the business type at onboarding', () => {
      *
      * Runs on owner.business@ and restores it, because this is the tenant most other specs depend on.
      */
-    cy.loginAsOwner(OWNER)
+    cy.loginAsOwner(OWNER, undefined, OWNER_SESSION)
     cy.clearCapabilityOverrides()
     cy.setCapability('installments', true)
     cy.getCapabilities().then((caps) => {
@@ -305,18 +307,26 @@ describe('ONB-1 — the business type at onboarding', () => {
      * GENERAL, and only the raw answer separates them.
      */
     cy.loginAsOperator()
-    cy.request({ url: '/platform/organizations?size=100', failOnStatusCode: false }).then((r) => {
-      expect(r.body && r.body.success, `list: ${JSON.stringify(r.body)}`).to.eq(true)
-      const rows = r.body.data.rows
+    // Every page — the server caps a page at 100, and leftover onboarding tenants now fill the first.
+    cy.allOrgs().then((rows) => {
       rows.forEach((row) => {
         expect(row.shapeSet, `${row.name} must report whether a type was ever set`).to.be.a('boolean')
       })
       const unset = rows.filter((row) => row.shapeSet === false)
       expect(unset.length, 'fixture check: there are tenants still to remediate').to.be.greaterThan(0)
+      /*
+       * FIND that tenant on the screen rather than hoping it is on the first page. The list is paged and newest
+       * first; every tenant onboarded since ONB-1 HAS a type, so as tenants accumulate the untyped ones sink off
+       * page 1 — this case went red on growth alone, with the badge working.
+       */
+      cy.visit('/platformDashboard')
+      cy.waitForAppReady()
+      cy.intercept('GET', '**/platform/organizations*').as('orgs')
+      cy.get('#platSearch', { timeout: 20000 }).clear().type(unset[0].name)
+      cy.wait('@orgs')
+      cy.get(`[data-testid="tenant-row"][data-org="${unset[0].id}"]`, { timeout: 15000 })
+        .find('[data-testid="no-business-type"]').should('be.visible')
     })
-
-    cy.visit('/platformDashboard')
-    cy.get('[data-testid="no-business-type"]', { timeout: 15000 }).should('exist').and('be.visible')
   })
 })
 

@@ -49,14 +49,35 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
   // Leave the shop as it was found — this flag changes how every later checkout behaves.
   after(() => {
     cy.loginAsMarketplaceOwner()
+    // This run's still-outstanding orders are cancelled, so the shop's backorder book does not grow with every run.
+    cy.then(() => placed.forEach((id) => cy.request({ method: 'POST', url: '/updateOrderStatus', failOnStatusCode: false,
+      headers: { 'Content-Type': 'application/json' }, body: { id, status: 'CANCELLED' } })))
     setCfg('order.backorder.allowed', 'false')
     setCfg('order.backorder.acceptFullShortfall', 'true')
   })
 
   const stock = () => cy.request('/productStock?productId=' + productId).then((r) => Number(r.body.stock))
 
+  /** Ids of the orders THIS run placed — the backorder list is the whole shop's, across every earlier run. */
+  const placed = []
+  /**
+   * The WHOLE outstanding book, page by page. Every earlier run left its backorders outstanding and they filled the
+   * first page: this run's orders were not on it, and "the orders placed above are outstanding" had been passing on
+   * old runs' orders. (after() now cancels this run's, so the book stops growing.)
+   */
+  const wholeBook = (ready) => {
+    const fetch = (page, acc) => cy.request(`/getBackorders?ready=${ready}&page=${page}&size=100`).then((r) => {
+      expect(r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true)
+      const d = r.body.data || {}
+      const all = acc.concat(d.content || [])
+      if (!(d.content || []).length || all.length >= (d.totalElements || 0) || page >= 50) return cy.wrap({ all, data: d }, { log: false })
+      return fetch(page + 1, all)
+    })
+    return fetch(0, [])
+  }
   const order = (name, qty) => cy.storefrontOrder(orgId, { productId, quantity: qty },
     { customerName: name, customerContact: '0300BO' + run, shippingAddress: '3 Wait Lane', paymentMode: 'COD' })
+    .then((r) => { const id = r && r.body && r.body.data && r.body.data.id; if (id) placed.push(id); return r })
 
   it('with backorders OFF, a short checkout is refused exactly as before', () => {
     setCfg('order.backorder.allowed', 'false')
@@ -157,7 +178,7 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
     cy.request('/getBackorders').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       const owed = (r.body.data && r.body.data.content) || []
-      expect(owed, 'the orders placed above are outstanding').to.not.be.empty
+      expect(owed, 'the book has outstanding orders').to.not.be.empty
       expect(r.body.data.totalElements, 'the count is of the whole book, not the page').to.be.at.least(owed.length)
       expect(r.body.data.pageSize, 'a server-enforced default page size').to.be.at.most(100)
       owed.forEach((o) => {
@@ -166,10 +187,16 @@ describe('OMS O5c — an order can be accepted when stock is short', () => {
         expect(o.fulfilmentStatus).to.not.eq('CANCELLED')
       })
     })
-    // Nothing has been restocked, so nothing is ready — this is a READ, not a job, so it reflects stock now.
-    cy.request('/getBackorders?ready=true').then((r) => {
-      expect(r.body.success).to.eq(true)
-      expect((r.body.data && r.body.data.content) || [], 'no stock has arrived yet').to.be.empty
+    // Nothing has been restocked for THIS run, so none of its orders is ready — a READ, not a job, so it reflects
+    // stock now. Scoped to this run: the list is the whole shop's, and the restocking case below leaves its own
+    // (ready) order outstanding, so every run after the first found last run's order here.
+    // This run's orders ARE in the book (the whole of it) — so the scoped "none ready" check below cannot pass on a
+    // filter that matches nothing.
+    wholeBook(false).then(({ all }) => {
+      expect(all.filter((o) => placed.includes(o.id)), `this run’s orders (${placed.join(', ')}) are outstanding`).to.not.be.empty
+    })
+    wholeBook(true).then(({ all }) => {
+      expect(all.filter((o) => placed.includes(o.id)), 'no stock has arrived yet for this run’s orders').to.be.empty
     })
   })
 

@@ -100,8 +100,12 @@ Cypress.Commands.add('loginAsBusiness', (email = 'demo.business@myplus.com', pas
 
 // BUSINESS OWNER (ROLE_OWNER, seeded in auth-service SetupDataLoader) — needed to see owner-gated UI
 // like the Finance reports page, Settings and Team. Not a demo account (no write cap).
-Cypress.Commands.add('loginAsOwner', (email = 'owner.business@myplus.com', password = DEMO_PW) => {
-  cy.loginAs(email, password, '/getBusinessDashboardStats')
+Cypress.Commands.add('loginAsOwner', (email = 'owner.business@myplus.com', password = DEMO_PW, cacheKeyExtra) => {
+  // cacheKeyExtra — pass one per SPEC when the spec changes capabilities. A session cached by an earlier spec can hold
+  // a refresh token the 5-per-user cap has since deleted (other specs sign the owner in at the gateway): its access
+  // token still validates, but no capability change reaches it — "Capability saved but the session token could not be
+  // re-minted" in the monolith log, and the next read shows the old value.
+  cy.loginAs(email, password, '/getBusinessDashboardStats', cacheKeyExtra)
 })
 
 // Pharmacy (slice 33) — the PHARMA vertical reuses the business/trade backend, so it validates via the
@@ -166,7 +170,9 @@ Cypress.Commands.add('loginAsPharmaOwner', (email = 'owner.pharma@myplus.com', p
   cy.loginAs(email, password, '/getBusinessDashboardStats')   // PHARMA reuses the trade backend
 })
 Cypress.Commands.add('loginAsWelfareOwner', (email = 'owner.welfare@myplus.com', password = DEMO_PW) => {
-  cy.loginAs(email, password, '/getUserDonator')
+  // SET-GUIDE: validated through the owner's own settings read. /getUserDonator answers NOT_FOUND for an owner who
+  // is not also a donator — a correct answer, and the wrong question: it failed every welfare-owner session check.
+  cy.loginAs(email, password, '/getWelfareConfig')
 })
 Cypress.Commands.add('loginAsAgricultureOwner', (email = 'owner.agriculture@myplus.com', password = DEMO_PW) => {
   cy.loginAs(email, password, '/agricultureDashboard')
@@ -216,7 +222,7 @@ const MODULE_VALIDATE_PATH = {
   pharma: '/getBusinessDashboardStats',      // PHARMA reuses the trade backend
   marketplace: '/getOrders',
   education: '/getDashboardData',
-  welfare: '/getUserDonator',
+  welfare: '/getWelfareConfig',       // SET-GUIDE: /getUserDonator is NOT_FOUND for a member who is not a donator
   agriculture: '/agricultureDashboard',
   appointment: '/appointmentDashboard',
 }
@@ -876,20 +882,21 @@ Cypress.Commands.add('setCapability', (code, enabled) => {
  * chosen no shape still sees everything" was asserting the GENERAL preset against a tenant that had
  * overridden most of it. Green or red depending on what had run before, which is not a gate.
  *
- * -- WARNING: the value must be ABSENT, not empty -----------------------------------------------
- * Sending `value=''` stores an empty string, and `resolve` reads it as `"true".equalsIgnoreCase("")` = FALSE.
- * That would switch every capability OFF while looking like a reset. Omitting the parameter entirely makes
- * the monolith proxy leave `&value=` off the query string, auth stores NULL, and `overrideFor` yields
- * Optional.empty() -- the only thing that hands the decision back to the preset.
+ * -- UI-CFG-1: now a real DELETE (/resetBusinessConfig) ------------------------------------------
+ * Before a reset endpoint existed this posted the key with NO value, so auth stored a NULL row. That resolved
+ * like an absent one (overrideFor -> Optional.ofNullable -> empty -> preset), but the row was still PRESENT:
+ * the Configuration screen showed every capability as "changed from default", and 14 NULL rows accumulated
+ * on org 13 (SET-CERT §9). Reset removes the row outright. (Never send `value=''`: an empty string resolves
+ * as `"true".equalsIgnoreCase("")` = FALSE and switches the capability OFF while looking like a reset.)
  */
 Cypress.Commands.add('clearCapabilityOverrides', () => {
   return cy.getCapabilities().then((caps) => {
     Object.keys(caps).forEach((code) => {
       cy.request({
         method: 'POST',
-        url: '/saveBusinessConfig',
+        url: '/resetBusinessConfig',
         form: true,
-        body: { key: 'org.cap.' + code },   // NO value -- see the warning above
+        body: { key: 'org.cap.' + code },
       }).then((res) => {
         expect(res.body && res.body.success, `clear ${code}: ${JSON.stringify(res.body)}`).to.eq(true)
       })
@@ -927,6 +934,200 @@ Cypress.Commands.add('loginAsOperator', (email = 'admin@myplus.com', password) =
   const pw = password || Cypress.env('adminPassword') || 'Admin@2025!'
   cy.loginAs(email, pw, '/platform/organizations')
 })
+
+// ── E1: the entitlement CEILING, as the operator ──────────────────────────────────────────────────
+/**
+ * Grant (or suspend) one capability for a tenant, at the PLATFORM level.
+ *
+ * <h3>Why this exists — the wall `cy.setCapability` cannot climb</h3>
+ * Three layers decide a capability, highest wins: the platform ENTITLEMENT CEILING, then the tenant's own
+ * `org.cap.*` override, then the shape preset. `setCapability` writes the middle one, and **a tenant cannot
+ * see or clear its own ceiling** — by design.
+ *
+ * So a gate for any capability outside `Plan.FREE`, run on a FREE tenant, dies in `before()` with
+ * `"… is not included in your current plan."` and skips every case behind it. Both `demo.business@` (org 6)
+ * and `owner.business@` (org 13) are FREE, so this is not an edge case — it is what happens to any new
+ * paid capability the first time somebody writes a gate for it. Discovered twice in two days: once on
+ * `madeToOrder` (answer: it belonged in FREE, because a kitchen cannot trade without it) and once on
+ * `orderTypes` (answer: it does NOT belong in FREE, so the gate grants it instead).
+ *
+ * <h3>⚠ This LEAVES SERVER STATE, so the caller must put it back</h3>
+ * An entitlement row is org-wide and outlives the spec. Pair every grant with a restore in `after()` —
+ * {@link cy.clearEntitlement} — or the next suite inherits a tenant entitled to something the platform
+ * never sold it, and some later gate passes for a reason nobody can find.
+ *
+ * <h3>Resolves the org id rather than hardcoding it</h3>
+ * Org ids differ per environment and a hardcoded 13 is a spec that works only on this laptop. Keyed on
+ * `ownerEmail`, the same way `capability-shapes.cy.js` reads the ceiling.
+ *
+ * @param ownerEmail  the tenant's owner, e.g. 'owner.business@myplus.com'
+ * @param code        short capability code, e.g. 'orderTypes' (NOT the org.cap.* key)
+ * @param status      'ACTIVE' to grant, 'SUSPENDED' to withhold, 'EXPIRED' to lapse. Default 'ACTIVE'.
+ * @param reason      auth-service REFUSES a blank reason — an operator overriding a plan must say why.
+ */
+/**
+ * Resolve a tenant's operator-view row by its OWNER EMAIL, paging until found.
+ *
+ * <h3>⚠ Why this pages instead of asking for a big page</h3>
+ * `/platform/organizations?size=200` looks like it returns everything. It does not: `MAX_PAGE_SIZE` is 100
+ * and `size` is silently clamped, so the request succeeds, returns 100 rows, and any tenant past the first
+ * page is simply absent. The failure is not an error — it is "that organization does not exist".
+ *
+ * That is not hypothetical. This suite's onboarding specs create a tenant per run and never remove them;
+ * once they passed 100, `owner.business@` fell off page one and two gates started failing in `before()`
+ * claiming the tenant was missing, on a platform where it plainly was not.
+ *
+ * The `q` parameter does not help — `searchForOperator` matches `LOWER(o.name) LIKE :q` and nothing else,
+ * so it cannot find a tenant by the email its owner signs in with.
+ *
+ * @returns {{id: number, plan: string, status: string, ownerEmail: string}}
+ */
+Cypress.Commands.add('orgOf', (ownerEmail) => {
+  const PAGE = 100;              // the server's cap — asking for more is silently ignored
+  const MAX_PAGES = 50;          // 5,000 tenants; a runaway loop is worse than a clear failure
+
+  const fetch = (page, seen) =>
+    cy.request({ url: `/platform/organizations?page=${page}&size=${PAGE}`, failOnStatusCode: false })
+      .then((res) => {
+        const data = (res.body && res.body.data) || {}
+        const rows = data.rows || []
+        const hit = rows.find((r) => r && r.ownerEmail === ownerEmail)
+        if (hit) return hit
+        const total = Number(data.total || 0)
+        const scanned = seen + rows.length
+        if (rows.length === 0 || scanned >= total || page + 1 >= MAX_PAGES) {
+          // Fail with the numbers, not just "undefined": the useful question is always "how many did we
+          // actually look at, and did the listing say there were more?"
+          throw new Error(`No organization owned by ${ownerEmail} after scanning ${scanned} of ${total} `
+            + `tenants across ${page + 1} page(s) of ${PAGE}. If total is large, the listing is dominated `
+            + `by leftover test tenants.`)
+        }
+        return fetch(page + 1, scanned)
+      })
+
+  return fetch(0, 0)
+})
+
+/**
+ * SET-GUIDE — EVERY tenant row the operator listing holds, page by page (the server caps a page at 100 and ignores a
+ * larger `size` silently). For fixture checks that need "is there ANY tenant like X" — a single page stopped seeing
+ * them once leftover test tenants filled it.
+ */
+Cypress.Commands.add('allOrgs', () => {
+  const PAGE = 100
+  const fetch = (page, acc) =>
+    cy.request({ url: `/platform/organizations?page=${page}&size=${PAGE}`, failOnStatusCode: false }).then((res) => {
+      const data = (res.body && res.body.data) || {}
+      expect(res.body && res.body.success, `organizations page ${page}: ${JSON.stringify(res.body).slice(0, 160)}`).to.eq(true)
+      const rows = acc.concat(data.rows || [])
+      const total = Number(data.total || 0)
+      if (!(data.rows || []).length || rows.length >= total || page + 1 >= 50) return cy.wrap(rows, { log: false })
+      return fetch(page + 1, rows)
+    })
+  return fetch(0, [])
+})
+
+/**
+ * Grant (or suspend) one capability for a tenant, at the PLATFORM level.
+ *
+ * <h3>Why this exists — the wall `cy.setCapability` cannot climb</h3>
+ * Three layers decide a capability, highest wins: the platform ENTITLEMENT CEILING, then the tenant's own
+ * `org.cap.*` override, then the shape preset. `setCapability` writes the middle one, and **a tenant cannot
+ * see or clear its own ceiling** — by design. So a gate for any capability outside `Plan.FREE`, run on a
+ * FREE tenant, dies in `before()` with "… is not included in your current plan."
+ *
+ * <h3>⚠ PREFER {@link cy.setPlan} — an entitlement row CANNOT BE REMOVED</h3>
+ * `POST /admin/entitlements` grants or suspends; there is no delete. A spec that creates a row cannot put
+ * the tenant back, and suspending is not a restore (see {@link cy.suspendEntitlement}). Use this only when
+ * a revoked or explicitly-granted row is the SUBJECT of the test.
+ *
+ * @param ownerEmail  the tenant's owner, e.g. 'owner.business@myplus.com'
+ * @param code        short capability code, e.g. 'orderTypes' (NOT the org.cap.* key)
+ * @param status      'ACTIVE' | 'SUSPENDED' | 'EXPIRED'
+ * @param reason      auth-service REFUSES a blank reason — an operator overriding a plan must say why.
+ */
+Cypress.Commands.add('setEntitlement', (ownerEmail, code, status = 'ACTIVE', reason = 'cypress gate') =>
+  cy.orgOf(ownerEmail).then((org) =>
+    cy.request({
+      method: 'POST', url: '/platform/entitlement', form: true, failOnStatusCode: false,
+      body: { organizationId: org.id, capability: code, status: status, reason: reason },
+    }).then((r) => {
+      // The ApiResponse envelope: this route proxies auth-service straight through, so a refusal is
+      // HTTP 200 with success:false. A status check alone would pass on every refusal.
+      expect(r.body && r.body.success,
+        `setEntitlement(${ownerEmail}, ${code}, ${status}): ${JSON.stringify(r.body)}`).to.eq(true)
+      return org.id
+    })))
+
+/**
+ * Suspend an entitlement row.
+ *
+ * <h3>⚠ THIS IS NOT A TEARDOWN. Do not use it to undo {@link cy.setEntitlement}.</h3>
+ * An earlier version of this comment claimed SUSPENDED and absent "resolve the same — `grantable:false`".
+ * <b>That is false, and it broke a peer's gate.</b> The ceiling distinguishes two questions:
+ * `grantable` (may the owner switch it on?) and `revoked` (has the platform taken it away?). A SUSPENDED
+ * row answers YES to revoked; no row at all answers no. `entitlement-ceiling.cy.js`'s "inert deploy" case
+ * asserts a tenant with no licensing decision has NO withdrawn capability — and a suspended leftover from
+ * another spec's teardown fails it.
+ *
+ * <h3>There is no way to remove an entitlement through the API</h3>
+ * `POST /admin/entitlements` grants or suspends; it cannot delete. So <b>a spec that creates an entitlement
+ * row cannot put the tenant back</b>, and the row has to be removed by hand. That is a platform gap, raised
+ * separately — until it is closed, prefer a fixture that IS reversible:
+ *
+ * <ul>
+ *   <li><b>{@link cy.withPlan}</b> — a plan change is one column and restores cleanly. Use this when a gate
+ *       needs a capability outside {@code Plan.FREE}.</li>
+ *   <li>a dedicated tenant nobody else asserts against, if the state must persist.</li>
+ * </ul>
+ *
+ * Kept only for a spec that deliberately wants a REVOKED tenant as its subject.
+ */
+Cypress.Commands.add('suspendEntitlement', (ownerEmail, code) =>
+  cy.setEntitlement(ownerEmail, code, 'SUSPENDED', 'cypress: deliberately revoked'))
+
+/**
+ * Run `fn` with the tenant temporarily on a different PLAN, then put the old plan back.
+ *
+ * <h3>Why a plan swap rather than an entitlement grant</h3>
+ * Both lift the ceiling. Only this one can be undone: the plan is a single column on `organizations` and
+ * writing the previous value back is a true restore, whereas an entitlement row can be created and never
+ * removed (see {@link cy.suspendEntitlement}). A fixture that cannot be reversed is not a fixture, it is a
+ * permanent change to a shared tenant — and this suite has already lost a gate to exactly that.
+ *
+ * <p>⚠ Broader than a single grant: while it runs, the tenant is entitled to everything in the new plan.
+ * That is the trade for reversibility, and it is why this belongs inside a spec that owns the tenant for
+ * its duration rather than around a single assertion.
+ *
+ * <p>⚠ Never leaves TRIAL behind: `changePlan` clears `trialEndsAt` for any non-TRIAL plan, so restoring a
+ * tenant that was on TRIAL would give it an unbounded trial. Refused rather than guessed at.
+ *
+ * @param ownerEmail the tenant's owner
+ * @param plan       'PRO' | 'DEMO' | 'FREE' — validated in auth-service, not here
+ * @param fn         callback run while the plan is in force
+ */
+Cypress.Commands.add('planOf', (ownerEmail) =>
+  cy.orgOf(ownerEmail).then((org) => {
+    // ⚠ Refused rather than guessed at: changePlan clears trialEndsAt for any non-TRIAL plan, so a spec
+    // that swapped a TRIAL tenant's plan and restored 'TRIAL' would hand it an UNBOUNDED trial.
+    expect(String(org.plan || 'FREE'),
+      'this tenant is on TRIAL — swapping its plan cannot be undone cleanly, use another tenant')
+      .to.not.eq('TRIAL')
+    return { id: org.id, plan: String(org.plan || 'FREE') }
+  }))
+
+/**
+ * Set a tenant's PLAN as the operator. Pair with {@link cy.planOf} to capture and restore.
+ *
+ * <p>The reversible way to lift the entitlement ceiling for a gate — see {@link cy.suspendEntitlement} for
+ * why an entitlement grant is not.
+ */
+Cypress.Commands.add('setPlan', (orgId, plan) =>
+  cy.request({
+    method: 'POST', url: '/platform/plan', form: true, failOnStatusCode: false,
+    body: { organizationId: orgId, plan: plan, reason: 'cypress gate fixture' },
+  }).then((r) => expect(r.body && r.body.success,
+    `plan ${plan} for org ${orgId}: ${JSON.stringify(r.body)}`).to.eq(true)))
 
 // ── C4: per-shape tenants ─────────────────────────────────────────────────────────────────────────
 /**
@@ -1388,4 +1589,22 @@ Cypress.Commands.add('settled', (selector, opts) => {
       last = { top: r.top, left: r.left }
       expect(stable >= 2, `${selector} has stopped moving`).to.eq(true)
     })
+})
+
+/**
+ * UI-CFG-1 — bring a setting's row on screen before interacting with it.
+ *
+ * Settings → Configuration shows ONE category at a time (the category rail), so a setting in another category is in
+ * the DOM but hidden, and Cypress rightly refuses to click it. This opens the category that holds `key` through the
+ * page's own window.revealSetting — the same call a link from another screen uses — and fails loudly when the setting
+ * is not on the page at all.
+ */
+Cypress.Commands.add('revealSetting', (key) => {
+  // .should, not .then: RETRIED — after a save or reset the screen re-renders (briefly "Loading…"), and a single
+  // call in that window finds no row. revealSetting is idempotent, so calling it until it succeeds is safe.
+  cy.window().should((w) => {
+    expect(typeof w.revealSetting, 'window.revealSetting (settings-form.js)').to.eq('function')
+    expect(w.revealSetting(key), `setting ${key} is on this Configuration screen`).to.eq(true)
+  })
+  cy.get(`[data-key="${key}"]`).should('be.visible')
 })

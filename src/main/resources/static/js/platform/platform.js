@@ -83,6 +83,14 @@
 			out.push(t('ui.js.impactNoBatches',
 				'No products have a batch recorded — expiry ordering will have nothing to sort on.'));
 		}
+		/*
+		 * E5b — counts the services REFUSED because no support session covers this business. Said out loud: a
+		 * dialog that silently printed no warning here read as "nothing is affected" — for a tenant with open plans.
+		 */
+		if (impact.needsSupportSession) {
+			out.push(t('ui.js.impactNeedsSession',
+				'Open a support session for this business to see how many products and open plans this affects.'));
+		}
 		if (plans > 0) {
 			out.push(t('ui.js.impactPlans',
 				'{0} open installment plans ({1}) stay collectable but leave the dashboard.')
@@ -197,6 +205,8 @@
 
 	var activityState = { filter: '', expanded: false };
 	var activityRows = [];
+	/** E5b — the rows for THIS tenant have arrived (the support state may land before or after them). */
+	var activityReady = false;
 
 	/**
 	 * A Date from whatever the server sent.
@@ -254,6 +264,7 @@
 	function renderActivity(orgId) {
 		var $box = $('#platActivity');
 		if (!$box.length) return;
+		activityReady = false;
 		$box.html('<section class="plat-card"><div class="plat__loading">'
 			+ esc(t('ui.js.loading', 'Loading…')) + '</div></section>');
 
@@ -266,6 +277,7 @@
 					return;
 				}
 				activityRows = (apiData(res) || {}).rows || [];
+				activityReady = true;
 				paintActivity();
 			})
 			.fail(function (xhr) {
@@ -326,6 +338,17 @@
 				inner += '<button type="button" class="btn btn-default plat-act__more" data-testid="activity-more">'
 					+ esc(t('ui.js.showAllN', 'Show all {0}').replace('{0}', rows.length)) + '</button>';
 			}
+		}
+		/*
+		 * E5b — without an open support session the server sends only the platform's OWN actions on this business
+		 * (owner ruling: split). Said on the panel, so an operator does not read "no staff changes" as a fact about
+		 * the business. Only once the session state is KNOWN — never guessed while it is still loading.
+		 */
+		if (supportKnown && !supportSession) {
+			inner = '<p class="plat-card__note plat-act__scope" data-testid="activity-platform-only">'
+				+ esc(t('ui.js.activityPlatformOnly',
+					'Showing the platform’s own actions on this business. Its staff activity needs an open support session.'))
+				+ '</p>' + inner;
 		}
 		$('#platActivity').html(activityShell(inner, rows.length));
 	}
@@ -395,6 +418,8 @@
 	 * every second is a timer somebody eventually leaves running on a dashboard.
 	 */
 	var supportSession = null;
+	/** E5b — has this tenant's session state arrived yet? The Activity note depends on it. */
+	var supportKnown = false;
 	var supportTimer = null;
 
 	/**
@@ -490,6 +515,7 @@
 	/** Fetch this tenant's sessions and draw the bar. Called after the detail markup exists. */
 	function loadSupport(orgId, orgName) {
 		supportSession = null;
+		supportKnown = false;
 		$.get(serverContext + 'platform/supportSessions?organizationId=' + encodeURIComponent(orgId))
 			.done(function (res) {
 				if (apiOk(res)) {
@@ -500,6 +526,8 @@
 				}
 			})
 			.always(function () {
+				supportKnown = true;
+				if (activityReady) paintActivity();   // E5b — the note depends on it; repaint whichever lands last
 				renderSupportBar(orgId, orgName);
 				/*
 				 * Take a fresh token whenever this tenant has an open session.
@@ -513,7 +541,15 @@
 				 * Once per tenant view, on a cold path, and its failure changes nothing that is already
 				 * drawn — so it is fired and not waited on.
 				 */
-				if (supportSession) { $.post(serverContext + 'platform/refreshSupportScope'); }
+				if (supportSession) {
+					/*
+					 * E5b — and RELOAD the Activity once the fresh token is in place. It is fetched in parallel with
+					 * this, so without the reload it could arrive first — carrying the old token's platform-only
+					 * view — and, a session being open, without the note: staff activity under-shown in silence.
+					 */
+					$.post(serverContext + 'platform/refreshSupportScope')
+						.always(function () { if ($('#platActivity').length) renderActivity(orgId); });
+				}
 			});
 	}
 

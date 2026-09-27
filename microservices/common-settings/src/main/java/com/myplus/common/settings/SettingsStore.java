@@ -20,5 +20,14 @@ public interface SettingsStore {
     /** Insert or update the override for (org, key); {@code userId} is audit. */
     void upsert(Long organizationId, Long userId, String key, String value);
 
+    /**
+     * UI-CFG-1 — delete the tenant's override so the setting falls back to its default (the catalog default, the shop
+     * preset or the business type). Not the same as upserting the default value: an explicit value PINS the setting
+     * against presets. Default: unsupported, so a service adopts reset deliberately rather than by accident.
+     */
+    default void remove(Long organizationId, String key) {
+        throw new UnsupportedOperationException("Resetting a setting to its default is not available here yet.");
+    }
+
     record Stored(String key, String value) { }
 }

@@ -155,6 +155,33 @@ public class BusinessConfigController {
     }
 
     /**
+     * UI-CFG-1 — "Reset to default" for one setting, routed to the service that OWNS the key exactly like
+     * {@link #saveBusinessConfig}: capabilities and the tenant shape to auth-service (with the same session re-mint so
+     * the change applies now), everything else to business-service.
+     */
+    @RequestMapping(value = "/resetBusinessConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetBusinessConfig(final HttpServletRequest request) {
+        try {
+            String qs = "key=" + enc(request.getParameter("key"));
+            if (ownedByAuth(request.getParameter("key"))) {
+                Map<String, Object> done = authPost("/settings/reset?" + qs);
+                try {
+                    gateway.refreshNow();
+                } catch (Exception refreshFailed) {
+                    LOGGER.warn("Setting reset but the session token could not be re-minted; it applies on the next refresh.",
+                            refreshFailed);
+                }
+                return done;
+            }
+            return client.postJson("/settings/reset?" + qs, java.util.Map.of());
+        } catch (Exception e) {
+            LOGGER.error("resetBusinessConfig proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
      * ONB-1 — the tenant changes its own business type.
      *
      * <p>A distinct path from {@code /saveBusinessConfig} because this is not a settings write: it CLEARS the

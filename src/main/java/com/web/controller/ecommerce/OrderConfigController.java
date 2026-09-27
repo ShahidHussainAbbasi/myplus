@@ -64,6 +64,18 @@ public class OrderConfigController {
         }
     }
 
+    /** SET-GUIDE — "Reset to default" for an order setting: the shared endpoint REMOVES the override. */
+    @RequestMapping(value = "/resetOrderConfig", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> resetOrderConfig(final HttpServletRequest request) {
+        try {
+            return client.postJson("/settings/reset?key=" + enc(request.getParameter("key")), java.util.Map.of());
+        } catch (Exception e) {
+            LOGGER.error("resetOrderConfig proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     private static String enc(String s) {
         return s == null ? "" : java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
     }

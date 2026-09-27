@@ -35,4 +35,13 @@ public interface SettingWriteGuard {
      * @throws IllegalArgumentException with an owner-facing sentence when the write must not proceed
      */
     void check(Long organizationId, String key, String value);
+
+    /**
+     * UI-CFG-1 — asked before a RESET removes {@code key}'s override. By default a reset is judged like a write of the
+     * catalogue default. A guard whose rule depends on what the removal actually hands the decision to (for a
+     * capability: the platform ceiling, then the business type — not the catalogue default) overrides this.
+     */
+    default void checkReset(Long organizationId, String key, String defaultValue) {
+        check(organizationId, key, defaultValue);
+    }
 }

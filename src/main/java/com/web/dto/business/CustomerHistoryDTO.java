@@ -48,6 +48,20 @@ public class CustomerHistoryDTO {
     private String idempotencyKey;
 
     /**
+     * RST-R2a: how the sale was served — {@code DINE_IN} / {@code TAKE_AWAY} / {@code DELIVERY}, or null.
+     *
+     * <p>The twin required by the rule below. Without it this proxy would drop the order type on
+     * deserialize, and the symptom would be quiet rather than loud: every sale would save perfectly and
+     * every one would land with no service mode, so the day's takings split would show one empty bucket and
+     * nobody would know whether the cashier had chosen or the wire had eaten it.
+     *
+     * <p>A String, not an enum: an unrecognised value must survive the hop and be resolved server-side,
+     * where "not recorded" is a decision someone can explain, rather than becoming a deserialisation
+     * failure that loses the whole sale.
+     */
+    private String orderType;
+
+    /**
      * B2B-P1 (#9): the operator has seen the credit-limit warning and chosen to continue.
      *
      * <p>This proxy binds a TYPED DTO and re-serialises it, so a field missing here is silently dropped on

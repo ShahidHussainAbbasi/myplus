@@ -285,3 +285,6 @@
   [dir="rtl"] .plat-support .btn{ margin-right:0; }
   .plat-support__reason{ flex-basis:100%; }
 }
+
+/* SET-GUIDE: the operator's email beside their name (the header used to print the user record's toString). */
+.plat__who-email { opacity: .75; font-size: 12px; margin-left: 6px; }

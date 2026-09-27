@@ -24,6 +24,9 @@
     "test:e2e:diag:sale-open": "cypress run --browser chrome --headed --env diag=1 --spec cypress/e2e/diag/sale-open-profile.cy.js"
   },
   "devDependencies": {
-    "cypress": "^13.13.0"
+    "@simonsmith/cypress-image-snapshot": "^10.0.3",
+    "axe-core": "^4.13.0",
+    "cypress": "^13.13.0",
+    "cypress-axe": "^1.7.0"
   }
 }

@@ -561,6 +561,21 @@ $(document).ready(function() {
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
 					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
 					var customerHistory = {"customer":customer, "sales":data};
+					/*
+					 * RST-R2a — how this sale is served. Sent ONLY when the chooser is on screen and a type
+					 * is selected, so a shop without the capability posts nothing and its payload is
+					 * byte-for-byte what it was before this feature existed.
+					 *
+					 * Absent is a real answer on the server ("not recorded"), which is why this sends
+					 * nothing rather than an empty string: a blank would be indistinguishable from a
+					 * cashier who chose and then unchose.
+					 *
+					 * The same typed-DTO trap as the trade discount below applies — the twin field on the
+					 * monolith's CustomerHistoryDTO is what stops this being dropped on the hop.
+					 */
+					if (typeof window.sellOrderType === 'string' && window.sellOrderType !== '') {
+						customerHistory.orderType = window.sellOrderType;
+					}
 					// B2B-P3g: the invoice-level TRADE DISCOUNT, distinct from the per-line discounts already
 					// carried on each cart line. A distribution invoice settles a whole-order concession at the
 					// foot of the document. Sent only when actually entered, so a B2C sale is unchanged.

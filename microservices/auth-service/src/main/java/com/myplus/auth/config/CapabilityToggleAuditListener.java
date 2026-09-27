@@ -63,7 +63,7 @@ public class CapabilityToggleAuditListener implements SettingWriteListener {
                  * operator reading this trail actually needs.
                  */
                 before == null ? "preset" : before,
-                after,
+                after == null ? "preset" : after,     // UI-CFG-1: a Reset to default hands the decision back to the preset
                 capability.label());
     }
 }

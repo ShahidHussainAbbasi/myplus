@@ -19,4 +19,13 @@ public interface AuditEventRepository extends JpaRepository<AuditEvent, Long> {
 
     @Query("select a from AuditEvent a where a.organizationId = :orgId and a.action = :action order by a.id desc")
     List<AuditEvent> findByOrgAndAction(@Param("orgId") Long orgId, @Param("action") String action, Pageable pageable);
+
+    /** E5b — one business's trail by ONE kind of actor: the platform's own actions for an operator with no session. */
+    @Query("select a from AuditEvent a where a.organizationId = :orgId and a.actorType = :actorType order by a.id desc")
+    List<AuditEvent> findByOrgAndActorType(@Param("orgId") Long orgId, @Param("actorType") String actorType, Pageable pageable);
+
+    @Query("select a from AuditEvent a where a.organizationId = :orgId and a.action = :action"
+            + " and a.actorType = :actorType order by a.id desc")
+    List<AuditEvent> findByOrgActionAndActorType(@Param("orgId") Long orgId, @Param("action") String action,
+                                                 @Param("actorType") String actorType, Pageable pageable);
 }

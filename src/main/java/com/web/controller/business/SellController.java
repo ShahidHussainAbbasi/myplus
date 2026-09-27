@@ -671,4 +671,26 @@ public class SellController {
             return ProxyErrors.statusError(e);
         }
     }
+
+    /**
+     * RST-R2a — correct how a settled sale was served.
+     *
+     * <p>⚠ Added because the gate found a 404: the endpoint existed in business-service and nothing routed
+     * to it. A server endpoint with no proxy is invisible from the browser, and the symptom is a resource
+     * error rather than anything that mentions the feature — so it reads as "the screen is broken", not as
+     * "the route was never registered". The privilege gate and the audit live on the business-service side;
+     * this only carries the request.
+     */
+    @PostMapping(value = "/changeOrderType")
+    @ResponseBody
+    public Map<String, Object> changeOrderType(final HttpServletRequest request) {
+        try {
+            Map<String, String> params = new java.util.HashMap<>();
+            request.getParameterMap().forEach((k, v) -> params.put(k, v[0]));
+            return client.postForm("/changeOrderType", params);
+        } catch (Exception e) {
+            LOGGER.error("changeOrderType proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
 }

@@ -115,6 +115,18 @@ const clearFlags = (token, orgId) =>
     failOnStatusCode: false,
   })
 
+/**
+ * E5b — the refusal an operator gets for a business no open session covers: a 403 with the sentence and the stable
+ * code, and NO data about any org (the old fallback answered about the operator's own).
+ */
+const expectSessionRequired = (orgId) => (r) => {
+  expect(r.status, `refused, not answered: ${JSON.stringify(r.body)}`).to.eq(403)
+  expect(r.body && r.body.success, 'the envelope says so').to.eq(false)
+  expect(r.body.data && r.body.data.code, 'the stable code the console reads').to.eq('SUPPORT_SESSION_REQUIRED')
+  expect(r.body.data.organizationId, 'naming the business that was asked about').to.eq(orgId)
+  expect(String(r.body.message), 'a sentence for the operator').to.match(/support session/i)
+}
+
 const mySessions = (token) =>
   cy.request({
     method: 'GET',
@@ -160,18 +172,13 @@ describe('E5 — an operator reaches a customer only through an open, explained 
      * — they assert the same things through the path the product now has — but the reasoning would excuse
      * almost anything if nothing pinned down that the OLD path is closed. This does.
      *
-     * ⚠ It is NOT asserted as a refusal. organizationIdFor IGNORES an id the caller may not have, resolving
-     * to their own org, so the call SUCCEEDS and answers about the operator's own (empty) organization. A
-     * prober learns nothing — not even whether the other tenant exists — which is the anti-IDOR rule ONB-3
-     * established. So the assertion is that the answer is not the SUBJECT'S.
+     * E5b (owner ruling 2026-09-27): asserted as a REFUSAL. This case used to assert "answered, not refused" —
+     * about the operator's OWN org, the anti-IDOR fallback. For a tenant that is right; for an operator it put the
+     * platform org's figures on the console under the subject's name (and made Clear flags a write on the
+     * operator's own catalogue). An operator now gets a 403 carrying SUPPORT_SESSION_REQUIRED — never another
+     * org's data. `expectSessionRequired` also pins the answer is NOT the operator's own org.
      */
-    policyCounts(operatorToken, subjectOrgId).then((r) => {
-      expect(r.status, 'the request is answered, not refused').to.eq(200)
-      expect(
-        r.body && r.body.data && r.body.data.organizationId,
-        `a session-less operator must not be answered about tenant ${subjectOrgId}: ${JSON.stringify(r.body)}`,
-      ).to.not.eq(subjectOrgId)
-    })
+    policyCounts(operatorToken, subjectOrgId).then(expectSessionRequired(subjectOrgId))
   })
 
   // ── 2. a reason, from the API ───────────────────────────────────────────────────────────────────
@@ -217,13 +224,8 @@ describe('E5 — an operator reaches a customer only through an open, explained 
      */
     openSession(operatorToken, subjectOrgId, `${RUN} case4 — scoped to one`).then((s) => {
       opened.push(s.id)
-      policyCounts(s.token, ownerOrgId).then((r) => {
-        expect(r.status, 'answered, not refused — the same anti-IDOR rule as case 1').to.eq(200)
-        expect(
-          r.body && r.body.data && r.body.data.organizationId,
-          `a session on ${subjectOrgId} must not open ${ownerOrgId}`,
-        ).to.not.eq(ownerOrgId)
-      })
+      // E5b: refused, like case 1 — a session on one business is not a key to another.
+      policyCounts(s.token, ownerOrgId).then(expectSessionRequired(ownerOrgId))
     })
   })
 
@@ -246,12 +248,24 @@ describe('E5 — an operator reaches a customer only through an open, explained 
 
       cy.wait(62000)
 
-      policyCounts(s.token, subjectOrgId).then((r) => {
-        expect(r.status, 'still answered').to.eq(200)
-        expect(
-          r.body && r.body.data && r.body.data.organizationId,
-          'an EXPIRED session must not still reach the tenant, token or no token',
-        ).to.not.eq(subjectOrgId)
+      // E5b: an EXPIRED session is refused like no session at all, token or no token.
+      policyCounts(s.token, subjectOrgId).then(expectSessionRequired(subjectOrgId))
+    })
+  })
+
+  it('⭐⭐ 5b — E5b: Clear flags with NO session is refused, and the OPERATOR’s own catalogue is untouched', () => {
+    /*
+     * The write the old fallback got wrong: organizationIdFor substituted the operator's org BEFORE the
+     * cross-tenant check, so `crossTenant` came out false and the clear ran — on the operator's own products —
+     * reported as the subject's. Asserted on the victim, not only on the answer: the operator's own counts are
+     * read before and after, through the operator's own org (their own org is always answerable).
+     */
+    const ownOrg = claims(operatorToken).activeOrgId
+    policyCounts(operatorToken, ownOrg).then((before) => {
+      expect(before.status, `own counts readable: ${JSON.stringify(before.body)}`).to.eq(200)
+      clearFlags(operatorToken, subjectOrgId).then(expectSessionRequired(subjectOrgId))
+      policyCounts(operatorToken, ownOrg).then((after) => {
+        expect(after.body.data, "the operator's own catalogue is unchanged").to.deep.eq(before.body.data)
       })
     })
   })

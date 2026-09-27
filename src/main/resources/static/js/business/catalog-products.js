@@ -548,7 +548,7 @@
                     var d = (typeof apiOk === 'function' && apiOk(resp)) ? apiData(resp) : null;
                     if (!d || d.looseRate == null) { $out.hide().empty(); return; }
                     // ⚠ ui.js.* only — LocaleInterceptor.JS_PREFIX ships no other keys to the browser, so
-                    // t('ui.pack') would render the literal string "ui.pack" on the form.
+                    // t('ui.js.pack') would render the literal string "ui.pack" on the form.
                     var packNoun  = $('#prodUnit').val() || t('ui.js.pack');
                     var pieceNoun = $('#prodLooseUnit').val() || t('ui.js.unitPieces');
                     // .text(): both nouns are tenant-typed and reach the DOM (XSS-safe rendering standard).

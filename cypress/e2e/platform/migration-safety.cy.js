@@ -147,6 +147,8 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
   let seeded = null
   /** E5 — closed in after(); an operator session left open is a standing grant by another name. */
   let supportId = null
+  /** Sessions a case opens for itself — closed in after() too, so a case that FAILS midway cannot leave one open. */
+  const extraSessions = []
   /** Every product requiring a serial before case 9 clears them, so after() can put the flags back. */
   let stranded = []
 
@@ -213,6 +215,7 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
   after(() => {
     // E5 — first, so a failure in the restore below cannot leave the session open.
     cy.then(() => { if (supportId) closeSupport(supportId) })
+    cy.then(() => extraSessions.forEach((id) => closeSupport(id)))
     /*
      * Leave no server state behind, in the order the guards require: the SHAPE first (an operator switch
      * clears capability overrides, so restoring the capability before it would simply be undone), then the
@@ -288,14 +291,24 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
      * (empty) receivables under this tenant's name — a wrong number rather than an error, which is worse.
      */
     cy.request({ url: '/platform/organizations?q=Business&size=25', failOnStatusCode: false }).then((r) => {
-      const row = r.body.data.rows.find((o) => /business/i.test(o.name))
-      expect(row, 'a tenant with installment history is in the list').to.be.an('object')
+      const row = r.body.data.rows.find((o) => /owner business/i.test(o.name))
+      expect(row, 'owner.business — the tenant with installment history — is in the list').to.be.an('object')
+
+      /*
+       * E5b — WITHOUT a session the preview must SAY so, never report "0 open plans". Before E5b the count was
+       * answered about the operator's own org (none) and printed under this tenant's name; the conditional this
+       * case used to have ("if installments are turning off…") then let a silent 0 through untested.
+       */
       preview(row.id, 'pharmacy').then((p) => {
-        if ((p.turningOff || []).some((s) => /installment/i.test(s))) {
-          expect(p.impact.openInstallmentPlans, 'open plans are counted').to.be.greaterThan(0)
-          expect(p.impact.installmentsOutstanding, 'and so is the money still owed').to.be.greaterThan(0)
-        }
+        expect((p.turningOff || []).some((x) => /installment/i.test(x)),
+          `precondition: installments turn OFF for this change: ${JSON.stringify(p.turningOff)}`).to.eq(true)
+        expect(p.impact.needsSupportSession, `no session: the dialog is told why the counts are missing: ${JSON.stringify(p.impact)}`)
+          .to.eq(true)
+        expect(p.impact.openInstallmentPlans, 'and no count stands in for the real one').to.eq(undefined)
       })
+
+      // The with-session half is case 3b, LAST: a token carries one session scope, and cases 9–14 run under the
+      // mobile tenant's session — which the CUSTOMER approved for changes in before(). Replacing it here broke them.
     })
   })
 
@@ -560,6 +573,26 @@ describe('ONB-3 — a business-type change tells you what it costs', () => {
     // And the round trip is real rather than repainted.
     conflicts(mobileOrg).then((rows) => {
       expect(rows.length, 'nothing is left demanding a serial the tenant cannot record').to.eq(0)
+    })
+  })
+
+  it('⭐ 3b — E5b: WITH a session over the business, the preview reports the real open plans and money owed', () => {
+    /*
+     * Case 3's other half, placed last because it moves the operator's session scope off the mobile tenant (one
+     * scope per token) and cases 9–14 need that session. Closes its own session; after() closes the mobile one.
+     */
+    cy.request({ url: '/platform/organizations?q=Business&size=25', failOnStatusCode: false }).then((r) => {
+      const row = r.body.data.rows.find((o) => /owner business/i.test(o.name))
+      expect(row, 'owner.business is in the list').to.be.an('object')
+      openSupport(row.id, `ONB3 case3b ${Date.now()}`).then((id) => {
+        extraSessions.push(id)   // closed in after() even if an assertion below fails
+        preview(row.id, 'pharmacy').then((p) => {
+          expect(p.impact.needsSupportSession, `the session covers it: ${JSON.stringify(p.impact)}`).to.not.eq(true)
+          expect(p.impact.openInstallmentPlans, 'open plans are counted').to.be.greaterThan(0)
+          expect(p.impact.installmentsOutstanding, 'and so is the money still owed').to.be.greaterThan(0)
+        })
+        closeSupport(id)
+      })
     })
   })
 })

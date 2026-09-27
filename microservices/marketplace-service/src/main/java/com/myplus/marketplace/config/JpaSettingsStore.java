@@ -57,4 +57,12 @@ public class JpaSettingsStore implements SettingsStore {
         o.setUpdated(LocalDateTime.now());
         repo.save(o);
     }
+
+    /** UI-CFG-1 / SET-GUIDE — delete the override; the setting then falls back to its default ("Reset to default"). */
+    @Override
+    @Transactional
+    public void remove(Long organizationId, String key) {
+        if (organizationId == null) return;
+        repo.findByOrganizationIdAndSettingKey(organizationId, key).ifPresent(repo::delete);
+    }
 }

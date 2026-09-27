@@ -78,7 +78,7 @@
                         productName: p.name || ('#' + b.productId),
                         unitText: (String(b.soldUnit).toUpperCase() === 'LOOSE')
                             ? (b.quantity + ' ' + (p.looseUnitPlural || p.looseUnit || ''))
-                            : (b.quantity + ' ' + t('ui.packs', 'packs')),
+                            : (b.quantity + ' ' + t('ui.js.packs', 'packs')),
                         price: p.sellingPrice
                     };
                 });

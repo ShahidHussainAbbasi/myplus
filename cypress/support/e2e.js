@@ -1,4 +1,16 @@
 import './commands'
+// SET-GUIDE — visual regression (cy.matchImageSnapshot) and accessibility (cy.injectAxe / cy.checkA11y).
+import { addMatchImageSnapshotCommand } from '@simonsmith/cypress-image-snapshot/command'
+import 'cypress-axe'
+
+addMatchImageSnapshotCommand({
+  // Anti-aliasing and font hinting differ run to run by a few pixels; 0.2% of the image is the tolerance, and a
+  // real layout change (a moved label, a lost border, a wrapped rail) is far above it.
+  failureThreshold: 0.002,
+  failureThresholdType: 'percent',
+  customDiffConfig: { threshold: 0.1 },
+  capture: 'viewport',
+})
 
 // Slow-motion for watching a HEADED run (so the navigation is visible). Enable per-run with
 //   npx cypress run --headed --browser chrome --env slowMo=1200 --spec "<spec>"
