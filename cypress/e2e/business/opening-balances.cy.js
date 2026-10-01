@@ -335,6 +335,64 @@ describe('OB-1 — opening balances at cutover', () => {
     })
   })
 
+  /*
+   * L18 — the reversal must take the money back OUT OF THE BOOKS, not just off the customer.
+   *
+   * Case 9 passed for months while the ledger was wrong: the reversal deleted the document and posted nothing,
+   * so the customer read 0 and 1100 AR kept the debit (675,000.00 across 15 reversals on this tenant). The
+   * customer's balance cannot see that. Only the SIGNED movement on 1100 and 3000 across post + reverse can.
+   */
+  it('⭐⭐ 9b (L18) — a reversal posts the mirror journal: AR and Equity end where they started', () => {
+    const run = uniq()
+    setConfig(CUTOVER, CUTOVER_DATE)
+    trialBalance().then((before) => {
+      const ar0 = net(before, AR), eq0 = net(before, EQUITY), s0 = net(before, SALES)
+      seedCustomer(`OB Mirror ${run}`).then((cid) => {
+        postOpening({ customerId: cid, amount: 30000, reference: `mirror ${run}` }).then((r) => {
+          expect(r.body.status, `posted: ${JSON.stringify(r.body)}`).to.eq('SUCCESS')
+          const ref = (payload(r.body) || {}).invoiceNo
+          // Wait for the OPENING journal BEFORE reversing, so the assertion below cannot pass on a
+          // posting that simply had not arrived yet.
+          const awaitAr = (want, attempt) => trialBalance().then((tb) => {
+            if (net(tb, AR) - ar0 === want || attempt >= 10) return tb
+            return cy.wait(1000).then(() => awaitAr(want, attempt + 1))
+          })
+          awaitAr(30000, 0).then((mid) => expect(net(mid, AR) - ar0, 'the opening balance posted first').to.eq(30000))
+
+          cy.request({
+            method: 'POST', url: '/reverseOpeningBalance', form: true, failOnStatusCode: false,
+            body: { invoiceNo: ref, reason: 'L18 mirror check' },
+          }).then((rr) => expect(rr.body.status, `reversal: ${JSON.stringify(rr.body)}`).to.eq('SUCCESS'))
+
+          awaitAr(0, 0).then((after) => {
+            expect(net(after, AR) - ar0, '1100 AR is back where it started').to.eq(0)
+            expect(net(after, EQUITY) - eq0, '3000 Equity is back where it started').to.eq(0)
+            expect(net(after, SALES) - s0, 'Sales never moved').to.eq(0)
+            expect(after.balanced, 'the trial balance still balances').to.eq(true)
+          })
+
+          // The document is KEPT, so a second reversal must be refused — it would post a second credit to AR.
+          cy.request({
+            method: 'POST', url: '/reverseOpeningBalance', form: true, failOnStatusCode: false,
+            body: { invoiceNo: ref, reason: 'again' },
+          }).then((r2) => {
+            expect(r2.body.status, 'a second reversal is refused').to.eq('FAILED')
+            expect(r2.body.message).to.match(/already been reversed/i)
+          })
+
+          // And the statement shows the pair rather than going blank: the balance, then its reversal.
+          cy.request(`/customerStatement?customerId=${cid}`).then((s) => {
+            const rows = list(s.body).filter((l) => l.docNo === ref)
+            expect(rows.map((l) => l.type), 'statement lines for the document').to.deep.eq(['OPENING', 'OPENING_REVERSED'])
+            expect(Number(rows[0].debit), 'the opening balance as entered').to.eq(30000)
+            expect(Number(rows[1].credit), 'and its reversal').to.eq(30000)
+          })
+          customerNamed(`OB Mirror ${run}`).then((c) => expect(Number(c.dueAmount || 0), 'the customer owes nothing').to.eq(0))
+        })
+      })
+    })
+  })
+
   it('⭐⭐ 10 — reversing a PARTIALLY PAID opening balance is REFUSED, naming what to use instead', () => {
     /*
      * THE SHARPEST EDGE. A full reversal would unpick a payment that has already been allocated and

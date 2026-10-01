@@ -112,10 +112,15 @@ public class OpeningBalanceController {
                                    @RequestParam(name = "reason", required = false) String reason) {
         try {
             return new GenericResponse("SUCCESS", "reversed",
-                    openingBalanceService.reverseCustomerOpening(orgId(), invoiceNo, reason));
+                    openingBalanceService.reverseCustomerOpening(orgId(), userId(), invoiceNo, reason));
         } catch (com.myplus.common.web.exception.ValidationException refused) {
             LOGGER.info("openingBalance reversal refused: {}", refused.getMessage());
             return new GenericResponse("FAILED", refused.getMessage());
+        } catch (com.myplus.business_service.service.PeriodClosedException closed) {
+            // L18: the reversal now edits the cutover-dated document in place, so a closed cutover period is
+            // an ordinary refusal with its own words — not "could not be reversed".
+            LOGGER.info("openingBalance reversal refused: {}", closed.getMessage());
+            return new GenericResponse("FAILED", closed.getMessage());
         } catch (Exception e) {
             LOGGER.error("reverseOpeningBalance failed", e);
             return new GenericResponse("FAILED", "The opening balance could not be reversed.");

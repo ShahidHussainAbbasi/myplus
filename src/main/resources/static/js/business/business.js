@@ -1373,9 +1373,10 @@ function loadBonusSchemeLookups(){
 /** Show only the party control the chosen scope can actually use. */
 function onBonusSchemeScope(){
 	var scope = $('#bsScope').val();
-	$('#bsVendorId').toggle(scope === 'VENDOR');
-	$('#bsCustomerId').toggle(scope === 'CUSTOMER');
-	$('#bsCustomerType').toggle(scope === 'CUSTOMER_TYPE');
+	// L17: the SLOT, never the <select> — bootstrap-select's button is a sibling the select cannot hide.
+	$('#bsVendorIdSlot').toggle(scope === 'VENDOR');
+	$('#bsCustomerIdSlot').toggle(scope === 'CUSTOMER');
+	$('#bsCustomerTypeSlot').toggle(scope === 'CUSTOMER_TYPE');
 }
 
 /**
@@ -1390,8 +1391,11 @@ function previewBonusScheme(){
 	var bonus = Number($('#bsBonusQuantity').val());
 	if (!paid || !bonus){ $('#bsPreview').text(''); return; }
 	var probe = paid * 3;   // a quantity that makes the ONE_TIME / REPEATING difference visible
+	// global:false keeps a per-keystroke calculation off the progress bar and the busy-button lock — but it
+	// also skips the page's CSRF hook, so the token is stamped here (L16: without it every preview 403'd).
 	$.ajax({
 		url: serverContext + 'bonusScheme/preview', type: 'POST', global: false,
+		headers: (typeof xsrfHeaders === 'function') ? xsrfHeaders() : {},
 		contentType: 'application/json', dataType: 'json',
 		data: JSON.stringify({
 			qualificationMode: $('#bsQualificationMode').val(),
@@ -1478,7 +1482,15 @@ function editBonusScheme(btn){
 	$('#bsPriority').val(r.priority);
 	$('#bsFormTitle').text(t('ui.js.editOffer'));
 	$('#bsSaveLabel').text(t('ui.js.editOffer'));
+	// Every picker here is a bootstrap-select: .val() moves the hidden <select> but not the BUTTON, so without
+	// a repaint the form would show the previous choice while saving the loaded one.
+	if (typeof repaintSearchableSelect === 'function') {
+		repaintSearchableSelect($('#bsScope, #bsVendorId, #bsCustomerId, #bsCustomerType, #bsTriggerProductId, '
+			+ '#bsRewardProductId, #bsBonusType, #bsQualificationMode, #bsStatus'));
+	}
 	previewBonusScheme();
+	var form = document.getElementById('BonusSchemeForm');
+	if (form && form.scrollIntoView) form.scrollIntoView({ block: 'start', behavior: 'smooth' });
 	$('#bsCode').focus();
 }
 
@@ -1492,8 +1504,21 @@ function deleteBonusScheme(btn){
 		tone: 'danger'
 	}).then(function(ok){
 		if (!ok) return;
-		$.ajax({ url: serverContext + 'bonusScheme/' + r.id, type: 'DELETE' })
-			.always(function(){ loadBonusSchemes(); });
+		// A refusal arrives as success:false inside a 200 (the catalog's envelope), so the BODY decides —
+		// `.always` used to reload the grid either way, and a refused delete looked like nothing happened.
+		$.ajax({ url: serverContext + 'bonusScheme/' + r.id, type: 'DELETE', dataType: 'json' })
+			.done(function(res){
+				if (res && (res.success === false || res.status === 'ERROR' || res.status === 'FAILED')) {
+					uiAlert({ title: t('ui.js.deleteFailed'), message: apiMessage(res, t('ui.js.deleteFailed')), tone: 'danger' });
+					return;
+				}
+				// Deleting the offer that is open in the form must not leave the form able to PUT a dead id.
+				if (String($('#bsId').val()) === String(r.id)) resetBonusSchemeForm();
+				loadBonusSchemes();
+			})
+			.fail(function(xhr){
+				uiAlert({ title: t('ui.js.deleteFailed'), message: apiMessage(xhr && xhr.responseJSON, t('ui.js.deleteFailed')), tone: 'danger' });
+			});
 	});
 }
 
@@ -1502,7 +1527,7 @@ function loadBonusSchemes(){
 	bgJson(serverContext + 'bonusSchemes', function(resp){
 		renderBonusSchemes((resp && (resp.data || resp.collection)) || []);
 	}).fail(function(){
-		$('#tableBonusScheme tbody').html('<tr><td colspan="7" class="text-danger">'
+		$('#tableBonusScheme tbody').html('<tr><td colspan="8" class="text-danger">'
 			+ escHtml(t('ui.js.couldNotLoadBonusSchemes')) + '</td></tr>');
 	});
 }
@@ -1518,27 +1543,53 @@ function bonusOfferText(r){
 function renderBonusSchemes(rows){
 	var $tb = $('#tableBonusScheme tbody').empty();
 	if(!rows.length){
-		$tb.append('<tr><td colspan="7" class="text-muted">' + escHtml(t('ui.js.noBonusSchemesYet')) + '</td></tr>');
+		$tb.append('<tr><td colspan="8" class="text-muted">' + escHtml(t('ui.js.noBonusSchemesYet')) + '</td></tr>');
 		return;
 	}
 	rows.forEach(function(r){
+		// L14: names, not ids. The pickers were filled BEFORE this render (showBonusSchemes chains the lookups
+		// first), so the labels are read from them — no second round trip just to name a product.
+		var trigger = (r.triggerProductId != null) ? priceRuleName('#bsTriggerProductId', r.triggerProductId)
+			: (r.triggerCategoryId != null ? ('cat #' + r.triggerCategoryId) : '');
 		// The reward SKU is what a bare bonus QUANTITY could not express, so it is shown when it differs —
 		// otherwise "buy a machine get a coffee pack" reads identically to "buy a machine get a machine".
 		var reward = (r.rewardProductId != null && r.rewardProductId !== r.triggerProductId)
-			? (' → #' + r.rewardProductId) : '';
+			? (' → ' + priceRuleName('#bsTriggerProductId', r.rewardProductId)) : '';
+		var who = (r.scope === 'VENDOR') ? priceRuleName('#bsVendorId', r.vendorId)
+			: (r.scope === 'CUSTOMER') ? priceRuleName('#bsCustomerId', r.customerId)
+			: (r.scope === 'CUSTOMER_TYPE') ? customerTypeLabel(r.customerType) : '';
 		var valid = (r.startsOn || r.endsOn)
 			? escHtml((r.startsOn || '') + ' – ' + (r.endsOn || ''))
 			: escHtml(t('ui.js.always'));
-		$tb.append('<tr>'
-			+ '<td>' + escHtml(r.code || '') + '</td>'
-			+ '<td>' + escHtml(r.scope || '') + '</td>'
-			+ '<td>' + escHtml(r.triggerProductId != null ? ('#' + r.triggerProductId) : (r.triggerCategoryId != null ? ('cat #' + r.triggerCategoryId) : '')) + escHtml(reward) + '</td>'
-			+ '<td>' + escHtml(bonusOfferText(r)) + '</td>'
-			+ '<td>' + escHtml(r.bonusType || '') + '</td>'
-			+ '<td>' + valid + '</td>'
-			+ '<td>' + escHtml(r.status || '') + '</td>'
-			+ '</tr>');
+		// .data('row'), not an id in onclick: editBonusScheme loads the form from the row it was handed, so
+		// the form shows exactly what the table showed rather than a second read that could disagree.
+		var $edit = $('<button type="button" class="btn btn-xs btn-default">').text(t('ui.js.edit'))
+			.data('row', r).on('click', function(){ editBonusScheme(this); });
+		var $del = $('<button type="button" class="btn btn-xs btn-danger">').text(t('ui.js.delete'))
+			.data('row', r).on('click', function(){ deleteBonusScheme(this); });
+		var $tr = $('<tr>').attr('data-scheme-id', r.id).append(
+			$('<td>').text(r.code || ''),
+			$('<td>').text(bonusOptionLabel('#bsScope', r.scope) + (who ? (': ' + who) : '')),
+			$('<td>').text(trigger + reward),
+			$('<td>').text(bonusOfferText(r)),
+			$('<td>').text(bonusOptionLabel('#bsBonusType', r.bonusType)),
+			$('<td>').html(valid),
+			$('<td>').text(bonusOptionLabel('#bsStatus', r.status)),
+			$('<td style="white-space:nowrap">').append($edit, ' ', $del));
+		$tb.append($tr);
 	});
+}
+
+/**
+ * The label the form's own <select> gives a stored code — "Active", "Exclusive", "A customer type" — so the
+ * table and the form can never word one value two ways. Only the part before " — " is kept: the type options
+ * carry a worked example ("Exclusive — 11 delivered, 10 billed") that belongs in the form, not in every row.
+ * An unknown code falls through to itself, so a new value is visible rather than blank.
+ */
+function bonusOptionLabel(selector, code){
+	if (code == null || code === '') return '';
+	var o = $(selector + ' option').filter(function(){ return this.value === String(code); });
+	return o.length ? o.first().text().split(' — ')[0].trim() : String(code);
 }
 
 function showPriceRules(){
@@ -1672,14 +1723,15 @@ function priceRuleName(selector, id){
 
 function onPriceRuleScope(){
 	var byCustomer = $('#prScope').val() === 'CUSTOMER';
-	$('#prCustomerId').toggle(byCustomer);
-	$('#prCustomerType').toggle(!byCustomer);
+	// The SLOT, not the <select> — see onBonusSchemeScope (L17).
+	$('#prCustomerIdSlot').toggle(byCustomer);
+	$('#prCustomerTypeSlot').toggle(!byCustomer);
 }
 
 function onPriceRuleTarget(){
 	var byProduct = $('#prTarget').val() === 'PRODUCT';
-	$('#prProductId').toggle(byProduct);
-	$('#prCategoryId').toggle(!byProduct);
+	$('#prProductIdSlot').toggle(byProduct);
+	$('#prCategoryIdSlot').toggle(!byProduct);
 }
 
 function onPriceRuleMode(){
@@ -1827,12 +1879,49 @@ function loadStores(){
 	$.get(serverContext + 'getStores', function(resp){
 		var rows = (resp && (resp.collection || resp.data)) || [];
 		var $tb = $('#tableStores tbody').empty();
-		if(!rows.length){ $tb.append('<tr><td colspan="5" class="text-center">No stores yet — add your first store above.</td></tr>'); return; }
+		if(!rows.length){ $tb.append('<tr><td colspan="6" class="text-center">No stores yet — add your first store above.</td></tr>'); return; }
 		rows.forEach(function(s){
-			$tb.append('<tr><td>'+escHtml(s.name||'')+'</td><td>'+escHtml(s.code||'')+'</td><td>'+escHtml(s.address||'')
-				+'</td><td>'+escHtml(s.phone||'')+'</td><td>'+escHtml(s.status||'')+'</td></tr>');
+			// L15: the management list keeps INACTIVE stores — this is where they come back from. The switcher
+			// and the team picker (getMyStores) no longer offer them.
+			var inactive = String(s.status || '').toUpperCase() === 'INACTIVE';
+			var $btn = $('<button type="button" class="btn btn-xs">')
+				.addClass(inactive ? 'btn-default' : 'btn-warning')
+				.text(t(inactive ? 'ui.js.reactivate' : 'ui.js.deactivate'))
+				.on('click', function(){ setStoreStatus(s, inactive ? 'ACTIVE' : 'INACTIVE', this); });
+			$tb.append($('<tr>').attr('data-store-id', s.id).toggleClass('text-muted', inactive).append(
+				$('<td>').text(s.name || ''), $('<td>').text(s.code || ''), $('<td>').text(s.address || ''),
+				$('<td>').text(s.phone || ''),
+				$('<td>').text(t(inactive ? 'ui.js.inactive' : 'ui.js.active')),
+				$('<td>').append($btn)));
 		});
-	}, 'json').fail(function(){ $('#tableStores tbody').html('<tr><td colspan="5" class="text-center">Could not load stores.</td></tr>'); });
+	}, 'json').fail(function(){ $('#tableStores tbody').html('<tr><td colspan="6" class="text-center">Could not load stores.</td></tr>'); });
+}
+
+/**
+ * L15 — deactivate or reactivate a store.
+ *
+ * Sends EVERY field back, not just the status: updateStore overwrites code, address and phone with whatever
+ * it is given, so a status-only body would blank them. The server refuses deactivating the caller's own
+ * active store (they would keep writing into it) and says so; that message is shown as it is.
+ */
+function setStoreStatus(s, status, btn){
+	var go = function(){
+		$.ajax({ type:'POST', url:serverContext+'updateStore', contentType:'application/json', dataType:'json',
+			busyControl: btn,
+			data: JSON.stringify({ id: s.id, name: s.name, code: s.code, address: s.address, phone: s.phone, status: status }),
+			success: function(resp){
+				if (resp && resp.status === 'SUCCESS') {
+					storeMsg(t(status === 'INACTIVE' ? 'ui.js.storeDeactivated' : 'ui.js.storeReactivated'), false);
+					loadStores();
+					loadMyStores();   // the switcher must drop (or regain) it now, not after a re-login
+				} else { storeMsg(apiMessage(resp, t('ui.js.couldNotUpdateStore')), true); }
+			},
+			error: function(xhr){ storeMsg(apiMessage(xhr && xhr.responseJSON, t('ui.js.couldNotUpdateStore')), true); }
+		});
+	};
+	if (status !== 'INACTIVE') { go(); return; }
+	uiConfirm({ title: t('ui.js.deactivateStoreTitle'), message: (s.name ? s.name + ' — ' : '') + t('ui.js.deactivateStoreMsg'),
+		confirmText: t('ui.js.deactivate'), tone: 'danger' }).then(function(ok){ if (ok) go(); });
 }
 function saveStore(){
 	var body = { name:($('#storeName').val()||'').trim(), code:($('#storeCode').val()||'').trim(),
@@ -5249,6 +5338,9 @@ var STATEMENT_TYPE_KEYS = {
 	CREDIT_NOTE: 'ui.js.stmtTypeCreditNote',
 	DEBIT_NOTE: 'ui.js.stmtTypeDebitNote',
 	VOID: 'ui.js.stmtTypeVoid',
+	// L18: what was owed at cutover, and its reversal — named for what they are, not "Bill" / "Voided".
+	OPENING: 'ui.js.stmtTypeOpening',
+	OPENING_REVERSED: 'ui.js.stmtTypeOpeningReversed',
 	// INST-2. Not a transaction: a SCHEDULE row is an instalment still to fall due, shown so a customer
 	// reading the statement can see what they owe and WHEN without asking for a second document.
 	SCHEDULE: 'ui.js.stmtTypeSchedule'

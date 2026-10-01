@@ -72,6 +72,7 @@ public class OpeningBalanceService {
     @Autowired private IdempotencyService idempotencyService;
     /** OB-1 — the books. Optional so a slim test context still builds a document. */
     @Autowired(required = false) private GlOutboxService glOutboxService;
+    @Autowired(required = false) private PeriodLockGuard periodLockGuard;
     @Autowired(required = false) private com.myplus.common.settings.SettingsService settingsService;
 
     // ── the cutover date ────────────────────────────────────────────────────────────────────────
@@ -241,7 +242,7 @@ public class OpeningBalanceService {
      * ledger is the one thing a migration must not leave behind.
      */
     @Transactional
-    public Map<String, Object> reverseCustomerOpening(Long orgId, String invoiceNo, String reason) {
+    public Map<String, Object> reverseCustomerOpening(Long orgId, Long userId, String invoiceNo, String reason) {
         if (trimToNull(reason) == null) {
             throw new ValidationException("A reason is required — a reversal is a ledger entry, and the "
                     + "next person to read it needs to know why it exists.");
@@ -249,26 +250,77 @@ public class OpeningBalanceService {
         CustomerHistory ch = customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId, invoiceNo)
                 .orElseThrow(() -> new ValidationException("No such opening balance: " + invoiceNo));
 
-        if (!DOC_OPENING.equalsIgnoreCase(ch.getDocType())) {
-            throw new ValidationException(invoiceNo + " is a sale, not an opening balance. Use the sale "
-                    + "return or void path for a sale.");
-        }
-        BigDecimal paid = nz(ch.getPaidAmount());
-        if (paid.signum() > 0) {
-            throw new ValidationException("This opening balance has already been PAID in part ("
-                    + paid.toPlainString() + " received), so it cannot be reversed — the receipt is "
-                    + "allocated against it and posted. A correction on a part-settled opening balance "
-                    + "needs an adjustment that keeps the payment history, which is not in this release.");
-        }
+        String refusal = refuseReversal(ch);
+        if (refusal != null) throw new ValidationException(refusal);
 
+        // The document is changed IN PLACE (zeroed and stamped), so the period it is dated in — the cutover —
+        // must still be open. Same rule, same guard as a voided sale (SaleVoidService).
+        if (periodLockGuard != null)
+            periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : LocalDate.now());
+
+        BigDecimal reversed = applyReversal(ch, userId, reason, LocalDateTime.now());
+        customerHistoryRepo.save(ch);
         Customer customer = ch.getCustomer();
-        customerHistoryRepo.delete(ch);
         if (customer != null) customerService.recomputeDue(customer);
+
+        // L18 — the books. Until this line existed a reversal deleted the document and posted NOTHING, so the
+        // ledger kept Dr 1100 / Cr 3000 for a debt no customer owed. Same outbox, same transaction: a rolled-back
+        // reversal posts no journal, and a finance outage delays it rather than losing it.
+        // Dated TODAY, as a voided sale's SALE_RETURN is — the correction belongs to the period it was made in.
+        postToLedger("OPENING_AR_REVERSAL", ch.getInvoiceNo(), reversed, LocalDate.now());
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("reversed", invoiceNo);
+        out.put("amount", reversed);
         out.put("reason", reason.trim());
         return out;
+    }
+
+    /**
+     * Why this document cannot be reversed, or {@code null} when it can.
+     *
+     * <p>A second reversal is refused because the document is now KEPT (L18): it used to be deleted, so a
+     * repeat simply found nothing. Kept and reversed twice, it would post a second Cr 1100 and invent a credit.
+     */
+    static String refuseReversal(CustomerHistory ch) {
+        if (!DOC_OPENING.equalsIgnoreCase(ch.getDocType()))
+            return ch.getInvoiceNo() + " is a sale, not an opening balance. Use the sale return or void path "
+                    + "for a sale.";
+        if ("VOID".equals(ch.getStatus()))
+            return ch.getInvoiceNo() + " has already been reversed.";
+        BigDecimal paid = nz(ch.getPaidAmount());
+        if (paid.signum() > 0)
+            return "This opening balance has already been PAID in part (" + paid.toPlainString() + " received), "
+                    + "so it cannot be reversed — the receipt is allocated against it and posted. A correction on "
+                    + "a part-settled opening balance needs an adjustment that keeps the payment history, which "
+                    + "is not in this release.";
+        return null;
+    }
+
+    /**
+     * Zero the opening balance IN PLACE and stamp it VOID — the shape a voided sale already has, which is why
+     * no reader needed changing (L18 review: 12 CustomerHistory queries — 5 unaffected, 5 read the zeroed
+     * header and want it, 1 is the lookup this method refuses a repeat on, 1 is the idempotent replay, which
+     * now returns this document instead of re-creating a balance the owner reversed).
+     *
+     * <p>{@code issuedTotal} keeps what was owed, so the statement can show the balance AND its reversal —
+     * a statement that went blank (as it did when the row was deleted) explains nothing to a customer who
+     * was told last month they owed it.
+     *
+     * @return the amount the opening balance POSTED — what the reversing journal must take back
+     */
+    static BigDecimal applyReversal(CustomerHistory ch, Long userId, String reason, LocalDateTime now) {
+        BigDecimal posted = nz(ch.getGrandTotal());
+        if (ch.getIssuedTotal() == null) ch.setIssuedTotal(posted);
+        ch.setGrandTotal(BigDecimal.ZERO);
+        ch.setPaidAmount(BigDecimal.ZERO);
+        ch.setDueAmount(BigDecimal.ZERO);
+        ch.setStatus("VOID");
+        ch.setVoidedBy(userId);
+        ch.setVoidedAt(now);
+        ch.setVoidReason(reason == null ? null : reason.trim());
+        ch.setUpdated(now);
+        return posted;
     }
 
     // ── reading ────────────────────────────────────────────────────────────────────────────────

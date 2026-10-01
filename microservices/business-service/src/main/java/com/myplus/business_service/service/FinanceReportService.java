@@ -156,15 +156,17 @@ public class FinanceReportService {
             // this line, a credit note explains it below. coalesce: a legacy row with no issuedTotal falls back
             // to grandTotal and therefore renders exactly as it did before V34.
             BigDecimal issued = ch.getIssuedTotal() != null ? ch.getIssuedTotal() : nz(ch.getGrandTotal());
+            boolean opening = OpeningBalanceService.DOC_OPENING.equalsIgnoreCase(ch.getDocType());
             lines.add(new StatementLine(ch.getDated() != null ? ch.getDated().toLocalDate() : null,
-                    ch.getInvoiceNo(), "BILL", issued, null, null));
+                    ch.getInvoiceNo(), debitLineType(ch), issued, null, null));
             if (ch.getInvoiceNo() != null) invoiceNos.add(ch.getInvoiceNo());
 
             // A VOID zeroed the header, so the issued bill above needs its cancellation or the invoice would be
             // overstated by its full value. Guarded on > 0 so a pre-V34 void (back-filled to 0) adds no line.
+            // L18: a reversed opening balance is the same shape and gets the same pair, named for what it is.
             if ("VOID".equals(ch.getStatus()) && issued.signum() > 0) {
                 lines.add(new StatementLine(ch.getVoidedAt() != null ? ch.getVoidedAt().toLocalDate() : null,
-                        ch.getInvoiceNo(), "VOID", null, issued, null));
+                        ch.getInvoiceNo(), opening ? "OPENING_REVERSED" : "VOID", null, issued, null));
             }
         }
         addCreditNoteLines(lines, invoiceNos);
@@ -172,6 +174,15 @@ public class FinanceReportService {
         StatementBuilder.build(lines, BigDecimal.ZERO);
         addInstallmentScheduleLines(lines, u.getOrganizationId(), customerId);
         return lines;
+    }
+
+    /**
+     * L18 — the type of a customer document's DEBIT line: an opening balance is "what was owed when this shop
+     * started", not a bill this shop issued, and the statement said "Bill" for it. Nothing reads this type to
+     * decide money — StatementBuilder only sums debit and credit — so naming it changes no figure.
+     */
+    static String debitLineType(CustomerHistory ch) {
+        return OpeningBalanceService.DOC_OPENING.equalsIgnoreCase(ch.getDocType()) ? "OPENING" : "BILL";
     }
 
     /**

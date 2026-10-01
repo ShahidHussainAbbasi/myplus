@@ -182,9 +182,19 @@
                 var m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
                 return m ? decodeURIComponent(m[1]) : null;
             }
+            /*
+             * L16 — the header for a write that is NOT a global request. `global: false` removes a call from
+             * ajaxSend, so the hook below never stamps it and Spring refuses it with a 403 (the bonus offer
+             * preview did exactly that). Such a call passes `headers: xsrfHeaders()` instead.
+             */
+            window.xsrfHeaders = function () {
+                var token = readCookie('XSRF-TOKEN');
+                return token ? { 'X-XSRF-TOKEN': token } : {};
+            };
             if (window.jQuery) {
-                // ajaxSend fires for EVERY jQuery request and is not overridden by a per-call
+                // ajaxSend fires for EVERY GLOBAL jQuery request and is not overridden by a per-call
                 // beforeSend, so it reliably stamps the header even on calls with custom options.
+                // ⚠ Not for `global: false` — see xsrfHeaders above.
                 jQuery(document).ajaxSend(function (event, xhr, settings) {
                     if (!/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type || 'GET')) {
                         var token = readCookie('XSRF-TOKEN');

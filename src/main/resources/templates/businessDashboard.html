@@ -1016,6 +1016,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<th style="width:110px" th:text="#{ui.bonusType}">Type</th>
 							<th style="width:110px" th:text="#{ui.validity}">Valid</th>
 							<th style="width:90px" th:text="#{ui.status}">Status</th>
+							<th style="width:120px" th:text="#{ui.actions}">Actions</th>
 						</tr>
 					</thead>
 					<tbody></tbody>
@@ -1046,15 +1047,20 @@ tr.row-voided .js-edit-row{display:none !important}
 									<option value="CUSTOMER_TYPE" th:text="#{ui.aCustomerType}">A customer type</option>
 								</select>
 							</div>
+							<!-- L17: each picker sits in its own SLOT and the slot is what is shown or hidden. Every
+							     <select> here is drawn by bootstrap-select, whose button is a SIBLING of the hidden
+							     native list — toggling the <select> left all three buttons on screen. -->
 							<div class="col-sm-5">
-								<select class="form-control" id="bsVendorId"></select>
-								<select class="form-control" id="bsCustomerId" style="display:none"></select>
-								<select class="form-control" id="bsCustomerType" style="display:none">
+								<div id="bsVendorIdSlot"><select class="form-control" id="bsVendorId"></select></div>
+								<div id="bsCustomerIdSlot" style="display:none"><select class="form-control" id="bsCustomerId"></select></div>
+								<div id="bsCustomerTypeSlot" style="display:none">
+								<select class="form-control" id="bsCustomerType">
 									<option value="WALK_IN" th:text="#{ui.custTypeWalkIn}">Walk-in (retail)</option>
 									<option value="RETAILER" th:text="#{ui.custTypeRetailer}">Retailer (trade)</option>
 									<option value="WHOLESALE" th:text="#{ui.custTypeWholesale}">Wholesale (trade)</option>
 									<option value="VIP" th:text="#{ui.custTypeVip}">VIP (retail)</option>
 								</select>
+								</div>
 							</div>
 						</div>
 
@@ -1171,18 +1177,21 @@ tr.row-voided .js-edit-row{display:none !important}
 								</select>
 							</div>
 							<div class="col-sm-5">
-								<select class="form-control" id="prCustomerId"></select>
+								<!-- Shown/hidden by SLOT, not by <select> — see bsVendorIdSlot (L17). -->
+								<div id="prCustomerIdSlot"><select class="form-control" id="prCustomerId"></select></div>
 								<!-- The FOUR values CustomerType actually has, with the same labels the add-customer
 								     form uses. This list first shipped with a "RETAIL" that no customer can ever be
 								     (a tier rule scoped to it would silently never fire — the exact failure this
 								     screen exists to expose) and with VIP missing, though VIP exists precisely to
 								     grant a better price. -->
-								<select class="form-control" id="prCustomerType" style="display:none">
+								<div id="prCustomerTypeSlot" style="display:none">
+								<select class="form-control" id="prCustomerType">
 									<option value="WALK_IN" th:text="#{ui.custTypeWalkIn}">Walk-in (retail)</option>
 									<option value="RETAILER" th:text="#{ui.custTypeRetailer}">Retailer (trade)</option>
 									<option value="WHOLESALE" th:text="#{ui.custTypeWholesale}">Wholesale (trade)</option>
 									<option value="VIP" th:text="#{ui.custTypeVip}">VIP (retail)</option>
 								</select>
+								</div>
 							</div>
 						</div>
 						<div class="form-group">
@@ -1194,8 +1203,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								</select>
 							</div>
 							<div class="col-sm-5">
-								<select class="form-control" id="prProductId"></select>
-								<select class="form-control" id="prCategoryId" style="display:none"></select>
+								<div id="prProductIdSlot"><select class="form-control" id="prProductId"></select></div>
+								<div id="prCategoryIdSlot" style="display:none"><select class="form-control" id="prCategoryId"></select></div>
 							</div>
 						</div>
 						<div class="form-group">
@@ -4101,7 +4110,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					<div class="col-sm-2"><button type="button" class="btn btn-success" onclick="saveStore()" th:text="#{ui.addStore}">Add store</button></div>
 				</div>
 				<table id="tableStores" class="table table-bordered table-striped">
-					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.code}">Code</th><th th:text="#{ui.address2}">Address</th><th th:text="#{ui.phone}">Phone</th><th th:text="#{ui.status}">Status</th></tr></thead>
+					<thead><tr><th th:text="#{ui.name}">Name</th><th th:text="#{ui.code}">Code</th><th th:text="#{ui.address2}">Address</th><th th:text="#{ui.phone}">Phone</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.actions}">Actions</th></tr></thead>
 					<tbody></tbody>
 				</table>
 			</div>

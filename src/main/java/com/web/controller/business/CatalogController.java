@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -765,6 +766,22 @@ public class CatalogController {
             return catalog.putJson("/bonus-schemes/" + id, body);
         } catch (Exception e) {
             LOGGER.error("updateBonusScheme proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
+    /**
+     * L14 — remove an offer. business.js has called this route since P1, but nothing mapped it, so the
+     * browser's DELETE never reached the catalog. Purchases keep the scheme's CODE (a string), not its id, so
+     * removing the master orphans no row. The catalog decides who may (ADMIN_PRIVILEGE) and whose it is.
+     */
+    @DeleteMapping("/bonusScheme/{id}")
+    @ResponseBody
+    public Map<String, Object> deleteBonusScheme(@PathVariable Long id) {
+        try {
+            return catalog.deleteForMap("/bonus-schemes/" + id);
+        } catch (Exception e) {
+            LOGGER.error("deleteBonusScheme proxy error", e);
             return ProxyErrors.statusError(e);
         }
     }

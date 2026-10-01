@@ -229,6 +229,8 @@
  *   YES — background population of a screen the user is already looking at.
  *   NO  — anything the user just clicked and is waiting on, and NEVER a write: a write excluded from the
  *         global events also escapes submit-once.js's in-flight lock and product-picker.js's invalidation.
+ *   ⚠ It ALSO skips header.html's CSRF hook. A POST that is a calculation rather than a write (the bonus
+ *     offer preview) must pass `headers: xsrfHeaders()` or Spring refuses it with a 403 (L16).
  */
 (function (global) {
     'use strict';

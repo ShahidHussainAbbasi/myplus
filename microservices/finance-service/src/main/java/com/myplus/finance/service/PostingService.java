@@ -100,6 +100,7 @@ public class PostingService {
         else if ("FEE_CREDIT_APPLIED".equalsIgnoreCase(type)) postFeeCreditApplied(req);
         else if ("OPENING_AR".equalsIgnoreCase(type)) postOpeningReceivable(req);
         else if ("OPENING_AP".equalsIgnoreCase(type)) postOpeningPayable(req);
+        else if ("OPENING_AR_REVERSAL".equalsIgnoreCase(type)) postOpeningReceivableReversal(req);
         else throw new IllegalArgumentException("Unknown event type: " + type);
     }
 
@@ -125,7 +126,36 @@ public class PostingService {
     private void postOpeningReceivable(PostEventRequest r) {
         BigDecimal owed = nz(r.getGrandTotal());
         if (owed.signum() <= 0) return;   // nothing owed is nothing to post, not an error
-        post("OPENING_AR", r.getDate(), r.getRef(), List.of(dr(AR, owed), cr(OWNERS_EQUITY, owed)));
+        post("OPENING_AR", r.getDate(), r.getRef(), openingReceivableLines(owed));
+    }
+
+    /** The OPENING_AR journal, built and nothing else — extracted so its mirror can be asserted without a ledger. */
+    static List<JournalLineDTO> openingReceivableLines(BigDecimal owed) {
+        return List.of(dr(AR, owed), cr(OWNERS_EQUITY, owed));
+    }
+
+    /**
+     * L18 — an opening balance entered in error is REVERSED.
+     *
+     *     Dr 3000 Owner's Equity           Cr 1100 Accounts Receivable
+     *
+     * <p>Before this event existed a reversal deleted the document and posted nothing, so the ledger kept a
+     * receivable no customer owed (675,000.00 across 15 reversals on the test tenant). The amount is the one
+     * the opening balance POSTED, carried on the event — never re-derived — so the pair nets to exactly zero.
+     *
+     * <p>Dated the day of the reversal, as a voided sale's SALE_RETURN is: the cutover period may already be
+     * closed, and a correction belongs to the period it was made in. business-service refuses the reversal
+     * outright when the cutover period is locked, so this never lands silently in a closed month.
+     */
+    private void postOpeningReceivableReversal(PostEventRequest r) {
+        BigDecimal owed = nz(r.getGrandTotal());
+        if (owed.signum() <= 0) return;
+        post("OPENING_AR_REVERSAL", r.getDate(), r.getRef(), openingReceivableReversalLines(owed));
+    }
+
+    /** The exact mirror of {@link #openingReceivableLines}: every debit becomes a credit on the same account. */
+    static List<JournalLineDTO> openingReceivableReversalLines(BigDecimal owed) {
+        return List.of(dr(OWNERS_EQUITY, owed), cr(AR, owed));
     }
 
     /**

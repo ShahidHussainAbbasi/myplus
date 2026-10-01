@@ -8,9 +8,10 @@
  * builder shows a case only if the whole case passed, so no expected result on the page is one the app did
  * not actually produce on this build.
  *
- * WHERE A SCREEN IS MISSING. Two cleanups have no screen: an opening balance cannot be reversed from the UI,
- * and a bonus offer cannot be deleted (L14). Those steps give the tester the exact browser-console command,
- * and this spec RUNS THAT SAME COMMAND in the page (`win.eval`) — so the command on the page is tested too.
+ * WHERE A SCREEN IS MISSING. Some cleanups have no screen (reversing an opening balance; removing your own
+ * store access). Those steps give the tester the exact browser-console command, and this spec RUNS THAT SAME
+ * COMMAND in the page (`win.eval`) — so the command on the page is tested too. (Deleting a bonus offer and
+ * deactivating a store were console steps until L14/L15 gave them buttons.)
  *
  * TENANTS. Cases that move money or add records that cannot be removed (a sale that must be voided, a store,
  * an opening balance) run on owner.lifecycle@ — the Test Book's sacrificial tenant — never on owner.business@,
@@ -511,7 +512,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
       purpose: 'Buy-and-get offers (“buy 10, get 1 free”) from a supplier to the shop, or from the shop to a customer or customer type. Exclusive offers add the free unit on top; inclusive ones count it inside the quantity. The screen is shown only while *Bonus and free-goods offers* is switched on (Configuration → Business → What this business does).',
       prereq: ['Signed in as the owner.', '**Bonus and free-goods offers** is on (the run switches it on if needed and puts it back).', 'At least one product exists.'],
       data: [`Code **${CODE}**`, 'Applies to: customer type **Retailer (trade)**', 'Offer **10 + 1**'],
-      rollback: 'Cleanup deletes the offer. There is no Delete button on this screen yet (limitation L14), so the step gives the browser-console command; the run executed that same command.',
+      rollback: 'Cleanup deletes the offer with its own **Delete** button.',
     })
 
     const a1 = act('Click **Settings → Bonus Offers**.',
@@ -529,11 +530,20 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     cy.then(() => { a2.do = a2.do.replace('**Code**', `**Code** = **${CODE}**`) })
     cy.get('#bsCode').clear().type(CODE)
     cy.get('#bsScope').select('CUSTOMER_TYPE', { force: true })
+    // L17 — ONE picker beside "Applies to", the one the scope uses. Asserted on the bootstrap-select BUTTONS a
+    // person sees: the native <select>s are always hidden by the plugin, so asserting them proves nothing.
+    cy.get('#bsCustomerTypeSlot .bootstrap-select').should('be.visible')
+    cy.get('#bsVendorIdSlot').should('not.be.visible')
+    cy.get('#bsCustomerIdSlot').should('not.be.visible')
+    cy.get('#bsScope').closest('.form-group').find('.bootstrap-select:visible').should('have.length', 2) // scope + its one picker
     cy.get('#bsCustomerType').select('RETAILER', { force: true })
     cy.get('#bsTriggerProductId option').eq(1).then(($o) => cy.get('#bsTriggerProductId').select($o.val(), { force: true }))
+    // L16 — the preview is a POST sent outside the global hooks; it used to 403 on the missing CSRF token.
+    cy.intercept('POST', '**/bonusScheme/preview').as('preview')
     cy.get('#bsPaidQuantity').clear().type('10')
     cy.get('#bsBonusQuantity').clear().type('1')
     cy.get('#bsQualificationMode').select('REPEATING', { force: true })
+    cy.wait('@preview').its('response.statusCode').should('eq', 200)
     cy.get('#bsPreview', { timeout: 10000 }).invoke('text').should('match', /30\D+3\b/)
     cy.get('#bsPreview').invoke('text').then((t) => { a2.expect[0] = `With *Every block* the note beside the quantities reads **${t.trim()}**.` })
     snap(a2, 'preview-repeating', '#BonusSchemeForm')
@@ -543,23 +553,45 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     snap(a2, 'preview-once', '#BonusSchemeForm')
 
     const a3 = act('Set **Counts** back to *Every block* and click **Add offer**.',
-      ['A green message says the offer was saved and the form clears.', 'The table lists the code with **Every 10 + 1**, type **EXCLUSIVE**, status **ACTIVE**.'])
+      ['A green message says the offer was saved and the form clears.', 'The table lists the code with **Every 10 + 1**, type **Exclusive**, status **Active**, and **Edit** and **Delete** buttons.'])
     cy.get('#bsQualificationMode').select('REPEATING', { force: true })
     cy.intercept('POST', '**/bonusScheme').as('saveBonus')
     cy.get('#BonusSchemeForm button[onclick="saveBonusScheme()"]').click()
     cy.wait('@saveBonus').its('response.body.success').should('not.eq', false)
     cy.get('#saleSuccess').should('be.visible')
     cy.contains('#tableBonusScheme tbody tr', CODE, { timeout: 10000 }).as('offer')
-    cy.get('@offer').should('contain', '10 + 1').and('contain', 'ACTIVE')
-    cy.get('@offer').find('td').eq(3).invoke('text').then((t) => { a3.expect[1] = `The table lists **${CODE}** with **${t.trim()}**, type **EXCLUSIVE**, status **ACTIVE**.` })
-    // L14, asserted so the guide says it only while it is true.
-    cy.get('@offer').find('button').should('have.length', 0)
+    cy.get('@offer').should('contain', '10 + 1').and('contain', 'Active').and('contain', 'Exclusive')
+    // L14 — names, not ids or raw codes: "Applies to" names the customer type, and "For" is not a bare #id.
+    cy.get('@offer').find('td').eq(1).invoke('text').should('match', /Retailer/)
+    cy.get('@offer').find('td').eq(2).invoke('text').should('not.match', /^#\d+$/)
+    cy.get('@offer').find('td').eq(3).invoke('text').then((t) => { a3.expect[1] = `The table lists **${CODE}** with **${t.trim()}**, type **Exclusive**, status **Active**, and **Edit** and **Delete** buttons.` })
+    cy.get('@offer').find('button').should('have.length', 2)
     snap(a3, 'listed', '#tableBonusScheme')
 
-    const code = `$.getJSON(serverContext + 'bonusSchemes').done(function (r) { (r.data || r.collection || []).filter(function (s) { return s.code === '${CODE}' }).forEach(function (s) { $.ajax({ url: serverContext + 'bonusScheme/' + s.id, type: 'DELETE' }).always(loadBonusSchemes) }) })`
-    const c1 = act('There is no **Delete** button on an offer yet (L14). Press **F12**, open **Console**, paste the command below and press **Enter**.',
-      [`The **${CODE}** row disappears from the table.`], { cleanup: true, via: 'console', code })
-    cy.window().then((w) => w.eval(code))
+    const a4 = act('Click **Edit** on the offer. Change the free quantity from **1** to **2** and click **Edit offer**.',
+      ['The form fills with the offer, its heading reads **Edit offer**, and beside **Applies to** only the customer-type picker shows, set to **Retailer (trade)**.',
+       'After saving, the row reads **Every 10 + 2**. It is the same row — editing does not add a second offer.'])
+    cy.contains('#tableBonusScheme tbody tr', CODE).contains('button', /^Edit$/).click()
+    cy.get('#bsFormTitle').should('contain', 'Edit offer')
+    cy.get('#bsCode').should('have.value', CODE)
+    cy.get('#bsCustomerTypeSlot .bootstrap-select').should('be.visible').and('contain', 'Retailer')
+    cy.get('#bsVendorIdSlot').should('not.be.visible')
+    cy.get('#bsBonusQuantity').invoke('val').then((v) => expect(Number(v), 'loaded free qty').to.eq(1))
+    cy.get('#bsBonusQuantity').clear().type('2')
+    snap(a4, 'editing', '#BonusSchemeForm')
+    cy.intercept('PUT', '**/bonusScheme/*').as('updBonus')
+    cy.get('#BonusSchemeForm button[onclick="saveBonusScheme()"]').click()
+    cy.wait('@updBonus').its('response.body.success').should('not.eq', false)
+    cy.contains('#tableBonusScheme tbody tr', CODE, { timeout: 10000 }).should('contain', '10 + 2')
+    cy.get('#tableBonusScheme tbody tr').filter(`:contains("${CODE}")`).should('have.length', 1)
+    snap(a4, 'edited', '#tableBonusScheme')
+
+    const c1 = act('Click **Delete** on the offer and confirm.',
+      [`The **${CODE}** row disappears from the table.`], { cleanup: true })
+    cy.intercept('DELETE', '**/bonusScheme/*').as('delBonus')
+    cy.contains('#tableBonusScheme tbody tr', CODE).contains('button', /^Delete$/).click()
+    cy.get('[data-ui-confirm="ok"]').should('be.visible').click()
+    cy.wait('@delBonus').its('response.body.success').should('not.eq', false)
     cy.get('#tableBonusScheme tbody', { timeout: 10000 }).should('not.contain', CODE)
     snap(c1, 'deleted', '#tableBonusScheme')
     cy.request('/bonusSchemes').then((r) => expect(list(r.body).filter((s) => s.code === CODE), 'gone on the server').to.have.length(0))
@@ -646,6 +678,9 @@ describe('Settings guide — F. the other settings screens, step by step (captur
   caseIt('F6', 'Stores: add a branch and see the store switcher', () => {
     const NAME = `Guide Branch ${run}`
     let storeId, activeBefore
+    // The SECOND active store the switcher needs. Before L15 the switcher counted INACTIVE stores, so this case
+    // "saw" a switcher on a tenant whose only active store was the one it had just added — a coincidental pass.
+    let second = null   // { id, name, reactivated }
     asLifecycle()
     cy.request('/getMyStores').then((r) => { activeBefore = (list(r.body).find((s) => s.active) || {}).id })
     // addStore grants the NEW store to the owner who created it (StoreController, "zero-touch"). The lifecycle
@@ -657,7 +692,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     SAFETY.push(() => {
       asLifecycle()
       cy.request('/getStores').then((r) => {
-        list(r.body).filter((s) => s.name === NAME && s.status !== 'INACTIVE').forEach((s) =>
+        list(r.body).filter((s) => (s.name === NAME || (second && s.id === second.id)) && s.status !== 'INACTIVE').forEach((s) =>
           cy.request({ method: 'POST', url: '/updateStore', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
             body: { id: s.id, name: s.name, code: s.code, address: s.address, phone: s.phone, status: 'INACTIVE' } }))
       })
@@ -668,7 +703,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
       purpose: 'The business’s branches. Sales, purchases and shifts are stamped with the store they were made in; with two or more stores a switcher appears in the top bar, and staff can be limited to their own stores (Team).',
       prereq: ['Signed in as the owner.'],
       data: [`Store **${NAME}**, code **GB${run}**, address **Test Road 1**`],
-      rollback: 'A store cannot be deleted, and there is no way to deactivate one on this screen (limitation L15). Cleanup marks it INACTIVE and removes the store access that adding it gave you — both with a browser-console command. The inactive store stays in the list (and, today, in the switcher).',
+      rollback: 'A store cannot be deleted. Cleanup deactivates it with its **Deactivate** button — it stays in this list (to be reactivated) but leaves the switcher — and removes the store access that adding it gave you (browser-console command).',
     })
 
     const a1 = act('Click **Settings → Stores**.',
@@ -680,7 +715,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     snap(a1, 'screen')
 
     const a2 = act('Type the store name, code and address, and click **Add store**.',
-      ['The message says **Store created. Pick it in the store switcher to sell from it.**', 'The store is listed with status **ACTIVE**.'])
+      ['The message says **Store created. Pick it in the store switcher to sell from it.**', 'The store is listed with status **Active** and a **Deactivate** button.'])
     cy.then(() => { a2.do = `Type **${NAME}** as the name, **GB${run}** as the code and **Test Road 1** as the address. Click **Add store**.` })
     cy.get('#storeName').type(NAME)
     cy.get('#storeCode').type('GB' + run)
@@ -689,14 +724,45 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     cy.get('#StoresDiv button[onclick="saveStore()"]').click()
     cy.wait('@addStore').then((i) => { storeId = (i.response.body.object || i.response.body.data || {}).id })
     cy.get('#storeMsg').should('be.visible').and('contain', 'Store created')
-    cy.contains('#tableStores tbody tr', NAME, { timeout: 10000 }).should('contain', 'ACTIVE')
+    cy.contains('#tableStores tbody tr', NAME, { timeout: 10000 }).should('contain', 'Active').and('not.contain', 'Inactive')
     snap(a2, 'added')
 
-    const a3 = act('Reload the page and look at the top bar.',
-      ['A **store switcher** is shown (it appears once a business has two or more stores) and lists the new store.', 'The store you were working in is still the selected one — adding a store does not switch you to it.'])
+    // A second ACTIVE store, so there is something to switch between. Reuse an old inactive branch through its
+    // Reactivate button (L15) — stores cannot be deleted, so adding a fresh one every run would only pile up.
+    const a3 = act('Click **Reactivate** on an older, inactive branch.',
+      ['The message says **Store reactivated.**, the row is no longer grey, its status reads **Active** and its button **Deactivate**.'])
+    cy.request('/getStores').then((r) => {
+      const old = list(r.body).find((x) => x.status === 'INACTIVE' && x.name !== NAME)
+      if (old) {
+        second = { id: old.id, name: old.name, reactivated: true }
+        a3.do = `Click **Reactivate** on an older, inactive branch — on this run **${old.name}**.`
+        cy.intercept('POST', '**/updateStore').as('react')
+        cy.contains('#tableStores tbody tr', old.name).contains('button', /^Reactivate$/).click()
+        cy.wait('@react').its('response.body.status').should('eq', 'SUCCESS')
+        cy.get('#storeMsg').should('be.visible').and('contain', 'Store reactivated')
+        cy.contains('#tableStores tbody tr', old.name).should('not.have.class', 'text-muted')
+          .and('contain', 'Active').find('button').should('contain', 'Deactivate')
+      } else {
+        // A fresh tenant has no old branch: add a second one instead, with the same form as a2.
+        const n2 = `${NAME} B`
+        second = { name: n2, reactivated: false }
+        a3.do = `There is no older branch to reactivate: add a second store, **${n2}**, the same way as above.`
+        a3.expect = ['The second store is listed with status **Active**.']
+        cy.intercept('POST', '**/addStore').as('add2')
+        cy.get('#storeName').clear().type(n2)
+        cy.get('#StoresDiv button[onclick="saveStore()"]').click()
+        cy.wait('@add2').then((i) => { second.id = (i.response.body.object || i.response.body.data || {}).id })
+        cy.contains('#tableStores tbody tr', n2, { timeout: 10000 }).should('contain', 'Active')
+      }
+    })
+    snap(a3, 'second-store')
+
+    const a4 = act('Reload the page and look at the top bar.',
+      ['A **store switcher** is shown (it appears once a business has two or more ACTIVE stores) and lists both stores.', 'The store you were working in is still the selected one — adding a store does not switch you to it.'])
     openDashboard()
     cy.get('#storeSwitcherWrap', { timeout: 15000 }).should('be.visible')
     cy.then(() => cy.get(`#storeSwitcher option[value="${storeId}"]`).should('exist'))
+    cy.then(() => cy.get(`#storeSwitcher option[value="${second.id}"]`).should('exist'))
     cy.then(() => { if (activeBefore) cy.get('#storeSwitcher').should('have.value', String(activeBefore)) })
     // Open the switcher so the picture shows the list, not a closed box. It is a bootstrap-select (every
     // <select> is), so the list is the wrapper's menu; a plain select cannot be photographed open.
@@ -707,31 +773,45 @@ describe('Settings guide — F. the other settings screens, step by step (captur
         cy.get('#storeSwitcherWrap .dropdown-menu').should('be.visible').and('contain', NAME)
       }
     })
-    snap(a3, 'switcher')
+    snap(a4, 'switcher')
     cy.get('body').type('{esc}')
 
-    const code = `$.ajax({ type: 'POST', url: serverContext + 'updateStore', contentType: 'application/json', data: JSON.stringify({ id: STORE_ID, name: 'NAME', code: 'CODE', address: 'Test Road 1', status: 'INACTIVE' }) }).done(function (r) { console.log(r.status); loadStores() })`
-    const c1 = act('There is no deactivate button (L15). Open **Settings → Stores**, press **F12**, open **Console**, paste the command below (with the store’s id) and press **Enter**.',
-      ['The console prints **SUCCESS** and the store’s status becomes **INACTIVE** in the table.'], { cleanup: true, via: 'console', code })
+    const c1 = act('Open **Settings → Stores** and click **Deactivate** on the new store’s row. Confirm.',
+      ['The message says **Store deactivated.**, the row turns grey with status **Inactive**, and its button now reads **Reactivate**.',
+       'The store switcher no longer offers it (with one active store left, the switcher disappears).'], { cleanup: true })
     openDashboard()
     settingsItem('showStores')
-    cy.then(() => {
-      const real = code.replace('STORE_ID', String(storeId)).replace("'NAME'", `'${NAME}'`).replace("'CODE'", `'GB${run}'`)
-      c1.code = real
-      c1.do = `There is no deactivate button (L15). Open **Settings → Stores**, press **F12**, open **Console**, paste the command below and press **Enter** (the id **${storeId}** is the store’s number — find yours with \`$.getJSON(serverContext+'getStores').done(console.log)\`).`
-      cy.intercept('POST', '**/updateStore').as('upd')
-      cy.window().then((w) => w.eval(real))
-      cy.wait('@upd').its('response.body.status').should('eq', 'SUCCESS')
-    })
-    cy.contains('#tableStores tbody tr', NAME, { timeout: 10000 }).should('contain', 'INACTIVE')
+    // L15 — the store you are WORKING in has a Deactivate button too, but the server refuses it; that refusal
+    // is unit-tested (StoreStatusRuleTest). This case deactivates the new store, which the owner is not in.
+    cy.intercept('POST', '**/updateStore').as('upd')
+    cy.contains('#tableStores tbody tr', NAME, { timeout: 10000 }).contains('button', /^Deactivate$/).click()
+    cy.get('[data-ui-confirm="ok"]').should('be.visible').click()
+    cy.wait('@upd').its('response.body.status').should('eq', 'SUCCESS')
+    cy.get('#storeMsg').should('be.visible').and('contain', 'Store deactivated')
+    cy.contains('#tableStores tbody tr', NAME, { timeout: 10000 }).should('contain', 'Inactive')
+      .and('have.class', 'text-muted').find('button').should('contain', 'Reactivate')
+    // The fields the button did not mean to change survive it — updateStore overwrites whatever it is sent.
+    cy.contains('#tableStores tbody tr', NAME).should('contain', 'GB' + run).and('contain', 'Test Road 1')
     snap(c1, 'inactive')
-    // L15 — asserted, so the guide keeps saying it only while it is true.
-    cy.request('/getMyStores').then((r) => {
-      const still = list(r.body).some((s) => s.id === storeId)
-      c1.expect.push(still
-        ? 'Known limitation (L15): the inactive store is **still offered in the store switcher** — do not pick it.'
-        : 'The inactive store is no longer offered in the store switcher.')
+    cy.request('/getMyStores').then((r) => expect(list(r.body).map((s) => s.id), 'switcher list').not.to.include(storeId))
+    // What a person SEES: the switcher is gone (one active store left), or it no longer lists this store.
+    // Not the <option>s alone — loadMyStores hides the switcher without emptying it when fewer than two remain.
+    cy.get('#storeSwitcherWrap').should(($w) => {
+      const offered = $w.is(':visible') && $w.find(`#storeSwitcher option[value="${storeId}"]`).length > 0
+      expect(offered, 'the deactivated store is not offered in the switcher').to.eq(false)
     })
+
+    const c1b = act('Click **Deactivate** on the older branch you reactivated (or the second store you added). Confirm.',
+      ['Its status is back to **Inactive**, and the store switcher disappears — no active store is left to switch between.'], { cleanup: true })
+    cy.then(() => {
+      cy.intercept('POST', '**/updateStore').as('upd2')
+      cy.contains('#tableStores tbody tr', second.name).contains('button', /^Deactivate$/).click()
+      cy.get('[data-ui-confirm="ok"]').should('be.visible').click()
+      cy.wait('@upd2').its('response.body.status').should('eq', 'SUCCESS')
+      cy.contains('#tableStores tbody tr', second.name).should('contain', 'Inactive')
+    })
+    cy.get('#storeSwitcherWrap').should('not.be.visible')
+    snap(c1b, 'second-inactive')
 
     const revoke = `$.ajax({ type: 'POST', url: serverContext + 'assignStores', contentType: 'application/json', data: JSON.stringify({ storeIds: [], replace: true }) }).done(function (r) { console.log(r.message) })`
     const c2 = act('Adding a store also gave **you** access to it. Remove that access with the command below, then sign out and in again.',
@@ -768,7 +848,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
       purpose: 'What each customer and supplier owed on the day the business started using MaxTheService. Each balance is a document dated the cutover day: it shows in the customer’s balance, statement, aging and credit limit, and posts Dr Receivables / Cr Owner’s Equity — never Sales. The cutover date locks on the first balance.',
       prereq: ['Signed in as the owner.', 'The cutover date is **not set** yet (the business has never migrated).', `A customer who owes nothing (the run created **${cname}**).`],
       data: ['Cutover date **2026-09-01**', 'Opening balance **45,000**, reference **notebook p.12**'],
-      rollback: 'Cleanup reverses the balance (no screen yet — console command), then unlocks and clears the cutover date. The reversal stays on the customer’s statement as a matching credit, so the books show both.',
+      rollback: 'Cleanup reverses the balance (no screen yet — console command), then unlocks and clears the cutover date. The balance stays on the customer’s statement with its reversal beneath it, and the reversal posts the mirror journal (Dr 3000 Equity / Cr 1100 Receivables), so the books net to zero.',
     })
 
     const a1 = act('Click **Settings → Opening Balances**.',
@@ -838,12 +918,14 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     snap(a4, 'recorded')
 
     const a5 = act('Open **Customers**, find the customer, and click **Statement** on its row.',
-      ['The statement lists one document dated **2026-09-01** — the opening balance — with **45,000.00** as debit and a closing balance of **45,000.00**.', 'Write down its **Doc #** — the cleanup needs it.'])
+      ['The statement lists one document dated **2026-09-01** of type **Opening balance** (not “Bill”) with **45,000.00** as debit and a closing balance of **45,000.00**.', 'Write down its **Doc #** — the cleanup needs it.'])
     cy.openSection('CustomerDiv')
     cy.get('#CustomerDiv input[type="search"]').first().clear().type(cname)
     cy.then(() => cy.get(`.stmt-btn[data-pid="${cid}"]`, { timeout: 15000 }).first().click({ force: true }))
     cy.get('#StatementDialogBody table', { timeout: 15000 }).should('contain', '45000.00')
     cy.then(() => cy.get('#StatementDialogBody').should('contain', docNo))
+    // L18 — named for what it is.
+    cy.then(() => cy.contains('#StatementDialogBody tr', docNo).should('contain', 'Opening balance').and('not.contain', 'Bill'))
     cy.then(() => { a5.expect[1] = `Its **Doc #** is **${docNo}** on this run — write yours down; the cleanup needs it.` })
     snap(a5, 'statement')
     cy.get('body').type('{esc}')
@@ -861,7 +943,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
 
     const code = "$.post(serverContext + 'reverseOpeningBalance', { invoiceNo: 'DOC_NO', reason: 'guide cleanup' }).done(function (r) { console.log(r.status, r.message) })"
     const c1 = act('Reverse the balance. There is no Reverse button yet: open **Settings → Opening Balances**, press **F12**, open **Console**, paste the command below with your **Doc #**, and press **Enter**.',
-      ['The console prints **SUCCESS**.', 'Reopen the customer’s **Statement**: nothing is owed any more.'], { cleanup: true, via: 'console', code })
+      ['The console prints **SUCCESS**.', 'Reopen the customer’s **Statement**: the opening balance is still listed, followed by an **Opening balance reversed** line crediting **45,000.00**, and the **Closing balance** is **0.00**.'], { cleanup: true, via: 'console', code })
     openDashboard()
     settingsItem('showOpeningBalances')
     cy.then(() => {
@@ -874,16 +956,10 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     cy.openSection('CustomerDiv')
     cy.get('#CustomerDiv input[type="search"]').first().clear().type(cname)
     cy.then(() => cy.get(`.stmt-btn[data-pid="${cid}"]`, { timeout: 15000 }).first().click({ force: true }))
-    cy.get('#StatementDialogBody', { timeout: 15000 }).should(($b) => expect($b.text()).to.match(/No documents|Closing balance/))
-    cy.get('#StatementDialogBody').then(($b) => {
-      const txt = $b.text()
-      if (/No documents/.test(txt)) {
-        c1.expect[1] = 'Reopen the customer’s **Statement**: it says **No documents.** — the reversed balance is removed from the customer’s account, and the customer owes nothing.'
-      } else {
-        expect(txt, 'closing balance after the reversal').to.match(/Closing balance\s*0\.00/)
-        c1.expect[1] = 'Reopen the customer’s **Statement**: a matching credit follows the opening balance and the **Closing balance** is **0.00**.'
-      }
-    })
+    // L18 — the pair, not a blank statement: the balance as entered, then its reversal, closing at 0.00.
+    cy.get('#StatementDialogBody table', { timeout: 15000 }).should('contain', 'Opening balance reversed')
+    cy.then(() => cy.get('#StatementDialogBody tbody tr').filter(`:contains("${docNo}")`).should('have.length', 2))
+    cy.get('#StatementDialogBody').invoke('text').should('match', /Closing balance\s*0\.00/)
     cy.then(() => cy.request('/getUserCustomer?q=-1')).then((r) => {
       const c = list(r.body).find((x) => (x.customerId || x.id) === cid)
       expect(Number(c.dueAmount || 0), 'the customer owes nothing').to.eq(0)

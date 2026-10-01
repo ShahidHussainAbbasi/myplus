@@ -67,4 +67,13 @@ public class CatalogRestClient {
     public String delete(String path) {
         return gateway.forString(PREFIX, directBaseUrl, path, HttpMethod.DELETE, null, null);
     }
+
+    /**
+     * DELETE returning the ApiResponse envelope (L14). The catalog refuses inside a 200 — {@code success:false}
+     * with a message — so a caller that dropped the body (as {@link #delete} lets it) could not tell the
+     * operator WHY nothing was deleted.
+     */
+    public Map<String, Object> deleteForMap(String path) {
+        return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.DELETE, null, null);
+    }
 }
