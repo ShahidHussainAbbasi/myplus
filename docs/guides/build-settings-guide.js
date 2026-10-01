@@ -255,7 +255,7 @@ const VIA = {
   console: '<span class="pill pill-warn" title="There is no button for this on the screen yet">No screen yet — browser console</span>',
   run: '<span class="pill pill-info" title="The run sent the same request the screen sends; do it on the screen as written">Run through the screen’s own request</span>',
 }
-const FAIL_NOTE = { F4: 'Defect L16: the offer preview never appears in the browser — see Known limitations.' }
+const FAIL_NOTE = {}   // L16 fixed 2026-10-01 — a failing case now reports its own run message
 const actHtml = (s, a, key, i) => {
   const shots = s.passed ? a.shots.map((n) => ({ n, src: img(n) })).filter((x) => x.src) : []
   return `<li class="act">
@@ -323,11 +323,12 @@ const secPass = (security.results || []).filter((r) => r.passed).length
 
 // ── verification table ────────────────────────────────────────────────────────────────────────────────
 const vRows = []
-Object.entries(verifyRun.batches || {}).forEach(([name, b]) => b.rows.forEach((r) => vRows.push({ batch: name, env: b.env, ...r, fails: b.fails })))
+// `note` — what was found about a batch's result (e.g. a failure re-run alone). Shown beside the spec, never hidden.
+Object.entries(verifyRun.batches || {}).forEach(([name, b]) => b.rows.forEach((r) => vRows.push({ batch: name, env: b.env, ...r, fails: b.fails, note: (b.notes || {})[r.spec] || null })))
 const specsPassed = vRows.filter((r) => r.failing === 0 && r.passing > 0).length
 const testsTotal = vRows.reduce((n, r) => n + r.tests, 0)
 const testsPassing = vRows.reduce((n, r) => n + r.passing, 0)
-const vTable = vRows.map((r) => `<tr><td><code>${esc(r.spec)}</code>${r.env ? ` <span class="muted">(${esc(r.env)})</span>` : ''}</td><td class="num">${r.passing}/${r.tests}</td><td>${r.failing === 0 ? '<span class="pill pill-ok">Pass</span>' : '<span class="pill pill-bad">' + r.failing + ' failed</span>'}</td></tr>`).join('')
+const vTable = vRows.map((r) => `<tr><td><code>${esc(r.spec)}</code>${r.env ? ` <span class="muted">(${esc(r.env)})</span>` : ''}${r.note ? `<div class="muted">${esc(r.note)}</div>` : ''}</td><td class="num">${r.passing}/${r.tests}</td><td>${r.failing === 0 ? '<span class="pill pill-ok">Pass</span>' : '<span class="pill pill-bad">' + r.failing + ' failed</span>'}</td></tr>`).join('')
 const failingNotes = vRows.filter((r) => r.failing > 0)
 
 // ── layouts ───────────────────────────────────────────────────────────────────────────────────────────
@@ -343,7 +344,11 @@ const cond = [
   ['Functional Cypress tests pass', allFunctional, `${specsPassed} of ${vRows.length} specs · ${testsPassing} of ${testsTotal} tests on this build`],
   ['Visual regression passes or differences are approved', !!vRows.find((r) => /settings-ui-quality/.test(r.spec) && r.failing === 0), '18 baselines (6 screens × desktop, tablet, phone), compared on every run'],
   ['Manual test cases pass', !!manual.passed, manual.passed
-    ? `Run by Claude against the live app on ${manual.at ? fmtDate(manual.at) : 'this build'} — same browser, widths, tenants and roles as the tests; ${manual.checked} of ${manual.of || manual.checked} walkthrough screens and 18 layout baselines checked by eye against their expected results (the rest by their passing assertions). Human sign-off: per case, below`
+    ? (manual.scope
+      // `scope` states exactly what was looked at on THIS run — the older fixed sentence claimed 18 layout baselines
+      // whether or not they were looked at.
+      ? `Run by Claude against the live app on ${manual.at ? fmtDate(manual.at) : 'this build'} — ${manual.scope} Human sign-off: per case, below`
+      : `Run by Claude against the live app on ${manual.at ? fmtDate(manual.at) : 'this build'} — same browser, widths, tenants and roles as the tests; ${manual.checked} of ${manual.of || manual.checked} walkthrough screens and 18 layout baselines checked by eye against their expected results (the rest by their passing assertions). Human sign-off: per case, below`)
     : 'NOT YET CONFIRMED — the live-app pass has not been recorded for this build'],
   ['Screen test cases pass (section F)', failedCases.length === 0, `${screenCases.filter((c) => c.passed).length} of ${screenCases.length} end-to-end cases passed${failedCases.length ? ` — failing: ${failedCases.map((c) => c.id + ' ' + (FAIL_NOTE[c.id] || '')).join('; ')}` : ''}`],
   ['No tenant-isolation or authorization defect open', secPass === (security.results || []).length && secPass > 0, `${secPass} of ${(security.results || []).length} security cases; the operator “wrong business” defect (E5b) was found by this review and fixed before publishing`],
@@ -547,7 +552,7 @@ footer{margin-top:40px;color:var(--txt3);font-size:13px}
         <thead><tr><th>Screen</th><th>Where</th><th class="num">Settings</th><th>Changed by</th></tr></thead>
         <tbody>
           ${SCREENS.map((s) => `<tr><td><b>${esc(s.module)}</b> — ${esc(s.name)}</td><td>${esc(s.where)}</td><td class="num">${s.items.length}</td><td>Owner or Admin</td></tr>`).join('')}
-          <tr><td><b>Business</b> — Tax Settings, Price Rules, Bonus Schemes, Document Designer, Stores, Opening Balances</td><td>Business dashboard → Settings</td><td class="num">forms</td><td>Owner</td></tr>
+          <tr><td><b>Business</b> — Tax Settings, Price Rules, Bonus Offers, Document Designer, Stores, Opening Balances</td><td>Business dashboard → Settings</td><td class="num">forms</td><td>Owner</td></tr>
           <tr><td><b>MaxTheService operator</b> — a business’s plan, capabilities (entitlements), business type, support sessions</td><td>Operator console → Tenants → a business</td><td class="num">—</td><td>Operator only</td></tr>
           <tr><td><b>Inventory</b> — reservation hold times (2 settings)</td><td>No screen — API only</td><td class="num">2</td><td>Owner or Admin (API)</td></tr>
         </tbody>
@@ -599,7 +604,7 @@ footer{margin-top:40px;color:var(--txt3);font-size:13px}
       <h2>Test status and evidence</h2>
       <p class="muted">Every spec run on this build, before publishing. ${specsPassed} of ${vRows.length} specs passed; ${testsPassing} of ${testsTotal} tests.</p>
       <div class="table-wrap"><table><thead><tr><th>Spec</th><th class="num">Tests</th><th>Result</th></tr></thead><tbody>${vTable}</tbody></table></div>
-      ${failingNotes.length ? `<p class="muted">Failures on this run: ${failingNotes.map((f) => esc(f.spec + ' — ' + (f.fails || []).slice(0, 3).join('; '))).join(' · ')}</p>` : ''}
+      ${failingNotes.length ? `<p class="muted">Failures on this run: ${failingNotes.map((f) => esc(f.spec + ' — ' + (f.fails || []).slice(0, 3).join('; ') + (f.note ? ' (' + f.note + ')' : ''))).join(' · ')}</p>` : ''}
       <p class="muted">Visual regression: 18 baselines under <code>cypress/snapshots/cert/settings-ui-quality.cy.js/</code>. A difference over 0.2% of the screen fails the run and writes a diff image; an intended change is approved by re-recording with <code>--env updateSnapshots=true</code> and noting it here.</p>
     </section>
 
@@ -639,7 +644,7 @@ footer{margin-top:40px;color:var(--txt3);font-size:13px}
         <tr><td>The screen looks old after an update</td><td>Force-reload the page (Ctrl+F5) to fetch the new scripts and styles.</td></tr>
         <tr><td>Operator: “Open a support session for this business …”</td><td>Reading or changing a business’s records needs an open, explained support session (Tenants → the business → Open support session).</td></tr>
         <tr><td>“Opening balances are recorded against the cutover date, so the lock cannot come off”</td><td>(After the L9 fix is deployed.) Reverse the opening balances first; the lock can then be switched off.</td></tr>
-        <tr><td>Bonus Offers: no “30 paid earns … free” note beside the quantities</td><td>Known defect L16 on this build — the preview is refused by the server. The offer itself saves correctly.</td></tr>
+        <tr><td>Bonus Offers: no “30 paid earns … free” note beside the quantities</td><td>Both quantities must be filled. If they are and the note still does not appear, force-reload the page (Ctrl+F5): an older copy of the page’s script sent the preview without its security token (L16, fixed).</td></tr>
         <tr><td>Store → Order settings is not in the menu</td><td>The Store menu is shown only for a marketplace business. Test Order settings as <code>owner.marketplace@myplus.com</code>.</td></tr>
         <tr><td>Opening Balances: “Set the cutover date before recording any balance.”</td><td>Click <b>Set the cutover date</b>, enter the date in Configuration → Accounts, and come back. The date locks on the first balance.</td></tr>
         <tr><td>A console command answers 403 or nothing happens</td><td>Run it from a page of the application you are signed in to as the owner (the command needs that page’s session and security token).</td></tr>

@@ -730,7 +730,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     // A second ACTIVE store, so there is something to switch between. Reuse an old inactive branch through its
     // Reactivate button (L15) — stores cannot be deleted, so adding a fresh one every run would only pile up.
     const a3 = act('Click **Reactivate** on an older, inactive branch.',
-      ['The message says **Store reactivated.**, the row is no longer grey, its status reads **Active** and its button **Deactivate**.'])
+      ['The message says **Store reactivated.**, its status reads **Active** and its button **Deactivate**.'])
     cy.request('/getStores').then((r) => {
       const old = list(r.body).find((x) => x.status === 'INACTIVE' && x.name !== NAME)
       if (old) {
@@ -777,7 +777,7 @@ describe('Settings guide — F. the other settings screens, step by step (captur
     cy.get('body').type('{esc}')
 
     const c1 = act('Open **Settings → Stores** and click **Deactivate** on the new store’s row. Confirm.',
-      ['The message says **Store deactivated.**, the row turns grey with status **Inactive**, and its button now reads **Reactivate**.',
+      ['The message says **Store deactivated.**, its status reads **Inactive**, and its button now reads **Reactivate**.',
        'The store switcher no longer offers it (with one active store left, the switcher disappears).'], { cleanup: true })
     openDashboard()
     settingsItem('showStores')
