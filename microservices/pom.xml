@@ -44,6 +44,7 @@
     <module>common-audit</module>
     <module>common-subledger</module>
     <module>common-credit</module>
+    <module>common-docnum</module>
     <module>common-installment</module>
     <module>common-import</module>
     <module>commerce-domain</module>

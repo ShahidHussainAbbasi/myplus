@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

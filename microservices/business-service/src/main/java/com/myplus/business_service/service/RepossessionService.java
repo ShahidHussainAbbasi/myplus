@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -211,7 +213,7 @@ public class RepossessionService {
 
         // Same allocation the return path uses, so the document row and the GL line carry the SAME number.
         // Serialised counter, not MAX+1 — same reasoning as the ordinary return path.
-        long seq = documentNumberService.next(orgId, DocumentNumberService.CREDIT_NOTE);
+        long seq = documentNumberService.next(orgId, DocType.CREDIT_NOTE);
         String creditNoteNo = com.myplus.commerce.domain.InvoiceNumbers.creditNote(seq);
 
         // Capture the invoice AS ISSUED before this settles it — once only, or a later credit note would

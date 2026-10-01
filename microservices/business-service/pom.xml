@@ -21,6 +21,8 @@
     <dependency><groupId>com.myplus</groupId><artifactId>common-subledger</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- Slice 0.2b: shared party-credit rules (append-only ledger, capped redeem, cached balance). -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-credit</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- EX-0c: the per-org document-number allocator, shared with finance and expense -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-docnum</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- INST-1: schedule arithmetic + eligibility as PURE functions; the plan tables live here. -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-installment</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <!-- I1: CSV template + import engine (Template Method + Strategy). Holds no @Entity. -->

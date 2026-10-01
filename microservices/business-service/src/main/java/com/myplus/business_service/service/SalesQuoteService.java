@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -157,7 +159,7 @@ public class SalesQuoteService {
         // Allocate the number at creation so the document can be referenced immediately. MAX+1 inside this
         // transaction, made safe by UNIQUE(organization_id, quote_seq).
         // Serialised counter, not MAX+1.
-        long seq = documentNumberService.next(orgId(), DocumentNumberService.QUOTE);
+        long seq = documentNumberService.next(orgId(), DocType.QUOTE);
         q.setQuoteSeq(seq);
         q.setQuoteNo(InvoiceNumbers.quote(seq));
 

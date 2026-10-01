@@ -85,7 +85,7 @@ public class SellController {
 	
 	@Autowired
 	RequestUtil requestUtil;
-	@Autowired private com.myplus.business_service.service.DocumentNumberService documentNumberService;
+	@Autowired private com.myplus.common.docnum.DocumentNumberService documentNumberService;
 	
 	@Autowired
 	ObjectMapperUtils objectMapperUtils;
@@ -1878,7 +1878,7 @@ public class SellController {
 			// collision here could not be retried without putting the stock back twice. Allocated LATE — the
 			// row lock is held from here until commit.
 			long creditNoteSeq = documentNumberService.next(orgId(),
-					com.myplus.business_service.service.DocumentNumberService.CREDIT_NOTE);
+					com.myplus.business_service.service.DocType.CREDIT_NOTE);
 			String creditNoteNo = com.myplus.commerce.domain.InvoiceNumbers.creditNote(creditNoteSeq);
 
 			// Adjust the returned line: a full return removes it; a partial return reduces its qty and money

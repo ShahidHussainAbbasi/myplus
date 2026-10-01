@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -142,7 +144,7 @@ public class InstallmentPlanService {
 
         // Serialised allocator, not MAX+1. This method is REQUIRES_NEW and writes only to the database, so
         // the counter's row lock is held across DB work alone.
-        long seq = documentNumberService.next(orgId, DocumentNumberService.PLAN);
+        long seq = documentNumberService.next(orgId, DocType.PLAN);
         plan.setPlanSeq(seq);
         plan.setPlanNo(planNo(seq));
 

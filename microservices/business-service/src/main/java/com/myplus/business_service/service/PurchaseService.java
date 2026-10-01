@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -841,7 +843,7 @@ public class PurchaseService implements IPurchaseService{
 		try {
 			// Serialised counter, not MAX+1.
 			long dbnSeq = documentNumberService.next(user.getOrganizationId(),
-					com.myplus.business_service.service.DocumentNumberService.DEBIT_NOTE);
+					com.myplus.business_service.service.DocType.DEBIT_NOTE);
 			debitNoteNo = com.myplus.commerce.domain.InvoiceNumbers.debitNote(dbnSeq);
 			purchaseReturnRepo.save(com.myplus.business_service.entity.PurchaseReturn.builder()
 					.debitNoteSeq(dbnSeq).debitNoteNo(debitNoteNo)

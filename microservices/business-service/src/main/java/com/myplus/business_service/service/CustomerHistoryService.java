@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
@@ -210,7 +212,7 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 			// writePending's own DB-only transaction, AFTER the inventory reserve, so the lock never spans a
 			// remote call — which is the one thing that would turn per-tenant serialisation into a stall.
 			long seq = documentNumberService.next(user.getOrganizationId(),
-					com.myplus.business_service.service.DocumentNumberService.INVOICE);
+					com.myplus.business_service.service.DocType.INVOICE);
 			customerHistoryObj.setInvoiceSeq(seq);
 			customerHistoryObj.setInvoiceNo(InvoiceNumbers.format(seq));
 		}

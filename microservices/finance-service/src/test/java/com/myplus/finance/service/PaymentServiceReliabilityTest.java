@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import com.myplus.finance.dto.RecordPaymentRequest;
 import com.myplus.finance.entity.PartyType;
 import com.myplus.finance.entity.PaymentDirection;

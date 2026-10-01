@@ -16,7 +16,9 @@ import com.myplus.business_service.entity.OrgDocumentSeqId;
  * different costume. The serialisation has to happen in the database, in one statement, so the row lock
  * exists for the whole increment.
  */
-public interface OrgDocumentSeqRepo extends JpaRepository<OrgDocumentSeq, OrgDocumentSeqId> {
+// EX-0c: this repository IS the adapter for common-docnum's port — its three statements are unchanged.
+public interface OrgDocumentSeqRepo extends JpaRepository<OrgDocumentSeq, OrgDocumentSeqId>,
+        com.myplus.common.docnum.DocumentCounterStore {
 
     /**
      * Take the next number.

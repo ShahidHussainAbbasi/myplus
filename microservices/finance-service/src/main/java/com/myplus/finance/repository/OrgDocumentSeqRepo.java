@@ -16,7 +16,9 @@ import com.myplus.finance.entity.OrgDocumentSeqId;
  * increment. Same statements as business-service's {@code OrgDocumentSeqRepo}, whose javadoc records the two
  * deadlocks that fixed their order.
  */
-public interface OrgDocumentSeqRepo extends JpaRepository<OrgDocumentSeq, OrgDocumentSeqId> {
+// EX-0c: this repository IS the adapter for common-docnum's port — its three statements are unchanged.
+public interface OrgDocumentSeqRepo extends JpaRepository<OrgDocumentSeq, OrgDocumentSeqId>,
+        com.myplus.common.docnum.DocumentCounterStore {
 
     /** Take the next number. Takes an exclusive row lock held until the caller commits. @return rows affected */
     @Modifying

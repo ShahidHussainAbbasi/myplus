@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.docnum.DocumentNumberService;
+
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.CustomerHistory;
 import com.myplus.business_service.entity.Purchase;
@@ -168,7 +170,7 @@ public class OpeningBalanceService {
          * cannot consume an INV- number, and a shop's invoice series stays unbroken across its migration.
          * A gap in an invoice series is the kind of thing an auditor asks about.
          */
-        long seq = documentNumberService.next(orgId, DocumentNumberService.OPENING);
+        long seq = documentNumberService.next(orgId, DocType.OPENING);
         ch.setInvoiceNo(String.format("OB-%06d", seq));
         ch.setCustomerPoNumber(trimToNull(reference));
 
@@ -210,7 +212,7 @@ public class OpeningBalanceService {
         p.setNetAmount(owed);
         p.setPaidAmount(BigDecimal.ZERO);
         p.setDueAmount(owed.negate());
-        long seq = documentNumberService.next(orgId, DocumentNumberService.OPENING);
+        long seq = documentNumberService.next(orgId, DocType.OPENING);
         p.setPurchaseInvoiceNo(String.format("OB-%06d", seq));
 
         purchaseRepo.save(p);

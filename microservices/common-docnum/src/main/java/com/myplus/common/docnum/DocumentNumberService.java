@@ -1,15 +1,15 @@
-package com.myplus.business_service.service;
+package com.myplus.common.docnum;
 
-import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.myplus.business_service.repository.OrgDocumentSeqRepo;
-
-import lombok.RequiredArgsConstructor;
-
 /**
  * The next per-org document number, allocated so that two tills cannot take the same one.
+ *
+ * <p>EX-0c — moved here VERBATIM from business-service (DOC-INT, V45), where finance-service (V7) had copied it.
+ * One algorithm for every service that numbers documents; each keeps its own counter table behind
+ * {@link DocumentCounterStore}. The service-specific document TYPES stay with the service that owns them.
  *
  * <h3>What this replaces, and why</h3>
  * {@code SELECT MAX(seq) + 1} is not an allocation, it is a guess that is usually right. Two concurrent
@@ -19,8 +19,7 @@ import lombok.RequiredArgsConstructor;
  * <p>Here the number comes from a counter row, and the row lock the UPDATE takes is what makes the second
  * caller wait rather than collide. <b>The collision is prevented, not recovered from</b> — which matters
  * because the operations that need this have already touched inventory by the time they allocate, so replaying
- * them would put stock back twice. {@code SequenceRetry} recovers where replay is safe (the invoice and plan
- * writes, both pure database work in their own transaction); this prevents where it is not.
+ * them would put stock back twice.
  *
  * <h3>⚠ {@code MANDATORY} is load-bearing — it is what makes the numbering gapless</h3>
  * The bump must be part of the CALLER's transaction. A return that fails after taking number 42 then rolls the
@@ -34,26 +33,11 @@ import lombok.RequiredArgsConstructor;
  * <h3>⚠ Allocate LATE</h3>
  * The row lock is held from here until the caller commits, so every other till selling for that tenant waits
  * behind it. Call this immediately before the insert that needs the number — <b>never before a remote call</b>,
- * or the lock is held across the network and one slow inventory round trip stalls the whole tenant.
+ * or the lock is held across the network and one slow round trip stalls the whole tenant.
  */
-@Service
-@RequiredArgsConstructor
 public class DocumentNumberService {
 
-    public static final String CREDIT_NOTE = "CREDIT_NOTE";
-    public static final String DEBIT_NOTE = "DEBIT_NOTE";
-    public static final String QUOTE = "QUOTE";
-    public static final String INVOICE = "INVOICE";
-    public static final String PLAN = "PLAN";
-    /**
-     * OB-1 — opening balances get their OWN series (OB-000001), never the invoice one.
-     *
-     * An opening balance consuming an INV- number would leave a gap in the shop's invoice sequence at
-     * exactly the point an auditor looks hardest: the migration. The series is per-org like the others.
-     */
-    public static final String OPENING = "OPENING";
-
-    private final OrgDocumentSeqRepo repo;
+    private final ObjectProvider<DocumentCounterStore> storeProvider;
 
     /**
      * This bean, through the proxy. {@link #ensureCounter} must run in its OWN transaction, and a plain
@@ -61,34 +45,43 @@ public class DocumentNumberService {
      * the annotation would be decorative and the row would be created inside the caller's transaction after
      * all. That is exactly the trap that made INST-3a's scanner and this class's first two attempts wrong.
      */
-    private final org.springframework.beans.factory.ObjectProvider<DocumentNumberService> selfProvider;
+    private final ObjectProvider<DocumentNumberService> selfProvider;
+
+    /**
+     * Both collaborators are resolved LAZILY. The store is usually a Spring Data repository, whose bean
+     * definition is registered by another auto-configuration; resolving on first use means the order in which
+     * the two are registered cannot matter.
+     */
+    public DocumentNumberService(ObjectProvider<DocumentCounterStore> storeProvider,
+                                 ObjectProvider<DocumentNumberService> selfProvider) {
+        this.storeProvider = storeProvider;
+        this.selfProvider = selfProvider;
+    }
+
+    private DocumentCounterStore store() {
+        DocumentCounterStore s = storeProvider.getIfUnique();
+        if (s == null) {
+            throw new IllegalStateException("This service numbers documents but has no single DocumentCounterStore "
+                    + "bean — its OrgDocumentSeqRepo must implement com.myplus.common.docnum.DocumentCounterStore.");
+        }
+        return s;
+    }
 
     private DocumentNumberService self() {
-        return selfProvider.getObject();
+        DocumentNumberService s = selfProvider.getIfAvailable();
+        return s != null ? s : this;
     }
 
     /**
-     * Take the next number for this organisation and document type.
-     *
-     * @return the allocated number, 1 for the tenant's first document of that type
-     * @throws IllegalArgumentException when the organisation is unknown — a document number that is not
-     *         scoped to a tenant is a document number two tenants can both hold
-     * @throws org.springframework.transaction.IllegalTransactionStateException when called with no
-     *         transaction open (see the {@code MANDATORY} note above)
+     * @return the number just allocated: 1 for the first document of this type in this org, then 2, 3, …
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public long next(Long orgId, String docType) {
         if (orgId == null) {
             throw new IllegalArgumentException("A document number needs an organisation.");
         }
+        DocumentCounterStore repo = store();
 
-        // THE SERIALISATION POINT, and it runs FIRST. The UPDATE takes an exclusive row lock held until the
-        // caller commits, so a second till waits here instead of reading a stale maximum.
-        //
-        // ⚠ Doing this the other way round — ensure the row exists, then update it — DEADLOCKS, and did:
-        // INSERT IGNORE on an existing key takes a shared lock, the UPDATE then needs an exclusive one, and
-        // concurrent callers deadlock upgrading against each other. Update-first has no upgrade to deadlock
-        // on. The concurrency test found this within a minute of being written.
         // ⚠ EXISTENCE IS CHECKED WITH A PLAIN READ, BEFORE ANYTHING TAKES A LOCK. This ordering is the third
         // and final shape of this method, and the two before it were both broken:
         //
@@ -126,14 +119,11 @@ public class DocumentNumberService {
     }
 
     /**
-     * Create the counter row at zero if it does not exist, in its OWN transaction, committed immediately.
-     *
-     * <p>Idempotent by {@code INSERT IGNORE}: several tills issuing a tenant's very first credit note at the
-     * same moment all call this, one inserts, the rest are no-ops, and none of them holds a lock afterwards.
-     * Allocates no number, so committing separately cannot create a gap.
+     * Create the counter at zero, in a transaction of its OWN that commits immediately, so the row is visible
+     * to the caller's transaction before the caller locks it. Public only so the proxy can intercept it.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void ensureCounter(Long orgId, String docType) {
-        repo.createCounterAtZero(orgId, docType);
+        store().createCounterAtZero(orgId, docType);
     }
 }
