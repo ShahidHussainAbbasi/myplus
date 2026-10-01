@@ -1,0 +1,14 @@
+-- EX-0b — find a document's journal by (org, source, ref).
+-- Design: microservices/docs/slices/ex-0b-finance-expense-events.md
+--
+-- PostingService.postExpense / postExpenseReversal ask "has EXPENSE <voucherNo> been posted?" and "give me its
+-- lines to mirror". idx_je_org_date cannot serve WHERE organization_id = ? AND source = ? AND source_ref = ?
+-- (STANDARDS D3b: index the predicate the query runs, not the one the table was first indexed for).
+--
+-- NOT UNIQUE, deliberately: a SALE already posts two journals (revenue + COGS) under one ref, so uniqueness
+-- would fail on existing rows. A duplicate EXPENSE post is refused by the event's unique key in
+-- gl_processed_event (expense-service sends one deterministic key per voucher and action) and by the
+-- hasJournal check.
+--
+-- Additive; no data change. source is VARCHAR(20) — 'EXPENSE_REVERSAL' (16) fits.
+CREATE INDEX idx_je_org_source_ref ON journal_entries (organization_id, source, source_ref);

@@ -33,4 +33,13 @@ public class PostEventRequest {
      * revenue line or the tax register. Null/0 = no delivery, which is every counter sale.
      */
     private BigDecimal shippingFee;
+    /**
+     * EX-0b — EXPENSE only: the journal lines, each with an account CODE and a debit or a credit. The one event
+     * whose accounts the caller chooses, because the category→account mapping is the tenant's own; finance
+     * still decides what is ALLOWED (ExpensePostingRules). Ignored by every other event type.
+     *
+     * <p>⚠ business/education GlOutbox persist events FIELD BY FIELD and would drop this silently. Only a
+     * producer whose outbox stores the whole request (expense-service, payload JSON) may send it.
+     */
+    private java.util.List<JournalLineDTO> lines;
 }

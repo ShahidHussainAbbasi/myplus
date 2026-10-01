@@ -59,9 +59,10 @@ public class CapabilityCatalog implements SettingsCatalogProvider {
                 Shape.GENERAL.code(), SHAPE_GROUP, shapes));
 
         for (Capability c : Capability.values()) {
-            // Default TRUE for every capability — see the class javadoc. If this ever becomes false for a
-            // new capability, that is a decision to argue for in review, not a default to inherit quietly.
-            out.add(SettingEntry.bool(c.settingKey(), c.label(), c.help(), true, GROUP));
+            // The capability's own default — see the class javadoc. TRUE for every capability tenants already
+            // had; FALSE only for an opt-in module (EX-0a), which is declared on the enum value, argued for in
+            // its own javadoc, and never inherited quietly.
+            out.add(SettingEntry.bool(c.settingKey(), c.label(), c.help(), c.defaultOn(), GROUP));
         }
         return out;
     }

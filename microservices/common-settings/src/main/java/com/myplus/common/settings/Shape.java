@@ -39,7 +39,9 @@ public enum Shape {
      * permissive option rather than silently stripping a tenant's screens.
      */
     GENERAL("general", "General - show every feature",
-            EnumSet.allOf(Capability.class)),
+            // EX-0a — every capability that is ON by default, which is every one except opt-in modules. Still
+            // "everything a tenant had", so no existing tenant changes; an opt-in module stays the owner's call.
+            EnumSet.copyOf(Capability.defaultOnSet())),
 
     /** A counter that sells finished goods one at a time. Handsets, furniture, hardware, clothing. */
     RETAIL("retail", "Retail counter / POS",

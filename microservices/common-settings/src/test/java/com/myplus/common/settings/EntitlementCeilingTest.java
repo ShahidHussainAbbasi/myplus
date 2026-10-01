@@ -125,7 +125,7 @@ class EntitlementCeilingTest {
         for (Capability c : Capability.values()) {
             assertThat(svc.isEnabledFor(ORG, c))
                     .as("%s — a tenant keeps what it had; only an explicit withdrawal may subtract", c.code())
-                    .isTrue();
+                    .isEqualTo(c.defaultOn());
         }
     }
 
@@ -141,8 +141,8 @@ class EntitlementCeilingTest {
 
         for (Capability c : Capability.values()) {
             assertThat(svc.isEnabledFor(ORG, c))
-                    .as("%s must still default ON with no ceiling in play", c.code())
-                    .isTrue();
+                    .as("%s must still default as declared with no ceiling in play", c.code())
+                    .isEqualTo(c.defaultOn());
         }
     }
 

@@ -59,9 +59,11 @@ class CapabilityServiceTest {
          */
         CapabilityService svc = svc(new FakeStore());
         for (Capability c : Capability.values()) {
+            // EX-0a — restated precisely: what a tenant HAD stays ON; an opt-in module stays OFF. Both halves
+            // are the same promise — a deploy never changes what a tenant sees.
             assertThat(svc.isEnabledFor(7L, c))
-                    .as("%s must default ON for an unconfigured tenant", c.code())
-                    .isTrue();
+                    .as("%s must default to %s for an unconfigured tenant", c.code(), c.defaultOn())
+                    .isEqualTo(c.defaultOn());
         }
     }
 
@@ -93,7 +95,7 @@ class CapabilityServiceTest {
         CapabilityService svc = svc(new FakeStore());
         assertThat(svc.shapeFor(7L)).isEqualTo(Shape.GENERAL);
         for (Capability c : Capability.values()) {
-            assertThat(svc.isEnabledFor(7L, c)).as("%s with no shape chosen", c.code()).isTrue();
+            assertThat(svc.isEnabledFor(7L, c)).as("%s with no shape chosen", c.code()).isEqualTo(c.defaultOn());
         }
     }
 
@@ -284,7 +286,7 @@ class CapabilityServiceTest {
                     .findFirst()
                     .orElseThrow(() -> new AssertionError(
                             c.code() + " has no catalog entry — no owner can switch it off"));
-            assertThat(e.defaultValue()).as("%s must default ON", e.key()).isEqualTo("true");
+            assertThat(e.defaultValue()).as("%s default", e.key()).isEqualTo(String.valueOf(c.defaultOn()));
             assertThat(e.label()).isNotBlank();
             assertThat(e.help()).as("%s needs owner-facing help", e.key()).isNotBlank();
         }

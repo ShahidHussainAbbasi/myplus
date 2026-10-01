@@ -101,7 +101,50 @@ public class PostingService {
         else if ("OPENING_AR".equalsIgnoreCase(type)) postOpeningReceivable(req);
         else if ("OPENING_AP".equalsIgnoreCase(type)) postOpeningPayable(req);
         else if ("OPENING_AR_REVERSAL".equalsIgnoreCase(type)) postOpeningReceivableReversal(req);
+        else if ("EXPENSE".equalsIgnoreCase(type)) postExpense(req);
+        else if ("EXPENSE_REVERSAL".equalsIgnoreCase(type)) postExpenseReversal(req);
         else throw new IllegalArgumentException("Unknown event type: " + type);
+    }
+
+    // ---- EX-0b: expenses ---------------------------------------------------------------------------------------
+
+    static final String EXPENSE = "EXPENSE", EXPENSE_REVERSAL = "EXPENSE_REVERSAL";
+
+    /**
+     * EX-0b — an operating expense, posted with the accounts the tenant's category mapping chose.
+     *
+     *     Dr <expense account per line>      Cr 1000 Cash | 1010 Bank | 2000 AP | 2300 | 1300
+     *
+     * The caller chooses the accounts (a tenant maps "Fuel" to its own 6200); finance decides what is allowed
+     * ({@link ExpensePostingRules}) and that it balances ({@code GlService.validate}). The ref is the voucher
+     * number and is REQUIRED — it is how a void finds this journal again.
+     */
+    private void postExpense(PostEventRequest r) {
+        String ref = requireRef(r);
+        if (glService.hasJournal(EXPENSE, ref))
+            throw new IllegalArgumentException("Expense " + ref + " is already posted.");
+        ExpensePostingRules.check(r.getLines(), glService::accountTypeOf);
+        post(EXPENSE, r.getDate(), ref, r.getLines());
+    }
+
+    /**
+     * EX-0b — voiding an expense: the exact mirror of the journal the ledger posted for it, dated the day of the
+     * void (so a void in an open period never rewrites a closed one). Built from the POSTED lines, never from
+     * lines the caller sends, so a reversal cannot differ from what it undoes.
+     */
+    private void postExpenseReversal(PostEventRequest r) {
+        String ref = requireRef(r);
+        List<JournalLineDTO> posted = glService.postedLines(EXPENSE, ref)
+                .orElseThrow(() -> new IllegalArgumentException("Expense " + ref + " has no posted journal to reverse."));
+        if (glService.hasJournal(EXPENSE_REVERSAL, ref))
+            throw new IllegalArgumentException("Expense " + ref + " is already voided.");
+        post(EXPENSE_REVERSAL, r.getDate(), ref, ExpensePostingRules.mirror(posted, "Void " + ref));
+    }
+
+    private static String requireRef(PostEventRequest r) {
+        if (r.getRef() == null || r.getRef().isBlank())
+            throw new IllegalArgumentException("An expense posting needs its voucher number (ref).");
+        return r.getRef().trim();
     }
 
     /**

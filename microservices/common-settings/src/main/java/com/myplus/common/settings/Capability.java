@@ -20,10 +20,18 @@ package com.myplus.common.settings;
  * and so is {@code if ("PHARMA".equals(type))}. Capabilities describe behaviour, never customers and never
  * verticals.
  *
- * <h3>Default ON, deliberately</h3>
- * Every capability here defaults to enabled. On the deploy that introduces this, every tenant keeps exactly
- * the screens and endpoints it had — the first slice changes the SOURCE of a decision, never the decision.
- * Turning something off is then an owner's explicit act, and reversible.
+ * <h3>The default preserves today's behaviour — so it is ON for what tenants had, OFF for a new module</h3>
+ * The first fifteen capabilities describe behaviour every tenant already had, so they default to enabled: on
+ * the deploy that introduced them, every tenant kept exactly the screens and endpoints it had. Turning one off
+ * is an owner's explicit act, and reversible.
+ *
+ * <p>EX-0a (ruling R2b) — a capability that adds a whole new MODULE is the opposite case and is declared
+ * {@linkplain #optIn() opt-in}: OFF until the owner switches it on. The same rule produces both answers —
+ * "a deploy never changes what a tenant sees" — and the flag lives HERE, on the value, so the catalog default,
+ * the GENERAL preset and the business-type change all read one fact instead of three lists that drift.
+ *
+ * <p>An opt-in module is the owner's decision, not a property of the kind of business: no {@link Shape}
+ * presets one, and a business-type change never clears one (see {@link #isOptInKey}).
  */
 public enum Capability {
 
@@ -150,16 +158,72 @@ public enum Capability {
      */
     ORDER_TYPES("orderTypes", "Dine-in, take-away and delivery",
             "For food service — each sale records how it was served, and the day's takings split by it. "
-                    + "Leave off if every sale is the same kind.");
+                    + "Leave off if every sale is the same kind."),
+
+    // ── modules (opt-in: OFF until the owner switches them on) ─────────────────────────────────────
+
+    /**
+     * EX-0a — Expense management: record what the business spends (rent, power, fuel, repairs) and post it
+     * to the books. See microservices/docs/expense-management-design.md.
+     *
+     * <h3>Opt-in, by ruling R2</h3>
+     * A new module with its own menu and its own ledger postings. Default ON would put it in front of every
+     * tenant on the deploy, which is exactly what the live-modules rule forbids.
+     *
+     * <h3>In {@link Plan#FREE}, by ruling R-2</h3>
+     * Without it a shop's profit figure is overstated by everything it spends, and FREE is an allowlist that
+     * most legacy tenants sit on by accident — leaving it out would mean they could never switch it on.
+     *
+     * <p>Not named for any trade: every kind of business has running costs.
+     */
+    EXPENSE_MANAGEMENT("expenseManagement", "Expense management",
+            "Record what the business spends — rent, electricity, fuel, repairs — and see it in your "
+                    + "profit and loss. Off until you switch it on.", true);
 
     private final String code;
     private final String label;
     private final String help;
+    private final boolean optIn;
 
     Capability(String code, String label, String help) {
+        this(code, label, help, false);
+    }
+
+    Capability(String code, String label, String help, boolean optIn) {
         this.code = code;
         this.label = label;
         this.help = help;
+        this.optIn = optIn;
+    }
+
+    /** EX-0a — true for a module the owner must switch on. Never preset by a shape, never cleared by one. */
+    public boolean optIn() { return optIn; }
+
+    /** The catalog default and the GENERAL preset: ON unless this is an opt-in module. */
+    public boolean defaultOn() { return !optIn; }
+
+    /** Every capability that is ON by default — the GENERAL shape's preset. */
+    public static java.util.Set<Capability> defaultOnSet() {
+        java.util.EnumSet<Capability> out = java.util.EnumSet.noneOf(Capability.class);
+        for (Capability c : values()) {
+            if (c.defaultOn()) out.add(c);
+        }
+        return out;
+    }
+
+    /**
+     * True when a settings key is an opt-in module's switch.
+     *
+     * <p>Used by auth-service's business-type change, which clears every {@code org.cap.*} override so the new
+     * preset applies. An opt-in module is in no preset, so clearing its override would silently switch the
+     * module — and the records behind it — off. Its switch is therefore kept.
+     */
+    public static boolean isOptInKey(String settingKey) {
+        if (settingKey == null) return false;
+        for (Capability c : values()) {
+            if (c.optIn && c.settingKey().equals(settingKey)) return true;
+        }
+        return false;
     }
 
     /** The short code, e.g. {@code serialTracking}. Used in {@code [data-capability]} and on the wire. */

@@ -61,6 +61,24 @@ public class GlService {
             {"4300", "Delivery Income", AccountType.INCOME, NormalSide.CREDIT},
             {"5000", "Cost of Goods Sold", AccountType.EXPENSE, NormalSide.DEBIT},
             {"5100", "Purchases / Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
+            // EX-0b — the accounts Expense Management posts to. Back-filled by ensureDefaults() into charts
+            // seeded earlier, the same path 2200/4200/4300 took. Dev had 0 tenant accounts on these codes
+            // (checked 2026-10-02); a tenant that already owns one of them keeps its own row.
+            //
+            // 1300 / 2300 — an expense the business has not paid itself: settled against an advance it gave
+            // (asset) or owed back to the employee who paid (liability). Not posted to until EX-6/EX-7.
+            {"1300", "Employee Advances", AccountType.ASSET, NormalSide.DEBIT},
+            {"2300", "Employee Reimbursements Payable", AccountType.LIABILITY, NormalSide.CREDIT},
+            // The operating expenses a small business actually has. Their own block, apart from 5000 COGS and
+            // 5100 Purchases, so the P&L separates what the goods cost from what it cost to run the shop.
+            {"6000", "Rent", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6100", "Utilities", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6200", "Fuel and Transport", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6300", "Repairs and Maintenance", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6400", "Marketing", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6500", "Bank Charges", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6600", "Office and Supplies", AccountType.EXPENSE, NormalSide.DEBIT},
+            {"6900", "Other Operating Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
     };
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
@@ -119,6 +137,35 @@ public class GlService {
                 .type(AccountType.valueOf(dto.getType())).normalSide(NormalSide.valueOf(dto.getNormalSide()))
                 .organizationId(CurrentUser.organizationId()).build();
         return toDTO(accountRepository.save(a));
+    }
+
+    /** EX-0b — the tenant's account type for a code, or empty when it has no such account. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<AccountType> accountTypeOf(String code) {
+        return accountRepository.findByOrganizationIdAndCode(CurrentUser.organizationId(), code).map(Account::getType);
+    }
+
+    /**
+     * EX-0b — the lines of the tenant's journal for a (source, ref), by account id, or empty when there is none.
+     * Read so a reversal can mirror exactly what was POSTED rather than what a caller says was posted.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<List<JournalLineDTO>> postedLines(String source, String ref) {
+        return journalEntryRepository
+                .findFirstByOrganizationIdAndSourceAndSourceRef(CurrentUser.organizationId(), source, ref)
+                .map(e -> {
+                    List<JournalLineDTO> out = new ArrayList<>();
+                    for (JournalLine l : e.getLines())
+                        out.add(JournalLineDTO.builder().accountId(l.getAccountId())
+                                .debit(l.getDebit()).credit(l.getCredit()).build());
+                    return out;
+                });
+    }
+
+    /** EX-0b — true when the tenant already has a journal for this (source, ref). */
+    @Transactional(readOnly = true)
+    public boolean hasJournal(String source, String ref) {
+        return journalEntryRepository.existsByOrganizationIdAndSourceAndSourceRef(CurrentUser.organizationId(), source, ref);
     }
 
     // ---- Posting ----------------------------------------------------------------------------------------------

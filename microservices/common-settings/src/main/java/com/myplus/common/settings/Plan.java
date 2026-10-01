@@ -70,8 +70,13 @@ public enum Plan {
      * The live path to a customer: self-signup gets TRIAL (allOf), so a restaurant trials perfectly and then
      * loses its till on the day someone converts it to FREE.
      */
+    /*
+     * EX-0a (ruling R-2) — EXPENSE_MANAGEMENT is here for the same reason: without it a shop's profit figure
+     * is overstated by every rupee it spends. And because this is an allowlist, leaving it out would refuse it
+     * to every legacy tenant sitting on FREE by accident.
+     */
     FREE("FREE", EnumSet.of(Capability.BATCH_TRACKING, Capability.EXPIRY_TRACKING, Capability.LOOSE_SELLING,
-            Capability.MADE_TO_ORDER)),
+            Capability.MADE_TO_ORDER, Capability.EXPENSE_MANAGEMENT)),
 
     /**
      * Self-signup, time-boxed by {@code Organization.trialEndsAt} (ruling D-4).

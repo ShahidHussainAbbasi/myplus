@@ -114,7 +114,14 @@ describe('C4 — shape presets give each domain its own screens', () => {
             .map((r) => r.capability))
 
           cy.loginAsMobileOwner()
-          const checked = Object.entries(caps).filter(([code]) => !revoked.has(code))
+          /*
+           * EX-0a — OPT-IN modules are the other half of the same promise: OFF until the owner chooses them, and
+           * no preset (GENERAL included) gives them. Asserted OFF here rather than skipped, so a preset that
+           * leaked one ON would fail this case. Kept in step with Capability.optIn() by hand — a short list.
+           */
+          const OPT_IN = ['expenseManagement']
+          OPT_IN.forEach((code) => expect(caps[code], `${code} is opt-in: OFF with no override`).to.eq(false))
+          const checked = Object.entries(caps).filter(([code]) => !revoked.has(code) && !OPT_IN.includes(code))
           // The exclusion must not swallow the case: a ceiling that revoked everything would otherwise
           // leave an empty loop passing silently.
           expect(checked.length, 'capabilities remain to assert on after the ceiling is excluded')

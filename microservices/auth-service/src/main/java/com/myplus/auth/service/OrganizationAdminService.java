@@ -387,8 +387,16 @@ public class OrganizationAdminService {
         organizations.findById(organizationId)
                 .orElseThrow(() -> new IllegalArgumentException("No such organization: " + organizationId));
 
+        /*
+         * EX-0a — an OPT-IN module's switch is not the shape's to clear. No preset includes one, so deleting
+         * its override would not "apply the new preset" — it would switch the module, and the records behind
+         * it, off, with nothing in the confirmation saying so. Kept, and therefore not in the memento either:
+         * the memento records what this change destroyed.
+         */
         List<com.myplus.auth.entity.OrgSetting> overrides =
-                orgSettings.findByOrganizationIdAndSettingKeyStartingWith(organizationId, "org.cap.");
+                orgSettings.findByOrganizationIdAndSettingKeyStartingWith(organizationId, "org.cap.").stream()
+                        .filter(s -> !com.myplus.common.settings.Capability.isOptInKey(s.getSettingKey()))
+                        .toList();
 
         /*
          * ONB-3 — RECORD BEFORE CLEARING, in the same transaction.
@@ -465,6 +473,9 @@ public class OrganizationAdminService {
         List<String> on = new ArrayList<>();
         List<String> off = new ArrayList<>();
         for (com.myplus.common.settings.Capability c : com.myplus.common.settings.Capability.values()) {
+            // EX-0a — a business-type change never touches an opt-in module (applyShape keeps its switch),
+            // so listing it either way would tell the owner something false.
+            if (c.optIn()) continue;
             boolean now = capabilities.isEnabledFor(organizationId, c);
             // What the preset alone would give, bounded by what the platform still allows: a capability the
             // tenant is not entitled to must never be advertised as "turning on".
