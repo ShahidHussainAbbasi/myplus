@@ -238,6 +238,7 @@ public class CustomerController {
 		try {
 			Customer obj= new Customer();
 			LocalDateTime dated = LocalDateTime.now();
+			boolean identityChanged = false;   // DR-1: re-link only when a key the partner is matched on changed
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
 
@@ -277,6 +278,12 @@ public class CustomerController {
 					// carries a blank due from the form, so preserve the real balance instead of wiping it.
 					obj.setDueAmount(existing.getDueAmount());
 					obj.setDueDate(existing.getDueDate());
+					// DR-1: the edit form does not carry party_id, so the save used to WRITE IT AS NULL and rely on the
+					// after-commit bridge to restore it — a party-service hiccup at that moment lost the link. Keep it,
+					// and re-link only if the phone, email or CNIC (compared as keys) actually changed.
+					obj.setPartyId(existing.getPartyId());
+					identityChanged = com.myplus.business_service.service.PartyBridgeService.identityChanged(existing.getContact(), obj.getContact(),
+							existing.getEmail(), obj.getEmail(), existing.getCnic(), obj.getCnic());
 					// B2B-P0: an edit that does not carry the channel must not silently demote a trade account
 					// back to walk-in. Only a value the caller actually sent may change it.
 					if (dto.getCustomerType() == null) obj.setCustomerType(existing.getCustomerType());
@@ -308,7 +315,8 @@ public class CustomerController {
 				} catch (Exception stampFailed) {
 					LOGGER.warn("Customer {} saved but its credit account could not be stamped", obj.getCustomerId(), stampFailed);
 				}
-				partyBridgeService.bridgeCustomer(obj);   // P1: link to the shared party master (best-effort)
+				if (identityChanged) partyBridgeService.rebridgeCustomer(obj);   // DR-1: may now be another partner
+				else partyBridgeService.bridgeCustomer(obj);   // P1: link to the shared party master (best-effort, once)
 
 				/*
 				 * ⭐ PERF-13 — THE WRITE ANSWERS WITH THE ROW IT WROTE.

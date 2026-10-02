@@ -1541,6 +1541,15 @@ tr.row-voided .js-edit-row{display:none !important}
 								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}"> 
 						</div>
 					</div>
+					<!-- DR-1 (D5): optional. The strongest key for recognising this supplier as a business already
+					     registered as a customer — even when the phone numbers differ. -->
+					<div class="form-group">
+						<label class="control-label col-sm-2" for="venderCnicNtn" th:text="#{ui.cnicNtn}">CNIC / NTN</label>
+						<div class="col-sm-4">
+							<input type="text" class="form-control" id="venderCnicNtn" name="cnicNtn" maxlength="32"
+								placeholder="Optional" th:placeholder="#{ui.cnicNtnPlaceholder}">
+						</div>
+					</div>
 					<!-- B2B-P1 (#9, supplier side): the most we are willing to owe this vendor. Blank = no limit. -->
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="venderCreditLimit" th:text="#{ui.creditLimit}">Credit limit</label>
@@ -1653,6 +1662,13 @@ tr.row-voided .js-edit-row{display:none !important}
 					</button>
 					<button type="button" class="btn btn-info" onclick="openAging('CUSTOMER')" title="Receivables aging report (F2)" th:title="#{ui.receivablesAgingReportF2}">
 						<span class="glyphicon glyphicon-time"></span> <span th:text="#{ui.receivablesAging}">Receivables Aging</span>
+					</button>
+					<!-- DR-1: customers and suppliers that share a phone number or CNIC / NTN. Owner/admin, as the
+					     360 view is — it reveals which roles a partner holds. -->
+					<button type="button" id="partyDuplicatesBtn" class="btn btn-default" onclick="openPartyDuplicates()"
+					        sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE')"
+					        th:title="#{ui.possibleDuplicatesHelp}" title="Customers and suppliers that share a phone number or CNIC / NTN">
+						<span class="glyphicon glyphicon-duplicate"></span> <span th:text="#{ui.possibleDuplicates}">Possible duplicates</span>
 					</button>
 					<!-- Org-wide GL statements (Trial Balance / P&L / Balance Sheet / Tax / Audit) moved to the
 					     sidebar "Finance" menu — they are org-scoped reports, not customer data. -->

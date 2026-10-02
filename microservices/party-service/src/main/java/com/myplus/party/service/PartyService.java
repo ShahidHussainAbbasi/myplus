@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.myplus.common.security.CurrentUser;
 import com.myplus.party.dto.PartyContactViewDTO;
 import com.myplus.party.dto.PartyDTO;
+import com.myplus.party.dto.PartyDuplicateGroupDTO;
 import com.myplus.party.dto.PartyRoleDTO;
 import com.myplus.party.entity.Party;
 import com.myplus.party.repository.PartyRepository;
@@ -52,10 +53,16 @@ public class PartyService {
     }
 
     private Party createEntity(PartyDTO dto) {
+        return createEntity(dto, null);
+    }
+
+    /** {@code heldBackPhone}: a phone whose raw text another partner already holds — kept as this partner's KEY only. */
+    private Party createEntity(PartyDTO dto, String heldBackPhone) {
         Party p = new Party();
         p.setOrganizationId(CurrentUser.organizationId());
         p.setUserId(CurrentUser.userId());
         apply(p, dto);
+        p.setPhoneWithoutContact(heldBackPhone);
         return repo.save(p);
     }
 
@@ -75,18 +82,29 @@ public class PartyService {
     @Transactional
     public PartyDTO upsert(PartyDTO dto) {
         Long org = CurrentUser.organizationId();
-        Party match = null;
-        if (dto.getContact() != null && !dto.getContact().isBlank())
-            match = repo.findByOrgAndContact(org, dto.getContact().trim()).orElse(null);
-        if (match == null && dto.getEmail() != null && !dto.getEmail().isBlank())
-            match = repo.findByOrgAndEmail(org, dto.getEmail().trim()).stream().findFirst().orElse(null);
+        // DR-1: tax key -> phone key -> (raw contact) -> email, and email never against a stronger key. See PartyMatcher.
+        Party match = PartyMatcher.match(dto.getTaxId(), dto.getContact(), dto.getEmail(), new PartyMatcher.Lookup() {
+            public List<Party> byTaxKey(String k) { return repo.findByOrgAndTaxKey(org, k); }
+            public List<Party> byContactKey(String k) { return repo.findByOrgAndContactKey(org, k); }
+            public java.util.Optional<Party> byRawContact(String c) { return repo.findByOrgAndContact(org, c); }
+            public List<Party> byEmail(String e) { return repo.findByOrgAndEmail(org, e); }
+        });
 
         Party saved;
         if (match != null) {
             fillBlanks(match, dto);
             saved = repo.save(match);
         } else {
-            saved = createEntity(dto);
+            // A different partner may legitimately share this exact phone text (same number, different CNIC). The raw
+            // UNIQUE (org, contact) predates DR-1 and stays, so the newcomer is created without the raw text; it keeps
+            // its tax key, which is what identifies it.
+            String heldBack = null;
+            if (dto.getContact() != null && !dto.getContact().isBlank()
+                    && repo.findByOrgAndContact(org, dto.getContact().trim()).isPresent()) {
+                heldBack = dto.getContact().trim();
+                dto.setContact(null);
+            }
+            saved = createEntity(dto, heldBack);
         }
         recordLink(saved, dto.getRole());   // P4: identity AND role in one call — no extra round trip for the bridge
         return toDto(saved);
@@ -286,9 +304,32 @@ public class PartyService {
     private void recordLink(Party p, PartyRoleDTO role) {
         if (role == null || p == null || p.getId() == null) return;
         if (isBlank(role.getModule()) || isBlank(role.getRole()) || role.getLocalId() == null) return;
-        linkRepo.upsertLink(p.getOrganizationId(), p.getId(),
-                role.getModule().trim().toLowerCase(), role.getRole().trim().toUpperCase(),
-                role.getLocalId(), truncate(role.getLabel(), 160));
+        String module = role.getModule().trim().toLowerCase(), r = role.getRole().trim().toUpperCase();
+        // DR-1: a link MOVES - a record re-linked to this partner no longer belongs to the one it had before.
+        linkRepo.deleteLinksOnOtherParties(p.getOrganizationId(), p.getId(), module, r, role.getLocalId());
+        linkRepo.upsertLink(p.getOrganizationId(), p.getId(), module, r, role.getLocalId(), truncate(role.getLabel(), 160));
+    }
+
+    /**
+     * DR-1 — partners that share a phone key or a tax key with another partner in this org, grouped by that key, each
+     * with its roles. Read-only: joining two is a deliberate owner action (DR-2), never done here.
+     */
+    @Transactional(readOnly = true)
+    public List<PartyDuplicateGroupDTO> possibleDuplicates() {
+        List<Party> rows = repo.findPossibleDuplicates(CurrentUser.organizationId());
+        Map<String, List<Party>> byKey = new java.util.LinkedHashMap<>();
+        for (Party p : rows) {
+            if (p.getTaxKey() != null && rows.stream().filter(q -> p.getTaxKey().equals(q.getTaxKey())).count() > 1)
+                byKey.computeIfAbsent("TAX:" + p.getTaxKey(), k -> new java.util.ArrayList<>()).add(p);
+            if (p.getContactKey() != null && rows.stream().filter(q -> p.getContactKey().equals(q.getContactKey())).count() > 1)
+                byKey.computeIfAbsent("PHONE:" + p.getContactKey(), k -> new java.util.ArrayList<>()).add(p);
+        }
+        List<PartyDuplicateGroupDTO> out = new java.util.ArrayList<>();
+        byKey.forEach((k, parties) -> out.add(PartyDuplicateGroupDTO.builder()
+                .keyType(k.substring(0, k.indexOf(':'))).matchKey(k.substring(k.indexOf(':') + 1))
+                .parties(parties.stream().map(p -> contactView(p.getId())).filter(java.util.Objects::nonNull).toList())
+                .build()));
+        return out;
     }
 
     private static String truncate(String s, int max) {
@@ -308,6 +349,7 @@ public class PartyService {
         if (dto.getPartyType() != null) p.setPartyType(dto.getPartyType().trim().toUpperCase());
         p.setContact(blankToNull(dto.getContact()));
         p.setEmail(blankToNull(dto.getEmail()));
+        if (dto.getTaxId() != null) p.setTaxKey(com.myplus.common.web.PartyKeys.taxKey(dto.getTaxId()));
         p.setAddress(dto.getAddress());
         p.setNotes(dto.getNotes());
         if (dto.getActive() != null) p.setActive(dto.getActive());
@@ -317,7 +359,10 @@ public class PartyService {
     private void fillBlanks(Party p, PartyDTO dto) {
         if (isBlank(p.getName()) && !isBlank(dto.getName())) p.setName(dto.getName().trim());
         if (isBlank(p.getEmail()) && !isBlank(dto.getEmail())) p.setEmail(dto.getEmail().trim());
-        if (isBlank(p.getContact()) && !isBlank(dto.getContact())) p.setContact(dto.getContact().trim());
+        if (isBlank(p.getContact()) && !isBlank(dto.getContact())
+                && repo.findByOrgAndContact(p.getOrganizationId(), dto.getContact().trim()).isEmpty())
+            p.setContact(dto.getContact().trim());
+        if (isBlank(p.getTaxKey())) p.setTaxKey(com.myplus.common.web.PartyKeys.taxKey(dto.getTaxId()));
         if (isBlank(p.getAddress()) && !isBlank(dto.getAddress())) p.setAddress(dto.getAddress());
         if (isBlank(p.getPartyType()) && !isBlank(dto.getPartyType())) p.setPartyType(dto.getPartyType().trim().toUpperCase());
     }

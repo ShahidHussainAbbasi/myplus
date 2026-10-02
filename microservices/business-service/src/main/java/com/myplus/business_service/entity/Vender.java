@@ -106,6 +106,10 @@ public class Vender implements Serializable {
 	@Column(name = "party_id")
 	private Long partyId;
 
+	/** DR-1 (D5) — optional CNIC or NTN. The strongest key for recognising this supplier as an existing partner. */
+	@Column(name = "cnic_ntn", length = 32)
+	private String cnicNtn;
+
 	@Column(name = "description")
 	private String description;
 

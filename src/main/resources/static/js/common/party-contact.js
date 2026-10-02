@@ -86,7 +86,11 @@
              + " title='View this contact across modules'><span class='glyphicon glyphicon-user'></span> 360</button>";
     };
 
-    global.openContact360 = function (partyId) {
+    /**
+     * The shared popup: gradient header, close button, Escape / backdrop to close, focus returned to the opener.
+     * Returns { title, body } — the caller fills the body. One dialog for the 360 view and the duplicates list.
+     */
+    function openDialog(titleText) {
         injectStyles();
 
         var backdrop = document.createElement('div');
@@ -99,7 +103,7 @@
         var head = document.createElement('div');
         head.className = 'c360-head';
         var h = document.createElement('h3');
-        h.textContent = msg('ui.js.pcTitle', 'Contact across modules');
+        h.textContent = titleText;
         var x = document.createElement('button');
         x.type = 'button';
         x.className = 'c360-x';
@@ -128,6 +132,41 @@
         backdrop.addEventListener('mousedown', function (e) { if (e.target === backdrop) close(); });
         document.addEventListener('keydown', onKey, true);
         x.focus();
+        return { title: h, body: body, card: card };
+    }
+
+    /** Role chips — "Point of Sale · CUSTOMER (Usman Traders)". Built with textContent, never markup. */
+    function roleChips(roles) {
+        var chips = document.createElement('div');
+        chips.className = 'c360-chips';
+        (roles || []).forEach(function (r) {
+            var m = MODULES[(r.module || '').toLowerCase()] || { label: r.module || '?', color: '#475569' };
+            var chip = document.createElement('span');
+            chip.className = 'c360-chip';
+            chip.style.background = m.color;
+            chip.appendChild(document.createTextNode(m.label + ' · ' + (r.role || '')));
+            if (r.label) {
+                var sm = document.createElement('small');
+                sm.textContent = '(' + r.label + ')';
+                chip.appendChild(sm);
+            }
+            chips.appendChild(chip);
+        });
+        return chips;
+    }
+
+    function failed(body, key, fallback) {
+        body.textContent = '';
+        var err = document.createElement('div');
+        err.className = 'c360-empty';
+        err.style.color = '#DC2626';
+        err.textContent = msg(key, fallback);
+        body.appendChild(err);
+    }
+
+    global.openContact360 = function (partyId) {
+        var dlg = openDialog(msg('ui.js.pcTitle', 'Contact across modules'));
+        var h = dlg.title, body = dlg.body;
 
         jQuery.get(serverContext + 'partyRoles?id=' + encodeURIComponent(partyId), function (resp) {
             var d = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : {}) : (resp || {});
@@ -168,29 +207,59 @@
                 body.appendChild(e);
                 return;
             }
-            var chips = document.createElement('div');
-            chips.className = 'c360-chips';
-            roles.forEach(function (r) {
-                var m = MODULES[(r.module || '').toLowerCase()] || { label: r.module || '?', color: '#475569' };
-                var chip = document.createElement('span');
-                chip.className = 'c360-chip';
-                chip.style.background = m.color;
-                chip.appendChild(document.createTextNode(m.label + ' · ' + (r.role || '')));
-                if (r.label) {
-                    var s = document.createElement('small');
-                    s.textContent = '(' + r.label + ')';
-                    chip.appendChild(s);
-                }
-                chips.appendChild(chip);
-            });
-            body.appendChild(chips);
-        }, 'json').fail(function () {
+            body.appendChild(roleChips(roles));
+        }, 'json').fail(function () { failed(body, 'ui.js.pcLoadFailed', 'Could not load the contact view.'); });
+    };
+
+    /**
+     * DR-1 — partners that share a phone number (however it was typed) or a CNIC / NTN: probably one business
+     * entered twice. Owner/admin only, read-only — joining two is a deliberate action (DR-2), never automatic.
+     */
+    global.openPartyDuplicates = function () {
+        var dlg = openDialog(msg('ui.js.pdTitle', 'Possible duplicate partners'));
+        var body = dlg.body;
+        dlg.card.style.maxWidth = '640px';
+        jQuery.get(serverContext + 'partyDuplicates', function (resp) {
+            var groups = (typeof resp === 'string') ? (resp ? JSON.parse(resp) : []) : (resp || []);
+            if (!Array.isArray(groups)) groups = [];
             body.textContent = '';
-            var err = document.createElement('div');
-            err.className = 'c360-empty';
-            err.style.color = '#DC2626';
-            err.textContent = msg('ui.js.pcLoadFailed', 'Could not load the contact view.');
-            body.appendChild(err);
-        });
+            var intro = document.createElement('p');
+            intro.className = 'c360-empty';
+            intro.textContent = msg('ui.js.pdIntro',
+                'Each group shares a phone number or a CNIC / NTN. Nothing is merged automatically.');
+            body.appendChild(intro);
+            if (!groups.length) {
+                var none = document.createElement('div');
+                none.className = 'c360-empty';
+                none.setAttribute('data-pd-empty', '1');
+                none.textContent = msg('ui.js.pdNone', 'No possible duplicates found.');
+                body.appendChild(none);
+                return;
+            }
+            groups.forEach(function (g) {
+                var sec = document.createElement('p');
+                sec.className = 'c360-sec';
+                sec.style.marginTop = '16px';
+                sec.textContent = (g.keyType === 'TAX' ? msg('ui.js.pdSameTax', 'Same CNIC / NTN')
+                                                       : msg('ui.js.pdSamePhone', 'Same phone number')) + ' · ' + (g.matchKey || '');
+                body.appendChild(sec);
+                (g.parties || []).forEach(function (v) {
+                    var p = v.party || {};
+                    var box = document.createElement('div');
+                    box.setAttribute('data-pd-party', String(p.id));
+                    box.style.cssText = 'border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px';
+                    var dl = document.createElement('dl');
+                    dl.className = 'c360-id';
+                    dl.style.marginBottom = '8px';
+                    row(dl, 'Name', p.name);
+                    row(dl, 'Contact', p.contact);
+                    row(dl, 'Email', p.email);
+                    row(dl, 'Party ID', '#' + p.id);
+                    box.appendChild(dl);
+                    box.appendChild(roleChips(v.roles));
+                    body.appendChild(box);
+                });
+            });
+        }, 'json').fail(function () { failed(body, 'ui.js.pdLoadFailed', 'Could not load possible duplicates.'); });
     };
 })(window);

@@ -1,0 +1,406 @@
+/**
+ * DR — one business partner, two roles (customer AND supplier).
+ *
+ * Design: microservices/docs/party-dual-role-customer-supplier-analysis.md
+ * Manual cases: the "Dual-Role Partner Tests" page (same ids as below: W1, DR1-1 …).
+ *
+ * ── How this spec is organised ──────────────────────────────────────────────────────────────────────
+ * "Works today" runs NOW and pins the behaviour the design builds on.
+ * Each DR-n block is the GATE for that slice. Its cases are written against the designed API and are `it.skip`
+ * until the slice ships; enabling them is part of the slice. An endpoint named here that does not exist yet is
+ * the design's name for it — change both together if the design changes.
+ *
+ * ── Tenants ─────────────────────────────────────────────────────────────────────────────────────────
+ * Identity cases run on owner.business@ (no money). Position and set-off cases move AR/AP, so they run on
+ * owner.lifecycle@ — the Test Book's sacrificial tenant — and build their balances with OPENING BALANCES, which
+ * create an open receivable and an open payable without a sale or a purchase (cutover 2026-09-01, as in
+ * opening-balances.cy.js).
+ *
+ * Run headed:
+ *   npx cypress run --headed --browser electron --spec cypress/e2e/business/party-dual-role.cy.js
+ */
+const LIFECYCLE = 'owner.lifecycle@myplus.com'
+const PW = 'Demo@2025!'
+
+const list = (b) => { for (const k of ['collection', 'data', 'object']) if (Array.isArray(b && b[k])) return b[k]; return Array.isArray(b) ? b : [] }
+const payload = (b) => (b && (b.object || b.data)) || null
+const parse = (b) => { try { return typeof b === 'string' ? JSON.parse(b) : b } catch (e) { return {} } }
+const uniq = () => String(Date.now()).slice(-9)
+/** A valid mobile (03 + 9 digits) that is unique per call. */
+const mobile = (seed) => '03' + String(seed).padStart(9, '0').slice(-9)
+
+/** Register a customer; resolves to its row (re-read, because the party stamp lands after the response). */
+const addCustomer = (body) =>
+  cy.request({ method: 'POST', url: '/addCustomer', form: true, body, failOnStatusCode: false })
+    .then((r) => expect(r.body.status, `addCustomer: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
+    .then(() => cy.request('/getUserCustomer?q=-1'))
+    .then((r) => {
+      const c = list(r.body).find((x) => x.name === body.name)
+      expect(c, `customer ${body.name} readable back`).to.be.an('object')
+      return c
+    })
+
+/** A supplier needs at least one company; one is made per call. Resolves to the supplier row. */
+const addSupplier = (body) => {
+  const coName = 'DRCo_' + uniq()
+  return cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name: coName, email: `${coName}@t.com` } })
+    .then(() => cy.request('/getUserCompany'))
+    .then((co) => {
+      const companyId = list(co.body).find((x) => x.name === coName).id
+      return cy.request({ method: 'POST', url: '/addVender', form: true, failOnStatusCode: false, body: { companyId, ...body } })
+    })
+    .then((v) => expect(v.body.status, `addVender: ${JSON.stringify(v.body)}`).to.eq('SUCCESS'))
+    .then(() => cy.request('/getUserVender'))
+    .then((r) => {
+      const v = list(r.body).find((x) => x.name === body.name)
+      expect(v, `supplier ${body.name} readable back`).to.be.an('object')
+      return v
+    })
+}
+
+const partyRoles = (pid) => cy.request({ url: `/partyRoles?id=${pid}`, failOnStatusCode: false }).then((r) => parse(r.body))
+
+// ── Works today ─────────────────────────────────────────────────────────────────────────────────────
+describe('DR — works today: one partner, both roles, separate accounts', () => {
+  beforeEach(() => cy.loginAsOwner())
+
+  it('W1 — a customer and a supplier with the same mobile are ONE partner holding BOTH roles', () => {
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Cust ' + s, contact: phone }).then((c) => {
+      expect(c.partyId, 'customer linked to a partner').to.be.a('number')
+      addSupplier({ name: 'DR Supp ' + s, mobile: phone }).then((v) => {
+        expect(v.partyId, 'supplier linked to the SAME partner').to.eq(c.partyId)
+        partyRoles(c.partyId).then((d) => {
+          const roles = (d.roles || []).filter((x) => String(x.module).toLowerCase() === 'business').map((x) => x.role)
+          expect(roles, 'the partner holds both business roles').to.include.members(['CUSTOMER', 'VENDOR'])
+        })
+      })
+    })
+  })
+
+  it('W2 — the two roles keep their own records: separate ids, separate statements', () => {
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Cust2 ' + s, contact: phone }).then((c) => {
+      addSupplier({ name: 'DR Supp2 ' + s, mobile: phone }).then((v) => {
+        expect(c.customerId || c.id, 'customer id').to.not.eq(undefined)
+        expect(v.id, 'supplier id').to.not.eq(undefined)
+        cy.request(`/customerStatement?customerId=${c.customerId || c.id}`).its('status').should('eq', 200)
+        cy.request(`/vendorStatement?venderId=${v.id}`).its('status').should('eq', 200)
+      })
+    })
+  })
+})
+
+// ── DR-1: matching ──────────────────────────────────────────────────────────────────────────────────
+describe('DR-1 — matching finds the same partner and never merges two', () => {
+  beforeEach(() => cy.loginAsOwner())
+
+  it('DR1-1 — the same number in different formats is ONE partner (0300-…, +92300…)', () => {
+    const s = uniq()
+    const digits = String(s).padStart(9, '0').slice(-9)           // 9 digits after "03"
+    addCustomer({ name: 'DR Fmt C ' + s, contact: `03${digits.slice(0, 2)}-${digits.slice(2)}` }).then((c) => {
+      addSupplier({ name: 'DR Fmt S ' + s, mobile: `+923${digits}` }).then((v) => {
+        expect(c.partyId, 'customer linked').to.be.a('number')
+        expect(v.partyId, '+92 format matched the 0300- format').to.eq(c.partyId)
+      })
+    })
+  })
+
+  it('DR1-2 — a shared email does NOT merge two partners whose phones differ', () => {
+    const s = uniq()
+    const email = `office${s}@t.com`
+    addCustomer({ name: 'DR Mail C ' + s, contact: mobile(s), email }).then((c) => {
+      addSupplier({ name: 'DR Mail S ' + s, mobile: mobile(Number(s) + 1), email }).then((v) => {
+        expect(v.partyId, 'supplier linked').to.be.a('number')
+        expect(v.partyId, 'different phones = different partners, whatever the email').to.not.eq(c.partyId)
+      })
+    })
+  })
+
+  it('DR1-3 — a supplier with only a phone (no mobile) is matched on it', () => {
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Ph C ' + s, contact: phone }).then((c) => {
+      addSupplier({ name: 'DR Ph S ' + s, mobile: '', phone }).then((v) => expect(v.partyId).to.eq(c.partyId))
+    })
+  })
+
+  it('DR1-4 — the same CNIC/NTN matches even when the phones differ', () => {
+    const s = uniq()
+    const cnic = '35201' + String(s).padStart(8, '0').slice(-8)
+    addCustomer({ name: 'DR Tax C ' + s, contact: mobile(s), cnic }).then((c) => {
+      addSupplier({ name: 'DR Tax S ' + s, mobile: mobile(Number(s) + 7), cnicNtn: cnic }).then((v) => {
+        expect(v.cnicNtn, 'the supplier keeps its CNIC / NTN').to.eq(cnic)
+        expect(v.partyId, 'tax id outranks phone').to.eq(c.partyId)
+      })
+    })
+  })
+
+  it('DR1-5 — changing a customer\'s phone re-links it, and the old partner stops claiming it', () => {
+    const s = uniq()
+    const supplierPhone = mobile(s)
+    addSupplier({ name: 'DR Re S ' + s, mobile: supplierPhone }).then((v) => {
+      addCustomer({ name: 'DR Re C ' + s, contact: mobile(Number(s) + 3) }).then((c) => {
+        const oldParty = c.partyId
+        expect(oldParty, 'different phone = different partner first').to.not.eq(v.partyId)
+        cy.request({ method: 'POST', url: '/addCustomer', form: true,
+          body: { customerId: c.customerId || c.id, name: c.name, contact: supplierPhone, customerType: c.customerType || 'WALK_IN' } })
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.request('/getUserCustomer?q=-1').then((r) => {
+          const after = list(r.body).find((x) => (x.customerId || x.id) === (c.customerId || c.id))
+          expect(after.partyId, 're-linked after the phone edit').to.eq(v.partyId)
+        })
+        partyRoles(oldParty).then((d) => {
+          const stale = (d.roles || []).filter((x) => x.role === 'CUSTOMER' && Number(x.localId) === Number(c.customerId || c.id))
+          expect(stale, 'the old partner no longer lists this customer').to.have.length(0)
+        })
+      })
+    })
+  })
+
+  it('DR1-5b — an edit that changes nothing it is matched on keeps the same partner', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR Keep C ' + s, contact: mobile(s) }).then((c) => {
+      cy.request({ method: 'POST', url: '/addCustomer', form: true,
+        body: { customerId: c.customerId || c.id, name: c.name + ' (renamed)', contact: c.contact, customerType: c.customerType || 'WALK_IN' } })
+        .its('body.status').should('eq', 'SUCCESS')
+      cy.request('/getUserCustomer?q=-1').then((r) => {
+        const after = list(r.body).find((x) => (x.customerId || x.id) === (c.customerId || c.id))
+        expect(after.partyId, 'a rename keeps the partner').to.eq(c.partyId)
+      })
+    })
+  })
+
+  it('DR1-6 — owner opens "Possible duplicates" from Customers and sees a split pair; a cashier is refused', () => {
+    // The one way left to create two partners on one number: same phone, DIFFERENT CNIC / NTN. DR-1 keeps them
+    // apart (a tax id is a legal identity) and the owner's list shows them side by side.
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Dup C ' + s, contact: phone, cnic: '35201' + String(s).padStart(8, '0').slice(-8) }).then((c) => {
+      addSupplier({ name: 'DR Dup S ' + s, mobile: phone, cnicNtn: '42101' + String(Number(s) + 1).padStart(8, '0').slice(-8) }).then((v) => {
+        expect(v.partyId, 'different CNIC kept them apart').to.not.eq(c.partyId)
+
+        cy.visit('/businessDashboard'); cy.waitForAppReady()
+        cy.openSection('CustomerDiv')
+        cy.get('#partyDuplicatesBtn').should('be.visible').click()
+        cy.get('.c360-card').should('be.visible').and('contain', 'Same phone number')
+        cy.get(`.c360-card [data-pd-party="${c.partyId}"]`).scrollIntoView().should('be.visible').and('contain', 'DR Dup C ' + s)
+        cy.get(`.c360-card [data-pd-party="${v.partyId}"]`).scrollIntoView().should('be.visible')
+        cy.get('.c360-card .c360-x').click()
+        cy.get('.c360-card').should('not.exist')
+      })
+    })
+    cy.loginAsCashierA()
+    cy.request({ url: '/partyDuplicates', failOnStatusCode: false }).then((r) => {
+      const body = parse(r.body)
+      expect(r.status === 403 || !Array.isArray(body), 'cashier refused ' + r.status).to.eq(true)
+    })
+  })
+
+  it('DR1-7 — the supplier form offers CNIC / NTN, saves it, and loads it back on Edit', () => {
+    const s = uniq()
+    const ntn = '7' + String(s).padStart(6, '0').slice(-6)
+    addSupplier({ name: 'DR Form S ' + s, mobile: mobile(s), cnicNtn: ntn }).then((v) => {
+      expect(v.cnicNtn, 'saved').to.eq(ntn)
+      cy.visit('/businessDashboard'); cy.waitForAppReady()
+      cy.openSection('VenderDiv')
+      cy.get('#VenderDiv input[type="search"]').first().clear().type(v.name)
+      cy.contains('#VenderDiv tr', v.name, { timeout: 10000 }).find('.js-edit-row').first().click()
+      cy.get('#VenderModal').should('be.visible')
+      cy.get('#venderCnicNtn').should('be.visible').and('have.value', ntn)
+    })
+  })
+})
+
+// ── DR-2: the second role from the screen ───────────────────────────────────────────────────────────
+describe('DR-2 — second role, badges, link and unlink', () => {
+  beforeEach(() => cy.loginAsOwner())
+
+  it.skip('DR2-1 — grid rows say which partners hold the other role', () => {
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Badge C ' + s, contact: phone }).then((c) => {
+      addSupplier({ name: 'DR Badge S ' + s, mobile: phone }).then(() => {
+        cy.request('/getUserCustomer?q=-1').then((r) => {
+          expect(list(r.body).find((x) => x.name === c.name).alsoSupplier, 'customer row: also a supplier').to.eq(true)
+        })
+        cy.request('/getUserVender').then((r) => {
+          expect(list(r.body).find((x) => x.name === 'DR Badge S ' + s).alsoCustomer, 'supplier row: also a customer').to.eq(true)
+        })
+      })
+    })
+  })
+
+  it.skip('DR2-2 — "Add as supplier" on a customer row opens the supplier form filled from the customer', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR Add C ' + s, contact: mobile(s), email: `add${s}@t.com` }).then((c) => {
+      cy.visit('/businessDashboard'); cy.waitForAppReady()
+      cy.openSection('CustomerDiv')
+      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
+      cy.contains('#CustomerDiv tr', c.name).find('[data-action="add-as-supplier"]').click()
+      cy.get('#VenderModal').should('be.visible')
+      cy.get('#VenderModal [name="name"]').should('have.value', c.name)
+      cy.get('#VenderModal [name="mobile"]').should('have.value', c.contact)
+      cy.get('#VenderModal [name="email"]').should('have.value', c.email)
+    })
+  })
+
+  it.skip('DR2-3 — owner links a customer to a supplier the matching could not find, and can unlink it', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR Link C ' + s, contact: mobile(s) }).then((c) => {
+      addSupplier({ name: 'DR Link S ' + s, mobile: mobile(Number(s) + 9) }).then((v) => {
+        expect(v.partyId).to.not.eq(c.partyId)
+        cy.request({ method: 'POST', url: '/partyLink', headers: { 'Content-Type': 'application/json' }, body: { customerId: c.customerId || c.id, venderId: v.id } })
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.request('/getUserVender').then((r) => expect(list(r.body).find((x) => x.id === v.id).partyId, 'linked').to.eq(c.partyId))
+        cy.request({ method: 'POST', url: '/partyUnlink', headers: { 'Content-Type': 'application/json' }, body: { role: 'VENDOR', id: v.id } })
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.request('/getUserVender').then((r) => expect(list(r.body).find((x) => x.id === v.id).partyId, 'unlinked').to.not.eq(c.partyId))
+      })
+    })
+  })
+
+  it.skip('DR2-4 — a cashier cannot link or unlink', () => {
+    cy.loginAsCashierA()
+    cy.request({ method: 'POST', url: '/partyLink', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' }, body: { customerId: 1, venderId: 1 } })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'refused').to.eq(true))
+  })
+})
+
+// ── DR-3 / DR-4: position and set-off (MONEY — lifecycle tenant) ────────────────────────────────────
+describe('DR-3 / DR-4 — position and set-off', () => {
+  const asLifecycle = () => cy.loginAs(LIFECYCLE, PW, '/getBusinessDashboardStats')
+  const trialBalance = () => cy.request('/gl/trialBalance').then((r) => parse(r.body))
+  const net = (tb, code) => { const a = ((tb && tb.rows) || []).find((x) => x.code === code) || { debit: 0, credit: 0 }; return Number(a.debit) - Number(a.credit) }
+
+  /** A partner that owes us 30,000 (customer opening balance) and is owed 50,000 (supplier opening balance). */
+  const seedPartner = () => {
+    const s = uniq()
+    const phone = mobile(s)
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: 'business.cutoverDate', value: '2026-09-01' }, failOnStatusCode: false })
+    return addCustomer({ name: 'DR Pos C ' + s, contact: phone }).then((c) =>
+      addSupplier({ name: 'DR Pos S ' + s, mobile: phone }).then((v) => {
+        cy.request({ method: 'POST', url: '/postOpeningBalance', form: true, body: { customerId: c.customerId || c.id, amount: 30000, reference: 'dr ' + s } })
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.request({ method: 'POST', url: '/postOpeningBalance', form: true, body: { venderId: v.id, amount: 50000, reference: 'dr ' + s } })
+          .its('body.status').should('eq', 'SUCCESS')
+        return { c, v, partyId: c.partyId }
+      }))
+  }
+
+  beforeEach(asLifecycle)
+
+  it.skip('DR3-1 — position shows both balances and the net, and posts nothing', () => {
+    seedPartner().then(({ partyId }) => {
+      trialBalance().then((before) => {
+        cy.request(`/partyPosition?partyId=${partyId}`).then((r) => {
+          const p = payload(r.body) || parse(r.body)
+          expect(Number(p.receivable), 'they owe us').to.eq(30000)
+          expect(Number(p.payable), 'we owe them').to.eq(50000)
+          expect(Number(p.netIfSetOff), 'net (we owe 20,000)').to.eq(-20000)
+        })
+        trialBalance().then((after) => expect(after.totalDebit, 'a read posts nothing').to.eq(before.totalDebit))
+      })
+    })
+  })
+
+  it.skip('DR4-1 — set-off is refused without the "same business" confirmation, a reason, or over the smaller balance', () => {
+    seedPartner().then(({ c, v }) => {
+      const base = { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'agreed', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() }
+      const post = (body) => cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' }, body })
+      post({ ...base, confirmSameParty: false }).its('body.status').should('not.eq', 'SUCCESS')
+      post({ ...base, reason: '' }).its('body.status').should('not.eq', 'SUCCESS')
+      post({ ...base, amount: 30000.01 }).its('body.status').should('not.eq', 'SUCCESS')
+    })
+  })
+
+  it.skip('DR4-2 — set-off moves AR and AP only: Dr 2000 / Cr 1100, cash untouched, 1900 nets to zero', () => {
+    seedPartner().then(({ c, v }) => {
+      trialBalance().then((before) => {
+        cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
+          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'agreed contra', reference: 'letter 12', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.wait(1500)   // the journal is posted through the outbox after commit
+        trialBalance().then((after) => {
+          expect(net(after, '1100') - net(before, '1100'), 'AR credited 30,000').to.eq(-30000)
+          expect(net(after, '2000') - net(before, '2000'), 'AP debited 30,000').to.eq(30000)
+          expect(net(after, '1000') - net(before, '1000'), 'cash did not move').to.eq(0)
+          expect(net(after, '1010') - net(before, '1010'), 'bank did not move').to.eq(0)
+          expect(net(after, '1900') - net(before, '1900'), 'clearing nets to zero').to.eq(0)
+          expect(after.balanced, 'trial balance still balances').to.eq(true)
+        })
+      })
+    })
+  })
+
+  it.skip('DR4-3 — the same idempotency key twice records ONE set-off', () => {
+    seedPartner().then(({ c, v }) => {
+      const body = { customerId: c.customerId || c.id, venderId: v.id, amount: 10000, reason: 'retry', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() }
+      const post = () => cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' }, body })
+      post().then((a) => post().then((b) => {
+        expect((payload(b.body) || {}).setOffNo, 'replay returns the first document').to.eq((payload(a.body) || {}).setOffNo)
+      }))
+    })
+  })
+
+  it.skip('DR4-4 — both statements show the set-off; a cashier cannot create one', () => {
+    seedPartner().then(({ c, v }) => {
+      cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
+        body: { customerId: c.customerId || c.id, venderId: v.id, amount: 5000, reason: 'stmt', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
+        .then((r) => {
+          const no = (payload(r.body) || {}).setOffNo
+          cy.request(`/customerStatement?customerId=${c.customerId || c.id}`).then((s) => expect(JSON.stringify(s.body)).to.contain(no))
+          cy.request(`/vendorStatement?venderId=${v.id}`).then((s) => expect(JSON.stringify(s.body)).to.contain(no))
+        })
+      cy.loginAsCashierA()
+      cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
+        body: { customerId: c.customerId || c.id, venderId: v.id, amount: 1, reason: 'x', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
+        .then((r2) => expect(r2.status === 403 || (r2.body && r2.body.status !== 'SUCCESS'), 'cashier refused').to.eq(true))
+    })
+  })
+
+  it.skip('DR4-6 — reversing a set-off restores both balances and the trial balance', () => {
+    seedPartner().then(({ c, v, partyId }) => {
+      trialBalance().then((before) => {
+        cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
+          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'to reverse', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
+          .then((r) => cy.request({ method: 'POST', url: '/partySetOffReverse', headers: { 'Content-Type': 'application/json' },
+            body: { setOffNo: (payload(r.body) || {}).setOffNo, reason: 'entered in error' } }))
+          .its('body.status').should('eq', 'SUCCESS')
+        cy.wait(1500)
+        cy.request(`/partyPosition?partyId=${partyId}`).then((p) => {
+          const pos = payload(p.body) || parse(p.body)
+          expect(Number(pos.receivable), 'they owe us again').to.eq(30000)
+          expect(Number(pos.payable), 'we owe them again').to.eq(50000)
+        })
+        trialBalance().then((after) => {
+          ;['1100', '2000', '1000', '1010', '1900'].forEach((code) =>
+            expect(net(after, code) - net(before, code), `account ${code} back where it started`).to.eq(0))
+        })
+      })
+    })
+  })
+
+  it.skip('DR5-1 — receiving from a customer who is also an open supplier mentions the other side, and applies nothing', () => {
+    seedPartner().then(({ c }) => {
+      cy.request(`/partyPaymentHint?customerId=${c.customerId || c.id}`).then((r) => {
+        const h = payload(r.body) || parse(r.body)
+        expect(Number(h.otherSideOpen), 'we owe them 50,000 as a supplier').to.eq(50000)
+      })
+      cy.request(`/partyPosition?partyId=${c.partyId}`).then((p) => {
+        expect(Number((payload(p.body) || parse(p.body)).receivable), 'nothing applied by the hint').to.eq(30000)
+      })
+    })
+  })
+
+  it.skip('DR4-5 — a set-off between a customer and a supplier of DIFFERENT partners is refused', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR X C ' + s, contact: mobile(s) }).then((c) =>
+      addSupplier({ name: 'DR X S ' + s, mobile: mobile(Number(s) + 5) }).then((v) =>
+        cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
+          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 1, reason: 'x', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
+          .its('body.status').should('not.eq', 'SUCCESS')))
+  })
+})

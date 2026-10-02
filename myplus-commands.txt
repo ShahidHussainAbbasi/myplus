@@ -4,12 +4,13 @@ stock and item did not recorded any entry
 
  full industry-standard activity lifecycle for each vertical across UI/UX â service/API â DB, marks each step against the codebase, and proposes the phased sequence.
  
-  as per full industry-standards, domain activity lifecycle for each vertical use cases across front-end  UI/UX, back-end service/API, DBs as per technical standards and design patterns of pure software development and microservices level, mark each step against the codebase, and proposes the phase wise sequence.
-  please highlight if something is not implemented already not according to SaaS and domain/busisness, Industry standards and design around per-org/admin configurability
+  as per SaaS based industry-standards, domain activity lifecycle for each vertical use cases across front-end  UI/UX, back-end service/API, selection of best Data Bases as per use cases, technical standards/Design patterns and Principes of pure software development along with microservices level design and develoment.
+  please highlight if something is not implemented already according to domains/busisness selected, Industry standards and design around per-org/admin configurability common setting/config service used for setup and configurations etc..
+  principles and DRY
   
  addSell submission (where the cart + customer + paid/due are assembled and posted)
  
-  
+  always analyze the docs and standards we have,share your analysis for my review. we need to document, design, create cypress test cases and then implement ,test, onece green creat a manual test cases and share with me and then ask for commit
  
  real risk to delete" vs "harmless if left" → park it.
  
@@ -27,5 +28,32 @@ For what's next, the remaining work is polish/features, not core:
 - VOID_INVOICE privilege — needs a microservice method-security mechanism (its own cross-cutting slice).
 - Smaller: finance payment-hook retry, idempotency stale-PENDING reaper.
 
+Proposed sequence (in the doc, full rationale there)
+
+┌───────┬────────────────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────┐
+│ Phase │                              What                              │                                        Why here                                        │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ A     │ Extract common-settings lib + roll Configuration to commerce   │ Highest leverage — every vertical's 🔒 gap resolves through this one lib (DRY/reuse    │
+│       │                                                                │ standard)                                                                              │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ B     │ Finish authz tail (pharma Rx, marketplace, appointment role    │ Closes the security spine, already ~90% done                                           │
+│       │ model)                                                         │                                                                                        │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ C     │ Lift welfare + agriculture to real lifecycles + gates          │ Weakest verticals to product-grade                                                     │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ D     │ Appointment slot/booking engine + reminders + config           │ Missing domain core                                                                    │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ E     │ Pharma insurer AR/claims + regulated config                    │ Revenue + compliance depth                                                             │
+├───────┼────────────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────┤
+│ F     │ Marketplace PSP + coupon/shipping config + order reliability   │ Commerce depth                                                                         │
+└───────┴────────────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────┘
 
 
+Technology@2025!
+
+❯ 1. SET-GUIDE L14–L18 (Recommended)
+     Settings guide v4 is published, but F4 fails because of L16 (the bonus preview gets a 403 because a CSRF check is skipped). L17 has 'Applies to' showing every picker. Fixing L16 and L17 makes F4 pass so the guide can be republished all green. L14 (offers can't be edited or deleted) and L15 (stores can't be deactivated) are still only documented.
+  2. Education EDU-PERM slice 3
+     The EDU-IDOR fix (alerts are fetched with a bare findById, which lets one school read another school's rows) and the attendance.staff guard are written and committed but not verified. They need an education-service rebuild from you, then I rerun the 48-spec suite. Two failures are still unexplained: notification-delivery (5) and picker-refresh-safety (2).
+  3. Restaurant R2b
+     RST-R2a passed 7/7 and is committed. The next phase, R2b, is tables and the kitchen screen. It's new work, so I'd start with a review and design and wait for your consent before building.

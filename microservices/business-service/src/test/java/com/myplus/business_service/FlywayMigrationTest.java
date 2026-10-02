@@ -285,4 +285,11 @@ class FlywayMigrationTest {
         assertThat(((Number) cols.get(2).get("SUB_PART")).intValue())
                 .as("the full varchar(255) is 1020 bytes against MyISAM's 1000").isEqualTo(64);
     }
+
+    @Test
+    void dr1_a_supplier_can_carry_a_cnic_or_ntn() {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                + "AND TABLE_NAME = 'vender' AND COLUMN_NAME = 'cnic_ntn' AND IS_NULLABLE = 'YES'", Integer.class);
+        assertThat(n).as("V69 — vender.cnic_ntn, optional").isEqualTo(1);
+    }
 }

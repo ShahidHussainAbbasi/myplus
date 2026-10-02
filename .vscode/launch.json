@@ -2,6 +2,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "AgricultureServiceApplication",
+            "request": "launch",
+            "mainClass": "AgricultureServiceApplication",
+            "projectName": "myplus"
+        },
+        {
+            "type": "java",
             "name": "BusinessServiceApplication",
             "request": "launch",
             "mainClass": "BusinessServiceApplication",

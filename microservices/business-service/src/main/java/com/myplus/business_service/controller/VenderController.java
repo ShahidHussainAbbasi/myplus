@@ -154,6 +154,7 @@ public class VenderController {
 		try {
 			Vender obj= new Vender();
 			LocalDateTime dated = LocalDateTime.now();
+			boolean identityChanged = false;   // DR-1: re-link only when a key the partner is matched on changed
 			AuthenticatedUser user = requestUtil.getCurrentUser();
 			dto.setUserId(user.getUserId());
 			obj.setUserId(user.getUserId());
@@ -172,6 +173,11 @@ public class VenderController {
 				if(existing != null) {
 					obj.setDated(existing.getDated());
 					obj.setDueAmount(existing.getDueAmount());   // F1 (AP): a profile edit must not wipe the payable
+					// DR-1: keep the partner link (the form does not carry it); re-link only if a match key changed.
+					obj.setPartyId(existing.getPartyId());
+					identityChanged = com.myplus.business_service.service.PartyBridgeService.identityChanged(
+							firstNonBlank(existing.getMobile(), existing.getPhone()), firstNonBlank(obj.getMobile(), obj.getPhone()),
+							existing.getEmail(), obj.getEmail(), existing.getCnicNtn(), obj.getCnicNtn());
 				}
 			}else {
 				obj.setDated(dated);
@@ -199,7 +205,8 @@ public class VenderController {
 			if(appUtil.isEmptyOrNull(obj)) {
 				return new GenericResponse("FAILED", "Failed to save vender. Please try again.");
 			}else {
-				partyBridgeService.bridgeVender(obj);   // P1: link to the shared party master (best-effort)
+				if (identityChanged) partyBridgeService.rebridgeVender(obj);   // DR-1: may now be another partner
+				else partyBridgeService.bridgeVender(obj);   // P1: link to the shared party master (best-effort, once)
 				return new GenericResponse("SUCCESS", "Vender saved successfully.");
 			}
 		} catch (Exception e) {
@@ -277,6 +284,11 @@ public class VenderController {
 	 * <p>Both in ONE place because they were previously written out twice, in two loops, and the second copy
 	 * used a different null check than the first. Two copies of a mapping are two chances to disagree.
 	 */
+	/** DR-1: a supplier is matched on its mobile, or its phone when it has no mobile. */
+	private static String firstNonBlank(String a, String b) {
+		return (a != null && !a.isBlank()) ? a : b;
+	}
+
 	private void fillCompanies(VenderDTO dto, Vender obj) {
 		if (obj.getCompanies() == null || obj.getCompanies().isEmpty()) return;
 

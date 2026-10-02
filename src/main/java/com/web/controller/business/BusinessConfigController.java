@@ -325,7 +325,7 @@ public class BusinessConfigController {
      * prefixes cannot drift from the constants that generate them.
      */
     private static boolean ownedByAuth(String key) {
-        return key != null && (key.startsWith("org.cap.") || "org.shape".equals(key));
+        return com.web.util.AuthSettingsClient.ownedByAuth(key);   // EX-2a: one definition, shared
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -334,14 +334,15 @@ public class BusinessConfigController {
     @org.springframework.beans.factory.annotation.Value("${auth.server.url:http://localhost:8765}")
     private String authDirectUrl;
 
+    /** EX-2a — auth access goes through the shared client, so this screen and the Modules card cannot drift. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.web.util.AuthSettingsClient authSettings;
+
     private Map<String, Object> authGet(String path) {
-        return gateway.forMap(AUTH_PREFIX, authDirectUrl, path,
-                org.springframework.http.HttpMethod.GET, null, null);
+        return authSettings.get(path);
     }
 
     private Map<String, Object> authPost(String path) {
-        return gateway.forMap(AUTH_PREFIX, authDirectUrl, path,
-                org.springframework.http.HttpMethod.POST, java.util.Map.of(),
-                org.springframework.http.MediaType.APPLICATION_JSON);
+        return authSettings.post(path);
     }
 }

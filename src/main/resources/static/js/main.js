@@ -875,6 +875,12 @@ $(document).ready(function() {
 
 	$(function() {
 	  $('.dropdown').change(function(){
+	    // EX-2a — a sidebar link may point the hidden picker at a screen that is NOT one of its options
+	    // (welfare/farm "Configuration" → ConfigDiv; "Expenses" → ''). The value is then null/empty, and this
+	    // handler threw on `null.replace` / `$('#')` AFTER hiding every section — so the link's own show
+	    // function never ran and the page went blank (Configuration could not be opened from the sidebar).
+	    // With no value there is nothing for THIS handler to show: leave it to the link's own function.
+	    if (!$(this).val()) return;
 	    $('.formDiv').hide();
 	    var $shown = $('#' + $(this).val()).show();
 	    // These dashboards are taller than the viewport: scroll the section the user just picked under the

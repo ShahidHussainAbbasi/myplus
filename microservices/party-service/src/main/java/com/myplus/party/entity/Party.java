@@ -40,6 +40,26 @@ public class Party {
     @Column(name = "email")
     private String email;
 
+    /**
+     * DR-1 — the phone as a MATCH key: last 10 digits ({@link com.myplus.common.web.PartyKeys#phoneKey}), so every
+     * spelling the mobile validator accepts is one partner. DERIVED from {@code contact} on every write (see the
+     * lifecycle hooks below) — never set directly, so no writer can leave it out of step.
+     */
+    @Column(name = "contact_key", length = 16)
+    private String contactKey;
+
+    /** DR-1 — CNIC / NTN digits ({@link com.myplus.common.web.PartyKeys#taxKey}). The strongest match key. */
+    @Column(name = "tax_key", length = 32)
+    private String taxKey;
+
+    /**
+     * DR-1 — the phone a partner HAS when its raw text cannot be stored: same number as another partner but a different
+     * CNIC / NTN (two legal identities), and the raw UNIQUE (org, contact) forbids a second copy of the text. Without
+     * this the newcomer had no phone key at all, so the owner's "possible duplicates" list could never show the pair.
+     */
+    @Transient
+    private String phoneWithoutContact;
+
     @Column(name = "address")
     private String address;
 
@@ -77,7 +97,21 @@ public class Party {
     private LocalDateTime updatedAt;
 
     @PrePersist
-    void prePersist() { this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now(); }
+    void prePersist() {
+        this.createdAt = LocalDateTime.now(); this.updatedAt = LocalDateTime.now();
+        this.contactKey = deriveContactKey();
+    }
     @PreUpdate
-    void preUpdate() { this.updatedAt = LocalDateTime.now(); }
+    void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+        this.contactKey = deriveContactKey();
+    }
+
+    /** From the stored contact; else the phone held back by {@link #phoneWithoutContact}; else the key already held (a
+     *  partner created that way keeps its key across later edits that do not touch the contact). */
+    private String deriveContactKey() {
+        if (contact != null) return com.myplus.common.web.PartyKeys.phoneKey(contact);
+        if (phoneWithoutContact != null) return com.myplus.common.web.PartyKeys.phoneKey(phoneWithoutContact);
+        return contactKey;
+    }
 }

@@ -178,7 +178,9 @@
 									<li><a onclick="showFeeAging()"><span class="glyphicon glyphicon-time"></span> <span th:text="#{ui.feeArrears}">Fee Arrears</span></a></li>
 									<li><a onclick="showFeeStatement()"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.feeStatement}">Student Statement</span></a></li>
 									<!-- Owner Configuration: the generic per-tenant settings screen (branch policies etc.). -->
-									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
+									<!-- EX-2a — Expenses. Any member records what was paid; hidden until the owner switches the module on. -->
+									<li data-capability="expenseManagement"><a id="navExpenses" onclick="showExpenses();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-export"></span> <span th:text="#{ui.expenses}">Expenses</span></a></li>
+									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();loadModuleSwitches();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 								</ul>
 							</div>
 							<div class="snav-dd" id="snavReport">
@@ -3386,10 +3388,14 @@
 				</table>
 			</div>
 
+			<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
+			<div th:replace="~{fragments/expense :: expenseSection}"></div>
+
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.configuration}">Configuration</h4>
 				<p style="color:#7a889c" th:text="#{ui.ownerSetupChangesApplyToThis}">Owner setup. Changes apply to this organization only and take effect immediately.</p>
 				<div id="configMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
+				<div th:replace="~{fragments/module-switches :: moduleSwitchesCard}"></div>
 				<div id="configBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 			<form th:action="@{/impStudents}" method="post" enctype="multipart/form-data" style="display: none">
@@ -3436,6 +3442,9 @@ var serverContext = [[@{/}]];
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
 <script th:src="@{/js/common/searchable-selects.js}"></script>
+<!-- EX-2a — Expenses (shared screen) and the Modules card (switch opt-in modules on). -->
+<script th:src="@{/js/common/expense.js}"></script>
+<script th:src="@{/js/common/module-switches.js}"></script>
 	<script type="text/javascript">
 		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
 		function snavToggle(e, id) {

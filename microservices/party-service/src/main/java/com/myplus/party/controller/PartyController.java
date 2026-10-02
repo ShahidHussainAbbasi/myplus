@@ -58,6 +58,13 @@ public class PartyController {
      * must not learn that a customer is a patient. Role rows carry a display label and nothing more.
      * <p>404 (not 403) for a party in another tenant, so the endpoint can't be used to probe cross-tenant existence.
      */
+    /** DR-1 — partners sharing a phone or tax key (probably one business twice). Owner/admin: it reveals roles. */
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    @GetMapping("/duplicates")
+    public List<com.myplus.party.dto.PartyDuplicateGroupDTO> duplicates() {
+        return service.possibleDuplicates();
+    }
+
     @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
     @GetMapping("/{id}/roles")
     public ResponseEntity<PartyContactViewDTO> roles(@PathVariable Long id) {

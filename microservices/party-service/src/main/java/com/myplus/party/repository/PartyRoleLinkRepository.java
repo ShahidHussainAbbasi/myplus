@@ -30,4 +30,14 @@ public interface PartyRoleLinkRepository extends JpaRepository<PartyRoleLink, Lo
     @Query("SELECT l FROM PartyRoleLink l WHERE l.partyId = :partyId "
          + "AND (l.organizationId = :orgId OR l.organizationId IS NULL) ORDER BY l.module ASC, l.role ASC, l.localId ASC")
     List<PartyRoleLink> findForParty(@Param("partyId") Long partyId, @Param("orgId") Long orgId);
+
+    /**
+     * DR-1 — a role link MOVES: when a module record is re-linked to another partner, its link on every OTHER party is
+     * removed, so the old partner stops claiming a record it no longer owns. Scoped to the org (idx_role_link_org_local).
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "DELETE FROM party_role_link WHERE organization_id <=> :orgId AND module = :module AND role = :role "
+                 + "AND local_id = :localId AND party_id <> :partyId", nativeQuery = true)
+    int deleteLinksOnOtherParties(@Param("orgId") Long orgId, @Param("partyId") Long partyId, @Param("module") String module,
+                                  @Param("role") String role, @Param("localId") Long localId);
 }

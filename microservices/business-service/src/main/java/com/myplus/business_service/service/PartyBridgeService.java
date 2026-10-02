@@ -46,7 +46,7 @@ public class PartyBridgeService {
 
     /** Identity captured at publish time so the after-commit handler needs no entity reload. */
     public record PartyBridgeRequest(String partyType, String refType, Long id,
-                                     String name, String contact, String email, String address) {}
+                                     String name, String contact, String email, String address, String taxId) {}
 
     @Autowired
     private ApplicationEventPublisher events;
@@ -63,15 +63,40 @@ public class PartyBridgeService {
     /** Queue a customer for bridging (best-effort, once). No-op if already bridged. Runs after the caller's tx commits. */
     public void bridgeCustomer(Customer c) {
         if (c == null || c.getCustomerId() == null || c.getPartyId() != null) return;
+        rebridgeCustomer(c);
+    }
+
+    /**
+     * DR-1 — bridge AGAIN even though the record is already linked: its phone, email or CNIC changed, so it may now be
+     * a different partner. party-service re-matches and MOVES the role link; the old partner stops claiming it.
+     */
+    public void rebridgeCustomer(Customer c) {
+        if (c == null || c.getCustomerId() == null) return;
         events.publishEvent(new PartyBridgeRequest("CUSTOMER", "customer", c.getCustomerId(),
-                c.getName(), c.getContact(), c.getEmail(), c.getAddress()));
+                c.getName(), c.getContact(), c.getEmail(), c.getAddress(), c.getCnic()));
     }
 
     /** Queue a vendor for bridging (best-effort, once). */
     public void bridgeVender(Vender v) {
         if (v == null || v.getId() == null || v.getPartyId() != null) return;
+        rebridgeVender(v);
+    }
+
+    /** DR-1 — as {@link #rebridgeCustomer}. A supplier is matched on its mobile, or its phone when it has no mobile. */
+    public void rebridgeVender(Vender v) {
+        if (v == null || v.getId() == null) return;
+        String contact = (v.getMobile() != null && !v.getMobile().isBlank()) ? v.getMobile() : v.getPhone();
         events.publishEvent(new PartyBridgeRequest("VENDOR", "vender", v.getId(),
-                v.getName(), v.getMobile(), v.getEmail(), v.getAddress()));
+                v.getName(), contact, v.getEmail(), v.getAddress(), v.getCnicNtn()));
+    }
+
+    /** DR-1 — did an edit change anything the partner is MATCHED on? Compared on the keys, so re-typing a number in
+     *  another format is not a change. */
+    public static boolean identityChanged(String oldPhone, String newPhone, String oldEmail, String newEmail,
+                                          String oldTax, String newTax) {
+        return !java.util.Objects.equals(com.myplus.common.web.PartyKeys.phoneKey(oldPhone), com.myplus.common.web.PartyKeys.phoneKey(newPhone))
+            || !java.util.Objects.equals(com.myplus.common.web.PartyKeys.emailKey(oldEmail), com.myplus.common.web.PartyKeys.emailKey(newEmail))
+            || !java.util.Objects.equals(com.myplus.common.web.PartyKeys.taxKey(oldTax), com.myplus.common.web.PartyKeys.taxKey(newTax));
     }
 
     /** After the domain tx commits (or inline when there was none), upsert the party + stamp party_id — outside the
@@ -83,7 +108,7 @@ public class PartyBridgeService {
         try {
             PartyRef ref = partyClient.upsert(PartyRef.builder()
                     .partyType(req.partyType()).name(req.name()).contact(req.contact())
-                    .email(req.email()).address(req.address())
+                    .email(req.email()).address(req.address()).taxId(req.taxId())
                     .role(roleOf(req)).build());
             cbFailures.set(0);   // a successful call closes the breaker
             if (ref == null || ref.getId() == null) return;

@@ -10,6 +10,8 @@ public class PartyDTO {
     private String name;
     private String contact;
     private String email;
+    /** DR-1 — CNIC / NTN as sent by the bridge. Stored only as its match key ({@code party.tax_key}); never echoed. */
+    private String taxId;
     private String address;
     private String notes;
     private Boolean active;

@@ -14,6 +14,8 @@ public class PartyRef {
     private String name;
     private String contact;
     private String email;
+    /** DR-1 — CNIC / NTN, the strongest match key. Request-only: party-service stores its normalised key, not this. */
+    private String taxId;
     private String address;
 
     /** Phase 4a account hierarchy — read-only for consumers; written only via {@code PartyClient.setAccountParent}.

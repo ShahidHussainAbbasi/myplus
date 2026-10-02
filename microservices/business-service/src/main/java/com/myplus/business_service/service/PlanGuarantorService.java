@@ -329,10 +329,7 @@ public class PlanGuarantorService {
      * whichever way it feels like. Fewer than that is not a number worth comparing.
      */
     static String normalisePhone(String raw) {
-        if (raw == null) return null;
-        String digits = raw.replaceAll("[^0-9]", "");
-        if (digits.length() < 10) return null;
-        return digits.substring(digits.length() - 10);
+        return com.myplus.common.web.PartyKeys.phoneKey(raw);   // DR-1: one normaliser for the whole platform
     }
 
     /** Digits only, so 35201-1234567-8 and 3520112345678 are the same person. Null when there is nothing. */

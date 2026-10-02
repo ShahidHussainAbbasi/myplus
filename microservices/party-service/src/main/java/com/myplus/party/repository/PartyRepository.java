@@ -42,6 +42,26 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
     @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND p.email = :email ORDER BY p.id ASC")
     List<Party> findByOrgAndEmail(@Param("orgId") Long orgId, @Param("email") String email);
 
+    /** DR-1 — strongest key. Earliest first, so a tenant that already holds two keeps matching the original. */
+    @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND p.taxKey = :taxKey ORDER BY p.id ASC")
+    List<Party> findByOrgAndTaxKey(@Param("orgId") Long orgId, @Param("taxKey") String taxKey);
+
+    /** DR-1 — the phone however it was typed. Earliest first (idx_party_org_contact_key). */
+    @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND p.contactKey = :contactKey ORDER BY p.id ASC")
+    List<Party> findByOrgAndContactKey(@Param("orgId") Long orgId, @Param("contactKey") String contactKey);
+
+    /**
+     * DR-1 — parties in this org that share a phone key or a tax key with another: the owner's "possible duplicates"
+     * list. Only ever SHOWN; joining two is a deliberate owner action.
+     */
+    @Query("SELECT p FROM Party p WHERE p.organizationId = :orgId AND ("
+         + " (p.contactKey IS NOT NULL AND p.contactKey IN (SELECT q.contactKey FROM Party q WHERE q.organizationId = :orgId"
+         + "   AND q.contactKey IS NOT NULL GROUP BY q.contactKey HAVING COUNT(q) > 1))"
+         + " OR (p.taxKey IS NOT NULL AND p.taxKey IN (SELECT t.taxKey FROM Party t WHERE t.organizationId = :orgId"
+         + "   AND t.taxKey IS NOT NULL GROUP BY t.taxKey HAVING COUNT(t) > 1))"
+         + ") ORDER BY p.contactKey, p.taxKey, p.id")
+    List<Party> findPossibleDuplicates(@Param("orgId") Long orgId);
+
     @Query("SELECT p FROM Party p WHERE " + SCOPE
          + " AND (LOWER(p.name) LIKE LOWER(CONCAT('%', :q, '%')) OR p.contact LIKE CONCAT('%', :q, '%')"
          + " OR LOWER(p.email) LIKE LOWER(CONCAT('%', :q, '%'))) ORDER BY p.name ASC")

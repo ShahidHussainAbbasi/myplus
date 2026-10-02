@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+	EX-2a — the Modules card: one switch per OPT-IN module (Expense management, and any later one), on the
+	Configuration screen of every dashboard that does not already show capability switches (school, welfare,
+	farm). Rendered by /js/common/module-switches.js from GET /moduleSwitches; saves through POST /saveModuleSwitch,
+	which writes only opt-in modules. The list is derived from auth's catalog, never from this markup.
+-->
+<div th:fragment="moduleSwitchesCard" id="moduleSwitches" class="panel panel-default" style="max-width:760px;margin:0 0 18px">
+	<div class="panel-heading"><strong th:text="#{ui.modules}">Modules</strong></div>
+	<div class="panel-body">
+		<p class="help-block" style="margin-top:0" th:text="#{ui.modulesHelp}">
+			Extra features this business can switch on. Each is off until you turn it on, and changing your type of
+			business never turns one off.
+		</p>
+		<div id="moduleSwitchesList" role="group"></div>
+		<div id="moduleSwitchesMsg" class="help-block" role="status" aria-live="polite"></div>
+	</div>
+</div>
+</body>
+</html>

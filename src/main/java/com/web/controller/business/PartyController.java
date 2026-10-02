@@ -41,4 +41,23 @@ public class PartyController {
             return "{}";
         }
     }
+
+    /**
+     * DR-1 — partners sharing a phone number or a CNIC / NTN (probably one business entered twice), with their roles.
+     * Owner/admin only, for the same reason as {@link #partyRoles}. Read-only.
+     */
+    @GetMapping(value = "/partyDuplicates", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public String partyDuplicates() {
+        try {
+            return party.get("/parties/duplicates");
+        } catch (Exception e) {
+            // The screen says "could not load" on a failure; an empty list would read as "no duplicates", which is a
+            // claim this proxy cannot make when party-service did not answer.
+            LOGGER.error("partyDuplicates proxy: party-service did not answer", e);
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_GATEWAY, "Possible duplicates are not available right now.");
+        }
+    }
 }

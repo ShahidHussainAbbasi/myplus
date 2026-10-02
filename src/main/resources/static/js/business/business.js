@@ -2305,7 +2305,9 @@ function loadDataTable(){
 					$.each(collections, function(ind, obj) {
 						allRows.push([
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
-							"<div id=venderName>"+escHtml(obj.name)+"</div>",
+							// DR-1: the CNIC / NTN rides hidden in the name cell — editRecord() fills #venderCnicNtn from it,
+							// and it needs no column of its own.
+							"<div id=venderName>"+escHtml(obj.name)+"</div><div id=venderCnicNtn hidden>"+escHtml(obj.cnicNtn||'')+"</div>",
 							// A supplier can represent several brands — show them all. editRecord() reads this cell back
 							// into the multi-select, matching each comma-separated label against the options.
 							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",

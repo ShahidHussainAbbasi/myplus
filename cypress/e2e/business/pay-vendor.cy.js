@@ -5,6 +5,34 @@
  * Requires finance-service + business-service + gateway up. Run headed.
  */
 describe('F1 — Pay Vendor settles a vendor payable (AP subledger)', () => {
+  /*
+   * Precondition, set rather than assumed: purchase (input) tax OFF, so a 100 bill is a 100 payable.
+   *
+   * This spec failed with 110 when another run left demo.business on "purchase tax 10%, added on top" — correct
+   * behaviour under that setting, and nothing to do with Pay Vendor. The tax setting is posted as a WHOLE (every
+   * field together, as the Tax Settings screen saves it), so the original is read first and written back in full.
+   */
+  let originalTax = null
+  const saveTax = (s) => cy.request({ method: 'POST', url: '/saveTaxSetting', form: true, body: {
+    enabled: s.enabled === true, inputTaxEnabled: s.inputTaxEnabled === true, taxMode: s.taxMode || 'EXCLUSIVE',
+    defaultRate: s.defaultRate == null ? 0 : s.defaultRate, taxLabel: s.taxLabel || 'Tax', taxRegNo: s.taxRegNo || '',
+  } }).its('body.status').should('eq', 'SUCCESS')
+
+  before(() => {
+    cy.loginAsBusiness()
+    cy.request('/getTaxSetting').then((r) => {
+      originalTax = (r.body && (r.body.object || r.body.data)) || {}
+      if (originalTax.inputTaxEnabled === true) saveTax({ ...originalTax, inputTaxEnabled: false })
+    })
+  })
+
+  after(() => {
+    // Leave no server state: put the tenant's tax setting back exactly as it was.
+    if (!originalTax || originalTax.inputTaxEnabled !== true) return
+    cy.loginAsBusiness()
+    saveTax(originalTax)
+  })
+
   beforeEach(() => { cy.loginAsBusiness() })
 
   const vendorDueById = (venderId) =>

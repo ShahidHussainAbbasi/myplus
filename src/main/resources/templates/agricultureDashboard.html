@@ -30,15 +30,21 @@
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','landDiv',this)"><span class="glyphicon glyphicon-map-marker"></span><span th:text="#{ui.registerLand}">Register Land</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureExpenseDiv',this)"><span class="glyphicon glyphicon-minus-sign"></span><span th:text="#{ui.addExpense}">Add Expense</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureIncomeDiv',this)"><span class="glyphicon glyphicon-plus-sign"></span><span th:text="#{ui.addIncome}">Add Income</span></a>
-			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig()"><span class="glyphicon glyphicon-wrench"></span><span th:text="#{ui.configuration}">Configuration</span></a>
+			<!-- EX-2a — Expenses (any member); hidden until the owner switches the module on. -->
+			<a class="sb-link" id="navExpenses" data-capability="expenseManagement" onclick="sbNav('registrationType','',this);showExpenses()"><span class="glyphicon glyphicon-export"></span><span th:text="#{ui.expenses}">Expenses</span></a>
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig();loadModuleSwitches()"><span class="glyphicon glyphicon-wrench"></span><span th:text="#{ui.configuration}">Configuration</span></a>
 		</nav>
 	</aside>
 			<!-- Owner Configuration — self-renders from the agriculture-service common-settings catalog
 			     (/getAgricultureConfig). A toggle saves immediately (/saveAgricultureConfig). -->
+			<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
+			<div th:replace="~{fragments/expense :: expenseSection}"></div>
+
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title" th:text="#{ui.configuration}">Configuration</h3>
 				<p style="color:#7a889c;margin-bottom:16px" th:text="#{ui.turnFeaturesOnOrOffFor}">Turn features on or off for your organization. Changes apply immediately.</p>
 				<div id="agriConfigMsg" class="alert" role="status" aria-live="polite" aria-atomic="true" style="display:none"></div>
+				<div th:replace="~{fragments/module-switches :: moduleSwitchesCard}"></div>
 				<div id="agriConfigBody" th:text="#{ui.loading2}">Loading…</div>
 			</div>
 			<div id="agricultureExpenseDiv" class="formDiv" style="display:none">
@@ -551,6 +557,9 @@ var serverContext = [[@{/}]];
      initialiser inline in its own template; every other module had none, so business had 48 selects
      and only one searchable (sellCustomerDD, the customer list, was a plain scrolling select). -->
 <script th:src="@{/js/common/searchable-selects.js}"></script>
+<!-- EX-2a — Expenses (shared screen) and the Modules card (switch opt-in modules on). -->
+<script th:src="@{/js/common/expense.js}"></script>
+<script th:src="@{/js/common/module-switches.js}"></script>
 <!-- SESS-1: fills the "N / 5 devices" chip in the shared header fragment. The session cap is per ACCOUNT,
      not per module, so this belongs on every signed-in dashboard, not only the till's. -->
 <script th:src="@{/js/common/sessions.js}"></script>
