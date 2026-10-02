@@ -6,8 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.myplus.business_service.service.PartyRoleService;
@@ -26,6 +28,20 @@ public class PartyRoleController {
 
     @Autowired
     private PartyRoleService service;
+
+    /** DR-3 — the partner's position: they owe us, we owe them, the net if set off. Read-only; owner/admin. */
+    @PreAuthorize(OWNER_OR_ADMIN)
+    @GetMapping("/partyPosition")
+    public GenericResponse position(@RequestParam(required = false) Long partyId) {
+        try {
+            return new GenericResponse("SUCCESS", "Partner position", service.position(partyId));
+        } catch (PartyRoleService.Refusal r) {
+            return new GenericResponse("FAILED", r.getMessage());
+        } catch (Exception e) {
+            LOG.error("partyPosition failed", e);
+            return new GenericResponse("ERROR", "Could not load the position right now.");
+        }
+    }
 
     /** Body: {@code {customerId, venderId}} — the supplier joins the customer's partner. */
     @PreAuthorize(OWNER_OR_ADMIN)

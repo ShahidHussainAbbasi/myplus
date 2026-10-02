@@ -394,17 +394,65 @@ describe('DR-3 / DR-4 — position and set-off', () => {
 
   beforeEach(asLifecycle)
 
-  it.skip('DR3-1 — position shows both balances and the net, and posts nothing', () => {
-    seedPartner().then(({ partyId }) => {
+  it('DR3-1 — position shows both balances and the net, and posts nothing', () => {
+    seedPartner().then(({ c, v, partyId }) => {
       trialBalance().then((before) => {
         cy.request(`/partyPosition?partyId=${partyId}`).then((r) => {
-          const p = payload(r.body) || parse(r.body)
+          expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS')
+          const p = payload(r.body)
           expect(Number(p.receivable), 'they owe us').to.eq(30000)
           expect(Number(p.payable), 'we owe them').to.eq(50000)
           expect(Number(p.netIfSetOff), 'net (we owe 20,000)').to.eq(-20000)
+          expect(Number(p.setOffLimit), 'a set-off could clear at most the smaller side').to.eq(30000)
+          expect(p.customers.map((x) => x.id), 'the customer record').to.include(c.customerId || c.id)
+          expect(p.suppliers.map((x) => x.id), 'the supplier record').to.include(v.id)
         })
-        trialBalance().then((after) => expect(after.totalDebit, 'a read posts nothing').to.eq(before.totalDebit))
+        trialBalance().then((after) => {
+          expect(after.totalDebit, 'a read posts nothing').to.eq(before.totalDebit)
+          expect(after.totalCredit).to.eq(before.totalCredit)
+        })
+        // The balances themselves are untouched by reading them.
+        cy.request('/getUserCustomer?q=-1').then((r) =>
+          expect(Number(list(r.body).find((x) => (x.customerId || x.id) === (c.customerId || c.id)).dueAmount)).to.eq(30000))
       })
+    })
+  })
+
+  it('DR3-2 — the 360 view shows the position, and each record opens its own statement', () => {
+    seedPartner().then(({ c, v }) => {
+      cy.openSection('CustomerDiv')
+      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
+      cy.contains('#CustomerDiv tr', c.name).contains('button', '360').click()
+      cy.get('.c360-card [data-dr-pos="receivable"]', { timeout: 10000 }).should('have.attr', 'data-amount', '30000')
+      cy.get('.c360-card [data-dr-pos="payable"]').should('have.attr', 'data-amount', '50000')
+      cy.get('.c360-card [data-dr-pos="net"]').should('have.attr', 'data-amount', '20000')
+        .and('contain', 'we would still owe them')
+      cy.get(`.c360-card [data-dr-stmt="VENDOR:${v.id}"]`).click()
+      cy.get('.c360-card').should('not.exist')
+      cy.get('#StatementDialog').should('be.visible').and('contain', v.name)
+    })
+  })
+
+  it('DR3-3 — a partner with one role has no position block; another tenant\'s partner and a cashier are refused', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR OneRole C ' + s, contact: mobile(Number(s) + 41) }).then((c) => {
+      cy.request(`/partyPosition?partyId=${c.partyId}`).its('body.status').should('eq', 'SUCCESS')   // readable…
+      cy.openSection('CustomerDiv')
+      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
+      cy.contains('#CustomerDiv tr', c.name).contains('button', '360').click()
+      cy.get('.c360-card [data-dr-box]').should('be.visible')
+      cy.get('.c360-card [data-dr-position]').should('not.exist')   // …but not shown: one side is its own statement
+      cy.get('.c360-card .c360-x').click()
+
+      // The same partner id asked for by ANOTHER tenant: refused, never an empty position.
+      cy.loginAsOwner()
+      cy.request(`/partyPosition?partyId=${c.partyId}`).then((r) => {
+        expect(r.body.status).to.eq('FAILED')
+        expect(r.body.message).to.match(/No customer or supplier/)
+      })
+      cy.loginAsCashierA()
+      cy.request({ url: `/partyPosition?partyId=${c.partyId}`, failOnStatusCode: false })
+        .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'cashier refused ' + r.status).to.eq(true))
     })
   })
 

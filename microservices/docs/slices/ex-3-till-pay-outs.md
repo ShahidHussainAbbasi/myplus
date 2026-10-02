@@ -1,6 +1,6 @@
 # EX-3 — Till pay-outs reach the books
 
-**Status:** DESIGN + gate written first → implementing. Branch `feature/expense-management`.
+**Status:** GREEN 2026-10-02 16:40. Backend landed in commit `61270b19` ("DR-1 and DR-2", a mid-work snapshot); the till/Expenses screens, the Till label and ShiftPayOutTest are staged. Deployed from clean worktrees (other session's uncommitted PartyRole/DR work NOT shipped): business V70, expense V3 live. Tests: business 379, expense 18 (Skipped 0). Gate 6/6; regression (day-close, paid-change, EX-1 API+UI) 17/17. DB cross-check: OFF pay-out has no voucher; ON pay-outs stamped EXP-000022..24, outbox POSTED, vouchers POSTED_GL; the double submit made one movement and one voucher. Branch `feature/expense-management`.
 Programme: [`../expense-management-design.md`](../expense-management-design.md) §4b F1, §7 EX-3. Ruling R3 (drawer
 pay-outs converge onto Expense Management).
 

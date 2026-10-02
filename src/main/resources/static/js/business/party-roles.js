@@ -194,6 +194,75 @@
         };
     }
 
+    // ── Position (DR-3) — read-only ──────────────────────────────────────────────────────────────────────────────
+
+    function money(v) {
+        var n = Number(v) || 0;
+        return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    /** One labelled figure. data-dr-pos / data-amount let a test read the exact value rather than formatted text. */
+    function figure(table, key, label, amount, strong) {
+        var tr = el('tr');
+        tr.setAttribute('data-dr-pos', key);
+        tr.setAttribute('data-amount', String(Number(amount) || 0));
+        var th = el('td', null, label), td = el('td', 'dr-amt', money(amount));
+        if (strong) { th.style.fontWeight = '700'; td.style.fontWeight = '700'; }
+        tr.appendChild(th); tr.appendChild(td);
+        table.appendChild(tr);
+    }
+
+    /** Each record opens its own statement. The 360 view closes first: the statement dialog sits beneath it. */
+    function statementLine(box, type, line) {
+        var row = el('div', 'dr-line');
+        row.appendChild(document.createTextNode(
+            (type === 'VENDOR' ? msg('ui.js.drRoleSupplier', 'Supplier') : msg('ui.js.drRoleCustomer', 'Customer'))
+            + ': ' + (line.name || ('#' + line.id)) + ' — ' + money(line.due) + ' '));
+        var b = el('button', 'btn btn-xs btn-default', msg('ui.js.drStatement', 'Statement'));
+        b.type = 'button';
+        b.setAttribute('data-dr-stmt', type + ':' + line.id);
+        b.onclick = function () {
+            $('.c360-card .c360-x').trigger('click');
+            if (typeof global.openStatement === 'function') global.openStatement(type, line.id, line.name);
+        };
+        row.appendChild(b);
+        box.appendChild(row);
+    }
+
+    function renderPosition(host, pos) {
+        var table = el('table', 'dr-pos');
+        figure(table, 'receivable', msg('ui.js.drTheyOwe', 'They owe us'), pos.receivable);
+        figure(table, 'payable', msg('ui.js.drWeOwe', 'We owe them'), pos.payable);
+        if (Number(pos.storeCredit) > 0) figure(table, 'storeCredit', msg('ui.js.drStoreCredit', 'Store credit we hold for them'), pos.storeCredit);
+        var net = Number(pos.netIfSetOff) || 0;
+        var netLabel = net > 0 ? msg('ui.js.drNetTheyOwe', 'If set off, they would still owe us')
+                     : net < 0 ? msg('ui.js.drNetWeOwe', 'If set off, we would still owe them')
+                     : msg('ui.js.drNetEven', 'If set off, nothing would remain either way');
+        figure(table, 'net', netLabel, Math.abs(net), true);
+        host.appendChild(table);
+        host.appendChild(el('div', 'dr-note', msg('ui.js.drNetNote',
+            'Only if both sides agree to set off. Nothing is netted or posted here; each balance stays on its own record.')));
+        (pos.customers || []).forEach(function (l) { statementLine(host, 'CUSTOMER', l); });
+        (pos.suppliers || []).forEach(function (l) { statementLine(host, 'VENDOR', l); });
+    }
+
+    function loadPosition(body, party) {
+        body.appendChild(el('p', 'c360-sec', msg('ui.js.drPosition', 'Position')));
+        var host = el('div', 'dr-pos-host');
+        host.setAttribute('data-dr-position', '1');
+        host.textContent = msg('ui.js.drLoading', 'Loading…');
+        body.appendChild(host);
+        $.get(serverContext + 'partyPosition', { partyId: party.id }, function (r) {
+            host.textContent = '';
+            var pos = r && (r.object || r.data);
+            if (r && r.status === 'SUCCESS' && pos) renderPosition(host, pos);
+            else say(host, (r && r.message) || msg('ui.js.drPosFailed', 'Could not load the position.'), true);
+        }, 'json').fail(function () {
+            host.textContent = '';
+            say(host, msg('ui.js.drPosFailed', 'Could not load the position.'), true);
+        });
+    }
+
     /** The hook party-contact.js calls under the roles of the 360 view. */
     global.contact360Extras = function (party, roles, body) {
         var biz = (roles || []).filter(function (r) {
@@ -202,6 +271,9 @@
         if (!biz.length) return;
         var hasC = biz.some(function (r) { return r.role === 'CUSTOMER'; });
         var hasV = biz.some(function (r) { return r.role === 'VENDOR'; });
+
+        // DR-3: the position only means something when the partner is BOTH — one side alone is its own statement.
+        if (hasC && hasV) loadPosition(body, party);
 
         body.appendChild(el('p', 'c360-sec', msg('ui.js.drSection', 'Customer and supplier')));
         var box = el('div', 'dr-box');
@@ -217,7 +289,12 @@
                 + '.dr-pick{display:flex;flex-direction:column;gap:6px;width:100%;margin-top:6px}'
                 + '.dr-pick select{min-height:150px}'
                 + '.dr-say{width:100%;font-size:12.5px;margin-top:4px}'
-                + '.dr-badge{margin-left:6px;font-weight:600}';
+                + '.dr-badge{margin-left:6px;font-weight:600}'
+                + '.dr-pos{width:100%;border-collapse:collapse;margin:2px 0 6px}'
+                + '.dr-pos td{padding:4px 6px;border-bottom:1px solid rgba(0,0,0,.08)}'
+                + '.dr-pos .dr-amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}'
+                + '.dr-note{font-size:12px;opacity:.8;margin-bottom:6px}'
+                + '.dr-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:2px 0}';
         var s = document.createElement('style');
         s.textContent = css;
         document.head.appendChild(s);

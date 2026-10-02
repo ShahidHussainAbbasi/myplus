@@ -62,12 +62,14 @@
 		var tds = '<td>' + esc(v.voucherNo || '') + '</td>'
 			+ '<td>' + showDate(v.voucherDate) + '</td>'
 			+ '<td>' + esc(cats) + '</td>'
-			+ '<td>' + esc(v.paidFrom === 'BANK' ? tr('ui.js.expBank', 'Bank') : tr('ui.js.expCash', 'Cash')) + '</td>'
+			+ '<td>' + esc(v.paidFrom === 'BANK' ? tr('ui.js.expBank', 'Bank')
+				: v.paidFrom === 'DRAWER' ? tr('ui.js.expTill', 'Till') : tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
 			+ '<td class="exp-chip">' + chip(v) + '</td>';
 		if (canVoid) {
-			var voidable = v.status === 'POSTED' && v.postingStatus !== 'PENDING';
+			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
+			var voidable = v.status === 'POSTED' && v.postingStatus !== 'PENDING' && v.source !== 'DRAWER';
 			tds += '<td>' + (voidable
 				? '<button type="button" class="btn btn-xs btn-default" data-cy="void-expense" data-id="' + esc(v.id)
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'

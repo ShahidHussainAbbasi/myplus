@@ -4101,7 +4101,13 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 							<div class="col-sm-2"><input type="number" step="any" min="0" class="form-control" id="tillMoveAmount" placeholder="Amount" th:placeholder="#{ui.amount}"></div>
 							<div class="col-sm-2"><input type="text" class="form-control" id="tillMoveReason" placeholder="Reason" th:placeholder="#{ui.reason}"></div>
-							<div class="col-sm-2"><button type="button" class="btn btn-default" onclick="addCashMovement()" th:text="#{ui.add}">Add</button></div>
+							<div class="col-sm-2"><button type="button" class="btn btn-default" id="tillMoveAdd" onclick="addCashMovement(this)" th:text="#{ui.add}">Add</button></div>
+						</div>
+						<!-- EX-3 — with Expense management on, a PAY OUT says what it paid for, and reaches the books as an
+						     expense. Hidden for pay-ins and drops, and for a tenant without the module (data-capability). -->
+						<div class="form-group" id="tillMoveCategoryGroup" data-capability="expenseManagement" style="display:none">
+							<label class="control-label col-sm-3" for="tillMoveCategory" th:text="#{ui.category}">Category</label>
+							<div class="col-sm-4"><select class="form-control" id="tillMoveCategory" data-cy="till-pay-out-category"></select></div>
 						</div>
 						<div class="form-group text-center">
 							<button type="button" class="btn btn-info" onclick="loadShiftReport()"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.xReport}">X Report</span></button>

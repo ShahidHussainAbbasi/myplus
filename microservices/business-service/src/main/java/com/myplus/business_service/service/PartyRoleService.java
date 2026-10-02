@@ -14,6 +14,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.myplus.business_service.dto.CustomerDTO;
+import com.myplus.business_service.dto.PartyPositionDTO;
 import com.myplus.business_service.dto.VenderDTO;
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.Vender;
@@ -82,6 +83,53 @@ public class PartyRoleService {
             hits.addAll(query.apply(new ArrayList<>(ids.subList(i, Math.min(ids.size(), i + IN_CHUNK)))));
         }
         return hits;
+    }
+
+    // ---- position (DR-3) ---------------------------------------------------------------------------------------------
+
+    /**
+     * What this partner owes us and what we owe them, from every customer and supplier record it holds in this
+     * tenant. Read-only. A partner with no record here reads as not found — the same answer for another tenant's
+     * partner as for one that does not exist (anti-IDOR).
+     */
+    public PartyPositionDTO position(Long partyId) {
+        if (partyId == null) throw new Refusal("Choose a partner.");
+        List<Customer> cs = customerRepo.findByPartyIdsScoped(List.of(partyId), org(), user());
+        List<Vender> vs = venderRepo.findByPartyIdScoped(partyId, org(), user());
+        if (cs.isEmpty() && vs.isEmpty()) throw new Refusal("No customer or supplier here belongs to this partner.");
+
+        PartyPositionDTO p = new PartyPositionDTO();
+        p.setPartyId(partyId);
+        java.math.BigDecimal receivable = java.math.BigDecimal.ZERO, payable = java.math.BigDecimal.ZERO,
+                credit = java.math.BigDecimal.ZERO;
+        for (Customer c : cs) {
+            PartyPositionDTO.Line l = new PartyPositionDTO.Line();
+            l.setId(c.getCustomerId());
+            l.setName(c.getName());
+            l.setDue(nz(c.getDueAmount()));
+            l.setStoreCredit(nz(c.getCreditBalance()));
+            receivable = receivable.add(l.getDue());
+            credit = credit.add(l.getStoreCredit());
+            p.getCustomers().add(l);
+        }
+        for (Vender v : vs) {
+            PartyPositionDTO.Line l = new PartyPositionDTO.Line();
+            l.setId(v.getId());
+            l.setName(v.getName());
+            l.setDue(nz(v.getDueAmount()));
+            payable = payable.add(l.getDue());
+            p.getSuppliers().add(l);
+        }
+        p.setReceivable(receivable);
+        p.setPayable(payable);
+        p.setStoreCredit(credit);
+        p.setNetIfSetOff(receivable.subtract(payable));
+        p.setSetOffLimit(receivable.min(payable));
+        return p;
+    }
+
+    private static java.math.BigDecimal nz(java.math.BigDecimal v) {
+        return v == null ? java.math.BigDecimal.ZERO : v;
     }
 
     // ---- link -------------------------------------------------------------------------------------------------------

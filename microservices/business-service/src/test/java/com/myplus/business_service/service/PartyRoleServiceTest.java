@@ -117,6 +117,34 @@ class PartyRoleServiceTest {
     }
 
     @Test
+    @DisplayName("position: sums every customer and supplier record of the partner; net and set-off limit follow")
+    void position_sums_both_sides() {
+        Customer c1 = customer(1, 100L); c1.setDueAmount(new java.math.BigDecimal("30000")); c1.setCreditBalance(new java.math.BigDecimal("500"));
+        Customer c2 = customer(3, 100L); c2.setDueAmount(null);   // a record that never owed: null reads as 0
+        Vender v = vender(2, 100L); v.setDueAmount(new java.math.BigDecimal("50000"));
+        when(customers.findByPartyIdsScoped(eq(List.of(100L)), any(), any())).thenReturn(List.of(c1, c2));
+        when(venders.findByPartyIdScoped(eq(100L), any(), any())).thenReturn(List.of(v));
+
+        var pos = service.position(100L);
+        assertThat(pos.getReceivable()).isEqualByComparingTo("30000");
+        assertThat(pos.getPayable()).isEqualByComparingTo("50000");
+        assertThat(pos.getStoreCredit()).isEqualByComparingTo("500");
+        assertThat(pos.getNetIfSetOff()).as("we owe them 20,000 net").isEqualByComparingTo("-20000");
+        assertThat(pos.getSetOffLimit()).as("a set-off can clear at most the smaller side").isEqualByComparingTo("30000");
+        assertThat(pos.getCustomers()).hasSize(2);
+        assertThat(pos.getSuppliers()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("position: a partner with no record in this tenant is refused, never an empty position (anti-IDOR)")
+    void position_of_a_foreign_partner_is_refused() {
+        when(customers.findByPartyIdsScoped(any(), any(), any())).thenReturn(List.of());
+        when(venders.findByPartyIdScoped(anyLong(), any(), any())).thenReturn(List.of());
+        assertThatThrownBy(() -> service.position(999L)).isInstanceOf(PartyRoleService.Refusal.class)
+                .hasMessageContaining("No customer or supplier");
+    }
+
+    @Test
     @DisplayName("unlink: a record that shares its partner with nothing is refused before party-service is called")
     void unlink_refuses_a_record_with_nothing_to_leave() {
         when(venders.findByIdScoped(eq(2L), any(), any())).thenReturn(Optional.of(vender(2, 200L)));

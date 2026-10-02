@@ -41,18 +41,56 @@
         }, 'json').fail(function () { showFormError(t('ui.js.couldNotOpenTheShift')); });
     };
 
-    global.addCashMovement = function () {
+    /**
+     * EX-3 — the pay-out category. Shown only for PAY OUT, and only when the tenant has Expense management on
+     * (the group carries [data-capability]; capabilities.js marks it cap-off otherwise). Categories load once.
+     */
+    var tillCategoriesLoaded = false;
+    function payOutCategoryWanted() {
+        var $g = $('#tillMoveCategoryGroup');
+        return $g.length && !$g.hasClass('cap-off') && $('#tillMoveType').val() === 'PAY_OUT';
+    }
+    function refreshPayOutCategory() {
+        var want = payOutCategoryWanted();
+        $('#tillMoveCategoryGroup').toggle(!!want);
+        if (!want || tillCategoriesLoaded) return;
+        $.getJSON(serverContext + 'expense/categories', function (res) {
+            var $s = $('#tillMoveCategory').empty().append($('<option>').val('').text(t('ui.js.selectOne')));
+            ((res && res.data) || []).filter(function (c) { return c.active; }).forEach(function (c) {
+                $s.append($('<option>').val(c.id).text(c.name));
+            });
+            if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($s[0]);
+            tillCategoriesLoaded = true;
+        });
+    }
+    $(document).on('change', '#tillMoveType', refreshPayOutCategory);
+    $(document).on('capabilities:ready', refreshPayOutCategory);   // capabilities.js fires this once the map is known
+    global.refreshPayOutCategory = refreshPayOutCategory;
+
+    /** One key per form fill: a double click or a retry replays the first movement — the cash leaves once (EX-3). */
+    var tillMoveKey = null;
+    function newTillMoveKey() { return 'till-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
+
+    global.addCashMovement = function (btn) {
         var amt = $('#tillMoveAmount').val();
         if (!amt || Number(amt) <= 0) { showFormError(t('ui.js.enterAnAmountGreaterThan0')); return; }
-        $.post(serverContext + 'cashMovement',
-            { type: $('#tillMoveType').val(), amount: amt, reason: $('#tillMoveReason').val() || '' },
+        if (!tillMoveKey) tillMoveKey = newTillMoveKey();
+        var data = { type: $('#tillMoveType').val(), amount: amt, reason: $('#tillMoveReason').val() || '',
+                     idempotencyKey: tillMoveKey };
+        if (payOutCategoryWanted() && $('#tillMoveCategory').val()) data.categoryId = $('#tillMoveCategory').val();
+        var $b = $(btn || '#tillMoveAdd');
+        $b.prop('disabled', true);
+        $.post(serverContext + 'cashMovement', data,
             function (resp) {
                 if (resp && resp.status === 'SUCCESS') {
+                    tillMoveKey = null;   // the next fill is a new movement
                     showSaleSuccess(t('ui.js.cashMovementRecorded'));
                     $('#tillMoveAmount').val(''); $('#tillMoveReason').val('');
                     loadShiftReport();
                 } else { showFormError(apiMessage(resp, 'Could not record the movement.')); }
-            }, 'json').fail(function () { showFormError(t('ui.js.couldNotRecordTheMovement')); });
+            }, 'json')
+            .fail(function () { showFormError(t('ui.js.couldNotRecordTheMovement')); })   // key KEPT: a retry replays
+            .always(function () { $b.prop('disabled', false); });
     };
 
     global.loadShiftReport = function () {

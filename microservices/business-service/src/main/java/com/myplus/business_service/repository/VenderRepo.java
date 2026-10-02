@@ -35,6 +35,11 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
         + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
    long countByPartyScoped(@Param("partyId") Long partyId, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /** DR-3 — every supplier record of one partner here (the payable side of its position). */
+   @Query("select v from Vender v where v.partyId = :partyId "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
+   List<Vender> findByPartyIdScoped(@Param("partyId") Long partyId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    /** DR-2 — one supplier, only if it belongs to the caller's tenant (anti-IDOR: link/unlink take ids from a request). */
    @Query("select v from Vender v where v.id = :id "
         + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")

@@ -245,3 +245,18 @@ Trace results (Rule 0):
 | tests | `PartyRoleServiceTest` (6); Cypress DR2-1..DR2-6 (2 API, 4 through the screen). |
 
 Known limit: the badge text sits in the name cell, so a grid export carries it after the name.
+
+### DR-3 — built 2026-10-02 (awaiting build + gate)
+
+- **Sign conventions verified, not assumed:** `customer.due_amount` = −Σ(paid − bill) over invoices, floored at 0
+  (`CustomerService.recomputeDue`); `vender.due_amount` = −Σ(paid − net) over purchases, floored at 0
+  (`VenderService.recomputePayable`). Both are positive amounts owed. The other writers only preserve or zero them.
+- `GET /partyPosition?partyId=` (business-service + monolith forwarder, owner/admin): receivable, payable, store
+  credit, `netIfSetOff` = receivable − payable, `setOffLimit` = min(both) (DR-4 caps at it), and one line per record.
+  A partner with no record in the tenant is refused ("No customer or supplier here…"), never an empty position.
+- Shown in the 360 view when the partner holds BOTH business roles; each record line opens its own statement (the
+  360 view closes first — the statement dialog sits beneath it).
+- **Deviation from the design:** no separate "Position" button on the grids. Every dual-role row already has 360,
+  which now carries the position; a second button would open the same thing.
+- Tests: `PartyRoleServiceTest` +2 (sums/net/limit; foreign partner refused); Cypress DR3-1..3 (lifecycle tenant,
+  opening balances 30,000 / 50,000; trial balance unchanged by a read; the 360 view; refusals).
