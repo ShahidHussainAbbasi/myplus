@@ -39,6 +39,18 @@ public class CashMovement {
     @Column(name = "dated")
     private LocalDateTime dated;
 
+    /** EX-3 — the expense category of a PAY_OUT while Expense management is on; null otherwise. */
+    @Column(name = "category_id")
+    private Long categoryId;
+
+    /** EX-3 — one per form submission; UNIQUE per org, so a double click replays instead of paying out twice. */
+    @Column(name = "idempotency_key", length = 80)
+    private String idempotencyKey;
+
+    /** EX-3 — the EXP- number expense-service gave this pay-out, stamped when it is delivered. */
+    @Column(name = "expense_voucher_no", length = 20)
+    private String expenseVoucherNo;
+
     @PrePersist
     void onCreate() { if (dated == null) dated = LocalDateTime.now(); }
 }

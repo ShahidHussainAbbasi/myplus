@@ -44,12 +44,12 @@ public final class ExpenseDtos {
     public record VoucherView(Long id, String voucherNo, LocalDate voucherDate, String paidFrom, Long storeId,
                               String payeeName, String note, BigDecimal total, String status, String postingStatus,
                               String postingError, String voidReason, LocalDateTime voidedAt, Long userId,
-                              Integer version, List<LineView> lines) {
+                              Integer version, List<LineView> lines, String source, String sourceRef) {
         public static VoucherView of(ExpenseVoucher v) {
             return new VoucherView(v.getId(), v.getVoucherNo(), v.getVoucherDate(), v.getPaidFrom(), v.getStoreId(),
                     v.getPayeeName(), v.getNote(), v.getTotal(), v.getStatus(), v.getPostingStatus(),
                     v.getPostingError(), v.getVoidReason(), v.getVoidedAt(), v.getUserId(), v.getVersion(),
-                    v.getLines().stream().map(LineView::of).toList());
+                    v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef());
         }
     }
 }

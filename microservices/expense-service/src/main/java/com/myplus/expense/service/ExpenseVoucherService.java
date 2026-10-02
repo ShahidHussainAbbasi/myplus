@@ -116,6 +116,54 @@ public class ExpenseVoucherService {
         return VoucherView.of(v);
     }
 
+    /**
+     * EX-3 — the idempotent receiver for a till pay-out. business-service has already recorded the drawer movement
+     * and decided the module is on (where the cash moved); this makes the matching POSTED voucher, paid from the
+     * DRAWER (Cr 1000), and returns it. A redelivery of the same movement finds the first voucher and returns it:
+     * UNIQUE (organization_id, source, source_ref) carries the guarantee, the lookup is only the fast path.
+     */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ExpenseVoucherRef recordFromDrawer(
+            com.myplus.commerce.contracts.dto.DrawerExpenseRequest r) {
+        Long org = access.org();
+        if (r == null || r.getMovementId() == null) throw new ValidationException("A pay-out needs its movement id.");
+        String ref = String.valueOf(r.getMovementId());
+        Optional<ExpenseVoucher> replay = repo.findByOrganizationIdAndSourceAndSourceRef(org, ExpenseVoucher.SOURCE_DRAWER, ref);
+        if (replay.isPresent()) return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(replay.get().getId(), replay.get().getVoucherNo());
+
+        LocalDate date = r.getDate() == null ? LocalDate.now() : r.getDate();
+        if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A pay-out needs an amount.");
+        ExpenseCategory c = categories.activeCategory(org, r.getCategoryId());
+        ExpenseVoucher v = new ExpenseVoucher();
+        v.setOrganizationId(org);
+        v.setUserId(access.userId());
+        v.setStoreId(r.getStoreId());
+        v.setVoucherDate(date);
+        v.setPaidFrom(PaidFrom.DRAWER.name());
+        v.setPayeeName(limit(r.getReason(), 160));
+        v.setNote("Till pay-out");
+        v.setSource(ExpenseVoucher.SOURCE_DRAWER);
+        v.setSourceRef(ref);
+        v.setCreatedAt(LocalDateTime.now());
+        v.setUpdatedAt(LocalDateTime.now());
+        ExpenseVoucherLine l = new ExpenseVoucherLine();
+        l.setCategoryId(c.getId());
+        l.setAccountCode(c.getAccountCode());
+        l.setCategoryName(c.getName());
+        l.setDescription(limit(r.getReason(), 255));
+        l.setAmount(r.getAmount().setScale(2, RoundingMode.HALF_UP));
+        v.addLine(l);
+        try {
+            v = repo.saveAndFlush(v);
+        } catch (DataIntegrityViolationException raced) {
+            // a concurrent delivery of the same movement won on the UNIQUE index — this one is a redelivery
+            throw new ValidationException("This pay-out is already recorded.");
+        }
+        audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), "DRAWER " + ref, null);
+        postInTx(v);
+        return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(v.getId(), v.getVoucherNo());
+    }
+
     /** A DRAFT may be discarded; anything posted stays, and is voided instead. */
     @Transactional
     public void deleteDraft(Long id) {
@@ -160,6 +208,10 @@ public class ExpenseVoucherService {
         PaidFrom from;
         try { from = PaidFrom.of(r.paidFrom()); }
         catch (IllegalArgumentException e) { throw new ValidationException(e.getMessage()); }
+        // EX-3 — a DRAWER voucher exists only BECAUSE a till movement does; typing one here would put an expense
+        // in the books with no cash leaving any drawer, and (being a till expense) it could never be voided.
+        if (from == PaidFrom.DRAWER)
+            throw new ValidationException("A pay-out from the till is recorded at the till (Till → Cash Drawer).");
 
         List<LineRequest> lines = r.lines();
         if (lines == null || lines.isEmpty()) throw new ValidationException("Add at least one expense line.");

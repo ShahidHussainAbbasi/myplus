@@ -142,4 +142,29 @@ class VoucherPostingsTest {
         assertThatThrownBy(() -> PaidFrom.of("CARD")).hasMessageContaining("cash or bank");
         assertThatThrownBy(() -> PaidFrom.of(null)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test @DisplayName("EX-3 — a till pay-out credits 1000 Cash: the drawer IS the business's cash")
+    void drawer_credits_cash() {
+        ExpenseVoucher v = voucher("DRAWER", line("6100", "1200"));
+        v.post("EXP-000009", LocalDateTime.now());
+        PostingEventRequest r = VoucherPostings.post(v);
+        assertThat(net(r).get("6100")).isEqualByComparingTo("1200");
+        assertThat(net(r).get("1000")).isEqualByComparingTo("-1200");
+    }
+
+    @Test @DisplayName("EX-3 — a drawer expense is corrected at the till, never voided here")
+    void drawer_not_voidable() {
+        ExpenseVoucher v = voucher("DRAWER", line("6100", "15"));
+        v.setSource(ExpenseVoucher.SOURCE_DRAWER);
+        v.post("EXP-000010", LocalDateTime.now());
+        v.setPostingStatus("POSTED_GL");
+        assertThatThrownBy(() -> v.voidWith("try", 1L, LocalDateTime.now()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("till");
+        // positive control: the same voucher typed on the Expenses screen IS voidable
+        ExpenseVoucher manual = voucher("CASH", line("6100", "15"));
+        manual.post("EXP-000011", LocalDateTime.now());
+        manual.setPostingStatus("POSTED_GL");
+        manual.voidWith("mistake", 1L, LocalDateTime.now());
+        assertThat(manual.getStatus()).isEqualTo("VOIDED");
+    }
 }

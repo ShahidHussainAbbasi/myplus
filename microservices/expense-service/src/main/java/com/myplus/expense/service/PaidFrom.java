@@ -14,7 +14,14 @@ public enum PaidFrom {
     CASH("1000"),
 
     /** Bank transfer, card or cheque — 1010 Bank. */
-    BANK("1010");
+    BANK("1010"),
+
+    /**
+     * EX-3 — cash paid out of the till during a shift. Same account as CASH (1000): the drawer IS the business's
+     * cash. Its own value because the voucher's origin differs — it is created by business-service from the
+     * drawer movement, and corrected at the till rather than voided here.
+     */
+    DRAWER("1000");
 
     private final String creditAccount;
 

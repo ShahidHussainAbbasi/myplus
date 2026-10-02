@@ -30,6 +30,15 @@ public class ShiftController {
     @Autowired RequestUtil requestUtil;
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getUserId(); }
+    /**
+     * EX-3 — is Expense management on for this tenant, by the caller's token? Unresolved (null) counts as OFF:
+     * the pay-out then behaves exactly as before EX-3, which is the safe side for a drawer.
+     */
+    private static boolean expenseModuleOn() {
+        java.util.Set<String> caps = com.myplus.common.security.CurrentUser.capabilities();
+        return caps != null && caps.contains("expenseManagement");
+    }
+
     private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getOrganizationId(); }
 
     @RequestMapping(value = "/openShift", method = RequestMethod.POST)
@@ -60,13 +69,16 @@ public class ShiftController {
     @ResponseBody
     public GenericResponse cashMovement(@RequestParam("type") String type,
                                         @RequestParam("amount") BigDecimal amount,
-                                        @RequestParam(value = "reason", required = false) String reason) {
+                                        @RequestParam(value = "reason", required = false) String reason,
+                                        @RequestParam(value = "categoryId", required = false) Long categoryId,
+                                        @RequestParam(value = "idempotencyKey", required = false) String idempotencyKey) {
         try {
             MovementType mt;
             try { mt = MovementType.valueOf(type == null ? "" : type.trim().toUpperCase()); }
             catch (Exception ex) { return new GenericResponse("FAILED", "Invalid movement type."); }
             return new GenericResponse("SUCCESS", "Cash movement recorded.",
-                    shiftService.addCashMovement(mt, amount, reason, orgId(), userId()));
+                    shiftService.addCashMovement(mt, amount, reason, categoryId, idempotencyKey,
+                            expenseModuleOn(), orgId(), userId()));
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > cashMovement " + e.getMessage(), e);
             return new GenericResponse("FAILED", e.getMessage());

@@ -24,6 +24,9 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
 
     Optional<ExpenseVoucher> findByOrganizationIdAndIdempotencyKey(Long organizationId, String idempotencyKey);
 
+    /** EX-3 — the voucher already made for an originating record (the idempotent receiver's replay). */
+    Optional<ExpenseVoucher> findByOrganizationIdAndSourceAndSourceRef(Long organizationId, String source, String sourceRef);
+
     @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org "
          + "AND (:userId IS NULL OR v.userId = :userId) "
          + "AND (:status IS NULL OR v.status = :status) "

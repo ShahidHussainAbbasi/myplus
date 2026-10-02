@@ -29,6 +29,7 @@ import lombok.Setter;
 public class ExpenseVoucher {
 
     public static final String DRAFT = "DRAFT", POSTED = "POSTED", VOIDED = "VOIDED";
+    public static final String SOURCE_MANUAL = "MANUAL", SOURCE_DRAWER = "DRAWER";
     public static final String PS_NONE = "NONE", PS_PENDING = "PENDING", PS_POSTED_GL = "POSTED_GL", PS_FAILED = "FAILED";
 
     @Id
@@ -86,6 +87,14 @@ public class ExpenseVoucher {
     @Column(name = "idempotency_key", length = 80)
     private String idempotencyKey;
 
+    /** EX-3 — MANUAL (Expenses screen) or DRAWER (a till pay-out). A DRAWER voucher is corrected at the till. */
+    @Column(name = "source", nullable = false, length = 16)
+    private String source = SOURCE_MANUAL;
+
+    /** The originating record's id (the drawer movement) — with source, the idempotent-receiver key. */
+    @Column(name = "source_ref", length = 64)
+    private String sourceRef;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;
@@ -131,6 +140,10 @@ public class ExpenseVoucher {
      */
     public void voidWith(String reason, Long by, LocalDateTime now) {
         if (!POSTED.equals(status)) throw new IllegalStateException("Only a posted expense can be voided (this one is " + status + ").");
+        // EX-3 — the cash really left the till. Voiding the expense alone would make the books disagree with the
+        // drawer; the correction belongs at the till, where the shift report sees it too.
+        if (SOURCE_DRAWER.equals(source))
+            throw new IllegalStateException("This expense was paid out of the till. Correct it at the till (a pay-in), so the drawer and the books stay in step.");
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Say why this expense is being voided.");
         if (PS_PENDING.equals(postingStatus))
             throw new IllegalStateException("This expense is still being posted to the books. Void it once it shows In the books.");

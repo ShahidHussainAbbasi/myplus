@@ -46,6 +46,23 @@ public class TradeClientsConfig {
         return proxy(builder, "http://finance-service", FinanceClient.class);
     }
 
+    /** EX-3 — expense-service, for till pay-outs (delivered by DrawerExpenseOutboxService after commit). */
+    @Bean
+    public com.myplus.commerce.contracts.client.ExpenseClient expenseClient(@LoadBalanced RestClient.Builder builder) {
+        // Own timeouts (STANDARDS D3e): the shared proxy() helper sets none, and a hung expense-service must not
+        // pin the relay thread. Called only after commit / by the retry schedule, never inside the till's tx.
+        org.springframework.http.client.SimpleClientHttpRequestFactory rf = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        rf.setConnectTimeout(2000);
+        rf.setReadTimeout(5000);
+        RestClient rc = builder.clone()
+                .baseUrl("http://expense-service")
+                .requestFactory(rf)
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(rc)).build()
+                .createClient(com.myplus.commerce.contracts.client.ExpenseClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         return proxy(builder, "http://audit-service/api/audit", AuditClient.class);
