@@ -40,6 +40,8 @@ class PartyRoleServiceTest {
     private VenderRepo venders;
     private PartyClient party;
     private AuditService audit;
+    private PartySetOffService setOffs;
+    private com.myplus.business_service.repository.PartySetOffRepo setOffRepo;
     private PartyRoleService service;
 
     @BeforeEach
@@ -53,6 +55,10 @@ class PartyRoleServiceTest {
         ReflectionTestUtils.setField(service, "venderRepo", venders);
         ReflectionTestUtils.setField(service, "partyClient", party);
         ReflectionTestUtils.setField(service, "auditService", audit);
+        setOffs = mock(PartySetOffService.class);
+        setOffRepo = mock(com.myplus.business_service.repository.PartySetOffRepo.class);
+        ReflectionTestUtils.setField(service, "setOffs", setOffs);
+        ReflectionTestUtils.setField(service, "setOffRepo", setOffRepo);
     }
 
     private static Customer customer(long id, Long partyId) {
@@ -124,6 +130,10 @@ class PartyRoleServiceTest {
         Vender v = vender(2, 100L); v.setDueAmount(new java.math.BigDecimal("50000"));
         when(customers.findByPartyIdsScoped(eq(List.of(100L)), any(), any())).thenReturn(List.of(c1, c2));
         when(venders.findByPartyIdScoped(eq(100L), any(), any())).thenReturn(List.of(v));
+        // What a set-off can clear: ordinary invoices / bills only (an installment invoice would be excluded upstream).
+        when(setOffs.settleableReceivable(1L)).thenReturn(new java.math.BigDecimal("30000"));
+        when(setOffs.settleableReceivable(3L)).thenReturn(java.math.BigDecimal.ZERO);
+        when(setOffs.settleablePayable(2L)).thenReturn(new java.math.BigDecimal("50000"));
 
         var pos = service.position(100L);
         assertThat(pos.getReceivable()).isEqualByComparingTo("30000");
@@ -133,6 +143,16 @@ class PartyRoleServiceTest {
         assertThat(pos.getSetOffLimit()).as("a set-off can clear at most the smaller side").isEqualByComparingTo("30000");
         assertThat(pos.getCustomers()).hasSize(2);
         assertThat(pos.getSuppliers()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("link: refused while a set-off stands on either record — reverse it first")
+    void link_refused_while_a_set_off_stands() {
+        when(customers.findByIdScoped(eq(1L), any(), any())).thenReturn(Optional.of(customer(1, 100L)));
+        when(venders.findByIdScoped(eq(2L), any(), any())).thenReturn(Optional.of(vender(2, 200L)));
+        when(setOffRepo.countPostedFor(any(), eq(1L), eq(2L))).thenReturn(1L);
+        assertThatThrownBy(() -> service.link(1L, 2L)).isInstanceOf(PartyRoleService.Refusal.class).hasMessageContaining("set-off");
+        verify(party, never()).link(anyLong(), any());
     }
 
     @Test

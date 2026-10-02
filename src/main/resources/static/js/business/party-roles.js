@@ -229,7 +229,136 @@
         box.appendChild(row);
     }
 
-    function renderPosition(host, pos) {
+    // ── Set-off (DR-4) — owner/admin, both legs posted together or not at all ────────────────────────────────────
+
+    /** One key per opened form: a double click or a retry after a timeout replays the first set-off, never a second. */
+    function newKey(prefix) {
+        return prefix + '-' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID()
+            : Date.now() + '-' + Math.random().toString(36).slice(2));
+    }
+
+    function field(box, label, input) {
+        var wrap = el('label', 'dr-field');
+        wrap.appendChild(el('span', null, label));
+        wrap.appendChild(input);
+        box.appendChild(wrap);
+        return input;
+    }
+
+    function pick(lines) {
+        var s = el('select', 'form-control input-sm');
+        lines.forEach(function (l) {
+            var o = el('option', null, (l.name || ('#' + l.id)) + ' — ' + money(l.due));
+            o.value = l.id;
+            s.appendChild(o);
+        });
+        return s;
+    }
+
+    function setOffForm(host, party, pos) {
+        var limit = Number(pos.setOffLimit) || 0;
+        var open = el('button', 'btn btn-xs btn-primary', msg('ui.js.drSetOff', 'Set off…'));
+        open.type = 'button';
+        open.setAttribute('data-dr-setoff-open', '1');
+        if (limit <= 0) {
+            open.disabled = true;
+            open.title = msg('ui.js.drNothingToSetOff', 'Nothing to set off: one side has no open invoices or bills.');
+        }
+        host.appendChild(open);
+
+        open.onclick = function () {
+            open.disabled = true;
+            var key = newKey('setoff');
+            var form = el('div', 'dr-form');
+            form.setAttribute('data-dr-setoff-form', '1');
+            var cust = field(form, msg('ui.js.drRoleCustomer', 'Customer'), pick(pos.customers || []));
+            var vend = field(form, msg('ui.js.drRoleSupplier', 'Supplier'), pick(pos.suppliers || []));
+            var amt = el('input', 'form-control input-sm');
+            amt.type = 'number'; amt.min = '0.01'; amt.step = '0.01'; amt.max = String(limit); amt.value = String(limit);
+            amt.setAttribute('data-dr-amount', '1');
+            field(form, msg('ui.js.drAmount', 'Amount') + ' (' + msg('ui.js.drUpTo', 'up to') + ' ' + money(limit) + ')', amt);
+            var reason = el('input', 'form-control input-sm');
+            reason.maxLength = 255;
+            reason.placeholder = msg('ui.js.drReasonHint', 'e.g. agreed with the partner by phone');
+            reason.setAttribute('data-dr-reason', '1');
+            field(form, msg('ui.js.drReason', 'Reason (required)'), reason);
+            var refIn = el('input', 'form-control input-sm');
+            refIn.maxLength = 120;
+            refIn.placeholder = msg('ui.js.drReferenceHint', 'Their letter or message, if any');
+            refIn.setAttribute('data-dr-reference', '1');
+            field(form, msg('ui.js.drReference', 'Reference (optional)'), refIn);
+            var tick = el('input');
+            tick.type = 'checkbox';
+            tick.setAttribute('data-dr-same', '1');
+            var tickLabel = el('label', 'dr-tick');
+            tickLabel.appendChild(tick);
+            tickLabel.appendChild(document.createTextNode(' ' + msg('ui.js.drSameBusiness',
+                'I confirm this customer and this supplier are the same business, and they agreed to this set-off.')));
+            form.appendChild(tickLabel);
+            form.appendChild(el('div', 'dr-note', msg('ui.js.drSetOffNote',
+                'Clears what they owe us against what we owe them. No cash moves; both statements show it.')));
+            var save = el('button', 'btn btn-sm btn-success', msg('ui.js.drSetOffSave', 'Record set-off'));
+            save.type = 'button';
+            save.setAttribute('data-dr-setoff-save', '1');
+            form.appendChild(save);
+            host.appendChild(form);
+            amt.focus();
+
+            save.onclick = function () {
+                var a = Number(amt.value);
+                if (!tick.checked) { say(form, msg('ui.js.drNeedSame', 'Tick the confirmation first.'), true); return; }
+                if (!reason.value.trim()) { say(form, msg('ui.js.drNeedReason', 'Give a reason.'), true); reason.focus(); return; }
+                if (!(a > 0) || a > limit) { say(form, msg('ui.js.drBadAmount', 'Enter an amount up to the limit shown.'), true); amt.focus(); return; }
+                // The SAME key on every press of this form: a timeout retried here replays, it cannot post twice.
+                handle(form, postJson('partySetOff', {
+                    customerId: Number(cust.value), venderId: Number(vend.value), amount: amt.value,
+                    reason: reason.value.trim(), reference: refIn.value.trim(), sameBusiness: true, idempotencyKey: key
+                }), function () { return party.id; });
+            };
+        };
+    }
+
+    function setOffList(host, party) {
+        var list = el('div', 'dr-setoffs');
+        list.setAttribute('data-dr-setoffs', '1');
+        host.appendChild(list);
+        $.get(serverContext + 'partySetOffs', { partyId: party.id }, function (r) {
+            var rows = (r && (r.collection || r.data)) || [];
+            if (!rows.length) return;
+            list.appendChild(el('p', 'c360-sec', msg('ui.js.drSetOffs', 'Set-offs')));
+            rows.forEach(function (s) {
+                var row = el('div', 'dr-line');
+                row.setAttribute('data-dr-setoff-row', s.setOffNo);
+                var reversed = s.status === 'REVERSED';
+                row.appendChild(document.createTextNode(s.setOffNo + ' — ' + money(s.amount)
+                    + (reversed ? ' · ' + msg('ui.js.drReversed', 'reversed') : '')));
+                if (!reversed) {
+                    var rev = el('button', 'btn btn-xs btn-default', msg('ui.js.drReverse', 'Reverse'));
+                    rev.type = 'button';
+                    rev.setAttribute('data-dr-reverse', s.setOffNo);
+                    var key = newKey('setoff-rev');
+                    rev.onclick = function () {
+                        global.uiPromptConfirm({
+                            title: msg('ui.js.drReverseTitle', 'Reverse this set-off?') + ' ' + s.setOffNo,
+                            message: msg('ui.js.drReverseMsg', 'Both balances go back to what they were before it. A mirror entry is posted; nothing is deleted.'),
+                            input: { label: msg('ui.js.drReason', 'Reason (required)'), maxlength: 255 },
+                            confirmText: msg('ui.js.drReverse', 'Reverse'),
+                            tone: 'danger'
+                        }).then(function (why) {
+                            if (why == null) return;
+                            if (!String(why).trim()) { say(list, msg('ui.js.drNeedReason', 'Give a reason.'), true); return; }
+                            handle(list, postJson('partySetOffReverse', { setOffId: s.id, reason: String(why).trim(), idempotencyKey: key }),
+                                function () { return party.id; });
+                        });
+                    };
+                    row.appendChild(rev);
+                }
+                list.appendChild(row);
+            });
+        }, 'json');
+    }
+
+    function renderPosition(host, pos, party) {
         var table = el('table', 'dr-pos');
         figure(table, 'receivable', msg('ui.js.drTheyOwe', 'They owe us'), pos.receivable);
         figure(table, 'payable', msg('ui.js.drWeOwe', 'We owe them'), pos.payable);
@@ -244,6 +373,10 @@
             'Only if both sides agree to set off. Nothing is netted or posted here; each balance stays on its own record.')));
         (pos.customers || []).forEach(function (l) { statementLine(host, 'CUSTOMER', l); });
         (pos.suppliers || []).forEach(function (l) { statementLine(host, 'VENDOR', l); });
+        if (party) {
+            setOffForm(host, party, pos);
+            setOffList(host, party);
+        }
     }
 
     function loadPosition(body, party) {
@@ -255,7 +388,7 @@
         $.get(serverContext + 'partyPosition', { partyId: party.id }, function (r) {
             host.textContent = '';
             var pos = r && (r.object || r.data);
-            if (r && r.status === 'SUCCESS' && pos) renderPosition(host, pos);
+            if (r && r.status === 'SUCCESS' && pos) renderPosition(host, pos, party);
             else say(host, (r && r.message) || msg('ui.js.drPosFailed', 'Could not load the position.'), true);
         }, 'json').fail(function () {
             host.textContent = '';
@@ -294,7 +427,10 @@
                 + '.dr-pos td{padding:4px 6px;border-bottom:1px solid rgba(0,0,0,.08)}'
                 + '.dr-pos .dr-amt{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}'
                 + '.dr-note{font-size:12px;opacity:.8;margin-bottom:6px}'
-                + '.dr-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:2px 0}';
+                + '.dr-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:2px 0}'
+                + '.dr-form{display:flex;flex-direction:column;gap:6px;margin:8px 0;padding:10px;border:1px solid rgba(0,0,0,.12);border-radius:8px}'
+                + '.dr-field{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:600;margin:0}'
+                + '.dr-tick{font-size:12.5px;font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:0}';
         var s = document.createElement('style');
         s.textContent = css;
         document.head.appendChild(s);

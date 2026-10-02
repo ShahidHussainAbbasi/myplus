@@ -260,3 +260,73 @@ Known limit: the badge text sits in the name cell, so a grid export carries it a
   which now carries the position; a second button would open the same thing.
 - Tests: `PartyRoleServiceTest` +2 (sums/net/limit; foreign partner refused); Cypress DR3-1..3 (lifecycle tenant,
   opening balances 30,000 / 50,000; trial balance unchanged by a read; the 360 view; refusals).
+
+## DR-4 review — traced 2026-10-02 (before design; needs decisions)
+
+**Path today (verified):** Receive Payment / Pay Vendor → `SubledgerService.settle` (common-subledger): FIFO-allocate
+across open invoices / bills (and installment rows), recompute the party balance, then call finance
+`POST /internal/finance/payments`. finance records the payment and posts its journal in ONE local transaction
+(`PostingService.postPayment`).
+
+| # | Finding | Consequence for a set-off |
+|---|---|---|
+| F1 | `PostingService.cashAccount(method)` maps ANY unrecognised method to **1000 Cash** | A payment with method SETOFF would book Dr Cash / Cr AR — cash that never moved. The mapping must change; passing a new method name is not enough. |
+| F2 | `settle()` records the ledger entry **best-effort**: a finance failure is logged and the AR/AP settlement stays applied | For a set-off, balances could move with NO journal, or one leg posted and the other not. Two independent `settle` calls cannot be the design. |
+| F3 | Chart of accounts (`GlService.ensureDefaults`) has no 1900 | The clearing account must be seeded (idempotent, every org). |
+| F4 | Nothing reverses a receipt or a vendor payment anywhere (business, finance, common-subledger) | Reversal (DR4-6) is new ground: re-opening allocated invoices/bills and mirror journals. |
+| F5 | Readers of payment method: shift X/Z sums SALE tenders + drawer movements only (`PaymentRepo.sumByMethodForShift`, `ShiftService`) — unaffected. finance `PaymentRepository` (party list, party total, count) and `FinanceReportService.listPayments` (statements) — WANT the set-off, labelled. Cash/bank figures come from GL 1000/1010 — unaffected if posting uses 1900. | 3 readers include it, 2 unaffected, 0 must exclude — once F1 is fixed. |
+| F6 | finance-service has uncommitted work from the expense session (V9 `payable_doc`, `PayableService`, `FinanceClient` edits) | DR-4's finance migration would be V10 and touches the same client: build order and ownership must be agreed. |
+| F7 | A receipt's allocation includes installment rows (INST-1) | A set-off allocated "like any receipt" also pays installments, and counts toward a plan's total paid. |
+
+**Proposed shape (for consent):** one finance call records BOTH legs atomically — two payments (method SETOFF) and
+their journals Dr 1900 / Cr 1100 and Dr 2000 / Cr 1900 in one transaction, deduplicated by an idempotency key unique
+in finance. business-service allocates locally, calls finance, and refuses (rolls back) unless finance confirms —
+never best-effort. A retry after a lost commit replays the same finance document. Set-off document `SETOFF-…` in
+business-service (per-org series), owner/admin, reason required, "same business" confirmation, amount ≤ position
+`setOffLimit`, period open. Reversal as its own gated step (DR-4b) before the feature is offered to anyone.
+
+**DR-4 decisions (user, 2026-10-02):** (1) both legs in ONE finance call, atomic, idempotent — refused unless finance
+confirms; (2) reversal built in the SAME slice (one gate); (3) set-off clears ordinary invoices and bills ONLY, never
+installment rows; (4) the finance-service part waits until the expense session commits its finance work (V9 etc.) —
+business side, design and gate go first.
+
+### DR-4 design (2026-10-02)
+
+```mermaid
+sequenceDiagram
+  participant UI as 360 view (owner/admin)
+  participant B as business-service (one tx)
+  participant F as finance-service (one tx)
+  UI->>B: POST /partySetOff {customerId, venderId, amount, reason, reference, sameBusiness, idempotencyKey}
+  B->>B: guards: owner/admin, same party_id, tick, reason, amount ≤ settleable limit, period open, key not seen
+  B->>B: allocate FIFO: customer's ordinary invoices (no installment rows) + supplier's bills; recompute both dues
+  B->>B: SETOFF-000001 (per-org counter, own doc type)
+  B->>F: POST /internal/finance/setoffs {key, setOffNo, both parties, amount, both allocation lists}
+  F->>F: key seen? replay. Else: RECEIPT + DISBURSEMENT (method SETOFF) + journals Dr1900/Cr1100, Dr2000/Cr1900
+  F-->>B: {receiptNo, voucherNo}
+  B->>B: save party_setoff + allocations, idempotency, audit — COMMIT
+  Note over B,F: finance fails → exception → business rolls back: nothing moved anywhere.<br/>business commit fails after finance → retry with the same key replays finance, business applies once.
+```
+
+**business-service (V72):** `party_setoff` (org, setoff_no UNIQUE per org, party_id, customer_id, vender_id, amount,
+reason, reference, receipt_no, voucher_no, idempotency_key UNIQUE per org, status POSTED|REVERSED, created_by/at,
+reversed_by/at, reversal_reason, reversal_key UNIQUE per org) and `party_setoff_alloc` (setoff_id, side
+CUSTOMER|VENDOR, doc_type, doc_id, doc_no, amount) — the allocations are what a reversal re-opens, exactly.
+
+**Settleable limit:** min(Σ outstanding of the customer's open ordinary invoices, Σ outstanding of the supplier's open
+bills). Plan-carrying invoices are excluded (decision 3), so this can be lower than the position's due_amount —
+the position's `setOffLimit` is switched to this figure so the screen and the guard agree.
+
+**Reversal:** `POST /partySetOffReverse {setOffId, reason, idempotencyKey}` — owner/admin, period open, status POSTED.
+Re-opens each allocated document by its recorded amount (paid −= a, due −= a), recomputes both dues, finance mirror
+journals (Dr 1100 / Cr 1900, Dr 1900 / Cr 2000) marking both payments reversed, status REVERSED. Idempotent.
+
+**finance-service (after the expense session commits):** `setoff` table (org, idempotency key UNIQUE, setoff_no,
+receipt/disbursement payment ids, reversed_at); `payment.reversed_at`; `cashAccount`: SETOFF → 1900 (F1);
+`ensureDefaults` seeds 1900 "Set-off clearing" (ASSET, DEBIT). Readers (F5): statements list both the set-off and its
+reversal; party totals exclude reversed payments.
+
+**Gate (DR4-1..6, lifecycle tenant, opening balances 30,000 / 50,000):** refusals (no tick, no reason, over the limit,
+different partners, cashier); AR −30,000 / AP −30,000 / 1000 and 1010 unchanged / 1900 nets 0 / trial balance
+balances; same key twice = one set-off; both statements show it; reversal restores both balances and the trial
+balance; a set-off never touches an installment row.

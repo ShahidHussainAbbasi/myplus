@@ -85,6 +85,12 @@ public class TradeClientsConfig {
                 .createClient(com.myplus.commerce.contracts.client.PartyClient.class);
     }
 
+    /** DR-4 — both legs of a set-off, atomically, in finance-service. Same bare base as FinanceClient (BLK-0). */
+    @Bean
+    public com.myplus.business_service.client.SetOffLedgerClient setOffLedgerClient(@LoadBalanced RestClient.Builder builder) {
+        return proxy(builder, "http://finance-service", com.myplus.business_service.client.SetOffLedgerClient.class);
+    }
+
     /** Build a declarative client over a cloned, load-balanced RestClient (clone isolates per-client config). */
     private <T> T proxy(RestClient.Builder builder, String baseUrl, Class<T> type) {
         RestClient restClient = builder.clone()

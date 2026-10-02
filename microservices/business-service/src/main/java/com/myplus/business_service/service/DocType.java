@@ -22,6 +22,8 @@ public final class DocType {
      * exactly the point an auditor looks hardest: the migration. The series is per-org like the others.
      */
     public static final String OPENING = "OPENING";
+    /** DR-4 — a set-off between a partner's customer and supplier records (SETOFF-000001). Its own series. */
+    public static final String SETOFF = "SETOFF";
 
     private DocType() { }
 }

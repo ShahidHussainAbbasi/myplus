@@ -29,6 +29,9 @@ public class PartyRoleController {
     @Autowired
     private PartyRoleService service;
 
+    @Autowired
+    private com.myplus.business_service.service.PartySetOffService setOffs;
+
     /** DR-3 — the partner's position: they owe us, we owe them, the net if set off. Read-only; owner/admin. */
     @PreAuthorize(OWNER_OR_ADMIN)
     @GetMapping("/partyPosition")
@@ -41,6 +44,60 @@ public class PartyRoleController {
             LOG.error("partyPosition failed", e);
             return new GenericResponse("ERROR", "Could not load the position right now.");
         }
+    }
+
+    // ---- DR-4 set-off ----------------------------------------------------------------------------------------------
+
+    /** Body: {@code {customerId, venderId, amount, reason, reference, sameBusiness, idempotencyKey}}. */
+    @PreAuthorize(OWNER_OR_ADMIN)
+    @PostMapping("/partySetOff")
+    public GenericResponse setOff(@RequestBody Map<String, Object> body) {
+        try {
+            var o = setOffs.setOff(asLong(body.get("customerId")), asLong(body.get("venderId")), asMoney(body.get("amount")),
+                    str(body.get("reason")), str(body.get("reference")), Boolean.parseBoolean(String.valueOf(body.get("sameBusiness"))),
+                    str(body.get("idempotencyKey")));
+            return new GenericResponse("SUCCESS", (o.replay() ? "Already recorded: " : "Recorded: ") + o.setOffNo(), o);
+        } catch (PartyRoleService.Refusal | com.myplus.business_service.service.PeriodClosedException r) {
+            return new GenericResponse("FAILED", r.getMessage());
+        } catch (Exception e) {
+            // finance did not confirm (or anything else): the transaction rolled back, so nothing moved anywhere.
+            LOG.error("partySetOff failed", e);
+            return new GenericResponse("ERROR", "The set-off was not recorded and no balance changed. Try again in a moment.");
+        }
+    }
+
+    /** Body: {@code {setOffId, reason, idempotencyKey}} — the key dedups the REVERSAL itself. */
+    @PreAuthorize(OWNER_OR_ADMIN)
+    @PostMapping("/partySetOffReverse")
+    public GenericResponse reverse(@RequestBody Map<String, Object> body) {
+        try {
+            var o = setOffs.reverse(asLong(body.get("setOffId")), str(body.get("reason")), str(body.get("idempotencyKey")));
+            return new GenericResponse("SUCCESS", "Reversed: " + o.setOffNo(), o);
+        } catch (PartyRoleService.Refusal | com.myplus.business_service.service.PeriodClosedException r) {
+            return new GenericResponse("FAILED", r.getMessage());
+        } catch (Exception e) {
+            LOG.error("partySetOffReverse failed", e);
+            return new GenericResponse("ERROR", "The reversal was not recorded and no balance changed. Try again in a moment.");
+        }
+    }
+
+    /** The partner's set-offs, newest first. */
+    @PreAuthorize(OWNER_OR_ADMIN)
+    @GetMapping("/partySetOffs")
+    public GenericResponse list(@RequestParam(required = false) Long partyId) {
+        try {
+            return new GenericResponse("SUCCESS", "Set-offs", null, setOffs.forParty(partyId));
+        } catch (Exception e) {
+            LOG.error("partySetOffs failed", e);
+            return new GenericResponse("ERROR", "Could not load the set-offs.");
+        }
+    }
+
+    private static String str(Object o) { return o == null ? null : String.valueOf(o); }
+
+    private static java.math.BigDecimal asMoney(Object o) {
+        if (o == null) return null;
+        try { return new java.math.BigDecimal(String.valueOf(o).trim()); } catch (NumberFormatException e) { return null; }
     }
 
     /** Body: {@code {customerId, venderId}} — the supplier joins the customer's partner. */

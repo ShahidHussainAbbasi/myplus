@@ -388,9 +388,38 @@ describe('DR-3 / DR-4 — position and set-off', () => {
           .its('body.status').should('eq', 'SUCCESS')
         cy.request({ method: 'POST', url: '/postOpeningBalance', form: true, body: { venderId: v.id, amount: 50000, reference: 'dr ' + s } })
           .its('body.status').should('eq', 'SUCCESS')
-        return { c, v, partyId: c.partyId }
+        // cy.wrap: this callback queued commands, so it must hand back a chainable, not a plain object.
+        return cy.wrap({ c, v, partyId: c.partyId })
       }))
   }
+
+  /*
+   * LEAVE NO SERVER STATE. Posting an opening balance sets AND LOCKS the tenant's cutover date. Left locked, it broke
+   * opening-balances.cy.js on its next run: that spec clears the date (the lock allows clearing), then cannot set it
+   * again, and every posting after is refused "Set the cutover date first" (2026-10-02, 12 red cases). So the two
+   * settings are read before this block and put back after it — unlock first, as that spec's own after() does.
+   */
+  const CUT = 'business.cutoverDate', LOCK = 'business.cutoverLocked'
+  let saved = null
+  const setCfg = (key, value) => cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key, value }, failOnStatusCode: false })
+    .then((r) => expect(r.body && (r.body.success === true || r.body.status === 'SUCCESS'), `restore ${key}=${value}: ${JSON.stringify(r.body)}`).to.eq(true))
+
+  before(() => {
+    asLifecycle()
+    cy.request('/getBusinessConfig').then((r) => {
+      const rows = list(r.body)
+      const val = (k) => { const x = rows.find((y) => y.key === k); return x ? String(x.value == null ? '' : x.value) : '' }
+      saved = { cut: val(CUT), lock: val(LOCK) || 'false' }
+    })
+  })
+
+  after(() => {
+    if (!saved) return
+    asLifecycle()
+    setCfg(LOCK, 'false')
+    setCfg(CUT, saved.cut)
+    if (saved.lock === 'true') setCfg(LOCK, 'true')
+  })
 
   beforeEach(asLifecycle)
 
@@ -456,23 +485,43 @@ describe('DR-3 / DR-4 — position and set-off', () => {
     })
   })
 
-  it.skip('DR4-1 — set-off is refused without the "same business" confirmation, a reason, or over the smaller balance', () => {
-    seedPartner().then(({ c, v }) => {
-      const base = { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'agreed', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() }
-      const post = (body) => cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' }, body })
-      post({ ...base, confirmSameParty: false }).its('body.status').should('not.eq', 'SUCCESS')
-      post({ ...base, reason: '' }).its('body.status').should('not.eq', 'SUCCESS')
-      post({ ...base, amount: 30000.01 }).its('body.status').should('not.eq', 'SUCCESS')
+  // ── DR-4: set-off — both legs in ONE finance transaction, or nothing moves ─────────────────────────────────
+  const setOff = (body, opts = {}) => cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false,
+    headers: { 'Content-Type': 'application/json' }, body: { sameBusiness: true, reason: 'agreed contra', idempotencyKey: 'dr-' + uniq() + Math.random(), ...body }, ...opts })
+  const reverse = (setOffId, reason = 'entered in error') => cy.request({ method: 'POST', url: '/partySetOffReverse',
+    failOnStatusCode: false, headers: { 'Content-Type': 'application/json' }, body: { setOffId, reason, idempotencyKey: 'rev-' + uniq() + Math.random() } })
+  const position = (partyId) => cy.request(`/partyPosition?partyId=${partyId}`).then((r) => payload(r.body))
+  const pair = (c, v) => ({ customerId: c.customerId || c.id, venderId: v.id })
+
+  it('DR4-1 — refused without the "same business" tick, without a reason, or over the smaller balance; nothing moves', () => {
+    seedPartner().then(({ c, v, partyId }) => {
+      setOff({ ...pair(c, v), amount: 100, sameBusiness: false }).then((r) => {
+        expect(r.body.status).to.eq('FAILED'); expect(r.body.message).to.match(/same business/)
+      })
+      setOff({ ...pair(c, v), amount: 100, reason: '' }).then((r) => {
+        expect(r.body.status).to.eq('FAILED'); expect(r.body.message).to.match(/reason/i)
+      })
+      setOff({ ...pair(c, v), amount: 30000.01 }).then((r) => {
+        expect(r.body.status).to.eq('FAILED'); expect(r.body.message, 'names the limit').to.match(/30000/)
+      })
+      position(partyId).then((p) => {
+        expect(Number(p.receivable), 'nothing moved').to.eq(30000)
+        expect(Number(p.payable)).to.eq(50000)
+        expect(Number(p.setOffLimit), 'the screen offers what the guard accepts').to.eq(30000)
+      })
     })
   })
 
-  it.skip('DR4-2 — set-off moves AR and AP only: Dr 2000 / Cr 1100, cash untouched, 1900 nets to zero', () => {
-    seedPartner().then(({ c, v }) => {
+  it('DR4-2 — a set-off moves AR and AP only: AR −30,000, AP −30,000, cash and bank untouched, 1900 nets to zero', () => {
+    seedPartner().then(({ c, v, partyId }) => {
       trialBalance().then((before) => {
-        cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
-          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'agreed contra', reference: 'letter 12', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
-          .its('body.status').should('eq', 'SUCCESS')
-        cy.wait(1500)   // the journal is posted through the outbox after commit
+        setOff({ ...pair(c, v), amount: 30000, reference: 'letter 12' }).then((r) => {
+          expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS')
+          const o = payload(r.body)
+          expect(o.setOffNo).to.match(/^SETOFF-\d{6}$/)
+          expect(o.receiptNo, 'finance confirmed the receipt leg').to.be.a('string').and.not.be.empty
+          expect(o.voucherNo, 'finance confirmed the payment leg').to.be.a('string').and.not.be.empty
+        })
         trialBalance().then((after) => {
           expect(net(after, '1100') - net(before, '1100'), 'AR credited 30,000').to.eq(-30000)
           expect(net(after, '2000') - net(before, '2000'), 'AP debited 30,000').to.eq(30000)
@@ -481,55 +530,107 @@ describe('DR-3 / DR-4 — position and set-off', () => {
           expect(net(after, '1900') - net(before, '1900'), 'clearing nets to zero').to.eq(0)
           expect(after.balanced, 'trial balance still balances').to.eq(true)
         })
+        position(partyId).then((p) => {
+          expect(Number(p.receivable), 'they owe us nothing now').to.eq(0)
+          expect(Number(p.payable), 'we still owe them 20,000').to.eq(20000)
+        })
       })
     })
   })
 
-  it.skip('DR4-3 — the same idempotency key twice records ONE set-off', () => {
-    seedPartner().then(({ c, v }) => {
-      const body = { customerId: c.customerId || c.id, venderId: v.id, amount: 10000, reason: 'retry', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() }
-      const post = () => cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' }, body })
-      post().then((a) => post().then((b) => {
-        expect((payload(b.body) || {}).setOffNo, 'replay returns the first document').to.eq((payload(a.body) || {}).setOffNo)
-      }))
-    })
-  })
-
-  it.skip('DR4-4 — both statements show the set-off; a cashier cannot create one', () => {
-    seedPartner().then(({ c, v }) => {
-      cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
-        body: { customerId: c.customerId || c.id, venderId: v.id, amount: 5000, reason: 'stmt', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
-        .then((r) => {
-          const no = (payload(r.body) || {}).setOffNo
-          cy.request(`/customerStatement?customerId=${c.customerId || c.id}`).then((s) => expect(JSON.stringify(s.body)).to.contain(no))
-          cy.request(`/vendorStatement?venderId=${v.id}`).then((s) => expect(JSON.stringify(s.body)).to.contain(no))
+  it('DR4-3 — the same idempotency key twice records ONE set-off and clears once', () => {
+    seedPartner().then(({ c, v, partyId }) => {
+      const key = 'dr-once-' + uniq()
+      setOff({ ...pair(c, v), amount: 10000, idempotencyKey: key }).then((a) => {
+        expect(a.body.status).to.eq('SUCCESS')
+        setOff({ ...pair(c, v), amount: 10000, idempotencyKey: key }).then((b) => {
+          expect(b.body.status).to.eq('SUCCESS')
+          expect(payload(b.body).replay, 'answered as a replay').to.eq(true)
+          expect(payload(b.body).setOffNo, 'the first document').to.eq(payload(a.body).setOffNo)
         })
-      cy.loginAsCashierA()
-      cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
-        body: { customerId: c.customerId || c.id, venderId: v.id, amount: 1, reason: 'x', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
-        .then((r2) => expect(r2.status === 403 || (r2.body && r2.body.status !== 'SUCCESS'), 'cashier refused').to.eq(true))
+      })
+      position(partyId).then((p) => expect(Number(p.receivable), 'cleared ONCE').to.eq(20000))
     })
   })
 
-  it.skip('DR4-6 — reversing a set-off restores both balances and the trial balance', () => {
+  it('DR4-4 — both statements show the set-off; a cashier cannot create one', () => {
+    seedPartner().then(({ c, v }) => {
+      setOff({ ...pair(c, v), amount: 5000 }).then((r) => {
+        const no = payload(r.body).setOffNo
+        cy.request(`/customerStatement?customerId=${c.customerId || c.id}`).then((st) => expect(JSON.stringify(st.body), 'customer statement').to.contain(no))
+        cy.request(`/vendorStatement?venderId=${v.id}`).then((st) => expect(JSON.stringify(st.body), 'supplier statement').to.contain(no))
+      })
+      cy.loginAsCashierA()
+      setOff({ ...pair(c, v), amount: 1 }).then((r2) =>
+        expect(r2.status === 403 || (r2.body && r2.body.status !== 'SUCCESS'), 'cashier refused ' + r2.status).to.eq(true))
+    })
+  })
+
+  it('DR4-5 — a customer and a supplier of DIFFERENT partners are refused', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR X C ' + s, contact: mobile(s) }).then((c) =>
+      addSupplier({ name: 'DR X S ' + s, mobile: mobile(Number(s) + 5) }).then((v) =>
+        setOff({ ...pair(c, v), amount: 1 }).then((r) => {
+          expect(r.body.status).to.eq('FAILED')
+          expect(r.body.message).to.match(/not the same partner/)
+        })))
+  })
+
+  it('DR4-6 — reversal restores both balances and every account; a second reversal is refused; unlink waits for it', () => {
     seedPartner().then(({ c, v, partyId }) => {
       trialBalance().then((before) => {
-        cy.request({ method: 'POST', url: '/partySetOff', headers: { 'Content-Type': 'application/json' },
-          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 30000, reason: 'to reverse', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
-          .then((r) => cy.request({ method: 'POST', url: '/partySetOffReverse', headers: { 'Content-Type': 'application/json' },
-            body: { setOffNo: (payload(r.body) || {}).setOffNo, reason: 'entered in error' } }))
-          .its('body.status').should('eq', 'SUCCESS')
-        cy.wait(1500)
-        cy.request(`/partyPosition?partyId=${partyId}`).then((p) => {
-          const pos = payload(p.body) || parse(p.body)
-          expect(Number(pos.receivable), 'they owe us again').to.eq(30000)
-          expect(Number(pos.payable), 'we owe them again').to.eq(50000)
+        setOff({ ...pair(c, v), amount: 30000 }).then((r) => {
+          const id = payload(r.body).id
+          // While it stands, the two records cannot be pulled apart.
+          cy.request({ method: 'POST', url: '/partyUnlink', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
+            body: { role: 'VENDOR', id: v.id } }).then((u) => {
+            expect(u.body.status).to.eq('FAILED'); expect(u.body.message).to.match(/set-off stands/)
+          })
+          reverse(id).its('body.status').should('eq', 'SUCCESS')
+          reverse(id).then((again) => {
+            expect(again.body.status).to.eq('FAILED'); expect(again.body.message).to.match(/already reversed/)
+          })
+        })
+        position(partyId).then((p) => {
+          expect(Number(p.receivable), 'they owe us again').to.eq(30000)
+          expect(Number(p.payable), 'we owe them again').to.eq(50000)
         })
         trialBalance().then((after) => {
           ;['1100', '2000', '1000', '1010', '1900'].forEach((code) =>
             expect(net(after, code) - net(before, code), `account ${code} back where it started`).to.eq(0))
+          expect(after.balanced).to.eq(true)
         })
       })
+    })
+  })
+
+  it('DR4-7 — by hand: Set off… in the 360 view, then Reverse; the position follows each step', () => {
+    seedPartner().then(({ c, v }) => {
+      cy.openSection('CustomerDiv')
+      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
+      cy.contains('#CustomerDiv tr', c.name).contains('button', '360').click()
+      cy.get('.c360-card [data-dr-setoff-open]', { timeout: 10000 }).should('be.enabled').click()
+      cy.get('.c360-card [data-dr-amount]').should('have.value', '30000')   // offered: the most that can be set off
+      cy.get('.c360-card [data-dr-amount]').clear().type('12000')
+      cy.get('.c360-card [data-dr-setoff-save]').click()
+      cy.get('.c360-card [data-dr-setoff-form] .dr-say').should('contain', 'Tick')          // the tick is required
+      cy.get('.c360-card [data-dr-same]').check()
+      cy.get('.c360-card [data-dr-setoff-save]').click()
+      cy.get('.c360-card [data-dr-setoff-form] .dr-say').should('contain', 'reason')         // so is a reason
+      cy.get('.c360-card [data-dr-reason]').type('agreed by phone')
+      cy.get('.c360-card [data-dr-setoff-save]').click()
+      // The view comes back on the partner with the new figures and the document listed.
+      cy.get('.c360-card [data-dr-pos="receivable"]', { timeout: 10000 }).should('have.attr', 'data-amount', '18000')
+      cy.get('.c360-card [data-dr-pos="payable"]').should('have.attr', 'data-amount', '38000')
+      cy.get('.c360-card [data-dr-setoff-row]').should('have.length', 1).first().invoke('attr', 'data-dr-setoff-row').then((no) => {
+        cy.get(`.c360-card [data-dr-reverse="${no}"]`).click()
+        cy.get('.uiC-card .uiC-input').type('typed the wrong amount')
+        cy.get('[data-ui-confirm="ok"]').click()
+        cy.get('.c360-card [data-dr-pos="receivable"]', { timeout: 10000 }).should('have.attr', 'data-amount', '30000')
+        cy.get(`.c360-card [data-dr-setoff-row="${no}"]`).should('contain', 'reversed').find('[data-dr-reverse]').should('not.exist')
+      })
+      cy.get('.c360-card .c360-x').click()
+      cy.wrap(v).its('id').should('be.a', 'number')
     })
   })
 
@@ -545,12 +646,4 @@ describe('DR-3 / DR-4 — position and set-off', () => {
     })
   })
 
-  it.skip('DR4-5 — a set-off between a customer and a supplier of DIFFERENT partners is refused', () => {
-    const s = uniq()
-    addCustomer({ name: 'DR X C ' + s, contact: mobile(s) }).then((c) =>
-      addSupplier({ name: 'DR X S ' + s, mobile: mobile(Number(s) + 5) }).then((v) =>
-        cy.request({ method: 'POST', url: '/partySetOff', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
-          body: { customerId: c.customerId || c.id, venderId: v.id, amount: 1, reason: 'x', confirmSameParty: true, idempotencyKey: 'dr-' + uniq() } })
-          .its('body.status').should('not.eq', 'SUCCESS')))
-  })
 })

@@ -56,6 +56,13 @@ public interface FinanceClient {
     @PostExchange("/api/finance/gl/accounts/ensure-defaults")
     java.util.List<com.myplus.commerce.contracts.dto.GlAccountView> ensureDefaultAccounts();
 
+    /**
+     * FP-1/2 — report supplier payables (snapshots) into finance's subledger. Idempotent per (org, source, ref);
+     * an older {@code sourceVersion} is ignored. {@code /internal/**}: no gateway route reaches it.
+     */
+    @PostExchange("/internal/finance/payables")
+    void upsertPayables(@RequestBody java.util.List<com.myplus.commerce.contracts.dto.PayableSnapshot> snapshots);
+
     /** Period close: the org's lock date (or null when open) — read by business-service to gate its ops. */
     @GetExchange("/api/finance/gl/period-lock")
     com.myplus.commerce.contracts.dto.PeriodLockView getPeriodLock();

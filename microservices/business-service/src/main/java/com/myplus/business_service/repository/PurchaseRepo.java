@@ -134,4 +134,12 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
 //    @Query(value = "SELECT * FROM appointment a WHERE a.FK_hospital_id =:FK_hospital_id AND a.FK_doctor_id = :doctor_id AND a.date = :date"
 //    		+" ORDER BY a.patients_appointed DESC LIMIT 1",nativeQuery=true)
 //    Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date);
+
+   /** FP-2 backfill — the tenants that have supplier purchases (any status), each to be replayed once. */
+   @Query("select distinct p.organizationId from purchase p where p.venderId is not null and p.organizationId is not null")
+   List<Long> findOrgsWithSupplierPurchases();
+
+   /** FP-2 backfill — one tenant's supplier purchases, in stable id order, a page at a time. */
+   @Query("select p from purchase p where p.organizationId = :org and p.venderId is not null order by p.purchaseId")
+   List<Purchase> findSupplierPurchasesByOrg(@Param("org") Long org, org.springframework.data.domain.Pageable page);
 }

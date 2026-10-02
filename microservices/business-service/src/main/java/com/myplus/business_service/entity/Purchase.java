@@ -32,6 +32,8 @@ import lombok.Data;
  */
 @Data
 @Entity(name="purchase")
+// FP-2 — every save is reported to finance's payables subledger (see PurchasePayableListener).
+@jakarta.persistence.EntityListeners(com.myplus.business_service.service.PurchasePayableListener.class)
 @Table(name = "purchase", uniqueConstraints = { @UniqueConstraint(columnNames = "purchase_id") })
 public class Purchase implements Serializable {
 	private static final long serialVersionUID = 1L;

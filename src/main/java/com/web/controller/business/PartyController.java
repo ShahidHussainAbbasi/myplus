@@ -81,6 +81,46 @@ public class PartyController {
         }
     }
 
+    /** DR-4 — record a set-off (both legs, atomic, idempotent). Owner/admin, both sides. */
+    @org.springframework.web.bind.annotation.PostMapping(value = "/partySetOff", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partySetOff(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        try {
+            return business.postJson("/partySetOff", body);
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
+
+    /** DR-4 — reverse a set-off. Owner/admin, both sides. */
+    @org.springframework.web.bind.annotation.PostMapping(value = "/partySetOffReverse", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partySetOffReverse(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        try {
+            return business.postJson("/partySetOffReverse", body);
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
+
+    /** DR-4 — a partner's set-offs, newest first. Owner/admin. */
+    @GetMapping(value = "/partySetOffs", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partySetOffs(final HttpServletRequest request) {
+        String id = request.getParameter("partyId");
+        try {
+            Long partyId = (id == null || id.isBlank()) ? null : Long.valueOf(id.trim());
+            return business.get("/partySetOffs", partyId == null ? null : "partyId=" + partyId);
+        } catch (NumberFormatException bad) {
+            return java.util.Map.of("status", "FAILED", "message", "Choose a partner.");
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
+
     /** DR-2 — link a supplier to a customer's partner: {@code {customerId, venderId}}. Owner/admin, both sides. */
     @org.springframework.web.bind.annotation.PostMapping(value = "/partyLink", produces = "application/json")
     @ResponseBody

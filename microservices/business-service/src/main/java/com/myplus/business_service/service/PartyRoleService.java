@@ -51,6 +51,8 @@ public class PartyRoleService {
     @Autowired private CustomerRepo customerRepo;
     @Autowired private VenderRepo venderRepo;
     @Autowired private AuditService auditService;
+    @Autowired private PartySetOffService setOffs;
+    @Autowired private com.myplus.business_service.repository.PartySetOffRepo setOffRepo;
     @Autowired(required = false) private PartyClient partyClient;
     private final TransactionTemplate tx;
 
@@ -124,7 +126,12 @@ public class PartyRoleService {
         p.setPayable(payable);
         p.setStoreCredit(credit);
         p.setNetIfSetOff(receivable.subtract(payable));
-        p.setSetOffLimit(receivable.min(payable));
+        // DR-4: what a set-off can actually clear — ordinary invoices and bills only (never installment rows), so the
+        // screen offers exactly what the guard will accept. Can be lower than min(receivable, payable).
+        java.math.BigDecimal canReceive = java.math.BigDecimal.ZERO, canPay = java.math.BigDecimal.ZERO;
+        for (Customer c : cs) canReceive = canReceive.add(setOffs.settleableReceivable(c.getCustomerId()));
+        for (Vender v : vs) canPay = canPay.add(setOffs.settleablePayable(v.getId()));
+        p.setSetOffLimit(canReceive.min(canPay));
         return p;
     }
 
@@ -146,6 +153,7 @@ public class PartyRoleService {
         Long partyId = c.getPartyId();
         if (partyId == null) throw new Refusal("This customer is not linked to a partner yet. Save it once more, then try again.");
         if (partyId.equals(v.getPartyId())) return false;
+        requireNoSetOff(c.getCustomerId(), v.getId());
         requireParty();
 
         partyClient.link(partyId, PartyRoleRef.builder()
@@ -183,6 +191,7 @@ public class PartyRoleService {
         if (partyId == null) throw new Refusal("This record is not linked to a partner, so there is nothing to unlink.");
         long sharing = customerRepo.countByPartyScoped(partyId, org(), user()) + venderRepo.countByPartyScoped(partyId, org(), user());
         if (sharing < 2) throw new Refusal("This record does not share its partner with another customer or supplier.");
+        requireNoSetOff(isCustomer ? id : -1L, isCustomer ? -1L : id);
         requireParty();
 
         String roleName = isCustomer ? "CUSTOMER" : "VENDOR";
@@ -199,6 +208,13 @@ public class PartyRoleService {
                     (isCustomer ? "Customer " : "Supplier ") + name + " given its own partner (" + partyId + " -> " + newId + ")");
         });
         return newId;
+    }
+
+    /** A set-off that still stands ties the two records together; reverse it before moving either. */
+    private void requireNoSetOff(Long customerId, Long venderId) {
+        if (setOffRepo.countPostedFor(org(), customerId, venderId) > 0) {
+            throw new Refusal("A set-off stands on this record. Reverse it before linking or unlinking.");
+        }
     }
 
     private void requireParty() {
