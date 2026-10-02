@@ -56,6 +56,7 @@ public class VenderDTO implements Serializable {
 	private java.math.BigDecimal dueAmount;
 	private Long partyId;               // P1: shared party/contact master id
 	private String cnicNtn;             // DR-1 (D5): optional CNIC / NTN — the strongest partner match key
+	private Boolean alsoCustomer;       // DR-2: this supplier's partner is also one of our customers (computed on read)
 	private String datedStr;
 	private String updatedStr;
 

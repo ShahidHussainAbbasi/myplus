@@ -24,6 +24,22 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
         + "or (v.organizationId is null and v.userId = :userId)")
    List<Vender> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /** DR-2 — which of these partners hold a supplier record here. ONE query for a whole customer grid. */
+   @Query("select distinct v.partyId from Vender v where v.partyId in :partyIds "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
+   List<Long> partyIdsAmong(@Param("partyIds") java.util.Collection<Long> partyIds,
+                            @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /** DR-2 — the supplier records sharing one partner (unlink refuses a record that shares it with nothing). */
+   @Query("select count(v) from Vender v where v.partyId = :partyId "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
+   long countByPartyScoped(@Param("partyId") Long partyId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /** DR-2 — one supplier, only if it belongs to the caller's tenant (anti-IDOR: link/unlink take ids from a request). */
+   @Query("select v from Vender v where v.id = :id "
+        + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
+   java.util.Optional<Vender> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    /**
     * How many, WITHOUT loading them.
     *

@@ -104,4 +104,7 @@ public class CustomerDTO implements Serializable {
      * the column.
      */
     private Long version;
+
+    /** DR-2 — this customer's partner is also one of our suppliers. Read-only, computed on the list read. */
+    private Boolean alsoSupplier;
 }

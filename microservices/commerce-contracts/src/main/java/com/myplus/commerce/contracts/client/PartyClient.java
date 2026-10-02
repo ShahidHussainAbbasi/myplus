@@ -23,6 +23,13 @@ public interface PartyClient {
     @PostExchange("/upsert")
     PartyRef upsert(@RequestBody PartyRef request);
 
+    /**
+     * DR-2 — unlink: create a NEW party for one module record WITHOUT matching, and move its role link there.
+     * Owner/admin-gated server-side; the request must carry {@code role} (module, role, localId).
+     */
+    @PostExchange("/detach")
+    PartyRef detach(@RequestBody PartyRef request);
+
     /** Resolve a party by its id. */
     @GetExchange("/{id}")
     PartyRef get(@PathVariable("id") Long id);

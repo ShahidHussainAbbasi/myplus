@@ -46,6 +46,15 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/categories", body));
     }
 
+    /** EX-2b — what expenses can be tagged to on this dashboard (education | agriculture). */
+    @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> tags(@RequestParam(required = false) String source) {
+        StringBuilder q = new StringBuilder("/tags?x=1");
+        param(q, "source", source);
+        return call(() -> expense.get(q.toString()));
+    }
+
     @GetMapping(value = "/vouchers", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> list(@RequestParam(required = false) String from, @RequestParam(required = false) String to,

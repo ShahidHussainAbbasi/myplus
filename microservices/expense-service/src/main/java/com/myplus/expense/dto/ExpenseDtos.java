@@ -26,7 +26,7 @@ public final class ExpenseDtos {
         }
     }
 
-    public record LineRequest(Long categoryId, BigDecimal amount, String description) { }
+    public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) { }
 
     public record VoucherRequest(LocalDate voucherDate, String paidFrom, Long storeId, String payeeName, String note,
                                  List<LineRequest> lines) { }
@@ -34,10 +34,10 @@ public final class ExpenseDtos {
     public record VoidRequest(String reason) { }
 
     public record LineView(int lineNo, Long categoryId, String categoryName, String accountCode, String description,
-                           BigDecimal amount) {
+                           BigDecimal amount, String tagType, Long tagId, String tagLabel) {
         public static LineView of(ExpenseVoucherLine l) {
             return new LineView(l.getLineNo(), l.getCategoryId(), l.getCategoryName(), l.getAccountCode(),
-                    l.getDescription(), l.getAmount());
+                    l.getDescription(), l.getAmount(), l.getTagType(), l.getTagId(), l.getTagLabel());
         }
     }
 

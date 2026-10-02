@@ -60,4 +60,31 @@ public class PartyController {
                     org.springframework.http.HttpStatus.BAD_GATEWAY, "Possible duplicates are not available right now.");
         }
     }
+
+    @Autowired
+    private com.web.util.BusinessRestClient business;
+
+    /** DR-2 — link a supplier to a customer's partner: {@code {customerId, venderId}}. Owner/admin, both sides. */
+    @org.springframework.web.bind.annotation.PostMapping(value = "/partyLink", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partyLink(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        try {
+            return business.postJson("/partyLink", body);
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
+
+    /** DR-2 — give one customer or supplier a partner of its own: {@code {role, id}}. Owner/admin, both sides. */
+    @org.springframework.web.bind.annotation.PostMapping(value = "/partyUnlink", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partyUnlink(@org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body) {
+        try {
+            return business.postJson("/partyUnlink", body);
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
 }

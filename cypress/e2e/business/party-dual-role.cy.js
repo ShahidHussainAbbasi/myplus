@@ -218,54 +218,156 @@ describe('DR-1 — matching finds the same partner and never merges two', () => 
 describe('DR-2 — second role, badges, link and unlink', () => {
   beforeEach(() => cy.loginAsOwner())
 
-  it.skip('DR2-1 — grid rows say which partners hold the other role', () => {
+  const supplierRow = (id) => cy.request('/getUserVender').then((r) => list(r.body).find((x) => x.id === id))
+  const customerRow = (id) => cy.request('/getUserCustomer?q=-1').then((r) => list(r.body).find((x) => (x.customerId || x.id) === id))
+  const json = (url, body, opts = {}) => cy.request({ method: 'POST', url, headers: { 'Content-Type': 'application/json' }, body, failOnStatusCode: false, ...opts })
+  const searchGrid = (div, text) => cy.get(`#${div} input[type="search"]`).first().clear().type(text)
+
+  it('DR2-1 — rows say which partners hold the other role, in the data AND on the grid', () => {
     const s = uniq()
     const phone = mobile(s)
     addCustomer({ name: 'DR Badge C ' + s, contact: phone }).then((c) => {
-      addSupplier({ name: 'DR Badge S ' + s, mobile: phone }).then(() => {
-        cy.request('/getUserCustomer?q=-1').then((r) => {
-          expect(list(r.body).find((x) => x.name === c.name).alsoSupplier, 'customer row: also a supplier').to.eq(true)
-        })
+      addSupplier({ name: 'DR Badge S ' + s, mobile: phone }).then((v) => {
+        customerRow(c.customerId || c.id).its('alsoSupplier').should('eq', true)
+        supplierRow(v.id).its('alsoCustomer').should('eq', true)
+        cy.openSection('CustomerDiv')
+        searchGrid('CustomerDiv', c.name)
+        cy.contains('#CustomerDiv tr', c.name).find('[data-dr-badge="supplier"]').should('be.visible')
+        // A partner with the other role already does not offer to add it again.
+        cy.contains('#CustomerDiv tr', c.name).find('[data-action="add-as-supplier"]').should('not.exist')
+      })
+    })
+    // The control: a customer with no supplier role has no badge, and is offered "+ Supplier".
+    const t = uniq()
+    addCustomer({ name: 'DR NoBadge C ' + t, contact: mobile(Number(t) + 11) }).then((c) => {
+      customerRow(c.customerId || c.id).its('alsoSupplier').should('eq', false)
+    })
+  })
+
+  it('DR2-2 — "+ Supplier" opens the supplier form filled from the customer; saving it makes ONE partner', () => {
+    const s = uniq()
+    const coName = 'DR2Co_' + s
+    cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name: coName, email: `${coName}@t.com` } })
+    cy.request('/getUserCompany').then((co) => {
+      const companyId = list(co.body).find((x) => x.name === coName).id
+      addCustomer({ name: 'DR Add C ' + s, contact: mobile(s), email: `add${s}@t.com`, address: 'Shop 4, Main Bazar' }).then((c) => {
+        cy.openSection('CustomerDiv')
+        searchGrid('CustomerDiv', c.name)
+        cy.contains('#CustomerDiv tr', c.name).find('[data-action="add-as-supplier"]').scrollIntoView().click()
+        cy.get('#VenderModal').should('be.visible')
+        cy.get('#venderName').should('have.value', c.name)
+        cy.get('#venderMobile').should('have.value', c.contact)
+        cy.get('#venderEmail').should('have.value', c.email)
+        cy.get('#venderAddress').should('have.value', 'Shop 4, Main Bazar')
+        cy.get('#venderId').should('have.value', '')   // a NEW supplier, never an edit of another
+        // D7: the company stays the operator's own pick.
+        cy.window().then((w) => w.$('#venderCompanyDD').selectpicker('val', [String(companyId)]))
+        cy.get('#addVender').click()
+        cy.get('#VenderModal').should('not.be.visible')
         cy.request('/getUserVender').then((r) => {
-          expect(list(r.body).find((x) => x.name === 'DR Badge S ' + s).alsoCustomer, 'supplier row: also a customer').to.eq(true)
+          const v = list(r.body).find((x) => x.name === c.name)
+          expect(v, 'the supplier was saved').to.be.an('object')
+          expect(v.partyId, 'one partner for both records').to.eq(c.partyId)
+          expect(v.alsoCustomer, 'and the supplier row says so').to.eq(true)
         })
       })
     })
   })
 
-  it.skip('DR2-2 — "Add as supplier" on a customer row opens the supplier form filled from the customer', () => {
-    const s = uniq()
-    addCustomer({ name: 'DR Add C ' + s, contact: mobile(s), email: `add${s}@t.com` }).then((c) => {
-      cy.visit('/businessDashboard'); cy.waitForAppReady()
-      cy.openSection('CustomerDiv')
-      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
-      cy.contains('#CustomerDiv tr', c.name).find('[data-action="add-as-supplier"]').click()
-      cy.get('#VenderModal').should('be.visible')
-      cy.get('#VenderModal [name="name"]').should('have.value', c.name)
-      cy.get('#VenderModal [name="mobile"]').should('have.value', c.contact)
-      cy.get('#VenderModal [name="email"]').should('have.value', c.email)
-    })
-  })
-
-  it.skip('DR2-3 — owner links a customer to a supplier the matching could not find, and can unlink it', () => {
+  it('DR2-3 — owner links a customer to a supplier matching could not find, and unlinks it; refusals are sentences', () => {
     const s = uniq()
     addCustomer({ name: 'DR Link C ' + s, contact: mobile(s) }).then((c) => {
       addSupplier({ name: 'DR Link S ' + s, mobile: mobile(Number(s) + 9) }).then((v) => {
-        expect(v.partyId).to.not.eq(c.partyId)
-        cy.request({ method: 'POST', url: '/partyLink', headers: { 'Content-Type': 'application/json' }, body: { customerId: c.customerId || c.id, venderId: v.id } })
-          .its('body.status').should('eq', 'SUCCESS')
-        cy.request('/getUserVender').then((r) => expect(list(r.body).find((x) => x.id === v.id).partyId, 'linked').to.eq(c.partyId))
-        cy.request({ method: 'POST', url: '/partyUnlink', headers: { 'Content-Type': 'application/json' }, body: { role: 'VENDOR', id: v.id } })
-          .its('body.status').should('eq', 'SUCCESS')
-        cy.request('/getUserVender').then((r) => expect(list(r.body).find((x) => x.id === v.id).partyId, 'unlinked').to.not.eq(c.partyId))
+        expect(v.partyId, 'different numbers = different partners at first').to.not.eq(c.partyId)
+        json('/partyLink', { customerId: c.customerId || c.id, venderId: v.id }).its('body.status').should('eq', 'SUCCESS')
+        supplierRow(v.id).then((row) => {
+          expect(row.partyId, 'linked to the customer\'s partner').to.eq(c.partyId)
+          expect(row.alsoCustomer).to.eq(true)
+        })
+        partyRoles(c.partyId).then((d) => {
+          const roles = (d.roles || []).filter((x) => x.module === 'business').map((x) => x.role + ':' + x.localId)
+          expect(roles, 'the partner lists both records').to.include.members(['CUSTOMER:' + (c.customerId || c.id), 'VENDOR:' + v.id])
+        })
+        // Linking again is not an error.
+        json('/partyLink', { customerId: c.customerId || c.id, venderId: v.id }).its('body.status').should('eq', 'SUCCESS')
+
+        json('/partyUnlink', { role: 'VENDOR', id: v.id }).its('body.status').should('eq', 'SUCCESS')
+        supplierRow(v.id).then((row) => {
+          expect(row.partyId, 'a partner of its own').to.be.a('number').and.not.eq(c.partyId)
+          expect(row.alsoCustomer).to.eq(false)
+        })
+        partyRoles(c.partyId).then((d) => {
+          const vend = (d.roles || []).filter((x) => x.role === 'VENDOR' && Number(x.localId) === v.id)
+          expect(vend, 'the old partner no longer claims the supplier').to.have.length(0)
+        })
+        // Unlinking a record that shares its partner with nothing is refused with a sentence, and changes nothing.
+        json('/partyUnlink', { role: 'VENDOR', id: v.id }).then((r) => {
+          expect(r.body.status).to.eq('FAILED')
+          expect(r.body.message).to.match(/does not share/)
+        })
       })
     })
   })
 
-  it.skip('DR2-4 — a cashier cannot link or unlink', () => {
+  it('DR2-4 — a cashier can neither link nor unlink', () => {
     cy.loginAsCashierA()
-    cy.request({ method: 'POST', url: '/partyLink', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' }, body: { customerId: 1, venderId: 1 } })
-      .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'refused').to.eq(true))
+    json('/partyLink', { customerId: 1, venderId: 1 })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'link refused ' + r.status).to.eq(true))
+    json('/partyUnlink', { role: 'VENDOR', id: 1 })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'unlink refused ' + r.status).to.eq(true))
+  })
+
+  it('DR2-5 — link and unlink by hand, from the 360 view on a customer row', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR UI C ' + s, contact: mobile(s) }).then((c) => {
+      addSupplier({ name: 'DR UI S ' + s, mobile: mobile(Number(s) + 21) }).then((v) => {
+        cy.openSection('CustomerDiv')
+        searchGrid('CustomerDiv', c.name)
+        cy.contains('#CustomerDiv tr', c.name).contains('button', '360').click()
+        cy.get('.c360-card [data-dr-link-open]').should('be.visible').click()
+        cy.get('.c360-card [data-dr-filter]').type(v.name)
+        cy.get('.c360-card [data-dr-list] option').should('have.length', 1).first().then(($o) => {
+          cy.get('.c360-card [data-dr-list]').select($o.val())
+        })
+        cy.get('.c360-card [data-dr-link]').click()
+        cy.get('[data-ui-confirm="ok"]').click()
+        // The view comes back on the same partner, now holding both roles — so it offers Unlink, not Link.
+        cy.get('.c360-card [data-dr-unlink="VENDOR:' + v.id + '"]', { timeout: 10000 }).should('be.visible')
+        supplierRow(v.id).its('partyId').should('eq', c.partyId)
+
+        cy.get('.c360-card [data-dr-unlink="VENDOR:' + v.id + '"]').click()
+        cy.get('[data-ui-confirm="ok"]').click()
+        cy.get('.c360-card [data-dr-link-open]', { timeout: 10000 }).should('be.visible')
+        supplierRow(v.id).its('partyId').should('not.eq', c.partyId)
+        cy.get('.c360-card .c360-x').click()
+      })
+    })
+  })
+
+  it('DR2-6 — supplier rows show the badge and the 360 view (G9), and "+ Customer" fills the customer form', () => {
+    const s = uniq()
+    const phone = mobile(s)
+    addCustomer({ name: 'DR Sup360 C ' + s, contact: phone }).then(() => {
+      addSupplier({ name: 'DR Sup360 S ' + s, mobile: phone }).then((v) => {
+        cy.openSection('VenderDiv')
+        searchGrid('VenderDiv', v.name)
+        cy.contains('#VenderDiv tr', v.name).find('[data-dr-badge="customer"]').should('be.visible')
+        cy.contains('#VenderDiv tr', v.name).contains('button', '360').click()
+        cy.get('.c360-card').should('be.visible').and('contain', 'DR Sup360')
+        cy.get('.c360-card .c360-x').click()
+      })
+    })
+    const t = uniq()
+    addSupplier({ name: 'DR AddC S ' + t, mobile: mobile(Number(t) + 31), email: `addc${t}@t.com` }).then((v) => {
+      cy.openSection('VenderDiv')
+      searchGrid('VenderDiv', v.name)
+      cy.contains('#VenderDiv tr', v.name).find('[data-action="add-as-customer"]').scrollIntoView().click()
+      cy.get('#CustomerModal').should('be.visible')
+      cy.get('#customerName').should('have.value', v.name)
+      cy.get('#contact').should('have.value', v.mobile)
+      cy.get('#email').should('have.value', v.email)
+      cy.get('#customerId').should('have.value', '')
+    })
   })
 })
 

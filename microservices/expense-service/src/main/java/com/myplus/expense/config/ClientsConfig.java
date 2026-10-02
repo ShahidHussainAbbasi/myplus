@@ -46,6 +46,32 @@ public class ClientsConfig {
         return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(rc)).build().createClient(FinanceClient.class);
     }
 
+    /**
+     * EX-2b — one expense-tag proxy per module that owns taggable things (the SPI in commerce-contracts). Read when
+     * the form opens and once per save; identity is forwarded, so each module applies the caller's own scoping.
+     */
+    @Bean
+    @org.springframework.beans.factory.annotation.Qualifier("educationTags")
+    public com.myplus.commerce.contracts.client.ExpenseTagClient educationTags(@LoadBalanced RestClient.Builder builder) {
+        return tagClient(builder, "http://education-service");
+    }
+
+    @Bean
+    @org.springframework.beans.factory.annotation.Qualifier("agricultureTags")
+    public com.myplus.commerce.contracts.client.ExpenseTagClient agricultureTags(@LoadBalanced RestClient.Builder builder) {
+        return tagClient(builder, "http://agriculture-service");
+    }
+
+    private static com.myplus.commerce.contracts.client.ExpenseTagClient tagClient(RestClient.Builder builder, String base) {
+        RestClient rc = builder.clone()
+                .baseUrl(base)
+                .requestFactory(timeouts())
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(rc)).build()
+                .createClient(com.myplus.commerce.contracts.client.ExpenseTagClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         RestClient rc = builder.clone()

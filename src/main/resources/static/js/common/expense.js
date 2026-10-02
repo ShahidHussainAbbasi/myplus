@@ -55,7 +55,10 @@
 	var canVoid = false;   // set from the table header: the Actions column is rendered only for owner/admin
 
 	function row(v) {
-		var cats = (v.lines || []).map(function (l) { return l.categoryName; }).filter(Boolean).join(', ');
+		// EX-2b — a tagged line reads "Fuel and transport · Bus (LEA-123)": the category, then what it was for.
+		var cats = (v.lines || []).map(function (l) {
+			return l.categoryName ? (l.categoryName + (l.tagLabel ? ' · ' + l.tagLabel : '')) : null;
+		}).filter(Boolean).join(', ');
 		var tds = '<td>' + esc(v.voucherNo || '') + '</td>'
 			+ '<td>' + showDate(v.voucherDate) + '</td>'
 			+ '<td>' + esc(cats) + '</td>'
@@ -87,6 +90,28 @@
 			});
 			if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($s[0]);
 		});
+	}
+
+	/**
+	 * EX-2b — the "For" list, offered only when this dashboard's section declares a tag source
+	 * (fragment parameter → data-tag-source). The options come from the module that owns them, and the server
+	 * confirms the choice again on save, so this list is a convenience, never the control.
+	 */
+	function loadTags() {
+		var source = String($('#ExpenseDiv').attr('data-tag-source') || '');
+		var $g = $('#expTagGroup');
+		if (!source) { $g.hide(); return $.Deferred().resolve().promise(); }
+		return $.ajax({ url: ctx() + 'expense/tags?source=' + encodeURIComponent(source), dataType: 'json' })
+			.done(function (res) {
+				var list = (res && res.success === true && res.data) || [];
+				var $s = $('#expTag').empty().append($('<option>').val('').text(tr('ui.js.expForNone', 'Not specified')));
+				list.forEach(function (tg) {
+					$s.append($('<option>').val(tg.type + ':' + tg.id).text(tg.label));
+				});
+				if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($s[0]);
+				$g.toggle(list.length > 0);
+			})
+			.fail(function () { $g.hide(); });
 	}
 
 	function expenseLoad() {
@@ -140,7 +165,12 @@
 			paidFrom: $('#expPaidFrom').val(),
 			payeeName: $('#expPayee').val(),
 			note: $('#expNote').val(),
-			lines: [{ categoryId: Number(categoryId), amount: amount, description: $('#expNote').val() }]
+			lines: [(function () {
+				var line = { categoryId: Number(categoryId), amount: amount, description: $('#expNote').val() };
+				var tag = String($('#expTag').val() || '');
+				if (tag.indexOf(':') > 0) { line.tagType = tag.split(':')[0]; line.tagId = Number(tag.split(':')[1]); }
+				return line;
+			})()]
 		};
 		var $b = $(btn), label = $b.html();
 		$b.prop('disabled', true).html('<span class="glyphicon glyphicon-hourglass"></span> ' + esc(tr('ui.js.expSaving', 'Saving…')));
@@ -200,7 +230,7 @@
 		if (!$('#expDate').val()) setDate('#expDate', isoOf(today));
 		if (!$('#expFrom').val()) setDate('#expFrom', isoOf(new Date(today.getFullYear(), today.getMonth(), 1)));
 		if (!$('#expTo').val()) setDate('#expTo', isoOf(today));
-		loadCategories().always(expenseLoad);
+		loadCategories().always(function () { loadTags(); expenseLoad(); });
 	}
 
 	$(document).on('click', '#tableExpense [data-cy="void-expense"]', function () {

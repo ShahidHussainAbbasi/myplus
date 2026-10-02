@@ -37,4 +37,15 @@ public class ExpenseVoucherLine {
 
     @Column(name = "amount", nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
+
+    /** EX-2b — what this line was FOR (SCHOOL, VEHICLE, LAND), confirmed by the owning module; null = untagged. */
+    @Column(name = "tag_type", length = 16)
+    private String tagType;
+
+    @Column(name = "tag_id")
+    private Long tagId;
+
+    /** Snapshot of the module's label at save: renaming the record later never rewrites this expense. */
+    @Column(name = "tag_label", length = 160)
+    private String tagLabel;
 }

@@ -59,6 +59,14 @@ public class PartyController {
      * <p>404 (not 403) for a party in another tenant, so the endpoint can't be used to probe cross-tenant existence.
      */
     /** DR-1 — partners sharing a phone or tax key (probably one business twice). Owner/admin: it reveals roles. */
+    /** DR-2 — unlink: a NEW partner for one module record (no matching), its role link moved there. Owner/admin. */
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    @PostMapping("/detach")
+    public ResponseEntity<PartyDTO> detach(@RequestBody PartyDTO dto) {
+        PartyDTO created = service.detach(dto);
+        return created == null ? ResponseEntity.badRequest().build() : ResponseEntity.ok(created);
+    }
+
     @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
     @GetMapping("/duplicates")
     public List<com.myplus.party.dto.PartyDuplicateGroupDTO> duplicates() {

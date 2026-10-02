@@ -54,6 +54,7 @@ public class ExpenseVoucherService {
     private final ExpenseAuditService audit;
     private final ExpenseAccess access;
     private final DocumentNumberService numbers;
+    private final ExpenseTagService tags;
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
@@ -174,6 +175,7 @@ public class ExpenseVoucherService {
         v.setNote(limit(r.note(), 500));
         v.setCreatedAt(LocalDateTime.now());
         v.setUpdatedAt(LocalDateTime.now());
+        java.util.Map<String, java.util.List<com.myplus.commerce.contracts.dto.ExpenseTagView>> tagLists = new java.util.HashMap<>();
         for (LineRequest lr : lines) {
             if (lr == null || lr.amount() == null || lr.amount().signum() <= 0)
                 throw new ValidationException("Each line needs an amount greater than zero.");
@@ -186,6 +188,13 @@ public class ExpenseVoucherService {
             l.setCategoryName(c.getName());           // snapshot
             l.setDescription(limit(lr.description(), 255));
             l.setAmount(amt);
+            // EX-2b — confirmed by the owning module with the caller's identity; the label is the module's.
+            String label = tags.confirm(lr.tagType(), lr.tagId(), tagLists);
+            if (label != null) {
+                l.setTagType(ExpenseTagService.normaliseType(lr.tagType()));
+                l.setTagId(lr.tagId());
+                l.setTagLabel(limit(label, 160));
+            }
             v.addLine(l);
         }
         return v;

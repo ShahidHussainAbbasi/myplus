@@ -207,6 +207,17 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
    List<Customer> findByPartyIdsScoped(@Param("partyIds") java.util.Collection<Long> partyIds,
                                        @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /** DR-2 — which of these partners hold a customer record here. ONE query for a whole supplier grid. */
+   @Query("select distinct c.partyId from Customer c where c.partyId in :partyIds "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   List<Long> partyIdsAmong(@Param("partyIds") java.util.Collection<Long> partyIds,
+                            @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /** DR-2 — the customer records sharing one partner. */
+   @Query("select count(c) from Customer c where c.partyId = :partyId "
+        + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
+   long countByPartyScoped(@Param("partyId") Long partyId, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // Targeted stamp — never a full-entity save, matching updatePartyId/updateCreditBalance above (a partial
    // entity save has already clobbered other columns to null on the vendor side once).
    //

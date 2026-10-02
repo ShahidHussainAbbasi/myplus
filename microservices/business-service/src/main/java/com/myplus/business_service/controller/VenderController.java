@@ -43,6 +43,8 @@ public class VenderController {
 
 	@Autowired
 	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
+	@Autowired
+	com.myplus.business_service.service.PartyRoleService partyRoleService;   // DR-2: "also a customer" badge
 	
 	@Autowired
 	ICompanyService companyService;
@@ -79,6 +81,9 @@ public class VenderController {
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
+			// DR-2 — best-effort: a badge that cannot be worked out is not shown; the list never fails for it.
+			try { partyRoleService.markVenders(dtos); }
+			catch (Exception badge) { LOGGER.warn("alsoCustomer badge not computed", badge); }
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getUserVender "+e.getCause(), e);

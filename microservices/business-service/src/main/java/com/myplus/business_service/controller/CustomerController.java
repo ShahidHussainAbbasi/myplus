@@ -99,6 +99,8 @@ public class CustomerController {
 
 	@Autowired
 	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
+	@Autowired
+	com.myplus.business_service.service.PartyRoleService partyRoleService;   // DR-2: "also a supplier" badge
 
 	@Autowired
 	com.myplus.business_service.service.CustomerAccountService customerAccountService;   // P4a: account hierarchy
@@ -118,6 +120,12 @@ public class CustomerController {
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
 	private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getOrganizationId(); }
 	/** Role-aware visibility: owner/super AND admin see the whole org's customers; a plain user only their own. */
+	/** DR-2 — best-effort: a badge that cannot be worked out is simply not shown; the list never fails for it. */
+	private void markAlsoSupplier(List<CustomerDTO> dtos) {
+		try { partyRoleService.markCustomers(dtos); }
+		catch (Exception e) { LOGGER.warn("alsoSupplier badge not computed", e); }
+	}
+
 	private boolean seesAllOrg() {
 		return requestUtil.callerSeesWholeOrg();
 	}
@@ -189,6 +197,7 @@ public class CustomerController {
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
+			markAlsoSupplier(dtos);
 			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getUserCustomer "+e.getCause(), e);
@@ -338,6 +347,13 @@ public class CustomerController {
 				modelMapper.addConverter(appUtil.localDateToString);
 				modelMapper.addConverter(appUtil.localDateTimeToString);
 				CustomerDTO saved = modelMapper.map(obj, CustomerDTO.class);
+				// DR-2: the patched row must carry the badge too, or it vanishes after every edit. The bridge above ran
+				// inline (this controller holds no transaction), so the partner it stamped is read back first.
+				try {
+					customerRepo.findByIdScoped(obj.getCustomerId(), orgId(), userId())
+							.ifPresent(fresh -> saved.setPartyId(fresh.getPartyId()));
+				} catch (Exception ignored) { /* the row still saves; the badge appears on the next load */ }
+				markAlsoSupplier(java.util.List.of(saved));
 				return new GenericResponse("SUCCESS", "Customer saved successfully.", saved);
 			}
 		} catch (org.springframework.dao.OptimisticLockingFailureException conflict) {

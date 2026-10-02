@@ -208,6 +208,11 @@
                 return;
             }
             body.appendChild(roleChips(roles));
+            // DR-2: a module may add its own actions under the roles (business: link / unlink a customer and a
+            // supplier). A hook, so this shared file stays free of any one module's rules.
+            if (typeof global.contact360Extras === 'function') {
+                try { global.contact360Extras(p, roles, body); } catch (hookFailed) { /* the view itself still shows */ }
+            }
         }, 'json').fail(function () { failed(body, 'ui.js.pcLoadFailed', 'Could not load the contact view.'); });
     };
 

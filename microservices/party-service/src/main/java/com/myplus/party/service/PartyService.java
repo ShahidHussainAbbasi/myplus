@@ -110,6 +110,27 @@ public class PartyService {
         return toDto(saved);
     }
 
+    /**
+     * DR-2 — UNLINK: give one module record a partner of its own, deliberately WITHOUT matching (matching is what put it
+     * with the partner it is leaving). The role link moves to the new partner in the same transaction.
+     * The raw phone text is held back when another partner holds it, exactly as {@link #upsert} does — the new partner
+     * keeps the phone KEY, so it still shows under "possible duplicates".
+     */
+    @Transactional
+    public PartyDTO detach(PartyDTO dto) {
+        if (dto == null || dto.getRole() == null || dto.getRole().getLocalId() == null) return null;
+        Long org = CurrentUser.organizationId();
+        String heldBack = null;
+        if (dto.getContact() != null && !dto.getContact().isBlank()
+                && repo.findByOrgAndContact(org, dto.getContact().trim()).isPresent()) {
+            heldBack = dto.getContact().trim();
+            dto.setContact(null);
+        }
+        Party created = createEntity(dto, heldBack);
+        recordLink(created, dto.getRole());
+        return toDto(created);
+    }
+
     // ---- Phase 4a account hierarchy ---------------------------------------------------------------------------------
 
     /** Depth cap: COMPANY → BRANCH → CONTACT. Deeper is a modelling error, not a feature. */

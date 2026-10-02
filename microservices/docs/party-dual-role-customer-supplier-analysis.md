@@ -203,3 +203,45 @@ JOIN myplusdb.vender v ON v.organization_id = c.organization_id
      (RIGHT(REGEXP_REPLACE(v.mobile,'[^0-9]',''),10), RIGHT(REGEXP_REPLACE(v.phone,'[^0-9]',''),10))
 WHERE COALESCE(c.party_id,0) <> COALESCE(v.party_id,-1);
 ```
+
+## DR-2 build plan — traced 2026-10-02 (not yet implemented)
+
+Trace results (Rule 0):
+- **Wire:** both grids read `getUserCustomer` / `getUserVender`; the monolith re-serialises through a generic `Map`
+  (BusinessRestClient.get), so new fields survive. No DTO twin to update.
+- **Link:** party-service already has owner-gated `POST /parties/{id}/roles` (PartyClient.link); `recordLink` deletes
+  the same role on other parties, so a link MOVES. Link = call it with the customer's partyId for the VENDOR role,
+  then `venderRepo.updatePartyId`. Remote first, then local (retry is idempotent).
+- **Unlink:** needs a NEW party-service endpoint `POST /parties/detach` (owner/admin): always create a party (no
+  matching; hold back the raw contact if taken, as upsert does), record the role link (moves it). Add
+  `PartyClient.detach`. Refuse when no other business record shares the party_id. Retry creates an orphan party (harmless).
+- **Matcher:** with two parties on one phone key, `byContactKey` returns earliest first, so a later NEW record joins
+  the original partner. An unlinked record re-matches only if its phone/email/tax is edited (identityChanged).
+- **Badges:** `alsoSupplier` on CustomerDTO, `alsoCustomer` on VenderDTO, computed by one query per list
+  (`select distinct party_id from vender where organization_id=:org and party_id in :ids`, mirror for customer).
+  ⚠ The customer save answers with the saved row (PERF-13 applySavedRow), so it must set `alsoSupplier` too, or
+  the badge vanishes after an edit. Controllers are not @Transactional, so the bridge has run inline by then:
+  re-read party_id (findByIdScoped) before computing.
+- **Audit:** `auditService.record("PARTY_LINK"/"PARTY_UNLINK", "CUSTOMER"/"VENDOR", id, null, details)`.
+- **Authz:** `@PreAuthorize` ROLE_OWNER / ADMIN_PRIVILEGE / SUPER_PRIVILEGE on business-service and the monolith proxy
+  (`/partyLink`, `/partyUnlink` via BusinessRestClient.postJson).
+- **UI:** supplier rows get `contact360Button(obj.partyId)` (G9). Link/Unlink live INSIDE the 360 popup through a
+  business hook registered on party-contact.js (keeps the shared file module-agnostic). Row action "+ Supplier" /
+  "+ Customer" when the other role is absent: snavGo to the other section → `newEntity(...)` → prefill
+  (customer→supplier: name, contact→mobile, email, address, cnic→cnicNtn; reverse: mobile||phone→contact).
+  Company stays required (D7). Never bootstrap-select for the link picker (O(n²) on big lists): filter input + list.
+- "Refused when either record has set-off documents" is added by DR-4, when set-off exists.
+- **Gate:** un-skip DR2-1..4 in party-dual-role.cy.js; add UI cases: badge visible, + Supplier prefill → save → one
+  partner, link and unlink through the 360 popup, supplier-row 360.
+
+### DR-2 — built 2026-10-02 (awaiting build + gate)
+
+| Layer | Change |
+|---|---|
+| party-service | `POST /parties/detach` (owner/admin): new party, no matching, raw phone held back if taken, role link moved. |
+| commerce-contracts | `PartyClient.detach`. |
+| business-service | `PartyRoleService` (badges, link, unlink; remote first, then local stamp + audit in one tx), `PartyRoleController` `/partyLink` `/partyUnlink` (owner/admin, FAILED = sentence), `alsoSupplier` / `alsoCustomer` on both list reads and on the customer save response; repo `partyIdsAmong`, `countByPartyScoped`, `VenderRepo.findByIdScoped`. |
+| monolith | `/partyLink`, `/partyUnlink` forwarders (owner/admin); `party-contact.js` `contact360Extras` hook; new `js/business/party-roles.js`; grid badges, "+ Supplier" / "+ Customer", 360 on supplier rows; 26 `ui.js.dr*` keys × 6 languages. |
+| tests | `PartyRoleServiceTest` (6); Cypress DR2-1..DR2-6 (2 API, 4 through the screen). |
+
+Known limit: the badge text sits in the name cell, so a grid export carries it after the name.

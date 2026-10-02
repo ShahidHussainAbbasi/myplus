@@ -1,6 +1,8 @@
 # EX-2a — Expenses on the school, welfare and farm dashboards
 
-**Status:** DESIGN + gate written first → implementing. Branch `feature/expense-management`. Follows EX-1 (304b86b0).
+**Status:** GREEN 2026-10-02 10:30. **Landed in commit `cc8be9f7` (titled "DR-1 …")** — another session's commit at 10:22 swept up the EX-2a working-tree files; verified complete (no remaining diff). Not rewritten: shared history. Monolith deployed. Gate 13/13 (valid red runs first: spec selector bug; real defect below). Regression 51/51 (config ×3 domains, EX-0a, EX-1 UI, capability-gating, onboarding, agriculture, welfare).
+
+**Defect fixed on the way (pre-existing):** welfare/farm sidebar **Configuration** threw (`null.replace` in main.js `.dropdown` handler — ConfigDiv is not a picker option) after hiding every section, so Configuration never opened from the sidebar. Guard: no picker value → the handler does nothing and the link's own show function runs. Branch `feature/expense-management`. Follows EX-1 (304b86b0).
 Programme: [`../expense-management-design.md`](../expense-management-design.md) §7. EX-2 is split in two vertical
 slices: **EX-2a** (this) gives every domain the switch and the screen; **EX-2b** adds tags (school / vehicle / land)
 validated server-side by per-module providers.

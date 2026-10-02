@@ -2093,7 +2093,10 @@ function buildCustomerRow(obj){
 		"<div id=customerId>"+obj.customerId+"</div>"
 			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>",
 		"<input type='checkbox' value="+ obj.customerId+ ">",
-		"<div id=customerName>"+escHtml(obj.name)+"</div>","<div id=contact>"+escHtml(obj.contact)+"</div>",
+		// DR-2: the badge sits OUTSIDE #customerName, so editing the row never copies it into the name field.
+		"<div id=customerName>"+escHtml(obj.name)+"</div>"
+			+(obj.alsoSupplier ? "<span class='label label-info dr-badge' data-dr-badge='supplier'>"+escHtml(tOr('ui.js.drAlsoSupplier','Also a supplier'))+"</span>" : ""),
+		"<div id=contact>"+escHtml(obj.contact)+"</div>",
 		"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
 		"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
 		"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
@@ -2105,8 +2108,19 @@ function buildCustomerRow(obj){
 		+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
 		+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='CUSTOMER' data-pid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 		+ contact360Button(obj.partyId)
+		// DR-2: register the same business as a supplier — the supplier form opens with these details copied.
+		+ (obj.alsoSupplier ? "" : " <button type=button class='btn btn-xs btn-default' data-action='add-as-supplier'"
+			+ " data-name=\""+escHtml(obj.name||'')+"\" data-contact=\""+escHtml(obj.contact||'')+"\""
+			+ " data-email=\""+escHtml(obj.email||'')+"\" data-address=\""+escHtml(obj.address||'')+"\" data-tax=\""+escHtml(obj.cnic||'')+"\""
+			+ " title=\""+escHtml(tOr('ui.js.drAddAsSupplierTip','Register this customer as a supplier too'))+"\">"
+			+ escHtml(tOr('ui.js.drAddAsSupplier','+ Supplier'))+"</button>")
 		+ "</div>"
 	];
+}
+
+/** DR-2 — translate with an English fallback (a missing key must never show as "ui.js.…" on a grid row). */
+function tOr(key, fallback){
+	return (typeof tHas === 'function' && tHas(key)) ? t(key) : fallback;
 }
 
 /** Which entities can patch a single row, and how they build it. Anything absent falls back to a reload. */
@@ -2307,7 +2321,8 @@ function loadDataTable(){
 							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
 							// DR-1: the CNIC / NTN rides hidden in the name cell — editRecord() fills #venderCnicNtn from it,
 							// and it needs no column of its own.
-							"<div id=venderName>"+escHtml(obj.name)+"</div><div id=venderCnicNtn hidden>"+escHtml(obj.cnicNtn||'')+"</div>",
+							"<div id=venderName>"+escHtml(obj.name)+"</div><div id=venderCnicNtn hidden>"+escHtml(obj.cnicNtn||'')+"</div>"
+								+(obj.alsoCustomer ? "<span class='label label-info dr-badge' data-dr-badge='customer'>"+escHtml(tOr('ui.js.drAlsoCustomer','Also a customer'))+"</span>" : ""),
 							// A supplier can represent several brands — show them all. editRecord() reads this cell back
 							// into the multi-select, matching each comma-separated label against the options.
 							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",
@@ -2319,6 +2334,13 @@ function loadDataTable(){
 							// Pay only makes sense when something is owed — hide it when the payable is 0.
 							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
+							// DR-2 (G9): the 360 view on supplier rows too, and "+ Customer" for the same business.
+							+ contact360Button(obj.partyId)
+							+ (obj.alsoCustomer ? "" : " <button type=button class='btn btn-xs btn-default' data-action='add-as-customer'"
+								+ " data-name=\""+escHtml(obj.name||'')+"\" data-contact=\""+escHtml(obj.mobile||obj.phone||'')+"\""
+								+ " data-email=\""+escHtml(obj.email||'')+"\" data-address=\""+escHtml(obj.address||'')+"\" data-tax=\""+escHtml(obj.cnicNtn||'')+"\""
+								+ " title=\""+escHtml(tOr('ui.js.drAddAsCustomerTip','Register this supplier as a customer too'))+"\">"
+								+ escHtml(tOr('ui.js.drAddAsCustomer','+ Customer'))+"</button>")
 							+ "</div>"
 						]);
 					});

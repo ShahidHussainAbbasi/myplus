@@ -3389,7 +3389,7 @@
 			</div>
 
 			<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
-			<div th:replace="~{fragments/expense :: expenseSection}"></div>
+			<div th:replace="~{fragments/expense :: expenseSection('education')}"></div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.configuration}">Configuration</h4>

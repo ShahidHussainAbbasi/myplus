@@ -33,6 +33,7 @@ public class ExpenseController {
 
     private final ExpenseCategoryService categories;
     private final ExpenseVoucherService vouchers;
+    private final com.myplus.expense.service.ExpenseTagService tagService;
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -49,6 +50,12 @@ public class ExpenseController {
     @PatchMapping("/categories/{id}")
     public ApiResponse<CategoryView> updateCategory(@PathVariable Long id, @RequestBody CategoryRequest r) {
         return ApiResponse.success(categories.update(id, r), "Category saved");
+    }
+
+    /** EX-2b — what expenses can be tagged to on the asking dashboard (source = education | agriculture). */
+    @GetMapping("/tags")
+    public ApiResponse<List<com.myplus.commerce.contracts.dto.ExpenseTagView>> tags(@RequestParam(required = false) String source) {
+        return ApiResponse.success(tagService.options(source));
     }
 
     @GetMapping("/vouchers")

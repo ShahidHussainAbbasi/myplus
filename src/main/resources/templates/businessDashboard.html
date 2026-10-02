@@ -4069,7 +4069,7 @@ tr.row-voided .js-edit-row{display:none !important}
 			</div>
 
 			<!-- EX-1 — Expenses: one shared fragment (fragments/expense.html + /js/common/expense.js). -->
-			<div th:replace="~{fragments/expense :: expenseSection}"></div>
+			<div th:replace="~{fragments/expense :: expenseSection('')}"></div>
 
 			<!-- POS day-close (slice 39): cashier shift / cash drawer / X-Z report. -->
 			<div id="TillDiv" class="formDiv" style="display:none">
@@ -4606,6 +4606,8 @@ tr.row-voided .js-edit-row{display:none !important}
          registry-driven: [] unless business-service has an ImportSpec for that entity. -->
     <script th:src="@{/js/common/data-import.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
+    <!-- DR-2: customer <-> supplier — "+ Supplier"/"+ Customer", link / unlink in the 360 view. -->
+    <script th:src="@{/js/business/party-roles.js}"></script>
     <!-- The last-paid hint in the cart. Reads window.posShowLastRate and draws nothing without it,
          so a tenant that switches it off loads an inert file. AFTER business.js: it hooks #tablesi. -->
     <script th:src="@{/js/business/last-rate.js}"></script>

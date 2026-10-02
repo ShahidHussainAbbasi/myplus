@@ -41,7 +41,7 @@
 		<!-- Owner Configuration — self-renders from the welfare-service common-settings catalog (/getWelfareConfig).
 		     Each policy is a catalog entry in the service; a toggle saves immediately (/saveWelfareConfig). -->
 		<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
-		<div th:replace="~{fragments/expense :: expenseSection}"></div>
+		<div th:replace="~{fragments/expense :: expenseSection('')}"></div>
 
 		<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
 			<h3 class="dash-page-title" th:text="#{ui.configuration}">Configuration</h3>
