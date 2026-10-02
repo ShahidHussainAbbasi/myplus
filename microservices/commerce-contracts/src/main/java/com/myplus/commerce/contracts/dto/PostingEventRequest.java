@@ -55,4 +55,15 @@ public class PostingEventRequest {
      * <p>Null/zero on every counter sale, which leaves their journals byte-for-byte unchanged.
      */
     private BigDecimal shippingFee;
+
+    /**
+     * EX-0b/EX-1 — {@code EXPENSE} only: the journal lines, the one event whose accounts the caller chooses
+     * (the tenant's category→account mapping). finance-service still decides what is allowed
+     * ({@code ExpensePostingRules}). Ignored by every other event type.
+     *
+     * <p>⚠ business- and education-service {@code GlOutbox} persist this event FIELD BY FIELD and would drop
+     * this list in silence (project lesson: 4200 Sales Discount stayed empty for weeks). Only a producer whose
+     * outbox stores the WHOLE request — expense-service, payload JSON — may send it.
+     */
+    private java.util.List<PostingLine> lines;
 }

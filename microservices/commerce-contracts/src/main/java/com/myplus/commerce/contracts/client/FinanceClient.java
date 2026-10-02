@@ -48,6 +48,14 @@ public interface FinanceClient {
     @PostExchange("/api/finance/gl/post-event")
     void postEvent(@RequestBody com.myplus.commerce.contracts.dto.PostingEventRequest request);
 
+    /**
+     * EX-1 — the tenant's chart of accounts, seeding any default account it is missing first. Read by
+     * expense-service when an owner maps a category, so a category pointing at a non-expense account (1200
+     * Inventory) is refused when it is SAVED rather than on every posting. Admin/owner only in finance.
+     */
+    @PostExchange("/api/finance/gl/accounts/ensure-defaults")
+    java.util.List<com.myplus.commerce.contracts.dto.GlAccountView> ensureDefaultAccounts();
+
     /** Period close: the org's lock date (or null when open) — read by business-service to gate its ops. */
     @GetExchange("/api/finance/gl/period-lock")
     com.myplus.commerce.contracts.dto.PeriodLockView getPeriodLock();

@@ -276,6 +276,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							</button>
 							<ul class="snav-menu">
 								<li><a onclick="showTill();document.getElementById('snavTill').classList.remove('snav-open');"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.cashDrawer}">Cash Drawer</span></a></li>
+								<!-- EX-1 — Expenses. Any member records what was paid; hidden until the owner switches the module on. -->
+								<li data-capability="expenseManagement"><a id="navExpenses" onclick="showExpenses();document.getElementById('snavTill').classList.remove('snav-open');"><span class="glyphicon glyphicon-export"></span> <span th:text="#{ui.expenses}">Expenses</span></a></li>
 							</ul>
 						</div>
 						<!-- Finance — org-wide GL statements, tax register and the immutable audit trail.
@@ -4050,6 +4052,9 @@ tr.row-voided .js-edit-row{display:none !important}
 				<div id="parkedEmpty" class="text-muted" style="display:none" th:text="#{ui.noParkedSales}">No parked sales.</div>
 			</div>
 
+			<!-- EX-1 — Expenses: one shared fragment (fragments/expense.html + /js/common/expense.js). -->
+			<div th:replace="~{fragments/expense :: expenseSection}"></div>
+
 			<!-- POS day-close (slice 39): cashier shift / cash drawer / X-Z report. -->
 			<div id="TillDiv" class="formDiv" style="display:none">
 				<!-- <h4>Cash Drawer / Till</h4> -->
@@ -4604,6 +4609,8 @@ tr.row-voided .js-edit-row{display:none !important}
          same renderer the printer uses, and reads its field whitelist for the default column labels. -->
     <script th:src="@{/js/business/document-designer.js}"></script>
     <script th:src="@{/js/business/till.js}"></script>
+    <!-- EX-1 — Expenses (shared across dashboards). -->
+    <script th:src="@{/js/common/expense.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
     <!-- Keyboard contract for the sale screen (design P1). Inert unless the org turned on
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->

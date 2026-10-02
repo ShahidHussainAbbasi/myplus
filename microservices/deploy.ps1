@@ -591,6 +591,7 @@ $schemaOf = @{
     'auth-service'      = @{ db = 'myplusdb_auth';      v = 5  }
     'finance-service'   = @{ db = 'myplusdb_finance';   v = 4  }
     'party-service'     = @{ db = 'myplusdb_party';     v = 3  }
+    'expense-service'   = @{ db = 'myplusdb_expense';   v = 1  }
 }
 if ($Profile -ne 'pos') { $schemaOf['pharma-service'] = @{ db = 'myplusdb_pharma'; v = 6 } }
 

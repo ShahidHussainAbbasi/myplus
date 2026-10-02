@@ -242,6 +242,18 @@ spring:
                     name: party-service
                     fallbackUri: forward:/fallback
                 - name: JwtAuthenticationFilter
+            # EX-1 — Expense Management (expense-service :8097). Every module's expenses; JWT required.
+            - id: expense-service
+              uri: lb://expense-service
+              predicates:
+                - Path=/api/expense/**
+              # No StripPrefix: expense-service controllers are mapped at the full /api/expense/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: expense-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
             - id: catalog-service
               uri: lb://catalog-service
               predicates:
