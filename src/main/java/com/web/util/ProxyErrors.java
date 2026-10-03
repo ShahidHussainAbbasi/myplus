@@ -110,9 +110,14 @@ public final class ProxyErrors {
      */
     @SuppressWarnings("unchecked")
     private static String downstreamMessage(Exception e) {
-        if (e instanceof HttpStatusCodeException he) {
+        // GatewayClient turns every downstream 404 into DownstreamNotFoundException (not an HttpStatusCodeException),
+        // carrying the service's body. Reading only HttpStatusCodeException dropped the sentence of EVERY 404 refusal
+        // — "That product is not in your catalogue." reached the screen as {success:false}. Found by the MKT-1b gate.
+        String raw = e instanceof HttpStatusCodeException he ? he.getResponseBodyAsString()
+                : e instanceof com.web.error.DownstreamNotFoundException nf ? nf.getBody() : null;
+        if (raw != null) {
             try {
-                Map<String, Object> body = MAPPER.readValue(he.getResponseBodyAsString(), Map.class);
+                Map<String, Object> body = MAPPER.readValue(raw, Map.class);
                 Object m = body.get("message");
                 if (m != null && !String.valueOf(m).isBlank()) return String.valueOf(m);
                 Object err = body.get("error");

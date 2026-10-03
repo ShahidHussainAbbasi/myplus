@@ -9,10 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -22,9 +25,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * MKT-1c/1d — the ANONYMOUS marketplace: the {@code /marketplace} page and its reads. Only GETs live here;
- * {@code SecSecurityConfig} permits GET {@code /marketplace} and GET {@code /marketplace/public/**} without a login,
- * and every write stays behind authentication.
+ * MKT-1c/1d/1e — the ANONYMOUS marketplace: the {@code /marketplace} page, its reads, and the one anonymous write
+ * (checkout). {@code SecSecurityConfig} permits GET {@code /marketplace}, GET {@code /marketplace/public/**} and POST
+ * {@code /marketplace/public/checkout} without a login; CSRF stays enforced on the POST.
  *
  * <p>Calls the gateway's allow-listed {@code /api/marketplace/public/**} with no token. {@link RestClient} (Spring
  * 6.1), the successor to {@code RestTemplate}, with connect and read TIMEOUTS (standard D3e): an anonymous page that
@@ -41,12 +44,22 @@ public class MarketplacePublicController {
     private final RestClient http;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @org.springframework.beans.factory.annotation.Autowired
     public MarketplacePublicController(@Value("${gateway.url:http://localhost:8765}") String gatewayUrl) {
+        this(gatewayUrl, RestClient.builder().requestFactory(timeouts()).build());
+    }
+
+    /** Tests bind a mock server to the client. */
+    MarketplacePublicController(String gatewayUrl, RestClient http) {
         this.gatewayUrl = gatewayUrl;
+        this.http = http;
+    }
+
+    private static SimpleClientHttpRequestFactory timeouts() {
         SimpleClientHttpRequestFactory timeouts = new SimpleClientHttpRequestFactory();
         timeouts.setConnectTimeout(Duration.ofSeconds(3));
         timeouts.setReadTimeout(Duration.ofSeconds(5));
-        this.http = RestClient.builder().requestFactory(timeouts).build();
+        return timeouts;
     }
 
     /** The public marketplace page (MKT-1d). State lives in the URL: ?q=&city=&product=&sort=. */
@@ -60,19 +73,15 @@ public class MarketplacePublicController {
     @ResponseBody
     public Object search(@RequestParam(required = false) String q, @RequestParam(required = false) String city,
             @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
-        return relay(UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/products")
-                .queryParamIfPresent("q", blank(q)).queryParamIfPresent("city", blank(city))
-                .queryParamIfPresent("page", java.util.Optional.ofNullable(page))
-                .queryParamIfPresent("size", java.util.Optional.ofNullable(size)),
-                "Could not search the marketplace.");
+        return relay("/api/marketplace/public/mkt/products", Map.of(),
+                query("q", blank(q), "city", blank(city), "page", page, "size", size), "Could not search the marketplace.");
     }
 
     /** A product page header with the default sort and the sorts on offer (MKT-1d). */
     @GetMapping("/marketplace/public/products/{id}")
     @ResponseBody
     public Object product(@PathVariable Long id) {
-        return relay(UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/products/{id}")
-                .uriVariables(Map.of("id", id)), "Could not load the product.");
+        return relay("/api/marketplace/public/mkt/products/{id}", Map.of("id", id), Map.of(), "Could not load the product.");
     }
 
     /** A product's offers, ranked by the customer's sort and filtered by city and quantity (MKT-1c). */
@@ -80,27 +89,68 @@ public class MarketplacePublicController {
     @ResponseBody
     public Object offers(@PathVariable Long id, @RequestParam(required = false) String city,
             @RequestParam(required = false) String sort, @RequestParam(required = false) BigDecimal qty) {
-        return relay(UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/products/{id}/offers")
-                .uriVariables(Map.of("id", id))
-                .queryParamIfPresent("city", blank(city)).queryParamIfPresent("sort", blank(sort))
-                .queryParamIfPresent("qty", java.util.Optional.ofNullable(qty).map(BigDecimal::toPlainString)),
-                "Could not load offers.");
+        return relay("/api/marketplace/public/mkt/products/{id}/offers", Map.of("id", id),
+                query("city", blank(city), "sort", blank(sort), "qty", qty == null ? null : qty.toPlainString()), "Could not load offers.");
+    }
+
+    /**
+     * MKT-1e checkout — the one anonymous WRITE. Permitted by method and path in {@code SecSecurityConfig}; CSRF is
+     * NOT exempted (the page sends the token). The body is passed through: the service binds only the fields it
+     * knows and prices everything itself.
+     */
+    @PostMapping("/marketplace/public/checkout")
+    @ResponseBody
+    public Object checkout(@RequestBody Map<String, Object> body) {
+        URI uri = UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/checkout").build().toUri();
+        try {
+            Map<String, Object> r = http.post().uri(uri).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JSON);
+            return r == null ? Map.of("success", false, "message", "Could not place the order.") : r;
+        } catch (HttpStatusCodeException e) {
+            LOGGER.warn("marketplace checkout -> {}", e.getStatusCode());
+            // A 4xx is the service's answer ("no"). A 5xx from the gateway (502/504) is NOT: the order may exist.
+            return e.getStatusCode().is5xxServerError() ? unknownOutcome()
+                    : Map.of("success", false, "statusCode", e.getStatusCode().value(),
+                            "message", messageOf(e, "Could not place the order. Please try again."));
+        } catch (Exception e) {
+            LOGGER.error("marketplace checkout failed", e);
+            return unknownOutcome();
+        }
+    }
+
+    /**
+     * A timeout may hide an order that WAS placed. The page must keep its attempt key so that pressing again returns
+     * that order instead of placing a second one — so this says UNKNOWN in a field the page acts on. As a plain
+     * {success:false} it read like a refusal: the page dropped the key and a retry placed a DUPLICATE order (found
+     * tracing the wire for the recorded manual walk, M-1e-05).
+     */
+    static Map<String, Object> unknownOutcome() {
+        return Map.of("success", false, "outcome", "UNKNOWN",
+                "message", "We could not confirm your order. Press the button again; it will not be placed twice.");
+    }
+
+    /** MKT-1e tracking: the order number AND the phone it was placed with. */
+    @GetMapping("/marketplace/public/orders/{orderNo}")
+    @ResponseBody
+    public Object track(@PathVariable String orderNo, @RequestParam(required = false) String phone) {
+        return relay("/api/marketplace/public/mkt/orders/{no}", Map.of("no", orderNo), query("phone", blank(phone)),
+                "Could not load the order.");
     }
 
     /**
      * One relay for every read: the service's own sentence reaches the shopper (a 404 "No such product." stays
      * that sentence); an outage reads as a polite retry, never a stack trace.
      */
-    private Object relay(UriComponentsBuilder url, String fallback) {
-        URI uri = url.encode().build().toUri();
+    private Object relay(String path, Map<String, ?> pathVars, Map<String, Object> query, String fallback) {
+        URI uri = null;
         try {
+            uri = uri(gatewayUrl, path, pathVars, query);
             Map<String, Object> r = http.get().uri(uri).retrieve().body(JSON);
             return r == null ? Map.of("success", false, "message", fallback) : r;
         } catch (HttpStatusCodeException e) {
             LOGGER.warn("marketplace public read {} -> {}", uri.getPath(), e.getStatusCode());
             return Map.of("success", false, "statusCode", e.getStatusCode().value(), "message", messageOf(e, fallback));
         } catch (Exception e) {
-            LOGGER.error("marketplace public read {} failed", uri.getPath(), e);
+            LOGGER.error("marketplace public read {} failed", uri == null ? path : uri.getPath(), e);
             return Map.of("success", false, "message", "The marketplace is not available right now. Please try again.");
         }
     }
@@ -113,6 +163,32 @@ public class MarketplacePublicController {
         } catch (Exception ignore) {
             return fallback;
         }
+    }
+
+    /**
+     * The gateway URL with the shopper's text as DATA: every value goes in as a URI variable and is strictly encoded
+     * AFTER the template is ({@code encode().buildAndExpand}). Building first and encoding the result read a search
+     * for "%{enter}" as the template variable {enter} — an exception before the try, a raw 500 and "InternalError"
+     * on the page (found by the recorded manual walk, M-1d-08). Strict encoding also keeps "+", "&" and "%" literal.
+     */
+    static URI uri(String base, String path, Map<String, ?> pathVars, Map<String, Object> query) {
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(base).path(path);
+        Map<String, Object> vars = new java.util.HashMap<>(pathVars);
+        query.forEach((k, v) -> {
+            b.queryParam(k, "{" + k + "}");
+            vars.put(k, v);
+        });
+        return b.encode().buildAndExpand(vars).toUri();
+    }
+
+    /** Name/value pairs in order; a null (or blank-empty) value is left out. */
+    private static Map<String, Object> query(Object... kv) {
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < kv.length; i += 2) {
+            Object v = kv[i + 1] instanceof java.util.Optional<?> o ? o.orElse(null) : kv[i + 1];
+            if (v != null) out.put((String) kv[i], v);
+        }
+        return out;
     }
 
     private static java.util.Optional<String> blank(String s) {

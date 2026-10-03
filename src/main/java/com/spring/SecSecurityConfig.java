@@ -149,6 +149,8 @@ public class SecSecurityConfig {
                 // MKT-1c/1d: the anonymous marketplace page and its READS only (MarketplacePublicController has GETs
                 // and nothing else). Matched by METHOD, so a future POST under this prefix stays authenticated.
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/marketplace", "/marketplace/public/**").permitAll()
+                // MKT-1e: the anonymous checkout — this ONE path, by method. Not CSRF-exempt: the page sends the token.
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/marketplace/public/checkout").permitAll()
                 // Privileged Endpoint Rules — logged-in "change my password" still requires the privilege.
                 // (The forgot/reset flow is token-gated by the auth-service, so it is permitAll above.)
                 .requestMatchers(

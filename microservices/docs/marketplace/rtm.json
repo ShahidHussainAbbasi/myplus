@@ -1,8 +1,8 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 51,
- "cypress": 61,
+ "unit": 53,
+ "cypress": 60,
  "automated": 65,
  "manual": 87,
  "gaps": [],
@@ -35,10 +35,13 @@
    "req": "MKT-R1.3",
    "phase": "all",
    "text": "Marketplace layer sits **above** the existing commerce core (products, inventory, POS, customers, suppliers, payments, accounting) and reuses it",
-   "unit": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.acceptRecordsTheSale"
+   ],
    "cypress": [],
    "manual": [
     "M-0a-05",
+    "M-1e-01",
     "M-1g-06"
    ]
   },
@@ -71,10 +74,11 @@
    ],
    "cypress": [
     "MKT-1c-02",
-    "MKT-1e-07"
+    "MKT-1e-06"
    ],
    "manual": [
     "M-1c-02",
+    "M-1e-06",
     "M-X-01"
    ]
   },
@@ -85,7 +89,9 @@
    "unit": [
     "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot"
    ],
-   "cypress": [],
+   "cypress": [
+    "MKT-1e-06"
+   ],
    "manual": [
     "M-1c-02",
     "M-1e-06",
@@ -184,7 +190,8 @@
     "MKT-1b-03"
    ],
    "manual": [
-    "M-1b-01"
+    "M-1b-01",
+    "M-1b-02"
    ]
   },
   {
@@ -218,6 +225,7 @@
     "MKT-1d-07"
    ],
    "manual": [
+    "M-1b-03",
     "M-1d-01",
     "M-1d-05"
    ]
@@ -234,8 +242,8 @@
     "MKT-1b-04"
    ],
    "manual": [
-    "M-1b-02",
-    "M-1b-03"
+    "M-1b-03",
+    "M-1b-04"
    ]
   },
   {
@@ -245,6 +253,7 @@
    "unit": [
     "ProductIdentityKeyTest.sourceExample",
     "ProductIdentityKeyTest.normalisationIsConservative",
+    "ProductIdentityKeyTest.unitsOnly",
     "ProductIdentityKeyTest.separatorInjection",
     "ProductIdentityKeyTest.gtin",
     "MarketplaceCatalogServiceTest.proposeComputesKey",
@@ -269,7 +278,7 @@
    ],
    "cypress": [],
    "manual": [
-    "M-1b-05",
+    "M-1b-07",
     "M-6-01"
    ]
   },
@@ -287,8 +296,9 @@
    ],
    "manual": [
     "M-1b-01",
+    "M-1b-02",
     "M-1b-03",
-    "M-1b-04"
+    "M-1b-05"
    ]
   },
   {
@@ -302,7 +312,8 @@
     "MKT-1b-06"
    ],
    "manual": [
-    "M-1b-04"
+    "M-1b-02",
+    "M-1b-05"
    ]
   },
   {
@@ -312,14 +323,15 @@
    "unit": [
     "ProductIdentityKeyTest.storageNeverMerges",
     "ProductIdentityKeyTest.packSizeNeverMerges",
+    "ProductIdentityKeyTest.unitsOnly",
     "MarketplaceCatalogServiceTest.storageNeverSuggested"
    ],
    "cypress": [
     "MKT-1b-05"
    ],
    "manual": [
-    "M-1b-02",
-    "M-1b-05"
+    "M-1b-04",
+    "M-1b-07"
    ]
   },
   {
@@ -378,6 +390,7 @@
     "MarketplaceOfferServiceTest.priceLimits",
     "MarketplaceOfferServiceTest.commissionStamped",
     "MarketplaceOfferServiceTest.limits",
+    "MarketplaceOrderFlowTest.acceptWindow",
     "MarketplacePolicyServiceTest.commission",
     "MarketplaceSettingsServiceTest.save",
     "MarketplaceSettingsServiceTest.onlyBackedSorts",
@@ -393,7 +406,8 @@
     "M-1c-00",
     "M-1c-04",
     "M-1c-07",
-    "M-1d-06"
+    "M-1d-06",
+    "M-1e-04"
    ]
   },
   {
@@ -427,6 +441,7 @@
     "MarketplaceCatalogServiceTest.regulatedRefused",
     "MarketplaceCatalogServiceTest.noRegulatedLaundering",
     "MarketplaceOfferServiceTest.lifecycle",
+    "MarketplaceOrderFlowTest.eligibility",
     "MarketplaceSellerServiceTest.decisionRepublishes",
     "OfferProjectionServiceTest.liveRule",
     "PublicOfferServiceTest.city",
@@ -450,6 +465,7 @@
     "M-1c-05",
     "M-1d-04",
     "M-1d-05",
+    "M-1d-07",
     "M-1d-08"
    ]
   },
@@ -458,11 +474,8 @@
    "phase": "1",
    "text": "The marketplace customer relationship, support, communication, complaint intake and return coordination belong to MaxTheService",
    "unit": [],
-   "cypress": [
-    "MKT-1e-08"
-   ],
+   "cypress": [],
    "manual": [
-    "M-1e-01",
     "M-1e-07",
     "M-1f-01"
    ]
@@ -530,10 +543,16 @@
    "req": "MKT-R10.1",
    "phase": "1/3/4/5",
    "text": "Reservation authority by source: merchant inventory · platform warehouse · supplier API/portal · custodian under owner policy",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.acceptRecordsTheSale",
+    "MarketplaceOrderFlowTest.serialsBeforeRelease"
+   ],
+   "cypress": [
+    "MKT-1e-01"
+   ],
    "manual": [
-    "M-1e-01"
+    "M-1e-01",
+    "M-1e-10"
    ]
   },
   {
@@ -543,17 +562,25 @@
    "unit": [
     "AvailabilityTest.nonPositiveRequest",
     "MarketplaceStateMachinesTest.rejectedIsNotTerminal",
-    "MarketplaceStateMachinesTest.reservationTerminals"
+    "MarketplaceStateMachinesTest.reservationTerminals",
+    "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
+    "MarketplaceOrderFlowTest.holdRefused",
+    "MarketplaceOrderFlowTest.saleRefusedReholds",
+    "MarketplaceOrderFlowTest.acceptAfterDeadline",
+    "MarketplaceOrderFlowTest.expiredBeatsStaleVersion",
+    "MarketplaceOrderFlowTest.reject",
+    "MarketplaceOrderFlowTest.sweeperExpires"
    ],
    "cypress": [
     "MKT-1e-01",
-    "MKT-1e-05",
-    "MKT-1e-06"
+    "MKT-1e-04",
+    "MKT-1e-05"
    ],
    "manual": [
     "M-1e-01",
     "M-1e-03",
-    "M-1e-04"
+    "M-1e-04",
+    "M-1e-10"
    ]
   },
   {
@@ -569,9 +596,10 @@
     "PublicOfferServiceTest.quantity"
    ],
    "cypress": [
-    "MKT-1e-10"
+    "MKT-1e-04"
    ],
    "manual": [
+    "M-1e-03",
     "M-1e-10"
    ]
   },
@@ -580,9 +608,7 @@
    "phase": "1",
    "text": "Reservation record carries reservation/order/line/offer ids, source type, owner, custodian, location, qty, status, created/expires, release reason, source reference",
    "unit": [],
-   "cypress": [
-    "MKT-1e-10"
-   ],
+   "cypress": [],
    "manual": [
     "M-1e-10"
    ]
@@ -593,10 +619,12 @@
    "text": "Default terms (configurable): merchant 5 min accept / 10 min hold; platform immediate / until pick; supplier 15–20 / 20–30; consignment 5 / 10",
    "unit": [
     "AcceptanceTermsTest.defaults",
-    "AcceptanceTermsTest.overridesValidated"
+    "AcceptanceTermsTest.overridesValidated",
+    "MarketplaceOrderFlowTest.reject",
+    "MarketplaceOrderFlowTest.sweeperExpires"
    ],
    "cypress": [
-    "MKT-1e-05"
+    "MKT-1e-04"
    ],
    "manual": [
     "M-1e-03",
@@ -744,12 +772,14 @@
    "text": "**Order-time snapshots**: return/refund policy, cost payer, warranty, seller, owner, fulfiller, price, tax, commission, delivery fee; later policy changes never alter an old order",
    "unit": [
     "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot",
+    "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
     "MarketplacePolicyServiceTest.deactivated"
    ],
    "cypress": [
-    "MKT-1e-07"
+    "MKT-1e-06"
    ],
    "manual": [
+    "M-1c-07",
     "M-1e-06"
    ]
   },
@@ -781,6 +811,7 @@
     "MKT-1c-01"
    ],
    "manual": [
+    "M-1c-00",
     "M-1c-01",
     "M-1c-06"
    ]
@@ -932,9 +963,7 @@
     "PhaseGuardTest.twoSellersRefused",
     "PhaseGuardTest.empty"
    ],
-   "cypress": [
-    "MKT-1e-02"
-   ],
+   "cypress": [],
    "manual": [
     "M-1e-02"
    ]
@@ -1021,16 +1050,20 @@
    "text": "On deadline: never silently confirm; \"We are checking availability\" / \"Please choose another offer\"",
    "unit": [
     "OfferEligibilityTest.stale",
+    "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
+    "MarketplaceOrderFlowTest.holdOutage",
     "OfferProjectionServiceTest.noAnswerStaysUnconfirmed",
     "PublicOfferServiceTest.stale",
     "PublicOfferServiceTest.cardFollowsGuardrails"
    ],
    "cypress": [
-    "MKT-1e-01"
+    "MKT-1e-01",
+    "MKT-1e-05"
    ],
    "manual": [
     "M-1d-05",
     "M-1e-01",
+    "M-1e-04",
     "M-2-05"
    ]
   },
@@ -1047,10 +1080,12 @@
     "MarketplaceStateMachinesTest.publishedSetIsReadOnly",
     "MarketplaceCatalogServiceTest.illegalMove",
     "MarketplaceOfferServiceTest.lifecycle",
+    "MarketplaceOrderFlowTest.acceptAfterDeadline",
+    "MarketplaceOrderFlowTest.sweeperExpires",
     "MarketplaceSellerServiceTest.illegalMove"
    ],
    "cypress": [
-    "MKT-1e-06",
+    "MKT-1e-05",
     "MKT-1e-09"
    ],
    "manual": [
@@ -1088,6 +1123,9 @@
     "OfferEligibilityTest.deliveryArea",
     "PhaseGuardTest.oneSeller",
     "MarketplaceCatalogServiceTest.activeSellerRequired",
+    "MarketplaceOrderFlowTest.codOffRefused",
+    "MarketplaceOrderFlowTest.eligibility",
+    "MarketplaceOrderFlowTest.codRefused",
     "MarketplaceSellerServiceTest.acceptApplies",
     "MarketplaceSellerServiceTest.needsDisplayName",
     "MarketplaceSellerServiceTest.guardNamesTheGap",
@@ -1098,11 +1136,15 @@
     "MKT-0a-01",
     "MKT-0a-06",
     "MKT-0a-07",
-    "MKT-1d-04"
+    "MKT-1d-04",
+    "MKT-1e-09"
    ],
    "manual": [
+    "M-0a-03",
     "M-0a-06",
     "M-1d-04",
+    "M-1e-02",
+    "M-1e-08",
     "M-1e-09"
    ]
   },
@@ -1123,8 +1165,7 @@
    "cypress": [
     "MKT-1b-09",
     "MKT-1c-03",
-    "MKT-1c-04",
-    "MKT-1e-02"
+    "MKT-1c-04"
    ],
    "manual": [
     "M-1c-02",
@@ -1214,6 +1255,9 @@
     "MarketplaceCatalogServiceTest.operatorOnly",
     "MarketplaceOfferServiceTest.partiesStamped",
     "MarketplaceOfferServiceTest.tenancy",
+    "MarketplaceOrderFlowTest.validation",
+    "MarketplaceOrderFlowTest.tracking",
+    "MarketplaceOrderFlowTest.tenancyAndActiveSeller",
     "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
@@ -1230,6 +1274,7 @@
     "MKT-1c-02",
     "MKT-1c-08",
     "MKT-1c-11",
+    "MKT-1e-07",
     "MKT-1e-08"
    ],
    "manual": [
@@ -1239,6 +1284,8 @@
     "M-1b-06",
     "M-1c-02",
     "M-1c-08",
+    "M-1e-08",
+    "M-1e-11",
     "M-X-02"
    ]
   },
@@ -1247,10 +1294,11 @@
    "phase": "1",
    "text": "Offer approval, price and stock reservation are **server-authoritative**",
    "unit": [
-    "OfferEligibilityTest.unapproved"
+    "OfferEligibilityTest.unapproved",
+    "MarketplaceOrderFlowTest.priceChanged"
    ],
    "cypress": [
-    "MKT-1e-03"
+    "MKT-1e-02"
    ],
    "manual": [
     "M-1c-04"
@@ -1261,16 +1309,20 @@
    "phase": "1",
    "text": "Payment and refund idempotency keys; settlement entries immutable",
    "unit": [
+    "MarketplaceOrderFlowTest.idempotent",
+    "MarketplaceOrderFlowTest.phoneGuard",
     "MarketplaceSellerServiceTest.idempotent",
     "MarketplaceSellerServiceTest.staleDecision"
    ],
    "cypress": [
     "MKT-0a-05",
-    "MKT-1e-04",
+    "MKT-1e-03",
+    "MKT-1e-10",
     "MKT-1g-04"
    ],
    "manual": [
     "M-1e-05",
+    "M-1e-11",
     "M-1g-04"
    ]
   },

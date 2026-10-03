@@ -1,7 +1,9 @@
 # MKT-1d: Public catalogue, offer comparison, customer sort
 
+**Live verification 2026-10-03:** headed gate **10/10 on a live stack** (48/48 across MKT-0a…1e in one run) and every manual case walked step by step and recorded — [live verification](../marketplace/live-verification-2026-10-03.md). The status below is the record from before that run.
+
 **Status:** IMPLEMENTED, unit-green; the page was driven in Chromium against a stub API (30/30). **Headed Cypress gate
-written and NOT yet run** (no running stack). `marketplace-service` **272 run / 0 failed / 23 skipped** (Testcontainers:
+written (run 2026-10-03, see above)** (no running stack). `marketplace-service` **272 run / 0 failed / 23 skipped** (Testcontainers:
 **V27 and the search query have not run against MySQL**, D2a). Programme: [`../marketplace-multiseller-design.md`](../marketplace-multiseller-design.md).
 Depends on MKT-1c (LIVE projection rows, `PublicOfferService`, the anonymous offers read).
 

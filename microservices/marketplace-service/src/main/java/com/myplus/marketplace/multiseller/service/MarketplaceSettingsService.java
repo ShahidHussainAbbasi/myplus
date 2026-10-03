@@ -83,4 +83,47 @@ public class MarketplaceSettingsService {
         String d = defaultSort();
         return RECOMMENDED.equals(d) ? null : OfferSort.valueOf(d);
     }
+
+    // ── MKT-1e: the seller's acceptance window ─────────────────────────────────────────────────────────
+
+    public static final int DEFAULT_ACCEPT_MINUTES = 5;
+    static final int MIN_ACCEPT_MINUTES = 1;
+    static final int MAX_ACCEPT_MINUTES = 60;
+
+    /**
+     * Minutes a MERCHANT seller has to accept (source §10: "configurable"; the MKT-1a default is 5). A missing or
+     * invalid stored value reads as the default. The stock hold is taken for longer than this by the trade side
+     * (order holds expire after days), so the window is always the shorter of the two, as AcceptanceTerms requires.
+     */
+    @Transactional(readOnly = true)
+    public int acceptMinutes() {
+        return settings.findById(MarketplacePlatformSetting.ACCEPT_MINUTES)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> { try { return Integer.parseInt(v.trim()); } catch (NumberFormatException e) { return -1; } })
+                .filter(m -> m >= MIN_ACCEPT_MINUTES && m <= MAX_ACCEPT_MINUTES)
+                .orElse(DEFAULT_ACCEPT_MINUTES);
+    }
+
+    @Transactional(readOnly = true)
+    public int operatorAcceptMinutes() {
+        access.assertOperator();
+        return acceptMinutes();
+    }
+
+    @Transactional
+    public int setAcceptMinutes(Integer minutes) {
+        access.assertOperator();
+        if (minutes == null || minutes < MIN_ACCEPT_MINUTES || minutes > MAX_ACCEPT_MINUTES)
+            throw new ValidationException("The acceptance window is 1 to 60 minutes.");
+        MarketplacePlatformSetting row = settings.findById(MarketplacePlatformSetting.ACCEPT_MINUTES).orElseGet(() -> {
+            MarketplacePlatformSetting n = new MarketplacePlatformSetting();
+            n.setSettingKey(MarketplacePlatformSetting.ACCEPT_MINUTES);
+            return n;
+        });
+        row.setSettingValue(String.valueOf(minutes));
+        row.setUpdatedByUserId(access.userId());
+        row.setUpdatedAt(LocalDateTime.now());
+        settings.save(row);
+        return minutes;
+    }
 }

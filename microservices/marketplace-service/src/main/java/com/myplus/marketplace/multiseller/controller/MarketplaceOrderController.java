@@ -1,0 +1,87 @@
+package com.myplus.marketplace.multiseller.controller;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.myplus.common.web.ApiResponse;
+import com.myplus.common.web.PageResponse;
+import com.myplus.marketplace.multiseller.dto.MarketplaceOrderDTOs;
+import com.myplus.marketplace.multiseller.service.MarketplaceCheckoutService;
+import com.myplus.marketplace.multiseller.service.MarketplaceSettingsService;
+import com.myplus.marketplace.multiseller.service.SellerOrderService;
+
+import lombok.RequiredArgsConstructor;
+
+/**
+ * MKT-1e — marketplace orders. Rules live in the services.
+ *
+ * <pre>
+ *   POST /public/mkt/checkout                         anonymous (gateway allow-lists /api/marketplace/public/)
+ *   GET  /public/mkt/orders/{orderNo}?phone=          anonymous tracking: number AND phone
+ *   GET  /mkt/seller-orders?status=&amp;page=&amp;size=       seller: own org's seller orders
+ *   POST /mkt/seller-orders/{id}/accept               seller: within the window {version, serials}
+ *   POST /mkt/seller-orders/{id}/reject               seller: {version, reason}
+ *   GET  /mkt/operator/orders?status=                 operator
+ *   GET/POST /mkt/operator/settings/accept-window     operator: minutes a seller has to accept
+ * </pre>
+ */
+@RestController
+@RequiredArgsConstructor
+public class MarketplaceOrderController {
+
+    private final MarketplaceCheckoutService checkout;
+    private final SellerOrderService sellerOrders;
+    private final MarketplaceSettingsService settings;
+
+    @PostMapping("/public/mkt/checkout")
+    public ApiResponse<MarketplaceOrderDTOs.OrderView> checkout(@RequestBody MarketplaceOrderDTOs.CheckoutRequest body) {
+        MarketplaceOrderDTOs.OrderView v = checkout.checkout(body);
+        return ApiResponse.success(v, "CANCELLED".equals(v.status()) ? v.cancelReason()
+                : "Waiting for " + (v.sellerName() == null ? "the seller" : v.sellerName()) + " to confirm.");
+    }
+
+    @GetMapping("/public/mkt/orders/{orderNo}")
+    public ApiResponse<MarketplaceOrderDTOs.OrderView> track(@PathVariable String orderNo,
+            @RequestParam(required = false) String phone) {
+        return ApiResponse.success(checkout.track(orderNo, phone));
+    }
+
+    @GetMapping("/mkt/seller-orders")
+    public ApiResponse<PageResponse<MarketplaceOrderDTOs.SellerOrderView>> mine(@RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return ApiResponse.success(sellerOrders.mine(status, page, size));
+    }
+
+    @PostMapping("/mkt/seller-orders/{id}/accept")
+    public ApiResponse<MarketplaceOrderDTOs.SellerOrderView> accept(@PathVariable Long id,
+            @RequestBody(required = false) MarketplaceOrderDTOs.AcceptRequest body) {
+        return ApiResponse.success(sellerOrders.accept(id, body), "Accepted. The sale is in your books; deliver and collect the cash.");
+    }
+
+    @PostMapping("/mkt/seller-orders/{id}/reject")
+    public ApiResponse<MarketplaceOrderDTOs.SellerOrderView> reject(@PathVariable Long id,
+            @RequestBody(required = false) MarketplaceOrderDTOs.RejectRequest body) {
+        return ApiResponse.success(sellerOrders.reject(id, body), "Rejected. The stock is released and the shopper is told.");
+    }
+
+    @GetMapping("/mkt/operator/orders")
+    public ApiResponse<PageResponse<MarketplaceOrderDTOs.OrderView>> operatorOrders(@RequestParam(required = false) String status,
+            @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return ApiResponse.success(checkout.operatorOrders(status, page, size));
+    }
+
+    @GetMapping("/mkt/operator/settings/accept-window")
+    public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> acceptWindow() {
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes()));
+    }
+
+    @PostMapping("/mkt/operator/settings/accept-window")
+    public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> setAcceptWindow(@RequestBody MarketplaceOrderDTOs.AcceptWindow body) {
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.setAcceptMinutes(body == null ? null : body.minutes())),
+                "Acceptance window saved.");
+    }
+}

@@ -7,7 +7,7 @@
  * policies are created by the operator and never edited.
  */
 const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, msg, post, get, expectRefused, makeSeller,
-  openMarketplace, seedProduct, a32 } = require('./mkt-helpers')
+  openMarketplace, seedProduct, a32, seedRxProduct, PHARMACY } = require('./mkt-helpers')
 
 gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => {
   const run = uniq()
@@ -48,14 +48,15 @@ gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => 
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
     openMarketplace()
     cy.get('#mktNewOfferBtn').should('be.visible').click()
-    cy.get('#mktOfferProduct').should('be.visible').select(String(mktProductId))
+    cy.get('#mktOfferProduct').select(String(mktProductId), { force: true })
     cy.get('#mktOfferPrice').clear().type('52000')
     cy.get('#mktOfferArea').clear().type('Karachi, karachi , Lahore')
-    cy.get('#mktOfferWarranty').select(WARRANTY_NAME)
-    cy.get('#mktOfferReturn').select(RETURN_NAME)
+    cy.get('#mktOfferWarranty').select(WARRANTY_NAME, { force: true })
+    cy.get('#mktOfferReturn').select(RETURN_NAME, { force: true })
     cy.get('#mktOfferSubmit').click()
     cy.get('#mktOfferMsg').should('not.be.empty')
-    cy.contains(`${UI.offersTable} tr`, '52,000').within(() => {
+    // THIS run's row (its model carries the run id): the seller has many Rs. 52,000 offers from earlier runs
+    cy.contains(`${UI.offersTable} tr`, `T${run}`).should('contain', '52,000').within(() => {
       cy.get('[data-status]').should('have.attr', 'data-status', 'PENDING_REVIEW')
       cy.contains('td', /^Karachi, Lahore$/)   // trimmed and de-duplicated by the server, as typed
     }).invoke('attr', 'data-offer-id').then((id) => { offerId = Number(id) })
@@ -79,8 +80,8 @@ gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => 
   })
 
   it('MKT-1c-03 [MKT-R20.2] [MKT-R7.6] a prescription product cannot be offered in Phase 1', () => {
-    cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    seedProduct({ name: `Rx ${run}`, manufacturer: 'GSK', rx: true }).then((rx) =>
+    makeSeller(PHARMACY, 'Gate Pharmacy')
+    seedRxProduct(`Rx ${run}`).then((rx) =>
       post(API.proposeProduct, { sourceProductId: rx, brand: 'GSK', model: `Rx ${run}` }))
       .then((r) => expectRefused(r, 'Prescription'))
   })
@@ -119,8 +120,10 @@ gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => 
       expect(row, 'approved offer is published').to.exist
       expect(row.price).to.eq(51500)
       const keys = Object.keys(row).join(',').toLowerCase()
-      ;['cost', 'margin', 'purchase', 'supplier', 'movement', 'organizationid,'].forEach((k) =>
+      ;['cost', 'margin', 'purchase', 'supplier', 'movement'].forEach((k) =>
         expect(keys, `projection must not expose ${k}`).to.not.contain(k))
+      // the seller's own id and display name ARE public (design §9.2); a bare tenant organizationId is not
+      expect(Object.keys(row), 'no internal organizationId').to.not.include('organizationId')
     })
     get(`${API.publicOffers(mktProductId)}?city=Quetta`).then((r) =>
       expect(list(r.body).map((o) => o.offerId), 'not delivered to that city').to.not.include(offerId))

@@ -15,8 +15,12 @@ const decide = (email, decision, reason) => cy.loginAsOperator()
   .then((org) => post(API.decideSeller, { organizationId: org.id, decision, reason }))
 
 gate('0a')('MKT-0a — marketplace capability, agreements and seller approval', () => {
+  /** Seller A's org id, resolved ONCE as the operator: the tenant listing is operator-only, so a tenant asking sees 0. */
+  let sellerOrg
+
   before(() => {
     cy.loginAsOperator()
+    cy.orgOf(SELLER_A).then((org) => { sellerOrg = org.id })
     cy.setEntitlement(SELLER_A, 'marketplaceSelling', 'ACTIVE', 'mkt gate')
   })
 
@@ -44,12 +48,20 @@ gate('0a')('MKT-0a — marketplace capability, agreements and seller approval', 
     relogin(SELLER_A)   // the capability rides in the token
     openMarketplace()
     cy.get('#mktStatusCapability').should('contain', 'switched on')
-    cy.get('#mktAgreementBox').should('be.visible')
-      .and('contain', 'Never asked for')   // source §9.3 is on the screen, not only in a document
-    cy.get('#mktAcceptBtn').should('be.disabled')
-    cy.get('#mktDisplayName').should('be.visible').clear().type('Shahzad Mobile Shop')
-    cy.get('#mktAgreeChk').check()
-    cy.get('#mktAcceptBtn').should('be.enabled').click()
+    // Rerunnable: the server's state decides which half of the story the screen must tell. A fresh tenant gets
+    // the whole acceptance; one that accepted in an earlier run must show it accepted, with no box asking again.
+    get(API.sellerStatus).then((r) => {
+      if (!data(r.body).agreementsCurrent) {
+        cy.get('#mktAgreementBox').should('be.visible')
+          .and('contain', 'Never asked for')   // source §9.3 is on the screen, not only in a document
+        cy.get('#mktAcceptBtn').should('be.disabled')
+        cy.get('#mktDisplayName').should('be.visible').clear().type('Shahzad Mobile Shop')
+        cy.get('#mktAgreeChk').check()
+        cy.get('#mktAcceptBtn').should('be.enabled').click()
+      } else {
+        cy.get('#mktAgreementBox').should('not.be.visible')
+      }
+    })
     cy.get('#mktStatusAgreements', { timeout: 15000 }).should('contain', 'accepted (version v1)')
     cy.get('#mktStatusAccount').should('satisfy', ($el) =>
       /reviewing your seller account|Approved by MaxTheService/.test($el.text()))
@@ -96,7 +108,7 @@ gate('0a')('MKT-0a — marketplace capability, agreements and seller approval', 
 
   it('MKT-0a-06 [MKT-R20.1] [MKT-R22.1] only MaxTheService approves: a tenant cannot, the operator can, and suspension shows its reason', () => {
     relogin(SELLER_A)
-    cy.orgOf(SELLER_A).then((org) => post(API.decideSeller, { organizationId: org.id, decision: 'APPROVE' }))
+    cy.then(() => post(API.decideSeller, { organizationId: sellerOrg, decision: 'APPROVE' }))
       .then((r) => expect(ok(r.body), 'a tenant owner is not the operator').to.eq(false))
     decide(SELLER_A, 'APPROVE').then((r) => { if (!ok(r.body)) expect(msg(r.body)).to.match(/approved cannot be moved/) })
     relogin(SELLER_A)
@@ -114,13 +126,15 @@ gate('0a')('MKT-0a — marketplace capability, agreements and seller approval', 
   })
 
   it('MKT-0a-07 [MKT-R20.1] the operator console lists the seller and its decision buttons follow the lifecycle (real UI)', () => {
+    // its own precondition, not case 06's: an APPROVED seller (a refused re-approve is fine)
+    decide(SELLER_A, 'APPROVE').then((r) => { if (!ok(r.body)) expect(msg(r.body)).to.match(/approved cannot be moved/) })
     cy.loginAsOperator()
     cy.visit(UI.operatorPage)
     cy.get('#platMktSellersBtn').should('be.visible').click()
     cy.get('#platMktSellers').should('be.visible')
     cy.contains('#platMktStatus button', 'Approved').click()
-    cy.orgOf(SELLER_A).then((org) => {
-      cy.get(`#platMktSellerList [data-org="${org.id}"]`, { timeout: 15000 }).within(() => {
+    cy.then(() => {
+      cy.get(`#platMktSellerList [data-org="${sellerOrg}"]`, { timeout: 15000 }).within(() => {
         cy.get('[data-decision="SUSPEND"]').should('be.visible')
         cy.get('[data-decision="APPROVE"]').should('not.exist')   // no move the server would refuse
       })

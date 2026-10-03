@@ -53,6 +53,9 @@
 		$('#mktOffersBox').toggle(!!v.canSell);
 		syncButton();
 		if (v.canSell) { mktProposalsLoad(); mktOffersLoad(); }
+		// MKT-1e: shown to any seller with an account — a suspended seller must still see and reject open orders
+		$('#mktIncomingBox').toggle(!!a);
+		if (a) mktIncomingLoad();
 	}
 
 	// ── MKT-1b: products to publish ───────────────────────────────────────────────────────────────────
@@ -286,6 +289,153 @@
 		}).always(function () { $b.prop('disabled', false).html(label); });
 	}
 
+	// ── MKT-1e: incoming marketplace orders ──────────────────────────────────────────────────────────────
+
+	var SO_STATUS = {
+		OFFERED: ['ui.js.mktSoWaiting', 'Waiting for you', 'label-warning'],
+		ACCEPTED: ['ui.js.mktSoAccepted', 'Accepted', 'label-success'],
+		REJECTED: ['ui.js.mktSoRejected', 'Rejected', 'label-default'],
+		EXPIRED: ['ui.js.mktSoExpired', 'Expired', 'label-danger'],
+		CANCELLED: ['ui.js.mktSoCancelled', 'Cancelled', 'label-default'],
+		UNASSIGNED: ['ui.js.mktSoPlacing', 'Being placed', 'label-default']
+	};
+	var incomingTimer = null, tickTimer = null;
+
+	function mm(sec) {
+		sec = Math.max(0, Math.floor(sec));
+		return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2);
+	}
+
+	/**
+	 * The countdown is driven by the SERVER's seconds-left, turned into a local deadline on arrival — so a seller
+	 * whose clock is wrong still sees the true time left. Re-read every 15 s while the section is open.
+	 */
+	function mktIncomingLoad() {
+		var status = $('#mktIncomingStatus').val();
+		return $.ajax({ url: ctx() + 'mkt/incomingOrders?size=50' + (status ? '&status=' + encodeURIComponent(status) : ''),
+			dataType: 'json' }).done(function (res) {
+			var $tb = $('#mktIncomingOrders tbody').empty();
+			if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+			var rows = (data(res) || {}).content || [];
+			if (!rows.length) {
+				$tb.append($('<tr><td colspan="5" class="text-muted"></td></tr>').find('td')
+					.text(tr('ui.js.mktNoIncoming', 'No marketplace orders here.')).end());
+			}
+			rows.forEach(function (so) { $tb.append(incomingRow(so)); });
+			tick();
+		}).always(function () {
+			clearTimeout(incomingTimer);
+			if ($('#MarketplaceDiv').is(':visible')) incomingTimer = setTimeout(mktIncomingLoad, 15000);
+		});
+	}
+
+	function incomingRow(so) {
+		var $tr = $('<tr></tr>').attr('data-so-id', so.id);
+		$tr.append($('<td></td>').append($('<b></b>').text(so.orderNo || ''))
+			.append($('<div class="text-muted" style="font-size:12px"></div>').text(money(so.total))));
+		var $items = $('<td></td>');
+		(so.lines || []).forEach(function (l) {
+			$items.append($('<div></div>').text(l.line.productName + ' × ' + l.line.quantity + ' @ ' + money(l.line.unitPrice)));
+		});
+		$tr.append($items);
+		$tr.append($('<td style="font-size:13px"></td>')
+			.append($('<div></div>').text(so.customerName || ''))
+			.append($('<div></div>').append($('<a></a>').attr('href', 'tel:' + (so.customerPhone || '')).text(so.customerPhone || '')))
+			.append($('<div class="text-muted"></div>').text([so.address, so.city].filter(Boolean).join(', '))));
+		var s = SO_STATUS[so.acceptanceStatus] || [null, so.acceptanceStatus, 'label-default'];
+		var $st = $('<td></td>').append($('<span class="label"></span>').addClass(s[2]).attr('data-status', so.acceptanceStatus)
+			.text(s[0] ? tr(s[0], s[1]) : s[1]));
+		if (so.acceptanceStatus === 'OFFERED' && so.secondsLeft !== null && so.secondsLeft !== undefined) {
+			$st.append(' ').append($('<b class="mkt-accept-countdown" style="font-variant-numeric:tabular-nums"></b>')
+				.attr('data-deadline', Date.now() + so.secondsLeft * 1000).text(mm(so.secondsLeft)));
+		}
+		if (so.invoiceNo) $st.append($('<div style="font-size:12px"></div>').text(tr('ui.js.mktSoInvoice', 'Invoice {0}').replace('{0}', so.invoiceNo)));
+		if (so.rejectReason) $st.append($('<div class="text-muted" style="font-size:12px"></div>').text(so.rejectReason));
+		$tr.append($st);
+
+		var $act = $('<td style="min-width:220px"></td>');
+		if (so.acceptanceStatus === 'OFFERED') {
+			var serialInputs = [];
+			(so.lines || []).forEach(function (l) {
+				for (var i = 0; i < l.line.quantity; i++) {
+					var $in = $('<input type="text" class="form-control input-sm mkt-imei" maxlength="40" autocomplete="off">')
+						.attr('placeholder', tr('ui.js.mktImeiPh', 'IMEI / serial (if the item has one)'))
+						.attr('aria-label', tr('ui.js.mktImeiPh', 'IMEI / serial (if the item has one)'))
+						.attr('data-line-id', l.lineId).css('margin-bottom', '4px');
+					serialInputs.push($in);
+					$act.append($in);
+				}
+			});
+			var $msg = $('<div role="status" style="font-size:12px;margin-top:4px"></div>');
+			$('<button type="button" class="btn btn-xs btn-success mkt-accept"></button>').text(tr('ui.js.mktAccept', 'Accept'))
+				.on('click', function () {
+					var serials = {};
+					serialInputs.forEach(function ($in) {
+						var v = $.trim($in.val());
+						if (!v) return;
+						var k = $in.attr('data-line-id');
+						(serials[k] = serials[k] || []).push(v);
+					});
+					soPost('mkt/acceptOrder', { id: so.id, version: so.version, serials: serials }, $(this), $msg, $tr);
+				}).appendTo($act);
+			var $reason = $('<input type="text" class="form-control input-sm" maxlength="300" style="margin-top:6px">')
+				.attr('placeholder', tr('ui.js.mktRejectPh', 'Why you cannot fulfil it'))
+				.attr('aria-label', tr('ui.js.mktRejectPh', 'Why you cannot fulfil it'));
+			$act.append($reason);
+			$('<button type="button" class="btn btn-xs btn-default mkt-reject" style="margin-top:4px"></button>')
+				.text(tr('ui.js.mktReject', 'Reject'))
+				.on('click', function () { soPost('mkt/rejectOrder', { id: so.id, version: so.version, reason: $reason.val() }, $(this), $msg, $tr); })
+				.appendTo($act);
+			$act.append($msg);
+		} else if (so.storeOrderNo) {
+			$act.append($('<span class="text-muted" style="font-size:12px"></span>')
+				.text(tr('ui.js.mktSoInYourOrders', 'In your orders as {0}').replace('{0}', so.storeOrderNo)));
+		}
+		$tr.append($act);
+		return $tr;
+	}
+
+	/**
+	 * Only the clicked button is disabled; the server's sentence is shown as written (standard 8a). On success the row
+	 * is redrawn IN PLACE from the server's answer, with its sentence: reloading the "Waiting for you" filter made an
+	 * accepted order simply vanish, so the seller never saw it go through (found by the MKT-1e gate on a live stack).
+	 * The 15 s refresh reconciles the list afterwards.
+	 */
+	function soPost(path, body, $b, $msg, $tr) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		$msg.text('').css('color', '');
+		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var $now = incomingRow(data(res));
+				$now.find('td:last').append($('<div role="status" style="font-size:12px;color:#1b5e20"></div>').text(message(res, '')));
+				$tr.replaceWith($now);
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
+	function tick() {
+		clearInterval(tickTimer);
+		tickTimer = setInterval(function () {
+			var any = false;
+			$('#mktIncomingOrders .mkt-accept-countdown').each(function () {
+				var left = (Number($(this).attr('data-deadline')) - Date.now()) / 1000;
+				$(this).text(mm(left)).css('color', left < 60 ? '#b3261e' : '');
+				any = true;
+			});
+			if (!any) clearInterval(tickTimer);
+		}, 1000);
+	}
+
+	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
+	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
+	// elements first, so onclick="mktOfferSave(...)" on <button id="mktOfferSave"> called the BUTTON, not this
+	// function — both buttons were dead on the real dashboard (found by the MKT-1c gate on a live stack).
+	$(document).on('click', '#mktOfferSave', function () { mktOfferSave(this, false); });
+	$(document).on('click', '#mktOfferSubmit', function () { mktOfferSave(this, true); });
+
 	function showMarketplaceSeller() {
 		$('.formDiv').hide();
 		$('#MarketplaceDiv').show();
@@ -303,4 +453,5 @@
 	global.mktOfferNew = mktOfferNew;
 	global.mktOfferSave = mktOfferSave;
 	global.mktOffersLoad = mktOffersLoad;
+	global.mktIncomingLoad = mktIncomingLoad;
 })(window);

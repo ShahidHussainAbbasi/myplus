@@ -29,12 +29,19 @@ const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
  * Who plays which part (GATE-RUNBOOK §1: log in as the tenant the feature belongs to).
  *   SELLER_A  owner.business@  — a retail counter: the tier ladder (admin./user.) lives in this org
  *   SELLER_B  owner.mobile@    — a mobile shop: the second seller of the SAME phone, the "2 sellers" case
- *   OUTSIDER  owner.pharma@    — never entitled: the cross-tenant / not-entitled control
+ *   OUTSIDER  owner.pesticide@ — a business tenant no MKT gate ever enrols: the not-entitled control
+ *   PHARMACY  owner.pharma@    — the seeded pharmacy (prescription control ON): the regulated-product seller
  *   OPERATOR  admin@myplus.com — MaxTheService staff (ROLE_ADMIN), not a tenant
  */
 const SELLER_A = 'owner.business@myplus.com'
 const SELLER_B = 'owner.mobile@myplus.com'
-const OUTSIDER = 'owner.pharma@myplus.com'
+const OUTSIDER = 'owner.pesticide@myplus.com'
+/**
+ * PHARMACY — the seeded pharmacy, with prescription control ON. The ONLY kind of tenant that can own a prescription
+ * product: catalog refuses the rx flag to a tenant without that capability (catalog C6), so a retail seller like
+ * SELLER_A can never hold one. Used by the "regulated products are refused" cases. (demo.pharma@ owns no org here.)
+ */
+const PHARMACY = 'owner.pharma@myplus.com'
 
 /** Monolith flat routes (ARCHITECTURE-MULTITENANCY §1) — each proxies /api/marketplace/mkt/** and relays the message. */
 const API = {
@@ -52,9 +59,9 @@ const API = {
   myOffers: '/mkt/myOffers',
   getOffer: (id) => `/mkt/getOffer?id=${id}`,
   sellerPolicies: '/mkt/sellerPolicies',                      // MKT-1c: active WARRANTY + RETURN policies
-  incomingOrders: '/mkt/incomingOrders',
-  acceptOrder: '/mkt/acceptOrder',
-  rejectOrder: '/mkt/rejectOrder',
+  incomingOrders: '/mkt/incomingOrders',                      // MKT-1e: ?status=OFFERED|ACCEPTED|…
+  acceptOrder: '/mkt/acceptOrder',                            // MKT-1e: {id, version, serials: []}
+  rejectOrder: '/mkt/rejectOrder',                            // MKT-1e: {id, version, reason}
   statement: '/mkt/statement',
   // operator (MKT_OPERATE / MKT_SETTLE / MKT_SUPPORT)
   matchQueue: '/platform/mkt/matchQueue',                    // MKT-1b: ?status=PENDING_REVIEW|MATCHED|NEEDS_CORRECTION
@@ -75,7 +82,10 @@ const API = {
   supportCases: '/platform/mkt/supportCases',
   taskCase: '/platform/mkt/taskCase',
   // customer (platform-scoped account, R-MKT-5)
-  checkout: '/marketplace/checkout',
+  checkout: '/marketplace/public/checkout',                   // MKT-1e: anonymous, CSRF token required
+  trackOrder: (no, phone) => `/marketplace/public/orders/${encodeURIComponent(no)}?phone=${encodeURIComponent(phone)}`,
+  operatorOrders: '/platform/mkt/orders',                     // MKT-1e: ?status=
+  acceptWindow: '/platform/mkt/acceptWindow',                 // MKT-1e: GET → {minutes}; POST {minutes}
   myMarketplaceOrders: '/marketplace/myOrders',
   cancelOrder: '/marketplace/cancelOrder',
   requestReturn: '/marketplace/requestReturn',
@@ -94,7 +104,6 @@ const UI = {
   offerRow: '.mkt-offer-row',          // carries data-offer-id, data-seller
   chooseOffer: '.mkt-choose-offer',   // a real radio button per row
   buyButton: '#mktBuyBtn',             // names the chosen seller
-  buyNote: '#mktBuyNote',              // MKT-1d: what was chosen (checkout is MKT-1e)
   checkoutStatus: '#mktCheckoutStatus',
   sellerSection: '#MarketplaceDiv',    // MKT-0a: Sale → Marketplace (#navMarketplaceSeller) on /businessDashboard
   sellerNav: '#navMarketplaceSeller',
@@ -162,11 +171,11 @@ const openMarketplace = () => {
 }
 
 /** Seed a catalog product with stock in the CURRENT tenant; returns the product id (asserts the seed took). */
-const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, qty = 5, rx = false } = {}) =>
+const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, qty = 5 } = {}) =>
   cy.request({
     method: 'POST', url: '/addProduct', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
     body: { name: name || `MKT Phone ${uniq()}`, sku: 'MKT' + uniq(), barcode, manufacturer,
-      sellingPrice: price, taxRate: 0, unit: 'pcs', rxRequired: rx },
+      sellingPrice: price, taxRate: 0, unit: 'pcs' },
   }).then((r) => {
     const id = r.body && r.body.data && r.body.data.id
     expect(id, `seeded product: ${JSON.stringify(r.body)}`).to.exist
@@ -175,10 +184,76 @@ const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, q
       .then(() => id)
   })
 
+/**
+ * A product the CATALOG marks prescription-only, in the current (pharmacy) tenant — through the pharmacy's own
+ * Clinical & Safety save, as a pharmacist would. Asserts the flag took, so a refusal later is about the rule.
+ */
+const seedRxProduct = (name) => seedProduct({ name, manufacturer: 'GSK', price: 300 }).then((id) =>
+  post('/saveClinical', { productId: id, medicineName: name, rxRequired: true, controlledSubstance: false }).then((r) => {
+    expect(ok(r.body), `rx flag saved: ${JSON.stringify(r.body)}`).to.eq(true)
+    return id
+  }))
+
 /** The identity attributes of the source's example phone, with a per-run model suffix so reruns do not collide. */
 const a32 = (run, storage = '128GB', colour = 'Black') => ({
   brand: 'Samsung', model: `Galaxy A32 T${run}`, variant: storage, colour, condition: 'New', warrantyType: '12M',
 })
 
-module.exports = { gate, uniq, SELLER_A, SELLER_B, OUTSIDER, API, UI, ok, data, list, msg, post, get,
+/**
+ * Operator policies a published offer needs: a warranty and a return policy, plus a default commission when none is
+ * active (creating a default replaces the platform-wide one, so it is never done needlessly). Yields their ids.
+ */
+const seedPolicies = (run, { months = 12, provider = 'Samsung Pakistan', returnDays = 7 } = {}) => {
+  const ids = {}
+  cy.loginAsOperator()
+  post(API.createPolicy, { policyType: 'WARRANTY', name: `${months} months ${run}`, warrantyProvider: provider, warrantyMonths: months })
+    .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); ids.warranty = data(r.body).id })
+  post(API.createPolicy, { policyType: 'RETURN', name: `${returnDays} days ${run}`, returnDays })
+    .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); ids.returns = data(r.body).id })
+  get(API.policies).then((r) => {
+    if (!list(r.body).some((p) => p.policyType === 'COMMISSION' && p.active && p.isDefault)) {
+      post(API.createPolicy, { policyType: 'COMMISSION', name: `Standard ${run}`, isDefault: true, commissionBasis: 'ITEMS', commissionRate: 0.08 })
+    }
+  })
+  return cy.wrap(ids)
+}
+
+/**
+ * The whole publishing path, the way the seller and the operator do it: seed a catalog product with stock → propose
+ * it → operator matches it (to `mktProductId` when given, so two sellers share ONE canonical product) → seller
+ * offers it → submits → operator approves. Yields {offerId, mktProductId, sourceProductId}.
+ */
+const publishOffer = (email, { run, price, promiseHours = 24, qty = 5, areas = 'Karachi', warrantyPolicyId, returnPolicyId,
+  mktProductId } = {}) => {
+  const out = {}
+  makeSeller(email)
+  return seedProduct({ name: `${a32(run).model} ${email}`, qty }).then((pid) => {
+    out.sourceProductId = pid
+    return post(API.proposeProduct, { sourceProductId: pid, ...a32(run) })
+  }).then((r) => {
+    expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+    const prop = data(r.body)
+    cy.loginAsOperator()
+    return post(API.decideMatch, { id: prop.id, decision: 'MATCHED', mktProductId, version: prop.version })
+  }).then((d) => {
+    expect(ok(d.body), JSON.stringify(d.body)).to.eq(true)
+    out.mktProductId = data(d.body).mktProductId
+    cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
+    return post(API.saveOffer, { mktProductId: out.mktProductId, marketplacePrice: price, deliveryAreas: areas, promiseHours,
+      warrantyPolicyId, returnPolicyId })
+  }).then((r) => {
+    expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+    out.offerId = data(r.body).id
+    return post(API.submitOffer, { id: out.offerId })
+  }).then((s) => {
+    expect(ok(s.body), JSON.stringify(s.body)).to.eq(true)
+    cy.loginAsOperator()
+    return post(API.decideOffer, { id: out.offerId, decision: 'APPROVE' })
+  }).then((a) => {
+    expect(ok(a.body), JSON.stringify(a.body)).to.eq(true)
+    return out
+  })
+}
+
+module.exports = { seedPolicies, publishOffer, seedRxProduct, PHARMACY, gate, uniq, SELLER_A, SELLER_B, OUTSIDER, API, UI, ok, data, list, msg, post, get,
   expectRefused, makeSeller, openMarketplace, seedProduct, a32 }
