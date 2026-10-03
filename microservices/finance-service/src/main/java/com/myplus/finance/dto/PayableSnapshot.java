@@ -26,4 +26,13 @@ public class PayableSnapshot {
     private BigDecimal amount;
     private BigDecimal paid;
     private boolean voided;
+    /** FP-4a — the bill AS ISSUED (gross, before any return): the statement's BILL line. Null = use amount. */
+    private BigDecimal issuedAmount;
+    /** FP-4a — when the supplier expects payment (expense bills); null = age by the document date. */
+    private LocalDate dueDate;
+    /**
+     * FP-4a — the debit notes against this document, for the statement trail. NULL = "not sent" (an older sender):
+     * finance keeps what it has. EMPTY = "there are none". Never read by a balance — amount/paid carry those.
+     */
+    private java.util.List<PayableNote> notes;
 }

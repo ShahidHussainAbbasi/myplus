@@ -33,6 +33,9 @@ public interface PayableDocRepository extends JpaRepository<PayableDoc, Long> {
          + "where d.organizationId = :org and d.status <> 'VOID' group by d.source, d.partyId")
     List<Object[]> netBySourceAndSupplier(@Param("org") Long org);
 
+    /** FP-4a — every document of one supplier, any status, oldest first (the statement's BILL lines). */
+    List<PayableDoc> findByOrganizationIdAndPartyTypeAndPartyIdOrderByDocDateAscIdAsc(Long organizationId, String partyType, Long partyId);
+
     @Query("select d from PayableDoc d where d.organizationId = :org and d.status = 'OPEN' order by d.partyName, d.docDate")
     List<PayableDoc> findOpen(@Param("org") Long org);
 }

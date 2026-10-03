@@ -37,6 +37,7 @@ public class PayableService {
 
     private final PayableDocRepository repo;
     private final GlService gl;
+    private final com.myplus.finance.repository.PayableNoteRepository notes;
 
     @Transactional
     public int upsert(List<PayableSnapshot> snapshots) {
@@ -70,6 +71,8 @@ public class PayableService {
         d.setPartyName(s.getPartyName());
         d.setDocNo(s.getDocNo());
         d.setDocDate(s.getDocDate());
+        d.setIssuedAmount(s.getIssuedAmount() == null ? null : s.getIssuedAmount().abs());
+        d.setDueDate(s.getDueDate());
         d.setAmount(s.getAmount().abs());
         d.setPaid(s.getPaid() == null ? BigDecimal.ZERO : s.getPaid());
         d.setStatus(statusOf(s.isVoided(), d.getAmount(), d.getPaid()));
@@ -79,6 +82,21 @@ public class PayableService {
         } catch (DataIntegrityViolationException raced) {
             // a concurrent delivery created it first; the retry will update it under the version guard
             throw new IllegalStateException("Payable " + s.getSource() + ":" + s.getSourceRef() + " was written concurrently; retry.");
+        }
+        // FP-4a — the statement trail, replaced whole under the SAME version guard (an older snapshot never got here).
+        // null = an older sender that does not know about notes: keep what is held.
+        if (s.getNotes() != null) {
+            notes.deleteByDoc(d.getId());
+            for (com.myplus.finance.dto.PayableNote n : s.getNotes()) {
+                if (n == null || n.getAmount() == null) continue;
+                com.myplus.finance.entity.PayableNoteRow r = new com.myplus.finance.entity.PayableNoteRow();
+                r.setOrganizationId(org);
+                r.setPayableDocId(d.getId());
+                r.setNoteNo(n.getNoteNo());
+                r.setNoteDate(n.getNoteDate());
+                r.setAmount(n.getAmount().abs());
+                notes.save(r);
+            }
         }
         return true;
     }

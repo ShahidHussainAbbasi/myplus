@@ -21,7 +21,8 @@ import com.myplus.finance.repository.PayableDocRepository;
 class PayableServiceTest {
 
     private final PayableDocRepository repo = mock(PayableDocRepository.class);
-    private final PayableService svc = new PayableService(repo, mock(GlService.class));
+    private final com.myplus.finance.repository.PayableNoteRepository notes = mock(com.myplus.finance.repository.PayableNoteRepository.class);
+    private final PayableService svc = new PayableService(repo, mock(GlService.class), notes);
 
     private static PayableSnapshot snap(long version, String amount, String paid, boolean voided) {
         return PayableSnapshot.builder().source("PURCHASE").sourceRef("42").sourceVersion(version)
@@ -68,5 +69,31 @@ class PayableServiceTest {
         v.setPaid(BigDecimal.ZERO);
         v.setStatus(PayableDoc.VOID);
         assertThat(v.open()).as("a void owes nothing").isEqualByComparingTo("0");
+    }
+
+    @Test @DisplayName("FP-4a: an accepted snapshot REPLACES the note trail; an older one leaves it; null leaves it")
+    void notes_replaced_under_the_version_guard() {
+        PayableDoc held = new PayableDoc();
+        held.setId(11L);
+        held.setSourceVersion(5L);
+        when(repo.findByOrganizationIdAndSourceAndSourceRef(6L, "PURCHASE", "42")).thenReturn(Optional.of(held));
+        when(repo.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        PayableSnapshot withNote = snap(6, "70", "0", false);
+        withNote.setIssuedAmount(new BigDecimal("100"));
+        withNote.setNotes(java.util.List.of(com.myplus.finance.dto.PayableNote.builder()
+                .noteNo("DN-1").amount(new BigDecimal("30")).build()));
+        assertThat(svc.applyOne(6L, withNote)).isTrue();
+        assertThat(held.getIssuedAmount()).isEqualByComparingTo("100");
+        verify(notes).deleteByDoc(11L);
+        verify(notes).save(org.mockito.ArgumentMatchers.argThat(n -> "DN-1".equals(n.getNoteNo())
+                && n.getAmount().compareTo(new BigDecimal("30")) == 0 && n.getPayableDocId() == 11L));
+
+        org.mockito.Mockito.clearInvocations(notes);
+        assertThat(svc.applyOne(6L, snap(7, "70", "10", false))).as("notes null = an older sender").isTrue();
+        verify(notes, never()).deleteByDoc(any());
+
+        assertThat(svc.applyOne(6L, withNote)).as("version 6 < 7 held").isFalse();
+        verify(notes, never()).deleteByDoc(any());
     }
 }

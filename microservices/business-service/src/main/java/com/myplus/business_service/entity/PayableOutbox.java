@@ -27,7 +27,7 @@ public class PayableOutbox implements OutboxEntry {
     @Column(name = "purchase_id", nullable = false)
     private Long purchaseId;
 
-    @Column(name = "payload", nullable = false, length = 2000)
+    @Column(name = "payload", nullable = false, length = 8000)
     private String payload;
 
     @Column(name = "status", nullable = false, length = 20)

@@ -15,8 +15,14 @@ import org.springframework.context.annotation.Import;
  * to "allocate locally, skip the ledger record", so a service without finance wired still works.
  *
  * {@link AgingCalculator} needs no registration — it is a static utility.
+ *
+ * <p>FP-4a — registered only where {@code FinanceClient} is on the classpath. commerce-contracts is a PROVIDED
+ * dependency here, so a consumer without it (finance-service, which IS the ledger and only reuses
+ * {@link StatementBuilder}) would otherwise fail at startup loading a bean whose field type does not exist. Every
+ * service that settles through this library (business) has the class, so for them nothing changes.
  */
 @AutoConfiguration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnClass(name = "com.myplus.commerce.contracts.client.FinanceClient")
 @Import(SubledgerService.class)
 public class CommonSubledgerAutoConfiguration {
 }

@@ -39,6 +39,9 @@ public interface PurchaseReturnRepo extends JpaRepository<PurchaseReturn, Long> 
     @Query("SELECT r FROM PurchaseReturn r WHERE r.organizationId = :orgId ORDER BY r.id DESC")
     List<PurchaseReturn> findScoped(@Param("orgId") Long orgId);
 
+    /** FP-4a — the debit notes against one purchase, oldest first: the trail its payable snapshot carries. */
+    List<PurchaseReturn> findByPurchaseIdOrderByIdAsc(Long purchaseId);
+
     /**
      * B2B-P3f: one vendor's debit notes, for the statement's DEBIT_NOTE lines.
      *

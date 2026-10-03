@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 public class PayableController {
 
     private final PayableService payables;
+    private final com.myplus.finance.service.PayableStatementService statements;
 
     @PostMapping("/internal/finance/payables")
     public Map<String, Object> upsert(@RequestBody List<PayableSnapshot> snapshots) {
@@ -34,6 +35,19 @@ public class PayableController {
     @GetMapping("/api/finance/payables/summary")
     public Map<String, Object> summary() {
         return payables.summary();
+    }
+
+    /**
+     * FP-4a — a supplier's statement from the subledger. {@code sources=PURCHASE} gives business's view (purchases
+     * and their payments only) — the line-for-line reconciliation against {@code /vendorStatement}; omitted, expense
+     * bills and their payments are on it too. Tenant from the caller; the same scoped payment read the AP screens use.
+     */
+    @GetMapping("/api/finance/payables/statement")
+    public List<com.myplus.common.subledger.StatementLine> statement(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "VENDOR") String partyType,
+            @org.springframework.web.bind.annotation.RequestParam Long partyId,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String sources) {
+        return statements.statement(partyType, partyId, "PURCHASE".equalsIgnoreCase(sources));
     }
 
     @GetMapping("/api/finance/payables/reconciliation")

@@ -56,6 +56,14 @@ public class PayableDoc {
     @Column(name = "paid", nullable = false, precision = 19, scale = 2)
     private BigDecimal paid = BigDecimal.ZERO;
 
+    /** FP-4a — the bill as issued (gross, before returns): the statement's BILL line. Null → {@link #amount}. */
+    @Column(name = "issued_amount", precision = 19, scale = 2)
+    private BigDecimal issuedAmount;
+
+    /** FP-4a — when the supplier expects payment; null = age by {@link #docDate}. */
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
     @Column(name = "status", nullable = false, length = 12)
     private String status;
 

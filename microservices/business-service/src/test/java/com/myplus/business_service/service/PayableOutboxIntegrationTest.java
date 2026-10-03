@@ -54,14 +54,13 @@ class PayableOutboxIntegrationTest {
         r.add("spring.cloud.config.enabled", () -> "false");
         r.add("spring.cloud.discovery.enabled", () -> "false");
         r.add("eureka.client.enabled", () -> "false");
-        r.add("logging.level.com.myplus.business_service.service.PurchasePayableListener", () -> "DEBUG");
-        r.add("logging.level.com.myplus.business_service.service.PayableOutboxService", () -> "DEBUG");
     }
 
     @Autowired private PurchaseRepo purchases;
     @Autowired private PayableOutboxRepo outbox;
     @Autowired private PayableOutboxService service;
     @Autowired private TransactionTemplate tx;
+    @Autowired private com.myplus.business_service.repository.PurchaseReturnRepo returns;
 
     @BeforeEach
     void clean() {
@@ -110,6 +109,48 @@ class PayableOutboxIntegrationTest {
         List<PayableOutbox> rows = rowsFor(id);
         assertThat(rows).as("the payment must reach finance").hasSize(1);
         assertThat(service.read(rows.get(0).getPayload()).getPaid()).isEqualByComparingTo("40");
+    }
+
+    @Test @DisplayName("FP-4a: a return in the SAME transaction rides along — issued amount and the debit note reach the row")
+    void return_carries_trail() {
+        Long id = newPurchase(9L, "0", "-100");
+        outbox.deleteAll();
+        tx.executeWithoutResult(s -> {
+            Purchase p = purchases.findById(id).orElseThrow();
+            p.setIssuedTotal(new BigDecimal("100"));       // the bill as issued, kept by the return writer
+            p.setTotalAmount(new BigDecimal("70"));
+            p.setDueAmount(new BigDecimal("-70"));
+            purchases.save(p);
+            com.myplus.business_service.entity.PurchaseReturn r = new com.myplus.business_service.entity.PurchaseReturn();
+            r.setPurchaseId(id);
+            r.setVenderId(9L);
+            r.setOrganizationId(6L);
+            r.setUserId(60L);
+            r.setDebitNoteNo("DN-000042");
+            r.setAmount(new BigDecimal("30"));
+            r.setDated(LocalDateTime.now());
+            returns.save(r);                              // written AFTER the purchase, as the return writer does
+        });
+        List<PayableOutbox> rows = rowsFor(id);
+        assertThat(rows).hasSize(1);
+        var snap = service.read(rows.get(0).getPayload());
+        assertThat(snap.getAmount()).as("still owed").isEqualByComparingTo("70");
+        assertThat(snap.getIssuedAmount()).as("as issued").isEqualByComparingTo("100");
+        assertThat(snap.getNotes()).singleElement().satisfies(n -> {
+            assertThat(n.getNoteNo()).isEqualTo("DN-000042");
+            assertThat(n.getAmount()).isEqualByComparingTo("30");
+        });
+    }
+
+    @Test @DisplayName("FP-4a: a trail too long for the column is sent WITHOUT notes — the purchase still commits")
+    void oversized_trail_dropped_not_fatal() {
+        var snap = com.myplus.commerce.contracts.dto.PayableSnapshot.builder().source("PURCHASE").sourceRef("1")
+                .amount(BigDecimal.TEN).paid(BigDecimal.ZERO).notes(new java.util.ArrayList<>()).build();
+        for (int i = 0; i < 200; i++)
+            snap.getNotes().add(PayableOutboxService.note("DN-" + i + "-xxxxxxxxxxxxxxxxxxxxxxxx", null, LocalDateTime.now(), BigDecimal.ONE));
+        String payload = service.fitted(snap);
+        assertThat(payload.length()).isLessThanOrEqualTo(PayableOutboxService.MAX_PAYLOAD);
+        assertThat(service.read(payload).getNotes()).as("null = keep what finance holds").isNull();
     }
 
     @Test @DisplayName("several changes in one transaction → ONE row with the final figures")

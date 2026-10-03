@@ -70,6 +70,10 @@ public final class VoucherPostings {
                 .amount(v.getTotal())
                 .paid(v.getPaidAmount() == null ? BigDecimal.ZERO : v.getPaidAmount())
                 .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()))
+                // FP-4a — a bill is never returned against, so issued = total and the note trail is empty
+                .issuedAmount(v.getTotal())
+                .dueDate(v.getDueDate())
+                .notes(java.util.List.of())
                 .build();
     }
 

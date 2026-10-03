@@ -32,6 +32,7 @@ class ExpenseBillTest {
         v.setPaidFrom("AP");
         v.setSupplierId(42L);
         v.setSupplierName("K-Electric");
+        v.setDueDate(LocalDate.of(2026, 10, 30));
         v.setVersion(3);
         ExpenseVoucherLine l = new ExpenseVoucherLine();
         l.setCategoryId(1L);
@@ -69,6 +70,9 @@ class ExpenseBillTest {
         assertThat(s.getAmount()).isEqualByComparingTo("500");
         assertThat(s.getPaid()).isEqualByComparingTo("200");
         assertThat(s.isVoided()).isFalse();
+        assertThat(s.getIssuedAmount()).as("FP-4a: the bill as issued").isEqualByComparingTo("500");
+        assertThat(s.getDueDate()).isEqualTo(LocalDate.of(2026, 10, 30));
+        assertThat(s.getNotes()).as("FP-4a: a bill has no debit notes — empty, not 'not sent'").isEmpty();
     }
 
     @Test @DisplayName("paying: open goes down; more than is owed, or a non-bill, is refused")
