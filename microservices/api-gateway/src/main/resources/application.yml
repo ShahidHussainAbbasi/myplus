@@ -254,6 +254,19 @@ spring:
                     name: expense-service
                     fallbackUri: forward:/fallback
                 - name: JwtAuthenticationFilter
+            # MP-0b — the MaxTheService platform marketplace (market-service :8098). NOT marketplace-service, which
+            # is one shop's own storefront at /api/marketplace/**. JWT required; no public paths until MP-3.
+            - id: market-service
+              uri: lb://market-service
+              predicates:
+                - Path=/api/market/**
+              # No StripPrefix: market-service controllers are mapped at the full /api/market/... path.
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: market-service
+                    fallbackUri: forward:/fallback
+                - name: JwtAuthenticationFilter
             - id: catalog-service
               uri: lb://catalog-service
               predicates:

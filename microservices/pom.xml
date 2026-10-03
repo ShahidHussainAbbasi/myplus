@@ -67,6 +67,7 @@
     <module>agriculture-service</module>
     <module>pharma-service</module>
     <module>marketplace-service</module>
+    <module>market-service</module>
     <module>notification-service</module>
     <module>campaign-service</module>
     <module>analytics-service</module>

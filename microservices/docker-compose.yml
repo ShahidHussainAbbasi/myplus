@@ -520,6 +520,34 @@ services:
       config-server:
         condition: service_healthy
 
+  # MP-0b — the MaxTheService platform marketplace. In the default set, like expense: the capability is opt-in
+  # per tenant (MP-0a), so running it changes nothing for a tenant that has not switched selling on.
+  # MARKET_PLATFORM_ORG_ID must be the operator's own organization id (ruling R-2).
+  market-service:
+    build: ./market-service
+    container_name: myplus-market
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 640m
+    expose:
+      - "8098"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8098/actuator/health/readiness"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      <<: *db-env
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+      MARKET_PLATFORM_ORG_ID: ${MARKET_PLATFORM_ORG_ID:-1}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   education-service:
     build: ./education-service
     container_name: myplus-education

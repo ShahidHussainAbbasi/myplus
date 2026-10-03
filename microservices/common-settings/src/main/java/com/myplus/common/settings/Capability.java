@@ -178,7 +178,26 @@ public enum Capability {
      */
     EXPENSE_MANAGEMENT("expenseManagement", "Expense management",
             "Record what the business spends — rent, electricity, fuel, repairs — and see it in your "
-                    + "profit and loss. Off until you switch it on.", true);
+                    + "profit and loss. Off until you switch it on.", true),
+
+    /**
+     * MP-0a — sell this business's stock on the MaxTheService marketplace, alongside other sellers' offers.
+     * See microservices/docs/platform-marketplace-design.md.
+     *
+     * <h3>Opt-in, by the live-modules rule</h3>
+     * A new module that commits the business to customer orders, acceptance deadlines and settlements. It must
+     * never appear for a tenant that did not ask for it.
+     *
+     * <h3>Deliberately NOT in {@link Plan#FREE} (ruling R-3)</h3>
+     * A shop trades perfectly well without the marketplace, so by the rule recorded on FREE ("without it, can the
+     * shop complete a sale?") this is an ordinary paid capability. Pilot sellers are granted it per tenant.
+     *
+     * <p>Switching it on only lets the owner APPLY; the operator still approves each seller (MP-0b).
+     */
+    MARKETPLACE_SELLING("marketplaceSelling", "Sell on the MaxTheService marketplace",
+            "List your products on the MaxTheService marketplace, where customers compare sellers' offers. "
+                    + "You apply once, MaxTheService approves, then you choose what to list. Off until you switch it on.",
+            true);
 
     private final String code;
     private final String label;
