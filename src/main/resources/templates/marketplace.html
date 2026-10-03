@@ -4,6 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
+    <!-- MKT-1e: the CSRF token for the one anonymous write (checkout). Rendering it is also what makes Spring
+         issue the XSRF-TOKEN cookie. The POST is never CSRF-exempt. -->
+    <meta name="_csrf" th:content="${_csrf != null ? _csrf.token : ''}" content="">
+    <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-XSRF-TOKEN'}" content="X-XSRF-TOKEN">
     <title th:text="#{ui.mktPageTitle}">MaxTheService Marketplace</title>
     <meta name="description" th:content="#{ui.mktPageLede}" content="Compare sellers for the same product and choose who you buy from.">
     <link th:if="${langWebfont}" rel="stylesheet"
@@ -80,9 +84,20 @@
         .buybar{position:fixed;inset-inline:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
         .buybar .in{max-width:1120px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
         .buy{flex:0 1 auto;min-width:220px}
-        #mktBuyNote{font-size:14px;color:var(--muted);flex:1 1 240px}
         .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:24px;text-align:center;color:var(--muted)}
         .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+        .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;display:grid;gap:12px;max-width:640px}
+        .panel h2{font-size:18px;margin:0}
+        .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+        @media (max-width:640px){.grid2{grid-template-columns:minmax(0,1fr)}}
+        .sum{display:flex;justify-content:space-between;gap:12px;font-variant-numeric:tabular-nums}
+        .sum.total{font-weight:700;font-size:18px;border-top:1px solid var(--line);padding-top:8px}
+        .cod{background:var(--soft);border-radius:8px;padding:10px 12px;font-size:14px}
+        .err{color:var(--bad);font-size:14px;min-height:1.2em}
+        .state{font-size:20px;font-weight:700;margin:0}
+        .state.ok{color:var(--good)} .state.bad{color:var(--bad)} .state.wait{color:var(--warn)}
+        .orderno{font-family:ui-monospace,Menlo,monospace;font-size:15px}
+        .terms{font-size:14px;color:var(--muted);display:grid;gap:2px}
         [hidden]{display:none!important}
         @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
     </style>
@@ -146,12 +161,55 @@
             <ul id="mktOffers" class="offers"></ul>
         </fieldset>
     </section>
+    <!-- ── MKT-1e: checkout (cash on delivery) ──────────────────────────────────────────────────────── -->
+    <section id="mktCheckoutView" hidden>
+        <a href="#" id="mktCoBack" class="back"><span aria-hidden="true">←</span> <span th:text="#{ui.mktCoChange}">Change seller</span></a>
+        <form class="panel" id="mktCoForm" autocomplete="on" novalidate>
+            <h2 id="mktCoTitle" tabindex="-1" th:text="#{ui.mktCoTitle}">Your order</h2>
+            <div class="sum"><span id="mktCoProduct"></span><span id="mktCoUnit"></span></div>
+            <div class="sum"><span th:text="#{ui.mktCoSeller}">Seller</span><b id="mktCoSeller"></b></div>
+            <label class="f"><span th:text="#{ui.mktCoQty}">Quantity</span>
+                <select id="mktCoQty"></select>
+            </label>
+            <div class="grid2">
+                <label class="f"><span th:text="#{ui.mktCoName}">Your name</span>
+                    <input id="mktCoName" name="name" autocomplete="name" maxlength="120" required></label>
+                <label class="f"><span th:text="#{ui.mktCoPhone}">Phone (the seller will call)</span>
+                    <input id="mktCoPhone" name="tel" type="tel" autocomplete="tel" inputmode="tel" maxlength="32" required></label>
+            </div>
+            <label class="f"><span th:text="#{ui.mktCoAddress}">Delivery address</span>
+                <input id="mktCoAddress" name="street-address" autocomplete="street-address" maxlength="300" required></label>
+            <label class="f"><span th:text="#{ui.mktCityLabel}">Deliver to (city)</span>
+                <input id="mktCoCity" name="city" autocomplete="address-level2" maxlength="60" readonly></label>
+            <p class="cod" th:text="#{ui.mktCoCod}">Cash on delivery: you pay the seller when the order arrives. Nothing is charged now.</p>
+            <div class="sum total"><span th:text="#{ui.mktCoTotal}">Total</span><span id="mktCoTotal"></span></div>
+            <p id="mktCoError" class="err" role="alert"></p>
+            <button type="submit" class="go" id="mktCoPlace" th:text="#{ui.mktCoPlace}">Place order</button>
+        </form>
+    </section>
+
+    <!-- ── MKT-1e: one order, tracked (never optimistic: it says what the seller has actually done) ─────── -->
+    <section id="mktOrderView" hidden>
+        <a th:href="@{/marketplace}" href="/marketplace" class="back"><span aria-hidden="true">←</span> <span th:text="#{ui.mktBackShop}">Back to the marketplace</span></a>
+        <div class="panel">
+            <p id="mktCheckoutStatus" class="state" role="status" aria-live="polite" tabindex="-1"></p>
+            <p id="mktOrderDetail" class="terms"></p>
+            <div class="sum"><span th:text="#{ui.mktCoOrderNo}">Order number</span><b id="mktCoOrderNo" class="orderno"></b></div>
+            <div id="mktOrderLines" class="terms"></div>
+            <div class="sum total"><span th:text="#{ui.mktCoTotal}">Total</span><span id="mktOrderTotal"></span></div>
+            <form id="mktTrackForm" hidden>
+                <label class="f"><span th:text="#{ui.mktTrackPhone}">The phone number you ordered with</span>
+                    <input id="mktTrackPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="32"></label>
+                <button type="submit" class="go" th:text="#{ui.mktTrackBtn}">Show my order</button>
+            </form>
+            <p id="mktOrderError" class="err" role="alert"></p>
+        </div>
+    </section>
 </main>
 
 <div class="buybar" id="mktBuyBar" hidden>
     <div class="in">
         <button type="button" id="mktBuyBtn" class="buy" disabled th:text="#{ui.mktChooseFirst}">Choose a seller first</button>
-        <span id="mktBuyNote" role="status" aria-live="polite"></span>
     </div>
 </div>
 

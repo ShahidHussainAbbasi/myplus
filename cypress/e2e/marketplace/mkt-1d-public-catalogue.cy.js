@@ -8,8 +8,8 @@
  *   SELLER_B  Rs 51,500 · 24 h ·  6-month warranty
  * Both deliver to Karachi only.
  */
-const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, msg, post, get, expectRefused, makeSeller,
-  seedProduct, a32 } = require('./mkt-helpers')
+const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, seedPolicies,
+  publishOffer, a32 } = require('./mkt-helpers')
 
 gate('1d')('MKT-1d — public catalogue and offer comparison', () => {
   const run = uniq()
@@ -18,48 +18,15 @@ gate('1d')('MKT-1d — public catalogue and offer comparison', () => {
   const names = {}
   let mktProductId, w12, w6, ret7
 
-  /** Seller proposes the phone, operator matches it to the ONE canonical product, seller offers it, operator approves. */
-  const publishOffer = (email, price, promiseHours, warrantyPolicyId) => {
-    makeSeller(email)
-    return seedProduct({ name: `${model} ${email}` }).then((pid) =>
-      post(API.proposeProduct, { sourceProductId: pid, ...a32(run) }).then((r) => {
-        expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
-        const prop = data(r.body)
-        cy.loginAsOperator()
-        return post(API.decideMatch, { id: prop.id, decision: 'MATCHED', mktProductId, version: prop.version })
-      }).then((d) => {
-        expect(ok(d.body), JSON.stringify(d.body)).to.eq(true)
-        mktProductId = mktProductId || data(d.body).mktProductId
-        cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
-        return post(API.saveOffer, { mktProductId, marketplacePrice: price, deliveryAreas: 'Karachi', promiseHours,
-          warrantyPolicyId, returnPolicyId: ret7 })
-      }).then((r) => {
-        expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
-        const id = data(r.body).id
-        post(API.submitOffer, { id }).then((s) => expect(ok(s.body), JSON.stringify(s.body)).to.eq(true))
-        cy.loginAsOperator()
-        return post(API.decideOffer, { id, decision: 'APPROVE' }).then((a) => {
-          expect(ok(a.body), JSON.stringify(a.body)).to.eq(true)
-          offers[email] = id
-        })
-      }))
-  }
-
   before(() => {
+    seedPolicies(run, { months: 12, provider: 'Samsung Pakistan' }).then((p) => { w12 = p.warranty; ret7 = p.returns })
+    seedPolicies(`${run}b`, { months: 6, provider: 'Shop warranty' }).then((p) => { w6 = p.warranty })
     cy.loginAsOperator()
-    post(API.createPolicy, { policyType: 'WARRANTY', name: `12 months ${run}`, warrantyProvider: 'Samsung Pakistan', warrantyMonths: 12 })
-      .then((r) => { w12 = data(r.body).id })
-    post(API.createPolicy, { policyType: 'WARRANTY', name: `6 months ${run}`, warrantyProvider: 'Shop warranty', warrantyMonths: 6 })
-      .then((r) => { w6 = data(r.body).id })
-    post(API.createPolicy, { policyType: 'RETURN', name: `7 days ${run}`, returnDays: 7 }).then((r) => { ret7 = data(r.body).id })
-    get(API.policies).then((r) => {
-      if (!list(r.body).some((p) => p.policyType === 'COMMISSION' && p.active && p.isDefault)) {
-        post(API.createPolicy, { policyType: 'COMMISSION', name: `Standard ${run}`, isDefault: true, commissionBasis: 'ITEMS', commissionRate: 0.08 })
-      }
-    })
     post(API.defaultSort, { sort: 'RECOMMENDED' })
-    cy.then(() => publishOffer(SELLER_A, 52000, 4, w12))
-    cy.then(() => publishOffer(SELLER_B, 51500, 24, w6))
+    cy.then(() => publishOffer(SELLER_A, { run, price: 52000, promiseHours: 4, warrantyPolicyId: w12, returnPolicyId: ret7 }))
+      .then((o) => { offers[SELLER_A] = o.offerId; mktProductId = o.mktProductId })
+    cy.then(() => publishOffer(SELLER_B, { run, price: 51500, promiseHours: 24, warrantyPolicyId: w6, returnPolicyId: ret7, mktProductId }))
+      .then((o) => { offers[SELLER_B] = o.offerId; expect(o.mktProductId, 'one canonical product').to.eq(mktProductId) })
     cy.then(() => get(`${API.publicOffers(mktProductId)}?city=Karachi`)).then((r) =>
       list(r.body).forEach((o) => { names[o.offerId] = o.sellerName }))
   })
@@ -111,7 +78,9 @@ gate('1d')('MKT-1d — public catalogue and offer comparison', () => {
     cy.get(`${UI.offerRow}[data-offer-id="${offers[SELLER_A]}"] ${UI.chooseOffer}`).focus().check()
     cy.get(UI.buyButton).should('be.enabled').and('have.text', `Buy from ${names[offers[SELLER_A]]}`)
     cy.get(UI.buyButton).click()
-    cy.get(UI.buyNote).should('contain', names[offers[SELLER_A]]).and('contain', 'Rs. 52,000')
+    // MKT-1e: Buy opens the checkout for exactly the seller chosen, at that seller's price
+    cy.get('#mktCoSeller').should('have.text', names[offers[SELLER_A]])
+    cy.get('#mktCoTotal').should('have.text', 'Rs. 52,000')
   })
 
   it('MKT-1d-04 [MKT-R7.6] [MKT-R20.1] a city the sellers do not serve: no card, no offers, and the page says so', () => {

@@ -93,7 +93,7 @@
 	}
 
 	function open() {
-		$('#platTenants, #platDetail, #platProvision, #platMktMatches, #platMktOffers, #platMktPolicies').hide();
+		$('.plat__panel').hide();   // one rule for every panel — never a hand-kept list to forget a new one in
 		$('#platMktSellers').show();
 		load();
 	}
@@ -185,7 +185,7 @@
 	}
 
 	function openMatches() {
-		$('#platTenants, #platDetail, #platProvision, #platMktSellers, #platMktOffers, #platMktPolicies').hide();
+		$('.plat__panel').hide();
 		$('#platMktMatches').show();
 		loadMatches();
 	}
@@ -342,16 +342,70 @@
 			.always(function () { $b.prop('disabled', false); });
 	}
 
+	// ── MKT-1e: marketplace orders + the acceptance window ───────────────────────────────────────────
+	var orderStatus = 'SUBMITTED';
+	var ORD_LABEL = { SUBMITTED: ['ui.js.mktOrdWaiting', 'Waiting for a seller'], CONFIRMED: ['ui.js.mktOrdConfirmed', 'Confirmed'],
+		CANCELLED: ['ui.js.mktOrdCancelled', 'Cancelled'] };
+
+	function loadOrders() {
+		var $tb = $('#mktOrderList tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/orders?size=100' + (orderStatus ? '&status=' + encodeURIComponent(orderStatus) : ''),
+			dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, '')).end()); return; }
+			var rows = (data(res) || {}).content || [];
+			if (!rows.length) {
+				$tb.append($('<tr><td colspan="5" class="plat__empty"></td></tr>').find('td').text(tr('ui.js.mktNoMatches', 'Nothing to review.')).end());
+				return;
+			}
+			rows.forEach(function (o) {
+				var lbl = ORD_LABEL[o.status] || [null, o.status];
+				$tb.append($('<tr></tr>').attr('data-order-no', o.orderNo)
+					.append($('<td></td>').append($('<b></b>').text(o.orderNo)).append($('<div class="plat__hint"></div>').text(money(o.total))))
+					.append($('<td></td>').text(o.sellerName || ''))
+					.append($('<td></td>').text((o.lines || []).map(function (l) { return l.productName + ' × ' + l.quantity; }).join(', ')))
+					.append($('<td></td>').text(o.city || ''))
+					.append($('<td></td>').append($('<span></span>').text(lbl[0] ? tr(lbl[0], lbl[1]) : lbl[1]))
+						.append(o.cancelReason ? $('<div class="plat__hint"></div>').text(o.cancelReason) : null)));
+			});
+		});
+	}
+
+	function loadAcceptWindow() {
+		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', dataType: 'json' }).done(function (res) {
+			if (ok(res)) $('#mktAcceptWindow').val((data(res) || {}).minutes);
+		});
+	}
+
+	function saveAcceptWindow() {
+		var $b = $('#mktAcceptWindowSave').prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ minutes: Number($('#mktAcceptWindow').val()) || null }) })
+			.done(function (res) {
+				$('#mktAcceptWindowMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e')
+					.text(message(res, ok(res) ? tr('ui.js.mktOfferSaved', 'Saved.') : tr('ui.js.saveFailed', 'Save failed')));
+			})
+			.fail(function (xhr) { $('#mktAcceptWindowMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
 	function openPanel(id, loader) {
-		$('#platTenants, #platDetail, #platProvision, #platMktSellers, #platMktMatches, #platMktOffers, #platMktPolicies').hide();
+		$('.plat__panel').hide();
 		$(id).show();
 		loader();
 	}
 
 	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
-	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); }); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); }); });
+	$(document).on('click', '#platMktOrdersBtn', function () { openPanel('#platMktOrders', loadOrders); });
+	$(document).on('click', '#platMktOrderStatus button', function () {
+		$('#platMktOrderStatus button').removeClass('is-on');
+		$(this).addClass('is-on');
+		orderStatus = $(this).attr('data-status');
+		loadOrders();
+	});
+	$(document).on('click', '#mktAcceptWindowSave', saveAcceptWindow);
 	$(document).on('click', '.plat-mkt-back', function () {
-		$('#platMktOffers, #platMktPolicies').hide();
+		$('.plat__panel').hide();
 		$('#platTenants').show();
 	});
 	$(document).on('click', '#platMktOfferStatus button', function () {

@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c and 1d unit-green with gates written and not yet run (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d and 1e unit-green with gates written and not yet run (§10)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
@@ -415,8 +415,8 @@ sequenceDiagram
 | `POST /mkt/matches/{id}/decide` | operator `MKT_OPERATE` | MATCHED · REJECTED · NEEDS_CORRECTION, with corrected key |
 | `POST /mkt/offers` · `PUT /mkt/offers/{id}` | seller `MKT_SELL` | create/edit own offer (org from token, `@Version`) |
 | `POST /mkt/offers/{id}/submit` · `/approve` · `/reject` · `/suspend` | seller / operator | offer approval lifecycle |
-| `POST /mkt/checkout` | customer | one-seller checkout from an offer (idempotency key) |
-| `POST /mkt/seller-orders/{id}/accept` · `/reject` | seller | acceptance within the window |
+| `POST /public/mkt/checkout` · `GET /public/mkt/orders/{no}?phone=` | customer (anonymous in Phase 1; account in MKT-1e2) | one-seller COD checkout from an offer (idempotency key, CSRF) · tracking by number + phone |
+| `GET /mkt/seller-orders` · `POST /mkt/seller-orders/{id}/accept` · `/reject` | seller | the queue; acceptance within the window (IMEIs for serial-tracked items) |
 | `POST /mkt/orders/{id}/cancel` · `/returns` | customer | cancel / return request |
 | `GET /mkt/settlement/statement?from=&to=` | seller | own ledger entries, paged |
 | `POST /mkt/payouts` · `/{id}/approve` · `/{id}/mark-paid` | operator `MKT_SETTLE` | manual payout (idempotency key, bank ref) |
@@ -513,7 +513,8 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [~] MKT-1b canonical product + match review · unit-green, **gate written, not yet run** ([slice](slices/mkt-1b-product-matching.md))
 - [~] MKT-1c offers + policies + approval + projection · unit-green, **gate written, not yet run** ([slice](slices/mkt-1c-offers.md))
 - [~] MKT-1d public catalogue + compare + sort · unit-green, page driven against a stub, **gate written, not yet run** ([slice](slices/mkt-1d-public-catalogue.md))
-- [ ] MKT-1e one-seller checkout + acceptance + snapshots · gate
+- [~] MKT-1e one-seller COD checkout + acceptance window + snapshots · unit-green, screens driven against stubs, **gate written, not yet run** ([slice](slices/mkt-1e-checkout-acceptance.md))
+- [ ] MKT-1e2 platform customer account + online payment (platform-collected) + customer cancel / My orders · gate
 - [ ] MKT-1f support + returns cost attribution · gate
 - [ ] MKT-1g commission + settlement ledger + payouts · gate
 - [ ] MKT-2…6 per their own slice docs

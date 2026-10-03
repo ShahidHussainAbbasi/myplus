@@ -278,6 +278,58 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/default-sort", body, "Could not save the default order.");
     }
 
+    // ── MKT-1e: marketplace orders ──────────────────────────────────────────────────────────────────
+
+    @RequestMapping(value = "/mkt/incomingOrders", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> incomingOrders(final HttpServletRequest request) {
+        return relayGet("/mkt/seller-orders", request, "Could not load your marketplace orders.", "status", "page", "size");
+    }
+
+    /** Body: {id, version, serials: {lineId: [imei, …]}}. */
+    @RequestMapping(value = "/mkt/acceptOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> acceptOrder(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the order.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/seller-orders/" + id + "/accept", rest, "Could not accept the order.");
+    }
+
+    /** Body: {id, version, reason}. */
+    @RequestMapping(value = "/mkt/rejectOrder", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> rejectOrder(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the order.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/seller-orders/" + id + "/reject", rest, "Could not reject the order.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/orders", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> operatorOrders(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/orders", request, "Could not load marketplace orders.", "status", "page", "size");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/acceptWindow", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> acceptWindow(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settings/accept-window", request, "Could not load the acceptance window.");
+    }
+
+    /** Body: {minutes: 1–60}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/acceptWindow", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setAcceptWindow(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settings/accept-window", body, "Could not save the acceptance window.");
+    }
+
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {
