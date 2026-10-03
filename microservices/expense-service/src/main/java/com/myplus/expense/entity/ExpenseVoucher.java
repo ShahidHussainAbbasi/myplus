@@ -95,6 +95,21 @@ public class ExpenseVoucher {
     @Column(name = "source_ref", length = 64)
     private String sourceRef;
 
+    /** FP-3 — a BILL (paid_from AP) is owed to this business supplier, confirmed with business-service at save. */
+    @Column(name = "supplier_id")
+    private Long supplierId;
+
+    /** The supplier's name as business-service labelled it at save (snapshot). */
+    @Column(name = "supplier_name", length = 160)
+    private String supplierName;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
+
+    /** FP-3 — STAMPED by each recorded payment ({@link #applyPayment}); open = total − paidAmount. */
+    @Column(name = "paid_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;
@@ -144,6 +159,10 @@ public class ExpenseVoucher {
         // drawer; the correction belongs at the till, where the shift report sees it too.
         if (SOURCE_DRAWER.equals(source))
             throw new IllegalStateException("This expense was paid out of the till. Correct it at the till (a pay-in), so the drawer and the books stay in step.");
+        // FP-3 — money already left for this bill. Voiding the bill alone would leave a payment to the supplier
+        // with nothing owed behind it; the payment is reversed first, then the bill.
+        if (isBill() && paidAmount != null && paidAmount.signum() > 0)
+            throw new IllegalStateException("This bill has payments against it. Reverse the payments first, then void the bill.");
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Say why this expense is being voided.");
         if (PS_PENDING.equals(postingStatus))
             throw new IllegalStateException("This expense is still being posted to the books. Void it once it shows In the books.");
@@ -151,6 +170,29 @@ public class ExpenseVoucher {
         this.voidReason = reason.trim();
         this.voidedBy = by;
         this.voidedAt = now;
+    }
+
+    /** FP-3 — a bill: posted to Accounts Payable, owed to {@link #supplierId} until paid. */
+    public boolean isBill() {
+        return "AP".equals(paidFrom);
+    }
+
+    /** What is still owed on a bill (0 for anything else, and for a voided bill). */
+    public BigDecimal openAmount() {
+        if (!isBill() || VOIDED.equals(status)) return BigDecimal.ZERO;
+        return total.subtract(paidAmount == null ? BigDecimal.ZERO : paidAmount);
+    }
+
+    /**
+     * FP-3 — a payment finance has CONFIRMED. Refuses anything that would pay more than is owed; the service
+     * has already checked against the reserved (pending) payments, this is the entity's own last word.
+     */
+    public void applyPayment(BigDecimal amount) {
+        if (!isBill()) throw new IllegalStateException("Only a bill can be paid — this expense was already paid when recorded.");
+        if (!POSTED.equals(status)) throw new IllegalStateException("Only a posted bill can be paid (this one is " + status + ").");
+        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("A payment needs an amount greater than zero.");
+        if (amount.compareTo(openAmount()) > 0) throw new IllegalStateException("That is more than is owed on this bill (" + openAmount() + ").");
+        this.paidAmount = (paidAmount == null ? BigDecimal.ZERO : paidAmount).add(amount);
     }
 
     /** True when the voucher reached the ledger, so voiding it must post a reversing journal. */

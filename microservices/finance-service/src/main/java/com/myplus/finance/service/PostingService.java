@@ -60,9 +60,18 @@ public class PostingService {
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
 
-    private static String cashAccount(String method) {
+    /** DR-4 — the clearing account both legs of a set-off pass through. Nets to zero once both legs are posted. */
+    static final String SETOFF_CLEARING = "1900";
+
+    /**
+     * Where a payment's money went. DR-4 (F1): a SET-OFF moves no money, so it must never fall through to 1000 Cash,
+     * which is where any unrecognised method lands. It goes to 1900 Set-off clearing: the receipt leg is
+     * Dr 1900 / Cr 1100 and the disbursement leg Dr 2000 / Cr 1900.
+     */
+    static String cashAccount(String method) {
         if (method == null) return CASH;
         String m = method.trim().toUpperCase();
+        if (m.equals("SETOFF")) return SETOFF_CLEARING;
         return (m.startsWith("CARD") || m.startsWith("BANK") || m.startsWith("CHEQUE")) ? BANK : CASH;
     }
 
@@ -412,11 +421,33 @@ public class PostingService {
         BigDecimal amt = nz(amount);
         if (amt.signum() <= 0) return;
         glService.ensureDefaults();
-        List<JournalLineDTO> lines = "DISBURSEMENT".equalsIgnoreCase(direction)
-                ? List.of(dr(AP, amt), cr(cashAccount(method), amt))      // we pay a vendor
-                : List.of(dr(cashAccount(method), amt), cr(AR, amt));     // a customer pays us
+        List<JournalLineDTO> lines = paymentLines(direction, amt, method);
         String source = "DISBURSEMENT".equalsIgnoreCase(direction) ? "PAYMENT" : "RECEIPT";
         post(source, LocalDate.now(), null, lines);
+    }
+
+    /** The journal a recorded payment posts — static so the posting rule is unit-tested without a ledger. */
+    static List<JournalLineDTO> paymentLines(String direction, BigDecimal amt, String method) {
+        return "DISBURSEMENT".equalsIgnoreCase(direction)
+                ? List.of(dr(AP, amt), cr(cashAccount(method), amt))      // we pay a vendor
+                : List.of(dr(cashAccount(method), amt), cr(AR, amt));     // a customer pays us
+    }
+
+    /** DR-4 — the mirror of both set-off legs: Dr 1100 / Cr 1900 and Dr 1900 / Cr 2000. */
+    static List<JournalLineDTO> setOffReversalLines(BigDecimal amt) {
+        return List.of(dr(AR, amt), cr(SETOFF_CLEARING, amt), dr(SETOFF_CLEARING, amt), cr(AP, amt));
+    }
+
+    /**
+     * DR-4 — reversing a set-off: the mirror of both legs in ONE journal — Dr 1100 / Cr 1900 and Dr 1900 / Cr 2000.
+     * 1900 nets to zero within the entry, so a reversal can never leave the clearing account out of balance.
+     */
+    @Transactional
+    public void postSetOffReversal(BigDecimal amount, LocalDate date, String ref) {
+        BigDecimal amt = nz(amount);
+        if (amt.signum() <= 0) return;
+        glService.ensureDefaults();
+        post("SETOFF_REVERSAL", date, ref, setOffReversalLines(amt));
     }
 
     private void post(String source, LocalDate date, String ref, List<JournalLineDTO> lines) {

@@ -55,6 +55,7 @@ public class ExpenseVoucherService {
     private final ExpenseAccess access;
     private final DocumentNumberService numbers;
     private final ExpenseTagService tags;
+    private final com.myplus.expense.repository.ExpenseBillPaymentRepo billPayments;
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
@@ -106,12 +107,20 @@ public class ExpenseVoucherService {
         access.assertModuleOn();
         if (!access.seesAll()) throw new AccessDeniedException("Only an owner or admin can void an expense.");
         ExpenseVoucher v = visible(id);
+        if (v.isBill()) {
+            // FP-3 — locked like a payment, so a void and a payment to the same bill cannot interleave; a payment
+            // still waiting for finance's answer blocks the void exactly as a recorded one does.
+            v = repo.lockForPayment(id, access.org()).orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+            if (billPayments.sumPending(v.getId()).signum() > 0)
+                throw new ValidationException("A payment to this bill is still being recorded. Try again in a minute.");
+        }
         try {
             v.voidWith(reason, access.userId(), LocalDateTime.now());
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
         }
         if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, LocalDate.now()));
+        if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the subledger document goes VOID
         audit.record("EXPENSE_VOIDED", "EXPENSE", v.getVoucherNo(), v.getTotal(), null, v.getVoidReason());
         return VoucherView.of(v);
     }
@@ -186,6 +195,7 @@ public class ExpenseVoucherService {
         }
         repo.saveAndFlush(v);
         outbox.enqueue(v, VoucherPostings.post(v));
+        if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the bill joins finance's payables subledger
         audit.record("EXPENSE_POSTED", "EXPENSE", v.getVoucherNo(), v.getTotal(), v.getPaidFrom(), null);
     }
 
@@ -212,6 +222,15 @@ public class ExpenseVoucherService {
         // in the books with no cash leaving any drawer, and (being a till expense) it could never be voided.
         if (from == PaidFrom.DRAWER)
             throw new ValidationException("A pay-out from the till is recorded at the till (Till → Cash Drawer).");
+        // FP-3 — a bill is owed to a supplier business-service confirms for THIS caller; nothing else carries one.
+        String supplierName = null;
+        if (from == PaidFrom.AP) {
+            supplierName = tags.confirmSupplier(r.supplierId());
+            if (r.dueDate() != null && r.dueDate().isBefore(date))
+                throw new ValidationException("A bill cannot be due before its own date.");
+        } else if (r.supplierId() != null || r.dueDate() != null) {
+            throw new ValidationException("A supplier and due date belong to a bill (pay later). Choose \"Bill\", or clear them.");
+        }
 
         List<LineRequest> lines = r.lines();
         if (lines == null || lines.isEmpty()) throw new ValidationException("Add at least one expense line.");
@@ -224,6 +243,12 @@ public class ExpenseVoucherService {
         v.setVoucherDate(date);
         v.setPaidFrom(from.name());
         v.setPayeeName(limit(r.payeeName(), 160));
+        if (from == PaidFrom.AP) {
+            v.setSupplierId(r.supplierId());
+            v.setSupplierName(limit(supplierName, 160));
+            v.setDueDate(r.dueDate());
+            if (v.getPayeeName() == null) v.setPayeeName(v.getSupplierName());
+        }
         v.setNote(limit(r.note(), 500));
         v.setCreatedAt(LocalDateTime.now());
         v.setUpdatedAt(LocalDateTime.now());

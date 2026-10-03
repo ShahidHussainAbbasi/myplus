@@ -330,3 +330,15 @@ reversal; party totals exclude reversed payments.
 different partners, cashier); AR −30,000 / AP −30,000 / 1000 and 1010 unchanged / 1900 nets 0 / trial balance
 balances; same key twice = one set-off; both statements show it; reversal restores both balances and the trial
 balance; a set-off never touches an installment row.
+
+### DR-4 — built 2026-10-02 (awaiting build + gate)
+
+| Layer | Change |
+|---|---|
+| finance V10 | `setoff` (idempotency_key / reversal_key UNIQUE per org, both payment ids, the mirror ids). |
+| finance | `PostingService.cashAccount`: SETOFF → **1900** (F1); 1900 "Set-off Clearing" in `DEFAULT_COA` (dev: 0 orgs held 1900); `SetOffService.record` = two `PaymentService.record` calls (RECEIPT/CUSTOMER and DISBURSEMENT/VENDOR, method SETOFF) in one tx; `reverse` = two MIRROR payments (negative, `-R` numbers, no receipt_seq) + one journal Dr 1100/Cr 1900, Dr 1900/Cr 2000; `/internal/finance/setoffs` (+`/reverse`), 400 with the sentence on a rejection. |
+| business V72 | `party_setoff`, `party_setoff_alloc`. |
+| business | `PartySetOffService` (guards, invoices/bills only, SETOFF number, finance call inside the tx — refusal or failure rolls back), `SetOffLedgerClient` (own client, wire twin of `SetOffDTOs`), `/partySetOff` `/partySetOffReverse` `/partySetOffs`, position `setOffLimit` = settleable, link/unlink refused while a set-off stands, statements name set-off lines by their document. |
+| readers (F5, final) | statements and party totals: include, net back via mirrors; shift X/Z: unaffected; cash/bank: unaffected (1900); finance `payable_doc`: fed by the Purchase entity listener, so a set-off's bill changes reach it. |
+| monolith | forwarders; Set off… form + set-off list with Reverse in the 360 view; 19 `ui.js.dr*` keys × 6. |
+| tests | business `PartySetOffServiceTest` (8), `PartyRoleServiceTest` (+1); finance `SetOffPostingTest` (3), `SetOffServiceTest` (4); Cypress DR4-1..7. |

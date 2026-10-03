@@ -76,6 +76,7 @@ public class ExpenseOutboxService {
                 return saved;
             }
             public void send(ExpenseOutbox e) {
+                if (VoucherPostings.PAYABLE.equals(e.getEventType())) { sendPayable(e); return; }
                 PostingEventRequest req = read(e.getPayload());
                 GatewayIdentityForwarding.runAs(e.getUserId(), e.getOrganizationId(),
                         () -> finance.getObject().postEvent(req));
@@ -99,6 +100,34 @@ public class ExpenseOutboxService {
         events.publishEvent(new Enqueued(repo.save(o).getId()));
     }
 
+    /**
+     * FP-3 — tell finance's payables subledger the bill changed. The row carries only WHICH bill: the snapshot is
+     * read at send time, so a retry after later changes sends the newest figures, never stale ones. One row per change
+     * (unique key), each harmless to repeat — finance upserts by (source, sourceRef) and ignores an older version.
+     */
+    public void enqueuePayable(ExpenseVoucher v) {
+        ExpenseOutbox o = new ExpenseOutbox();
+        o.setOrganizationId(v.getOrganizationId());
+        o.setUserId(v.getUserId());
+        o.setVoucherId(v.getId());
+        o.setEventType(VoucherPostings.PAYABLE);
+        o.setEventKey("EXPB-" + v.getOrganizationId() + "-" + v.getId() + "-" + java.util.UUID.randomUUID().toString().substring(0, 13));
+        o.setPayload("{\"voucherId\":" + v.getId() + "}");
+        o.setStatus("PENDING");
+        o.setAttempts(0);
+        o.setCreatedAt(LocalDateTime.now());
+        o.setUpdatedAt(LocalDateTime.now());
+        events.publishEvent(new Enqueued(repo.save(o).getId()));
+    }
+
+    private void sendPayable(ExpenseOutbox e) {
+        ExpenseVoucher v = vouchers.findById(e.getVoucherId())
+                .orElseThrow(() -> new IllegalStateException("Bill " + e.getVoucherId() + " no longer exists"));
+        var snapshot = VoucherPostings.payable(v);
+        GatewayIdentityForwarding.runAs(e.getUserId(), e.getOrganizationId(),
+                () -> finance.getObject().upsertPayables(List.of(snapshot)));
+    }
+
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onEnqueued(Enqueued e) {
@@ -117,6 +146,8 @@ public class ExpenseOutboxService {
      * would claim the expense is back in the books.
      */
     private void stampVoucher(ExpenseOutbox o) {
+        // FP-3 — a subledger update says nothing about the voucher's journal; it must never stamp postingStatus.
+        if (VoucherPostings.PAYABLE.equals(o.getEventType())) return;
         boolean posting = VoucherPostings.EXPENSE.equals(o.getEventType());
         String error = o.getLastError() == null ? null : trim(o.getLastError());
         if ("POSTED".equals(o.getStatus())) {

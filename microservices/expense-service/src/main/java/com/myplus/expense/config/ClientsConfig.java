@@ -62,6 +62,13 @@ public class ClientsConfig {
         return tagClient(builder, "http://agriculture-service");
     }
 
+    /** FP-3 — business-service answers the same SPI with the caller's suppliers (who a bill is owed to). */
+    @Bean
+    @org.springframework.beans.factory.annotation.Qualifier("businessTags")
+    public com.myplus.commerce.contracts.client.ExpenseTagClient businessTags(@LoadBalanced RestClient.Builder builder) {
+        return tagClient(builder, "http://business-service");
+    }
+
     private static com.myplus.commerce.contracts.client.ExpenseTagClient tagClient(RestClient.Builder builder, String base) {
         RestClient rc = builder.clone()
                 .baseUrl(base)

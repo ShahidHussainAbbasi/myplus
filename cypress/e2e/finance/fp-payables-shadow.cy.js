@@ -16,7 +16,8 @@ const OWNER = 'owner.business@myplus.com'
 const gwToken = () => cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: OWNER, password: PW } })
   .its('body.data.accessToken')
 const financeOpen = (t, tries = 15) => cy.request({ url: `${GW}/api/finance/payables/summary`, headers: { Authorization: `Bearer ${t}` } })
-  .then((r) => Number(r.body.netOwed || 0))   // per-supplier net: business's own definition
+  // purchases only: business's supplier balances never include expense bills (FP-3), so that is what they reconcile to
+  .then((r) => Number(((r.body.bySource || {}).PURCHASE || {}).netOwed || 0))
 const businessDue = () => cy.request('/getUserVender').then((r) => {
   const list = r.body.collection || r.body.data || r.body.object || []
   return Math.round(list.reduce((a, v) => a + Number(v.dueAmount || 0), 0) * 100) / 100

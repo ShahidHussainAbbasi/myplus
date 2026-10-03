@@ -47,7 +47,23 @@
 					<select class="form-control" id="expPaidFrom" data-cy="expense-paid-from">
 						<option value="CASH" th:text="#{ui.cash}">Cash</option>
 						<option value="BANK" th:text="#{ui.bank}">Bank</option>
+						<!-- FP-3: "Bill (pay later)" is added by expense.js only when this business has suppliers -->
 					</select>
+				</div>
+			</div>
+			<!-- FP-3 — a BILL: owed to a supplier, paid later. The supplier list is business-service's own (the server
+			     confirms the choice again on save). Shown only while "Bill (pay later)" is chosen. -->
+			<div id="expBillGroup" style="display:none">
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="expSupplier" th:text="#{ui.supplier}">Supplier</label>
+					<div class="col-sm-5"><select class="form-control" id="expSupplier" data-cy="expense-supplier"></select></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="expDueTemp" th:text="#{ui.dueDate}">Due date</label>
+					<div class="col-sm-4">
+						<input type="text" class="form-control" id="expDueTemp" data-dp="date" data-dp-iso="#expDue" placeholder="dd-mm-yyyy">
+						<input type="hidden" id="expDue">
+					</div>
 				</div>
 			</div>
 			<div class="form-group">
@@ -81,6 +97,25 @@
 		<button type="button" class="btn btn-default" onclick="expenseLoad()">
 			<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span>
 		</button>
+	</div>
+	<!-- FP-3 — pay (part of) a bill. Opened by a row's Pay button; ONE Idempotency-Key per opening, so pressing Pay
+	     again after a lost answer is the same payment, never a second one. -->
+	<div id="expPayPanel" class="well well-sm" style="display:none;max-width:900px" data-cy="expense-pay-panel">
+		<strong id="expPayTitle"></strong>
+		<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+			<label for="expPayAmount" th:text="#{ui.amount}">Amount</label>
+			<input type="number" step="0.01" min="0.01" class="form-control" id="expPayAmount" data-cy="expense-pay-amount" inputmode="decimal" style="width:140px">
+			<label for="expPayMethod" th:text="#{ui.paidFrom}">Paid from</label>
+			<select class="form-control" id="expPayMethod" data-cy="expense-pay-method" data-no-search="true">
+				<option value="CASH" th:text="#{ui.cash}">Cash</option>
+				<option value="BANK" th:text="#{ui.bank}">Bank</option>
+			</select>
+			<button type="button" class="btn btn-primary" id="expPayGo" data-cy="expense-pay-go" onclick="expensePay(this)">
+				<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.pay}">Pay</span>
+			</button>
+			<button type="button" class="btn btn-default" onclick="expensePayClose()" th:text="#{ui.cancel}">Cancel</button>
+			<span id="expPayMsg" class="help-inline" role="status" aria-live="polite"></span>
+		</div>
 	</div>
 	<div class="table-responsive">
 		<table class="table table-condensed" id="tableExpense" data-cy="expense-list" style="width:100%">

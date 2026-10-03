@@ -53,6 +53,7 @@ public class InternalPaymentController {
     private static final Logger LOG = LoggerFactory.getLogger(InternalPaymentController.class);
 
     private final PaymentService paymentService;
+    private final com.myplus.finance.service.SetOffService setOffService;
 
     /**
      * Record a payment (+ allocations) in the ledger. Called by {@code common-subledger}'s
@@ -78,5 +79,31 @@ public class InternalPaymentController {
             throw new IllegalStateException("No tenant identity on the request");
         }
         return paymentService.record(req);
+    }
+
+    /**
+     * DR-4 — both legs of a set-off, atomically (see {@link com.myplus.finance.service.SetOffService}). Same path rule
+     * as {@link #record}: internal only, and refused without a tenant. A rejection answers 400 with the sentence, so
+     * business-service rolls its own transaction back and nothing moves.
+     */
+    @PostMapping("/setoffs")
+    public org.springframework.http.ResponseEntity<?> setOff(@RequestBody com.myplus.finance.dto.SetOffDTOs.Request req) {
+        if (CurrentUser.organizationId() == null) throw new IllegalStateException("No tenant identity on the request");
+        try {
+            return org.springframework.http.ResponseEntity.ok(setOffService.record(req));
+        } catch (com.myplus.finance.service.SetOffService.Rejected r) {
+            return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", r.getMessage()));
+        }
+    }
+
+    /** DR-4 — reverse a set-off: mirror payments and one mirror journal. */
+    @PostMapping("/setoffs/reverse")
+    public org.springframework.http.ResponseEntity<?> reverseSetOff(@RequestBody com.myplus.finance.dto.SetOffDTOs.ReverseRequest req) {
+        if (CurrentUser.organizationId() == null) throw new IllegalStateException("No tenant identity on the request");
+        try {
+            return org.springframework.http.ResponseEntity.ok(setOffService.reverse(req));
+        } catch (com.myplus.finance.service.SetOffService.Rejected r) {
+            return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", r.getMessage()));
+        }
     }
 }

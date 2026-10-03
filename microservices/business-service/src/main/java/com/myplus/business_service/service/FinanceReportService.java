@@ -250,7 +250,15 @@ public class FinanceReportService {
         try {
             var payments = financeClient.listPayments(partyType, partyId);
             if (payments != null) for (var pay : payments) {
-                lines.add(new StatementLine(pay.getPaidOn(), pay.getReceiptNo(), "PAYMENT", null, nz(pay.getAmount()), null));
+                // FP-3 — a payment against an EXPENSE BILL settles a document this statement does not list (bills live
+                // in expense-service). Listing it would show a credit with no bill behind it and understate what the
+                // shop owes this supplier. Finance's payables subledger carries both until FP-4 moves statements there.
+                if ("EXPENSE".equalsIgnoreCase(pay.getSourceModule())) continue;
+                // DR-4: a set-off (and its reversal, a NEGATIVE mirror) is named by its document, not just the receipt
+                // number — "SETOFF-000001 · letter 12 (RCPT-000007)" — so a reader sees no cash was taken.
+                String doc = "SETOFF".equalsIgnoreCase(pay.getMethod()) && pay.getReference() != null
+                        ? pay.getReference() + " (" + pay.getReceiptNo() + ")" : pay.getReceiptNo();
+                lines.add(new StatementLine(pay.getPaidOn(), doc, "PAYMENT", null, nz(pay.getAmount()), null));
             }
         } catch (Exception ignore) { /* statement still shows bills + running balance from them */ }
     }

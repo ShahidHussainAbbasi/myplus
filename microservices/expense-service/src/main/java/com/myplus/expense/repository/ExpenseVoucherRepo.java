@@ -24,6 +24,14 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
 
     Optional<ExpenseVoucher> findByOrganizationIdAndIdempotencyKey(Long organizationId, String idempotencyKey);
 
+    /**
+     * FP-3 — the bill, row-locked for the rest of the transaction. Two people paying the same bill at once are
+     * serialised here, so the second sees the first's reservation and cannot pay past what is owed.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT v FROM ExpenseVoucher v WHERE v.id = :id AND v.organizationId = :org")
+    Optional<ExpenseVoucher> lockForPayment(@Param("id") Long id, @Param("org") Long org);
+
     /** EX-3 — the voucher already made for an originating record (the idempotent receiver's replay). */
     Optional<ExpenseVoucher> findByOrganizationIdAndSourceAndSourceRef(Long organizationId, String source, String sourceRef);
 

@@ -53,6 +53,26 @@ public final class VoucherPostings {
                 .build();
     }
 
+    /** FP-3 — finance's payables subledger keys a bill as (EXPENSE_BILL, voucher id). */
+    public static final String PAYABLE = "PAYABLE", PAYABLE_SOURCE = "EXPENSE_BILL";
+
+    /**
+     * FP-3 — the bill as finance's payables subledger holds it. Built from the voucher AS IT IS when the outbox sends
+     * (never as it was when captured), and versioned by the voucher's own {@code @Version}, which every committed
+     * change bumps — so whichever delivery lands last, finance keeps the newest figures.
+     */
+    public static com.myplus.commerce.contracts.dto.PayableSnapshot payable(ExpenseVoucher v) {
+        return com.myplus.commerce.contracts.dto.PayableSnapshot.builder()
+                .source(PAYABLE_SOURCE).sourceRef(String.valueOf(v.getId()))
+                .sourceVersion(v.getVersion() == null ? 0L : v.getVersion().longValue())
+                .partyType("VENDOR").partyId(v.getSupplierId()).partyName(v.getSupplierName())
+                .docNo(v.getVoucherNo()).docDate(v.getVoucherDate())
+                .amount(v.getTotal())
+                .paid(v.getPaidAmount() == null ? BigDecimal.ZERO : v.getPaidAmount())
+                .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()))
+                .build();
+    }
+
     /** Dated the day of the VOID, so voiding in an open period never rewrites a closed one. */
     public static PostingEventRequest reversal(ExpenseVoucher v, LocalDate voidDate) {
         return PostingEventRequest.builder()

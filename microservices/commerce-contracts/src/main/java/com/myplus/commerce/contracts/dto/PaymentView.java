@@ -24,4 +24,6 @@ public class PaymentView {
     private LocalDate paidOn;
     private String reference;
     private String receiptNo;      // RCPT-###### | PV-######
+    /** BUSINESS | EDUCATION | EXPENSE (FP-3: a bill paid from Expenses) — lets a module's statement keep only its own. */
+    private String sourceModule;
 }

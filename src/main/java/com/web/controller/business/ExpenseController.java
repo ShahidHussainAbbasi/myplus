@@ -89,6 +89,29 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/void", body));
     }
 
+    /** FP-3 — the suppliers a bill can be owed to (business-service's list, read through expense-service). */
+    @GetMapping(value = "/suppliers", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> suppliers() {
+        return call(() -> expense.get("/suppliers"));
+    }
+
+    /** FP-3 — pay (part of) a bill. The screen keeps ONE key per payment dialog, so a retry never pays twice. */
+    @PostMapping(value = "/vouchers/{id}/pay", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> pay(@PathVariable Long id, @RequestBody Map<String, Object> body,
+                                      @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/vouchers/").append(id).append("/pay?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    @GetMapping(value = "/vouchers/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> payments(@PathVariable Long id) {
+        return call(() -> expense.get("/vouchers/" + id + "/payments"));
+    }
+
     // ── internals ─────────────────────────────────────────────────────────────────────────────
 
     private interface Call { ResponseEntity<String> run(); }

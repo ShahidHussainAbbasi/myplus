@@ -68,6 +68,9 @@ public class GlService {
             // 1300 / 2300 — an expense the business has not paid itself: settled against an advance it gave
             // (asset) or owed back to the employee who paid (liability). Not posted to until EX-6/EX-7.
             {"1300", "Employee Advances", AccountType.ASSET, NormalSide.DEBIT},
+            // DR-4 — set-off clearing: both legs of a set-off pass through it, so it nets to zero; a balance left here
+            // is a half-recorded set-off and is meant to be seen. Back-filled by ensureDefaults() like the rest.
+            {"1900", "Set-off Clearing", AccountType.ASSET, NormalSide.DEBIT},
             {"2300", "Employee Reimbursements Payable", AccountType.LIABILITY, NormalSide.CREDIT},
             // The operating expenses a small business actually has. Their own block, apart from 5000 COGS and
             // 5100 Purchases, so the P&L separates what the goods cost from what it cost to run the shop.

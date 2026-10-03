@@ -52,7 +52,24 @@
 		return '<span class="label label-warning" title="' + esc(v.postingError || '') + '">' + esc(tr('ui.js.expPosting', 'Posting…')) + '</span>';
 	}
 
-	var canVoid = false;   // set from the table header: the Actions column is rendered only for owner/admin
+	var canVoid = false;
+
+	/**
+	 * FP-3 — what a BILL still owes, and its Pay button. Pay is offered only once the bill is IN THE BOOKS: paying a
+	 * bill whose posting failed would take money out against a debt the ledger never recorded (the server refuses it).
+	 */
+	function billState(v) {
+		if (v.paidFrom !== 'AP' || v.status !== 'POSTED') return '';
+		var open = Number(v.openAmount || 0);
+		if (open <= 0) return ' <span class="label label-info" data-cy="expense-bill-paid">' + esc(tr('ui.js.expPaid', 'Paid')) + '</span>';
+		var out = ' <span class="text-warning" data-cy="expense-bill-owes" style="font-variant-numeric:tabular-nums">'
+			+ esc(tr('ui.js.expOwes', 'Owes')) + ' ' + esc(money(open)) + '</span>';
+		if (v.postingStatus === 'POSTED_GL') {
+			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-bill" data-id="' + esc(v.id)
+				+ '" data-no="' + esc(v.voucherNo || '') + '" data-open="' + esc(open) + '">' + esc(tr('ui.pay', 'Pay')) + '</button>';
+		}
+		return out;
+	}   // set from the table header: the Actions column is rendered only for owner/admin
 
 	function row(v) {
 		// EX-2b — a tagged line reads "Fuel and transport · Bus (LEA-123)": the category, then what it was for.
@@ -63,13 +80,16 @@
 			+ '<td>' + showDate(v.voucherDate) + '</td>'
 			+ '<td>' + esc(cats) + '</td>'
 			+ '<td>' + esc(v.paidFrom === 'BANK' ? tr('ui.js.expBank', 'Bank')
-				: v.paidFrom === 'DRAWER' ? tr('ui.js.expTill', 'Till') : tr('ui.js.expCash', 'Cash')) + '</td>'
+				: v.paidFrom === 'DRAWER' ? tr('ui.js.expTill', 'Till')
+				: v.paidFrom === 'AP' ? tr('ui.js.expBill', 'Bill') : tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
-			+ '<td class="exp-chip">' + chip(v) + '</td>';
+			+ '<td class="exp-chip">' + chip(v) + billState(v) + '</td>';
 		if (canVoid) {
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
-			var voidable = v.status === 'POSTED' && v.postingStatus !== 'PENDING' && v.source !== 'DRAWER';
+			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
+			var voidable = v.status === 'POSTED' && v.postingStatus !== 'PENDING' && v.source !== 'DRAWER'
+				&& !(v.paidFrom === 'AP' && Number(v.paidAmount || 0) > 0);
 			tds += '<td>' + (voidable
 				? '<button type="button" class="btn btn-xs btn-default" data-cy="void-expense" data-id="' + esc(v.id)
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'
@@ -116,6 +136,30 @@
 			.fail(function () { $g.hide(); });
 	}
 
+	/**
+	 * FP-3 — the suppliers a bill can be owed to. "Bill (pay later)" is offered only when there is someone to owe:
+	 * a school or a farm with no suppliers keeps Cash and Bank, unchanged.
+	 */
+	function loadSuppliers() {
+		return $.ajax({ url: ctx() + 'expense/suppliers', dataType: 'json' })
+			.done(function (res) {
+				var list = (res && res.success === true && res.data) || [];
+				var $pf = $('#expPaidFrom');
+				$pf.find('option[value="AP"]').remove();
+				if (!list.length) { $('#expBillGroup').hide(); return; }
+				$pf.append($('<option>').val('AP').text(tr('ui.js.expBillOption', 'Bill (pay later)')));
+				var $s = $('#expSupplier').empty().append($('<option>').val('').text(tr('ui.js.selectOne', 'Select one')));
+				list.forEach(function (sp) { $s.append($('<option>').val(sp.id).text(sp.label)); });
+				if (typeof global.refreshSearchableSelect === 'function') {
+					global.refreshSearchableSelect($s[0]);
+					global.refreshSearchableSelect($pf[0]);
+				}
+				toggleBill();
+			});
+	}
+
+	function toggleBill() { $('#expBillGroup').toggle($('#expPaidFrom').val() === 'AP'); }
+
 	function expenseLoad() {
 		var q = [];
 		if ($('#expFrom').val()) q.push('from=' + encodeURIComponent($('#expFrom').val()));
@@ -159,6 +203,8 @@
 		var categoryId = $('#expCategory').val();
 		if (!categoryId) { msg(tr('ui.js.expCategoryRequired', 'Choose a category.'), 'bad'); return; }
 		if (!(amount > 0)) { msg(tr('ui.js.expAmountRequired', 'Enter an amount greater than zero.'), 'bad'); $('#expAmount').focus(); return; }
+		var isBill = $('#expPaidFrom').val() === 'AP';
+		if (isBill && !$('#expSupplier').val()) { msg(tr('ui.js.expSupplierRequired', 'Choose the supplier this bill is owed to.'), 'bad'); return; }
 
 		// One key per FORM FILL: a retry of the same fill replays the first save on the server.
 		if (!$f.data('idemKey')) $f.data('idemKey', newKey());
@@ -167,6 +213,8 @@
 			paidFrom: $('#expPaidFrom').val(),
 			payeeName: $('#expPayee').val(),
 			note: $('#expNote').val(),
+			supplierId: isBill ? Number($('#expSupplier').val()) : null,
+			dueDate: isBill ? ($('#expDue').val() || null) : null,
 			lines: [(function () {
 				var line = { categoryId: Number(categoryId), amount: amount, description: $('#expNote').val() };
 				var tag = String($('#expTag').val() || '');
@@ -220,6 +268,54 @@
 			});
 	}
 
+	// ── FP-3: paying a bill ─────────────────────────────────────────────────────────────────────
+
+	function expensePayOpen(id, no, open) {
+		var $p = $('#expPayPanel');
+		$p.data({ id: id, idemKey: newKey() });   // ONE key per opening of the panel
+		$('#expPayTitle').text(tr('ui.js.expPayTitle', 'Pay bill') + ' ' + (no || '') + ' — '
+			+ tr('ui.js.expOwes', 'Owes') + ' ' + money(open));
+		$('#expPayAmount').val(Number(open).toFixed(2));
+		$('#expPayMsg').text('');
+		$p.show();
+		$('#expPayAmount').focus().select();
+	}
+
+	function expensePayClose() {
+		$('#expPayPanel').hide().removeData('id').removeData('idemKey');
+	}
+
+	function expensePay(btn) {
+		var $p = $('#expPayPanel'), id = $p.data('id');
+		var amount = Number($('#expPayAmount').val());
+		if (!id) return;
+		if (!(amount > 0)) {
+			$('#expPayMsg').css('color', '#b3261e').text(tr('ui.js.expAmountRequired', 'Enter an amount greater than zero.'));
+			return;
+		}
+		var $b = $(btn), label = $b.html();
+		$b.prop('disabled', true).html('<span class="glyphicon glyphicon-hourglass"></span> ' + esc(tr('ui.js.expPaying', 'Paying…')));
+		$.ajax({
+			url: ctx() + 'expense/vouchers/' + encodeURIComponent(id) + '/pay', type: 'POST', contentType: 'application/json',
+			dataType: 'json', headers: { 'Idempotency-Key': $p.data('idemKey') },
+			data: JSON.stringify({ amount: amount, method: $('#expPayMethod').val() })
+		}).done(function (res) {
+			if (!res || res.success !== true) {
+				$('#expPayMsg').css('color', '#b3261e').text((res && res.message) || tr('ui.js.saveFailed', 'Save failed'));
+				return;
+			}
+			expensePayClose();
+			msg(tr('ui.js.expPayDone', 'Payment recorded') + (res.data && res.data.receiptNo ? ' — ' + res.data.receiptNo : ''), 'ok');
+			expenseLoad();
+		}).fail(function (xhr) {
+			// The key is KEPT: pressing Pay again is the same payment, never a second one.
+			$('#expPayMsg').css('color', '#b3261e').text(typeof global.apiFailMessage === 'function'
+				? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed')) : tr('ui.js.saveFailed', 'Save failed'));
+		}).always(function () {
+			$b.prop('disabled', false).html(label);
+		});
+	}
+
 	function uiAlertSafe(text) {
 		if (typeof global.uiAlert === 'function') global.uiAlert({ title: tr('ui.js.expenses', 'Expenses'), message: text, tone: 'danger' });
 	}
@@ -232,9 +328,13 @@
 		if (!$('#expDate').val()) setDate('#expDate', isoOf(today));
 		if (!$('#expFrom').val()) setDate('#expFrom', isoOf(new Date(today.getFullYear(), today.getMonth(), 1)));
 		if (!$('#expTo').val()) setDate('#expTo', isoOf(today));
-		loadCategories().always(function () { loadTags(); expenseLoad(); });
+		loadCategories().always(function () { loadTags(); loadSuppliers(); expenseLoad(); });
 	}
 
+	$(document).on('change', '#expPaidFrom', toggleBill);
+	$(document).on('click', '#tableExpense [data-cy="pay-bill"]', function () {
+		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'));
+	});
 	$(document).on('click', '#tableExpense [data-cy="void-expense"]', function () {
 		expenseVoid($(this).attr('data-id'), $(this).attr('data-no'));
 	});
@@ -242,4 +342,6 @@
 	global.showExpenses = showExpenses;
 	global.expenseSave = expenseSave;
 	global.expenseLoad = expenseLoad;
+	global.expensePay = expensePay;
+	global.expensePayClose = expensePayClose;
 })(window);

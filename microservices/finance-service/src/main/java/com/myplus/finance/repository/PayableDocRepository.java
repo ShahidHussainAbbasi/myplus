@@ -28,6 +28,11 @@ public interface PayableDocRepository extends JpaRepository<PayableDoc, Long> {
          + "where d.organizationId = :org and d.status <> 'VOID' group by d.partyId")
     List<Object[]> netBySupplier(@Param("org") Long org);
 
+    /** FP-3 — as {@link #netBySupplier}, per SOURCE (PURCHASE, EXPENSE_BILL): each feeding module reconciles to its own. */
+    @Query("select d.source, d.partyId, sum(d.amount - d.paid) from PayableDoc d "
+         + "where d.organizationId = :org and d.status <> 'VOID' group by d.source, d.partyId")
+    List<Object[]> netBySourceAndSupplier(@Param("org") Long org);
+
     @Query("select d from PayableDoc d where d.organizationId = :org and d.status = 'OPEN' order by d.partyName, d.docDate")
     List<PayableDoc> findOpen(@Param("org") Long org);
 }

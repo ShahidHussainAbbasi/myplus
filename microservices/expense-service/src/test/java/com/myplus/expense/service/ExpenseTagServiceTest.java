@@ -25,7 +25,9 @@ class ExpenseTagServiceTest {
             return List.of(new ExpenseTagView("SCHOOL", 1L, "Main Campus"), new ExpenseTagView("VEHICLE", 7L, "Bus (LEA-123)"));
         };
         ExpenseTagClient agriculture = () -> List.of(new ExpenseTagView("LAND", 9L, "North field"));
-        return new ExpenseTagService(education, agriculture);
+        ExpenseTagClient business = () -> List.of(new ExpenseTagView("SUPPLIER", 42L, "K-Electric"),
+                new ExpenseTagView("STORE", 3L, "not a supplier"));
+        return new ExpenseTagService(education, agriculture, business);
     }
 
     @Test @DisplayName("a confirmed tag returns the MODULE's label")
@@ -68,5 +70,20 @@ class ExpenseTagServiceTest {
     void unknown_source() {
         assertThat(svc().options("business")).isEmpty();
         assertThat(svc().options(null)).isEmpty();
+    }
+
+    @Test @DisplayName("FP-3: a bill's supplier is confirmed by business; its label is business's")
+    void supplierConfirmed() {
+        assertThat(svc().confirmSupplier(42L)).isEqualTo("K-Electric");
+        assertThat(svc().suppliers()).extracting(ExpenseTagView::getType).containsOnly("SUPPLIER");
+    }
+
+    @Test @DisplayName("FP-3: a foreign or missing supplier is refused, and a supplier is never a LINE tag")
+    void supplierRefused() {
+        assertThatThrownBy(() -> svc().confirmSupplier(999L)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("not one of yours");
+        assertThatThrownBy(() -> svc().confirmSupplier(null)).isInstanceOf(ValidationException.class);
+        assertThatThrownBy(() -> svc().confirm("SUPPLIER", 42L)).isInstanceOf(ValidationException.class);
+        assertThat(svc().options("business")).isEmpty();
     }
 }

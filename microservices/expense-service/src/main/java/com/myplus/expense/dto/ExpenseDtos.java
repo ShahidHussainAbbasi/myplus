@@ -28,8 +28,20 @@ public final class ExpenseDtos {
 
     public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) { }
 
+    /** FP-3 — {@code supplierId} and {@code dueDate} belong to a bill (paidFrom = AP) and are refused on anything else. */
     public record VoucherRequest(LocalDate voucherDate, String paidFrom, Long storeId, String payeeName, String note,
-                                 List<LineRequest> lines) { }
+                                 List<LineRequest> lines, Long supplierId, LocalDate dueDate) { }
+
+    /** FP-3 — pay (part of) a bill. method CASH | BANK; paidOn defaults to today. */
+    public record PayRequest(BigDecimal amount, String method, LocalDate paidOn) { }
+
+    public record BillPaymentView(Long id, Long voucherId, BigDecimal amount, String method, LocalDate paidOn,
+                                  String status, String receiptNo, String lastError, LocalDateTime createdAt) {
+        public static BillPaymentView of(com.myplus.expense.entity.ExpenseBillPayment p) {
+            return new BillPaymentView(p.getId(), p.getVoucherId(), p.getAmount(), p.getMethod(), p.getPaidOn(),
+                    p.getStatus(), p.getReceiptNo(), p.getLastError(), p.getCreatedAt());
+        }
+    }
 
     public record VoidRequest(String reason) { }
 
@@ -44,12 +56,15 @@ public final class ExpenseDtos {
     public record VoucherView(Long id, String voucherNo, LocalDate voucherDate, String paidFrom, Long storeId,
                               String payeeName, String note, BigDecimal total, String status, String postingStatus,
                               String postingError, String voidReason, LocalDateTime voidedAt, Long userId,
-                              Integer version, List<LineView> lines, String source, String sourceRef) {
+                              Integer version, List<LineView> lines, String source, String sourceRef,
+                              Long supplierId, String supplierName, LocalDate dueDate, BigDecimal paidAmount,
+                              BigDecimal openAmount) {
         public static VoucherView of(ExpenseVoucher v) {
             return new VoucherView(v.getId(), v.getVoucherNo(), v.getVoucherDate(), v.getPaidFrom(), v.getStoreId(),
                     v.getPayeeName(), v.getNote(), v.getTotal(), v.getStatus(), v.getPostingStatus(),
                     v.getPostingError(), v.getVoidReason(), v.getVoidedAt(), v.getUserId(), v.getVersion(),
-                    v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef());
+                    v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef(),
+                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount());
         }
     }
 }

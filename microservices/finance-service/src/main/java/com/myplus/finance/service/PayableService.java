@@ -129,6 +129,21 @@ public class PayableService {
         out.put("supplierAdvances", advances);             // Σ suppliers paid ahead (debit balances)
         out.put("bySupplier", new ArrayList<>(byParty.values()));
         out.put("advancesBySupplier", advanceRows);
+        // FP-3 — the same net, per feeding source. business's supplier balances cover PURCHASE only, so that is the
+        // figure they reconcile to; EXPENSE_BILL is what expense-service's bills still owe.
+        Map<String, Map<String, BigDecimal>> bySource = new LinkedHashMap<>();
+        for (Object[] r : repo.netBySourceAndSupplier(org)) {
+            BigDecimal net = r[2] == null ? BigDecimal.ZERO : (BigDecimal) r[2];
+            Map<String, BigDecimal> m = bySource.computeIfAbsent((String) r[0], k -> {
+                Map<String, BigDecimal> x = new LinkedHashMap<>();
+                x.put("netOwed", BigDecimal.ZERO);
+                x.put("supplierAdvances", BigDecimal.ZERO);
+                return x;
+            });
+            if (net.signum() > 0) m.merge("netOwed", net, BigDecimal::add);
+            else if (net.signum() < 0) m.merge("supplierAdvances", net.negate(), BigDecimal::add);
+        }
+        out.put("bySource", bySource);
         return out;
     }
 

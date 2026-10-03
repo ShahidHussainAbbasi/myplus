@@ -34,6 +34,7 @@ public class ExpenseController {
     private final ExpenseCategoryService categories;
     private final ExpenseVoucherService vouchers;
     private final com.myplus.expense.service.ExpenseTagService tagService;
+    private final com.myplus.expense.service.ExpenseBillService bills;
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -56,6 +57,27 @@ public class ExpenseController {
     @GetMapping("/tags")
     public ApiResponse<List<com.myplus.commerce.contracts.dto.ExpenseTagView>> tags(@RequestParam(required = false) String source) {
         return ApiResponse.success(tagService.options(source));
+    }
+
+    /** FP-3 — who a bill can be owed to: the caller's suppliers, as business-service lists them. */
+    @GetMapping("/suppliers")
+    public ApiResponse<List<com.myplus.commerce.contracts.dto.ExpenseTagView>> suppliers() {
+        return ApiResponse.success(tagService.suppliers());
+    }
+
+    /** FP-3 — pay (part of) a bill. Idempotency-Key header (or parameter, for the monolith's proxy) is required. */
+    @PostMapping("/vouchers/{id}/pay")
+    public ApiResponse<com.myplus.expense.dto.ExpenseDtos.BillPaymentView> pay(@PathVariable Long id,
+            @RequestBody com.myplus.expense.dto.ExpenseDtos.PayRequest r,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        String k = key != null && !key.isBlank() ? key : keyParam;
+        return ApiResponse.success(bills.pay(id, r, k), "Payment recorded");
+    }
+
+    @GetMapping("/vouchers/{id}/payments")
+    public ApiResponse<List<com.myplus.expense.dto.ExpenseDtos.BillPaymentView>> payments(@PathVariable Long id) {
+        return ApiResponse.success(bills.list(id));
     }
 
     @GetMapping("/vouchers")

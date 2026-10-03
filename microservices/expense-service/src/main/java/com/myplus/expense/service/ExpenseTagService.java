@@ -37,9 +37,44 @@ public class ExpenseTagService {
             "VEHICLE", "education",
             "LAND", "agriculture");
 
+    /**
+     * FP-3 — business-service answers the same SPI with the caller's SUPPLIERS. Deliberately NOT in {@link #bySource}:
+     * a supplier is who a BILL is owed to (one per voucher), never a per-line tag, so the line picker never offers one
+     * and {@link #confirm} refuses the type.
+     */
+    private final ExpenseTagClient business;
+
+    public static final String SUPPLIER = "SUPPLIER";
+
     public ExpenseTagService(@Qualifier("educationTags") ExpenseTagClient education,
-                             @Qualifier("agricultureTags") ExpenseTagClient agriculture) {
+                             @Qualifier("agricultureTags") ExpenseTagClient agriculture,
+                             @Qualifier("businessTags") ExpenseTagClient business) {
         this.bySource = Map.of("education", education, "agriculture", agriculture);
+        this.business = business;
+    }
+
+    /** FP-3 — the suppliers this caller may raise a bill against (business-service's own scoping applies). */
+    public List<ExpenseTagView> suppliers() {
+        try {
+            List<ExpenseTagView> list = business.tags();
+            if (list == null) return List.of();
+            return list.stream().filter(v -> v != null && SUPPLIER.equals(v.getType())).toList();
+        } catch (Exception e) {
+            LOG.warn("suppliers unavailable from business-service", e);
+            throw new ValidationException("Could not load your suppliers. Try again in a moment.");
+        }
+    }
+
+    /**
+     * FP-3 — the supplier's name if business-service lists this id for the caller, else a refusal. A foreign or
+     * invented id never reaches a bill (the same rule as {@link #confirm}).
+     */
+    public String confirmSupplier(Long id) {
+        if (id == null) throw new ValidationException("Choose the supplier this bill is owed to.");
+        for (ExpenseTagView v : suppliers()) {
+            if (id.equals(v.getId())) return v.getLabel();
+        }
+        throw new ValidationException("That supplier was not found, or is not one of yours.");
     }
 
     /** The options a dashboard offers. An unknown source offers nothing (the shop has no tags yet). */

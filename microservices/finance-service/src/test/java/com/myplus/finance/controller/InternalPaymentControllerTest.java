@@ -72,14 +72,19 @@ class InternalPaymentControllerTest {
         // Unauthenticated, and authenticated-without-an-org: both would otherwise write a NULL-org ledger row,
         // which the NULL-fallback leg of every scoped read in this service would then surface.
         PaymentService svc = mock(PaymentService.class);
-        InternalPaymentController controller = new InternalPaymentController(svc);
+        com.myplus.finance.service.SetOffService setOffs = mock(com.myplus.finance.service.SetOffService.class);
+        InternalPaymentController controller = new InternalPaymentController(svc, setOffs);
 
         assertThrows(IllegalStateException.class, () -> controller.record(request()));
+        // DR-4: the set-off write follows the same rule — no tenant, no ledger rows.
+        assertThrows(IllegalStateException.class, () -> controller.setOff(new com.myplus.finance.dto.SetOffDTOs.Request()));
 
         authenticateAs(null);
         assertThrows(IllegalStateException.class, () -> controller.record(request()));
+        assertThrows(IllegalStateException.class, () -> controller.setOff(new com.myplus.finance.dto.SetOffDTOs.Request()));
 
         verifyNoInteractions(svc);
+        verifyNoInteractions(setOffs);
     }
 
     @Test
@@ -88,7 +93,7 @@ class InternalPaymentControllerTest {
         PaymentService svc = mock(PaymentService.class);
         RecordPaymentRequest req = request();
 
-        new InternalPaymentController(svc).record(req);
+        new InternalPaymentController(svc, mock(com.myplus.finance.service.SetOffService.class)).record(req);
 
         verify(svc).record(req);
     }
