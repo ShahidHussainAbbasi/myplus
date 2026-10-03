@@ -77,6 +77,8 @@ public class SellerOrderService {
     private final TradeClient trade;
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     @Transactional(readOnly = true)
     public PageResponse<MarketplaceOrderDTOs.SellerOrderView> mine(String status, Integer page, Integer size) {
@@ -161,7 +163,11 @@ public class SellerOrderService {
             parent.setStatus(Order.CONFIRMED.name());
             orders.save(parent);
         });
-        return viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        if (SellerOrder.ACCEPTED.name().equals(done.acceptanceStatus()))                // a refused sale stays OFFERED: no row
+            audit.event("MKT_ORDER_ACCEPTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
+                    MarketplaceAuditService.Actor.SELLER, SellerOrder.OFFERED.name(), SellerOrder.ACCEPTED.name(), done.total(), done.invoiceNo());
+        return done;
     }
 
     public MarketplaceOrderDTOs.SellerOrderView reject(Long id, MarketplaceOrderDTOs.RejectRequest req) {
@@ -188,7 +194,11 @@ public class SellerOrderService {
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
         payments.refundIfCancelled(so.getMktOrderId());               // a card order's money goes back, once
-        return viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        if (SellerOrder.REJECTED.name().equals(done.acceptanceStatus()))
+            audit.event("MKT_ORDER_REJECTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
+                    MarketplaceAuditService.Actor.SELLER, SellerOrder.OFFERED.name(), SellerOrder.REJECTED.name(), done.total(), done.rejectReason());
+        return done;
     }
 
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────

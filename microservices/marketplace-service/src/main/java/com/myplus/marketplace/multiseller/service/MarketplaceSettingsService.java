@@ -34,6 +34,8 @@ public class MarketplaceSettingsService {
 
     private final MarketplacePlatformSettingRepository settings;
     private final SellerAccess access;
+    /** G-16 (R22.4): an operator's change to how the marketplace behaves is audited. */
+    private final MarketplaceAuditService audit;
 
     /** The current default; a missing or no-longer-valid stored value reads as RECOMMENDED, never as an error. */
     @Transactional(readOnly = true)
@@ -66,6 +68,7 @@ public class MarketplaceSettingsService {
         row.setUpdatedByUserId(access.userId());
         row.setUpdatedAt(LocalDateTime.now());
         settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
         return s;
     }
 
@@ -124,6 +127,7 @@ public class MarketplaceSettingsService {
         row.setUpdatedByUserId(access.userId());
         row.setUpdatedAt(LocalDateTime.now());
         settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
         return minutes;
     }
 
@@ -157,6 +161,7 @@ public class MarketplaceSettingsService {
         row.setUpdatedByUserId(access.userId());
         row.setUpdatedAt(LocalDateTime.now());
         settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
         return v;
     }
 }

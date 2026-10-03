@@ -45,6 +45,8 @@ public class MarketplaceSellerService {
     private final SellerAccess access;
     /** MKT-1c — a seller decision re-publishes that seller's offers (a suspended seller disappears at once). */
     private final OfferProjectionService projection;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     // ── tenant ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -110,6 +112,8 @@ public class MarketplaceSellerService {
             account.setAppliedAt(now);
             account = accounts.save(account);
         }
+        audit.event("MKT_AGREEMENTS_ACCEPTED", "MKT_SELLER", String.valueOf(org), org, MarketplaceAuditService.Actor.SELLER,
+                null, first.getAgreementVersion(), null, String.join(",", MarketplaceAgreements.REQUIRED));
         return new SellerDTOs.Acceptance(first.getAgreementVersion(), first.getAcceptedByUserId(),
                 first.getAcceptedAt(), toDto(account));
     }
@@ -162,12 +166,15 @@ public class MarketplaceSellerService {
                 .orElseThrow(() -> new ResourceNotFoundException("No seller account for that business."));
         if (req.version() != null && !req.version().equals(account.getVersion()))
             throw new org.springframework.dao.OptimisticLockingFailureException("seller account changed");
+        String before = account.getStatus();
         move(account, target);
         account.setStatusReason(target == SellerAccount.APPROVED ? null : reason);
         account.setDecidedByUserId(access.userId());
         account.setDecidedAt(LocalDateTime.now());
         SellerDTOs.Account out = toDto(accounts.save(account));
         projection.publishSeller(sellerOrg);   // same transaction: the public read can never show a suspended seller
+        audit.event("MKT_SELLER_DECIDED", "MKT_SELLER", String.valueOf(sellerOrg), sellerOrg, MarketplaceAuditService.Actor.OPERATOR,
+                before, target.name(), null, reason);
         return out;
     }
 

@@ -93,6 +93,7 @@ class MarketplaceOrderFlowTest {
     @Mock MarketplaceSellerService sellers;
     @Mock OrderService storeOrders;
     @Mock PlatformTransactionManager txManager;
+    @Mock MarketplaceAuditService audit;                             // G-16: actions are audited
 
     MarketplaceCheckoutService checkout;
     SellerOrderService sellerSide;
@@ -108,12 +109,12 @@ class MarketplaceOrderFlowTest {
 
     @BeforeEach
     void wire() {
-        MarketplaceSettingsService settings = new MarketplaceSettingsService(settingRows, access);
+        MarketplaceSettingsService settings = new MarketplaceSettingsService(settingRows, access, audit);
         PublicOfferService publicOffers = new PublicOfferService(projections, products, settings);
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
-                access, txManager);
+                access, txManager, audit);
         lenient().when(sellerSideProvider.getObject()).thenReturn(sellerSide);
         sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager);
 
@@ -506,7 +507,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R7.4] the acceptance window is the operator's (1–60 min); a stored nonsense value reads as 5")
     void acceptWindow() {
-        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access);
+        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access, audit);
         assertThat(s.acceptMinutes()).isEqualTo(5);
         assertThatThrownBy(() -> s.setAcceptMinutes(0)).hasMessageContaining("1 to 60");
         assertThatThrownBy(() -> s.setAcceptMinutes(61)).hasMessageContaining("1 to 60");
@@ -557,7 +558,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] the customer cancels while the seller has not answered: stock back, refund asked; after Accept it cannot")
     void customerCancel() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc1"), 77L);
@@ -578,7 +579,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] after the seller accepts, the customer's cancel is refused with the way forward")
     void cancelAfterAccept() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc2"), 77L);
@@ -588,5 +589,18 @@ class MarketplaceOrderFlowTest {
         lenient().when(orders.findByOrderNo(o.getOrderNo())).thenReturn(java.util.Optional.of(o));
         assertThatThrownBy(() -> accounts.cancel(me, o.getOrderNo(), null)).hasMessageContaining("already confirmed by the seller");
         verify(trade, never()).releaseHold(anyString());
+    }
+
+    @Test
+    @DisplayName("[MKT-R22.4] a reject is audited under the seller; an accept that is refused (expired) records nothing")
+    void ordersAudited() {
+        MarketplaceSellerOrder late = offered();
+        late.setAcceptBy(LocalDateTime.now().minusSeconds(1));
+        assertThatThrownBy(() -> sellerSide.accept(late.getId(), new MarketplaceOrderDTOs.AcceptRequest(late.getVersion(), null)));
+        verify(audit, never()).event(eq("MKT_ORDER_ACCEPTED"), any(), any(), any(), any(), any(), any(), any(), any());
+        MarketplaceSellerOrder so = offered();
+        sellerSide.reject(so.getId(), new MarketplaceOrderDTOs.RejectRequest(so.getVersion(), "out of stock"));
+        verify(audit).event(eq("MKT_ORDER_REJECTED"), eq("MKT_SELLER_ORDER"), any(), eq(SELLER),
+                eq(MarketplaceAuditService.Actor.SELLER), eq("OFFERED"), eq("REJECTED"), any(), eq("out of stock"));
     }
 }

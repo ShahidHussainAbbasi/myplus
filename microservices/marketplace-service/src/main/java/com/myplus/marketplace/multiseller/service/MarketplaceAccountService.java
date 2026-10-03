@@ -39,6 +39,8 @@ public class MarketplaceAccountService {
     private final SellerOrderService sellerSide;
     private final MarketplacePaymentService payments;
     private final PlatformTransactionManager txManager;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     public PageResponse<MarketplaceOrderDTOs.AccountOrderView> myOrders(MarketplaceCustomer c, Integer page, Integer size) {
         PageRequest p = PageRequest.of(page == null || page < 0 ? 0 : page, size == null || size < 1 ? 20 : Math.min(size, 50));
@@ -79,6 +81,8 @@ public class MarketplaceAccountService {
         }
         sellerSide.release(sellerOrders.findById(soId).orElseThrow());           // after the commit: the stock goes back
         payments.refundIfCancelled(o.getId());                                    // a card order's money goes back, once
+        audit.event("MKT_ORDER_CANCELLED", "MKT_ORDER", o.getOrderNo(), so.getSellerOrganizationId(), MarketplaceAuditService.Actor.CUSTOMER,
+                SellerOrder.OFFERED.name(), "CANCELLED", o.getTotal(), why);
         return accountView(orders.findById(o.getId()).orElseThrow());
     }
 

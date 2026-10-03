@@ -54,6 +54,7 @@ class MarketplaceCatalogServiceTest {
     @Mock MarketplaceSellerService sellers;
     @Mock SellerAccess access;
     @Mock CatalogClient catalog;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceCatalogService service;
 
     final Map<Long, MarketplaceProduct> productRows = new HashMap<>();

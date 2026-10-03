@@ -59,6 +59,8 @@ public class MarketplaceOfferService {
     private final MarketplacePolicyService policies;
     private final OfferProjectionService projection;
     private final SellerAccess access;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     // ── seller ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -135,10 +137,13 @@ public class MarketplaceOfferService {
                 .orElseThrow(() -> new ResourceNotFoundException("No such offer."));
         if (o.getWarrantyPolicyId() == null || o.getReturnPolicyId() == null)
             throw new ValidationException("Choose a warranty and a return policy before sending the offer for approval.");
+        String before = o.getApprovalStatus();
         move(o, Approval.PENDING_REVIEW);
         o.setReviewNote(null);
         o = offers.save(o);
         projection.publish(o);
+        audit.event("MKT_OFFER_SUBMITTED", "MKT_OFFER", String.valueOf(o.getId()), o.getOrganizationId(), MarketplaceAuditService.Actor.SELLER,
+                before, Approval.PENDING_REVIEW.name(), o.getMarketplacePrice(), null);
         return toDto(o, products.findById(o.getMktProductId()).orElse(null));
     }
 
@@ -178,6 +183,7 @@ public class MarketplaceOfferService {
             throw new OptimisticLockingFailureException("offer changed");
         String note = req.note() == null || req.note().isBlank() ? null : req.note().trim();
         MarketplaceProduct product = products.findById(o.getMktProductId()).orElse(null);
+        String before = o.getApprovalStatus();
         switch (req.decision().trim().toUpperCase()) {
             case "APPROVE", "REINSTATE" -> {
                 if (product != null) priceWithinLimits(o.getMarketplacePrice(), product);
@@ -197,6 +203,8 @@ public class MarketplaceOfferService {
         o.setReviewedAt(LocalDateTime.now());
         o = offers.save(o);
         projection.publish(o);
+        audit.event("MKT_OFFER_DECIDED", "MKT_OFFER", String.valueOf(o.getId()), o.getOrganizationId(), MarketplaceAuditService.Actor.OPERATOR,
+                before, o.getApprovalStatus(), o.getMarketplacePrice(), note);
         return toDto(o, product);
     }
 
@@ -212,6 +220,8 @@ public class MarketplaceOfferService {
         p.setPriceFloor(floor);
         p.setPriceCeiling(ceiling);
         products.save(p);
+        audit.event("MKT_PRICE_LIMITS", "MKT_PRODUCT", String.valueOf(productId), null, MarketplaceAuditService.Actor.OPERATOR,
+                null, (floor == null ? "-" : floor.toPlainString()) + ".." + (ceiling == null ? "-" : ceiling.toPlainString()), null, null);
     }
 
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────

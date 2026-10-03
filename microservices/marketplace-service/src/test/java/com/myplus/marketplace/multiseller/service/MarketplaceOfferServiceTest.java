@@ -52,6 +52,7 @@ class MarketplaceOfferServiceTest {
     @Mock MarketplacePolicyService policies;
     @Mock OfferProjectionService projection;
     @Mock SellerAccess access;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceOfferService service;
 
     final Map<Long, MarketplaceOffer> offerRows = new HashMap<>();

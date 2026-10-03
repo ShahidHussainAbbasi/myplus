@@ -32,6 +32,7 @@ class MarketplacePolicyServiceTest {
 
     @Mock MarketplacePolicyRepository policies;
     @Mock SellerAccess access;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplacePolicyService service;
 
     final Map<Long, MarketplacePolicy> rows = new HashMap<>();
