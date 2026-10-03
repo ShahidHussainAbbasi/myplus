@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -123,6 +124,80 @@ public class ExpenseBillService {
             } catch (Exception e) {
                 LOG.warn("bill payment {} could not be reconciled yet", p.getId(), e);
             }
+        }
+    }
+
+    // ── FP-5b: Pay Supplier settles bills too ───────────────────────────────────────────────────────
+
+    /** The caller's supplier's bills that may still take a payment, with what each may still take. */
+    public List<com.myplus.commerce.contracts.dto.OpenBillView> openBills(Long supplierId) {
+        Long org = access.org();
+        if (org == null || supplierId == null) return List.of();
+        return tx.execute(st -> vouchers.findOpenBills(org, supplierId).stream()
+                .map(v -> com.myplus.commerce.contracts.dto.OpenBillView.builder()
+                        .id(v.getId()).voucherNo(v.getVoucherNo()).voucherDate(v.getVoucherDate()).dueDate(v.getDueDate())
+                        .open(v.openAmount().subtract(payments.sumPending(v.getId())).max(BigDecimal.ZERO))
+                        .build())
+                .filter(b -> b.getOpen().signum() > 0)
+                .toList());
+    }
+
+    /**
+     * Part of a Pay Supplier payment, applied to one bill. The money is ALREADY in finance's ledger (business recorded
+     * ONE payment for the whole Pay Supplier), so this creates no finance payment: it records the application, stamps
+     * the bill and tells the subledger. Idempotent on (clientRef, bill) through the existing UNIQUE key, so a redelivery
+     * applies once. Re-checked under the bill's row lock: never more than is still owed — anything the Expenses screen
+     * paid in between is not paid twice; the difference stays in finance as the supplier's advance (and is logged).
+     */
+    public Map<String, Object> applyExternal(Long voucherId, com.myplus.commerce.contracts.dto.BillApplyRequest r) {
+        Long org = access.org();
+        if (org == null) throw new IllegalStateException("No tenant identity on the request");
+        if (r == null || r.getClientRef() == null || r.getAmount() == null || r.getAmount().signum() <= 0)
+            throw new ValidationException("An application needs a payment reference and an amount.");
+        String key = applicationKey(r.getClientRef(), voucherId);
+        BigDecimal applied = tx.execute(st -> {
+            Optional<ExpenseBillPayment> earlier = payments.findByOrganizationIdAndIdempotencyKey(org, key);
+            if (earlier.isPresent()) return earlier.get().getAmount();
+            ExpenseVoucher v = vouchers.lockForPayment(voucherId, org).orElse(null);
+            if (v == null || !v.isBill() || !ExpenseVoucher.POSTED.equals(v.getStatus())) return BigDecimal.ZERO;
+            BigDecimal room = v.openAmount().subtract(payments.sumPending(v.getId())).max(BigDecimal.ZERO);
+            BigDecimal take = r.getAmount().setScale(2, RoundingMode.HALF_UP).min(room);
+            if (take.signum() <= 0) return BigDecimal.ZERO;
+            ExpenseBillPayment p = new ExpenseBillPayment();
+            p.setOrganizationId(org);
+            p.setUserId(access.userId());
+            p.setVoucherId(v.getId());
+            p.setAmount(take);
+            p.setMethod(r.getMethod() == null ? "CASH" : r.getMethod().trim().toUpperCase());
+            p.setPaidOn(r.getPaidOn() == null ? LocalDate.now() : r.getPaidOn());
+            p.setStatus(ExpenseBillPayment.RECORDED);
+            p.setIdempotencyKey(key);
+            String ref = r.getClientRef();
+            p.setReference(ref.length() > 40 ? ref.substring(0, 40) : ref);   // the Pay Supplier it came from
+            p.setCreatedAt(LocalDateTime.now());
+            p.setUpdatedAt(LocalDateTime.now());
+            payments.saveAndFlush(p);
+            v.applyPayment(take);
+            v.setUpdatedAt(LocalDateTime.now());
+            vouchers.saveAndFlush(v);
+            outbox.enqueuePayable(v);
+            audit.record("EXPENSE_BILL_PAID", "EXPENSE", v.getVoucherNo(), take, p.getMethod(), "Pay Supplier " + ref);
+            return take;
+        });
+        if (applied != null && applied.compareTo(r.getAmount()) < 0)
+            LOG.warn("Pay Supplier {} meant {} for bill {} but only {} was still owed — the rest stands as the supplier's advance",
+                    r.getClientRef(), r.getAmount(), voucherId, applied);
+        return Map.of("applied", applied == null ? BigDecimal.ZERO : applied);
+    }
+
+    /** One key per (payment, bill), within the column's 80 characters whatever the reference's length. */
+    static String applicationKey(String clientRef, Long voucherId) {
+        try {
+            byte[] h = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest((clientRef + ":" + voucherId).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return "AP:" + java.util.HexFormat.of().formatHex(h);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
 

@@ -28,6 +28,15 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
      * FP-3 — the bill, row-locked for the rest of the transaction. Two people paying the same bill at once are
      * serialised here, so the second sees the first's reservation and cannot pay past what is owed.
      */
+    /**
+     * FP-5b — one supplier's bills that Pay Supplier may settle: posted, IN THE BOOKS, still owed, oldest first. The
+     * whole tenant's (not one user's): a supplier is paid for every bill the business owes, whoever recorded it.
+     */
+    @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org AND v.supplierId = :supplierId "
+         + "AND v.paidFrom = 'AP' AND v.status = 'POSTED' AND v.postingStatus = 'POSTED_GL' AND v.total > v.paidAmount "
+         + "ORDER BY v.voucherDate ASC, v.id ASC")
+    java.util.List<ExpenseVoucher> findOpenBills(@Param("org") Long org, @Param("supplierId") Long supplierId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT v FROM ExpenseVoucher v WHERE v.id = :id AND v.organizationId = :org")
     Optional<ExpenseVoucher> lockForPayment(@Param("id") Long id, @Param("org") Long org);

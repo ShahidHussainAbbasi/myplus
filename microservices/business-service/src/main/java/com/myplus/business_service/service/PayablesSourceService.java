@@ -42,6 +42,10 @@ public class PayablesSourceService {
     private final ObjectProvider<FinanceClient> finance;
     private final AuditService audit;
 
+    /** FP-5b — mixed payments (purchases + bills in one Pay Supplier) pin a tenant to FINANCE (ruling 4). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private BillApplicationOutboxService billApplications;
+
     /** The source this tenant's supplier screens read from. No row = BUSINESS. Cheap: one primary-key read. */
     @Transactional(readOnly = true)
     public String sourceOf(Long organizationId) {
@@ -73,6 +77,7 @@ public class PayablesSourceService {
         Map<String, Object> out = reconciliation(organizationId);
         PayablesSource row = repo.findById(organizationId).orElse(null);
         out.put("source", row == null ? PayablesSource.BUSINESS : row.getSource());
+        out.put("mixedPayments", billApplications == null ? 0 : billApplications.mixedPayments(organizationId));   // FP-5b
         if (row != null) {
             out.put("reason", row.getReason());
             out.put("switchedAt", row.getSwitchedAt());
@@ -89,6 +94,13 @@ public class PayablesSourceService {
         if (!PayablesSource.BUSINESS.equals(to) && !PayablesSource.FINANCE.equals(to))
             throw new ValidationException("Supplier balances can be read from business or finance.");
         if (reason == null || reason.isBlank()) throw new ValidationException("Say why the source is being changed.");
+        // FP-5b ruling 4 — business's own screens cannot show a payment that settled purchases AND expense bills
+        // (its statement would put the bill share against purchases). Once one exists, the way back is closed.
+        long mixed = billApplications == null ? 0 : billApplications.mixedPayments(organizationId);
+        if (PayablesSource.BUSINESS.equals(to) && mixed > 0)
+            throw new ValidationException("Not switched back: this business has " + mixed + " supplier payment share(s) that settled "
+                    + "expense bills together with purchases. Business screens cannot show those correctly, so its supplier "
+                    + "figures stay in finance.");
         Map<String, Object> rec = reconciliation(organizationId);
         if (PayablesSource.FINANCE.equals(to) && !Boolean.TRUE.equals(rec.get("canSwitch")))
             throw new ValidationException("Not switched: business and finance disagree by " + rec.get("difference")

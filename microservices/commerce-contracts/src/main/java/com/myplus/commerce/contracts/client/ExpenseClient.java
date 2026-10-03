@@ -19,4 +19,14 @@ public interface ExpenseClient {
     /** Record a till pay-out as a posted expense. Idempotent on (organization, movementId). */
     @PostExchange("/internal/expense/drawer-vouchers")
     ExpenseVoucherRef recordDrawerPayOut(@RequestBody DrawerExpenseRequest request);
+
+    /** FP-5b — the caller's supplier's expense bills still owed, with what may still be applied to each. */
+    @org.springframework.web.service.annotation.GetExchange("/internal/expense/bills/open")
+    java.util.List<com.myplus.commerce.contracts.dto.OpenBillView> openBills(
+            @org.springframework.web.bind.annotation.RequestParam("supplierId") Long supplierId);
+
+    /** FP-5b — apply part of a Pay Supplier payment to one bill; returns {applied}. Idempotent on (clientRef, bill). */
+    @PostExchange("/internal/expense/bills/{id}/apply")
+    java.util.Map<String, Object> applyToBill(@org.springframework.web.bind.annotation.PathVariable("id") Long billId,
+            @RequestBody com.myplus.commerce.contracts.dto.BillApplyRequest request);
 }

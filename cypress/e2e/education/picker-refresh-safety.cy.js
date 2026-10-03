@@ -120,6 +120,20 @@ describe('Pickers survive background fetches — shared searchable-selects behav
       w[key] = li
     })
 
+  /**
+   * Give the picker something to catch up on: one new <option>, appended without a refresh — exactly what the
+   * populate helpers do, and the case the refresh exists for.
+   *
+   * ⚠ Needed since PSEL-1 (25304ae2). The pass used to rebuild EVERY picker on EVERY ajaxComplete — 39.8 s of a
+   * 52.6 s dashboard load on a big shop — and now rebuilds only a picker whose options CHANGED. A fetch that
+   * changes nothing must rebuild nothing; asserting a rebuild there asserted the freeze back (EDU-NOTIFY-2 §2c).
+   * Measured by node identity as before, so it is immaterial if the screen repopulates this list itself.
+   */
+  const changeOptions = (id) =>
+    cy.window().then((w) => {
+      w.jQuery(`#${id}`).append(`<option value="__ss_probe_${Date.now()}">picker refresh probe</option>`)
+    })
+
   /** Is the stamped node still the one on screen? */
   const menuWasRebuilt = (id, key) =>
     cy.window().then((w) => {
@@ -137,6 +151,7 @@ describe('Pickers survive background fetches — shared searchable-selects behav
     cy.get('@id').then((id) => {
       cy.get('body').click(5, 5)            // not in use: menu shut, focus elsewhere
       stampMenu(id, '__idle')
+      changeOptions(id)
       backgroundFetch()
       menuWasRebuilt(id, '__idle').should('eq', true)
     })
@@ -151,6 +166,7 @@ describe('Pickers survive background fetches — shared searchable-selects behav
       wrapperFor(id).should('have.class', 'open')
       stampMenu(id, '__deferred')
 
+      changeOptions(id)
       backgroundFetch()
       // Untouched while open — that is the whole point.
       wrapperFor(id).should('have.class', 'open')

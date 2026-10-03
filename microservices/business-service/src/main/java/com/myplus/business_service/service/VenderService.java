@@ -27,6 +27,11 @@ public class VenderService implements IVenderService {
 	/** FP-5a — marks an idempotency record that holds a ledger reference rather than a voucher number. */
 	static final String LEDGER_REF = "ref:";
 
+	/** FP-5b — a tenant on FINANCE pays purchases AND expense bills in one Pay Supplier. */
+	@Autowired(required = false) private PayablesSourceService payablesSource;
+	@Autowired(required = false) private BillApplicationOutboxService billApplications;
+	@Autowired private org.springframework.beans.factory.ObjectProvider<com.myplus.commerce.contracts.client.ExpenseClient> expenseClient;
+
     @Autowired
     private VenderRepo venderRepo;
 
@@ -261,7 +266,8 @@ public class VenderService implements IVenderService {
 
 		// The vendor's still-owing purchase bills (oldest first) as generic OpenDocs for the shared allocator.
 		java.util.List<com.myplus.common.subledger.OpenDoc> docs = new java.util.ArrayList<>();
-		for (Purchase bill : purchaseRepo.findOpenPurchasesByVendor(venderId)) {
+		java.util.List<Purchase> openPurchases = purchaseRepo.findOpenPurchasesByVendor(venderId);
+		for (Purchase bill : openPurchases) {
 			docs.add(new com.myplus.common.subledger.OpenDoc() {
 				public java.math.BigDecimal outstanding() {
 					java.math.BigDecimal due = bill.getDueAmount() != null ? bill.getDueAmount() : java.math.BigDecimal.ZERO;
@@ -285,8 +291,47 @@ public class VenderService implements IVenderService {
 		// the vendor's running payable and returns the fresh value for the response.
 		// FP-5a — the ledger reference is built from the idempotency key, so a replayed request carries the SAME
 		// reference and finance answers it with the first payment (never a second disbursement).
-		String clientRef = "BUS-PAYV-" + org + "-" + ((idempotencyKey != null && !idempotencyKey.isBlank())
+		final String clientRef = "BUS-PAYV-" + org + "-" + ((idempotencyKey != null && !idempotencyKey.isBlank())
 				? idempotencyKey.trim() : java.util.UUID.randomUUID().toString());
+
+		// FP-5b — a tenant whose supplier figures come from finance pays the supplier's EXPENSE BILLS in the same
+		// payment: one queue, oldest first of any kind (ruling 3: a bill's due date, else its date). A bill's share is
+		// queued to expense-service in THIS transaction; the ledger records ONE payment with both kinds of allocation.
+		final java.math.BigDecimal[] toBills = { java.math.BigDecimal.ZERO };
+		if (payablesSource != null && billApplications != null && payablesSource.readsFromFinance(org)) {
+			java.util.List<com.myplus.commerce.contracts.dto.OpenBillView> openBills;
+			try {
+				openBills = expenseClient.getObject().openBills(venderId);
+			} catch (Exception unreachable) {
+				// Paying on without the bills would turn their share into an advance nobody asked for. Refuse instead.
+				throw new RuntimeException("This supplier's expense bills could not be read right now, so nothing was paid. Try again in a moment.");
+			}
+			java.util.List<Object[]> queue = new java.util.ArrayList<>();
+			for (int i = 0; i < docs.size(); i++) {
+				Purchase p = openPurchases.get(i);
+				queue.add(new Object[] { p.getDated() == null ? null : p.getDated().toLocalDate(), docs.get(i) });
+			}
+			for (com.myplus.commerce.contracts.dto.OpenBillView b : openBills == null ? java.util.List.<com.myplus.commerce.contracts.dto.OpenBillView>of() : openBills) {
+				if (b == null || b.getId() == null || b.getOpen() == null || b.getOpen().signum() <= 0) continue;
+				queue.add(new Object[] { b.getDueDate() != null ? b.getDueDate() : b.getVoucherDate(),
+						new com.myplus.common.subledger.OpenDoc() {
+							private java.math.BigDecimal left = b.getOpen();
+							public java.math.BigDecimal outstanding() { return left; }
+							public void apply(java.math.BigDecimal applied) {
+								left = left.subtract(applied);
+								billApplications.enqueue(b.getId(), applied, clientRef, method, paidOn);
+								toBills[0] = toBills[0].add(applied);
+							}
+							public String docType() { return "EXPENSE_BILL"; }
+							public Long docId() { return b.getId(); }
+							public String docNo() { return b.getVoucherNo(); }
+						} });
+			}
+			// stable sort: same-day documents keep their order (purchases first, as they were listed)
+			queue.sort(java.util.Comparator.comparing(q -> q[0] == null ? java.time.LocalDate.MIN : (java.time.LocalDate) q[0]));
+			docs.clear();
+			for (Object[] q : queue) docs.add((com.myplus.common.subledger.OpenDoc) q[1]);
+		}
 		com.myplus.common.subledger.SettleOutcome outcome = subledgerService.settle(
 				"DISBURSEMENT", "VENDOR", venderId, vendor.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputePayable(venderId);
@@ -303,6 +348,7 @@ public class VenderService implements IVenderService {
 		out.put("voucherNo", outcome.voucherNo());
 		out.put("ledgerRef", outcome.clientRef());          // FP-5a: the controller resolves the number after commit
 		out.put("allocated", outcome.allocated());
+		out.put("appliedToBills", toBills[0]);               // FP-5b: the part of this payment that settled expense bills
 		out.put("onAccountAdvance", outcome.onAccount());   // excess not applied to any open bill (advance to vendor)
 		out.put("newDue", outcome.newDue());
 		return out;

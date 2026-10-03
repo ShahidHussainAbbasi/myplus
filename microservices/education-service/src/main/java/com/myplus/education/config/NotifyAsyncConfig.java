@@ -1,7 +1,11 @@
 package com.myplus.education.config;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,10 +39,19 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * pool is deliberately small: delivery is I/O-bound on a shared SMTP sender that rate-limits anyway, so
  * more threads would buy nothing and risk the sender's reputation.
  *
- * <p>{@code CallerRunsPolicy} is the deliberate back-pressure choice. If the queue ever fills, the work is
- * done on the calling thread rather than discarded — slow beats silently dropping a school's closure
- * notice. The queue is sized so that is a genuinely exceptional event, and the {@code @Scheduled} relay
- * re-drives anything still PENDING regardless, so nothing is lost even then.
+ * <h3>When the queue is full: leave it to the relay, never run it here</h3>
+ *
+ * A rejected delivery is <b>not run</b> — {@link LeavePendingForRelay} logs it and returns. Nothing is lost:
+ * the outbox row was committed PENDING before the event was published, and {@code EduNotifyService.flushPending}
+ * re-drives PENDING rows every 30 s. This is load shedding over a durable outbox.
+ *
+ * <p>It used to be {@code CallerRunsPolicy}, on the reasoning "slow beats dropping a closure notice". But
+ * nothing was ever dropped — the row is the durable copy — and CallerRuns put SMTP back on the <b>request
+ * thread</b>, the exact thing D3 forbids, at the worst possible moment: the queue only fills when the mail
+ * server is slow or refusing. On 2026-10-03 Gmail was refusing the dev stack's logins, 500 deliveries sat
+ * queued, and every notice publish ran its recipients' SMTP attempts inline and came back InternalError past
+ * the gateway's 20 s limit — for notices that were saved correctly (EDU-NOTIFY-2).
+ */
  */
 @Configuration
 @EnableAsync
@@ -52,12 +65,27 @@ public class NotifyAsyncConfig {
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(500);
         executor.setThreadNamePrefix("edu-notify-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new LeavePendingForRelay());
         // Let in-flight deliveries finish on shutdown instead of being killed mid-send, which would leave a
         // row PENDING with no error recorded — the ambiguous state slice 105 exists to eliminate.
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(20);
         executor.initialize();
         return executor;
+    }
+
+    /**
+     * A full queue sheds the delivery instead of running it on the caller's thread. The notice is not lost —
+     * its outbox row is already PENDING and the scheduled relay picks it up (see the class comment).
+     */
+    public static final class LeavePendingForRelay implements RejectedExecutionHandler {
+
+        private static final Logger log = LoggerFactory.getLogger(LeavePendingForRelay.class);
+
+        @Override
+        public void rejectedExecution(Runnable task, ThreadPoolExecutor pool) {
+            log.warn("EDU-NOTIFY queue full ({} queued, {} active): delivery left PENDING for the scheduled relay",
+                    pool.getQueue().size(), pool.getActiveCount());
+        }
     }
 }

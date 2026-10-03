@@ -135,4 +135,12 @@ class ExpenseBillTest {
         assertThatThrownBy(() -> ExpenseBillService.method("AP")).isInstanceOf(ValidationException.class);
         assertThat(PaidFrom.of("ap").creditAccount()).isEqualTo("2000");
     }
+
+    @Test @DisplayName("FP-5b: one application key per (payment, bill) — stable, distinct, inside the 80-character column")
+    void applicationKey() {
+        String a = ExpenseBillService.applicationKey("BUS-PAYV-13-" + "x".repeat(90), 77L);
+        assertThat(a).isEqualTo(ExpenseBillService.applicationKey("BUS-PAYV-13-" + "x".repeat(90), 77L));
+        assertThat(a).isNotEqualTo(ExpenseBillService.applicationKey("BUS-PAYV-13-" + "x".repeat(90), 78L));
+        assertThat(a.length()).isLessThanOrEqualTo(80);
+    }
 }
