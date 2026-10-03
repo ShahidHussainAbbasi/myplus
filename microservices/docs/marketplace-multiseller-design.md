@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d and 1e built, unit-green, Cypress gates **48/48 on a live stack** and every manual case walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)) (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e and 1e2 built, unit-green (marketplace-service 315/315), Cypress gates **57/57 in one run on a live stack** and every manual case of the built slices walked and recorded (45/45) ([live verification](marketplace/live-verification-2026-10-03.md)) (§10)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
