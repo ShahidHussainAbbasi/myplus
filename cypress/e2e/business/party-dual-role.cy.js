@@ -634,15 +634,58 @@ describe('DR-3 / DR-4 — position and set-off', () => {
     })
   })
 
-  it.skip('DR5-1 — receiving from a customer who is also an open supplier mentions the other side, and applies nothing', () => {
-    seedPartner().then(({ c }) => {
+  // ── DR-5: the payment hint — mentions the other side, applies nothing ───────────────────────────────────
+  it('DR5-1 — the hint names what the partner is owed on the other side, and moves nothing', () => {
+    seedPartner().then(({ c, v, partyId }) => {
       cy.request(`/partyPaymentHint?customerId=${c.customerId || c.id}`).then((r) => {
-        const h = payload(r.body) || parse(r.body)
+        const h = payload(r.body)
         expect(Number(h.otherSideOpen), 'we owe them 50,000 as a supplier').to.eq(50000)
+        expect(Number(h.setOffLimit)).to.eq(30000)
+        expect(h.partyId).to.eq(partyId)
       })
-      cy.request(`/partyPosition?partyId=${c.partyId}`).then((p) => {
-        expect(Number((payload(p.body) || parse(p.body)).receivable), 'nothing applied by the hint').to.eq(30000)
+      cy.request(`/partyPaymentHint?venderId=${v.id}`).then((r) =>
+        expect(Number(payload(r.body).otherSideOpen), 'they owe us 30,000 as a customer').to.eq(30000))
+      position(partyId).then((p) => {
+        expect(Number(p.receivable), 'nothing applied by the hint').to.eq(30000)
+        expect(Number(p.payable)).to.eq(50000)
       })
+    })
+  })
+
+  it('DR5-2 — Receive Payment shows the note; "Set off instead…" opens the set-off, and the receipt is untouched', () => {
+    seedPartner().then(({ c }) => {
+      cy.openSection('CustomerDiv')
+      cy.get('#CustomerDiv input[type="search"]').first().clear().type(c.name)
+      cy.contains('#CustomerDiv tr', c.name).find('.rcv-pay-btn').click()
+      cy.get('#ReceivePaymentModal [data-dr-hint="CUSTOMER"]', { timeout: 10000 })
+        .should('be.visible').and('have.attr', 'data-amount', '50000').and('contain', 'we owe them')
+      cy.get('#rcvAmount').should('have.value', '30000')   // the dialog's own figures are not touched
+      cy.get('#ReceivePaymentModal [data-dr-hint-setoff]').click()
+      cy.get('#ReceivePaymentModal').should('not.be.visible')
+      cy.get('.c360-card [data-dr-setoff-open]', { timeout: 10000 }).should('be.visible')
+      cy.get('.c360-card .c360-x').click()
+    })
+  })
+
+  it('DR5-3 — Pay Vendor shows what the partner owes us', () => {
+    seedPartner().then(({ v }) => {
+      cy.openSection('VenderDiv')
+      cy.get('#VenderDiv input[type="search"]').first().clear().type(v.name)
+      cy.contains('#VenderDiv tr', v.name).find('.pay-vendor-btn').click()
+      cy.get('#PayVendorModal [data-dr-hint="VENDOR"]', { timeout: 10000 })
+        .should('be.visible').and('have.attr', 'data-amount', '30000').and('contain', 'owes us')
+      cy.get('#PayVendorModal .crud-x').click()
+    })
+  })
+
+  it('DR5-4 — no note for a one-role customer; a cashier is refused the hint', () => {
+    const s = uniq()
+    addCustomer({ name: 'DR NoHint C ' + s, contact: mobile(Number(s) + 61) }).then((c) => {
+      cy.request(`/partyPaymentHint?customerId=${c.customerId || c.id}`).then((r) =>
+        expect(Number(payload(r.body).otherSideOpen), 'nothing on the other side').to.eq(0))
+      cy.loginAsCashierA()
+      cy.request({ url: `/partyPaymentHint?customerId=${c.customerId || c.id}`, failOnStatusCode: false })
+        .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS'), 'cashier refused ' + r.status).to.eq(true))
     })
   })
 

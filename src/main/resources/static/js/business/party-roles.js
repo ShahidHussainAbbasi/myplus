@@ -396,6 +396,51 @@
         });
     }
 
+    // ── Payment hint (DR-5) — mentions the other side, applies nothing ────────────────────────────────────────────
+
+    /**
+     * Receive Payment / Pay Vendor just opened: if the partner also has an open balance on the OTHER side, say so at
+     * the top of the dialog and offer the set-off. Owner/admin only (the same rule as the 360 view) — for anyone else
+     * this does nothing. Never touches the amount, the method or anything the dialog submits.
+     *
+     * @param role    'CUSTOMER' (receiving) or 'VENDOR' (paying)
+     * @param modalId the dialog to write into
+     */
+    global.partyPaymentHint = function (role, id, modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+        $(modal).find('[data-dr-hint]').remove();   // a previous partner's note must never linger
+        if (!global.canViewContact360 || !id) return;
+        var params = role === 'VENDOR' ? { venderId: id } : { customerId: id };
+        $.get(serverContext + 'partyPaymentHint', params, function (r) {
+            var h = r && r.status === 'SUCCESS' && (r.object || r.data);
+            var open = h ? Number(h.otherSideOpen) || 0 : 0;
+            if (open <= 0 || !h.partyId) return;
+            $(modal).find('[data-dr-hint]').remove();
+            var note = el('div', 'dr-hint');
+            note.setAttribute('data-dr-hint', role);
+            note.setAttribute('data-amount', String(open));
+            note.setAttribute('role', 'note');
+            note.appendChild(document.createTextNode((role === 'VENDOR'
+                ? msg('ui.js.drHintAlsoCustomer', 'This partner is also our customer and owes us')
+                : msg('ui.js.drHintAlsoSupplier', 'This partner is also our supplier and we owe them'))
+                + ' ' + money(open) + '. '));
+            if (Number(h.setOffLimit) > 0) {
+                var go = el('button', 'btn btn-xs btn-warning', msg('ui.js.drHintSetOff', 'Set off instead…'));
+                go.type = 'button';
+                go.setAttribute('data-dr-hint-setoff', '1');
+                go.onclick = function () {
+                    if (typeof global.closeModal === 'function') global.closeModal(modalId);
+                    if (typeof global.openContact360 === 'function') global.openContact360(h.partyId);
+                };
+                note.appendChild(go);
+            }
+            note.appendChild(el('div', 'dr-note', msg('ui.js.drHintNote', 'Nothing is applied unless you record a set-off.')));
+            var body = modal.querySelector('.crud-body') || modal;
+            body.insertBefore(note, body.firstChild);
+        }, 'json');
+    };
+
     /** The hook party-contact.js calls under the roles of the 360 view. */
     global.contact360Extras = function (party, roles, body) {
         var biz = (roles || []).filter(function (r) {
@@ -430,7 +475,8 @@
                 + '.dr-line{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;padding:2px 0}'
                 + '.dr-form{display:flex;flex-direction:column;gap:6px;margin:8px 0;padding:10px;border:1px solid rgba(0,0,0,.12);border-radius:8px}'
                 + '.dr-field{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:600;margin:0}'
-                + '.dr-tick{font-size:12.5px;font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:0}';
+                + '.dr-tick{font-size:12.5px;font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:0}'
+                + '.dr-hint{background:#FFF7E6;border:1px solid #F5C26B;color:#7A4B00;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:13px}';
         var s = document.createElement('style');
         s.textContent = css;
         document.head.appendChild(s);

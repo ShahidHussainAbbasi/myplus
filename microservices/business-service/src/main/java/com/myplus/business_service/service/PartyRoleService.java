@@ -139,6 +139,39 @@ public class PartyRoleService {
         return v == null ? java.math.BigDecimal.ZERO : v;
     }
 
+    // ---- payment hint (DR-5) ------------------------------------------------------------------------------------------
+
+    /**
+     * About to receive from a customer, or pay a supplier: does its partner also have an open balance on the OTHER
+     * side? Read-only — the dialog only mentions it and links to the set-off; nothing is applied here. A record with no
+     * partner, or a partner with one role, answers zero (the dialog then says nothing).
+     *
+     * @param role CUSTOMER (receiving) or VENDOR (paying)
+     */
+    public java.util.Map<String, Object> paymentHint(String role, Long id) {
+        boolean receiving = "CUSTOMER".equalsIgnoreCase(role == null ? "" : role.trim());
+        if (!receiving && !"VENDOR".equalsIgnoreCase(role == null ? "" : role.trim())) throw new Refusal("Unknown role: " + role);
+        if (id == null) throw new Refusal("Choose a customer or a supplier.");
+        Long partyId = receiving
+                ? customerRepo.findByIdScoped(id, org(), user()).orElseThrow(() -> new Refusal("Customer not found.")).getPartyId()
+                : venderRepo.findByIdScoped(id, org(), user()).orElseThrow(() -> new Refusal("Supplier not found.")).getPartyId();
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("partyId", partyId);
+        out.put("otherSide", receiving ? "VENDOR" : "CUSTOMER");
+        java.math.BigDecimal other = java.math.BigDecimal.ZERO, limit = java.math.BigDecimal.ZERO;
+        if (partyId != null) {
+            PartyPositionDTO p = position(partyId);
+            boolean hasOther = receiving ? !p.getSuppliers().isEmpty() : !p.getCustomers().isEmpty();
+            if (hasOther) {
+                other = receiving ? p.getPayable() : p.getReceivable();
+                limit = p.getSetOffLimit();
+            }
+        }
+        out.put("otherSideOpen", other);   // receiving: what WE owe them; paying: what THEY owe us
+        out.put("setOffLimit", limit);
+        return out;
+    }
+
     // ---- link -------------------------------------------------------------------------------------------------------
 
     /**

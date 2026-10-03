@@ -342,3 +342,14 @@ balance; a set-off never touches an installment row.
 | readers (F5, final) | statements and party totals: include, net back via mirrors; shift X/Z: unaffected; cash/bank: unaffected (1900); finance `payable_doc`: fed by the Purchase entity listener, so a set-off's bill changes reach it. |
 | monolith | forwarders; Set off… form + set-off list with Reverse in the 360 view; 19 `ui.js.dr*` keys × 6. |
 | tests | business `PartySetOffServiceTest` (8), `PartyRoleServiceTest` (+1); finance `SetOffPostingTest` (3), `SetOffServiceTest` (4); Cypress DR4-1..7. |
+
+### DR-5 — built 2026-10-03 (awaiting build + gate)
+
+- `GET /partyPaymentHint?customerId=|venderId=` (business-service + monolith forwarder, owner/admin): the record's
+  partner, and its open balance on the OTHER side (receiving → what we owe them; paying → what they owe us) plus the
+  set-off limit. Reuses the DR-3 position; a record with no partner or one role answers 0. Read-only.
+- Receive Payment and Pay Vendor ask for it on open — owner/admin only (the 360 rule: a cashier never learns the
+  other side's balance). When open > 0, a note sits at the top of the dialog with **Set off instead…** (closes the
+  dialog, opens the 360 view). It never changes the amount, method or anything the dialog submits; a previous
+  partner's note is removed on every open.
+- Tests: `PartyRoleServiceTest` +2; Cypress DR5-1..4.

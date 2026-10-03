@@ -46,6 +46,21 @@ public class PartyRoleController {
         }
     }
 
+    /** DR-5 — {@code ?customerId=} (receiving) or {@code ?venderId=} (paying): the partner's open balance on the other side. */
+    @PreAuthorize(OWNER_OR_ADMIN)
+    @GetMapping("/partyPaymentHint")
+    public GenericResponse paymentHint(@RequestParam(required = false) Long customerId, @RequestParam(required = false) Long venderId) {
+        try {
+            var h = customerId != null ? service.paymentHint("CUSTOMER", customerId) : service.paymentHint("VENDOR", venderId);
+            return new GenericResponse("SUCCESS", "Payment hint", h);
+        } catch (PartyRoleService.Refusal r) {
+            return new GenericResponse("FAILED", r.getMessage());
+        } catch (Exception e) {
+            LOG.error("partyPaymentHint failed", e);
+            return new GenericResponse("ERROR", "Could not check the other side.");
+        }
+    }
+
     // ---- DR-4 set-off ----------------------------------------------------------------------------------------------
 
     /** Body: {@code {customerId, venderId, amount, reason, reference, sameBusiness, idempotencyKey}}. */

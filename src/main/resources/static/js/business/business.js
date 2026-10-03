@@ -5094,6 +5094,8 @@ function openReceivePayment(customerId, name, due) {
 	$("#rcvDate").val(new Date().toISOString().slice(0, 10));
 	window.rcvIdemKey = newIdemKey();   // Audit #5
 	openModal('ReceivePaymentModal');
+	// DR-5: if this customer's partner is also a supplier we owe, say so (owner/admin only; applies nothing).
+	if (typeof partyPaymentHint === 'function') partyPaymentHint('CUSTOMER', customerId, 'ReceivePaymentModal');
 }
 
 function submitReceivePayment() {
@@ -5146,6 +5148,8 @@ function openPayVendor(venderId, name, due) {
 	$("#pvDate").val(new Date().toISOString().slice(0, 10));
 	window.pvIdemKey = newIdemKey();   // Audit #5
 	openModal('PayVendorModal');
+	// DR-5: if this supplier's partner also owes us as a customer, say so (owner/admin only; applies nothing).
+	if (typeof partyPaymentHint === 'function') partyPaymentHint('VENDOR', venderId, 'PayVendorModal');
 }
 
 function submitPayVendor() {

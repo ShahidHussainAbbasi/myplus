@@ -81,6 +81,25 @@ public class PartyController {
         }
     }
 
+    /** DR-5 — the partner's open balance on the other side, for the Receive Payment / Pay Vendor dialogs. Owner/admin. */
+    @GetMapping(value = "/partyPaymentHint", produces = "application/json")
+    @ResponseBody
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public java.util.Map<String, Object> partyPaymentHint(final HttpServletRequest request) {
+        try {
+            // Only numbers go onward, and only one of the two.
+            String c = request.getParameter("customerId"), v = request.getParameter("venderId");
+            String q = (c != null && !c.isBlank()) ? "customerId=" + Long.valueOf(c.trim())
+                     : (v != null && !v.isBlank()) ? "venderId=" + Long.valueOf(v.trim()) : null;
+            if (q == null) return java.util.Map.of("status", "FAILED", "message", "Choose a customer or a supplier.");
+            return business.get("/partyPaymentHint", q);
+        } catch (NumberFormatException bad) {
+            return java.util.Map.of("status", "FAILED", "message", "Choose a customer or a supplier.");
+        } catch (Exception e) {
+            return com.web.util.ProxyErrors.statusError(e);
+        }
+    }
+
     /** DR-4 — record a set-off (both legs, atomic, idempotent). Owner/admin, both sides. */
     @org.springframework.web.bind.annotation.PostMapping(value = "/partySetOff", produces = "application/json")
     @ResponseBody

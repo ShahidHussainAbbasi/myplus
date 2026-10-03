@@ -156,6 +156,41 @@ class PartyRoleServiceTest {
     }
 
     @Test
+    @DisplayName("hint: receiving from a customer whose partner we owe as a supplier names what we owe; applies nothing")
+    void payment_hint_names_the_other_side() {
+        Customer c = customer(1, 100L); c.setDueAmount(new java.math.BigDecimal("30000"));
+        Vender v = vender(2, 100L); v.setDueAmount(new java.math.BigDecimal("50000"));
+        when(customers.findByIdScoped(eq(1L), any(), any())).thenReturn(Optional.of(c));
+        when(venders.findByIdScoped(eq(2L), any(), any())).thenReturn(Optional.of(v));
+        when(customers.findByPartyIdsScoped(eq(List.of(100L)), any(), any())).thenReturn(List.of(c));
+        when(venders.findByPartyIdScoped(eq(100L), any(), any())).thenReturn(List.of(v));
+        when(setOffs.settleableReceivable(1L)).thenReturn(new java.math.BigDecimal("30000"));
+        when(setOffs.settleablePayable(2L)).thenReturn(new java.math.BigDecimal("50000"));
+
+        var receiving = service.paymentHint("CUSTOMER", 1L);
+        assertThat((java.math.BigDecimal) receiving.get("otherSideOpen")).isEqualByComparingTo("50000");
+        assertThat((java.math.BigDecimal) receiving.get("setOffLimit")).isEqualByComparingTo("30000");
+        var paying = service.paymentHint("VENDOR", 2L);
+        assertThat((java.math.BigDecimal) paying.get("otherSideOpen")).isEqualByComparingTo("30000");
+        verify(venders, never()).updateDueAmount(anyLong(), any());
+        verify(customers, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("hint: a customer with no supplier role (or no partner yet) says nothing — zero, never an error")
+    void payment_hint_is_zero_for_one_role() {
+        Customer c = customer(1, 100L); c.setDueAmount(new java.math.BigDecimal("30000"));
+        when(customers.findByIdScoped(eq(1L), any(), any())).thenReturn(Optional.of(c));
+        when(customers.findByPartyIdsScoped(eq(List.of(100L)), any(), any())).thenReturn(List.of(c));
+        when(venders.findByPartyIdScoped(eq(100L), any(), any())).thenReturn(List.of());
+        assertThat((java.math.BigDecimal) service.paymentHint("CUSTOMER", 1L).get("otherSideOpen")).isEqualByComparingTo("0");
+
+        Customer noParty = customer(5, null);
+        when(customers.findByIdScoped(eq(5L), any(), any())).thenReturn(Optional.of(noParty));
+        assertThat((java.math.BigDecimal) service.paymentHint("CUSTOMER", 5L).get("otherSideOpen")).isEqualByComparingTo("0");
+    }
+
+    @Test
     @DisplayName("position: a partner with no record in this tenant is refused, never an empty position (anti-IDOR)")
     void position_of_a_foreign_partner_is_refused() {
         when(customers.findByPartyIdsScoped(any(), any(), any())).thenReturn(List.of());
