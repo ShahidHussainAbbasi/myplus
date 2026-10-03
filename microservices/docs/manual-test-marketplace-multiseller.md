@@ -272,32 +272,38 @@
 ### M-1d-01 One product, two sellers, from the lowest price
 
 **Persona:** Customer (incognito window)  
-**Pre:** Seller A Rs 52,000 (today, 12 months, 4.7). Seller B Rs 51,500 (tomorrow, 6 months, 4.1). Both Karachi.  
-**Covers:** MKT-R5.4, MKT-R7.2
+**Pre:** Seller A: Samsung Galaxy A32 128GB Black at Rs 52,000, delivery 4 hours, 12-month warranty (Samsung Pakistan), 7-day returns. Seller B: the SAME product at Rs 51,500, 24 hours, 6-month warranty. Both Live, both deliver to Karachi only (M-1c-01…04 done for each).  
+**Covers:** MKT-R5.4, MKT-R7.2, MKT-R18.2
 
-1. Go to /marketplace. Search 'Galaxy A32'.
+1. Open /marketplace. City: Karachi. Search 'Galaxy A32'.
+2. Open the card.
+3. Press the browser's Back button.
 
-**Expect:** One card: 'Samsung Galaxy A32 128GB Black · Available from 2 sellers · From Rs. 51,500'.
+**Expect:** One card: 'Samsung Galaxy A32 128GB Black · From Rs. 51,500 · Available from 2 sellers · Delivery in 4 hours'. The product page lists 2 sellers, each with price, delivery promise, warranty months and provider, return days, 'No ratings yet' and 'Stock checked … ago'. Back returns to the same results.
 
 ### M-1d-02 The customer chooses the order
 
 **Persona:** Customer (incognito window)  
 **Pre:** As M-1d-01.  
-**Covers:** MKT-R7.1, MKT-R18.4, MKT-R7.3
+**Covers:** MKT-R7.1, MKT-R18.4
 
-1. Open the product. Sort: Lowest price. Then Fastest. Then Best warranty. Then Nearest.
+1. On the product page: Sort sellers by Lowest price. Then Fastest delivery. Then Longest warranty.
+2. With Lowest price chosen, reload the page.
+3. Copy the address into another browser.
 
-**Expect:** Lowest price: Seller B first. Fastest, Best warranty, Nearest: Seller A first. The sort shown on screen is the one chosen.
+**Expect:** Lowest price: Seller B first. Fastest delivery and Longest warranty: Seller A first. After reload and in the other browser the sort is still Lowest price with Seller B first (the choice lives in the address). Nearest, rating and promotion are not offered yet: there is no data behind them.
 
 ### M-1d-03 ⚠ Nothing is chosen for the customer
 
 **Persona:** Customer (incognito window)  
-**Pre:** As M-1d-01.  
+**Pre:** As M-1d-01, sorted by Lowest price.  
 **Covers:** MKT-R7.3, MKT-R7.1
 
-1. Open the product without picking an offer. Then pick Seller A.
+1. Look at the button at the bottom before choosing.
+2. Using only the keyboard (Tab to the list, arrow keys or Space), choose Seller A, the dearer one.
+3. Press the button.
 
-**Expect:** Buy is disabled until an offer is chosen. Then it reads 'Buy from Seller A'.
+**Expect:** Before choosing: no seller is selected and the button reads 'Choose a seller first' and is disabled. After choosing Seller A: the row is highlighted and the button reads 'Buy from <Seller A's name>'. Pressing it says 'Ordering opens soon. You chose <Seller A> at Rs. 52,000.' (checkout is MKT-1e).
 
 ### M-1d-04 A city with no seller says so
 
@@ -305,19 +311,59 @@
 **Pre:** Both offers serve Karachi only.  
 **Covers:** MKT-R7.6, MKT-R20.1
 
-1. Change city to Lahore.
+1. On the product page change the city to Lahore.
+2. Go back to the search, keep Lahore, search 'Galaxy A32'.
 
-**Expect:** 'No seller delivers this product to Lahore yet.' No offers, no error.
+**Expect:** Product page: 'No seller delivers this product to Lahore yet.', no rows, the button stays disabled. Search: no card for the phone, and 'No products match in Lahore. Try fewer words or another city.' No error.
 
-### M-1d-05 Stale stock is not shown as available
+### M-1d-05 Stale or paused offers leave the card and the table together
+
+**Persona:** Customer (incognito window) + owner.mobile@ (Seller B)  
+**Pre:** As M-1d-01.  
+**Covers:** MKT-R7.6, MKT-R18.2, MKT-R18.5, MKT-R5.4
+
+1. Seller B: Marketplace → My offers → Pause.
+2. Customer: search again and open the product.
+3. Seller B: Resume. If the test tools can age Seller B's stock check beyond 30 minutes, do that and repeat step 2.
+
+**Expect:** With Seller B paused (or its stock unconfirmed for 30 minutes) the card reads 'From Rs. 52,000 · Available from 1 seller' and the product page lists only Seller A. The card's number always equals the rows on the page. After Resume both are back.
+
+### M-1d-06 The operator chooses the order customers see first
+
+**Persona:** admin@myplus.com (operator), then Customer (incognito window)  
+**Pre:** As M-1d-01.  
+**Covers:** MKT-R7.4, MKT-R18.4
+
+1. Operator console → Marketplace policies → 'Order customers see first' → Lowest price → Save.
+2. Customer: open the product without choosing a sort.
+3. Operator: set it back to Recommended.
+
+**Expect:** Saved. The customer's page opens with 'Lowest price' selected and Seller B first. The customer can still change it. A business owner (not the operator) cannot read or change this setting.
+
+### M-1d-07 Works in every language, on a phone, by keyboard
+
+**Persona:** Customer (incognito window) on a phone (or a 375 px wide window)  
+**Pre:** As M-1d-01.  
+**Covers:** MKT-R7.2
+
+1. Open /marketplace?lang=ur and search, then open the product.
+2. Switch to English with the language link at the top.
+3. Tab through the whole page without a mouse.
+
+**Expect:** Urdu and Arabic read right to left with prices and sellers mirrored; switching language keeps the page you are on. Nothing scrolls sideways. Every control has a visible label and a visible focus ring; buttons are at least finger-sized.
+
+### M-1d-08 ⚠ Search text is just text
 
 **Persona:** Customer (incognito window)  
-**Pre:** Seller B's stock last synced more than 30 minutes ago (operator can force this from the test tools).  
-**Covers:** MKT-R18.2, MKT-R18.5
+**Pre:** As M-1d-01.  
+**Covers:** MKT-R7.6
 
-1. Open the product.
+1. Search for: %
+2. Search for: _
+3. Search for: ' OR 1=1 --
+4. Open /marketplace?product=999999999
 
-**Expect:** Only Seller A is listed. The product card reads 'Available from 1 seller · From Rs. 52,000'.
+**Expect:** Each search answers normally ('No products match…'); none lists every product. The unknown product reads 'No such product.' with no error page.
 
 
 ## MKT-1e

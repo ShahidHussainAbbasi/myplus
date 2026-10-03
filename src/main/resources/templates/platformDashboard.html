@@ -163,6 +163,19 @@
             </button>
             <h3 th:text="#{ui.mktPoliciesTitle}">Marketplace policies</h3>
             <p class="plat__hint" th:text="#{ui.mktPoliciesHint}">Policies are never edited. To change terms, create a new policy and deactivate the old one, so nothing already sold changes.</p>
+            <!-- MKT-1d: the order customers see before they choose one (source §7.4 "ranking defaults") -->
+            <div class="plat__form" id="mktDefaultSortForm">
+                <label for="mktDefaultSort" th:text="#{ui.mktDefaultSort}">Order customers see first</label>
+                <select id="mktDefaultSort" class="form-control">
+                    <option value="RECOMMENDED" th:text="#{ui.mktSortRecommended}">Recommended</option>
+                    <option value="LOWEST_PRICE" th:text="#{ui.mktSortLowestPrice}">Lowest price</option>
+                    <option value="FASTEST" th:text="#{ui.mktSortFastest}">Fastest delivery</option>
+                    <option value="WARRANTY" th:text="#{ui.mktSortWarranty}">Longest warranty</option>
+                    <option value="RETURN_POLICY" th:text="#{ui.mktSortReturns}">Longest returns</option>
+                </select>
+                <button type="button" class="btn btn-default" id="mktDefaultSortSave" th:text="#{ui.mktOfferSave}">Save</button>
+                <span id="mktDefaultSortMsg" class="plat__hint" role="status"></span>
+            </div>
             <div class="plat__form" id="mktPolicyForm">
                 <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>
                 <select id="mktPolType" class="form-control">

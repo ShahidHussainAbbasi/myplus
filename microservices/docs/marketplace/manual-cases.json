@@ -384,14 +384,17 @@
    "slice": "MKT-1d",
    "title": "One product, two sellers, from the lowest price",
    "persona": "Customer (incognito window)",
-   "pre": "Seller A Rs 52,000 (today, 12 months, 4.7). Seller B Rs 51,500 (tomorrow, 6 months, 4.1). Both Karachi.",
+   "pre": "Seller A: Samsung Galaxy A32 128GB Black at Rs 52,000, delivery 4 hours, 12-month warranty (Samsung Pakistan), 7-day returns. Seller B: the SAME product at Rs 51,500, 24 hours, 6-month warranty. Both Live, both deliver to Karachi only (M-1c-01…04 done for each).",
    "steps": [
-    "Go to /marketplace. Search 'Galaxy A32'."
+    "Open /marketplace. City: Karachi. Search 'Galaxy A32'.",
+    "Open the card.",
+    "Press the browser's Back button."
    ],
-   "expect": "One card: 'Samsung Galaxy A32 128GB Black · Available from 2 sellers · From Rs. 51,500'.",
+   "expect": "One card: 'Samsung Galaxy A32 128GB Black · From Rs. 51,500 · Available from 2 sellers · Delivery in 4 hours'. The product page lists 2 sellers, each with price, delivery promise, warranty months and provider, return days, 'No ratings yet' and 'Stock checked … ago'. Back returns to the same results.",
    "reqs": [
     "MKT-R5.4",
-    "MKT-R7.2"
+    "MKT-R7.2",
+    "MKT-R18.2"
    ],
    "warn": false
   },
@@ -402,13 +405,14 @@
    "persona": "Customer (incognito window)",
    "pre": "As M-1d-01.",
    "steps": [
-    "Open the product. Sort: Lowest price. Then Fastest. Then Best warranty. Then Nearest."
+    "On the product page: Sort sellers by Lowest price. Then Fastest delivery. Then Longest warranty.",
+    "With Lowest price chosen, reload the page.",
+    "Copy the address into another browser."
    ],
-   "expect": "Lowest price: Seller B first. Fastest, Best warranty, Nearest: Seller A first. The sort shown on screen is the one chosen.",
+   "expect": "Lowest price: Seller B first. Fastest delivery and Longest warranty: Seller A first. After reload and in the other browser the sort is still Lowest price with Seller B first (the choice lives in the address). Nearest, rating and promotion are not offered yet: there is no data behind them.",
    "reqs": [
     "MKT-R7.1",
-    "MKT-R18.4",
-    "MKT-R7.3"
+    "MKT-R18.4"
    ],
    "warn": false
   },
@@ -417,11 +421,13 @@
    "slice": "MKT-1d",
    "title": "Nothing is chosen for the customer",
    "persona": "Customer (incognito window)",
-   "pre": "As M-1d-01.",
+   "pre": "As M-1d-01, sorted by Lowest price.",
    "steps": [
-    "Open the product without picking an offer. Then pick Seller A."
+    "Look at the button at the bottom before choosing.",
+    "Using only the keyboard (Tab to the list, arrow keys or Space), choose Seller A, the dearer one.",
+    "Press the button."
    ],
-   "expect": "Buy is disabled until an offer is chosen. Then it reads 'Buy from Seller A'.",
+   "expect": "Before choosing: no seller is selected and the button reads 'Choose a seller first' and is disabled. After choosing Seller A: the row is highlighted and the button reads 'Buy from <Seller A's name>'. Pressing it says 'Ordering opens soon. You chose <Seller A> at Rs. 52,000.' (checkout is MKT-1e).",
    "reqs": [
     "MKT-R7.3",
     "MKT-R7.1"
@@ -435,9 +441,10 @@
    "persona": "Customer (incognito window)",
    "pre": "Both offers serve Karachi only.",
    "steps": [
-    "Change city to Lahore."
+    "On the product page change the city to Lahore.",
+    "Go back to the search, keep Lahore, search 'Galaxy A32'."
    ],
-   "expect": "'No seller delivers this product to Lahore yet.' No offers, no error.",
+   "expect": "Product page: 'No seller delivers this product to Lahore yet.', no rows, the button stays disabled. Search: no card for the phone, and 'No products match in Lahore. Try fewer words or another city.' No error.",
    "reqs": [
     "MKT-R7.6",
     "MKT-R20.1"
@@ -447,18 +454,75 @@
   {
    "id": "M-1d-05",
    "slice": "MKT-1d",
-   "title": "Stale stock is not shown as available",
-   "persona": "Customer (incognito window)",
-   "pre": "Seller B's stock last synced more than 30 minutes ago (operator can force this from the test tools).",
+   "title": "Stale or paused offers leave the card and the table together",
+   "persona": "Customer (incognito window) + owner.mobile@ (Seller B)",
+   "pre": "As M-1d-01.",
    "steps": [
-    "Open the product."
+    "Seller B: Marketplace → My offers → Pause.",
+    "Customer: search again and open the product.",
+    "Seller B: Resume. If the test tools can age Seller B's stock check beyond 30 minutes, do that and repeat step 2."
    ],
-   "expect": "Only Seller A is listed. The product card reads 'Available from 1 seller · From Rs. 52,000'.",
+   "expect": "With Seller B paused (or its stock unconfirmed for 30 minutes) the card reads 'From Rs. 52,000 · Available from 1 seller' and the product page lists only Seller A. The card's number always equals the rows on the page. After Resume both are back.",
    "reqs": [
+    "MKT-R7.6",
     "MKT-R18.2",
-    "MKT-R18.5"
+    "MKT-R18.5",
+    "MKT-R5.4"
    ],
    "warn": false
+  },
+  {
+   "id": "M-1d-06",
+   "slice": "MKT-1d",
+   "title": "The operator chooses the order customers see first",
+   "persona": "admin@myplus.com (operator), then Customer (incognito window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Operator console → Marketplace policies → 'Order customers see first' → Lowest price → Save.",
+    "Customer: open the product without choosing a sort.",
+    "Operator: set it back to Recommended."
+   ],
+   "expect": "Saved. The customer's page opens with 'Lowest price' selected and Seller B first. The customer can still change it. A business owner (not the operator) cannot read or change this setting.",
+   "reqs": [
+    "MKT-R7.4",
+    "MKT-R18.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-07",
+   "slice": "MKT-1d",
+   "title": "Works in every language, on a phone, by keyboard",
+   "persona": "Customer (incognito window) on a phone (or a 375 px wide window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Open /marketplace?lang=ur and search, then open the product.",
+    "Switch to English with the language link at the top.",
+    "Tab through the whole page without a mouse."
+   ],
+   "expect": "Urdu and Arabic read right to left with prices and sellers mirrored; switching language keeps the page you are on. Nothing scrolls sideways. Every control has a visible label and a visible focus ring; buttons are at least finger-sized.",
+   "reqs": [
+    "MKT-R7.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-08",
+   "slice": "MKT-1d",
+   "title": "Search text is just text",
+   "persona": "Customer (incognito window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Search for: %",
+    "Search for: _",
+    "Search for: ' OR 1=1 --",
+    "Open /marketplace?product=999999999"
+   ],
+   "expect": "Each search answers normally ('No products match…'); none lists every product. The unknown product reads 'No such product.' with no error page.",
+   "reqs": [
+    "MKT-R7.6"
+   ],
+   "warn": true
   },
   {
    "id": "M-1e-01",

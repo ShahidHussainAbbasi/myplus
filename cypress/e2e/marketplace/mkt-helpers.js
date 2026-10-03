@@ -39,7 +39,8 @@ const OUTSIDER = 'owner.pharma@myplus.com'
 /** Monolith flat routes (ARCHITECTURE-MULTITENANCY §1) — each proxies /api/marketplace/mkt/** and relays the message. */
 const API = {
   // public (anonymous)
-  publicProducts: '/marketplace/public/products',            // ?q=&city=&page=
+  publicProducts: '/marketplace/public/products',            // MKT-1d: ?q=&city=&page=&size≤24 → cards
+  publicProduct: (id) => `/marketplace/public/products/${id}`, // MKT-1d: product + defaultSort + sorts
   publicOffers: (id) => `/marketplace/public/products/${id}/offers`, // ?sort=&city=&qty=
   // seller (MKT_SELL + capability marketplaceSelling + operator entitlement)
   sellerStatus: '/mkt/seller',                                // MKT-0a: capability, agreements, account, canSell
@@ -65,6 +66,7 @@ const API = {
   createPolicy: '/platform/mkt/createPolicy',                // MKT-1c: {policyType, name, …} — never edited
   deactivatePolicy: '/platform/mkt/deactivatePolicy',        // MKT-1c: {id}
   productLimits: '/platform/mkt/productLimits',              // MKT-1c: {id, priceFloor, priceCeiling}
+  defaultSort: '/platform/mkt/defaultSort',                  // MKT-1d: GET → {sort}; POST {sort}
   sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…
   decideSeller: '/platform/mkt/decideSeller',                 // MKT-0a: {organizationId, decision, reason, version}
   requestPayout: '/platform/mkt/requestPayout',
@@ -84,13 +86,15 @@ const API = {
 const UI = {
   publicPage: '/marketplace',
   search: '#mktSearch',
+  city: '#mktCity',
   productCard: '.mkt-product-card',
   offerCount: '.mkt-offer-count',      // "Available from 2 sellers"
   fromPrice: '.mkt-from-price',        // "From Rs. 51,500"
   sort: '#mktOfferSort',
   offerRow: '.mkt-offer-row',          // carries data-offer-id, data-seller
-  chooseOffer: '.mkt-choose-offer',
+  chooseOffer: '.mkt-choose-offer',   // a real radio button per row
   buyButton: '#mktBuyBtn',             // names the chosen seller
+  buyNote: '#mktBuyNote',              // MKT-1d: what was chosen (checkout is MKT-1e)
   checkoutStatus: '#mktCheckoutStatus',
   sellerSection: '#MarketplaceDiv',    // MKT-0a: Sale → Marketplace (#navMarketplaceSeller) on /businessDashboard
   sellerNav: '#navMarketplaceSeller',

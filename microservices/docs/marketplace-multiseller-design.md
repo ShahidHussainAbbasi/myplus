@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b and 1c unit-green with gates written and not yet run (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c and 1d unit-green with gates written and not yet run (§10)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
@@ -512,7 +512,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [x] MKT-1a pure domain core · `mvn test` green
 - [~] MKT-1b canonical product + match review · unit-green, **gate written, not yet run** ([slice](slices/mkt-1b-product-matching.md))
 - [~] MKT-1c offers + policies + approval + projection · unit-green, **gate written, not yet run** ([slice](slices/mkt-1c-offers.md))
-- [ ] MKT-1d public catalogue + compare + sort · gate
+- [~] MKT-1d public catalogue + compare + sort · unit-green, page driven against a stub, **gate written, not yet run** ([slice](slices/mkt-1d-public-catalogue.md))
 - [ ] MKT-1e one-seller checkout + acceptance + snapshots · gate
 - [ ] MKT-1f support + returns cost attribution · gate
 - [ ] MKT-1g commission + settlement ledger + payouts · gate

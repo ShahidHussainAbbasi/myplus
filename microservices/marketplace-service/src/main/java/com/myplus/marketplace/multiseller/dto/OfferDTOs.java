@@ -51,10 +51,27 @@ public final class OfferDTOs {
     /**
      * One offer as a CUSTOMER sees it (source §7 "offer display"): §9.2 fields only. No cost, no margin, no
      * stock history, no organisation internals beyond the seller's own display name and id.
+     * {@code checkedSecondsAgo} (MKT-1d) is computed on the server, from the same clock that wrote
+     * {@code lastSyncAt}: the zone-less timestamp compared with a shopper's clock would be off by their time zone.
      */
     public record PublicOffer(Long offerId, Long mktProductId, Long sellerOrganizationId, String sellerName,
             BigDecimal price, BigDecimal availableQty, Integer promiseHours, BigDecimal rating,
             Integer warrantyMonths, String warrantyProvider, String warrantyStartsOn, String warrantyCovers,
-            String warrantyExcludes, Integer returnDays, List<String> deliveryAreas, LocalDateTime lastSyncAt) {
+            String warrantyExcludes, Integer returnDays, List<String> deliveryAreas, LocalDateTime lastSyncAt,
+            Long checkedSecondsAgo) {
+    }
+
+    /** MKT-1d — one search result: the numbers come from the same eligibility as the offer table. */
+    public record ProductCard(Long id, String name, String brand, String category, int offerCount,
+            BigDecimal fromPrice, Integer fastestPromiseHours) {
+    }
+
+    /** MKT-1d — a product page header, with the sort the page opens with and the sorts it may offer. */
+    public record PublicProduct(Long id, String name, String brand, String model, String variant, String colour,
+            String size, String packSize, String condition, String category, String defaultSort, List<String> sorts) {
+    }
+
+    /** MKT-1d — GET/POST /mkt/operator/settings/default-sort. */
+    public record DefaultSort(String sort) {
     }
 }

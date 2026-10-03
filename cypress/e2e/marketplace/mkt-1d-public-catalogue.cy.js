@@ -1,106 +1,195 @@
 /**
  * MKT-1d — public catalogue: one product, N offers, customer-controlled sort, guardrails.
  * Source §5.4, §7.1–7.3, §7.6, §18.2, §18.4. Run headed: --env mkt=1d
+ * Contract: microservices/docs/slices/mkt-1d-public-catalogue.md
  *
  * Fixture: the SAME canonical phone offered by two sellers, mirroring the source's own example —
- *   SELLER_A  Rs 52,000 · today    · 12 months   (the "Shahzad Mobile Shop" offer)
- *   SELLER_B  Rs 51,500 · tomorrow ·  6 months   (the "Mobile Distributor" offer)
+ *   SELLER_A  Rs 52,000 ·  4 h · 12-month warranty
+ *   SELLER_B  Rs 51,500 · 24 h ·  6-month warranty
+ * Both deliver to Karachi only.
  */
-const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, makeSeller, seedProduct,
-  a32 } = require('./mkt-helpers')
+const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, msg, post, get, expectRefused, makeSeller,
+  seedProduct, a32 } = require('./mkt-helpers')
 
 gate('1d')('MKT-1d — public catalogue and offer comparison', () => {
   const run = uniq()
-  const model = `Galaxy A32 T${run}`
-  let mktProductId
+  const model = a32(run).model
   const offers = {}
+  const names = {}
+  let mktProductId, w12, w6, ret7
 
-  const publishOffer = (email, price, promiseHours, warrantyMonths) => {
+  /** Seller proposes the phone, operator matches it to the ONE canonical product, seller offers it, operator approves. */
+  const publishOffer = (email, price, promiseHours, warrantyPolicyId) => {
     makeSeller(email)
     return seedProduct({ name: `${model} ${email}` }).then((pid) =>
       post(API.proposeProduct, { sourceProductId: pid, ...a32(run) }).then((r) => {
+        expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
         const prop = data(r.body)
         cy.loginAsOperator()
-        return post(API.decideMatch, { id: prop.id, decision: 'MATCHED', mktProductId }).then((d) => {
-          mktProductId = mktProductId || data(d.body).mktProductId
-          cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
-          return post(API.saveOffer, { mktProductId, sourceProductId: pid, marketplacePrice: price,
-            deliveryArea: 'Karachi', promiseHours, warrantyMonths, returnDays: 7 })
-        })
+        return post(API.decideMatch, { id: prop.id, decision: 'MATCHED', mktProductId, version: prop.version })
+      }).then((d) => {
+        expect(ok(d.body), JSON.stringify(d.body)).to.eq(true)
+        mktProductId = mktProductId || data(d.body).mktProductId
+        cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
+        return post(API.saveOffer, { mktProductId, marketplacePrice: price, deliveryAreas: 'Karachi', promiseHours,
+          warrantyPolicyId, returnPolicyId: ret7 })
       }).then((r) => {
+        expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
         const id = data(r.body).id
-        post(API.submitOffer, { id })
+        post(API.submitOffer, { id }).then((s) => expect(ok(s.body), JSON.stringify(s.body)).to.eq(true))
         cy.loginAsOperator()
-        return post(API.decideOffer, { id, decision: 'APPROVED' }).then(() => { offers[email] = id })
+        return post(API.decideOffer, { id, decision: 'APPROVE' }).then((a) => {
+          expect(ok(a.body), JSON.stringify(a.body)).to.eq(true)
+          offers[email] = id
+        })
       }))
   }
 
   before(() => {
-    publishOffer(SELLER_A, 52000, 4, 12)
-    publishOffer(SELLER_B, 51500, 24, 6)
+    cy.loginAsOperator()
+    post(API.createPolicy, { policyType: 'WARRANTY', name: `12 months ${run}`, warrantyProvider: 'Samsung Pakistan', warrantyMonths: 12 })
+      .then((r) => { w12 = data(r.body).id })
+    post(API.createPolicy, { policyType: 'WARRANTY', name: `6 months ${run}`, warrantyProvider: 'Shop warranty', warrantyMonths: 6 })
+      .then((r) => { w6 = data(r.body).id })
+    post(API.createPolicy, { policyType: 'RETURN', name: `7 days ${run}`, returnDays: 7 }).then((r) => { ret7 = data(r.body).id })
+    get(API.policies).then((r) => {
+      if (!list(r.body).some((p) => p.policyType === 'COMMISSION' && p.active && p.isDefault)) {
+        post(API.createPolicy, { policyType: 'COMMISSION', name: `Standard ${run}`, isDefault: true, commissionBasis: 'ITEMS', commissionRate: 0.08 })
+      }
+    })
+    post(API.defaultSort, { sort: 'RECOMMENDED' })
+    cy.then(() => publishOffer(SELLER_A, 52000, 4, w12))
+    cy.then(() => publishOffer(SELLER_B, 51500, 24, w6))
+    cy.then(() => get(`${API.publicOffers(mktProductId)}?city=Karachi`)).then((r) =>
+      list(r.body).forEach((o) => { names[o.offerId] = o.sellerName }))
   })
 
   it('MKT-1d-01 [MKT-R5.4] [MKT-R7.2] a customer searches and sees "Available from 2 sellers · From Rs. 51,500" (real UI)', () => {
     cy.clearCookies()
     cy.visit(UI.publicPage)
-    cy.get(UI.search).should('be.visible').type(`${model}{enter}`)
+    cy.get(UI.city).clear().type('Karachi')
+    cy.get(UI.search).should('be.visible').clear().type(`${model}{enter}`)
+    cy.url().should('include', 'q=')
     cy.contains(UI.productCard, model).within(() => {
       cy.get(UI.offerCount).should('have.text', 'Available from 2 sellers')
-      cy.get(UI.fromPrice).should('contain', 'From Rs. 51,500')
+      cy.get(UI.fromPrice).should('have.text', 'From Rs. 51,500')
     })
-    cy.contains(UI.productCard, model).click()
-    cy.get(UI.offerRow).should('have.length', 2).first().within(() => {
-      ;['Rs.', 'Delivery', 'Warranty', 'Rating'].forEach((t) => cy.contains(t).should('be.visible'))
+    cy.contains(UI.productCard, model).find('a').click()
+    cy.url().should('include', `product=${mktProductId}`)
+    cy.get(UI.offerRow).should('have.length', 2)
+    cy.get(`${UI.offerRow}[data-offer-id="${offers[SELLER_A]}"]`).within(() => {
+      cy.contains(names[offers[SELLER_A]])
+      cy.contains('Rs. 52,000')
+      cy.contains('Samsung Pakistan')
+      cy.contains('12 months')
+      cy.contains('7 days')
     })
+    cy.go('back')
+    cy.contains(UI.productCard, model).should('be.visible')   // back returns to the results
   })
 
-  it('MKT-1d-02 [MKT-R7.1] [MKT-R18.4] the customer\'s sort changes the order on screen', () => {
-    cy.visit(`${UI.publicPage}?product=${mktProductId}`)
+  it('MKT-1d-02 [MKT-R7.1] [MKT-R18.4] the customer\'s sort changes the order on screen and survives a reload', () => {
+    cy.visit(`${UI.publicPage}?product=${mktProductId}&city=Karachi`)
     cy.get(UI.sort).should('be.visible').select('LOWEST_PRICE')
     cy.get(UI.offerRow).first().should('have.attr', 'data-offer-id', String(offers[SELLER_B]))
     cy.get(UI.sort).select('FASTEST')
     cy.get(UI.offerRow).first().should('have.attr', 'data-offer-id', String(offers[SELLER_A]))
     cy.get(UI.sort).select('WARRANTY')
     cy.get(UI.offerRow).first().should('have.attr', 'data-offer-id', String(offers[SELLER_A]))
+    cy.get(UI.sort).select('LOWEST_PRICE')
+    cy.reload()
+    cy.get(UI.sort).should('have.value', 'LOWEST_PRICE')
+    cy.get(UI.offerRow).first().should('have.attr', 'data-offer-id', String(offers[SELLER_B]))
   })
 
-  it('MKT-1d-03 [MKT-R7.3] the cheapest offer is never pre-selected: the Buy button names the seller chosen', () => {
-    cy.visit(`${UI.publicPage}?product=${mktProductId}`)
+  it('MKT-1d-03 [MKT-R7.3] nothing is pre-selected; the Buy button names the seller chosen (keyboard)', () => {
+    cy.visit(`${UI.publicPage}?product=${mktProductId}&city=Karachi&sort=LOWEST_PRICE`)
+    cy.get(UI.offerRow).should('have.length', 2)
+    cy.get(UI.chooseOffer).should('not.be.checked')
     cy.get(UI.buyButton).should('be.disabled')
-    cy.get(`${UI.offerRow}[data-offer-id="${offers[SELLER_A]}"] ${UI.chooseOffer}`).click()
-    cy.get(UI.buyButton).should('be.enabled').invoke('text').should('match', /^Buy from /)
+    // choose the dearer seller: a cheaper offer existing must not change what the customer picked
+    cy.get(`${UI.offerRow}[data-offer-id="${offers[SELLER_A]}"] ${UI.chooseOffer}`).focus().check()
+    cy.get(UI.buyButton).should('be.enabled').and('have.text', `Buy from ${names[offers[SELLER_A]]}`)
+    cy.get(UI.buyButton).click()
+    cy.get(UI.buyNote).should('contain', names[offers[SELLER_A]]).and('contain', 'Rs. 52,000')
   })
 
-  it('MKT-1d-04 [MKT-R7.6] [MKT-R20.1] a city the seller does not serve hides its offer; the API agrees with the screen', () => {
+  it('MKT-1d-04 [MKT-R7.6] [MKT-R20.1] a city the sellers do not serve: no card, no offers, and the page says so', () => {
     get(`${API.publicOffers(mktProductId)}?city=Lahore`).then((r) => {
       expect(ok(r.body), 'positive control: the read answers').to.eq(true)
       expect(list(r.body)).to.have.length(0)
     })
+    get(`${API.publicProducts}?q=${encodeURIComponent(model)}&city=Lahore`).then((r) => {
+      expect(ok(r.body)).to.eq(true)
+      expect(list(r.body).map((p) => p.id)).to.not.include(mktProductId)
+    })
     cy.visit(`${UI.publicPage}?product=${mktProductId}&city=Lahore`)
     cy.contains('No seller delivers this product to Lahore yet').should('be.visible')
+    cy.get(UI.buyButton).should('be.disabled')
   })
 
   it('MKT-1d-05 [MKT-R7.6] an unknown sort from the URL falls back to the default, never an error page', () => {
-    get(`${API.publicOffers(mktProductId)}?sort=<script>&city=Karachi`).then((r) => {
+    get(`${API.publicOffers(mktProductId)}?sort=${encodeURIComponent('<script>')}&city=Karachi`).then((r) => {
       expect(ok(r.body)).to.eq(true)
       expect(list(r.body)).to.have.length(2)
     })
+    cy.visit(`${UI.publicPage}?product=${mktProductId}&city=Karachi&sort=${encodeURIComponent('<script>')}`)
+    cy.get(UI.offerRow).should('have.length', 2)
+    cy.get(UI.sort).should('have.value', 'RECOMMENDED')
   })
 
-  it('MKT-1d-06 [MKT-R18.2] the projection shows when stock was last synced', () => {
+  it('MKT-1d-06 [MKT-R18.2] each offer says when its stock was last checked', () => {
     get(`${API.publicOffers(mktProductId)}?city=Karachi`).then((r) => {
-      list(r.body).forEach((o) => expect(o).to.include.keys('lastSyncAt', 'availableQty', 'promiseHours', 'rating'))
+      list(r.body).forEach((o) => {
+        expect(o).to.include.keys('lastSyncAt', 'availableQty', 'promiseHours', 'rating')
+        expect(o.lastSyncAt, 'a listed offer has been confirmed with inventory').to.not.eq(null)
+      })
     })
+    cy.visit(`${UI.publicPage}?product=${mktProductId}&city=Karachi`)
+    cy.get(UI.offerRow).first().find('.mkt-stock-checked').invoke('text').should('match', /Stock checked/)
   })
 
-  it('MKT-1d-07 [MKT-R7.6] a paused offer is not listed and "from" price recomputes', () => {
+  it('MKT-1d-07 [MKT-R7.6] [MKT-R5.4] a paused offer leaves the card and the table together', () => {
     cy.loginAs(SELLER_B, 'Demo@2025!', '/getBusinessDashboardStats')
-    post(API.saveOffer, { id: offers[SELLER_B], paused: true })
-    get(`${API.publicProducts}?q=${encodeURIComponent(model)}`).then((r) => {
+    post(API.saveOffer, { id: offers[SELLER_B], paused: true }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    cy.clearCookies()
+    get(`${API.publicProducts}?q=${encodeURIComponent(model)}&city=Karachi`).then((r) => {
       const p = list(r.body).find((x) => x.id === mktProductId)
       expect(p.offerCount).to.eq(1)
       expect(Number(p.fromPrice)).to.eq(52000)
     })
+    get(`${API.publicOffers(mktProductId)}?city=Karachi`).then((r) => expect(list(r.body)).to.have.length(1))
+    cy.loginAs(SELLER_B, 'Demo@2025!', '/getBusinessDashboardStats')
     post(API.saveOffer, { id: offers[SELLER_B], paused: false })
+  })
+
+  it('MKT-1d-08 [MKT-R7.4] [MKT-R18.4] the operator sets the default order; a tenant cannot (positive control)', () => {
+    cy.loginAsOperator()
+    post(API.defaultSort, { sort: 'LOWEST_PRICE' }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    get(API.publicProduct(mktProductId)).then((r) => expect(data(r.body).defaultSort).to.eq('LOWEST_PRICE'))
+    get(`${API.publicOffers(mktProductId)}?city=Karachi`).then((r) =>
+      expect(list(r.body)[0].offerId, 'no sort given → the operator default').to.eq(offers[SELLER_B]))
+    post(API.defaultSort, { sort: 'NOT_A_SORT' }).then((r) => expectRefused(r))
+    cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
+    post(API.defaultSort, { sort: 'FASTEST' }).then((r) => expect(ok(r.body), 'tenant refused').to.eq(false))
+    cy.loginAsOperator()
+    get(API.defaultSort).then((r) => expect(data(r.body).sort, 'unchanged by the tenant').to.eq('LOWEST_PRICE'))
+    post(API.defaultSort, { sort: 'RECOMMENDED' })
+  })
+
+  it('MKT-1d-09 [MKT-R7.6] search text is data: wildcards match literally and nothing errors', () => {
+    ;['%', '_', '\\', "' OR 1=1 --"].forEach((q) =>
+      get(`${API.publicProducts}?q=${encodeURIComponent(q)}&city=Karachi`).then((r) => {
+        expect(ok(r.body), `q=${q}`).to.eq(true)
+        expect(list(r.body).map((p) => p.id), `q=${q} must not match everything`).to.not.include(mktProductId)
+      }))
+    get(`${API.publicProducts}?q=${encodeURIComponent(model.toLowerCase())}&city=Karachi`).then((r) =>
+      expect(list(r.body).map((p) => p.id), 'positive control: case-insensitive match').to.include(mktProductId))
+  })
+
+  it('MKT-1d-10 [MKT-R7.6] an unknown product reads "No such product." and offers nothing', () => {
+    get(API.publicProduct(999999999)).then((r) => expectRefused(r, 'No such product'))
+    cy.visit(`${UI.publicPage}?product=999999999`)
+    cy.contains('No such product.').should('be.visible')
   })
 })

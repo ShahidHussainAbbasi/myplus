@@ -321,6 +321,27 @@
 		}).always(function () { $b.prop('disabled', false); });
 	}
 
+	// ── MKT-1d: the order customers see first ────────────────────────────────────────────────────────
+	function loadDefaultSort() {
+		$('#mktDefaultSortMsg').text('').css('color', '');
+		$.ajax({ url: ctx() + 'platform/mkt/defaultSort', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $('#mktDefaultSortMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			$('#mktDefaultSort').val((data(res) || {}).sort || 'RECOMMENDED');
+		});
+	}
+
+	function saveDefaultSort() {
+		var $b = $('#mktDefaultSortSave').prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/defaultSort', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ sort: $('#mktDefaultSort').val() }) })
+			.done(function (res) {
+				$('#mktDefaultSortMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e')
+					.text(message(res, ok(res) ? tr('ui.js.mktOfferSaved', 'Saved.') : tr('ui.js.saveFailed', 'Save failed')));
+			})
+			.fail(function (xhr) { $('#mktDefaultSortMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
 	function openPanel(id, loader) {
 		$('#platTenants, #platDetail, #platProvision, #platMktSellers, #platMktMatches, #platMktOffers, #platMktPolicies').hide();
 		$(id).show();
@@ -328,7 +349,7 @@
 	}
 
 	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
-	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', loadPolicies); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); }); });
 	$(document).on('click', '.plat-mkt-back', function () {
 		$('#platMktOffers, #platMktPolicies').hide();
 		$('#platTenants').show();
@@ -344,4 +365,5 @@
 		$('.mkt-pol-' + $(this).val()).show();
 	});
 	$(document).on('click', '#mktPolCreate', createPolicy);
+	$(document).on('click', '#mktDefaultSortSave', saveDefaultSort);
 })(window);

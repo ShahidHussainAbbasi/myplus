@@ -15,12 +15,13 @@ import com.myplus.common.web.PageResponse;
 import com.myplus.marketplace.multiseller.dto.OfferDTOs;
 import com.myplus.marketplace.multiseller.service.MarketplaceOfferService;
 import com.myplus.marketplace.multiseller.service.MarketplacePolicyService;
+import com.myplus.marketplace.multiseller.service.MarketplaceSettingsService;
 import com.myplus.marketplace.multiseller.service.PublicOfferService;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * MKT-1c — offers, policies and the public offer read. Rules live in the services.
+ * MKT-1c/1d — offers, policies and the public catalogue. Rules live in the services.
  *
  * <pre>
  *   POST /mkt/offers                                seller: create / edit (party ids stamped from the token)
@@ -32,6 +33,9 @@ import lombok.RequiredArgsConstructor;
  *   GET/POST /mkt/operator/policies · POST /mkt/operator/policies/{id}/deactivate
  *   POST /mkt/operator/products/{id}/limits         price floor / ceiling
  *   GET  /public/mkt/products/{id}/offers?city=&sort=&qty=   anonymous (gateway allow-lists /api/marketplace/public/)
+ *   GET  /public/mkt/products?q=&city=&page=&size=       MKT-1d anonymous search cards
+ *   GET  /public/mkt/products/{id}                       MKT-1d anonymous product page header
+ *   GET/POST /mkt/operator/settings/default-sort         MKT-1d operator: the order customers see first
  * </pre>
  */
 @RestController
@@ -41,6 +45,7 @@ public class MarketplaceOfferController {
     private final MarketplaceOfferService offers;
     private final MarketplacePolicyService policies;
     private final PublicOfferService publicOffers;
+    private final MarketplaceSettingsService settings;
 
     @PostMapping("/mkt/offers")
     public ApiResponse<OfferDTOs.Offer> save(@RequestBody OfferDTOs.SaveRequest body) {
@@ -106,5 +111,28 @@ public class MarketplaceOfferController {
             @RequestParam(required = false) String city, @RequestParam(required = false) String sort,
             @RequestParam(required = false) BigDecimal qty) {
         return ApiResponse.success(publicOffers.offers(id, city, sort, qty));
+    }
+
+    @GetMapping("/public/mkt/products")
+    public ApiResponse<PageResponse<OfferDTOs.ProductCard>> search(@RequestParam(required = false) String q,
+            @RequestParam(required = false) String city, @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.success(publicOffers.search(q, city, page, size));
+    }
+
+    @GetMapping("/public/mkt/products/{id}")
+    public ApiResponse<OfferDTOs.PublicProduct> product(@PathVariable Long id) {
+        return ApiResponse.success(publicOffers.product(id));
+    }
+
+    @GetMapping("/mkt/operator/settings/default-sort")
+    public ApiResponse<OfferDTOs.DefaultSort> defaultSort() {
+        return ApiResponse.success(new OfferDTOs.DefaultSort(settings.operatorDefaultSort()));
+    }
+
+    @PostMapping("/mkt/operator/settings/default-sort")
+    public ApiResponse<OfferDTOs.DefaultSort> setDefaultSort(@RequestBody OfferDTOs.DefaultSort body) {
+        return ApiResponse.success(new OfferDTOs.DefaultSort(settings.setDefaultSort(body == null ? null : body.sort())),
+                "Default order saved.");
     }
 }

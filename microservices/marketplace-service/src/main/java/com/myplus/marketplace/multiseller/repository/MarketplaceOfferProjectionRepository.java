@@ -13,6 +13,9 @@ public interface MarketplaceOfferProjectionRepository extends JpaRepository<Mark
     /** The public read — idx_mkt_proj_product_status_price. Bounded by the number of sellers of one product. */
     List<MarketplaceOfferProjection> findByMktProductIdAndStatusOrderByPriceAsc(Long mktProductId, String status);
 
+    /** MKT-1d search: the LIVE rows of one page of products, in ONE query (no N+1). Bounded by page × sellers. */
+    List<MarketplaceOfferProjection> findByMktProductIdInAndStatus(java.util.Collection<Long> mktProductIds, String status);
+
     /** The stock refresher — idx_mkt_proj_status_sync: LIVE rows confirmed longest ago (NULL = never) first. */
     List<MarketplaceOfferProjection> findByStatusOrderByLastSyncAtAsc(String status, Pageable page);
 

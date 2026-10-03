@@ -262,6 +262,22 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/products/" + id + "/limits", rest, "Could not save the price limits.");
     }
 
+    /** MKT-1d: the order customers see first on a product page. GET → {sort}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/defaultSort", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> defaultSort(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settings/default-sort", request, "Could not load the default order.");
+    }
+
+    /** Body: {sort: RECOMMENDED|LOWEST_PRICE|FASTEST|WARRANTY|RETURN_POLICY}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/defaultSort", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setDefaultSort(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settings/default-sort", body, "Could not save the default order.");
+    }
+
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {

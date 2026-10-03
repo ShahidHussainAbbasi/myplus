@@ -209,14 +209,17 @@
    "unit": [
     "MarketplaceCatalogServiceTest.suggestionNotMerge",
     "OfferProjectionServiceTest.carriesDisplayFields",
-    "PublicOfferServiceTest.sorts"
+    "PublicOfferServiceTest.sorts",
+    "PublicOfferServiceTest.cardMatchesTable"
    ],
    "cypress": [
     "MKT-1b-04",
-    "MKT-1d-01"
+    "MKT-1d-01",
+    "MKT-1d-07"
    ],
    "manual": [
-    "M-1d-01"
+    "M-1d-01",
+    "M-1d-05"
    ]
   },
   {
@@ -347,7 +350,8 @@
     "MKT-1d-01"
    ],
    "manual": [
-    "M-1d-01"
+    "M-1d-01",
+    "M-1d-07"
    ]
   },
   {
@@ -361,7 +365,6 @@
     "MKT-1d-03"
    ],
    "manual": [
-    "M-1d-02",
     "M-1d-03"
    ]
   },
@@ -376,16 +379,21 @@
     "MarketplaceOfferServiceTest.commissionStamped",
     "MarketplaceOfferServiceTest.limits",
     "MarketplacePolicyServiceTest.commission",
-    "PublicOfferServiceTest.limitsAndApproval"
+    "MarketplaceSettingsServiceTest.save",
+    "MarketplaceSettingsServiceTest.onlyBackedSorts",
+    "PublicOfferServiceTest.limitsAndApproval",
+    "PublicOfferServiceTest.operatorDefault"
    ],
    "cypress": [
     "MKT-1c-05",
-    "MKT-1c-10"
+    "MKT-1c-10",
+    "MKT-1d-08"
    ],
    "manual": [
     "M-1c-00",
     "M-1c-04",
-    "M-1c-07"
+    "M-1c-07",
+    "M-1d-06"
    ]
   },
   {
@@ -422,19 +430,27 @@
     "MarketplaceSellerServiceTest.decisionRepublishes",
     "OfferProjectionServiceTest.liveRule",
     "PublicOfferServiceTest.city",
-    "PublicOfferServiceTest.limitsAndApproval"
+    "PublicOfferServiceTest.limitsAndApproval",
+    "PublicOfferServiceTest.cardFollowsGuardrails",
+    "PublicOfferServiceTest.likePattern",
+    "PublicOfferServiceTest.pageCap",
+    "PublicOfferServiceTest.productPage"
    ],
    "cypress": [
     "MKT-1c-03",
     "MKT-1c-07",
     "MKT-1d-04",
     "MKT-1d-05",
-    "MKT-1d-07"
+    "MKT-1d-07",
+    "MKT-1d-09",
+    "MKT-1d-10"
    ],
    "manual": [
     "M-1c-03",
     "M-1c-05",
-    "M-1d-04"
+    "M-1d-04",
+    "M-1d-05",
+    "M-1d-08"
    ]
   },
   {
@@ -963,6 +979,7 @@
     "MKT-1d-06"
    ],
    "manual": [
+    "M-1d-01",
     "M-1d-05"
    ]
   },
@@ -985,13 +1002,17 @@
    "unit": [
     "OfferRankingTest.lowestPrice",
     "OfferRankingTest.defaultChain",
-    "OfferRankingTest.deterministic"
+    "OfferRankingTest.deterministic",
+    "MarketplaceSettingsServiceTest.resolve",
+    "PublicOfferServiceTest.operatorDefault"
    ],
    "cypress": [
-    "MKT-1d-02"
+    "MKT-1d-02",
+    "MKT-1d-08"
    ],
    "manual": [
-    "M-1d-02"
+    "M-1d-02",
+    "M-1d-06"
    ]
   },
   {
@@ -1001,7 +1022,8 @@
    "unit": [
     "OfferEligibilityTest.stale",
     "OfferProjectionServiceTest.noAnswerStaysUnconfirmed",
-    "PublicOfferServiceTest.stale"
+    "PublicOfferServiceTest.stale",
+    "PublicOfferServiceTest.cardFollowsGuardrails"
    ],
    "cypress": [
     "MKT-1e-01"
@@ -1095,7 +1117,8 @@
     "PhaseGuardTest.sourcesByPhase",
     "PhaseGuardTest.regulatedRefused",
     "MarketplaceCatalogServiceTest.regulatedRefused",
-    "MarketplaceOfferServiceTest.phaseOne"
+    "MarketplaceOfferServiceTest.phaseOne",
+    "PublicOfferServiceTest.productPage"
    ],
    "cypress": [
     "MKT-1b-09",
@@ -1194,6 +1217,7 @@
     "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
+    "MarketplaceSettingsServiceTest.operatorOnly",
     "SellerAccessTest.tiers",
     "SellerAccessTest.operatorIsRoleAdmin",
     "SellerAccessTest.orgFromToken"
