@@ -368,70 +368,128 @@
 
 ## MKT-1e
 
-### M-1e-01 ⚠ Buying waits for the seller, never pretends
+### M-1e-01 ⚠ Buying waits for the seller, never pretends; the sale lands in the seller's books
 
 **Persona:** Customer (incognito window) then owner.business@ (Seller A)  
-**Pre:** Seller A Rs 52,000 LIVE with stock 5.  
-**Covers:** MKT-R10.2, MKT-R18.5, MKT-R8.1, MKT-R10.1
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
+**Covers:** MKT-R10.2, MKT-R18.5, MKT-R10.1, MKT-R1.3
 
-1. Choose Seller A → Buy. Name Ali, phone 03001234567, address 1 Clifton Karachi, Cash on delivery → Place order.
-2. Within 5 minutes, as Seller A: Marketplace → Incoming orders → Accept.
+1. Open /marketplace, city Karachi, open the phone, choose Seller A, press 'Buy from Seller A'.
+2. Fill name Ali, phone 0300-123 4567, address 1 Clifton. Check the total. Press 'Place order'.
+3. As Seller A: Sale → Marketplace → Incoming marketplace orders. Press Accept.
+4. Back in the customer window, wait up to 10 seconds.
 
-**Expect:** The customer sees 'Waiting for the seller to confirm' with the order number, never 'Confirmed' before the seller accepts. The seller sees a countdown under 5:00. After Accept, the customer's page reads 'Confirmed by Seller A'. Seller A's sales list has a new invoice for Rs. 52,000. Available stock on the offer drops from 5 to 4.
+**Expect:** Step 2: 'Waiting for <Seller A> to confirm', an order number MKT-…, and '<Seller A> has 4:5x to confirm. Your stock is held.' The address bar shows ?order=MKT-… and no phone number. Step 3: the row shows a countdown under 5:00; after Accept it reads 'Accepted', 'Invoice INV-…' and 'In your orders as SO-…'. Seller A's Orders list and sales show the invoice at Rs 52,000 (the marketplace price). Step 4: the customer's page turns to 'Confirmed by <Seller A>' with '… will deliver and collect Rs. 52,000 in cash.' by itself.
 
-### M-1e-02 ⚠ Two sellers in one basket are refused
+### M-1e-02 One checkout is one seller
 
-**Persona:** Customer (incognito window)  
-**Pre:** Phase 1.  
+**Persona:** Customer (incognito window), using the browser developer tools or the API  
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
 **Covers:** MKT-R17.1, MKT-R20.2
 
-1. Add Seller A's offer and Seller B's offer to the basket. Checkout.
+1. Try to choose two sellers' offers on the product page.
+2. Send POST /marketplace/public/checkout with an offerId and also a 'lines' array naming another seller's offer.
 
-**Expect:** 'Items from different sellers must be checked out separately.' Nothing is reserved and no order is created.
+**Expect:** Only one seller can be chosen (radio buttons). The extra 'lines' field is ignored: the order has exactly one seller order, for the offer named. Mixing sellers in one checkout waits for Phase 2.
 
-### M-1e-03 Seller rejects: stock comes back, customer told
+### M-1e-03 ⚠ Seller rejects: stock comes back, customer told
 
 **Persona:** Customer (incognito window) then owner.business@ (Seller A)  
-**Pre:** Stock on the offer is 4.  
-**Covers:** MKT-R10.2, MKT-R10.5
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
+**Covers:** MKT-R10.2, MKT-R10.5, MKT-R10.3
 
-1. Customer places an order for 1.
-2. Seller A: Reject → reason 'out of stock in store'.
+1. Customer orders all 5.
+2. Another customer (another window, another phone) tries to order 1.
+3. Seller A: Reject with an empty reason, then with 'out of stock in store'.
+4. The second customer tries again.
 
-**Expect:** Available shows 3 while waiting and 4 again after the rejection. The customer's order reads 'Cancelled: the seller could not fulfil it' and no charge stays on it.
+**Expect:** Step 2 is refused: 'This seller no longer has enough stock. Please choose another offer.' (the 5 are held). Step 3: an empty reason is refused ('Give a reason…'); with the reason the row reads 'Rejected'. The first customer's page reads 'Cancelled' and 'The seller could not fulfil this order.' Step 4 succeeds: the stock came back.
 
 ### M-1e-04 Nobody answers: the hold expires
 
+**Persona:** admin@myplus.com (operator), Customer (incognito window), owner.business@ (Seller A)  
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
+**Covers:** MKT-R10.2, MKT-R10.5, MKT-R19.1, MKT-R7.4
+
+1. Operator: Marketplace policies → 'Minutes a seller has to accept an order' = 1 → Save.
+2. Customer places an order. Seller does nothing.
+3. After about 2 minutes, look at the customer's page and the seller's list.
+4. Seller presses Accept on that order.
+5. Operator: set the window back to 5.
+
+**Expect:** After the minute plus the 30-second grace and a sweep: the customer's page reads 'Cancelled' and 'The seller did not confirm in time.'; the seller's row reads 'Expired'; the stock is free again. The late Accept is refused: 'This order expired before it was accepted.' An accept that started before the deadline is never cut off.
+
+### M-1e-05 A double click, or a lost answer, is one order
+
 **Persona:** Customer (incognito window)  
-**Pre:** Acceptance window 5 minutes, hold 10 minutes.  
-**Covers:** MKT-R10.2, MKT-R10.5, MKT-R19.1
-
-1. Customer places an order. Seller does nothing for 6 minutes. Seller then clicks Accept.
-
-**Expect:** At 5 minutes the order shows EXPIRED and stock returns. The late Accept is refused: 'This order expired before it was accepted.'
-
-### M-1e-05 A double click is one order
-
-**Persona:** Customer (incognito window)  
-**Pre:** —  
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
 **Covers:** MKT-R22.3
 
-1. Click Place order twice quickly (or reload during submit and resubmit).
+1. Fill the checkout and double-click 'Place order'.
+2. Place another order, and switch the network off in the developer tools just as you press the button; switch it back on and press again.
 
-**Expect:** One order number. One reservation. One seller notification.
+**Expect:** Each attempt produces one order number, one seller order and one hold. After the network failure the page says 'We could not confirm your order. Press the button again; it will not be placed twice.' and pressing again shows the same order.
 
-### M-1e-06 Order shows its own snapshot of terms
+### M-1e-06 The order keeps its own copy of the terms
+
+**Persona:** Customer (incognito window) + admin@myplus.com (operator)  
+**Pre:** An order from M-1e-01 exists.  
+**Covers:** MKT-R13.3, MKT-R3.2, MKT-R3.1
+
+1. Operator: deactivate the 7-day return policy the offer uses (Marketplace policies → Deactivate).
+2. Customer reopens the order page.
+
+**Expect:** The order still shows '12 months warranty · Samsung Pakistan · Returns within 7 days' and Rs 52,000: the terms are copied onto the order when it is placed. Seller A's incoming row shows the commission terms it was charged under; the customer never sees commission.
+
+### M-1e-08 Order, payment and seller answer are separate facts
+
+**Persona:** admin@myplus.com (operator)  
+**Pre:** Orders in each state exist (M-1e-01, -03, -04).  
+**Covers:** MKT-R19.1, MKT-R22.1
+
+1. Operator console → Marketplace orders. Switch between Waiting for a seller, Confirmed, Cancelled, All.
+
+**Expect:** Each order shows its own status, the seller, the items, the city, and for cancelled ones the reason. A cash order stays payment UNPAID until delivery (settlement is MKT-1g). A business owner cannot open this list.
+
+### M-1e-09 Phase 1 is cash on delivery; a seller who takes no cash is not offered
+
+**Persona:** Customer (incognito window) + owner.business@ (Seller A)  
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
+**Covers:** MKT-R20.1
+
+1. Look at the checkout's payment line.
+2. Seller A: switch off cash on delivery in the store's delivery settings. Customer tries to order again.
+
+**Expect:** Checkout says 'Cash on delivery: you pay the seller when the order arrives. Nothing is charged now.' With COD off: 'This seller does not accept cash on delivery yet. Please choose another offer.' Online payment arrives with MKT-1e2.
+
+### M-1e-10 ⚠ Phones need their IMEI; nothing is let go before it is given
+
+**Persona:** owner.business@ (Seller A)  
+**Pre:** Seller A's phone product is set to 'requires serial number'; an order for 2 is waiting.  
+**Covers:** MKT-R10.4, MKT-R10.1
+
+1. Press Accept without typing IMEIs.
+2. Type one IMEI and press Accept.
+3. Type both IMEIs and press Accept.
+
+**Expect:** Steps 1 and 2 are refused with 'Enter the serial number (IMEI) of each unit you are sending: 2 for …'; the order stays waiting and the stock stays held. Step 3 accepts; the invoice records those two IMEIs as sold.
+
+### M-1e-11 ⚠ No one can hold a shop's stock hostage
 
 **Persona:** Customer (incognito window)  
-**Pre:** An accepted order exists.  
-**Covers:** MKT-R13.3, MKT-R3.2
+**Pre:** Seller A has a Live offer: Samsung Galaxy A32 128GB Black, Rs 52,000, Karachi, 5 in stock, cash on delivery accepted (M-1c-01…04).  
+**Covers:** MKT-R22.3, MKT-R22.1
 
-1. Operator changes Seller A's return policy from 7 to 3 days.
-2. Customer opens the old order.
+1. With one phone number, place 3 orders and leave them unanswered.
+2. Place a 4th with the same number written differently (e.g. (0300) 1234567).
+3. Place one with a different number.
 
-**Expect:** The old order still shows 7-day returns, the seller, stock owner, fulfiller, price, tax, commission and delivery fee as they were.
+**Expect:** The 4th is refused: 'You already have 3 orders waiting for sellers to confirm. Please wait for an answer first.' A different number works. A page left open long enough to lose its security token says 'This page expired. Please reload it and try again.'
 
-### M-1e-07 One customer account across sellers
+
+## MKT-1e2
+
+### M-1e-07 One customer account across sellers (MKT-1e2)
 
 **Persona:** Customer (incognito window)  
 **Pre:** Ali has orders from Seller A and Seller B.  
@@ -440,38 +498,6 @@
 1. Log in to the marketplace account. Open My orders.
 
 **Expect:** Both orders are listed under one account, each naming its seller. Support is 'MaxTheService support' on both.
-
-### M-1e-08 Order, payment and settlement are three different facts
-
-**Persona:** admin@myplus.com (operator)  
-**Pre:** A delivered COD order.  
-**Covers:** MKT-R19.1
-
-1. Operator console → order detail.
-
-**Expect:** Three separate badges: Order FULFILLED, Payment CAPTURED, Settlement PENDING_RETURN_WINDOW.
-
-### M-1e-09 Only one city, cash and one online option in the pilot
-
-**Persona:** Customer (incognito window)  
-**Pre:** Pilot configuration.  
-**Covers:** MKT-R20.1
-
-1. Go to checkout.
-
-**Expect:** City list has the pilot city only. Payment shows Cash on delivery and one online option. Delivery is 'Assigned by MaxTheService' (manual).
-
-### M-1e-10 ⚠ Available means free stock, and the hold is on record
-
-**Persona:** Seller A, then the operator  
-**Pre:** Offer stock: 5 on hand, nothing held.  
-**Covers:** MKT-R10.4, MKT-R10.3
-
-1. Customer orders 2 and the seller has not answered yet.
-2. Seller A opens Marketplace → Incoming orders → the order → Stock hold.
-3. Meanwhile a second customer tries to buy 4.
-
-**Expect:** The hold shows reservation id, order and line, offer, MERCHANT, owner and holder (Seller A), quantity 2, HELD, created and expires times (10 minutes apart). The offer now reads 3 available, not 5, so the order for 4 is refused: "This seller does not have enough stock."
 
 
 ## MKT-1f

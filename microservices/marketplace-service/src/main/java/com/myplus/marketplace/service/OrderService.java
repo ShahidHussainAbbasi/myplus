@@ -892,6 +892,109 @@ public class OrderService {
     }
 
     /**
+     * MKT-1e — what a seller's acceptance of a marketplace order becomes in the SELLER's books (R-MKT-1: the seller is
+     * the merchant of record). One line per marketplace order line; prices are the marketplace's, agreed with the
+     * shopper. {@code serials} per line, for serial-tracked items (the IMEIs the seller is sending).
+     */
+    public record MarketplaceSale(Long sellerOrganizationId, String idempotencyKey, String marketplaceOrderNo,
+            String customerName, String customerPhone, String address, List<MarketplaceSaleLine> lines) {
+    }
+
+    public record MarketplaceSaleLine(Long productId, String productName, int quantity, BigDecimal unitPrice,
+            List<String> serials) {
+    }
+
+    /**
+     * MKT-1e — record an ACCEPTED marketplace order as the seller's sale and store order, through the SAME O1 sale
+     * path the till and the storefront use ({@code recordSale}: reserve, invoice, tax, COGS, GL, idempotent).
+     *
+     * <h3>Why not {@link #placePublic}</h3>
+     * Three things it does that a marketplace order must not: it may SPLIT the order into a backorder (O5c) — the
+     * shopper agreed to the whole quantity from this seller, so it is all-or-nothing here; it stamps
+     * {@code source=STOREFRONT}; and it links a per-store shopper account, where the marketplace customer belongs
+     * to the platform (R-MKT-5). The steps it shares — the idempotent sale, the numbering, the duplicate-key race,
+     * the compensating void — are the same private helpers.
+     *
+     * <h3>Cash on delivery</h3>
+     * No tender is recorded: the sale is a receivable settled on delivery, exactly as {@code toSaleRequest} does for
+     * a COD storefront order. Online payment (platform-collected, R-MKT-2) is MKT-1e2.
+     *
+     * <p>Like {@code placePublic}, the remote sale sits inside this transaction; the order row needs the invoice
+     * number the sale returns, and a failure after the sale is compensated by {@link #reverseQuietly}.
+     */
+    @Transactional
+    public OrderDTO placeMarketplace(MarketplaceSale sale) {
+        Long org = sale.sellerOrganizationId();
+        String key = sale.idempotencyKey();
+        Order existing = repo.findByOrgAndIdempotencyKey(org, key).orElse(null);
+        if (existing != null) return toDTO(existing);                     // a retried accept replays, never re-sells
+
+        List<SaleRecordRequest.Line> lines = new ArrayList<>();
+        List<OrderDTO.Line> orderLines = new ArrayList<>();
+        BigDecimal subtotal = BigDecimal.ZERO;
+        for (MarketplaceSaleLine l : sale.lines()) {
+            lines.add(SaleRecordRequest.Line.builder()
+                    .productId(l.productId())
+                    .quantity((float) l.quantity())
+                    .unitPrice(l.unitPrice())                             // the marketplace price (the sale honours a sell rate)
+                    .description(l.productName())
+                    .serials(l.serials() == null || l.serials().isEmpty() ? null : String.join(",", l.serials()))
+                    .build());
+            OrderDTO.Line ol = new OrderDTO.Line();
+            ol.setProductId(l.productId());
+            ol.setProductName(l.productName());
+            ol.setQuantity(l.quantity());
+            ol.setPrice(l.unitPrice());
+            orderLines.add(ol);
+            subtotal = subtotal.add(l.unitPrice().multiply(BigDecimal.valueOf(l.quantity())));
+        }
+        SaleRecordResult recorded = asStore(org, () -> tradeClient.recordSale(SaleRecordRequest.builder()
+                .idempotencyKey(key)
+                .organizationId(org)
+                .channel("MARKETPLACE")
+                .customer(SaleRecordRequest.Customer.builder()
+                        .name(sale.customerName()).contact(sale.customerPhone()).address(sale.address()).build())
+                .lines(lines)
+                .notes("MaxTheService marketplace order " + sale.marketplaceOrderNo())
+                .build()));
+        if (recorded == null || recorded.getInvoiceNo() == null)
+            throw new ValidationException("The sale could not be recorded. Please try again.");
+
+        long orderSeq = repo.maxOrderSeqForOrg(org) + 1;
+        Order o = Order.builder()
+                .organizationId(org)
+                .orderSeq(orderSeq)
+                .orderNo(com.myplus.commerce.domain.InvoiceNumbers.order(orderSeq))
+                .idempotencyKey(key)
+                .invoiceNo(recorded.getInvoiceNo())
+                .booksStatus("POSTED")
+                .customerName(sale.customerName())
+                .customerContact(sale.customerPhone())
+                .shippingAddress(sale.address())
+                .total(recorded.getGrandTotal() != null ? recorded.getGrandTotal() : subtotal)
+                .subTotal(subtotal)
+                .source("MARKETPLACE").paymentMode("COD").paymentStatus("PENDING")
+                .items(toItems(orderLines))
+                .fulfilmentStatus(FulfilmentStatus.NEW)
+                .build();
+        ShipmentService.applyProjection(o);
+        Order saved;
+        try {
+            saved = repo.saveAndFlush(o);
+        } catch (org.springframework.dao.DataIntegrityViolationException duplicate) {
+            Order winner = repo.findByOrgAndIdempotencyKey(org, key).orElse(null);
+            if (winner != null) return toDTO(winner);                    // the concurrent accept won; its sale stands
+            reverseQuietly(org, recorded.getInvoiceNo(), "Marketplace order could not be recorded");
+            throw duplicate;
+        } catch (RuntimeException writeFailure) {
+            reverseQuietly(org, recorded.getInvoiceNo(), "Marketplace order could not be recorded");
+            throw writeFailure;
+        }
+        notificationService.notify(saved, "NEW", "Marketplace order " + sale.marketplaceOrderNo() + " accepted");
+        return toDTO(saved);
+    }
+
+    /**
      * Turn a failed {@code recordSale} into something a shopper can act on.
      *
      * <p>business-service refuses with a specific reason (most often insufficient stock, naming the product).

@@ -9,10 +9,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -22,9 +25,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * MKT-1c/1d — the ANONYMOUS marketplace: the {@code /marketplace} page and its reads. Only GETs live here;
- * {@code SecSecurityConfig} permits GET {@code /marketplace} and GET {@code /marketplace/public/**} without a login,
- * and every write stays behind authentication.
+ * MKT-1c/1d/1e — the ANONYMOUS marketplace: the {@code /marketplace} page, its reads, and the one anonymous write
+ * (checkout). {@code SecSecurityConfig} permits GET {@code /marketplace}, GET {@code /marketplace/public/**} and POST
+ * {@code /marketplace/public/checkout} without a login; CSRF stays enforced on the POST.
  *
  * <p>Calls the gateway's allow-listed {@code /api/marketplace/public/**} with no token. {@link RestClient} (Spring
  * 6.1), the successor to {@code RestTemplate}, with connect and read TIMEOUTS (standard D3e): an anonymous page that
@@ -85,6 +88,37 @@ public class MarketplacePublicController {
                 .queryParamIfPresent("city", blank(city)).queryParamIfPresent("sort", blank(sort))
                 .queryParamIfPresent("qty", java.util.Optional.ofNullable(qty).map(BigDecimal::toPlainString)),
                 "Could not load offers.");
+    }
+
+    /**
+     * MKT-1e checkout — the one anonymous WRITE. Permitted by method and path in {@code SecSecurityConfig}; CSRF is
+     * NOT exempted (the page sends the token). The body is passed through: the service binds only the fields it
+     * knows and prices everything itself.
+     */
+    @PostMapping("/marketplace/public/checkout")
+    @ResponseBody
+    public Object checkout(@RequestBody Map<String, Object> body) {
+        URI uri = UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/checkout").build().toUri();
+        try {
+            Map<String, Object> r = http.post().uri(uri).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JSON);
+            return r == null ? Map.of("success", false, "message", "Could not place the order.") : r;
+        } catch (HttpStatusCodeException e) {
+            LOGGER.warn("marketplace checkout -> {}", e.getStatusCode());
+            return Map.of("success", false, "statusCode", e.getStatusCode().value(),
+                    "message", messageOf(e, "Could not place the order. Please try again."));
+        } catch (Exception e) {
+            // a timeout may hide an order that WAS placed: the shopper retries with the same key and gets that order
+            LOGGER.error("marketplace checkout failed", e);
+            return Map.of("success", false, "message", "We could not confirm your order. Please try again; you will not be charged twice.");
+        }
+    }
+
+    /** MKT-1e tracking: the order number AND the phone it was placed with. */
+    @GetMapping("/marketplace/public/orders/{orderNo}")
+    @ResponseBody
+    public Object track(@PathVariable String orderNo, @RequestParam(required = false) String phone) {
+        return relay(UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/orders/{no}")
+                .uriVariables(Map.of("no", orderNo)).queryParamIfPresent("phone", blank(phone)), "Could not load the order.");
     }
 
     /**

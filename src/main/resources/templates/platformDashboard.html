@@ -67,6 +67,9 @@
                         th:text="#{ui.mktOfferApprovals}">Offer approvals</button>
                 <button type="button" class="btn btn-default" id="platMktPoliciesBtn"
                         th:text="#{ui.mktPoliciesTitle}">Marketplace policies</button>
+                <!-- MKT-1e: marketplace orders across sellers. -->
+                <button type="button" class="btn btn-default" id="platMktOrdersBtn"
+                        th:text="#{ui.mktOrdersTitle}">Marketplace orders</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -155,6 +158,33 @@
             </div>
         </section>
 
+        <!-- ── MKT-1e: marketplace orders ──────────────────────────────────────────────────────────── -->
+        <section id="platMktOrders" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktOrdersTitle}">Marketplace orders</h3>
+            <div class="plat-seg" id="platMktOrderStatus" role="group">
+                <button type="button" data-status="SUBMITTED" class="is-on" th:text="#{ui.mktOrdWaiting}">Waiting for a seller</button>
+                <button type="button" data-status="CONFIRMED" th:text="#{ui.mktOrdConfirmed}">Confirmed</button>
+                <button type="button" data-status="CANCELLED" th:text="#{ui.mktOrdCancelled}">Cancelled</button>
+                <button type="button" data-status="" th:text="#{ui.mktIncomingAll}">All</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktOrderList">
+                    <thead><tr>
+                        <th th:text="#{ui.mktColOrder}">Order</th>
+                        <th th:text="#{ui.mktColSeller}">Seller</th>
+                        <th th:text="#{ui.mktColItems}">Items</th>
+                        <th th:text="#{ui.mktColDeliverTo}">Deliver to</th>
+                        <th th:text="#{ui.mktColStatus}">Status</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- ── MKT-1c: policies (append-only: create and deactivate, never edit) ─────────────────── -->
         <section id="platMktPolicies" class="plat__panel" style="display:none">
             <button type="button" class="plat__back plat-mkt-back">
@@ -175,6 +205,13 @@
                 </select>
                 <button type="button" class="btn btn-default" id="mktDefaultSortSave" th:text="#{ui.mktOfferSave}">Save</button>
                 <span id="mktDefaultSortMsg" class="plat__hint" role="status"></span>
+            </div>
+            <!-- MKT-1e: minutes a seller has to accept an order (source §10) -->
+            <div class="plat__form" id="mktAcceptWindowForm">
+                <label for="mktAcceptWindow" th:text="#{ui.mktAcceptWindow}">Minutes a seller has to accept an order</label>
+                <input type="number" id="mktAcceptWindow" class="form-control" min="1" max="60" step="1" inputmode="numeric"/>
+                <button type="button" class="btn btn-default" id="mktAcceptWindowSave" th:text="#{ui.mktOfferSave}">Save</button>
+                <span id="mktAcceptWindowMsg" class="plat__hint" role="status"></span>
             </div>
             <div class="plat__form" id="mktPolicyForm">
                 <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>
