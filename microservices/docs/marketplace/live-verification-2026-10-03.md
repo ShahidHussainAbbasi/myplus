@@ -1,7 +1,7 @@
 # MKT live verification — 2026-10-03
 
 What was run against a **live stack** (not stubs), what it found, and what was fixed. Slices MKT-0a, 1b, 1c, 1d, 1e,
-and (section 6) MKT-1e2.
+and (section 6) MKT-1e2, (section 7) MKT-1f.
 
 ## The stack
 
@@ -125,4 +125,39 @@ MarketplaceCatalogServiceTest 14/14 (clean build). Monolith MarketplacePublicCon
 
 **Open (1e2):** a real payment provider by configuration (the sandbox stays the default); SMS proof of phone; payouts
 (MKT-1g).
+
+## 7. MKT-1f — support cases and marketplace returns
+
+**V30** applied to a structural copy of the live schema twice (idempotent), then live: `now at version v30`;
+marketplace-service started under `ddl-auto=validate`.
+
+**Gates: 69 / 69 in one combined run on the final build (2026-10-03 22:27:32 UTC)** — 0a 8, 1b 9, 1c 11, 1d 10,
+1e 10, 1e2 9, **1f 12**. The way there: 1f's first live run was 11/12 (row 22); the first combined run was 66/69
+(row 21).
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 19 | slice trace (5 writers of the store order's return states) | a shopper could request a return straight on the seller's store order (`/storefront/return`: sequential id + phone), bypassing MaxTheService (R8.2) | refused for marketplace orders, after the phone check so it never reveals that an order exists | gate 1f-09, walk M-1f-07 |
+| 20 | slice trace | the seller's own "Process return" voided the sale in their books while the customer's online payment was never refunded (the store order is PENDING, so its card refund never ran) and the marketplace never heard | refused for marketplace orders; a marketplace return raises a CREDIT NOTE on the invoice (`returnLines`, quarantine when faulty) and then refunds, once | MarketplaceSupportServiceTest ×4, gate 1f-04, walk M-1f-03 |
+| 21 | combined regression, gate 1c-05 | the operator's APPROVED offer list was oldest first; past one page (122 rows) the offer just approved was not on it — the class of row 15 | audit of all 12 ascending list queries: work queues keep oldest first, per-order lists are bounded, the two unbounded history lists (decided offers, resolved cases) read newest first | MarketplaceOfferServiceTest `queueOrder`, MarketplaceSupportServiceTest `resolvedNewestFirst` |
+| 22 | gate 1f-04 (first live run) | the customer's view of a return named "MaxTheService support" as the cost bearer's organisation — a party that is not the bearer | the customer sees the bearer's role (it explains a fee they pay), never the organisation; the operator sees both | gate 1f-04 |
+| 23 | slice trace (readers of `SellerOrderView`) | the 1e2 gate filtered the seller's rows on `paymentMode`, a field the view did not have — an assertion that could never fail | the view carries `paymentMode` (and `storeOrderId`, `deliveredAt`) | gate 1e2-08 now meaningful |
+| 24 | slice trace | the seller's Accept answer said "deliver and collect the cash" on orders already paid online | a card order's answer says PAID ONLINE: do not collect cash | — |
+| 25 | slice trace (G-16) | marketplace-service wrote no audit row for any marketplace action (R22.4) | adopts `common-audit` (`AuditEmitter`, V30 `audit_outbox`); every support/return action filed under the seller, actor type stated | gate 1f-12, MarketplaceSupportServiceTest `decisionAudited`, walk M-1f-05 |
+| 26 | slice trace | a lost card refund for a return would never be retried: `reconcile()` routed every pending refund to `refundIfCancelled`, which ignores delivered orders | refunds keyed `return:` are routed to `refundReturn` | MarketplaceSupportServiceTest `lostRefundNoSecondCreditNote` |
+| 27 | recorded walk M-1f-04 | My orders drew itself twice on load; a prompt "Get help" click lost its form to the second draw | loads run one at a time | walk M-1f-04 |
+
+Also corrected before build: the return-days edit first added for the gate broke MKT-1c's promise that policies are
+never edited — removed; gate 1f-06/07 use new policies instead.
+
+**Unit:** MarketplaceSupportServiceTest 14/14, MarketplaceOfferServiceTest 12/12, order flow 26, payment 6, customer 6,
+catalog 14, checkout 14. Monolith MarketplacePublicControllerTest 10/10. Six bundles: 2,960 keys each, identical.
+
+**Rulings applied:** R-MKT-12 (cash on delivery: the rider hands the cash back at pickup), R-MKT-13 (the seller's
+rider collects), R-MKT-14 (change of mind per the snapshotted return days; the customer bears the pickup fee,
+operator-set, default Rs 250).
+
+**Open (1f):** a support case for an order not in an account (by number + phone) — the data model allows it, the
+screens do not yet; write-off accounting beyond quarantine (Phase 1 keeps written-off goods out of sellable stock);
+returns feed the settlement ledger in MKT-1g.
 

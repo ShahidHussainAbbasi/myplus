@@ -1,7 +1,7 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 54,
+ "unit": 57,
  "cypress": 61,
  "automated": 66,
  "manual": 87,
@@ -398,6 +398,7 @@
     "MarketplaceOfferServiceTest.priceLimits",
     "MarketplaceOfferServiceTest.commissionStamped",
     "MarketplaceOfferServiceTest.limits",
+    "MarketplaceOfferServiceTest.queueOrder",
     "MarketplaceOrderFlowTest.acceptWindow",
     "MarketplacePolicyServiceTest.commission",
     "MarketplaceSettingsServiceTest.save",
@@ -484,15 +485,17 @@
    "unit": [],
    "cypress": [],
    "manual": [
-    "M-1e-07",
-    "M-1f-01"
+    "M-1e-07"
    ]
   },
   {
    "req": "MKT-R8.2",
    "phase": "1",
    "text": "Customer contacts MaxTheService only; MaxTheService tasks merchant/supplier/carrier/warranty provider internally and relays the resolution",
-   "unit": [],
+   "unit": [
+    "MarketplaceSupportServiceTest.oneCaseNoInternalNotes",
+    "MarketplaceSupportServiceTest.resolvedNewestFirst"
+   ],
    "cypress": [
     "MKT-1f-02",
     "MKT-1f-03",
@@ -760,7 +763,9 @@
    "text": "MaxTheService coordinates returns; the cost bearer follows the cause (10-row table)",
    "unit": [
     "ReturnAndSubstitutionPolicyTest.table",
-    "MarketplacePaymentServiceTest.refundOnce"
+    "MarketplacePaymentServiceTest.refundOnce",
+    "MarketplaceSupportServiceTest.bearerFromSnapshot",
+    "MarketplaceSupportServiceTest.changeOfMindFee"
    ],
    "cypress": [
     "MKT-1f-04",
@@ -768,14 +773,21 @@
    ],
    "manual": [
     "M-1e2-05",
-    "M-1f-02"
+    "M-1f-02",
+    "M-1f-03"
    ]
   },
   {
    "req": "MKT-R13.2",
    "phase": "1",
    "text": "Return flow: request → policy check → notify fulfiller/owner → pickup → inspect → approve/reject refund → restock/quarantine/write-off → adjust settlement",
-   "unit": [],
+   "unit": [
+    "MarketplaceSupportServiceTest.deliveredAndOnce",
+    "MarketplaceSupportServiceTest.cardRefundOnce",
+    "MarketplaceSupportServiceTest.lostRefundNoSecondCreditNote",
+    "MarketplaceSupportServiceTest.codCashAtPickup",
+    "MarketplaceSupportServiceTest.receivedGuards"
+   ],
    "cypress": [
     "MKT-1f-01",
     "MKT-1f-04",
@@ -794,7 +806,8 @@
    "unit": [
     "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot",
     "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
-    "MarketplacePolicyServiceTest.deactivated"
+    "MarketplacePolicyServiceTest.deactivated",
+    "MarketplaceSupportServiceTest.windowFromSnapshot"
    ],
    "cypress": [
     "MKT-1e-06",
@@ -802,7 +815,8 @@
    ],
    "manual": [
     "M-1c-07",
-    "M-1e-06"
+    "M-1e-06",
+    "M-1f-02"
    ]
   },
   {
@@ -810,7 +824,8 @@
    "phase": "1",
    "text": "Expired/unsafe product → urgent escalation",
    "unit": [
-    "ReturnAndSubstitutionPolicyTest.escalation"
+    "ReturnAndSubstitutionPolicyTest.escalation",
+    "MarketplaceSupportServiceTest.urgentFirst"
    ],
    "cypress": [
     "MKT-1f-08"
@@ -1297,6 +1312,8 @@
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
     "MarketplaceSettingsServiceTest.operatorOnly",
+    "MarketplaceSupportServiceTest.isolation",
+    "MarketplaceSupportServiceTest.operatorOnly",
     "SellerAccessTest.tiers",
     "SellerAccessTest.operatorIsRoleAdmin",
     "SellerAccessTest.orgFromToken"
@@ -1325,6 +1342,7 @@
     "M-1e-08",
     "M-1e-11",
     "M-1e2-03",
+    "M-1f-01",
     "M-X-02"
    ]
   },
@@ -1381,7 +1399,9 @@
    "req": "MKT-R22.4",
    "phase": "1",
    "text": "Every marketplace and support action audited",
-   "unit": [],
+   "unit": [
+    "MarketplaceSupportServiceTest.decisionAudited"
+   ],
    "cypress": [
     "MKT-1f-12"
    ],
@@ -1406,7 +1426,6 @@
    "unit": [],
    "cypress": [],
    "manual": [
-    "M-1f-01",
     "M-X-01"
    ]
   }

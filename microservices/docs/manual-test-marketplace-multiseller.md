@@ -22,7 +22,7 @@
 **Who:** owner.pesticide@myplus.com — a shop MaxTheService never entitled  
 **Before:** Nobody has switched the marketplace on for this shop.  
 **Covers:** MKT-R20.0  
-**Evidence:** recorded 2026-10-03 19:15 UTC  
+**Evidence:** recorded 2026-10-03 22:31 UTC  
 **Automated by:** MKT-0a-02
 
 | # | Do this | Expect |
@@ -36,7 +36,7 @@
 **Who:** owner.pesticide@myplus.com  
 **Before:** As M-0a-01: the shop is on the FREE plan and not entitled.  
 **Covers:** MKT-R20.0, MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:15 UTC  
+**Evidence:** recorded 2026-10-03 22:31 UTC  
 **Automated by:** MKT-0a-02, MKT-0a-03
 
 | # | Do this | Expect |
@@ -52,7 +52,7 @@
 **Who:** admin@myplus.com (operator), then owner.audit@myplus.com (a shop that has never applied)  
 **Before:** owner.audit@'s shop has never applied (on a test environment run walk-reset.sql first) and is not entitled.  
 **Covers:** MKT-R20.0, MKT-R9.1, MKT-R20.1, MKT-R9.2, MKT-R9.3  
-**Evidence:** recorded 2026-10-03 19:15 UTC  
+**Evidence:** recorded 2026-10-03 22:31 UTC  
 **Automated by:** MKT-0a-01, MKT-0a-05
 
 | # | Do this | Expect |
@@ -69,7 +69,7 @@
 **Who:** user.business@myplus.com (a staff member of Shahzad Mobile Shop, user tier)  
 **Before:** Shahzad Mobile Shop (owner.business@) has the marketplace switched on.  
 **Covers:** MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:15 UTC  
+**Evidence:** recorded 2026-10-03 22:31 UTC  
 **Automated by:** MKT-0a-04
 
 | # | Do this | Expect |
@@ -95,7 +95,7 @@
 **Who:** admin@myplus.com (operator), then owner.audit@myplus.com  
 **Before:** owner.audit@ has applied as "Audit Electronics" (M-0a-03).  
 **Covers:** MKT-R20.1, MKT-R22.1, MKT-R19.1  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:32 UTC  
 **Automated by:** MKT-0a-06, MKT-0a-07
 
 | # | Do this | Expect |
@@ -116,15 +116,15 @@
 ### M-1b-01 A seller proposes a phone for the marketplace
 
 **Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** Shahzad Mobile Shop is an approved seller and has a product "Galaxy A32 128 Black W08684" with 5 in stock (add it under Products if it is missing).  
+**Before:** Shahzad Mobile Shop is an approved seller and has a product "Galaxy A32 128 Black W93787" with 5 in stock (add it under Products if it is missing).  
 **Covers:** MKT-R5.1, MKT-R6.2, MKT-R6.4, MKT-R5.2  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:32 UTC  
 **Automated by:** MKT-1b-01, MKT-1b-02
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | Log in as owner.business@myplus.com. Sale → Marketplace → "Propose a product". | The proposal form opens with: Your product, Brand, Model, Variant / storage, Colour, Condition and Warranty. |
-| 2 | Your product "Galaxy A32 128 Black W08684". Brand "Samsung". Model "Galaxy A32 W08684". Variant / storage "128 GB" (with the space). Colour "black" (lower case). Condition New. Click "Send for review". | "Sent to MaxTheService for review." A new row shows the identity SAMSUNG\|GALAXY-A32-W08684\|128GB\|BLACK\|NEW… (the space and the lower case are normalised by the server) and a yellow "Waiting for review" badge. |
+| 2 | Your product "Galaxy A32 128 Black W93787". Brand "Samsung". Model "Galaxy A32 W93787". Variant / storage "128 GB" (with the space). Colour "black" (lower case). Condition New. Click "Send for review". | "Sent to MaxTheService for review." A new row shows the identity SAMSUNG\|GALAXY-A32-W93787\|128GB\|BLACK\|NEW… (the space and the lower case are normalised by the server) and a yellow "Waiting for review" badge. |
 | C1 | None: M-1b-02 continues with this proposal. | It waits in the operator's "Product matching" queue. |
 
 > **Found by the walk:** DEFECT, fixed: the identity key glued a model code to the number before it ("Galaxy A32 W70934" → GALAXY-A32W70934, "W" read as watts). A unit now has to end the word (ProductIdentityKeyTest).
@@ -134,12 +134,12 @@
 **Who:** admin@myplus.com (operator)  
 **Before:** M-1b-01 done.  
 **Covers:** MKT-R6.4, MKT-R5.2, MKT-R6.5  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:32 UTC  
 **Automated by:** MKT-1b-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As admin@myplus.com: Platform → "Product matching". | Shahzad Mobile Shop's proposal SAMSUNG\|GALAXY-A32-W08684\|128GB\|BLACK\|NEW… is listed. Its "Existing match" column reads "New marketplace product". |
+| 1 | As admin@myplus.com: Platform → "Product matching". | Shahzad Mobile Shop's proposal SAMSUNG\|GALAXY-A32-W93787\|128GB\|BLACK\|NEW… is listed. Its "Existing match" column reads "New marketplace product". |
 | 2 | Click Match on that row. | The row leaves the queue. |
 | 3 | Open the "Matched" list. | The proposal is listed there, now attached to a marketplace product. |
 | C1 | None: the matched product is what M-1b-03 and the offers in MKT-1c build on. | — |
@@ -147,14 +147,14 @@
 ### M-1b-03 The same phone from a second seller is suggested, never merged on its own
 
 **Who:** owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com  
-**Before:** M-1b-02 done. Mobile Distributor is an approved seller with a product "Samsung A-32 128GB blk W08684" in stock.  
+**Before:** M-1b-02 done. Mobile Distributor is an approved seller with a product "Samsung A-32 128GB blk W93787" in stock.  
 **Covers:** MKT-R6.1, MKT-R5.4, MKT-R6.4  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:32 UTC  
 **Automated by:** MKT-1b-04
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Propose a product". Your product "Samsung A-32 128GB blk W08684". Brand " samsung " (spaces), Model "galaxy a32 w08684", Variant "128 gb", Colour "BLACK", Condition New. Send for review. | The row shows the SAME identity as Shahzad's, SAMSUNG\|GALAXY-A32-W08684\|128GB\|BLACK\|NEW…, and "Waiting for review". Nothing is live yet. |
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → "Propose a product". Your product "Samsung A-32 128GB blk W93787". Brand " samsung " (spaces), Model "galaxy a32 w93787", Variant "128 gb", Colour "BLACK", Condition New. Send for review. | The row shows the SAME identity as Shahzad's, SAMSUNG\|GALAXY-A32-W93787\|128GB\|BLACK\|NEW…, and "Waiting for review". Nothing is live yet. |
 | 2 | As admin@myplus.com: Platform → "Product matching". | Mobile Distributor's row reads "Same identity as product #<the product from M-1b-02>" in "Existing match". |
 | 3 | Click Match on it. | Both sellers now point at ONE marketplace product (the "Matched" list shows both rows with the same product). |
 | C1 | None: MKT-1c offers this product from both sellers. | — |
@@ -164,12 +164,12 @@
 **Who:** owner.mobile@myplus.com, then admin@myplus.com  
 **Before:** M-1b-02 done (the 128GB product exists).  
 **Covers:** MKT-R6.6, MKT-R6.1  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:32 UTC  
 **Automated by:** MKT-1b-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As owner.mobile@myplus.com: propose "Galaxy A32 64 Black W08684" with Brand Samsung, Model "Galaxy A32 W08684", Variant "64GB", Colour Black, New. | The identity ends …\|64GB\|BLACK\|NEW…; "Waiting for review". |
+| 1 | As owner.mobile@myplus.com: propose "Galaxy A32 64 Black W93787" with Brand Samsung, Model "Galaxy A32 W93787", Variant "64GB", Colour Black, New. | The identity ends …\|64GB\|BLACK\|NEW…; "Waiting for review". |
 | 2 | As admin@myplus.com: Platform → "Product matching". | The 64GB row reads "New marketplace product" — never "Same identity as product #…". |
 | C1 | As admin@: on the 64GB row type "walk cleanup" in the note box and click Reject. | The row leaves the queue; no marketplace product is created for it. |
 
@@ -178,7 +178,7 @@
 **Who:** admin@myplus.com, then owner.business@myplus.com  
 **Before:** M-1b-02 done.  
 **Covers:** MKT-R6.5, MKT-R6.4  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** MKT-1b-06
 
 | # | Do this | Expect |
@@ -186,14 +186,14 @@
 | 1 | As admin@myplus.com: Product matching → "Matched". On Shahzad Mobile Shop's row click "Needs correction" with the note box empty. | Refused: "Tell the seller what is wrong…". The row stays Matched. |
 | 2 | Type "colour is Blue on the box" in the note box and click "Needs correction". | The row leaves "Matched". |
 | 3 | As owner.business@myplus.com: Sale → Marketplace. | The proposal shows a red "Needs correction" badge and the note exactly as typed: "colour is Blue on the box". |
-| C1 | As owner.business@: propose "Galaxy A32 128 Black W08684" again with the same details; as admin@: Product matching → Match it. | Shahzad Mobile Shop is attached to the product again, ready for MKT-1c. |
+| C1 | As owner.business@: propose "Galaxy A32 128 Black W93787" again with the same details; as admin@: Product matching → Match it. | Shahzad Mobile Shop is attached to the product again, ready for MKT-1c. |
 
 ### M-1b-06 A product from another shop's catalogue cannot be proposed
 
 **Who:** owner.mobile@myplus.com, with the browser's developer tools  
 **Before:** M-1b-01 done; Shahzad Mobile Shop's product id is known.  
 **Covers:** MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:16 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** MKT-1b-07
 
 | # | Do this | Expect |
@@ -204,15 +204,15 @@
 ### M-1b-07 Pack sizes stay separate products (Panadol 10s and 20s)
 
 **Who:** owner.pharma@myplus.com (a pharmacy, approved seller)  
-**Before:** The pharmacy has products "Panadol Extra 10s W08684" and "Panadol Extra 20s W08684" (not prescription-only).  
+**Before:** The pharmacy has products "Panadol Extra 10s W93787" and "Panadol Extra 20s W93787" (not prescription-only).  
 **Covers:** MKT-R6.6, MKT-R6.3  
-**Evidence:** recorded 2026-10-03 19:17 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** ProductIdentityKeyTest
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As owner.pharma@myplus.com: Sale → Marketplace → Propose a product → "Panadol Extra 10s W08684", Brand GSK, Model "Panadol Extra W08684", Size "500 mg", Pack size "10". Send for review. | Sent. The identity ends in the pack size 10. |
-| 2 | Propose "Panadol Extra 20s W08684" the same way with Pack size "20". | A second row with a DIFFERENT identity ending in 20. The two are never suggested as the same product. |
+| 1 | As owner.pharma@myplus.com: Sale → Marketplace → Propose a product → "Panadol Extra 10s W93787", Brand GSK, Model "Panadol Extra W93787", Size "500 mg", Pack size "10". Send for review. | Sent. The identity ends in the pack size 10. |
+| 2 | Propose "Panadol Extra 20s W93787" the same way with Pack size "20". | A second row with a DIFFERENT identity ending in 20. The two are never suggested as the same product. |
 | C1 | As admin@: Product matching → Reject both Panadol rows with the note "walk cleanup". | Both leave the queue. |
 
 
@@ -223,31 +223,31 @@
 **Who:** admin@myplus.com (operator)  
 **Before:** MKT-1c is deployed.  
 **Covers:** MKT-R14.1, MKT-R14.2, MKT-R7.4  
-**Evidence:** recorded 2026-10-03 19:17 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** MKT-1c-09, MKT-1c-10
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | As admin@myplus.com: Platform → "Marketplace policies". | The policy form (Kind, Name sellers see, …, Create policy) and the policy list are shown, with the line "Policies are never edited. To change terms, create a new policy and deactivate the old one, so nothing already sold changes." |
 | 2 | Kind "Warranty", leave "Warranty provider" EMPTY, Name "No provider", Months 12. Click "Create policy". | Refused: "Name the warranty provider. MaxTheService is never assumed to be it." Nothing is added. |
-| 3 | Kind "Warranty". Name "12 months — authorised distributor W08684". Provider "Samsung Pakistan (authorised distributor)". Months 12. Covers "Manufacturing defects". Excludes "Physical and liquid damage". Create policy. | Created. The list shows WARRANTY · the name · "12 · Samsung Pakistan (authorised distributor) · Manufacturing defects", with Deactivate and NO Edit. |
-| 4 | Kind "Returns". Name "7 days W08684". Return days 7. Create policy. | Listed as RETURN · "7 days". |
-| 5 | Kind "Commission". Name "Standard 8% W08684". Charged on "Item price (not delivery)". Rate 8. Tick "Use for newly approved offers". Create policy. | Listed as "COMMISSION · default" with "8% · ITEMS". It replaces the earlier default for offers approved from now on. |
+| 3 | Kind "Warranty". Name "12 months — authorised distributor W93787". Provider "Samsung Pakistan (authorised distributor)". Months 12. Covers "Manufacturing defects". Excludes "Physical and liquid damage". Create policy. | Created. The list shows WARRANTY · the name · "12 · Samsung Pakistan (authorised distributor) · Manufacturing defects", with Deactivate and NO Edit. |
+| 4 | Kind "Returns". Name "7 days W93787". Return days 7. Create policy. | Listed as RETURN · "7 days". |
+| 5 | Kind "Commission". Name "Standard 8% W93787". Charged on "Item price (not delivery)". Rate 8. Tick "Use for newly approved offers". Create policy. | Listed as "COMMISSION · default" with "8% · ITEMS". It replaces the earlier default for offers approved from now on. |
 | C1 | None: the offers in MKT-1c use these. M-1c-07 deactivates the return policy. | — |
 
 ### M-1c-01 A seller creates an offer and sends it for approval
 
 **Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** Shahzad Mobile Shop is attached to "Samsung Galaxy A32 W08684 128GB Black" (M-1b-02, M-1b-05) and has 5 in stock. M-1c-00 done.  
+**Before:** Shahzad Mobile Shop is attached to "Samsung Galaxy A32 W93787 128GB Black" (M-1b-02, M-1b-05) and has 5 in stock. M-1c-00 done.  
 **Covers:** MKT-R5.3, MKT-R7.5, MKT-R14.1  
-**Evidence:** recorded 2026-10-03 19:17 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** MKT-1c-01
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | As owner.business@myplus.com: Sale → Marketplace → "New offer". | The offer form opens: Product (only products MaxTheService matched), Price (Rs.), Delivery in (hours), Cities you deliver to, Warranty, Returns. |
-| 2 | Product "Samsung Galaxy A32 W08684 128GB Black". Price 52000. Delivery in 24 hours. Cities "Karachi, karachi , Lahore". Open the Warranty and the Returns lists. | Only ACTIVE policies are offered, among them "12 months — authorised distributor W08684" and "7 days W08684". There is no way to type a warranty of your own. |
-| 3 | Warranty "12 months — authorised distributor W08684", Returns "7 days W08684". Click "Save and send for approval". | The new row shows Rs. 52,000, cities "Karachi, Lahore" (the duplicate dropped, the spelling kept as typed) and a yellow "Waiting for review" badge. The whole table, Edit and Pause included, fits the screen without scrolling sideways. |
+| 2 | Product "Samsung Galaxy A32 W93787 128GB Black". Price 52000. Delivery in 24 hours. Cities "Karachi, karachi , Lahore". Open the Warranty and the Returns lists. | Only ACTIVE policies are offered, among them "12 months — authorised distributor W93787" and "7 days W93787". There is no way to type a warranty of your own. |
+| 3 | Warranty "12 months — authorised distributor W93787", Returns "7 days W93787". Click "Save and send for approval". | The new row shows Rs. 52,000, cities "Karachi, Lahore" (the duplicate dropped, the spelling kept as typed) and a yellow "Waiting for review" badge. The whole table, Edit and Pause included, fits the screen without scrolling sideways. |
 | C1 | None: the offer continues in M-1c-04. (The server also refuses "send for approval" without both policies — gate MKT-1c-01.) | — |
 
 > **Found by the walk:** DEFECT, fixed: on a 1366 px screen "My offers" (944 px) and the proposals table (923 px) overflowed a 900 px box, hiding Edit and Pause behind a sideways scroll. Headers now wrap; the walk asserts the table fits.
@@ -257,7 +257,7 @@
 **Who:** owner.business@myplus.com, with the browser's developer tools  
 **Before:** M-1c-01 done; the offer id is known.  
 **Covers:** MKT-R3.1, MKT-R4.1, MKT-R22.1, MKT-R20.2, MKT-R3.2  
-**Evidence:** recorded 2026-10-03 19:17 UTC  
+**Evidence:** recorded 2026-10-03 22:33 UTC  
 **Automated by:** MKT-1c-02, MKT-1c-04
 
 | # | Do this | Expect |
@@ -269,14 +269,14 @@
 ### M-1c-03 A prescription product cannot be offered
 
 **Who:** owner.pharma@myplus.com (a pharmacy, approved seller)  
-**Before:** The pharmacy has a product "Augmentin W08684" with "Prescription required" ticked (Clinical & Safety).  
+**Before:** The pharmacy has a product "Augmentin W93787" with "Prescription required" ticked (Clinical & Safety).  
 **Covers:** MKT-R20.2, MKT-R7.6  
-**Evidence:** recorded 2026-10-03 19:17 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-03, MKT-1b-09
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As owner.pharma@myplus.com: Sale → Marketplace → "Propose a product" → "Augmentin W08684", Brand GSK, Model "Augmentin W08684". Send for review. | Refused: "Prescription and restricted products cannot be sold on the marketplace yet." Nothing is added to the proposals table. |
+| 1 | As owner.pharma@myplus.com: Sale → Marketplace → "Propose a product" → "Augmentin W93787", Brand GSK, Model "Augmentin W93787". Send for review. | Refused: "Prescription and restricted products cannot be sold on the marketplace yet." Nothing is added to the proposals table. |
 | C1 | Nothing was created. | Nothing to undo. |
 
 ### M-1c-04 The operator approves; a price outside the limits is refused
@@ -284,12 +284,12 @@
 **Who:** admin@myplus.com (operator), then owner.business@myplus.com  
 **Before:** M-1c-01 done: the offer waits for review. A default commission policy exists (M-1c-00).  
 **Covers:** MKT-R7.4, MKT-R22.2  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As admin@myplus.com: Platform → "Offer approvals" (opens on "Waiting for review"). | Shahzad Mobile Shop's offer for "Samsung Galaxy A32 W08684 128GB Black" is listed at 52,000 for "Karachi, Lahore", with Approve and Reject. |
+| 1 | As admin@myplus.com: Platform → "Offer approvals" (opens on "Waiting for review"). | Shahzad Mobile Shop's offer for "Samsung Galaxy A32 W93787 128GB Black" is listed at 52,000 for "Karachi, Lahore", with Approve and Reject. |
 | 2 | Click Approve. | The row leaves the queue. |
 | 3 | As owner.business@myplus.com: Sale → Marketplace → My offers. | The offer reads "Live". |
 | 4 | Developer tools, as admin@: POST /platform/mkt/productLimits {id: <the marketplace product>, priceFloor: 40000, priceCeiling: 60000}. | Saved. |
@@ -302,7 +302,7 @@
 **Who:** admin@myplus.com (operator) and a customer in an incognito window  
 **Before:** M-1c-04 done: the offer is Live.  
 **Covers:** MKT-R7.6  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-07
 
 | # | Do this | Expect |
@@ -319,7 +319,7 @@
 **Who:** Customer (incognito window), developer tools  
 **Before:** M-1c-04 done: the offer is Live.  
 **Covers:** MKT-R9.2, MKT-R9.3, MKT-R14.2, MKT-R14.1  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-06, MKT-1c-09
 
 | # | Do this | Expect |
@@ -332,14 +332,14 @@
 **Who:** admin@myplus.com, then owner.business@myplus.com  
 **Before:** The offer uses "7 days …" (M-1c-01).  
 **Covers:** MKT-R7.4, MKT-R13.3  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-10
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | As admin@myplus.com: Marketplace policies → "7 days W08684" → Deactivate. | The row turns grey and loses its Deactivate button. |
-| 2 | As owner.business@: My offers → Edit on the offer. Open the Returns list. | "7 days W08684" is no longer offered. |
-| 3 | Developer tools: GET /mkt/getOffer?id=<the offer>, then POST /mkt/saveOffer {id: <the offer>, returnPolicyId: <the "7 days W08684" id>}. | The offer still names the 7-day policy (what was agreed stays). Choosing it again is refused: "Choose an active return policy." |
+| 1 | As admin@myplus.com: Marketplace policies → "7 days W93787" → Deactivate. | The row turns grey and loses its Deactivate button. |
+| 2 | As owner.business@: My offers → Edit on the offer. Open the Returns list. | "7 days W93787" is no longer offered. |
+| 3 | Developer tools: GET /mkt/getOffer?id=<the offer>, then POST /mkt/saveOffer {id: <the offer>, returnPolicyId: <the "7 days W93787" id>}. | The offer still names the 7-day policy (what was agreed stays). Choosing it again is refused: "Choose an active return policy." |
 | C1 | None: a deactivated policy is never re-activated. Create a new one when terms change. | — |
 
 > **Found by the walk:** DEFECT, fixed: the operator's Deactivate ignored the server's answer, so a refusal would have shown nothing. It now shows the server's sentence.
@@ -349,7 +349,7 @@
 **Who:** owner.mobile@myplus.com (Mobile Distributor), developer tools  
 **Before:** Shahzad Mobile Shop's offer id is known.  
 **Covers:** MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1c-08
 
 | # | Do this | Expect |
@@ -367,12 +367,12 @@
 **Who:** Customer (incognito window)  
 **Before:** Shahzad Mobile Shop: Samsung Galaxy A32 128GB Black at Rs 52,000, delivery in 4 hours, 12-month warranty (Samsung Pakistan), 7-day returns. Mobile Distributor: the SAME product at Rs 51,500, 24 hours, 6-month warranty. Both Live, both deliver to Karachi only (the MKT-1c steps, done for each).  
 **Covers:** MKT-R5.4, MKT-R7.2, MKT-R18.2  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1d-01, MKT-1d-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Open /marketplace in an incognito window. City "Karachi". Search "Galaxy A32 T1791054895708684d". | One card: "Samsung Galaxy A32 T1791054895708684d 128GB Black", "From Rs. 51,500", "Available from 2 sellers", "Delivery in 4 hours" (the fastest seller's promise). |
+| 1 | Open /marketplace in an incognito window. City "Karachi". Search "Galaxy A32 T179106665693787d". | One card: "Samsung Galaxy A32 T179106665693787d 128GB Black", "From Rs. 51,500", "Available from 2 sellers", "Delivery in 4 hours" (the fastest seller's promise). |
 | 2 | Open the card. | Two sellers. Shahzad Mobile Shop: Rs. 52,000, Delivery in 4 hours, 12 months warranty · Samsung Pakistan, Returns within 7 days, "No ratings yet", "Stock checked … ago". Mobile Distributor: Rs. 51,500, Delivery in 1 day, 6 months. |
 | 3 | Press the browser's Back button. | The same search results come back. |
 | C1 | None: the next MKT-1d cases use these two offers. | — |
@@ -382,7 +382,7 @@
 **Who:** Customer (incognito window)  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R7.1, MKT-R18.4  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1d-02, MKT-1d-05
 
 | # | Do this | Expect |
@@ -401,7 +401,7 @@
 **Who:** Customer (incognito window), keyboard  
 **Before:** As M-1d-01, sorted by Lowest price.  
 **Covers:** MKT-R7.3, MKT-R7.1  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1d-03
 
 | # | Do this | Expect |
@@ -416,13 +416,13 @@
 **Who:** Customer (incognito window)  
 **Before:** As M-1d-01: both offers serve Karachi only.  
 **Covers:** MKT-R7.6, MKT-R20.1  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:34 UTC  
 **Automated by:** MKT-1d-04
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | On the product page change the City box to "Lahore". | "No seller delivers this product to Lahore yet." No rows; the button stays disabled. |
-| 2 | Go to the search, City "Lahore", search "Galaxy A32 T1791054895708684d". | No card for the phone, and "No products match in Lahore. Try fewer words or another city." No error. |
+| 2 | Go to the search, City "Lahore", search "Galaxy A32 T179106665693787d". | No card for the phone, and "No products match in Lahore. Try fewer words or another city." No error. |
 | C1 | Nothing was changed. | Nothing to undo. |
 
 > **Found by the walk:** DEFECT, fixed: a page still loading wrote the old city back into the box being typed in ("Lahore" became "KarachiLahore").
@@ -432,13 +432,13 @@
 **Who:** owner.mobile@myplus.com (Mobile Distributor) and a customer  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R7.6, MKT-R5.4, MKT-R18.2, MKT-R18.5  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** MKT-1d-07
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | As owner.mobile@myplus.com: Sale → Marketplace → My offers → Pause on the Galaxy A32 offer. | The offer reads "Paused" and its button "Resume". |
-| 2 | Customer: search "Galaxy A32 T1791054895708684d" in Karachi and open the product. | The card reads "From Rs. 52,000 · Available from 1 seller"; the product page lists only Shahzad Mobile Shop. The card's number always equals the rows on the page. |
+| 2 | Customer: search "Galaxy A32 T179106665693787d" in Karachi and open the product. | The card reads "From Rs. 52,000 · Available from 1 seller"; the product page lists only Shahzad Mobile Shop. The card's number always equals the rows on the page. |
 | C1 | As owner.mobile@: My offers → Resume. | Both sellers are back on the card and the page. |
 
 ### M-1d-06 The operator chooses the order customers see first
@@ -446,7 +446,7 @@
 **Who:** admin@myplus.com (operator), then a customer and owner.business@  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R7.4, MKT-R18.4  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** MKT-1d-08
 
 | # | Do this | Expect |
@@ -461,7 +461,7 @@
 **Who:** Customer on a phone (375 px wide)  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R7.6, MKT-R7.2  
-**Evidence:** recorded 2026-10-03 19:18 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** i18n bundles (2865 keys × 6)
 
 | # | Do this | Expect |
@@ -478,7 +478,7 @@
 **Who:** Customer (incognito window)  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R7.6  
-**Evidence:** recorded 2026-10-03 19:19 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** MKT-1d-09, MKT-1d-10
 
 | # | Do this | Expect |
@@ -500,12 +500,12 @@
 **Who:** Customer (incognito window), then owner.business@myplus.com  
 **Before:** As M-1d-01 (Shahzad Mobile Shop Live at Rs 52,000 in Karachi). The acceptance window is 5 minutes.  
 **Covers:** MKT-R10.2, MKT-R18.5, MKT-R10.1, MKT-R1.3  
-**Evidence:** recorded 2026-10-03 19:19 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** MKT-1e-01
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: open the product (Karachi), choose Shahzad Mobile Shop, press "Buy from Shahzad Mobile Shop". Name "Ali", phone 03007086841, address "1 Clifton". Check the total. | Total Rs. 52,000. The payment line reads "Cash on delivery: you pay the seller when the order arrives. Nothing is charged now." |
+| 1 | Customer: open the product (Karachi), choose Shahzad Mobile Shop, press "Buy from Shahzad Mobile Shop". Name "Ali", phone 03006937871, address "1 Clifton". Check the total. | Total Rs. 52,000. The payment line reads "Cash on delivery: you pay the seller when the order arrives. Nothing is charged now." |
 | 2 | Press "Place order". | "Waiting for Shahzad Mobile Shop to confirm", an order number MKT-…, and "Shahzad Mobile Shop has 4:5x to confirm. Your stock is held." The address bar shows ?order=MKT-… and NO phone number. |
 | 3 | As owner.business@myplus.com: Sale → Marketplace → "Incoming marketplace orders" ("Waiting for you"). | The order is listed with the items, Ali, the phone and address, and a countdown under 5:00 running down. |
 | 4 | Press Accept. | The row turns to "Accepted" with "Invoice INV-…", "In your orders as …" and "Accepted. The sale is in your books; deliver and collect the cash." |
@@ -519,7 +519,7 @@
 **Who:** Customer (incognito window), developer tools  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R20.1, MKT-R17.1, MKT-R20.2  
-**Evidence:** recorded 2026-10-03 19:19 UTC  
+**Evidence:** recorded 2026-10-03 22:35 UTC  
 **Automated by:** MKT-1e-09
 
 | # | Do this | Expect |
@@ -533,13 +533,13 @@
 **Who:** Two customers (two incognito windows), then owner.business@  
 **Before:** Shahzad Mobile Shop has a second Live offer with exactly 2 in stock (another phone, its own product).  
 **Covers:** MKT-R10.2, MKT-R10.5, MKT-R10.3  
-**Evidence:** recorded 2026-10-03 19:19 UTC  
+**Evidence:** recorded 2026-10-03 22:36 UTC  
 **Automated by:** MKT-1e-04
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer 1 (phone 03007086843): open that product, choose Shahzad Mobile Shop, Quantity 2, Place order. | "Waiting for Shahzad Mobile Shop to confirm". Both units are now held. |
-| 2 | Customer 2 (another window, phone 03007086844): the same product, Quantity 1, Place order. | Refused on the checkout: "This seller no longer has enough stock. Please choose another offer." Nothing is placed. |
+| 1 | Customer 1 (phone 03006937873): open that product, choose Shahzad Mobile Shop, Quantity 2, Place order. | "Waiting for Shahzad Mobile Shop to confirm". Both units are now held. |
+| 2 | Customer 2 (another window, phone 03006937874): the same product, Quantity 1, Place order. | Refused on the checkout: "This seller no longer has enough stock. Please choose another offer." Nothing is placed. |
 | 3 | As owner.business@: Incoming → the order for 2 → leave the reason box EMPTY → Reject. | Refused under the buttons: "Give a reason. MaxTheService support will see it." The order still waits. |
 | 4 | Type "out of stock in store" in the reason box and press Reject. | The row turns to "Rejected" with the reason. |
 | 5 | Customer 1: reopen the order page. | "Cancelled" and "The seller could not fulfil this order." |
@@ -551,13 +551,13 @@
 **Who:** admin@myplus.com, a customer, owner.business@  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R10.2, MKT-R19.1, MKT-R18.5, MKT-R10.5, MKT-R7.4  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:38 UTC  
 **Automated by:** MKT-1e-05
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | As admin@myplus.com: Platform → Marketplace policies → "Minutes a seller has to accept an order" = 1 → Save. | Saved. |
-| 2 | Customer (phone 03007086845): order Shahzad Mobile Shop's phone. The seller does nothing. | "Shahzad Mobile Shop has 0:5x to confirm. Your stock is held." |
+| 2 | Customer (phone 03006937875): order Shahzad Mobile Shop's phone. The seller does nothing. | "Shahzad Mobile Shop has 0:5x to confirm. Your stock is held." |
 | 3 | Wait about 2 minutes (the minute, a 30-second grace and one sweep). Reopen the customer's order page. | "Cancelled" and "The seller did not confirm in time." The stock is free again. |
 | 4 | As owner.business@: Incoming → choose "All". | The order reads "Expired", with no Accept button. |
 | 5 | Developer tools: replay the Accept the seller's page would have sent before the expiry (POST /mkt/acceptOrder with the old version). | Refused: "This order expired before it was accepted." — not "someone else changed it". |
@@ -570,13 +570,13 @@
 **Who:** Customer (incognito window), developer tools (network)  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R22.3  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:38 UTC  
 **Automated by:** MKT-1e-03, MarketplacePublicControllerTest
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Fill the checkout for Shahzad Mobile Shop (phone 03007086846) and DOUBLE-click "Place order". | One order number. The seller has exactly ONE order for that phone. |
-| 2 | Another order (phone 03007086847): the server PLACES it, but the answer is lost on the way back (developer tools: the response replaced by "504 Gateway Timeout"). | The page does not guess: "We could not confirm your order. Press the button again; it will not be placed twice." |
+| 1 | Fill the checkout for Shahzad Mobile Shop (phone 03006937876) and DOUBLE-click "Place order". | One order number. The seller has exactly ONE order for that phone. |
+| 2 | Another order (phone 03006937877): the server PLACES it, but the answer is lost on the way back (developer tools: the response replaced by "504 Gateway Timeout"). | The page does not guess: "We could not confirm your order. Press the button again; it will not be placed twice." |
 | 3 | Press "Place order" again. | The order the server had already placed is shown — the SAME one: the seller has exactly ONE order for that phone. |
 | C1 | As owner.business@: Reject both orders with the reason "walk cleanup". | Their stock is released. |
 
@@ -587,12 +587,12 @@
 **Who:** Customer and admin@myplus.com  
 **Before:** An order placed on an offer whose policies are its own ("12 months · Samsung Pakistan", "7 days").  
 **Covers:** MKT-R13.3, MKT-R3.1, MKT-R3.2  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:38 UTC  
 **Automated by:** MKT-1e-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer (phone 03007086848): order that phone. | The order page lists the line with "12 months warranty · Samsung Pakistan · Returns within 7 days" and Rs. 52,000. |
+| 1 | Customer (phone 03006937878): order that phone. | The order page lists the line with "12 months warranty · Samsung Pakistan · Returns within 7 days" and Rs. 52,000. |
 | 2 | As admin@myplus.com: Marketplace policies → Deactivate that "7 days" return policy. | It turns grey. |
 | 3 | Customer: reopen the order page. | Unchanged: "… Returns within 7 days", Rs. 52,000 — the terms were copied onto the order when it was placed. |
 | 4 | Developer tools: compare the customer's order (GET /marketplace/public/orders/…) with the seller's incoming order (GET /mkt/incomingOrders). | Only the SELLER sees the commission it was charged under (commissionBasis ITEMS); the customer's order has no commission field. |
@@ -603,7 +603,7 @@
 **Who:** admin@myplus.com (operator)  
 **Before:** Orders in each state exist (M-1e-01, -03, -04).  
 **Covers:** MKT-R19.1, MKT-R20.1, MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MKT-1e-09
 
 | # | Do this | Expect |
@@ -620,7 +620,7 @@
 **Who:** Customer, and owner.business@  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R20.1  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MarketplaceOrderFlowTest.codOffRefused
 
 | # | Do this | Expect |
@@ -636,14 +636,14 @@
 **Who:** owner.business@myplus.com  
 **Before:** Shahzad Mobile Shop has a Live phone offer whose product is set to "requires serial number" (Products → edit → "Track serial numbers"), and RECEIVED two of those phones with their IMEIs on a purchase (Purchase → New purchase, IMEIs typed in). A customer has ordered 2.  
 **Covers:** MKT-R10.2, MKT-R10.3, MKT-R10.4, MKT-R10.1  
-**Evidence:** recorded 2026-10-03 19:22 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MarketplaceOrderFlowTest (serials)
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | As owner.business@: Incoming → the order for 2 → press Accept without typing any IMEI. | Refused under the buttons: "Enter the serial number (IMEI) of each unit you are sending: 2 for …". The order still waits; the stock stays held. |
-| 2 | Type ONE IMEI (350548957086841) and press Accept. | The same refusal: two units need two IMEIs. |
-| 3 | Type the second IMEI (350548957086842) and press Accept. | Accepted: "Invoice INV-…"; the invoice records those two IMEIs as sold. (An IMEI the shop never received is refused: "The sale could not be recorded: Serial … is not in stock." — and the order keeps waiting, stock held.) |
+| 2 | Type ONE IMEI (351066656937871) and press Accept. | The same refusal: two units need two IMEIs. |
+| 3 | Type the second IMEI (351066656937872) and press Accept. | Accepted: "Invoice INV-…"; the invoice records those two IMEIs as sold. (An IMEI the shop never received is refused: "The sale could not be recorded: Serial … is not in stock." — and the order keeps waiting, stock held.) |
 | C1 | None: the sale is real. Undo it through the store's Sale Returns if needed. | — |
 
 > **Found by the walk:** Case corrected: an IMEI must have been RECEIVED on a purchase to be sold; an unknown one is refused ("Serial … is not in stock") and the order keeps waiting.
@@ -653,14 +653,14 @@
 **Who:** Customer (incognito window)  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R22.3, MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MKT-1e-10, MKT-1e-08
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | With phone 03007086849, place 3 orders and leave them unanswered. | Each reads "Waiting for … to confirm". |
-| 2 | Place a 4th with the SAME number written differently: (0300) 7086849. | Refused: "You already have 3 orders waiting for sellers to confirm. Please wait for an answer first." |
-| 3 | Place one with a different number (03007086840). | Placed: the limit is per number, not per shop. |
+| 1 | With phone 03006937879, place 3 orders and leave them unanswered. | Each reads "Waiting for … to confirm". |
+| 2 | Place a 4th with the SAME number written differently: (0300) 6937879. | Refused: "You already have 3 orders waiting for sellers to confirm. Please wait for an answer first." |
+| 3 | Place one with a different number (03006937870). | Placed: the limit is per number, not per shop. |
 | 4 | Open the checkout, then let the page's security token lapse (developer tools: delete the XSRF-TOKEN cookie) and press "Place order". | "This page expired. Please reload it and try again." Nothing is placed. |
 | C1 | As owner.business@: Reject the 4 waiting orders with "walk cleanup". | Their stock is released. |
 
@@ -674,16 +674,16 @@
 **Who:** Customer (incognito window)  
 **Before:** Shahzad Mobile Shop has a Live phone offer in Karachi (as M-1d-01).  
 **Covers:** MKT-R1.1, MKT-R22.3  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MKT-1e2-01, MKT-1e2-02
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | Open /marketplace in an incognito window and press "Sign in" at the top. | The account panel opens: Phone number, Password, "Sign in", and "New here? Create an account". The forgot-password line says to contact MaxTheService support with an order number and the phone you ordered with. |
-| 2 | Press "New here? Create an account". Phone 03127086841, Your name "Ali Raza", Password "short". Press "Create account". | Refused: "Choose a password of at least 8 characters." The hint under the password says "At least 8 characters. Not your phone number." |
+| 2 | Press "New here? Create an account". Phone 03126937871, Your name "Ali Raza", Password "short". Press "Create account". | Refused: "Choose a password of at least 8 characters." The hint under the password says "At least 8 characters. Not your phone number." |
 | 3 | Password "Shop!ng2026". Press "Create account". | Signed in: the top button now reads "Ali Raza"; "My orders" shows "No orders yet." with "Add an order you placed before" below. |
 | 4 | Developer tools → Application → Cookies: look for MKT_SESSION. | The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax; document.cookie does not contain it. |
-| 5 | Press "Sign out", then try to create another account with the same phone written as (0312) 7086841. | Refused: "This phone number already has an account. Sign in instead." — one account per phone, however it is written. |
+| 5 | Press "Sign out", then try to create another account with the same phone written as (0312) 6937871. | Refused: "This phone number already has an account. Sign in instead." — one account per phone, however it is written. |
 | C1 | Nothing to undo: the account stays for the next cases. | — |
 
 ### M-1e2-02 Five wrong passwords lock the phone for 15 minutes
@@ -691,12 +691,12 @@
 **Who:** Customer  
 **Before:** An account exists for a phone (here a fresh one).  
 **Covers:** MKT-R22.3  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MKT-1e2-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Sign in with phone 03127086842 and a wrong password, five times. | Each time: "The phone number or password is not right." — the same sentence an unknown phone gets. |
+| 1 | Sign in with phone 03126937872 and a wrong password, five times. | Each time: "The phone number or password is not right." — the same sentence an unknown phone gets. |
 | 2 | Now type the RIGHT password and press "Sign in". | Refused: "Too many wrong passwords. Please try again in 15 minutes." |
 | C1 | Wait 15 minutes; the lock lifts by itself. | Signing in works again after 15 minutes. |
 
@@ -705,15 +705,15 @@
 **Who:** Customer  
 **Before:** M-1e2-01 done (account for the walk phone).  
 **Covers:** MKT-R1.1, MKT-R22.1  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:39 UTC  
 **Automated by:** MKT-1e2-04, MKT-1e2-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Signed OUT, order the phone with phone 03127086841 (cash on delivery). | "Waiting for Shahzad Mobile Shop to confirm" — an anonymous order. |
-| 2 | Sign in as 03127086841 and open My orders. | The anonymous order is NOT there: the same phone is not proof that it is yours. |
+| 1 | Signed OUT, order the phone with phone 03126937871 (cash on delivery). | "Waiting for Shahzad Mobile Shop to confirm" — an anonymous order. |
+| 2 | Sign in as 03126937871 and open My orders. | The anonymous order is NOT there: the same phone is not proof that it is yours. |
 | 3 | Under "Add an order you placed before": the order number and a WRONG phone (03009999999). Press "Add to my orders". | Refused: "No such order. Check the order number and the phone it was placed with." |
-| 4 | The same number with phone 03127086841. Press "Add to my orders". | The order appears in My orders with its seller, "Waiting for the seller", the total and "Cash on delivery". |
+| 4 | The same number with phone 03126937871. Press "Add to my orders". | The order appears in My orders with its seller, "Waiting for the seller", the total and "Cash on delivery". |
 | 5 | Signed in, order again (cash on delivery). | The new order is in My orders at once — no claim needed. |
 | C1 | None: M-1e2-04 cancels these orders. | — |
 
@@ -724,12 +724,12 @@
 **Who:** Customer, then owner.business@myplus.com  
 **Before:** M-1e2-03 done: two waiting orders in My orders.  
 **Covers:** MKT-R10.5  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:40 UTC  
 **Automated by:** MKT-1e2-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Signed in as 03127086841: My orders → "Cancel order" on the first order → reason "changed my mind" → "Cancel order". | The order turns "Cancelled" with "You cancelled this order. changed my mind"; its Cancel button is gone. |
+| 1 | Signed in as 03126937871: My orders → "Cancel order" on the first order → reason "changed my mind" → "Cancel order". | The order turns "Cancelled" with "You cancelled this order. changed my mind"; its Cancel button is gone. |
 | 2 | As owner.business@myplus.com: Sale → Marketplace → Incoming → "All". | The order reads "Cancelled": the seller is told, and the held stock was given back. |
 | 3 | The seller presses Accept on the OTHER waiting order. Then the shopper opens My orders. | That order reads "Confirmed" and has no Cancel button: after Accept, cancelling is a support case. |
 | C1 | None: the accepted sale is real (return it through Sale Returns if needed). | — |
@@ -739,7 +739,7 @@
 **Who:** Customer, then owner.business@myplus.com  
 **Before:** Signed in (M-1e2-01).  
 **Covers:** MKT-R19.1, MKT-R20.1, MKT-R13.1  
-**Evidence:** recorded 2026-10-03 19:23 UTC  
+**Evidence:** recorded 2026-10-03 22:40 UTC  
 **Automated by:** MKT-1e2-07
 
 | # | Do this | Expect |
@@ -757,7 +757,7 @@
 **Who:** Customer  
 **Before:** Signed in (M-1e2-01).  
 **Covers:** MKT-R19.1  
-**Evidence:** recorded 2026-10-03 19:24 UTC  
+**Evidence:** recorded 2026-10-03 22:40 UTC  
 **Automated by:** MKT-1e2-08
 
 | # | Do this | Expect |
@@ -784,103 +784,118 @@
 
 ### M-1f-01 One place to complain
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Who:** Customer → MaxTheService operator → owner.business@myplus.com  
 **Before:** Ali's order from Shahzad Mobile Shop is DELIVERED (the seller recorded the delivery).  
-**Covers:** MKT-R8.2, MKT-R8.1, MKT-R23.1  
-**Evidence:** written from the design — not built yet
+**Covers:** MKT-R8.2, MKT-R22.1  
+**Evidence:** recorded 2026-10-03 22:41 UTC  
+**Automated by:** MKT-1f-01, MKT-1f-02, MKT-1f-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: My orders. | The order reads "Delivered" and shows "Get help". |
-| 2 | "Get help" → "Something is wrong with my order" → note "Box was open" → Send. | "MaxTheService support is looking into this." A case number SC-…; no seller phone number anywhere. |
-| 3 | Operator: Support cases → the case → internal note "check seller history", then "Task the seller" with "Check the box and call the customer". | The case reads "Waiting for seller". |
-| 4 | Seller A: Sale → Marketplace → Tasks from MaxTheService → reply "Charger sent with our rider today". | The task shows the order number and the operator's text. (Seller B does not see it.) |
-| 5 | Customer: open the case. | The seller's answer is relayed as MaxTheService support; the internal note is NOT shown. |
-| C1 | Operator: resolve the case with "walk cleanup". | The case reads Resolved. |
+| 1 | Customer: open /marketplace → your name → My orders. | The order reads "Delivered" and shows "Get help". |
+| 2 | "Get help" → "Something is wrong with my order" → note "Box was open" → "Send to MaxTheService". | A help request SC-… appears under the order; nowhere is a seller phone number shown. |
+| 3 | Operator: platform dashboard → Support cases → the case → write "check seller history", tick "Internal note" → Send. Then write "Check the box and call the customer" → "Task the seller". | The thread shows the internal note marked (internal); the case reads "Waiting for seller". |
+| 4 | Seller A: Sale → Marketplace → "Tasks from MaxTheService" → the task → answer "Charger sent with our rider today" → Send. | The task shows the order number, the customer's pickup details and the operator's task — not the internal note. The answer is sent. |
+| 5 | Seller B (owner.mobile@) opens the same Tasks box. | Seller A's case is not there. |
+| 6 | Customer: My orders. | The seller's answer is shown signed "MaxTheService support"; the internal note is NOT shown. |
+| C1 | Operator: the case → write "walk cleanup" → Resolve. | The case reads Resolved. |
+
+> **Found by the walk:** DEFECT, fixed (trace): a shopper could request a return straight on the seller's store order (sequential id + phone), bypassing MaxTheService. Refused for marketplace orders (M-1f-07).
 
 ### M-1f-02 Return cost follows the cause
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Delivered test orders; one return opened per reason below.  
-**Covers:** MKT-R13.1  
-**Evidence:** written from the design — not built yet
+**Who:** Customer, then MaxTheService operator  
+**Before:** Delivered test orders (M-1f-01's offer, 7 return days).  
+**Covers:** MKT-R13.1, MKT-R13.3  
+**Evidence:** recorded 2026-10-03 22:41 UTC  
+**Automated by:** MKT-1f-04, MKT-1f-05, MKT-1f-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Open a return with reason "Wrong product sent". | Cost bearer: Fulfiller (Shahzad Mobile Shop, from the order's snapshot). |
-| 2 | "Arrived damaged". | Cost bearer: Custodian. |
-| 3 | "Does not work". | Cost bearer: Stock owner. |
-| 4 | "Not as described". | Cost bearer: Seller. |
-| 5 | "Changed my mind" (inside the return days). | Cost bearer: Customer; the pickup fee (Rs 250) is deducted from the refund. |
-| 6 | "Changed my mind" on an order whose return days were 0 when it was placed. | Refused: "The return period for this item …" — a fault reason is still taken. |
-| C1 | Operator: reject the test returns with "walk cleanup". | They read Rejected. |
+| 1 | Customer: My orders → Get help → "Return this item" → "Wrong item sent" → Send. | "Return requested" RT-… under the order; the refund shown is Rs 52,000. |
+| 2 | On the second order: Return this item → "Changed my mind" → Send. | Return requested; the refund is Rs 51,750 with "pickup fee Rs 250" — the customer bears a change of mind. |
+| 3 | Operator: Support cases → the first case. | Cost bearer: FULFILLER (Shahzad Mobile Shop) — resolved from what the order line recorded when it was placed. |
+| 4 | The second case. | Cost bearer: CUSTOMER; Refund 51750.00 (−250.00). |
+| C1 | Operator: each return → note "walk cleanup" → Reject. | They read REJECTED; the customer is told why. |
 
 ### M-1f-03 A paid-online return end to end
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Who:** Customer → MaxTheService operator → owner.business@myplus.com  
 **Before:** A delivered Rs 52,000 order paid online, inside its 7-day return window.  
-**Covers:** MKT-R13.2  
-**Evidence:** written from the design — not built yet
+**Covers:** MKT-R13.1, MKT-R13.2  
+**Evidence:** recorded 2026-10-03 22:41 UTC  
+**Automated by:** MKT-1f-04
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: My orders → Get help → Return this item → "Wrong product sent" → Send. | "Return requested." Return RT-… under case SC-…. |
-| 2 | Operator: Support cases → the return → Approve with "pickup tomorrow". | Status "Approved — the seller's rider will collect it". |
-| 3 | Seller A: Tasks → the return → "Item received" → Restock. | Status "Refunded"; the store order reads RETURNED and its invoice is reversed. |
-| 4 | Customer: My orders. | The order shows one refund of Rs 52,000 — pressing "Item received" twice does not refund twice. |
-| C1 | None: refunds are records. Use a test order. | — |
+| 1 | Customer: My orders → Get help → Return this item → "Wrong item sent" → Send. | "Return requested" RT-…; the order reads "Paid online". |
+| 2 | Operator: Support cases → the case → note "pickup tomorrow" → Approve. | "Approved. The seller's rider collects it." The return reads APPROVED. |
+| 3 | Seller A: Tasks from MaxTheService → the return → "Restock: back on the shelf" → "Item received". (No "Cash handed back" box: it was paid online.) | "Received. The customer's refund is done." The task leaves the list. |
+| 4 | Developer tools: GET /getOrder for the store order behind it. | fulfilmentStatus RETURNED — the seller's books took a credit note against the invoice. |
+| 5 | Customer: My orders. | The help request shows "Refunded" and the message that Rs 52,000 is on its way to the card; the order shows one refund. |
+| C1 | None: a refunded return is complete. (Pressing "Item received" again changes nothing: one credit note, one refund.) | — |
+
+> **Found by the walk:** DEFECT, fixed (trace): the seller's own "Process return" reversed the sale in their books while the customer's online payment was never refunded. A marketplace return now runs through MaxTheService: a credit note on the invoice, then the refund, once.
 
 ### M-1f-04 Unsafe or expired goods escalate at once
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator)  
+**Who:** Customer → MaxTheService operator  
 **Before:** A delivered order.  
 **Covers:** MKT-R13.4  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-03 22:43 UTC  
+**Automated by:** MKT-1f-08
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | My orders → Get help → Return this item → "Expired or unsafe" → note "battery swollen" → Send. | Sent. |
-| 2 | Operator: Support cases. | The case is URGENT and at the top of the queue at once. |
-| C1 | Operator: resolve it with "walk cleanup". | Resolved. |
+| 1 | Customer: My orders → Get help → Return this item → "Expired or unsafe" → note "battery swollen" → Send. | Return requested. |
+| 2 | Operator: Support cases. | The case is marked URGENT and sits in the urgent group at the top — above every case that is not urgent, however much older. |
+| C1 | Operator: the return → note "walk cleanup" → Reject; then resolve the case with "walk cleanup". | Rejected; Resolved. |
+
+> **Found by the walk:** DEFECT, fixed (walk): My orders drew itself twice on load, and a quick "Get help" click lost its form to the second draw. Loads now run one at a time.
 
 ### M-1f-05 Every action leaves a trail
 
-**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
+**Who:** owner.business@myplus.com  
 **Before:** After M-1f-01 to -04.  
 **Covers:** MKT-R22.4  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-03 22:41 UTC  
+**Automated by:** MKT-1f-12
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Seller A: Settings → Activity (audit trail). | Each task, return decision and refund on Seller A's orders is listed with who (MaxTheService operator), when and the return number. A refused decision left no row. |
-| C1 | Nothing to undo. | — |
+| 1 | Developer tools, signed in as Seller A: read the business's audit trail. | MKT_CASE_TASKED and MKT_RETURN_DECIDED rows for Seller A's orders, actor type PLATFORM_OPERATOR — the operator's actions, filed in the seller's own trail. |
+| C1 | Nothing to undo: the trail is append-only. | — |
+
+> **Found by the walk:** GAP, closed (trace, G-16): marketplace-service wrote no audit row for any marketplace action. It now uses the shared audit outbox; support and return actions are filed in the seller's trail.
 
 ### M-1f-06 A cash-on-delivery return: cash back at pickup
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Who:** Customer → MaxTheService operator → owner.business@myplus.com  
 **Before:** A delivered cash-on-delivery order.  
 **Covers:** MKT-R13.2  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-03 22:42 UTC  
+**Automated by:** MKT-1f-10
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: Return this item → "Does not work" → Send; operator approves. | Approved. |
-| 2 | Seller A: "Item received" → Quarantine, WITHOUT ticking "Cash handed back". | Refused: the rider must hand the cash back at pickup (ruling R-MKT-12). |
-| 3 | Tick "Cash handed back" → Item received. | Status "Refunded — cash at pickup"; no card refund is attempted. |
-| C1 | None. | — |
+| 1 | Customer: Return this item → "Does not work" → Send. Operator: approve it. | Approved; the customer is told the rider hands Rs 52,000 back in cash when collecting it. |
+| 2 | Seller A: Tasks → the return → "Quarantine" → "Item received" WITHOUT ticking "Cash handed back". | Refused: "This order was paid in cash: hand Rs 52,000 back to the customer at pickup, then tick "Cash handed back"." (ruling R-MKT-12) |
+| 3 | Tick "Cash handed back (Rs 52,000)" → "Item received". | "Received. The customer's refund is done." — recorded as cash at pickup; no card refund is attempted; the unit is quarantined, not sellable. |
+| C1 | None: the return is complete. | — |
 
 ### M-1f-07 No way around MaxTheService
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Who:** Customer, then owner.business@myplus.com  
 **Before:** A delivered marketplace order (store order SO-…).  
 **Covers:** MKT-R8.2  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-03 22:42 UTC  
+**Automated by:** MKT-1f-09
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Shop page "Return an order" with the store order number and the phone. | Refused: returns for marketplace orders go through MaxTheService. |
-| 2 | Seller A: Orders → the store order → Process return. | Refused: "… through MaxTheService"; the order stays Delivered. |
-| C1 | None. | — |
+| 1 | As the shopper, ask the shop's own return path (POST /storefront/return) with the store order and the phone. | Refused: "Returns for marketplace orders go through MaxTheService: open My orders on the marketplace and choose Get help." |
+| 2 | Seller A: the store order → Process return (POST /processReturn). | Refused: "This is a marketplace order: its return goes through MaxTheService, which refunds the customer." The order stays Delivered. |
+| C1 | Nothing was changed. | — |
 
 
 ## MKT-1g

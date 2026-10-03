@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e and 1e2 built, unit-green (marketplace-service 315/315), Cypress gates **57/57 in one run on a live stack** and every manual case of the built slices walked and recorded (45/45) ([live verification](marketplace/live-verification-2026-10-03.md)) (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e, 1e2 and 1f built, unit-green, Cypress gates **69/69 in one run on a live stack** and every manual case of the built slices walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)) (§10)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
@@ -518,6 +518,6 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [x] MKT-1d public catalogue + compare + sort · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1d-public-catalogue.md))
 - [x] MKT-1e one-seller COD checkout + acceptance window + snapshots · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1e-checkout-acceptance.md))
 - [x] MKT-1e2 platform customer account + online payment (sandbox; platform-collected) + customer cancel / My orders · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §6) ([slice](slices/mkt-1e2-customer-account-payment.md))
-- [ ] MKT-1f support + returns cost attribution · gate
+- [x] MKT-1f support cases + returns with the cost bearer + escalation + audit · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §7) ([slice](slices/mkt-1f-support-returns.md))
 - [ ] MKT-1g commission + settlement ledger + payouts · gate
 - [ ] MKT-2…6 per their own slice docs

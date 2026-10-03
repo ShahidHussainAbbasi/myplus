@@ -218,7 +218,7 @@ Each row says how it was verified. *Verified* means the file was read in this pa
 | G-13 | **Warranty is not modelled.** | grep `warranty` | R14.* | Medium |
 | G-14 | **No marketplace capability.** Nothing to switch the module on per tenant or to entitle a seller | `Capability.java` (no marketplace value) | R20.0 | Phase 0 |
 | G-15 | **Redis is not a platform dependency.** The source assumes "Redis/search projections". Caching standard K7: in-process Caffeine at one replica; K5: **stock on hand is never cached without the user's ruling** | SAAS-BUILD-STANDARDS §1d | R18.2 | Ruling R-MKT-4 |
-| G-16 | **Marketplace actions are not audited** (found 2026-10-03, MKT-1f trace). marketplace-service does not use `common-audit`; no MKT action writes an audit row | grep `AuditEmitter` in marketplace-service: 0 | R22.4 | High — closed by MKT-1f (support/returns) + G-MKT-AUD pass (built slices) |
+| G-16 | **Marketplace actions are not audited** (found 2026-10-03, MKT-1f trace). marketplace-service does not use `common-audit`; no MKT action writes an audit row | grep `AuditEmitter` in marketplace-service: 0 | R22.4 | High — support and return actions CLOSED by MKT-1f; the built slices' earlier actions (G-MKT-AUD) still to wire |
 
 ### 2c. Things the source says that would be defects here (and what replaces them)
 

@@ -1,6 +1,7 @@
 # Slice MKT-1f — support cases and marketplace returns, with the cost bearer
 
-**Status:** DESIGNED (docs → design → plan → gate → manual cases first, per the programme's order). Not built.
+**Status:** BUILT and verified live (2026-10-03): gate 12/12, all gates 69/69 in one run, walk M-1f-01..07 recorded —
+see `../marketplace/live-verification-2026-10-03.md` §7.
 Rulings R-MKT-12, 13, 14 accepted by the owner 2026-10-03 (§4).
 
 Requirements: **MKT-R8.2** (the customer contacts MaxTheService only), **MKT-R13.1** (the cost bearer follows the

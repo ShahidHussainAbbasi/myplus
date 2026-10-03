@@ -1716,8 +1716,12 @@ on('MKT manual walk — recorded', () => {
     })
   }
   /** A DELIVERED order for `ph`, through the seller's real steps: Accept → Packed → parcel → Delivered. Yields the order number. */
+  /** The 1f offer — published once, by whichever 1f case runs first (each case can be recorded on its own). */
+  const fOffer = () => (F.offer ? cy.wrap(F.offer) : seedPolicies(`${run}f`).then((p) => cy.then(() => publishOffer(SELLER_A,
+    { run: `${run}f`, price: 52000, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { F.offer = o.offerId; return F.offer }))
   const fDelivered = (ph, mode = 'COD', offerId) => {
     const o = {}
+    if (!offerId) fOffer()
     fSignIn(ph)
     cy.then(() => post(API.checkout, { offerId: offerId || F.offer, quantity: 1, expectedPrice: 52000, customerName: 'Ali Raza',
       customerPhone: ph, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wf-${run}-${Math.random()}`, paymentMode: mode,
@@ -1752,8 +1756,6 @@ on('MKT manual walk — recorded', () => {
 
   walk({ id: 'M-1f-01', slice: 'MKT-1f', title: 'One place to complain', persona: 'Customer → MaxTheService operator → owner.business@myplus.com',
     reqs: ['MKT-R8.2', 'MKT-R22.1'], pre: 'Ali\'s order from Shahzad Mobile Shop is DELIVERED (the seller recorded the delivery).', auto: ['MKT-1f-01', 'MKT-1f-02', 'MKT-1f-03'] }, (step, call, cleanup) => {
-    cy.then(() => seedPolicies(`${run}f`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}f`, price: 52000, qty: 40,
-      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { F.offer = o.offerId }))
     cy.then(() => fDelivered(fph(1)).then((o) => { F.o1 = o.no }))
     step('Customer: open /marketplace → your name → My orders.', 'The order reads "Delivered" and shows "Get help".', () => {
       myOrders(fph(1))
@@ -1861,9 +1863,10 @@ on('MKT manual walk — recorded', () => {
     step('Developer tools: GET /getOrder for the store order behind it.', 'fulfilmentStatus RETURNED — the seller\'s books took a credit note against the invoice.', () => {
       call('GET /getOrder', get(`/getOrder?id=${F.s3}`)).then((r) => expect(data(r.body).fulfilmentStatus).to.eq('RETURNED'))
     }, { screen: false })
-    step('Customer: My orders.', 'The help request shows "Refunded" and the message that Rs 52,000 is on its way to the card; the order shows one refund.', () => {
+    step('Customer: My orders.', 'The help request shows "Refunded" and the message that Rs 52,000 is on its way to the card; the order shows one refund.', (snap) => {
       myOrders(fph(3))
       cy.get(caseOf(F.o3)).should('contain', 'Refunded').and('contain', 'on its way to your card')
+      snap()
       call('GET /marketplace/account/orders', get('/marketplace/account/orders?size=50')).then((r) => {
         const o = list(r.body).find((x) => x.orderNo === F.o3)
         expect(o.payments.filter((p) => p.kind === 'REFUND' && p.status === 'SUCCEEDED')).to.have.length(1)
@@ -1880,9 +1883,16 @@ on('MKT manual walk — recorded', () => {
       getHelp(F.o4, { topic: 'RETURN', reason: 'EXPIRED_OR_UNSAFE', note: 'battery swollen' })
       cy.get(caseOf(F.o4)).should('contain', 'Return requested').invoke('attr', 'data-case-no').then((c) => { F.c4 = c })
     })
-    step('Operator: Support cases.', 'The case is marked URGENT and is the FIRST row of the queue.', () => {
+    step('Operator: Support cases.', 'The case is marked URGENT and sits in the urgent group at the top — above every case that is not urgent, however much older.', () => {
       supportCases()
-      cy.get('#mktCaseList tbody tr').first().should('have.attr', 'data-case-no', F.c4).and('contain', 'URGENT')
+      cy.get(`#mktCaseList tr[data-case-no="${F.c4}"]`).should('contain', 'URGENT')
+      cy.get('#mktCaseList tbody tr').then(($rows) => {
+        const rows = [...$rows]
+        const mine = rows.findIndex((r) => r.getAttribute('data-case-no') === F.c4)
+        const firstCalm = rows.findIndex((r) => !r.textContent.includes('URGENT'))
+        expect(mine, 'the case is in the queue').to.be.at.least(0)
+        if (firstCalm >= 0) expect(mine, 'above every non-urgent case').to.be.below(firstCalm)
+      })
     })
     cleanup('Operator: the return → note "walk cleanup" → Reject; then resolve the case with "walk cleanup".', 'Rejected; Resolved.', () => {
       openCaseRow(F.c4)

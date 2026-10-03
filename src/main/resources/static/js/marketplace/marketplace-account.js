@@ -222,7 +222,17 @@
 		return box;
 	}
 
+	// One load at a time: the page's first render and the ?account=orders reload both open My orders, and a second
+	// redraw arriving after the shopper pressed "Get help" wiped the form they had just opened (recorded walk M-1f-04).
+	var loading = null;
+
 	function loadOrders() {
+		if (loading) return loading;
+		loading = drawOrders().then(function (x) { loading = null; return x; }, function (e) { loading = null; throw e; });
+		return loading;
+	}
+
+	function drawOrders() {
 		var ul = $('mktMyOrders');
 		return call('GET', 'marketplace/account/cases').then(function (cr) {
 			casesByOrder = {};
