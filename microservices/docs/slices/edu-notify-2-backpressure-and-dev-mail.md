@@ -1,6 +1,6 @@
 # EDU-NOTIFY-2 — a full email queue never fails the request, and dev mail never reaches Gmail
 
-Status: **Design → Implement (consented 2026-10-03)** · Owner: education-service, docker dev stack, one stale spec
+Status: **GREEN 2026-10-04** — implemented, deployed on the dev stack, gated · Owner: education-service, docker dev stack, one stale spec
 
 ## 1 · What was found (2026-10-03, education suite 398/408)
 
@@ -70,3 +70,14 @@ close, then rebuilt. The "nothing changed → nothing" half is PSEL-1's own, del
 ## 4 · Not done here
 - The relay drains oldest-first, 100 per pass: a large backlog still delays new mail. Fine once sends succeed.
 - `OutboxRelay` gives up after 20 attempts with no alert (already recorded in the Test Book §13).
+
+## 5 · Result (2026-10-04)
+- `NotifyAsyncConfigTest` 2/2 (`mvn test`). `picker-refresh-safety.cy.js` 4/4.
+- Stack recreated with the override: all five senders on `MAIL_HOST=mailpit`; **0** Gmail auth errors and **0**
+  "Could not locate PropertySource" in their logs. The backlog drained into Mailpit: `notify_outbox` PENDING
+  2,306 → **0** in about 10 minutes, with no hand edit of any table.
+- `notices.cy.js` **10/10**, `notification-delivery.cy.js` **7/7** (red 2 and 5 before).
+- Full education suite **402/408** + 1 pending: the 5 reds were all `meetings.cy.js`, case 1 timing out on its
+  call to appointment-service (`Read timed out`) and the rest cascading. Re-run alone: **8/8**. Not this slice.
+  ⚠ Worth its own item: that timed-out publish had **succeeded** (case 2 found 6 slots) — the screen reports
+  ERROR for slots that exist. The education → appointment read timeout is shorter than the work.
