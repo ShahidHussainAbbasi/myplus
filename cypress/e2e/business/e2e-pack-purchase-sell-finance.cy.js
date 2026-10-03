@@ -156,6 +156,20 @@ describe('E2E — pack product: register → purchase → sell pack → sell loo
       cy.setTaxSetting({ ...s, enabled: false })
     })
 
+    /*
+     * The same for the shop's LOOSE MARKUP (pos.sale.looseMarkupPct), which is ORG-WIDE. On 2 Oct demo.business had
+     * been left at 10% since 1 Oct (no run restored it), so five tablets were charged at 132 a pack, not 120, and
+     * cases 4 and 5 went red — correct behaviour under that setting, nothing to do with this flow. Snapshot it,
+     * hold it at 0 for the run, put it back after.
+     */
+    cy.request('/getBusinessConfig').then((r) => {
+      const rows = (r.body && (r.body.data || r.body.collection)) || []
+      const row = rows.find((x) => x.key === 'pos.sale.looseMarkupPct')
+      state.markupBefore = row ? String(row.value) : '0'
+    })
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: 'pos.sale.looseMarkupPct', value: '0' } })
+      .then((r) => expect(r.body && (r.body.success === true || r.body.status === 'SUCCESS'), 'loose markup held at 0 for the run').to.eq(true))
+
     const stamp = uniq()
     state.name = `E2E Pack ${stamp}`
 
@@ -181,6 +195,11 @@ describe('E2E — pack product: register → purchase → sell pack → sell loo
     cy.loginAsBusiness()
     // Put the tenant's tax policy back exactly as it was found — all six fields.
     cy.restoreTaxSetting(state.taxBefore)
+    // …and the loose markup, exactly as it was found.
+    if (state.markupBefore != null) {
+      cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, failOnStatusCode: false,
+        body: { key: 'pos.sale.looseMarkupPct', value: state.markupBefore } })
+    }
     // Deactivate the product; leave every financial row alone (see the header).
     if (state.productId) {
       cy.request({ method: 'POST', url: '/removeProducts', headers: { 'Content-Type': 'application/json' },
