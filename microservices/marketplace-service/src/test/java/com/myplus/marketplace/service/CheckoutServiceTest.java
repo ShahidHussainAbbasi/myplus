@@ -65,6 +65,9 @@ class CheckoutServiceTest {
 
     @org.junit.jupiter.api.BeforeEach
     void defaultShippingRates() {
+        // PERF-D5 builds the tax-policy cache in @PostConstruct, which Spring calls and @InjectMocks does not.
+        // Without this every quote/place NPEs on the cache before reaching the behaviour under test.
+        service.initTaxPolicyCache();
         org.mockito.Mockito.lenient().when(tradeClient.taxPolicy())
                 .thenReturn(policy(true, "EXCLUSIVE", "0"));
         // Stubbed for ORG specifically: checkout must tell the policy WHICH store it is pricing. A shopper is

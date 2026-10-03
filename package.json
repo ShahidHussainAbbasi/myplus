@@ -21,7 +21,9 @@
     "pretest:e2e:education:demo": "npm run e2e:clean --silent",
     "test:e2e:education:demo": "cypress run --browser chrome --headed --config video=true --env demo=1 --spec cypress/e2e/education/demo.cy.js",
     "pretest:e2e:diag:sale-open": "npm run e2e:clean --silent",
-    "test:e2e:diag:sale-open": "cypress run --browser chrome --headed --env diag=1 --spec cypress/e2e/diag/sale-open-profile.cy.js"
+    "test:e2e:diag:sale-open": "cypress run --browser chrome --headed --env diag=1 --spec cypress/e2e/diag/sale-open-profile.cy.js",
+    "pretest:e2e:marketplace": "npm run e2e:clean --silent",
+    "test:e2e:marketplace": "cypress run --headed --env mkt=all --spec 'cypress/e2e/marketplace/**/*.cy.js'"
   },
   "devDependencies": {
     "@simonsmith/cypress-image-snapshot": "^10.0.3",

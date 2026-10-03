@@ -1,0 +1,1169 @@
+{
+ "total": 87,
+ "anyTest": 87,
+ "unit": 32,
+ "cypress": 60,
+ "automated": 64,
+ "manual": 87,
+ "gaps": [],
+ "unknown": [],
+ "rows": [
+  {
+   "req": "MKT-R1.1",
+   "phase": "1–5",
+   "text": "Four stock-source models, MERCHANT · PLATFORM · SUPPLIER · CONSIGNMENT, as strategies of **one** marketplace/OMS, not four marketplaces",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-3-01",
+    "M-X-03"
+   ]
+  },
+  {
+   "req": "MKT-R1.2",
+   "phase": "all",
+   "text": "Launch order: merchant → platform → supplier → consignment → regulated pharmacy",
+   "unit": [
+    "PhaseGuardTest.sourcesByPhase"
+   ],
+   "cypress": [],
+   "manual": [
+    "M-3-01"
+   ]
+  },
+  {
+   "req": "MKT-R1.3",
+   "phase": "all",
+   "text": "Marketplace layer sits **above** the existing commerce core (products, inventory, POS, customers, suppliers, payments, accounting) and reuses it",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-0a-05",
+    "M-1g-06"
+   ]
+  },
+  {
+   "req": "MKT-R2.1",
+   "phase": "5",
+   "text": "Consignment: consignor = legal owner, consignee = holder/seller; ownership/payment changes on sale per agreement",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R2.2",
+   "phase": "5",
+   "text": "Consignee may be MaxTheService, merchant, platform warehouse or supplier",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R3.1",
+   "phase": "1",
+   "text": "Every offer identifies its parties: seller, stock owner, custodian, fulfiller, warranty provider (may all differ)",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-02",
+    "MKT-1e-07"
+   ],
+   "manual": [
+    "M-1c-01",
+    "M-X-01"
+   ]
+  },
+  {
+   "req": "MKT-R3.2",
+   "phase": "1",
+   "text": "Never assume seller = owner = fulfiller = warranty provider",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot"
+   ],
+   "cypress": [],
+   "manual": [
+    "M-1e-06",
+    "M-X-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.1",
+   "phase": "1",
+   "text": "MERCHANT: owner = custodian = fulfiller = merchant",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-02"
+   ],
+   "manual": [
+    "M-1c-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.2",
+   "phase": "3",
+   "text": "PLATFORM: owner = MaxTheService, custodian/fulfiller = platform warehouse",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-3-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.3",
+   "phase": "4",
+   "text": "SUPPLIER: owner = custodian = supplier; fulfiller supplier or its carrier",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-4-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.4",
+   "phase": "4",
+   "text": "Supplier stock is never shown as immediately available unless the supplier gives reliable availability and accepts within a defined time",
+   "unit": [
+    "OfferEligibilityTest.phaseSources"
+   ],
+   "cypress": [],
+   "manual": [
+    "M-4-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.5",
+   "phase": "5",
+   "text": "CONSIGNMENT: owner = consignor, custodian = consignee",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R4.6",
+   "phase": "5",
+   "text": "Consignment agreement terms are configurable (ownership-transfer event, count frequency, shrinkage tolerance, damage, expiry, insurance, price, commission, settlement schedule, unsold return, reconciliation) **before** consignment is enabled",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R5.1",
+   "phase": "1",
+   "text": "A merchant's raw POS product is **never** published directly; customers see a canonical `MarketplaceProduct`",
+   "unit": [],
+   "cypress": [
+    "MKT-1b-01"
+   ],
+   "manual": [
+    "M-1b-01"
+   ]
+  },
+  {
+   "req": "MKT-R5.2",
+   "phase": "1",
+   "text": "`MarketplaceProduct` fields: canonical name, brand, category, variant attributes, GTIN, description, images, regulated status, approval status",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-1b-01"
+   ]
+  },
+  {
+   "req": "MKT-R5.3",
+   "phase": "1",
+   "text": "`MarketplaceOffer` fields: product, stock-source type, owner/custodian/seller org ids, source product, seller SKU, price policy, list + marketplace price, stock status, fulfillment type, delivery area, warranty/return/commission policy ids, approval status, published/updated",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-01"
+   ],
+   "manual": [
+    "M-1c-01"
+   ]
+  },
+  {
+   "req": "MKT-R5.4",
+   "phase": "1",
+   "text": "Customer sees one product with N offers: \"Available from 2 sellers · From Rs. 51,500\"",
+   "unit": [],
+   "cypress": [
+    "MKT-1d-01"
+   ],
+   "manual": [
+    "M-1d-01"
+   ]
+  },
+  {
+   "req": "MKT-R6.1",
+   "phase": "1",
+   "text": "Never auto-merge products on name alone",
+   "unit": [
+    "ProductIdentityKeyTest.nameAloneNeverMatches"
+   ],
+   "cypress": [
+    "MKT-1b-04"
+   ],
+   "manual": [
+    "M-1b-02",
+    "M-1b-03"
+   ]
+  },
+  {
+   "req": "MKT-R6.2",
+   "phase": "1",
+   "text": "Composite identity key (brand, model, variant, capacity, colour, size, unit, pack size, condition, warranty type, GTIN)",
+   "unit": [
+    "ProductIdentityKeyTest.sourceExample",
+    "ProductIdentityKeyTest.normalisationIsConservative",
+    "ProductIdentityKeyTest.separatorInjection",
+    "ProductIdentityKeyTest.gtin"
+   ],
+   "cypress": [
+    "MKT-1b-01",
+    "MKT-1b-02",
+    "MKT-1b-07"
+   ],
+   "manual": [
+    "M-1b-01"
+   ]
+  },
+  {
+   "req": "MKT-R6.3",
+   "phase": "6",
+   "text": "Medicine key: brand, product name, strength, dosage form, pack size",
+   "unit": [
+    "ProductIdentityKeyTest.packSizeNeverMerges",
+    "ProductIdentityKeyTest.incompleteMedicine"
+   ],
+   "cypress": [],
+   "manual": [
+    "M-1b-05",
+    "M-6-01"
+   ]
+  },
+  {
+   "req": "MKT-R6.4",
+   "phase": "1",
+   "text": "Match statuses PENDING_REVIEW · MATCHED · REJECTED · NEEDS_CORRECTION",
+   "unit": [],
+   "cypress": [
+    "MKT-1b-04"
+   ],
+   "manual": [
+    "M-1b-01",
+    "M-1b-03",
+    "M-1b-04"
+   ]
+  },
+  {
+   "req": "MKT-R6.5",
+   "phase": "1",
+   "text": "An administrator can correct a bad match",
+   "unit": [],
+   "cypress": [
+    "MKT-1b-05"
+   ],
+   "manual": [
+    "M-1b-04"
+   ]
+  },
+  {
+   "req": "MKT-R6.6",
+   "phase": "1",
+   "text": "Different storage (A32 64GB vs 128GB) or pack size (10 vs 20 tablets) never merge",
+   "unit": [
+    "ProductIdentityKeyTest.storageNeverMerges",
+    "ProductIdentityKeyTest.packSizeNeverMerges"
+   ],
+   "cypress": [
+    "MKT-1b-03"
+   ],
+   "manual": [
+    "M-1b-02",
+    "M-1b-05"
+   ]
+  },
+  {
+   "req": "MKT-R7.1",
+   "phase": "1",
+   "text": "Customer chooses an offer explicitly or via filters (price, nearest, fastest, promotion, rating, warranty, returns); the choice is visible",
+   "unit": [
+    "OfferRankingTest.lowestPrice",
+    "OfferRankingTest.unknownDistanceLast",
+    "OfferRankingTest.promotion",
+    "OfferRankingTest.parseSort"
+   ],
+   "cypress": [
+    "MKT-1d-02"
+   ],
+   "manual": [
+    "M-1d-02",
+    "M-1d-03"
+   ]
+  },
+  {
+   "req": "MKT-R7.2",
+   "phase": "1",
+   "text": "Offer display: seller, price, delivery promise, distance, warranty, rating",
+   "unit": [],
+   "cypress": [
+    "MKT-1d-01"
+   ],
+   "manual": [
+    "M-1d-01"
+   ]
+  },
+  {
+   "req": "MKT-R7.3",
+   "phase": "1",
+   "text": "The cheapest offer is never forced",
+   "unit": [
+    "OfferRankingTest.cheapestNotForced"
+   ],
+   "cypress": [
+    "MKT-1d-03"
+   ],
+   "manual": [
+    "M-1d-02",
+    "M-1d-03"
+   ]
+  },
+  {
+   "req": "MKT-R7.4",
+   "phase": "1",
+   "text": "Operator configures allowed pricing policies, commission rules, max discount, promotion approval, price floor, delivery-fee, tax policy, ranking defaults",
+   "unit": [
+    "OfferEligibilityTest.priceLimits",
+    "SettlementCalculatorTest.invalidRate"
+   ],
+   "cypress": [
+    "MKT-1c-05"
+   ],
+   "manual": [
+    "M-1c-03",
+    "M-1c-04"
+   ]
+  },
+  {
+   "req": "MKT-R7.5",
+   "phase": "1",
+   "text": "Seller configures marketplace price (if permitted), quantity, delivery area, availability, seller-funded promotion, warranty/returns within rules",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-01"
+   ],
+   "manual": [
+    "M-1c-01"
+   ]
+  },
+  {
+   "req": "MKT-R7.6",
+   "phase": "1",
+   "text": "Customer filters can **never** bypass approval, stock, seller eligibility, price limits, regulated restrictions",
+   "unit": [
+    "OfferEligibilityTest.eligible",
+    "OfferEligibilityTest.unapproved",
+    "OfferEligibilityTest.inactiveSeller",
+    "OfferEligibilityTest.regulated",
+    "OfferEligibilityTest.deliveryArea",
+    "OfferEligibilityTest.stock",
+    "OfferEligibilityTest.priceLimits",
+    "OfferRankingTest.filtersBeforeSort"
+   ],
+   "cypress": [
+    "MKT-1c-03",
+    "MKT-1c-07",
+    "MKT-1d-04",
+    "MKT-1d-05",
+    "MKT-1d-07"
+   ],
+   "manual": [
+    "M-1c-02",
+    "M-1c-05",
+    "M-1d-04"
+   ]
+  },
+  {
+   "req": "MKT-R8.1",
+   "phase": "1",
+   "text": "The marketplace customer relationship, support, communication, complaint intake and return coordination belong to MaxTheService",
+   "unit": [],
+   "cypress": [
+    "MKT-1e-08"
+   ],
+   "manual": [
+    "M-1e-01",
+    "M-1e-07",
+    "M-1f-01"
+   ]
+  },
+  {
+   "req": "MKT-R8.2",
+   "phase": "1",
+   "text": "Customer contacts MaxTheService only; MaxTheService tasks merchant/supplier/carrier/warranty provider internally and relays the resolution",
+   "unit": [],
+   "cypress": [
+    "MKT-1f-01"
+   ],
+   "manual": [
+    "M-1f-01"
+   ]
+  },
+  {
+   "req": "MKT-R9.1",
+   "phase": "0",
+   "text": "Data use is a written **data-sharing agreement**, never called \"consignment\"",
+   "unit": [],
+   "cypress": [
+    "MKT-0a-04",
+    "MKT-0a-05"
+   ],
+   "manual": [
+    "M-0a-03"
+   ]
+  },
+  {
+   "req": "MKT-R9.2",
+   "phase": "1",
+   "text": "Only the minimum stock-owner data is taken (identity, price, availability, area, time, warranty, returns, seller identity, manufacturer)",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-06"
+   ],
+   "manual": [
+    "M-0a-03"
+   ]
+  },
+  {
+   "req": "MKT-R9.3",
+   "phase": "1",
+   "text": "Never requested: supplier cost, internal margin, unrelated customer lists, employee data, full movement history",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-06"
+   ],
+   "manual": [
+    "M-0a-03"
+   ]
+  },
+  {
+   "req": "MKT-R10.1",
+   "phase": "1/3/4/5",
+   "text": "Reservation authority by source: merchant inventory · platform warehouse · supplier API/portal · custodian under owner policy",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-1e-01"
+   ]
+  },
+  {
+   "req": "MKT-R10.2",
+   "phase": "1",
+   "text": "Nine-step sequence: select → validate offer → ask stock system → validate qty → temporary reservation → record id+expiry → seller accepts → allocated/consumed → release on reject/expire/cancel",
+   "unit": [
+    "AvailabilityTest.nonPositiveRequest",
+    "MarketplaceStateMachinesTest.rejectedIsNotTerminal",
+    "MarketplaceStateMachinesTest.reservationTerminals"
+   ],
+   "cypress": [
+    "MKT-1e-01",
+    "MKT-1e-05",
+    "MKT-1e-06"
+   ],
+   "manual": [
+    "M-1e-01",
+    "M-1e-03",
+    "M-1e-04"
+   ]
+  },
+  {
+   "req": "MKT-R10.3",
+   "phase": "1",
+   "text": "`available = on_hand − reserved − allocated − unavailable`; never `stock > 0`",
+   "unit": [
+    "AvailabilityTest.formula",
+    "AvailabilityTest.stockGreaterThanZeroIsNotEnough",
+    "AvailabilityTest.clampsAtZero",
+    "OfferEligibilityTest.stock"
+   ],
+   "cypress": [
+    "MKT-1e-10"
+   ],
+   "manual": [
+    "M-1e-10"
+   ]
+  },
+  {
+   "req": "MKT-R10.4",
+   "phase": "1",
+   "text": "Reservation record carries reservation/order/line/offer ids, source type, owner, custodian, location, qty, status, created/expires, release reason, source reference",
+   "unit": [],
+   "cypress": [
+    "MKT-1e-10"
+   ],
+   "manual": [
+    "M-1e-10"
+   ]
+  },
+  {
+   "req": "MKT-R10.5",
+   "phase": "1",
+   "text": "Default terms (configurable): merchant 5 min accept / 10 min hold; platform immediate / until pick; supplier 15–20 / 20–30; consignment 5 / 10",
+   "unit": [
+    "AcceptanceTermsTest.defaults",
+    "AcceptanceTermsTest.overridesValidated"
+   ],
+   "cypress": [
+    "MKT-1e-05"
+   ],
+   "manual": [
+    "M-1e-03",
+    "M-1e-04"
+   ]
+  },
+  {
+   "req": "MKT-R10.6",
+   "phase": "2",
+   "text": "Terms may vary by product type, order value, location, seller performance, delivery promise, source",
+   "unit": [
+    "AcceptanceTermsTest.overridesValidated"
+   ],
+   "cypress": [
+    "MKT-2-06"
+   ],
+   "manual": [
+    "M-2-06"
+   ]
+  },
+  {
+   "req": "MKT-R11.1",
+   "phase": "2",
+   "text": "Shortage flow: recheck → reserve → mark offer unavailable → alternates → reprice → **customer approval** if price/product/timing changes → partial / substitute / cancel line / cancel order → refund captured amount → record cause + party → SLA",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.silentReassignment"
+   ],
+   "cypress": [
+    "MKT-2-02"
+   ],
+   "manual": [
+    "M-2-02"
+   ]
+  },
+  {
+   "req": "MKT-R11.2",
+   "phase": "2",
+   "text": "Results REASSIGNED · PARTIALLY_FULFILLED · SUBSTITUTION_REQUESTED · LINE_CANCELLED · ORDER_CANCELLED · REFUND_PENDING",
+   "unit": [],
+   "cypress": [
+    "MKT-2-02"
+   ],
+   "manual": [
+    "M-2-02"
+   ]
+  },
+  {
+   "req": "MKT-R11.3",
+   "phase": "2",
+   "text": "Never substitute strength, size, variant, colour, pack size or brand without customer approval",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.protectedAttributes"
+   ],
+   "cypress": [
+    "MKT-2-03"
+   ],
+   "manual": [
+    "M-2-03"
+   ]
+  },
+  {
+   "req": "MKT-R11.4",
+   "phase": "2",
+   "text": "Shortage responsibility by cause (merchant stale stock, supplier stale, platform sync defect, custodian count, carrier loss, customer invalid combination)",
+   "unit": [],
+   "cypress": [
+    "MKT-2-04"
+   ],
+   "manual": [
+    "M-2-04"
+   ]
+  },
+  {
+   "req": "MKT-R12.1",
+   "phase": "5",
+   "text": "Shrinkage types (theft, damage, breakage, spoilage, expiry, miscount, consumption, short shipment, delivery loss)",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-02"
+   ]
+  },
+  {
+   "req": "MKT-R12.2",
+   "phase": "5",
+   "text": "Agreement defines responsible party, tolerance %, count frequency, proof, claim window, approval, settlement effect",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-02"
+   ]
+  },
+  {
+   "req": "MKT-R12.3",
+   "phase": "5",
+   "text": "Default responsibility table by situation",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-02"
+   ]
+  },
+  {
+   "req": "MKT-R12.4",
+   "phase": "2",
+   "text": "Never auto-debit a stakeholder without evidence **and** a dispute process",
+   "unit": [],
+   "cypress": [
+    "MKT-2-04"
+   ],
+   "manual": [
+    "M-2-04"
+   ]
+  },
+  {
+   "req": "MKT-R13.1",
+   "phase": "1",
+   "text": "MaxTheService coordinates returns; the cost bearer follows the cause (10-row table)",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.table"
+   ],
+   "cypress": [
+    "MKT-1f-02",
+    "MKT-1f-03"
+   ],
+   "manual": [
+    "M-1f-02"
+   ]
+  },
+  {
+   "req": "MKT-R13.2",
+   "phase": "1",
+   "text": "Return flow: request → policy check → notify fulfiller/owner → pickup → inspect → approve/reject refund → restock/quarantine/write-off → adjust settlement",
+   "unit": [],
+   "cypress": [
+    "MKT-1f-02"
+   ],
+   "manual": [
+    "M-1f-03"
+   ]
+  },
+  {
+   "req": "MKT-R13.3",
+   "phase": "1",
+   "text": "**Order-time snapshots**: return/refund policy, cost payer, warranty, seller, owner, fulfiller, price, tax, commission, delivery fee; later policy changes never alter an old order",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot"
+   ],
+   "cypress": [
+    "MKT-1e-07"
+   ],
+   "manual": [
+    "M-1e-06"
+   ]
+  },
+  {
+   "req": "MKT-R13.4",
+   "phase": "1",
+   "text": "Expired/unsafe product → urgent escalation",
+   "unit": [
+    "ReturnAndSubstitutionPolicyTest.escalation"
+   ],
+   "cypress": [
+    "MKT-1f-04"
+   ],
+   "manual": [
+    "M-1f-04"
+   ]
+  },
+  {
+   "req": "MKT-R14.1",
+   "phase": "1",
+   "text": "Display warranty provider, period, start/end, coverage, exclusions, claim process, service centre, responsibility",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-01"
+   ],
+   "manual": [
+    "M-1c-01",
+    "M-1c-06"
+   ]
+  },
+  {
+   "req": "MKT-R14.2",
+   "phase": "1",
+   "text": "MaxTheService never claims to be the warranty provider unless it is",
+   "unit": [],
+   "cypress": [
+    "MKT-1c-09"
+   ],
+   "manual": [
+    "M-1c-06"
+   ]
+  },
+  {
+   "req": "MKT-R15.1",
+   "phase": "1",
+   "text": "T+1 = one **business** day after the settlement trigger (weekends, holidays, holds)",
+   "unit": [
+    "BusinessDayCalendarTest.monday",
+    "BusinessDayCalendarTest.fridayCrossesWeekend",
+    "BusinessDayCalendarTest.holiday",
+    "BusinessDayCalendarTest.tPlusZero"
+   ],
+   "cypress": [
+    "MKT-1g-03"
+   ],
+   "manual": [
+    "M-1g-03"
+   ]
+  },
+  {
+   "req": "MKT-R15.2",
+   "phase": "1",
+   "text": "Never pay the stock owner at order placement; payable = delivered + payment confirmed + no active cancellation + return/dispute conditions met",
+   "unit": [
+    "MarketplaceStateMachinesTest.paidOnlyReverses"
+   ],
+   "cypress": [
+    "MKT-1g-02"
+   ],
+   "manual": [
+    "M-1g-02"
+   ]
+  },
+  {
+   "req": "MKT-R15.3",
+   "phase": "1",
+   "text": "Triggers DELIVERED · DELIVERED_PLUS_RETURN_WINDOW · PICKUP_COMPLETED · MANUAL_APPROVAL; low-risk = short window, high-risk = long",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-1g-02"
+   ]
+  },
+  {
+   "req": "MKT-R15.4",
+   "phase": "5",
+   "text": "Consignment settles on sell-through → return period → reconciliation",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R15.5",
+   "phase": "1",
+   "text": "Settlement reconciles: customer amount = payable + commission + delivery + processing + tax + reserves + adjustments (worked example 5,000 → 4,150)",
+   "unit": [
+    "SettlementCalculatorTest.sourceWorkedExample",
+    "SettlementCalculatorTest.percentOfItems",
+    "SettlementCalculatorTest.fractionalRateNotRoundedFirst",
+    "SettlementCalculatorTest.reconcilesEverywhere",
+    "SettlementCalculatorTest.negativePayableRefused"
+   ],
+   "cypress": [
+    "MKT-1g-01",
+    "MKT-1g-06"
+   ],
+   "manual": [
+    "M-1g-01",
+    "M-1g-06"
+   ]
+  },
+  {
+   "req": "MKT-R15.6",
+   "phase": "1",
+   "text": "**Immutable** settlement ledger; never `wallet.balance += amount`",
+   "unit": [
+    "MarketplaceStateMachinesTest.paidOnlyReverses"
+   ],
+   "cypress": [
+    "MKT-1g-05"
+   ],
+   "manual": [
+    "M-1g-05"
+   ]
+  },
+  {
+   "req": "MKT-R16.1",
+   "phase": "1",
+   "text": "Entities SettlementAccount, SettlementLedgerEntry, Payout with the listed fields",
+   "unit": [],
+   "cypress": [
+    "MKT-1g-01"
+   ],
+   "manual": [
+    "M-1g-01"
+   ]
+  },
+  {
+   "req": "MKT-R16.2",
+   "phase": "1",
+   "text": "Settlement statuses NOT_ELIGIBLE · PENDING · ELIGIBLE · ON_HOLD · APPROVED · PROCESSING · PAID · REVERSED · DISPUTED",
+   "unit": [],
+   "cypress": [
+    "MKT-1g-02"
+   ],
+   "manual": [
+    "M-1g-02",
+    "M-1g-05"
+   ]
+  },
+  {
+   "req": "MKT-R16.3",
+   "phase": "1",
+   "text": "Every payout: idempotency key, approval rules, audit log, bank/payment reference, reconciliation",
+   "unit": [],
+   "cypress": [
+    "MKT-1g-04"
+   ],
+   "manual": [
+    "M-1g-04"
+   ]
+  },
+  {
+   "req": "MKT-R17.1",
+   "phase": "1",
+   "text": "Phase 1: **one seller per checkout**",
+   "unit": [
+    "PhaseGuardTest.oneSeller",
+    "PhaseGuardTest.twoSellersRefused",
+    "PhaseGuardTest.empty"
+   ],
+   "cypress": [
+    "MKT-1e-02"
+   ],
+   "manual": [
+    "M-1e-02"
+   ]
+  },
+  {
+   "req": "MKT-R17.2",
+   "phase": "2",
+   "text": "Phase 2: parent order + child seller orders with separate fulfilment, promises, settlement and returns; never \"just a frontend filter\"",
+   "unit": [
+    "PhaseGuardTest.phase2AllowsMultiSeller"
+   ],
+   "cypress": [
+    "MKT-2-01"
+   ],
+   "manual": [
+    "M-2-01"
+   ]
+  },
+  {
+   "req": "MKT-R18.1",
+   "phase": "2",
+   "text": "Never call every stakeholder during checkout; two stages: projection shortlist → live reservation on ≤ 3–5 candidates",
+   "unit": [],
+   "cypress": [
+    "MKT-2-05"
+   ],
+   "manual": [
+    "M-2-05"
+   ]
+  },
+  {
+   "req": "MKT-R18.2",
+   "phase": "1",
+   "text": "Projection carries offer, product, source, location, area, availability, price, promotion, SLA, rating, last sync, seller online",
+   "unit": [],
+   "cypress": [
+    "MKT-1d-06"
+   ],
+   "manual": [
+    "M-1d-05"
+   ]
+  },
+  {
+   "req": "MKT-R18.3",
+   "phase": "2",
+   "text": "Per-stakeholder timeout 300–800 ms, ≤ 3–5 candidates, 2 s overall deadline, circuit breakers (starting points for load test)",
+   "unit": [],
+   "cypress": [
+    "MKT-2-05"
+   ],
+   "manual": [
+    "M-2-05"
+   ]
+  },
+  {
+   "req": "MKT-R18.4",
+   "phase": "1",
+   "text": "Ranking order: approved/active → zone → projection → reservation → promise → price → promotion → rating → distance → history; customer sort re-orders",
+   "unit": [
+    "OfferRankingTest.lowestPrice",
+    "OfferRankingTest.defaultChain",
+    "OfferRankingTest.deterministic"
+   ],
+   "cypress": [
+    "MKT-1d-02"
+   ],
+   "manual": [
+    "M-1d-02"
+   ]
+  },
+  {
+   "req": "MKT-R18.5",
+   "phase": "1",
+   "text": "On deadline: never silently confirm; \"We are checking availability\" / \"Please choose another offer\"",
+   "unit": [
+    "OfferEligibilityTest.stale"
+   ],
+   "cypress": [
+    "MKT-1e-01"
+   ],
+   "manual": [
+    "M-1d-05",
+    "M-1e-01",
+    "M-2-05"
+   ]
+  },
+  {
+   "req": "MKT-R19.1",
+   "phase": "1",
+   "text": "**Separate** state machines: marketplace order (12 states), fulfilment order (15), payment (7), settlement (9); never one status column",
+   "unit": [
+    "MarketplaceStateMachinesTest.happyPaths",
+    "MarketplaceStateMachinesTest.independentMachines",
+    "MarketplaceStateMachinesTest.rejectedIsNotTerminal",
+    "MarketplaceStateMachinesTest.illegalMovesRefused",
+    "MarketplaceStateMachinesTest.noOrphanStates",
+    "MarketplaceStateMachinesTest.publishedSetIsReadOnly"
+   ],
+   "cypress": [
+    "MKT-1e-06",
+    "MKT-1e-09"
+   ],
+   "manual": [
+    "M-1e-04",
+    "M-1e-08"
+   ]
+  },
+  {
+   "req": "MKT-R20.0",
+   "phase": "0",
+   "text": "Phase 0 foundation: capability/entitlement, legal entity, seller agreement, privacy/data-sharing, customer terms, returns, commission, COD, warranty, complaint process, product approval, tax/regulatory review",
+   "unit": [],
+   "cypress": [
+    "MKT-0a-01",
+    "MKT-0a-02",
+    "MKT-0a-03",
+    "MKT-0a-04",
+    "MKT-0a-07"
+   ],
+   "manual": [
+    "M-0a-01",
+    "M-0a-02",
+    "M-0a-03",
+    "M-0a-05"
+   ]
+  },
+  {
+   "req": "MKT-R20.1",
+   "phase": "1",
+   "text": "Phase 1 scope: one city, one seller per checkout, merchant stock, low-risk non-regulated, existing merchants, manual delivery assignment, cash + one online payment, manual settlement approval",
+   "unit": [
+    "OfferEligibilityTest.deliveryArea",
+    "PhaseGuardTest.oneSeller"
+   ],
+   "cypress": [
+    "MKT-1d-04"
+   ],
+   "manual": [
+    "M-1d-04",
+    "M-1e-09"
+   ]
+  },
+  {
+   "req": "MKT-R20.2",
+   "phase": "1",
+   "text": "Phase 1 excludes: multi-seller cart, dropship, consignment, prescription medicines, automatic payouts, complex dynamic routing",
+   "unit": [
+    "OfferEligibilityTest.phaseSources",
+    "OfferEligibilityTest.regulated",
+    "PhaseGuardTest.twoSellersRefused",
+    "PhaseGuardTest.sourcesByPhase",
+    "PhaseGuardTest.regulatedRefused"
+   ],
+   "cypress": [
+    "MKT-1c-03",
+    "MKT-1c-04",
+    "MKT-1e-02"
+   ],
+   "manual": [
+    "M-1c-02",
+    "M-1e-02"
+   ]
+  },
+  {
+   "req": "MKT-R20.3",
+   "phase": "2",
+   "text": "Phase 2 OMS maturity: parent/child orders, multi-seller cart, automatic rerouting, delivery integration, returns/refunds, merchant performance, COD reconciliation, payout approval, settlement reports",
+   "unit": [],
+   "cypress": [
+    "MKT-2-06"
+   ],
+   "manual": [
+    "M-2-01"
+   ]
+  },
+  {
+   "req": "MKT-R20.4",
+   "phase": "3",
+   "text": "Phase 3 platform stock: warehouse, central stock, pick/pack, transfer, platform delivery, central returns",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-3-01"
+   ]
+  },
+  {
+   "req": "MKT-R20.5",
+   "phase": "4–5",
+   "text": "Phase 4 supplier stock: supplier API/portal, acceptance, tracking, SLA, returns, settlement · Phase 5 consignment: agreements, roles, consigned stock ledger, custodian counts, sell-through, shrinkage claims, ownership transfer, unsold return",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-4-01",
+    "M-5-01"
+   ]
+  },
+  {
+   "req": "MKT-R20.6",
+   "phase": "6",
+   "text": "Phase 6 regulated pharmacy, only after legal review: approved pharmacy sellers, pharmacist verification, prescriptions, restricted products, batch/expiry, recall/quarantine, traceability, safety escalation",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-6-01"
+   ]
+  },
+  {
+   "req": "MKT-R21.1",
+   "phase": "1–5",
+   "text": "Minimum entity list (22 entities)",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-X-03"
+   ]
+  },
+  {
+   "req": "MKT-R21.2",
+   "phase": "1",
+   "text": "`organization_id` on every tenant-owned entity, plus owner/custodian/seller/fulfiller org, branch, warehouse where applicable",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-X-02"
+   ]
+  },
+  {
+   "req": "MKT-R21.3",
+   "phase": "1",
+   "text": "Every cache key, event, file, report and job carries the org scope",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-X-02"
+   ]
+  },
+  {
+   "req": "MKT-R22.1",
+   "phase": "1",
+   "text": "Tenant from authenticated server identity; browser cannot choose the stock owner by editing JSON",
+   "unit": [],
+   "cypress": [
+    "MKT-0a-03",
+    "MKT-0a-06",
+    "MKT-1b-06",
+    "MKT-1c-02",
+    "MKT-1c-08",
+    "MKT-1e-08"
+   ],
+   "manual": [
+    "M-0a-02",
+    "M-0a-04",
+    "M-X-02"
+   ]
+  },
+  {
+   "req": "MKT-R22.2",
+   "phase": "1",
+   "text": "Offer approval, price and stock reservation are **server-authoritative**",
+   "unit": [
+    "OfferEligibilityTest.unapproved"
+   ],
+   "cypress": [
+    "MKT-1e-03"
+   ],
+   "manual": [
+    "M-1c-03"
+   ]
+  },
+  {
+   "req": "MKT-R22.3",
+   "phase": "1",
+   "text": "Payment and refund idempotency keys; settlement entries immutable",
+   "unit": [],
+   "cypress": [
+    "MKT-1e-04",
+    "MKT-1g-04"
+   ],
+   "manual": [
+    "M-1e-05",
+    "M-1g-04"
+   ]
+  },
+  {
+   "req": "MKT-R22.4",
+   "phase": "1",
+   "text": "Every marketplace and support action audited",
+   "unit": [],
+   "cypress": [
+    "MKT-1f-05"
+   ],
+   "manual": [
+    "M-1f-05"
+   ]
+  },
+  {
+   "req": "MKT-R22.5",
+   "phase": "4",
+   "text": "Every external supplier call has timeout + circuit breaker; every webhook/event retryable and idempotent",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-4-02"
+   ]
+  },
+  {
+   "req": "MKT-R23.1",
+   "phase": "all",
+   "text": "The core principle: MaxTheService owns the experience and coordinates; the configured owner/custodian/fulfiller/carrier/warranty provider stay accountable",
+   "unit": [],
+   "cypress": [],
+   "manual": [
+    "M-1f-01",
+    "M-X-01"
+   ]
+  }
+ ]
+}
