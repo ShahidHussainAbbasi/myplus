@@ -33,6 +33,8 @@ public class RecordPaymentRequest {
     private String method;
     private LocalDate paidOn;
     private String reference;
+    /** FP-5a — the caller's reference for this settlement: a repeat returns the first payment (V13). */
+    private String clientRef;
     private String sourceModule;
     private String note;
 

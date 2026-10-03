@@ -5126,7 +5126,8 @@ function submitReceivePayment() {
 	}).done(function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
-			var msg = 'Payment received.' + (o.receiptNo ? ' Receipt ' + o.receiptNo : '');
+			// FP-5a — recorded either way; when the books have not answered yet the number follows (never claimed early)
+			var msg = 'Payment received.' + (o.receiptNo ? ' Receipt ' + o.receiptNo : (o.voucherPending ? ' ' + tOr('ui.js.voucherToFollow', 'The receipt number will follow once the books confirm it.') : ''));
 			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
 			closeModal('ReceivePaymentModal');
 			loadDataTable();   // refresh the customer list — due is updated
@@ -5180,7 +5181,8 @@ function submitPayVendor() {
 	}).done(function (resp) {
 		if (resp && resp.status === "SUCCESS") {
 			var o = resp.object || {};
-			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : '');
+			// FP-5a — recorded either way; when the books have not answered yet the number follows (never claimed early)
+			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : (o.voucherPending ? ' ' + tOr('ui.js.voucherToFollowPv', 'The voucher number will follow once the books confirm it.') : ''));
 			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
 			closeModal('PayVendorModal');
 			loadDataTable();   // refresh the vendor list — due is updated

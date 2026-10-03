@@ -23,6 +23,8 @@ public class PaymentRecordRequest {
     private String method;
     private LocalDate paidOn;
     private String reference;
+    /** FP-5a — the caller's reference for this settlement: finance returns the FIRST payment for a repeat. */
+    private String clientRef;
     private String sourceModule;    // BUSINESS | EDUCATION | ...
     private String note;
     private List<PaymentAllocationRef> allocations;

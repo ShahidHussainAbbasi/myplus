@@ -21,8 +21,20 @@ import org.springframework.context.annotation.Import;
  * {@link StatementBuilder}) would otherwise fail at startup loading a bean whose field type does not exist. Every
  * service that settles through this library (business) has the class, so for them nothing changes.
  */
-@AutoConfiguration
+@AutoConfiguration(afterName = { "com.myplus.common.outbox.CommonOutboxAutoConfiguration",
+        "org.springframework.boot.autoconfigure.jdbc.JdbcTemplateAutoConfiguration" })
 @org.springframework.boot.autoconfigure.condition.ConditionalOnClass(name = "com.myplus.commerce.contracts.client.FinanceClient")
 @Import(SubledgerService.class)
 public class CommonSubledgerAutoConfiguration {
+
+    /**
+     * FP-5a — the ledger outbox every settlement now goes through. Its table ({@code ledger_payment_outbox}) is in each
+     * consuming service's own Flyway (business V76, education V31).
+     */
+    @org.springframework.context.annotation.Bean
+    public LedgerOutbox ledgerOutbox(org.springframework.jdbc.core.JdbcTemplate jdbc,
+                                     org.springframework.beans.factory.ObjectProvider<com.myplus.commerce.contracts.client.FinanceClient> finance,
+                                     com.myplus.common.outbox.OutboxRelay relay) {
+        return new LedgerOutbox(jdbc, finance, relay);
+    }
 }

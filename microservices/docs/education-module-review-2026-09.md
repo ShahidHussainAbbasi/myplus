@@ -138,7 +138,7 @@ The same unchecked call is applied to the **client-supplied `schoolId`**, and `a
 
 Of the 8 `canAccessSchool(...)` calls, exactly **3 take a client-supplied school id** — the same three methods.
 
-**Data, before the fix (dev, 2026-10-03):** 775 students; **0** links to a foreign or missing grade, guardian,
+**Data, before the fix (live Docker DB `myplus-mysql`, 2026-10-03):** 646 students; **0** links to a foreign or missing grade, guardian,
 discount, vehicle or school; 0 grade→school and 0 vehicle→school foreign links; 0 NULL-org rows in any of the six
 tables. So refusing an unowned link cannot strand an existing record on its next edit.
 

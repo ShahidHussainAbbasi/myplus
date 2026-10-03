@@ -22,6 +22,14 @@
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId><scope>provided</scope></dependency>
     <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><scope>provided</scope></dependency>
+    <!-- FP-5a: the ledger outbox (JDBC in the caller's transaction, the shared relay, identity forwarding, JSON). All
+         provided: every service that settles through this library already has them. -->
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-jdbc</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>org.springframework</groupId><artifactId>spring-tx</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>com.fasterxml.jackson.datatype</groupId><artifactId>jackson-datatype-jsr310</artifactId><scope>provided</scope></dependency>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-outbox</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
+    <dependency><groupId>com.myplus</groupId><artifactId>common-security</artifactId><version>1.0.0-SNAPSHOT</version><scope>provided</scope></dependency>
     <!-- The aging + statement engines are pure, so they get real unit tests that run on every `mvn test`. -->
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
   </dependencies>

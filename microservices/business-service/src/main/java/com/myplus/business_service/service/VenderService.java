@@ -24,6 +24,9 @@ import com.myplus.business_service.entity.Purchase;
 @Transactional
 public class VenderService implements IVenderService {
 
+	/** FP-5a — marks an idempotency record that holds a ledger reference rather than a voucher number. */
+	static final String LEDGER_REF = "ref:";
+
     @Autowired
     private VenderRepo venderRepo;
 
@@ -246,7 +249,9 @@ public class VenderService implements IVenderService {
 	private java.util.Map<String, Object> replayVoucher(String voucherNo) {
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
-		out.put("voucherNo", voucherNo);
+		// FP-5a — a key recorded since the outbox holds the ledger reference; the controller resolves its number
+		if (voucherNo != null && voucherNo.startsWith(LEDGER_REF)) out.put("ledgerRef", voucherNo.substring(LEDGER_REF.length()));
+		else out.put("voucherNo", voucherNo);
 		out.put("replay", true);
 		return out;
 	}
@@ -278,19 +283,25 @@ public class VenderService implements IVenderService {
 
 		// ONE shared settlement path (FIFO allocate + best-effort finance-ledger record); recomputePayable refreshes
 		// the vendor's running payable and returns the fresh value for the response.
+		// FP-5a — the ledger reference is built from the idempotency key, so a replayed request carries the SAME
+		// reference and finance answers it with the first payment (never a second disbursement).
+		String clientRef = "BUS-PAYV-" + org + "-" + ((idempotencyKey != null && !idempotencyKey.isBlank())
+				? idempotencyKey.trim() : java.util.UUID.randomUUID().toString());
 		com.myplus.common.subledger.SettleOutcome outcome = subledgerService.settle(
 				"DISBURSEMENT", "VENDOR", venderId, vendor.getName(), amount, method, paidOn, reference, "BUSINESS",
 				docs, () -> { this.recomputePayable(venderId);
-					return venderRepo.findById(venderId).map(Vender::getDueAmount).orElse(null); });
+					return venderRepo.findById(venderId).map(Vender::getDueAmount).orElse(null); }, clientRef);
 
 		// Audit #5: record this payment (atomic with the allocation) so a repeat with the same key replays it.
-		idempotencyService.record(org, "payVendor", idempotencyKey, outcome.voucherNo());
+		// FP-5a: the voucher number arrives after commit, so the key remembers the ledger reference that finds it.
+		idempotencyService.record(org, "payVendor", idempotencyKey, LEDGER_REF + outcome.clientRef());
 		// Audit #6: append-only trail (atomic capture; delivered to audit-service after commit).
-		auditService.record("PAYMENT", "VENDOR", outcome.voucherNo(), amount, "vendor=" + vendor.getName());
+		auditService.record("PAYMENT", "VENDOR", outcome.clientRef(), amount, "vendor=" + vendor.getName());
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
 		out.put("voucherNo", outcome.voucherNo());
+		out.put("ledgerRef", outcome.clientRef());          // FP-5a: the controller resolves the number after commit
 		out.put("allocated", outcome.allocated());
 		out.put("onAccountAdvance", outcome.onAccount());   // excess not applied to any open bill (advance to vendor)
 		out.put("newDue", outcome.newDue());

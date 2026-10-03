@@ -52,6 +52,10 @@ public class Payment {
     @Column(name = "reference")
     private String reference;                // cheque / txn number
 
+    /** FP-5a — the caller's reference for this settlement; UNIQUE per org (V13), so a redelivery is the same payment. */
+    @Column(name = "client_ref", length = 100)
+    private String clientRef;
+
     @Column(name = "source_module", length = 30)
     private String sourceModule;             // BUSINESS | EDUCATION | ...
 
