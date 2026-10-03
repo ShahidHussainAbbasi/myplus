@@ -68,6 +68,6 @@ public final class SupportDTOs {
     /** A seller's task: the case's order, the customer's pickup details, what MaxTheService asked, and its returns. */
     public record SellerTask(String caseNo, String orderNo, String topic, String status, String customerName,
             String customerPhone, String address, String city, List<MessageView> messages, List<ReturnView> returns,
-            LocalDateTime createdAt) {
+            LocalDateTime createdAt, String paymentMode) {
     }
 }

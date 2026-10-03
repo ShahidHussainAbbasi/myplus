@@ -438,7 +438,7 @@ public class MarketplaceSupportService {
                 .toList();
         return new SupportDTOs.SellerTask(sc.getCaseNo(), o.getOrderNo(), sc.getTopic(), sc.getStatus(), o.getCustomerName(),
                 o.getCustomerPhone(), o.getDeliveryAddress(), o.getCity(), ms,
-                returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::view).toList(), sc.getCreatedAt());
+                returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::view).toList(), sc.getCreatedAt(), o.getPaymentMode());
     }
 
     SupportDTOs.ReturnView view(MarketplaceReturn r) {

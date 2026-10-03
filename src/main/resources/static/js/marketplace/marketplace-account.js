@@ -101,6 +101,7 @@
 		SUBMITTED: ['wait', 'ui.js.mktStWaiting', 'Waiting for the seller'],
 		PAYMENT_PENDING: ['wait', 'ui.js.mktPayConfirming', 'Confirming your payment'],
 		CONFIRMED: ['ok', 'ui.js.mktStConfirmed', 'Confirmed'],
+		DELIVERED: ['ok', 'ui.js.mktStDelivered', 'Delivered'],
 		CANCELLED: ['bad', 'ui.js.mktCancelledState', 'Cancelled']
 	};
 	var PAY = {
@@ -108,9 +109,126 @@
 		REFUNDED: ['ui.js.mktRefunded', 'Refunded'], FAILED: ['ui.js.mktPayFailed', 'Payment declined']
 	};
 
+	// ── MKT-1f: help — one conversation with MaxTheService per order (R8.2) ────────────────────────────────
+	var casesByOrder = {};
+
+	var TOPICS = [
+		['ORDER_PROBLEM', 'ui.js.mktTopicProblem', 'Something is wrong with my order'],
+		['RETURN', 'ui.js.mktTopicReturn', 'Return this item'],
+		['WARRANTY', 'ui.js.mktTopicWarranty', 'Warranty claim'],
+		['OTHER', 'ui.js.mktTopicOther', 'Something else']
+	];
+	// The causes a customer can name (source §13), in their words. The cost bearer is decided by the server.
+	var REASONS = [
+		['WRONG_PRODUCT', 'ui.js.mktRsnWrong', 'Wrong item sent'],
+		['DAMAGED_BEFORE_HANDOVER', 'ui.js.mktRsnDamaged', 'Arrived damaged'],
+		['DEFECTIVE', 'ui.js.mktRsnDefective', 'Does not work'],
+		['NOT_AS_DESCRIBED', 'ui.js.mktRsnNotAsDescribed', 'Not as described'],
+		['EXPIRED_OR_UNSAFE', 'ui.js.mktRsnUnsafe', 'Expired or unsafe'],
+		['CHANGE_OF_MIND', 'ui.js.mktRsnChangedMind', 'Changed my mind']
+	];
+	var RET_ST = {
+		REQUESTED: 'ui.js.mktRetRequested', APPROVED: 'ui.js.mktRetApproved', REJECTED: 'ui.js.mktRetRejected',
+		RECEIVED: 'ui.js.mktRetReceived', REFUNDED: 'ui.js.mktRetRefunded'
+	};
+	var RET_FB = { REQUESTED: 'Return requested', APPROVED: 'Approved: the rider will collect it', REJECTED: 'Not approved',
+		RECEIVED: 'Received: refund in progress', REFUNDED: 'Refunded' };
+
+	function options(sel, list) {
+		list.forEach(function (x) { var op = el('option', null, tr(x[1], x[2])); op.value = x[0]; sel.appendChild(op); });
+	}
+	function field(labelKey, labelFb, input) {
+		var l = el('label', 'f');
+		l.appendChild(el('span', null, tr(labelKey, labelFb)));
+		l.appendChild(input);
+		return l;
+	}
+
+	function helpForm(o, li, btn) {
+		var open = li.querySelector('.help-form');
+		if (open) { open.remove(); btn.setAttribute('aria-expanded', 'false'); return; }
+		btn.setAttribute('aria-expanded', 'true');
+		var f = el('form', 'help-form');
+		f.noValidate = true;
+		var topic = el('select'); topic.className = 'mkt-help-topic'; options(topic, TOPICS);
+		f.appendChild(field('ui.js.mktHelpWhat', 'What do you need help with?', topic));
+		var retBox = el('div', 'help-ret'); retBox.hidden = true;
+		var item = el('select'); item.className = 'mkt-help-item';
+		(o.lines || []).forEach(function (l) { var op = el('option', null, l.productName + ' × ' + l.quantity); op.value = l.id; op.setAttribute('data-qty', l.quantity); item.appendChild(op); });
+		var qty = el('input'); qty.type = 'number'; qty.min = '1'; qty.value = '1'; qty.className = 'mkt-help-qty';
+		var reason = el('select'); reason.className = 'mkt-help-reason'; options(reason, REASONS);
+		retBox.appendChild(field('ui.js.mktHelpItem', 'Item', item));
+		retBox.appendChild(field('ui.js.mktHelpQty', 'How many', qty));
+		retBox.appendChild(field('ui.js.mktHelpReason', 'Why are you returning it?', reason));
+		f.appendChild(retBox);
+		var note = el('textarea'); note.className = 'mkt-help-note'; note.maxLength = 2000;
+		f.appendChild(field('ui.js.mktHelpNote', 'Tell us what happened', note));
+		var out = el('p', 'err'); out.setAttribute('role', 'alert');
+		f.appendChild(out);
+		var send = el('button', 'go mkt-help-send', tr('ui.js.mktHelpSend', 'Send to MaxTheService'));
+		send.type = 'submit';
+		f.appendChild(send);
+		topic.addEventListener('change', function () { retBox.hidden = topic.value !== 'RETURN'; });
+		f.addEventListener('submit', function (ev) {
+			ev.preventDefault();
+			out.textContent = '';
+			send.disabled = true;
+			var body = { topic: topic.value, note: note.value };
+			if (topic.value === 'RETURN') { body.lineId = Number(item.value); body.quantity = Number(qty.value || 1); body.reason = reason.value; }
+			call('POST', 'marketplace/account/orders/' + encodeURIComponent(o.orderNo) + '/cases', body).then(function (r) {
+				send.disabled = false;
+				if (!ok(r)) { out.textContent = msg(r, tr('ui.js.saveFailed', 'Save failed')); return null; }
+				return loadOrders();
+			});
+		});
+		li.appendChild(f);
+		topic.focus();
+	}
+
+	/** The case under its order: messages (support's are signed MaxTheService), returns, and a reply box. */
+	function thread(c) {
+		var box = el('div', 'help-form mkt-case');
+		box.setAttribute('data-case-no', c.caseNo);
+		box.appendChild(el('b', null, tr('ui.js.mktCaseTitle', 'Help request') + ' ' + c.caseNo));
+		(c.returns || []).forEach(function (r) {
+			var k = RET_ST[r.status];
+			box.appendChild(el('span', 'terms mkt-return', r.returnNo + ' · ' + (k ? tr(k, RET_FB[r.status]) : r.status)
+				+ ' · ' + P.money(r.refundAmount) + (Number(r.deduction) > 0 ? ' (' + tr('ui.js.mktRetFee', 'pickup fee') + ' ' + P.money(r.deduction) + ')' : '')));
+		});
+		var ul = el('ul', 'thread');
+		(c.messages || []).forEach(function (m) {
+			var li = el('li', m.from === 'You' ? 'me' : null);
+			li.appendChild(el('div', 'who', m.from === 'You' ? tr('ui.js.mktYou', 'You') : tr('ui.js.mktSupport', 'MaxTheService support')));
+			li.appendChild(el('div', null, m.body));
+			ul.appendChild(li);
+		});
+		box.appendChild(ul);
+		if (c.status !== 'RESOLVED') {
+			var ta = el('textarea'); ta.className = 'mkt-case-reply'; ta.maxLength = 2000;
+			ta.setAttribute('aria-label', tr('ui.js.mktCaseReply', 'Write to MaxTheService support'));
+			var b = el('button', 'mkt-help', tr('ui.js.mktCaseSend', 'Send'));
+			b.type = 'button';
+			var err = el('p', 'err'); err.setAttribute('role', 'alert');
+			b.addEventListener('click', function () {
+				b.disabled = true;
+				call('POST', 'marketplace/account/cases/' + encodeURIComponent(c.caseNo) + '/messages', { body: ta.value }).then(function (r) {
+					b.disabled = false;
+					if (!ok(r)) { err.textContent = msg(r, tr('ui.js.saveFailed', 'Save failed')); return null; }
+					return loadOrders();
+				});
+			});
+			box.appendChild(ta); box.appendChild(b); box.appendChild(err);
+		}
+		return box;
+	}
+
 	function loadOrders() {
 		var ul = $('mktMyOrders');
-		return call('GET', 'marketplace/account/orders?size=50').then(function (r) {
+		return call('GET', 'marketplace/account/cases').then(function (cr) {
+			casesByOrder = {};
+			(ok(cr) && Array.isArray(data(cr)) ? data(cr) : []).forEach(function (c) { if (!casesByOrder[c.orderNo]) casesByOrder[c.orderNo] = c; });
+			return call('GET', 'marketplace/account/orders?size=50');
+		}).then(function (r) {
 			ul.textContent = '';
 			if (!ok(r)) { ul.appendChild(el('li', 'err', msg(r, tr('ui.js.loadFailed', 'Could not load.')))); return; }
 			var rows = list(r);
@@ -135,12 +253,23 @@
 			? tr('ui.js.mktPaidOnline', 'Paid online') : (p[0] ? tr(p[0], p[1]) : p[1]))));
 		li.appendChild(mid);
 		if (o.cancelReason) li.appendChild(el('span', 'terms', o.cancelReason));
+		var acts = el('div', 'acts');
 		if (o.canCancel) {
 			var b = el('button', 'mkt-cancel', tr('ui.js.mktCancelBtn', 'Cancel order'));
 			b.type = 'button';
 			b.addEventListener('click', function () { cancel(o, b); });
-			li.appendChild(b);
+			acts.appendChild(b);
 		}
+		if (o.canGetHelp) {
+			var h = el('button', 'mkt-help', tr('ui.js.mktGetHelp', 'Get help'));
+			h.type = 'button';
+			h.setAttribute('aria-expanded', 'false');
+			h.addEventListener('click', function () { helpForm(o, li, h); });
+			acts.appendChild(h);
+		}
+		if (acts.childNodes.length) li.appendChild(acts);
+		var c = casesByOrder[o.orderNo];
+		if (c) li.appendChild(thread(c));
 		return li;
 	}
 

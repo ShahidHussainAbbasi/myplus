@@ -118,6 +118,15 @@
         ul.orders li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:grid;gap:4px}
         ul.orders .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
         ul.orders .st{font-weight:700} ul.orders .st.ok{color:var(--good)} ul.orders .st.bad{color:var(--bad)} ul.orders .st.wait{color:var(--warn)}
+        /* MKT-1f: help with a delivered order — one conversation with MaxTheService */
+        ul.orders .acts{display:flex;gap:8px;flex-wrap:wrap}
+        ul.orders .mkt-help{justify-self:start;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer;font:600 14px 'Satoshi',sans-serif}
+        .help-form{display:grid;gap:8px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+        .help-form textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:80px;width:100%;resize:vertical}
+        .thread{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+        .thread li{border:0!important;padding:8px 10px!important;background:var(--bg)!important;border-radius:8px}
+        .thread li.me{background:var(--surface)!important;border:1px solid var(--line)!important}
+        .thread .who{font-size:13px;font-weight:700;color:var(--muted)}
         ul.orders .mkt-cancel{justify-self:start;border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer;font:600 14px 'Satoshi',sans-serif}
     </style>
 </head>

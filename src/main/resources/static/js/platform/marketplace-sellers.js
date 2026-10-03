@@ -395,6 +395,114 @@
 			.always(function () { $b.prop('disabled', false); });
 	}
 
+	// ── MKT-1f: support cases and returns ──────────────────────────────────────────────────────────────
+
+	var caseStatus = '';
+	var CASE_ST = { OPEN: ['ui.js.mktCaseOpen', 'Open'], WAITING_SELLER: ['ui.js.mktCaseWaitSeller', 'Waiting for seller'],
+		WAITING_CUSTOMER: ['ui.js.mktCaseWaitCustomer', 'Waiting for customer'], RESOLVED: ['ui.js.mktCaseResolved', 'Resolved'] };
+
+	function loadCases() {
+		$.ajax({ url: ctx() + 'platform/mkt/cases?size=100' + (caseStatus ? '&status=' + encodeURIComponent(caseStatus) : ''), dataType: 'json' })
+			.done(function (res) {
+				var $tb = $('#mktCaseList tbody').empty();
+				if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+				var rows = (data(res) || {}).content || [];
+				if (!rows.length) $tb.append($('<tr><td colspan="5" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktNoCases', 'No cases here.')).end());
+				rows.forEach(function (c) {
+					var st = CASE_ST[c.status] || [null, c.status];
+					var $tr = $('<tr class="mkt-case-row" style="cursor:pointer" tabindex="0"></tr>').attr('data-case-no', c.caseNo);
+					var $c = $('<td></td>').text(c.caseNo).appendTo($tr);
+					if (c.urgent) $c.append(' ').append($('<span class="label label-danger"></span>').text(tr('ui.js.mktUrgent', 'URGENT')));
+					$('<td></td>').text(c.orderNo || '').appendTo($tr);
+					$('<td></td>').text(c.sellerName || '').appendTo($tr);
+					$('<td></td>').text(c.topic).appendTo($tr);
+					$('<td></td>').text(st[0] ? tr(st[0], st[1]) : st[1]).appendTo($tr);
+					$tb.append($tr);
+				});
+			});
+		$.ajax({ url: ctx() + 'platform/mkt/settings/changeOfMindFee', dataType: 'json' }).done(function (res) {
+			if (ok(res)) $('#mktFee').val(Number((data(res) || {}).amount));
+		});
+	}
+
+	function openCase(caseNo) {
+		$.ajax({ url: ctx() + 'platform/mkt/caseView?caseNo=' + encodeURIComponent(caseNo), dataType: 'json' }).done(function (res) {
+			var $d = $('#mktCaseDetail').empty();
+			if (!ok(res)) { $d.append($('<p style="color:#b3261e"></p>').text(message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
+			var c = data(res);
+			var $p = $('<div class="panel panel-default" style="padding:12px"></div>').attr('data-case-no', c.caseNo).appendTo($d);
+			$('<h4 style="margin-top:0"></h4>').text(c.caseNo + ' · ' + c.orderNo + (c.urgent ? ' · ' + tr('ui.js.mktUrgent', 'URGENT') : '')).appendTo($p);
+			var $ul = $('<ul style="list-style:none;padding:0;font-size:13px"></ul>').appendTo($p);
+			(c.messages || []).forEach(function (m) {
+				$('<li style="margin-bottom:4px"></li>').append($('<b></b>').text(m.from + (m.internal ? ' (' + tr('ui.js.mktInternal', 'internal') + ')' : '') + ': '))
+					.append(document.createTextNode(m.body)).appendTo($ul);
+			});
+			var $msg = $('<div role="status" style="font-size:12px;min-height:1.2em"></div>');
+			(c.returns || []).forEach(function (r) {
+				var $r = $('<div class="mkt-op-return" style="margin:6px 0"></div>').attr('data-return-no', r.returnNo).appendTo($p);
+				$('<div></div>').text(r.returnNo + ' · ' + r.status + ' · ' + r.reason + ' · ' + tr('ui.js.mktBearer', 'Cost bearer') + ': '
+					+ r.bearerRole + (r.bearerOrgName ? ' (' + r.bearerOrgName + ')' : '') + ' · ' + tr('ui.js.mktRefund', 'Refund') + ' ' + r.refundAmount
+					+ (Number(r.deduction) > 0 ? ' (−' + r.deduction + ')' : '') + (r.creditNoteNo ? ' · ' + r.creditNoteNo : '')).appendTo($r);
+				if (r.status === 'REQUESTED') {
+					var $n = $('<input class="form-control input-sm" style="display:inline-block;width:auto;margin-right:6px" maxlength="500">')
+						.attr('placeholder', tr('ui.js.mktDecisionNote', 'Note to the customer')).appendTo($r);
+					['APPROVED', 'REJECTED'].forEach(function (d) {
+						$('<button type="button" class="btn btn-xs" style="margin-right:4px"></button>').addClass(d === 'APPROVED' ? 'btn-success mkt-approve' : 'btn-danger mkt-reject')
+							.text(d === 'APPROVED' ? tr('ui.js.mktApprove', 'Approve') : tr('ui.js.mktReject', 'Reject'))
+							.on('click', function () { casePost('platform/mkt/returnDecision', { returnNo: r.returnNo, decision: d, note: $n.val() }, $(this), $msg, c.caseNo); })
+							.appendTo($r);
+					});
+				}
+			});
+			var $ta = $('<textarea class="form-control input-sm mkt-op-reply" rows="2" maxlength="2000"></textarea>')
+				.attr('aria-label', tr('ui.js.mktReplyLabel', 'Reply or note')).appendTo($p);
+			var $int = $('<input type="checkbox" class="mkt-op-internal">');
+			$('<label style="font-weight:400;margin:6px 8px 0 0"></label>').append($int).append(document.createTextNode(' ' + tr('ui.js.mktInternalNote', 'Internal note (the customer does not see it)'))).appendTo($p);
+			$('<button type="button" class="btn btn-xs btn-primary mkt-op-send" style="margin:6px 4px 0 0"></button>').text(tr('ui.js.mktCaseSend', 'Send'))
+				.on('click', function () { casePost('platform/mkt/caseReply', { caseNo: c.caseNo, body: $ta.val(), internal: $int.is(':checked') }, $(this), $msg, c.caseNo); }).appendTo($p);
+			$('<button type="button" class="btn btn-xs btn-default mkt-op-task" style="margin:6px 4px 0 0"></button>').text(tr('ui.js.mktTaskSeller', 'Task the seller'))
+				.on('click', function () { casePost('platform/mkt/caseTask', { caseNo: c.caseNo, note: $ta.val() }, $(this), $msg, c.caseNo); }).appendTo($p);
+			$('<button type="button" class="btn btn-xs btn-default mkt-op-resolve" style="margin:6px 4px 0 0"></button>').text(tr('ui.js.mktResolve', 'Resolve'))
+				.on('click', function () { casePost('platform/mkt/caseResolve', { caseNo: c.caseNo, note: $ta.val() }, $(this), $msg, c.caseNo); }).appendTo($p);
+			$p.append($msg);
+		});
+	}
+
+	function casePost(path, body, $b, $msg, caseNo) {
+		$b.prop('disabled', true);
+		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				loadCases();
+				openCase(caseNo);
+				setTimeout(function () { $('#mktCaseDetail [role=status]').css('color', '#1f7a4d').text(said); }, 300);
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
+	$(document).on('click', '#platMktCasesBtn', function () { openPanel('#platMktCases', loadCases); });
+	$(document).on('click', '#platMktCaseStatus button', function () {
+		$('#platMktCaseStatus button').removeClass('is-on');
+		$(this).addClass('is-on');
+		caseStatus = $(this).attr('data-status');
+		$('#mktCaseDetail').empty();
+		loadCases();
+	});
+	$(document).on('click keydown', '.mkt-case-row', function (e) {
+		if (e.type === 'keydown' && e.key !== 'Enter') return;
+		openCase($(this).attr('data-case-no'));
+	});
+	$(document).on('click', '#mktFeeSave', function () {
+		var $b = $(this).prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/settings/changeOfMindFee', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ amount: $('#mktFee').val() === '' ? null : Number($('#mktFee').val()) }) })
+			.done(function (res) { $('#mktFeeMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e').text(message(res, '')); })
+			.fail(function (xhr) { $('#mktFeeMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	});
+
 	function openPanel(id, loader) {
 		$('.plat__panel').hide();
 		$(id).show();

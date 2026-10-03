@@ -76,6 +76,12 @@
 
 		<!-- MKT-1b — products to publish. Shown only when the seller can sell (all three conditions). The key is
 		     computed by the SERVER; nothing here is merged without MaxTheService reviewing it. -->
+		<!-- MKT-1f: what MaxTheService asks of this shop — the customer talks to MaxTheService only (R8.2) -->
+		<div id="mktTasksBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" th:text="#{ui.mktTasksTitle}">Tasks from MaxTheService</h4>
+			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktTasksHint}">Answer MaxTheService support here; it tells the customer. For an approved return, your rider collects the item, then press Item received.</p>
+			<div id="mktTasks" aria-live="polite"></div>
+		</div>
 		<!-- MKT-1e: incoming marketplace orders — first, because each one has a clock running -->
 		<div id="mktIncomingBox" style="display:none;margin-top:18px">
 			<h4 style="font-weight:700;font-size:15px">
