@@ -65,6 +65,14 @@ public class MarketplaceAuditService extends AuditEmitter<AuditOutbox> {
         }, relay, events, auditClient);
     }
 
+    /**
+     * The user id an event with NO staff user is delivered under: the customer (a marketplace account, not a user) or
+     * the system. audit-service authenticates a record only with a user id, so a null one was refused with a 403 and
+     * every customer event stayed undelivered (found live: MKT_CASE_OPENED / MKT_RETURN_OPENED / MKT_ORDER_CANCELLED).
+     * 0 is never a person's id; the actor type (SYSTEM) and the details ("by the customer") say who acted.
+     */
+    public static final Long NO_STAFF_USER = 0L;
+
     /** One marketplace event about {@code sellerOrg}'s order. {@code before}/{@code after} are short states. */
     public void event(String action, String entityType, String ref, Long sellerOrg, Actor actor, String before,
                       String after, BigDecimal amount, String details) {
@@ -74,6 +82,7 @@ public class MarketplaceAuditService extends AuditEmitter<AuditOutbox> {
                 .entityRef(ref)
                 .subjectOrgId(sellerOrg)
                 .actorType(actor.type)
+                .actorUserId(actor == Actor.CUSTOMER || actor == Actor.SYSTEM ? NO_STAFF_USER : null)
                 .beforeValue(before)
                 .afterValue(after)
                 .amount(amount)

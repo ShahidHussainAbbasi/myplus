@@ -54,7 +54,7 @@ leaves no row). R22.4 was counted as covered only by an unbuilt gate case and a 
 `audit_outbox` table (V30), `MarketplaceAuditService extends AuditEmitter`, and a row for every support and return
 action, filed under the **seller's** org when the operator acts on a seller's order (the subject, never the actor).
 The built slices' actions (agreement acceptance, account and offer approval, match decisions, accept/reject,
-customer cancel, refunds) are recorded in the gap register as **G-MKT-AUD**, to be wired in the same pass.
+customer cancel, policies, settings) were wired in the same pass — G-16 closed.
 
 **Domain already built (MKT-1a):** `ReturnCostPolicy` (10 reasons → bearer role → org from the snapshot;
 `requiresUrgentEscalation`). Unit-tested; nothing calls it yet.

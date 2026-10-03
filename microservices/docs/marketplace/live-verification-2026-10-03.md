@@ -147,6 +147,11 @@ marketplace-service started under `ddl-auto=validate`.
 | 26 | slice trace | a lost card refund for a return would never be retried: `reconcile()` routed every pending refund to `refundIfCancelled`, which ignores delivered orders | refunds keyed `return:` are routed to `refundReturn` | MarketplaceSupportServiceTest `lostRefundNoSecondCreditNote` |
 | 27 | recorded walk M-1f-04 | My orders drew itself twice on load; a prompt "Get help" click lost its form to the second draw | loads run one at a time | walk M-1f-04 |
 
+| 28 | live check of the audit outbox after the regression | every CUSTOMER event (case opened, return opened, order cancelled) stayed undelivered — 403 from audit-service, which authenticates only a call with a user id, and a customer is not a staff user | events with no staff user are delivered under user id 0 (never a person); actor type SYSTEM and "by the customer" say who acted. The shared filter is untouched | MarketplaceAuditServiceTest ×2; live: **352 audit rows, all POSTED, 0 failed** |
+| 29 | trace of R22.4 across the built slices (G-16) | agreements, seller/match/offer decisions, price limits, accept/reject, customer cancel, policies and settings wrote no audit row | each writes one in the same transaction as the change, under the seller it concerns; a refused action records nothing | MarketplaceOrderFlowTest `ordersAudited`; gates 69/69 on the audited build (22:56:12 UTC) |
+
+**marketplace-service suite: 330 run, 0 failed, 0 skipped** (clean build; FlywayMigrationTest 6/6 to v30 on real MySQL).
+
 Also corrected before build: the return-days edit first added for the gate broke MKT-1c's promise that policies are
 never edited — removed; gate 1f-06/07 use new policies instead.
 
