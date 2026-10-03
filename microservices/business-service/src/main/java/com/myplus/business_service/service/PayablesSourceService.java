@@ -53,6 +53,18 @@ public class PayablesSourceService {
         return PayablesSource.FINANCE.equals(sourceOf(organizationId));
     }
 
+    /**
+     * FP-4c — what this business owes a supplier, as the tenant's switch decides. On FINANCE (ruling 2: total exposure)
+     * = purchases still owed ({@code due_amount}: synchronous, always current) + expense bills still owed (stamped by
+     * finance; bills change only there). Deliberately NOT a stamped total: a stamp lags its event, and a credit limit
+     * read from a lagging total could miss the purchase made a moment ago. On BUSINESS = {@code due_amount}, unchanged.
+     */
+    public static BigDecimal owedTo(com.myplus.business_service.entity.Vender v, boolean fromFinance) {
+        if (v == null) return BigDecimal.ZERO;
+        BigDecimal due = nz(v.getDueAmount());
+        return fromFinance ? due.add(nz(v.getPayableOtherOpen())) : due;
+    }
+
     /** The operator's view: the current source and the reconciliation that decides whether it may change. */
     @Transactional(readOnly = true)
     public Map<String, Object> status(Long organizationId) {

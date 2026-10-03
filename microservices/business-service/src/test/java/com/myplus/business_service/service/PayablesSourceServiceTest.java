@@ -103,4 +103,17 @@ class PayablesSourceServiceTest {
         assertThat(svc.readsFromFinance(13L)).isTrue();
         assertThat(svc.readsFromFinance(null)).isFalse();
     }
+
+    @Test @DisplayName("FP-4c: owed = purchases on BUSINESS; purchases + stamped bills on FINANCE (never a lagging total)")
+    void owedTo() {
+        com.myplus.business_service.entity.Vender v = new com.myplus.business_service.entity.Vender();
+        v.setDueAmount(new BigDecimal("700"));
+        v.setPayableOtherOpen(new BigDecimal("300"));
+        v.setPayableAdvance(new BigDecimal("50"));
+        assertThat(PayablesSourceService.owedTo(v, false)).isEqualByComparingTo("700");
+        assertThat(PayablesSourceService.owedTo(v, true)).as("advance is shown apart, never netted").isEqualByComparingTo("1000");
+        v.setDueAmount(null);
+        assertThat(PayablesSourceService.owedTo(v, true)).isEqualByComparingTo("300");
+        assertThat(PayablesSourceService.owedTo(null, true)).isEqualByComparingTo("0");
+    }
 }

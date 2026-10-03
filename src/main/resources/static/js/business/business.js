@@ -2328,11 +2328,17 @@ function loadDataTable(){
 							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
 							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
-							"<div id=venderDue>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
+							// FP-4c — on FINANCE the Due cell is everything owed (purchases + expense bills), with what part is
+							// bills and any advance shown beside it. The Pay button below still carries dueAmount (purchases):
+							// Pay Supplier settles purchases only until FP-5, so a bill-inclusive figure there would overpay.
+							"<div id=venderDue data-cy='vender-due'>"+(obj.payablesSource==='FINANCE' && obj.totalOwed!=null ? obj.totalOwed : (obj.dueAmount!=null?obj.dueAmount:0))
+								+((obj.payablesSource==='FINANCE' && Number(obj.billsOwed||0) > 0) ? " <small class='text-muted' data-cy='vender-bills'>("+escHtml(tOr('ui.js.inclBills','incl. bills'))+" "+Number(obj.billsOwed).toFixed(2)+")</small>" : "")
+								+((obj.payablesSource==='FINANCE' && Number(obj.advance||0) > 0) ? " <span class='label label-info' data-cy='vender-advance'>"+escHtml(tOr('ui.js.advance','Advance'))+" "+Number(obj.advance).toFixed(2)+"</span>" : "")
+								+"</div>",
 							"<div id=venderCreditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",obj.datedStr,
 							"<div class='row-actions'>"
 							// Pay only makes sense when something is owed — hide it when the payable is 0.
-							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Pay this vendor'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
+							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='"+escHtml((obj.payablesSource==='FINANCE' && Number(obj.billsOwed||0) > 0) ? tOr('ui.js.payPurchasesOnly','Pays purchases; expense bills are paid from Expenses') : 'Pay this vendor')+"'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 							// DR-2 (G9): the 360 view on supplier rows too, and "+ Customer" for the same business.
 							+ contact360Button(obj.partyId)

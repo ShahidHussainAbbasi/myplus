@@ -24,6 +24,7 @@ import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
 import com.myplus.education.util.ScopedDeleter;
+import com.myplus.education.util.TenantRefs;
 
 /** Flat (legacy) Grade endpoints. userId-scoped; resolves school branch name by schoolId. */
 @Controller
@@ -156,15 +157,25 @@ public class GradeController {
                     return new GenericResponse("FOUND", "The Grade '" + dto.getName() + "' already exists");
                 }
             }
-            Grade obj = (dto.getId() != null)
-                    ? gradeRepository.findById(dto.getId()).orElseGet(Grade::new)
-                    : new Grade();
+            // EDU-IDOR-2: an edit resolves inside the caller's TENANT first. A bare findById + the
+            // setOrganizationId below moved another school's class into this one; an unknown id silently
+            // created a new row. canAccessSchool alone cannot catch it — it checks the branch, not the org.
+            Grade obj;
+            if (dto.getId() != null) {
+                obj = gradeRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) {
+                    return new GenericResponse("NOT_FOUND", "Grade not found");
+                }
+            } else {
+                obj = new Grade();
+            }
             // P4 anti-IDOR: an edit names a row by id, so it must live in a branch the caller may access.
-            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+            if (dto.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
                 return new GenericResponse("NOT_FOUND", "Grade not found");
             }
             Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
-            if (!requestUtil.canAccessSchool(school)) {
+            if (!requestUtil.canAccessSchool(school)
+                    || !TenantRefs.ownedOrAbsent(school, id -> schoolRepository.findByIdScoped(id, orgId, userId))) {
                 return new GenericResponse("FAILED", "You do not have access to that branch.");
             }
             obj.setUserId(userId);              // audit: who created/edited

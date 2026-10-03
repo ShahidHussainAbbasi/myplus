@@ -107,6 +107,55 @@ configuration that reads as a working permission model.
 Unlike G1 they were not traced to a concrete leak — they need the same read-every-caller pass G1 got. Listed
 so the review is honest about what was checked and what was not.
 
+### G7 ⚠ `addGrade` / `addStudent` / `addVehicle` — a cross-tenant WRITE on edit (EDU-IDOR-2, 2026-10-03)
+
+*Code-verified, then **proven live 2026-10-03** on the running build: `delete-idor.cy.js` EDU-IDOR-2 block
+red **6/6 attack cases** (each answered `SUCCESS`), control green. Only rows the spec itself created were
+attacked; its `after()` sweeps both tenants and the DB showed 0 `CY_IDOR2` rows afterwards.*
+
+```java
+Student obj = dto.getId() != null ? studentRepository.findById(dto.getId()).orElseGet(Student::new) : new Student();
+if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) return NOT_FOUND;
+…
+obj.setOrganizationId(orgId);   // ← stamps the CALLER's org onto whatever row was loaded
+```
+
+`canAccessSchool` → `LocationScope.canAccess` checks the **branch, never the organisation**, and returns
+`true` for an owner/super **and for anyone with no location grants** (every single-branch school). So an
+owner of org 14 posting `/addStudent?id=<an org-24 student>` overwrites that pupil and moves it into org 14.
+The same unchecked call is applied to the **client-supplied `schoolId`**, and `addStudent` stores
+`gradeId / guardianId / discountId / vehicleId` straight from the form. A foreign grade is then read by
+`FeeService.gradeFee`, so **the fee would be billed from another school's grade**.
+
+**Count — every by-id load in education-service: 25.**
+
+| n | Where | Verdict |
+|---|---|---|
+| 3 | `addGrade`, `addStudent`, `addVehicle` | **cross-tenant write — fixed here** |
+| 5 | `FeeService` gradeFee / discountAmount / gradeName / schoolName / guardianName | ids come from the student row → safe once `addStudent` validates its links |
+| 3 | audit / notify / GL outbox `find(id)` | ids come from their own `pending()` query, not the client — unaffected |
+| 14 | 11 legacy `*Service` CRUD classes (GradeService, StudentService, …) | **referenced by nothing** — unreachable; deletion is a separate decision |
+
+Of the 8 `canAccessSchool(...)` calls, exactly **3 take a client-supplied school id** — the same three methods.
+
+**Data, before the fix (dev, 2026-10-03):** 775 students; **0** links to a foreign or missing grade, guardian,
+discount, vehicle or school; 0 grade→school and 0 vehicle→school foreign links; 0 NULL-org rows in any of the six
+tables. So refusing an unowned link cannot strand an existing record on its next edit.
+
+**Design.**
+1. Edit resolves through `findByIdScoped(id, org, uid)` (Grade has one; Student and Vehicle gain one — same JPQL as
+   the others). **Not found → `NOT_FOUND`**, never `orElseGet(new)` — today an unknown id silently CREATES a row.
+2. Every client-supplied reference is checked the same way before it is stored: `schoolId` in all three;
+   `gradeId`, `guardianId`, `discountId`, `vehicleId` in `addStudent`. Null = nothing linked = allowed (empty
+   pickers post `""` → `null`; verified in `educationDashboard.html`). Refusal → `FAILED` naming the field.
+3. One helper, `TenantRefs.ownedOrAbsent(id, finder)`, so the rule is written once.
+4. Gates: `EducationTenantWriteTest` (`mvn test`, 13 cases, mocked repos) and `delete-idor.cy.js` EDU-IDOR-2
+   (7 cases: edit a foreign student/class/vehicle → NOT_FOUND and the victim keeps it; link a foreign class or
+   vehicle → FAILED; file a class under a foreign school → FAILED; CONTROL own class + pupil save, link, edit).
+
+**State:** implemented (TenantRefs + 2 finders + 3 controllers); **awaiting an education-service rebuild** for green.
+Not done: the 14 dead `*Service` loads (separate decision).
+
 ---
 
 ## 3 · What is well built — and should not be "fixed"

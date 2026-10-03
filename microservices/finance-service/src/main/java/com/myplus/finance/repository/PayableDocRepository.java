@@ -36,6 +36,16 @@ public interface PayableDocRepository extends JpaRepository<PayableDoc, Long> {
     /** FP-4a — every document of one supplier, any status, oldest first (the statement's BILL lines). */
     List<PayableDoc> findByOrganizationIdAndPartyTypeAndPartyIdOrderByDocDateAscIdAsc(Long organizationId, String partyType, Long partyId);
 
+    /** FP-4c — Σ still open on one supplier's NON-purchase documents (expense bills): what business cannot see. */
+    @Query("select coalesce(sum(d.amount - d.paid), 0) from PayableDoc d where d.organizationId = :org "
+         + "and d.partyType = :type and d.partyId = :party and d.source <> 'PURCHASE' and d.status = 'OPEN'")
+    BigDecimal otherOpen(@Param("org") Long org, @Param("type") String type, @Param("party") Long party);
+
+    /** FP-4c — one supplier's net across every live document; below zero = paid AHEAD (an advance). */
+    @Query("select coalesce(sum(d.amount - d.paid), 0) from PayableDoc d where d.organizationId = :org "
+         + "and d.partyType = :type and d.partyId = :party and d.status <> 'VOID'")
+    BigDecimal netOf(@Param("org") Long org, @Param("type") String type, @Param("party") Long party);
+
     @Query("select d from PayableDoc d where d.organizationId = :org and d.status = 'OPEN' order by d.partyName, d.docDate")
     List<PayableDoc> findOpen(@Param("org") Long org);
 }

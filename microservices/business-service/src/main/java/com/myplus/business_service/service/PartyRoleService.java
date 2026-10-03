@@ -54,6 +54,7 @@ public class PartyRoleService {
     @Autowired private PartySetOffService setOffs;
     @Autowired private com.myplus.business_service.repository.PartySetOffRepo setOffRepo;
     @Autowired(required = false) private PartyClient partyClient;
+    @Autowired(required = false) private PayablesSourceService payablesSource;   // FP-4c
     private final TransactionTemplate tx;
 
     public PartyRoleService(PlatformTransactionManager txManager) {
@@ -114,11 +115,13 @@ public class PartyRoleService {
             credit = credit.add(l.getStoreCredit());
             p.getCustomers().add(l);
         }
+        boolean suppliersFromFinance = payablesSource != null && payablesSource.readsFromFinance(org());
         for (Vender v : vs) {
             PartyPositionDTO.Line l = new PartyPositionDTO.Line();
             l.setId(v.getId());
             l.setName(v.getName());
-            l.setDue(nz(v.getDueAmount()));
+            // FP-4c — the supplier side as the tenant's switch decides (purchases, plus bills on FINANCE)
+            l.setDue(PayablesSourceService.owedTo(v, suppliersFromFinance));
             payable = payable.add(l.getDue());
             p.getSuppliers().add(l);
         }

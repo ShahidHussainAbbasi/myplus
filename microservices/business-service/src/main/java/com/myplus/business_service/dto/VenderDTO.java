@@ -54,6 +54,12 @@ public class VenderDTO implements Serializable {
 	private String description;
 	// F1 (AP): running payable owed to this vendor (for the vendor table's Due column + Pay Vendor).
 	private java.math.BigDecimal dueAmount;
+	// FP-4c — read-only figures for a tenant whose supplier balances come from finance (never mapped back onto the entity:
+	// no Vender property has these names). dueAmount stays the PURCHASE figure the Pay button settles until FP-5.
+	private java.math.BigDecimal totalOwed;   // what is owed: purchases + expense bills (= dueAmount on BUSINESS)
+	private java.math.BigDecimal billsOwed;   // expense bills still owed (0 on BUSINESS)
+	private java.math.BigDecimal advance;     // paid ahead (0 on BUSINESS — business floors it away)
+	private String payablesSource;            // BUSINESS | FINANCE
 	private Long partyId;               // P1: shared party/contact master id
 	private String cnicNtn;             // DR-1 (D5): optional CNIC / NTN — the strongest partner match key
 	private Boolean alsoCustomer;       // DR-2: this supplier's partner is also one of our customers (computed on read)

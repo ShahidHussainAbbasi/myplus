@@ -21,6 +21,15 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
             + "or (v.organizationId is null and v.userId = :userId)")
     List<Vehicle> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /**
+     * EDU-IDOR-2: resolve ONE vehicle by a client-supplied id under the same tenant rule as {@link #findScoped} —
+     * for an edit, and for a student's transport link. A bare findById let either cross into another school.
+     */
+    @Query("select v from Vehicle v where v.id = :id and (v.organizationId = :orgId "
+            + "or (v.organizationId is null and v.userId = :userId))")
+    java.util.Optional<Vehicle> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                               @Param("userId") Long userId);
+
     // P4 — branch (school) scoped read; school-less rows are legacy and stay visible.
     @Query("select v from Vehicle v where v.organizationId = :orgId "
             + "and (v.schoolId in :schoolIds or v.schoolId is null)")

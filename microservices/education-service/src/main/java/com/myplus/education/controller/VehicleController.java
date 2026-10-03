@@ -23,6 +23,7 @@ import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
 import com.myplus.education.util.ScopedDeleter;
+import com.myplus.education.util.TenantRefs;
 
 /** Flat (legacy) Vehicle (transport) endpoints. userId-scoped. */
 @Controller
@@ -154,15 +155,23 @@ public class VehicleController {
                     return new GenericResponse("FOUND", "A vehicle '" + dto.getNumber() + "' already exists");
                 }
             }
-            Vehicle obj = (dto.getId() != null)
-                    ? vehicleRepository.findById(dto.getId()).orElseGet(Vehicle::new)
-                    : new Vehicle();
+            // EDU-IDOR-2: an edit resolves inside the caller's TENANT first (see GradeController.addGrade).
+            Vehicle obj;
+            if (dto.getId() != null) {
+                obj = vehicleRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) {
+                    return new GenericResponse("NOT_FOUND", "Vehicle not found");
+                }
+            } else {
+                obj = new Vehicle();
+            }
             // P4 anti-IDOR: an edit names a row by id, so it must live in a branch the caller may access.
-            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+            if (dto.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
                 return new GenericResponse("NOT_FOUND", "Vehicle not found");
             }
             Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
-            if (!requestUtil.canAccessSchool(school)) {
+            if (!requestUtil.canAccessSchool(school)
+                    || !TenantRefs.ownedOrAbsent(school, id -> schoolRepository.findByIdScoped(id, orgId, userId))) {
                 return new GenericResponse("FAILED", "You do not have access to that branch.");
             }
             obj.setUserId(userId);              // audit: who created/edited

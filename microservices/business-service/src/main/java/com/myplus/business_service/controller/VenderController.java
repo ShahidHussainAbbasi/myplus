@@ -45,6 +45,9 @@ public class VenderController {
 	com.myplus.business_service.service.PartyBridgeService partyBridgeService;   // P1: shared party master bridge
 	@Autowired
 	com.myplus.business_service.service.PartyRoleService partyRoleService;   // DR-2: "also a customer" badge
+
+	@Autowired(required = false)
+	com.myplus.business_service.service.PayablesSourceService payablesSource;   // FP-4c: where supplier figures come from
 	
 	@Autowired
 	ICompanyService companyService;
@@ -74,8 +77,14 @@ public class VenderController {
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
+			// FP-4c — one primary-key read decides every row's figures
+			final boolean fromFinance = payablesSource != null && payablesSource.readsFromFinance(orgId());
 			objs.forEach(obj ->{
 				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
+				dto.setPayablesSource(fromFinance ? "FINANCE" : "BUSINESS");
+				dto.setTotalOwed(com.myplus.business_service.service.PayablesSourceService.owedTo(obj, fromFinance));
+				dto.setBillsOwed(fromFinance ? obj.getPayableOtherOpen() : java.math.BigDecimal.ZERO);
+				dto.setAdvance(fromFinance ? obj.getPayableAdvance() : java.math.BigDecimal.ZERO);
 				fillCompanies(dto, obj);
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
@@ -98,6 +107,7 @@ public class VenderController {
 		StringBuffer sb = new StringBuffer();
 		try {
 			List<Vender> objs = venderService.findScoped(orgId(), userId());
+			final boolean fromFinanceDd = payablesSource != null && payablesSource.readsFromFinance(orgId());
 
 			// objs.forEach(d -> {
 			// 	if(d!=null && d.getId()!=null) {
@@ -111,7 +121,8 @@ public class VenderController {
 				// B2B-P0 (#8): carry the vendor's outstanding payable on the option, exactly as the customer
 				// dropdown carries data-due. The purchase screen reads it on select to show what this vendor
 				// is already owed BEFORE more credit is taken on — no extra round trip per selection.
-				java.math.BigDecimal due = d.getDueAmount() == null ? java.math.BigDecimal.ZERO : d.getDueAmount();
+				// FP-4c — on FINANCE the purchase screen warns with everything owed (purchases + bills; ruling 2)
+				java.math.BigDecimal due = com.myplus.business_service.service.PayablesSourceService.owedTo(d, fromFinanceDd);
 				sb.append("<option value=" + d.getId() + " data-due=\"" + due.toPlainString() + "\">")
 				  .append(d.getName())
 				  .append("</option>");
@@ -178,6 +189,11 @@ public class VenderController {
 				if(existing != null) {
 					obj.setDated(existing.getDated());
 					obj.setDueAmount(existing.getDueAmount());   // F1 (AP): a profile edit must not wipe the payable
+					// FP-4c — nor finance's stamp: this path REBUILDS the row from the form, so every stamped column
+					// is carried over by hand, exactly like due_amount above (the form never carries them).
+					obj.setPayableOtherOpen(existing.getPayableOtherOpen());
+					obj.setPayableAdvance(existing.getPayableAdvance());
+					obj.setPayableStampVersion(existing.getPayableStampVersion());
 					// DR-1: keep the partner link (the form does not carry it); re-link only if a match key changed.
 					obj.setPartyId(existing.getPartyId());
 					identityChanged = com.myplus.business_service.service.PartyBridgeService.identityChanged(
@@ -186,6 +202,10 @@ public class VenderController {
 				}
 			}else {
 				obj.setDated(dated);
+				// FP-4c — a new supplier owes no bills yet; finance stamps them when there are some
+				obj.setPayableOtherOpen(java.math.BigDecimal.ZERO);
+				obj.setPayableAdvance(java.math.BigDecimal.ZERO);
+				obj.setPayableStampVersion(0L);
 			}
 			obj.setUpdated(dated);
 			obj.setUserId(user.getUserId());                  // audit

@@ -31,6 +31,7 @@ import com.myplus.business_service.util.RequestUtil;
 @Transactional
 public class PurchaseService implements IPurchaseService{
 	@Autowired private DocumentNumberService documentNumberService;
+	@Autowired(required = false) private PayablesSourceService payablesSource;   // FP-4c: credit-limit exposure
 
     @Autowired
     PurchaseRepo purchaseRepo;
@@ -72,7 +73,10 @@ public class PurchaseService implements IPurchaseService{
         // Not wired here — flagged in the slice doc rather than half-done.
         com.myplus.common.credit.CreditLimitPolicy.Verdict verdict =
                 com.myplus.common.credit.CreditLimitPolicy.evaluate(
-                        vender.getDueAmount(), unpaidOnThisBill, null, vender.getCreditLimit());
+                        // FP-4c — exposure as the tenant's switch decides: on FINANCE purchases + expense bills (ruling 2)
+                        com.myplus.business_service.service.PayablesSourceService.owedTo(vender,
+                                payablesSource != null && payablesSource.readsFromFinance(obj.getOrganizationId())),
+                        unpaidOnThisBill, null, vender.getCreditLimit());
         String name = (vender.getName() == null || vender.getName().isBlank()) ? "This supplier" : vender.getName();
         String msg = "You would owe " + name + " "
                 + verdict.exposure().setScale(2, java.math.RoundingMode.HALF_UP)

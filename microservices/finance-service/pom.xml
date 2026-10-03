@@ -16,6 +16,8 @@
     <!-- FP-4a: the SAME StatementBuilder business uses, so a finance-served supplier statement orders and balances
          exactly as today's. Its SubledgerService bean is skipped here (no FinanceClient on the classpath). -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-subledger</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- FP-4c: the shared transactional-outbox relay (retry, dead-letter, health) for the supplier-figure notices. -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-outbox</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>

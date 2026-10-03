@@ -1,6 +1,6 @@
 # FP-4 — supplier reads served from finance (per tenant, reversible)
 
-**Status:** FP-4b GREEN 2026-10-03, STAGED (gate 4/4 + regressions 38/38 headed; finance 66; business 405 with 1 foreign error in DR-4 PartyRoleServiceTest; business V74 live; org 13 left on BUSINESS). NEXT FP-4c. FP-4a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 17/17 headed; finance 65, expense 26, business 399 + 1 foreign error in DR-4's PartyRoleServiceTest). Live: finance V11, business V73, expense V5; generation-2 backfill reached every tenant — 813 purchase docs all with issued amount, 43/43 debit notes, 10 bills re-sent. NEXT FP-4b. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
+**Status:** FP-4c GREEN 2026-10-03, STAGED (gate 5/5 + regressions 37/37 headed; finance 68; business 408 with the 1 foreign DR-4 error; finance V12 + business V75 live; 313 suppliers stamped, 0 mismatches vs finance). Fixed live: seeded notices carried no user → business 403 → finance now acts as the tenant's latest journal author. FP-4 COMPLETE; NEXT FP-5 (one settlement path). FP-4b GREEN 2026-10-03, STAGED (gate 4/4 + regressions 38/38 headed; finance 66; business 405 with 1 foreign error in DR-4 PartyRoleServiceTest; business V74 live; org 13 left on BUSINESS). NEXT FP-4c. FP-4a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 17/17 headed; finance 65, expense 26, business 399 + 1 foreign error in DR-4's PartyRoleServiceTest). Live: finance V11, business V73, expense V5; generation-2 backfill reached every tenant — 813 purchase docs all with issued amount, 43/43 debit notes, 10 bills re-sent. NEXT FP-4b. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
 Follows FP-3 (`d46ec827`).
 
 ## 1. Document
@@ -111,6 +111,41 @@ figures); the GL 2000 difference is SHOWN to the operator as a warning, not a bl
 org 13 difference 0 and the GL figure; org 6 (difference 100) refused; reason required; (3) org 13 → FINANCE: aging
 equals the BUSINESS aging per supplier plus bills, the statement shows a bill and its payment, CSV too; (4) back to
 BUSINESS: the bill is gone from the statement. after(): org 13 left on BUSINESS.
+
+## 4c. FP-4c design — finance stamps what business cannot know onto the supplier
+
+**RULE 0 trace of `vender.due_amount` (2026-10-03):**
+- Writers 3: `recomputePayable` (9 callers — re-derives from purchases after EVERY purchase change), the add/edit form
+  (`VenderController` rebuilds the row from the DTO and copies `due_amount` by hand), `addVender` (a new row). ⇒ a
+  finance figure written INTO `due_amount` would be overwritten within seconds: it gets its OWN columns, and the one
+  rebuild path copies them like `due_amount`.
+- Readers 7: purchase-screen dropdown `data-due` (R4), supplier grid via `/getUserVender` DTO (R4), DR-2 position
+  `PartyRoleService` (R6), credit-limit check `PurchaseService:75` (R5) → **switch**; `sumDueByOrg` (FP-4b
+  reconciliation — must stay purchase-only), `payVendor`'s new-balance answer (settlement, FP-5), `PartySetOffService`
+  (document level) → **unchanged**.
+
+**Two findings that shaped it:**
+1. ⚠ **Money:** the grid's **Pay** button pre-fills Pay Supplier with the grid's due, and Pay Supplier settles PURCHASES
+   only until FP-5. A bill-inclusive figure there would pay the bills' amount onto purchases → an advance nobody meant.
+   ⇒ the Pay button keeps the purchase figure; the grid SHOWS the total with "incl. bills X".
+2. **Staleness:** a stamp lags its event by a second. A credit limit read from a stamped TOTAL could miss a purchase
+   made a moment ago. ⇒ exposure = `due_amount` (purchases, synchronous, always current) **+** `payable_other_open`
+   (bills — they change only via expense-service, so the stamp is their only source anyway).
+
+- **finance V12** `payable_balance_outbox` (org, party_type, party_id, status, attempts, …) — a row per touched supplier,
+  written in the upsert's transaction; the figures are computed at SEND time (latest wins). Seeded by SQL for every
+  supplier already in the subledger. Delivered by `common-outbox` `OutboxRelay` (retry, dead-letter, health).
+  Figures: `otherOpen` = Σ open of non-PURCHASE documents; `advance` = max(0, −net of all live documents).
+- **business V75** `vender` + `payable_other_open`, `payable_advance` (DECIMAL(19,2) NOT NULL DEFAULT 0),
+  `payable_stamp_version` BIGINT — `POST /internal/business/payable-balances`: a targeted UPDATE guarded by version
+  (org from the caller, fail closed). Stamped for every tenant; READ only when the tenant is on FINANCE.
+- **Readers on FINANCE:** dropdown `data-due` = due + bills; grid Due = total with "incl. bills" and an **Advance**
+  badge (ruling 1), Pay button = purchases; DR-2 supplier side = total; credit-limit exposure = due + bills (ruling 2).
+
+**Gate `cypress/e2e/finance/fp-4c-balance-stamp.cy.js`:** (1) a bill to a fresh supplier is stamped on it (billsOwed);
+(2) a profile edit keeps the stamp; (3) on FINANCE: grid total = due + bills, the Pay figure stays purchases, the
+purchase dropdown's data-due includes bills; (4) credit limit set between "purchases" and "purchases + bills" → a new
+credit purchase is refused under BLOCK on FINANCE and allowed on BUSINESS; (5) back to BUSINESS: grid = purchases.
 
 ## 5. Rulings (2026-10-03)
 1. Advances: **shown as their own figure** ("Advance 9,620"), never netted into other suppliers.

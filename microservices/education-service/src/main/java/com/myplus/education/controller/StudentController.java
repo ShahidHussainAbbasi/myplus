@@ -33,15 +33,18 @@ import com.myplus.education.dto.StudentDTO;
 import com.myplus.education.entity.Grade;
 import com.myplus.education.entity.Guardian;
 import com.myplus.education.entity.Student;
+import com.myplus.education.repository.DiscountRepository;
 import com.myplus.education.repository.GradeRepository;
 import com.myplus.education.repository.GuardianRepository;
 import com.myplus.education.repository.SchoolRepository;
 import com.myplus.education.repository.StudentRepository;
+import com.myplus.education.repository.VehicleRepository;
 import com.myplus.education.service.FeeService;
 import com.myplus.education.util.AppUtil;
 import com.myplus.education.util.GenericResponse;
 import com.myplus.education.util.RequestUtil;
 import com.myplus.education.util.ScopedDeleter;
+import com.myplus.education.util.TenantRefs;
 
 /**
  * Flat (legacy) Student endpoints. userId-scoped; resolves school/grade/guardian display names.
@@ -61,6 +64,10 @@ public class StudentController {
     private GradeRepository gradeRepository;
     @Autowired
     private GuardianRepository guardianRepository;
+    @Autowired
+    private DiscountRepository discountRepository;   // EDU-IDOR-2: a student's discount link is tenant-checked
+    @Autowired
+    private VehicleRepository vehicleRepository;     // EDU-IDOR-2: a student's transport link is tenant-checked
     @Autowired
     private FeeService feeService;
     @Autowired
@@ -229,19 +236,39 @@ public class StudentController {
                     return new GenericResponse("FOUND", "A student with enroll no '" + dto.getEnrollNo() + "' already exists");
                 }
             }
-            Student obj = (dto.getId() != null)
-                    ? studentRepository.findById(dto.getId()).orElseGet(Student::new)
-                    : new Student();
+            // EDU-IDOR-2: an edit resolves inside the caller's TENANT first. A bare findById + the
+            // setOrganizationId below moved another school's pupil into this one; an unknown id silently
+            // created a new student. canAccessSchool alone cannot catch it — it checks the branch, not the org.
+            Student obj;
+            if (dto.getId() != null) {
+                obj = studentRepository.findByIdScoped(dto.getId(), orgId, userId).orElse(null);
+                if (obj == null) {
+                    return new GenericResponse("NOT_FOUND", "Student not found");
+                }
+            } else {
+                obj = new Student();
+            }
             // P4 anti-IDOR: an edit takes an id from the client, so the row must sit in a branch the caller
             // may access — otherwise a teacher at Branch B could edit a Branch-A student just by knowing the id.
-            if (dto.getId() != null && obj.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
+            if (dto.getId() != null && !requestUtil.canAccessSchool(obj.getSchoolId())) {
                 return new GenericResponse("NOT_FOUND", "Student not found");
             }
             // The branch a student belongs to: what the form chose, else the caller's active branch. Either way
             // it must be one the caller holds — a client cannot file a student into someone else's school.
             Long school = dto.getSchoolId() != null ? dto.getSchoolId() : requestUtil.activeSchoolId();
-            if (!requestUtil.canAccessSchool(school)) {
+            if (!requestUtil.canAccessSchool(school)
+                    || !TenantRefs.ownedOrAbsent(school, id -> schoolRepository.findByIdScoped(id, orgId, userId))) {
                 return new GenericResponse("FAILED", "You do not have access to that branch.");
+            }
+            // EDU-IDOR-2: every id the form links must be this tenant's. The fee is computed FROM these rows
+            // (FeeService.gradeFee / discountAmount), so a foreign class would bill another school's fee.
+            String foreignLink = !TenantRefs.ownedOrAbsent(dto.getGradeId(), id -> gradeRepository.findByIdScoped(id, orgId, userId)) ? "class"
+                    : !TenantRefs.ownedOrAbsent(dto.getGuardianId(), id -> guardianRepository.findByIdScoped(id, orgId, userId)) ? "guardian"
+                    : !TenantRefs.ownedOrAbsent(dto.getDiscountId(), id -> discountRepository.findByIdScoped(id, orgId, userId)) ? "discount"
+                    : !TenantRefs.ownedOrAbsent(dto.getVehicleId(), id -> vehicleRepository.findByIdScoped(id, orgId, userId)) ? "vehicle"
+                    : null;
+            if (foreignLink != null) {
+                return new GenericResponse("FAILED", "The selected " + foreignLink + " was not found.");
             }
             obj.setUserId(userId);              // audit: who created/edited
             obj.setOrganizationId(orgId);       // tenant scope

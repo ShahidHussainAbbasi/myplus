@@ -60,6 +60,18 @@ public class Vender implements Serializable {
 	@Column(name = "credit_limit", precision = 19, scale = 2)
 	private BigDecimal creditLimit;
 
+	/** FP-4c — expense bills still owed to this supplier, STAMPED by finance (V75); never derived here. */
+	@Column(name = "payable_other_open", nullable = false, precision = 19, scale = 2)
+	private BigDecimal payableOtherOpen = BigDecimal.ZERO;
+
+	/** FP-4c — paid ahead across everything, STAMPED by finance (V75). */
+	@Column(name = "payable_advance", nullable = false, precision = 19, scale = 2)
+	private BigDecimal payableAdvance = BigDecimal.ZERO;
+
+	/** FP-4c — when finance computed the two above (epoch ms): an older stamp never overwrites a newer one. */
+	@Column(name = "payable_stamp_version", nullable = false)
+	private Long payableStampVersion = 0L;
+
 	private String name;
 
 	/**

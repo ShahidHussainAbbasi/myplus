@@ -24,6 +24,17 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
         + "or (v.organizationId is null and v.userId = :userId)")
    List<Vender> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /**
+    * FP-4c — finance's figures onto one supplier: a targeted UPDATE (never load-and-save, so it cannot race a profile
+    * edit's other columns), only inside the caller's org, only if newer than what is held.
+    */
+   @org.springframework.data.jpa.repository.Modifying
+   @org.springframework.transaction.annotation.Transactional
+   @Query("update Vender v set v.payableOtherOpen = :other, v.payableAdvance = :advance, v.payableStampVersion = :version "
+        + "where v.id = :id and v.organizationId = :orgId and v.payableStampVersion < :version")
+   int stampPayable(@Param("id") Long id, @Param("orgId") Long orgId, @Param("other") java.math.BigDecimal other,
+                    @Param("advance") java.math.BigDecimal advance, @Param("version") long version);
+
    /** FP-4b — the sum of stamped supplier balances of one tenant: business's side of the payables reconciliation. */
    @Query("select coalesce(sum(v.dueAmount), 0) from Vender v where v.organizationId = :orgId")
    java.math.BigDecimal sumDueByOrg(@Param("orgId") Long orgId);

@@ -39,6 +39,10 @@ public class PayableService {
     private final GlService gl;
     private final com.myplus.finance.repository.PayableNoteRepository notes;
 
+    /** FP-4c — tells business each touched supplier's bills/advance; absent in unit tests (nothing to tell). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private PayableBalanceService balances;
+
     @Transactional
     public int upsert(List<PayableSnapshot> snapshots) {
         Long org = CurrentUser.organizationId();
@@ -47,6 +51,8 @@ public class PayableService {
         for (PayableSnapshot s : snapshots == null ? List.<PayableSnapshot>of() : snapshots) {
             if (applyOne(org, s)) applied++;
         }
+        // FP-4c — each supplier touched by this batch, once, in this same transaction
+        if (balances != null && applied > 0) balances.enqueue(org, CurrentUser.userId(), PayableBalanceService.keyed(snapshots));
         return applied;
     }
 

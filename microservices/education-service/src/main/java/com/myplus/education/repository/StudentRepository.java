@@ -91,6 +91,16 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Query("select s from Student s where s.id = :id and s.organizationId = :orgId")
     java.util.Optional<Student> findByIdForPortal(@Param("id") Long id, @Param("orgId") Long orgId);
 
+    /**
+     * EDU-IDOR-2: resolve ONE student by a client-supplied id for a STAFF edit, under the same tenant rule as
+     * {@link #findScoped}. {@code /addStudent} used a bare findById and then stamped the caller's org — so an
+     * edit naming another school's pupil moved that pupil into the caller's school.
+     */
+    @Query("select s from Student s where s.id = :id and (s.organizationId = :orgId "
+            + "or (s.organizationId is null and s.userId = :userId))")
+    java.util.Optional<Student> findByIdScoped(@Param("id") Long id, @Param("orgId") Long orgId,
+                                               @Param("userId") Long userId);
+
     // ── Finding D: dashboard aggregates ─────────────────────────────────────────────────────────
     // Counted in the database instead of loading every student to call .size() and .stream().filter().
 
