@@ -39,6 +39,12 @@ public class PaymentService {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
 
+        // FP-5a — a caller delivering through an outbox may send the same settlement twice; the first payment answers.
+        String clientRef = req.getClientRef() == null || req.getClientRef().isBlank() ? null : req.getClientRef().trim();
+        if (clientRef != null) {
+            java.util.Optional<Payment> first = paymentRepository.findByOrganizationIdAndClientRef(orgId, clientRef);
+            if (first.isPresent()) return toDTO(first.get());
+        }
         PaymentDirection direction = req.getDirection() != null ? req.getDirection() : PaymentDirection.RECEIPT;
         Payment p = Payment.builder()
                 .direction(direction)
@@ -51,6 +57,7 @@ public class PaymentService {
                 .reference(req.getReference())
                 .sourceModule(req.getSourceModule())
                 .note(req.getNote())
+                .clientRef(clientRef)
                 .organizationId(orgId)
                 .userId(userId)
                 .createdAt(LocalDateTime.now())

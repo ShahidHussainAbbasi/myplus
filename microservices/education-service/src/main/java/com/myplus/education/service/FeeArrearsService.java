@@ -89,7 +89,8 @@ public class FeeArrearsService {
 
         return subledgerService.settle("RECEIPT", "STUDENT", studentId, studentName,
                 amount, method, paidOn, reference, "education", docs,
-                () -> totalOutstanding(orgId, enrollNo));
+                () -> totalOutstanding(orgId, enrollNo),
+                "EDU-FEE-" + orgId + "-" + java.util.UUID.randomUUID());   // FP-5a: the ledger reference for this fee payment
     }
 
     /**

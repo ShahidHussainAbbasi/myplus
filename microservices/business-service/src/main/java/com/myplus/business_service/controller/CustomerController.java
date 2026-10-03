@@ -623,12 +623,17 @@ public class CustomerController {
 			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? java.time.LocalDate.now() : appUtil.toLocalDateOrNull(paidOn);
 			if (on == null) on = java.time.LocalDate.now();
 			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference, idempotencyKey);
+			// FP-5a — committed; the receipt number if finance has answered, else "voucherPending"
+			if (ledgerOutbox != null) ledgerOutbox.fill(res, "receiptNo");
 			return new GenericResponse("SUCCESS", "Payment received.", res);
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > receivePayment " + e.getCause(), e);
 			return new GenericResponse("ERROR", e.getMessage() != null ? e.getMessage() : "Failed to record payment.");
 		}
 	}
+
+	@org.springframework.beans.factory.annotation.Autowired(required = false)
+	private com.myplus.common.subledger.LedgerOutbox ledgerOutbox;   // FP-5a: resolves the receipt after commit
 
 	@PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
 	@RequestMapping(value = "/deleteCustomer", method = RequestMethod.POST)
