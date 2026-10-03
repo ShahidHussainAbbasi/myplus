@@ -330,6 +330,100 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/accept-window", body, "Could not save the acceptance window.");
     }
 
+    // ── MKT-1f: support cases and returns ───────────────────────────────────────────────────────────────
+
+    /** A seller's tasks from MaxTheService: its own cases waiting on it and approved returns to collect. */
+    @RequestMapping(value = "/mkt/sellerTasks", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> sellerTasks(final HttpServletRequest request) {
+        return relayGet("/mkt/seller/tasks", request, "Could not load your tasks from MaxTheService.");
+    }
+
+    /** Body: {caseNo, body}. */
+    @RequestMapping(value = "/mkt/sellerTaskReply", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> sellerTaskReply(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/tasks/reply", body, "Could not send your answer.");
+    }
+
+    /** Body: {returnNo, outcome: RESTOCK|QUARANTINE|WRITE_OFF, cashHandedBack}. */
+    @RequestMapping(value = "/mkt/returnReceived", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> returnReceived(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/seller/returns/received", body, "Could not record the returned item.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/cases", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> supportCases(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/cases", request, "Could not load the support cases.", "status", "page", "size");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/caseView", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> supportCase(final HttpServletRequest request) {
+        String no = request.getParameter("caseNo");
+        if (no == null || !no.trim().matches("(?i)SC-\\d{1,12}")) return refusal("Choose the case.");
+        return relayGet("/mkt/operator/cases/" + enc(no.trim().toUpperCase()), request, "Could not load the case.");
+    }
+
+    /** Body: {caseNo, body, internal}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/caseReply", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> caseReply(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/cases/reply", body, "Could not send the reply.");
+    }
+
+    /** Body: {caseNo, note}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/caseTask", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> caseTask(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/cases/task", body, "Could not task the seller.");
+    }
+
+    /** Body: {caseNo, note}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/caseResolve", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> caseResolve(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/cases/resolve", body, "Could not resolve the case.");
+    }
+
+    /** Body: {returnNo, decision: APPROVED|REJECTED, note}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/returnDecision", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> returnDecision(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/returns/decision", body, "Could not record the decision.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settings/changeOfMindFee", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> changeOfMindFee(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settings/change-of-mind-fee", request, "Could not load the fee.");
+    }
+
+    /** Body: {amount}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settings/changeOfMindFee", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setChangeOfMindFee(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settings/change-of-mind-fee", body, "Could not save the fee.");
+    }
+
+    /** Body: {policyId, returnDays}. Future orders only: placed orders keep their snapshot. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/returnPolicyDays", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> returnPolicyDays(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/policies/return-days", body, "Could not save the return days.");
+    }
+
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {

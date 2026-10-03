@@ -129,4 +129,17 @@ class MarketplacePublicControllerTest {
         controller.logout(new org.springframework.mock.web.MockHttpServletRequest(), res);
         assertThat(res.getHeader("Set-Cookie")).contains("MKT_SESSION=").contains("Max-Age=0");
     }
+
+    @Test
+    @DisplayName("[MKT-R8.2] a support case is relayed with the session header; a hostile case number is encoded, never a template")
+    void caseRelayed() {
+        server.expect(requestTo("http://gw/api/marketplace/public/mkt/account/cases/SC-1%2F%7Bx%7D"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("X-Mkt-Session", "S3SS"))
+                .andRespond(withSuccess("{\"success\":true,\"data\":{}}", MediaType.APPLICATION_JSON));
+        org.springframework.mock.web.MockHttpServletRequest req = new org.springframework.mock.web.MockHttpServletRequest();
+        req.setCookies(new jakarta.servlet.http.Cookie("MKT_SESSION", "S3SS"));
+        @SuppressWarnings("unchecked") Map<String, Object> r = (Map<String, Object>) controller.myCase("SC-1/{x}", req);
+        assertThat(r).containsEntry("success", true);
+        server.verify();
+    }
 }

@@ -191,6 +191,36 @@ public class MarketplacePublicController {
         return accountCall(uri, body == null ? Map.of() : body, sessionOf(request));
     }
 
+    // ── MKT-1f: support cases (the customer talks to MaxTheService only) ──────────────────────────────
+
+    @PostMapping("/marketplace/account/orders/{orderNo}/cases")
+    @ResponseBody
+    public Object openCase(@PathVariable String orderNo, @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/account/orders/{no}/cases", Map.of("no", orderNo), Map.of()),
+                body == null ? Map.of() : body, sessionOf(request));
+    }
+
+    @GetMapping("/marketplace/account/cases")
+    @ResponseBody
+    public Object myCases(jakarta.servlet.http.HttpServletRequest request) {
+        return accountGet("/api/marketplace/public/mkt/account/cases", Map.of(), sessionOf(request));
+    }
+
+    @GetMapping("/marketplace/account/cases/{caseNo}")
+    @ResponseBody
+    public Object myCase(@PathVariable String caseNo, jakarta.servlet.http.HttpServletRequest request) {
+        return accountGetVars("/api/marketplace/public/mkt/account/cases/{no}", Map.of("no", caseNo), sessionOf(request));
+    }
+
+    @PostMapping("/marketplace/account/cases/{caseNo}/messages")
+    @ResponseBody
+    public Object caseMessage(@PathVariable String caseNo, @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/account/cases/{no}/messages", Map.of("no", caseNo), Map.of()),
+                body == null ? Map.of() : body, sessionOf(request));
+    }
+
     /** The token goes into the HttpOnly cookie and is REMOVED from what the page receives. */
     @SuppressWarnings("unchecked")
     private Object signIn(Map<String, Object> r, jakarta.servlet.http.HttpServletRequest request,
@@ -239,9 +269,18 @@ public class MarketplacePublicController {
     }
 
     private Map<String, Object> accountGet(String path, Map<String, Object> query, String session) {
+        return accountRead(path, Map.of(), query, session);
+    }
+
+    /** A read whose path carries a value (strictly encoded as a URI variable, never concatenated). */
+    private Map<String, Object> accountGetVars(String path, Map<String, Object> vars, String session) {
+        return accountRead(path, vars, Map.of(), session);
+    }
+
+    private Map<String, Object> accountRead(String path, Map<String, Object> vars, Map<String, Object> query, String session) {
         URI uri = null;
         try {
-            uri = uri(gatewayUrl, path, Map.of(), query);
+            uri = uri(gatewayUrl, path, vars, query);
             Map<String, Object> r = http.get().uri(uri)
                     .headers(h -> { if (session != null) h.set(SESSION_HEADER, session); })
                     .retrieve().body(JSON);
