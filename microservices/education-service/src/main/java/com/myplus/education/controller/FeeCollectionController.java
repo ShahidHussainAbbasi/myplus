@@ -318,8 +318,9 @@ public class FeeCollectionController {
                     paid, glMethod(fc.getReceivedIn()), fc.getPaymentDate(), String.valueOf(fc.getId()));
             return null;
         } catch (Exception e) {
-            // Best-effort ONLY for a downstream ledger hiccup — the local allocation has already been applied and
-            // the collection is recorded, so this reconciles later rather than failing a guardian's payment.
+            // FP-5a — the ledger request no longer fails here: it is written to the outbox in settle()'s own
+            // transaction and delivered exactly once after commit. What can still land here is a LOCAL failure, which
+            // rolls back the allocation and its ledger request together — logged, the collection itself stays recorded.
             appUtil.le(getClass(), e);
             return null;
         }

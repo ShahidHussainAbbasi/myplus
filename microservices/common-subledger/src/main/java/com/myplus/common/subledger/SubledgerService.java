@@ -30,6 +30,10 @@ public class SubledgerService {
     @Autowired(required = false)
     private FinanceClient financeClient;   // shared payment ledger; null if finance-service isn't wired
 
+    /** FP-5a — the outbox every settlement's payment goes through (exactly once). Absent only in unit tests. */
+    @Autowired(required = false)
+    private LedgerOutbox ledgerOutbox;
+
     /**
      * Allocate {@code amount} FIFO across {@code openDocs} (already ordered oldest-first by the caller), recompute
      * the party balance via {@code recomputeAndGetDue}, and record the ledger entry. Runs in the caller's transaction.
@@ -64,6 +68,17 @@ public class SubledgerService {
     public SettleOutcome settle(String direction, String partyType, Long partyId, String partyName,
                                 BigDecimal amount, String method, LocalDate paidOn, String reference, String sourceModule,
                                 List<? extends OpenDoc> openDocs, Supplier<BigDecimal> recomputeAndGetDue) {
+        return settle(direction, partyType, partyId, partyName, amount, method, paidOn, reference, sourceModule,
+                openDocs, recomputeAndGetDue, "SUB-" + java.util.UUID.randomUUID());
+    }
+
+    /**
+     * FP-5a — as above, with the CALLER's reference for this settlement. A caller that has an idempotency key builds it
+     * from that key, so a replayed request carries the same reference and finance answers it with the first payment.
+     */
+    public SettleOutcome settle(String direction, String partyType, Long partyId, String partyName,
+                                BigDecimal amount, String method, LocalDate paidOn, String reference, String sourceModule,
+                                List<? extends OpenDoc> openDocs, Supplier<BigDecimal> recomputeAndGetDue, String clientRef) {
         if (partyId == null) throw new RuntimeException("partyId is required");
         if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
 
@@ -74,14 +89,22 @@ public class SubledgerService {
         // Recompute the party's running balance from the (now-updated) docs before we report the new due.
         BigDecimal newDue = recomputeAndGetDue.get();
 
-        // Record in the shared ledger — best-effort: the settlement is already applied; reconcile later on a hiccup.
+        PaymentRecordRequest ledgerRequest = PaymentRecordRequest.builder()
+                .direction(direction).partyType(partyType).partyId(partyId).partyName(partyName)
+                .amount(amount).method(method).paidOn(paidOn).reference(reference)
+                .sourceModule(sourceModule).allocations(allocations).clientRef(clientRef).build();
+        // FP-5a — the payment travels by outbox, in THIS transaction: applied documents and the ledger request commit
+        // together or not at all, and the request is delivered exactly once (see LedgerOutbox).
+        if (ledgerOutbox != null) {
+            ledgerOutbox.enqueue(ledgerRequest);
+            return new SettleOutcome(null, amount.subtract(remaining), remaining, newDue, clientRef);
+        }
+
+        // Legacy path (no outbox wired — unit tests only): best-effort direct call.
         String voucherNo = null;
         try {
             if (financeClient != null) {
-                PaymentRecordResult res = financeClient.recordPayment(PaymentRecordRequest.builder()
-                        .direction(direction).partyType(partyType).partyId(partyId).partyName(partyName)
-                        .amount(amount).method(method).paidOn(paidOn).reference(reference)
-                        .sourceModule(sourceModule).allocations(allocations).build());
+                PaymentRecordResult res = financeClient.recordPayment(ledgerRequest);
                 voucherNo = res != null ? res.getReceiptNo() : null;
             }
         } catch (Exception ex) {
@@ -89,6 +112,6 @@ public class SubledgerService {
                     partyType, partyId, direction, ex);
         }
 
-        return new SettleOutcome(voucherNo, amount.subtract(remaining), remaining, newDue);
+        return new SettleOutcome(voucherNo, amount.subtract(remaining), remaining, newDue, clientRef);
     }
 }

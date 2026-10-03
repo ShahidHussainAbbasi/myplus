@@ -47,7 +47,10 @@ public class VenderController {
 	com.myplus.business_service.service.PartyRoleService partyRoleService;   // DR-2: "also a customer" badge
 
 	@Autowired(required = false)
-	com.myplus.business_service.service.PayablesSourceService payablesSource;   // FP-4c: where supplier figures come from
+	com.myplus.business_service.service.PayablesSourceService payablesSource;
+
+	@Autowired(required = false)
+	com.myplus.common.subledger.LedgerOutbox ledgerOutbox;   // FP-5a: resolves the voucher after commit   // FP-4c: where supplier figures come from
 	
 	@Autowired
 	ICompanyService companyService;
@@ -264,6 +267,8 @@ public class VenderController {
 			java.time.LocalDate paidOn = appUtil.isEmptyOrNull(paidOnStr) ? null : java.time.LocalDate.parse(paidOnStr.trim());
 			String idempotencyKey = request.getParameter("idempotencyKey");
 			java.util.Map<String, Object> result = venderService.payVendor(venderId, amount, method, paidOn, reference, idempotencyKey);
+			// FP-5a — committed; the voucher number if finance has answered, else "voucherPending"
+			if (ledgerOutbox != null) ledgerOutbox.fill(result, "voucherNo");
 			return new GenericResponse("SUCCESS", "Payment recorded.", result);
 		} catch (NumberFormatException nfe) {
 			return new GenericResponse("FAILED", "Invalid amount.");

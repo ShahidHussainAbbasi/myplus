@@ -376,7 +376,10 @@ return customerRepo.exists(example);
 	private java.util.Map<String, Object> replayPayment(String receiptNo) {
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
-		out.put("receiptNo", receiptNo);
+		// FP-5a — a key recorded since the outbox holds the ledger reference; the controller resolves its number
+		if (receiptNo != null && receiptNo.startsWith(VenderService.LEDGER_REF))
+			out.put("ledgerRef", receiptNo.substring(VenderService.LEDGER_REF.length()));
+		else out.put("receiptNo", receiptNo);
 		out.put("replay", true);
 		return out;
 	}
@@ -448,7 +451,8 @@ return customerRepo.exists(example);
 					syncPlansToInvoices(org, customerId);
 					this.recomputeDue(customer);
 					return customer.getDueAmount();
-				});
+				}, "BUS-RCV-" + org + "-" + ((idempotencyKey != null && !idempotencyKey.isBlank())
+						? idempotencyKey.trim() : java.util.UUID.randomUUID().toString()));   // FP-5a: same key, same reference
 
 		// A plan whose rows all reached zero is COMPLETED. Restated from the rows rather than tracked as the
 		// money lands, so the status can never disagree with the schedule beneath it.
@@ -460,13 +464,15 @@ return customerRepo.exists(example);
 		}
 
 		// Audit #5: record this receipt (atomic with the allocation) so a repeat with the same key replays it.
-		idempotencyService.record(org, "receivePayment", idempotencyKey, outcome.voucherNo());
+		// FP-5a: the receipt number arrives after commit, so the key remembers the ledger reference that finds it.
+		idempotencyService.record(org, "receivePayment", idempotencyKey, VenderService.LEDGER_REF + outcome.clientRef());
 		// Audit #6: append-only trail (atomic capture; delivered to audit-service after commit).
-		auditService.record("RECEIPT", "CUSTOMER", outcome.voucherNo(), amount, "customer=" + customer.getName());
+		auditService.record("RECEIPT", "CUSTOMER", outcome.clientRef(), amount, "customer=" + customer.getName());
 
 		java.util.Map<String, Object> out = new java.util.HashMap<>();
 		out.put("success", true);
 		out.put("receiptNo", outcome.voucherNo());
+		out.put("ledgerRef", outcome.clientRef());          // FP-5a: the controller resolves the number after commit
 		out.put("allocated", outcome.allocated());
 		out.put("onAccountCredit", outcome.onAccount());   // excess not applied to any open invoice (due floors 0)
 		out.put("newDue", outcome.newDue());

@@ -58,6 +58,9 @@ public class InternalReceiptsController {
     @Autowired
     private RequestUtil requestUtil;
 
+    @Autowired(required = false)
+    private com.myplus.common.subledger.LedgerOutbox ledgerOutbox;   // FP-5a: resolves the receipt after commit
+
     @PostMapping
     public ResponseEntity<?> receive(@RequestBody PaymentReceiptRequest request) {
         if (request == null) throw new ValidationException("A receipt request is required");
@@ -91,6 +94,8 @@ public class InternalReceiptsController {
         try {
             res = customerService.receivePayment(request.getCustomerId(), amount, method, paidOn,
                     request.getReference(), request.getIdempotencyKey());
+            // FP-5a — committed; the receipt number if finance has answered, else it follows
+            if (ledgerOutbox != null) ledgerOutbox.fill(res, "receiptNo");
         } catch (RuntimeException ex) {
             LOG.warn("O7 D5: receipt refused for customer {} org {} ({})",
                     request.getCustomerId(), org, ex.getMessage());
