@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 53,
- "cypress": 60,
- "automated": 65,
+ "unit": 54,
+ "cypress": 61,
+ "automated": 66,
  "manual": 87,
  "gaps": [],
  "unknown": [],
@@ -12,8 +12,13 @@
    "req": "MKT-R1.1",
    "phase": "1–5",
    "text": "Four stock-source models, MERCHANT · PLATFORM · SUPPLIER · CONSIGNMENT, as strategies of **one** marketplace/OMS, not four marketplaces",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "MarketplaceCustomerServiceTest.registerOnePerPhone"
+   ],
+   "cypress": [
+    "MKT-1e2-01",
+    "MKT-1e2-04"
+   ],
    "manual": [
     "M-3-01",
     "M-X-03"
@@ -288,7 +293,8 @@
    "text": "Match statuses PENDING_REVIEW · MATCHED · REJECTED · NEEDS_CORRECTION",
    "unit": [
     "MarketplaceCatalogServiceTest.proposeComputesKey",
-    "MarketplaceCatalogServiceTest.matchedIsLocked"
+    "MarketplaceCatalogServiceTest.matchedIsLocked",
+    "MarketplaceCatalogServiceTest.queueOrder"
    ],
    "cypress": [
     "MKT-1b-01",
@@ -621,10 +627,13 @@
     "AcceptanceTermsTest.defaults",
     "AcceptanceTermsTest.overridesValidated",
     "MarketplaceOrderFlowTest.reject",
-    "MarketplaceOrderFlowTest.sweeperExpires"
+    "MarketplaceOrderFlowTest.sweeperExpires",
+    "MarketplaceOrderFlowTest.customerCancel",
+    "MarketplaceOrderFlowTest.cancelAfterAccept"
    ],
    "cypress": [
-    "MKT-1e-04"
+    "MKT-1e-04",
+    "MKT-1e2-06"
    ],
    "manual": [
     "M-1e-03",
@@ -744,7 +753,8 @@
    "phase": "1",
    "text": "MaxTheService coordinates returns; the cost bearer follows the cause (10-row table)",
    "unit": [
-    "ReturnAndSubstitutionPolicyTest.table"
+    "ReturnAndSubstitutionPolicyTest.table",
+    "MarketplacePaymentServiceTest.refundOnce"
    ],
    "cypress": [
     "MKT-1f-02",
@@ -1082,11 +1092,17 @@
     "MarketplaceOfferServiceTest.lifecycle",
     "MarketplaceOrderFlowTest.acceptAfterDeadline",
     "MarketplaceOrderFlowTest.sweeperExpires",
+    "MarketplaceOrderFlowTest.cardPaidOffered",
+    "MarketplaceOrderFlowTest.cardDeclined",
+    "MarketplacePaymentServiceTest.captured",
+    "MarketplacePaymentServiceTest.declined",
     "MarketplaceSellerServiceTest.illegalMove"
    ],
    "cypress": [
     "MKT-1e-05",
-    "MKT-1e-09"
+    "MKT-1e-09",
+    "MKT-1e2-07",
+    "MKT-1e2-08"
    ],
    "manual": [
     "M-0a-06",
@@ -1126,6 +1142,7 @@
     "MarketplaceOrderFlowTest.codOffRefused",
     "MarketplaceOrderFlowTest.eligibility",
     "MarketplaceOrderFlowTest.codRefused",
+    "MarketplaceOrderFlowTest.cardNeedsAccount",
     "MarketplaceSellerServiceTest.acceptApplies",
     "MarketplaceSellerServiceTest.needsDisplayName",
     "MarketplaceSellerServiceTest.guardNamesTheGap",
@@ -1137,7 +1154,9 @@
     "MKT-0a-06",
     "MKT-0a-07",
     "MKT-1d-04",
-    "MKT-1e-09"
+    "MKT-1e-09",
+    "MKT-1e2-07",
+    "MKT-1e2-09"
    ],
    "manual": [
     "M-0a-03",
@@ -1253,6 +1272,7 @@
    "unit": [
     "MarketplaceCatalogServiceTest.foreignProduct",
     "MarketplaceCatalogServiceTest.operatorOnly",
+    "MarketplaceCustomerServiceTest.claim",
     "MarketplaceOfferServiceTest.partiesStamped",
     "MarketplaceOfferServiceTest.tenancy",
     "MarketplaceOrderFlowTest.validation",
@@ -1275,7 +1295,8 @@
     "MKT-1c-08",
     "MKT-1c-11",
     "MKT-1e-07",
-    "MKT-1e-08"
+    "MKT-1e-08",
+    "MKT-1e2-05"
    ],
    "manual": [
     "M-0a-02",
@@ -1309,8 +1330,16 @@
    "phase": "1",
    "text": "Payment and refund idempotency keys; settlement entries immutable",
    "unit": [
+    "MarketplaceCustomerServiceTest.passwordRules",
+    "MarketplaceCustomerServiceTest.tokenHashed",
+    "MarketplaceCustomerServiceTest.expired",
+    "MarketplaceCustomerServiceTest.lockout",
     "MarketplaceOrderFlowTest.idempotent",
     "MarketplaceOrderFlowTest.phoneGuard",
+    "MarketplaceOrderFlowTest.cardUnknown",
+    "MarketplacePaymentServiceTest.chargedOnce",
+    "MarketplacePaymentServiceTest.lostAnswer",
+    "MarketplacePaymentServiceTest.reconcileLostThenRefund",
     "MarketplaceSellerServiceTest.idempotent",
     "MarketplaceSellerServiceTest.staleDecision"
    ],
@@ -1318,6 +1347,8 @@
     "MKT-0a-05",
     "MKT-1e-03",
     "MKT-1e-10",
+    "MKT-1e2-02",
+    "MKT-1e2-03",
     "MKT-1g-04"
    ],
    "manual": [

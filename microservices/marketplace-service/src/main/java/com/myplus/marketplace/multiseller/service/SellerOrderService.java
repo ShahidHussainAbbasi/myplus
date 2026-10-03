@@ -71,6 +71,7 @@ public class SellerOrderService {
     private final MarketplaceOrderLineRepository lines;
     private final MarketplaceSellerService sellers;
     private final MarketplaceCheckoutService checkout;
+    private final MarketplacePaymentService payments;
     private final OrderService storeOrders;
     private final CatalogClient catalog;
     private final TradeClient trade;
@@ -127,7 +128,8 @@ public class SellerOrderService {
                     "MKT-SO-" + so.getId(), order.getOrderNo(), order.getCustomerName(), order.getCustomerPhone(),
                     order.getDeliveryAddress() + ", " + order.getCity(),
                     ls.stream().map(l -> new OrderService.MarketplaceSaleLine(l.getSourceProductId(), l.getProductName(),
-                            l.getQuantity(), l.getUnitPrice(), clean(serials.get(l.getId())))).toList()));
+                            l.getQuantity(), l.getUnitPrice(), clean(serials.get(l.getId())))).toList(),
+                    MarketplaceCheckoutService.CARD.equals(order.getPaymentMode()) ? "MARKETPLACE" : "COD"));
         } catch (RuntimeException saleFailure) {
             String why = DownstreamMessage.of(saleFailure);
             String rehold = checkout.hold(so, ls.get(0).getSourceProductId(), ls.get(0).getQuantity());
@@ -185,6 +187,7 @@ public class SellerOrderService {
             orders.save(parent);
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
+        payments.refundIfCancelled(so.getMktOrderId());               // a card order's money goes back, once
         return viewOf(sellerOrders.findById(so.getId()).orElseThrow());
     }
 

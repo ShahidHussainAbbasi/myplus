@@ -896,8 +896,18 @@ public class OrderService {
      * the merchant of record). One line per marketplace order line; prices are the marketplace's, agreed with the
      * shopper. {@code serials} per line, for serial-tracked items (the IMEIs the seller is sending).
      */
+    /**
+     * {@code paymentMode}: {@code COD} — the seller collects cash at delivery; {@code MARKETPLACE} (MKT-1e2) — the
+     * shopper already paid MaxTheService online, so nothing is collected at the door and the seller is owed by the
+     * platform (settled by MKT-1g). Recording a prepaid order as COD would have the rider collect a second time.
+     */
     public record MarketplaceSale(Long sellerOrganizationId, String idempotencyKey, String marketplaceOrderNo,
-            String customerName, String customerPhone, String address, List<MarketplaceSaleLine> lines) {
+            String customerName, String customerPhone, String address, List<MarketplaceSaleLine> lines, String paymentMode) {
+
+        public MarketplaceSale(Long sellerOrganizationId, String idempotencyKey, String marketplaceOrderNo,
+                String customerName, String customerPhone, String address, List<MarketplaceSaleLine> lines) {
+            this(sellerOrganizationId, idempotencyKey, marketplaceOrderNo, customerName, customerPhone, address, lines, "COD");
+        }
     }
 
     public record MarketplaceSaleLine(Long productId, String productName, int quantity, BigDecimal unitPrice,
@@ -973,7 +983,10 @@ public class OrderService {
                 .shippingAddress(sale.address())
                 .total(recorded.getGrandTotal() != null ? recorded.getGrandTotal() : subtotal)
                 .subTotal(subtotal)
-                .source("MARKETPLACE").paymentMode("COD").paymentStatus("PENDING")
+                .source("MARKETPLACE").paymentMode("MARKETPLACE".equals(sale.paymentMode()) ? "MARKETPLACE" : "COD")
+                .paymentStatus("PENDING")
+                // prepaid only: where the money is (the marketplace order). A COD order stays exactly as before.
+                .paymentRef("MARKETPLACE".equals(sale.paymentMode()) ? sale.marketplaceOrderNo() : null)
                 .items(toItems(orderLines))
                 .fulfilmentStatus(FulfilmentStatus.NEW)
                 .build();

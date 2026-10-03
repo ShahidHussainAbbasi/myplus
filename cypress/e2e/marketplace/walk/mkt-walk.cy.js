@@ -1473,4 +1473,227 @@ on('MKT manual walk — recorded', () => {
           .then((x) => expect(ok(x.body), JSON.stringify(x.body)).to.eq(true))))
     })
   })
+
+  // ──────────────────────────────── MKT-1e2 ────────────────────────────────
+
+  const E = {}
+  const PW2 = 'Shop!ng2026'
+  const cph = (k) => `0312${String(run).slice(-6)}${k}`            // customer phones for the 1e2 walk
+  const signIn = (ph) => {
+    customer()
+    cy.visit(UI.publicPage)
+    cy.get('#mktAccountBtn').click()
+    cy.get('#mktAccPhone').clear().type(ph)
+    cy.get('#mktAccPassword').clear().type(PW2)
+    cy.get('#mktAccSubmit').click()
+    cy.get('#mktAccOrdersBox').should('be.visible')
+  }
+  const buyAs = (offerId, ph, { cardToken } = {}) => {
+    cy.visit(page(`product=${E.product}&city=Karachi`))
+    cy.get(`${UI.offerRow}[data-offer-id="${offerId}"] ${UI.chooseOffer}`).check()
+    cy.get(UI.buyButton).click()
+    cy.get('#mktCoName').clear().type('Ali Raza')
+    cy.get('#mktCoPhone').clear().type(ph)
+    cy.get('#mktCoAddress').clear().type('1 Clifton')
+    if (cardToken) {
+      cy.get('#mktPayCard').check()
+      cy.get('#mktCardToken').clear().type(cardToken)
+    }
+    cy.get('#mktCoPlace').click()
+  }
+
+  walk({ id: 'M-1e2-01', slice: 'MKT-1e2', title: 'A shopper creates an account with phone and password',
+    persona: 'Customer (incognito window)', reqs: ['MKT-R1.1', 'MKT-R22.3'],
+    pre: 'Shahzad Mobile Shop has a Live phone offer in Karachi (as M-1d-01).', auto: ['MKT-1e2-01', 'MKT-1e2-02'] }, (step, call, cleanup) => {
+    cy.then(() => seedPolicies(`${run}x`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}x`, price: 52000, qty: 40,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { E.a = o.offerId; E.product = o.mktProductId }))
+    step('Open /marketplace in an incognito window and press "Sign in" at the top.',
+      'The account panel opens: Phone number, Password, "Sign in", and "New here? Create an account". The forgot-password line says to contact MaxTheService support with an order number and the phone you ordered with.', () => {
+        customer()
+        cy.visit(UI.publicPage)
+        cy.get('#mktAccountBtn').should('have.text', 'Sign in').click()
+        cy.get('#mktAccSignIn').should('be.visible').and('contain', 'Contact MaxTheService support')
+      })
+    step(`Press "New here? Create an account". Phone ${cph(1)}, Your name "Ali Raza", Password "short". Press "Create account".`,
+      'Refused: "Choose a password of at least 8 characters." The hint under the password says "At least 8 characters. Not your phone number."', () => {
+        cy.get('#mktAccCreate').click()
+        cy.get('#mktAccHint').should('be.visible')
+        cy.get('#mktAccPhone').type(cph(1))
+        cy.get('#mktAccName').type('Ali Raza')
+        cy.get('#mktAccPassword').type('short')
+        cy.get('#mktAccSubmit').should('have.text', 'Create account').click()
+        cy.get('#mktAccMsg').should('have.text', 'Choose a password of at least 8 characters.')
+      })
+    step(`Password "${PW2}". Press "Create account".`,
+      'Signed in: the top button now reads "Ali Raza"; "My orders" shows "No orders yet." with "Add an order you placed before" below.', () => {
+        cy.get('#mktAccPassword').clear().type(PW2)
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccountBtn').should('have.text', 'Ali Raza')
+        cy.get('#mktMyOrders').should('contain', 'No orders yet.')
+        cy.get('#mktClaimForm').should('be.visible')
+      })
+    step('Developer tools → Application → Cookies: look for MKT_SESSION.',
+      'The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax; document.cookie does not contain it.', () => {
+        cy.getCookie('MKT_SESSION').then((c) => { expect(c.httpOnly).to.eq(true); expect(c.sameSite).to.match(/lax/i) })
+        cy.document().its('cookie').should('not.contain', 'MKT_SESSION')
+      }, { screen: false })
+    step(`Press "Sign out", then try to create another account with the same phone written as (${cph(1).slice(0, 4)}) ${cph(1).slice(4)}.`,
+      'Refused: "This phone number already has an account. Sign in instead." — one account per phone, however it is written.', () => {
+        cy.get('#mktAccLogout').click()
+        cy.get('#mktAccSignIn').should('be.visible')
+        cy.get('#mktAccCreate').click()
+        cy.get('#mktAccPhone').clear().type(`(${cph(1).slice(0, 4)}) ${cph(1).slice(4)}`)
+        cy.get('#mktAccName').clear().type('Someone Else')
+        cy.get('#mktAccPassword').clear().type('Another#2026')
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccMsg').should('contain', 'already has an account')
+      })
+    cleanup('Nothing to undo: the account stays for the next cases.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-02', slice: 'MKT-1e2', title: 'Five wrong passwords lock the phone for 15 minutes',
+    persona: 'Customer', reqs: ['MKT-R22.3'], pre: 'An account exists for a phone (here a fresh one).', auto: ['MKT-1e2-03'] }, (step, call, cleanup) => {
+    cy.then(() => { customer(); cy.visit(UI.publicPage); post('/marketplace/account/register', { phone: cph(2), name: 'Sara', password: PW2 }); post('/marketplace/account/logout', {}) })
+    step(`Sign in with phone ${cph(2)} and a wrong password, five times.`, 'Each time: "The phone number or password is not right." — the same sentence an unknown phone gets.', () => {
+      customer()
+      cy.visit(UI.publicPage)
+      cy.get('#mktAccountBtn').click()
+      cy.get('#mktAccPhone').type(cph(2))
+      for (let i = 0; i < 5; i++) {
+        cy.get('#mktAccPassword').clear().type('wrong-one')
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccMsg').should('have.text', 'The phone number or password is not right.')
+      }
+    })
+    step('Now type the RIGHT password and press "Sign in".', 'Refused: "Too many wrong passwords. Please try again in 15 minutes."', () => {
+      cy.get('#mktAccPassword').clear().type(PW2)
+      cy.get('#mktAccSubmit').click()
+      cy.get('#mktAccMsg').should('contain', 'try again in 15 minutes')
+    })
+    cleanup('Wait 15 minutes; the lock lifts by itself.', 'Signing in works again after 15 minutes.', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-03', slice: 'MKT-1e2', title: 'My orders shows only what is proven yours; an earlier order is added by number + phone',
+    persona: 'Customer', reqs: ['MKT-R1.1', 'MKT-R22.1'], pre: 'M-1e2-01 done (account for ' + 'the walk phone).', auto: ['MKT-1e2-04', 'MKT-1e2-05'] }, (step, call, cleanup) => {
+    step(`Signed OUT, order the phone with phone ${cph(1)} (cash on delivery).`, '"Waiting for Shahzad Mobile Shop to confirm" — an anonymous order.', () => {
+      customer()
+      buyAs(E.a, cph(1))
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => { E.anon = no })
+    })
+    step(`Sign in as ${cph(1)} and open My orders.`, 'The anonymous order is NOT there: the same phone is not proof that it is yours.', () => {
+      signIn(cph(1))
+      cy.get('#mktMyOrders').should('not.contain', E.anon)
+    })
+    step('Under "Add an order you placed before": the order number and a WRONG phone (03009999999). Press "Add to my orders".', 'Refused: "No such order. Check the order number and the phone it was placed with."', () => {
+      cy.get('#mktClaimNo').type(E.anon)
+      cy.get('#mktClaimPhone').type('03009999999')
+      cy.get('#mktClaimBtn').click()
+      cy.get('#mktClaimMsg').should('contain', 'No such order')
+    })
+    step(`The same number with phone ${cph(1)}. Press "Add to my orders".`, 'The order appears in My orders with its seller, "Waiting for the seller", the total and "Cash on delivery".', () => {
+      cy.get('#mktClaimPhone').clear().type(cph(1))
+      cy.get('#mktClaimBtn').click()
+      cy.get(`#mktMyOrders li[data-order-no="${E.anon}"]`).should('contain', 'Waiting for the seller').and('contain', 'Cash on delivery')
+    })
+    step('Signed in, order again (cash on delivery).', 'The new order is in My orders at once — no claim needed.', () => {
+      buyAs(E.a, cph(1))
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => {
+        E.mine = no
+        cy.visit(page('account=orders'))
+        cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('be.visible')
+      })
+    })
+    cleanup('None: M-1e2-04 cancels these orders.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-04', slice: 'MKT-1e2', title: 'The shopper cancels while the seller has not answered; after Accept they cannot',
+    persona: 'Customer, then owner.business@myplus.com', reqs: ['MKT-R10.5'], pre: 'M-1e2-03 done: two waiting orders in My orders.', auto: ['MKT-1e2-06'] }, (step, call, cleanup) => {
+    step(`Signed in as ${cph(1)}: My orders → "Cancel order" on ${'the first order'} → reason "changed my mind" → "Cancel order".`,
+      'The order turns "Cancelled" with "You cancelled this order. changed my mind"; its Cancel button is gone.', () => {
+        signIn(cph(1))
+        cy.get(`#mktMyOrders li[data-order-no="${E.anon}"] .mkt-cancel`).click()
+        cy.get('#uiC-input').type('changed my mind')
+        cy.get('.uiC-ok').click()
+        cy.get(`#mktMyOrders li[data-order-no="${E.anon}"]`).should('contain', 'Cancelled').and('contain', 'You cancelled this order.')
+          .find('.mkt-cancel').should('not.exist')
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → Incoming → "All".', 'The order reads "Cancelled": the seller is told, and the held stock was given back.', () => {
+      as(SELLER_A)
+      openMarketplace()
+      cy.get('#mktIncomingStatus').select('', { force: true })
+      cy.contains(`${UI.incoming} tr`, E.anon).should('contain', 'Cancelled')
+    })
+    step('The seller presses Accept on the OTHER waiting order. Then the shopper opens My orders.', 'That order reads "Confirmed" and has no Cancel button: after Accept, cancelling is a support case.', () => {
+      cy.get('#mktIncomingStatus').select('OFFERED', { force: true })
+      cy.contains(`${UI.incoming} tr`, E.mine).find(UI.acceptBtn).click()
+      cy.contains(`${UI.incoming} tr`, E.mine).should('contain', 'Accepted')
+      signIn(cph(1))
+      cy.get(`#mktMyOrders li[data-order-no="${E.mine}"]`).should('contain', 'Confirmed').find('.mkt-cancel').should('not.exist')
+    })
+    cleanup('None: the accepted sale is real (return it through Sale Returns if needed).', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-05', slice: 'MKT-1e2', title: 'Pay online now: charged at once; a seller reject refunds it exactly once',
+    persona: 'Customer, then owner.business@myplus.com', reqs: ['MKT-R19.1', 'MKT-R20.1', 'MKT-R13.1'], pre: 'Signed in (M-1e2-01).', auto: ['MKT-1e2-07'] }, (step, call, cleanup) => {
+    step('Signed in, buy the phone. At "How do you want to pay?" choose "Pay online now".', 'A card field appears, labelled test mode: "Test payments only: no real card is charged." The cash-on-delivery line is hidden.', () => {
+      signIn(cph(1))
+      cy.visit(page(`product=${E.product}&city=Karachi`))
+      cy.get(`${UI.offerRow}[data-offer-id="${E.a}"] ${UI.chooseOffer}`).check()
+      cy.get(UI.buyButton).click()
+      cy.get('#mktPayChoice').should('be.visible')
+      cy.get('#mktPayCard').check()
+      cy.get('#mktCardRow').should('be.visible')
+      cy.get('#mktCardNote').should('contain', 'no real card is charged')
+      cy.get('#mktCheckoutView .cod').should('not.be.visible')
+    })
+    step('Card "4242 4242 4242 4242", your details, "Place order".', '"Waiting for Shahzad Mobile Shop to confirm"; in My orders the order reads "Paid online".', () => {
+      cy.get('#mktCoName').clear().type('Ali Raza')
+      cy.get('#mktCoPhone').clear().type(cph(1))
+      cy.get('#mktCoAddress').clear().type('1 Clifton')
+      cy.get('#mktCardToken').type('4242424242424242')
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => {
+        E.paid = no
+        cy.visit(page('account=orders'))
+        cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('contain', 'Paid online')
+      })
+    })
+    step('As owner.business@: Incoming → that order → reason "out of stock" → Reject. Then the shopper reopens My orders.', 'The order reads "Cancelled", "The seller could not fulfil this order." and "Refunded".', () => {
+      as(SELLER_A)
+      openMarketplace()
+      cy.contains(`${UI.incoming} tr`, E.paid).find('input[placeholder*="cannot fulfil"]').type('out of stock')
+      cy.contains(`${UI.incoming} tr`, E.paid).find(UI.rejectBtn).click()
+      cy.contains(`${UI.incoming} tr`, E.paid).should('contain', 'Rejected')
+      signIn(cph(1))
+      cy.get(`#mktMyOrders li[data-order-no="${E.paid}"]`).should('contain', 'Cancelled').and('contain', 'Refunded')
+    })
+    step('Developer tools: GET /marketplace/account/orders and read that order\'s payments.', 'Exactly ONE succeeded CHARGE and ONE succeeded REFUND for the same amount — never two.', () => {
+      call('GET /marketplace/account/orders', get('/marketplace/account/orders?size=50')).then((r) => {
+        const o = list(r.body).find((x) => x.orderNo === E.paid)
+        expect(o.payments.filter((x) => x.kind === 'CHARGE' && x.status === 'SUCCEEDED')).to.have.length(1)
+        expect(o.payments.filter((x) => x.kind === 'REFUND' && x.status === 'SUCCEEDED')).to.have.length(1)
+      })
+    })
+    cleanup('None: a refunded order is complete.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-06', slice: 'MKT-1e2', title: 'A declined card places nothing',
+    persona: 'Customer', reqs: ['MKT-R19.1'], pre: 'Signed in (M-1e2-01).', auto: ['MKT-1e2-08'] }, (step, call, cleanup) => {
+    step('Signed in, buy the phone, "Pay online now", card "fail" (the test card that is always declined). "Place order".',
+      'Refused on the checkout: "Your card was declined. Please use another card or choose cash on delivery." No order number is shown.', () => {
+        signIn(cph(1))
+        buyAs(E.a, cph(1), { cardToken: 'fail' })
+        cy.get('#mktCoError').should('have.text', 'Your card was declined. Please use another card or choose cash on delivery.')
+        cy.get('#mktOrderView').should('not.be.visible')
+      })
+    step('As owner.business@: Incoming → "Waiting for you".', 'No card order from this shopper is waiting: the seller never sees a declined order, and its stock was given back.', () => {
+      as(SELLER_A)
+      get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) =>
+        expect(list(r.body).filter((x) => x.customerPhone === cph(1))).to.have.length(0))
+      openMarketplace()
+    })
+    cleanup('Nothing was placed.', 'Nothing to undo.', () => {}, { screen: false })
+  })
 })

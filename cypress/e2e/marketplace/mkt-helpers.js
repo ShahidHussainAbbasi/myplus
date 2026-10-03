@@ -18,7 +18,15 @@
  * A slice's spec is switched on when that slice is implemented, and is then its gate.
  */
 
-const enabled = () => String(Cypress.env('mkt') || '').split(',').map((s) => s.trim()).filter(Boolean)
+const enabled = () => {
+  const v = Cypress.env('mkt')
+  // --env values are parsed as JSON: "1e2" arrives as the NUMBER 100 (scientific notation), and the 1e2 gate then
+  // skipped every case as "pending" — a silent no-op that reads like a pass. Refuse it loudly instead.
+  if (typeof v === 'number') {
+    throw new Error(`--env mkt=${v} arrived as a number. Pass it as JSON (--env '{"mkt":"1e2"}') or use mkt=all.`)
+  }
+  return String(v || '').split(',').map((s) => s.trim()).filter(Boolean)
+}
 
 /** `describe` when this slice is switched on for the run, `describe.skip` (reported as pending) otherwise. */
 const gate = (slice) => (enabled().includes('all') || enabled().includes(slice) ? describe : describe.skip)

@@ -126,7 +126,11 @@ public class MarketplaceCatalogService {
     public PageResponse<CatalogDTOs.Proposal> queue(String status, Integer page, Integer size) {
         access.assertOperator();
         Match m = status == null || status.isBlank() ? Match.PENDING_REVIEW : parse(status);
-        return PageResponse.of(sources.findByMatchStatusOrderByCreatedAtAsc(m.name(), page(page, size)),
+        // Waiting proposals are worked oldest first; a decided list is history, newest first — otherwise, once it
+        // passes one page, the decision just made is the one the operator cannot see.
+        return PageResponse.of(m == Match.PENDING_REVIEW
+                ? sources.findByMatchStatusOrderByCreatedAtAsc(m.name(), page(page, size))
+                : sources.findByMatchStatusOrderByCreatedAtDesc(m.name(), page(page, size)),
                 MarketplaceCatalogService::toDto);
     }
 

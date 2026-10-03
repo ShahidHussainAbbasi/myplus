@@ -52,6 +52,10 @@ public class MarketplaceOrder {
     @Column(name = "customer_phone", nullable = false, length = 32)
     private String customerPhone;
 
+    /** MKT-1e2 (V29): the account that PROVED this order is theirs — placed signed in, or claimed. Null otherwise. */
+    @Column(name = "customer_id")
+    private Long customerId;
+
     @Column(name = "delivery_address", nullable = false, length = 300)
     private String deliveryAddress;
 

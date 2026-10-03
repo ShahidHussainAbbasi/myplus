@@ -17,7 +17,23 @@ public final class MarketplaceOrderDTOs {
      * (unitPrice, total, sellerOrganizationId …) is not bound.
      */
     public record CheckoutRequest(Long offerId, Integer quantity, BigDecimal expectedPrice, String customerName,
-            String customerPhone, String address, String city, String idempotencyKey) {
+            String customerPhone, String address, String city, String idempotencyKey, String paymentMode, String cardToken) {
+
+        /** MKT-1e: cash on delivery (every caller before MKT-1e2). */
+        public CheckoutRequest(Long offerId, Integer quantity, BigDecimal expectedPrice, String customerName,
+                String customerPhone, String address, String city, String idempotencyKey) {
+            this(offerId, quantity, expectedPrice, customerName, customerPhone, address, city, idempotencyKey, null, null);
+        }
+    }
+
+    /** MKT-1e2 — one payment fact as the shopper sees it. */
+    public record PaymentView(String kind, String status, BigDecimal amount, String reason, LocalDateTime at) {
+    }
+
+    /** MKT-1e2 — one order in "My orders": what tracking shows, plus its payments and whether it can still be cancelled. */
+    public record AccountOrderView(String orderNo, String status, String paymentMode, String paymentStatus, BigDecimal total,
+            String cancelReason, LocalDateTime createdAt, String sellerName, String sellerOrderStatus, Long secondsToAccept,
+            String city, List<LineView> lines, List<PaymentView> payments, boolean canCancel) {
     }
 
     /** What the SHOPPER sees of an order line: the snapshot of price, parties, warranty and returns. No commission. */
