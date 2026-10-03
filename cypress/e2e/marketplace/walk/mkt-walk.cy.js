@@ -1579,7 +1579,7 @@ on('MKT manual walk — recorded', () => {
       customer()
       buyAs(E.a, cph(1))
       cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
-      cy.get('#mktCoOrderNo').invoke('text').then((no) => { E.anon = no })
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => { E.anon = no })
     })
     step(`Sign in as ${cph(1)} and open My orders.`, 'The anonymous order is NOT there: the same phone is not proof that it is yours.', () => {
       signIn(cph(1))
@@ -1598,7 +1598,8 @@ on('MKT manual walk — recorded', () => {
     })
     step('Signed in, order again (cash on delivery).', 'The new order is in My orders at once — no claim needed.', () => {
       buyAs(E.a, cph(1))
-      cy.get('#mktCoOrderNo').invoke('text').then((no) => {
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => {
         E.mine = no
         cy.visit(page('account=orders'))
         cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('be.visible')
@@ -1625,8 +1626,7 @@ on('MKT manual walk — recorded', () => {
       cy.contains(`${UI.incoming} tr`, E.anon).should('contain', 'Cancelled')
     })
     step('The seller presses Accept on the OTHER waiting order. Then the shopper opens My orders.', 'That order reads "Confirmed" and has no Cancel button: after Accept, cancelling is a support case.', () => {
-      cy.get('#mktIncomingStatus').select('OFFERED', { force: true })
-      cy.contains(`${UI.incoming} tr`, E.mine).find(UI.acceptBtn).click()
+      cy.contains(`${UI.incoming} tr`, E.mine).should('contain', 'Waiting for you').find(UI.acceptBtn).click()
       cy.contains(`${UI.incoming} tr`, E.mine).should('contain', 'Accepted')
       signIn(cph(1))
       cy.get(`#mktMyOrders li[data-order-no="${E.mine}"]`).should('contain', 'Confirmed').find('.mkt-cancel').should('not.exist')
@@ -1654,7 +1654,7 @@ on('MKT manual walk — recorded', () => {
       cy.get('#mktCardToken').type('4242424242424242')
       cy.get('#mktCoPlace').click()
       cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
-      cy.get('#mktCoOrderNo').invoke('text').then((no) => {
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => {
         E.paid = no
         cy.visit(page('account=orders'))
         cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('contain', 'Paid online')
@@ -1683,15 +1683,17 @@ on('MKT manual walk — recorded', () => {
     persona: 'Customer', reqs: ['MKT-R19.1'], pre: 'Signed in (M-1e2-01).', auto: ['MKT-1e2-08'] }, (step, call, cleanup) => {
     step('Signed in, buy the phone, "Pay online now", card "fail" (the test card that is always declined). "Place order".',
       'Refused on the checkout: "Your card was declined. Please use another card or choose cash on delivery." No order number is shown.', () => {
+        as(SELLER_A)
+        get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) => { E.waitingBefore = list(r.body).filter((x) => x.customerPhone === cph(1)).length })
         signIn(cph(1))
         buyAs(E.a, cph(1), { cardToken: 'fail' })
         cy.get('#mktCoError').should('have.text', 'Your card was declined. Please use another card or choose cash on delivery.')
         cy.get('#mktOrderView').should('not.be.visible')
       })
-    step('As owner.business@: Incoming → "Waiting for you".', 'No card order from this shopper is waiting: the seller never sees a declined order, and its stock was given back.', () => {
+    step('As owner.business@: Incoming → "Waiting for you".', 'No new order from this shopper is waiting: the seller never sees a declined order, and its stock was given back.', () => {
       as(SELLER_A)
       get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) =>
-        expect(list(r.body).filter((x) => x.customerPhone === cph(1))).to.have.length(0))
+        expect(list(r.body).filter((x) => x.customerPhone === cph(1)), 'waiting orders from this shopper, before vs after').to.have.length(E.waitingBefore))
       openMarketplace()
     })
     cleanup('Nothing was placed.', 'Nothing to undo.', () => {}, { screen: false })

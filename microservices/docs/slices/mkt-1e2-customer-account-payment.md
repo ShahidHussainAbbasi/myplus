@@ -1,6 +1,7 @@
 # Slice MKT-1e2 — the marketplace customer: account, online payment, My orders, cancel
 
-**Status:** DESIGNED (docs → design → plan → gate → manual cases first, per the programme's order). Not built.
+**Status:** BUILT and verified live (2026-10-03): gate 9/9, walk M-1e2-01..06 6/6, forged identity refused 5/5 —
+see `../marketplace/live-verification-2026-10-03.md` §6.
 
 **Rulings taken for this slice (2026-10-03, by the owner):**
 - **Sign-in is phone + password.** No SMS provider exists (notification-service defines `Channel.SMS` but deliberately

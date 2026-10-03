@@ -1,10 +1,11 @@
 # MKT live verification — 2026-10-03
 
-What was run against a **live stack** (not stubs), what it found, and what was fixed. Slices MKT-0a, 1b, 1c, 1d, 1e.
+What was run against a **live stack** (not stubs), what it found, and what was fixed. Slices MKT-0a, 1b, 1c, 1d, 1e,
+and (section 6) MKT-1e2.
 
 ## The stack
 
-MySQL 8 in Docker (all 28 marketplace Flyway migrations applied under `ddl-auto=validate`), Redis, and the services
+MySQL 8 in Docker (all 29 marketplace Flyway migrations — V29 added for MKT-1e2 applied under `ddl-auto=validate`), Redis, and the services
 as jars: eureka, config, gateway, auth, notification, catalog, inventory, business, finance, audit, party, pharma,
 marketplace; the monolith on :8080. Cypress 13.17.0 headed (Electron) in the official `cypress/included` image on the
 host network.
@@ -78,3 +79,37 @@ and agree; each also carries 5 duplicate keys (`ui.js.always`, `ui.js.download`,
   marketplace-service; the Configuration screen merges business-service and auth settings only.
 - **GAP (go-live):** customer-facing terms, returns, complaint and COD pages do not exist yet (M-0a-05).
 - **UX idea:** offer the IMEIs in stock as choices at Accept instead of free typing.
+
+## 6. MKT-1e2 — customer account, online payment (sandbox), My orders, cancel
+
+**Gates, one combined run on the 1e2 build (2026-10-03 16:28 UTC): 55 / 57.** 0a 8/8, 1c 11/11, 1d 10/10,
+1e 10/10, **1e2 9/9**; 1b 7/9. The two 1b failures were a real defect (row 15 below); after the fix, **1b 9/9** on
+the redeployed build — so every gate of 0a–1e2 has passed on the final code: **57 / 57**.
+
+**Recorded walk:** M-1e2-01..06 (account, lock, My orders + claim, cancel, pay online + refund once, declined card)
+passed **6 / 6**; the full walk was then re-recorded in one run (see the manual page for its time and count).
+
+**Forged identity, probed live through the gateway (:8765) and the monolith:** with no identity, with forged staff
+headers (`X-User-Id`, `X-User-Roles: ROLE_ADMIN`, `X-Organization-Id`, `X-User-Email`), with those plus a guessed
+`X-Internal-Secret`, with a random `X-Mkt-Session`, and with a forged `MKT_SESSION` cookie through the monolith — every
+account route (`me`, `orders`, `orders/{no}/cancel`) answered **"Sign in to continue."** (5 / 5 probes). A cancel
+POST without the page's CSRF token is redirected to `invalidSession.html`. Another customer's order number answers
+"No such order." — the same as an order that does not exist (MarketplaceOrderFlowTest, line 575).
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 15 | regression run, gate 1b-03 | the operator's DECIDED lists (Matched, Rejected, Needs correction) were sorted oldest first; once Matched passed one page (79 rows), the decision just made was the one the operator could not see | waiting proposals stay oldest first (worked in order); decided lists are newest first — the same index read backwards, no migration | MarketplaceCatalogServiceTest `queueOrder`; gate 1b 9/9 |
+| 16 | design trace (RULE 0, every writer) | a CARD order's sale reached the seller's books as COD: the rider could collect cash for an order already paid | the seller's sale carries `MARKETPLACE` for card orders; `paymentRef` only then | MarketplaceOrderFlowTest (card); gate 1e2-07 |
+| 17 | design trace | a charge whose answer was lost could never be refunded (no provider id) | the PENDING fact is written before the provider is called; `reconcile()` looks the charge up by its idempotency key | MarketplacePaymentServiceTest `reconcileLostThenRefund` |
+| 18 | design trace | the orphan rule could cancel an order already paid, keeping the money | every cancelling path (reject, expiry, orphan, customer) refunds, exactly once (`refund:` + charge id) | MarketplacePaymentServiceTest `refundOnce`; gate 1e2-07 |
+
+Walk-only corrections (the walk's own timing, not the product): reading the order number before the confirmation was
+drawn; counting a leftover order as a new one; clicking Accept while a filter change was still reloading the list.
+
+**Unit:** MarketplaceCustomerServiceTest 6/6, MarketplacePaymentServiceTest 6/6, MarketplaceOrderFlowTest 26/26,
+MarketplaceCatalogServiceTest 14/14 (clean build). Monolith MarketplacePublicControllerTest 9/9. Six message bundles:
+2,901 keys each, identical key sets.
+
+**Open (1e2):** a real payment provider by configuration (the sandbox stays the default); SMS proof of phone; payouts
+(MKT-1g).
+

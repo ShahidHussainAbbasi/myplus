@@ -514,7 +514,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [x] MKT-1c offers + policies + approval + projection · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1c-offers.md))
 - [x] MKT-1d public catalogue + compare + sort · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1d-public-catalogue.md))
 - [x] MKT-1e one-seller COD checkout + acceptance window + snapshots · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1e-checkout-acceptance.md))
-- [ ] MKT-1e2 platform customer account + online payment (platform-collected) + customer cancel / My orders · gate
+- [x] MKT-1e2 platform customer account + online payment (sandbox; platform-collected) + customer cancel / My orders · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §6) ([slice](slices/mkt-1e2-customer-account-payment.md))
 - [ ] MKT-1f support + returns cost attribution · gate
 - [ ] MKT-1g commission + settlement ledger + payouts · gate
 - [ ] MKT-2…6 per their own slice docs
