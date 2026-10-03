@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 36,
- "cypress": 60,
- "automated": 64,
+ "unit": 41,
+ "cypress": 61,
+ "automated": 65,
  "manual": 87,
  "gaps": [],
  "unknown": [],
@@ -157,7 +157,9 @@
    "req": "MKT-R5.1",
    "phase": "1",
    "text": "A merchant's raw POS product is **never** published directly; customers see a canonical `MarketplaceProduct`",
-   "unit": [],
+   "unit": [
+    "MarketplaceCatalogServiceTest.proposeComputesKey"
+   ],
    "cypress": [
     "MKT-1b-01"
    ],
@@ -169,8 +171,12 @@
    "req": "MKT-R5.2",
    "phase": "1",
    "text": "`MarketplaceProduct` fields: canonical name, brand, category, variant attributes, GTIN, description, images, regulated status, approval status",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "MarketplaceCatalogServiceTest.newCanonical"
+   ],
+   "cypress": [
+    "MKT-1b-03"
+   ],
    "manual": [
     "M-1b-01"
    ]
@@ -191,8 +197,11 @@
    "req": "MKT-R5.4",
    "phase": "1",
    "text": "Customer sees one product with N offers: \"Available from 2 sellers · From Rs. 51,500\"",
-   "unit": [],
+   "unit": [
+    "MarketplaceCatalogServiceTest.suggestionNotMerge"
+   ],
    "cypress": [
+    "MKT-1b-04",
     "MKT-1d-01"
    ],
    "manual": [
@@ -204,7 +213,8 @@
    "phase": "1",
    "text": "Never auto-merge products on name alone",
    "unit": [
-    "ProductIdentityKeyTest.nameAloneNeverMatches"
+    "ProductIdentityKeyTest.nameAloneNeverMatches",
+    "MarketplaceCatalogServiceTest.suggestionNotMerge"
    ],
    "cypress": [
     "MKT-1b-04"
@@ -222,12 +232,14 @@
     "ProductIdentityKeyTest.sourceExample",
     "ProductIdentityKeyTest.normalisationIsConservative",
     "ProductIdentityKeyTest.separatorInjection",
-    "ProductIdentityKeyTest.gtin"
+    "ProductIdentityKeyTest.gtin",
+    "MarketplaceCatalogServiceTest.proposeComputesKey",
+    "MarketplaceCatalogServiceTest.gtin"
    ],
    "cypress": [
     "MKT-1b-01",
     "MKT-1b-02",
-    "MKT-1b-07"
+    "MKT-1b-08"
    ],
    "manual": [
     "M-1b-01"
@@ -251,9 +263,13 @@
    "req": "MKT-R6.4",
    "phase": "1",
    "text": "Match statuses PENDING_REVIEW · MATCHED · REJECTED · NEEDS_CORRECTION",
-   "unit": [],
+   "unit": [
+    "MarketplaceCatalogServiceTest.proposeComputesKey",
+    "MarketplaceCatalogServiceTest.matchedIsLocked"
+   ],
    "cypress": [
-    "MKT-1b-04"
+    "MKT-1b-01",
+    "MKT-1b-03"
    ],
    "manual": [
     "M-1b-01",
@@ -265,9 +281,11 @@
    "req": "MKT-R6.5",
    "phase": "1",
    "text": "An administrator can correct a bad match",
-   "unit": [],
+   "unit": [
+    "MarketplaceCatalogServiceTest.correction"
+   ],
    "cypress": [
-    "MKT-1b-05"
+    "MKT-1b-06"
    ],
    "manual": [
     "M-1b-04"
@@ -279,10 +297,11 @@
    "text": "Different storage (A32 64GB vs 128GB) or pack size (10 vs 20 tablets) never merge",
    "unit": [
     "ProductIdentityKeyTest.storageNeverMerges",
-    "ProductIdentityKeyTest.packSizeNeverMerges"
+    "ProductIdentityKeyTest.packSizeNeverMerges",
+    "MarketplaceCatalogServiceTest.storageNeverSuggested"
    ],
    "cypress": [
-    "MKT-1b-03"
+    "MKT-1b-05"
    ],
    "manual": [
     "M-1b-02",
@@ -374,7 +393,9 @@
     "OfferEligibilityTest.deliveryArea",
     "OfferEligibilityTest.stock",
     "OfferEligibilityTest.priceLimits",
-    "OfferRankingTest.filtersBeforeSort"
+    "OfferRankingTest.filtersBeforeSort",
+    "MarketplaceCatalogServiceTest.regulatedRefused",
+    "MarketplaceCatalogServiceTest.noRegulatedLaundering"
    ],
    "cypress": [
     "MKT-1c-03",
@@ -949,6 +970,7 @@
     "MarketplaceStateMachinesTest.illegalMovesRefused",
     "MarketplaceStateMachinesTest.noOrphanStates",
     "MarketplaceStateMachinesTest.publishedSetIsReadOnly",
+    "MarketplaceCatalogServiceTest.illegalMove",
     "MarketplaceSellerServiceTest.illegalMove"
    ],
    "cypress": [
@@ -989,6 +1011,7 @@
    "unit": [
     "OfferEligibilityTest.deliveryArea",
     "PhaseGuardTest.oneSeller",
+    "MarketplaceCatalogServiceTest.activeSellerRequired",
     "MarketplaceSellerServiceTest.acceptApplies",
     "MarketplaceSellerServiceTest.needsDisplayName",
     "MarketplaceSellerServiceTest.guardNamesTheGap",
@@ -1015,9 +1038,11 @@
     "OfferEligibilityTest.regulated",
     "PhaseGuardTest.twoSellersRefused",
     "PhaseGuardTest.sourcesByPhase",
-    "PhaseGuardTest.regulatedRefused"
+    "PhaseGuardTest.regulatedRefused",
+    "MarketplaceCatalogServiceTest.regulatedRefused"
    ],
    "cypress": [
+    "MKT-1b-09",
     "MKT-1c-03",
     "MKT-1c-04",
     "MKT-1e-02"
@@ -1105,6 +1130,8 @@
    "phase": "1",
    "text": "Tenant from authenticated server identity; browser cannot choose the stock owner by editing JSON",
    "unit": [
+    "MarketplaceCatalogServiceTest.foreignProduct",
+    "MarketplaceCatalogServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
     "SellerAccessTest.tiers",
@@ -1115,7 +1142,7 @@
     "MKT-0a-04",
     "MKT-0a-06",
     "MKT-0a-08",
-    "MKT-1b-06",
+    "MKT-1b-07",
     "MKT-1c-02",
     "MKT-1c-08",
     "MKT-1e-08"
@@ -1124,6 +1151,7 @@
     "M-0a-02",
     "M-0a-04",
     "M-0a-06",
+    "M-1b-06",
     "M-X-02"
    ]
   },

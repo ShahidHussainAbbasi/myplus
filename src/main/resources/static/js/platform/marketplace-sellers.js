@@ -1,5 +1,6 @@
 /**
- * MKT-0a — the operator's marketplace seller queue (platformDashboard.html #platMktSellers).
+ * MKT-0a — the operator's marketplace seller queue (platformDashboard.html #platMktSellers), and
+ * MKT-1b — the product match review queue (#platMktMatches).
  * Server: marketplace-service /mkt/operator/sellers via the monolith's /platform/mkt/** proxy (ROLE_ADMIN).
  *
  * The server decides everything: who may decide (ROLE_ADMIN, never a tenant's ADMIN_PRIVILEGE), which moves are
@@ -91,7 +92,7 @@
 	}
 
 	function open() {
-		$('#platTenants, #platDetail, #platProvision').hide();
+		$('#platTenants, #platDetail, #platProvision, #platMktMatches').hide();
 		$('#platMktSellers').show();
 		load();
 	}
@@ -109,4 +110,96 @@
 	});
 
 	global.platMktSellersOpen = open;
+
+	// ── MKT-1b: product matching ──────────────────────────────────────────────────────────────────────
+
+	var matchStatus = 'PENDING_REVIEW';
+	/** The decisions each review status offers — the same edges as MarketplaceStateMachines.MATCH. */
+	var MATCH_MOVES = {
+		PENDING_REVIEW: ['MATCHED', 'NEEDS_CORRECTION', 'REJECTED'],
+		MATCHED: ['NEEDS_CORRECTION', 'REJECTED'],
+		NEEDS_CORRECTION: []
+	};
+	var MATCH_LABEL = {
+		MATCHED: ['ui.js.mktMatch', 'Match'],
+		NEEDS_CORRECTION: ['ui.js.mktNeedsCorrection', 'Needs correction'],
+		REJECTED: ['ui.js.mktRejectProposal', 'Reject']
+	};
+
+	function loadMatches() {
+		var $tb = $('#mktMatchQueue tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/matchQueue?status=' + encodeURIComponent(matchStatus) + '&size=100', dataType: 'json' })
+			.done(function (res) {
+				if (!ok(res)) { $tb.append($('<tr><td colspan="4"></td></tr>').find('td').text(message(res, '')).end()); return; }
+				var rows = (data(res) || {}).content || [];
+				if (!rows.length) {
+					$tb.append($('<tr><td colspan="4" class="plat__empty"></td></tr>').find('td')
+						.text(tr('ui.js.mktNoMatches', 'Nothing to review.')).end());
+					return;
+				}
+				rows.forEach(function (p) { $tb.append(matchRow(p)); });
+			})
+			.fail(function (xhr) {
+				$tb.append($('<tr><td colspan="4"></td></tr>').find('td').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))).end());
+			});
+	}
+
+	function matchRow(p) {
+		var $tr = $('<tr></tr>').attr('data-id', p.id);
+		$tr.append($('<td></td>')
+			.append($('<div></div>').text([p.brand, p.model, p.variant, p.colour, p.size, p.packSize].filter(Boolean).join(' ')))
+			.append($('<div class="plat__hint"></div>').text('#' + p.organizationId + ' · ' + (p.sourceProductName || '')
+				+ (p.regulated && p.regulated !== 'NONE' ? ' · ' + p.regulated : ''))));
+		$tr.append($('<td style="font-family:monospace;font-size:12px"></td>').text(p.proposedIdentityKey || ''));
+		$tr.append($('<td></td>').text(p.suggestedProductId
+			? tr('ui.js.mktSuggested', 'Same identity as product') + ' #' + p.suggestedProductId
+			: tr('ui.js.mktNewProduct', 'New marketplace product')));
+		var $act = $('<td></td>'), $msg = $('<div class="plat__hint" role="status"></div>');
+		var moves = MATCH_MOVES[p.matchStatus] || [];
+		var $note = $('<input type="text" class="form-control input-sm" maxlength="500">')
+			.attr('placeholder', tr('ui.js.mktNotePh', 'Note the seller will see'))
+			.attr('aria-label', tr('ui.js.mktNotePh', 'Note the seller will see'));
+		if (moves.length > 1 || (moves.length && moves[0] !== 'MATCHED')) $act.append($note);
+		moves.forEach(function (d) {
+			$('<button type="button" class="btn btn-xs"></button>')
+				.addClass(d === 'MATCHED' ? 'btn-primary' : 'btn-default')
+				.attr('data-decision', d).text(tr(MATCH_LABEL[d][0], MATCH_LABEL[d][1]))
+				.on('click', function () { decideMatch(p, d, $note, $(this), $msg); })
+				.appendTo($act);
+		});
+		return $tr.append($act.append($msg));
+	}
+
+	function decideMatch(p, decision, $note, $btn, $msg) {
+		var label = $btn.text();
+		$btn.prop('disabled', true).text(tr('ui.js.mktSaving', 'Saving…'));
+		$.ajax({ url: ctx() + 'platform/mkt/decideMatch', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ id: p.id, decision: decision, note: $note.val(), version: p.version }) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				loadMatches();
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $btn.prop('disabled', false).text(label); });
+	}
+
+	function openMatches() {
+		$('#platTenants, #platDetail, #platProvision, #platMktSellers').hide();
+		$('#platMktMatches').show();
+		loadMatches();
+	}
+
+	$(document).on('click', '#platMktMatchesBtn', openMatches);
+	$(document).on('click', '#platMktMatchesBack', function () {
+		$('#platMktMatches').hide();
+		$('#platTenants').show();
+	});
+	$(document).on('click', '#platMktMatchStatus button', function () {
+		$('#platMktMatchStatus button').removeClass('is-on');
+		$(this).addClass('is-on');
+		matchStatus = $(this).attr('data-status');
+		loadMatches();
+	});
+
+	global.platMktMatchesOpen = openMatches;
 })(window);

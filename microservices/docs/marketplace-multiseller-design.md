@@ -510,7 +510,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 
 - [~] MKT-0a capability + agreements + operator-approved seller account · unit-green, **gate written, not yet run** ([slice](slices/mkt-0a-seller-onboarding.md))
 - [x] MKT-1a pure domain core · `mvn test` green
-- [ ] MKT-1b canonical product + match review · gate
+- [~] MKT-1b canonical product + match review · unit-green, **gate written, not yet run** ([slice](slices/mkt-1b-product-matching.md))
 - [ ] MKT-1c offers + policies + approval + projection · gate
 - [ ] MKT-1d public catalogue + compare + sort · gate
 - [ ] MKT-1e one-seller checkout + acceptance + snapshots · gate

@@ -44,7 +44,7 @@ const API = {
   // seller (MKT_SELL + capability marketplaceSelling + operator entitlement)
   sellerStatus: '/mkt/seller',                                // MKT-0a: capability, agreements, account, canSell
   acceptAgreement: '/mkt/acceptAgreement',                    // MKT-0a: {version, displayName}
-  proposeProduct: '/mkt/proposeProduct',
+  proposeProduct: '/mkt/proposeProduct',                      // MKT-1b: {sourceProductId, brand, model, variant, …}
   myProposals: '/mkt/myProposals',
   saveOffer: '/mkt/saveOffer',
   submitOffer: '/mkt/submitOffer',
@@ -55,8 +55,9 @@ const API = {
   rejectOrder: '/mkt/rejectOrder',
   statement: '/mkt/statement',
   // operator (MKT_OPERATE / MKT_SETTLE / MKT_SUPPORT)
-  matchQueue: '/platform/mkt/matchQueue',
-  decideMatch: '/platform/mkt/decideMatch',
+  matchQueue: '/platform/mkt/matchQueue',                    // MKT-1b: ?status=PENDING_REVIEW|MATCHED|NEEDS_CORRECTION
+  decideMatch: '/platform/mkt/decideMatch',                  // MKT-1b: {id, decision, mktProductId, note, version}
+  mktProducts: '/platform/mkt/products',                      // MKT-1b: canonical products ?q=
   offerQueue: '/platform/mkt/offerQueue',
   decideOffer: '/platform/mkt/decideOffer',
   sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…

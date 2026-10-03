@@ -1,5 +1,6 @@
 package com.myplus.marketplace.multiseller.domain;
 
+import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Match;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Order;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Payment;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Reservation;
@@ -82,6 +83,18 @@ public final class MarketplaceStateMachines {
             .allow(SellerAccount.APPROVED, SellerAccount.SUSPENDED)
             .allow(SellerAccount.SUSPENDED, SellerAccount.APPROVED)
             .allow(SellerAccount.REJECTED, SellerAccount.PENDING_APPROVAL)
+            .build();
+
+    /**
+     * MKT-1b — a seller's product proposal under review (source §6). An operator can correct a bad match after
+     * the fact (MATCHED → NEEDS_CORRECTION | REJECTED, MKT-R6.5); a seller re-proposes from NEEDS_CORRECTION or
+     * REJECTED, which puts it back in the queue. Nothing reaches MATCHED except through a person.
+     */
+    public static final StateMachine<Match> MATCH = StateMachine.of(Match.class)
+            .allow(Match.PENDING_REVIEW, Match.MATCHED, Match.REJECTED, Match.NEEDS_CORRECTION)
+            .allow(Match.MATCHED, Match.NEEDS_CORRECTION, Match.REJECTED)
+            .allow(Match.NEEDS_CORRECTION, Match.PENDING_REVIEW)
+            .allow(Match.REJECTED, Match.PENDING_REVIEW)
             .build();
 
     public static final StateMachine<Reservation> RESERVATION = StateMachine.of(Reservation.class)

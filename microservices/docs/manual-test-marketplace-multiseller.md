@@ -91,24 +91,24 @@
 ### M-1b-01 Seller proposes a phone for the marketplace
 
 **Persona:** owner.business@ (Seller A)  
-**Pre:** Seller A is entitled and has a catalog product 'Galaxy A32 128 Black' with stock 5.  
+**Pre:** Seller A is an approved seller (MKT-0a) and has a catalogue product 'Galaxy A32 128 Black' with stock 5.  
 **Covers:** MKT-R5.1, MKT-R5.2, MKT-R6.2, MKT-R6.4
 
-1. Marketplace → Products to publish → Propose.
-2. Pick the product. Brand Samsung, Model Galaxy A32, Storage 128GB, Colour Black, Condition New, Warranty 12M.
-3. Submit.
+1. Sale → Marketplace → 'Propose a product'.
+2. Your product: 'Galaxy A32 128 Black'. Brand Samsung, Model Galaxy A32, Variant / storage '128 GB', Colour 'black', Condition New, Warranty 12M.
+3. Click 'Send for review'.
 
-**Expect:** The proposal shows status PENDING_REVIEW and the key SAMSUNG|GALAXY-A32|128GB|BLACK|NEW|12M. The seller's own product list is unchanged.
+**Expect:** 'Sent to MaxTheService for review.' The table shows the product with identity SAMSUNG|GALAXY-A32|128GB|BLACK|NEW|12M (the space in '128 GB' and the lower-case 'black' are normalised) and a yellow 'Waiting for review' badge. The seller's own catalogue product is unchanged.
 
 ### M-1b-02 ⚠ 64GB is never merged with 128GB
 
 **Persona:** owner.mobile@ (Seller B)  
-**Pre:** Seller A's 128GB proposal exists.  
+**Pre:** Seller A's 128GB phone is matched (M-1b-04 done first).  
 **Covers:** MKT-R6.6, MKT-R6.1
 
 1. As Seller B propose 'Galaxy A32 64 Black' with Storage 64GB, otherwise identical.
 
-**Expect:** Key ends …|64GB|BLACK|NEW…. No 'matches an existing product' suggestion appears.
+**Expect:** Identity ends …|64GB|BLACK|NEW…. The operator queue shows 'New marketplace product' for it, never 'Same identity as product #…'.
 
 ### M-1b-03 Same phone from a second seller is suggested, not merged
 
@@ -118,7 +118,7 @@
 
 1. As Seller B propose 'Samsung A-32 128GB blk' with Brand Samsung, Model Galaxy A32, Storage 128 GB, Colour Black, New, 12M.
 
-**Expect:** Same key as Seller A's. Status PENDING_REVIEW with 'Possible match: Samsung Galaxy A32 128GB Black'. It is NOT live until the operator decides.
+**Expect:** Same identity as Seller A's. Status 'Waiting for review'. In the operator queue its 'Existing match' column reads 'Same identity as product #<A's product>'. Nothing is live until the operator clicks Match.
 
 ### M-1b-04 Operator matches and then corrects a bad match
 
@@ -126,11 +126,23 @@
 **Pre:** Both proposals are in the queue.  
 **Covers:** MKT-R6.5, MKT-R6.4
 
-1. Operator console → Marketplace → Match review.
-2. Match Seller B's proposal to the canonical product.
-3. Reopen it → Needs correction → note 'colour is Blue on the box' → Save.
+1. Operator console → 'Product matching'. Find Seller A's proposal.
+2. Click Match (the column says 'New marketplace product').
+3. Find Seller B's same-key proposal; click Match.
+4. Switch to 'Matched'. On Seller A's row type 'colour is Blue on the box' and click 'Needs correction'.
+5. As Seller A: Sale → Marketplace.
 
-**Expect:** After matching, the canonical product lists 2 sources. After correction, Seller B's source shows NEEDS_CORRECTION with the note, and Seller B sees the note on their proposal.
+**Expect:** After step 2 a marketplace product 'Samsung Galaxy A32 128GB Black' exists. After step 3 both sellers point at that one product. 'Needs correction' with an empty note is refused ('Tell the seller what is wrong…'). With the note, Seller A sees a red 'Needs correction' badge and the note exactly as typed, and can fix and re-send the same row.
+
+### M-1b-06 ⚠ A product from another shop's catalogue cannot be proposed
+
+**Persona:** owner.mobile@ (Seller B), using a browser tool or the API  
+**Pre:** Seller A's product id is known (e.g. 1234).  
+**Covers:** MKT-R22.1
+
+1. Send POST /mkt/proposeProduct with sourceProductId 1234 (Seller A's product) and any attributes.
+
+**Expect:** Refused: 'That product is not in your catalogue.' The same sentence a non-existent id gives. Seller B's proposal list is unchanged.
 
 ### M-1b-05 Panadol 10s and 20s stay separate
 

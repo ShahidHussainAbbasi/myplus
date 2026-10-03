@@ -59,6 +59,9 @@
                 <!-- MKT-0a: the multi-seller marketplace's seller queue (marketplace-sellers.js). -->
                 <button type="button" class="btn btn-default" id="platMktSellersBtn"
                         th:text="#{ui.mktSellersTitle}">Marketplace sellers</button>
+                <!-- MKT-1b: the product match review queue. -->
+                <button type="button" class="btn btn-default" id="platMktMatchesBtn"
+                        th:text="#{ui.mktMatchesTitle}">Product matching</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -94,6 +97,32 @@
                 <button type="button" data-status="REJECTED" th:text="#{ui.mktStatusRejected}">Not approved</button>
             </div>
             <div id="platMktSellerList" class="plat__list" data-testid="mkt-seller-list"></div>
+        </section>
+
+        <!-- ── MKT-1b: product matching ─────────────────────────────────────────────────────────── -->
+        <!-- Source §6: a seller's product is never merged on its name. The key PROPOSES; a person decides here. -->
+        <section id="platMktMatches" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back" id="platMktMatchesBack">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktMatchesTitle}">Product matching</h3>
+            <div class="plat-seg" id="platMktMatchStatus" role="group">
+                <button type="button" data-status="PENDING_REVIEW" class="is-on" th:text="#{ui.mktStatusPending}">Waiting for review</button>
+                <button type="button" data-status="MATCHED" th:text="#{ui.mktMatchedTab}">Matched</button>
+                <button type="button" data-status="NEEDS_CORRECTION" th:text="#{ui.mktFixTab}">Needs correction</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktMatchQueue">
+                    <thead><tr>
+                        <th th:text="#{ui.mktColProduct}">Product</th>
+                        <th th:text="#{ui.mktColKey}">Marketplace identity</th>
+                        <th th:text="#{ui.mktColSuggested}">Existing match</th>
+                        <th th:text="#{ui.mktColDecision}">Decision</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </section>
 
         <!-- ── Provision ──────────────────────────────────────────────────────────────────────── -->

@@ -104,12 +104,7 @@ public class MarketplaceSellerController {
     public Map<String, Object> decideSeller(@RequestBody final Map<String, Object> body) {
         try {
             Object org = body == null ? null : body.get("organizationId");
-            if (org == null || !String.valueOf(org).matches("\\d+")) {
-                Map<String, Object> out = new HashMap<>();
-                out.put("success", false);
-                out.put("message", "Choose the business to decide.");
-                return out;
-            }
+            if (org == null || !String.valueOf(org).matches("\\d+")) return refusal("Choose the business to decide.");
             Map<String, Object> rest = new HashMap<>(body);
             rest.remove("organizationId");
             return client.postJson("/mkt/operator/sellers/" + org + "/decision", rest);
@@ -119,6 +114,86 @@ public class MarketplaceSellerController {
             LOGGER.error("mkt decideSeller proxy error", e);
             return ProxyErrors.failure(e);
         }
+    }
+
+    // ── MKT-1b: product proposals and match review ─────────────────────────────────────────────────────────
+
+    /** Propose one of the seller's catalog products. Body: {sourceProductId, brand, model, variant, colour, …}. */
+    @RequestMapping(value = "/mkt/proposeProduct", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> proposeProduct(@RequestBody final Map<String, Object> body) {
+        try {
+            return client.postJson("/mkt/products/propose", body);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not send the product for review.");
+        } catch (Exception e) {
+            LOGGER.error("mkt proposeProduct proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    @RequestMapping(value = "/mkt/myProposals", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> myProposals(final HttpServletRequest request) {
+        return relayGet("/mkt/products/proposals", request, "Could not load your products.", "page", "size");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/matchQueue", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> matchQueue(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/matches", request, "Could not load the review queue.", "status", "page", "size");
+    }
+
+    /** Body: {id, decision: MATCHED|NEEDS_CORRECTION|REJECTED, mktProductId, note, version}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/decideMatch", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> decideMatch(@RequestBody final Map<String, Object> body) {
+        try {
+            Object id = body == null ? null : body.get("id");
+            if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the proposal to decide.");
+            Map<String, Object> rest = new HashMap<>(body);
+            rest.remove("id");
+            return client.postJson("/mkt/operator/matches/" + id + "/decision", rest);
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, "Could not record the decision.");
+        } catch (Exception e) {
+            LOGGER.error("mkt decideMatch proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/products", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> canonicalProducts(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/products", request, "Could not load marketplace products.", "q", "page", "size");
+    }
+
+    // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
+
+    private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {
+        try {
+            StringBuilder q = new StringBuilder(path).append("?x=1");
+            for (String p : params) {
+                String v = request.getParameter(p);
+                if (v != null && !v.isBlank()) q.append('&').append(p).append('=').append(enc(v));
+            }
+            return client.get(q.toString());
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, fallback);
+        } catch (Exception e) {
+            LOGGER.error("mkt proxy error " + path, e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    private static Map<String, Object> refusal(String message) {
+        Map<String, Object> out = new HashMap<>();
+        out.put("success", false);
+        out.put("message", message);
+        return out;
     }
 
     @SuppressWarnings("unchecked")

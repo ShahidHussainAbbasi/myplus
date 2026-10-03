@@ -69,6 +69,74 @@
 			<p class="text-muted" sec:authorize="!hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"
 				th:text="#{ui.mktOwnerOnly}">Only the owner or an admin can accept these agreements for the business.</p>
 		</div>
+
+		<!-- MKT-1b — products to publish. Shown only when the seller can sell (all three conditions). The key is
+		     computed by the SERVER; nothing here is merged without MaxTheService reviewing it. -->
+		<div id="mktProductsBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px">
+				<span th:text="#{ui.mktProductsTitle}">Products on the marketplace</span>
+				<button type="button" class="btn btn-xs btn-primary" id="mktProposeBtn" data-cy="mkt-propose-open"
+					onclick="mktProposeToggle()" th:text="#{ui.mktProposeBtn}">Propose a product</button>
+			</h4>
+			<form class="form-horizontal" role="form" id="mktProposeForm" autocomplete="off" onsubmit="return false;" style="display:none">
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktProposeProduct" th:text="#{ui.mktProposeProduct}">Your product</label>
+					<div class="col-sm-6"><select class="form-control" id="mktProposeProduct"></select></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktBrand" th:text="#{ui.mktBrand}">Brand</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktBrand" maxlength="80"></div>
+					<label class="control-label col-sm-2" for="mktModel" th:text="#{ui.mktModel}">Model</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktModel" maxlength="120"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktVariant" th:text="#{ui.mktVariant}">Variant / storage</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktVariant" maxlength="80"></div>
+					<label class="control-label col-sm-2" for="mktColour" th:text="#{ui.mktColour}">Colour</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktColour" maxlength="60"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktSize" th:text="#{ui.mktSize}">Size</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktSize" maxlength="60"></div>
+					<label class="control-label col-sm-2" for="mktPackSize" th:text="#{ui.mktPackSize}">Pack size</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktPackSize" maxlength="40"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktCondition" th:text="#{ui.mktCondition}">Condition</label>
+					<div class="col-sm-3">
+						<select class="form-control" id="mktCondition">
+							<option value="New" th:text="#{ui.mktCondNew}">New</option>
+							<option value="Used" th:text="#{ui.mktCondUsed}">Used</option>
+							<option value="Refurbished" th:text="#{ui.mktCondRefurb}">Refurbished</option>
+						</select>
+					</div>
+					<label class="control-label col-sm-2" for="mktWarranty" th:text="#{ui.mktWarranty}">Warranty</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktWarranty" maxlength="60" placeholder="12M"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktGtin" th:text="#{ui.mktGtin}">Barcode (GTIN)</label>
+					<div class="col-sm-3"><input type="text" class="form-control" id="mktGtin" maxlength="14" inputmode="numeric"></div>
+				</div>
+				<div class="form-group">
+					<div class="col-sm-offset-3 col-sm-9">
+						<button type="button" class="btn btn-primary" id="mktProposeSubmit" onclick="mktPropose(this)"
+							th:text="#{ui.mktProposeSubmit}">Send for review</button>
+						<span id="mktProposeMsg" role="status" style="margin-left:10px"></span>
+					</div>
+				</div>
+			</form>
+			<div class="table-responsive">
+				<table class="table table-condensed" id="mktProposalsTable">
+					<thead><tr>
+						<th th:text="#{ui.mktColProduct}">Product</th>
+						<th th:text="#{ui.mktColKey}">Marketplace identity</th>
+						<th th:text="#{ui.mktColStatus}">Status</th>
+						<th th:text="#{ui.mktColNote}">Note from MaxTheService</th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 </div>
 </body>

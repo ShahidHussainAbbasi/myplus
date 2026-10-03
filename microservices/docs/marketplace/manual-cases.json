@@ -115,13 +115,13 @@
    "slice": "MKT-1b",
    "title": "Seller proposes a phone for the marketplace",
    "persona": "owner.business@ (Seller A)",
-   "pre": "Seller A is entitled and has a catalog product 'Galaxy A32 128 Black' with stock 5.",
+   "pre": "Seller A is an approved seller (MKT-0a) and has a catalogue product 'Galaxy A32 128 Black' with stock 5.",
    "steps": [
-    "Marketplace → Products to publish → Propose.",
-    "Pick the product. Brand Samsung, Model Galaxy A32, Storage 128GB, Colour Black, Condition New, Warranty 12M.",
-    "Submit."
+    "Sale → Marketplace → 'Propose a product'.",
+    "Your product: 'Galaxy A32 128 Black'. Brand Samsung, Model Galaxy A32, Variant / storage '128 GB', Colour 'black', Condition New, Warranty 12M.",
+    "Click 'Send for review'."
    ],
-   "expect": "The proposal shows status PENDING_REVIEW and the key SAMSUNG|GALAXY-A32|128GB|BLACK|NEW|12M. The seller's own product list is unchanged.",
+   "expect": "'Sent to MaxTheService for review.' The table shows the product with identity SAMSUNG|GALAXY-A32|128GB|BLACK|NEW|12M (the space in '128 GB' and the lower-case 'black' are normalised) and a yellow 'Waiting for review' badge. The seller's own catalogue product is unchanged.",
    "reqs": [
     "MKT-R5.1",
     "MKT-R5.2",
@@ -135,11 +135,11 @@
    "slice": "MKT-1b",
    "title": "64GB is never merged with 128GB",
    "persona": "owner.mobile@ (Seller B)",
-   "pre": "Seller A's 128GB proposal exists.",
+   "pre": "Seller A's 128GB phone is matched (M-1b-04 done first).",
    "steps": [
     "As Seller B propose 'Galaxy A32 64 Black' with Storage 64GB, otherwise identical."
    ],
-   "expect": "Key ends …|64GB|BLACK|NEW…. No 'matches an existing product' suggestion appears.",
+   "expect": "Identity ends …|64GB|BLACK|NEW…. The operator queue shows 'New marketplace product' for it, never 'Same identity as product #…'.",
    "reqs": [
     "MKT-R6.6",
     "MKT-R6.1"
@@ -155,7 +155,7 @@
    "steps": [
     "As Seller B propose 'Samsung A-32 128GB blk' with Brand Samsung, Model Galaxy A32, Storage 128 GB, Colour Black, New, 12M."
    ],
-   "expect": "Same key as Seller A's. Status PENDING_REVIEW with 'Possible match: Samsung Galaxy A32 128GB Black'. It is NOT live until the operator decides.",
+   "expect": "Same identity as Seller A's. Status 'Waiting for review'. In the operator queue its 'Existing match' column reads 'Same identity as product #<A's product>'. Nothing is live until the operator clicks Match.",
    "reqs": [
     "MKT-R6.1",
     "MKT-R6.4"
@@ -169,16 +169,33 @@
    "persona": "admin@myplus.com (operator)",
    "pre": "Both proposals are in the queue.",
    "steps": [
-    "Operator console → Marketplace → Match review.",
-    "Match Seller B's proposal to the canonical product.",
-    "Reopen it → Needs correction → note 'colour is Blue on the box' → Save."
+    "Operator console → 'Product matching'. Find Seller A's proposal.",
+    "Click Match (the column says 'New marketplace product').",
+    "Find Seller B's same-key proposal; click Match.",
+    "Switch to 'Matched'. On Seller A's row type 'colour is Blue on the box' and click 'Needs correction'.",
+    "As Seller A: Sale → Marketplace."
    ],
-   "expect": "After matching, the canonical product lists 2 sources. After correction, Seller B's source shows NEEDS_CORRECTION with the note, and Seller B sees the note on their proposal.",
+   "expect": "After step 2 a marketplace product 'Samsung Galaxy A32 128GB Black' exists. After step 3 both sellers point at that one product. 'Needs correction' with an empty note is refused ('Tell the seller what is wrong…'). With the note, Seller A sees a red 'Needs correction' badge and the note exactly as typed, and can fix and re-send the same row.",
    "reqs": [
     "MKT-R6.5",
     "MKT-R6.4"
    ],
    "warn": false
+  },
+  {
+   "id": "M-1b-06",
+   "slice": "MKT-1b",
+   "title": "A product from another shop's catalogue cannot be proposed",
+   "persona": "owner.mobile@ (Seller B), using a browser tool or the API",
+   "pre": "Seller A's product id is known (e.g. 1234).",
+   "steps": [
+    "Send POST /mkt/proposeProduct with sourceProductId 1234 (Seller A's product) and any attributes."
+   ],
+   "expect": "Refused: 'That product is not in your catalogue.' The same sentence a non-existent id gives. Seller B's proposal list is unchanged.",
+   "reqs": [
+    "MKT-R22.1"
+   ],
+   "warn": true
   },
   {
    "id": "M-1b-05",
