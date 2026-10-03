@@ -132,6 +132,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#fp4b">FP-4b · The operator's switch</a></li>
       <li><a href="#fp4c">FP-4c · Balances and credit limit</a></li>
       <li><a href="#fp5a">FP-5a · Payments land once</a></li>
+      <li><a href="#fp5b">FP-5b · One Pay for both</a></li>
       <li><a href="#findings">Defects found</a></li>
       <li><a href="#auto">Automated gates</a></li>
       <li><a href="#next">Coming next</a></li>
@@ -166,7 +167,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>FP-4b</b></td><td>The platform operator switches a business's supplier screens to finance (and back); bills and advances appear in aging and statements</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">66 + 405</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 38 regression</span></td></tr>
             <tr><td><b>FP-4c</b></td><td>Supplier list, purchase screen and credit limit count expense bills; advances shown; Pay still settles purchases</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">68 + 408</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 37 regression</span></td></tr>
             <tr><td><b>FP-5a</b></td><td>Every payment reaches the books exactly once, even when finance is briefly down (supplier payments, customer receipts, school fees)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 418 + 236</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 31 regression</span></td></tr>
-            <tr><td>FP-5b</td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td><b>FP-5b</b></td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">27 + 419 + 72</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + regressions</span></td></tr>
             <tr><td>EX-5</td><td>Receipt photos and PDFs attached to an expense</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-6 / 7</td><td>Staff expense claims, approval, reimbursement and advances</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-8</td><td>Expense reports, analytics and duplicate warnings</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
@@ -886,6 +887,34 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── FP-5b ───────────────────────── -->
+    <section class="sec" id="fp5b">
+      <h2>FP-5b · One Pay Supplier for purchases and expense bills</h2>
+      <p>For a business that reads supplier figures from finance, <b>Pay</b> on a supplier settles its purchases <b>and</b> its expense bills in one payment, oldest first whatever the kind (a bill counts from its due date, else its date). The books record one PV- voucher. Once a payment has done that, the business cannot be switched back to business figures, because business screens cannot show such a payment.</p>
+      <div class="case" data-case="5b-1">
+        <div class="case-head"><span class="cid">5b-1</span><h3>One Pay settles the older bill first, then the purchase</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.payables</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>A supplier with a bill of 300 dated yesterday and a purchase of 100 today, on credit.</li><li>Register → Vender / Supplier → <b>Pay</b> 250 in cash.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>"Vendor paid. Voucher PV-… Of this, paid to expense bills: 250.00"; the bill owes 50, the purchase is untouched.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> purchases always paid before older bills, or one payment recorded twice.</div>
+        </div>
+      </div>
+      <div class="case" data-case="5b-2">
+        <div class="case-head"><span class="cid">5b-2</span><h3>After a mixed payment, the switch back is refused</h3><span class="pill pill-info">Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Platform → Owner Payables's organization → Supplier balances.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A note says payments here settled purchases and bills together; <b>Back to business</b> is disabled.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a business switched back to screens that would misstate its supplier statements.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── findings ───────────────────────── -->
     <section class="card" id="findings">
       <h2>Defects found along the way</h2>
@@ -896,6 +925,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <tbody>
             <tr><td>Pay Supplier, Receive Payment, school fees</td><td>The payment is written to the books "best effort": if finance is down, the bills show paid but no voucher and no journal exist, and nothing goes back to fix it.</td><td><span class="pill pill-ok">Fixed · FP-5a</span></td></tr>
             <tr><td>Orgs 20 and 41 (marketplace, Shahzad Mobile)</td><td>Both carry the same 288,000 purchase journal of 23 Aug, so the ledger's 2000 account disagrees with their supplier documents (org 41 by 313,200).</td><td><span class="pill pill-bad">Open · FP-4b-GL</span></td></tr>
+            <tr><td>Every service (dates)</td><td>Containers run on UTC with no time zone set, so between midnight and 05:00 Pakistan time the server’s “today” is yesterday: an expense dated today is refused as “in the future”.</td><td><span class="pill pill-bad">Open · decision needed</span></td></tr>
             <tr><td>Demo BUSINESS (org 6)</td><td>One supplier carries a 100 balance with no bills behind it; its ledger 2000 differs by 10,865.50.</td><td><span class="pill pill-bad">Open</span></td></tr>
             <tr><td>Advances</td><td>Suppliers paid more than billed (org 6: 9,620; org 41: 25,200) were shown as 0. Now shown on finance figures (FP-4b/4c).</td><td><span class="pill pill-ok">Shown</span></td></tr>
           </tbody>
