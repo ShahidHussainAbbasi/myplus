@@ -60,6 +60,23 @@ public interface FinanceClient {
      * FP-1/2 — report supplier payables (snapshots) into finance's subledger. Idempotent per (org, source, ref);
      * an older {@code sourceVersion} is ignored. {@code /internal/**}: no gateway route reaches it.
      */
+    /** FP-4b — the subledger's per-supplier figures (netOwed, bySource, …) for the caller's tenant. */
+    @GetExchange("/api/finance/payables/summary")
+    java.util.Map<String, Object> payablesSummary();
+
+    /** FP-4b — subledger open vs GL 2000 for the caller's tenant. */
+    @GetExchange("/api/finance/payables/reconciliation")
+    java.util.Map<String, Object> payablesReconciliation();
+
+    /** FP-4b — supplier aging {rows: [PartyAgingDTO-shaped], advances: [{partyId, partyName, advance}]}. */
+    @GetExchange("/api/finance/payables/aging")
+    java.util.Map<String, Object> payablesAging();
+
+    /** FP-4b — a supplier's statement lines (date, docNo, type, debit, credit, balance); sources=PURCHASE = business's view. */
+    @GetExchange("/api/finance/payables/statement")
+    java.util.List<java.util.Map<String, Object>> payablesStatement(@RequestParam("partyType") String partyType,
+            @RequestParam("partyId") Long partyId, @RequestParam(value = "sources", required = false) String sources);
+
     @PostExchange("/internal/finance/payables")
     void upsertPayables(@RequestBody java.util.List<com.myplus.commerce.contracts.dto.PayableSnapshot> snapshots);
 

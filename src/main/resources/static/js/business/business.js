@@ -5432,8 +5432,22 @@ function openAging(partyType){
 	document.getElementById('AgingDialogTitle').textContent = (partyType === 'VENDOR' ? 'Payables' : 'Receivables') + ' Aging';
 	document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px">Loading…</div>';
 	$.get(serverContext + url, function(resp){
+		// FP-4b — a tenant reading supplier figures from finance gets finance's answer or its refusal, never a stale one
+		if (resp && resp.status === 'ERROR') { document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b" data-cy="aging-error">'+escHtml(resp.message||'Could not load aging.')+'</div>'; return; }
 		var rows = (resp && (resp.collection || resp.data)) || [];
-		if (!rows.length) { document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#777">Nothing outstanding.</div>'; return; }
+		// FP-4b — suppliers paid AHEAD (ruling: shown as their own figure, never netted into the aging)
+		var advances = (partyType === 'VENDOR' && resp && resp.object && resp.object.advances) || [];
+		// NOT `t(...)`: this callback declares `var t` (the totals) below, which hoists over the translator
+		var trn = function(k, f){ return (typeof window.t === 'function' && typeof window.tHas === 'function' && window.tHas(k)) ? window.t(k) : f; };
+		var advHtml = '';
+		if (advances.length) {
+			var at = 0;
+			advHtml = '<h5 style="margin-top:14px;font-weight:700" data-cy="aging-advances">'+escHtml(trn('ui.js.supplierAdvances','Paid ahead (supplier advances)'))+'</h5>'
+				+ '<table class="table table-condensed" style="width:100%"><thead><tr><th>Vendor</th><th class="text-right">'+escHtml(trn('ui.js.advance','Advance'))+'</th></tr></thead><tbody>';
+			advances.forEach(function(a){ var v=Number(a.advance||0); at+=v; advHtml += '<tr><td>'+escHtml(a.partyName||('#'+a.partyId))+'</td><td class="text-right">'+v.toFixed(2)+'</td></tr>'; });
+			advHtml += '</tbody><tfoot><tr><th>Total</th><th class="text-right">'+at.toFixed(2)+'</th></tr></tfoot></table>';
+		}
+		if (!rows.length) { document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#777">Nothing outstanding.</div>' + advHtml; return; }
 		var t=[0,0,0,0,0];
 		var h = '<table class="table table-striped" style="width:100%"><thead><tr><th>'+(partyType==='VENDOR'?'Vendor':'Customer')+'</th><th class="text-right">0–30</th><th class="text-right">31–60</th><th class="text-right">61–90</th><th class="text-right">90+</th><th class="text-right">Total</th></tr></thead><tbody>';
 		rows.forEach(function(r){
@@ -5442,7 +5456,7 @@ function openAging(partyType){
 			h += '<tr><td>'+escHtml(r.partyName||('#'+r.partyId))+'</td>'+v.map(function(x){return '<td class="text-right">'+x.toFixed(2)+'</td>';}).join('')+'</tr>';
 		});
 		h += '</tbody><tfoot><tr><th>Total</th>'+t.map(function(x){return '<th class="text-right">'+x.toFixed(2)+'</th>';}).join('')+'</tr></tfoot></table>';
-		document.getElementById('AgingDialogBody').innerHTML = h;
+		document.getElementById('AgingDialogBody').innerHTML = h + advHtml;
 	}, 'json').fail(function(){ document.getElementById('AgingDialogBody').innerHTML = '<div style="padding:8px;color:#c0392b">Could not load aging.</div>'; });
 }
 

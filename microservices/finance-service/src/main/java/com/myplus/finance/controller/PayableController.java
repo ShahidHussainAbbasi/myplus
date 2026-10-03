@@ -50,6 +50,12 @@ public class PayableController {
         return statements.statement(partyType, partyId, "PURCHASE".equalsIgnoreCase(sources));
     }
 
+    /** FP-4b — supplier aging (open documents by due date) and the suppliers paid ahead (advances). */
+    @GetMapping("/api/finance/payables/aging")
+    public Map<String, Object> aging() {
+        return statements.aging();
+    }
+
     @GetMapping("/api/finance/payables/reconciliation")
     public Map<String, Object> reconciliation() {
         return payables.reconciliation();

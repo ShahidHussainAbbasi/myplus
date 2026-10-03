@@ -120,6 +120,40 @@ public class PlatformAdminController {
         }
     }
 
+    /**
+     * FP-4b — where a tenant's supplier aging and statements are read from, with the reconciliation that decides
+     * whether it may change. The org travels EXPLICITLY (this call carries the operator's token); business-service
+     * answers only a platform operator.
+     */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/payablesSource", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> payablesSource(@org.springframework.web.bind.annotation.RequestParam("organizationId") Long organizationId) {
+        try {
+            return gateway.forMap(BUSINESS_PREFIX, businessDirectUrl, "/payables-source?organizationId=" + organizationId,
+                    HttpMethod.GET, null, null);
+        } catch (Exception e) {
+            LOGGER.error("platform payables-source read proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** FP-4b — flip a tenant's payables source. The reason and the "must agree" rule are business-service's to enforce. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/payablesSource", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> switchPayablesSource(final HttpServletRequest request) {
+        try {
+            String qs = "/payables-source?organizationId=" + enc(request.getParameter("organizationId"))
+                    + "&source=" + enc(request.getParameter("source"))
+                    + "&reason=" + enc(request.getParameter("reason") == null ? "" : request.getParameter("reason"));
+            return gateway.forMap(BUSINESS_PREFIX, businessDirectUrl, qs, HttpMethod.POST, null, null);
+        } catch (Exception e) {
+            LOGGER.error("platform payables-source write proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** Change a tenant's plan. Validated against the Plan enum in auth-service, not here. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/plan", method = RequestMethod.POST)

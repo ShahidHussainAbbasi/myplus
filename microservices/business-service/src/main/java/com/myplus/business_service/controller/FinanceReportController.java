@@ -59,7 +59,14 @@ public class FinanceReportController {
     @ResponseBody
     public GenericResponse vendorAging() {
         try {
-            return new GenericResponse("SUCCESS", "Vendor aging", reportService.vendorAging());
+            // FP-4b — rows stay in `collection` (every existing reader); the advances and the answering source ride in
+            // `object`, which only the switched-tenant view reads.
+            var view = reportService.vendorAgingView();
+            return new GenericResponse("SUCCESS", "Vendor aging",
+                    java.util.Map.of("advances", view.advances(), "source", view.source()), view.rows());
+        } catch (IllegalStateException unavailable) {
+            LOGGER.warn(getClass().getName() + " > vendorAging " + unavailable.getMessage(), unavailable);
+            return new GenericResponse("ERROR", unavailable.getMessage());
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > vendorAging " + e.getMessage(), e);
             return new GenericResponse("ERROR", "Could not load vendor aging.");

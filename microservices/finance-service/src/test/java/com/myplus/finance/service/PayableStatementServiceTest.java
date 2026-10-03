@@ -86,4 +86,26 @@ class PayableStatementServiceTest {
                 List.of(pay("RCPT-7", D1, "25", "BUSINESS", "SETOFF", "SETOFF-000001")), false);
         assertThat(s.get(0).getDocNo()).isEqualTo("SETOFF-000001 (RCPT-7)");
     }
+
+    @Test @DisplayName("FP-4b aging: open docs by due date (else doc date), advances apart, biggest first")
+    @SuppressWarnings("unchecked")
+    void aging() {
+        LocalDate asOf = LocalDate.of(2026, 10, 3);
+        PayableDoc old = doc(1, "PURCHASE", "P1", LocalDate.of(2026, 7, 1), null, "100", "OPEN");
+        old.setPartyId(7L);
+        PayableDoc bill = doc(2, "EXPENSE_BILL", "EXP-1", LocalDate.of(2026, 7, 1), "50", "50", "OPEN");
+        bill.setPartyId(7L);
+        bill.setDueDate(LocalDate.of(2026, 9, 30));         // due 3 days ago: current, though dated in July
+        Map<String, Object> out = PayableStatementService.aging(List.of(old, bill),
+                List.<Object[]>of(new Object[] { 7L, "A", new BigDecimal("150") }, new Object[] { 9L, "B", new BigDecimal("-40") }),
+                asOf);
+        var rows = (List<com.myplus.common.subledger.PartyAgingDTO>) out.get("rows");
+        assertThat(rows).singleElement().satisfies(r -> {
+            assertThat(r.getB90plus()).as("94 days").isEqualByComparingTo("100");
+            assertThat(r.getB0_30()).as("due date, not bill date").isEqualByComparingTo("50");
+            assertThat(r.getTotal()).isEqualByComparingTo("150");
+        });
+        var adv = (List<Map<String, Object>>) out.get("advances");
+        assertThat(adv).singleElement().satisfies(a -> assertThat((BigDecimal) a.get("advance")).isEqualByComparingTo("40"));
+    }
 }

@@ -50,6 +50,8 @@ public class FinanceReportService {
     @Autowired(required = false)
     private com.myplus.business_service.repository.InstallmentPlanRepo installmentPlanRepo;
     @Autowired(required = false) private com.myplus.commerce.contracts.client.FinanceClient financeClient;
+    /** FP-4b — the per-tenant switch: FINANCE = the supplier aging and statement come from finance's subledger. */
+    @Autowired(required = false) private PayablesSourceService payablesSource;
     // B2B-P3f: the return documents the statement now shows. required=false mirrors financeClient above so a
     // slim test context that wires neither still builds a statement — one without note lines, exactly as before.
     @Autowired(required = false) private com.myplus.business_service.repository.SaleReturnRepo saleReturnRepo;
@@ -109,6 +111,48 @@ public class FinanceReportService {
             }
         }
         return toAging(byParty, names, asOf);
+    }
+
+    /**
+     * FP-4b — the supplier aging as the tenant's switch decides: rows, plus the suppliers paid ahead (advances; finance
+     * only — business floors them away) and which source answered.
+     */
+    public record VendorAgingView(List<PartyAgingDTO> rows, List<Map<String, Object>> advances, String source) {}
+
+    @Transactional(readOnly = true)
+    public VendorAgingView vendorAgingView() {
+        AuthenticatedUser u = requestUtil.getCurrentUser();
+        if (!fromFinance(u)) return new VendorAgingView(vendorAging(), List.of(), "BUSINESS");
+        Map<String, Object> f = financeOrRefuse(() -> financeClient.payablesAging());
+        // business owns supplier NAMES: a rename shows at once, not when the supplier's next bill reaches finance
+        List<PartyAgingDTO> rows = new ArrayList<>();
+        List<Long> ids = new ArrayList<>();
+        Object rawRows = f == null ? null : f.get("rows");
+        if (rawRows instanceof List<?> list) for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) continue;
+            Long id = m.get("partyId") == null ? null : Long.valueOf(String.valueOf(m.get("partyId")));
+            ids.add(id);
+            rows.add(new PartyAgingDTO(id, m.get("partyName") == null ? null : String.valueOf(m.get("partyName")),
+                    dec(m.get("b0_30")), dec(m.get("b31_60")), dec(m.get("b61_90")), dec(m.get("b90plus")), dec(m.get("total"))));
+        }
+        List<Map<String, Object>> advances = new ArrayList<>();
+        Object rawAdv = f == null ? null : f.get("advances");
+        if (rawAdv instanceof List<?> list) for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) continue;
+            Map<String, Object> a = new HashMap<>();
+            Long id = m.get("partyId") == null ? null : Long.valueOf(String.valueOf(m.get("partyId")));
+            a.put("partyId", id);
+            a.put("partyName", m.get("partyName"));
+            a.put("advance", dec(m.get("advance")));
+            ids.add(id);
+            advances.add(a);
+        }
+        Map<Long, String> names = new HashMap<>();
+        for (Vender v : venderRepo.findAllById(ids.stream().filter(java.util.Objects::nonNull).toList()))
+            names.put(v.getId(), v.getName());
+        for (PartyAgingDTO r : rows) if (names.containsKey(r.getPartyId())) r.setPartyName(names.get(r.getPartyId()));
+        for (Map<String, Object> a : advances) if (names.containsKey(a.get("partyId"))) a.put("partyName", names.get(a.get("partyId")));
+        return new VendorAgingView(rows, advances, "FINANCE");
     }
 
     /** AP aging: buckets every vendor's still-owing bills (Purchase has no due date → age basis = purchase date). */
@@ -211,6 +255,19 @@ public class FinanceReportService {
         Vender v = venderRepo.findById(venderId).orElse(null);
         if (v == null || !inTenant(v.getOrganizationId(), v.getUserId(), u))
             throw new RuntimeException("Vendor not found: " + venderId);   // anti-IDOR
+        if (fromFinance(u)) {
+            // FP-4b — the FULL statement from finance's subledger: purchases, expense bills, debit notes, payments
+            List<Map<String, Object>> raw = financeOrRefuse(() -> financeClient.payablesStatement("VENDOR", venderId, null));
+            List<StatementLine> out = new ArrayList<>();
+            if (raw != null) for (Map<String, Object> m : raw) {
+                StatementLine l = new StatementLine(date(m.get("date")), m.get("docNo") == null ? null : String.valueOf(m.get("docNo")),
+                        m.get("type") == null ? null : String.valueOf(m.get("type")),
+                        m.get("debit") == null ? null : dec(m.get("debit")), m.get("credit") == null ? null : dec(m.get("credit")),
+                        m.get("balance") == null ? null : dec(m.get("balance")));
+                out.add(l);
+            }
+            return out;
+        }
         List<StatementLine> lines = new ArrayList<>();
         for (Purchase p : purchaseRepo.findByVenderOrdered(venderId)) {
             // B2B-P3f: the bill AS ISSUED, GROSS. Note the fallback is totalAmount + taxAmount, not totalAmount
@@ -242,6 +299,39 @@ public class FinanceReportService {
                     dn.getDebitNoteNo() != null ? dn.getDebitNoteNo() : dn.getPurchaseInvoiceNo(),
                     "DEBIT_NOTE", null, nz(dn.getAmount()), null));
         }
+    }
+
+    // ── FP-4b helpers ────────────────────────────────────────────────────────────────────────────
+
+    private boolean fromFinance(AuthenticatedUser u) {
+        return payablesSource != null && u != null && payablesSource.readsFromFinance(u.getOrganizationId());
+    }
+
+    /**
+     * A tenant switched to finance gets finance's answer or an ERROR — never a silent fall back to business. Falling
+     * back would show a different figure (no expense bills, no advances) with nothing to say so (STANDARDS §0b).
+     */
+    private <T> T financeOrRefuse(java.util.function.Supplier<T> call) {
+        if (financeClient == null) throw new IllegalStateException("Supplier figures are not available right now. Try again in a moment.");
+        try {
+            return call.get();
+        } catch (Exception e) {
+            throw new IllegalStateException("Supplier figures are not available right now. Try again in a moment.", e);
+        }
+    }
+
+    private static BigDecimal dec(Object o) {
+        if (o == null) return BigDecimal.ZERO;
+        if (o instanceof BigDecimal b) return b;
+        return new BigDecimal(String.valueOf(o));
+    }
+
+    /** finance sends dates as "yyyy-MM-dd" or [y, m, d] depending on its mapper; accept both. */
+    private static LocalDate date(Object o) {
+        if (o == null) return null;
+        if (o instanceof List<?> l && l.size() >= 3)
+            return LocalDate.of(((Number) l.get(0)).intValue(), ((Number) l.get(1)).intValue(), ((Number) l.get(2)).intValue());
+        return LocalDate.parse(String.valueOf(o).substring(0, 10));
     }
 
     /** Append the party's ledger payments as PAYMENT (credit) lines — best-effort (a ledger hiccup just omits them). */

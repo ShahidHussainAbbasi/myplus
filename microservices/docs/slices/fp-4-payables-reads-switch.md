@@ -1,6 +1,6 @@
 # FP-4 — supplier reads served from finance (per tenant, reversible)
 
-**Status:** FP-4a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 17/17 headed; finance 65, expense 26, business 399 + 1 foreign error in DR-4's PartyRoleServiceTest). Live: finance V11, business V73, expense V5; generation-2 backfill reached every tenant — 813 purchase docs all with issued amount, 43/43 debit notes, 10 bills re-sent. NEXT FP-4b. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
+**Status:** FP-4b GREEN 2026-10-03, STAGED (gate 4/4 + regressions 38/38 headed; finance 66; business 405 with 1 foreign error in DR-4 PartyRoleServiceTest; business V74 live; org 13 left on BUSINESS). NEXT FP-4c. FP-4a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 17/17 headed; finance 65, expense 26, business 399 + 1 foreign error in DR-4's PartyRoleServiceTest). Live: finance V11, business V73, expense V5; generation-2 backfill reached every tenant — 813 purchase docs all with issued amount, 43/43 debit notes, 10 bills re-sent. NEXT FP-4b. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
 Follows FP-3 (`d46ec827`).
 
 ## 1. Document
@@ -73,8 +73,48 @@ full finance statement and not on business's.
 on the classpath (finance has no commerce-contracts; unconditional, it would not start). business and education have
 the class — unchanged for them.
 
+## 4. FP-4b design — the switch, and the reports that follow it
+
+**Reconciliation measured before design (dev, 2026-10-03):**
+
+| org | business Σ due | finance purchase net | finance all open | GL 2000 | business−finance | finance−GL |
+|---|---|---|---|---|---|---|
+| 6 demo.business | 11,130 | 11,030 | 1,410 | 12,275.50 | **100** | −10,865.50 |
+| 13 owner.business | 9,700 | 9,700 | 11,020 | 11,020 | 0 | 0 |
+| 20 marketplace | 270,000 | 270,000 | 270,000 | 288,000 | 0 | −18,000 |
+| 41 Shahzad Mobile | 0 | 0 | −25,200 | 288,000 | 0 | −313,200 |
+| 44, 46, 15 | = | = | = | = | 0 | 0 |
+
+⚠ **Finding FP-4b-GL (own defect, not this slice):** orgs 20 and 41 both carry ONE 288,000 PURCHASE journal of
+2026-08-23 — org 41's only AP journal. Likely a purchase posted under two tenants. To investigate separately.
+
+**Ruling 5 (2026-10-03):** the switch is REFUSED unless business − finance = 0 (the screens will show the same
+figures); the GL 2000 difference is SHOWN to the operator as a warning, not a block.
+
+- **Where the switch lives:** business V74 `payables_source` (organization_id PK, source BUSINESS|FINANCE, reason,
+  switched_by, switched_at, and the evidence at the moment: business_due, finance_purchase_net, gl_difference). Not a
+  Configuration setting — that screen is the owner's, and this is not the owner's to flip. No row = BUSINESS.
+- **Who:** `CurrentUser.isPlatformOperator()` (ROLE_ADMIN — the console rule for entitlements/plans), else 403.
+  Reason required. Every flip audited (`PAYABLES_SOURCE_SWITCHED`). Back to BUSINESS is always allowed (rollback).
+- **API (business):** `GET /payables-source?organizationId=` → source + the reconciliation (business due, finance
+  purchase net, difference, finance all-open, GL 2000, GL difference, canSwitch); `POST /payables-source`
+  {organizationId, source, reason}. Finance figures read as that tenant (`runAs(operator, org)`). Console: a
+  "Supplier balances" card on the tenant panel (monolith `platform/payables-source` proxy).
+- **finance:** `GET /api/finance/payables/aging` — open documents bucketed by `due_date ?: doc_date` with the same
+  `AgingCalculator`, plus `advances` (suppliers whose net across all live documents is below zero).
+- **business reads when FINANCE:** `vendorAging` → finance aging, names re-read from business (business owns names);
+  advances returned beside the rows and shown under the aging table. `vendorStatement` (and its CSV) → finance's FULL
+  statement (bills included), after the same anti-IDOR vendor check. Finance unreachable → an error, **never a silent
+  fallback** to business (it would show a different number with no warning — §0b).
+
+**Gate `cypress/e2e/finance/fp-4b-payables-switch.cy.js`:** (1) owner cannot read or flip the switch; (2) operator sees
+org 13 difference 0 and the GL figure; org 6 (difference 100) refused; reason required; (3) org 13 → FINANCE: aging
+equals the BUSINESS aging per supplier plus bills, the statement shows a bill and its payment, CSV too; (4) back to
+BUSINESS: the bill is gone from the statement. after(): org 13 left on BUSINESS.
+
 ## 5. Rulings (2026-10-03)
 1. Advances: **shown as their own figure** ("Advance 9,620"), never netted into other suppliers.
 2. Expense bills **count** in the supplier balance and credit limit (total exposure).
 3. Order **4a → 4b → 4c**, each gated.
 4. The per-tenant switch is **operator-only**, refused unless that tenant's reconciliation difference is 0.
+5. That difference is **business − finance** (blocks); **finance − GL 2000** is shown as a warning (FP-4b-GL tracked separately).

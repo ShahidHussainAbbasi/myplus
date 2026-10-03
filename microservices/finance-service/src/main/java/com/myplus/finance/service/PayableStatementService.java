@@ -61,6 +61,52 @@ public class PayableStatementService {
         return build(mine, byDoc, paid, purchasesOnly);
     }
 
+    /**
+     * FP-4b — supplier aging from the subledger: every OPEN document, bucketed by when it is due ({@code due_date},
+     * else its date — a purchase has no terms, so it ages from the bill exactly as business does), with the same
+     * {@code AgingCalculator}. Beside it, the suppliers paid AHEAD: net across all live documents below zero (ruling 1 —
+     * an advance is its own figure, never netted into the aging).
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> aging() {
+        Long org = CurrentUser.organizationId();
+        if (org == null) throw new IllegalStateException("No tenant identity on the request");
+        return aging(docs.findOpen(org), docs.netBySupplier(org), java.time.LocalDate.now());
+    }
+
+    static Map<String, Object> aging(List<PayableDoc> open, List<Object[]> nets, java.time.LocalDate asOf) {
+        Map<Long, List<com.myplus.common.subledger.AgingCalculator.AgingRow>> byParty = new java.util.LinkedHashMap<>();
+        Map<Long, String> names = new HashMap<>();
+        for (PayableDoc d : open) {
+            java.time.LocalDate from = d.getDueDate() != null ? d.getDueDate() : d.getDocDate();
+            byParty.computeIfAbsent(d.getPartyId(), k -> new ArrayList<>())
+                    .add(new com.myplus.common.subledger.AgingCalculator.AgingRow(d.open(), from));
+            names.putIfAbsent(d.getPartyId(), d.getPartyName());
+        }
+        List<com.myplus.common.subledger.PartyAgingDTO> rows = new ArrayList<>();
+        for (Map.Entry<Long, List<com.myplus.common.subledger.AgingCalculator.AgingRow>> e : byParty.entrySet()) {
+            BigDecimal[] b = com.myplus.common.subledger.AgingCalculator.bucketize(e.getValue(), asOf);
+            BigDecimal total = com.myplus.common.subledger.AgingCalculator.total(b);
+            if (total.signum() <= 0) continue;
+            rows.add(new com.myplus.common.subledger.PartyAgingDTO(e.getKey(), names.get(e.getKey()), b[0], b[1], b[2], b[3], total));
+        }
+        rows.sort((x, y) -> y.getTotal().compareTo(x.getTotal()));   // biggest owed first, as business sorts
+        List<Map<String, Object>> advances = new ArrayList<>();
+        for (Object[] r : nets) {
+            BigDecimal net = r[2] == null ? BigDecimal.ZERO : (BigDecimal) r[2];
+            if (net.signum() >= 0) continue;
+            Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("partyId", r[0]);
+            m.put("partyName", r[1]);
+            m.put("advance", net.negate());
+            advances.add(m);
+        }
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("rows", rows);
+        out.put("advances", advances);
+        return out;
+    }
+
     /** Pure — the whole statement from its three inputs (unit-tested). */
     static List<StatementLine> build(List<PayableDoc> mine, Map<Long, List<PayableNoteRow>> byDoc, List<Payment> paid,
                                      boolean purchasesOnly) {

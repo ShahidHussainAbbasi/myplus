@@ -945,6 +945,7 @@
 			 * make it. The evidence the write landed IS the record it created — no toast that disappears
 			 * before it is read.
 			 */
+			+ '<div id="platPayables" data-cy="plat-payables"></div>'
 			+ '<div id="platActivity"></div>';
 		$('#platDetailBody').html(html);
 		$('#platDetailBody').data('org', orgId);
@@ -953,9 +954,72 @@
 		// E4 — same rule, same reason: renderActivity writes into #platActivity.
 		activityState = { filter: '', expanded: false };
 		renderActivity(orgId);
+		// FP-4b — where this tenant's supplier figures are read from; writes into #platPayables.
+		renderPayables(orgId);
 		// E5 — and the support bar, which needs the tenant's NAME: an operator reading "49" has to look it
 		// up to know whose data they are in, which defeats the point of the bar.
 		loadSupport(orgId, d.organizationName);
+	}
+
+	/**
+	 * FP-4b — "Supplier balances": where this tenant's supplier aging and statements are read from, and the two
+	 * reconciliations behind the switch. business − finance must be 0 for the switch to finance (the server refuses
+	 * otherwise — this card only explains); finance − GL 2000 is a WARNING, never a block (ruling 5).
+	 */
+	function renderPayables(orgId) {
+		var $box = $('#platPayables');
+		if (!$box.length) return;
+		$box.html('<div class="text-muted" style="margin:10px 0">' + esc(t('ui.js.loading', 'Loading…')) + '</div>');
+		$.get(serverContext + 'platform/payablesSource', { organizationId: orgId }).done(function (res) {
+			var d = res && (res.object || res.data);
+			if (!d || (res.status && res.status !== 'SUCCESS')) {
+				$box.html('<div class="text-danger">' + esc(apiMessage(res, t('ui.js.loadFailed', 'Could not load'))) + '</div>');
+				return;
+			}
+			var money = function (v) { return Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+			var diff = Number(d.difference || 0), gl = Number(d.glDifference || 0);
+			var onFinance = d.source === 'FINANCE';
+			var h = '<h4 style="margin-top:18px">' + esc(t('ui.js.payablesSource', 'Supplier balances')) + ' — <span data-cy="plat-payables-source">'
+				+ esc(onFinance ? 'FINANCE' : 'BUSINESS') + '</span></h4>'
+				+ '<p class="help-block">' + esc(t('ui.js.payablesSourceHelp', 'Where this business’s supplier aging and statements are read from.')) + '</p>'
+				+ '<table class="table table-condensed" style="max-width:560px"><tbody>'
+				+ '<tr><td>' + esc(t('ui.js.payablesBusinessDue', 'Business says owed')) + '</td><td class="text-right">' + money(d.businessDue) + '</td></tr>'
+				+ '<tr><td>' + esc(t('ui.js.payablesFinanceNet', 'Finance says owed (purchases)')) + '</td><td class="text-right">' + money(d.financePurchaseNet) + '</td></tr>'
+				+ '<tr' + (diff !== 0 ? ' class="danger"' : '') + '><td><strong>' + esc(t('ui.js.payablesDifference', 'Difference')) + '</strong></td>'
+				+ '<td class="text-right" data-cy="plat-payables-diff"><strong>' + money(diff) + '</strong></td></tr>'
+				+ '<tr' + (gl !== 0 ? ' class="warning"' : '') + '><td>' + esc(t('ui.js.payablesGlDifference', 'Finance vs GL 2000')) + '</td>'
+				+ '<td class="text-right" data-cy="plat-payables-gl">' + money(gl) + '</td></tr>'
+				+ '</tbody></table>';
+			if (gl !== 0) h += '<div class="alert alert-warning" style="max-width:560px" data-cy="plat-payables-gl-warn">'
+				+ esc(t('ui.js.payablesGlWarn', 'The ledger’s Accounts Payable does not match finance’s supplier documents. This does not block the switch.')) + '</div>';
+			if (d.reason) h += '<p class="text-muted" style="max-width:560px">' + esc(d.reason) + '</p>';
+			h += onFinance
+				? '<button type="button" class="btn btn-default" data-cy="plat-payables-business">' + esc(t('ui.js.payablesToBusiness', 'Back to business')) + '</button>'
+				: '<button type="button" class="btn btn-primary" data-cy="plat-payables-finance"' + (diff !== 0 ? ' disabled' : '') + '>'
+					+ esc(t('ui.js.payablesToFinance', 'Read from finance')) + '</button>';
+			$box.html(h);
+			$box.find('[data-cy="plat-payables-finance"]').on('click', function () { switchPayables(orgId, 'FINANCE'); });
+			$box.find('[data-cy="plat-payables-business"]').on('click', function () { switchPayables(orgId, 'BUSINESS'); });
+		}).fail(function (xhr) {
+			$box.html('<div class="text-danger">' + esc(apiFailMessage(xhr, t('ui.js.loadFailed', 'Could not load'))) + '</div>');
+		});
+	}
+
+	function switchPayables(orgId, source) {
+		return global.uiPromptConfirm({
+			title: source === 'FINANCE' ? t('ui.js.payablesToFinance', 'Read from finance') : t('ui.js.payablesToBusiness', 'Back to business'),
+			input: { label: t('ui.js.reason', 'Reason'), required: true },
+			confirmText: t('ui.js.dlgConfirm', 'Confirm')
+		}).then(function (reason) {
+			if (reason === null) return;
+			$.post(serverContext + 'platform/payablesSource', { organizationId: orgId, source: source, reason: reason })
+				.done(function (res) {
+					if (!res || res.status !== 'SUCCESS') { global.uiAlert(apiMessage(res, t('ui.js.saveFailed', 'Save failed'))); return; }
+					renderPayables(orgId);
+					if ($('#platActivity').length) renderActivity(orgId);
+				})
+				.fail(function (xhr) { global.uiAlert(apiFailMessage(xhr, t('ui.js.saveFailed', 'Save failed'))); });
+		});
 	}
 
 	/**

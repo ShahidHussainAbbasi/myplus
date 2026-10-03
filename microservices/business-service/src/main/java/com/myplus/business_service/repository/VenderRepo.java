@@ -24,6 +24,10 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
         + "or (v.organizationId is null and v.userId = :userId)")
    List<Vender> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+   /** FP-4b — the sum of stamped supplier balances of one tenant: business's side of the payables reconciliation. */
+   @Query("select coalesce(sum(v.dueAmount), 0) from Vender v where v.organizationId = :orgId")
+   java.math.BigDecimal sumDueByOrg(@Param("orgId") Long orgId);
+
    /** DR-2 — which of these partners hold a supplier record here. ONE query for a whole customer grid. */
    @Query("select distinct v.partyId from Vender v where v.partyId in :partyIds "
         + "and (v.organizationId = :orgId or (v.organizationId is null and v.userId = :userId))")
