@@ -40,18 +40,37 @@ class OptInCapabilityTest {
     }
 
     @Test
-    @DisplayName("Expense management is declared opt-in, and it is the only one")
+    @DisplayName("Expense management and marketplace selling are declared opt-in, and they are the only ones")
     void expense_management_is_opt_in() {
         assertThat(Capability.EXPENSE_MANAGEMENT.optIn()).isTrue();
         assertThat(Capability.EXPENSE_MANAGEMENT.defaultOn()).isFalse();
         assertThat(Capability.EXPENSE_MANAGEMENT.code()).isEqualTo("expenseManagement");
+        // MP-0a — the second opt-in module.
+        assertThat(Capability.MARKETPLACE_SELLING.optIn()).isTrue();
+        assertThat(Capability.MARKETPLACE_SELLING.defaultOn()).isFalse();
+        assertThat(Capability.MARKETPLACE_SELLING.code()).isEqualTo("marketplaceSelling");
         // Every capability that existed before EX-0a keeps defaulting ON — a flipped flag on one of them would
         // take a screen away from every tenant on the deploy.
+        java.util.Set<Capability> optInModules =
+                java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING);
         for (Capability c : Capability.values()) {
-            if (c != Capability.EXPENSE_MANAGEMENT) {
+            if (!optInModules.contains(c)) {
                 assertThat(c.optIn()).as("%s was ON before EX-0a and must stay so", c.code()).isFalse();
             }
         }
+    }
+
+    @Test
+    @DisplayName("MP-0a — marketplace selling is OFF for every shape and is NOT in the FREE plan (ruling R-3)")
+    void marketplace_selling_off_everywhere_and_paid() {
+        for (Shape s : Shape.values()) {
+            FakeStore store = new FakeStore();
+            store.upsert(7L, 1L, Shape.settingKey(), s.code());
+            assertThat(svc(store).isEnabledFor(7L, Capability.MARKETPLACE_SELLING)).as(s.code()).isFalse();
+        }
+        assertThat(Plan.FREE.includes(Capability.MARKETPLACE_SELLING)).isFalse();
+        assertThat(Plan.PRO.includes(Capability.MARKETPLACE_SELLING)).isTrue();
+        assertThat(Capability.isOptInKey("org.cap.marketplaceSelling")).isTrue();
     }
 
     @Test
