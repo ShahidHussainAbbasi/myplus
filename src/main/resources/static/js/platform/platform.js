@@ -993,8 +993,13 @@
 			if (gl !== 0) h += '<div class="alert alert-warning" style="max-width:560px" data-cy="plat-payables-gl-warn">'
 				+ esc(t('ui.js.payablesGlWarn', 'The ledger’s Accounts Payable does not match finance’s supplier documents. This does not block the switch.')) + '</div>';
 			if (d.reason) h += '<p class="text-muted" style="max-width:560px">' + esc(d.reason) + '</p>';
+			// FP-5b — a payment that settled purchases AND bills pins the tenant to finance (ruling 4; the server refuses too)
+			var mixed = Number(d.mixedPayments || 0);
+			if (onFinance && mixed > 0) h += '<div class="info" style="max-width:560px;margin-bottom:8px" data-cy="plat-payables-mixed">'
+				+ esc(t('ui.js.payablesMixed', 'Supplier payments here have settled purchases and expense bills together; business screens cannot show them, so the figures stay in finance.'))
+				+ ' (' + mixed + ')</div>';
 			h += onFinance
-				? '<button type="button" class="btn btn-default" data-cy="plat-payables-business">' + esc(t('ui.js.payablesToBusiness', 'Back to business')) + '</button>'
+				? '<button type="button" class="btn btn-default" data-cy="plat-payables-business"' + (mixed > 0 ? ' disabled' : '') + '>' + esc(t('ui.js.payablesToBusiness', 'Back to business')) + '</button>'
 				: '<button type="button" class="btn btn-primary" data-cy="plat-payables-finance"' + (diff !== 0 ? ' disabled' : '') + '>'
 					+ esc(t('ui.js.payablesToFinance', 'Read from finance')) + '</button>';
 			$box.html(h);

@@ -116,4 +116,17 @@ class PayablesSourceServiceTest {
         assertThat(PayablesSourceService.owedTo(v, true)).isEqualByComparingTo("300");
         assertThat(PayablesSourceService.owedTo(null, true)).isEqualByComparingTo("0");
     }
+
+    @Test @DisplayName("FP-5b ruling 4: after a payment settled purchases AND bills, switching back to BUSINESS is refused")
+    void mixedPaymentPinsFinance() {
+        as("ROLE_ADMIN");
+        figures("9700", "9700", "0");
+        BillApplicationOutboxService bills = mock(BillApplicationOutboxService.class);
+        when(bills.mixedPayments(13L)).thenReturn(2L);
+        org.springframework.test.util.ReflectionTestUtils.setField(svc, "billApplications", bills);
+        assertThatThrownBy(() -> svc.switchTo(13L, "BUSINESS", "rollback")).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("2 supplier payment share");
+        verify(repo, never()).save(any());
+        assertThat(svc.switchTo(13L, "FINANCE", "stays").get("source")).as("FINANCE still allowed").isEqualTo("FINANCE");
+    }
 }

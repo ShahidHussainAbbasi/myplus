@@ -25,6 +25,21 @@ import lombok.RequiredArgsConstructor;
 public class InternalExpenseController {
 
     private final ExpenseVoucherService vouchers;
+    private final com.myplus.expense.service.ExpenseBillService bills;
+
+    /** FP-5b — the supplier's bills Pay Supplier may settle (business-service, with the caller's identity). */
+    @org.springframework.web.bind.annotation.GetMapping("/internal/expense/bills/open")
+    public java.util.List<com.myplus.commerce.contracts.dto.OpenBillView> openBills(
+            @org.springframework.web.bind.annotation.RequestParam("supplierId") Long supplierId) {
+        return bills.openBills(supplierId);
+    }
+
+    /** FP-5b — apply part of a Pay Supplier payment to one bill (business-service's outbox; idempotent). */
+    @PostMapping("/internal/expense/bills/{id}/apply")
+    public java.util.Map<String, Object> apply(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+            @RequestBody com.myplus.commerce.contracts.dto.BillApplyRequest request) {
+        return bills.applyExternal(id, request);
+    }
 
     @PostMapping("/internal/expense/drawer-vouchers")
     public ExpenseVoucherRef drawerVoucher(@RequestBody DrawerExpenseRequest request) {

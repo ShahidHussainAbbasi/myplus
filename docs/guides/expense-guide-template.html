@@ -1,0 +1,1031 @@
+<title>Expense Management Test Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: MaxTheService brand header band, sticky contents rail + one reading column of slice cards and test cases. */
+:root{
+  --brand:#1565C0; --brand-dark:#0D3B8C; --brand-soft:#E3F2FD;
+  --bg:#F4F7FB; --surface:#FFFFFF; --bg2:#EDF1F7;
+  --txt:#0D1B2A; --txt2:#3D5166; --txt3:#5b6b7c;
+  --border:#D9E4EF; --border2:#B8CCE0;
+  --ok:#2E7D32; --ok-soft:#E8F5E9; --warn:#9a4a07; --warn-soft:#FFF4E5; --bad:#b3261e; --bad-soft:#FDECEA;
+  --head-a:#0D3B8C; --head-b:#1565C0; --on-head:#FFFFFF; --shadow:0 10px 30px rgba(9,30,66,.10);
+  --f-body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --brand:#64B5F6; --brand-dark:#90CAF9; --brand-soft:#16283F; --bg:#0B1320; --surface:#111C2D; --bg2:#172437;
+  --txt:#E6EEF7; --txt2:#B6C6D8; --txt3:#9aadc1; --border:#22334A; --border2:#2F4560;
+  --ok:#81C784; --ok-soft:#15291B; --warn:#FFB74D; --warn-soft:#2E2213; --bad:#ef9a9a; --bad-soft:#3a1715;
+  --head-a:#0B2E6E; --head-b:#12509B; --on-head:#FFFFFF; --shadow:0 10px 30px rgba(0,0,0,.35); color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --brand:#64B5F6; --brand-dark:#90CAF9; --brand-soft:#16283F; --bg:#0B1320; --surface:#111C2D; --bg2:#172437;
+  --txt:#E6EEF7; --txt2:#B6C6D8; --txt3:#9aadc1; --border:#22334A; --border2:#2F4560;
+  --ok:#81C784; --ok-soft:#15291B; --warn:#FFB74D; --warn-soft:#2E2213; --bad:#ef9a9a; --bad-soft:#3a1715;
+  --head-a:#0B2E6E; --head-b:#12509B; --on-head:#FFFFFF; --shadow:0 10px 30px rgba(0,0,0,.35); color-scheme:dark;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.6 var(--f-body)}
+code,.mono{font-family:var(--f-mono);font-size:12.5px;color:var(--txt2);overflow-wrap:anywhere}
+a{color:var(--brand)}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:20px;padding-block:0 64px}
+.top{background:linear-gradient(135deg,var(--head-a),var(--head-b));color:var(--on-head)}
+.top .wrap{padding-block:28px 26px}
+.brandline{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:-.01em}
+.brandline .mark{width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.16);display:grid;place-items:center;font-size:13px}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85;margin-top:14px}
+h1{margin:.15em 0 .25em;font-size:clamp(26px,4vw,36px);font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.top p{margin:0;max-width:72ch;opacity:.95}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13px;opacity:.95}
+.meta span{background:rgba(255,255,255,.12);border-radius:999px;padding:3px 10px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:28px;margin-top:26px}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);align-self:start;font-size:13.5px;max-height:calc(100vh - 32px);overflow:auto}
+nav.toc h2{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3);margin:0 0 8px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+nav.toc a{display:block;padding:6px 10px;border-radius:6px;color:var(--txt2);text-decoration:none}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--brand-soft);color:var(--brand-dark);outline:none}
+.progress{margin-top:14px;padding:10px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:12.5px;color:var(--txt2)}
+.bar{height:6px;border-radius:3px;background:var(--bg2);margin-top:6px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--ok);transition:width .2s}
+main{display:grid;gap:28px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px 24px;box-shadow:var(--shadow);min-width:0}
+.card h2,section.sec>h2{margin:0 0 8px;font-size:20px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.card h3{margin:16px 0 6px;font-size:15px}
+.muted{color:var(--txt3);font-size:13.5px}
+p{max-width:75ch}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:12px}
+.fact{background:var(--bg2);border-radius:8px;padding:12px 14px;min-width:0;overflow-wrap:anywhere}
+.fact b{display:block;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);font-weight:700}
+section.sec{display:grid;gap:16px}
+section.sec>h2{padding-top:8px;border-top:2px solid var(--border)}
+section.sec>p{margin:0}
+.pill{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill-ok{background:var(--ok-soft);color:var(--ok)}.pill-warn{background:var(--warn-soft);color:var(--warn)}
+.pill-bad{background:var(--bad-soft);color:var(--bad)}.pill-info{background:var(--brand-soft);color:var(--brand-dark)}
+.pill-todo{background:var(--bg2);color:var(--txt3)}
+.table-wrap{overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 10px;border-bottom:1px solid var(--border)}
+thead th{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--txt3);white-space:nowrap}
+td code{white-space:nowrap}
+.case{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.case-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.case-head h3{margin:0;font-size:16px;font-weight:700;flex:1 1 260px}
+.cid{font:600 12px/1 var(--f-mono);background:var(--brand);color:var(--on-head);border-radius:6px;padding:5px 7px}
+.case-body{padding:16px 18px;display:grid;gap:14px}
+.who{display:flex;flex-wrap:wrap;gap:6px}
+.who code{background:var(--brand-soft);color:var(--brand-dark);border-radius:6px;padding:2px 7px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.cols h4{margin:0 0 6px;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--txt3)}
+.cols ol,.cols ul{margin:0;padding-left:20px;display:grid;gap:4px}
+ul.expect{list-style:none;padding-left:0}
+ul.expect label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+ul.expect input{margin-top:5px;accent-color:var(--ok);width:16px;height:16px;flex:none}
+ul.expect input:checked+span{color:var(--txt3);text-decoration:line-through}
+.why{font-size:13px;color:var(--txt2);background:var(--bg2);border-radius:8px;padding:9px 12px}
+.why b{color:var(--txt)}
+.note{border-radius:10px;padding:12px 14px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
+.note b{color:inherit}
+.info{border-radius:10px;padding:12px 14px;background:var(--brand-soft);color:var(--brand-dark);font-size:13.5px}
+pre.cmd{margin:8px 0;padding:10px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-all}
+pre.cmd code{font-size:12px;color:var(--txt)}
+.copy{font:600 12px var(--f-body);border:1px solid var(--border2);background:var(--surface);color:var(--brand-dark);border-radius:6px;padding:4px 10px;cursor:pointer}
+.copy:focus-visible,ul.expect input:focus-visible,nav.toc a:focus-visible,.reset:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.reset{font:600 12px var(--f-body);border:0;background:none;color:var(--txt3);text-decoration:underline;cursor:pointer;padding:0;margin-top:6px}
+.diagram{overflow-x:auto;background:var(--surface)}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+@media (max-width:900px){.layout{grid-template-columns:1fr}nav.toc{position:static;max-height:none}.cols{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brandline"><span class="mark">M+</span>MaxTheService</div>
+    <div class="eyebrow">Test Book · Expense Management and Supplier Payables</div>
+    <h1>Expense Management Test Guide</h1>
+    <p>Step-by-step manual tests for every slice of Expense Management and of the supplier payables that now live in finance, for every business type and every login tier. Each case says who to log in as, what to do, what you should see, and which real mistake it catches. Tick the results as you go; your ticks stay in this browser only.</p>
+    <div class="meta">
+      <span>Branch <b>feature/expense-management</b></span>
+      <span>Updated 3 Oct 2026, 16:10</span>
+      <span>Password for every test login: <b class="mono" style="color:inherit">Demo@2025!</b></span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#status">Where things stand</a></li>
+      <li><a href="#start">Before you start</a></li>
+      <li><a href="#logins">Who to log in as</a></li>
+      <li><a href="#ex0a">EX-0a · The on/off switch</a></li>
+      <li><a href="#ex0b">EX-0b · Expense accounts</a></li>
+      <li><a href="#ex0c">EX-0c · Document numbers</a></li>
+      <li><a href="#ex1">EX-1 · Record an expense</a></li>
+      <li><a href="#ex2a">EX-2a · Every dashboard</a></li>
+      <li><a href="#ex2b">EX-2b · What it was for</a></li>
+      <li><a href="#ex3">EX-3 · Till pay-outs</a></li>
+      <li><a href="#ex4">EX-4 · Expense bills</a></li>
+      <li><a href="#fp12">FP-1/2 · Payables in finance</a></li>
+      <li><a href="#fp4a">FP-4a · Supplier statement</a></li>
+      <li><a href="#fp4b">FP-4b · The operator's switch</a></li>
+      <li><a href="#fp4c">FP-4c · Balances and credit limit</a></li>
+      <li><a href="#fp5a">FP-5a · Payments land once</a></li>
+      <li><a href="#findings">Defects found</a></li>
+      <li><a href="#auto">Automated gates</a></li>
+      <li><a href="#next">Coming next</a></li>
+      <li><a href="#rulings">Decisions</a></li>
+    </ol>
+    <div class="progress" aria-live="polite">
+      <span id="progText">0 of 0 checks ticked</span>
+      <div class="bar"><i id="progBar"></i></div>
+      <button class="reset" id="resetTicks" type="button">Clear my ticks</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ───────────────────────── status ───────────────────────── -->
+    <section class="card" id="status">
+      <h2>Where things stand</h2>
+      <p class="muted">Expense Management is built as a set of thin slices. Each slice ships the screen, the service and the database change together, and is not done until its tests pass.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Slice</th><th>What it gives the business</th><th>Built</th><th>Unit tests</th><th>Live gate</th></tr></thead>
+          <tbody>
+            <tr><td><b>EX-0a</b></td><td>An <b>Expense management</b> switch, off until the owner turns it on, and kept when the business type changes</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 72</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">10/10 + 21 regression</span></td></tr>
+            <tr><td><b>EX-0b</b></td><td>The books accept an expense: rent, utilities, fuel and other accounts; goods for stock are refused; a void reverses exactly</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">49</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">in the EX-1 gate</span></td></tr>
+            <tr><td><b>EX-0c</b></td><td>One shared document-number counter (invoice, quote, receipt and, next, expense numbers) instead of a copy per service</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6 + 368 + 49</span></td><td><span class="pill pill-ok">Live</span> <span class="num">all services</span></td></tr>
+            <tr><td><b>EX-1</b></td><td>Record an expense paid in cash or by bank on the business dashboard, and see it in profit and loss</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">10</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">7/7 + 4/4</span></td></tr>
+            <tr><td><b>EX-2a</b></td><td>The Expense management switch and the Expenses screen on the school, welfare and farm dashboards</td><td><span class="pill pill-ok">Yes</span></td><td>—</td><td><span class="pill pill-ok">Pass</span> <span class="num">13/13 + 51 regression</span></td></tr>
+            <tr><td><b>EX-2b</b></td><td>Tag an expense to a school, vehicle or land, confirmed by the server</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">16 + 225</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 24 regression</span></td></tr>
+            <tr><td><b>EX-3</b></td><td>Cash paid out of the till during a shift lands in the books</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">379 + 18</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 17 regression</span></td></tr>
+            <tr><td><b>FP-1/2</b></td><td>Finance keeps its own copy of every supplier bill, filled automatically for every business, and kept in step with each purchase, payment, return and void</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">387 + 53</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 9 regression</span></td></tr>
+            <tr><td><b>EX-4 = FP-3</b></td><td>Expense bills: owed to a supplier, paid later, in the same supplier ledger as purchases</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">26 + 53 + 396</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">9/9 + 16 regression</span></td></tr>
+            <tr><td><b>FP-4a</b></td><td>Finance can print a supplier's statement exactly as business does: bill as issued, debit notes, payments</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">65 + 26 + 399</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 17 regression</span></td></tr>
+            <tr><td><b>FP-4b</b></td><td>The platform operator switches a business's supplier screens to finance (and back); bills and advances appear in aging and statements</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">66 + 405</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 38 regression</span></td></tr>
+            <tr><td><b>FP-4c</b></td><td>Supplier list, purchase screen and credit limit count expense bills; advances shown; Pay still settles purchases</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">68 + 408</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 37 regression</span></td></tr>
+            <tr><td><b>FP-5a</b></td><td>Every payment reaches the books exactly once, even when finance is briefly down (supplier payments, customer receipts, school fees)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 418 + 236</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 31 regression</span></td></tr>
+            <tr><td>FP-5b</td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td>EX-5</td><td>Receipt photos and PDFs attached to an expense</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td>EX-6 / 7</td><td>Staff expense claims, approval, reimbursement and advances</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td>EX-8</td><td>Expense reports, analytics and duplicate warnings</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td>EX-9</td><td>Farm expenses move onto the shared module</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── before you start ───────────────────────── -->
+    <section class="card" id="start">
+      <h2>Before you start</h2>
+      <div class="facts">
+        <div class="fact"><b>Open the app</b><code>http://localhost:8080</code></div>
+        <div class="fact"><b>Password</b>Every test login uses <code>Demo@2025!</code></div>
+        <div class="fact"><b>Everything up to FP-5a is live</b>3 Oct, 15:27: auth, expense (V5), finance (V13), business (V76), education (V31), the gateway and the monolith run this branch</div>
+        <div class="fact"><b>Platform operator</b><code>admin@myplus.com</code> with password <code>Admin@2025!</code> (dev default)</div>
+        <div class="fact"><b>Supplier figures switch</b>Every business reads supplier figures from <b>business</b> until the operator switches it (FP-4b). Switch back when you are done.</div>
+      </div>
+      <div class="note" style="margin-top:14px"><b>Check the build first.</b> If the Configuration screen has no <b>Expense management</b> switch, the running services are older than this branch. That is a deploy problem, not a test failure. Record it as "not deployed" and stop.</div>
+      <h3>Leave things as you found them</h3>
+      <p class="muted" style="margin:0">Several cases switch settings for a shared test business. Each case ends with a clean-up step. Do it, or the next tester starts from the wrong state.</p>
+    </section>
+
+    <!-- ───────────────────────── logins ───────────────────────── -->
+    <section class="card" id="logins">
+      <h2>Who to log in as</h2>
+      <p class="muted">Every module has four tiers in one business: <b>owner</b> (everything), <b>admin</b> (adds delete and settings), <b>user</b> (day-to-day entry, no settings) and <b>demo</b> (a separate business, capped at 50 entries). The mobile shop and pesticide dealer are retail and pharmacy-type businesses with an owner login only.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Business type</th><th>Dashboard</th><th>Owner</th><th>Admin</th><th>User</th><th>Demo</th></tr></thead>
+          <tbody>
+            <tr><td>General shop / POS</td><td>Business</td><td><code>owner.business@myplus.com</code></td><td><code>admin.business@myplus.com</code></td><td><code>user.business@myplus.com</code></td><td><code>demo.business@myplus.com</code></td></tr>
+            <tr><td>Mobile shop (retail)</td><td>Business</td><td><code>owner.mobile@myplus.com</code></td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Pesticide / agri-chem dealer (pharmacy type)</td><td>Business</td><td><code>owner.pesticide@myplus.com</code></td><td>—</td><td>—</td><td>—</td></tr>
+            <tr><td>Pharmacy</td><td>Business (pharmacy)</td><td><code>owner.pharma@myplus.com</code></td><td><code>admin.pharma@myplus.com</code></td><td><code>user.pharma@myplus.com</code></td><td><code>demo.pharma@myplus.com</code></td></tr>
+            <tr><td>Online store</td><td>Business (storefront)</td><td><code>owner.marketplace@myplus.com</code></td><td><code>admin.marketplace@myplus.com</code></td><td><code>user.marketplace@myplus.com</code></td><td><code>demo.marketplace@myplus.com</code></td></tr>
+            <tr><td>Inventory</td><td>Business</td><td><code>owner.inventory@myplus.com</code></td><td><code>admin.inventory@myplus.com</code></td><td><code>user.inventory@myplus.com</code></td><td><code>demo.inventory@myplus.com</code></td></tr>
+            <tr><td>School</td><td>Education</td><td><code>owner.education@myplus.com</code></td><td><code>admin.education@myplus.com</code></td><td><code>user.education@myplus.com</code></td><td><code>demo.education@myplus.com</code></td></tr>
+            <tr><td>Welfare / NGO</td><td>Welfare</td><td><code>owner.welfare@myplus.com</code></td><td><code>admin.welfare@myplus.com</code></td><td><code>user.welfare@myplus.com</code></td><td><code>demo.welfare@myplus.com</code></td></tr>
+            <tr><td>Farm</td><td>Agriculture</td><td><code>owner.agriculture@myplus.com</code></td><td><code>admin.agriculture@myplus.com</code></td><td><code>user.agriculture@myplus.com</code></td><td><code>demo.agriculture@myplus.com</code></td></tr>
+            <tr><td>Clinic / appointments</td><td>Appointment</td><td><code>owner.appointment@myplus.com</code></td><td><code>admin.appointment@myplus.com</code></td><td><code>user.appointment@myplus.com</code></td><td><code>demo.appointment@myplus.com</code></td></tr>
+            <tr><td>Store cashier with branch access</td><td>Business</td><td colspan="2">— (staff of <code>owner.business</code>)</td><td><code>cashier.a@myplus.com</code></td><td>—</td></tr>
+            <tr><td>MaxTheService platform operator</td><td>Platform</td><td colspan="4"><code>admin@myplus.com</code> (not a customer; sees every business)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── EX-0a ───────────────────────── -->
+    <section class="sec" id="ex0a">
+      <h2>EX-0a · The Expense management switch</h2>
+      <p>Expense management is an <b>add-on module</b>. It is off for every business until its owner or an admin switches it on. Changing the type of business never switches it off. Where to find it: <b>Settings → Configuration → Business → What this business does</b>.</p>
+
+      <div class="case" data-case="0a-1">
+        <div class="case-head"><span class="cid">0a-1</span><h3>The switch is there, and off, for every business-type tenant</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who">Repeat for: <code>owner.business</code><code>owner.mobile</code><code>owner.pesticide</code><code>owner.pharma</code><code>owner.marketplace</code><code>owner.inventory</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Log in and open the business dashboard.</li>
+              <li>Open <b>Settings → Configuration</b>, then the <b>Business</b> tab.</li>
+              <li>Under <b>What this business does</b>, find <b>Expense management</b>.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>A switch named <b>Expense management</b> with the help text "Record what the business spends… Off until you switch it on."</span></label></li>
+              <li><label><input type="checkbox"><span>It is <b>unticked</b>, and not greyed out.</span></label></li>
+              <li><label><input type="checkbox"><span>No <b>Expenses</b> item has appeared in any menu.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the module being switched on for everybody on deploy, or shipped with no switch an owner can reach.</div>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-2">
+        <div class="case-head"><span class="cid">0a-2</span><h3>Every other switch is exactly as it was</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Before the deploy, note which switches are ticked under <b>What this business does</b> (or use a screenshot).</li>
+              <li>After the deploy, open the same screen.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>Every switch that was ticked is still ticked; every one that was off is still off.</span></label></li>
+              <li><label><input type="checkbox"><span>The only new row is <b>Expense management</b>.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the change to how defaults work taking a feature away from a shop that uses it.</div>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-3">
+        <div class="case-head"><span class="cid">0a-3</span><h3>An owner or admin can switch it on; a user cannot</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>admin.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>As <b>owner.business</b>: tick <b>Expense management</b>. Reload the page and reopen Configuration.</li>
+              <li>Untick it again.</li>
+              <li>As <b>admin.business</b>: tick it, then untick it.</li>
+              <li>As <b>user.business</b>: look for <b>Settings → Configuration</b>.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>Owner: the message <b>Saved</b> appears, and the switch is still ticked after the reload.</span></label></li>
+              <li><label><input type="checkbox"><span>Admin: the same.</span></label></li>
+              <li><label><input type="checkbox"><span>User: no Configuration screen, or any change is refused. The switch cannot be changed.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the module being refused to a free-plan business, or a cashier being able to change what the business does.</div>
+          <p class="muted" style="margin:0"><b>Clean up:</b> leave Expense management unticked for owner.business.</p>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-4">
+        <div class="case-head"><span class="cid">0a-4</span><h3>Changing the type of business keeps the switch on</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.mobile</code> (seeded as Retail)</div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Tick <b>Expense management</b>.</li>
+              <li>Under <b>What kind of business this is</b>, change <b>Type of business</b> to <b>Pharmacy / dispensing</b>.</li>
+              <li>Read the confirmation, then confirm.</li>
+              <li>Change the type back to <b>Retail counter / POS</b> and confirm.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The confirmation lists switches turning on and off, and <b>Expense management is not in either list</b>.</span></label></li>
+              <li><label><input type="checkbox"><span>The confirmation says modules you switched on yourself, such as Expense management, are kept.</span></label></li>
+              <li><label><input type="checkbox"><span>After each change, <b>Expense management is still ticked</b>.</span></label></li>
+              <li><label><input type="checkbox"><span>Other switches did change with the type (for example expiry tracking on for Pharmacy). This shows the change really ran.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a type change silently switching the module off and hiding the business's expense records.</div>
+          <p class="muted" style="margin:0"><b>Clean up:</b> type back to <b>Retail counter / POS</b>, untick Expense management.</p>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-5">
+        <div class="case-head"><span class="cid">0a-5</span><h3>One business's choice does not reach another</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.mobile</code> then <code>owner.pesticide</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>As <b>owner.mobile</b>, tick Expense management.</li>
+              <li>Log out. Log in as <b>owner.pesticide</b> and open Configuration.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>owner.pesticide's Expense management is still <b>unticked</b>.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> one tenant's setting leaking to another.</div>
+          <p class="muted" style="margin:0"><b>Clean up:</b> untick it again for owner.mobile.</p>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-6">
+        <div class="case-head"><span class="cid">0a-6</span><h3>Schools, welfare, farms and clinics see nothing new yet</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.welfare</code><code>owner.agriculture</code><code>owner.appointment</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Log in as each owner and open their dashboard and its configuration screen.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>No Expenses menu and no Expense management switch.</span></label></li>
+              <li><label><input type="checkbox"><span>Everything else works as before.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="info"><b>Known and planned:</b> these dashboards have no capability switches at all today. EX-2 adds the Expense management switch and screen to them.</div>
+        </div>
+      </div>
+
+      <div class="case" data-case="0a-7">
+        <div class="case-head"><span class="cid">0a-7</span><h3>The platform operator sees it, in the free plan, off</h3><span class="pill pill-info">Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Open the <b>Platform</b> console and pick any business on the <b>FREE</b> plan.</li>
+              <li>Open its feature entitlements.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span><b>Expense management</b> is listed and marked as included in the plan.</span></label></li>
+              <li><label><input type="checkbox"><span>It shows as off unless that business's owner has switched it on.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the free plan leaving it out. Most older businesses are on FREE and could then never switch it on.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── EX-0b ───────────────────────── -->
+    <section class="sec" id="ex0b">
+      <h2>EX-0b · Expense accounts in the books</h2>
+      <p>After finance-service is deployed, every business's chart of accounts gains the accounts expenses post to. Nothing posts to them until EX-1. The posting tests (an expense moving the trial balance, a void reversing it, goods for stock being refused) run in the EX-1 gate.</p>
+
+      <div class="case" data-case="0b-1">
+        <div class="case-head"><span class="cid">0b-1</span><h3>The new accounts appear, and no balance moves</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>owner.pharma</code><code>owner.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Before the deploy: <b>Finance → Trial Balance</b>, note total debits and total credits.</li>
+              <li>After the deploy: open <b>Finance → Trial Balance</b> again.</li>
+              <li>In the same browser tab, open <code>http://localhost:8080/gl/accounts</code>.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The trial balance totals are <b>exactly</b> the same as before, and it still says balanced.</span></label></li>
+              <li><label><input type="checkbox"><span>The accounts list includes 1300 Employee Advances and 2300 Employee Reimbursements Payable.</span></label></li>
+              <li><label><input type="checkbox"><span>It includes 6000 Rent, 6100 Utilities, 6200 Fuel and Transport, 6300 Repairs and Maintenance, 6400 Marketing, 6500 Bank Charges, 6600 Office and Supplies and 6900 Other Operating Expenses, all of type EXPENSE.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a new account being created twice or with the wrong type, or the deploy changing a balance it had no reason to touch.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-0c ───────────────────────── -->
+    <section class="sec" id="ex0c">
+      <h2>EX-0c · Document numbers keep counting</h2>
+      <p>Invoice, quote, credit note and receipt numbers now come from one shared counter instead of a copy in each service. Nothing about the numbers should change: each series carries on from where it was, with no gaps and no repeats.</p>
+      <div class="case" data-case="0c-1">
+        <div class="case-head"><span class="cid">0c-1</span><h3>Every series carries on from its last number</h3><span class="pill pill-info">Owner · Cashier</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>cashier.a</code><code>owner.pharma</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol>
+              <li>Note the last invoice, quote and receipt numbers in each list.</li>
+              <li>Make a sale on credit, then receive a payment against it.</li>
+              <li>Create a sales quote. Return one item from a sale.</li>
+            </ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The new invoice number is the last one plus one (INV-…).</span></label></li>
+              <li><label><input type="checkbox"><span>The receipt is RCPT-… and follows the last receipt; the quote follows the last QTE-…; the credit note follows the last CRN-….</span></label></li>
+              <li><label><input type="checkbox"><span>No series restarted at 1.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a moved counter starting a new series, which would print a second INV-000001 for the same shop.</div>
+          <div class="info"><b>Status:</b> receipts are live now (finance). Invoices, quotes and credit notes switch when business-service is redeployed.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-1 ───────────────────────── -->
+    <section class="sec" id="ex1">
+      <h2>EX-1 · Record an expense</h2>
+      <p>With Expense management switched on, <b>Till → Expenses</b> records money paid out in cash or from the bank, and posts it to the books. Before you start: as the owner, tick <b>Expense management</b> (case 0a-3), then <b>log out and in again</b> so the new setting reaches every screen.</p>
+      <div class="info"><b>Deployed 2 Oct, 09:45.</b> expense-service, the gateway and the monolith run this branch. The automated gates for these cases pass.</div>
+      <div class="case" data-case="1-1">
+        <div class="case-head"><span class="cid">1-1</span><h3>Record rent paid in cash, and watch it reach the books</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>owner.mobile</code><code>owner.pharma</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open <b>Till → Expenses</b>.</li><li>Category <b>Rent</b>, amount <b>1500</b>, paid from <b>Cash</b>, payee <b>Landlord</b>.</li><li>Press <b>Save and post</b>.</li><li>Open <b>Finance → Trial Balance</b> before and after.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The message says the expense is saved and posting to the books.</span></label></li><li><label><input type="checkbox"><span>The new row has a number like <b>EXP-000001</b> and the amount 1,500.00.</span></label></li><li><label><input type="checkbox"><span>Its status starts as <b>Posting…</b> (it may be brief) and ends as <b>In the books</b>.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 6000 Rent up by 1,500, 1000 Cash down by 1,500, still balanced.</span></label></li><li><label><input type="checkbox"><span>Profit and loss shows the rent under expenses.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> an expense that says it is in the books when the ledger never received it, or money posted to the wrong account.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-2">
+        <div class="case-head"><span class="cid">1-2</span><h3>Paid from the bank uses the bank account</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Record <b>Electricity, gas and water</b>, 730.50, paid from <b>Bank</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Trial balance: 6100 Utilities up by 730.50 and 1010 Bank down by 730.50. Cash does not move.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> every expense being taken out of cash whatever was chosen.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-3">
+        <div class="case-head"><span class="cid">1-3</span><h3>Void with a reason puts the books back</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>admin.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Record a <b>Repairs</b> expense of 250 and wait for <b>In the books</b>.</li><li>Press <b>Void</b>. Try to confirm with no reason, then enter one and confirm.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>With no reason the void is refused.</span></label></li><li><label><input type="checkbox"><span>With a reason the row shows <b>Void</b> and keeps its number; it is not deleted.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 6300 and 1000 are back where they were before the expense.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a void that deletes the record, or reverses the wrong amount or account.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-4">
+        <div class="case-head"><span class="cid">1-4</span><h3>A user records; only owner and admin void</h3><span class="pill pill-info">User · Cashier</span></div>
+        <div class="case-body">
+          <div class="who"><code>user.business</code><code>cashier.a</code><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As <b>user.business</b>, record an expense.</li><li>Look at the list.</li><li>As <b>owner.business</b>, look at the list.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The user can record, sees only the expenses they recorded, and has no Void button.</span></label></li><li><label><input type="checkbox"><span>The owner sees everyone's expenses and can void.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a cashier voiding expenses, or seeing colleagues' records.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-5">
+        <div class="case-head"><span class="cid">1-5</span><h3>A double click saves one expense</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Fill an expense and double-click <b>Save and post</b> quickly.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Exactly one new row appears.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the same payment recorded twice, which would overstate expenses.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-6">
+        <div class="case-head"><span class="cid">1-6</span><h3>Another business cannot see it</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>owner.pesticide</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As <b>owner.business</b>, note an expense number.</li><li>As <b>owner.pesticide</b>, open the dashboard.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>owner.pesticide does not see owner.business's expenses, and has no Expenses entry until it switches the module on.</span></label></li><li><label><input type="checkbox"><span>Mapping a category to account 1200 Inventory is refused: goods for stock are a purchase (checked in the API gate).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> one tenant's expenses leaking to another, and stock purchases booked as running costs.</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-7">
+        <div class="case-head"><span class="cid">1-7</span><h3>Switching it off hides the screen, not the history</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Untick Expense management, log out and in.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Till no longer lists Expenses.</span></label></li><li><label><input type="checkbox"><span>Expenses already posted stay in the trial balance: the switch hides the screen, it does not undo postings.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the module showing for a business that switched it off, or a switch that silently rewrites the books.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-2a ───────────────────────── -->
+    <section class="sec" id="ex2a">
+      <h2>EX-2a · Expenses on the school, welfare and farm dashboards</h2>
+      <p>These dashboards now have a <b>Modules</b> card at the top of <b>Configuration</b>. Expense management is switched on there, and the same Expenses screen as the shop's appears: under <b>Fee</b> on the school dashboard, and in the sidebar on welfare and farm.</p>
+      <div class="info"><b>Deployed 2 Oct, 10:23.</b> The automated gate for these cases passes, for all three businesses.</div>
+      <div class="case" data-case="2a-1">
+        <div class="case-head"><span class="cid">2a-1</span><h3>Each business switches the module on for itself</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.welfare</code><code>owner.agriculture</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open <b>Configuration</b> (school: Fee → Configuration; welfare and farm: the sidebar).</li><li>In the <b>Modules</b> card, tick <b>Expense management</b>.</li><li>Log out and in again.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The card lists Expense management, unticked, with its help text.</span></label></li><li><label><input type="checkbox"><span>Ticking shows <b>Saved</b>.</span></label></li><li><label><input type="checkbox"><span>After signing in again, <b>Expenses</b> appears in the menu.</span></label></li><li><label><input type="checkbox"><span>Another business (for example owner.business) is not affected.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a school, trust or farm with no way to switch the module on, or a switch that reaches another business.</div>
+        </div>
+      </div>
+      <div class="case" data-case="2a-2">
+        <div class="case-head"><span class="cid">2a-2</span><h3>Record an expense on each dashboard</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.welfare</code><code>owner.agriculture</code><code>user.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open <b>Expenses</b>.</li><li>Record <b>Rent</b> 900 paid in cash.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The row gets an EXP- number and reaches <b>In the books</b>.</span></label></li><li><label><input type="checkbox"><span>Each business numbers its expenses from its own series.</span></label></li><li><label><input type="checkbox"><span>A user records and sees only their own; owner and admin see all and can void.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the screen working on the shop dashboard only, or numbers shared between businesses.</div>
+        </div>
+      </div>
+      <div class="case" data-case="2a-3">
+        <div class="case-head"><span class="cid">2a-3</span><h3>Configuration opens from the sidebar again</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.welfare</code><code>owner.agriculture</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Click <b>Configuration</b> in the sidebar.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The Configuration screen opens with its settings and the Modules card. Before this release it went blank.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the sidebar link that threw a script error and never loaded the settings (fixed in EX-2a).</div>
+        </div>
+      </div>
+      <div class="case" data-case="2a-4">
+        <div class="case-head"><span class="cid">2a-4</span><h3>The card only switches modules, and only for owners and admins</h3><span class="pill pill-info">User</span></div>
+        <div class="case-body">
+          <div class="who"><code>user.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As a user, look for Configuration; a user should not be able to change modules.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>There is no way for a user to switch a module on or off.</span></label></li><li><label><input type="checkbox"><span>Business features such as installments cannot be changed from this card (checked in the gate).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a cashier or teacher switching modules, or this card being used to flip a business feature.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-2b ───────────────────────── -->
+    <section class="sec" id="ex2b">
+      <h2>EX-2b · Say what an expense was for</h2>
+      <p>On the school and farm dashboards the Expenses form has a <b>For</b> field: a school or a vehicle, or a land. The list shows it beside the category. The shop and welfare dashboards have no For field yet: welfare has no campaigns to tag to.</p>
+      <div class="info"><b>Deployed 2 Oct, 15:50.</b> The automated gate for these cases passes.</div>
+      <div class="case" data-case="2b-1">
+        <div class="case-head"><span class="cid">2b-1</span><h3>Tag fuel to a bus, and a cost to a field</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.agriculture</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>School: Expenses, category <b>Fuel and transport</b>, For: a bus, save.</li><li>Farm: Expenses, any category, For: a land, save.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The For list offers this business's schools and vehicles (school) or its lands (farm), nothing else.</span></label></li>
+              <li><label><input type="checkbox"><span>The row reads like <b>Fuel and transport · Bus (LEA-123)</b>.</span></label></li>
+              <li><label><input type="checkbox"><span>The trial balance moves exactly as an untagged expense would: a tag never changes the account.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> costs that cannot be traced to the bus or field they were for, or a tag that changes the books.</div>
+        </div>
+      </div>
+      <div class="case" data-case="2b-2">
+        <div class="case-head"><span class="cid">2b-2</span><h3>A branch user sees only their branch</h3><span class="pill pill-info">User</span></div>
+        <div class="case-body">
+          <div class="who"><code>teacher.a</code><code>teacher.b</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Sign in as a teacher granted one branch and open Expenses.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The For list offers only that branch and its vehicles.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> one branch tagging, or learning about, another branch's vehicles.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-3 ───────────────────────── -->
+    <section class="sec" id="ex3">
+      <h2>EX-3 · Cash paid out of the till reaches the books</h2>
+      <p>With Expense management on, <b>Till → Cash Drawer → Pay Out</b> asks for a <b>Category</b>. The pay-out still comes off the drawer as before, and it now also becomes an expense in the books (marked <b>Till</b> in Expenses). With the module off, nothing changes.</p>
+      <div class="info"><b>Deployed 2 Oct, 16:35.</b> The automated gate for these cases passes.</div>
+      <div class="case" data-case="3-1">
+        <div class="case-head"><span class="cid">3-1</span><h3>Pay the electricity man out of the drawer</h3><span class="pill pill-info">Cashier · Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>cashier.a</code><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open the shift. Choose <b>Pay Out</b>, amount 1200, category <b>Electricity, gas and water</b>, reason "electricity bill". Press <b>Add</b>.</li><li>Open the X report, then <b>Till → Expenses</b>, then <b>Finance → Trial Balance</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>The X report shows pay-outs up by 1,200 and expected cash down by 1,200.</span></label></li>
+              <li><label><input type="checkbox"><span>Expenses lists it with an EXP- number, paid from <b>Till</b>, reaching <b>In the books</b>.</span></label></li>
+              <li><label><input type="checkbox"><span>Trial balance: 6100 up 1,200 and 1000 Cash down 1,200, so the drawer and the books agree.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> money leaving the till that the books never hear about (the gap before EX-3).</div>
+        </div>
+      </div>
+      <div class="case" data-case="3-2">
+        <div class="case-head"><span class="cid">3-2</span><h3>Category required, pay-ins and drops untouched, double click safe</h3><span class="pill pill-info">Cashier</span></div>
+        <div class="case-body">
+          <div class="who"><code>cashier.a</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Try a Pay Out with no category.</li><li>Record a Pay In and a Cash Drop.</li><li>Double-click Add on a Pay Out.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>Without a category the pay-out is refused with a message saying why.</span></label></li>
+              <li><label><input type="checkbox"><span>The Category field is not shown for Pay In or Cash Drop, and they create no expense.</span></label></li>
+              <li><label><input type="checkbox"><span>A double click takes the cash out once and makes one expense.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> uncategorised spending, a drop to the safe booked as an expense, or one payment counted twice.</div>
+        </div>
+      </div>
+      <div class="case" data-case="3-3">
+        <div class="case-head"><span class="cid">3-3</span><h3>A till expense is corrected at the till</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>In Expenses, find a Till expense.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect">
+              <li><label><input type="checkbox"><span>It has no Void button; a correction is a Pay In at the till, so the drawer and the books stay in step.</span></label></li>
+            </ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> voiding an expense whose cash really left the drawer, which would make the books disagree with the till.</div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ───────────────────────── EX-4 = FP-3 ───────────────────────── -->
+    <section class="sec" id="ex4">
+      <h2>EX-4 · Expense bills: owed now, paid later</h2>
+      <p>On the shop dashboard, <b>Till → Expenses → Paid from</b> now offers <b>Bill (pay later)</b> whenever the business has suppliers. A bill is in the books the day it arrives (the expense account up, <b>2000 Accounts Payable</b> owed), shows what is still owed, and is paid from the same screen.</p>
+      <div class="info"><b>Live since 2 Oct, 22:05.</b> Turn Expense management on first (case 0a-3), then log out and in.</div>
+      <div class="case" data-case="4-1">
+        <div class="case-head"><span class="cid">4-1</span><h3>Record a bill owed to a supplier</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>owner.mobile</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open <b>Till → Expenses</b>.</li><li>Category <b>Repairs and maintenance</b>, amount <b>500</b>.</li><li><b>Paid from</b>: choose <b>Bill (pay later)</b>. Press <b>Save and post</b> without choosing a supplier.</li><li>Choose a <b>Supplier</b> and a <b>Due date</b>, then <b>Save and post</b>.</li><li>Open <b>Finance → Trial Balance</b> before and after.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span><b>Supplier</b> and <b>Due date</b> appear only after choosing <b>Bill (pay later)</b>.</span></label></li><li><label><input type="checkbox"><span>Saving with no supplier is refused: "Choose the supplier this bill is owed to."</span></label></li><li><label><input type="checkbox"><span>The row shows paid from <b>Bill</b>, the supplier as payee, <b>In the books</b>, then <b>Owes 500.00</b> and a <b>Pay</b> button.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 6300 Repairs up 500, <b>2000 Accounts Payable credited 500</b>, 1000 Cash unchanged.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a bill that never reaches the books until it is paid, or an expense taken out of cash that was never paid.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4-2">
+        <div class="case-head"><span class="cid">4-2</span><h3>Pay part of the bill</h3><span class="pill pill-info">Owner · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>On the bill row press <b>Pay</b>.</li><li>Change the amount to <b>200</b>, paid from <b>Cash</b>, press <b>Pay</b>.</li><li>Open the trial balance.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The message reads <b>Payment recorded — PV-…</b> (a payment voucher number).</span></label></li><li><label><input type="checkbox"><span>The row now shows <b>Owes 300.00</b>.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 2000 Accounts Payable down 200 and 1000 Cash down 200.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a payment that empties the cash box but leaves the bill fully owed, or the reverse.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4-3">
+        <div class="case-head"><span class="cid">4-3</span><h3>Overpaying and voiding are refused where they would hurt</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>admin.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>On the part-paid bill press <b>Pay</b> and enter <b>300.01</b>.</li><li>Try to <b>Void</b> the part-paid bill.</li><li>Record a second bill of 70, wait for <b>In the books</b>, and void it with a reason.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>300.01 is refused: "That is more than is owed on this bill (300.00)."</span></label></li><li><label><input type="checkbox"><span>A bill with payments has no Void button (and the server refuses it: "Reverse the payments first").</span></label></li><li><label><input type="checkbox"><span>The unpaid bill voids: 6300 and 2000 go back by 70.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> paying a supplier more than is owed, or voiding a bill whose money has already left.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4-4">
+        <div class="case-head"><span class="cid">4-4</span><h3>Pay the rest from the bank, and the bill reads Paid</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Pay the remaining <b>300</b>, paid from <b>Bank</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The row shows <b>Paid</b> and no Pay button.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 2000 down 300 and <b>1010 Bank</b> down 300.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a bank payment taken from cash, or a settled bill still showing as owed.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4-5">
+        <div class="case-head"><span class="cid">4-5</span><h3>A business with no suppliers does not get the option</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.welfare</code><code>owner.agriculture</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>With Expense management on, open <b>Expenses</b> and the <b>Paid from</b> list.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Only <b>Cash</b> and <b>Bank</b> are offered.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a school or farm offered a bill it cannot owe to anyone (their suppliers do not come from the shop yet).</div>
+          <div class="info"><b>Known limit:</b> the supplier list comes from the shop module. A shared supplier list for every business type belongs to the party service.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4-6">
+        <div class="case-head"><span class="cid">4-6</span><h3>The supplier statement in the shop is not confused by bill payments</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Open <b>Register → Vender / Supplier</b>, find the bill’s supplier, press <b>Statement</b> on its row.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The statement lists the supplier’s purchases and their payments only; the PV- payment against the bill is not on it.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a bill payment showing against purchases with no bill behind it, making the supplier look overpaid.</div>
+          <div class="info">Bills and their payments appear on the supplier statement once the business reads supplier figures from finance (FP-4b).</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-1/2 ───────────────────────── -->
+    <section class="sec" id="fp12">
+      <h2>FP-1/2 · Finance keeps the supplier ledger in step</h2>
+      <p>Finance now holds its own copy of every supplier bill, kept in step automatically. Owners see no change from this alone; the operator sees the comparison on the console card from FP-4b, and these cases prove it stays exact.</p>
+      <div class="case" data-case="12-1">
+        <div class="case-head"><span class="cid">12-1</span><h3>Business and finance agree on what is owed, after every kind of change</h3><span class="pill pill-info">Owner · Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As the operator: <b>Platform</b> console → open <b>Owner Business’s organization</b> → card <b>Supplier balances</b>. Note <b>Difference</b>.</li><li>As owner.business: record a purchase <b>on credit</b> from a supplier, pay that supplier part of it (<b>Pay</b> on its row in <b>Register → Vender / Supplier</b>), return one item, then void another credit purchase.</li><li>After each step, refresh the operator’s tenant panel.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span><b>Business says owed</b> and <b>Finance says owed (purchases)</b> move by the same amount each time.</span></label></li><li><label><input type="checkbox"><span><b>Difference</b> stays <b>0.00</b> throughout.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> finance’s copy drifting from business after a payment, a return or a void, which would make the switch in FP-4b show different numbers.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-4a ───────────────────────── -->
+    <section class="sec" id="fp4a">
+      <h2>FP-4a · The supplier statement, built by finance</h2>
+      <p>Finance can now produce a supplier's statement line for line as business does: the bill <b>as issued</b>, each <b>debit note</b> for goods returned, and each <b>payment</b>, with a running balance. You see the finance-built statement once the operator switches the business (FP-4b, case 4b-3); these cases set up a supplier whose statement proves it.</p>
+      <div class="case" data-case="4a-1">
+        <div class="case-head"><span class="cid">4a-1</span><h3>A purchase, a return and a payment on one supplier</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Add a new supplier. Record a purchase of 10 items at 10 <b>on credit</b> (100).</li><li>Return 3 items from that purchase. Pay the supplier 20.</li><li>Press <b>Statement</b> on the supplier’s row (<b>Register → Vender / Supplier</b>).</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A <b>BILL</b> line for <b>100</b> (the bill as issued, not what is left after the return).</span></label></li><li><label><input type="checkbox"><span>A <b>DEBIT_NOTE</b> line for the returned goods, and a <b>PAYMENT</b> line for 20 with its PV- number.</span></label></li><li><label><input type="checkbox"><span>The closing balance equals what the supplier list shows as due.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a statement that shrinks the bill instead of showing the return, which a supplier reconciling their own ledger cannot follow.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4a-2">
+        <div class="case-head"><span class="cid">4a-2</span><h3>Voiding the purchase nets to zero on the statement</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Void the purchase from 4a-1 with a reason, then reopen the statement.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A second <b>DEBIT_NOTE</b> for the rest of the bill; the bill and its two debit notes net to zero.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a voided bill vanishing from the trail, or staying owed.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-4b ───────────────────────── -->
+    <section class="sec" id="fp4b">
+      <h2>FP-4b · The operator switches a business to finance figures</h2>
+      <p>Where a business's <b>supplier aging and statements</b> come from is a platform decision, not the owner's. On the operator's tenant panel, the <b>Supplier balances</b> card shows both sides and a button. Switching to finance is refused unless business and finance agree exactly; a difference with the ledger's 2000 account is shown as a warning, not a block.</p>
+      <div class="case" data-case="4b-1">
+        <div class="case-head"><span class="cid">4b-1</span><h3>An owner cannot see or flip the switch</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Look through Settings and Configuration for anything about supplier figures or payables source.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>There is nothing to change; the owner’s screens look exactly as before.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a shop owner flipping a migration switch that changes the figures on their own reports.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4b-2">
+        <div class="case-head"><span class="cid">4b-2</span><h3>The operator reads both sides, and a business that disagrees is refused</h3><span class="pill pill-info">Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Platform console → open <b>Owner Business’s organization</b> → <b>Supplier balances</b>.</li><li>Open <b>Demo BUSINESS’s organization</b> → <b>Supplier balances</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Owner Business: <b>Difference 0.00</b>; <b>Read from finance</b> is enabled; <b>Finance vs GL 2000</b> shown.</span></label></li><li><label><input type="checkbox"><span>Demo BUSINESS: <b>Difference 100.00</b> highlighted; <b>Read from finance</b> is disabled.</span></label></li><li><label><input type="checkbox"><span>Where Finance vs GL 2000 is not zero, a yellow warning explains it does not block the switch.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> switching a business whose two sets of figures disagree, so its reports change numbers overnight.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4b-3">
+        <div class="case-head"><span class="cid">4b-3</span><h3>Switch to finance: bills and advances appear in the owner’s reports</h3><span class="pill pill-info">Operator · Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As the operator: <b>Read from finance</b>; try to confirm with an empty reason, then give a reason and confirm.</li><li>As owner.business (with a supplier owed an expense bill from EX-4): <b>Register → Vender / Supplier → Payables Aging</b>.</li><li>Open that supplier’s <b>Statement</b>, and download its CSV.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>An empty reason is refused; with a reason the card reads <b>Supplier balances — FINANCE</b> and the activity trail records it.</span></label></li><li><label><input type="checkbox"><span>The aging lists the bill under its supplier; suppliers paid ahead appear in a separate <b>Paid ahead (supplier advances)</b> table.</span></label></li><li><label><input type="checkbox"><span>The statement and the CSV show the <b>EXP-</b> bill and its <b>PV-</b> payment beside the purchases.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> bills invisible on the supplier screens, or advances netted away silently.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4b-4">
+        <div class="case-head"><span class="cid">4b-4</span><h3>Switch back: the business sees its old figures again</h3><span class="pill pill-info">Operator · Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As the operator: <b>Back to business</b>, with a reason.</li><li>As owner.business: reopen the aging and the statement.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The card reads <b>BUSINESS</b>; the aging and statement no longer show expense bills.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a one-way switch with no rollback.</div>
+          <p class="muted" style="margin:0"><b>Clean up:</b> leave Owner Business on <b>BUSINESS</b> unless the next tester needs FINANCE.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-4c ───────────────────────── -->
+    <section class="sec" id="fp4c">
+      <h2>FP-4c · Supplier balances and the credit limit count expense bills</h2>
+      <p>For a business switched to finance figures, what is owed to a supplier now includes its open expense bills: in the <b>Vender / Supplier</b> list, on the purchase screen's supplier picker, and in the supplier <b>credit limit</b>. The <b>Pay</b> button still settles purchases only until FP-5b, and says so.</p>
+      <div class="case" data-case="4c-1">
+        <div class="case-head"><span class="cid">4c-1</span><h3>The supplier list shows the total, with the bills and any advance</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business (switched to FINANCE)</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Use a supplier owed 600 on purchases and a 300 expense bill.</li><li>Open <b>Register → Vender / Supplier</b> and search for the supplier.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span><b>Due</b> reads <b>900</b> with <b>(incl. bills 300.00)</b>.</span></label></li><li><label><input type="checkbox"><span>A supplier paid ahead shows an <b>Advance</b> badge with the amount.</span></label></li><li><label><input type="checkbox"><span>The <b>Pay</b> button’s tooltip says it pays purchases, and its amount is <b>600</b>.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a Pay button that would push the bill amount onto purchases and turn it into an advance nobody meant.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4c-2">
+        <div class="case-head"><span class="cid">4c-2</span><h3>The purchase screen warns with everything owed</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business (FINANCE)</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Start a new purchase and choose that supplier.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The "already owed" figure shown for the supplier is <b>900</b>, not 600.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> taking more credit from a supplier without seeing the bills already owed to them.</div>
+        </div>
+      </div>
+      <div class="case" data-case="4c-3">
+        <div class="case-head"><span class="cid">4c-3</span><h3>The credit limit counts the bills</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Give the supplier a <b>credit limit of 1000</b>. In <b>Configuration → Purchasing</b>, set <b>When a purchase would exceed the supplier’s credit limit</b> to <b>Block</b>.</li><li>On FINANCE: record a credit purchase of <b>150</b> from that supplier.</li><li>Ask the operator to switch back to BUSINESS, then try the same purchase.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>On FINANCE it is refused: "You would owe … 1050.00, which is 50.00 over the credit limit of 1000.00 …"</span></label></li><li><label><input type="checkbox"><span>On BUSINESS the same purchase is allowed (600 + 150 is under the limit).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a supplier limit that ignores the bills a business already owes that supplier.</div>
+          <p class="muted" style="margin:0"><b>Clean up:</b> set <b>When a purchase would exceed the supplier’s credit limit</b> back to <b>Warn</b> (the default).</p>
+        </div>
+      </div>
+      <div class="case" data-case="4c-4">
+        <div class="case-head"><span class="cid">4c-4</span><h3>Editing a supplier keeps its figures</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business (FINANCE)</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Edit the supplier’s address and save.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Due, the bills part and any advance are unchanged.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a profile edit wiping what finance last reported for that supplier.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-5a ───────────────────────── -->
+    <section class="sec" id="fp5a">
+      <h2>FP-5a · Every payment reaches the books exactly once</h2>
+      <p>Paying a supplier, receiving from a customer and collecting a school fee now save the payment together with the bills it settles, then send it to the books. If the books are briefly unreachable, the payment is still recorded and its number follows a moment later; it is never sent twice. Before this, a books outage left bills marked paid with no voucher and no journal, and nothing ever fixed it.</p>
+      <div class="case" data-case="5a-1">
+        <div class="case-head"><span class="cid">5a-1</span><h3>Pay a supplier: one voucher, and the books move once</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>owner.mobile</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Give a supplier a credit purchase of 100.</li><li>Note the trial balance, then press <b>Pay</b> on the supplier's row and pay 40 in cash.</li><li>Press the same Pay again quickly (double-click), then open the trial balance.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The message reads <b>Vendor paid. Voucher PV-…</b></span></label></li><li><label><input type="checkbox"><span>2000 Accounts Payable debited 40 and 1000 Cash down 40, exactly once.</span></label></li><li><label><input type="checkbox"><span>The supplier's Statement lists one PV- line for 40.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a supplier paid twice in the books, or marked paid in the shop with nothing in the ledger.</div>
+        </div>
+      </div>
+      <div class="case" data-case="5a-2">
+        <div class="case-head"><span class="cid">5a-2</span><h3>Receive from a customer, and a school fee: one receipt each</h3><span class="pill pill-info">Owner · Cashier</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>cashier.a</code><code>owner.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Shop: <b>Receive</b> 5 from a customer in cash.</li><li>School: collect a fee of 700 paid in cash for a student.</li><li>Open each business's trial balance before and after.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Shop: <b>Payment received. Receipt RCPT-…</b>; Cash up 5 and 1100 Receivables down 5.</span></label></li><li><label><input type="checkbox"><span>School: Cash up exactly 700.</span></label></li><li><label><input type="checkbox"><span>If the books were slow, the message says the number will follow, and it later appears; the figures still move once.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a receipt that never reaches the books, or reaches them twice after a retry.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── findings ───────────────────────── -->
+    <section class="card" id="findings">
+      <h2>Defects found along the way</h2>
+      <p class="muted">Found by checking every business's figures, not just the test business's. Each is tracked on its own; none blocks the cases above.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Where</th><th>What</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Pay Supplier, Receive Payment, school fees</td><td>The payment is written to the books "best effort": if finance is down, the bills show paid but no voucher and no journal exist, and nothing goes back to fix it.</td><td><span class="pill pill-ok">Fixed · FP-5a</span></td></tr>
+            <tr><td>Orgs 20 and 41 (marketplace, Shahzad Mobile)</td><td>Both carry the same 288,000 purchase journal of 23 Aug, so the ledger's 2000 account disagrees with their supplier documents (org 41 by 313,200).</td><td><span class="pill pill-bad">Open · FP-4b-GL</span></td></tr>
+            <tr><td>Demo BUSINESS (org 6)</td><td>One supplier carries a 100 balance with no bills behind it; its ledger 2000 differs by 10,865.50.</td><td><span class="pill pill-bad">Open</span></td></tr>
+            <tr><td>Advances</td><td>Suppliers paid more than billed (org 6: 9,620; org 41: 25,200) were shown as 0. Now shown on finance figures (FP-4b/4c).</td><td><span class="pill pill-ok">Shown</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── automated ───────────────────────── -->
+    <section class="card" id="auto">
+      <h2>Automated gates</h2>
+      <p class="muted">The same cases, run by machine. Unit tests run on every build; the Cypress gate runs headed against a deployed stack.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Gate</th><th>What it proves</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td><code>OptInCapabilityTest</code> (8)</td><td>Off by default; an explicit on is honoured; no business type presets it; in FREE; the token carries it only when on</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>CapabilityServiceTest</code>, <code>EntitlementCeilingTest</code></td><td>Every existing capability still defaults on</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>ShapeChangeKeepsOptInTest</code> (2)</td><td>A type change keeps the switch and never lists it. Seen failing without the fix first</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>ExpensePostingRulesTest</code> (12)</td><td>Rent in cash posts; goods for stock, cost of goods sold and income accounts are refused; a void mirrors to zero</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td>Flyway V8 on a MySQL container</td><td>The new journal index applies to a real database</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>expense/ex-0a-capability-opt-in.cy.js</code> (5)</td><td>Cases 0a-1, 0a-3, 0a-4, 0a-7 end to end, through the real screen</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td><code>business/capability-shapes.cy.js</code> (5)</td><td>Restated: everything a business had stays on, opt-in modules stay off</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td>Capability regression (21)</td><td><code>capability-gating</code>, <code>capability-enforcement</code>, <code>onboarding-profile</code>: switches, refusals and business-type changes unchanged</td><td><span class="pill pill-ok">Pass 21/21</span></td></tr>
+            <tr><td><code>DocumentNumberServiceTest</code> (6) + MySQL concurrency tests (5 + 6)</td><td>The shared counter allocates in order, per business and per series, and concurrent tills never share a number</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>receive-payment</code>, <code>document-number-integrity</code> (10)</td><td>Live: receipts number in sequence; six receipts at the same instant get six different numbers</td><td><span class="pill pill-ok">Pass 10/10</span></td></tr>
+            <tr><td><code>VoucherPostingsTest</code> (8)</td><td>The journal a voucher makes (cash, bank, grouped lines); the reversal carries no lines; the outbox payload loses no field; the voucher's rules</td><td><span class="pill pill-ok">Pass 8/8</span></td></tr>
+            <tr><td><code>ExpenseFlywayMigrationTest</code> (2)</td><td>The new database builds from empty and every table matches its code; numbers per business</td><td><span class="pill pill-ok">Pass 2/2</span></td></tr>
+            <tr><td><code>expense/ex-1-direct-voucher-api.cy.js</code> (7)</td><td>Off refuses; rent in cash and utilities by bank move the trial balance exactly; void restores it; one voucher per key; stock refused; tiers and tenants</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
+            <tr><td><code>expense/ex-1-direct-voucher-ui.cy.js</code> (4)</td><td>Till → Expenses hidden when off; record, double-click and void through the real screen</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>expense/ex-2a-every-dashboard.cy.js</code> (13)</td><td>For the school, trust and farm: card off, switch on, Expenses appears, rent reaches the books; the card refuses business features and users</td><td><span class="pill pill-ok">Pass 13/13</span></td></tr>
+            <tr><td>Regression (51)</td><td>Configuration on every dashboard, EX-0a, the EX-1 screen, capabilities, business type, farm and welfare navigation</td><td><span class="pill pill-ok">Pass 51/51</span></td></tr>
+            <tr><td><code>expense/ex-2b-tags.cy.js</code> (4)</td><td>School offered its schools and buses; bus and field tags stored with the module's label; a foreign id, a wrong-module type and an unknown type refused; no For field on the shop</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>expense/ex-3-till-pay-outs.cy.js</code> (6)</td><td>Off unchanged; category required; drawer and trial balance move by exactly 1,200; one movement and one voucher per key; till expense not voidable; category shown for pay-outs</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
+            <tr><td><code>pay-vendor</code> (1)</td><td>Pay Supplier allocates and records its voucher</td><td><span class="pill pill-ok">Pass</span></td></tr>
+            <tr><td><code>PayableOutboxIntegrationTest</code> (8, real MySQL)</td><td>Every purchase change reaches finance, even one flushed only at commit; a rollback reports nothing; a return carries its debit note</td><td><span class="pill pill-ok">Pass 8/8</span></td></tr>
+            <tr><td><code>finance/fp-payables-shadow.cy.js</code> (5)</td><td>Business and finance agree after a credit purchase, a payment and a void</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td><code>expense/fp-3-expense-bills.cy.js</code> (9)</td><td>Bill → 2000 credited; pay 200 → PV, cash and 2000 move; same key pays once; overpay and void-paid refused; statement unconfused; on screen</td><td><span class="pill pill-ok">Pass 9/9</span></td></tr>
+            <tr><td><code>finance/fp-4a-statement-trail.cy.js</code> (4)</td><td>Every supplier's statement identical line for line; return, void and a bill</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>finance/fp-4b-payables-switch.cy.js</code> (4)</td><td>Owner refused; disagreeing business refused; reason required; switch and switch back change aging, statement and CSV</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>LedgerOutboxIntegrationTest</code> (4, real MySQL)</td><td>Delivered after commit with its number; finance down → settlement commits, request waits, lands once; rollback sends nothing; one request per reference</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>finance/fp-5a-ledger-record.cy.js</code> (4)</td><td>Pay Supplier and Receive Payment move the books exactly once and replay the same number; a school fee reaches the books once</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>finance/fp-4c-balance-stamp.cy.js</code> (5)</td><td>Bills stamped on the supplier; total vs Pay figure; edit keeps it; credit limit refuses on FINANCE and allows on BUSINESS; on screen</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Run the gate</h3>
+      <pre class="cmd"><code id="cmd1">npx cypress run --headed --browser chrome --spec cypress/e2e/expense/fp-3-expense-bills.cy.js,cypress/e2e/finance/fp-payables-shadow.cy.js,cypress/e2e/finance/fp-4a-statement-trail.cy.js,cypress/e2e/finance/fp-4b-payables-switch.cy.js,cypress/e2e/finance/fp-4c-balance-stamp.cy.js</code></pre>
+      <button class="copy" type="button" data-copy="cmd1">Copy command</button>
+    </section>
+
+    <!-- ───────────────────────── next ───────────────────────── -->
+    <section class="card" id="next">
+      <h2>Coming next: FP-5, one way to pay a supplier</h2>
+      <p><b>FP-5a</b> makes every payment reach the books exactly once: the payment request is saved with the bills it settles, sent to finance after it commits, and retried if finance is down; finance recognises a repeat and answers with the first voucher. <b>FP-5b</b> lets one Pay Supplier settle purchases and expense bills together, oldest first. Manual cases are added here as each is built.</p>
+      <pre class="mermaid diagram">
+flowchart LR
+  A[Pay Supplier 1,000] --> B[Oldest open documents first: purchases and bills]
+  B --> C[Saved with the payment request, in one step]
+  C --> D{Finance reachable?}
+  D -- yes --> E[One PV voucher, one journal]
+  D -- not now --> F[Retried until it lands, never twice]
+  E --> G[Bill side told to Expenses]
+      </pre>
+    </section>
+
+    <!-- ───────────────────────── rulings ───────────────────────── -->
+    <section class="card" id="rulings">
+      <h2>Decisions</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Question</th><th>Decision</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Where does it live?</td><td>Its own service, <code>expense-service</code></td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>On or off by default?</td><td>Off. The platform now supports off-by-default switches for any new module</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Which businesses?</td><td>Every business type, plug-and-play. Till pay-outs and farm expenses move onto it</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>What comes first?</td><td>An expense paid on the spot (cash or bank), as QuickBooks, Xero and Tally do; claims later</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>In the free plan?</td><td>Yes. Without it a shop's profit figure is overstated, and most older businesses are on FREE</td><td><span class="pill pill-warn">Applied, confirm</span></td></tr>
+            <tr><td>Where do receipts live before AWS?</td><td>Recommended: local storage now, S3 later behind the same interface</td><td><span class="pill pill-todo">Open</span></td></tr>
+            <tr><td>Post past till pay-outs and farm expenses?</td><td>Recommended: no automatic back-posting; an owner-run, previewed import instead</td><td><span class="pill pill-todo">Open</span></td></tr>
+            <tr><td>Welfare has no books yet</td><td>Recommended: ship the screen with a notice; welfare-to-books as its own slice</td><td><span class="pill pill-todo">Open</span></td></tr>
+            <tr><td>Document numbers</td><td>One shared library (EX-0c), instead of a third copy</td><td><span class="pill pill-ok">Decided · built</span></td></tr>
+            <tr><td>Where do supplier payables live?</td><td>Move them to finance: one supplier ledger for purchases and bills (phases FP-1 to FP-6)</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Existing purchases</td><td>Copied to finance automatically for every business</td><td><span class="pill pill-ok">Decided · done</span></td></tr>
+            <tr><td>Suppliers paid ahead</td><td>Shown as their own figure (Advance), never netted into others</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Bills in the credit limit</td><td>Yes: total exposure, purchases plus bills</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Who switches a business to finance figures?</td><td>The platform operator only; refused unless business and finance agree; the ledger difference warns</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>One Pay Supplier for purchases and bills</td><td>Business allocates, oldest first of any kind; one finance payment; the bill side reaches Expenses by outbox</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Best-effort payment records</td><td>Fixed for supplier payments, customer receipts and school fees together (FP-5a)</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Switching back after a mixed payment</td><td>Refused, with the reason shown to the operator</td><td><span class="pill pill-ok">Decided</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+  var KEY='mts-expense-guide-ticks';
+  var boxes=[].slice.call(document.querySelectorAll('ul.expect input[type=checkbox]'));
+  boxes.forEach(function(b,i){ b.id='chk'+i; });
+  var saved={};
+  try{ saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ saved={}; }
+  boxes.forEach(function(b){ if(saved[b.id]) b.checked=true; });
+  function update(){
+    var n=boxes.filter(function(b){return b.checked;}).length;
+    document.getElementById('progText').textContent=n+' of '+boxes.length+' checks ticked';
+    document.getElementById('progBar').style.width=(boxes.length? (100*n/boxes.length):0)+'%';
+  }
+  boxes.forEach(function(b){ b.addEventListener('change',function(){
+    saved[b.id]=b.checked;
+    try{ localStorage.setItem(KEY,JSON.stringify(saved)); }catch(e){}
+    update();
+  });});
+  document.getElementById('resetTicks').addEventListener('click',function(){
+    boxes.forEach(function(b){ b.checked=false; }); saved={};
+    try{ localStorage.removeItem(KEY); }catch(e){}
+    update();
+  });
+  [].slice.call(document.querySelectorAll('.copy')).forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var el=document.getElementById(btn.getAttribute('data-copy'));
+      var text=el.textContent;
+      function selectIt(){ var r=document.createRange(); r.selectNodeContents(el); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); btn.textContent='Selected, press Ctrl+C'; }
+      try{
+        navigator.clipboard.writeText(text).then(function(){ btn.textContent='Copied'; setTimeout(function(){btn.textContent='Copy command';},1500); }, selectIt);
+      }catch(e){ selectIt(); }
+    });
+  });
+  update();
+})();
+</script>

@@ -1,0 +1,64 @@
+# =========================================================================================================
+# DEV ONLY — every outgoing email goes to a local catcher (Mailpit), never to Gmail.     EDU-NOTIFY-2
+#
+# Why: the test suites send hundreds of emails to throwaway addresses (cyn…@example.test, stmt…@t.com).
+# Through Gmail each one is a real SMTP login, and on 2026-10-03 Gmail started refusing them
+# ("454-4.7.0 Too many login attempts", 723 in 45 min). Every refusal is retried, so the retries kept the
+# lockout going — and maxtheservice@gmail.com is the PRODUCTION sender too.
+#
+# HOW IT IS SWITCHED ON — per host, never by default. Add this line to THIS host's .env (git-ignored):
+#     COMPOSE_FILE=docker-compose.yml;docker-compose.mailpit.yml
+# `docker compose` (and deploy.ps1, which calls it) then reads both files. Production's .env has no such
+# line, so production reads docker-compose.yml alone and is unchanged.
+#
+# Read the mail at http://localhost:8025 (bound to this machine only).
+#
+# Five senders, each pointed here the way its own config reads it:
+#   notification / auth / education / campaign — the ${MAIL_HOST}/${MAIL_PORT}/${MAIL_PROTOCOL} placeholders
+#     in config-server/src/main/resources/configs/<service>.yml
+#   monolith — SPRING_MAIL_*, because application.properties has literal values, not placeholders
+# Campaign's default port is 587 and the others' 465, which is why this is an override file and not a
+# shared default in docker-compose.yml: one shared MAIL_PORT default would change one of them in production.
+# =========================================================================================================
+
+x-dev-mail: &dev-mail
+  MAIL_HOST: mailpit
+  MAIL_PORT: "1025"
+  MAIL_PROTOCOL: smtp
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31.4
+    container_name: myplus-mailpit
+    restart: unless-stopped
+    environment:
+      # campaign-service sends with smtp.auth=true and the others carry a username; accept any login so
+      # none of them has to be reconfigured to send here. Safe ONLY because the port is never published.
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+      # The backlog that built up during the lockout drains here once this is up — keep all of it.
+      MP_MAX_MESSAGES: "10000"
+    expose:
+      - "1025"
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks:
+      - myplus-net
+
+  notification-service:
+    environment: *dev-mail
+
+  auth-service:
+    environment: *dev-mail
+
+  education-service:
+    environment: *dev-mail
+
+  campaign-service:
+    environment: *dev-mail
+
+  monolith:
+    environment:
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: "1025"
+      SPRING_MAIL_PROTOCOL: smtp

@@ -2338,7 +2338,9 @@ function loadDataTable(){
 							"<div id=venderCreditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",obj.datedStr,
 							"<div class='row-actions'>"
 							// Pay only makes sense when something is owed — hide it when the payable is 0.
-							+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='"+escHtml((obj.payablesSource==='FINANCE' && Number(obj.billsOwed||0) > 0) ? tOr('ui.js.payPurchasesOnly','Pays purchases; expense bills are paid from Expenses') : 'Pay this vendor')+"'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : "")
+							// FP-5b — on FINANCE one Pay settles purchases AND expense bills, oldest first, so it carries the total
+							+ (function(){ var payDue = (obj.payablesSource==='FINANCE' && obj.totalOwed!=null) ? obj.totalOwed : obj.dueAmount;
+								return (Number(payDue)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary pay-vendor-btn' data-vid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+payDue+"' title='"+escHtml(obj.payablesSource==='FINANCE' ? tOr('ui.js.payPurchasesAndBills','Pays purchases and expense bills, oldest first') : 'Pay this vendor')+"'><span class='glyphicon glyphicon-usd'></span> Pay</button> " : ""; })()
 							+ "<button type=button class='btn btn-xs btn-default stmt-btn' data-ptype='VENDOR' data-pid='"+obj.id+"' data-name=\""+escHtml(obj.name||'')+"\" title='Statement of account'><span class='glyphicon glyphicon-list-alt'></span> Statement</button>"
 							// DR-2 (G9): the 360 view on supplier rows too, and "+ Customer" for the same business.
 							+ contact360Button(obj.partyId)
@@ -5183,6 +5185,8 @@ function submitPayVendor() {
 			var o = resp.object || {};
 			// FP-5a — recorded either way; when the books have not answered yet the number follows (never claimed early)
 			var msg = 'Vendor paid.' + (o.voucherNo ? ' Voucher ' + o.voucherNo : (o.voucherPending ? ' ' + tOr('ui.js.voucherToFollowPv', 'The voucher number will follow once the books confirm it.') : ''));
+			// FP-5b — say how much of it settled expense bills
+			if (Number(o.appliedToBills || 0) > 0) msg += ' ' + tOr('ui.js.paidToBills', 'Of this, paid to expense bills:') + ' ' + Number(o.appliedToBills).toFixed(2);
 			if (typeof showSaleSuccess === 'function') showSaleSuccess(msg); else clearFormError();
 			closeModal('PayVendorModal');
 			loadDataTable();   // refresh the vendor list — due is updated

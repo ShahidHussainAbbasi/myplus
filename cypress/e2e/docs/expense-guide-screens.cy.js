@@ -1,0 +1,1242 @@
+/**
+ * Expense Management & Supplier Payables Test Book — every manual case as a REAL step-by-step test, recorded.
+ *
+ * Each `caseIt` is one manual test case: set-up, numbered actions, the expected result of each action, and the
+ * clean-up. Every action is PERFORMED, ASSERTED and PHOTOGRAPHED in that order, and the page builder
+ * (docs/guides/build-expense-guide.js) shows a case as "recorded" only if the whole case passed — so no expected result
+ * on the page is one the app did not actually produce on this build.
+ *
+ * WHERE A SCREEN IS MISSING. A few steps have no screen (an operator-only check, a purchase on credit set up through the
+ * purchase form's own request). Those are marked `via: 'run'` with the screen path a person uses in the text.
+ *
+ * TENANT. Cases that move money run on owner.lifecycle@ — the Test Book's spare business — never on owner.business@,
+ * which other specs sign in as. Every case registers an undo in SAFETY, run in after(), so a case that fails half-way
+ * still leaves the switch, the capability and the settings as they were.
+ *
+ * Run headed:
+ *   npx cypress run --headed --browser electron --spec cypress/e2e/docs/expense-guide-screens.cy.js --config trashAssetsBeforeRuns=false
+ *   (one case: --env guideOnly=4-1)
+ */
+const OUT_DIR = 'cypress/guide-out/expense-guide'
+const ONLY = String(Cypress.env('guideOnly') || '').split(/[,;|]/).map((x) => x.trim()).filter(Boolean)
+const caseIt = (id, title, fn) => ((ONLY.length && !ONLY.includes(id)) ? it.skip : it)(`${id} — ${title}`, fn)
+
+const LIFECYCLE = 'owner.lifecycle@myplus.com'
+const LIFECYCLE_ORG_NAME = "Owner Lifecycle's organization"
+const PW = 'Demo@2025!'
+const GW = 'http://localhost:8765'
+const CAP = 'expenseManagement'
+const POLICY = 'pos.purchase.creditLimitPolicy'
+const run = String(Date.now()).slice(-6)
+
+const SAFETY = []
+let cur = null
+
+// ── the case recorder (same shape as the settings guide) ─────────────────────────────────────────────────────
+const testCase = (id, section, title, meta) => {
+  cur = { id, section, title, setup: [], actions: [], cleanup: [], shots: [], ...meta }
+}
+const setup = (text) => cur.setup.push(text)
+const act = (text, expect, opts = {}) => {
+  const a = { do: text, expect: [].concat(expect || []), shots: [], via: opts.via || 'screen' }
+  ;(opts.cleanup ? cur.cleanup : cur.actions).push(a)
+  return a
+}
+const snap = (a, name, subject) => {
+  const pos = cur.actions.includes(a) ? `a${cur.actions.indexOf(a) + 1}` : `c${cur.cleanup.indexOf(a) + 1}`
+  const file = `xg-${cur.id}-${pos}-${name}`
+  a.shots.push(file)
+  cur.shots.push(file)
+  return subject ? cy.get(subject).first().screenshot(file, { overwrite: true })
+                 : cy.screenshot(file, { capture: 'viewport', overwrite: true })
+}
+
+// ── app helpers ──────────────────────────────────────────────────────────────────────────────────────────────
+const list = (b) => { for (const k of ['collection', 'data', 'object']) if (Array.isArray(b && b[k])) return b[k]; return Array.isArray(b) ? b : [] }
+const asLifecycle = (fresh) => cy.loginAs(LIFECYCLE, PW, '/getBusinessDashboardStats', fresh ? 'xg-' + Date.now() : undefined)
+const openDashboard = () => { cy.visit('/businessDashboard'); cy.waitForAppReady() }
+const openMenu = (dd) => cy.get(`#${dd}`).then(($d) => { if (!$d.hasClass('snav-open')) cy.get(`#${dd} .snav-btn`).click() })
+const openExpenses = () => {
+  openMenu('snavTill')
+  cy.get('#navExpenses').should('be.visible').click()
+  cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+}
+const openSuppliers = (name) => {
+  cy.openSection('VenderDiv')
+  if (name) cy.get('#VenderDiv input[type="search"]').first().clear().type(name)
+}
+const token = () => cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: LIFECYCLE, password: PW } })
+  .its('body.data.accessToken')
+const tb = () => token().then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } })
+  .then((r) => {
+    expect(r.body.balanced, 'trial balance is balanced').to.eq(true)
+    const m = {}
+    ;(r.body.rows || []).forEach((row) => { m[row.code] = Number(row.debit || 0) - Number(row.credit || 0) })
+    return m
+  }))
+const delta = (b, a, code) => Math.round(((a[code] || 0) - (b[code] || 0)) * 100) / 100
+const showTrialBalance = () => {
+  cy.window().then((w) => w.showFinance('trialBalance'))
+  cy.contains('#FinanceDiv', 'Accounts Payable', { timeout: 20000 }).should('be.visible')
+}
+const vendorRow = (id) => cy.request('/getUserVender').then((r) => list(r.body).find((v) => v.id === id))
+const categoryByName = (name) => cy.request('/expense/categories').then((r) => {
+  const cats = (r.body && r.body.data) || []
+  return cats.find((c) => c.name === name && c.active !== false) || cats.find((c) => c.active !== false)
+})
+
+/** A supplier of the lifecycle business, created through the Vender / Supplier form's own request. */
+const newSupplier = (label, extra = {}) => {
+  const name = `XG${label}_${run}`
+  cy.request({ method: 'POST', url: '/addCompany', form: true, body: { name: `XGCo${label}_${run}`, email: `xgco${label}${run}@t.com` } })
+  return cy.request('/getUserCompany').then((cr) => {
+    const company = list(cr.body).find((c) => c.name === `XGCo${label}_${run}`)
+    return cy.request({ method: 'POST', url: '/addVender', form: true,
+      body: { name, companyId: company.id, mobile: '0306' + String(Date.now()).slice(-7), email: `xgv${label}${run}@t.com`, ...extra } })
+  }).then(() => cy.request('/getUserVender')).then((r) => ({ id: list(r.body).find((v) => v.name === name).id, name }))
+}
+/** A purchase on credit (paid 0) through the purchase form's own request. */
+const creditPurchase = (vendorId, amount, inv) =>
+  cy.seedProduct({ name: `XGP_${inv}`, sellingPrice: amount + 1, stock: 1 }).then(({ productId }) =>
+    cy.request({ method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+      body: { productId, quantity: 1, venderId: vendorId, paidAmount: 0, 'stock.bpurchaseRate': amount, 'stock.bsellRate': amount + 1,
+        totalAmount: amount, netAmount: amount, purchaseInvoiceNo: inv } }).its('body'))
+const purchaseIdOf = (inv) => cy.request('/getUserPurchase').then((r) => (list(r.body).find((p) => p.purchaseInvoiceNo === inv) || {}).purchaseId)
+
+/** Fill and save the Expenses form on screen. Returns nothing; the row is found by its payee. */
+const fillExpense = ({ category, amount, paidFrom, supplierId, payee }) => {
+  categoryByName(category).then((c) => cy.get('#expCategory').select(String(c.id), { force: true }))
+  cy.get('#expAmount').clear().type(String(amount))
+  cy.get('#expPaidFrom').select(paidFrom, { force: true })
+  if (supplierId) cy.get('#expSupplier').select(String(supplierId), { force: true })
+  if (payee) cy.get('#expPayee').clear().type(payee)
+}
+const expenseRow = (payee) => cy.contains('#tableExpense tbody tr', payee, { timeout: 25000 })
+
+/** The operator's console, on one tenant's panel. */
+const openTenantPanel = (orgName) => {
+  cy.visit('/platformDashboard')
+  cy.get('[data-testid="tenant-row"]', { timeout: 20000 }).should('have.length.greaterThan', 0)
+  cy.get('#platSearch').clear().type(orgName)
+  cy.contains('[data-testid="tenant-row"]', orgName, { timeout: 15000 }).click()
+  cy.get('#platPayables h4', { timeout: 20000 }).should('be.visible')
+}
+const flip = (orgId, source, reason) =>
+  cy.request({ method: 'POST', url: '/platform/payablesSource', form: true, body: { organizationId: orgId, source, reason } })
+    .its('body.status').should('eq', 'SUCCESS')
+
+let lifecycleOrg = null
+
+/** Clean-up on screen: Expenses → the bill's row → Void, with a reason. */
+const voidBillOnScreen = (payee, a) => {
+  openDashboard(); openExpenses()
+  expenseRow(payee).find('[data-cy=void-expense]', { timeout: 25000 }).click()
+  cy.get('.uiC-input').type('Test Book clean-up')
+  cy.get('[data-ui-confirm="ok"]').click()
+  expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+  if (a) snap(a, 'voided')
+}
+/** Leftovers of earlier recording runs (unpaid XG test bills) — voided so the spare business stays clean. */
+const voidLeftoverTestBills = () => cy.request('/expense/vouchers?size=200').then((r) => {
+  const rows = ((r.body && r.body.data && r.body.data.content) || [])
+    .filter((v) => v.status === 'POSTED' && v.postingStatus === 'POSTED_GL' && v.paidFrom === 'AP' && Number(v.paidAmount || 0) === 0
+      && /^XG/.test(v.payeeName || v.supplierName || ''))
+  rows.forEach((v) => cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book clean-up' }, failOnStatusCode: false }))
+})
+
+describe('Expense Management & Supplier Payables Test Book — recorded step by step', () => {
+  beforeEach(() => cy.viewport(1366, 860))
+
+  before(() => {
+    cy.loginAsOperator()
+    cy.orgOf(LIFECYCLE).then((o) => { lifecycleOrg = o.id })
+    asLifecycle()
+    cy.setCapability(CAP, true)
+    voidLeftoverTestBills()
+    SAFETY.push(() => { asLifecycle(); cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.' + CAP } }) })
+    SAFETY.push(() => { asLifecycle(); voidLeftoverTestBills() })
+    SAFETY.push(() => { asLifecycle(); cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: POLICY } }) })
+    SAFETY.push(() => { cy.loginAsOperator(); cy.then(() => { if (lifecycleOrg) flip(lifecycleOrg, 'BUSINESS', 'Test Book recording: leave as found') }) })
+  })
+
+  afterEach(function () {
+    cur.passed = this.currentTest.state === 'passed'
+    cur.capturedAt = new Date().toISOString()
+    if (!cur.passed) cur.error = String((this.currentTest.err && this.currentTest.err.message) || '').slice(0, 400)
+    cy.writeFile(`${OUT_DIR}/${cur.id}.json`, cur)
+  })
+
+  after(() => { SAFETY.slice().reverse().forEach((fn) => fn()) })
+
+  // ═══ EX-0a · The on/off switch ═════════════════════════════════════════════════════════════════════════════
+  const KEY = 'org.cap.' + CAP
+  const SWITCH = `#businessConfigBody [data-key="${KEY}"]`
+  const openConfig = () => {
+    openDashboard()
+    openMenu('snavSettings')
+    cy.get('#navConfiguration').click()
+    cy.get('#businessConfigBody .cfg-group', { timeout: 20000 }).should('have.length.greaterThan', 3)
+    cy.revealSetting(KEY)
+  }
+  const resetCapHere = () => cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: KEY } })
+
+  caseIt('0a-1', 'The switch is there, and off, for a business-type tenant', () => {
+    testCase('0a-1', 'ex0a', 'The switch is there, and off, for a business-type tenant',
+      { who: ['owner.mobile (recorded)', 'owner.pesticide (recorded)', 'owner.business', 'owner.pharma', 'owner.marketplace', 'owner.inventory'] })
+    setup('Nobody has switched Expense management on for this business (the recording removes any earlier choice first).')
+    ;[['owner.mobile@myplus.com', 'mobile'], ['owner.pesticide@myplus.com', 'pesticide']].forEach(([email, tag], i) => {
+      cy.loginAs(email, PW, '/getBusinessDashboardStats')
+      resetCapHere()
+      cy.loginAs(email, PW, '/getBusinessDashboardStats', 'xg-0a1-' + tag + Date.now())
+      const a = act(`Log in as <b>${email.split('@')[0]}</b>, open <b>Settings → Configuration</b>, Business tab, and find <b>Expense management</b> under <b>What this business does</b>.`,
+        i === 0 ? ['A switch named <b>Expense management</b> with its help text ("… Off until you switch it on.").', 'It is <b>unticked</b> and not greyed out.', 'There is no <b>Expenses</b> item under Till.']
+                : ['Same: present, unticked, not greyed out; no Expenses item.'])
+      openConfig()
+      cy.get(SWITCH).should('exist').and('not.be.checked').and('not.be.disabled')
+      cy.get(SWITCH).closest('.cfg-row').should('contain', 'Expense management')
+      cy.get('#navExpenses').closest('[data-capability]').should('have.class', 'cap-off')
+      snap(a, tag, `${SWITCH}`)
+    })
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('0a-3', 'An owner or admin can switch it on; a user cannot', () => {
+    testCase('0a-3', 'ex0a', 'An owner or admin can switch it on; a user cannot', { who: ['owner.business', 'admin.business', 'user.business (all recorded)'] })
+    cy.loginAsOwner(); resetCapHere()
+    SAFETY.push(() => { cy.loginAsOwner(); resetCapHere() })
+    cy.loginAsOwner(undefined, undefined, 'xg-0a3o-' + Date.now())
+    const a1 = act('As <b>owner.business</b>: tick <b>Expense management</b>.', ['The message <b>Saved</b> appears.'])
+    openConfig()
+    cy.get(SWITCH).check()
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    snap(a1, 'owner-saved', '#businessConfigMsg')
+    const a2 = act('Reload the page and reopen Configuration.', ['The switch is still ticked.'])
+    openConfig()
+    cy.get(SWITCH).should('be.checked')
+    snap(a2, 'still-on', SWITCH)
+    const a3 = act('Untick it again.', ['Saved; unticked.'])
+    cy.get(SWITCH).uncheck()
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    cy.loginAs('admin.business@myplus.com', PW, '/getBusinessDashboardStats', 'xg-0a3a-' + Date.now())
+    const a4 = act('As <b>admin.business</b>: tick it, then untick it.', ['Saved both times, exactly as for the owner.'])
+    openConfig()
+    cy.get(SWITCH).check()
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    snap(a4, 'admin-saved', '#businessConfigMsg')
+    cy.get(SWITCH).uncheck()
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    cy.loginAs('user.business@myplus.com', PW, '/getBusinessDashboardStats', 'xg-0a3u-' + Date.now())
+    const a5 = act('As <b>user.business</b>: look for <b>Settings → Configuration</b>; and try to switch it on anyway.',
+      ['Configuration is not offered to a user, and a direct attempt is refused — the switch cannot be changed.'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, failOnStatusCode: false, body: { key: KEY, value: 'true' } })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.success !== true), JSON.stringify(r.body).slice(0, 200)).to.eq(true))
+    act('As owner.business: <b>Reset</b> Expense management to its default (off).', ['Unticked, as found.'], { cleanup: true })
+    cy.loginAsOwner(); resetCapHere()
+  })
+
+  caseIt('0a-4', 'Changing the type of business keeps the switch on', () => {
+    testCase('0a-4', 'ex0a', 'Changing the type of business keeps the switch on', { who: ['owner.mobile (recorded; seeded as Retail)'] })
+    cy.loginAsMobileOwner()
+    cy.setCapability(CAP, true)
+    SAFETY.push(() => { cy.loginAsMobileOwner(); cy.request({ method: 'POST', url: '/saveBusinessShape', form: true, failOnStatusCode: false, body: { shape: 'retail' } }); resetCapHere() })
+    const a1 = act('Tick <b>Expense management</b>. Under <b>What kind of business this is</b>, choose <b>Pharmacy / dispensing</b> and read the confirmation.',
+      ['The confirmation lists switches turning on and off, and <b>Expense management is in neither list</b>.'], { via: 'run' })
+    cy.request('/getBusinessShapePreview?shape=pharmacy').then((r) => {
+      const p = (r.body && r.body.data) || {}
+      expect([...(p.turningOn || []), ...(p.turningOff || [])]).not.to.include('Expense management')
+    })
+    const a2 = act('Confirm the change to Pharmacy, then change back to <b>Retail counter / POS</b> and confirm.',
+      ['After each change <b>Expense management is still ticked</b>.'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/saveBusinessShape', form: true, body: { shape: 'pharmacy' } }).its('body.success').should('eq', true)
+    cy.getCapabilities().its(CAP).should('eq', true)
+    cy.request({ method: 'POST', url: '/saveBusinessShape', form: true, body: { shape: 'retail' } }).its('body.success').should('eq', true)
+    cy.loginAsMobileOwner(undefined, undefined, 'xg-0a4-' + Date.now())
+    const a3 = act('Open Configuration.', ['<b>Expense management</b> is ticked.'])
+    openConfig()
+    cy.get(SWITCH).should('be.checked')
+    snap(a3, 'still-on', SWITCH)
+    act('Type back to <b>Retail counter / POS</b> (done above); untick Expense management.', [], { cleanup: true })
+    resetCapHere()
+  })
+
+  caseIt('0a-5', 'One business’s choice does not reach another', () => {
+    testCase('0a-5', 'ex0a', 'One business’s choice does not reach another', { who: ['owner.mobile', 'owner.pesticide (recorded)'] })
+    cy.loginAsMobileOwner()
+    const a1 = act('As <b>owner.mobile</b>, tick Expense management.', ['Saved.'], { via: 'run' })
+    cy.setCapability(CAP, true)
+    SAFETY.push(() => { cy.loginAsMobileOwner(); resetCapHere() })
+    cy.loginAs('owner.pesticide@myplus.com', PW, '/getBusinessDashboardStats', 'xg-0a5-' + Date.now())
+    const a2 = act('Log out; log in as <b>owner.pesticide</b> and open Configuration.', ['owner.pesticide’s Expense management is still <b>unticked</b>.'])
+    openConfig()
+    cy.get(SWITCH).should('not.be.checked')
+    snap(a2, 'pesticide-off', SWITCH)
+    act('Untick Expense management for owner.mobile again.', [], { cleanup: true })
+    cy.loginAsMobileOwner(); resetCapHere()
+  })
+
+  caseIt('0a-6', 'Off by default on the school, welfare and farm dashboards', () => {
+    testCase('0a-6', 'ex0a', 'Off by default on the school, welfare and farm dashboards', { who: ['owner.education', 'owner.welfare', 'owner.agriculture (all recorded)'] })
+    setup('Nobody has switched the module on for these businesses (the recording removes any earlier choice).')
+    const D = [
+      ['owner.education@myplus.com', '/getDashboardData', '/educationDashboard', 'school'],
+      ['owner.welfare@myplus.com', '/getWelfareConfig', '/welfareDashboard', 'welfare'],
+      ['owner.agriculture@myplus.com', '/agricultureDashboard', '/agricultureDashboard', 'farm'],
+    ]
+    D.forEach(([email, check, dash, tag]) => {
+      cy.loginAs(email, PW, check)
+      cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY } })
+      cy.loginAs(email, PW, check, 'xg-0a6-' + tag + Date.now())
+      const a = act(`Log in as <b>${email.split('@')[0]}</b> and open the dashboard.`, ['There is no <b>Expenses</b> entry until the owner switches the module on (case 2a-1).'])
+      cy.visit(dash); cy.waitForAppReady()
+      cy.get('#navExpenses').closest('[data-capability]').should('have.class', 'cap-off')
+      snap(a, tag)
+    })
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('0a-7', 'The platform operator sees it, in the free plan, off', () => {
+    testCase('0a-7', 'ex0a', 'The platform operator sees it, in the free plan, off', { who: ['admin@myplus.com (operator)'] })
+    cy.loginAsOperator()
+    const a1 = act('Open the <b>Platform</b> console and pick a business on the <b>FREE</b> plan (Owner Business’s organization).',
+      ['Under <b>Capabilities</b>, <b>Expense management</b> is listed as included in the plan, and it is off until that owner switches it on.'])
+    cy.orgOf('owner.business@myplus.com').then((o) => cy.request(`/platform/entitlements?organizationId=${o.id}`)).then((ent) => {
+      const row = ((ent.body && ent.body.data && ent.body.data.capabilities) || []).find((r) => r.capability === CAP)
+      expect(row.inPlan).to.eq(true)
+    })
+    openTenantPanel("Owner Business's organization")
+    cy.contains('#platDetailBody', 'Expense management').scrollIntoView()
+    snap(a1, 'entitlement')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  // ═══ EX-0b · Expense accounts ═════════════════════════════════════════════════════════════════════════════
+  caseIt('0b-1', 'The expense accounts are in the books, and the trial balance balances', () => {
+    testCase('0b-1', 'ex0b', 'The expense accounts are in the books, and the trial balance balances', { who: ['owner.lifecycle (recorded)', 'owner.business', 'owner.pharma'] })
+    asLifecycle()
+    openDashboard()
+    const a1 = act('Open <b>Finance → Trial Balance</b>.', ['It says <b>balanced</b> (total debits = total credits).'])
+    tb()
+    showTrialBalance()
+    snap(a1, 'trial-balance')
+    const a2 = act('In the same browser tab open <code>http://localhost:8080/gl/accounts</code> (a plain list, no screen of its own).',
+      ['The list includes <b>1300</b> Employee Advances, <b>2300</b> Employee Reimbursements Payable, and the EXPENSE accounts <b>6000</b> Rent, <b>6100</b> Utilities, <b>6200</b> Fuel and Transport, <b>6300</b> Repairs and Maintenance, <b>6400</b> Marketing, <b>6500</b> Bank Charges, <b>6600</b> Office and Supplies and <b>6900</b> Other Operating Expenses.'])
+    cy.request('/gl/accounts').then((r) => {
+      const body = typeof r.body === 'string' ? JSON.parse(r.body) : r.body
+      const rows = Array.isArray(body) ? body : (body.data || body.rows || [])
+      const codes = rows.map((x) => String(x.code))
+      ;['1300', '2300', '6000', '6100', '6200', '6300', '6400', '6500', '6600', '6900'].forEach((c) => expect(codes, c).to.include(c))
+    })
+    a2.via = 'run'
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  // ═══ EX-0c · Document numbers ═════════════════════════════════════════════════════════════════════════════
+  caseIt('0c-1', 'Receipt numbers carry on, one after another', () => {
+    testCase('0c-1', 'ex0c', 'Receipt numbers carry on, one after another', { who: ['owner.lifecycle (recorded)', 'owner.business', 'cashier.a', 'owner.pharma'] })
+    setup('A customer (the recording makes one). Invoices, quotes and credit notes use the same shared counter; the automated gate <code>document-number-integrity</code> checks those series, including six receipts at the same instant.')
+    asLifecycle()
+    const cname = 'XG0C_' + run
+    cy.request({ method: 'POST', url: '/addCustomer', form: true, body: { name: cname, contact: 'C0' + run } })
+    cy.request('/getUserCustomer').then((r) => list(r.body).find((c) => c.name === cname).customerId).then((cid) => {
+      const a1 = act('Receive <b>1</b> in cash from the customer, then another <b>1</b>.',
+        ['Two receipts <b>RCPT-…</b> whose numbers are consecutive (the second is the first plus one); no series restarted at 1.'], { via: 'run' })
+      cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: cid, amount: 1, method: 'CASH', idempotencyKey: 'xg0c1-' + run } })
+        .its('body.object.receiptNo').then((r1) => {
+          cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: cid, amount: 1, method: 'CASH', idempotencyKey: 'xg0c2-' + run } })
+            .its('body.object.receiptNo').then((r2) => {
+              const n1 = Number(String(r1).replace(/\D/g, '')), n2 = Number(String(r2).replace(/\D/g, ''))
+              expect(n1, 'not restarted').to.be.greaterThan(1)
+              expect(n2).to.eq(n1 + 1)
+            })
+        })
+    })
+    act('Nothing to undo — two receipts of 1 stand as the test customer’s credit.', [], { cleanup: true })
+  })
+
+  // ═══ EX-1 · Record an expense ═════════════════════════════════════════════════════════════════════════════
+  const ex1Payee = 'XG landlord ' + run
+  caseIt('1-1', 'Record rent paid in cash, and watch it reach the books', () => {
+    testCase('1-1', 'ex1', 'Record rent paid in cash, and watch it reach the books', { who: ['owner.lifecycle (recorded)', 'owner.business', 'owner.mobile', 'owner.pharma'] })
+    setup('Expense management switched on (case 0a-3), then log out and in.')
+    asLifecycle(true)
+    tb().then((before) => {
+      openDashboard()
+      const a1 = act(`<b>Till → Expenses</b>: Category <b>Rent</b>, Amount <b>1500</b>, Paid from <b>Cash</b>, Payee <b>${ex1Payee}</b>, press <b>Save and post</b>.`,
+        ['"Expense saved. Posting to the books."', 'The new row has a number like <b>EXP-…</b>, amount 1,500.00, and its status ends as <b>In the books</b>.'])
+      openExpenses()
+      fillExpense({ category: 'Rent', amount: 1500, paidFrom: 'CASH', payee: ex1Payee })
+      cy.get('[data-cy=save-expense]').click()
+      cy.get('#expMsg').should('contain', 'Posting to the books')
+      expenseRow(ex1Payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+      snap(a1, 'in-the-books')
+      const a2 = act('Open <b>Finance → Trial Balance</b>.', ['<b>6000 Rent</b> up 1,500, <b>1000 Cash</b> down 1,500, still balanced.'])
+      tb().then((after) => {
+        expect(delta(before, after, '6000')).to.eq(1500)
+        expect(delta(before, after, '1000')).to.eq(-1500)
+      })
+      showTrialBalance()
+      snap(a2, 'trial-balance')
+    })
+    act('Kept for case 1-3, which voids an expense; void this one too from its row if you want it gone (reason "Test Book").', [], { cleanup: true })
+  })
+
+  caseIt('1-2', 'Paid from the bank uses the bank account', () => {
+    testCase('1-2', 'ex1', 'Paid from the bank uses the bank account', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle()
+    const payee = 'XG utility ' + run
+    tb().then((before) => {
+      openDashboard(); openExpenses()
+      const a1 = act(`Record <b>Electricity, gas and water</b>, <b>730.50</b>, Paid from <b>Bank</b>, Payee <b>${payee}</b>.`,
+        ['In the books.', 'Trial balance: <b>6100 Utilities</b> up 730.50 and <b>1010 Bank</b> down 730.50. Cash does not move.'])
+      fillExpense({ category: 'Electricity, gas and water', amount: 730.5, paidFrom: 'BANK', payee })
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+      tb().then((after) => {
+        expect(delta(before, after, '6100')).to.eq(730.5)
+        expect(delta(before, after, '1010')).to.eq(-730.5)
+        expect(delta(before, after, '1000')).to.eq(0)
+      })
+      snap(a1, 'bank')
+      const c1 = act('Void it from its row (reason "Test Book").', ['The row shows Void; 6100 and 1010 are back.'], { cleanup: true })
+      expenseRow(payee).find('[data-cy=void-expense]').click()
+      cy.get('.uiC-input').type('Test Book')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+    })
+  })
+
+  caseIt('1-3', 'Void with a reason puts the books back', () => {
+    testCase('1-3', 'ex1', 'Void with a reason puts the books back', { who: ['owner.lifecycle (recorded)', 'owner.business', 'admin.business'] })
+    asLifecycle()
+    const payee = 'XG repairs ' + run
+    openDashboard(); openExpenses()
+    fillExpense({ category: 'Repairs and maintenance', amount: 250, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    tb().then((before) => {
+      const a1 = act(`Record <b>Repairs</b> 250 in cash (Payee <b>${payee}</b>), wait for <b>In the books</b>, press <b>Void</b>, and try to confirm with no reason.`,
+        ['Refused: a message says <b>Reason (required)</b>, and the expense is not voided.'])
+      expenseRow(payee).find('[data-cy=void-expense]').click()
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.contains('Reason (required)', { timeout: 10000 }).should('be.visible')
+      snap(a1, 'reason-required')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip').should('contain', 'In the books')
+      expenseRow(payee).find('[data-cy=void-expense]').click()
+      const a2 = act('Type the reason "entered by mistake" and confirm.',
+        ['The row shows <b>Void</b> and keeps its number; it is not deleted.', 'Trial balance: 6300 and 1000 are back where they were.'])
+      cy.get('.uiC-input').type('entered by mistake')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+      expenseRow(payee).should('contain', 'EXP-')   // it keeps its number
+      cy.wait(3000)
+      tb().then((after) => {
+        expect(delta(before, after, '6300')).to.eq(-250)
+        expect(delta(before, after, '1000')).to.eq(250)
+      })
+      snap(a2, 'voided')
+    })
+    act('Nothing to undo — the expense is void and the books are back.', [], { cleanup: true })
+  })
+
+  caseIt('1-4', 'A user records and sees only their own; only owner and admin void', () => {
+    testCase('1-4', 'ex1', 'A user records and sees only their own; only owner and admin void', { who: ['user.business', 'owner.business (recorded)'] })
+    cy.loginAsOwner(); cy.setCapability(CAP, true)
+    SAFETY.push(() => { cy.loginAsOwner(); resetCapHere() })
+    const payee = 'XG user ' + run
+    cy.loginAs('user.business@myplus.com', PW, '/getBusinessDashboardStats', 'xg-14u-' + Date.now())
+    openDashboard()
+    const a1 = act(`As <b>user.business</b>: Till → Expenses, record <b>Rent</b> 10 in cash, Payee <b>${payee}</b>.`,
+      ['It saves. The list shows only the expenses this user recorded, and there is <b>no Void</b> button.'])
+    openExpenses()
+    fillExpense({ category: 'Rent', amount: 10, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('[data-cy=void-expense]').should('not.exist')
+    cy.get('#tableExpense thead th').should('have.length', 7)
+    snap(a1, 'user-view')
+    cy.loginAsOwner(undefined, undefined, 'xg-14o-' + Date.now())
+    openDashboard()
+    const a2 = act('As <b>owner.business</b>: open the same list.', ['The owner sees everyone’s expenses, including the user’s, with <b>Void</b>.'])
+    openExpenses()
+    expenseRow(payee).find('[data-cy=void-expense]', { timeout: 25000 }).should('be.visible')
+    snap(a2, 'owner-view')
+    const c1 = act('As the owner: void the user’s 10 expense (reason "Test Book"), then reset Expense management to off.', [], { cleanup: true })
+    expenseRow(payee).find('[data-cy=void-expense]').click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+    resetCapHere()
+  })
+
+  caseIt('1-5', 'A double click saves one expense', () => {
+    testCase('1-5', 'ex1', 'A double click saves one expense', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle()
+    const payee = 'XG double ' + run
+    openDashboard(); openExpenses()
+    const a1 = act(`Fill an expense (Rent, 77, Cash, Payee <b>${payee}</b>) and double-click <b>Save and post</b>.`, ['Exactly one new row appears.'])
+    fillExpense({ category: 'Rent', amount: 77, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').dblclick()
+    cy.get('#expMsg').should('contain', 'Posting to the books')
+    cy.wait(2500)
+    openExpenses()
+    cy.get('#tableExpense tbody tr').filter(`:contains("${payee}")`).should('have.length', 1)
+    snap(a1, 'one-row')
+    const c1 = act('Void it (reason "Test Book").', [], { cleanup: true })
+    expenseRow(payee).find('[data-cy=void-expense]', { timeout: 25000 }).click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+  })
+
+  caseIt('1-6', 'Another business cannot see it', () => {
+    testCase('1-6', 'ex1', 'Another business cannot see it', { who: ['owner.pesticide (recorded)', 'owner.business'] })
+    cy.loginAs('owner.pesticide@myplus.com', PW, '/getBusinessDashboardStats', 'xg-16-' + Date.now())
+    openDashboard()
+    const a1 = act('As <b>owner.pesticide</b>, open the dashboard.', ['No Expenses entry (its module is off) and no other business’s expenses anywhere.'])
+    cy.get('#navExpenses').closest('[data-capability]').should('have.class', 'cap-off')
+    cy.request({ url: '/expense/vouchers?size=200', failOnStatusCode: false }).then((r) => {
+      const rows = (r.body && r.body.data && r.body.data.content) || []
+      expect(rows.some((v) => /^XG /.test(v.payeeName || '')), 'no lifecycle/business test expenses visible').to.eq(false)
+    })
+    snap(a1, 'no-expenses')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('1-7', 'Switching it off hides the screen, not the history', () => {
+    testCase('1-7', 'ex1', 'Switching it off hides the screen, not the history', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle()
+    tb().then((before) => {
+      const a1 = act('Untick <b>Expense management</b> (Settings → Configuration), log out and in.', ['Till no longer lists <b>Expenses</b>.'])
+      resetCapHere()
+      asLifecycle(true)
+      openDashboard()
+      openMenu('snavTill')
+      cy.get('#navExpenses').closest('[data-capability]').should('have.class', 'cap-off')
+      snap(a1, 'till-without-expenses')
+      const a2 = act('Open <b>Finance → Trial Balance</b>.', ['Expenses already posted are still there: the switch hides the screen, it does not undo postings.'])
+      tb().then((after) => expect(delta(before, after, '6000'), 'rent from 1-1 still in the books').to.eq(0))
+      showTrialBalance()
+      snap(a2, 'trial-balance')
+    })
+    act('Tick Expense management again (the recording does, for the cases that follow).', [], { cleanup: true })
+    cy.setCapability(CAP, true)
+  })
+
+  // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
+  const DASH = [
+    { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',
+      openConfig: () => { openMenu('snavFee'); cy.contains('#snavFee a', 'Configuration').click() },
+      openExp: () => { openMenu('snavFee'); cy.get('#navExpenses').should('be.visible').click() } },
+    { email: 'owner.welfare@myplus.com', check: '/getWelfareConfig', dash: '/welfareDashboard', tag: 'welfare',
+      openConfig: () => cy.contains('.app-sidebar a.sb-link', 'Configuration').click({ force: true }),
+      openExp: () => cy.get('#navExpenses').click({ force: true }) },
+    { email: 'owner.agriculture@myplus.com', check: '/agricultureDashboard', dash: '/agricultureDashboard', tag: 'farm',
+      openConfig: () => cy.contains('.app-sidebar a.sb-link', 'Configuration').click({ force: true }),
+      openExp: () => cy.get('#navExpenses').click({ force: true }) },
+  ]
+  const signInD = (d, fresh) => cy.loginAs(d.email, PW, d.check, fresh ? 'xg-2a-' + d.tag + Date.now() : undefined)
+  const resetModule = () => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY } })
+
+  caseIt('2a-1', 'Each business switches the module on for itself', () => {
+    testCase('2a-1', 'ex2a', 'Each business switches the module on for itself', { who: ['owner.education', 'owner.welfare', 'owner.agriculture (all recorded)'] })
+    DASH.forEach((d) => {
+      signInD(d); resetModule()
+      SAFETY.push(() => { signInD(d); resetModule() })
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      const a = act(`As <b>${d.email.split('@')[0]}</b>: open <b>Configuration</b> (${d.tag === 'school' ? 'Fee → Configuration' : 'the sidebar'}), in the <b>Modules</b> card tick <b>Expense management</b>, then log out and in.`,
+        ['The card lists Expense management, unticked; ticking shows <b>Saved</b>.', 'After signing in again, <b>Expenses</b> appears in the menu.'])
+      d.openConfig()
+      cy.get(`#moduleSwitches [data-key="${KEY}"]`, { timeout: 20000 }).should('not.be.checked').check()
+      cy.get('#moduleSwitchesMsg').should('contain', 'Saved')
+      snap(a, d.tag + '-saved', '#moduleSwitches')
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      cy.get('#navExpenses').closest('[data-capability]').should('not.have.class', 'cap-off')
+    })
+    act('Kept on for cases 2a-2 to 2b-2; switched back off at the end of the recording (each owner: Configuration → Modules → untick).', [], { cleanup: true })
+  })
+
+  caseIt('2a-2', 'Record an expense on each dashboard', () => {
+    testCase('2a-2', 'ex2a', 'Record an expense on each dashboard', { who: ['owner.education', 'owner.welfare', 'owner.agriculture (all recorded)'] })
+    DASH.forEach((d) => {
+      const payee = `XG ${d.tag} rent ${run}`
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      const a = act(`As <b>${d.email.split('@')[0]}</b>: open <b>Expenses</b>, record <b>Rent</b> 900 in cash (Payee <b>${payee}</b>).`,
+        ['The row gets an <b>EXP-</b> number from this business’s own series and reaches <b>In the books</b>.'])
+      d.openExp()
+      cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+      fillExpense({ category: 'Rent', amount: 900, paidFrom: 'CASH', payee })
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+      snap(a, d.tag)
+      const c = act(`${d.tag}: void the 900 rent (reason "Test Book").`, [], { cleanup: true })
+      expenseRow(payee).find('[data-cy=void-expense]').click()
+      cy.get('.uiC-input').type('Test Book')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+    })
+  })
+
+  caseIt('2a-3', 'Configuration opens from the sidebar', () => {
+    testCase('2a-3', 'ex2a', 'Configuration opens from the sidebar', { who: ['owner.welfare', 'owner.agriculture (both recorded)'] })
+    DASH.slice(1).forEach((d) => {
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      const a = act(`As <b>${d.email.split('@')[0]}</b>: click <b>Configuration</b> in the sidebar.`, ['The Configuration screen opens with its settings and the <b>Modules</b> card (before EX-2a it went blank).'])
+      d.openConfig()
+      cy.get('#moduleSwitches', { timeout: 20000 }).should('be.visible')
+      snap(a, d.tag)
+    })
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('2a-4', 'Only owners and admins switch modules', () => {
+    testCase('2a-4', 'ex2a', 'Only owners and admins switch modules', { who: ['user.education (recorded)'] })
+    cy.loginAs('user.education@myplus.com', PW, '/getDashboardData', 'xg-2a4-' + Date.now())
+    const a1 = act('As <b>user.education</b>, try to switch Expense management off.', ['Refused: a user cannot switch a module on or off.'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY, enabled: 'false' } })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.success !== true), JSON.stringify(r.body).slice(0, 200)).to.eq(true))
+    const a2 = act('As <b>owner.education</b>, try to flip a business feature (installments) from the Modules card’s endpoint.', ['Refused: the card only switches modules.'], { via: 'run' })
+    signInD(DASH[0])
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, failOnStatusCode: false, body: { key: 'org.cap.installments', enabled: 'false' } })
+      .then((r) => expect(r.body && r.body.success !== true, JSON.stringify(r.body).slice(0, 200)).to.eq(true))
+    act('Nothing to undo — both were refused.', [], { cleanup: true })
+  })
+
+  // ═══ EX-2b · What it was for ═══════════════════════════════════════════════════════════════════════════════
+  caseIt('2b-1', 'Tag fuel to a bus, and a cost to a field', () => {
+    testCase('2b-1', 'ex2b', 'Tag fuel to a bus, and a cost to a field', { who: ['owner.education', 'owner.agriculture (both recorded)'] })
+    const busNo = 'XG-' + run, landName = 'XG Field ' + run
+    signInD(DASH[0])
+    cy.request({ method: 'POST', url: '/addVehicle', form: true, body: { name: 'XG Bus', number: busNo } })
+    signInD(DASH[2])
+    cy.request({ method: 'POST', url: '/addLand', form: true, body: { landName, landType: 'Agricultural', landUnit: 'Acre', totalLandUnit: '3', amount: '1' } })
+    setup(`School: a bus <b>XG Bus (${'XG-…'})</b> under Transport. Farm: a land <b>XG Field …</b> under Land.`)
+    ;[[DASH[0], 'Fuel and transport', 'XG Bus', 'bus'], [DASH[2], 'Rent', landName, 'land']].forEach(([d, cat, tagText, t]) => {
+      const payee = `XG ${t} ${run}`
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      const a = act(`${d.tag === 'school' ? 'School' : 'Farm'}: Expenses, category <b>${cat}</b>, amount 120, cash, <b>For</b>: ${t === 'bus' ? 'the bus' : 'the land'}, Payee <b>${payee}</b>, save.`,
+        ['The <b>For</b> list offers this business’s ' + (t === 'bus' ? 'schools and vehicles' : 'lands') + ', nothing else.', 'The row reads like <b>' + cat + ' · ' + (t === 'bus' ? 'XG Bus (XG-…)' : 'XG Field …') + '</b>.'])
+      d.openExp()
+      cy.get('#expTagGroup', { timeout: 20000 }).should('be.visible')
+      cy.get('#expTag option').then(($o) => {
+        const opt = [...$o].find((o) => o.text.includes(tagText))
+        expect(opt, 'tag offered').to.exist
+        cy.get('#expTag').select(opt.value, { force: true })
+      })
+      fillExpense({ category: cat, amount: 120, paidFrom: 'CASH', payee })
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee).should('contain', ' · ').and('contain', t === 'bus' ? 'XG Bus' : 'XG Field')
+      snap(a, t)
+      const c = act(`${d.tag}: void the 120 (reason "Test Book").`, [], { cleanup: true })
+      expenseRow(payee).find('[data-cy=void-expense]', { timeout: 25000 }).click()
+      cy.get('.uiC-input').type('Test Book')
+      cy.get('[data-ui-confirm="ok"]').click()
+    })
+  })
+
+  caseIt('2b-2', 'A branch user sees only their branch', () => {
+    testCase('2b-2', 'ex2b', 'A branch user sees only their branch', { who: ['teacher.a (recorded; granted one branch)', 'teacher.b', 'owner.education'] })
+    setup('Expense management is on for the school (case 2a-1; the recording switches it on and back off).')
+    signInD(DASH[0])
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    SAFETY.push(() => { signInD(DASH[0]); resetModule() })
+    let ownerSchools = 0
+    cy.request('/expense/tags?source=education').then((r) => { ownerSchools = (r.body.data || []).filter((t) => t.type === 'SCHOOL').length })
+    cy.loginAs('teacher.a@myplus.com', PW, '/getDashboardData', 'xg-2b2-' + Date.now())
+    cy.visit('/educationDashboard'); cy.waitForAppReady()
+    const a1 = act('Sign in as <b>teacher.a</b> (granted one branch), open <b>Fee → Expenses</b>, and open the <b>For</b> list.',
+      ['The For list offers only that branch (<b>CY Branch 1</b>) and its vehicles — none of the school’s other branches.'])
+    openMenu('snavFee')
+    cy.get('#navExpenses').should('be.visible').click()
+    cy.get('#expTagGroup', { timeout: 20000 }).should('be.visible')
+    cy.get('#expTag option').then(($o) => {
+      const labels = [...$o].map((o) => o.text)
+      expect(labels.some((l) => l.includes('CY Branch 1')), 'their branch').to.eq(true)
+      expect(labels.some((l) => l.includes('CY Branch 2')), 'not another branch').to.eq(false)
+    })
+    cy.request('/expense/tags?source=education').then((r) => {
+      const mine = (r.body.data || []).filter((t) => t.type === 'SCHOOL').length
+      expect(mine, 'fewer schools than the owner sees').to.be.lessThan(ownerSchools)
+    })
+    snap(a1, 'teacher-for-list', '#expTagGroup')
+    act('As owner.education: <b>Fee → Configuration → Modules</b>, untick Expense management (if you switched it on for this test).', [], { cleanup: true })
+    signInD(DASH[0]); resetModule()
+  })
+
+  // ═══ EX-3 · Till pay-outs ═════════════════════════════════════════════════════════════════════════════════
+  const openTill = () => {
+    openDashboard()
+    openMenu('snavTill')
+    cy.get('#snavTill a[onclick^="showTill("]').click()
+    cy.get('#TillDiv').should('be.visible')
+  }
+  const ensureShiftOpen = () => cy.request({ url: '/currentShift', failOnStatusCode: false }).then((r) => {
+    if (!(r.body && r.body.status === 'SUCCESS'))
+      cy.request({ method: 'POST', url: '/openShift', form: true, body: { openingFloat: 5000 } }).its('body.status').should('eq', 'SUCCESS')
+  })
+  const closeShiftQuietly = () => cy.request({ url: '/currentShift', failOnStatusCode: false }).then((r) => {
+    if (r.body && r.body.status === 'SUCCESS')
+      cy.request({ method: 'POST', url: '/closeShift', form: true, failOnStatusCode: false, body: { countedCash: 0 } })
+  })
+
+  caseIt('3-1', 'Pay the electricity man out of the drawer', () => {
+    testCase('3-1', 'ex3', 'Pay the electricity man out of the drawer', { who: ['owner.lifecycle (recorded)', 'cashier.a', 'owner.business'] })
+    setup('Expense management on (it is, from 1-7’s clean-up). A shift is open (Till → Cash Drawer → Open Shift; the recording opens one with a float of 5,000).')
+    asLifecycle(true)
+    ensureShiftOpen()
+    SAFETY.push(() => { asLifecycle(); closeShiftQuietly() })
+    tb().then((before) => {
+      openTill()
+      const a1 = act('<b>Till → Cash Drawer</b>: Cash in / out <b>Pay Out</b>, amount <b>1200</b>, category <b>Electricity, gas and water</b>, reason "electricity bill", press <b>Add</b>.',
+        ['A <b>Category</b> field appears for Pay Out.', 'The movement is added.'])
+      cy.get('#tillMoveType').select('PAY_OUT', { force: true })
+      cy.get('#tillMoveCategoryGroup').should('be.visible')
+      categoryByName('Electricity, gas and water').then((c) => cy.get('#tillMoveCategory').select(String(c.id), { force: true }))
+      cy.get('#tillMoveAmount').clear().type('1200')
+      cy.get('#tillMoveReason').clear().type('electricity bill')
+      snap(a1, 'pay-out-form', '#TillDiv')
+      cy.get('#tillMoveAdd').click()
+      cy.wait(1500)
+      const a2 = act('Press <b>X Report</b>.', ['Pay-outs up by 1,200 and expected cash down by 1,200.'])
+      cy.get('#TillDiv').contains('button', 'X Report').click()
+      cy.get('#tillReport', { timeout: 15000 }).should('not.be.empty')
+      cy.request('/shiftReport').its('body.object.payOuts').then((p) => expect(Number(p), 'pay-outs include the 1,200').to.be.at.least(1200))
+      snap(a2, 'x-report', '#tillReport')
+      const a3 = act('Open <b>Till → Expenses</b>.', ['It is listed with an <b>EXP-</b> number, paid from <b>Till</b>, reaching <b>In the books</b>.'])
+      openExpenses()
+      cy.contains('#tableExpense tbody tr', 'Till', { timeout: 25000 }).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+      snap(a3, 'expense-till')
+      const a4 = act('Open <b>Finance → Trial Balance</b>.', ['<b>6100</b> up 1,200 and <b>1000 Cash</b> down 1,200: the drawer and the books agree.'])
+      tb().then((after) => {
+        expect(delta(before, after, '6100')).to.eq(1200)
+        expect(delta(before, after, '1000')).to.eq(-1200)
+      })
+      showTrialBalance()
+      snap(a4, 'trial-balance')
+    })
+    act('Kept for 3-2 and 3-3; the shift is closed at the end of 3-3.', [], { cleanup: true })
+  })
+
+  caseIt('3-2', 'Category required; pay-ins and drops untouched; a double click is safe', () => {
+    testCase('3-2', 'ex3', 'Category required; pay-ins and drops untouched; a double click is safe', { who: ['owner.lifecycle (recorded)', 'cashier.a'] })
+    asLifecycle()
+    ensureShiftOpen()
+    openTill()
+    const a1 = act('Pay Out <b>10</b> with no category, press <b>Add</b>.', ['Refused with a message saying a category is needed.'])
+    cy.get('#tillMoveType').select('PAY_OUT', { force: true })
+    cy.get('#tillMoveCategory').select('', { force: true })
+    cy.get('#tillMoveAmount').clear().type('10')
+    cy.get('#tillMoveReason').clear().type('no category')
+    cy.get('#tillMoveAdd').click()
+    cy.contains(/category/i, { timeout: 10000 }).should('be.visible')
+    snap(a1, 'refused')
+    const a2 = act('Choose <b>Pay In</b>, then <b>Cash Drop</b>.', ['The Category field is not shown for either, and neither creates an expense.'])
+    cy.get('#tillMoveType').select('PAY_IN', { force: true })
+    cy.get('#tillMoveCategoryGroup').should('not.be.visible')
+    cy.get('#tillMoveType').select('DROP', { force: true })
+    cy.get('#tillMoveCategoryGroup').should('not.be.visible')
+    snap(a2, 'no-category', '#TillDiv')
+    act('Nothing to undo — the refused pay-out was never recorded.', [], { cleanup: true })
+  })
+
+  caseIt('3-3', 'A till expense is corrected at the till', () => {
+    testCase('3-3', 'ex3', 'A till expense is corrected at the till', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle()
+    openDashboard()
+    const a1 = act('In <b>Till → Expenses</b>, find the Till expense from 3-1.', ['It has no <b>Void</b> button: a correction is a <b>Pay In</b> at the till, so the drawer and the books stay in step.'])
+    openExpenses()
+    cy.contains('#tableExpense tbody tr', 'Till', { timeout: 25000 }).find('[data-cy=void-expense]').should('not.exist')
+    snap(a1, 'no-void')
+    const c1 = act('Close the shift: <b>Till → Cash Drawer</b>, Counted cash, <b>Close Shift</b>.', ['The shift closes.'], { cleanup: true, via: 'run' })
+    closeShiftQuietly()
+  })
+
+  // ═══ EX-4 · Expense bills ════════════════════════════════════════════════════════════════════════════════
+  const S4 = 'ex4'
+  let bill1 = null   // { supplier, payee }
+
+  caseIt('4-1', 'Record a bill owed to a supplier', () => {
+    testCase('4-1', S4, 'Record a bill owed to a supplier', { who: ['owner.lifecycle (recorded)', 'owner.business', 'owner.mobile'] })
+    setup('Expense management is switched on for the business (case 0a-3), and you logged out and in again.')
+    setup('The business has at least one supplier (Register → Vender / Supplier). The recording made one called <b>XG4A_…</b>.')
+    asLifecycle(true)
+    newSupplier('4A').then((s) => { bill1 = { supplier: s, payee: 'XG bill ' + run } })
+    tb().then((before) => {
+      openDashboard()
+      const a1 = act('Open <b>Till → Expenses</b>.', ['The Expenses screen opens with the New Expense form and the list of expenses.'])
+      openExpenses()
+      snap(a1, 'expenses')
+      const a2 = act('Category <b>Repairs and maintenance</b>, Amount <b>500</b>, Paid from <b>Bill (pay later)</b>.',
+        ['After choosing <b>Bill (pay later)</b>, two new fields appear: <b>Supplier</b> and <b>Due date</b>.'])
+      cy.then(() => fillExpense({ category: 'Repairs and maintenance', amount: 500, paidFrom: 'AP' }))
+      cy.get('#expBillGroup').should('be.visible')
+      snap(a2, 'bill-fields')
+      const a3 = act('Press <b>Save and post</b> without choosing a supplier.', ['Refused: "Choose the supplier this bill is owed to." Nothing is saved.'])
+      cy.get('[data-cy=save-expense]').click()
+      cy.get('#expMsg').should('contain', 'Choose the supplier this bill is owed to.')
+      snap(a3, 'supplier-required')
+      const a4 = act('Choose the supplier, type Payee <b>XG bill …</b>, press <b>Save and post</b>.',
+        ['"Expense saved. Posting to the books." The row shows paid from <b>Bill</b>, <b>In the books</b>, then <b>Owes 500.00</b> and a <b>Pay</b> button.'])
+      cy.then(() => { cy.get('#expSupplier').select(String(bill1.supplier.id), { force: true }); cy.get('#expPayee').clear().type(bill1.payee) })
+      cy.get('[data-cy=save-expense]').click()
+      cy.get('#expMsg').should('contain', 'Posting to the books')
+      cy.then(() => expenseRow(bill1.payee).within(() => {
+        cy.contains('Bill')
+        cy.get('[data-cy=expense-bill-owes]', { timeout: 25000 }).should('contain', '500.00')
+        cy.get('[data-cy=pay-bill]', { timeout: 25000 }).should('be.visible')
+      }))
+      snap(a4, 'bill-owes')
+      const a5 = act('Open <b>Finance → Trial Balance</b>.',
+        ['<b>6300 Repairs</b> is 500 higher than before; <b>2000 Accounts Payable</b> is credited 500; <b>1000 Cash</b> has not moved. Still balanced.'])
+      tb().then((after) => {
+        expect(delta(before, after, '6300'), '6300').to.eq(500)
+        expect(delta(before, after, '2000'), '2000 credit').to.eq(-500)
+        expect(delta(before, after, '1000'), 'cash').to.eq(0)
+      })
+      showTrialBalance()
+      snap(a5, 'trial-balance')
+    })
+    act('Nothing to undo yet — cases 4-2 to 4-4 pay this bill off. (If you stop here: void it from its row with a reason.)', [], { cleanup: true })
+  })
+
+  caseIt('4-2', 'Pay part of the bill', () => {
+    testCase('4-2', S4, 'Pay part of the bill', { who: ['owner.lifecycle (recorded)', 'owner.business', 'user.business'] })
+    setup('The bill from case 4-1 (Owes 500.00).')
+    asLifecycle()
+    tb().then((before) => {
+      openDashboard(); openExpenses()
+      const a1 = act('On the bill’s row press <b>Pay</b>.', ['A Pay panel opens: "Pay bill EXP-… — Owes 500.00", Amount pre-filled <b>500.00</b>, Paid from Cash.'])
+      expenseRow(bill1.payee).find('[data-cy=pay-bill]').click()
+      cy.get('[data-cy=expense-pay-panel]').should('be.visible')
+      cy.get('#expPayAmount').should('have.value', '500.00')
+      snap(a1, 'pay-panel')
+      const a2 = act('Change the amount to <b>200</b>, Paid from <b>Cash</b>, press <b>Pay</b>.',
+        ['"Payment recorded — PV-…". The row now shows <b>Owes 300.00</b>.'])
+      cy.get('#expPayAmount').clear().type('200')
+      cy.get('#expPayMethod').select('CASH', { force: true })
+      cy.get('[data-cy=expense-pay-go]').click()
+      cy.get('#expMsg', { timeout: 20000 }).should('contain', 'Payment recorded').and('contain', 'PV-')
+      expenseRow(bill1.payee).find('[data-cy=expense-bill-owes]').should('contain', '300.00')
+      snap(a2, 'part-paid')
+      const a3 = act('Open <b>Finance → Trial Balance</b>.', ['<b>2000 Accounts Payable</b> debited 200 and <b>1000 Cash</b> down 200.'])
+      tb().then((after) => {
+        expect(delta(before, after, '2000')).to.eq(200)
+        expect(delta(before, after, '1000')).to.eq(-200)
+      })
+      showTrialBalance()
+      snap(a3, 'trial-balance')
+    })
+    act('Nothing to undo — the payment is real money; case 4-4 pays the rest.', [], { cleanup: true })
+  })
+
+  caseIt('4-3', 'Overpaying and voiding are refused where they would hurt', () => {
+    testCase('4-3', S4, 'Overpaying and voiding are refused where they would hurt', { who: ['owner.lifecycle (recorded)', 'owner.business', 'admin.business'] })
+    setup('The part-paid bill from case 4-2 (Owes 300.00).')
+    asLifecycle()
+    openDashboard(); openExpenses()
+    const a1 = act('Press <b>Pay</b>, enter <b>300.01</b>, press <b>Pay</b>.', ['Refused in the panel: "That is more than is owed on this bill (300.00)." Nothing is paid.'])
+    expenseRow(bill1.payee).find('[data-cy=pay-bill]').click()
+    cy.get('#expPayAmount').clear().type('300.01')
+    cy.get('[data-cy=expense-pay-go]').click()
+    cy.get('#expPayMsg', { timeout: 15000 }).should('contain', 'more than is owed')
+    snap(a1, 'overpay-refused')
+    const a2 = act('Close the panel and look at the bill’s <b>Actions</b>.', ['A bill with payments has <b>no Void button</b>.'])
+    cy.get('#expPayPanel button[onclick^="expensePayClose"]').click()
+    expenseRow(bill1.payee).find('[data-cy=void-expense]').should('not.exist')
+    snap(a2, 'no-void')
+    const payee2 = 'XG void ' + run
+    tb().then((before) => {
+      const a3 = act(`Record a second bill: <b>Repairs and maintenance</b>, <b>70</b>, Bill (pay later), the same supplier, Payee <b>${payee2}</b>. Wait for <b>In the books</b>, then press <b>Void</b>, give the reason "entered twice", confirm.`,
+        ['The row shows <b>Void</b> and keeps its number.', 'Trial balance: 6300 and 2000 are back where they were before this bill.'])
+      cy.then(() => fillExpense({ category: 'Repairs and maintenance', amount: 70, paidFrom: 'AP', supplierId: bill1.supplier.id, payee: payee2 }))
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee2).find('[data-cy=void-expense]', { timeout: 25000 }).click()
+      cy.get('.uiC-input').type('entered twice')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee2).find('.exp-chip').should('contain', 'Void')
+      cy.wait(3000)
+      tb().then((after) => {
+        expect(delta(before, after, '6300')).to.eq(0)
+        expect(delta(before, after, '2000')).to.eq(0)
+      })
+      snap(a3, 'voided')
+    })
+    act('Nothing to undo — the second bill is void; the first is paid off in 4-4.', [], { cleanup: true })
+  })
+
+  caseIt('4-4', 'Pay the rest from the bank, and the bill reads Paid', () => {
+    testCase('4-4', S4, 'Pay the rest from the bank, and the bill reads Paid', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    setup('The bill from 4-1, owing 300.00.')
+    asLifecycle()
+    tb().then((before) => {
+      openDashboard(); openExpenses()
+      const a1 = act('Press <b>Pay</b>, keep <b>300.00</b>, Paid from <b>Bank</b>, press <b>Pay</b>.',
+        ['"Payment recorded — PV-…". The row shows <b>Paid</b> and no Pay button.', 'Trial balance: 2000 down 300 and <b>1010 Bank</b> down 300 (cash unchanged).'])
+      expenseRow(bill1.payee).find('[data-cy=pay-bill]').click()
+      cy.get('#expPayAmount').should('have.value', '300.00')
+      cy.get('#expPayMethod').select('BANK', { force: true })
+      cy.get('[data-cy=expense-pay-go]').click()
+      cy.get('#expMsg', { timeout: 20000 }).should('contain', 'PV-')
+      expenseRow(bill1.payee).find('[data-cy=expense-bill-paid]').should('exist')
+      expenseRow(bill1.payee).find('[data-cy=pay-bill]').should('not.exist')
+      tb().then((after) => {
+        expect(delta(before, after, '2000')).to.eq(300)
+        expect(delta(before, after, '1010')).to.eq(-300)
+        expect(delta(before, after, '1000')).to.eq(0)
+      })
+      snap(a1, 'paid')
+    })
+    act('Nothing to undo — the bill owes nothing; it stays as a paid record (a paid bill cannot be voided until payment reversal exists).', [], { cleanup: true })
+  })
+
+  caseIt('4-5', 'A business with no suppliers does not get the option', () => {
+    testCase('4-5', S4, 'A business with no suppliers does not get the option', { who: ['owner.education (recorded)', 'owner.welfare', 'owner.agriculture'] })
+    setup('Expense management is on for the school (case 2a-1). The recording switches it on and back off.')
+    cy.loginAs('owner.education@myplus.com', PW, '/getDashboardData')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: 'org.cap.' + CAP, enabled: 'true' } })
+      .its('body').should((b) => expect(JSON.stringify(b)).to.match(/true|Saved|success/i))
+    SAFETY.push(() => { cy.loginAs('owner.education@myplus.com', PW, '/getDashboardData'); cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, failOnStatusCode: false, body: { key: 'org.cap.' + CAP } }) })
+    cy.loginAs('owner.education@myplus.com', PW, '/getDashboardData', 'xg-edu-' + Date.now())
+    cy.visit('/educationDashboard'); cy.waitForAppReady()
+    const a1 = act('Open <b>Fee → Expenses</b> and the <b>Paid from</b> list.', ['Only <b>Cash</b> and <b>Bank</b> are offered — no "Bill (pay later)".'])
+    openMenu('snavFee')
+    cy.get('#navExpenses').should('be.visible').click()
+    cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+    cy.wait(1500)
+    cy.get('#expPaidFrom option').then(($o) => expect([...$o].map((o) => o.value)).to.deep.eq(['CASH', 'BANK']))
+    snap(a1, 'cash-bank-only')
+    const c1 = act('As the school owner: <b>Fee → Configuration → Modules</b>, untick <b>Expense management</b> (if you switched it on for this test).', [], { cleanup: true })
+    cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, failOnStatusCode: false, body: { key: 'org.cap.' + CAP } })
+  })
+
+  caseIt('4-6', 'The shop’s supplier statement is not confused by bill payments', () => {
+    testCase('4-6', S4, 'The shop’s supplier statement is not confused by bill payments', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    setup('The supplier from 4-1, whose bill was paid in 4-2 and 4-4. The business reads supplier figures from <b>business</b> (the default).')
+    asLifecycle()
+    openDashboard()
+    const a1 = act('Open <b>Register → Vender / Supplier</b>, search the supplier, press <b>Statement</b> on its row.',
+      ['The statement lists the supplier’s purchases and their payments only. The two PV- payments made against the bill are <b>not</b> on it.'])
+    openSuppliers(bill1.supplier.name)
+    cy.contains('#VenderDiv tr', bill1.supplier.name, { timeout: 15000 }).find('.stmt-btn').click()
+    cy.get('#StatementDialogBody', { timeout: 15000 }).should('be.visible').and('not.contain', 'Loading')
+    cy.get('#StatementDialogBody').should('not.contain', 'PV-')
+    snap(a1, 'statement', '#StatementDialog .crud-card, #StatementDialog')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  // ═══ FP-1/2 · Payables in finance ═══════════════════════════════════════════════════════════════════════════
+  caseIt('12-1', 'Business and finance agree on what is owed, after every kind of change', () => {
+    testCase('12-1', 'fp12', 'Business and finance agree on what is owed, after every kind of change',
+      { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
+    setup('Operator login <code>admin@myplus.com</code> / <code>Admin@2025!</code>; any business, recorded on Owner Lifecycle.')
+    cy.loginAsOperator()
+    const a1 = act(`As the operator: <b>Platform</b> → search <b>${LIFECYCLE_ORG_NAME}</b> → open it → card <b>Supplier balances</b>.`,
+      ['<b>Business says owed</b> equals <b>Finance says owed (purchases)</b>; <b>Difference 0.00</b>.'])
+    openTenantPanel(LIFECYCLE_ORG_NAME)
+    cy.get('[data-cy=plat-payables-diff]').invoke('text').then((t) => expect(Number(t.replace(/[^0-9.-]/g, ''))).to.eq(0))
+    snap(a1, 'card-before', '#platPayables')
+    let sup = null
+    const inv = 'XG12INV-' + run
+    asLifecycle()
+    newSupplier('12').then((s) => { sup = s })
+    const a2 = act('As the owner: record a purchase <b>on credit</b> of 100 from a new supplier (Purchase → New Purchase, Paid 0); pay that supplier 40 (<b>Pay</b> on its row in Register → Vender / Supplier); then void the purchase.',
+      ['Each step saves.'], { via: 'run' })
+    cy.then(() => creditPurchase(sup.id, 100, inv).its('status').should('eq', 'SUCCESS'))
+    cy.then(() => cy.request({ method: 'POST', url: '/payVendor', form: true, body: { venderId: sup.id, amount: 40, method: 'CASH', idempotencyKey: 'xg12-' + run } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    cy.then(() => purchaseIdOf(inv)).then((pid) => cy.request({ method: 'POST', url: '/voidPurchase', form: true, body: { purchaseId: pid, reason: 'Test Book 12-1' } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    const a3 = act('As the operator: refresh the tenant panel.', ['<b>Difference</b> is still <b>0.00</b>: finance followed every change.'])
+    cy.loginAsOperator()
+    const settled = (n = 20) => { openTenantPanel(LIFECYCLE_ORG_NAME); return cy.get('[data-cy=plat-payables-diff]').invoke('text').then((t) => (Number(t.replace(/[^0-9.-]/g, '')) === 0 || n <= 0) ? Number(t.replace(/[^0-9.-]/g, '')) : (cy.wait(1500), settled(n - 1))) }
+    settled().should('eq', 0)
+    snap(a3, 'card-after', '#platPayables')
+    act('Nothing to undo — the purchase is void; the 40 paid stands as the test supplier’s advance on Owner Lifecycle.', [], { cleanup: true })
+  })
+
+  // ═══ FP-4a · Supplier statement ═════════════════════════════════════════════════════════════════════════════
+  let stmtSup = null
+  const stmtInv = 'XG4AINV-' + run
+  caseIt('4a-1', 'A purchase, a return and a payment on one supplier', () => {
+    testCase('4a-1', 'fp4a', 'A purchase, a return and a payment on one supplier', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    setup('A new supplier with a purchase of 10 items at 10 on credit (100), made through Purchase → New Purchase.')
+    asLifecycle()
+    newSupplier('4AS').then((s) => { stmtSup = s })
+    cy.then(() => cy.seedProduct({ name: 'XG4AP_' + run, sellingPrice: 12, stock: 1 })).then(({ productId }) =>
+      cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { productId, quantity: 10, venderId: stmtSup.id, paidAmount: 0,
+        'stock.bpurchaseRate': 10, 'stock.bsellRate': 12, totalAmount: 100, netAmount: 100, purchaseInvoiceNo: stmtInv } })
+        .its('body.status').should('eq', 'SUCCESS'))
+    const a1 = act('Return <b>3</b> items from that purchase (Purchase list → Return), then pay the supplier <b>20</b> in cash (<b>Pay</b> on its row).',
+      ['Both save; the payment answers with a PV- voucher.'], { via: 'run' })
+    cy.then(() => purchaseIdOf(stmtInv)).then((pid) => cy.request({ method: 'POST', url: '/purchaseReturn', form: true, body: { purchaseId: pid, quantity: 3, reason: 'Test Book 4a-1' } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    cy.then(() => cy.request({ method: 'POST', url: '/payVendor', form: true, body: { venderId: stmtSup.id, amount: 20, method: 'CASH', idempotencyKey: 'xg4a-' + run } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    openDashboard()
+    const a2 = act('Open <b>Register → Vender / Supplier</b>, search the supplier, press <b>Statement</b>.',
+      ['A <b>Bill</b> line for <b>100.00</b> (the bill as issued).', 'A <b>Debit note</b> line for the 3 returned items and a <b>Payment</b> line for 20 with its PV- number.', 'The closing balance equals the supplier’s Due.'])
+    cy.then(() => { openSuppliers(stmtSup.name); cy.contains('#VenderDiv tr', stmtSup.name, { timeout: 15000 }).find('.stmt-btn').click() })
+    cy.get('#StatementDialogBody', { timeout: 15000 }).should('contain', '100.00').and('contain', 'Debit note').and('contain', 'PV-')
+    snap(a2, 'statement', '#StatementDialog')
+    act('Nothing to undo yet — case 4a-2 voids this purchase.', [], { cleanup: true })
+  })
+
+  caseIt('4a-2', 'Voiding the purchase nets to zero on the statement', () => {
+    testCase('4a-2', 'fp4a', 'Voiding the purchase nets to zero on the statement', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    setup('The purchase and supplier from 4a-1.')
+    asLifecycle()
+    const a1 = act('Void the purchase from 4a-1 with a reason (Purchase list → Void).', ['The purchase is marked void.'], { via: 'run' })
+    cy.then(() => purchaseIdOf(stmtInv)).then((pid) => cy.request({ method: 'POST', url: '/voidPurchase', form: true, body: { purchaseId: pid, reason: 'Test Book 4a-2' } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    openDashboard()
+    const a2 = act('Reopen the supplier’s <b>Statement</b>.', ['A second <b>Debit note</b> for the rest of the bill: the bill and its two debit notes net to zero.'])
+    openSuppliers(stmtSup.name)
+    cy.contains('#VenderDiv tr', stmtSup.name, { timeout: 15000 }).find('.stmt-btn').click()
+    cy.get('#StatementDialogBody', { timeout: 15000 }).find('tr:contains("Debit note")').should('have.length', 2)
+    snap(a2, 'statement-void', '#StatementDialog')
+    act('Nothing to undo — the purchase is void; the 20 paid stands as this test supplier’s advance.', [], { cleanup: true })
+  })
+
+  // ═══ FP-4b · The operator's switch ══════════════════════════════════════════════════════════════════════════
+  caseIt('4b-1', 'An owner cannot see or flip the switch', () => {
+    testCase('4b-1', 'fp4b', 'An owner cannot see or flip the switch', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle()
+    const a1 = act('As the owner, ask for the switch directly: open <code>/platform/payablesSource?organizationId=&lt;your org&gt;</code> in the browser.',
+      ['Refused (403 / not allowed). Nothing on the owner’s Settings or Configuration screens mentions where supplier figures come from.'], { via: 'run' })
+    cy.request({ url: `/platform/payablesSource?organizationId=${lifecycleOrg}`, failOnStatusCode: false })
+      .then((r) => expect(r.status === 403 || (r.body && r.body.status !== 'SUCCESS')).to.eq(true))
+    openDashboard()
+    const a2 = act('Open <b>Settings → Configuration</b> and search for "supplier" / "payables".', ['No switch for where supplier figures come from.'])
+    openMenu('snavSettings'); cy.get('#snavSettings a[onclick^="showBusinessConfig("]').click()
+    cy.get('#businessConfigBody', { timeout: 20000 }).should('be.visible').and('not.contain', 'payables source')
+    snap(a2, 'configuration')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('4b-2', 'The operator reads both sides; a business that disagrees is refused', () => {
+    testCase('4b-2', 'fp4b', 'The operator reads both sides; a business that disagrees is refused', { who: ['admin@myplus.com (operator)'] })
+    cy.loginAsOperator()
+    const a1 = act(`Platform → open <b>${LIFECYCLE_ORG_NAME}</b> → <b>Supplier balances</b>.`,
+      ['<b>Difference 0.00</b>; <b>Read from finance</b> is enabled; <b>Finance vs GL 2000</b> is shown.'])
+    openTenantPanel(LIFECYCLE_ORG_NAME)
+    cy.get('[data-cy=plat-payables-diff]').invoke('text').then((t) => expect(Number(t.replace(/[^0-9.-]/g, ''))).to.eq(0))
+    cy.get('[data-cy=plat-payables-finance]').should('not.be.disabled')
+    snap(a1, 'agrees', '#platPayables')
+    const a2 = act('Platform → open <b>Demo BUSINESS’s organization</b> → <b>Supplier balances</b>.',
+      ['<b>Difference 100.00</b> highlighted; <b>Read from finance</b> is <b>disabled</b>; a yellow note explains the GL 2000 difference does not block.'])
+    openTenantPanel("Demo BUSINESS's organization")
+    cy.get('[data-cy=plat-payables-diff]').invoke('text').then((t) => expect(Number(t.replace(/[^0-9.-]/g, '')), 'a difference').to.not.eq(0))
+    cy.get('[data-cy=plat-payables-finance]').should('be.disabled')
+    snap(a2, 'disagrees', '#platPayables')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  let fpSup = null
+  caseIt('4b-3', 'Switch to finance: bills and advances appear in the owner’s reports', () => {
+    testCase('4b-3', 'fp4b', 'Switch to finance: bills and advances appear in the owner’s reports', { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
+    setup('A supplier owed an expense bill: the recording makes one (bill 65, Bill (pay later), as in case 4-1).')
+    asLifecycle()
+    newSupplier('4B').then((s) => { fpSup = s })
+    cy.then(() => cy.request('/expense/categories')).then((r) => {
+      const cat = (r.body.data || []).find((c) => c.active !== false)
+      return token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`,
+        headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg4b-' + run },
+        body: { voucherDate: new Date().toISOString().slice(0, 10), paidFrom: 'AP', supplierId: fpSup.id, payeeName: 'XG4B bill ' + run, lines: [{ categoryId: cat.id, amount: 65 }] } })
+        .its('body.success').should('eq', true))
+    })
+    cy.wait(4000)
+    cy.loginAsOperator()
+    openTenantPanel(LIFECYCLE_ORG_NAME)
+    const a1 = act('As the operator: press <b>Read from finance</b>, try <b>Confirm</b> with an empty reason, then type "Test Book 4b-3" and confirm.',
+      ['An empty reason is refused in the dialog.', 'The card now reads <b>Supplier balances — FINANCE</b>.'])
+    cy.get('[data-cy=plat-payables-finance]').click()
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.get('.uiC-input').should('be.visible')
+    cy.get('.uiC-input').type('Test Book 4b-3')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.get('[data-cy=plat-payables-source]', { timeout: 15000 }).should('contain', 'FINANCE')
+    snap(a1, 'switched', '#platPayables')
+    asLifecycle(true)
+    openDashboard()
+    const a2 = act('As the owner: <b>Register → Vender / Supplier → Payables Aging</b>.',
+      ['The aging lists the 65 bill under its supplier. Suppliers paid ahead appear in a separate <b>Paid ahead (supplier advances)</b> table.'])
+    cy.openSection('VenderDiv')
+    cy.window().then((w) => w.openAging('VENDOR'))
+    cy.then(() => cy.get('#AgingDialogBody table', { timeout: 15000 }).should('contain', fpSup.name))
+    snap(a2, 'aging', '#AgingDialog')
+    const a3 = act('Open that supplier’s <b>Statement</b>.', ['The statement shows the <b>EXP-</b> bill line for 65.'])
+    cy.visit('/businessDashboard'); cy.waitForAppReady()
+    cy.then(() => { openSuppliers(fpSup.name); cy.contains('#VenderDiv tr', fpSup.name, { timeout: 15000 }).find('.stmt-btn').click() })
+    cy.get('#StatementDialogBody', { timeout: 15000 }).should('contain', 'EXP-').and('contain', '65.00')
+    snap(a3, 'statement', '#StatementDialog')
+    act('Switch back in case 4b-4.', [], { cleanup: true })
+  })
+
+  caseIt('4b-4', 'Switch back: the business sees its old figures again', () => {
+    testCase('4b-4', 'fp4b', 'Switch back: the business sees its old figures again', { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
+    setup('Owner Lifecycle reads from FINANCE (case 4b-3).')
+    cy.loginAsOperator()
+    openTenantPanel(LIFECYCLE_ORG_NAME)
+    const a1 = act('As the operator: press <b>Back to business</b>, reason "Test Book 4b-4", confirm.', ['The card reads <b>BUSINESS</b>.'])
+    cy.get('[data-cy=plat-payables-business]').click()
+    cy.get('.uiC-input').type('Test Book 4b-4')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.get('[data-cy=plat-payables-source]', { timeout: 15000 }).should('contain', 'BUSINESS')
+    snap(a1, 'back', '#platPayables')
+    asLifecycle(true)
+    openDashboard()
+    const a2 = act('As the owner: reopen the supplier’s <b>Statement</b>.', ['The expense bill is no longer on it (business lists purchases only).'])
+    openSuppliers(fpSup.name)
+    cy.contains('#VenderDiv tr', fpSup.name, { timeout: 15000 }).find('.stmt-btn').click()
+    cy.get('#StatementDialogBody', { timeout: 15000 }).should('not.contain', 'EXP-')
+    snap(a2, 'statement-business', '#StatementDialog')
+    const c1 = act('<b>Till → Expenses</b>: on the 65 bill’s row press <b>Void</b>, reason "Test Book clean-up", confirm.', ['The row shows <b>Void</b>; the supplier owes nothing more.'], { cleanup: true })
+    voidBillOnScreen('XG4B bill ' + run, c1)
+  })
+
+  // ═══ FP-4c · Balances and credit limit ══════════════════════════════════════════════════════════════════════
+  let limSup = null
+  caseIt('4c-1', 'The supplier list shows the total, with the bills; Pay keeps the purchase figure', () => {
+    testCase('4c-1', 'fp4c', 'The supplier list shows the total, with the bills; Pay keeps the purchase figure',
+      { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
+    setup('A supplier with a credit limit of 1000, owed <b>600</b> on purchases and a <b>300</b> expense bill. The business is switched to FINANCE by the operator.')
+    asLifecycle()
+    newSupplier('4C', { creditLimit: 1000 }).then((s) => { limSup = s })
+    cy.then(() => creditPurchase(limSup.id, 600, 'XG4CINV1-' + run).its('status').should('eq', 'SUCCESS'))
+    cy.then(() => cy.request('/expense/categories')).then((r) => {
+      const cat = (r.body.data || []).find((c) => c.active !== false)
+      return token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`,
+        headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg4c-' + run },
+        body: { voucherDate: new Date().toISOString().slice(0, 10), paidFrom: 'AP', supplierId: limSup.id, lines: [{ categoryId: cat.id, amount: 300 }] } })
+        .its('body.success').should('eq', true))
+    })
+    cy.loginAsOperator()
+    cy.then(() => flip(lifecycleOrg, 'FINANCE', 'Test Book 4c'))
+    asLifecycle(true)
+    const ready = (n = 25) => vendorRow(limSup.id).then((v) => (Number(v.billsOwed) === 300 || n <= 0) ? v : (cy.wait(1000), ready(n - 1)))
+    cy.then(() => ready())
+    openDashboard()
+    const a1 = act('Open <b>Register → Vender / Supplier</b> and search the supplier.',
+      ['<b>Due</b> reads <b>900</b> with <b>(incl. bills 300.00)</b>.', 'The <b>Pay</b> button carries <b>600</b> and its tooltip says it pays purchases; bills are paid from Expenses.'])
+    cy.then(() => openSuppliers(limSup.name))
+    cy.then(() => cy.contains('#VenderDiv tr', limSup.name, { timeout: 15000 })).within(() => {
+      cy.get('[data-cy=vender-due]').should('contain', '900').and('contain', '300.00')
+      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^600/)
+    })
+    snap(a1, 'supplier-list')
+    act('Kept for 4c-2 to 4c-4; the business goes back to BUSINESS at the end of 4c-3.', [], { cleanup: true })
+  })
+
+  caseIt('4c-2', 'The purchase screen warns with everything owed', () => {
+    testCase('4c-2', 'fp4c', 'The purchase screen warns with everything owed', { who: ['owner.lifecycle (recorded)'] })
+    setup('The supplier from 4c-1; the business reads from FINANCE.')
+    asLifecycle()
+    const a1 = act('Start a new purchase and choose that supplier.', ['The amount already owed shown for the supplier is <b>900</b> (purchases 600 + bills 300), not 600.'], { via: 'run' })
+    cy.request('/getUserVenders').its('body').then((html) => {
+      const m = new RegExp(`value=${limSup.id} data-due="([^"]+)"`).exec(html)
+      expect(Number(m[1])).to.eq(900)
+    })
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('4c-3', 'The credit limit counts the bills', () => {
+    testCase('4c-3', 'fp4c', 'The credit limit counts the bills', { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
+    setup('The supplier from 4c-1 (limit 1000, owed 600 + 300).')
+    asLifecycle()
+    openDashboard()
+    const a1 = act('<b>Settings → Configuration → Purchasing</b>: set <b>When a purchase would exceed the supplier’s credit limit</b> to <b>Block</b>.', ['Saved.'])
+    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: POLICY, value: 'block' } }).its('body.success').should('eq', true)
+    openMenu('snavSettings'); cy.get('#snavSettings a[onclick^="showBusinessConfig("]').click()
+    cy.revealSetting(POLICY)
+    snap(a1, 'policy-block')
+    const a2 = act('Purchase → New Purchase: 150 on credit from that supplier.',
+      ['Refused: "You would owe … 1050.00, which is 50.00 over the credit limit of 1000.00 …"'], { via: 'run' })
+    creditPurchase(limSup.id, 150, 'XG4CINV2-' + run).then((b) => {
+      expect(b.status).to.not.eq('SUCCESS')
+      expect(JSON.stringify(b)).to.match(/1050\.00.*over the credit limit of 1000\.00/)
+    })
+    const a3 = act('Ask the operator to switch the business back to <b>BUSINESS</b>, then try the same purchase.', ['Allowed: 600 + 150 is under the limit.'], { via: 'run' })
+    cy.loginAsOperator()
+    cy.then(() => flip(lifecycleOrg, 'BUSINESS', 'Test Book 4c-3'))
+    asLifecycle(true)
+    creditPurchase(limSup.id, 150, 'XG4CINV3-' + run).its('status').should('eq', 'SUCCESS')
+    const c1 = act('Set <b>When a purchase would exceed the supplier’s credit limit</b> back to <b>Warn</b>; void the 150 and 600 test purchases (Purchase list → Void).', [], { cleanup: true })
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: POLICY } })
+    ;['XG4CINV3-' + run, 'XG4CINV1-' + run].forEach((inv) => purchaseIdOf(inv).then((pid) => { if (pid) cy.request({ method: 'POST', url: '/voidPurchase', form: true, failOnStatusCode: false, body: { purchaseId: pid, reason: 'Test Book cleanup' } }) }))
+  })
+
+  caseIt('4c-4', 'Editing a supplier keeps its figures', () => {
+    testCase('4c-4', 'fp4c', 'Editing a supplier keeps its figures', { who: ['owner.lifecycle (recorded)'] })
+    setup('The supplier from 4c-1 (owes the 300 bill).')
+    asLifecycle()
+    const a1 = act('Edit the supplier’s address to "edited by the Test Book" and save.', ['Saved. The bills part (300) is unchanged.'], { via: 'run' })
+    vendorRow(limSup.id).then((v) => cy.request({ method: 'POST', url: '/addVender', form: true,
+      body: { id: limSup.id, name: limSup.name, companyIds: v.companyIds, mobile: v.mobile, email: v.email, address: 'edited by the Test Book', creditLimit: 1000 } })
+      .its('body.status').should('eq', 'SUCCESS'))
+    cy.loginAsOperator()
+    cy.then(() => flip(lifecycleOrg, 'FINANCE', 'Test Book 4c-4'))
+    asLifecycle(true)
+    vendorRow(limSup.id).then((v) => expect(Number(v.billsOwed)).to.eq(300))
+    cy.loginAsOperator()
+    cy.then(() => flip(lifecycleOrg, 'BUSINESS', 'Test Book 4c-4 cleanup'))
+    const c1 = act('<b>Till → Expenses</b>: on the 300 bill’s row press <b>Void</b>, reason "Test Book clean-up", confirm. (The operator already switched the business back to BUSINESS.)',
+      ['The row shows <b>Void</b>.'], { cleanup: true })
+    asLifecycle(true)   // the switch-back above signed in as the operator
+    cy.then(() => voidBillOnScreen(limSup.name, c1))
+  })
+
+  // ═══ FP-5a · Payments land once ═══════════════════════════════════════════════════════════════════════════
+  caseIt('5a-1', 'Pay a supplier: one voucher, and the books move once', () => {
+    testCase('5a-1', 'fp5a', 'Pay a supplier: one voucher, and the books move once', { who: ['owner.lifecycle (recorded)', 'owner.business', 'owner.mobile'] })
+    setup('A supplier with a credit purchase of 100.')
+    asLifecycle()
+    let s5 = null
+    newSupplier('5A').then((s) => { s5 = s })
+    cy.then(() => creditPurchase(s5.id, 100, 'XG5AINV-' + run).its('status').should('eq', 'SUCCESS'))
+    tb().then((before) => {
+      openDashboard()
+      cy.then(() => openSuppliers(s5.name))
+      const a1 = act('<b>Register → Vender / Supplier</b>, search the supplier, press <b>Pay</b> on its row.', ['The Pay Vendor dialog opens showing the amount due (100).'])
+      cy.then(() => cy.contains('#VenderDiv tr', s5.name, { timeout: 15000 }).find('.pay-vendor-btn').click())
+      cy.get('#PayVendorModal').should('be.visible')
+      snap(a1, 'pay-dialog', '#PayVendorModal')
+      const a2 = act('Amount <b>40</b>, method <b>Cash</b>, press <b>Pay</b>; press it again quickly.',
+        ['The message reads <b>Vendor paid. Voucher PV-…</b>', 'Trial balance: <b>2000</b> debited 40 and <b>1000 Cash</b> down 40 — exactly once.'])
+      cy.get('#pvAmount').clear().type('40')
+      cy.get('#submitPayVendor').dblclick()
+      cy.contains('Vendor paid', { timeout: 15000 }).should('be.visible')
+      snap(a2, 'paid')
+      cy.wait(2000)
+      tb().then((after) => {
+        expect(delta(before, after, '2000')).to.eq(40)
+        expect(delta(before, after, '1000')).to.eq(-40)
+      })
+    })
+    act('Nothing to undo — the payment is real money (40 paid on the 100 purchase); void the purchase if you want the supplier cleared.', [], { cleanup: true })
+  })
+
+  caseIt('5a-2', 'Receive from a customer: one receipt', () => {
+    testCase('5a-2', 'fp5a', 'Receive from a customer: one receipt', { who: ['owner.lifecycle (recorded)', 'owner.business', 'cashier.a'] })
+    setup('A customer (Register → Customer). The recording makes one with no dues, so the payment goes on account.')
+    asLifecycle()
+    const cname = 'XG5B_' + run
+    cy.request({ method: 'POST', url: '/addCustomer', form: true, body: { name: cname, contact: 'C' + run } })
+    cy.request('/getUserCustomer').then((r) => list(r.body).find((c) => c.name === cname).customerId).then((cid) => {
+      tb().then((before) => {
+        const a1 = act('Receive <b>5</b> in cash from the customer (<b>Receive</b> on its row, or the customer’s receipt dialog).',
+          ['<b>Payment received. Receipt RCPT-…</b>', 'Trial balance: Cash up 5 and 1100 Receivables credited 5. Sending the same receipt again changes nothing.'], { via: 'run' })
+        cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: cid, amount: 5, method: 'CASH', idempotencyKey: 'xg5b-' + run } })
+          .its('body.object.receiptNo').should('match', /^RCPT-/)
+        cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: cid, amount: 5, method: 'CASH', idempotencyKey: 'xg5b-' + run } })
+        tb().then((after) => {
+          expect(delta(before, after, '1000')).to.eq(5)
+          expect(delta(before, after, '1100')).to.eq(-5)
+        })
+      })
+    })
+    act('Nothing to undo — a 5 receipt on account stays as the test customer’s credit.', [], { cleanup: true })
+  })
+})

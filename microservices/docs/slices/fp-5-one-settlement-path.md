@@ -1,6 +1,6 @@
 # FP-5 — one supplier settlement: Pay Supplier settles purchases AND expense bills
 
-**Status:** FP-5a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 31/31 headed; finance 69, education 236, business 418 with the 1 foreign DR-4 error; LedgerOutboxIntegrationTest 4/4 real MySQL; live: finance V13, business V76, education V31; 16/16 outbox rows POSTED, 16 distinct client_refs in finance). Caught before deploy by the migration test: V13 first named table `payment` (it is `payments`). NEXT FP-5b. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
+**Status:** FP-5a GREEN 2026-10-03, STAGED (gate 4/4 + regressions 31/31 headed; finance 69, education 236, business 418 with the 1 foreign DR-4 error; LedgerOutboxIntegrationTest 4/4 real MySQL; live: finance V13, business V76, education V31; 16/16 outbox rows POSTED, 16 distinct client_refs in finance). Caught before deploy by the migration test: V13 first named table `payment` (it is `payments`). FP-5a committed bbcab9b7. FP-5b implementing. Programme: [`../finance-payables-subledger-design.md`](../finance-payables-subledger-design.md).
 Follows FP-4 (`a268a3a9`).
 
 ## 1. Document
@@ -71,3 +71,40 @@ sequenceDiagram
 cash by exactly the amount and return a number; the same Idempotency-Key again → same number, ledger unmoved;
 `ledger_payment_outbox` has no PENDING/FAILED rows afterwards (operator outbox health). Unit/IT: finance clientRef
 dedup; LedgerOutbox with finance failing → settlement committed, row PENDING, delivered on flush, delivered once.
+
+## 5. FP-5b design — one Pay Supplier settles purchases and expense bills, oldest first
+
+**Only for a tenant on FINANCE** (FP-4b switch). On BUSINESS, Pay Supplier is exactly as before (purchases only).
+
+```mermaid
+sequenceDiagram
+    actor U as Owner
+    participant B as business (payVendor)
+    participant E as expense-service
+    participant F as finance-service
+    U->>B: Pay supplier 1,000
+    B->>E: GET /internal/expense/bills/open?supplierId (caller identity)
+    E-->>B: open bills (open = total − paid − reserved)
+    B->>B: one queue, oldest first (bill: due date, else date); apply purchases locally
+    B->>B: same tx: bill applications outbox + ledger request (ONE payment, mixed allocations PURCHASE + EXPENSE_BILL)
+    Note over B: commit
+    B-)F: recordPayment(clientRef) — one PV, Dr 2000 / Cr cash
+    B-)E: apply(bill, amount, clientRef) — idempotent per (clientRef, bill); no second finance payment
+    E-)F: PAYABLE snapshot → subledger; balance notice → supplier stamp
+```
+
+- **Source of the open bills = expense-service** (it owns them and knows reservations from its own Pay button), read
+  synchronously when Pay Supplier runs (a cold path, not a hot one). Expense's apply re-checks under the bill's row
+  lock and applies `min(amount, open)`; a difference (the bill was paid from Expenses in between) is logged and shows
+  in finance as a supplier ADVANCE — the money really left, nothing is lost or hidden.
+- **business V77** `bill_application_outbox` (org, user, voucher_id, amount, client_ref, method, paid_on, status…) —
+  delivered after commit, retried by the relay; the expense side keys it `expense_bill_payment.idempotency_key =
+  <clientRef>:<voucherId>` (its existing UNIQUE), so a redelivery applies once.
+- **Ruling 4 — switch-back refused** while the tenant has any bill application: `PayablesSourceService` counts them.
+- **Screen:** on FINANCE the Pay button pre-fills the TOTAL (purchases + bills) and its tooltip no longer says
+  "purchases only"; the response lists how much went to bills.
+
+**Gate `cypress/e2e/finance/fp-5b-mixed-settlement.cy.js`:** supplier with a purchase (100, older) and a bill (300,
+newer) on FINANCE: pay 250 → purchase settled 100, bill 150, ONE PV, 2000 −250 / Cash −250 exactly, bill shows Owes 150,
+finance statement one PAYMENT line; replay → nothing moves; pay 150 → bill Paid; switch back to BUSINESS refused with
+the count; on BUSINESS tenants Pay Supplier unchanged (purchase only).
