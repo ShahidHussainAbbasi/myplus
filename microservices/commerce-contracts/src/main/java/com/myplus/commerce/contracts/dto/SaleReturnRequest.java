@@ -29,4 +29,9 @@ public class SaleReturnRequest {
     private String reason;
 
     private List<SaleReturnLine> lines;
+    /**
+     * MKT-1f — keep the returned goods OUT of sellable stock (quarantine): a marketplace return inspected as faulty or
+     * unsafe. Null or false = back to stock, as before (the door-refusal caller never sets it).
+     */
+    private Boolean quarantine;
 }

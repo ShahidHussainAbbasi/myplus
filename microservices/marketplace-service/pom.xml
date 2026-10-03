@@ -23,6 +23,8 @@
     <!-- OMS O3: per-org order/checkout policy (delivery fees, free-over threshold, COD). marketplace's FIRST
          settings consumer — before this every store on the platform shared one hardcoded fee table. -->
     <dependency><groupId>com.myplus</groupId><artifactId>common-settings</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
+    <!-- MKT-1f (G-16): every marketplace and support action audited (R22.4) — the shared producer, as auth/business/catalog/education/expense. -->
+    <dependency><groupId>com.myplus</groupId><artifactId>common-audit</artifactId><version>1.0.0-SNAPSHOT</version></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-security</artifactId></dependency>

@@ -264,7 +264,7 @@ public class SellerOrderService {
                 so.getInvoiceNo(), so.getStoreOrderNo(), so.getRejectReason(), so.getCreatedAt(),
                 ls.stream().map(l -> new MarketplaceOrderDTOs.SellerLineView(l.getId(), MarketplaceCheckoutService.lineView(l),
                         l.getSourceProductId(), l.getCommissionPolicyId(), l.getCommissionBasis(), l.getCommissionRate(),
-                        l.getCommissionFixed(), l.getSettlementStatus())).toList());
+                        l.getCommissionFixed(), l.getSettlementStatus())).toList(), so.getStoreOrderId(), o == null ? null : o.getPaymentMode(), so.getDeliveredAt());
     }
 
     private TransactionTemplate tx() {

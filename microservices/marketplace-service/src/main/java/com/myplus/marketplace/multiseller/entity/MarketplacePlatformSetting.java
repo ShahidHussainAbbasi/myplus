@@ -23,6 +23,8 @@ public class MarketplacePlatformSetting {
     public static final String DEFAULT_SORT = "public.defaultSort";
     /** MKT-1e — minutes a MERCHANT seller has to accept an order (source §10; default 5). */
     public static final String ACCEPT_MINUTES = "checkout.acceptMinutes";
+    /** MKT-1f (R-MKT-14): what a change-of-mind return costs the customer — the rider's pickup — in rupees. */
+    public static final String CHANGE_OF_MIND_FEE = "return.changeOfMindFee";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

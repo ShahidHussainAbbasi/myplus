@@ -68,6 +68,8 @@ public class OrderService {
      * service that means to be configurable must refuse to start unconfigurable.
      */
     private final com.myplus.common.settings.SettingsService settingsService;
+    /** MKT-1f — stamps when a marketplace order's store order was delivered (the return window starts there). */
+    private final com.myplus.marketplace.multiseller.service.MarketplaceDeliveryHook marketplaceDelivery;
 
     // ── OMS O7 D1 — distribution pre-sales: book → review → confirm/reject ────────────────────────────────
 
@@ -1463,6 +1465,7 @@ public class OrderService {
 
         o.setFulfilmentStatus(s);
         Order saved = repo.save(o);
+        marketplaceDelivery.afterSave(saved);                                            // MKT-1f
         notificationService.notify(saved, s.name(), "Status updated to " + s.name());   // slice 57: timeline event
         return toDTO(saved);
     }
@@ -1515,6 +1518,10 @@ public class OrderService {
                 || !o.getCustomerContact().trim().equalsIgnoreCase(c)) {
             throw new ResourceNotFoundException("No order found for that reference and contact.");
         }
+        // MKT-1f: a marketplace order's customer deals with MaxTheService only (R8.2). Checked AFTER the contact
+        // match, so the refusal never tells a stranger that an order exists.
+        if (MARKETPLACE_SOURCE.equals(o.getSource()))
+            throw new ValidationException(MARKETPLACE_RETURN_CUSTOMER);
         if (o.getFulfilmentStatus() != FulfilmentStatus.DELIVERED)
             throw new ValidationException("Only a delivered order can be returned");
         o.setFulfilmentStatus(FulfilmentStatus.RETURN_REQUESTED);
@@ -1525,12 +1532,59 @@ public class OrderService {
         return trackPublic(saved.getOrderNo() != null ? saved.getOrderNo() : String.valueOf(saved.getId()), c);
     }
 
+    static final String MARKETPLACE_SOURCE = "MARKETPLACE";
+    static final String MARKETPLACE_RETURN_CUSTOMER = "Returns for marketplace orders go through MaxTheService: "
+            + "open My orders on the marketplace and choose Get help.";
+    static final String MARKETPLACE_RETURN_SELLER = "This is a marketplace order: its return goes through "
+            + "MaxTheService, which refunds the customer. Record it under Sale → Marketplace → Tasks from MaxTheService.";
+
+    /**
+     * MKT-1f — the seller's books for a marketplace return: a CREDIT NOTE for the returned quantity against the issued
+     * invoice (B2B-P3f: a return is never a void of a document the customer holds), raised as the seller. Faulty goods
+     * stay out of sellable stock ({@code quarantine}). The store order turns RETURNED once everything sold is back.
+     *
+     * <p>Not idempotent on the far side (a credit note per call): the caller claims the return BEFORE calling and
+     * records the credit note it gets back, so a retry never raises a second one.
+     *
+     * @return the credit note numbers, comma-separated
+     */
+    @Transactional
+    public String marketplaceReturn(Long storeOrderId, Long sellerOrg, Long productId, int quantity, boolean quarantine,
+                                    String reason) {
+        Order o = repo.findById(storeOrderId).filter(x -> sellerOrg.equals(x.getOrganizationId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        if (!MARKETPLACE_SOURCE.equals(o.getSource()) || !hasText(o.getInvoiceNo()))
+            throw new ValidationException("Only a marketplace order with an invoice can be returned this way.");
+        List<String> notes = asStore(sellerOrg, () -> tradeClient.returnLines(
+                com.myplus.commerce.contracts.dto.SaleReturnRequest.builder()
+                        .invoiceNo(o.getInvoiceNo()).reason(reason).quarantine(quarantine)
+                        .lines(List.of(com.myplus.commerce.contracts.dto.SaleReturnLine.builder()
+                                .productId(productId).quantity((float) quantity).build()))
+                        .build()));
+        int sold = o.getItems().stream().filter(i -> productId.equals(i.getProductId()))
+                .mapToInt(i -> i.getQuantity() == null ? 0 : i.getQuantity().intValue()).sum();
+        if (quantity >= sold && o.getItems().stream().allMatch(i -> productId.equals(i.getProductId()))
+                && o.getFulfilmentStatus() != null && o.getFulfilmentStatus().canMoveTo(FulfilmentStatus.RETURNED)) {
+            o.setFulfilmentStatus(FulfilmentStatus.RETURNED);
+        }
+        o.setReturnReason(reason);
+        Order saved = repo.save(o);
+        String joined = notes == null ? "" : String.join(",", notes);
+        notificationService.notify(saved, "RETURNED", "Marketplace return: credit " + joined);
+        return joined;
+    }
+
     /** Back-office processes a return (E10, slice 71): return stock to inventory (G2 inverse saga) + refund a card
      *  order (best-effort) → RETURNED. From RETURN_REQUESTED or DELIVERED (admin-initiated). Org-scoped. */
     @Transactional
     public OrderDTO processReturn(Long id, Long orgId, Long userId) {
         Order o = repo.findByIdScoped(id, orgId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+        // MKT-1f: reversing a marketplace order here would void the seller's sale while the customer's online
+        // payment was never refunded and the marketplace never heard of it. Its return runs through MaxTheService,
+        // which refunds the customer and records the seller's credit note (marketplaceReturn below).
+        if (MARKETPLACE_SOURCE.equals(o.getSource()))
+            throw new ValidationException(MARKETPLACE_RETURN_SELLER);
         FulfilmentStatus s = o.getFulfilmentStatus();
         if (s != FulfilmentStatus.RETURN_REQUESTED && s != FulfilmentStatus.DELIVERED)
             throw new ValidationException("Only a delivered / return-requested order can be returned");

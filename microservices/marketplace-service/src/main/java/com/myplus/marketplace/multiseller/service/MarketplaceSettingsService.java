@@ -126,4 +126,37 @@ public class MarketplaceSettingsService {
         settings.save(row);
         return minutes;
     }
+
+    // ── MKT-1f: the change-of-mind pickup fee (ruling R-MKT-14: the customer bears it) ─────────────────────
+
+    public static final java.math.BigDecimal DEFAULT_CHANGE_OF_MIND_FEE = new java.math.BigDecimal("250.00");
+    static final java.math.BigDecimal MAX_CHANGE_OF_MIND_FEE = new java.math.BigDecimal("5000.00");
+
+    /** The fee deducted from a change-of-mind refund. A missing or invalid stored value reads as the default. */
+    @Transactional(readOnly = true)
+    public java.math.BigDecimal changeOfMindFee() {
+        return settings.findById(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> { try { return new java.math.BigDecimal(v.trim()); } catch (NumberFormatException e) { return null; } })
+                .filter(f -> f.signum() >= 0 && f.compareTo(MAX_CHANGE_OF_MIND_FEE) <= 0)
+                .orElse(DEFAULT_CHANGE_OF_MIND_FEE).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public java.math.BigDecimal setChangeOfMindFee(java.math.BigDecimal amount) {
+        access.assertOperator();
+        if (amount == null || amount.signum() < 0 || amount.compareTo(MAX_CHANGE_OF_MIND_FEE) > 0)
+            throw new ValidationException("The change-of-mind fee is Rs 0 to 5,000.");
+        java.math.BigDecimal v = amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        MarketplacePlatformSetting row = settings.findById(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE).orElseGet(() -> {
+            MarketplacePlatformSetting n = new MarketplacePlatformSetting();
+            n.setSettingKey(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE);
+            return n;
+        });
+        row.setSettingValue(v.toPlainString());
+        row.setUpdatedByUserId(access.userId());
+        row.setUpdatedAt(LocalDateTime.now());
+        settings.save(row);
+        return v;
+    }
 }

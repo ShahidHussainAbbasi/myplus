@@ -29,6 +29,21 @@ public class MarketplacePolicyService {
     private final MarketplacePolicyRepository policies;
     private final SellerAccess access;
 
+    /**
+     * MKT-1f — change a RETURN policy's days. Applies to orders placed from now on only: every order line keeps the
+     * days it was placed under (R13.3), so an old order is never made more or less returnable by this.
+     */
+    @Transactional
+    public OfferDTOs.Policy setReturnDays(Long policyId, Integer days) {
+        access.assertOperator();
+        MarketplacePolicy p = policyId == null ? null : policies.findById(policyId).orElse(null);
+        if (p == null || !MarketplacePolicy.RETURN.equals(p.getPolicyType()))
+            throw new ValidationException("Choose a return policy.");
+        if (days == null || days < 0 || days > 365) throw new ValidationException("Return days must be between 0 and 365.");
+        p.setReturnDays(days);
+        return toDto(policies.save(p));
+    }
+
     @Transactional
     public OfferDTOs.Policy create(OfferDTOs.PolicyRequest req) {
         access.assertOperator();

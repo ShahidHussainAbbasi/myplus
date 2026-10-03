@@ -135,6 +135,61 @@ public class MarketplacePaymentService {
         });
     }
 
+    static final String RETURN_KEY = "return:";
+
+    /**
+     * MKT-1f — refund an approved, received return through the card it was paid with: once per return
+     * ({@code return:} + id), the fact written before the provider is called, a lost answer left PENDING for
+     * {@link #reconcile}. The order turns PARTIALLY_REFUNDED or, once the refunds reach the charge, REFUNDED.
+     *
+     * @return true when the money has gone back (now or before); false when there was no card charge or it is pending
+     */
+    public boolean refundReturn(Long orderId, Long returnId, BigDecimal amount, String reason) {
+        MarketplaceOrder o = orders.findById(orderId).orElse(null);
+        if (o == null || amount == null || amount.signum() <= 0) return false;
+        MarketplacePayment charge = payments.findByIdempotencyKey(chargeKey(o)).orElse(null);
+        if (charge == null || !MarketplacePayment.SUCCEEDED.equals(charge.getStatus())) return false;
+        String key = RETURN_KEY + returnId;
+        MarketplacePayment refund = payments.findByIdempotencyKey(key).orElse(null);
+        if (refund != null && MarketplacePayment.SUCCEEDED.equals(refund.getStatus())) return true;
+        if (refund == null) {
+            try {
+                refund = tx().execute(s -> payments.saveAndFlush(fact(orderId, MarketplacePayment.REFUND, amount, key, reason)));
+            } catch (DataIntegrityViolationException race) {
+                return false;                                         // another caller is refunding it
+            }
+        }
+        PaymentGateway.Refund answer;
+        try {
+            answer = gateway.refund(charge.getProviderRef(), amount);
+        } catch (RuntimeException lost) {
+            LOG.warn("MKT return refund {} for {}: no answer ({}); the sweeper retries", key, o.getOrderNo(), lost.toString());
+            return false;
+        }
+        Long refundId = refund.getId();
+        Boolean done = tx().execute(s -> {
+            MarketplacePayment f = payments.findById(refundId).orElseThrow();
+            boolean ok = answer != null && answer.success();
+            if (ok) {
+                f.setStatus(MarketplacePayment.SUCCEEDED);
+                f.setProviderRef(answer.refundId());
+                BigDecimal refunded = payments.findByMktOrderIdOrderByIdAsc(orderId).stream()
+                        .filter(x -> MarketplacePayment.REFUND.equals(x.getKind()))
+                        .filter(x -> MarketplacePayment.SUCCEEDED.equals(x.getStatus()) || x.getId().equals(refundId))
+                        .map(MarketplacePayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                MarketplaceOrder fresh = orders.findById(orderId).orElseThrow();
+                fresh.setPaymentStatus(refunded.compareTo(charge.getAmount()) >= 0 ? Payment.REFUNDED.name()
+                        : Payment.PARTIALLY_REFUNDED.name());
+                orders.save(fresh);
+            } else {
+                f.setReason(answer == null ? "No answer" : answer.reason());   // stays PENDING: retried
+            }
+            payments.save(f);
+            return ok;
+        });
+        return Boolean.TRUE.equals(done);
+    }
+
     /** The sweeper's backstop: charges whose answer never came, and refunds not yet done. */
     public int reconcile() {
         int n = 0;
@@ -143,7 +198,10 @@ public class MarketplacePaymentService {
             MarketplaceOrder o = orders.findById(p.getMktOrderId()).orElse(null);
             if (o == null) continue;
             if (MarketplacePayment.REFUND.equals(p.getKind())) {
-                refundIfCancelled(o.getId());
+                // MKT-1f: a return's refund belongs to a DELIVERED order, which refundIfCancelled ignores — route by key.
+                if (p.getIdempotencyKey().startsWith(RETURN_KEY)) refundReturn(p.getMktOrderId(),
+                        Long.valueOf(p.getIdempotencyKey().substring(RETURN_KEY.length())), p.getAmount(), p.getReason());
+                else refundIfCancelled(o.getId());
                 n++;
             }
             else {

@@ -344,7 +344,7 @@ public class MarketplaceCheckoutService {
     }
 
     static MarketplaceOrderDTOs.LineView lineView(MarketplaceOrderLine l) {
-        return new MarketplaceOrderDTOs.LineView(l.getOfferId(), l.getMktProductId(), l.getProductName(), l.getQuantity(),
+        return new MarketplaceOrderDTOs.LineView(l.getId(), l.getOfferId(), l.getMktProductId(), l.getProductName(), l.getQuantity(),
                 l.getUnitPrice(), l.getLineTotal(), l.getStockSourceType(), l.getSellerOrganizationId(),
                 l.getStockOwnerOrganizationId(), l.getCustodianOrganizationId(), l.getFulfillerOrganizationId(),
                 l.getPromiseHours(), l.getWarrantyProvider(), l.getWarrantyMonths(), l.getWarrantyStarts(),

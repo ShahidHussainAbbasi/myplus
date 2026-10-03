@@ -74,6 +74,10 @@ public class MarketplaceSellerOrder {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    /** MKT-1f (V30): when the seller's store order was delivered; stamped once. The return window starts here. */
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;

@@ -97,9 +97,15 @@ public class MarketplaceAccountService {
                         p.getUpdatedAt() != null ? p.getUpdatedAt() : p.getCreatedAt()))
                 .toList();
         boolean canCancel = !"CANCELLED".equals(v.status()) && SellerOrder.OFFERED.name().equals(v.sellerOrderStatus());
-        return new MarketplaceOrderDTOs.AccountOrderView(v.orderNo(), v.status(), v.paymentMode(), v.paymentStatus(), v.total(),
+        // MKT-1f: the delivery happens in the seller's store order; the marketplace keeps only WHEN (delivered_at). Shown,
+        // never stored as a second status: CONFIRMED + delivered reads "DELIVERED" to the shopper.
+        java.time.LocalDateTime delivered = v.sellerOrderId() == null ? null
+                : sellerOrders.findById(v.sellerOrderId()).map(MarketplaceSellerOrder::getDeliveredAt).orElse(null);
+        String status = "CONFIRMED".equals(v.status()) && delivered != null ? "DELIVERED" : v.status();
+        boolean canGetHelp = !"CANCELLED".equals(v.status()) && SellerOrder.ACCEPTED.name().equals(v.sellerOrderStatus());
+        return new MarketplaceOrderDTOs.AccountOrderView(v.orderNo(), status, v.paymentMode(), v.paymentStatus(), v.total(),
                 v.cancelReason(), v.createdAt(), v.sellerName(), v.sellerOrderStatus(), v.secondsToAccept(), v.city(), v.lines(),
-                ps, canCancel);
+                ps, canCancel, delivered, canGetHelp);
     }
 
     /** Re-used by the controller for a claim's answer. */

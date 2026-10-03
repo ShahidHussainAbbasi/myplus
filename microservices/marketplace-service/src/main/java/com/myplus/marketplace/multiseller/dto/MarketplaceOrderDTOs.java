@@ -33,11 +33,12 @@ public final class MarketplaceOrderDTOs {
     /** MKT-1e2 — one order in "My orders": what tracking shows, plus its payments and whether it can still be cancelled. */
     public record AccountOrderView(String orderNo, String status, String paymentMode, String paymentStatus, BigDecimal total,
             String cancelReason, LocalDateTime createdAt, String sellerName, String sellerOrderStatus, Long secondsToAccept,
-            String city, List<LineView> lines, List<PaymentView> payments, boolean canCancel) {
+            String city, List<LineView> lines, List<PaymentView> payments, boolean canCancel, LocalDateTime deliveredAt,
+            boolean canGetHelp) {
     }
 
     /** What the SHOPPER sees of an order line: the snapshot of price, parties, warranty and returns. No commission. */
-    public record LineView(Long offerId, Long mktProductId, String productName, Integer quantity, BigDecimal unitPrice,
+    public record LineView(Long id, Long offerId, Long mktProductId, String productName, Integer quantity, BigDecimal unitPrice,
             BigDecimal lineTotal, String stockSourceType, Long sellerOrganizationId, Long stockOwnerOrganizationId,
             Long custodianOrganizationId, Long fulfillerOrganizationId, Integer promiseHours, String warrantyProvider,
             Integer warrantyMonths, String warrantyStarts, String warrantyCovers, String warrantyExcludes,
@@ -60,7 +61,7 @@ public final class MarketplaceOrderDTOs {
     public record SellerOrderView(Long id, Integer version, String orderNo, String acceptanceStatus,
             LocalDateTime acceptBy, Long secondsLeft, String customerName, String customerPhone, String address,
             String city, BigDecimal total, String invoiceNo, String storeOrderNo, String rejectReason,
-            LocalDateTime createdAt, List<SellerLineView> lines) {
+            LocalDateTime createdAt, List<SellerLineView> lines, Long storeOrderId, String paymentMode, LocalDateTime deliveredAt) {
     }
 
     /** POST /mkt/seller-orders/{id}/accept. {@code serials}: order line id → the serial numbers / IMEIs sent. */
