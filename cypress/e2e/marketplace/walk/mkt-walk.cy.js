@@ -146,7 +146,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-0a-02', slice: 'MKT-0a', title: 'The owner cannot switch it on before MaxTheService entitles the shop',
-    persona: 'owner.pesticide@myplus.com', reqs: ['MKT-R20.0'], pre: 'As M-0a-01: the shop is on the FREE plan and not entitled.',
+    persona: 'owner.pesticide@myplus.com', reqs: ['MKT-R20.0', 'MKT-R22.1'], pre: 'As M-0a-01: the shop is on the FREE plan and not entitled.',
     auto: ['MKT-0a-02', 'MKT-0a-03'] }, (step, call, cleanup) => {
     step('Settings → Configuration → try to tick "Sell on the MaxTheService marketplace".',
       'The switch is greyed out and cannot be ticked. Under it a "Not in plan" badge with a lock says why. No error page.', () => {
@@ -170,7 +170,7 @@ on('MKT manual walk — recorded', () => {
 
   walk({ id: 'M-0a-03', slice: 'MKT-0a', title: 'The owner switches it on, reads the agreements and applies',
     persona: 'admin@myplus.com (operator), then owner.audit@myplus.com (a shop that has never applied)',
-    reqs: ['MKT-R20.0', 'MKT-R9.1', 'MKT-R20.1'],
+    reqs: ['MKT-R20.0', 'MKT-R9.1', 'MKT-R20.1', 'MKT-R9.2', 'MKT-R9.3'],
     pre: 'owner.audit@\'s shop has never applied (on a test environment run walk-reset.sql first) and is not entitled.',
     auto: ['MKT-0a-01', 'MKT-0a-05'] }, (step, call, cleanup) => {
     cy.then(() => {   // the precondition, made true the way the cleanup of M-0a-06 leaves it
@@ -228,7 +228,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-0a-06', slice: 'MKT-0a', title: 'Only MaxTheService approves a seller, and a suspension says why',
-    persona: 'admin@myplus.com (operator), then owner.audit@myplus.com', reqs: ['MKT-R20.1', 'MKT-R22.1'],
+    persona: 'admin@myplus.com (operator), then owner.audit@myplus.com', reqs: ['MKT-R20.1', 'MKT-R22.1', 'MKT-R19.1'],
     pre: 'owner.audit@ has applied as "Audit Electronics" (M-0a-03).', auto: ['MKT-0a-06', 'MKT-0a-07'] }, (step, call, cleanup) => {
     let org
     cy.then(() => { asOperator(); cy.orgOf(SHOP_C).then((o) => { org = o.id }) })
@@ -298,7 +298,7 @@ on('MKT manual walk — recorded', () => {
   const key = (storage) => `SAMSUNG|GALAXY-A32-${M}|${storage}|BLACK|NEW`
 
   walk({ id: 'M-1b-01', slice: 'MKT-1b', title: 'A seller proposes a phone for the marketplace',
-    persona: 'owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R5.1', 'MKT-R6.2', 'MKT-R6.4'],
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R5.1', 'MKT-R6.2', 'MKT-R6.4', 'MKT-R5.2'],
     pre: `Shahzad Mobile Shop is an approved seller and has a product "Galaxy A32 128 Black ${M}" with 5 in stock (add it under Products if it is missing).`,
     data: { model: `Galaxy A32 ${M}` }, auto: ['MKT-1b-01', 'MKT-1b-02'] }, (step, call, cleanup) => {
     cy.then(() => makeSeller(SELLER_A, 'Shahzad Mobile Shop'))
@@ -327,7 +327,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1b-02', slice: 'MKT-1b', title: 'The operator matches it: one marketplace product is born',
-    persona: 'admin@myplus.com (operator)', reqs: ['MKT-R6.4', 'MKT-R5.2'], pre: 'M-1b-01 done.',
+    persona: 'admin@myplus.com (operator)', reqs: ['MKT-R6.4', 'MKT-R5.2', 'MKT-R6.5'], pre: 'M-1b-01 done.',
     auto: ['MKT-1b-03'] }, (step, call, cleanup) => {
     const row = () => cy.contains('#mktMatchQueue tr', key('128GB'), { timeout: 15000 })
     step('As admin@myplus.com: Platform → "Product matching".',
@@ -353,7 +353,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1b-03', slice: 'MKT-1b', title: 'The same phone from a second seller is suggested, never merged on its own',
-    persona: 'owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com', reqs: ['MKT-R6.1', 'MKT-R5.4'],
+    persona: 'owner.mobile@myplus.com (Mobile Distributor), then admin@myplus.com', reqs: ['MKT-R6.1', 'MKT-R5.4', 'MKT-R6.4'],
     pre: `M-1b-02 done. Mobile Distributor is an approved seller with a product "Samsung A-32 128GB blk ${M}" in stock.`,
     auto: ['MKT-1b-04'] }, (step, call, cleanup) => {
     cy.then(() => makeSeller(SELLER_B, 'Mobile Distributor'))
@@ -392,7 +392,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1b-04', slice: 'MKT-1b', title: '64GB is never merged with 128GB',
-    persona: 'owner.mobile@myplus.com, then admin@myplus.com', reqs: ['MKT-R6.6'], pre: 'M-1b-02 done (the 128GB product exists).',
+    persona: 'owner.mobile@myplus.com, then admin@myplus.com', reqs: ['MKT-R6.6', 'MKT-R6.1'], pre: 'M-1b-02 done (the 128GB product exists).',
     auto: ['MKT-1b-05'] }, (step, call, cleanup) => {
     cy.then(() => { as(SELLER_B); seedProduct({ name: `Galaxy A32 64 Black ${M}` }).then((id) => { S.b64 = id }) })
     step(`As owner.mobile@myplus.com: propose "Galaxy A32 64 Black ${M}" with Brand Samsung, Model "Galaxy A32 ${M}", Variant "64GB", Colour Black, New.`,
@@ -426,7 +426,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1b-05', slice: 'MKT-1b', title: 'The operator corrects a bad match; the seller reads the note',
-    persona: 'admin@myplus.com, then owner.business@myplus.com', reqs: ['MKT-R6.5'], pre: 'M-1b-02 done.',
+    persona: 'admin@myplus.com, then owner.business@myplus.com', reqs: ['MKT-R6.5', 'MKT-R6.4'], pre: 'M-1b-02 done.',
     auto: ['MKT-1b-06'] }, (step, call, cleanup) => {
     const row = () => cy.contains('#mktMatchQueue tr', `#${S.aProposal.organizationId} · Galaxy A32 128 Black ${M}`, { timeout: 15000 })
     step('As admin@myplus.com: Product matching → "Matched". On Shahzad Mobile Shop\'s row click "Needs correction" with the note box empty.',
@@ -479,7 +479,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1b-07', slice: 'MKT-1b', title: 'Pack sizes stay separate products (Panadol 10s and 20s)',
-    persona: 'owner.pharma@myplus.com (a pharmacy, approved seller)', reqs: ['MKT-R6.6'],
+    persona: 'owner.pharma@myplus.com (a pharmacy, approved seller)', reqs: ['MKT-R6.6', 'MKT-R6.3'],
     pre: `The pharmacy has products "Panadol Extra 10s ${M}" and "Panadol Extra 20s ${M}" (not prescription-only).`,
     auto: ['ProductIdentityKeyTest'] }, (step, call, cleanup) => {
     cy.then(() => makeSeller(PHARMACY, 'Gate Pharmacy'))
@@ -618,7 +618,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1c-02', slice: 'MKT-1c', title: 'The browser cannot choose who owns or ships the stock',
-    persona: 'owner.business@myplus.com, with the browser\'s developer tools', reqs: ['MKT-R3.1', 'MKT-R4.1', 'MKT-R22.1', 'MKT-R20.2'],
+    persona: 'owner.business@myplus.com, with the browser\'s developer tools', reqs: ['MKT-R3.1', 'MKT-R4.1', 'MKT-R22.1', 'MKT-R20.2', 'MKT-R3.2'],
     pre: 'M-1c-01 done; the offer id is known.', auto: ['MKT-1c-02', 'MKT-1c-04'] }, (step, call, cleanup) => {
     step('POST /mkt/saveOffer {id: <the offer>, sellerOrganizationId: 999999, stockOwnerOrganizationId: 999999, fulfillerOrganizationId: 999999}.',
       'Saved, but every party is still Shahzad Mobile Shop\'s own organisation and the price is still 52,000 (an edit keeps what it does not mention).', () => {
@@ -662,7 +662,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1c-04', slice: 'MKT-1c', title: 'The operator approves; a price outside the limits is refused',
-    persona: 'admin@myplus.com (operator), then owner.business@myplus.com', reqs: ['MKT-R7.4'],
+    persona: 'admin@myplus.com (operator), then owner.business@myplus.com', reqs: ['MKT-R7.4', 'MKT-R22.2'],
     pre: 'M-1c-01 done: the offer waits for review. A default commission policy exists (M-1c-00).', auto: ['MKT-1c-05'] }, (step, call, cleanup) => {
     step('As admin@myplus.com: Platform → "Offer approvals" (opens on "Waiting for review").',
       `Shahzad Mobile Shop's offer for "Samsung Galaxy A32 ${M} 128GB Black" is listed at 52,000 for "Karachi, Lahore", with Approve and Reject.`, () => {
@@ -750,7 +750,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1c-06', slice: 'MKT-1c', title: 'Customers see the provider\'s warranty and nothing internal',
-    persona: 'Customer (incognito window), developer tools', reqs: ['MKT-R9.2', 'MKT-R9.3', 'MKT-R14.2'],
+    persona: 'Customer (incognito window), developer tools', reqs: ['MKT-R9.2', 'MKT-R9.3', 'MKT-R14.2', 'MKT-R14.1'],
     pre: 'M-1c-04 done: the offer is Live.', auto: ['MKT-1c-06', 'MKT-1c-09'] }, (step, call, cleanup) => {
     step('Open /marketplace/public/products/<the product>/offers?city=Karachi and read Shahzad Mobile Shop\'s row.',
       'warrantyProvider "Samsung Pakistan (authorised distributor)", warrantyMonths 12, returnDays 7. No cost, margin, purchase, supplier or stock-movement field, and no organisationId other than the seller\'s own (sellerOrganizationId is public, by design).', () => {
@@ -904,7 +904,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1d-03', slice: 'MKT-1d', title: 'Nothing is chosen for the customer',
-    persona: 'Customer (incognito window), keyboard', reqs: ['MKT-R7.3'], pre: 'As M-1d-01, sorted by Lowest price.', auto: ['MKT-1d-03'] }, (step, call, cleanup) => {
+    persona: 'Customer (incognito window), keyboard', reqs: ['MKT-R7.3', 'MKT-R7.1'], pre: 'As M-1d-01, sorted by Lowest price.', auto: ['MKT-1d-03'] }, (step, call, cleanup) => {
     step('Open the product sorted by Lowest price. Look at the button at the bottom before choosing.',
       'No seller is selected. The button reads "Choose a seller first" and is disabled.', () => {
         customer()
@@ -950,7 +950,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1d-05', slice: 'MKT-1d', title: 'A paused offer leaves the card and the table together',
-    persona: 'owner.mobile@myplus.com (Mobile Distributor) and a customer', reqs: ['MKT-R7.6', 'MKT-R5.4'], pre: 'As M-1d-01.', auto: ['MKT-1d-07'] }, (step, call, cleanup) => {
+    persona: 'owner.mobile@myplus.com (Mobile Distributor) and a customer', reqs: ['MKT-R7.6', 'MKT-R5.4', 'MKT-R18.2', 'MKT-R18.5'], pre: 'As M-1d-01.', auto: ['MKT-1d-07'] }, (step, call, cleanup) => {
     const model = `Galaxy A32 T${run}d`
     step('As owner.mobile@myplus.com: Sale → Marketplace → My offers → Pause on the Galaxy A32 offer.', 'The offer reads "Paused" and its button "Resume".', () => {
       as(SELLER_B)
@@ -1009,7 +1009,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1d-07', slice: 'MKT-1d', title: 'Works in Urdu, on a phone, and keeps the page when the language changes',
-    persona: 'Customer on a phone (375 px wide)', reqs: ['MKT-R7.6'], pre: 'As M-1d-01.', auto: ['i18n bundles (2865 keys × 6)'] }, (step, call, cleanup) => {
+    persona: 'Customer on a phone (375 px wide)', reqs: ['MKT-R7.6', 'MKT-R7.2'], pre: 'As M-1d-01.', auto: ['i18n bundles (2865 keys × 6)'] }, (step, call, cleanup) => {
     step('On a phone, open the product page with ?lang=ur.',
       'The page reads right to left (dir="rtl"), in Urdu. Nothing scrolls sideways.', () => {
         cy.viewport(375, 812)
@@ -1111,7 +1111,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1e-02', slice: 'MKT-1e', title: 'One checkout is one seller',
-    persona: 'Customer (incognito window), developer tools', reqs: ['MKT-R20.1'], pre: 'As M-1d-01.', auto: ['MKT-1e-09'] }, (step, call, cleanup) => {
+    persona: 'Customer (incognito window), developer tools', reqs: ['MKT-R20.1', 'MKT-R17.1', 'MKT-R20.2'], pre: 'As M-1d-01.', auto: ['MKT-1e-09'] }, (step, call, cleanup) => {
     step(`On the product page choose ${A_NAME}, then ${B_NAME}.`, `Only one can be chosen (radio buttons): choosing ${B_NAME} unchooses ${A_NAME}; the button reads "Buy from ${B_NAME}".`, () => {
       customer()
       cy.visit(page(`product=${D.product}&city=Karachi`))
@@ -1197,7 +1197,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1e-04', slice: 'MKT-1e', title: 'Nobody answers: the hold expires, and a late Accept is refused',
-    persona: 'admin@myplus.com, a customer, owner.business@', reqs: ['MKT-R10.2', 'MKT-R19.1', 'MKT-R18.5'], pre: 'As M-1d-01.', auto: ['MKT-1e-05'] }, (step, call, cleanup) => {
+    persona: 'admin@myplus.com, a customer, owner.business@', reqs: ['MKT-R10.2', 'MKT-R19.1', 'MKT-R18.5', 'MKT-R10.5', 'MKT-R7.4'], pre: 'As M-1d-01.', auto: ['MKT-1e-05'] }, (step, call, cleanup) => {
     step('As admin@myplus.com: Platform → Marketplace policies → "Minutes a seller has to accept an order" = 1 → Save.', 'Saved.', () => {
       console_('#platMktPoliciesBtn')
       cy.get('#mktAcceptWindow').clear().type('1')
@@ -1321,7 +1321,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1e-08', slice: 'MKT-1e', title: 'Order, payment and the seller\'s answer are separate facts',
-    persona: 'admin@myplus.com (operator)', reqs: ['MKT-R19.1', 'MKT-R20.1'], pre: 'Orders in each state exist (M-1e-01, -03, -04).', auto: ['MKT-1e-09'] }, (step, call, cleanup) => {
+    persona: 'admin@myplus.com (operator)', reqs: ['MKT-R19.1', 'MKT-R20.1', 'MKT-R22.1'], pre: 'Orders in each state exist (M-1e-01, -03, -04).', auto: ['MKT-1e-09'] }, (step, call, cleanup) => {
     cy.then(() => {   // one order waiting right now, so the first list has something in it
       customer()
       cy.visit(UI.publicPage)                                  // the page hands out the security token the POST needs
@@ -1381,7 +1381,7 @@ on('MKT manual walk — recorded', () => {
   })
 
   walk({ id: 'M-1e-10', slice: 'MKT-1e', title: 'Phones need their IMEI; nothing is let go before it is given',
-    persona: 'owner.business@myplus.com', reqs: ['MKT-R10.2', 'MKT-R10.3'],
+    persona: 'owner.business@myplus.com', reqs: ['MKT-R10.2', 'MKT-R10.3', 'MKT-R10.4', 'MKT-R10.1'],
     pre: 'Shahzad Mobile Shop has a Live phone offer whose product is set to "requires serial number" (Products → edit → "Track serial numbers"), and RECEIVED two of those phones with their IMEIs on a purchase (Purchase → New purchase, IMEIs typed in). A customer has ordered 2.',
     auto: ['MarketplaceOrderFlowTest (serials)'] }, (step, call, cleanup) => {
     cy.then(() => publishOffer(SELLER_A, { run: `${run}s`, price: 52000, qty: 5, warrantyPolicyId: D.w12, returnPolicyId: D.r7 }))

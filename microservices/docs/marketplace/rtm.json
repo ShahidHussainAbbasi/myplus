@@ -190,7 +190,8 @@
     "MKT-1b-03"
    ],
    "manual": [
-    "M-1b-01"
+    "M-1b-01",
+    "M-1b-02"
    ]
   },
   {
@@ -224,6 +225,7 @@
     "MKT-1d-07"
    ],
    "manual": [
+    "M-1b-03",
     "M-1d-01",
     "M-1d-05"
    ]
@@ -240,8 +242,8 @@
     "MKT-1b-04"
    ],
    "manual": [
-    "M-1b-02",
-    "M-1b-03"
+    "M-1b-03",
+    "M-1b-04"
    ]
   },
   {
@@ -251,6 +253,7 @@
    "unit": [
     "ProductIdentityKeyTest.sourceExample",
     "ProductIdentityKeyTest.normalisationIsConservative",
+    "ProductIdentityKeyTest.unitsOnly",
     "ProductIdentityKeyTest.separatorInjection",
     "ProductIdentityKeyTest.gtin",
     "MarketplaceCatalogServiceTest.proposeComputesKey",
@@ -275,7 +278,7 @@
    ],
    "cypress": [],
    "manual": [
-    "M-1b-05",
+    "M-1b-07",
     "M-6-01"
    ]
   },
@@ -293,8 +296,9 @@
    ],
    "manual": [
     "M-1b-01",
+    "M-1b-02",
     "M-1b-03",
-    "M-1b-04"
+    "M-1b-05"
    ]
   },
   {
@@ -308,7 +312,8 @@
     "MKT-1b-06"
    ],
    "manual": [
-    "M-1b-04"
+    "M-1b-02",
+    "M-1b-05"
    ]
   },
   {
@@ -318,14 +323,15 @@
    "unit": [
     "ProductIdentityKeyTest.storageNeverMerges",
     "ProductIdentityKeyTest.packSizeNeverMerges",
+    "ProductIdentityKeyTest.unitsOnly",
     "MarketplaceCatalogServiceTest.storageNeverSuggested"
    ],
    "cypress": [
     "MKT-1b-05"
    ],
    "manual": [
-    "M-1b-02",
-    "M-1b-05"
+    "M-1b-04",
+    "M-1b-07"
    ]
   },
   {
@@ -459,6 +465,7 @@
     "M-1c-05",
     "M-1d-04",
     "M-1d-05",
+    "M-1d-07",
     "M-1d-08"
    ]
   },
@@ -560,6 +567,7 @@
     "MarketplaceOrderFlowTest.holdRefused",
     "MarketplaceOrderFlowTest.saleRefusedReholds",
     "MarketplaceOrderFlowTest.acceptAfterDeadline",
+    "MarketplaceOrderFlowTest.expiredBeatsStaleVersion",
     "MarketplaceOrderFlowTest.reject",
     "MarketplaceOrderFlowTest.sweeperExpires"
    ],
@@ -571,7 +579,8 @@
    "manual": [
     "M-1e-01",
     "M-1e-03",
-    "M-1e-04"
+    "M-1e-04",
+    "M-1e-10"
    ]
   },
   {
@@ -590,7 +599,8 @@
     "MKT-1e-04"
    ],
    "manual": [
-    "M-1e-03"
+    "M-1e-03",
+    "M-1e-10"
    ]
   },
   {
@@ -769,6 +779,7 @@
     "MKT-1e-06"
    ],
    "manual": [
+    "M-1c-07",
     "M-1e-06"
    ]
   },
@@ -800,6 +811,7 @@
     "MKT-1c-01"
    ],
    "manual": [
+    "M-1c-00",
     "M-1c-01",
     "M-1c-06"
    ]
@@ -1051,6 +1063,7 @@
    "manual": [
     "M-1d-05",
     "M-1e-01",
+    "M-1e-04",
     "M-2-05"
    ]
   },
@@ -1110,6 +1123,7 @@
     "OfferEligibilityTest.deliveryArea",
     "PhaseGuardTest.oneSeller",
     "MarketplaceCatalogServiceTest.activeSellerRequired",
+    "MarketplaceOrderFlowTest.codOffRefused",
     "MarketplaceOrderFlowTest.eligibility",
     "MarketplaceOrderFlowTest.codRefused",
     "MarketplaceSellerServiceTest.acceptApplies",
@@ -1126,8 +1140,11 @@
     "MKT-1e-09"
    ],
    "manual": [
+    "M-0a-03",
     "M-0a-06",
     "M-1d-04",
+    "M-1e-02",
+    "M-1e-08",
     "M-1e-09"
    ]
   },

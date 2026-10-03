@@ -35,13 +35,13 @@ it (one today: M-1e-09 step 2, switching cash on delivery off).
 Before a recording, `walk-reset.sql` resets the one shop that plays "never applied" (`owner.audit@`): accepting the
 agreements is a permanent record by design, so the product itself has no way to undo it.
 
-Result: __WALK__
+Result: **39 / 39 cases passed** in one recorded run on the final build (finished 2026-10-03 14:10:44 UTC): MKT-0a 5, 1b 7, 1c 9, 1d 8, 1e 10. The pictures and recorded calls are on the published manual-test page.
 
 ## 3. What the live runs found
 
 | # | Found by | Defect | Fix | Test now |
 |---|---|---|---|---|
-| 1 | V28 on MySQL | the commas of two `KEY` lines sat inside a `--` comment: error 1064, the service could not start | commas before the comments | all 28 migrations applied on a scratch MySQL schema and rerun idempotently; the service started under `ddl-auto=validate`. FlywayMigrationTest (Testcontainers): __FLYWAY__ |
+| 1 | V28 on MySQL | the commas of two `KEY` lines sat inside a `--` comment: error 1064, the service could not start | commas before the comments | all 28 migrations applied on a scratch MySQL schema and rerun idempotently; the service started under `ddl-auto=validate`. FlywayMigrationTest **6/6 on real MySQL (Testcontainers)** |
 | 2 | gate 1b, walk M-1b-01 | the identity key glued words to numbers ("Galaxy A32 Pro" → `A32PRO`), then — after the first fix — a model code to a unit ("A32 W70934" → `A32W70934`, W = watts) | only listed units, and a unit must END the word | ProductIdentityKeyTest `unitsOnly` |
 | 3 | gate 1c | a 404's sentence was dropped by the monolith's proxy (93 call sites in 13 files) | `ProxyErrors` reads `DownstreamNotFoundException.getBody()` | ProxyErrorsTest |
 | 4 | gate 1c | "Save" and "Save and send for approval" did nothing: `onclick="mktOfferSave(…)"` inside a form resolved to the button named `mktOfferSave` | bound in JS; repo audit: 0 other cases | gate 1c-01, walk M-1c-01 |
@@ -61,7 +61,18 @@ plan", not refused on save; M-1e-10: an IMEI must have been received on a purcha
 (a substring check, a CSRF test that the suite's own `cy.request` override silently made valid, stock fixtures, and a
 row lookup by price that matched an older offer).
 
-## 4. Open
+## 4. Suites
+
+`marketplace-service`: **296 run, 295 passed, 0 skipped** — Testcontainers ran against real Docker for the first time
+(they were skipped before). The 1 failure, `OrderServiceTest.processing_a_return_returns_stock_and_refunds_a_card_order`
+(the older single-store order path: `inventoryClient.returnStock` is never called), **fails identically on the base
+commit 90540dd0**, before any MKT-1e change. It is pre-existing and reported, not fixed here.
+
+Monolith: MarketplacePublicControllerTest 6/6, ProxyErrorsTest 3/3. The six message bundles hold 2,867 keys each
+and agree; each also carries 5 duplicate keys (`ui.js.always`, `ui.js.download`, `ui.js.loading`, `ui.js.reason`,
+`ui.plan`), already present on both sides before this work.
+
+## 5. Open
 
 - **GAP:** a seller cannot switch cash on delivery off from any screen. `order.payment.codEnabled` lives in
   marketplace-service; the Configuration screen merges business-service and auth settings only.
