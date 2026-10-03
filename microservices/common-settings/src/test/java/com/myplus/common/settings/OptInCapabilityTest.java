@@ -39,18 +39,42 @@ class OptInCapabilityTest {
         return new CapabilityService(settings, EntitlementSource.PERMISSIVE);
     }
 
+    /** The opt-in modules, listed by hand on purpose: adding one is a decision this test must be told about. */
+    private static final java.util.Set<Capability> OPT_IN =
+            java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING);
+
     @Test
-    @DisplayName("Expense management is declared opt-in, and it is the only one")
+    @DisplayName("Expense management is declared opt-in, and so is nothing else but the listed modules")
     void expense_management_is_opt_in() {
         assertThat(Capability.EXPENSE_MANAGEMENT.optIn()).isTrue();
         assertThat(Capability.EXPENSE_MANAGEMENT.defaultOn()).isFalse();
         assertThat(Capability.EXPENSE_MANAGEMENT.code()).isEqualTo("expenseManagement");
         // Every capability that existed before EX-0a keeps defaulting ON — a flipped flag on one of them would
-        // take a screen away from every tenant on the deploy.
+        // take a screen away from every tenant on the deploy. MKT-0a: the list of opt-ins is explicit.
         for (Capability c : Capability.values()) {
-            if (c != Capability.EXPENSE_MANAGEMENT) {
-                assertThat(c.optIn()).as("%s was ON before EX-0a and must stay so", c.code()).isFalse();
-            }
+            assertThat(c.optIn()).as("%s opt-in", c.code()).isEqualTo(OPT_IN.contains(c));
+        }
+    }
+
+    @Test
+    @DisplayName("MKT-0a: marketplace selling is opt-in, OFF for everyone, not in FREE, and survives a shape change")
+    void marketplace_selling_is_opt_in_and_not_free() {
+        Capability m = Capability.MARKETPLACE_SELLING;
+        assertThat(m.code()).isEqualTo("marketplaceSelling");
+        assertThat(m.optIn()).isTrue();
+        assertThat(m.defaultOn()).isFalse();
+        assertThat(Capability.defaultOnSet()).doesNotContain(m);
+        assertThat(Capability.isOptInKey("org.cap.marketplaceSelling")).isTrue();
+        // ruling R-MKT-6: a second sales channel is not what FREE exists for — the operator entitles it
+        assertThat(Plan.FREE.includes(m)).isFalse();
+        assertThat(Plan.PRO.includes(m)).isTrue();
+        FakeStore store = new FakeStore();
+        assertThat(svc(store).isEnabledFor(7L, m)).isFalse();
+        store.upsert(7L, 1L, m.settingKey(), "true");
+        assertThat(svc(store).isEnabledFor(7L, m)).isTrue();
+        assertThat(svc(store).isEnabledFor(8L, m)).as("another tenant is untouched").isFalse();
+        for (Shape s : Shape.values()) {
+            assertThat(s.preset()).as("no shape presets an opt-in module: %s", s.code()).doesNotContain(m);
         }
     }
 

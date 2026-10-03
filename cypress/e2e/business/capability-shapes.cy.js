@@ -119,7 +119,7 @@ describe('C4 — shape presets give each domain its own screens', () => {
            * no preset (GENERAL included) gives them. Asserted OFF here rather than skipped, so a preset that
            * leaked one ON would fail this case. Kept in step with Capability.optIn() by hand — a short list.
            */
-          const OPT_IN = ['expenseManagement']
+          const OPT_IN = ['expenseManagement', 'marketplaceSelling']   // MKT-0a: the second opt-in module
           OPT_IN.forEach((code) => expect(caps[code], `${code} is opt-in: OFF with no override`).to.eq(false))
           const checked = Object.entries(caps).filter(([code]) => !revoked.has(code) && !OPT_IN.includes(code))
           // The exclusion must not swallow the case: a ceiling that revoked everything would otherwise

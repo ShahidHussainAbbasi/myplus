@@ -178,7 +178,27 @@ public enum Capability {
      */
     EXPENSE_MANAGEMENT("expenseManagement", "Expense management",
             "Record what the business spends — rent, electricity, fuel, repairs — and see it in your "
-                    + "profit and loss. Off until you switch it on.", true);
+                    + "profit and loss. Off until you switch it on.", true),
+
+    /**
+     * MKT-0a — sell this business's stock on the MaxTheService marketplace, as one of several sellers of the same
+     * product. See microservices/docs/marketplace-multiseller-design.md.
+     *
+     * <h3>Opt-in, by ruling R-MKT-6</h3>
+     * A new sales channel with its own screens, agreements and settlement. Default ON would offer every tenant's
+     * stock to the public on the deploy.
+     *
+     * <h3>Deliberately NOT in {@link Plan#FREE}</h3>
+     * The FREE test is "without it, can the shop trade?" — and a shop trades perfectly well without a second
+     * channel. So a FREE tenant needs the operator's entitlement row to switch it on.
+     *
+     * <h3>Switching it on does not make a seller</h3>
+     * TRIAL/DEMO/PRO include every capability, so this switch alone cannot carry "MaxTheService vets its sellers".
+     * marketplace-service also requires both agreements accepted and a seller account the operator APPROVED.
+     */
+    MARKETPLACE_SELLING("marketplaceSelling", "Sell on the MaxTheService marketplace",
+            "List your products beside other sellers on the MaxTheService marketplace. MaxTheService approves "
+                    + "your seller account first. Off until you switch it on.", true);
 
     private final String code;
     private final String label;

@@ -223,6 +223,9 @@ tr.row-voided .js-edit-row{display:none !important}
 								     the receivable one created. Shown to every commerce tenant; a shop that never
 								     finances anything simply has an empty list. -->
 								<li data-capability="installments"><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
+								<!-- MKT-0a: selling on the MaxTheService marketplace is a sales CHANNEL, so it lives under Sale —
+								     for any kind of shop, not only the storefront vertical (#snavStore). Opt-in module. -->
+								<li data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
 							</ul>
 						</div>
 						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
@@ -4071,6 +4074,9 @@ tr.row-voided .js-edit-row{display:none !important}
 			<!-- EX-1 — Expenses: one shared fragment (fragments/expense.html + /js/common/expense.js). -->
 			<div th:replace="~{fragments/expense :: expenseSection('')}"></div>
 
+			<!-- MKT-0a — Sell on the MaxTheService marketplace (fragments/marketplace-seller.html + /js/common/marketplace-seller.js). -->
+			<div th:replace="~{fragments/marketplace-seller :: marketplaceSellerSection}"></div>
+
 			<!-- POS day-close (slice 39): cashier shift / cash drawer / X-Z report. -->
 			<div id="TillDiv" class="formDiv" style="display:none">
 				<!-- <h4>Cash Drawer / Till</h4> -->
@@ -4635,6 +4641,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/till.js}"></script>
     <!-- EX-1 — Expenses (shared across dashboards). -->
     <script th:src="@{/js/common/expense.js}"></script>
+    <!-- MKT-0a — marketplace seller onboarding. -->
+    <script th:src="@{/js/common/marketplace-seller.js}"></script>
     <script th:src="@{/js/business/park.js}"></script>
     <!-- Keyboard contract for the sale screen (design P1). Inert unless the org turned on
          pos.keyboard.enabled; the flag is re-read on every keystroke, not cached at bind time. -->

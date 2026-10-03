@@ -1,0 +1,1124 @@
+{
+ "programme": "MKT multi-seller marketplace",
+ "version": "2026-10-03",
+ "cases": [
+  {
+   "id": "M-0a-01",
+   "slice": "MKT-0a",
+   "title": "Marketplace is off for everyone after the deploy",
+   "persona": "owner.pharma@ (not entitled)",
+   "pre": "Fresh deploy. Nobody has switched anything on.",
+   "steps": [
+    "Log in as owner.pharma@.",
+    "Open the business dashboard and the Sale menu.",
+    "Open Settings → Configuration and find 'Sell on the MaxTheService marketplace'."
+   ],
+   "expect": "No 'Marketplace' entry under Sale. Configuration shows 'Sell on the MaxTheService marketplace' switched OFF, with the help text 'MaxTheService approves your seller account first. Off until you switch it on.'",
+   "reqs": [
+    "MKT-R20.0"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-0a-02",
+   "slice": "MKT-0a",
+   "title": "Owner cannot switch it on before MaxTheService entitles them",
+   "persona": "owner.pharma@ (not entitled)",
+   "pre": "owner.pharma@ is on the FREE plan and the operator has not entitled it.",
+   "steps": [
+    "Settings → Configuration → tick 'Sell on the MaxTheService marketplace'."
+   ],
+   "expect": "The save is refused with a sentence that says it is not included in the current plan. The box goes back to unticked. No error page.",
+   "reqs": [
+    "MKT-R20.0",
+    "MKT-R22.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-0a-03",
+   "slice": "MKT-0a",
+   "title": "Owner switches it on, reads the agreements and applies",
+   "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
+   "pre": "Seller A has no marketplace entitlement.",
+   "steps": [
+    "As operator (if the tenant is on FREE): Organizations → Seller A → Entitlements → Marketplace selling → ACTIVE.",
+    "As Seller A: Settings → Configuration → tick 'Sell on the MaxTheService marketplace'. Log out and back in.",
+    "Sale → Marketplace.",
+    "Read the box. Type 'Shahzad Mobile Shop' as the name customers will see. Tick 'I have read both agreements…'. Click 'Accept and apply'."
+   ],
+   "expect": "Before ticking, 'Accept and apply' is greyed out. The box lists what is shared (product identity, marketplace price, availability, delivery area and time, warranty, return policy, business name) and what is never asked (supplier prices, margins, other customers, staff data, full stock history). After accepting: three lines read 'Marketplace selling is switched on.', 'Agreements accepted (version v1).' and 'MaxTheService is reviewing your seller account.'",
+   "reqs": [
+    "MKT-R9.1",
+    "MKT-R9.2",
+    "MKT-R9.3",
+    "MKT-R20.0"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-0a-04",
+   "slice": "MKT-0a",
+   "title": "A user-tier member cannot accept agreements",
+   "persona": "user.business@",
+   "pre": "Seller A has the module on; agreements not yet accepted.",
+   "steps": [
+    "Log in as user.business@ (Seller A's org, module already on).",
+    "Sale → Marketplace."
+   ],
+   "expect": "The three status lines show. The agreement box shows the text but no Accept button, and reads 'Only the owner or an admin can accept these agreements for the business.'",
+   "reqs": [
+    "MKT-R22.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-0a-06",
+   "slice": "MKT-0a",
+   "title": "Only MaxTheService approves a seller, and a suspension says why",
+   "persona": "admin@myplus.com (operator), then owner.business@ (Seller A)",
+   "pre": "Seller A has applied (M-0a-03).",
+   "steps": [
+    "Operator console → 'Marketplace sellers'. The 'Waiting for review' list shows 'Shahzad Mobile Shop'.",
+    "Click Approve.",
+    "Switch to 'Approved'. Type 'documents expired' in the reason box and click Suspend.",
+    "As Seller A: Sale → Marketplace.",
+    "As operator: Suspended → Reinstate."
+   ],
+   "expect": "Approve moves the seller to the Approved list. An Approved row offers only Suspend (never Approve or Reject). Suspend with an empty reason is refused: 'Give the seller a reason. They will see it as written.' Seller A then reads 'Suspended: documents expired'. Re-accepting the agreements does not lift the suspension. Reinstate brings back 'Approved by MaxTheService. You can list products.'",
+   "reqs": [
+    "MKT-R20.1",
+    "MKT-R22.1",
+    "MKT-R19.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-0a-05",
+   "slice": "MKT-0a",
+   "title": "Policies exist before the first live order",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "MKT-0a deployed.",
+   "steps": [
+    "Operator console → Marketplace → Policies.",
+    "Open each of: customer terms, returns/refunds, commission, COD, warranty, complaint process, product approval."
+   ],
+   "expect": "Each policy has a version, an effective date and text. None is blank. The marketplace owner and legal entity are named on the customer terms.",
+   "reqs": [
+    "MKT-R20.0",
+    "MKT-R1.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1b-01",
+   "slice": "MKT-1b",
+   "title": "Seller proposes a phone for the marketplace",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "Seller A is an approved seller (MKT-0a) and has a catalogue product 'Galaxy A32 128 Black' with stock 5.",
+   "steps": [
+    "Sale → Marketplace → 'Propose a product'.",
+    "Your product: 'Galaxy A32 128 Black'. Brand Samsung, Model Galaxy A32, Variant / storage '128 GB', Colour 'black', Condition New, Warranty 12M.",
+    "Click 'Send for review'."
+   ],
+   "expect": "'Sent to MaxTheService for review.' The table shows the product with identity SAMSUNG|GALAXY-A32|128GB|BLACK|NEW|12M (the space in '128 GB' and the lower-case 'black' are normalised) and a yellow 'Waiting for review' badge. The seller's own catalogue product is unchanged.",
+   "reqs": [
+    "MKT-R5.1",
+    "MKT-R5.2",
+    "MKT-R6.2",
+    "MKT-R6.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1b-02",
+   "slice": "MKT-1b",
+   "title": "64GB is never merged with 128GB",
+   "persona": "owner.mobile@ (Seller B)",
+   "pre": "Seller A's 128GB phone is matched (M-1b-04 done first).",
+   "steps": [
+    "As Seller B propose 'Galaxy A32 64 Black' with Storage 64GB, otherwise identical."
+   ],
+   "expect": "Identity ends …|64GB|BLACK|NEW…. The operator queue shows 'New marketplace product' for it, never 'Same identity as product #…'.",
+   "reqs": [
+    "MKT-R6.6",
+    "MKT-R6.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1b-03",
+   "slice": "MKT-1b",
+   "title": "Same phone from a second seller is suggested, not merged",
+   "persona": "owner.mobile@ (Seller B)",
+   "pre": "Seller A's 128GB proposal exists.",
+   "steps": [
+    "As Seller B propose 'Samsung A-32 128GB blk' with Brand Samsung, Model Galaxy A32, Storage 128 GB, Colour Black, New, 12M."
+   ],
+   "expect": "Same identity as Seller A's. Status 'Waiting for review'. In the operator queue its 'Existing match' column reads 'Same identity as product #<A's product>'. Nothing is live until the operator clicks Match.",
+   "reqs": [
+    "MKT-R6.1",
+    "MKT-R6.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1b-04",
+   "slice": "MKT-1b",
+   "title": "Operator matches and then corrects a bad match",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Both proposals are in the queue.",
+   "steps": [
+    "Operator console → 'Product matching'. Find Seller A's proposal.",
+    "Click Match (the column says 'New marketplace product').",
+    "Find Seller B's same-key proposal; click Match.",
+    "Switch to 'Matched'. On Seller A's row type 'colour is Blue on the box' and click 'Needs correction'.",
+    "As Seller A: Sale → Marketplace."
+   ],
+   "expect": "After step 2 a marketplace product 'Samsung Galaxy A32 128GB Black' exists. After step 3 both sellers point at that one product. 'Needs correction' with an empty note is refused ('Tell the seller what is wrong…'). With the note, Seller A sees a red 'Needs correction' badge and the note exactly as typed, and can fix and re-send the same row.",
+   "reqs": [
+    "MKT-R6.5",
+    "MKT-R6.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1b-06",
+   "slice": "MKT-1b",
+   "title": "A product from another shop's catalogue cannot be proposed",
+   "persona": "owner.mobile@ (Seller B), using a browser tool or the API",
+   "pre": "Seller A's product id is known (e.g. 1234).",
+   "steps": [
+    "Send POST /mkt/proposeProduct with sourceProductId 1234 (Seller A's product) and any attributes."
+   ],
+   "expect": "Refused: 'That product is not in your catalogue.' The same sentence a non-existent id gives. Seller B's proposal list is unchanged.",
+   "reqs": [
+    "MKT-R22.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1b-05",
+   "slice": "MKT-1b",
+   "title": "Panadol 10s and 20s stay separate",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 6 only (pharmacy). Walk on a test tenant with rx blocking switched off by the operator.",
+   "steps": [
+    "Propose GSK Panadol Extra 500 mg Tablet 10, then the same with pack size 20."
+   ],
+   "expect": "Two different keys: GSK|PANADOL-EXTRA|500MG|TABLET|10 and …|20. They never merge.",
+   "reqs": [
+    "MKT-R6.3",
+    "MKT-R6.6"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-00",
+   "slice": "MKT-1c",
+   "title": "Operator creates the policies sellers choose from",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "MKT-1c deployed. No policies yet.",
+   "steps": [
+    "Operator console → 'Marketplace policies'.",
+    "Kind Warranty. Name '12 months — authorised distributor'. Provider 'Samsung Pakistan (authorised distributor)', 12 months, covers 'Manufacturing defects', excludes 'Physical and liquid damage'. Create.",
+    "Kind Warranty again, leave Provider empty. Create.",
+    "Kind Returns, name '7 days', 7 days. Create.",
+    "Kind Commission, name 'Standard 8%', Charged on 'Item price (not delivery)', rate 8, tick 'Use for newly approved offers'. Create."
+   ],
+   "expect": "Three policies are listed. Step 3 is refused: 'Name the warranty provider. MaxTheService is never assumed to be it.' The commission row shows 8% and 'default'. No policy has an Edit button, only Deactivate.",
+   "reqs": [
+    "MKT-R7.4",
+    "MKT-R14.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-01",
+   "slice": "MKT-1c",
+   "title": "Seller creates an offer and sends it for approval",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "Seller A is an approved seller and Samsung Galaxy A32 128GB Black is MATCHED (M-1b-04). Seller A has 5 in stock. M-1c-00 done.",
+   "steps": [
+    "Sale → Marketplace → My offers → New offer.",
+    "Product: Samsung Galaxy A32 128GB Black. Price 52000. Delivery in 24 hours. Cities 'Karachi, karachi , Lahore'. Warranty '12 months — authorised distributor'. Returns '7 days'.",
+    "Click 'Save and send for approval'."
+   ],
+   "expect": "The row shows Rs. 52,000, cities 'Karachi, Lahore' (the duplicate is dropped, spelling kept as typed) and a 'Waiting for review' badge. 'Send for approval' without a warranty or return policy is refused: 'Choose a warranty and a return policy before sending the offer for approval.'",
+   "reqs": [
+    "MKT-R5.3",
+    "MKT-R7.5",
+    "MKT-R14.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-02",
+   "slice": "MKT-1c",
+   "title": "The browser cannot choose the stock owner",
+   "persona": "owner.business@ (Seller A), using the browser developer tools or the API",
+   "pre": "M-1c-01 done; the offer id is known.",
+   "steps": [
+    "Send POST /mkt/saveOffer {id: <offer>, sellerOrganizationId: 999999, stockOwnerOrganizationId: 999999, fulfillerOrganizationId: 999999}.",
+    "Send GET /mkt/getOffer?id=<offer>.",
+    "Send POST /mkt/saveOffer {id: <offer>, stockSourceType: 'SUPPLIER'}."
+   ],
+   "expect": "Step 1 succeeds but every party id is still Seller A's own organisation and the price is still 52,000 (a partial edit keeps what it does not mention). Step 3 is refused: 'Offers from supplier stock are not available yet.' The source stays MERCHANT.",
+   "reqs": [
+    "MKT-R3.1",
+    "MKT-R3.2",
+    "MKT-R4.1",
+    "MKT-R22.1",
+    "MKT-R20.2"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1c-03",
+   "slice": "MKT-1c",
+   "title": "A prescription product cannot be offered",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "Seller A has a product with 'Prescription required' ticked.",
+   "steps": [
+    "Sale → Marketplace → Propose a product → choose it → Send for review."
+   ],
+   "expect": "Refused: 'Prescription and restricted products cannot be sold on the marketplace yet.' Nothing is added to the proposals table.",
+   "reqs": [
+    "MKT-R20.2",
+    "MKT-R7.6"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1c-04",
+   "slice": "MKT-1c",
+   "title": "Operator approves; price outside the limits is refused",
+   "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
+   "pre": "The offer is waiting for review. A default commission policy exists (M-1c-00).",
+   "steps": [
+    "Operator console → 'Offer approvals' → Approve on Seller A's row.",
+    "Operator: POST /platform/mkt/productLimits {id: <marketplace product>, priceFloor: 40000, priceCeiling: 60000}.",
+    "Seller: My offers → Edit → price 75000 → Save.",
+    "Seller: price 51500 → Save."
+   ],
+   "expect": "After step 1 the row leaves the queue and the seller sees 'Live'. Approving with no default commission policy is refused: 'Set a default commission policy before approving offers.' Step 3 is refused with 'This offer's price is outside the allowed range…' and the price stays 52,000. Step 4 saves.",
+   "reqs": [
+    "MKT-R7.4",
+    "MKT-R22.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-05",
+   "slice": "MKT-1c",
+   "title": "Suspending a seller takes their offers down at once",
+   "persona": "admin@myplus.com (operator) + a customer in an incognito window",
+   "pre": "Seller A's offer is Live.",
+   "steps": [
+    "Incognito: open /marketplace/public/products/<id>/offers?city=Karachi. Seller A is listed.",
+    "Operator: Marketplace sellers → Seller A → Suspend (reason 'documents expired').",
+    "Incognito: reload.",
+    "Operator: Reinstate. Incognito: reload."
+   ],
+   "expect": "After the suspension Seller A's offer is gone on the next load. Reinstating brings it back. With ?city=Quetta it is never listed.",
+   "reqs": [
+    "MKT-R7.6"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-06",
+   "slice": "MKT-1c",
+   "title": "Customers see the provider's warranty and nothing internal",
+   "persona": "Customer (incognito window)",
+   "pre": "Seller A's offer is Live.",
+   "steps": [
+    "Open /marketplace/public/products/<id>/offers?city=Karachi and read Seller A's row."
+   ],
+   "expect": "warrantyProvider 'Samsung Pakistan (authorised distributor)', 12 months, starts on DELIVERY, covers/excludes as set, 7 return days. There is no cost, margin, purchase, supplier or stock-movement field, and no organisation id other than the seller's.",
+   "reqs": [
+    "MKT-R14.1",
+    "MKT-R14.2",
+    "MKT-R9.2",
+    "MKT-R9.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-07",
+   "slice": "MKT-1c",
+   "title": "Deactivating a policy never changes what was sold",
+   "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
+   "pre": "Seller A's offer uses '7 days'.",
+   "steps": [
+    "Operator: Marketplace policies → '7 days' → Deactivate.",
+    "Seller: My offers → Edit. Open the Returns list.",
+    "Seller: POST /mkt/saveOffer {id: <offer>, returnPolicyId: <the 7-day id>}."
+   ],
+   "expect": "The existing offer still names the 7-day policy. The Returns list no longer offers it. Step 3 is refused: 'Choose an active return policy.'",
+   "reqs": [
+    "MKT-R7.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-08",
+   "slice": "MKT-1c",
+   "title": "Another seller cannot see or change the offer",
+   "persona": "owner.mobile@ (Seller B), approved seller",
+   "pre": "Seller A's offer id is known.",
+   "steps": [
+    "GET /mkt/myOffers (positive control).",
+    "GET /mkt/getOffer?id=<A's offer>.",
+    "POST /mkt/saveOffer {id: <A's offer>, marketplacePrice: 1}.",
+    "POST /platform/mkt/decideOffer {id: <A's offer>, decision: 'SUSPEND', note: 'x'}."
+   ],
+   "expect": "Step 1 works. Steps 2 and 3 answer 'No such offer.' (the same as a non-existent id). Step 4 is refused (not the operator). Seller A's offer is unchanged.",
+   "reqs": [
+    "MKT-R22.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1d-01",
+   "slice": "MKT-1d",
+   "title": "One product, two sellers, from the lowest price",
+   "persona": "Customer (incognito window)",
+   "pre": "Seller A: Samsung Galaxy A32 128GB Black at Rs 52,000, delivery 4 hours, 12-month warranty (Samsung Pakistan), 7-day returns. Seller B: the SAME product at Rs 51,500, 24 hours, 6-month warranty. Both Live, both deliver to Karachi only (M-1c-01…04 done for each).",
+   "steps": [
+    "Open /marketplace. City: Karachi. Search 'Galaxy A32'.",
+    "Open the card.",
+    "Press the browser's Back button."
+   ],
+   "expect": "One card: 'Samsung Galaxy A32 128GB Black · From Rs. 51,500 · Available from 2 sellers · Delivery in 4 hours'. The product page lists 2 sellers, each with price, delivery promise, warranty months and provider, return days, 'No ratings yet' and 'Stock checked … ago'. Back returns to the same results.",
+   "reqs": [
+    "MKT-R5.4",
+    "MKT-R7.2",
+    "MKT-R18.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-02",
+   "slice": "MKT-1d",
+   "title": "The customer chooses the order",
+   "persona": "Customer (incognito window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "On the product page: Sort sellers by Lowest price. Then Fastest delivery. Then Longest warranty.",
+    "With Lowest price chosen, reload the page.",
+    "Copy the address into another browser."
+   ],
+   "expect": "Lowest price: Seller B first. Fastest delivery and Longest warranty: Seller A first. After reload and in the other browser the sort is still Lowest price with Seller B first (the choice lives in the address). Nearest, rating and promotion are not offered yet: there is no data behind them.",
+   "reqs": [
+    "MKT-R7.1",
+    "MKT-R18.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-03",
+   "slice": "MKT-1d",
+   "title": "Nothing is chosen for the customer",
+   "persona": "Customer (incognito window)",
+   "pre": "As M-1d-01, sorted by Lowest price.",
+   "steps": [
+    "Look at the button at the bottom before choosing.",
+    "Using only the keyboard (Tab to the list, arrow keys or Space), choose Seller A, the dearer one.",
+    "Press the button."
+   ],
+   "expect": "Before choosing: no seller is selected and the button reads 'Choose a seller first' and is disabled. After choosing Seller A: the row is highlighted and the button reads 'Buy from <Seller A's name>'. Pressing it says 'Ordering opens soon. You chose <Seller A> at Rs. 52,000.' (checkout is MKT-1e).",
+   "reqs": [
+    "MKT-R7.3",
+    "MKT-R7.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1d-04",
+   "slice": "MKT-1d",
+   "title": "A city with no seller says so",
+   "persona": "Customer (incognito window)",
+   "pre": "Both offers serve Karachi only.",
+   "steps": [
+    "On the product page change the city to Lahore.",
+    "Go back to the search, keep Lahore, search 'Galaxy A32'."
+   ],
+   "expect": "Product page: 'No seller delivers this product to Lahore yet.', no rows, the button stays disabled. Search: no card for the phone, and 'No products match in Lahore. Try fewer words or another city.' No error.",
+   "reqs": [
+    "MKT-R7.6",
+    "MKT-R20.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-05",
+   "slice": "MKT-1d",
+   "title": "Stale or paused offers leave the card and the table together",
+   "persona": "Customer (incognito window) + owner.mobile@ (Seller B)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Seller B: Marketplace → My offers → Pause.",
+    "Customer: search again and open the product.",
+    "Seller B: Resume. If the test tools can age Seller B's stock check beyond 30 minutes, do that and repeat step 2."
+   ],
+   "expect": "With Seller B paused (or its stock unconfirmed for 30 minutes) the card reads 'From Rs. 52,000 · Available from 1 seller' and the product page lists only Seller A. The card's number always equals the rows on the page. After Resume both are back.",
+   "reqs": [
+    "MKT-R7.6",
+    "MKT-R18.2",
+    "MKT-R18.5",
+    "MKT-R5.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-06",
+   "slice": "MKT-1d",
+   "title": "The operator chooses the order customers see first",
+   "persona": "admin@myplus.com (operator), then Customer (incognito window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Operator console → Marketplace policies → 'Order customers see first' → Lowest price → Save.",
+    "Customer: open the product without choosing a sort.",
+    "Operator: set it back to Recommended."
+   ],
+   "expect": "Saved. The customer's page opens with 'Lowest price' selected and Seller B first. The customer can still change it. A business owner (not the operator) cannot read or change this setting.",
+   "reqs": [
+    "MKT-R7.4",
+    "MKT-R18.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-07",
+   "slice": "MKT-1d",
+   "title": "Works in every language, on a phone, by keyboard",
+   "persona": "Customer (incognito window) on a phone (or a 375 px wide window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Open /marketplace?lang=ur and search, then open the product.",
+    "Switch to English with the language link at the top.",
+    "Tab through the whole page without a mouse."
+   ],
+   "expect": "Urdu and Arabic read right to left with prices and sellers mirrored; switching language keeps the page you are on. Nothing scrolls sideways. Every control has a visible label and a visible focus ring; buttons are at least finger-sized.",
+   "reqs": [
+    "MKT-R7.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1d-08",
+   "slice": "MKT-1d",
+   "title": "Search text is just text",
+   "persona": "Customer (incognito window)",
+   "pre": "As M-1d-01.",
+   "steps": [
+    "Search for: %",
+    "Search for: _",
+    "Search for: ' OR 1=1 --",
+    "Open /marketplace?product=999999999"
+   ],
+   "expect": "Each search answers normally ('No products match…'); none lists every product. The unknown product reads 'No such product.' with no error page.",
+   "reqs": [
+    "MKT-R7.6"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1e-01",
+   "slice": "MKT-1e",
+   "title": "Buying waits for the seller, never pretends",
+   "persona": "Customer (incognito window) then owner.business@ (Seller A)",
+   "pre": "Seller A Rs 52,000 LIVE with stock 5.",
+   "steps": [
+    "Choose Seller A → Buy. Name Ali, phone 03001234567, address 1 Clifton Karachi, Cash on delivery → Place order.",
+    "Within 5 minutes, as Seller A: Marketplace → Incoming orders → Accept."
+   ],
+   "expect": "The customer sees 'Waiting for the seller to confirm' with the order number, never 'Confirmed' before the seller accepts. The seller sees a countdown under 5:00. After Accept, the customer's page reads 'Confirmed by Seller A'. Seller A's sales list has a new invoice for Rs. 52,000. Available stock on the offer drops from 5 to 4.",
+   "reqs": [
+    "MKT-R10.2",
+    "MKT-R18.5",
+    "MKT-R8.1",
+    "MKT-R10.1"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1e-02",
+   "slice": "MKT-1e",
+   "title": "Two sellers in one basket are refused",
+   "persona": "Customer (incognito window)",
+   "pre": "Phase 1.",
+   "steps": [
+    "Add Seller A's offer and Seller B's offer to the basket. Checkout."
+   ],
+   "expect": "'Items from different sellers must be checked out separately.' Nothing is reserved and no order is created.",
+   "reqs": [
+    "MKT-R17.1",
+    "MKT-R20.2"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1e-03",
+   "slice": "MKT-1e",
+   "title": "Seller rejects: stock comes back, customer told",
+   "persona": "Customer (incognito window) then owner.business@ (Seller A)",
+   "pre": "Stock on the offer is 4.",
+   "steps": [
+    "Customer places an order for 1.",
+    "Seller A: Reject → reason 'out of stock in store'."
+   ],
+   "expect": "Available shows 3 while waiting and 4 again after the rejection. The customer's order reads 'Cancelled: the seller could not fulfil it' and no charge stays on it.",
+   "reqs": [
+    "MKT-R10.2",
+    "MKT-R10.5"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-04",
+   "slice": "MKT-1e",
+   "title": "Nobody answers: the hold expires",
+   "persona": "Customer (incognito window)",
+   "pre": "Acceptance window 5 minutes, hold 10 minutes.",
+   "steps": [
+    "Customer places an order. Seller does nothing for 6 minutes. Seller then clicks Accept."
+   ],
+   "expect": "At 5 minutes the order shows EXPIRED and stock returns. The late Accept is refused: 'This order expired before it was accepted.'",
+   "reqs": [
+    "MKT-R10.2",
+    "MKT-R10.5",
+    "MKT-R19.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-05",
+   "slice": "MKT-1e",
+   "title": "A double click is one order",
+   "persona": "Customer (incognito window)",
+   "pre": "",
+   "steps": [
+    "Click Place order twice quickly (or reload during submit and resubmit)."
+   ],
+   "expect": "One order number. One reservation. One seller notification.",
+   "reqs": [
+    "MKT-R22.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-06",
+   "slice": "MKT-1e",
+   "title": "Order shows its own snapshot of terms",
+   "persona": "Customer (incognito window)",
+   "pre": "An accepted order exists.",
+   "steps": [
+    "Operator changes Seller A's return policy from 7 to 3 days.",
+    "Customer opens the old order."
+   ],
+   "expect": "The old order still shows 7-day returns, the seller, stock owner, fulfiller, price, tax, commission and delivery fee as they were.",
+   "reqs": [
+    "MKT-R13.3",
+    "MKT-R3.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-07",
+   "slice": "MKT-1e",
+   "title": "One customer account across sellers",
+   "persona": "Customer (incognito window)",
+   "pre": "Ali has orders from Seller A and Seller B.",
+   "steps": [
+    "Log in to the marketplace account. Open My orders."
+   ],
+   "expect": "Both orders are listed under one account, each naming its seller. Support is 'MaxTheService support' on both.",
+   "reqs": [
+    "MKT-R8.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-08",
+   "slice": "MKT-1e",
+   "title": "Order, payment and settlement are three different facts",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "A delivered COD order.",
+   "steps": [
+    "Operator console → order detail."
+   ],
+   "expect": "Three separate badges: Order FULFILLED, Payment CAPTURED, Settlement PENDING_RETURN_WINDOW.",
+   "reqs": [
+    "MKT-R19.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-09",
+   "slice": "MKT-1e",
+   "title": "Only one city, cash and one online option in the pilot",
+   "persona": "Customer (incognito window)",
+   "pre": "Pilot configuration.",
+   "steps": [
+    "Go to checkout."
+   ],
+   "expect": "City list has the pilot city only. Payment shows Cash on delivery and one online option. Delivery is 'Assigned by MaxTheService' (manual).",
+   "reqs": [
+    "MKT-R20.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1e-10",
+   "slice": "MKT-1e",
+   "title": "Available means free stock, and the hold is on record",
+   "persona": "Seller A, then the operator",
+   "pre": "Offer stock: 5 on hand, nothing held.",
+   "steps": [
+    "Customer orders 2 and the seller has not answered yet.",
+    "Seller A opens Marketplace → Incoming orders → the order → Stock hold.",
+    "Meanwhile a second customer tries to buy 4."
+   ],
+   "expect": "The hold shows reservation id, order and line, offer, MERCHANT, owner and holder (Seller A), quantity 2, HELD, created and expires times (10 minutes apart). The offer now reads 3 available, not 5, so the order for 4 is refused: \"This seller does not have enough stock.\"",
+   "reqs": [
+    "MKT-R10.4",
+    "MKT-R10.3"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1f-01",
+   "slice": "MKT-1f",
+   "title": "One place to complain",
+   "persona": "Customer (incognito window) → admin@myplus.com (operator) → owner.business@ (Seller A)",
+   "pre": "Delivered order from Seller A.",
+   "steps": [
+    "Customer: My orders → the order → Get help → 'Item not as described' → 'Box says 64GB' → Send.",
+    "Operator: Support cases → the case → Task seller.",
+    "Seller A: Marketplace → Tasks."
+   ],
+   "expect": "Customer sees 'MaxTheService support is looking into this' and never Seller A's phone number. The seller sees the task with the order number. The operator's reply reaches the customer from MaxTheService.",
+   "reqs": [
+    "MKT-R8.2",
+    "MKT-R8.1",
+    "MKT-R23.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1f-02",
+   "slice": "MKT-1f",
+   "title": "Return cost follows the cause",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "A return request for each reason below on test orders.",
+   "steps": [
+    "Approve returns with reasons: Wrong product, Damaged before handover, Defective, Not as described, Change of mind, Delivery failure, Routing error."
+   ],
+   "expect": "Cost bearer reads, in order: Fulfiller, Custodian, Stock owner, Seller, Customer, Carrier, MaxTheService.",
+   "reqs": [
+    "MKT-R13.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1f-03",
+   "slice": "MKT-1f",
+   "title": "Return flow end to end",
+   "persona": "Customer (incognito window) → admin@myplus.com (operator) → owner.business@ (Seller A)",
+   "pre": "Delivered order Rs 52,000.",
+   "steps": [
+    "Customer requests a return (Defective).",
+    "Operator checks policy → arranges pickup.",
+    "Seller inspects → Approve.",
+    "Choose Restock / Quarantine / Write off."
+   ],
+   "expect": "Refund Rs 52,000 approved once. Stock goes to the chosen bucket. Seller's statement shows a REFUND line −52,000 and the commission reversal.",
+   "reqs": [
+    "MKT-R13.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1f-04",
+   "slice": "MKT-1f",
+   "title": "Unsafe or expired goods escalate at once",
+   "persona": "Customer (incognito window)",
+   "pre": "",
+   "steps": [
+    "Get help → 'Expired or unsafe' → Send."
+   ],
+   "expect": "The case is URGENT and at the top of the operator's queue immediately.",
+   "reqs": [
+    "MKT-R13.4"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1f-05",
+   "slice": "MKT-1f",
+   "title": "Every action leaves a trail",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "After M-1f-01..04.",
+   "steps": [
+    "Operator console → Audit log → filter 'Marketplace'."
+   ],
+   "expect": "Each case, task, return decision and refund is listed with who, when and the order number.",
+   "reqs": [
+    "MKT-R22.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1g-01",
+   "slice": "MKT-1g",
+   "title": "The worked example adds up",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "A delivered Rs 5,000 order, fixed commission Rs 500, delivery Rs 200, processing Rs 50, reserve Rs 100.",
+   "steps": [
+    "Marketplace → Settlement statement → open the line."
+   ],
+   "expect": "Customer paid 5,000.00 · Commission 500.00 · Delivery 200.00 · Processing 50.00 · Reserve 100.00 · Payable 4,150.00. The line total checks: 4,150 + 500 + 200 + 50 + 100 = 5,000.",
+   "reqs": [
+    "MKT-R15.5",
+    "MKT-R16.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1g-02",
+   "slice": "MKT-1g",
+   "title": "Nothing is payable before delivery and the return window",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "An order placed today, not delivered.",
+   "steps": [
+    "Settlement statement."
+   ],
+   "expect": "The line is NOT_ELIGIBLE. After delivery: PENDING_RETURN_WINDOW. After the window: ELIGIBLE.",
+   "reqs": [
+    "MKT-R15.2",
+    "MKT-R15.3",
+    "MKT-R16.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1g-03",
+   "slice": "MKT-1g",
+   "title": "T+1 skips the weekend",
+   "persona": "owner.business@ (Seller A)",
+   "pre": "Delivery recorded on a Friday, trigger DELIVERED, T+1.",
+   "steps": [
+    "Settlement statement → the line's 'Payable on' date."
+   ],
+   "expect": "Payable on the following Monday (Tuesday if Monday is a bank holiday).",
+   "reqs": [
+    "MKT-R15.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1g-04",
+   "slice": "MKT-1g",
+   "title": "Payouts need two people and happen once",
+   "persona": "admin@myplus.com (operator) (two operator accounts)",
+   "pre": "Seller A has an ELIGIBLE balance.",
+   "steps": [
+    "Operator 1: Payouts → Request for Seller A.",
+    "Operator 1 tries to approve it.",
+    "Operator 2 approves; Operator 1 marks paid with bank reference TRX-123.",
+    "Refresh and click Request again."
+   ],
+   "expect": "Self-approval refused: 'Another person must approve this payout.' Paid payout shows TRX-123. The second request reuses the same payout and does not create a second one.",
+   "reqs": [
+    "MKT-R16.3",
+    "MKT-R22.3"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1g-05",
+   "slice": "MKT-1g",
+   "title": "Mistakes are reversed, not edited",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "A PAID line.",
+   "steps": [
+    "Look for an Edit action on any ledger line.",
+    "Record a correction."
+   ],
+   "expect": "No Edit. The correction appears as a new ADJUSTMENT or REVERSAL line. The original is unchanged.",
+   "reqs": [
+    "MKT-R15.6",
+    "MKT-R16.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1g-06",
+   "slice": "MKT-1g",
+   "title": "Commission reaches the books",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Note the trial balance line 'Marketplace commission' before.",
+   "steps": [
+    "Settle one delivered order with commission Rs 480.",
+    "Open Finance → Trial balance."
+   ],
+   "expect": "Marketplace commission is higher by exactly 480.00. The seller payable control account moved by the payable.",
+   "reqs": [
+    "MKT-R15.5",
+    "MKT-R1.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-2-01",
+   "slice": "MKT-2",
+   "title": "Multi-seller basket splits into seller orders",
+   "persona": "Customer (incognito window)",
+   "pre": "Phase 2 enabled.",
+   "steps": [
+    "Buy Seller A's and Seller B's offers in one checkout."
+   ],
+   "expect": "One order number with two parts, each naming its seller, delivery promise and delivery fee. Cancelling one part leaves the other.",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R20.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-2-02",
+   "slice": "MKT-2",
+   "title": "Shortage: same phone moves only on the same or better terms",
+   "persona": "Customer (incognito window) / owner.business@ (Seller A)",
+   "pre": "Phase 2. Seller B has the same phone cheaper and faster.",
+   "steps": [
+    "Seller A rejects for shortage."
+   ],
+   "expect": "The order moves to Seller B silently and reads 'Now from Seller B'. If Seller B were dearer or slower, the customer would be asked first.",
+   "reqs": [
+    "MKT-R11.1",
+    "MKT-R11.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-2-03",
+   "slice": "MKT-2",
+   "title": "Never a different variant without asking",
+   "persona": "Customer (incognito window)",
+   "pre": "Phase 2. Only a 64GB is available.",
+   "steps": [
+    "Seller rejects the 128GB line for shortage."
+   ],
+   "expect": "Customer is asked 'Accept 64GB instead?' Nothing changes until they answer. Declining cancels the line and refunds it.",
+   "reqs": [
+    "MKT-R11.3"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-2-04",
+   "slice": "MKT-2",
+   "title": "Shortage cause and responsibility are recorded",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "After M-2-02.",
+   "steps": [
+    "Operator → order → Shortage panel."
+   ],
+   "expect": "Shows cause (merchant stock not updated), responsible party (Seller A), effect on seller performance. No money taken from the seller without the dispute step.",
+   "reqs": [
+    "MKT-R11.4",
+    "MKT-R12.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-2-05",
+   "slice": "MKT-2",
+   "title": "Checkout never hangs on slow sellers",
+   "persona": "Customer (incognito window)",
+   "pre": "Phase 2. One seller's system is slow (operator test toggle).",
+   "steps": [
+    "Checkout an item whose top offer belongs to the slow seller."
+   ],
+   "expect": "Within about 2 seconds the next seller is tried, or the screen says 'We are checking availability'. It never spins without end.",
+   "reqs": [
+    "MKT-R18.1",
+    "MKT-R18.3",
+    "MKT-R18.5"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-2-06",
+   "slice": "MKT-2",
+   "title": "Acceptance terms differ by order value",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 2. Rule: orders above Rs 100,000 get 15 minutes.",
+   "steps": [
+    "Place a Rs 150,000 order."
+   ],
+   "expect": "The seller's countdown starts at 15:00.",
+   "reqs": [
+    "MKT-R10.6"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-3-01",
+   "slice": "MKT-3",
+   "title": "Platform stock from the MaxTheService warehouse",
+   "persona": "admin@myplus.com (operator) / Customer (incognito window)",
+   "pre": "Phase 3.",
+   "steps": [
+    "Warehouse receives 100 education kits. Customer buys one."
+   ],
+   "expect": "Offer reads 'Sold and shipped by MaxTheService'. Picking and packing happen in the warehouse screens. Stock 100 → 99.",
+   "reqs": [
+    "MKT-R4.2",
+    "MKT-R20.4",
+    "MKT-R1.1",
+    "MKT-R1.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-4-01",
+   "slice": "MKT-4",
+   "title": "Supplier stock is never 'in stock today' without a promise",
+   "persona": "Customer (incognito window)",
+   "pre": "Phase 4. Distributor offer with a 20-minute acceptance window.",
+   "steps": [
+    "Open the product."
+   ],
+   "expect": "The supplier offer shows 'Ships from supplier · confirmation within 20 minutes', never 'In stock, today'.",
+   "reqs": [
+    "MKT-R4.3",
+    "MKT-R4.4",
+    "MKT-R20.5"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-4-02",
+   "slice": "MKT-4",
+   "title": "A slow supplier API does not hang checkout",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 4. Supplier endpoint delayed 5 s.",
+   "steps": [
+    "Checkout the supplier offer."
+   ],
+   "expect": "Answer within the routing deadline. The supplier call is cut at its timeout and the breaker opens after repeated failures. The operator sees it on the integration panel. A retried webhook is processed once.",
+   "reqs": [
+    "MKT-R22.5"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-5-01",
+   "slice": "MKT-5",
+   "title": "Consignment: owner and holder are different",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 5. ABC Distributor (consignor) places 10 phones with Shahzad Mobile Shop (consignee).",
+   "steps": [
+    "Create the consignment agreement with every required term.",
+    "Sell one phone."
+   ],
+   "expect": "The agreement cannot be activated while any term is blank. After the sale: owner ABC, custodian Shahzad. Settlement shows ABC entitled to the price less Shahzad's commission, after the sell-through report and return period.",
+   "reqs": [
+    "MKT-R2.1",
+    "MKT-R2.2",
+    "MKT-R4.5",
+    "MKT-R4.6",
+    "MKT-R15.4",
+    "MKT-R20.5"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-5-02",
+   "slice": "MKT-5",
+   "title": "Shrinkage claims need evidence",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 5. Count finds 1 phone missing, tolerance 0%.",
+   "steps": [
+    "Record the count difference. Raise a claim against the custodian."
+   ],
+   "expect": "The claim needs proof and stays OPEN with a claim window. No debit appears until it is approved through the dispute step. Defaults: consigned stock at merchant → custodian responsible.",
+   "reqs": [
+    "MKT-R12.1",
+    "MKT-R12.2",
+    "MKT-R12.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-6-01",
+   "slice": "MKT-6",
+   "title": "Regulated pharmacy only after legal review",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Phase 6 legal sign-off recorded.",
+   "steps": [
+    "Enable an approved pharmacy seller. A customer orders a prescription item."
+   ],
+   "expect": "The order cannot proceed without an uploaded prescription verified by a pharmacist. Batch and expiry are on the order. A recall quarantines the batch.",
+   "reqs": [
+    "MKT-R20.6",
+    "MKT-R6.3"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-X-01",
+   "slice": "Programme",
+   "title": "Who is accountable is always visible",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Any order in any phase.",
+   "steps": [
+    "Open the order's Parties panel."
+   ],
+   "expect": "Customer relationship: MaxTheService. Plus named seller, stock owner, custodian, fulfiller, carrier and warranty provider. None is blank, none is assumed.",
+   "reqs": [
+    "MKT-R23.1",
+    "MKT-R3.1",
+    "MKT-R3.2"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-X-02",
+   "slice": "Programme",
+   "title": "Tenant scope on every artefact",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "Two sellers active.",
+   "steps": [
+    "Export Seller A's statement. Check the file name, the report header and the notification it triggered."
+   ],
+   "expect": "Each carries Seller A's org. Seller B's export never contains Seller A's rows.",
+   "reqs": [
+    "MKT-R21.2",
+    "MKT-R21.3",
+    "MKT-R22.1"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-X-03",
+   "slice": "Programme",
+   "title": "The data model has every entity the source lists",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "After Phase 5.",
+   "steps": [
+    "Compare the operator's data dictionary page with source §21."
+   ],
+   "expect": "All 22 entities are present or mapped to an existing table, with the mapping written down.",
+   "reqs": [
+    "MKT-R21.1",
+    "MKT-R1.1"
+   ],
+   "warn": false
+  }
+ ]
+}

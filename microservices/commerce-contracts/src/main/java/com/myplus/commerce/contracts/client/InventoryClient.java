@@ -126,6 +126,17 @@ public interface InventoryClient {
     @GetExchange("/stock/levels/detail")
     java.util.Map<Long, java.util.Map<String, Float>> getStockLevelDetail();
 
+    /**
+     * MKT-1c — ONE product's {@code {onHand, sellable, expired, held}}, scoped by the caller's (forwarded) tenant.
+     *
+     * <p>The multi-seller marketplace refreshes one offer at a time, under the SELLER's org (AsOrg), and must not pull
+     * the whole tenant's map ({@link #getStockLevelDetail()}) to read one row. The server endpoint has existed since
+     * the sell screen's quantity guard; this only gives it a contract. Advisory, like the batch read: {@link #reserve}
+     * stays authoritative.
+     */
+    @GetExchange("/stock/sellable/{productId}")
+    java.util.Map<String, Float> getSellableDetail(@PathVariable Long productId);
+
     /** FEFO batches (batch/expiry + sellable qty) a sale/dispense would draw from next (slice 54, P10). */
     @GetExchange("/stock/batches/{productId}")
     List<StockBatch> getBatches(@PathVariable Long productId);
