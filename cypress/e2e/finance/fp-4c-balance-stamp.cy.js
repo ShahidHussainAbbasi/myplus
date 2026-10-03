@@ -88,7 +88,7 @@ describe('FP-4c — what finance knows, stamped on the supplier', () => {
     })
   })
 
-  it('2 — on FINANCE: the bill is stamped, total = purchases + bills, the Pay figure stays purchases', () => {
+  it('2 — on FINANCE: the bill is stamped; total = purchases + bills', () => {
     cy.loginAsOperator()
     flip(ownerOrg, 'FINANCE', 'FP-4c gate')
     cy.loginAsOwner()
@@ -137,7 +137,7 @@ describe('FP-4c — what finance knows, stamped on the supplier', () => {
     })
   })
 
-  it('5 — on screen (FINANCE): the Due cell shows the total with "incl. bills"; Pay still carries the purchase figure', () => {
+  it('5 — on screen (FINANCE): the Due cell shows the total with "incl. bills"; since FP-5b Pay carries the TOTAL (it settles bills too)', () => {
     cy.loginAsOperator()
     flip(ownerOrg, 'FINANCE', 'FP-4c gate: screen')
     cy.loginAsOwner()
@@ -149,7 +149,7 @@ describe('FP-4c — what finance knows, stamped on the supplier', () => {
     cy.contains('#VenderDiv tr', name, { timeout: 15000 }).within(() => {
       cy.get('[data-cy=vender-due]').should('contain', '1050').and('contain', '300.00')
       cy.get('[data-cy=vender-bills]').should('exist')
-      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^750/)
+      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^1050/)   // FP-5b: one Pay for purchases AND bills
     })
   })
 })

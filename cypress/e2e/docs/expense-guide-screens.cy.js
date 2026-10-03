@@ -171,6 +171,8 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
   // ═══ EX-0a · The on/off switch ═════════════════════════════════════════════════════════════════════════════
   const KEY = 'org.cap.' + CAP
   const SWITCH = `#businessConfigBody [data-key="${KEY}"]`
+  // the picture shows the whole setting row (label, help text and switch), not the bare checkbox
+  const SWITCH_ROW = `#businessConfigBody .cfg-row:has([data-key="${KEY}"])`
   const openConfig = () => {
     openDashboard()
     openMenu('snavSettings')
@@ -195,7 +197,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       cy.get(SWITCH).should('exist').and('not.be.checked').and('not.be.disabled')
       cy.get(SWITCH).closest('.cfg-row').should('contain', 'Expense management')
       cy.get('#navExpenses').closest('[data-capability]').should('have.class', 'cap-off')
-      snap(a, tag, `${SWITCH}`)
+      snap(a, tag, SWITCH_ROW)
     })
     act('Nothing to undo — this case only reads.', [], { cleanup: true })
   })
@@ -209,11 +211,11 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     openConfig()
     cy.get(SWITCH).check()
     cy.get('#businessConfigMsg').should('contain', 'Saved')
-    snap(a1, 'owner-saved', '#businessConfigMsg')
+    snap(a1, 'owner-saved')
     const a2 = act('Reload the page and reopen Configuration.', ['The switch is still ticked.'])
     openConfig()
     cy.get(SWITCH).should('be.checked')
-    snap(a2, 'still-on', SWITCH)
+    snap(a2, 'still-on', SWITCH_ROW)
     const a3 = act('Untick it again.', ['Saved; unticked.'])
     cy.get(SWITCH).uncheck()
     cy.get('#businessConfigMsg').should('contain', 'Saved')
@@ -222,7 +224,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     openConfig()
     cy.get(SWITCH).check()
     cy.get('#businessConfigMsg').should('contain', 'Saved')
-    snap(a4, 'admin-saved', '#businessConfigMsg')
+    snap(a4, 'admin-saved')
     cy.get(SWITCH).uncheck()
     cy.get('#businessConfigMsg').should('contain', 'Saved')
     cy.loginAs('user.business@myplus.com', PW, '/getBusinessDashboardStats', 'xg-0a3u-' + Date.now())
@@ -254,7 +256,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     const a3 = act('Open Configuration.', ['<b>Expense management</b> is ticked.'])
     openConfig()
     cy.get(SWITCH).should('be.checked')
-    snap(a3, 'still-on', SWITCH)
+    snap(a3, 'still-on', SWITCH_ROW)
     act('Type back to <b>Retail counter / POS</b> (done above); untick Expense management.', [], { cleanup: true })
     resetCapHere()
   })
@@ -269,7 +271,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     const a2 = act('Log out; log in as <b>owner.pesticide</b> and open Configuration.', ['owner.pesticide’s Expense management is still <b>unticked</b>.'])
     openConfig()
     cy.get(SWITCH).should('not.be.checked')
-    snap(a2, 'pesticide-off', SWITCH)
+    snap(a2, 'pesticide-off', SWITCH_ROW)
     act('Untick Expense management for owner.mobile again.', [], { cleanup: true })
     cy.loginAsMobileOwner(); resetCapHere()
   })
@@ -661,7 +663,8 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       const mine = (r.body.data || []).filter((t) => t.type === 'SCHOOL').length
       expect(mine, 'fewer schools than the owner sees').to.be.lessThan(ownerSchools)
     })
-    snap(a1, 'teacher-for-list', '#expTagGroup')
+    cy.get('#expTagGroup .bootstrap-select button, #expTagGroup button.dropdown-toggle').first().click({ force: true })
+    snap(a1, 'teacher-for-list')
     act('As owner.education: <b>Fee → Configuration → Modules</b>, untick Expense management (if you switched it on for this test).', [], { cleanup: true })
     signInD(DASH[0]); resetModule()
   })
@@ -1099,8 +1102,8 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
 
   // ═══ FP-4c · Balances and credit limit ══════════════════════════════════════════════════════════════════════
   let limSup = null
-  caseIt('4c-1', 'The supplier list shows the total, with the bills; Pay keeps the purchase figure', () => {
-    testCase('4c-1', 'fp4c', 'The supplier list shows the total, with the bills; Pay keeps the purchase figure',
+  caseIt('4c-1', 'The supplier list shows the total, with the bills; Pay carries the total', () => {
+    testCase('4c-1', 'fp4c', 'The supplier list shows the total, with the bills; Pay carries the total',
       { who: ['admin@myplus.com (operator)', 'owner.lifecycle (recorded)'] })
     setup('A supplier with a credit limit of 1000, owed <b>600</b> on purchases and a <b>300</b> expense bill. The business is switched to FINANCE by the operator.')
     asLifecycle()
@@ -1120,11 +1123,11 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.then(() => ready())
     openDashboard()
     const a1 = act('Open <b>Register → Vender / Supplier</b> and search the supplier.',
-      ['<b>Due</b> reads <b>900</b> with <b>(incl. bills 300.00)</b>.', 'The <b>Pay</b> button carries <b>600</b> and its tooltip says it pays purchases; bills are paid from Expenses.'])
+      ['<b>Due</b> reads <b>900</b> with <b>(incl. bills 300.00)</b>.', 'The <b>Pay</b> button carries <b>900</b>; its tooltip says it pays purchases and expense bills, oldest first (FP-5b).'])
     cy.then(() => openSuppliers(limSup.name))
     cy.then(() => cy.contains('#VenderDiv tr', limSup.name, { timeout: 15000 })).within(() => {
       cy.get('[data-cy=vender-due]').should('contain', '900').and('contain', '300.00')
-      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^600/)
+      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^900/)
     })
     snap(a1, 'supplier-list')
     act('Kept for 4c-2 to 4c-4; the business goes back to BUSINESS at the end of 4c-3.', [], { cleanup: true })
@@ -1186,6 +1189,71 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       ['The row shows <b>Void</b>.'], { cleanup: true })
     asLifecycle(true)   // the switch-back above signed in as the operator
     cy.then(() => voidBillOnScreen(limSup.name, c1))
+  })
+
+  // ═══ FP-5b · One Pay for both ═════════════════════════════════════════════════════════════════════════════
+  const PAYABLES = 'owner.payables@myplus.com'
+  const asPayables = (fresh) => cy.loginAs(PAYABLES, PW, '/getBusinessDashboardStats', fresh ? 'xg-5b-' + Date.now() : undefined)
+  let payablesOrg = null
+  let mixSup = null
+
+  caseIt('5b-1', 'One Pay settles the older bill first, then the purchase', () => {
+    testCase('5b-1', 'fp5b', 'One Pay settles the older bill first, then the purchase', { who: ['owner.payables (recorded; reserved for mixed payments)'] })
+    setup('The business reads supplier figures from <b>FINANCE</b> (operator, case 4b-3) and Expense management is on.')
+    setup('A supplier with an expense bill of <b>300 dated yesterday</b> (Bill (pay later)) and a purchase of <b>100 today</b> on credit.')
+    cy.loginAsOperator()
+    cy.orgOf(PAYABLES).then((o) => { payablesOrg = o.id })
+    cy.then(() => cy.request({ method: 'POST', url: '/platform/payablesSource', form: true, body: { organizationId: payablesOrg, source: 'FINANCE', reason: 'Test Book 5b' } }))
+    asPayables()
+    cy.setCapability(CAP, true)
+    SAFETY.push(() => { asPayables(); cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.' + CAP } }) })
+    asPayables(true)
+    newSupplier('5B').then((sp) => { mixSup = sp })
+    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) })()
+    cy.then(() => cy.request('/expense/categories')).then((r) => {
+      const cat = (r.body.data || []).find((c) => c.active !== false)
+      return cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: PAYABLES, password: PW } }).its('body.data.accessToken').then((tk) =>
+        cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`, headers: { Authorization: `Bearer ${tk}`, 'Idempotency-Key': 'xg5b-' + run },
+          body: { voucherDate: yesterday, paidFrom: 'AP', supplierId: mixSup.id, lines: [{ categoryId: cat.id, amount: 300 }] } }).its('body.success').should('eq', true))
+    })
+    cy.then(() => creditPurchase(mixSup.id, 100, 'XG5BINV-' + run).its('status').should('eq', 'SUCCESS'))
+    const ready = (n = 25) => vendorRow(mixSup.id).then((v) => (Number(v.billsOwed) === 300 || n <= 0) ? v : (cy.wait(1000), ready(n - 1)))
+    cy.then(() => ready())
+    openDashboard()
+    const a1 = act('<b>Register → Vender / Supplier</b>, search the supplier.', ['Due <b>400</b> (incl. bills 300.00); the <b>Pay</b> button carries 400 and says it pays purchases and expense bills, oldest first.'])
+    cy.then(() => openSuppliers(mixSup.name))
+    cy.then(() => cy.contains('#VenderDiv tr', mixSup.name, { timeout: 15000 })).within(() => {
+      cy.get('[data-cy=vender-due]').should('contain', '400')
+      cy.get('.pay-vendor-btn').should('have.attr', 'data-due').and('match', /^400/)
+    })
+    snap(a1, 'supplier')
+    const a2 = act('Press <b>Pay</b>, amount <b>250</b>, Cash, press <b>Pay</b>.',
+      ['"Vendor paid. Voucher PV-… Of this, paid to expense bills: 250.00" — the bill is older, so it takes the whole 250.'])
+    cy.then(() => cy.contains('#VenderDiv tr', mixSup.name).find('.pay-vendor-btn').click())
+    cy.get('#pvAmount').clear().type('250')
+    cy.get('#submitPayVendor').click()
+    cy.contains('paid to expense bills', { timeout: 20000 }).should('be.visible').and('contain', '250.00')
+    snap(a2, 'paid')
+    const a3 = act('Open <b>Till → Expenses</b>.', ['The bill shows <b>Owes 50.00</b>; the purchase still owes 100 (supplier Due 150).'])
+    openDashboard(); openExpenses()
+    cy.then(() => cy.contains('#tableExpense tbody tr', mixSup.name, { timeout: 25000 }).find('[data-cy=expense-bill-owes]', { timeout: 25000 }).should('contain', '50.00'))
+    snap(a3, 'bill-owes-50')
+    act('Nothing to undo — owner.payables is reserved for mixed payments (it stays on FINANCE by design).', [], { cleanup: true })
+  })
+
+  caseIt('5b-2', 'After a mixed payment, the switch back is refused', () => {
+    testCase('5b-2', 'fp5b', 'After a mixed payment, the switch back is refused', { who: ['admin@myplus.com (operator)'] })
+    cy.loginAsOperator()
+    const a1 = act('Platform → <b>Owner Payables’s organization</b> → <b>Supplier balances</b>.',
+      ['A note says supplier payments here settled purchases and expense bills together; <b>Back to business</b> is disabled.'])
+    openTenantPanel("Owner Payables's organization")
+    cy.get('[data-cy=plat-payables-mixed]').should('be.visible')
+    cy.get('[data-cy=plat-payables-business]').should('be.disabled')
+    snap(a1, 'pinned', '#platPayables')
+    const a2 = act('Ask for the switch anyway.', ['Refused: "… supplier payment share(s) that settled expense bills together with purchases …"'], { via: 'run' })
+    cy.then(() => cy.request({ method: 'POST', url: '/platform/payablesSource', form: true, body: { organizationId: payablesOrg, source: 'BUSINESS', reason: 'Test Book 5b-2' } }))
+      .its('body').then((b) => { expect(b.status).to.eq('ERROR'); expect(b.message).to.match(/supplier payment share/i) })
+    act('Nothing to undo — the switch was refused.', [], { cleanup: true })
   })
 
   // ═══ FP-5a · Payments land once ═══════════════════════════════════════════════════════════════════════════

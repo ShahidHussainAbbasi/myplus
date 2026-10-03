@@ -584,6 +584,18 @@ public class SetupDataLoader {
                     //
                     // ⚠ NO OTHER SPEC MAY USE THIS ACCOUNT. Its plan, status and shape are not stable.
                     {"owner.audit@myplus.com",        "Audit",       "BUSINESS"},
+
+                    // ── FP-5b: the tenant that is ALLOWED to be pinned to finance figures. ────────────────
+                    //
+                    // One Pay Supplier that settles a purchase AND an expense bill makes switching the tenant's
+                    // supplier figures back to business impossible (ruling 4: business screens cannot show such a
+                    // payment). A gate has to make that payment to prove it — so it needs a tenant whose being
+                    // pinned harms nothing. Provisioning a throwaway tenant does not work (no password; see E3),
+                    // and pinning owner.business@ or the Test Book's tenant would break every spec that switches
+                    // them back. Ruling (user, 2026-10-04): a dedicated seeded tenant.
+                    //
+                    // ⚠ Used by the FP-5 gates and the Test Book's mixed-payment cases only. Expect it on FINANCE.
+                    {"owner.payables@myplus.com",     "Payables",    "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);

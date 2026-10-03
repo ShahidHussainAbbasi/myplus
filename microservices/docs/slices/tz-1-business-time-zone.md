@@ -3,6 +3,18 @@
 Status: **DESIGN (2026-09-25). USER RULING: Option B — "Store UTC + per-tenant zone"** (Option A, a fixed
 Asia/Karachi JVM zone, was offered and declined). Each phase needs its own go-ahead.
 
+## TZ-2 (2026-10-04) — USER RULING: display and "today" follow the CLIENT (browser)
+Trigger: an expense dated "today" was refused as "in the future" at 02:38 PKT (containers are UTC, so the server's
+`LocalDate.now()` is yesterday from 00:00 to 05:00 PKT). User: *"fix it as per best practices … we decided it will be
+displayed as per client side (browser) UI/UX"*.
+- **Each request carries the browser's zone**: `X-Client-Tz` (IANA id from `Intl.DateTimeFormat().resolvedOptions()
+  .timeZone`), set once for every AJAX call in `main.js`; the monolith's GatewayClient forwards it; the gateway passes it;
+  `GatewayIdentityForwarding` carries it on service hops. Invalid ids are ignored.
+- **`TenantClock.today()`** (common-security) = today in the request's client zone, else `app.tz.default-zone`
+  (Asia/Karachi) for background work. Every BUSINESS-date decision uses it (future/backdate refusals, payment dates,
+  GL posting date, period lock); technical timestamps stay UTC `LocalDateTime.now()` (true instants).
+- **Display** converts in the browser (client zone) — the P1 work below, re-pointed from the tenant zone to the client.
+
 ## P1 progress (paused 2026-09-26)
 Written, NOT enabled: `common-security` `RenderZone`, `RenderZoneFilter`, `RenderZoneWebConfig` (web-layer-only
 converter), `UtcDefaultTimeZone`; `RenderZone.toDisplay/fromDisplay` in business `AppUtil` (7 sites) and the

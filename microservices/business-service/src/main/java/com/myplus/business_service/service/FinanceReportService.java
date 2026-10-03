@@ -230,6 +230,15 @@ public class FinanceReportService {
     }
 
     /**
+     * The supplier side of the same rule (found walking the dual-role cases, 2026-10-03): a supplier's opening balance
+     * printed as "Bill" while the customer's has read "Opening balance" since L18. Display only — StatementBuilder sums
+     * debit and credit, never the type. finance's statement (FP-4b) names it the same way, from its OB- number.
+     */
+    static String creditLineType(Purchase p) {
+        return OpeningBalanceService.DOC_OPENING.equalsIgnoreCase(p.getDocType()) ? "OPENING" : "BILL";
+    }
+
+    /**
      * B2B-P3f: the customer's credit notes as CREDIT_NOTE credit lines — the document that explains why the
      * balance fell, which the statement never showed.
      *
@@ -277,7 +286,7 @@ public class FinanceReportService {
             BigDecimal issued = p.getIssuedTotal() != null ? p.getIssuedTotal()
                     : nz(p.getTotalAmount()).add(nz(p.getTaxAmount()));
             lines.add(new StatementLine(p.getDated() != null ? p.getDated().toLocalDate() : null,
-                    p.getPurchaseInvoiceNo(), "BILL", issued, null, null));
+                    p.getPurchaseInvoiceNo(), creditLineType(p), issued, null, null));
         }
         addDebitNoteLines(lines, venderId);
         addPaymentLines(lines, "VENDOR", venderId);

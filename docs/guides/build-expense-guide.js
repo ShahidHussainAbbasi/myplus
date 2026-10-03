@@ -32,9 +32,16 @@ fs.mkdirSync(path.join(OUT, 'img'), { recursive: true })
 const recorded = fs.existsSync(CASES)
   ? fs.readdirSync(CASES).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(CASES, f), 'utf8')))
   : []
+// A persistent picture cache: any Cypress run with the default trashAssetsBeforeRuns wipes cypress/screenshots (other
+// specs, other sessions), so every fresh screenshot is copied here first and the page is built from here.
+const CACHE = path.join(ROOT, 'cypress', 'guide-out', 'expense-guide-shots')
+fs.mkdirSync(CACHE, { recursive: true })
+if (fs.existsSync(SHOTS)) for (const f of fs.readdirSync(SHOTS)) {
+  if (f.startsWith('xg-') && f.endsWith('.png')) fs.copyFileSync(path.join(SHOTS, f), path.join(CACHE, f))
+}
 const missing = []
 const img = (name) => {
-  const src = path.join(SHOTS, name + '.png')
+  const src = path.join(CACHE, name + '.png')
   if (!fs.existsSync(src)) { missing.push(name); return null }
   fs.copyFileSync(src, path.join(OUT, 'img', name + '.png'))
   return 'img/' + name + '.png'

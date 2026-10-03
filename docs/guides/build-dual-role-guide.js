@@ -37,6 +37,11 @@ const shotIndex = {}
     else if (f.startsWith('DRG-') && f.endsWith('.png') && !/\(failed\)/.test(f)) shotIndex[f.replace(/\.png$/, '')] = p
   }
 })(path.join(ROOT, 'cypress', 'screenshots'))
+// The run's own copies win: cypress/screenshots is shared and can be wiped by any other run.
+;(function own(dir) {
+  if (!fs.existsSync(dir)) return
+  for (const f of fs.readdirSync(dir)) if (f.startsWith('DRG-') && f.endsWith('.png')) shotIndex[f.replace(/\.png$/, '')] = path.join(dir, f)
+})(path.join(CASE_DIR, 'img'))
 fs.rmSync(path.join(outDir, 'img'), { recursive: true, force: true })
 fs.mkdirSync(path.join(outDir, 'img'), { recursive: true })
 const missing = []
