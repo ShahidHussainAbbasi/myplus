@@ -46,8 +46,11 @@ const snap = (a, name, subject) => {
   const file = `DRG-${cur.id}-${pos}-${name}`
   a.shots.push(file)
   cur.shots.push(file)
-  return subject ? cy.get(subject).screenshot(file, { overwrite: true })
-                 : cy.screenshot(file, { capture: 'viewport', overwrite: true })
+  ;(subject ? cy.get(subject).screenshot(file, { overwrite: true }) : cy.screenshot(file, { capture: 'viewport', overwrite: true }))
+  // Keep a copy with the case's own output: cypress/screenshots is SHARED, and any run with the default
+  // trashAssetsBeforeRuns wipes it — 35 of 42 pictures vanished that way on 2026-10-04 between capture and build.
+  return cy.readFile(`cypress/screenshots/dual-role-guide.cy.js/${file}.png`, 'base64')
+    .then((b64) => cy.writeFile(`${OUT_DIR}/img/${file}.png`, b64, 'base64'))
 }
 
 // ── app helpers ───────────────────────────────────────────────────────────────────────────────────────────
@@ -491,9 +494,10 @@ describe('Dual-role manual test cases (one partner, customer AND supplier)', () 
     cy.get('.c360-card [data-dr-pos="net"]').should('contain', 'we would still owe them')
     snap(a2, 'position', '.c360-card')
 
-    const a3 = act('In the Position block click **Statement** beside the supplier line.', ['The 360 view closes and the supplier’s statement opens, showing its 50,000 opening balance.'])
+    const a3 = act('In the Position block click **Statement** beside the supplier line.', ['The 360 view closes and the supplier’s statement opens, showing its 50,000 as type **Opening balance** (not “Bill”).'])
     cy.then(() => supplierByName(names.v).then((v) => cy.get(`.c360-card [data-dr-stmt="VENDOR:${v.id}"]`).click()))
     cy.get('.c360-card').should('not.exist'); cy.get('#StatementDialog').should('be.visible').and('contain', '50000')
+    cy.contains('#StatementDialog tr', '50000').should('contain', 'Opening balance').and('not.contain', 'Bill')
     snap(a3, 'statement', '#StatementDialog')
     cy.contains('#StatementDialog button', 'Close').click()
 
@@ -541,12 +545,15 @@ describe('Dual-role manual test cases (one partner, customer AND supplier)', () 
     snap(a2, 'refusals', '.c360-card')
 
     const a3 = act('Set the amount to **30000**, reference **letter 12**, and click **Record set-off** (a double click records it once).',
-      ['The view comes back: **They owe us 0.00**, **We owe them 20,000.00**, and **SETOFF-…** listed under Set-offs with a **Reverse** button.'])
+      ['The view comes back: **They owe us 0.00**, **We owe them 20,000.00**, and **SETOFF-…** listed under Set-offs with a **Reverse** button.',
+        'Under “Customer and supplier” there is **no Unlink** — a note says to reverse the set-off first.'])
     cy.get('.c360-card [data-dr-amount]').clear().type('30000'); cy.get('.c360-card [data-dr-reference]').type('letter 12')
     cy.get('.c360-card [data-dr-setoff-save]').dblclick()
     cy.get('.c360-card [data-dr-pos="receivable"]', { timeout: 15000 }).should('have.attr', 'data-amount', '0')
     cy.get('.c360-card [data-dr-pos="payable"]').should('have.attr', 'data-amount', '20000')
     cy.get('.c360-card [data-dr-setoff-row]').should('have.length', 1)
+    cy.get('.c360-card [data-dr-unlink-blocked]').should('be.visible')
+    cy.get('.c360-card [data-dr-unlink]').should('not.exist')
     snap(a3, 'recorded', '.c360-card'); close360()
 
     const a4 = act('**Finance → Trial Balance**.',

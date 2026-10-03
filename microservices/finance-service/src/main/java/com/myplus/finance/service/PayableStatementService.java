@@ -107,6 +107,17 @@ public class PayableStatementService {
         return out;
     }
 
+    /**
+     * "OPENING" for a supplier opening balance, "BILL" for everything else — the same name business's statement gives
+     * it (FinanceReportService.creditLineType), so FP-4a's line-for-line comparison still holds. The snapshot carries
+     * no document type, but an opening balance is the only PURCHASE numbered in the per-business OB- series
+     * (OpeningBalanceService: String.format("OB-%06d"); every other bill carries the supplier's own invoice number,
+     * so a supplier invoice that happened to start "OB-" is the one case this would name wrongly — display only).
+     */
+    static String lineType(PayableDoc d) {
+        return PURCHASE.equals(d.getSource()) && d.getDocNo() != null && d.getDocNo().matches("OB-\\d{6}") ? "OPENING" : "BILL";
+    }
+
     /** Pure — the whole statement from its three inputs (unit-tested). */
     static List<StatementLine> build(List<PayableDoc> mine, Map<Long, List<PayableNoteRow>> byDoc, List<Payment> paid,
                                      boolean purchasesOnly) {
@@ -117,7 +128,7 @@ public class PayableStatementService {
             if (purchasesOnly && !purchase) continue;
             if (!purchase && PayableDoc.VOID.equals(d.getStatus())) continue;
             BigDecimal issued = d.getIssuedAmount() != null ? d.getIssuedAmount() : d.getAmount();
-            lines.add(new StatementLine(d.getDocDate(), d.getDocNo(), "BILL", issued, null, null));
+            lines.add(new StatementLine(d.getDocDate(), d.getDocNo(), lineType(d), issued, null, null));
             allNotes.addAll(byDoc.getOrDefault(d.getId(), List.of()));
         }
         // business appends every debit note after every bill; same order here, before the stable sort

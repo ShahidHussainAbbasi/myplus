@@ -52,7 +52,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * queued, and every notice publish ran its recipients' SMTP attempts inline and came back InternalError past
  * the gateway's 20 s limit — for notices that were saved correctly (EDU-NOTIFY-2).
  */
- */
 @Configuration
 @EnableAsync
 public class NotifyAsyncConfig {

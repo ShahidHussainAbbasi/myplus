@@ -456,7 +456,20 @@
         body.appendChild(el('p', 'c360-sec', msg('ui.js.drSection', 'Customer and supplier')));
         var box = el('div', 'dr-box');
         box.setAttribute('data-dr-box', '1');
-        if (hasC && hasV) unlinkButtons(box, party, biz);
+        if (hasC && hasV) {
+            // A set-off that still stands ties these records together and the server refuses to unlink them, so the
+            // buttons are not offered — the note says what to do instead (walking the dual-role cases, 2026-10-03).
+            $.get(serverContext + 'partySetOffs', { partyId: party.id }, function (r) {
+                var rows = (r && (r.collection || r.data)) || [];
+                var standing = rows.some(function (s) { return s.status !== 'REVERSED'; });
+                if (standing) {
+                    var note = el('div', 'dr-note', msg('ui.js.drUnlinkBlocked',
+                        'A set-off stands between these records. Reverse it under Set-offs before unlinking.'));
+                    note.setAttribute('data-dr-unlink-blocked', '1');
+                    box.appendChild(note);
+                } else unlinkButtons(box, party, biz);
+            }, 'json').fail(function () { unlinkButtons(box, party, biz); });   // the server still guards it
+        }
         else linkPicker(box, party, biz[0]);
         body.appendChild(box);
     };

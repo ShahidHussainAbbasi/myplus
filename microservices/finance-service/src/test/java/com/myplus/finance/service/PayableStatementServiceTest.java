@@ -108,4 +108,18 @@ class PayableStatementServiceTest {
         var adv = (List<Map<String, Object>>) out.get("advances");
         assertThat(adv).singleElement().satisfies(a -> assertThat((BigDecimal) a.get("advance")).isEqualByComparingTo("40"));
     }
+
+    @org.junit.jupiter.api.Test
+    @org.junit.jupiter.api.DisplayName("a supplier opening balance (OB- series) is OPENING, the same name business gives it; a bill stays BILL")
+    void opening_balance_is_named() {
+        com.myplus.finance.entity.PayableDoc ob = new com.myplus.finance.entity.PayableDoc();
+        ob.setSource("PURCHASE"); ob.setDocNo("OB-000335");
+        com.myplus.finance.entity.PayableDoc bill = new com.myplus.finance.entity.PayableDoc();
+        bill.setSource("PURCHASE"); bill.setDocNo("INV-7781");
+        com.myplus.finance.entity.PayableDoc expense = new com.myplus.finance.entity.PayableDoc();
+        expense.setSource("EXPENSE"); expense.setDocNo("OB-000001");
+        org.assertj.core.api.Assertions.assertThat(PayableStatementService.lineType(ob)).isEqualTo("OPENING");
+        org.assertj.core.api.Assertions.assertThat(PayableStatementService.lineType(bill)).isEqualTo("BILL");
+        org.assertj.core.api.Assertions.assertThat(PayableStatementService.lineType(expense)).as("only a PURCHASE can be an opening balance").isEqualTo("BILL");
+    }
 }
