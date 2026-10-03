@@ -2,8 +2,8 @@
  "total": 87,
  "anyTest": 87,
  "unit": 54,
- "cypress": 61,
- "automated": 66,
+ "cypress": 60,
+ "automated": 65,
  "manual": 87,
  "gaps": [],
  "unknown": [],
@@ -494,7 +494,9 @@
    "text": "Customer contacts MaxTheService only; MaxTheService tasks merchant/supplier/carrier/warranty provider internally and relays the resolution",
    "unit": [],
    "cypress": [
-    "MKT-1f-01"
+    "MKT-1f-02",
+    "MKT-1f-03",
+    "MKT-1f-09"
    ],
    "manual": [
     "M-1f-01"
@@ -760,8 +762,8 @@
     "MarketplacePaymentServiceTest.refundOnce"
    ],
    "cypress": [
-    "MKT-1f-02",
-    "MKT-1f-03"
+    "MKT-1f-04",
+    "MKT-1f-05"
    ],
    "manual": [
     "M-1e2-05",
@@ -774,7 +776,10 @@
    "text": "Return flow: request → policy check → notify fulfiller/owner → pickup → inspect → approve/reject refund → restock/quarantine/write-off → adjust settlement",
    "unit": [],
    "cypress": [
-    "MKT-1f-02"
+    "MKT-1f-01",
+    "MKT-1f-04",
+    "MKT-1f-07",
+    "MKT-1f-10"
    ],
    "manual": [
     "M-1f-03"
@@ -790,7 +795,8 @@
     "MarketplacePolicyServiceTest.deactivated"
    ],
    "cypress": [
-    "MKT-1e-06"
+    "MKT-1e-06",
+    "MKT-1f-06"
    ],
    "manual": [
     "M-1c-07",
@@ -805,7 +811,7 @@
     "ReturnAndSubstitutionPolicyTest.escalation"
    ],
    "cypress": [
-    "MKT-1f-04"
+    "MKT-1f-08"
    ],
    "manual": [
     "M-1f-04"
@@ -1303,7 +1309,9 @@
     "MKT-1c-11",
     "MKT-1e-07",
     "MKT-1e-08",
-    "MKT-1e2-05"
+    "MKT-1e2-05",
+    "MKT-1f-03",
+    "MKT-1f-11"
    ],
    "manual": [
     "M-0a-02",
@@ -1372,9 +1380,7 @@
    "phase": "1",
    "text": "Every marketplace and support action audited",
    "unit": [],
-   "cypress": [
-    "MKT-1f-05"
-   ],
+   "cypress": [],
    "manual": [
     "M-1f-05"
    ]
