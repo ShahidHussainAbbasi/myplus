@@ -128,17 +128,38 @@ describe('OB-1 — opening balances at cutover', () => {
 
   // ── the rule before the feature ─────────────────────────────────────────────────────────────────
 
-  it('⭐ 7 — posting with NO cutover date is refused, and the message names the setting', () => {
+  it('⭐ 7 — while a balance stands, the cutover date can be neither cleared nor moved, and its lock cannot come off', () => {
     /*
-     * Ordered first because it must be provable BEFORE the date is set — once locked there is no way back
-     * to this state within a run, and a case that can only run first is a case that has to run first.
+     * 2026-10-03 — the lock is a FACT about the books. It used to be an ordinary switch, and a locked date could be
+     * saved BLANK (reproduced 2026-10-02): the tenant was left with no date at all and every later opening balance
+     * was refused. Now, while any opening balance stands, the date may only be the one those balances are dated by.
+     *
+     * This case USED to prove "posting with no cutover date is refused" by clearing the date first. On this
+     * sacrificial tenant balances stand permanently (some are part-paid and cannot be reversed), so the date can no
+     * longer be cleared — correct behaviour. That rule now lives in CutoverDateGuardTest
+     * (posting_without_a_cutover_is_refused), which needs no tenant at all.
      */
-    setConfig(CUTOVER, '')
-    postOpening({ customerId: 1, amount: 5000, reference: 'no cutover' }).then((r) => {
-      const body = JSON.stringify(r.body)
-      expect(r.body.status, `must be refused: ${body}`).to.not.eq('SUCCESS')
-      expect(body, 'the refusal names the cutover date, so the operator knows what to do')
-        .to.match(/cutover/i)
+    const run = uniq()
+    setConfig(CUTOVER, CUTOVER_DATE)   // accepted: it is the date the standing balances are dated by
+    seedCustomer(`OB Anchor ${run}`).then((cid) => {
+      postOpening({ customerId: cid, amount: 1000, reference: `anchor ${run}` })
+        .then((r) => expect(r.body.status, 'a balance now stands on the date').to.eq('SUCCESS'))
+    })
+    const write = (key, value) => cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
+      body: { key, value }, failOnStatusCode: false })
+    write(CUTOVER, '').then((r) => {
+      expect(r.body && r.body.success, `clearing must be refused: ${JSON.stringify(r.body)}`).to.eq(false)
+      expect(JSON.stringify(r.body), 'and the refusal says what to do').to.match(/revers/i)
+    })
+    write(CUTOVER, '2026-09-02').then((r) => expect(r.body && r.body.success, 'moving it is refused').to.eq(false))
+    write(LOCKED, 'false').then((r) => {
+      expect(r.body && r.body.success, `the lock cannot come off: ${JSON.stringify(r.body)}`).to.eq(false)
+      expect(JSON.stringify(r.body)).to.match(/revers/i)
+    })
+    cy.request('/getBusinessConfig').then((r) => {
+      const rows = (r.body && (r.body.data || r.body.collection)) || []
+      expect(String(rows.find((x) => x.key === CUTOVER).value), 'the date is unchanged').to.eq(CUTOVER_DATE)
+      expect(String(rows.find((x) => x.key === LOCKED).value), 'and still locked').to.eq('true')
     })
   })
 
@@ -551,8 +572,8 @@ describe('OB-1 — opening balances at cutover', () => {
     // cleared first — a locked tenant refuses every later opening-balance run with a message about a
     // migration nobody remembers starting.
     cy.loginAs('owner.lifecycle@myplus.com', 'Demo@2025!', '/getBusinessDashboardStats')
-    setConfig(LOCKED, 'false')
-    setConfig(CUTOVER, '')
+    // NOT the cutover date or its lock (2026-10-03). Balances stand on this sacrificial tenant for good, so both are
+    // anchored to 2026-09-01 by the books and the guard refuses to clear them — which is what case 7 asserts.
     setConfig('pos.sale.creditLimitPolicy', 'warn')
   })
 })

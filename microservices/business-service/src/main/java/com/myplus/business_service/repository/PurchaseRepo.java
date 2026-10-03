@@ -40,6 +40,11 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    // tax-bearing bills (taxRate set). NOTE partial purchase returns are separate debit notes and are NOT netted here
    // (the GL-sourced register remains the authoritative net-payable; this is an indicative per-rate split of activity).
    // Row = [rate, sum(totalAmount), sum(taxAmount)].
+   /** As {@code CustomerHistoryRepo#standingOpeningDates}: the supplier openings that still stand (not VOID). */
+   @Query("select distinct p.dated from purchase p where p.organizationId = :orgId and p.docType = 'OPENING' "
+        + "and (p.status is null or p.status <> 'VOID')")
+   List<java.time.LocalDateTime> standingOpeningDates(@Param("orgId") Long orgId);
+
    @Query("select p.taxRate, sum(p.totalAmount), sum(p.taxAmount) from purchase p "
         + "where p.dated between :from and :to and p.taxRate is not null "
         + "and (p.status is null or p.status <> 'VOID') "

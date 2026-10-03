@@ -101,4 +101,13 @@ public interface CustomerHistoryRepo extends JpaRepository<CustomerHistory, Long
     // the recovery relay re-drives confirm for these (slice 33, U3c).
     @Query("SELECT ch FROM CustomerHistory ch WHERE ch.sagaStatus = 'PENDING' AND ch.reservationId IS NOT NULL ORDER BY ch.dated ASC")
     List<CustomerHistory> findPendingSagaSales();
+
+    /**
+     * The dates of this business's customer opening balances that still STAND (not reversed). A reversal keeps the
+     * document and stamps it VOID (L18), so "still standing" is status, never existence. Each opening is dated the
+     * cutover day, so this answers "which cutover date are posted entries anchored to". Read by CutoverDateGuard.
+     */
+    @Query("SELECT DISTINCT ch.dated FROM CustomerHistory ch WHERE ch.organizationId = :orgId AND ch.docType = 'OPENING' "
+         + "AND (ch.status IS NULL OR ch.status <> 'VOID')")
+    List<java.time.LocalDateTime> standingOpeningDates(@Param("orgId") Long orgId);
 }

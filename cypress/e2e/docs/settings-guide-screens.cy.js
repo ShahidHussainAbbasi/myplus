@@ -823,7 +823,15 @@ describe('Settings guide — F. the other settings screens, step by step (captur
   })
 
   // ── F7. Opening Balances ─────────────────────────────────────────────────────────────────────────────
-  caseIt('F7', 'Opening Balances: set the cutover date, record a balance, see it locked, reverse it', () => {
+  /*
+   * HELD 2026-10-03 — F7 walks a business that has NEVER migrated: it starts by clearing the cutover date and its lock.
+   * The cutover lock is now a fact about the books (CutoverDateGuard): while any opening balance stands, the date may
+   * only be the one those balances are dated by. owner.lifecycle@ holds standing balances for good (some part-paid,
+   * which cannot be reversed), so its cutover stays 2026-09-01 and this precondition can never be met there — correct
+   * behaviour, not a defect. Re-enable (caseIt) once a fresh-tenant helper signs up a never-migrated business per run.
+   * The published guide keeps F7 from its last real capture until then.
+   */
+  it.skip('F7 — Opening Balances: set the cutover date, record a balance, see it locked, reverse it [HELD: needs a never-migrated tenant]', () => {
     const CUT = 'business.cutoverDate'
     const LOCK = 'business.cutoverLocked'
     const cname = `OB Guide ${run}`

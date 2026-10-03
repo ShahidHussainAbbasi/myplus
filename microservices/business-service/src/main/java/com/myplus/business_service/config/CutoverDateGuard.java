@@ -44,31 +44,78 @@ public class CutoverDateGuard implements SettingWriteGuard {
      * the service it reads lives in a shared library, and a future refactor that made guard collection eager
      * would break startup rather than a test. One annotation against a whole class of boot failure.
      */
+    private final com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo;
+    private final com.myplus.business_service.repository.PurchaseRepo purchaseRepo;
+
     @Autowired
-    public CutoverDateGuard(@Lazy SettingsService settings) {
+    public CutoverDateGuard(@Lazy SettingsService settings,
+                            com.myplus.business_service.repository.CustomerHistoryRepo customerHistoryRepo,
+                            com.myplus.business_service.repository.PurchaseRepo purchaseRepo) {
         this.settings = settings;
+        this.customerHistoryRepo = customerHistoryRepo;
+        this.purchaseRepo = purchaseRepo;
     }
 
+    /**
+     * SET-GUIDE / OB-1 — the lock is a FACT about the books, not a preference.
+     *
+     * <h3>What it replaces</h3>
+     * The guard trusted the {@code cutoverLocked} switch, and let a locked date be CLEARED on the assumption that
+     * clearing only happens after every balance is reversed — never checked. Both holes were reproduced 2026-10-02:
+     * the switch could simply be turned off, and a blank save was accepted while balances stood; the business was
+     * then left with no date at all, so every later opening balance was refused.
+     *
+     * <h3>The rule (as SAP's posting periods, Odoo's lock dates and Tally's books-beginning date work)</h3>
+     * While any opening balance still STANDS (not reversed), the cutover date may only be the date those balances
+     * are dated — every move and every clear is refused, and the lock cannot come off. With none standing, both are
+     * free: reversing the balances is the documented way back, and it now really is one. A business already left
+     * blank by the old hole can be repaired to the right date — the only value this accepts.
+     *
+     * <p>Reset to default reaches here too ({@code SettingWriteGuard.checkReset} judges the default, i.e. blank /
+     * false), so the one-click reset is held to the same rule.
+     */
     @Override
     public void check(Long organizationId, String key, String value) {
-        if (!OpeningBalanceService.CUTOVER_KEY.equals(key)) return;   // not our key, not our business
+        boolean lockKey = OpeningBalanceService.LOCKED_KEY.equals(key);
+        if (!lockKey && !OpeningBalanceService.CUTOVER_KEY.equals(key)) return;   // not our keys
 
-        boolean locked = settings != null && settings.getBool(OpeningBalanceService.LOCKED_KEY);
-        if (!locked) return;
+        java.util.Set<java.time.LocalDate> anchored = standingOpeningDates(organizationId);
+        if (anchored.isEmpty()) return;   // nothing posted stands on the date: it may change, and the lock may come off
 
-        /*
-         * CLEARING it is allowed, and deliberately so.
-         *
-         * The lock exists to stop the date MOVING under posted documents. A tenant that has reversed every
-         * opening balance has nothing anchored to it any more, and refusing to let them start again would
-         * strand a shop that mis-typed the date on its first attempt — turning a correctable mistake into a
-         * support call. The lock is released alongside, by whoever clears it.
-         */
-        if (value == null || value.trim().isEmpty()) return;
+        if (lockKey) {
+            boolean unlocking = value == null || !"true".equalsIgnoreCase(value.trim());
+            if (unlocking) {
+                throw new IllegalArgumentException(
+                        "Opening balances are recorded against the cutover date, so the lock cannot come off — "
+                                + "moving the date would re-date entries already in the accounts. Reverse the "
+                                + "opening balances first; the lock can then be switched off.");
+            }
+            return;
+        }
 
+        java.time.LocalDate wanted = parse(value);
+        if (wanted != null && anchored.contains(wanted)) return;   // the date they are dated by: a no-op, or a repair
         throw new IllegalArgumentException(
-                "Opening balances have already been recorded against the current date, so it can no longer "
-                        + "be changed — those entries are in the accounts and moving the date would silently "
-                        + "re-date them. Reverse the opening balances first if the date was wrong.");
+                "Opening balances have already been recorded against " + describe(anchored) + ", so the cutover "
+                        + "date can no longer be changed or cleared — those entries are in the accounts and moving the "
+                        + "date would silently re-date them. Reverse the opening balances first if the date was wrong.");
+    }
+
+    /** The cutover dates that standing opening balances (customer and supplier) are dated by. */
+    private java.util.Set<java.time.LocalDate> standingOpeningDates(Long organizationId) {
+        java.util.Set<java.time.LocalDate> out = new java.util.TreeSet<>();
+        if (organizationId == null) return out;
+        for (java.time.LocalDateTime d : customerHistoryRepo.standingOpeningDates(organizationId)) if (d != null) out.add(d.toLocalDate());
+        for (java.time.LocalDateTime d : purchaseRepo.standingOpeningDates(organizationId)) if (d != null) out.add(d.toLocalDate());
+        return out;
+    }
+
+    private static java.time.LocalDate parse(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        try { return java.time.LocalDate.parse(value.trim()); } catch (Exception notADate) { return null; }
+    }
+
+    private static String describe(java.util.Set<java.time.LocalDate> dates) {
+        return dates.size() == 1 ? dates.iterator().next().toString() : "the dates " + dates;
     }
 }

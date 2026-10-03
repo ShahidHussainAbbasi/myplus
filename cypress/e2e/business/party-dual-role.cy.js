@@ -401,8 +401,6 @@ describe('DR-3 / DR-4 — position and set-off', () => {
    */
   const CUT = 'business.cutoverDate', LOCK = 'business.cutoverLocked'
   let saved = null
-  const setCfg = (key, value) => cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key, value }, failOnStatusCode: false })
-    .then((r) => expect(r.body && (r.body.success === true || r.body.status === 'SUCCESS'), `restore ${key}=${value}: ${JSON.stringify(r.body)}`).to.eq(true))
 
   before(() => {
     asLifecycle()
@@ -414,11 +412,14 @@ describe('DR-3 / DR-4 — position and set-off', () => {
   })
 
   after(() => {
+    /*
+     * 2026-10-03 — nothing to undo any more. The cutover lock is now a fact about the books: this block leaves opening
+     * balances standing on the sacrificial tenant, so the date stays at 2026-09-01 and the guard refuses to clear or
+     * unlock it (opening-balances.cy.js case 7). Re-setting the same date — which seedPartner does — is accepted, so
+     * neither spec can strand the other any more. The snapshot is kept only to say so if a run finds something else.
+     */
     if (!saved) return
-    asLifecycle()
-    setCfg(LOCK, 'false')
-    setCfg(CUT, saved.cut)
-    if (saved.lock === 'true') setCfg(LOCK, 'true')
+    if (saved.cut && saved.cut !== '2026-09-01') cy.log(`cutover was ${saved.cut} before this block; left as the books hold it`)
   })
 
   beforeEach(asLifecycle)
