@@ -67,7 +67,7 @@ row lookup by price that matched an older offer).
 `marketplace-service`: **296 run, 295 passed, 0 skipped** — Testcontainers ran against real Docker for the first time
 (they were skipped before). The 1 failure, `OrderServiceTest.processing_a_return_returns_stock_and_refunds_a_card_order`
 (the older single-store order path: `inventoryClient.returnStock` is never called), **fails identically on the base
-commit 90540dd0**, before any MKT-1e change. It is pre-existing and reported, not fixed here.
+commit 90540dd0**, before any MKT-1e change. *Closed in §6: the test was stale since O1; 315/315 now.*
 
 Monolith: MarketplacePublicControllerTest 6/6, ProxyErrorsTest 3/3. The six message bundles hold 2,867 keys each
 and agree; each also carries 5 duplicate keys (`ui.js.always`, `ui.js.download`, `ui.js.loading`, `ui.js.reason`,
@@ -82,9 +82,11 @@ and agree; each also carries 5 duplicate keys (`ui.js.always`, `ui.js.download`,
 
 ## 6. MKT-1e2 — customer account, online payment (sandbox), My orders, cancel
 
-**Gates, one combined run on the 1e2 build (2026-10-03 16:28 UTC): 55 / 57.** 0a 8/8, 1c 11/11, 1d 10/10,
-1e 10/10, **1e2 9/9**; 1b 7/9. The two 1b failures were a real defect (row 15 below); after the fix, **1b 9/9** on
-the redeployed build — so every gate of 0a–1e2 has passed on the final code: **57 / 57**.
+**Gates: 57 / 57 in one combined run on the final, merged build (2026-10-03 19:14:44 UTC)** — 0a 8/8, 1b 9/9,
+1c 11/11, 1d 10/10, 1e 10/10, **1e2 9/9**. The way there: the first combined run on the 1e2 build (16:28 UTC) was
+55/57 — 1b-03/04 found a real defect (row 15). A later run was 55/57 again because the restarted stack lacked
+pharma-service (1b-09 and 1c-03 save a prescription flag through it): an environment fault, not code; the restart
+script now starts it.
 
 **Recorded walk:** M-1e2-01..06 (account, lock, My orders + claim, cancel, pay online + refund once, declined card)
 passed **6 / 6**; the full walk was then re-recorded in one run (see the manual page for its time and count).
@@ -105,6 +107,17 @@ POST without the page's CSRF token is redirected to `invalidSession.html`. Anoth
 
 Walk-only corrections (the walk's own timing, not the product): reading the order number before the confirmation was
 drawn; counting a leftover order as a new one; clicking Accept while a filter change was still reloading the list.
+
+**marketplace-service, full suite, clean build, Testcontainers on real Docker: 315 run, 315 passed, 0 skipped**
+(FlywayMigrationTest 6/6 with V29). The failure reported in §4 is closed: `OrderServiceTest.processing_a_return_…`
+still expected the pre-O1 inventory return (`returnStock("resv-1")`), but since O1 a storefront order is a sale in
+the store's books with no reservation — a return voids that invoice, which returns stock and revenue together. The
+code was right; the test now asserts `reverseSale(invoice)` once, `returnStock` never (or stock would come back
+twice), and books REVERSED.
+
+**Merge with feature/expense-management (b625773a):** no conflicts; marketplace files untouched by it; six bundles
+agree key for key. The branch did not compile `education-service` (`NotifyAsyncConfig` closed its Javadoc twice) —
+fixed, NotifyAsyncConfigTest 2/2.
 
 **Unit:** MarketplaceCustomerServiceTest 6/6, MarketplacePaymentServiceTest 6/6, MarketplaceOrderFlowTest 26/26,
 MarketplaceCatalogServiceTest 14/14 (clean build). Monolith MarketplacePublicControllerTest 9/9. Six message bundles:

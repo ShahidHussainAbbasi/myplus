@@ -34,8 +34,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:21:27.701Z",
-   "startedAt": "2026-10-03T14:21:16.068Z",
+   "recordedAt": "2026-10-03T19:15:06.378Z",
+   "startedAt": "2026-10-03T19:14:55.896Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -101,8 +101,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:21:34.423Z",
-   "startedAt": "2026-10-03T14:21:27.857Z",
+   "recordedAt": "2026-10-03T19:15:13.598Z",
+   "startedAt": "2026-10-03T19:15:06.535Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -165,8 +165,8 @@
      "expect": "The application waits in the operator's review list."
     }
    ],
-   "recordedAt": "2026-10-03T14:21:57.008Z",
-   "startedAt": "2026-10-03T14:21:34.547Z",
+   "recordedAt": "2026-10-03T19:15:35.474Z",
+   "startedAt": "2026-10-03T19:15:13.752Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -207,8 +207,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:22:07.268Z",
-   "startedAt": "2026-10-03T14:21:57.233Z",
+   "recordedAt": "2026-10-03T19:15:44.860Z",
+   "startedAt": "2026-10-03T19:15:35.702Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -319,8 +319,8 @@
      "shot": "shots/M-0a-06/c02.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:22:31.746Z",
-   "startedAt": "2026-10-03T14:22:07.378Z",
+   "recordedAt": "2026-10-03T19:16:06.334Z",
+   "startedAt": "2026-10-03T19:15:44.958Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -335,9 +335,9 @@
     "MKT-R6.4",
     "MKT-R5.2"
    ],
-   "pre": "Shahzad Mobile Shop is an approved seller and has a product \"Galaxy A32 128 Black W89216\" with 5 in stock (add it under Products if it is missing).",
+   "pre": "Shahzad Mobile Shop is an approved seller and has a product \"Galaxy A32 128 Black W08684\" with 5 in stock (add it under Products if it is missing).",
    "data": {
-    "model": "Galaxy A32 W89216"
+    "model": "Galaxy A32 W08684"
    },
    "auto": [
     "MKT-1b-01",
@@ -352,8 +352,8 @@
     },
     {
      "n": 2,
-     "do": "Your product \"Galaxy A32 128 Black W89216\". Brand \"Samsung\". Model \"Galaxy A32 W89216\". Variant / storage \"128 GB\" (with the space). Colour \"black\" (lower case). Condition New. Click \"Send for review\".",
-     "expect": "\"Sent to MaxTheService for review.\" A new row shows the identity SAMSUNG|GALAXY-A32-W89216|128GB|BLACK|NEW… (the space and the lower case are normalised by the server) and a yellow \"Waiting for review\" badge.",
+     "do": "Your product \"Galaxy A32 128 Black W08684\". Brand \"Samsung\". Model \"Galaxy A32 W08684\". Variant / storage \"128 GB\" (with the space). Colour \"black\" (lower case). Condition New. Click \"Send for review\".",
+     "expect": "\"Sent to MaxTheService for review.\" A new row shows the identity SAMSUNG|GALAXY-A32-W08684|128GB|BLACK|NEW… (the space and the lower case are normalised by the server) and a yellow \"Waiting for review\" badge.",
      "shot": "shots/M-1b-01/02.jpg"
     }
    ],
@@ -364,8 +364,8 @@
      "expect": "It waits in the operator's \"Product matching\" queue."
     }
    ],
-   "recordedAt": "2026-10-03T14:22:42.425Z",
-   "startedAt": "2026-10-03T14:22:32.016Z",
+   "recordedAt": "2026-10-03T19:16:15.616Z",
+   "startedAt": "2026-10-03T19:16:06.585Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -390,7 +390,7 @@
     {
      "n": 1,
      "do": "As admin@myplus.com: Platform → \"Product matching\".",
-     "expect": "Shahzad Mobile Shop's proposal SAMSUNG|GALAXY-A32-W89216|128GB|BLACK|NEW… is listed. Its \"Existing match\" column reads \"New marketplace product\".",
+     "expect": "Shahzad Mobile Shop's proposal SAMSUNG|GALAXY-A32-W08684|128GB|BLACK|NEW… is listed. Its \"Existing match\" column reads \"New marketplace product\".",
      "shot": "shots/M-1b-02/01.jpg"
     },
     {
@@ -413,8 +413,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:22:44.790Z",
-   "startedAt": "2026-10-03T14:22:42.621Z",
+   "recordedAt": "2026-10-03T19:16:17.719Z",
+   "startedAt": "2026-10-03T19:16:15.799Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -428,15 +428,15 @@
     "MKT-R5.4",
     "MKT-R6.4"
    ],
-   "pre": "M-1b-02 done. Mobile Distributor is an approved seller with a product \"Samsung A-32 128GB blk W89216\" in stock.",
+   "pre": "M-1b-02 done. Mobile Distributor is an approved seller with a product \"Samsung A-32 128GB blk W08684\" in stock.",
    "auto": [
     "MKT-1b-04"
    ],
    "steps": [
     {
      "n": 1,
-     "do": "As owner.mobile@myplus.com: Sale → Marketplace → \"Propose a product\". Your product \"Samsung A-32 128GB blk W89216\". Brand \" samsung \" (spaces), Model \"galaxy a32 w89216\", Variant \"128 gb\", Colour \"BLACK\", Condition New. Send for review.",
-     "expect": "The row shows the SAME identity as Shahzad's, SAMSUNG|GALAXY-A32-W89216|128GB|BLACK|NEW…, and \"Waiting for review\". Nothing is live yet.",
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace → \"Propose a product\". Your product \"Samsung A-32 128GB blk W08684\". Brand \" samsung \" (spaces), Model \"galaxy a32 w08684\", Variant \"128 gb\", Colour \"BLACK\", Condition New. Send for review.",
+     "expect": "The row shows the SAME identity as Shahzad's, SAMSUNG|GALAXY-A32-W08684|128GB|BLACK|NEW…, and \"Waiting for review\". Nothing is live yet.",
      "shot": "shots/M-1b-03/01.jpg"
     },
     {
@@ -459,8 +459,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:23:02.898Z",
-   "startedAt": "2026-10-03T14:22:44.901Z",
+   "recordedAt": "2026-10-03T19:16:33.805Z",
+   "startedAt": "2026-10-03T19:16:17.829Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -480,7 +480,7 @@
    "steps": [
     {
      "n": 1,
-     "do": "As owner.mobile@myplus.com: propose \"Galaxy A32 64 Black W89216\" with Brand Samsung, Model \"Galaxy A32 W89216\", Variant \"64GB\", Colour Black, New.",
+     "do": "As owner.mobile@myplus.com: propose \"Galaxy A32 64 Black W08684\" with Brand Samsung, Model \"Galaxy A32 W08684\", Variant \"64GB\", Colour Black, New.",
      "expect": "The identity ends …|64GB|BLACK|NEW…; \"Waiting for review\".",
      "shot": "shots/M-1b-04/01.jpg"
     },
@@ -499,8 +499,8 @@
      "shot": "shots/M-1b-04/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:23:17.024Z",
-   "startedAt": "2026-10-03T14:23:03.102Z",
+   "recordedAt": "2026-10-03T19:16:47.003Z",
+   "startedAt": "2026-10-03T19:16:34.011Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -540,7 +540,7 @@
    "cleanup": [
     {
      "n": 1,
-     "do": "As owner.business@: propose \"Galaxy A32 128 Black W89216\" again with the same details; as admin@: Product matching → Match it.",
+     "do": "As owner.business@: propose \"Galaxy A32 128 Black W08684\" again with the same details; as admin@: Product matching → Match it.",
      "expect": "Shahzad Mobile Shop is attached to the product again, ready for MKT-1c.",
      "calls": [
       {
@@ -550,13 +550,13 @@
         "success": true,
         "message": "Sent to MaxTheService for review.",
         "data": {
-         "id": 101,
+         "id": 163,
          "organizationId": 6,
-         "sourceProductId": 114,
-         "sourceProductName": "Galaxy A32 128 Black W89216",
-         "proposedIdentityKey": "SAMSUNG|GALAXY-A32-W89216|128GB|BLACK|NEW|12M",
+         "sourceProductId": 185,
+         "sourceProductName": "Galaxy A32 128 Black W08684",
+         "proposedIdentityKey": "SAMSUNG|GALAXY-A32-W08684|128GB|BLACK|NEW|12M",
          "brand": "Samsung",
-         "model": "Galaxy A32 W89216",
+         "model": "Galaxy A32 W08684",
          "variant": "128GB",
          "colour": "Black",
          "size": null,
@@ -570,8 +570,8 @@
          "suggestedProductId": null,
          "mktProductId": null,
          "reviewNote": null,
-         "createdAt": "2026-10-03T14:22:41.487648",
-         "reviewedAt": "2026-10-03T14:23:18.897636",
+         "createdAt": "2026-10-03T19:16:14.877858",
+         "reviewedAt": "2026-10-03T19:16:48.772286",
          "version": 4
         },
         "statusCode": 200
@@ -584,13 +584,13 @@
         "success": true,
         "message": "Proposal is now matched.",
         "data": {
-         "id": 101,
+         "id": 163,
          "organizationId": 6,
-         "sourceProductId": 114,
-         "sourceProductName": "Galaxy A32 128 Black W89216",
-         "proposedIdentityKey": "SAMSUNG|GALAXY-A32-W89216|128GB|BLACK|NEW|12M",
+         "sourceProductId": 185,
+         "sourceProductName": "Galaxy A32 128 Black W08684",
+         "proposedIdentityKey": "SAMSUNG|GALAXY-A32-W08684|128GB|BLACK|NEW|12M",
          "brand": "Samsung",
-         "model": "Galaxy A32 W89216",
+         "model": "Galaxy A32 W08684",
          "variant": "128GB",
          "colour": "Black",
          "size": null,
@@ -602,10 +602,10 @@
          "regulated": "NONE",
          "matchStatus": "MATCHED",
          "suggestedProductId": null,
-         "mktProductId": 58,
+         "mktProductId": 99,
          "reviewNote": null,
-         "createdAt": "2026-10-03T14:22:41.487648",
-         "reviewedAt": "2026-10-03T14:23:26.1268172",
+         "createdAt": "2026-10-03T19:16:14.877858",
+         "reviewedAt": "2026-10-03T19:16:55.492146978",
          "version": 4
         },
         "statusCode": 200
@@ -614,8 +614,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:23:26.156Z",
-   "startedAt": "2026-10-03T14:23:17.195Z",
+   "recordedAt": "2026-10-03T19:16:55.519Z",
+   "startedAt": "2026-10-03T19:16:47.158Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -663,8 +663,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:23:29.545Z",
-   "startedAt": "2026-10-03T14:23:26.259Z",
+   "recordedAt": "2026-10-03T19:16:58.428Z",
+   "startedAt": "2026-10-03T19:16:55.619Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -677,20 +677,20 @@
     "MKT-R6.6",
     "MKT-R6.3"
    ],
-   "pre": "The pharmacy has products \"Panadol Extra 10s W89216\" and \"Panadol Extra 20s W89216\" (not prescription-only).",
+   "pre": "The pharmacy has products \"Panadol Extra 10s W08684\" and \"Panadol Extra 20s W08684\" (not prescription-only).",
    "auto": [
     "ProductIdentityKeyTest"
    ],
    "steps": [
     {
      "n": 1,
-     "do": "As owner.pharma@myplus.com: Sale → Marketplace → Propose a product → \"Panadol Extra 10s W89216\", Brand GSK, Model \"Panadol Extra W89216\", Size \"500 mg\", Pack size \"10\". Send for review.",
+     "do": "As owner.pharma@myplus.com: Sale → Marketplace → Propose a product → \"Panadol Extra 10s W08684\", Brand GSK, Model \"Panadol Extra W08684\", Size \"500 mg\", Pack size \"10\". Send for review.",
      "expect": "Sent. The identity ends in the pack size 10.",
      "shot": "shots/M-1b-07/01.jpg"
     },
     {
      "n": 2,
-     "do": "Propose \"Panadol Extra 20s W89216\" the same way with Pack size \"20\".",
+     "do": "Propose \"Panadol Extra 20s W08684\" the same way with Pack size \"20\".",
      "expect": "A second row with a DIFFERENT identity ending in 20. The two are never suggested as the same product.",
      "shot": "shots/M-1b-07/02.jpg"
     }
@@ -708,13 +708,13 @@
         "success": true,
         "message": "Proposal is now rejected.",
         "data": {
-         "id": 104,
+         "id": 166,
          "organizationId": 8,
-         "sourceProductId": 117,
-         "sourceProductName": "Panadol Extra 10s W89216",
-         "proposedIdentityKey": "GSK|PANADOL-EXTRA-W89216|500MG|10|NEW",
+         "sourceProductId": 188,
+         "sourceProductName": "Panadol Extra 10s W08684",
+         "proposedIdentityKey": "GSK|PANADOL-EXTRA-W08684|500MG|10|NEW",
          "brand": "GSK",
-         "model": "Panadol Extra W89216",
+         "model": "Panadol Extra W08684",
          "variant": null,
          "colour": null,
          "size": "500 mg",
@@ -728,8 +728,8 @@
          "suggestedProductId": null,
          "mktProductId": null,
          "reviewNote": "walk cleanup",
-         "createdAt": "2026-10-03T14:23:44.785727",
-         "reviewedAt": "2026-10-03T14:23:48.872256097",
+         "createdAt": "2026-10-03T19:17:12.176565",
+         "reviewedAt": "2026-10-03T19:17:15.926152617",
          "version": 0
         },
         "statusCode": 200
@@ -742,13 +742,13 @@
         "success": true,
         "message": "Proposal is now rejected.",
         "data": {
-         "id": 105,
+         "id": 167,
          "organizationId": 8,
-         "sourceProductId": 118,
-         "sourceProductName": "Panadol Extra 20s W89216",
-         "proposedIdentityKey": "GSK|PANADOL-EXTRA-W89216|500MG|20|NEW",
+         "sourceProductId": 189,
+         "sourceProductName": "Panadol Extra 20s W08684",
+         "proposedIdentityKey": "GSK|PANADOL-EXTRA-W08684|500MG|20|NEW",
          "brand": "GSK",
-         "model": "Panadol Extra W89216",
+         "model": "Panadol Extra W08684",
          "variant": null,
          "colour": null,
          "size": "500 mg",
@@ -762,8 +762,8 @@
          "suggestedProductId": null,
          "mktProductId": null,
          "reviewNote": "walk cleanup",
-         "createdAt": "2026-10-03T14:23:47.849539",
-         "reviewedAt": "2026-10-03T14:23:48.947459971",
+         "createdAt": "2026-10-03T19:17:15.046054",
+         "reviewedAt": "2026-10-03T19:17:15.975016731",
          "version": 0
         },
         "statusCode": 200
@@ -772,8 +772,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:23:48.964Z",
-   "startedAt": "2026-10-03T14:23:29.628Z",
+   "recordedAt": "2026-10-03T19:17:15.988Z",
+   "startedAt": "2026-10-03T19:16:58.505Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -807,19 +807,19 @@
     },
     {
      "n": 3,
-     "do": "Kind \"Warranty\". Name \"12 months — authorised distributor W89216\". Provider \"Samsung Pakistan (authorised distributor)\". Months 12. Covers \"Manufacturing defects\". Excludes \"Physical and liquid damage\". Create policy.",
+     "do": "Kind \"Warranty\". Name \"12 months — authorised distributor W08684\". Provider \"Samsung Pakistan (authorised distributor)\". Months 12. Covers \"Manufacturing defects\". Excludes \"Physical and liquid damage\". Create policy.",
      "expect": "Created. The list shows WARRANTY · the name · \"12 · Samsung Pakistan (authorised distributor) · Manufacturing defects\", with Deactivate and NO Edit.",
      "shot": "shots/M-1c-00/03.jpg"
     },
     {
      "n": 4,
-     "do": "Kind \"Returns\". Name \"7 days W89216\". Return days 7. Create policy.",
+     "do": "Kind \"Returns\". Name \"7 days W08684\". Return days 7. Create policy.",
      "expect": "Listed as RETURN · \"7 days\".",
      "shot": "shots/M-1c-00/04.jpg"
     },
     {
      "n": 5,
-     "do": "Kind \"Commission\". Name \"Standard 8% W89216\". Charged on \"Item price (not delivery)\". Rate 8. Tick \"Use for newly approved offers\". Create policy.",
+     "do": "Kind \"Commission\". Name \"Standard 8% W08684\". Charged on \"Item price (not delivery)\". Rate 8. Tick \"Use for newly approved offers\". Create policy.",
      "expect": "Listed as \"COMMISSION · default\" with \"8% · ITEMS\". It replaces the earlier default for offers approved from now on.",
      "shot": "shots/M-1c-00/05.jpg"
     }
@@ -831,8 +831,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:23:57.461Z",
-   "startedAt": "2026-10-03T14:23:49.122Z",
+   "recordedAt": "2026-10-03T19:17:24.205Z",
+   "startedAt": "2026-10-03T19:17:16.090Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -846,7 +846,7 @@
     "MKT-R7.5",
     "MKT-R14.1"
    ],
-   "pre": "Shahzad Mobile Shop is attached to \"Samsung Galaxy A32 W89216 128GB Black\" (M-1b-02, M-1b-05) and has 5 in stock. M-1c-00 done.",
+   "pre": "Shahzad Mobile Shop is attached to \"Samsung Galaxy A32 W08684 128GB Black\" (M-1b-02, M-1b-05) and has 5 in stock. M-1c-00 done.",
    "auto": [
     "MKT-1c-01"
    ],
@@ -859,13 +859,13 @@
     },
     {
      "n": 2,
-     "do": "Product \"Samsung Galaxy A32 W89216 128GB Black\". Price 52000. Delivery in 24 hours. Cities \"Karachi, karachi , Lahore\". Open the Warranty and the Returns lists.",
-     "expect": "Only ACTIVE policies are offered, among them \"12 months — authorised distributor W89216\" and \"7 days W89216\". There is no way to type a warranty of your own.",
+     "do": "Product \"Samsung Galaxy A32 W08684 128GB Black\". Price 52000. Delivery in 24 hours. Cities \"Karachi, karachi , Lahore\". Open the Warranty and the Returns lists.",
+     "expect": "Only ACTIVE policies are offered, among them \"12 months — authorised distributor W08684\" and \"7 days W08684\". There is no way to type a warranty of your own.",
      "shot": "shots/M-1c-01/02.jpg"
     },
     {
      "n": 3,
-     "do": "Warranty \"12 months — authorised distributor W89216\", Returns \"7 days W89216\". Click \"Save and send for approval\".",
+     "do": "Warranty \"12 months — authorised distributor W08684\", Returns \"7 days W08684\". Click \"Save and send for approval\".",
      "expect": "The new row shows Rs. 52,000, cities \"Karachi, Lahore\" (the duplicate dropped, the spelling kept as typed) and a yellow \"Waiting for review\" badge. The whole table, Edit and Pause included, fits the screen without scrolling sideways.",
      "shot": "shots/M-1c-01/03.jpg"
     }
@@ -877,8 +877,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:24:07.585Z",
-   "startedAt": "2026-10-03T14:23:57.554Z",
+   "recordedAt": "2026-10-03T19:17:33.398Z",
+   "startedAt": "2026-10-03T19:17:24.275Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -915,11 +915,11 @@
         "success": true,
         "message": "Offer saved.",
         "data": {
-         "id": 60,
+         "id": 102,
          "organizationId": 6,
-         "mktProductId": 58,
-         "productName": "Samsung Galaxy A32 W89216 128 GB black",
-         "sourceProductId": 114,
+         "mktProductId": 99,
+         "productName": "Samsung Galaxy A32 W08684 128 GB black",
+         "sourceProductId": 185,
          "stockSourceType": "MERCHANT",
          "stockOwnerOrganizationId": 6,
          "custodianOrganizationId": 6,
@@ -930,14 +930,14 @@
          "marketplacePrice": 52000,
          "deliveryAreas": "Karachi,Lahore",
          "promiseHours": 24,
-         "warrantyPolicyId": 87,
-         "returnPolicyId": 88,
+         "warrantyPolicyId": 153,
+         "returnPolicyId": 154,
          "commissionPolicyId": null,
          "approvalStatus": "PENDING_REVIEW",
          "paused": false,
          "reviewNote": null,
          "publishedAt": null,
-         "createdAt": "2026-10-03T14:24:06.695231",
+         "createdAt": "2026-10-03T19:17:32.553139",
          "version": 1
         },
         "statusCode": 200
@@ -966,11 +966,11 @@
         "success": true,
         "message": "Success",
         "data": {
-         "id": 60,
+         "id": 102,
          "organizationId": 6,
-         "mktProductId": 58,
-         "productName": "Samsung Galaxy A32 W89216 128 GB black",
-         "sourceProductId": 114,
+         "mktProductId": 99,
+         "productName": "Samsung Galaxy A32 W08684 128 GB black",
+         "sourceProductId": 185,
          "stockSourceType": "MERCHANT",
          "stockOwnerOrganizationId": 6,
          "custodianOrganizationId": 6,
@@ -981,14 +981,14 @@
          "marketplacePrice": 52000,
          "deliveryAreas": "Karachi,Lahore",
          "promiseHours": 24,
-         "warrantyPolicyId": 87,
-         "returnPolicyId": 88,
+         "warrantyPolicyId": 153,
+         "returnPolicyId": 154,
          "commissionPolicyId": null,
          "approvalStatus": "PENDING_REVIEW",
          "paused": false,
          "reviewNote": null,
          "publishedAt": null,
-         "createdAt": "2026-10-03T14:24:06.695231",
+         "createdAt": "2026-10-03T19:17:32.553139",
          "version": 1
         },
         "statusCode": 200
@@ -1004,8 +1004,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:24:11.142Z",
-   "startedAt": "2026-10-03T14:24:07.775Z",
+   "recordedAt": "2026-10-03T19:17:36.684Z",
+   "startedAt": "2026-10-03T19:17:33.571Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1018,7 +1018,7 @@
     "MKT-R20.2",
     "MKT-R7.6"
    ],
-   "pre": "The pharmacy has a product \"Augmentin W89216\" with \"Prescription required\" ticked (Clinical & Safety).",
+   "pre": "The pharmacy has a product \"Augmentin W08684\" with \"Prescription required\" ticked (Clinical & Safety).",
    "auto": [
     "MKT-1c-03",
     "MKT-1b-09"
@@ -1026,7 +1026,7 @@
    "steps": [
     {
      "n": 1,
-     "do": "As owner.pharma@myplus.com: Sale → Marketplace → \"Propose a product\" → \"Augmentin W89216\", Brand GSK, Model \"Augmentin W89216\". Send for review.",
+     "do": "As owner.pharma@myplus.com: Sale → Marketplace → \"Propose a product\" → \"Augmentin W08684\", Brand GSK, Model \"Augmentin W08684\". Send for review.",
      "expect": "Refused: \"Prescription and restricted products cannot be sold on the marketplace yet.\" Nothing is added to the proposals table.",
      "shot": "shots/M-1c-03/01.jpg"
     }
@@ -1038,8 +1038,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:24:21.896Z",
-   "startedAt": "2026-10-03T14:24:11.224Z",
+   "recordedAt": "2026-10-03T19:17:46.347Z",
+   "startedAt": "2026-10-03T19:17:36.781Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1060,7 +1060,7 @@
     {
      "n": 1,
      "do": "As admin@myplus.com: Platform → \"Offer approvals\" (opens on \"Waiting for review\").",
-     "expect": "Shahzad Mobile Shop's offer for \"Samsung Galaxy A32 W89216 128GB Black\" is listed at 52,000 for \"Karachi, Lahore\", with Approve and Reject.",
+     "expect": "Shahzad Mobile Shop's offer for \"Samsung Galaxy A32 W08684 128GB Black\" is listed at 52,000 for \"Karachi, Lahore\", with Approve and Reject.",
      "shot": "shots/M-1c-04/01.jpg"
     },
     {
@@ -1113,8 +1113,8 @@
      "shot": "shots/M-1c-04/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:24:40.368Z",
-   "startedAt": "2026-10-03T14:24:22.076Z",
+   "recordedAt": "2026-10-03T19:18:03.492Z",
+   "startedAt": "2026-10-03T19:17:46.525Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1169,8 +1169,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:24:46.004Z",
-   "startedAt": "2026-10-03T14:24:40.598Z",
+   "recordedAt": "2026-10-03T19:18:09.914Z",
+   "startedAt": "2026-10-03T19:18:03.724Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1204,8 +1204,8 @@
         "message": "Success",
         "data": [
          {
-          "offerId": 60,
-          "mktProductId": 58,
+          "offerId": 102,
+          "mktProductId": 99,
           "sellerOrganizationId": 6,
           "sellerName": "Shahzad Mobile Shop",
           "price": 52000,
@@ -1222,7 +1222,7 @@
            "Karachi",
            "Lahore"
           ],
-          "lastSyncAt": "2026-10-03T14:24:44.773545",
+          "lastSyncAt": "2026-10-03T19:18:08.495592",
           "checkedSecondsAgo": 1
          }
         ],
@@ -1239,8 +1239,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:24:46.149Z",
-   "startedAt": "2026-10-03T14:24:46.109Z",
+   "recordedAt": "2026-10-03T19:18:10.144Z",
+   "startedAt": "2026-10-03T19:18:10.105Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1260,19 +1260,19 @@
    "steps": [
     {
      "n": 1,
-     "do": "As admin@myplus.com: Marketplace policies → \"7 days W89216\" → Deactivate.",
+     "do": "As admin@myplus.com: Marketplace policies → \"7 days W08684\" → Deactivate.",
      "expect": "The row turns grey and loses its Deactivate button.",
      "shot": "shots/M-1c-07/01.jpg"
     },
     {
      "n": 2,
      "do": "As owner.business@: My offers → Edit on the offer. Open the Returns list.",
-     "expect": "\"7 days W89216\" is no longer offered.",
+     "expect": "\"7 days W08684\" is no longer offered.",
      "shot": "shots/M-1c-07/02.jpg"
     },
     {
      "n": 3,
-     "do": "Developer tools: GET /mkt/getOffer?id=<the offer>, then POST /mkt/saveOffer {id: <the offer>, returnPolicyId: <the \"7 days W89216\" id>}.",
+     "do": "Developer tools: GET /mkt/getOffer?id=<the offer>, then POST /mkt/saveOffer {id: <the offer>, returnPolicyId: <the \"7 days W08684\" id>}.",
      "expect": "The offer still names the 7-day policy (what was agreed stays). Choosing it again is refused: \"Choose an active return policy.\"",
      "calls": [
       {
@@ -1282,11 +1282,11 @@
         "success": true,
         "message": "Success",
         "data": {
-         "id": 60,
+         "id": 102,
          "organizationId": 6,
-         "mktProductId": 58,
-         "productName": "Samsung Galaxy A32 W89216 128 GB black",
-         "sourceProductId": 114,
+         "mktProductId": 99,
+         "productName": "Samsung Galaxy A32 W08684 128 GB black",
+         "sourceProductId": 185,
          "stockSourceType": "MERCHANT",
          "stockOwnerOrganizationId": 6,
          "custodianOrganizationId": 6,
@@ -1297,14 +1297,14 @@
          "marketplacePrice": 52000,
          "deliveryAreas": "Karachi,Lahore",
          "promiseHours": 24,
-         "warrantyPolicyId": 87,
-         "returnPolicyId": 88,
-         "commissionPolicyId": 89,
+         "warrantyPolicyId": 153,
+         "returnPolicyId": 154,
+         "commissionPolicyId": 155,
          "approvalStatus": "APPROVED",
          "paused": false,
          "reviewNote": null,
-         "publishedAt": "2026-10-03T14:24:22.999757",
-         "createdAt": "2026-10-03T14:24:06.695231",
+         "publishedAt": "2026-10-03T19:17:47.346777",
+         "createdAt": "2026-10-03T19:17:32.553139",
          "version": 4
         },
         "statusCode": 200
@@ -1329,8 +1329,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:24:54.204Z",
-   "startedAt": "2026-10-03T14:24:46.209Z",
+   "recordedAt": "2026-10-03T19:18:17.976Z",
+   "startedAt": "2026-10-03T19:18:10.202Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -1364,11 +1364,37 @@
         "data": {
          "content": [
           {
-           "id": 56,
+           "id": 100,
            "organizationId": 16,
-           "mktProductId": 54,
-           "productName": "Samsung Galaxy A32 T1791036935322788d 128GB Black",
-           "sourceProductId": 110,
+           "mktProductId": 97,
+           "productName": "Samsung Galaxy A32 T179105472142150b 128GB Black",
+           "sourceProductId": 183,
+           "stockSourceType": "MERCHANT",
+           "stockOwnerOrganizationId": 16,
+           "custodianOrganizationId": 16,
+           "sellerOrganizationId": 16,
+           "fulfillerOrganizationId": 16,
+           "sellerSku": null,
+           "listPrice": null,
+           "marketplacePrice": 50000,
+           "deliveryAreas": "Karachi",
+           "promiseHours": 24,
+           "warrantyPolicyId": 147,
+           "returnPolicyId": 148,
+           "commissionPolicyId": 120,
+           "approvalStatus": "APPROVED",
+           "paused": false,
+           "reviewNote": null,
+           "publishedAt": "2026-10-03T19:14:25.958388",
+           "createdAt": "2026-10-03T19:14:25.827356",
+           "version": 2
+          },
+          {
+           "id": 96,
+           "organizationId": 16,
+           "mktProductId": 93,
+           "productName": "Samsung Galaxy A32 T1791054712693934 128GB Black",
+           "sourceProductId": 179,
            "stockSourceType": "MERCHANT",
            "stockOwnerOrganizationId": 16,
            "custodianOrganizationId": 16,
@@ -1379,22 +1405,22 @@
            "marketplacePrice": 51500,
            "deliveryAreas": "Karachi",
            "promiseHours": 24,
-           "warrantyPolicyId": 83,
-           "returnPolicyId": 82,
-           "commissionPolicyId": 74,
+           "warrantyPolicyId": 145,
+           "returnPolicyId": 144,
+           "commissionPolicyId": 120,
            "approvalStatus": "APPROVED",
            "paused": false,
            "reviewNote": null,
-           "publishedAt": "2026-10-03T14:15:55.388064",
-           "createdAt": "2026-10-03T14:15:55.113968",
+           "publishedAt": "2026-10-03T19:11:55.062925",
+           "createdAt": "2026-10-03T19:11:54.939932",
            "version": 4
           },
           {
-           "id": 51,
+           "id": 92,
            "organizationId": 16,
-           "mktProductId": 50,
-           "productName": "Samsung Galaxy A32 T1791036144383956d 128GB Black",
-           "sourceProductId": 105,
+           "mktProductId": 89,
+           "productName": "Samsung Galaxy A32 T1791054119991821b 128GB Black",
+           "sourceProductId": 170,
            "stockSourceType": "MERCHANT",
            "stockOwnerOrganizationId": 16,
            "custodianOrganizationId": 16,
@@ -1402,50 +1428,24 @@
            "fulfillerOrganizationId": 16,
            "sellerSku": null,
            "listPrice": null,
-           "marketplacePrice": 51500,
+           "marketplacePrice": 50000,
            "deliveryAreas": "Karachi",
            "promiseHours": 24,
-           "warrantyPolicyId": 77,
-           "returnPolicyId": 76,
-           "commissionPolicyId": 74,
+           "warrantyPolicyId": 135,
+           "returnPolicyId": 136,
+           "commissionPolicyId": 120,
            "approvalStatus": "APPROVED",
            "paused": false,
            "reviewNote": null,
-           "publishedAt": "2026-10-03T14:06:01.755982",
-           "createdAt": "2026-10-03T14:06:01.634542",
-           "version": 4
+           "publishedAt": "2026-10-03T19:04:25.96671",
+           "createdAt": "2026-10-03T19:04:25.828484",
+           "version": 2
           },
-          {
-           "id": 45,
-           "organizationId": 16,
-           "mktProductId": 45,
-           "productName": "Samsung Galaxy A32 T1791035832893526d 128GB Black",
-           "sourceProductId": 94,
-           "stockSourceType": "MERCHANT",
-           "stockOwnerOrganizationId": 16,
-           "custodianOrganizationId": 16,
-           "sellerOrganizationId": 16,
-           "fulfillerOrganizationId": 16,
-           "sellerSku": null,
-           "listPrice": null,
-           "marketplacePrice": 51500,
-           "deliveryAreas": "Karachi",
-           "promiseHours": 24,
-           "warrantyPolicyId": 68,
-           "returnPolicyId": 67,
-           "commissionPolicyId": 47,
-           "approvalStatus": "APPROVED",
-           "paused": false,
-           "reviewNote": null,
-           "publishedAt": "2026-10-03T13:57:32.245435",
-           "createdAt": "2026-10-03T13:57:31.974496",
-           "version": 4
-          },
-          "… 11 more"
+          "… 19 more"
          ],
          "pageNo": 0,
          "pageSize": 50,
-         "totalElements": 14,
+         "totalElements": 22,
          "totalPages": 1,
          "last": true
         },
@@ -1501,11 +1501,11 @@
         "success": true,
         "message": "Success",
         "data": {
-         "id": 60,
+         "id": 102,
          "organizationId": 6,
-         "mktProductId": 58,
-         "productName": "Samsung Galaxy A32 W89216 128 GB black",
-         "sourceProductId": 114,
+         "mktProductId": 99,
+         "productName": "Samsung Galaxy A32 W08684 128 GB black",
+         "sourceProductId": 185,
          "stockSourceType": "MERCHANT",
          "stockOwnerOrganizationId": 6,
          "custodianOrganizationId": 6,
@@ -1516,14 +1516,14 @@
          "marketplacePrice": 52000,
          "deliveryAreas": "Karachi,Lahore",
          "promiseHours": 24,
-         "warrantyPolicyId": 87,
-         "returnPolicyId": 88,
-         "commissionPolicyId": 89,
+         "warrantyPolicyId": 153,
+         "returnPolicyId": 154,
+         "commissionPolicyId": 155,
          "approvalStatus": "APPROVED",
          "paused": false,
          "reviewNote": null,
-         "publishedAt": "2026-10-03T14:24:22.999757",
-         "createdAt": "2026-10-03T14:24:06.695231",
+         "publishedAt": "2026-10-03T19:17:47.346777",
+         "createdAt": "2026-10-03T19:17:32.553139",
          "version": 4
         },
         "statusCode": 200
@@ -1539,8 +1539,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:01.233Z",
-   "startedAt": "2026-10-03T14:24:54.344Z",
+   "recordedAt": "2026-10-03T19:18:24.164Z",
+   "startedAt": "2026-10-03T19:18:18.196Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1562,8 +1562,8 @@
    "steps": [
     {
      "n": 1,
-     "do": "Open /marketplace in an incognito window. City \"Karachi\". Search \"Galaxy A32 T1791037275889216d\".",
-     "expect": "One card: \"Samsung Galaxy A32 T1791037275889216d 128GB Black\", \"From Rs. 51,500\", \"Available from 2 sellers\", \"Delivery in 4 hours\" (the fastest seller's promise).",
+     "do": "Open /marketplace in an incognito window. City \"Karachi\". Search \"Galaxy A32 T1791054895708684d\".",
+     "expect": "One card: \"Samsung Galaxy A32 T1791054895708684d 128GB Black\", \"From Rs. 51,500\", \"Available from 2 sellers\", \"Delivery in 4 hours\" (the fastest seller's promise).",
      "shot": "shots/M-1d-01/01.jpg"
     },
     {
@@ -1586,8 +1586,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:25:06.477Z",
-   "startedAt": "2026-10-03T14:25:01.323Z",
+   "recordedAt": "2026-10-03T19:18:29.239Z",
+   "startedAt": "2026-10-03T19:18:24.237Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1656,8 +1656,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:11.060Z",
-   "startedAt": "2026-10-03T14:25:06.564Z",
+   "recordedAt": "2026-10-03T19:18:33.549Z",
+   "startedAt": "2026-10-03T19:18:29.322Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1701,8 +1701,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:12.836Z",
-   "startedAt": "2026-10-03T14:25:11.175Z",
+   "recordedAt": "2026-10-03T19:18:35.259Z",
+   "startedAt": "2026-10-03T19:18:33.643Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1728,7 +1728,7 @@
     },
     {
      "n": 2,
-     "do": "Go to the search, City \"Lahore\", search \"Galaxy A32 T1791037275889216d\".",
+     "do": "Go to the search, City \"Lahore\", search \"Galaxy A32 T1791054895708684d\".",
      "expect": "No card for the phone, and \"No products match in Lahore. Try fewer words or another city.\" No error.",
      "shot": "shots/M-1d-04/02.jpg"
     }
@@ -1740,8 +1740,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:15.502Z",
-   "startedAt": "2026-10-03T14:25:12.947Z",
+   "recordedAt": "2026-10-03T19:18:37.865Z",
+   "startedAt": "2026-10-03T19:18:35.356Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -1772,7 +1772,7 @@
     },
     {
      "n": 2,
-     "do": "Customer: search \"Galaxy A32 T1791037275889216d\" in Karachi and open the product.",
+     "do": "Customer: search \"Galaxy A32 T1791054895708684d\" in Karachi and open the product.",
      "expect": "The card reads \"From Rs. 52,000 · Available from 1 seller\"; the product page lists only Shahzad Mobile Shop. The card's number always equals the rows on the page.",
      "shot": "shots/M-1d-05/02.jpg"
     }
@@ -1785,8 +1785,8 @@
      "shot": "shots/M-1d-05/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:25:29.473Z",
-   "startedAt": "2026-10-03T14:25:15.608Z",
+   "recordedAt": "2026-10-03T19:18:51.079Z",
+   "startedAt": "2026-10-03T19:18:37.966Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1856,8 +1856,8 @@
      "shot": "shots/M-1d-06/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:25:36.111Z",
-   "startedAt": "2026-10-03T14:25:29.713Z",
+   "recordedAt": "2026-10-03T19:18:57.651Z",
+   "startedAt": "2026-10-03T19:18:51.237Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -1901,8 +1901,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:38.262Z",
-   "startedAt": "2026-10-03T14:25:36.278Z",
+   "recordedAt": "2026-10-03T19:18:59.757Z",
+   "startedAt": "2026-10-03T19:18:57.818Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -1961,8 +1961,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:25:43.560Z",
-   "startedAt": "2026-10-03T14:25:38.349Z",
+   "recordedAt": "2026-10-03T19:19:05.144Z",
+   "startedAt": "2026-10-03T19:18:59.843Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -1987,7 +1987,7 @@
    "steps": [
     {
      "n": 1,
-     "do": "Customer: open the product (Karachi), choose Shahzad Mobile Shop, press \"Buy from Shahzad Mobile Shop\". Name \"Ali\", phone 03008892161, address \"1 Clifton\". Check the total.",
+     "do": "Customer: open the product (Karachi), choose Shahzad Mobile Shop, press \"Buy from Shahzad Mobile Shop\". Name \"Ali\", phone 03007086841, address \"1 Clifton\". Check the total.",
      "expect": "Total Rs. 52,000. The payment line reads \"Cash on delivery: you pay the seller when the order arrives. Nothing is charged now.\"",
      "shot": "shots/M-1e-01/01.jpg"
     },
@@ -2023,8 +2023,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:25:54.207Z",
-   "startedAt": "2026-10-03T14:25:43.660Z",
+   "recordedAt": "2026-10-03T19:19:15.899Z",
+   "startedAt": "2026-10-03T19:19:05.249Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -2064,7 +2064,7 @@
         "success": true,
         "message": "Waiting for Shahzad Mobile Shop to confirm.",
         "data": {
-         "orderNo": "MKT-000156",
+         "orderNo": "MKT-000287",
          "status": "SUBMITTED",
          "paymentMode": "COD",
          "paymentStatus": "UNPAID",
@@ -2072,8 +2072,8 @@
          "deliveryFee": 0,
          "total": 52000,
          "cancelReason": null,
-         "createdAt": "2026-10-03T14:25:55.243335",
-         "sellerOrderId": 156,
+         "createdAt": "2026-10-03T19:19:16.863592",
+         "sellerOrderId": 287,
          "sellerOrderVersion": 1,
          "sellerOrderStatus": "OFFERED",
          "sellerName": "Shahzad Mobile Shop",
@@ -2081,9 +2081,9 @@
          "city": "Karachi",
          "lines": [
           {
-           "offerId": 61,
-           "mktProductId": 59,
-           "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+           "offerId": 103,
+           "mktProductId": 100,
+           "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
            "quantity": 1,
            "unitPrice": 52000,
            "lineTotal": 52000,
@@ -2112,7 +2112,7 @@
         "success": true,
         "message": "Success",
         "data": {
-         "orderNo": "MKT-000156",
+         "orderNo": "MKT-000287",
          "status": "SUBMITTED",
          "paymentMode": "COD",
          "paymentStatus": "UNPAID",
@@ -2120,8 +2120,8 @@
          "deliveryFee": 0,
          "total": 52000,
          "cancelReason": null,
-         "createdAt": "2026-10-03T14:25:55.243335",
-         "sellerOrderId": 156,
+         "createdAt": "2026-10-03T19:19:16.863592",
+         "sellerOrderId": 287,
          "sellerOrderVersion": 1,
          "sellerOrderStatus": "OFFERED",
          "sellerName": "Shahzad Mobile Shop",
@@ -2129,9 +2129,9 @@
          "city": "Karachi",
          "lines": [
           {
-           "offerId": 61,
-           "mktProductId": 59,
-           "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+           "offerId": 103,
+           "mktProductId": 100,
+           "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
            "quantity": 1,
            "unitPrice": 52000,
            "lineTotal": 52000,
@@ -2169,28 +2169,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 156,
+         "id": 287,
          "version": 3,
-         "orderNo": "MKT-000156",
+         "orderNo": "MKT-000287",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:30:55.280223",
+         "acceptBy": "2026-10-03T19:24:16.895638",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892162",
+         "customerPhone": "03007086842",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:25:55.244992",
+         "createdAt": "2026-10-03T19:19:16.865106",
          "lines": [
           {
-           "lineId": 156,
+           "lineId": 287,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -2207,8 +2207,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -2222,8 +2222,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:25:58.605Z",
-   "startedAt": "2026-10-03T14:25:54.386Z",
+   "recordedAt": "2026-10-03T19:19:19.936Z",
+   "startedAt": "2026-10-03T19:19:16.080Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -2244,13 +2244,13 @@
    "steps": [
     {
      "n": 1,
-     "do": "Customer 1 (phone 03008892163): open that product, choose Shahzad Mobile Shop, Quantity 2, Place order.",
+     "do": "Customer 1 (phone 03007086843): open that product, choose Shahzad Mobile Shop, Quantity 2, Place order.",
      "expect": "\"Waiting for Shahzad Mobile Shop to confirm\". Both units are now held.",
      "shot": "shots/M-1e-03/01.jpg"
     },
     {
      "n": 2,
-     "do": "Customer 2 (another window, phone 03008892164): the same product, Quantity 1, Place order.",
+     "do": "Customer 2 (another window, phone 03007086844): the same product, Quantity 1, Place order.",
      "expect": "Refused on the checkout: \"This seller no longer has enough stock. Please choose another offer.\" Nothing is placed.",
      "shot": "shots/M-1e-03/02.jpg"
     },
@@ -2287,8 +2287,8 @@
      "shot": "shots/M-1e-03/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:26:23.871Z",
-   "startedAt": "2026-10-03T14:25:58.682Z",
+   "recordedAt": "2026-10-03T19:19:43.863Z",
+   "startedAt": "2026-10-03T19:19:20.019Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -2317,7 +2317,7 @@
     },
     {
      "n": 2,
-     "do": "Customer (phone 03008892165): order Shahzad Mobile Shop's phone. The seller does nothing.",
+     "do": "Customer (phone 03007086845): order Shahzad Mobile Shop's phone. The seller does nothing.",
      "expect": "\"Shahzad Mobile Shop has 0:5x to confirm. Your stock is held.\"",
      "shot": "shots/M-1e-04/02.jpg"
     },
@@ -2358,8 +2358,8 @@
      "shot": "shots/M-1e-04/c01.jpg"
     }
    ],
-   "recordedAt": "2026-10-03T14:28:49.925Z",
-   "startedAt": "2026-10-03T14:26:24.133Z",
+   "recordedAt": "2026-10-03T19:22:09.128Z",
+   "startedAt": "2026-10-03T19:19:44.210Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -2382,13 +2382,13 @@
    "steps": [
     {
      "n": 1,
-     "do": "Fill the checkout for Shahzad Mobile Shop (phone 03008892166) and DOUBLE-click \"Place order\".",
+     "do": "Fill the checkout for Shahzad Mobile Shop (phone 03007086846) and DOUBLE-click \"Place order\".",
      "expect": "One order number. The seller has exactly ONE order for that phone.",
      "shot": "shots/M-1e-05/01.jpg"
     },
     {
      "n": 2,
-     "do": "Another order (phone 03008892167): the server PLACES it, but the answer is lost on the way back (developer tools: the response replaced by \"504 Gateway Timeout\").",
+     "do": "Another order (phone 03007086847): the server PLACES it, but the answer is lost on the way back (developer tools: the response replaced by \"504 Gateway Timeout\").",
      "expect": "The page does not guess: \"We could not confirm your order. Press the button again; it will not be placed twice.\"",
      "shot": "shots/M-1e-05/02.jpg"
     },
@@ -2412,28 +2412,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 161,
+         "id": 292,
          "version": 3,
-         "orderNo": "MKT-000161",
+         "orderNo": "MKT-000292",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:33:51.417939",
+         "acceptBy": "2026-10-03T19:27:10.612356",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892166",
+         "customerPhone": "03007086846",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:28:51.386928",
+         "createdAt": "2026-10-03T19:22:10.581499",
          "lines": [
           {
-           "lineId": 161,
+           "lineId": 292,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -2450,8 +2450,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -2469,28 +2469,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 162,
+         "id": 293,
          "version": 3,
-         "orderNo": "MKT-000162",
+         "orderNo": "MKT-000293",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:33:56.811725",
+         "acceptBy": "2026-10-03T19:27:15.779336",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892167",
+         "customerPhone": "03007086847",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:28:56.775194",
+         "createdAt": "2026-10-03T19:22:15.745125",
          "lines": [
           {
-           "lineId": 162,
+           "lineId": 293,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -2507,8 +2507,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -2522,8 +2522,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:29:01.614Z",
-   "startedAt": "2026-10-03T14:28:50.133Z",
+   "recordedAt": "2026-10-03T19:22:20.463Z",
+   "startedAt": "2026-10-03T19:22:09.351Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -2547,7 +2547,7 @@
    "steps": [
     {
      "n": 1,
-     "do": "Customer (phone 03008892168): order that phone.",
+     "do": "Customer (phone 03007086848): order that phone.",
      "expect": "The order page lists the line with \"12 months warranty · Samsung Pakistan · Returns within 7 days\" and Rs. 52,000.",
      "shot": "shots/M-1e-06/01.jpg"
     },
@@ -2575,7 +2575,7 @@
         "success": true,
         "message": "Success",
         "data": {
-         "orderNo": "MKT-000163",
+         "orderNo": "MKT-000294",
          "status": "SUBMITTED",
          "paymentMode": "COD",
          "paymentStatus": "UNPAID",
@@ -2583,8 +2583,8 @@
          "deliveryFee": 0,
          "total": 52000,
          "cancelReason": null,
-         "createdAt": "2026-10-03T14:29:04.191076",
-         "sellerOrderId": 163,
+         "createdAt": "2026-10-03T19:22:23.123069",
+         "sellerOrderId": 294,
          "sellerOrderVersion": 1,
          "sellerOrderStatus": "OFFERED",
          "sellerName": "Shahzad Mobile Shop",
@@ -2592,9 +2592,9 @@
          "city": "Karachi",
          "lines": [
           {
-           "offerId": 64,
-           "mktProductId": 61,
-           "productName": "Samsung Galaxy A32 T1791037275889216p 128GB Black",
+           "offerId": 106,
+           "mktProductId": 102,
+           "productName": "Samsung Galaxy A32 T1791054895708684p 128GB Black",
            "quantity": 1,
            "unitPrice": 52000,
            "lineTotal": 52000,
@@ -2625,28 +2625,28 @@
         "data": {
          "content": [
           {
-           "id": 163,
+           "id": 294,
            "version": 1,
-           "orderNo": "MKT-000163",
+           "orderNo": "MKT-000294",
            "acceptanceStatus": "OFFERED",
-           "acceptBy": "2026-10-03T14:34:04.22177",
+           "acceptBy": "2026-10-03T19:27:23.155367",
            "secondsLeft": 294,
            "customerName": "Ali",
-           "customerPhone": "03008892168",
+           "customerPhone": "03007086848",
            "address": "1 Clifton",
            "city": "Karachi",
            "total": 52000,
            "invoiceNo": null,
            "storeOrderNo": null,
            "rejectReason": null,
-           "createdAt": "2026-10-03T14:29:04.192709",
+           "createdAt": "2026-10-03T19:22:23.124576",
            "lines": [
             {
-             "lineId": 163,
+             "lineId": 294,
              "line": {
-              "offerId": 64,
-              "mktProductId": 61,
-              "productName": "Samsung Galaxy A32 T1791037275889216p 128GB Black",
+              "offerId": 106,
+              "mktProductId": 102,
+              "productName": "Samsung Galaxy A32 T1791054895708684p 128GB Black",
               "quantity": 1,
               "unitPrice": 52000,
               "lineTotal": 52000,
@@ -2663,8 +2663,8 @@
               "warrantyExcludes": null,
               "returnDays": 7
              },
-             "sourceProductId": 123,
-             "commissionPolicyId": 89,
+             "sourceProductId": 194,
+             "commissionPolicyId": 155,
              "commissionBasis": "ITEMS",
              "commissionRate": 0.08,
              "commissionFixed": null,
@@ -2698,28 +2698,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 163,
+         "id": 294,
          "version": 3,
-         "orderNo": "MKT-000163",
+         "orderNo": "MKT-000294",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:04.22177",
+         "acceptBy": "2026-10-03T19:27:23.155367",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892168",
+         "customerPhone": "03007086848",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:04.192709",
+         "createdAt": "2026-10-03T19:22:23.124576",
          "lines": [
           {
-           "lineId": 163,
+           "lineId": 294,
            "line": {
-            "offerId": 64,
-            "mktProductId": 61,
-            "productName": "Samsung Galaxy A32 T1791037275889216p 128GB Black",
+            "offerId": 106,
+            "mktProductId": 102,
+            "productName": "Samsung Galaxy A32 T1791054895708684p 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -2736,8 +2736,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 123,
-           "commissionPolicyId": 89,
+           "sourceProductId": 194,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -2751,8 +2751,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:29:10.161Z",
-   "startedAt": "2026-10-03T14:29:01.716Z",
+   "recordedAt": "2026-10-03T19:22:28.651Z",
+   "startedAt": "2026-10-03T19:22:20.569Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -2803,7 +2803,7 @@
         "data": {
          "content": [
           {
-           "orderNo": "MKT-000155",
+           "orderNo": "MKT-000286",
            "status": "CONFIRMED",
            "paymentMode": "COD",
            "paymentStatus": "UNPAID",
@@ -2811,8 +2811,8 @@
            "deliveryFee": 0,
            "total": 52000,
            "cancelReason": null,
-           "createdAt": "2026-10-03T14:25:45.445078",
-           "sellerOrderId": 155,
+           "createdAt": "2026-10-03T19:19:07.068578",
+           "sellerOrderId": 286,
            "sellerOrderVersion": 3,
            "sellerOrderStatus": "ACCEPTED",
            "sellerName": "Shahzad Mobile Shop",
@@ -2820,9 +2820,9 @@
            "city": "Karachi",
            "lines": [
             {
-             "offerId": 61,
-             "mktProductId": 59,
-             "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+             "offerId": 103,
+             "mktProductId": 100,
+             "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
              "quantity": 1,
              "unitPrice": 52000,
              "lineTotal": 52000,
@@ -2842,16 +2842,16 @@
            ]
           },
           {
-           "orderNo": "MKT-000150",
+           "orderNo": "MKT-000282",
            "status": "CONFIRMED",
            "paymentMode": "COD",
            "paymentStatus": "UNPAID",
-           "subtotal": 104000,
+           "subtotal": 52000,
            "deliveryFee": 0,
-           "total": 104000,
+           "total": 52000,
            "cancelReason": null,
-           "createdAt": "2026-10-03T14:20:17.444504",
-           "sellerOrderId": 150,
+           "createdAt": "2026-10-03T19:14:40.36394",
+           "sellerOrderId": 282,
            "sellerOrderVersion": 3,
            "sellerOrderStatus": "ACCEPTED",
            "sellerName": "Shahzad Mobile Shop",
@@ -2859,12 +2859,12 @@
            "city": "Karachi",
            "lines": [
             {
-             "offerId": 59,
-             "mktProductId": 57,
-             "productName": "Samsung Galaxy A32 T1791036935322788s 128GB Black",
-             "quantity": 2,
+             "offerId": 101,
+             "mktProductId": 98,
+             "productName": "Samsung Galaxy A32 T1791054869581369a 128GB Black",
+             "quantity": 1,
              "unitPrice": 52000,
-             "lineTotal": 104000,
+             "lineTotal": 52000,
              "stockSourceType": "MERCHANT",
              "sellerOrganizationId": 6,
              "stockOwnerOrganizationId": 6,
@@ -2881,7 +2881,7 @@
            ]
           },
           {
-           "orderNo": "MKT-000140",
+           "orderNo": "MKT-000263",
            "status": "CONFIRMED",
            "paymentMode": "COD",
            "paymentStatus": "UNPAID",
@@ -2889,8 +2889,8 @@
            "deliveryFee": 0,
            "total": 52000,
            "cancelReason": null,
-           "createdAt": "2026-10-03T14:16:39.413395",
-           "sellerOrderId": 140,
+           "createdAt": "2026-10-03T19:12:04.116469",
+           "sellerOrderId": 263,
            "sellerOrderVersion": 3,
            "sellerOrderStatus": "ACCEPTED",
            "sellerName": "Shahzad Mobile Shop",
@@ -2898,9 +2898,9 @@
            "city": "Karachi",
            "lines": [
             {
-             "offerId": 55,
-             "mktProductId": 54,
-             "productName": "Samsung Galaxy A32 T1791036935322788d 128GB Black",
+             "offerId": 97,
+             "mktProductId": 94,
+             "productName": "Samsung Galaxy A32 T179105472142150 128GB Black",
              "quantity": 1,
              "unitPrice": 52000,
              "lineTotal": 52000,
@@ -2919,11 +2919,11 @@
             }
            ]
           },
-          "… 12 more"
+          "… 27 more"
          ],
          "pageNo": 0,
          "pageSize": 100,
-         "totalElements": 15,
+         "totalElements": 30,
          "totalPages": 1,
          "last": true
         },
@@ -2965,28 +2965,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 164,
+         "id": 295,
          "version": 3,
-         "orderNo": "MKT-000164",
+         "orderNo": "MKT-000295",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:10.419273",
+         "acceptBy": "2026-10-03T19:27:28.921748",
          "secondsLeft": null,
          "customerName": "Bilal",
-         "customerPhone": "030088921611",
+         "customerPhone": "030070868411",
          "address": "2 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:10.390894",
+         "createdAt": "2026-10-03T19:22:28.895153",
          "lines": [
           {
-           "lineId": 164,
+           "lineId": 295,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -3003,8 +3003,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -3018,8 +3018,8 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:29:16.003Z",
-   "startedAt": "2026-10-03T14:29:10.245Z",
+   "recordedAt": "2026-10-03T19:22:34.392Z",
+   "startedAt": "2026-10-03T19:22:28.738Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -3057,8 +3057,8 @@
      "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T14:29:16.816Z",
-   "startedAt": "2026-10-03T14:29:16.093Z",
+   "recordedAt": "2026-10-03T19:22:35.234Z",
+   "startedAt": "2026-10-03T19:22:34.481Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -3089,13 +3089,13 @@
     },
     {
      "n": 2,
-     "do": "Type ONE IMEI (350372758892161) and press Accept.",
+     "do": "Type ONE IMEI (350548957086841) and press Accept.",
      "expect": "The same refusal: two units need two IMEIs.",
      "shot": "shots/M-1e-10/02.jpg"
     },
     {
      "n": 3,
-     "do": "Type the second IMEI (350372758892162) and press Accept.",
+     "do": "Type the second IMEI (350548957086842) and press Accept.",
      "expect": "Accepted: \"Invoice INV-…\"; the invoice records those two IMEIs as sold. (An IMEI the shop never received is refused: \"The sale could not be recorded: Serial … is not in stock.\" — and the order keeps waiting, stock held.)",
      "shot": "shots/M-1e-10/03.jpg"
     }
@@ -3107,8 +3107,8 @@
      "expect": "—"
     }
    ],
-   "recordedAt": "2026-10-03T14:29:31.622Z",
-   "startedAt": "2026-10-03T14:29:16.897Z",
+   "recordedAt": "2026-10-03T19:22:49.611Z",
+   "startedAt": "2026-10-03T19:22:35.319Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
@@ -3132,19 +3132,19 @@
    "steps": [
     {
      "n": 1,
-     "do": "With phone 03008892169, place 3 orders and leave them unanswered.",
+     "do": "With phone 03007086849, place 3 orders and leave them unanswered.",
      "expect": "Each reads \"Waiting for … to confirm\".",
      "shot": "shots/M-1e-11/01.jpg"
     },
     {
      "n": 2,
-     "do": "Place a 4th with the SAME number written differently: (0300) 8892169.",
+     "do": "Place a 4th with the SAME number written differently: (0300) 7086849.",
      "expect": "Refused: \"You already have 3 orders waiting for sellers to confirm. Please wait for an answer first.\"",
      "shot": "shots/M-1e-11/02.jpg"
     },
     {
      "n": 3,
-     "do": "Place one with a different number (03008892160).",
+     "do": "Place one with a different number (03007086840).",
      "expect": "Placed: the limit is per number, not per shop.",
      "shot": "shots/M-1e-11/03.jpg"
     },
@@ -3168,28 +3168,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 169,
+         "id": 300,
          "version": 3,
-         "orderNo": "MKT-000169",
+         "orderNo": "MKT-000300",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:39.216408",
+         "acceptBy": "2026-10-03T19:27:57.20556",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892160",
+         "customerPhone": "03007086840",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:39.185621",
+         "createdAt": "2026-10-03T19:22:57.174154",
          "lines": [
           {
-           "lineId": 169,
+           "lineId": 300,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -3206,8 +3206,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -3225,28 +3225,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 168,
+         "id": 299,
          "version": 3,
-         "orderNo": "MKT-000168",
+         "orderNo": "MKT-000299",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:35.652329",
+         "acceptBy": "2026-10-03T19:27:53.705751",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892169",
+         "customerPhone": "03007086849",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:35.619764",
+         "createdAt": "2026-10-03T19:22:53.674454",
          "lines": [
           {
-           "lineId": 168,
+           "lineId": 299,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -3263,8 +3263,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -3282,28 +3282,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 167,
+         "id": 298,
          "version": 3,
-         "orderNo": "MKT-000167",
+         "orderNo": "MKT-000298",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:34.361483",
+         "acceptBy": "2026-10-03T19:27:52.389631",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892169",
+         "customerPhone": "03007086849",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:34.334471",
+         "createdAt": "2026-10-03T19:22:52.360638",
          "lines": [
           {
-           "lineId": 167,
+           "lineId": 298,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -3320,8 +3320,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -3339,28 +3339,28 @@
         "success": true,
         "message": "Rejected. The stock is released and the shopper is told.",
         "data": {
-         "id": 166,
+         "id": 297,
          "version": 3,
-         "orderNo": "MKT-000166",
+         "orderNo": "MKT-000297",
          "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T14:34:33.066056",
+         "acceptBy": "2026-10-03T19:27:51.070454",
          "secondsLeft": null,
          "customerName": "Ali",
-         "customerPhone": "03008892169",
+         "customerPhone": "03007086849",
          "address": "1 Clifton",
          "city": "Karachi",
          "total": 52000,
          "invoiceNo": null,
          "storeOrderNo": null,
          "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T14:29:33.036495",
+         "createdAt": "2026-10-03T19:22:51.041066",
          "lines": [
           {
-           "lineId": 166,
+           "lineId": 297,
            "line": {
-            "offerId": 61,
-            "mktProductId": 59,
-            "productName": "Samsung Galaxy A32 T1791037275889216d 128GB Black",
+            "offerId": 103,
+            "mktProductId": 100,
+            "productName": "Samsung Galaxy A32 T1791054895708684d 128GB Black",
             "quantity": 1,
             "unitPrice": 52000,
             "lineTotal": 52000,
@@ -3377,8 +3377,8 @@
             "warrantyExcludes": null,
             "returnDays": 7
            },
-           "sourceProductId": 120,
-           "commissionPolicyId": 89,
+           "sourceProductId": 191,
+           "commissionPolicyId": 155,
            "commissionBasis": "ITEMS",
            "commissionRate": 0.08,
            "commissionFixed": null,
@@ -3392,13 +3392,469 @@
      ]
     }
    ],
-   "recordedAt": "2026-10-03T14:29:45.169Z",
-   "startedAt": "2026-10-03T14:29:31.820Z",
+   "recordedAt": "2026-10-03T19:23:02.846Z",
+   "startedAt": "2026-10-03T19:22:49.801Z",
    "result": "passed",
    "evidence": "recorded",
    "found": [
     "DEFECT, fixed: when the page's security token lapsed, Spring redirected to the login page and the shopper saw \"Save failed\" — the \"This page expired\" sentence was never reachable. The page now reads the redirect as an expired page."
    ]
+  },
+  {
+   "id": "M-1e2-01",
+   "slice": "MKT-1e2",
+   "title": "A shopper creates an account with phone and password",
+   "persona": "Customer (incognito window)",
+   "reqs": [
+    "MKT-R1.1",
+    "MKT-R22.3"
+   ],
+   "pre": "Shahzad Mobile Shop has a Live phone offer in Karachi (as M-1d-01).",
+   "auto": [
+    "MKT-1e2-01",
+    "MKT-1e2-02"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Open /marketplace in an incognito window and press \"Sign in\" at the top.",
+     "expect": "The account panel opens: Phone number, Password, \"Sign in\", and \"New here? Create an account\". The forgot-password line says to contact MaxTheService support with an order number and the phone you ordered with.",
+     "shot": "shots/M-1e2-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Press \"New here? Create an account\". Phone 03127086841, Your name \"Ali Raza\", Password \"short\". Press \"Create account\".",
+     "expect": "Refused: \"Choose a password of at least 8 characters.\" The hint under the password says \"At least 8 characters. Not your phone number.\"",
+     "shot": "shots/M-1e2-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Password \"Shop!ng2026\". Press \"Create account\".",
+     "expect": "Signed in: the top button now reads \"Ali Raza\"; \"My orders\" shows \"No orders yet.\" with \"Add an order you placed before\" below.",
+     "shot": "shots/M-1e2-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Developer tools → Application → Cookies: look for MKT_SESSION.",
+     "expect": "The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax; document.cookie does not contain it.",
+     "calls": [
+      {
+       "call": "Browser cookie MKT_SESSION (value withheld)",
+       "status": "cookie",
+       "body": {
+        "name": "MKT_SESSION",
+        "httpOnly": true,
+        "sameSite": "lax",
+        "path": "/marketplace",
+        "secure": false
+       }
+      },
+      {
+       "call": "document.cookie as page scripts see it",
+       "status": "script",
+       "body": "XSRF-TOKEN=34b9fb01-b4f9-47da-9089-89e2695e5538"
+      }
+     ]
+    },
+    {
+     "n": 5,
+     "do": "Press \"Sign out\", then try to create another account with the same phone written as (0312) 7086841.",
+     "expect": "Refused: \"This phone number already has an account. Sign in instead.\" — one account per phone, however it is written.",
+     "shot": "shots/M-1e2-01/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the account stays for the next cases.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-03T19:23:08.726Z",
+   "startedAt": "2026-10-03T19:23:02.990Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-1e2-02",
+   "slice": "MKT-1e2",
+   "title": "Five wrong passwords lock the phone for 15 minutes",
+   "persona": "Customer",
+   "reqs": [
+    "MKT-R22.3"
+   ],
+   "pre": "An account exists for a phone (here a fresh one).",
+   "auto": [
+    "MKT-1e2-03"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Sign in with phone 03127086842 and a wrong password, five times.",
+     "expect": "Each time: \"The phone number or password is not right.\" — the same sentence an unknown phone gets.",
+     "shot": "shots/M-1e2-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Now type the RIGHT password and press \"Sign in\".",
+     "expect": "Refused: \"Too many wrong passwords. Please try again in 15 minutes.\"",
+     "shot": "shots/M-1e2-02/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Wait 15 minutes; the lock lifts by itself.",
+     "expect": "Signing in works again after 15 minutes."
+    }
+   ],
+   "recordedAt": "2026-10-03T19:23:14.608Z",
+   "startedAt": "2026-10-03T19:23:08.822Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-1e2-03",
+   "slice": "MKT-1e2",
+   "title": "My orders shows only what is proven yours; an earlier order is added by number + phone",
+   "persona": "Customer",
+   "reqs": [
+    "MKT-R1.1",
+    "MKT-R22.1"
+   ],
+   "pre": "M-1e2-01 done (account for the walk phone).",
+   "auto": [
+    "MKT-1e2-04",
+    "MKT-1e2-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed OUT, order the phone with phone 03127086841 (cash on delivery).",
+     "expect": "\"Waiting for Shahzad Mobile Shop to confirm\" — an anonymous order.",
+     "shot": "shots/M-1e2-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Sign in as 03127086841 and open My orders.",
+     "expect": "The anonymous order is NOT there: the same phone is not proof that it is yours.",
+     "shot": "shots/M-1e2-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Under \"Add an order you placed before\": the order number and a WRONG phone (03009999999). Press \"Add to my orders\".",
+     "expect": "Refused: \"No such order. Check the order number and the phone it was placed with.\"",
+     "shot": "shots/M-1e2-03/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "The same number with phone 03127086841. Press \"Add to my orders\".",
+     "expect": "The order appears in My orders with its seller, \"Waiting for the seller\", the total and \"Cash on delivery\".",
+     "shot": "shots/M-1e2-03/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Signed in, order again (cash on delivery).",
+     "expect": "The new order is in My orders at once — no claim needed.",
+     "shot": "shots/M-1e2-03/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: M-1e2-04 cancels these orders.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-03T19:23:22.124Z",
+   "startedAt": "2026-10-03T19:23:14.702Z",
+   "result": "passed",
+   "evidence": "recorded",
+   "found": [
+    "DEFECT, fixed (design trace): a lost card charge could never be refunded — the payment fact is now written before the provider is called and reconciled by its idempotency key (MarketplacePaymentServiceTest)."
+   ]
+  },
+  {
+   "id": "M-1e2-04",
+   "slice": "MKT-1e2",
+   "title": "The shopper cancels while the seller has not answered; after Accept they cannot",
+   "persona": "Customer, then owner.business@myplus.com",
+   "reqs": [
+    "MKT-R10.5"
+   ],
+   "pre": "M-1e2-03 done: two waiting orders in My orders.",
+   "auto": [
+    "MKT-1e2-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in as 03127086841: My orders → \"Cancel order\" on the first order → reason \"changed my mind\" → \"Cancel order\".",
+     "expect": "The order turns \"Cancelled\" with \"You cancelled this order. changed my mind\"; its Cancel button is gone.",
+     "shot": "shots/M-1e2-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → Incoming → \"All\".",
+     "expect": "The order reads \"Cancelled\": the seller is told, and the held stock was given back.",
+     "shot": "shots/M-1e2-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "The seller presses Accept on the OTHER waiting order. Then the shopper opens My orders.",
+     "expect": "That order reads \"Confirmed\" and has no Cancel button: after Accept, cancelling is a support case.",
+     "shot": "shots/M-1e2-04/03.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: the accepted sale is real (return it through Sale Returns if needed).",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-03T19:23:33.568Z",
+   "startedAt": "2026-10-03T19:23:22.223Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-1e2-05",
+   "slice": "MKT-1e2",
+   "title": "Pay online now: charged at once; a seller reject refunds it exactly once",
+   "persona": "Customer, then owner.business@myplus.com",
+   "reqs": [
+    "MKT-R19.1",
+    "MKT-R20.1",
+    "MKT-R13.1"
+   ],
+   "pre": "Signed in (M-1e2-01).",
+   "auto": [
+    "MKT-1e2-07"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in, buy the phone. At \"How do you want to pay?\" choose \"Pay online now\".",
+     "expect": "A card field appears, labelled test mode: \"Test payments only: no real card is charged.\" The cash-on-delivery line is hidden.",
+     "shot": "shots/M-1e2-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Card \"4242 4242 4242 4242\", your details, \"Place order\".",
+     "expect": "\"Waiting for Shahzad Mobile Shop to confirm\"; in My orders the order reads \"Paid online\".",
+     "shot": "shots/M-1e2-05/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "As owner.business@: Incoming → that order → reason \"out of stock\" → Reject. Then the shopper reopens My orders.",
+     "expect": "The order reads \"Cancelled\", \"The seller could not fulfil this order.\" and \"Refunded\".",
+     "shot": "shots/M-1e2-05/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Developer tools: GET /marketplace/account/orders and read that order's payments.",
+     "expect": "Exactly ONE succeeded CHARGE and ONE succeeded REFUND for the same amount — never two.",
+     "calls": [
+      {
+       "call": "GET /marketplace/account/orders",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Success",
+        "data": {
+         "content": [
+          {
+           "orderNo": "MKT-000303",
+           "status": "CANCELLED",
+           "paymentMode": "CARD",
+           "paymentStatus": "REFUNDED",
+           "total": 52000,
+           "cancelReason": "The seller could not fulfil this order.",
+           "createdAt": "2026-10-03T19:23:37.118442",
+           "sellerName": "Shahzad Mobile Shop",
+           "sellerOrderStatus": "REJECTED",
+           "secondsToAccept": null,
+           "city": "Karachi",
+           "lines": [
+            {
+             "offerId": 108,
+             "mktProductId": 104,
+             "productName": "Samsung Galaxy A32 T1791054895708684x 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ],
+           "payments": [
+            {
+             "kind": "CHARGE",
+             "status": "SUCCEEDED",
+             "amount": 52000,
+             "reason": null,
+             "at": "2026-10-03T19:23:37.157024"
+            },
+            {
+             "kind": "REFUND",
+             "status": "SUCCEEDED",
+             "amount": 52000,
+             "reason": "The seller could not fulfil this order.",
+             "at": "2026-10-03T19:23:44.357152"
+            }
+           ],
+           "canCancel": false
+          },
+          {
+           "orderNo": "MKT-000302",
+           "status": "CONFIRMED",
+           "paymentMode": "COD",
+           "paymentStatus": "UNPAID",
+           "total": 52000,
+           "cancelReason": null,
+           "createdAt": "2026-10-03T19:23:21.310384",
+           "sellerName": "Shahzad Mobile Shop",
+           "sellerOrderStatus": "ACCEPTED",
+           "secondsToAccept": null,
+           "city": "Karachi",
+           "lines": [
+            {
+             "offerId": 108,
+             "mktProductId": 104,
+             "productName": "Samsung Galaxy A32 T1791054895708684x 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ],
+           "payments": [],
+           "canCancel": false
+          },
+          {
+           "orderNo": "MKT-000301",
+           "status": "CANCELLED",
+           "paymentMode": "COD",
+           "paymentStatus": "UNPAID",
+           "total": 52000,
+           "cancelReason": "You cancelled this order. changed my mind",
+           "createdAt": "2026-10-03T19:23:15.980386",
+           "sellerName": "Shahzad Mobile Shop",
+           "sellerOrderStatus": "CANCELLED",
+           "secondsToAccept": null,
+           "city": "Karachi",
+           "lines": [
+            {
+             "offerId": 108,
+             "mktProductId": 104,
+             "productName": "Samsung Galaxy A32 T1791054895708684x 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ],
+           "payments": [],
+           "canCancel": false
+          }
+         ],
+         "pageNo": 0,
+         "pageSize": 50,
+         "totalElements": 3,
+         "totalPages": 1,
+         "last": true
+        },
+        "statusCode": 200
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: a refunded order is complete.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-03T19:23:46.746Z",
+   "startedAt": "2026-10-03T19:23:33.753Z",
+   "result": "passed",
+   "evidence": "recorded",
+   "found": [
+    "DEFECT, fixed (design trace): a card order reached the seller's books as cash on delivery, so a rider could collect cash for an order already paid. It now records MARKETPLACE. Every cancelling path refunds exactly once."
+   ]
+  },
+  {
+   "id": "M-1e2-06",
+   "slice": "MKT-1e2",
+   "title": "A declined card places nothing",
+   "persona": "Customer",
+   "reqs": [
+    "MKT-R19.1"
+   ],
+   "pre": "Signed in (M-1e2-01).",
+   "auto": [
+    "MKT-1e2-08"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in, buy the phone, \"Pay online now\", card \"fail\" (the test card that is always declined). \"Place order\".",
+     "expect": "Refused on the checkout: \"Your card was declined. Please use another card or choose cash on delivery.\" No order number is shown.",
+     "shot": "shots/M-1e2-06/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As owner.business@: Incoming → \"Waiting for you\".",
+     "expect": "No new order from this shopper is waiting: the seller never sees a declined order, and its stock was given back.",
+     "shot": "shots/M-1e2-06/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing was placed.",
+     "expect": "Nothing to undo."
+    }
+   ],
+   "recordedAt": "2026-10-03T19:24:00.307Z",
+   "startedAt": "2026-10-03T19:23:46.873Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-1e-07",
@@ -3409,8 +3865,8 @@
    "steps": [
     {
      "n": 1,
-     "do": "Open /marketplace → \"My orders\" → sign in with the phone number and the one-time code sent to it.",
-     "expect": "Signed in; no password asked."
+     "do": "Open /marketplace → \"Sign in\" → the phone number and password (owner ruling: phone + password; no one-time code until an SMS provider is chosen).",
+     "expect": "Signed in; the top button shows Ali's name."
     },
     {
      "n": 2,
@@ -3429,7 +3885,7 @@
     "MKT-R8.1"
    ],
    "evidence": "design",
-   "source": "Design §R-MKT-5 (platform-scoped customer account), slice MKT-1e2.",
+   "source": "Design §R-MKT-5 (platform-scoped customer account), slice MKT-1e2. The one-seller part is recorded in M-1e2-03; this case needs a second Live seller in the same city.",
    "warn": false,
    "auto": []
   },

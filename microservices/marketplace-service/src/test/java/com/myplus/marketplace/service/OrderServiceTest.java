@@ -286,7 +286,7 @@ class OrderServiceTest {
 
     @Test
     void processing_a_return_returns_stock_and_refunds_a_card_order() {
-        OrderDTO d = storefront("RMA Buyer", "CARD", "ok");   // total 20.00, PAID, reservation resv-1
+        OrderDTO d = storefront("RMA Buyer", "CARD", "ok");   // total 20.00, PAID, invoice INV-SF-1 (O1: no reservation)
         d.setCustomerContact("0300RMA");
         OrderDTO o = service.placePublic(d);
         seedDelivered(o.getId());
@@ -296,7 +296,11 @@ class OrderServiceTest {
         assertThat(r.getFulfilmentStatus()).isEqualTo("RETURNED");
         assertThat(r.getPaymentStatus()).isEqualTo("REFUNDED");
         assertThat(r.getRefundedAmount()).isEqualByComparingTo(o.getTotal());
-        verify(inventoryClient, times(1)).returnStock(eq("resv-1"), any(StockReturnRequest.class));  // G2 stock back
+        // G2 stock back. Since O1 the order IS a sale in the store's books: voiding that invoice returns the stock
+        // and the revenue together. The pre-O1 inventory-only return must NOT also run, or the stock comes back twice.
+        verify(tradeClient, times(1)).reverseSale(eq(o.getInvoiceNo()), any());
+        verify(inventoryClient, never()).returnStock(any(), any(StockReturnRequest.class));
+        assertThat(repo.findById(o.getId()).orElseThrow().getBooksStatus()).isEqualTo("REVERSED");
     }
 
     @Test

@@ -1534,8 +1534,11 @@ on('MKT manual walk — recorded', () => {
       })
     step('Developer tools → Application → Cookies: look for MKT_SESSION.',
       'The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax; document.cookie does not contain it.', () => {
-        cy.getCookie('MKT_SESSION').then((c) => { expect(c.httpOnly).to.eq(true); expect(c.sameSite).to.match(/lax/i) })
-        cy.document().its('cookie').should('not.contain', 'MKT_SESSION')
+        call('Browser cookie MKT_SESSION (value withheld)', cy.getCookie('MKT_SESSION').then((c) => ({
+          status: 'cookie', body: { name: c.name, httpOnly: c.httpOnly, sameSite: c.sameSite, path: c.path, secure: c.secure } })))
+          .then((r) => { expect(r.body.httpOnly).to.eq(true); expect(r.body.sameSite).to.match(/lax/i) })
+        call('document.cookie as page scripts see it', cy.document().its('cookie').then((s) => ({ status: 'script', body: s || '(empty)' })))
+          .then((r) => expect(String(r.body)).not.to.contain('MKT_SESSION'))
       }, { screen: false })
     step(`Press "Sign out", then try to create another account with the same phone written as (${cph(1).slice(0, 4)}) ${cph(1).slice(4)}.`,
       'Refused: "This phone number already has an account. Sign in instead." — one account per phone, however it is written.', () => {
