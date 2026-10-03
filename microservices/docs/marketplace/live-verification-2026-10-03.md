@@ -35,7 +35,7 @@ it (one today: M-1e-09 step 2, switching cash on delivery off).
 Before a recording, `walk-reset.sql` resets the one shop that plays "never applied" (`owner.audit@`): accepting the
 agreements is a permanent record by design, so the product itself has no way to undo it.
 
-Result: **39 / 39 cases passed** in one recorded run on the final build (finished 2026-10-03 14:10:44 UTC): MKT-0a 5, 1b 7, 1c 9, 1d 8, 1e 10. The pictures and recorded calls are on the published manual-test page.
+Result: **39 / 39 cases passed** in one recorded run on the final build (finished 2026-10-03 14:29:45 UTC): MKT-0a 5, 1b 7, 1c 9, 1d 8, 1e 10. The pictures and recorded calls are on the published manual-test page.
 
 ## 3. What the live runs found
 
