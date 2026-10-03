@@ -42,7 +42,8 @@ const API = {
   publicProducts: '/marketplace/public/products',            // ?q=&city=&page=
   publicOffers: (id) => `/marketplace/public/products/${id}/offers`, // ?sort=&city=&qty=
   // seller (MKT_SELL + capability marketplaceSelling + operator entitlement)
-  acceptAgreement: '/mkt/acceptAgreement',
+  sellerStatus: '/mkt/seller',                                // MKT-0a: capability, agreements, account, canSell
+  acceptAgreement: '/mkt/acceptAgreement',                    // MKT-0a: {version, displayName}
   proposeProduct: '/mkt/proposeProduct',
   myProposals: '/mkt/myProposals',
   saveOffer: '/mkt/saveOffer',
@@ -58,7 +59,8 @@ const API = {
   decideMatch: '/platform/mkt/decideMatch',
   offerQueue: '/platform/mkt/offerQueue',
   decideOffer: '/platform/mkt/decideOffer',
-  suspendSeller: '/platform/mkt/suspendSeller',
+  sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…
+  decideSeller: '/platform/mkt/decideSeller',                 // MKT-0a: {organizationId, decision, reason, version}
   requestPayout: '/platform/mkt/requestPayout',
   approvePayout: '/platform/mkt/approvePayout',
   markPayoutPaid: '/platform/mkt/markPayoutPaid',
@@ -84,7 +86,8 @@ const UI = {
   chooseOffer: '.mkt-choose-offer',
   buyButton: '#mktBuyBtn',             // names the chosen seller
   checkoutStatus: '#mktCheckoutStatus',
-  sellerSection: 'MarketplaceDiv',     // cy.openSection value on /businessDashboard
+  sellerSection: '#MarketplaceDiv',    // MKT-0a: Sale → Marketplace (#navMarketplaceSeller) on /businessDashboard
+  sellerNav: '#navMarketplaceSeller',
   proposeBtn: '#mktProposeBtn',
   offersTable: '#mktOffersTable',
   incoming: '#mktIncomingOrders',
@@ -92,7 +95,7 @@ const UI = {
   rejectBtn: '.mkt-reject',
   countdown: '.mkt-accept-countdown',
   statementTable: '#mktStatementTable',
-  operatorPage: '/platform/marketplace',
+  operatorPage: '/platformDashboard',  // MKT-0a: "Marketplace sellers" (#platMktSellersBtn → #platMktSellers)
 }
 
 /** Read either envelope the same way (standard 8c) — never `body.success` alone on a GenericResponse. */
@@ -122,13 +125,30 @@ const expectRefused = (r, sentencePart) => {
  * Order matters and is itself asserted elsewhere: the operator entitles, then the owner switches the module on
  * and accepts the seller + data-sharing agreements.
  */
-const makeSeller = (email) => {
+const makeSeller = (email, displayName = 'MKT gate seller') => {
   cy.loginAsOperator()
   cy.setEntitlement(email, 'marketplaceSelling', 'ACTIVE', 'mkt gate')
   cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
   cy.setCapability('marketplaceSelling', true)
-  return post(API.acceptAgreement, { agreement: 'SELLER_AND_DATA_SHARING', version: 'v1' })
+  // the capability travels in the JWT: log in again so the token carries it (operator doc caveat 1)
+  cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats', 'mkt-on')
+  post(API.acceptAgreement, { version: 'v1', displayName })
     .then((r) => expect(ok(r.body), `acceptAgreement: ${JSON.stringify(r.body)}`).to.eq(true))
+  cy.loginAsOperator()
+  cy.orgOf(email).then((org) => post(API.decideSeller, { organizationId: org.id, decision: 'APPROVE' }))
+    .then((r) => {
+      // APPROVED already (an earlier run) is a refused move, and is fine; anything else must have worked
+      if (!ok(r.body)) expect(msg(r.body)).to.match(/approved cannot be moved/)
+    })
+  return cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats', 'mkt-on')
+}
+
+/** Open the seller screen the way a person does: Sale → Marketplace. */
+const openMarketplace = () => {
+  cy.visit('/businessDashboard')
+  cy.get('#snavSell .snav-btn').click()
+  cy.get(UI.sellerNav).should('be.visible').click()
+  return cy.get(UI.sellerSection).should('be.visible')
 }
 
 /** Seed a catalog product with stock in the CURRENT tenant; returns the product id (asserts the seed took). */
@@ -151,4 +171,4 @@ const a32 = (run, storage = '128GB', colour = 'Black') => ({
 })
 
 module.exports = { gate, uniq, SELLER_A, SELLER_B, OUTSIDER, API, UI, ok, data, list, msg, post, get,
-  expectRefused, makeSeller, seedProduct, a32 }
+  expectRefused, makeSeller, openMarketplace, seedProduct, a32 }

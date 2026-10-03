@@ -4,7 +4,7 @@
  *
  * Money is never optimistic (STANDARDS §0b): the customer sees PENDING until the seller accepts.
  */
-const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused } = require('./mkt-helpers')
+const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, openMarketplace } = require('./mkt-helpers')
 
 gate('1e')('MKT-1e — checkout and seller acceptance', () => {
   const run = uniq()
@@ -41,7 +41,7 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
     cy.get(UI.checkoutStatus).should('not.contain', 'Confirmed')
     // the seller accepts from their dashboard, with a visible countdown
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    cy.openSection(UI.sellerSection)
+    openMarketplace()
     cy.get(`${UI.incoming} tr`).first().within(() => {
       cy.get(UI.countdown).invoke('text').should('match', /\d+:\d\d/)
       cy.get(UI.acceptBtn).should('be.visible').click()

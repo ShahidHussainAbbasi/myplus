@@ -6,17 +6,24 @@ pure domain core, ruling-independent) is implemented. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
 cases → commit. Each MKT-n slice gets its own `slices/mkt-*.md` before it is built.
 
-**Rulings recorded:** _none yet._ The table fills in as answers arrive; defaults in brackets are the recommendations.
+**Rulings recorded (user, 2026-10-03): all seven recommendations accepted.**
 
 | # | Question | Ruling |
 |---|---|---|
-| R-MKT-1 | Merchant of record in Phase 1 | _pending_ [seller; O1 sale path unchanged] |
-| R-MKT-2 | Who collects money | _pending_ [platform for online, seller's rider for COD] |
-| R-MKT-3 | Settlement ledger home | _pending_ [marketplace-service operational ledger → finance GL via outbox] |
-| R-MKT-4 | Availability projection storage | _pending_ [DB projection table, no Redis] |
-| R-MKT-5 | Platform customer | _pending_ [new platform-scoped customer, party-bridged] |
-| R-MKT-6 | Capability + plan | _pending_ [opt-in `marketplaceSelling`, not in FREE] |
-| R-MKT-7 | Geography in Phase 1 | _pending_ [service-area list; distance waits for INV-L] |
+| R-MKT-1 | Merchant of record in Phase 1 | **The seller.** The sale, invoice and output tax are the seller's, through the O1 sale path unchanged. MaxTheService earns a commission |
+| R-MKT-2 | Who collects money | **Platform for online payments, the seller's rider for COD.** The ledger supports both directions from day one |
+| R-MKT-3 | Settlement ledger home | **marketplace-service** operational ledger, posting to the finance GL through the outbox. finance stays the only journal writer |
+| R-MKT-4 | Availability projection storage | **A DB projection table.** No Redis (caching standards K5/K7) |
+| R-MKT-5 | Platform customer | **A new platform-scoped customer**, party-bridged. The per-store `storefront_customer` is untouched |
+| R-MKT-6 | Capability + plan | **Opt-in `marketplaceSelling`, not in `Plan.FREE`** |
+| R-MKT-7 | Geography in Phase 1 | **A service-area list on the offer.** Distance waits for INV-L |
+
+**Consequence found while implementing R-MKT-6 (MKT-0a trace).** `Plan` is a ceiling that only removes, and
+TRIAL/DEMO/PRO are `allOf`, so a PRO owner can switch `marketplaceSelling` on with no operator involvement. The
+capability alone therefore cannot carry "MaxTheService vets its sellers". MKT-0a adds a **seller account** in
+marketplace-service (`PENDING_APPROVAL → APPROVED ⇄ SUSPENDED`, decided by the platform operator). That is the
+source's "Seller onboarding" (MKT-R20.1). Every seller write requires capability ON **and** both agreements accepted
+**and** the account APPROVED. The operator entitlement remains the plan-level switch for FREE tenants.
 
 ---
 
@@ -465,7 +472,7 @@ the action. A suspended seller's offers leave the projection on the same transac
 
 | Slice | Scope | Source reqs | Depends on | Gate asserts (the regression) |
 |---|---|---|---|---|
-| **MKT-0a** | Capability `marketplaceSelling` (opt-in) + operator entitlement; seller agreement + data-sharing agreement **acceptance record** (version, who, when) | R9.1, R20.0 | rulings 1, 6 | capability OFF for every existing tenant; ON only after owner opts in **and** operator entitles; refusal envelope readable |
+| **MKT-0a** | Capability `marketplaceSelling` (opt-in) + operator entitlement; seller agreement + data-sharing agreement **acceptance record** (version, who, when); **seller account** approved by the operator | R9.1, R20.0, R20.1 | rulings 1, 6 | capability OFF for every existing tenant; a FREE tenant cannot switch it on without the operator entitlement; seller writes refused until both agreements are accepted **and** the operator approves the account; refusal envelope readable |
 | **MKT-1a** ✅ | Pure domain core: identity key, availability, 5 state machines, acceptance terms, T+n, settlement calculator, eligibility spec, ranking, phase guard, return-cost and substitution policies | R6.2–6.6, R10.3, R10.5, R11.3, R13.1, R15.1, R15.5, R18.4, R19.1, R20.2 | — | `mvn -pl marketplace-service test` (unit) |
 | **MKT-1b** | Canonical product + match review (seller proposes from own catalog product; operator decides) | R5.1–5.2, R6.* | 0a, 1a | 64GB and 128GB never merge; operator corrects a match; seller B cannot see seller A's proposal |
 | **MKT-1c** | Offers with party roles + policies (warranty, return, commission) + approval; projection write | R3.*, R4.1, R5.3, R7.4–7.5, R9.2–9.3, R14.* | 1b | regulated product refused; price above ceiling refused; projection has no cost/margin column; suspended seller disappears |
@@ -501,7 +508,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 
 ## 10. Implement checklist (programme)
 
-- [ ] MKT-0a capability + entitlement + agreement acceptance · gate
+- [~] MKT-0a capability + agreements + operator-approved seller account · unit-green, **gate written, not yet run** ([slice](slices/mkt-0a-seller-onboarding.md))
 - [x] MKT-1a pure domain core · `mvn test` green
 - [ ] MKT-1b canonical product + match review · gate
 - [ ] MKT-1c offers + policies + approval + projection · gate

@@ -21,33 +21,33 @@
 **Covers:** MKT-R20.0
 
 1. Log in as owner.pharma@.
-2. Open the business dashboard and the Register menu.
-3. Open Configuration and look for Marketplace.
+2. Open the business dashboard and the Sale menu.
+3. Open Settings → Configuration and find 'Sell on the MaxTheService marketplace'.
 
-**Expect:** No Marketplace entry in any menu. Configuration shows 'Sell on the MaxTheService marketplace' switched OFF.
+**Expect:** No 'Marketplace' entry under Sale. Configuration shows 'Sell on the MaxTheService marketplace' switched OFF, with the help text 'MaxTheService approves your seller account first. Off until you switch it on.'
 
 ### M-0a-02 Owner cannot switch it on before MaxTheService entitles them
 
 **Persona:** owner.pharma@ (not entitled)  
-**Pre:** Operator has not entitled owner.pharma@.  
+**Pre:** owner.pharma@ is on the FREE plan and the operator has not entitled it.  
 **Covers:** MKT-R20.0, MKT-R22.1
 
-1. Configuration → switch 'Sell on the MaxTheService marketplace' ON → Save.
+1. Settings → Configuration → tick 'Sell on the MaxTheService marketplace'.
 
-**Expect:** The save is refused with a sentence that says the feature is not in the current plan. The switch goes back to OFF. No error page.
+**Expect:** The save is refused with a sentence that says it is not included in the current plan. The box goes back to unticked. No error page.
 
-### M-0a-03 Operator entitles, owner opts in, agreements accepted
+### M-0a-03 Owner switches it on, reads the agreements and applies
 
 **Persona:** admin@myplus.com (operator) then owner.business@ (Seller A)  
 **Pre:** Seller A has no marketplace entitlement.  
 **Covers:** MKT-R9.1, MKT-R9.2, MKT-R9.3, MKT-R20.0
 
-1. As operator: Organizations → Seller A → Entitlements → Marketplace selling → ACTIVE.
-2. Log out. As Seller A: Configuration → switch Marketplace ON → Save → log out and in.
-3. Open Register → Marketplace.
-4. Read and accept the Seller agreement and the Data-sharing agreement.
+1. As operator (if the tenant is on FREE): Organizations → Seller A → Entitlements → Marketplace selling → ACTIVE.
+2. As Seller A: Settings → Configuration → tick 'Sell on the MaxTheService marketplace'. Log out and back in.
+3. Sale → Marketplace.
+4. Read the box. Type 'Shahzad Mobile Shop' as the name customers will see. Tick 'I have read both agreements…'. Click 'Accept and apply'.
 
-**Expect:** Marketplace appears in the menu after re-login. Both agreements show 'Accepted v1 by owner.business@ on <today>'. The data-sharing text lists what is shared (product, price, availability, area, delivery time, warranty, returns) and what is never asked (cost, margin, other customers, staff data).
+**Expect:** Before ticking, 'Accept and apply' is greyed out. The box lists what is shared (product identity, marketplace price, availability, delivery area and time, warranty, return policy, business name) and what is never asked (supplier prices, margins, other customers, staff data, full stock history). After accepting: three lines read 'Marketplace selling is switched on.', 'Agreements accepted (version v1).' and 'MaxTheService is reviewing your seller account.'
 
 ### M-0a-04 A user-tier member cannot accept agreements
 
@@ -55,9 +55,24 @@
 **Pre:** Seller A has the module on; agreements not yet accepted.  
 **Covers:** MKT-R22.1
 
-1. Log in as user.business@ → Marketplace.
+1. Log in as user.business@ (Seller A's org, module already on).
+2. Sale → Marketplace.
 
-**Expect:** The agreements are shown read-only with 'Only the owner or an admin can accept'. No Accept button.
+**Expect:** The three status lines show. The agreement box shows the text but no Accept button, and reads 'Only the owner or an admin can accept these agreements for the business.'
+
+### M-0a-06 ⚠ Only MaxTheService approves a seller, and a suspension says why
+
+**Persona:** admin@myplus.com (operator), then owner.business@ (Seller A)  
+**Pre:** Seller A has applied (M-0a-03).  
+**Covers:** MKT-R20.1, MKT-R22.1, MKT-R19.1
+
+1. Operator console → 'Marketplace sellers'. The 'Waiting for review' list shows 'Shahzad Mobile Shop'.
+2. Click Approve.
+3. Switch to 'Approved'. Type 'documents expired' in the reason box and click Suspend.
+4. As Seller A: Sale → Marketplace.
+5. As operator: Suspended → Reinstate.
+
+**Expect:** Approve moves the seller to the Approved list. An Approved row offers only Suspend (never Approve or Reject). Suspend with an empty reason is refused: 'Give the seller a reason. They will see it as written.' Seller A then reads 'Suspended: documents expired'. Re-accepting the agreements does not lift the suspension. Reinstate brings back 'Approved by MaxTheService. You can list products.'
 
 ### M-0a-05 Policies exist before the first live order
 

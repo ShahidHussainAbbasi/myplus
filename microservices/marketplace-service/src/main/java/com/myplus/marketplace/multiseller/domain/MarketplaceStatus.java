@@ -12,6 +12,15 @@ public final class MarketplaceStatus {
     private MarketplaceStatus() {
     }
 
+    /**
+     * MKT-0a — a seller's account with the marketplace operator (source §20 "Seller onboarding").
+     *
+     * <p>Separate from the {@code marketplaceSelling} capability on purpose: TRIAL/DEMO/PRO plans include every
+     * capability, so an owner can switch it on alone. MaxTheService vetting its sellers is this status, decided
+     * by the platform operator, never by the tenant.
+     */
+    public enum SellerAccount { PENDING_APPROVAL, APPROVED, REJECTED, SUSPENDED }
+
     /** Offer and canonical-product approval (§5). */
     public enum Approval { DRAFT, PENDING_REVIEW, APPROVED, REJECTED, SUSPENDED }
 

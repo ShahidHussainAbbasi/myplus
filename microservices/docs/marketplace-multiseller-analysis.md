@@ -286,6 +286,8 @@ The marketplace (parent) order, payment and settlement machines are net-new in m
 | R-MKT-6 | Capability shape | One opt-in capability `marketplaceSelling` for sellers, plus operator entitlement | Opt-in (EX-0a mechanism), **not in `Plan.FREE`** (a sales channel is a paid feature; confirm) |
 | R-MKT-7 | Pilot city / geography | Source: one city. No location model exists (INV-L) | Phase 1 uses a seller **service-area list** (city + optional areas) on the offer; distance sorting waits for INV-L |
 
-Until these are answered, implementation is limited to the **pure domain core** (MKT-1a). It encodes the source's
+**Answered 2026-10-03: all seven recommendations accepted** (recorded in the design's rulings table).
+
+Before they were answered, implementation was limited to the **pure domain core** (MKT-1a). It encodes the source's
 rules (identity key, availability formula, state machines, settlement arithmetic, business-day T+n, ranking,
 Phase 1 guard) and does not depend on any ruling above.

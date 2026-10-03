@@ -3,6 +3,7 @@ package com.myplus.marketplace.multiseller.domain;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Order;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Payment;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Reservation;
+import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerAccount;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerOrder;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Settlement;
 
@@ -69,6 +70,18 @@ public final class MarketplaceStateMachines {
             .allow(Settlement.APPROVED, Settlement.PROCESSING, Settlement.ON_HOLD)
             .allow(Settlement.PROCESSING, Settlement.PAID, Settlement.ON_HOLD)
             .allow(Settlement.PAID, Settlement.REVERSED)
+            .build();
+
+    /**
+     * MKT-0a — the operator's decision on a seller. REJECTED is not terminal: a seller who fixes what was wrong
+     * re-accepts the agreements, which re-applies (PENDING_APPROVAL). A SUSPENDED seller is reinstated by the
+     * operator, never by re-applying, so a suspension cannot be lifted by the tenant it was imposed on.
+     */
+    public static final StateMachine<SellerAccount> SELLER_ACCOUNT = StateMachine.of(SellerAccount.class)
+            .allow(SellerAccount.PENDING_APPROVAL, SellerAccount.APPROVED, SellerAccount.REJECTED)
+            .allow(SellerAccount.APPROVED, SellerAccount.SUSPENDED)
+            .allow(SellerAccount.SUSPENDED, SellerAccount.APPROVED)
+            .allow(SellerAccount.REJECTED, SellerAccount.PENDING_APPROVAL)
             .build();
 
     public static final StateMachine<Reservation> RESERVATION = StateMachine.of(Reservation.class)

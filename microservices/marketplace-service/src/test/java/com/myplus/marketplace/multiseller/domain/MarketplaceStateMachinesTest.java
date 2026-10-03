@@ -88,6 +88,8 @@ class MarketplaceStateMachinesTest {
         assertReachable(MarketplaceStateMachines.PAYMENT, Payment.class, Payment.UNPAID);
         assertReachable(MarketplaceStateMachines.SETTLEMENT, Settlement.class, Settlement.NOT_ELIGIBLE);
         assertReachable(MarketplaceStateMachines.RESERVATION, Reservation.class, Reservation.HELD);
+        assertReachable(MarketplaceStateMachines.SELLER_ACCOUNT, MarketplaceStatus.SellerAccount.class,
+                MarketplaceStatus.SellerAccount.PENDING_APPROVAL);
     }
 
     @Test

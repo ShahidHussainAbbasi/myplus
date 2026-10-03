@@ -10,10 +10,10 @@
    "pre": "Fresh deploy. Nobody has switched anything on.",
    "steps": [
     "Log in as owner.pharma@.",
-    "Open the business dashboard and the Register menu.",
-    "Open Configuration and look for Marketplace."
+    "Open the business dashboard and the Sale menu.",
+    "Open Settings → Configuration and find 'Sell on the MaxTheService marketplace'."
    ],
-   "expect": "No Marketplace entry in any menu. Configuration shows 'Sell on the MaxTheService marketplace' switched OFF.",
+   "expect": "No 'Marketplace' entry under Sale. Configuration shows 'Sell on the MaxTheService marketplace' switched OFF, with the help text 'MaxTheService approves your seller account first. Off until you switch it on.'",
    "reqs": [
     "MKT-R20.0"
    ],
@@ -24,11 +24,11 @@
    "slice": "MKT-0a",
    "title": "Owner cannot switch it on before MaxTheService entitles them",
    "persona": "owner.pharma@ (not entitled)",
-   "pre": "Operator has not entitled owner.pharma@.",
+   "pre": "owner.pharma@ is on the FREE plan and the operator has not entitled it.",
    "steps": [
-    "Configuration → switch 'Sell on the MaxTheService marketplace' ON → Save."
+    "Settings → Configuration → tick 'Sell on the MaxTheService marketplace'."
    ],
-   "expect": "The save is refused with a sentence that says the feature is not in the current plan. The switch goes back to OFF. No error page.",
+   "expect": "The save is refused with a sentence that says it is not included in the current plan. The box goes back to unticked. No error page.",
    "reqs": [
     "MKT-R20.0",
     "MKT-R22.1"
@@ -38,16 +38,16 @@
   {
    "id": "M-0a-03",
    "slice": "MKT-0a",
-   "title": "Operator entitles, owner opts in, agreements accepted",
+   "title": "Owner switches it on, reads the agreements and applies",
    "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
    "pre": "Seller A has no marketplace entitlement.",
    "steps": [
-    "As operator: Organizations → Seller A → Entitlements → Marketplace selling → ACTIVE.",
-    "Log out. As Seller A: Configuration → switch Marketplace ON → Save → log out and in.",
-    "Open Register → Marketplace.",
-    "Read and accept the Seller agreement and the Data-sharing agreement."
+    "As operator (if the tenant is on FREE): Organizations → Seller A → Entitlements → Marketplace selling → ACTIVE.",
+    "As Seller A: Settings → Configuration → tick 'Sell on the MaxTheService marketplace'. Log out and back in.",
+    "Sale → Marketplace.",
+    "Read the box. Type 'Shahzad Mobile Shop' as the name customers will see. Tick 'I have read both agreements…'. Click 'Accept and apply'."
    ],
-   "expect": "Marketplace appears in the menu after re-login. Both agreements show 'Accepted v1 by owner.business@ on <today>'. The data-sharing text lists what is shared (product, price, availability, area, delivery time, warranty, returns) and what is never asked (cost, margin, other customers, staff data).",
+   "expect": "Before ticking, 'Accept and apply' is greyed out. The box lists what is shared (product identity, marketplace price, availability, delivery area and time, warranty, return policy, business name) and what is never asked (supplier prices, margins, other customers, staff data, full stock history). After accepting: three lines read 'Marketplace selling is switched on.', 'Agreements accepted (version v1).' and 'MaxTheService is reviewing your seller account.'",
    "reqs": [
     "MKT-R9.1",
     "MKT-R9.2",
@@ -63,13 +63,35 @@
    "persona": "user.business@",
    "pre": "Seller A has the module on; agreements not yet accepted.",
    "steps": [
-    "Log in as user.business@ → Marketplace."
+    "Log in as user.business@ (Seller A's org, module already on).",
+    "Sale → Marketplace."
    ],
-   "expect": "The agreements are shown read-only with 'Only the owner or an admin can accept'. No Accept button.",
+   "expect": "The three status lines show. The agreement box shows the text but no Accept button, and reads 'Only the owner or an admin can accept these agreements for the business.'",
    "reqs": [
     "MKT-R22.1"
    ],
    "warn": false
+  },
+  {
+   "id": "M-0a-06",
+   "slice": "MKT-0a",
+   "title": "Only MaxTheService approves a seller, and a suspension says why",
+   "persona": "admin@myplus.com (operator), then owner.business@ (Seller A)",
+   "pre": "Seller A has applied (M-0a-03).",
+   "steps": [
+    "Operator console → 'Marketplace sellers'. The 'Waiting for review' list shows 'Shahzad Mobile Shop'.",
+    "Click Approve.",
+    "Switch to 'Approved'. Type 'documents expired' in the reason box and click Suspend.",
+    "As Seller A: Sale → Marketplace.",
+    "As operator: Suspended → Reinstate."
+   ],
+   "expect": "Approve moves the seller to the Approved list. An Approved row offers only Suspend (never Approve or Reject). Suspend with an empty reason is refused: 'Give the seller a reason. They will see it as written.' Seller A then reads 'Suspended: documents expired'. Re-accepting the agreements does not lift the suspension. Reinstate brings back 'Approved by MaxTheService. You can list products.'",
+   "reqs": [
+    "MKT-R20.1",
+    "MKT-R22.1",
+    "MKT-R19.1"
+   ],
+   "warn": true
   },
   {
    "id": "M-0a-05",

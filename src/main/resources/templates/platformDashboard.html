@@ -56,6 +56,9 @@
                     <button type="button" data-mode="needs" th:text="#{ui.needsBusinessType}">Needs a business type</button>
                 </div>
                 <span class="plat__count" id="platCount" data-testid="tenant-count"></span>
+                <!-- MKT-0a: the multi-seller marketplace's seller queue (marketplace-sellers.js). -->
+                <button type="button" class="btn btn-default" id="platMktSellersBtn"
+                        th:text="#{ui.mktSellersTitle}">Marketplace sellers</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -73,6 +76,24 @@
                 <span th:text="#{ui.allTenants}">All tenants</span>
             </button>
             <div id="platDetailBody"></div>
+        </section>
+
+        <!-- ── MKT-0a: marketplace sellers ────────────────────────────────────────────────────── -->
+        <!-- MaxTheService vets its sellers here. The capability switch alone cannot: TRIAL/DEMO/PRO include every
+             capability. marketplace-service refuses every seller write until this decision is APPROVED. -->
+        <section id="platMktSellers" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back" id="platMktSellersBack">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktSellersTitle}">Marketplace sellers</h3>
+            <div class="plat-seg" id="platMktStatus" role="group">
+                <button type="button" data-status="PENDING_APPROVAL" class="is-on" th:text="#{ui.mktStatusPending}">Waiting for review</button>
+                <button type="button" data-status="APPROVED" th:text="#{ui.mktStatusApproved}">Approved</button>
+                <button type="button" data-status="SUSPENDED" th:text="#{ui.mktStatusSuspended}">Suspended</button>
+                <button type="button" data-status="REJECTED" th:text="#{ui.mktStatusRejected}">Not approved</button>
+            </div>
+            <div id="platMktSellerList" class="plat__list" data-testid="mkt-seller-list"></div>
         </section>
 
         <!-- ── Provision ──────────────────────────────────────────────────────────────────────── -->
@@ -131,5 +152,6 @@
 <script th:src="@{/js/common/dom-safe.js}"></script>
 <script th:src="@{/js/common/api-response.js}"></script>
 <script th:src="@{/js/platform/platform.js}"></script>
+<script th:src="@{/js/platform/marketplace-sellers.js}"></script>
 </body>
 </html>

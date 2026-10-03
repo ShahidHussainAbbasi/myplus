@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+<!--
+	MKT-0a — Sell on the MaxTheService marketplace: seller onboarding. Behaviour: /js/common/marketplace-seller.js.
+	Server: marketplace-service /mkt/seller via the monolith's /mkt/** proxy (MarketplaceSellerController).
+
+	Hidden unless the tenant switched "Sell on the MaxTheService marketplace" on ([data-capability] — capabilities.js).
+	The server refuses every seller write when it is off, so the attribute is a courtesy, not the control.
+
+	Three conditions to sell, each shown as its own line, because each is owned by a different person:
+	the owner's switch, the owner's signature on the agreements, and MaxTheService's approval of the account.
+-->
+<div th:fragment="marketplaceSellerSection" id="MarketplaceDiv" data-capability="marketplaceSelling" class="formDiv" style="display:none">
+	<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.mktSellTitle}">Sell on the MaxTheService marketplace</h4>
+	<p class="help-block" th:text="#{ui.mktSellHelp}">
+		List your products beside other sellers. Customers buy through MaxTheService, and MaxTheService handles their
+		support. You keep your stock, prices and delivery area.
+	</p>
+
+	<div style="max-width:900px">
+		<ul class="list-unstyled" id="mktSellerStatus" data-cy="mkt-seller-status" aria-live="polite">
+			<li id="mktStatusCapability"></li>
+			<li id="mktStatusAgreements"></li>
+			<li id="mktStatusAccount"></li>
+		</ul>
+
+		<div id="mktAgreementBox" style="display:none;border:1px solid #d6dde8;border-radius:6px;padding:12px 16px;margin-top:10px">
+			<h4 style="font-weight:700;font-size:15px;margin-top:0">
+				<span th:text="#{ui.mktAgreementsTitle}">Seller agreement and data-sharing agreement</span>
+				<small class="text-muted" id="mktAgreementVersion"></small>
+			</h4>
+			<p th:text="#{ui.mktAgreementSeller}">
+				You sell as yourself: each sale, invoice and tax is in your books. MaxTheService earns a commission on the
+				orders it routes to you and settles what you are owed after delivery and the return window.
+			</p>
+			<p th:text="#{ui.mktAgreementShared}">
+				Shared with MaxTheService: product identity, your marketplace price, availability, delivery area and time,
+				warranty, return policy, and your business name.
+			</p>
+			<p th:text="#{ui.mktAgreementNever}">
+				Never asked for: what you paid suppliers, your margins, your other customers, your staff's data, or your
+				full stock history.
+			</p>
+
+			<div sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+				<form class="form-horizontal" role="form" id="mktAcceptForm" autocomplete="off" onsubmit="return false;">
+					<div class="form-group" id="mktDisplayNameGroup">
+						<label class="control-label col-sm-4" for="mktDisplayName" th:text="#{ui.mktDisplayName}">Name customers will see</label>
+						<div class="col-sm-6">
+							<input type="text" class="form-control" id="mktDisplayName" maxlength="120" data-cy="mkt-display-name">
+						</div>
+					</div>
+					<div class="form-group">
+						<div class="col-sm-offset-4 col-sm-8">
+							<label><input type="checkbox" id="mktAgreeChk" data-cy="mkt-agree">
+								<span th:text="#{ui.mktAgreeLabel}">I have read both agreements and accept them for this business.</span></label>
+						</div>
+					</div>
+					<div class="form-group">
+						<div class="col-sm-offset-4 col-sm-8">
+							<button type="button" class="btn btn-primary" id="mktAcceptBtn" data-cy="mkt-accept" disabled
+								onclick="mktAcceptAgreements(this)" th:text="#{ui.mktAcceptBtn}">Accept and apply</button>
+							<span id="mktAcceptMsg" role="status" style="margin-left:10px"></span>
+						</div>
+					</div>
+				</form>
+			</div>
+			<p class="text-muted" sec:authorize="!hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"
+				th:text="#{ui.mktOwnerOnly}">Only the owner or an admin can accept these agreements for the business.</p>
+		</div>
+	</div>
+</div>
+</body>
+</html>

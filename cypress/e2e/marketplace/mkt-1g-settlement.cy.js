@@ -4,14 +4,14 @@
  *
  * The MONEY assertion reads the trial balance, not the ledger table the feature itself writes (programme rule).
  */
-const { gate, uniq, SELLER_A, API, UI, ok, data, list, post, get, expectRefused } = require('./mkt-helpers')
+const { gate, uniq, SELLER_A, API, UI, ok, data, list, post, get, expectRefused, openMarketplace } = require('./mkt-helpers')
 
 gate('1g')('MKT-1g — settlement and payouts', () => {
   const run = uniq()
 
   it('MKT-1g-01 [MKT-R15.5] [MKT-R16.1] the seller reads a statement whose lines add up (real UI)', () => {
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    cy.openSection(UI.sellerSection)
+    openMarketplace()
     cy.get('#mktStatementTab').click()
     cy.get(UI.statementTable).should('be.visible').find('tr.mkt-line').first().then(($tr) => {
       const n = (sel) => Number(($tr.find(sel).text() || '0').replace(/[^0-9.-]/g, ''))

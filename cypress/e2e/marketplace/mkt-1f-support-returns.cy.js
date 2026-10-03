@@ -2,7 +2,7 @@
  * MKT-1f — support case + return request with cost attribution and escalation.
  * Source §8.2, §13.1–13.4. Run headed: --env mkt=1f
  */
-const { gate, uniq, SELLER_A, API, UI, ok, data, list, post, get, expectRefused } = require('./mkt-helpers')
+const { gate, uniq, SELLER_A, API, UI, ok, data, list, post, get, expectRefused, openMarketplace } = require('./mkt-helpers')
 
 gate('1f')('MKT-1f — support cases and returns', () => {
   let order
@@ -25,7 +25,7 @@ gate('1f')('MKT-1f — support cases and returns', () => {
     cy.visit(UI.operatorPage)
     cy.contains('#mktCases tr', order.orderNo).within(() => cy.get('.mkt-task-seller').click())
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    cy.openSection(UI.sellerSection)
+    openMarketplace()
     cy.contains('#mktTasks tr', order.orderNo).should('be.visible')
   })
 

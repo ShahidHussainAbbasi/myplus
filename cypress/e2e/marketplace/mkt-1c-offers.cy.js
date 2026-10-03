@@ -2,7 +2,7 @@
  * MKT-1c — offers with party roles, policies and approval; the published projection.
  * Source §3, §4.1, §5.3, §7.4–7.5, §9.2–9.3, §14. Run headed: --env mkt=1b,1c
  */
-const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, makeSeller, seedProduct,
+const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, makeSeller, openMarketplace, seedProduct,
   a32 } = require('./mkt-helpers')
 
 gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => {
@@ -25,7 +25,7 @@ gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => 
 
   it('MKT-1c-01 [MKT-R5.3] [MKT-R7.5] [MKT-R14.1] a seller creates and submits an offer from the screen (real UI)', () => {
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    cy.openSection(UI.sellerSection)
+    openMarketplace()
     cy.get('#mktNewOfferBtn').should('be.visible').click()
     cy.get('#mktOfferProduct').select(String(mktProductId))
     cy.get('#mktOfferPrice').clear().type('52000')
@@ -85,10 +85,10 @@ gate('1c')('MKT-1c — offers, roles, policies, approval and projection', () => 
 
   it('MKT-1c-07 [MKT-R7.6] a suspended seller disappears from the public projection at once', () => {
     cy.loginAsOperator()
-    cy.orgOf(SELLER_A).then((org) => post(API.suspendSeller, { organizationId: org.id, reason: 'mkt gate' }))
+    cy.orgOf(SELLER_A).then((org) => post(API.decideSeller, { organizationId: org.id, decision: 'SUSPEND', reason: 'mkt gate' }))
     get(`${API.publicOffers(mktProductId)}?city=Karachi`).then((r) =>
       expect(list(r.body).map((o) => o.offerId)).to.not.include(offerId))
-    cy.orgOf(SELLER_A).then((org) => post(API.suspendSeller, { organizationId: org.id, reinstate: true }))
+    cy.orgOf(SELLER_A).then((org) => post(API.decideSeller, { organizationId: org.id, decision: 'REINSTATE' }))
   })
 
   it('MKT-1c-08 [MKT-R22.1] seller B cannot read or edit seller A\'s offer (404, with a positive control)', () => {

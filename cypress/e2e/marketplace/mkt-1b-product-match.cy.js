@@ -2,7 +2,7 @@
  * MKT-1b — canonical product + composite identity key + match review.
  * Source §5 (MKT-R5.1, R5.2), §6 (MKT-R6.1–6.6). Run headed: --env mkt=1b
  */
-const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, makeSeller, seedProduct,
+const { gate, uniq, SELLER_A, SELLER_B, API, UI, ok, data, list, post, get, expectRefused, makeSeller, openMarketplace, seedProduct,
   a32 } = require('./mkt-helpers')
 
 gate('1b')('MKT-1b — canonical product and match review', () => {
@@ -19,7 +19,7 @@ gate('1b')('MKT-1b — canonical product and match review', () => {
 
   it('MKT-1b-01 [MKT-R5.1] [MKT-R6.2] a seller proposes a product from the Marketplace screen (real UI)', () => {
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
-    cy.openSection(UI.sellerSection)
+    openMarketplace()
     cy.get(UI.proposeBtn).should('be.visible').click()
     cy.get('#mktProposeProduct').should('be.visible').select(String(aProduct))
     const k = a32(run)

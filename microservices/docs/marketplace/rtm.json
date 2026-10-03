@@ -1,7 +1,7 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 32,
+ "unit": 36,
  "cypress": 60,
  "automated": 64,
  "manual": 87,
@@ -419,9 +419,12 @@
    "req": "MKT-R9.1",
    "phase": "0",
    "text": "Data use is a written **data-sharing agreement**, never called \"consignment\"",
-   "unit": [],
+   "unit": [
+    "MarketplaceSellerServiceTest.acceptApplies",
+    "MarketplaceSellerServiceTest.staleVersion"
+   ],
    "cypress": [
-    "MKT-0a-04",
+    "MKT-0a-01",
     "MKT-0a-05"
    ],
    "manual": [
@@ -945,13 +948,15 @@
     "MarketplaceStateMachinesTest.rejectedIsNotTerminal",
     "MarketplaceStateMachinesTest.illegalMovesRefused",
     "MarketplaceStateMachinesTest.noOrphanStates",
-    "MarketplaceStateMachinesTest.publishedSetIsReadOnly"
+    "MarketplaceStateMachinesTest.publishedSetIsReadOnly",
+    "MarketplaceSellerServiceTest.illegalMove"
    ],
    "cypress": [
     "MKT-1e-06",
     "MKT-1e-09"
    ],
    "manual": [
+    "M-0a-06",
     "M-1e-04",
     "M-1e-08"
    ]
@@ -960,13 +965,15 @@
    "req": "MKT-R20.0",
    "phase": "0",
    "text": "Phase 0 foundation: capability/entitlement, legal entity, seller agreement, privacy/data-sharing, customer terms, returns, commission, COD, warranty, complaint process, product approval, tax/regulatory review",
-   "unit": [],
+   "unit": [
+    "MarketplaceSellerServiceTest.guardsFirst",
+    "MarketplaceSellerServiceTest.viewParts",
+    "SellerAccessTest.failsClosed"
+   ],
    "cypress": [
     "MKT-0a-01",
     "MKT-0a-02",
-    "MKT-0a-03",
-    "MKT-0a-04",
-    "MKT-0a-07"
+    "MKT-0a-03"
    ],
    "manual": [
     "M-0a-01",
@@ -981,12 +988,20 @@
    "text": "Phase 1 scope: one city, one seller per checkout, merchant stock, low-risk non-regulated, existing merchants, manual delivery assignment, cash + one online payment, manual settlement approval",
    "unit": [
     "OfferEligibilityTest.deliveryArea",
-    "PhaseGuardTest.oneSeller"
+    "PhaseGuardTest.oneSeller",
+    "MarketplaceSellerServiceTest.acceptApplies",
+    "MarketplaceSellerServiceTest.needsDisplayName",
+    "MarketplaceSellerServiceTest.guardNamesTheGap",
+    "MarketplaceSellerServiceTest.lifecycle"
    ],
    "cypress": [
+    "MKT-0a-01",
+    "MKT-0a-06",
+    "MKT-0a-07",
     "MKT-1d-04"
    ],
    "manual": [
+    "M-0a-06",
     "M-1d-04",
     "M-1e-09"
    ]
@@ -1089,10 +1104,17 @@
    "req": "MKT-R22.1",
    "phase": "1",
    "text": "Tenant from authenticated server identity; browser cannot choose the stock owner by editing JSON",
-   "unit": [],
+   "unit": [
+    "MarketplaceSellerServiceTest.operatorOnly",
+    "MarketplaceSellerServiceTest.unknownSeller",
+    "SellerAccessTest.tiers",
+    "SellerAccessTest.operatorIsRoleAdmin",
+    "SellerAccessTest.orgFromToken"
+   ],
    "cypress": [
-    "MKT-0a-03",
+    "MKT-0a-04",
     "MKT-0a-06",
+    "MKT-0a-08",
     "MKT-1b-06",
     "MKT-1c-02",
     "MKT-1c-08",
@@ -1101,6 +1123,7 @@
    "manual": [
     "M-0a-02",
     "M-0a-04",
+    "M-0a-06",
     "M-X-02"
    ]
   },
@@ -1122,8 +1145,12 @@
    "req": "MKT-R22.3",
    "phase": "1",
    "text": "Payment and refund idempotency keys; settlement entries immutable",
-   "unit": [],
+   "unit": [
+    "MarketplaceSellerServiceTest.idempotent",
+    "MarketplaceSellerServiceTest.staleDecision"
+   ],
    "cypress": [
+    "MKT-0a-05",
     "MKT-1e-04",
     "MKT-1g-04"
    ],
