@@ -47,9 +47,6 @@ public final class SupportDTOs {
     public record FeeRequest(BigDecimal amount) {
     }
 
-    public record ReturnDaysRequest(Long policyId, Integer returnDays) {
-    }
-
     /** One message, as its reader may see it: {@code from} is "You", "MaxTheService support" or (operator/seller) the role. */
     public record MessageView(String from, String body, boolean internal, LocalDateTime at) {
     }

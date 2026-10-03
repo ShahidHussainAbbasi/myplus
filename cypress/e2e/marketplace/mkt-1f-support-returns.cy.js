@@ -29,7 +29,6 @@ const OPS = {
   task: '/platform/mkt/caseTask',               // {caseNo, note}
   decide: '/platform/mkt/returnDecision',       // {returnNo, decision: APPROVED|REJECTED, note}
   resolve: '/platform/mkt/caseResolve',         // {caseNo, note}
-  returnPolicy: '/platform/mkt/returnPolicyDays', // {policyId, returnDays} — edits the policy, never old orders
   fee: '/platform/mkt/settings/changeOfMindFee',  // {amount}
 }
 const SELL = {
@@ -43,7 +42,7 @@ const PRICE = 52000
 gate('1f')('MKT-1f — support cases and returns', () => {
   const run = uniq()
   const phone = (k) => `0312${String(run).slice(-6)}${k}`
-  let offer, policies
+  let offer
 
   const asCustomer = (ph) => {
     cy.clearCookies()
@@ -91,8 +90,8 @@ gate('1f')('MKT-1f — support cases and returns', () => {
     post(ACC.openCase(o.orderNo), { topic: 'RETURN', note, lineId: o.lineId, quantity: 1, reason })
 
   before(() => {
-    seedPolicies(`${run}f`).then((p) => { policies = p; return cy.then(() => publishOffer(SELLER_A, { run: `${run}f`, price: PRICE, qty: 40,
-      warrantyPolicyId: p.warranty, returnPolicyId: p.returns })) }).then((o) => { offer = o })
+    seedPolicies(`${run}f`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}f`, price: PRICE, qty: 40,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { offer = o })
     cy.loginAsOperator()
     post(API.acceptWindow, { minutes: 5 })
     post(OPS.fee, { amount: 250 }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
@@ -182,27 +181,30 @@ gate('1f')('MKT-1f — support cases and returns', () => {
     })
   })
 
-  it('MKT-1f-06 [MKT-R13.3] a policy changed after the order never changes that order: its snapshot decides', () => {
+  it('MKT-1f-06 [MKT-R13.3] the offer moving to a 0-day policy after the order never changes that order: its snapshot decides', () => {
     const ph = phone(6)
-    delivered(ph).then((o) => {
-      cy.loginAsOperator()
-      post(OPS.returnPolicy, { policyId: policies.returns, returnDays: 0 }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    let own
+    seedPolicies(`${run}g`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}g`, price: PRICE, qty: 5,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { own = o })
+    cy.then(() => delivered(ph, { offerId: own.offerId })).then((o) => {
+      seedPolicies(`${run}z`, { returnDays: 0 }).then((zero) => {        // policies are append-only: a NEW 0-day policy
+        asSeller()
+        post(API.saveOffer, { id: own.offerId, mktProductId: own.mktProductId, marketplacePrice: PRICE, deliveryAreas: 'Karachi',
+          promiseHours: 24, warrantyPolicyId: zero.warranty, returnPolicyId: zero.returns }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+      })
       asCustomer(ph)
-      openReturn(o, 'CHANGE_OF_MIND').then((r) => expect(ok(r.body), `the order's own ${7} days still apply: ${JSON.stringify(r.body)}`).to.eq(true))
-      cy.loginAsOperator()
-      post(OPS.returnPolicy, { policyId: policies.returns, returnDays: 7 })
+      openReturn(o, 'CHANGE_OF_MIND').then((r) => expect(ok(r.body), `the order's own 7 days still apply: ${JSON.stringify(r.body)}`).to.eq(true))
     })
   })
 
-  it('MKT-1f-07 [MKT-R13.2] past the return days a change of mind is refused in words (positive control: a fault is still taken)', () => {
+  it('MKT-1f-07 [MKT-R13.2] an order placed under 0 return days refuses a change of mind in words (positive control: a fault is still taken)', () => {
     const ph = phone(7)
-    cy.loginAsOperator()
-    post(OPS.returnPolicy, { policyId: policies.returns, returnDays: 0 })
-    delivered(ph).then((o) => {
+    let zeroOffer
+    seedPolicies(`${run}h`, { returnDays: 0 }).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}h`, price: PRICE, qty: 5,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { zeroOffer = o })
+    cy.then(() => delivered(ph, { offerId: zeroOffer.offerId })).then((o) => {
       openReturn(o, 'CHANGE_OF_MIND').then((r) => expectRefused(r, 'The return period for this item'))
       openReturn(o, 'NOT_AS_DESCRIBED').then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
-      cy.loginAsOperator()
-      post(OPS.returnPolicy, { policyId: policies.returns, returnDays: 7 })
     })
   })
 

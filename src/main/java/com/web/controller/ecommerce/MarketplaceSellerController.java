@@ -416,14 +416,6 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/change-of-mind-fee", body, "Could not save the fee.");
     }
 
-    /** Body: {policyId, returnDays}. Future orders only: placed orders keep their snapshot. */
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
-    @RequestMapping(value = "/platform/mkt/returnPolicyDays", method = RequestMethod.POST)
-    @ResponseBody
-    public Map<String, Object> returnPolicyDays(@RequestBody final Map<String, Object> body) {
-        return relayPost("/mkt/operator/policies/return-days", body, "Could not save the return days.");
-    }
-
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {

@@ -14,10 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
-import com.myplus.marketplace.multiseller.dto.OfferDTOs;
 import com.myplus.marketplace.multiseller.dto.SupportDTOs;
 import com.myplus.marketplace.multiseller.service.MarketplaceCustomerService;
-import com.myplus.marketplace.multiseller.service.MarketplacePolicyService;
 import com.myplus.marketplace.multiseller.service.MarketplaceSettingsService;
 import com.myplus.marketplace.multiseller.service.MarketplaceSupportService;
 
@@ -38,7 +36,6 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/operator/cases/reply | task | resolve
  *   POST /mkt/operator/returns/decision                {returnNo, decision: APPROVED|REJECTED, note}
  *   GET/POST /mkt/operator/settings/change-of-mind-fee {amount}
- *   POST /mkt/operator/policies/return-days            {policyId, returnDays}
  *   seller (own org)
  *   GET  /mkt/seller/tasks
  *   POST /mkt/seller/tasks/reply                       {caseNo, body}
@@ -54,7 +51,6 @@ public class MarketplaceSupportController {
     private final MarketplaceSupportService support;
     private final MarketplaceCustomerService customers;
     private final MarketplaceSettingsService settings;
-    private final MarketplacePolicyService policies;
 
     // ── customer ──
     @PostMapping("/public/mkt/account/orders/{orderNo}/cases")
@@ -124,12 +120,6 @@ public class MarketplaceSupportController {
     public ApiResponse<Map<String, BigDecimal>> setFee(@RequestBody(required = false) SupportDTOs.FeeRequest body) {
         return ApiResponse.success(Map.of("amount", settings.setChangeOfMindFee(body == null ? null : body.amount())),
                 "Change-of-mind fee saved.");
-    }
-
-    @PostMapping("/mkt/operator/policies/return-days")
-    public ApiResponse<OfferDTOs.Policy> returnDays(@RequestBody(required = false) SupportDTOs.ReturnDaysRequest body) {
-        return ApiResponse.success(policies.setReturnDays(body == null ? null : body.policyId(), body == null ? null : body.returnDays()),
-                "Saved. Orders already placed keep the days they were placed under.");
     }
 
     // ── seller ──
