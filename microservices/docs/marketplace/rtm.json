@@ -1,7 +1,7 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 41,
+ "unit": 51,
  "cypress": 61,
  "automated": 65,
  "manual": 87,
@@ -66,13 +66,15 @@
    "req": "MKT-R3.1",
    "phase": "1",
    "text": "Every offer identifies its parties: seller, stock owner, custodian, fulfiller, warranty provider (may all differ)",
-   "unit": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.partiesStamped"
+   ],
    "cypress": [
     "MKT-1c-02",
     "MKT-1e-07"
    ],
    "manual": [
-    "M-1c-01",
+    "M-1c-02",
     "M-X-01"
    ]
   },
@@ -85,6 +87,7 @@
    ],
    "cypress": [],
    "manual": [
+    "M-1c-02",
     "M-1e-06",
     "M-X-01"
    ]
@@ -93,12 +96,14 @@
    "req": "MKT-R4.1",
    "phase": "1",
    "text": "MERCHANT: owner = custodian = fulfiller = merchant",
-   "unit": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.partiesStamped"
+   ],
    "cypress": [
     "MKT-1c-02"
    ],
    "manual": [
-    "M-1c-01"
+    "M-1c-02"
    ]
   },
   {
@@ -126,7 +131,8 @@
    "phase": "4",
    "text": "Supplier stock is never shown as immediately available unless the supplier gives reliable availability and accepts within a defined time",
    "unit": [
-    "OfferEligibilityTest.phaseSources"
+    "OfferEligibilityTest.phaseSources",
+    "MarketplaceOfferServiceTest.phaseOne"
    ],
    "cypress": [],
    "manual": [
@@ -185,7 +191,10 @@
    "req": "MKT-R5.3",
    "phase": "1",
    "text": "`MarketplaceOffer` fields: product, stock-source type, owner/custodian/seller org ids, source product, seller SKU, price policy, list + marketplace price, stock status, fulfillment type, delivery area, warranty/return/commission policy ids, approval status, published/updated",
-   "unit": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.needsMatchedSource",
+    "MarketplaceOfferServiceTest.oneOfferAndActiveSeller"
+   ],
    "cypress": [
     "MKT-1c-01"
    ],
@@ -198,7 +207,9 @@
    "phase": "1",
    "text": "Customer sees one product with N offers: \"Available from 2 sellers · From Rs. 51,500\"",
    "unit": [
-    "MarketplaceCatalogServiceTest.suggestionNotMerge"
+    "MarketplaceCatalogServiceTest.suggestionNotMerge",
+    "OfferProjectionServiceTest.carriesDisplayFields",
+    "PublicOfferServiceTest.sorts"
    ],
    "cypress": [
     "MKT-1b-04",
@@ -316,7 +327,8 @@
     "OfferRankingTest.lowestPrice",
     "OfferRankingTest.unknownDistanceLast",
     "OfferRankingTest.promotion",
-    "OfferRankingTest.parseSort"
+    "OfferRankingTest.parseSort",
+    "PublicOfferServiceTest.sorts"
    ],
    "cypress": [
     "MKT-1d-02"
@@ -359,21 +371,31 @@
    "text": "Operator configures allowed pricing policies, commission rules, max discount, promotion approval, price floor, delivery-fee, tax policy, ranking defaults",
    "unit": [
     "OfferEligibilityTest.priceLimits",
-    "SettlementCalculatorTest.invalidRate"
+    "SettlementCalculatorTest.invalidRate",
+    "MarketplaceOfferServiceTest.priceLimits",
+    "MarketplaceOfferServiceTest.commissionStamped",
+    "MarketplaceOfferServiceTest.limits",
+    "MarketplacePolicyServiceTest.commission",
+    "PublicOfferServiceTest.limitsAndApproval"
    ],
    "cypress": [
-    "MKT-1c-05"
+    "MKT-1c-05",
+    "MKT-1c-10"
    ],
    "manual": [
-    "M-1c-03",
-    "M-1c-04"
+    "M-1c-00",
+    "M-1c-04",
+    "M-1c-07"
    ]
   },
   {
    "req": "MKT-R7.5",
    "phase": "1",
    "text": "Seller configures marketplace price (if permitted), quantity, delivery area, availability, seller-funded promotion, warranty/returns within rules",
-   "unit": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.priceLimits",
+    "MarketplaceOfferServiceTest.pauseAndPublish"
+   ],
    "cypress": [
     "MKT-1c-01"
    ],
@@ -395,7 +417,12 @@
     "OfferEligibilityTest.priceLimits",
     "OfferRankingTest.filtersBeforeSort",
     "MarketplaceCatalogServiceTest.regulatedRefused",
-    "MarketplaceCatalogServiceTest.noRegulatedLaundering"
+    "MarketplaceCatalogServiceTest.noRegulatedLaundering",
+    "MarketplaceOfferServiceTest.lifecycle",
+    "MarketplaceSellerServiceTest.decisionRepublishes",
+    "OfferProjectionServiceTest.liveRule",
+    "PublicOfferServiceTest.city",
+    "PublicOfferServiceTest.limitsAndApproval"
    ],
    "cypress": [
     "MKT-1c-03",
@@ -405,7 +432,7 @@
     "MKT-1d-07"
    ],
    "manual": [
-    "M-1c-02",
+    "M-1c-03",
     "M-1c-05",
     "M-1d-04"
    ]
@@ -456,24 +483,31 @@
    "req": "MKT-R9.2",
    "phase": "1",
    "text": "Only the minimum stock-owner data is taken (identity, price, availability, area, time, warranty, returns, seller identity, manufacturer)",
-   "unit": [],
+   "unit": [
+    "OfferProjectionServiceTest.noForbiddenFields",
+    "PublicOfferServiceTest.view"
+   ],
    "cypress": [
     "MKT-1c-06"
    ],
    "manual": [
-    "M-0a-03"
+    "M-0a-03",
+    "M-1c-06"
    ]
   },
   {
    "req": "MKT-R9.3",
    "phase": "1",
    "text": "Never requested: supplier cost, internal margin, unrelated customer lists, employee data, full movement history",
-   "unit": [],
+   "unit": [
+    "OfferProjectionServiceTest.noForbiddenFields"
+   ],
    "cypress": [
     "MKT-1c-06"
    ],
    "manual": [
-    "M-0a-03"
+    "M-0a-03",
+    "M-1c-06"
    ]
   },
   {
@@ -514,7 +548,9 @@
     "AvailabilityTest.formula",
     "AvailabilityTest.stockGreaterThanZeroIsNotEnough",
     "AvailabilityTest.clampsAtZero",
-    "OfferEligibilityTest.stock"
+    "OfferEligibilityTest.stock",
+    "OfferProjectionServiceTest.syncStock",
+    "PublicOfferServiceTest.quantity"
    ],
    "cypress": [
     "MKT-1e-10"
@@ -691,7 +727,8 @@
    "phase": "1",
    "text": "**Order-time snapshots**: return/refund policy, cost payer, warranty, seller, owner, fulfiller, price, tax, commission, delivery fee; later policy changes never alter an old order",
    "unit": [
-    "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot"
+    "ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot",
+    "MarketplacePolicyServiceTest.deactivated"
    ],
    "cypress": [
     "MKT-1e-07"
@@ -718,7 +755,12 @@
    "req": "MKT-R14.1",
    "phase": "1",
    "text": "Display warranty provider, period, start/end, coverage, exclusions, claim process, service centre, responsibility",
-   "unit": [],
+   "unit": [
+    "MarketplaceOfferServiceTest.policiesRequired",
+    "MarketplacePolicyServiceTest.warranty",
+    "OfferProjectionServiceTest.carriesDisplayFields",
+    "PublicOfferServiceTest.view"
+   ],
    "cypress": [
     "MKT-1c-01"
    ],
@@ -731,11 +773,15 @@
    "req": "MKT-R14.2",
    "phase": "1",
    "text": "MaxTheService never claims to be the warranty provider unless it is",
-   "unit": [],
+   "unit": [
+    "MarketplacePolicyServiceTest.warranty",
+    "OfferProjectionServiceTest.carriesDisplayFields"
+   ],
    "cypress": [
     "MKT-1c-09"
    ],
    "manual": [
+    "M-1c-00",
     "M-1c-06"
    ]
   },
@@ -895,7 +941,9 @@
    "req": "MKT-R18.1",
    "phase": "2",
    "text": "Never call every stakeholder during checkout; two stages: projection shortlist → live reservation on ≤ 3–5 candidates",
-   "unit": [],
+   "unit": [
+    "OfferProjectionServiceTest.onlyLiveSyncs"
+   ],
    "cypress": [
     "MKT-2-05"
    ],
@@ -907,7 +955,10 @@
    "req": "MKT-R18.2",
    "phase": "1",
    "text": "Projection carries offer, product, source, location, area, availability, price, promotion, SLA, rating, last sync, seller online",
-   "unit": [],
+   "unit": [
+    "OfferProjectionServiceTest.liveRule",
+    "OfferProjectionServiceTest.syncStock"
+   ],
    "cypress": [
     "MKT-1d-06"
    ],
@@ -948,7 +999,9 @@
    "phase": "1",
    "text": "On deadline: never silently confirm; \"We are checking availability\" / \"Please choose another offer\"",
    "unit": [
-    "OfferEligibilityTest.stale"
+    "OfferEligibilityTest.stale",
+    "OfferProjectionServiceTest.noAnswerStaysUnconfirmed",
+    "PublicOfferServiceTest.stale"
    ],
    "cypress": [
     "MKT-1e-01"
@@ -971,6 +1024,7 @@
     "MarketplaceStateMachinesTest.noOrphanStates",
     "MarketplaceStateMachinesTest.publishedSetIsReadOnly",
     "MarketplaceCatalogServiceTest.illegalMove",
+    "MarketplaceOfferServiceTest.lifecycle",
     "MarketplaceSellerServiceTest.illegalMove"
    ],
    "cypress": [
@@ -1015,7 +1069,8 @@
     "MarketplaceSellerServiceTest.acceptApplies",
     "MarketplaceSellerServiceTest.needsDisplayName",
     "MarketplaceSellerServiceTest.guardNamesTheGap",
-    "MarketplaceSellerServiceTest.lifecycle"
+    "MarketplaceSellerServiceTest.lifecycle",
+    "PublicOfferServiceTest.city"
    ],
    "cypress": [
     "MKT-0a-01",
@@ -1039,7 +1094,8 @@
     "PhaseGuardTest.twoSellersRefused",
     "PhaseGuardTest.sourcesByPhase",
     "PhaseGuardTest.regulatedRefused",
-    "MarketplaceCatalogServiceTest.regulatedRefused"
+    "MarketplaceCatalogServiceTest.regulatedRefused",
+    "MarketplaceOfferServiceTest.phaseOne"
    ],
    "cypress": [
     "MKT-1b-09",
@@ -1049,6 +1105,7 @@
    ],
    "manual": [
     "M-1c-02",
+    "M-1c-03",
     "M-1e-02"
    ]
   },
@@ -1132,6 +1189,9 @@
    "unit": [
     "MarketplaceCatalogServiceTest.foreignProduct",
     "MarketplaceCatalogServiceTest.operatorOnly",
+    "MarketplaceOfferServiceTest.partiesStamped",
+    "MarketplaceOfferServiceTest.tenancy",
+    "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
     "SellerAccessTest.tiers",
@@ -1145,6 +1205,7 @@
     "MKT-1b-07",
     "MKT-1c-02",
     "MKT-1c-08",
+    "MKT-1c-11",
     "MKT-1e-08"
    ],
    "manual": [
@@ -1152,6 +1213,8 @@
     "M-0a-04",
     "M-0a-06",
     "M-1b-06",
+    "M-1c-02",
+    "M-1c-08",
     "M-X-02"
    ]
   },
@@ -1166,7 +1229,7 @@
     "MKT-1e-03"
    ],
    "manual": [
-    "M-1c-03"
+    "M-1c-04"
    ]
   },
   {

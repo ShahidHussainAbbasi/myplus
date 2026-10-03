@@ -1,5 +1,6 @@
 package com.myplus.marketplace.multiseller.domain;
 
+import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Approval;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Match;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Order;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Payment;
@@ -95,6 +96,19 @@ public final class MarketplaceStateMachines {
             .allow(Match.MATCHED, Match.NEEDS_CORRECTION, Match.REJECTED)
             .allow(Match.NEEDS_CORRECTION, Match.PENDING_REVIEW)
             .allow(Match.REJECTED, Match.PENDING_REVIEW)
+            .build();
+
+    /**
+     * MKT-1c — an offer's approval (source §5). The seller drafts and submits; only the operator approves, rejects
+     * or suspends. A rejected offer is resubmitted after the seller changes it. Pausing is NOT here: it is the
+     * seller's own on/off on an approved offer, a separate fact from MaxTheService's decision.
+     */
+    public static final StateMachine<Approval> OFFER = StateMachine.of(Approval.class)
+            .allow(Approval.DRAFT, Approval.PENDING_REVIEW)
+            .allow(Approval.PENDING_REVIEW, Approval.APPROVED, Approval.REJECTED)
+            .allow(Approval.REJECTED, Approval.PENDING_REVIEW)
+            .allow(Approval.APPROVED, Approval.SUSPENDED)
+            .allow(Approval.SUSPENDED, Approval.APPROVED)
             .build();
 
     public static final StateMachine<Reservation> RESERVATION = StateMachine.of(Reservation.class)

@@ -146,6 +146,9 @@ public class SecSecurityConfig {
                     "/emailError*",
                     "/old/user/registration*", "/successRegister*", "/qrcode*", "/invalidSession*"
                 ).permitAll()
+                // MKT-1c: anonymous marketplace READS only (MarketplacePublicController has GETs and nothing
+                // else). Matched by METHOD, so a future POST under this prefix stays authenticated by default.
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/marketplace/public/**").permitAll()
                 // Privileged Endpoint Rules — logged-in "change my password" still requires the privilege.
                 // (The forgot/reset flow is token-gated by the auth-service, so it is permitAll above.)
                 .requestMatchers(

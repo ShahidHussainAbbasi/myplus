@@ -1,8 +1,8 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** DESIGN, awaiting the design-gate go-ahead and rulings R-MKT-1…7
-([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Only **MKT-1a** (the
-pure domain core, ruling-independent) is implemented. Cadence per standards:
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b and 1c unit-green with gates written and not yet run (§10)
+([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
+doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
 cases → commit. Each MKT-n slice gets its own `slices/mkt-*.md` before it is built.
 
@@ -511,7 +511,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [~] MKT-0a capability + agreements + operator-approved seller account · unit-green, **gate written, not yet run** ([slice](slices/mkt-0a-seller-onboarding.md))
 - [x] MKT-1a pure domain core · `mvn test` green
 - [~] MKT-1b canonical product + match review · unit-green, **gate written, not yet run** ([slice](slices/mkt-1b-product-matching.md))
-- [ ] MKT-1c offers + policies + approval + projection · gate
+- [~] MKT-1c offers + policies + approval + projection · unit-green, **gate written, not yet run** ([slice](slices/mkt-1c-offers.md))
 - [ ] MKT-1d public catalogue + compare + sort · gate
 - [ ] MKT-1e one-seller checkout + acceptance + snapshots · gate
 - [ ] MKT-1f support + returns cost attribution · gate

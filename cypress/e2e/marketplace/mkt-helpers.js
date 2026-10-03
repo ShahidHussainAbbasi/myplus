@@ -46,10 +46,11 @@ const API = {
   acceptAgreement: '/mkt/acceptAgreement',                    // MKT-0a: {version, displayName}
   proposeProduct: '/mkt/proposeProduct',                      // MKT-1b: {sourceProductId, brand, model, variant, …}
   myProposals: '/mkt/myProposals',
-  saveOffer: '/mkt/saveOffer',
-  submitOffer: '/mkt/submitOffer',
+  saveOffer: '/mkt/saveOffer',                                // MKT-1c: {id?, mktProductId, marketplacePrice, deliveryAreas, …}
+  submitOffer: '/mkt/submitOffer',                            // MKT-1c: {id} → PENDING_REVIEW
   myOffers: '/mkt/myOffers',
   getOffer: (id) => `/mkt/getOffer?id=${id}`,
+  sellerPolicies: '/mkt/sellerPolicies',                      // MKT-1c: active WARRANTY + RETURN policies
   incomingOrders: '/mkt/incomingOrders',
   acceptOrder: '/mkt/acceptOrder',
   rejectOrder: '/mkt/rejectOrder',
@@ -58,8 +59,12 @@ const API = {
   matchQueue: '/platform/mkt/matchQueue',                    // MKT-1b: ?status=PENDING_REVIEW|MATCHED|NEEDS_CORRECTION
   decideMatch: '/platform/mkt/decideMatch',                  // MKT-1b: {id, decision, mktProductId, note, version}
   mktProducts: '/platform/mkt/products',                      // MKT-1b: canonical products ?q=
-  offerQueue: '/platform/mkt/offerQueue',
-  decideOffer: '/platform/mkt/decideOffer',
+  offerQueue: '/platform/mkt/offerQueue',                    // MKT-1c: ?status=PENDING_REVIEW|APPROVED|…
+  decideOffer: '/platform/mkt/decideOffer',                  // MKT-1c: {id, decision: APPROVE|REJECT|SUSPEND|REINSTATE, note, version}
+  policies: '/platform/mkt/policies',
+  createPolicy: '/platform/mkt/createPolicy',                // MKT-1c: {policyType, name, …} — never edited
+  deactivatePolicy: '/platform/mkt/deactivatePolicy',        // MKT-1c: {id}
+  productLimits: '/platform/mkt/productLimits',              // MKT-1c: {id, priceFloor, priceCeiling}
   sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…
   decideSeller: '/platform/mkt/decideSeller',                 // MKT-0a: {organizationId, decision, reason, version}
   requestPayout: '/platform/mkt/requestPayout',

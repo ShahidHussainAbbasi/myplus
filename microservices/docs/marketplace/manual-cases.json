@@ -214,21 +214,39 @@
    "warn": false
   },
   {
+   "id": "M-1c-00",
+   "slice": "MKT-1c",
+   "title": "Operator creates the policies sellers choose from",
+   "persona": "admin@myplus.com (operator)",
+   "pre": "MKT-1c deployed. No policies yet.",
+   "steps": [
+    "Operator console → 'Marketplace policies'.",
+    "Kind Warranty. Name '12 months — authorised distributor'. Provider 'Samsung Pakistan (authorised distributor)', 12 months, covers 'Manufacturing defects', excludes 'Physical and liquid damage'. Create.",
+    "Kind Warranty again, leave Provider empty. Create.",
+    "Kind Returns, name '7 days', 7 days. Create.",
+    "Kind Commission, name 'Standard 8%', Charged on 'Item price (not delivery)', rate 8, tick 'Use for newly approved offers'. Create."
+   ],
+   "expect": "Three policies are listed. Step 3 is refused: 'Name the warranty provider. MaxTheService is never assumed to be it.' The commission row shows 8% and 'default'. No policy has an Edit button, only Deactivate.",
+   "reqs": [
+    "MKT-R7.4",
+    "MKT-R14.2"
+   ],
+   "warn": false
+  },
+  {
    "id": "M-1c-01",
    "slice": "MKT-1c",
-   "title": "Seller creates an offer with warranty and returns",
+   "title": "Seller creates an offer and sends it for approval",
    "persona": "owner.business@ (Seller A)",
-   "pre": "The 128GB product is MATCHED.",
+   "pre": "Seller A is an approved seller and Samsung Galaxy A32 128GB Black is MATCHED (M-1b-04). Seller A has 5 in stock. M-1c-00 done.",
    "steps": [
-    "Marketplace → My offers → New offer.",
-    "Product: Samsung Galaxy A32 128GB Black. Price 52,000. Area Karachi. Warranty '12 months — authorised distributor'. Returns '7 days'.",
-    "Save, then Submit."
+    "Sale → Marketplace → My offers → New offer.",
+    "Product: Samsung Galaxy A32 128GB Black. Price 52000. Delivery in 24 hours. Cities 'Karachi, karachi , Lahore'. Warranty '12 months — authorised distributor'. Returns '7 days'.",
+    "Click 'Save and send for approval'."
    ],
-   "expect": "The offer shows PENDING_REVIEW with price Rs. 52,000. Seller, stock owner, custodian and fulfiller all read 'Seller A'.",
+   "expect": "The row shows Rs. 52,000, cities 'Karachi, Lahore' (the duplicate is dropped, spelling kept as typed) and a 'Waiting for review' badge. 'Send for approval' without a warranty or return policy is refused: 'Choose a warranty and a return policy before sending the offer for approval.'",
    "reqs": [
     "MKT-R5.3",
-    "MKT-R3.1",
-    "MKT-R4.1",
     "MKT-R7.5",
     "MKT-R14.1"
    ],
@@ -237,13 +255,34 @@
   {
    "id": "M-1c-02",
    "slice": "MKT-1c",
+   "title": "The browser cannot choose the stock owner",
+   "persona": "owner.business@ (Seller A), using the browser developer tools or the API",
+   "pre": "M-1c-01 done; the offer id is known.",
+   "steps": [
+    "Send POST /mkt/saveOffer {id: <offer>, sellerOrganizationId: 999999, stockOwnerOrganizationId: 999999, fulfillerOrganizationId: 999999}.",
+    "Send GET /mkt/getOffer?id=<offer>.",
+    "Send POST /mkt/saveOffer {id: <offer>, stockSourceType: 'SUPPLIER'}."
+   ],
+   "expect": "Step 1 succeeds but every party id is still Seller A's own organisation and the price is still 52,000 (a partial edit keeps what it does not mention). Step 3 is refused: 'Offers from supplier stock are not available yet.' The source stays MERCHANT.",
+   "reqs": [
+    "MKT-R3.1",
+    "MKT-R3.2",
+    "MKT-R4.1",
+    "MKT-R22.1",
+    "MKT-R20.2"
+   ],
+   "warn": true
+  },
+  {
+   "id": "M-1c-03",
+   "slice": "MKT-1c",
    "title": "A prescription product cannot be offered",
    "persona": "owner.business@ (Seller A)",
    "pre": "Seller A has a product with 'Prescription required' ticked.",
    "steps": [
-    "Try to propose it to the marketplace."
+    "Sale → Marketplace → Propose a product → choose it → Send for review."
    ],
-   "expect": "Refused: 'Prescription and restricted products cannot be sold on the marketplace yet.'",
+   "expect": "Refused: 'Prescription and restricted products cannot be sold on the marketplace yet.' Nothing is added to the proposals table.",
    "reqs": [
     "MKT-R20.2",
     "MKT-R7.6"
@@ -251,16 +290,18 @@
    "warn": true
   },
   {
-   "id": "M-1c-03",
+   "id": "M-1c-04",
    "slice": "MKT-1c",
-   "title": "Operator approves; a price above the ceiling is refused",
+   "title": "Operator approves; price outside the limits is refused",
    "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
-   "pre": "Offer is PENDING_REVIEW. Operator ceiling for the product is Rs. 60,000.",
+   "pre": "The offer is waiting for review. A default commission policy exists (M-1c-00).",
    "steps": [
-    "Operator: Offer approvals → Approve.",
-    "Seller: edit the offer price to 75,000 → Save."
+    "Operator console → 'Offer approvals' → Approve on Seller A's row.",
+    "Operator: POST /platform/mkt/productLimits {id: <marketplace product>, priceFloor: 40000, priceCeiling: 60000}.",
+    "Seller: My offers → Edit → price 75000 → Save.",
+    "Seller: price 51500 → Save."
    ],
-   "expect": "After approval the offer is LIVE. The 75,000 save is refused with 'This offer's price is outside the allowed range.' The price stays 52,000.",
+   "expect": "After step 1 the row leaves the queue and the seller sees 'Live'. Approving with no default commission policy is refused: 'Set a default commission policy before approving offers.' Step 3 is refused with 'This offer's price is outside the allowed range…' and the price stays 52,000. Step 4 saves.",
    "reqs": [
     "MKT-R7.4",
     "MKT-R22.2"
@@ -268,32 +309,18 @@
    "warn": false
   },
   {
-   "id": "M-1c-04",
-   "slice": "MKT-1c",
-   "title": "Operator sets commission, discount, promotion and ranking rules",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "MKT-1c deployed.",
-   "steps": [
-    "Operator console → Marketplace → Rules.",
-    "Set commission 10% of items for Mobiles, maximum discount 15%, promotions need approval, default ranking 'Fastest delivery'."
-   ],
-   "expect": "Rules save with an effective date. The seller's offer screen shows 'Commission 10% of item price' read-only.",
-   "reqs": [
-    "MKT-R7.4"
-   ],
-   "warn": false
-  },
-  {
    "id": "M-1c-05",
    "slice": "MKT-1c",
    "title": "Suspending a seller takes their offers down at once",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Seller A has a LIVE offer.",
+   "persona": "admin@myplus.com (operator) + a customer in an incognito window",
+   "pre": "Seller A's offer is Live.",
    "steps": [
-    "Operator: Sellers → Seller A → Suspend (reason 'documents expired').",
-    "In an incognito window, search the phone."
+    "Incognito: open /marketplace/public/products/<id>/offers?city=Karachi. Seller A is listed.",
+    "Operator: Marketplace sellers → Seller A → Suspend (reason 'documents expired').",
+    "Incognito: reload.",
+    "Operator: Reinstate. Incognito: reload."
    ],
-   "expect": "Seller A's offer is gone on the next page load. Reinstating brings it back.",
+   "expect": "After the suspension Seller A's offer is gone on the next load. Reinstating brings it back. With ?city=Quetta it is never listed.",
    "reqs": [
     "MKT-R7.6"
    ],
@@ -302,18 +329,55 @@
   {
    "id": "M-1c-06",
    "slice": "MKT-1c",
-   "title": "Warranty is the provider's, not MaxTheService's",
+   "title": "Customers see the provider's warranty and nothing internal",
    "persona": "Customer (incognito window)",
-   "pre": "Seller A's offer is LIVE.",
+   "pre": "Seller A's offer is Live.",
    "steps": [
-    "Open the product page and expand Warranty on Seller A's offer."
+    "Open /marketplace/public/products/<id>/offers?city=Karachi and read Seller A's row."
    ],
-   "expect": "Shows provider 'Authorised distributor', 12 months from delivery date, covers manufacturing defects, excludes physical and water damage, 'Claim: open a MaxTheService support case'. It never says MaxTheService is the warranty provider.",
+   "expect": "warrantyProvider 'Samsung Pakistan (authorised distributor)', 12 months, starts on DELIVERY, covers/excludes as set, 7 return days. There is no cost, margin, purchase, supplier or stock-movement field, and no organisation id other than the seller's.",
    "reqs": [
     "MKT-R14.1",
-    "MKT-R14.2"
+    "MKT-R14.2",
+    "MKT-R9.2",
+    "MKT-R9.3"
    ],
    "warn": false
+  },
+  {
+   "id": "M-1c-07",
+   "slice": "MKT-1c",
+   "title": "Deactivating a policy never changes what was sold",
+   "persona": "admin@myplus.com (operator) then owner.business@ (Seller A)",
+   "pre": "Seller A's offer uses '7 days'.",
+   "steps": [
+    "Operator: Marketplace policies → '7 days' → Deactivate.",
+    "Seller: My offers → Edit. Open the Returns list.",
+    "Seller: POST /mkt/saveOffer {id: <offer>, returnPolicyId: <the 7-day id>}."
+   ],
+   "expect": "The existing offer still names the 7-day policy. The Returns list no longer offers it. Step 3 is refused: 'Choose an active return policy.'",
+   "reqs": [
+    "MKT-R7.4"
+   ],
+   "warn": false
+  },
+  {
+   "id": "M-1c-08",
+   "slice": "MKT-1c",
+   "title": "Another seller cannot see or change the offer",
+   "persona": "owner.mobile@ (Seller B), approved seller",
+   "pre": "Seller A's offer id is known.",
+   "steps": [
+    "GET /mkt/myOffers (positive control).",
+    "GET /mkt/getOffer?id=<A's offer>.",
+    "POST /mkt/saveOffer {id: <A's offer>, marketplacePrice: 1}.",
+    "POST /platform/mkt/decideOffer {id: <A's offer>, decision: 'SUSPEND', note: 'x'}."
+   ],
+   "expect": "Step 1 works. Steps 2 and 3 answer 'No such offer.' (the same as a non-existent id). Step 4 is refused (not the operator). Seller A's offer is unchanged.",
+   "reqs": [
+    "MKT-R22.1"
+   ],
+   "warn": true
   },
   {
    "id": "M-1d-01",

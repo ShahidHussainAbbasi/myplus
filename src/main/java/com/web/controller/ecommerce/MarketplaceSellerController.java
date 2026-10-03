@@ -171,6 +171,97 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/products", request, "Could not load marketplace products.", "q", "page", "size");
     }
 
+    // ── MKT-1c: offers and policies ────────────────────────────────────────────────────────────────────────
+
+    /** Create (no id) or edit an offer. Party ids are stamped by the service; anything sent for them is ignored. */
+    @RequestMapping(value = "/mkt/saveOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveOffer(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/offers", body, "Could not save the offer.");
+    }
+
+    @RequestMapping(value = "/mkt/submitOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> submitOffer(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the offer to send.");
+        return relayPost("/mkt/offers/" + id + "/submit", Map.of(), "Could not send the offer for approval.");
+    }
+
+    @RequestMapping(value = "/mkt/myOffers", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> myOffers(final HttpServletRequest request) {
+        return relayGet("/mkt/offers", request, "Could not load your offers.", "page", "size");
+    }
+
+    @RequestMapping(value = "/mkt/getOffer", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> getOffer(final HttpServletRequest request) {
+        String id = request.getParameter("id");
+        if (id == null || !id.matches("\\d+")) return refusal("Choose the offer.");
+        return relayGet("/mkt/offers/" + id, request, "Could not load the offer.");
+    }
+
+    @RequestMapping(value = "/mkt/sellerPolicies", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> sellerPolicies(final HttpServletRequest request) {
+        return relayGet("/mkt/policies", request, "Could not load the warranty and return policies.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/offerQueue", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> offerQueue(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/offers", request, "Could not load the offer queue.", "status", "page", "size");
+    }
+
+    /** Body: {id, decision: APPROVE|REJECT|SUSPEND|REINSTATE, note, version}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/decideOffer", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> decideOffer(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the offer to decide.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/operator/offers/" + id + "/decision", rest, "Could not record the decision.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/policies", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> policies(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/policies", request, "Could not load policies.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/createPolicy", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> createPolicy(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/policies", body, "Could not create the policy.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/deactivatePolicy", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> deactivatePolicy(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the policy.");
+        return relayPost("/mkt/operator/policies/" + id + "/deactivate", Map.of(), "Could not deactivate the policy.");
+    }
+
+    /** Body: {id (marketplace product), priceFloor, priceCeiling}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/productLimits", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> productLimits(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the product.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/operator/products/" + id + "/limits", rest, "Could not save the price limits.");
+    }
+
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {
@@ -181,6 +272,17 @@ public class MarketplaceSellerController {
                 if (v != null && !v.isBlank()) q.append('&').append(p).append('=').append(enc(v));
             }
             return client.get(q.toString());
+        } catch (HttpStatusCodeException e) {
+            return relayError(e, fallback);
+        } catch (Exception e) {
+            LOGGER.error("mkt proxy error " + path, e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    private Map<String, Object> relayPost(String path, Object body, String fallback) {
+        try {
+            return client.postJson(path, body);
         } catch (HttpStatusCodeException e) {
             return relayError(e, fallback);
         } catch (Exception e) {

@@ -47,6 +47,7 @@ class MarketplaceSellerServiceTest {
     @Mock MarketplaceSellerAccountRepository accounts;
     @Mock MarketplaceAgreementAcceptanceRepository acceptances;
     @Mock SellerAccess access;
+    @Mock OfferProjectionService projection;
     @InjectMocks MarketplaceSellerService service;
 
     final Map<Long, MarketplaceSellerAccount> accountRows = new HashMap<>();
@@ -191,6 +192,15 @@ class MarketplaceSellerServiceTest {
         assertThatThrownBy(() -> service.decide(ORG, new SellerDTOs.DecisionRequest("APPROVE", null, 99)))
                 .isInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
         assertThat(accountRows.get(ORG).getStatus()).isEqualTo("PENDING_APPROVAL");
+    }
+
+    @Test
+    @DisplayName("[MKT-R7.6] a seller decision re-publishes that seller's offers in the same transaction")
+    void decisionRepublishes() {
+        service.accept(new SellerDTOs.AcceptRequest("v1", "Shop"));
+        service.decide(ORG, new SellerDTOs.DecisionRequest("APPROVE", null, null));
+        service.decide(ORG, new SellerDTOs.DecisionRequest("SUSPEND", "documents expired", null));
+        verify(projection, times(2)).publishSeller(ORG);
     }
 
     @Test

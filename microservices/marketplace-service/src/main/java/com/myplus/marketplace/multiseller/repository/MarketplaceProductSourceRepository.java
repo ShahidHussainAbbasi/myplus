@@ -13,6 +13,10 @@ public interface MarketplaceProductSourceRepository extends JpaRepository<Market
     /** The seller's own proposal for one of its products (UNIQUE pair). */
     Optional<MarketplaceProductSource> findByOrganizationIdAndSourceProductId(Long organizationId, Long sourceProductId);
 
+    /** MKT-1c: the seller's MATCHED source for one canonical product (idx_mkt_source_product narrows it). */
+    Optional<MarketplaceProductSource> findFirstByOrganizationIdAndMktProductIdAndMatchStatus(Long organizationId,
+            Long mktProductId, String matchStatus);
+
     /** Seller list — idx_mkt_source_org_created. */
     Page<MarketplaceProductSource> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId, Pageable page);
 

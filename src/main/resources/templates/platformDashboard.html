@@ -62,6 +62,11 @@
                 <!-- MKT-1b: the product match review queue. -->
                 <button type="button" class="btn btn-default" id="platMktMatchesBtn"
                         th:text="#{ui.mktMatchesTitle}">Product matching</button>
+                <!-- MKT-1c: offer approvals and the warranty / return / commission policies. -->
+                <button type="button" class="btn btn-default" id="platMktOffersBtn"
+                        th:text="#{ui.mktOfferApprovals}">Offer approvals</button>
+                <button type="button" class="btn btn-default" id="platMktPoliciesBtn"
+                        th:text="#{ui.mktPoliciesTitle}">Marketplace policies</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -119,6 +124,89 @@
                         <th th:text="#{ui.mktColKey}">Marketplace identity</th>
                         <th th:text="#{ui.mktColSuggested}">Existing match</th>
                         <th th:text="#{ui.mktColDecision}">Decision</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── MKT-1c: offer approvals ─────────────────────────────────────────────────────────── -->
+        <section id="platMktOffers" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktOfferApprovals}">Offer approvals</h3>
+            <div class="plat-seg" id="platMktOfferStatus" role="group">
+                <button type="button" data-status="PENDING_REVIEW" class="is-on" th:text="#{ui.mktStatusPending}">Waiting for review</button>
+                <button type="button" data-status="APPROVED" th:text="#{ui.mktStatusApproved}">Approved</button>
+                <button type="button" data-status="SUSPENDED" th:text="#{ui.mktStatusSuspended}">Suspended</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktOfferQueue">
+                    <thead><tr>
+                        <th th:text="#{ui.mktColProduct}">Product</th>
+                        <th th:text="#{ui.mktOfferPrice}">Price (Rs.)</th>
+                        <th th:text="#{ui.mktOfferArea}">Cities you deliver to</th>
+                        <th th:text="#{ui.mktColDecision}">Decision</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── MKT-1c: policies (append-only: create and deactivate, never edit) ─────────────────── -->
+        <section id="platMktPolicies" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktPoliciesTitle}">Marketplace policies</h3>
+            <p class="plat__hint" th:text="#{ui.mktPoliciesHint}">Policies are never edited. To change terms, create a new policy and deactivate the old one, so nothing already sold changes.</p>
+            <div class="plat__form" id="mktPolicyForm">
+                <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>
+                <select id="mktPolType" class="form-control">
+                    <option value="WARRANTY" th:text="#{ui.mktOfferWarranty}">Warranty</option>
+                    <option value="RETURN" th:text="#{ui.mktOfferReturn}">Returns</option>
+                    <option value="COMMISSION" th:text="#{ui.mktPolCommission}">Commission</option>
+                </select>
+                <label for="mktPolName" th:text="#{ui.mktPolName}">Name sellers see</label>
+                <input type="text" id="mktPolName" class="form-control" maxlength="120"/>
+                <div class="mkt-pol mkt-pol-WARRANTY">
+                    <label for="mktPolProvider" th:text="#{ui.mktPolProvider}">Warranty provider</label>
+                    <input type="text" id="mktPolProvider" class="form-control" maxlength="120"/>
+                    <label for="mktPolMonths" th:text="#{ui.mktPolMonths}">Months (from delivery)</label>
+                    <input type="number" id="mktPolMonths" class="form-control" min="0" max="120"/>
+                    <label for="mktPolCovers" th:text="#{ui.mktPolCovers}">Covers</label>
+                    <input type="text" id="mktPolCovers" class="form-control" maxlength="300"/>
+                    <label for="mktPolExcludes" th:text="#{ui.mktPolExcludes}">Excludes</label>
+                    <input type="text" id="mktPolExcludes" class="form-control" maxlength="300"/>
+                </div>
+                <div class="mkt-pol mkt-pol-RETURN" style="display:none">
+                    <label for="mktPolDays" th:text="#{ui.mktPolDays}">Return days</label>
+                    <input type="number" id="mktPolDays" class="form-control" min="0" max="365"/>
+                </div>
+                <div class="mkt-pol mkt-pol-COMMISSION" style="display:none">
+                    <label for="mktPolBasis" th:text="#{ui.mktPolBasis}">Charged on</label>
+                    <select id="mktPolBasis" class="form-control">
+                        <option value="ITEMS" th:text="#{ui.mktPolBasisItems}">Item price (not delivery)</option>
+                        <option value="ITEMS_PLUS_DELIVERY" th:text="#{ui.mktPolBasisAll}">Item price and delivery</option>
+                        <option value="FIXED" th:text="#{ui.mktPolBasisFixed}">A fixed amount per item</option>
+                    </select>
+                    <label for="mktPolRate" th:text="#{ui.mktPolRate}">Rate (%) or fixed amount (Rs.)</label>
+                    <input type="number" id="mktPolRate" class="form-control" min="0" step="0.01"/>
+                    <label><input type="checkbox" id="mktPolDefault"/> <span th:text="#{ui.mktPolDefault}">Use for newly approved offers</span></label>
+                </div>
+                <button type="button" class="btn btn-primary" id="mktPolCreate" th:text="#{ui.mktPolCreate}">Create policy</button>
+                <span id="mktPolMsg" class="plat__hint" role="status"></span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktPolicyTable">
+                    <thead><tr>
+                        <th th:text="#{ui.mktPolType}">Kind</th>
+                        <th th:text="#{ui.mktPolName}">Name sellers see</th>
+                        <th th:text="#{ui.mktPolTerms}">Terms</th>
+                        <th></th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>

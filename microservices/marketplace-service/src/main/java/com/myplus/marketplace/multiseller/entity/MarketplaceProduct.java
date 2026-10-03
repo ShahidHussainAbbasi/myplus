@@ -75,6 +75,13 @@ public class MarketplaceProduct {
     @Column(name = "category_name", length = 120)
     private String categoryName;
 
+    /** MKT-1c (V26) — the operator's price limits for this product (source §7.4); null = no limit. */
+    @Column(name = "price_floor", precision = 19, scale = 2)
+    private java.math.BigDecimal priceFloor;
+
+    @Column(name = "price_ceiling", precision = 19, scale = 2)
+    private java.math.BigDecimal priceCeiling;
+
     /** {@code MarketplaceStatus.Regulated} name: NONE | RESTRICTED | PRESCRIPTION. */
     @Column(name = "regulated_status", nullable = false, length = 16)
     private String regulatedStatus;

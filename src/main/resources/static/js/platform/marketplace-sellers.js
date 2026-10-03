@@ -1,6 +1,7 @@
 /**
  * MKT-0a — the operator's marketplace seller queue (platformDashboard.html #platMktSellers), and
- * MKT-1b — the product match review queue (#platMktMatches).
+ * MKT-1b — the product match review queue (#platMktMatches), and
+ * MKT-1c — offer approvals (#platMktOffers) and the append-only policies (#platMktPolicies).
  * Server: marketplace-service /mkt/operator/sellers via the monolith's /platform/mkt/** proxy (ROLE_ADMIN).
  *
  * The server decides everything: who may decide (ROLE_ADMIN, never a tenant's ADMIN_PRIVILEGE), which moves are
@@ -92,7 +93,7 @@
 	}
 
 	function open() {
-		$('#platTenants, #platDetail, #platProvision, #platMktMatches').hide();
+		$('#platTenants, #platDetail, #platProvision, #platMktMatches, #platMktOffers, #platMktPolicies').hide();
 		$('#platMktSellers').show();
 		load();
 	}
@@ -184,7 +185,7 @@
 	}
 
 	function openMatches() {
-		$('#platTenants, #platDetail, #platProvision, #platMktSellers').hide();
+		$('#platTenants, #platDetail, #platProvision, #platMktSellers, #platMktOffers, #platMktPolicies').hide();
 		$('#platMktMatches').show();
 		loadMatches();
 	}
@@ -202,4 +203,145 @@
 	});
 
 	global.platMktMatchesOpen = openMatches;
+
+	// ── MKT-1c: offer approvals ───────────────────────────────────────────────────────────────────────
+
+	var offerStatus = 'PENDING_REVIEW';
+	/** The same edges as MarketplaceStateMachines.OFFER (operator moves only). */
+	var OFFER_MOVES = { PENDING_REVIEW: ['APPROVE', 'REJECT'], APPROVED: ['SUSPEND'], SUSPENDED: ['REINSTATE'] };
+	var OFFER_LABEL = {
+		APPROVE: ['ui.js.mktApprove', 'Approve'], REJECT: ['ui.js.mktReject', 'Reject'],
+		SUSPEND: ['ui.js.mktSuspend', 'Suspend'], REINSTATE: ['ui.js.mktReinstate', 'Reinstate']
+	};
+
+	function money(v) {
+		return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+	}
+
+	function loadOffers() {
+		var $tb = $('#mktOfferQueue tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/offerQueue?status=' + encodeURIComponent(offerStatus) + '&size=100', dataType: 'json' })
+			.done(function (res) {
+				if (!ok(res)) { $tb.append($('<tr><td colspan="4"></td></tr>').find('td').text(message(res, '')).end()); return; }
+				var rows = (data(res) || {}).content || [];
+				if (!rows.length) {
+					$tb.append($('<tr><td colspan="4" class="plat__empty"></td></tr>').find('td').text(tr('ui.js.mktNoMatches', 'Nothing to review.')).end());
+					return;
+				}
+				rows.forEach(function (o) {
+					var $tr = $('<tr></tr>').attr('data-offer-id', o.id);
+					$tr.append($('<td></td>').append($('<div></div>').text(o.productName || ('#' + o.mktProductId)))
+						.append($('<div class="plat__hint"></div>').text('#' + o.sellerOrganizationId)));
+					$tr.append($('<td style="font-variant-numeric:tabular-nums"></td>').text(money(o.marketplacePrice)));
+					$tr.append($('<td></td>').text((o.deliveryAreas || '').split(',').join(', ')));
+					var $act = $('<td></td>'), $msg = $('<div class="plat__hint" role="status"></div>');
+					var moves = OFFER_MOVES[o.approvalStatus] || [];
+					var $note = $('<input type="text" class="form-control input-sm" maxlength="500">')
+						.attr('placeholder', tr('ui.js.mktReasonPh', 'Reason the seller will see'))
+						.attr('aria-label', tr('ui.js.mktReasonPh', 'Reason the seller will see'));
+					if (moves.indexOf('REJECT') >= 0 || moves.indexOf('SUSPEND') >= 0) $act.append($note);
+					moves.forEach(function (d) {
+						$('<button type="button" class="btn btn-xs"></button>')
+							.addClass(d === 'APPROVE' || d === 'REINSTATE' ? 'btn-primary' : 'btn-default')
+							.attr('data-decision', d).text(tr(OFFER_LABEL[d][0], OFFER_LABEL[d][1]))
+							.on('click', function () {
+								var $b = $(this), label = $b.text();
+								$b.prop('disabled', true);
+								$.ajax({ url: ctx() + 'platform/mkt/decideOffer', type: 'POST', contentType: 'application/json',
+									dataType: 'json', data: JSON.stringify({ id: o.id, decision: d, note: $note.val(), version: o.version }) })
+									.done(function (r) {
+										if (!ok(r)) { $msg.css('color', '#b3261e').text(message(r, tr('ui.js.saveFailed', 'Save failed'))); return; }
+										loadOffers();
+									})
+									.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+									.always(function () { $b.prop('disabled', false).text(label); });
+							}).appendTo($act);
+					});
+					$tb.append($tr.append($act.append($msg)));
+				});
+			});
+	}
+
+	// ── MKT-1c: policies ──────────────────────────────────────────────────────────────────────────────
+
+	function terms(p) {
+		if (p.policyType === 'WARRANTY') return p.warrantyMonths + ' · ' + (p.warrantyProvider || '') + (p.warrantyCovers ? ' · ' + p.warrantyCovers : '');
+		if (p.policyType === 'RETURN') return p.returnDays + ' ' + tr('ui.js.mktDays', 'days');
+		return p.commissionBasis === 'FIXED' ? 'Rs. ' + money(p.commissionFixed)
+			: (Number(p.commissionRate || 0) * 100).toFixed(2).replace(/\.?0+$/, '') + '% · ' + p.commissionBasis;
+	}
+
+	function loadPolicies() {
+		var $tb = $('#mktPolicyTable tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/policies', dataType: 'json' }).done(function (res) {
+			var list = typeof global.apiList === 'function' ? global.apiList(res) : ((res && res.data) || []);
+			(list || []).forEach(function (p) {
+				var $tr = $('<tr></tr>').attr('data-policy-id', p.id).toggleClass('text-muted', !p.active);
+				$tr.append($('<td></td>').text(p.policyType + (p.isDefault ? ' · ' + tr('ui.js.mktDefault', 'default') : '')));
+				$tr.append($('<td></td>').text(p.name));
+				$tr.append($('<td></td>').text(terms(p)));
+				var $act = $('<td></td>');
+				if (p.active) {
+					$('<button type="button" class="btn btn-xs btn-default"></button>').text(tr('ui.js.mktDeactivate', 'Deactivate'))
+						.on('click', function () {
+							$.ajax({ url: ctx() + 'platform/mkt/deactivatePolicy', type: 'POST', contentType: 'application/json',
+								dataType: 'json', data: JSON.stringify({ id: p.id }) }).always(loadPolicies);
+						}).appendTo($act);
+				}
+				$tb.append($tr.append($act));
+			});
+		});
+	}
+
+	function createPolicy() {
+		var type = $('#mktPolType').val(), rate = $('#mktPolRate').val();
+		var basis = $('#mktPolBasis').val();
+		var body = { policyType: type, name: $('#mktPolName').val() };
+		if (type === 'WARRANTY') {
+			body.warrantyProvider = $('#mktPolProvider').val();
+			body.warrantyMonths = $('#mktPolMonths').val() === '' ? null : Number($('#mktPolMonths').val());
+			body.warrantyCovers = $('#mktPolCovers').val();
+			body.warrantyExcludes = $('#mktPolExcludes').val();
+		} else if (type === 'RETURN') {
+			body.returnDays = $('#mktPolDays').val() === '' ? null : Number($('#mktPolDays').val());
+		} else {
+			body.commissionBasis = basis;
+			body.isDefault = $('#mktPolDefault').is(':checked');
+			// the screen takes a PERCENT; the server stores a fraction (10 → 0.10)
+			if (basis === 'FIXED') body.commissionFixed = rate === '' ? null : Number(rate);
+			else body.commissionRate = rate === '' ? null : Number(rate) / 100;
+		}
+		var $b = $('#mktPolCreate').prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/createPolicy', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify(body) }).done(function (res) {
+			$('#mktPolMsg').css('color', ok(res) ? '' : '#b3261e').text(message(res, ok(res) ? '' : tr('ui.js.saveFailed', 'Save failed')));
+			if (ok(res)) { $('#mktPolicyForm input[type=text], #mktPolicyForm input[type=number]').val(''); loadPolicies(); }
+		}).fail(function (xhr) {
+			$('#mktPolMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed')));
+		}).always(function () { $b.prop('disabled', false); });
+	}
+
+	function openPanel(id, loader) {
+		$('#platTenants, #platDetail, #platProvision, #platMktSellers, #platMktMatches, #platMktOffers, #platMktPolicies').hide();
+		$(id).show();
+		loader();
+	}
+
+	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', loadPolicies); });
+	$(document).on('click', '.plat-mkt-back', function () {
+		$('#platMktOffers, #platMktPolicies').hide();
+		$('#platTenants').show();
+	});
+	$(document).on('click', '#platMktOfferStatus button', function () {
+		$('#platMktOfferStatus button').removeClass('is-on');
+		$(this).addClass('is-on');
+		offerStatus = $(this).attr('data-status');
+		loadOffers();
+	});
+	$(document).on('change', '#mktPolType', function () {
+		$('.mkt-pol').hide();
+		$('.mkt-pol-' + $(this).val()).show();
+	});
+	$(document).on('click', '#mktPolCreate', createPolicy);
 })(window);

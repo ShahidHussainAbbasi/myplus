@@ -43,6 +43,8 @@ public class MarketplaceSellerService {
     private final MarketplaceSellerAccountRepository accounts;
     private final MarketplaceAgreementAcceptanceRepository acceptances;
     private final SellerAccess access;
+    /** MKT-1c — a seller decision re-publishes that seller's offers (a suspended seller disappears at once). */
+    private final OfferProjectionService projection;
 
     // ── tenant ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -164,7 +166,9 @@ public class MarketplaceSellerService {
         account.setStatusReason(target == SellerAccount.APPROVED ? null : reason);
         account.setDecidedByUserId(access.userId());
         account.setDecidedAt(LocalDateTime.now());
-        return toDto(accounts.save(account));
+        SellerDTOs.Account out = toDto(accounts.save(account));
+        projection.publishSeller(sellerOrg);   // same transaction: the public read can never show a suspended seller
+        return out;
     }
 
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────

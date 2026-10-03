@@ -137,6 +137,62 @@
 				</table>
 			</div>
 		</div>
+
+		<!-- MKT-1c — my offers: price, delivery area and promise, warranty and returns. MaxTheService approves each offer;
+		     who owns, holds and ships the stock is stamped by the server (Phase 1: this business). -->
+		<div id="mktOffersBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px">
+				<span th:text="#{ui.mktOffersTitle}">My offers</span>
+				<button type="button" class="btn btn-xs btn-primary" id="mktNewOfferBtn" onclick="mktOfferNew()"
+					th:text="#{ui.mktNewOffer}">New offer</button>
+			</h4>
+			<form class="form-horizontal" role="form" id="mktOfferForm" autocomplete="off" onsubmit="return false;" style="display:none">
+				<input type="hidden" id="mktOfferId">
+				<input type="hidden" id="mktOfferVersion">
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktOfferProduct" th:text="#{ui.mktOfferProduct}">Marketplace product</label>
+					<div class="col-sm-6"><select class="form-control" id="mktOfferProduct"></select></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktOfferPrice" th:text="#{ui.mktOfferPrice}">Price (Rs.)</label>
+					<div class="col-sm-3"><input type="number" step="0.01" min="0.01" class="form-control" id="mktOfferPrice" inputmode="decimal"></div>
+					<label class="control-label col-sm-2" for="mktOfferPromise" th:text="#{ui.mktOfferPromise}">Delivery in (hours)</label>
+					<div class="col-sm-2"><input type="number" min="1" max="720" class="form-control" id="mktOfferPromise" value="24"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktOfferArea" th:text="#{ui.mktOfferArea}">Cities you deliver to</label>
+					<div class="col-sm-6"><input type="text" class="form-control" id="mktOfferArea" maxlength="500" placeholder="Karachi, Hyderabad"></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktOfferWarranty" th:text="#{ui.mktOfferWarranty}">Warranty</label>
+					<div class="col-sm-4"><select class="form-control" id="mktOfferWarranty"></select></div>
+				</div>
+				<div class="form-group">
+					<label class="control-label col-sm-3" for="mktOfferReturn" th:text="#{ui.mktOfferReturn}">Returns</label>
+					<div class="col-sm-4"><select class="form-control" id="mktOfferReturn"></select></div>
+				</div>
+				<div class="form-group">
+					<div class="col-sm-offset-3 col-sm-9">
+						<button type="button" class="btn btn-default" id="mktOfferSave" onclick="mktOfferSave(this, false)" th:text="#{ui.mktOfferSave}">Save</button>
+						<button type="button" class="btn btn-primary" id="mktOfferSubmit" onclick="mktOfferSave(this, true)" th:text="#{ui.mktOfferSubmit}">Save and send for approval</button>
+						<span id="mktOfferMsg" role="status" style="margin-left:10px"></span>
+					</div>
+				</div>
+			</form>
+			<div class="table-responsive">
+				<table class="table table-condensed" id="mktOffersTable">
+					<thead><tr>
+						<th th:text="#{ui.mktColProduct}">Product</th>
+						<th th:text="#{ui.mktOfferPrice}">Price (Rs.)</th>
+						<th th:text="#{ui.mktOfferArea}">Cities you deliver to</th>
+						<th th:text="#{ui.mktColStatus}">Status</th>
+						<th th:text="#{ui.mktColNote}">Note from MaxTheService</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+				</table>
+			</div>
+		</div>
 	</div>
 </div>
 </body>

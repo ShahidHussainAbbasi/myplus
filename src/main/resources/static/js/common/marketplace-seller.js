@@ -50,8 +50,9 @@
 		if (a && a.displayName && !$('#mktDisplayName').val()) $('#mktDisplayName').val(a.displayName);
 		$('#mktAgreementBox').toggle(v.capabilityOn && (!v.agreementsCurrent || needsApplication));
 		$('#mktProductsBox').toggle(!!v.canSell);
+		$('#mktOffersBox').toggle(!!v.canSell);
 		syncButton();
-		if (v.canSell) mktProposalsLoad();
+		if (v.canSell) { mktProposalsLoad(); mktOffersLoad(); }
 	}
 
 	// ── MKT-1b: products to publish ───────────────────────────────────────────────────────────────────
@@ -159,6 +160,132 @@
 		});
 	}
 
+	// ── MKT-1c: my offers ─────────────────────────────────────────────────────────────────────────────
+
+	var OFFER_STATUS = {
+		DRAFT: ['ui.js.mktOfferDraft', 'Draft', 'label-default'],
+		PENDING_REVIEW: ['ui.js.mktMatchPending', 'Waiting for review', 'label-warning'],
+		APPROVED: ['ui.js.mktOfferLive', 'Live', 'label-success'],
+		REJECTED: ['ui.js.mktMatchRejected', 'Not accepted', 'label-danger'],
+		SUSPENDED: ['ui.js.mktSuspended', 'Suspended', 'label-danger']
+	};
+	var matchedProducts = {};
+
+	function money(v) {
+		var n = Number(v || 0);
+		return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+	}
+
+	function mktOffersLoad() {
+		return $.ajax({ url: ctx() + 'mkt/myOffers?size=100', dataType: 'json' }).done(function (res) {
+			var $tb = $('#mktOffersTable tbody').empty();
+			if (!ok(res)) { $tb.append($('<tr><td colspan="6"></td></tr>').find('td').text(message(res, '')).end()); return; }
+			var rows = (data(res) || {}).content || [];
+			if (!rows.length) {
+				$tb.append($('<tr><td colspan="6" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktNoOffers', 'No offers yet.')).end());
+				return;
+			}
+			rows.forEach(function (o) {
+				var s = OFFER_STATUS[o.approvalStatus] || [null, o.approvalStatus, 'label-default'];
+				var label = s[0] ? tr(s[0], s[1]) : s[1];
+				if (o.approvalStatus === 'APPROVED' && o.paused) label = tr('ui.js.mktOfferPaused', 'Paused');
+				var $tr = $('<tr></tr>').attr('data-offer-id', o.id);
+				$tr.append($('<td></td>').text(o.productName || ('#' + o.mktProductId)));
+				$tr.append($('<td style="font-variant-numeric:tabular-nums"></td>').text(money(o.marketplacePrice)));
+				$tr.append($('<td></td>').text((o.deliveryAreas || '').split(',').join(', ')));
+				$tr.append($('<td></td>').append($('<span class="label"></span>').addClass(s[2]).attr('data-status', o.approvalStatus).text(label)));
+				$tr.append($('<td></td>').text(o.reviewNote || ''));
+				var $act = $('<td></td>');
+				$('<button type="button" class="btn btn-xs btn-default"></button>').text(tr('ui.edit', 'Edit'))
+					.on('click', function () { mktOfferEdit(o); }).appendTo($act);
+				if (o.approvalStatus === 'APPROVED') {
+					$('<button type="button" class="btn btn-xs btn-default mkt-pause" style="margin-left:4px"></button>')
+						.text(o.paused ? tr('ui.js.mktResume', 'Resume') : tr('ui.js.mktPause', 'Pause'))
+						.on('click', function () { mktOfferPost({ id: o.id, paused: !o.paused, version: o.version }, null, $(this)); })
+						.appendTo($act);
+				}
+				$tb.append($tr.append($act));
+			});
+		});
+	}
+
+	/** Fill the product and policy pickers: matched products only, active warranty/return policies only. */
+	function mktOfferPickers() {
+		var a = $.ajax({ url: ctx() + 'mkt/myProposals?size=100', dataType: 'json' }).done(function (res) {
+			var $s = $('#mktOfferProduct').empty();
+			((data(res) || {}).content || []).filter(function (p) { return p.matchStatus === 'MATCHED' && p.mktProductId; })
+				.forEach(function (p) {
+					matchedProducts[p.mktProductId] = true;
+					$s.append($('<option></option>').attr('value', p.mktProductId)
+						.text([p.brand, p.model, p.variant, p.colour, p.size, p.packSize].filter(Boolean).join(' ')));
+				});
+		});
+		var b = $.ajax({ url: ctx() + 'mkt/sellerPolicies', dataType: 'json' }).done(function (res) {
+			var list = typeof global.apiList === 'function' ? global.apiList(res) : ((res && res.data) || []);
+			var $w = $('#mktOfferWarranty').empty(), $r = $('#mktOfferReturn').empty();
+			(list || []).forEach(function (p) {
+				($(p.policyType === 'WARRANTY' ? $w : $r)).append($('<option></option>').attr('value', p.id).text(p.name));
+			});
+		});
+		return $.when(a, b);
+	}
+
+	function mktOfferNew() {
+		$('#mktOfferId, #mktOfferVersion, #mktOfferPrice, #mktOfferArea').val('');
+		$('#mktOfferProduct').prop('disabled', false);
+		$('#mktOfferForm').show();
+		mktOfferPickers();
+	}
+
+	function mktOfferEdit(o) {
+		mktOfferPickers().always(function () {
+			$('#mktOfferId').val(o.id);
+			$('#mktOfferVersion').val(o.version);
+			$('#mktOfferProduct').val(String(o.mktProductId)).prop('disabled', true);
+			$('#mktOfferPrice').val(o.marketplacePrice);
+			$('#mktOfferArea').val((o.deliveryAreas || '').split(',').join(', '));
+			$('#mktOfferPromise').val(o.promiseHours);
+			if (o.warrantyPolicyId) $('#mktOfferWarranty').val(String(o.warrantyPolicyId));
+			if (o.returnPolicyId) $('#mktOfferReturn').val(String(o.returnPolicyId));
+			$('#mktOfferForm').show();
+		});
+	}
+
+	function mktOfferSave(btn, submit) {
+		var id = $('#mktOfferId').val();
+		var body = {
+			id: id ? Number(id) : null,
+			mktProductId: id ? null : (Number($('#mktOfferProduct').val()) || null),
+			marketplacePrice: $('#mktOfferPrice').val() === '' ? null : Number($('#mktOfferPrice').val()),
+			deliveryAreas: $('#mktOfferArea').val(),
+			promiseHours: Number($('#mktOfferPromise').val()) || null,
+			warrantyPolicyId: Number($('#mktOfferWarranty').val()) || null,
+			returnPolicyId: Number($('#mktOfferReturn').val()) || null,
+			version: $('#mktOfferVersion').val() === '' ? null : Number($('#mktOfferVersion').val())
+		};
+		mktOfferPost(body, submit, $(btn));
+	}
+
+	function mktOfferPost(body, submit, $b) {
+		var label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.mktSaving', 'Saving…'));
+		$('#mktOfferMsg').text('').css('color', '');
+		$.ajax({ url: ctx() + 'mkt/saveOffer', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify(body) }).then(function (res) {
+			if (!ok(res) || !submit) return res;
+			return $.ajax({ url: ctx() + 'mkt/submitOffer', type: 'POST', contentType: 'application/json',
+				dataType: 'json', data: JSON.stringify({ id: data(res).id }) });
+		}).done(function (res) {
+			if (!ok(res)) { $('#mktOfferMsg').css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+			$('#mktOfferMsg').css('color', '#1f7a4d').text(message(res, tr('ui.js.mktOfferSaved', 'Offer saved.')));
+			var o = data(res);
+			if (o && o.id) { $('#mktOfferId').val(o.id); $('#mktOfferVersion').val(o.version); }
+			mktOffersLoad();
+		}).fail(function (xhr) {
+			$('#mktOfferMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed')));
+		}).always(function () { $b.prop('disabled', false).html(label); });
+	}
+
 	function showMarketplaceSeller() {
 		$('.formDiv').hide();
 		$('#MarketplaceDiv').show();
@@ -173,4 +300,7 @@
 	global.mktProposeToggle = mktProposeToggle;
 	global.mktPropose = mktPropose;
 	global.mktProposalsLoad = mktProposalsLoad;
+	global.mktOfferNew = mktOfferNew;
+	global.mktOfferSave = mktOfferSave;
+	global.mktOffersLoad = mktOffersLoad;
 })(window);

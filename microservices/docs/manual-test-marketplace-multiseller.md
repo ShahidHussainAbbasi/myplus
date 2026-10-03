@@ -157,70 +157,114 @@
 
 ## MKT-1c
 
-### M-1c-01 Seller creates an offer with warranty and returns
+### M-1c-00 Operator creates the policies sellers choose from
+
+**Persona:** admin@myplus.com (operator)  
+**Pre:** MKT-1c deployed. No policies yet.  
+**Covers:** MKT-R7.4, MKT-R14.2
+
+1. Operator console → 'Marketplace policies'.
+2. Kind Warranty. Name '12 months — authorised distributor'. Provider 'Samsung Pakistan (authorised distributor)', 12 months, covers 'Manufacturing defects', excludes 'Physical and liquid damage'. Create.
+3. Kind Warranty again, leave Provider empty. Create.
+4. Kind Returns, name '7 days', 7 days. Create.
+5. Kind Commission, name 'Standard 8%', Charged on 'Item price (not delivery)', rate 8, tick 'Use for newly approved offers'. Create.
+
+**Expect:** Three policies are listed. Step 3 is refused: 'Name the warranty provider. MaxTheService is never assumed to be it.' The commission row shows 8% and 'default'. No policy has an Edit button, only Deactivate.
+
+### M-1c-01 Seller creates an offer and sends it for approval
 
 **Persona:** owner.business@ (Seller A)  
-**Pre:** The 128GB product is MATCHED.  
-**Covers:** MKT-R5.3, MKT-R3.1, MKT-R4.1, MKT-R7.5, MKT-R14.1
+**Pre:** Seller A is an approved seller and Samsung Galaxy A32 128GB Black is MATCHED (M-1b-04). Seller A has 5 in stock. M-1c-00 done.  
+**Covers:** MKT-R5.3, MKT-R7.5, MKT-R14.1
 
-1. Marketplace → My offers → New offer.
-2. Product: Samsung Galaxy A32 128GB Black. Price 52,000. Area Karachi. Warranty '12 months — authorised distributor'. Returns '7 days'.
-3. Save, then Submit.
+1. Sale → Marketplace → My offers → New offer.
+2. Product: Samsung Galaxy A32 128GB Black. Price 52000. Delivery in 24 hours. Cities 'Karachi, karachi , Lahore'. Warranty '12 months — authorised distributor'. Returns '7 days'.
+3. Click 'Save and send for approval'.
 
-**Expect:** The offer shows PENDING_REVIEW with price Rs. 52,000. Seller, stock owner, custodian and fulfiller all read 'Seller A'.
+**Expect:** The row shows Rs. 52,000, cities 'Karachi, Lahore' (the duplicate is dropped, spelling kept as typed) and a 'Waiting for review' badge. 'Send for approval' without a warranty or return policy is refused: 'Choose a warranty and a return policy before sending the offer for approval.'
 
-### M-1c-02 ⚠ A prescription product cannot be offered
+### M-1c-02 ⚠ The browser cannot choose the stock owner
+
+**Persona:** owner.business@ (Seller A), using the browser developer tools or the API  
+**Pre:** M-1c-01 done; the offer id is known.  
+**Covers:** MKT-R3.1, MKT-R3.2, MKT-R4.1, MKT-R22.1, MKT-R20.2
+
+1. Send POST /mkt/saveOffer {id: <offer>, sellerOrganizationId: 999999, stockOwnerOrganizationId: 999999, fulfillerOrganizationId: 999999}.
+2. Send GET /mkt/getOffer?id=<offer>.
+3. Send POST /mkt/saveOffer {id: <offer>, stockSourceType: 'SUPPLIER'}.
+
+**Expect:** Step 1 succeeds but every party id is still Seller A's own organisation and the price is still 52,000 (a partial edit keeps what it does not mention). Step 3 is refused: 'Offers from supplier stock are not available yet.' The source stays MERCHANT.
+
+### M-1c-03 ⚠ A prescription product cannot be offered
 
 **Persona:** owner.business@ (Seller A)  
 **Pre:** Seller A has a product with 'Prescription required' ticked.  
 **Covers:** MKT-R20.2, MKT-R7.6
 
-1. Try to propose it to the marketplace.
+1. Sale → Marketplace → Propose a product → choose it → Send for review.
 
-**Expect:** Refused: 'Prescription and restricted products cannot be sold on the marketplace yet.'
+**Expect:** Refused: 'Prescription and restricted products cannot be sold on the marketplace yet.' Nothing is added to the proposals table.
 
-### M-1c-03 Operator approves; a price above the ceiling is refused
+### M-1c-04 Operator approves; price outside the limits is refused
 
 **Persona:** admin@myplus.com (operator) then owner.business@ (Seller A)  
-**Pre:** Offer is PENDING_REVIEW. Operator ceiling for the product is Rs. 60,000.  
+**Pre:** The offer is waiting for review. A default commission policy exists (M-1c-00).  
 **Covers:** MKT-R7.4, MKT-R22.2
 
-1. Operator: Offer approvals → Approve.
-2. Seller: edit the offer price to 75,000 → Save.
+1. Operator console → 'Offer approvals' → Approve on Seller A's row.
+2. Operator: POST /platform/mkt/productLimits {id: <marketplace product>, priceFloor: 40000, priceCeiling: 60000}.
+3. Seller: My offers → Edit → price 75000 → Save.
+4. Seller: price 51500 → Save.
 
-**Expect:** After approval the offer is LIVE. The 75,000 save is refused with 'This offer's price is outside the allowed range.' The price stays 52,000.
-
-### M-1c-04 Operator sets commission, discount, promotion and ranking rules
-
-**Persona:** admin@myplus.com (operator)  
-**Pre:** MKT-1c deployed.  
-**Covers:** MKT-R7.4
-
-1. Operator console → Marketplace → Rules.
-2. Set commission 10% of items for Mobiles, maximum discount 15%, promotions need approval, default ranking 'Fastest delivery'.
-
-**Expect:** Rules save with an effective date. The seller's offer screen shows 'Commission 10% of item price' read-only.
+**Expect:** After step 1 the row leaves the queue and the seller sees 'Live'. Approving with no default commission policy is refused: 'Set a default commission policy before approving offers.' Step 3 is refused with 'This offer's price is outside the allowed range…' and the price stays 52,000. Step 4 saves.
 
 ### M-1c-05 Suspending a seller takes their offers down at once
 
-**Persona:** admin@myplus.com (operator)  
-**Pre:** Seller A has a LIVE offer.  
+**Persona:** admin@myplus.com (operator) + a customer in an incognito window  
+**Pre:** Seller A's offer is Live.  
 **Covers:** MKT-R7.6
 
-1. Operator: Sellers → Seller A → Suspend (reason 'documents expired').
-2. In an incognito window, search the phone.
+1. Incognito: open /marketplace/public/products/<id>/offers?city=Karachi. Seller A is listed.
+2. Operator: Marketplace sellers → Seller A → Suspend (reason 'documents expired').
+3. Incognito: reload.
+4. Operator: Reinstate. Incognito: reload.
 
-**Expect:** Seller A's offer is gone on the next page load. Reinstating brings it back.
+**Expect:** After the suspension Seller A's offer is gone on the next load. Reinstating brings it back. With ?city=Quetta it is never listed.
 
-### M-1c-06 Warranty is the provider's, not MaxTheService's
+### M-1c-06 Customers see the provider's warranty and nothing internal
 
 **Persona:** Customer (incognito window)  
-**Pre:** Seller A's offer is LIVE.  
-**Covers:** MKT-R14.1, MKT-R14.2
+**Pre:** Seller A's offer is Live.  
+**Covers:** MKT-R14.1, MKT-R14.2, MKT-R9.2, MKT-R9.3
 
-1. Open the product page and expand Warranty on Seller A's offer.
+1. Open /marketplace/public/products/<id>/offers?city=Karachi and read Seller A's row.
 
-**Expect:** Shows provider 'Authorised distributor', 12 months from delivery date, covers manufacturing defects, excludes physical and water damage, 'Claim: open a MaxTheService support case'. It never says MaxTheService is the warranty provider.
+**Expect:** warrantyProvider 'Samsung Pakistan (authorised distributor)', 12 months, starts on DELIVERY, covers/excludes as set, 7 return days. There is no cost, margin, purchase, supplier or stock-movement field, and no organisation id other than the seller's.
+
+### M-1c-07 Deactivating a policy never changes what was sold
+
+**Persona:** admin@myplus.com (operator) then owner.business@ (Seller A)  
+**Pre:** Seller A's offer uses '7 days'.  
+**Covers:** MKT-R7.4
+
+1. Operator: Marketplace policies → '7 days' → Deactivate.
+2. Seller: My offers → Edit. Open the Returns list.
+3. Seller: POST /mkt/saveOffer {id: <offer>, returnPolicyId: <the 7-day id>}.
+
+**Expect:** The existing offer still names the 7-day policy. The Returns list no longer offers it. Step 3 is refused: 'Choose an active return policy.'
+
+### M-1c-08 ⚠ Another seller cannot see or change the offer
+
+**Persona:** owner.mobile@ (Seller B), approved seller  
+**Pre:** Seller A's offer id is known.  
+**Covers:** MKT-R22.1
+
+1. GET /mkt/myOffers (positive control).
+2. GET /mkt/getOffer?id=<A's offer>.
+3. POST /mkt/saveOffer {id: <A's offer>, marketplacePrice: 1}.
+4. POST /platform/mkt/decideOffer {id: <A's offer>, decision: 'SUSPEND', note: 'x'}.
+
+**Expect:** Step 1 works. Steps 2 and 3 answer 'No such offer.' (the same as a non-existent id). Step 4 is refused (not the operator). Seller A's offer is unchanged.
 
 
 ## MKT-1d
