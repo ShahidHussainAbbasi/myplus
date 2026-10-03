@@ -504,6 +504,9 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 | R-MKT-9 | Who invoices commission (a document for the seller's input tax)? | Operator raises a commission invoice per statement period through business-service | **yes** |
 | R-MKT-10 | The marketplace order number series | `MKT-` per operator org, via `common-docnum` | no |
 | R-MKT-11 | Pilot city list | from the operator, config only | **yes** |
+| R-MKT-12 | Refunding a returned cash-on-delivery order | **Accepted 2026-10-03:** the seller's rider hands the cash back at pickup; recorded on the return | — |
+| R-MKT-13 | Who collects a return in Phase 1 | **Accepted 2026-10-03:** the seller's rider, from the customer's address | — |
+| R-MKT-14 | Change-of-mind returns | **Accepted 2026-10-03:** per the offer's snapshotted return policy; the customer bears the return cost | — |
 | K-1…K-6 | see analysis §5 | — | — |
 
 ## 10. Implement checklist (programme)

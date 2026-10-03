@@ -1,7 +1,7 @@
 # Slice MKT-1f — support cases and marketplace returns, with the cost bearer
 
 **Status:** DESIGNED (docs → design → plan → gate → manual cases first, per the programme's order). Not built.
-Rulings needed before build: R-MKT-12, R-MKT-13, R-MKT-14 (§4).
+Rulings R-MKT-12, 13, 14 accepted by the owner 2026-10-03 (§4).
 
 Requirements: **MKT-R8.2** (the customer contacts MaxTheService only), **MKT-R13.1** (the cost bearer follows the
 cause), **MKT-R13.2** (the return flow), **MKT-R13.3** (order-time snapshots decide), **MKT-R13.4** (expired or
@@ -101,7 +101,15 @@ Marketplace tab: Tasks from MaxTheService. All sentences from the server; six bu
 6. Gate `mkt-1f-support-returns.cy.js`; walk cases; RTM; manual page.
 7. Live run, fix, commit, push.
 
-## 4. Rulings needed
+## 4. Rulings (accepted 2026-10-03)
+
+- **R-MKT-12 — ACCEPTED: the seller's rider hands the cash back at pickup**; the refund is recorded on the return,
+  no money moves through MaxTheService in Phase 1.
+- **R-MKT-13 — ACCEPTED: the seller's rider collects** the item from the customer's address.
+- **R-MKT-14 — ACCEPTED: change of mind per the offer's return policy**, within the snapshotted return days; the
+  customer bears the return cost, deducted from the refund.
+
+Options considered:
 
 - **R-MKT-12 — refunding a cash-on-delivery return.** The customer paid the seller's rider in cash. Options:
   the seller hands the cash back at pickup (recommended for Phase 1: no money moves through MaxTheService), or
