@@ -46,6 +46,15 @@ months, covers, excludes; `return_days`; commission. **Missing for §13:** the c
 by DELIVERY_FAILURE and ROUTING_ERROR). Phase 1 has one fulfiller who delivers (the seller), and the platform is
 the operator org — both resolvable without a new snapshot; recorded in the return row at the time it is opened.
 
+**Audit (MKT-R22.4) — 0 writers.** No MKT code writes an audit row: marketplace-service does not use
+`common-audit` at all (5 other services do: auth, business, catalog, education, expense — `AuditEmitter`: the row is
+written in the caller's transaction, delivered after commit, re-driven if audit-service is down; a refused action
+leaves no row). R22.4 was counted as covered only by an unbuilt gate case and a manual case. 1f adopts it: an
+`audit_outbox` table (V30), `MarketplaceAuditService extends AuditEmitter`, and a row for every support and return
+action, filed under the **seller's** org when the operator acts on a seller's order (the subject, never the actor).
+The built slices' actions (agreement acceptance, account and offer approval, match decisions, accept/reject,
+customer cancel, refunds) are recorded in the gap register as **G-MKT-AUD**, to be wired in the same pass.
+
 **Domain already built (MKT-1a):** `ReturnCostPolicy` (10 reasons → bearer role → org from the snapshot;
 `requiresUrgentEscalation`). Unit-tested; nothing calls it yet.
 
@@ -91,7 +100,7 @@ Marketplace tab: Tasks from MaxTheService. All sentences from the server; six bu
 
 ## 3. Plan
 
-1. V30 + entities + repositories (FlywayMigrationTest).
+1. V30 (support, return, `audit_outbox`) + entities + repositories (FlywayMigrationTest); `MarketplaceAuditService`.
 2. Delivered/return reader on the three status readers; return window from the snapshot.
 3. Case service (open, message, task, resolve; urgent ordering) + tests (tenant isolation: a seller sees only
    tasks for its own org; the customer never sees internal notes).

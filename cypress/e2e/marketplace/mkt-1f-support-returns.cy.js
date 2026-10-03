@@ -266,4 +266,21 @@ gate('1f')('MKT-1f — support cases and returns', () => {
       })
     })
   })
+
+  it('MKT-1f-12 [MKT-R22.4] support and return actions leave audit rows in the SELLER\'s trail (a refused action leaves none)', () => {
+    const ph = phone(13)
+    delivered(ph).then((o) => {
+      openReturn(o, 'WRONG_PRODUCT').then((r) => {
+        const ret = data(r.body).returns[0]
+        cy.loginAsOperator()
+        post(OPS.decide, { returnNo: ret.returnNo, decision: 'MAYBE' }).then((x) => expectRefused(x, 'Choose'))   // refused: no row
+        post(OPS.decide, { returnNo: ret.returnNo, decision: 'APPROVED', note: 'audit me' })
+        asSeller()
+        cy.findAudit((a) => a.action === 'MKT_RETURN_DECIDED' && String(a.entityRef) === ret.returnNo
+          && String(a.afterValue) === 'APPROVED' && a.actorType === 'PLATFORM_OPERATOR', 'the operator\'s decision, in the seller\'s trail')
+        cy.auditLog().then((rows) => expect(rows.filter((a) => a.action === 'MKT_RETURN_DECIDED' && String(a.entityRef) === ret.returnNo),
+          'exactly one: the refused decision recorded nothing').to.have.length(1))
+      })
+    })
+  })
 })

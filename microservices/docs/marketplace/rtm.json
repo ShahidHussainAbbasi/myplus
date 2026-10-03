@@ -2,8 +2,8 @@
  "total": 87,
  "anyTest": 87,
  "unit": 54,
- "cypress": 60,
- "automated": 65,
+ "cypress": 61,
+ "automated": 66,
  "manual": 87,
  "gaps": [],
  "unknown": [],
@@ -1380,7 +1380,9 @@
    "phase": "1",
    "text": "Every marketplace and support action audited",
    "unit": [],
-   "cypress": [],
+   "cypress": [
+    "MKT-1f-12"
+   ],
    "manual": [
     "M-1f-05"
    ]
