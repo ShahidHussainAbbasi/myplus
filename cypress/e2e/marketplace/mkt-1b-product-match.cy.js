@@ -8,7 +8,7 @@
  * answer rather than the trivially-null one an empty catalogue would give.
  */
 const { gate, uniq, SELLER_A, SELLER_B, API, ok, data, list, msg, post, get, expectRefused, makeSeller,
-  openMarketplace, seedProduct, a32 } = require('./mkt-helpers')
+  openMarketplace, seedProduct, a32, seedRxProduct, PHARMACY } = require('./mkt-helpers')
 
 gate('1b')('MKT-1b — canonical product and match review', () => {
   const run = uniq()
@@ -33,12 +33,12 @@ gate('1b')('MKT-1b — canonical product and match review', () => {
     cy.get('#mktProductsBox').should('be.visible')
     cy.get('#mktProposeBtn').should('be.visible').click()
     cy.get('#mktProposeProduct option').should('have.length.greaterThan', 1)
-    cy.get('#mktProposeProduct').select(String(aProduct))
+    cy.get('#mktProposeProduct').select(String(aProduct), { force: true })
     cy.get('#mktBrand').clear().type('Samsung')
     cy.get('#mktModel').clear().type(model)
     cy.get('#mktVariant').clear().type('128 GB')          // spacing is normalised by the SERVER
     cy.get('#mktColour').clear().type('black')
-    cy.get('#mktCondition').select('New')
+    cy.get('#mktCondition').select('New', { force: true })
     cy.get('#mktProposeSubmit').click()
     cy.get('#mktProposeMsg', { timeout: 15000 }).should('contain', 'review')
     cy.contains('#mktProposalsTable tr', `GALAXY-A32-T${run}`)
@@ -129,8 +129,8 @@ gate('1b')('MKT-1b — canonical product and match review', () => {
   })
 
   it('MKT-1b-09 [MKT-R20.2] a prescription product cannot even be proposed in Phase 1', () => {
-    asA()
-    seedProduct({ name: `Rx ${run}`, manufacturer: 'GSK', rx: true }).then((rx) =>
+    makeSeller(PHARMACY, 'Gate Pharmacy')
+    seedRxProduct(`Rx ${run}`).then((rx) =>
       post(API.proposeProduct, { sourceProductId: rx, brand: 'GSK', model: `Rx ${run}` })
         .then((r) => expectRefused(r, 'Prescription and restricted products cannot be sold')))
   })

@@ -284,8 +284,15 @@
 				if (p.active) {
 					$('<button type="button" class="btn btn-xs btn-default"></button>').text(tr('ui.js.mktDeactivate', 'Deactivate'))
 						.on('click', function () {
+							// the server's sentence either way (standard 8a): a refused deactivation was silent before
 							$.ajax({ url: ctx() + 'platform/mkt/deactivatePolicy', type: 'POST', contentType: 'application/json',
-								dataType: 'json', data: JSON.stringify({ id: p.id }) }).always(loadPolicies);
+								dataType: 'json', data: JSON.stringify({ id: p.id }) })
+								.done(function (res) {
+									$('#mktPolMsg').css('color', ok(res) ? '' : '#b3261e')
+										.text(message(res, ok(res) ? '' : tr('ui.js.saveFailed', 'Save failed')));
+								})
+								.fail(function (xhr) { $('#mktPolMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+								.always(loadPolicies);
 						}).appendTo($act);
 				}
 				$tb.append($tr.append($act));

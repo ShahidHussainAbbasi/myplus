@@ -1,6 +1,8 @@
 # MKT-0a: Marketplace selling capability + seller onboarding
 
-**Status:** IMPLEMENTED, unit-green. **Headed Cypress gate written and NOT yet run**: this container has no
+**Live verification 2026-10-03:** headed gate **8/8 on a live stack** (48/48 across MKT-0a…1e in one run) and every manual case walked step by step and recorded — [live verification](../marketplace/live-verification-2026-10-03.md). The status below is the record from before that run.
+
+**Status:** IMPLEMENTED, unit-green. **Headed Cypress gate written (run 2026-10-03, see above)**: this container has no
 running stack (no Docker daemon, no MySQL). Results:
 - `common-settings` **70 / 0 / 0 skipped**
 - `auth-service` **72 / 0 / 0**, including `ShapeChangeKeepsOptInTest` 2/2

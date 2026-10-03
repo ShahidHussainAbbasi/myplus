@@ -98,6 +98,8 @@
 		return fetch(CTX + path + (qs.toString() ? '?' + qs.toString() : ''), {
 			headers: { Accept: 'application/json' }, signal: ctl ? ctl.signal : undefined, credentials: 'same-origin'
 		}).then(function (r) {
+			// a server fault is never shown as its internals ("InternalError"): the shopper gets a sentence
+			if (r.status >= 500) return { success: false, message: tr('ui.js.loadFailed', 'Could not load.') };
 			return r.json().catch(function () { return { success: false }; });
 		});
 	}
@@ -177,7 +179,9 @@
 		$('mktOffers').textContent = '';
 		$('mktProductName').textContent = '';
 		$('mktProductAttrs').textContent = '';
-		$('mktOfferCity').value = state.city || '';
+		// never under the shopper's fingers: a page still loading wrote the old city back into a box being typed in,
+		// turning "Lahore" into "KarachiLahore" (found by the recorded manual walk, M-1d-04)
+		if (doc.activeElement !== $('mktOfferCity')) $('mktOfferCity').value = state.city || '';
 		var status = $('mktOfferStatus');
 		status.classList.remove('err');
 		status.textContent = tr('ui.js.mktLoadingOffers', 'Loading sellers…');
@@ -374,14 +378,21 @@
 		b.textContent = tr('ui.js.mktPlacing', 'Placing your order…');
 		$('mktCoError').textContent = '';
 		fetch(CTX + 'marketplace/public/checkout', {
-			method: 'POST', credentials: 'same-origin', headers: csrfHeaders(),
+			// manual: a lapsed security token makes Spring REDIRECT an anonymous shopper to /login. Followed, that read
+			// as an unreadable answer; the "page expired" sentence below was never shown (recorded manual walk, M-1e-11)
+			method: 'POST', credentials: 'same-origin', headers: csrfHeaders(), redirect: 'manual',
 			body: JSON.stringify({ offerId: offerId, quantity: Number($('mktCoQty').value || 1), expectedPrice: coOffer.price,
 				customerName: name, customerPhone: phone, address: address, city: $('mktCoCity').value,
 				idempotencyKey: attemptKey(offerId) })
 		}).then(function (r) {
-			if (r.status === 403) return { success: false, message: tr('ui.js.mktSessionExpired', 'This page expired. Please reload it and try again.') };
-			return r.json().catch(function () { return { success: false }; });
+			if (r.status === 403 || r.type === 'opaqueredirect') {   // refused before it reached the order: certain, not unknown
+				return { success: false, message: tr('ui.js.mktSessionExpired', 'This page expired. Please reload it and try again.') };
+			}
+			// A 5xx, an unreadable body or the proxy's UNKNOWN is NOT a "no": the order may exist. Keep the key (catch).
+			if (r.status >= 500) throw new Error('unknown outcome');
+			return r.json().catch(function () { throw new Error('unreadable answer'); });
 		}).then(function (res) {
+			if (res && res.outcome === 'UNKNOWN') throw new Error('unknown outcome');
 			if (!ok(res)) {
 				session('del', 'mkt.co.' + offerId);           // the server answered "no": a retry is a new attempt
 				$('mktCoError').textContent = message(res, tr('ui.js.saveFailed', 'Save failed'));

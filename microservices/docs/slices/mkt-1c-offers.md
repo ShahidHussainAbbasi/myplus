@@ -1,6 +1,8 @@
 # MKT-1c: Offers, policies, approval and the published projection
 
-**Status:** IMPLEMENTED, unit-green. **Headed Cypress gate written and NOT yet run** (no running stack in this
+**Live verification 2026-10-03:** headed gate **11/11 on a live stack** (48/48 across MKT-0a…1e in one run) and every manual case walked step by step and recorded — [live verification](../marketplace/live-verification-2026-10-03.md). The status below is the record from before that run.
+
+**Status:** IMPLEMENTED, unit-green. **Headed Cypress gate written (run 2026-10-03, see above)** (no running stack in this
 container). `marketplace-service` **262 run / 0 failed / 23 skipped**. The skips are Testcontainers, so **V26 has
 not been executed against MySQL** (D2a). The monolith compiles. The seller fragment renders in en/ur/ar with every
 key resolved. `business-service`, `pharma-service`, `inventory-service` and `marketplace-service` test-compile

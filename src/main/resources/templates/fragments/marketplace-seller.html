@@ -2,6 +2,10 @@
 <html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <body>
 <!--
+	Headers wrap (white-space:normal on each <th>): the theme keeps every <th> on one line, which made the offers table
+	944px and the proposals table 923px in a 900px box at a 1366px screen, hiding Edit/Pause behind a sideways scroll
+	(measured by the recorded manual walk).
+
 	MKT-0a — Sell on the MaxTheService marketplace: seller onboarding. Behaviour: /js/common/marketplace-seller.js.
 	Server: marketplace-service /mkt/seller via the monolith's /mkt/** proxy (MarketplaceSellerController).
 
@@ -86,11 +90,11 @@
 			<div class="table-responsive">
 				<table class="table table-condensed" id="mktIncomingOrders">
 					<thead><tr>
-						<th th:text="#{ui.mktColOrder}">Order</th>
-						<th th:text="#{ui.mktColItems}">Items</th>
-						<th th:text="#{ui.mktColDeliverTo}">Deliver to</th>
-						<th th:text="#{ui.mktColStatus}">Status</th>
-						<th th:text="#{ui.mktColAction}">Action</th>
+						<th style="white-space:normal" th:text="#{ui.mktColOrder}">Order</th>
+						<th style="white-space:normal" th:text="#{ui.mktColItems}">Items</th>
+						<th style="white-space:normal" th:text="#{ui.mktColDeliverTo}">Deliver to</th>
+						<th style="white-space:normal" th:text="#{ui.mktColStatus}">Status</th>
+						<th style="white-space:normal" th:text="#{ui.mktColAction}">Action</th>
 					</tr></thead>
 					<tbody></tbody>
 				</table>
@@ -153,10 +157,10 @@
 			<div class="table-responsive">
 				<table class="table table-condensed" id="mktProposalsTable">
 					<thead><tr>
-						<th th:text="#{ui.mktColProduct}">Product</th>
-						<th th:text="#{ui.mktColKey}">Marketplace identity</th>
-						<th th:text="#{ui.mktColStatus}">Status</th>
-						<th th:text="#{ui.mktColNote}">Note from MaxTheService</th>
+						<th style="white-space:normal" th:text="#{ui.mktColProduct}">Product</th>
+						<th style="white-space:normal" th:text="#{ui.mktColKey}">Marketplace identity</th>
+						<th style="white-space:normal" th:text="#{ui.mktColStatus}">Status</th>
+						<th style="white-space:normal" th:text="#{ui.mktColNote}">Note from MaxTheService</th>
 					</tr></thead>
 					<tbody></tbody>
 				</table>
@@ -198,8 +202,8 @@
 				</div>
 				<div class="form-group">
 					<div class="col-sm-offset-3 col-sm-9">
-						<button type="button" class="btn btn-default" id="mktOfferSave" onclick="mktOfferSave(this, false)" th:text="#{ui.mktOfferSave}">Save</button>
-						<button type="button" class="btn btn-primary" id="mktOfferSubmit" onclick="mktOfferSave(this, true)" th:text="#{ui.mktOfferSubmit}">Save and send for approval</button>
+						<button type="button" class="btn btn-default" id="mktOfferSave" th:text="#{ui.mktOfferSave}">Save</button>
+						<button type="button" class="btn btn-primary" id="mktOfferSubmit" th:text="#{ui.mktOfferSubmit}">Save and send for approval</button>
 						<span id="mktOfferMsg" role="status" style="margin-left:10px"></span>
 					</div>
 				</div>
@@ -207,12 +211,12 @@
 			<div class="table-responsive">
 				<table class="table table-condensed" id="mktOffersTable">
 					<thead><tr>
-						<th th:text="#{ui.mktColProduct}">Product</th>
-						<th th:text="#{ui.mktOfferPrice}">Price (Rs.)</th>
-						<th th:text="#{ui.mktOfferArea}">Cities you deliver to</th>
-						<th th:text="#{ui.mktColStatus}">Status</th>
-						<th th:text="#{ui.mktColNote}">Note from MaxTheService</th>
-						<th></th>
+						<th style="white-space:normal" th:text="#{ui.mktColProduct}">Product</th>
+						<th style="white-space:normal" th:text="#{ui.mktOfferPrice}">Price (Rs.)</th>
+						<th style="white-space:normal" th:text="#{ui.mktOfferArea}">Cities you deliver to</th>
+						<th style="white-space:normal" th:text="#{ui.mktColStatus}">Status</th>
+						<th style="white-space:normal" th:text="#{ui.mktColNote}">Note from MaxTheService</th>
+						<th style="white-space:normal"></th>
 					</tr></thead>
 					<tbody></tbody>
 				</table>

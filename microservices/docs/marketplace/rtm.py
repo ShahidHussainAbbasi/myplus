@@ -108,23 +108,39 @@ md = ['# Manual test cases: multi-seller marketplace (MKT)', '',
       '**Generated** from [`marketplace/manual-cases.json`](marketplace/manual-cases.json) by `marketplace/rtm.py`. '
       'Edit the JSON, not this file. The same cases are on the [published manual-testing page](https://claude.ai/artifact/U1FyPcwSxYsg4pGLsyFzq8), where testers record '
       'Pass / Fail / Blocked. Per GATE-RUNBOOK §6 they also belong in the product Test Book.', '',
-      '**How to read a case.** Persona, preconditions, numbered steps, and the expected result with the exact figure '
-      'to expect. ⚠ marks a case that guards a known trap: repeat it after any nearby change. Cases for slices that '
-      'are not built yet are the acceptance walk for that slice.', '',
+      '**How to read a case.** Who, what must be true before, then numbered steps — each one action and the result that '
+      'proves it — and a cleanup that puts the test data back. Cases of built slices are RECORDED: '
+      '`cypress/e2e/marketplace/walk/mkt-walk.cy.js` performs every step on a live stack, asserts its expected result and '
+      'captures the screen (the pictures are on the published page). Cases of slices not built yet are written from the '
+      'design. ⚠ marks a case that guards a known trap: repeat it after any nearby change.', '',
       '| Account | Password | Plays |', '|---|---|---|',
       '| `owner.business@myplus.com` | `Demo@2025!` | Seller A (retail counter; admin./user. ladder in the same org) |',
       '| `owner.mobile@myplus.com` | `Demo@2025!` | Seller B (mobile shop: the second seller of the same phone) |',
-      '| `owner.pharma@myplus.com` | `Demo@2025!` | a tenant that is not entitled |',
+      '| `owner.audit@myplus.com` | `Demo@2025!` | a shop that has never applied (reset with walk-reset.sql) |',
+      '| `owner.pesticide@myplus.com` | `Demo@2025!` | a shop MaxTheService never entitled |',
+      '| `owner.pharma@myplus.com` | `Demo@2025!` | a pharmacy (prescription control on) |',
+      '| `user.business@myplus.com` | `Demo@2025!` | a user-tier member of Seller A |',
       '| `admin@myplus.com` | `Admin@2025!` | MaxTheService operator |', '']
 section = None
 for c in manual:
     if c['slice'] != section:
         section = c['slice']
         md += ['', f'## {section}', '']
+    how = (f"recorded {c['recordedAt'][:16].replace('T', ' ')} UTC" if c.get('evidence') == 'recorded'
+           else 'written from the design — not built yet')
     md += [f"### {c['id']} {'⚠ ' if c.get('warn') else ''}{c['title']}", '',
-           f"**Persona:** {c['persona']}  ", f"**Pre:** {c['pre'] or '—'}  ", f"**Covers:** {', '.join(c['reqs'])}", '']
-    md += [f'{i}. {s}' for i, s in enumerate(c['steps'], 1)]
-    md += ['', f"**Expect:** {c['expect']}", '']
+           f"**Who:** {c['persona']}  ", f"**Before:** {c['pre'] or '—'}  ", f"**Covers:** {', '.join(c['reqs'])}  ",
+           f"**Evidence:** {how}" + (f"  \n**Automated by:** {', '.join(c['auto'])}" if c.get('auto') else ''), '',
+           '| # | Do this | Expect |', '|---|---|---|']
+    cell = lambda s: s.replace('|', '\\|').replace('\n', ' ')
+    for s in c['steps']:
+        flow = f" *(screen not available: {cell(s['flow'])})*" if s.get('flow') else ''
+        md.append(f"| {s['n']} | {cell(s['do'])}{flow} | {cell(s['expect'])} |")
+    for s in c.get('cleanup', []):
+        md.append(f"| C{s['n']} | {cell(s['do'])} | {cell(s['expect'])} |")
+    for f in c.get('found', []):
+        md += ['', f'> **Found by the walk:** {f}']
+    md.append('')
 (HERE.parent / 'manual-test-marketplace-multiseller.md').write_text('\n'.join(md) + '\n', encoding='utf-8')
 
 print(block.splitlines()[0])

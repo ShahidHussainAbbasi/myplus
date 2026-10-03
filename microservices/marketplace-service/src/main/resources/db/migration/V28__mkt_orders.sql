@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS mkt_order (
   PRIMARY KEY (id),
   UNIQUE KEY uk_mkt_order_no (order_no),
   UNIQUE KEY uk_mkt_order_idem (idempotency_key),
-  KEY idx_mkt_order_status_created (status, created_at)            -- operator list by status, newest first,
+  KEY idx_mkt_order_status_created (status, created_at),            -- operator list by status, newest first
   KEY idx_mkt_order_phone_status (customer_phone, status)           -- the open-orders-per-phone guard
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS mkt_seller_order (
   UNIQUE KEY uk_mkt_seller_order_hold (hold_key),
   KEY idx_mkt_so_order (mkt_order_id),
   KEY idx_mkt_so_seller_queue (seller_organization_id, acceptance_status, accept_by),   -- the seller's queue
-  KEY idx_mkt_so_sweep (acceptance_status, accept_by)                                    -- the expiry sweeper,
+  KEY idx_mkt_so_sweep (acceptance_status, accept_by),                                    -- the expiry sweeper
   KEY idx_mkt_so_held (held, acceptance_status)                                          -- release retries
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

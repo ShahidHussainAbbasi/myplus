@@ -70,3 +70,6 @@ u5-backups/
 /*.html
 /*_files/
 cypress/snapshots/**/__diff_output__/
+
+# MKT manual walk recordings (cypress/e2e/marketplace/walk) — published on the manual-test page, not committed
+cypress/walk/

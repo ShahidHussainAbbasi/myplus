@@ -29,12 +29,19 @@ const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
  * Who plays which part (GATE-RUNBOOK §1: log in as the tenant the feature belongs to).
  *   SELLER_A  owner.business@  — a retail counter: the tier ladder (admin./user.) lives in this org
  *   SELLER_B  owner.mobile@    — a mobile shop: the second seller of the SAME phone, the "2 sellers" case
- *   OUTSIDER  owner.pharma@    — never entitled: the cross-tenant / not-entitled control
+ *   OUTSIDER  owner.pesticide@ — a business tenant no MKT gate ever enrols: the not-entitled control
+ *   PHARMACY  owner.pharma@    — the seeded pharmacy (prescription control ON): the regulated-product seller
  *   OPERATOR  admin@myplus.com — MaxTheService staff (ROLE_ADMIN), not a tenant
  */
 const SELLER_A = 'owner.business@myplus.com'
 const SELLER_B = 'owner.mobile@myplus.com'
-const OUTSIDER = 'owner.pharma@myplus.com'
+const OUTSIDER = 'owner.pesticide@myplus.com'
+/**
+ * PHARMACY — the seeded pharmacy, with prescription control ON. The ONLY kind of tenant that can own a prescription
+ * product: catalog refuses the rx flag to a tenant without that capability (catalog C6), so a retail seller like
+ * SELLER_A can never hold one. Used by the "regulated products are refused" cases. (demo.pharma@ owns no org here.)
+ */
+const PHARMACY = 'owner.pharma@myplus.com'
 
 /** Monolith flat routes (ARCHITECTURE-MULTITENANCY §1) — each proxies /api/marketplace/mkt/** and relays the message. */
 const API = {
@@ -164,11 +171,11 @@ const openMarketplace = () => {
 }
 
 /** Seed a catalog product with stock in the CURRENT tenant; returns the product id (asserts the seed took). */
-const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, qty = 5, rx = false } = {}) =>
+const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, qty = 5 } = {}) =>
   cy.request({
     method: 'POST', url: '/addProduct', failOnStatusCode: false, headers: { 'Content-Type': 'application/json' },
     body: { name: name || `MKT Phone ${uniq()}`, sku: 'MKT' + uniq(), barcode, manufacturer,
-      sellingPrice: price, taxRate: 0, unit: 'pcs', rxRequired: rx },
+      sellingPrice: price, taxRate: 0, unit: 'pcs' },
   }).then((r) => {
     const id = r.body && r.body.data && r.body.data.id
     expect(id, `seeded product: ${JSON.stringify(r.body)}`).to.exist
@@ -176,6 +183,16 @@ const seedProduct = ({ name, barcode, manufacturer = 'Samsung', price = 52000, q
       headers: { 'Content-Type': 'application/json' }, body: { productId: id, quantity: qty } })
       .then(() => id)
   })
+
+/**
+ * A product the CATALOG marks prescription-only, in the current (pharmacy) tenant — through the pharmacy's own
+ * Clinical & Safety save, as a pharmacist would. Asserts the flag took, so a refusal later is about the rule.
+ */
+const seedRxProduct = (name) => seedProduct({ name, manufacturer: 'GSK', price: 300 }).then((id) =>
+  post('/saveClinical', { productId: id, medicineName: name, rxRequired: true, controlledSubstance: false }).then((r) => {
+    expect(ok(r.body), `rx flag saved: ${JSON.stringify(r.body)}`).to.eq(true)
+    return id
+  }))
 
 /** The identity attributes of the source's example phone, with a per-run model suffix so reruns do not collide. */
 const a32 = (run, storage = '128GB', colour = 'Black') => ({
@@ -238,5 +255,5 @@ const publishOffer = (email, { run, price, promiseHours = 24, qty = 5, areas = '
   })
 }
 
-module.exports = { seedPolicies, publishOffer, gate, uniq, SELLER_A, SELLER_B, OUTSIDER, API, UI, ok, data, list, msg, post, get,
+module.exports = { seedPolicies, publishOffer, seedRxProduct, PHARMACY, gate, uniq, SELLER_A, SELLER_B, OUTSIDER, API, UI, ok, data, list, msg, post, get,
   expectRefused, makeSeller, openMarketplace, seedProduct, a32 }

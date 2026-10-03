@@ -1,7 +1,9 @@
 # MKT-1e: One-seller checkout, stock hold, seller acceptance window
 
+**Live verification 2026-10-03:** headed gate **10/10 on a live stack** (48/48 across MKT-0a…1e in one run) and every manual case walked step by step and recorded — [live verification](../marketplace/live-verification-2026-10-03.md). The status below is the record from before that run.
+
 **Status:** IMPLEMENTED, unit-green; the shopper's page and the seller's table were driven in Chromium against stubs
-(20/20 and 7/7). **Headed Cypress gate written and NOT yet run.** `marketplace-service` **293 run / 0 failed / 23
+(20/20 and 7/7). **Headed Cypress gate written (run 2026-10-03, see above).** `marketplace-service` **293 run / 0 failed / 23
 skipped** (Testcontainers: **V28 has not run against MySQL, and the application context with the new beans has not
 been started**; both are D2a, reported, not counted as green). Monolith 78/0/0. Programme: [`../marketplace-multiseller-design.md`](../marketplace-multiseller-design.md) §5.4,
 §5.7. Depends on MKT-1d (the chosen offer) and MKT-1c (offers, policies, projection).

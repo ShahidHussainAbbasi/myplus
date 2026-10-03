@@ -10,6 +10,8 @@
     <meta name="_csrf_header" th:content="${_csrf != null ? _csrf.headerName : 'X-XSRF-TOKEN'}" content="X-XSRF-TOKEN">
     <title th:text="#{ui.mktPageTitle}">MaxTheService Marketplace</title>
     <meta name="description" th:content="#{ui.mktPageLede}" content="Compare sellers for the same product and choose who you buy from.">
+    <!-- Fonts: the site's families ('Cabinet Grotesk', 'Satoshi') with its sans-serif fallback. Not requested from Google:
+         they are Fontshare fonts, and Google answers 400 for them — so the site itself renders the fallback. -->
     <link th:if="${langWebfont}" rel="stylesheet"
           th:href="'https://fonts.googleapis.com/css2?family=' + ${langWebfont} + '&display=swap'"/>
     <!--
@@ -18,30 +20,33 @@
       Urdu and Arabic mirror without a second stylesheet.
     -->
     <style>
+        /* Theme: www.maxtheservice.com — tokens copied from maxtheservice_dashboard.html (:root). --muted is one step darker
+           than the site's #64748b: that is 4.43:1 on --bg, under WCAG AA 4.5:1 (axe, recorded manual walk M-1d-07); #475569 is 7.05:1. */
         :root{
-            --bg:#f5f6f8; --surface:#ffffff; --ink:#17202b; --muted:#5a6473; --line:#dfe3e9; --soft:#eef1f5;
-            --brand:#1f4e8c; --brand-ink:#ffffff; --brand-soft:#e7eef8; --good:#1f7a4d; --warn:#9a6400; --bad:#b3261e;
-            --radius:10px; --focus:0 0 0 3px rgba(31,78,140,.35);
+            --bg:#F4F7FB; --surface:#ffffff; --ink:#0D2353; --muted:#475569; --line:#DCE2EC; --soft:#EEF3FA;
+            --brand:#1565C0; --brand-ink:#ffffff; --brand-soft:#E6F1FB; --good:#0F6E56; --warn:#B45309; --bad:#B42318;
+            --radius:14px; --focus:0 0 0 3px rgba(21,101,192,.35);
+            --navgrad:linear-gradient(100deg,#070F2B 0%,#0D2353 30%,#0D3B8C 65%,#1565C0 100%);
         }
         @media (prefers-color-scheme: dark){:root{
-            --bg:#0f141b; --surface:#161c25; --ink:#e7ebf1; --muted:#9aa5b5; --line:#2a3340; --soft:#1d2530;
-            --brand:#8ea6ff; --brand-ink:#0f141b; --brand-soft:#232d4a; --good:#5fd39a; --warn:#f0bf5a; --bad:#ff8a80;
-            --focus:0 0 0 3px rgba(142,166,255,.45);
+            --bg:#070F2B; --surface:#0F1B3D; --ink:#E8EEF8; --muted:#93A3BF; --line:#22325A; --soft:#14224A;
+            --brand:#6EA8F5; --brand-ink:#070F2B; --brand-soft:#15295A; --good:#5FD3A6; --warn:#F5B04A; --bad:#FF8A80;
+            --focus:0 0 0 3px rgba(110,168,245,.45);
         }}
         *{box-sizing:border-box}
-        body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif}
+        body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 'Satoshi',sans-serif}
         [dir="rtl"] body{font-family:"Noto Naskh Arabic","Noto Nastaliq Urdu",system-ui,sans-serif}
         a{color:var(--brand)}
         .skip{position:absolute;inset-inline-start:-999px;top:0;background:var(--surface);padding:8px 12px;z-index:10}
         .skip:focus{inset-inline-start:8px}
-        header.top{background:var(--surface);border-bottom:1px solid var(--line)}
+        header.top{background:var(--navgrad);border-bottom:3px solid rgba(255,255,255,.12);box-shadow:0 6px 32px rgba(7,15,43,.35)}
         .bar{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-        .brand{font-weight:700;font-size:18px;color:var(--ink);text-decoration:none;margin-inline-end:auto}
+        .brand{font:900 18px/1 'Cabinet Grotesk',sans-serif;letter-spacing:-.03em;color:#fff;text-decoration:none;margin-inline-end:auto}
         .langs{display:flex;gap:4px;flex-wrap:wrap}
-        .langs a{font-size:13px;text-decoration:none;color:var(--muted);padding:6px 8px;border-radius:6px;min-height:32px;display:inline-flex;align-items:center}
-        .langs a[aria-current="true"]{background:var(--soft);color:var(--ink);font-weight:600}
+        .langs a{font-size:13px;text-decoration:none;color:rgba(255,255,255,.8);padding:6px 8px;border-radius:6px;min-height:32px;display:inline-flex;align-items:center}
+        .langs a[aria-current="true"]{background:rgba(255,255,255,.16);color:#fff;font-weight:600}
         main{max-width:1120px;margin:0 auto;padding:16px 16px 120px}
-        h1{font-size:clamp(22px,3.2vw,30px);line-height:1.2;margin:8px 0 4px}
+        h1{font:900 clamp(24px,3.6vw,36px)/1.1 'Cabinet Grotesk',sans-serif;letter-spacing:-.03em;margin:8px 0 4px}
         /* focus is moved to the product heading for screen readers; a heading is not a control, so no ring */
         h1[tabindex="-1"]:focus,main:focus{outline:none;box-shadow:none}
         .lede{color:var(--muted);margin:0 0 14px}

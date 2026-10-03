@@ -50,6 +50,24 @@ class ProductIdentityKeyTest {
     }
 
     @Test
+    @DisplayName("[MKT-R6.2] [MKT-R6.6] only a UNIT joins its number: model words stay words (MKT-1b live gate)")
+    void unitsOnly() {
+        assertThat(ProductIdentityKey.normalize("128 gb")).isEqualTo("128GB");
+        assertThat(ProductIdentityKey.normalize("500 mg")).isEqualTo("500MG");
+        assertThat(ProductIdentityKey.normalize("5000 mAh")).isEqualTo("5000MAH");
+        assertThat(ProductIdentityKey.normalize("Galaxy A32 Pro")).isEqualTo("GALAXY-A32-PRO");
+        assertThat(ProductIdentityKey.normalize("iPhone 15 Pro Max")).isEqualTo("IPHONE-15-PRO-MAX");
+        assertThat(ProductIdentityKey.normalize("Galaxy A32 T179")).isEqualTo("GALAXY-A32-T179");
+        // a unit PREFIX of a longer word is not a unit: "2 Gold" stays two words, "10 Mangoes" too
+        assertThat(ProductIdentityKey.normalize("2 Gold")).isEqualTo("2-GOLD");
+        assertThat(ProductIdentityKey.normalize("10 Mangoes")).isEqualTo("10-MANGOES");
+        // …nor of a code: "W70934" is not "W" (watts) — found by the recorded manual walk, which got GALAXY-A32W70934
+        assertThat(ProductIdentityKey.normalize("Galaxy A32 W70934")).isEqualTo("GALAXY-A32-W70934");
+        assertThat(ProductIdentityKey.normalize("65 W")).isEqualTo("65W");
+        assertThat(ProductIdentityKey.normalize("charger 65 W fast")).isEqualTo("CHARGER-65W-FAST");
+    }
+
+    @Test
     @DisplayName("[MKT-R6.2] a separator inside a value cannot forge a different key")
     void separatorInjection() {
         String forged = ProductIdentityKey.general("Samsung|A32", "128GB", null, null, null, null, null, null, null);

@@ -70,11 +70,17 @@ public final class ProductIdentityKey {
         return check == digits.charAt(len - 1) - '0';
     }
 
+    /** Units of measure a number may be written apart from. Storage, mass, volume, length, power, frequency, pack. */
+    static final String UNITS = "TB|GB|MB|KB|MCG|MG|KG|G|ML|L|MM|CM|M|IN|MAH|KW|W|V|GHZ|MHZ|HZ|MP|PCS|PC|TABS|TAB|CAPS|CAP";
+
     public static String normalize(String part) {
         if (part == null) return "";
         String s = Normalizer.normalize(part, Normalizer.Form.NFKD).replaceAll("\\p{M}", "");
         s = s.trim().toUpperCase(Locale.ROOT).replace(SEPARATOR, "-").replaceAll("\\s+", " ");
-        s = s.replaceAll("(\\d)\\s+([A-Z])", "$1$2");      // "128 GB" -> "128GB", "500 MG" -> "500MG"
+        // A number and its UNIT are one token: "128 GB" -> "128GB", "500 MG" -> "500MG". Only listed units — gluing a
+        // number to ANY following word made "Galaxy A32 Pro" read "A32PRO" and "iPhone 15 Pro" read "15PRO", which
+        // is the opposite of conservative (found by the MKT-1b gate on a live stack).
+        s = s.replaceAll("(\\d)\\s+(" + UNITS + ")(?![A-Z0-9])", "$1$2");   // a unit ENDS a word: "A32 W70934" is a model, not watts
         return s.replace(' ', '-');
     }
 

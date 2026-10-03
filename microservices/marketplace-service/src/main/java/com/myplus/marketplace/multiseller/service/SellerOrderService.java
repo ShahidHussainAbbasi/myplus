@@ -107,10 +107,12 @@ public class SellerOrderService {
     public MarketplaceOrderDTOs.SellerOrderView accept(Long id, MarketplaceOrderDTOs.AcceptRequest req) {
         MarketplaceSellerOrder so = own(id);
         if (SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())) return viewOf(so);      // a retried accept
-        stale(so, req == null ? null : req.version());
+        // The outcome before the version: a seller whose row went stale because the order EXPIRED needs that sentence,
+        // not "someone else changed this" (found by the MKT-1e gate on a live stack).
         if (!SellerOrder.OFFERED.name().equals(so.getAcceptanceStatus()) || pastDeadline(so))
             throw new ValidationException(SellerOrder.EXPIRED.name().equals(so.getAcceptanceStatus()) || pastDeadline(so)
                     ? "This order expired before it was accepted." : "This order is " + label(so) + " and cannot be accepted.");
+        stale(so, req == null ? null : req.version());
         sellers.assertActiveSeller();
 
         MarketplaceOrder order = orders.findById(so.getMktOrderId()).orElseThrow();
@@ -163,13 +165,13 @@ public class SellerOrderService {
     public MarketplaceOrderDTOs.SellerOrderView reject(Long id, MarketplaceOrderDTOs.RejectRequest req) {
         MarketplaceSellerOrder so = own(id);
         if (SellerOrder.REJECTED.name().equals(so.getAcceptanceStatus())) return viewOf(so);
+        if (!SellerOrder.OFFERED.name().equals(so.getAcceptanceStatus()))       // the outcome before the version
+            throw new ValidationException("This order is " + label(so) + " and cannot be rejected.");
         stale(so, req == null ? null : req.version());
         String reason = req == null || req.reason() == null ? null : req.reason().trim();
         if (reason == null || reason.isEmpty())
             throw new ValidationException("Give a reason. MaxTheService support will see it.");
         if (reason.length() > 300) throw new ValidationException("Keep the reason under 300 characters.");
-        if (!SellerOrder.OFFERED.name().equals(so.getAcceptanceStatus()))
-            throw new ValidationException("This order is " + label(so) + " and cannot be rejected.");
 
         tx().executeWithoutResult(s -> {
             MarketplaceSellerOrder fresh = sellerOrders.findById(so.getId()).orElseThrow();

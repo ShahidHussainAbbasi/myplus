@@ -376,7 +376,7 @@
 						var k = $in.attr('data-line-id');
 						(serials[k] = serials[k] || []).push(v);
 					});
-					soPost('mkt/acceptOrder', { id: so.id, version: so.version, serials: serials }, $(this), $msg);
+					soPost('mkt/acceptOrder', { id: so.id, version: so.version, serials: serials }, $(this), $msg, $tr);
 				}).appendTo($act);
 			var $reason = $('<input type="text" class="form-control input-sm" maxlength="300" style="margin-top:6px">')
 				.attr('placeholder', tr('ui.js.mktRejectPh', 'Why you cannot fulfil it'))
@@ -384,7 +384,7 @@
 			$act.append($reason);
 			$('<button type="button" class="btn btn-xs btn-default mkt-reject" style="margin-top:4px"></button>')
 				.text(tr('ui.js.mktReject', 'Reject'))
-				.on('click', function () { soPost('mkt/rejectOrder', { id: so.id, version: so.version, reason: $reason.val() }, $(this), $msg); })
+				.on('click', function () { soPost('mkt/rejectOrder', { id: so.id, version: so.version, reason: $reason.val() }, $(this), $msg, $tr); })
 				.appendTo($act);
 			$act.append($msg);
 		} else if (so.storeOrderNo) {
@@ -395,15 +395,22 @@
 		return $tr;
 	}
 
-	/** Only the clicked button is disabled; the server's sentence is shown as written (standard 8a). */
-	function soPost(path, body, $b, $msg) {
+	/**
+	 * Only the clicked button is disabled; the server's sentence is shown as written (standard 8a). On success the row
+	 * is redrawn IN PLACE from the server's answer, with its sentence: reloading the "Waiting for you" filter made an
+	 * accepted order simply vanish, so the seller never saw it go through (found by the MKT-1e gate on a live stack).
+	 * The 15 s refresh reconciles the list afterwards.
+	 */
+	function soPost(path, body, $b, $msg, $tr) {
 		var label = $b.text();
 		$b.prop('disabled', true);
 		$msg.text('').css('color', '');
 		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
 			.done(function (res) {
 				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
-				mktIncomingLoad();
+				var $now = incomingRow(data(res));
+				$now.find('td:last').append($('<div role="status" style="font-size:12px;color:#1b5e20"></div>').text(message(res, '')));
+				$tr.replaceWith($now);
 			})
 			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
 			.always(function () { $b.prop('disabled', false).text(label); });
@@ -423,6 +430,11 @@
 	}
 
 	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
+	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
+	// elements first, so onclick="mktOfferSave(...)" on <button id="mktOfferSave"> called the BUTTON, not this
+	// function — both buttons were dead on the real dashboard (found by the MKT-1c gate on a live stack).
+	$(document).on('click', '#mktOfferSave', function () { mktOfferSave(this, false); });
+	$(document).on('click', '#mktOfferSubmit', function () { mktOfferSave(this, true); });
 
 	function showMarketplaceSeller() {
 		$('.formDiv').hide();

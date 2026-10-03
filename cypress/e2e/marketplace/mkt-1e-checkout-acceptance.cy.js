@@ -35,7 +35,8 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
     seedPolicies(run).then((p) => { policies = p })
     cy.loginAsOperator()
     post(API.acceptWindow, { minutes: 5 })
-    cy.then(() => publishOffer(SELLER_A, { run, price: 52000, promiseHours: 4, qty: 5,
+    // enough stock for every case's one-unit checkout; case 04 exhausts its OWN two-unit offer
+    cy.then(() => publishOffer(SELLER_A, { run, price: 52000, promiseHours: 4, qty: 50,
       warrantyPolicyId: policies.warranty, returnPolicyId: policies.returns })).then((o) => { offer = o })
     cy.then(() => get(`${API.publicOffers(offer.mktProductId)}?city=Karachi`))
       .then((r) => { sellerName = list(r.body).find((x) => x.offerId === offer.offerId).sellerName })
@@ -63,7 +64,7 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
         cy.get(UI.countdown).invoke('text').should('match', /^[0-4]:[0-5]\d$/)
         cy.get(UI.acceptBtn).click()
       })
-      cy.contains(`${UI.incoming} tr`, orderNo).should('contain', 'Accepted')
+      cy.contains(`${UI.incoming} tr`, orderNo).should('contain', 'Accepted').and('contain', 'The sale is in your books')
       incoming('ACCEPTED').then((r) => {
         const so = list(r.body).find((x) => x.orderNo === orderNo)
         expect(so.invoiceNo, 'the sale is in the seller\'s own books').to.match(/\S/)
@@ -98,15 +99,19 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
   })
 
   it('MKT-1e-04 [MKT-R10.2] [MKT-R10.5] [MKT-R10.3] the hold is real: all stock held refuses the next shopper; a reject gives it back', () => {
-    let held, heldPhone
-    checkout({ quantity: 5 }).then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); held = data(r.body); heldPhone = r.phone })
-    checkout({ quantity: 1 }).then((r) => expectRefused(r, 'enough stock'))
+    let held, heldPhone, small
+    publishOffer(SELLER_A, { run: `${run}h`, price: 52000, qty: 2, warrantyPolicyId: policies.warranty,
+      returnPolicyId: policies.returns }).then((o) => { small = o })
+    cy.then(() => checkout({ offerId: small.offerId, quantity: 2 }))
+      .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); held = data(r.body); heldPhone = r.phone })
+    cy.then(() => checkout({ offerId: small.offerId, quantity: 1 })).then((r) => expectRefused(r, 'enough stock'))
     cy.loginAs(SELLER_A, 'Demo@2025!', '/getBusinessDashboardStats')
     cy.then(() => post(API.rejectOrder, { id: held.sellerOrderId, version: held.sellerOrderVersion }))
       .then((r) => expectRefused(r, 'reason'))
     cy.then(() => post(API.rejectOrder, { id: held.sellerOrderId, version: held.sellerOrderVersion, reason: 'out of stock in store' }))
       .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
-    checkout({ quantity: 1 }).then((r) => expect(ok(r.body), 'stock is back after the reject').to.eq(true))
+    cy.then(() => checkout({ offerId: small.offerId, quantity: 1 }))
+      .then((r) => expect(ok(r.body), 'stock is back after the reject').to.eq(true))
     cy.then(() => get(API.trackOrder(held.orderNo, heldPhone))).then((r) => {
       expect(data(r.body).status).to.eq('CANCELLED')
       expect(data(r.body).cancelReason).to.contain('could not fulfil')
@@ -131,10 +136,14 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
   })
 
   it('MKT-1e-06 [MKT-R13.3] [MKT-R3.1] [MKT-R3.2] the order keeps its own copy of the terms; a later policy change does not touch it', () => {
-    let o, phone
-    checkout().then((r) => { o = data(r.body); phone = r.phone })
+    // its own policies and offer: deactivating the shared return policy would take the other cases' offer down with it
+    let o, phone, own, mine
+    seedPolicies(`${run}p`).then((p) => { own = p })
+    cy.then(() => publishOffer(SELLER_A, { run: `${run}p`, price: 52000, promiseHours: 4, warrantyPolicyId: own.warranty,
+      returnPolicyId: own.returns })).then((x) => { mine = x })
+    cy.then(() => checkout({ offerId: mine.offerId })).then((r) => { o = data(r.body); phone = r.phone })
     cy.loginAsOperator()
-    cy.then(() => post(API.deactivatePolicy, { id: policies.returns }))
+    cy.then(() => post(API.deactivatePolicy, { id: own.returns }))
     cy.clearCookies()
     cy.then(() => get(API.trackOrder(o.orderNo, phone))).then((r) => {
       const line = data(r.body).lines[0]
@@ -158,7 +167,8 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
     checkout().then((r) => { o = data(r.body); phone = r.phone })
     cy.then(() => get(API.trackOrder(o.orderNo, '03009999999'))).then((r) => expectRefused(r, 'No such order'))
     cy.then(() => get(API.trackOrder(o.orderNo, phone))).then((r) => expect(ok(r.body), 'positive control').to.eq(true))
-    publishOffer(SELLER_B, { run: `${run}b`, price: 50000, warrantyPolicyId: policies.warranty })   // B is a live seller
+    publishOffer(SELLER_B, { run: `${run}b`, price: 50000, warrantyPolicyId: policies.warranty,      // B is a live seller
+      returnPolicyId: policies.returns })
     cy.loginAs(SELLER_B, 'Demo@2025!', '/getBusinessDashboardStats')
     incoming('OFFERED').then((r) => {
       expect(ok(r.body), 'positive control').to.eq(true)
@@ -176,10 +186,26 @@ gate('1e')('MKT-1e — checkout and seller acceptance', () => {
   })
 
   it('MKT-1e-08 [MKT-R22.1] the anonymous POST carries a CSRF token: a forged one is refused', () => {
+    // From INSIDE the page with fetch: the suite's cy.request override swaps any X-XSRF-TOKEN for the real cookie,
+    // so a "forged" cy.request would silently carry the valid token and prove nothing.
+    const send = (token) => cy.window().then((w) => w.fetch('/marketplace/public/checkout', {
+      method: 'POST', redirect: 'manual', credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'application/json', Accept: 'application/json' }, token ? { 'X-XSRF-TOKEN': token } : {}),
+      body: JSON.stringify({ offerId: offer.offerId, quantity: 1, expectedPrice: 52000, customerName: 'Ali',
+        customerPhone: newPhone(), address: '1 Clifton', city: 'Karachi', idempotencyKey: `csrf-${run}-${Math.random()}` }),
+    }).then((r) => r.text().then((body) => ({ status: r.status, type: r.type, body }))))
     cy.clearCookies()
     cy.visit(UI.publicPage)
-    cy.request({ method: 'POST', url: API.checkout, failOnStatusCode: false, headers: { 'X-XSRF-TOKEN': 'forged' },
-      body: { offerId: offer.offerId, quantity: 1 } }).then((r) => expect(r.status).to.eq(403))
+    send('forged').then((r) => {
+      // Spring sends an anonymous CSRF failure to the login page: an opaque redirect (status 0) here, or a 403
+      expect(r.type === 'opaqueredirect' || r.status === 403, `refused: ${r.status} ${r.type}`).to.eq(true)
+      expect(r.body).to.not.contain('orderNo')
+    })
+    send(null).then((r) => expect(r.type === 'opaqueredirect' || r.status === 403, 'no token: refused').to.eq(true))
+    cy.getCookie('XSRF-TOKEN').then((c) => send(decodeURIComponent(c.value))).then((r) => {
+      expect(r.status, 'positive control: the page\'s own token works').to.eq(200)
+      expect(JSON.parse(r.body).success, r.body).to.eq(true)
+    })
   })
 
   it('MKT-1e-09 [MKT-R19.1] [MKT-R20.1] order, payment and settlement are separate facts; Phase 1 is cash on delivery', () => {

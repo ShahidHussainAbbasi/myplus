@@ -281,6 +281,16 @@ class MarketplaceOrderFlowTest {
     }
 
     @Test
+    @DisplayName("[MKT-R20.1] a seller who takes no cash on delivery is refused in Phase 1 (COD only), before anything is held")
+    void codOffRefused() {
+        when(shipping.codEnabled(any())).thenReturn(false);
+        assertThatThrownBy(() -> checkout.checkout(req("cod"))).isInstanceOf(ValidationException.class)
+                .hasMessage("This seller does not accept cash on delivery yet. Please choose another offer.");
+        assertThat(orderTable).isEmpty();
+        verify(trade, never()).holdStock(any());
+    }
+
+    @Test
     @DisplayName("[MKT-R7.6] [MKT-R20.1] a city the seller does not serve, or more than it has, refuses before anything is created")
     void eligibility() {
         assertThatThrownBy(() -> checkout.checkout(new MarketplaceOrderDTOs.CheckoutRequest(OFFER, 1, new BigDecimal("52000"),
@@ -422,6 +432,23 @@ class MarketplaceOrderFlowTest {
         so.setAcceptBy(LocalDateTime.now().minusSeconds(1));
         assertThatThrownBy(() -> sellerSide.accept(so.getId(), new MarketplaceOrderDTOs.AcceptRequest(so.getVersion(), null)))
                 .hasMessage("This order expired before it was accepted.");
+        verify(storeOrders, never()).placeMarketplace(any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.2] a stale row on an EXPIRED order says 'expired', not 'someone else changed it'; a stale OFFERED row is still a conflict")
+    void expiredBeatsStaleVersion() {
+        MarketplaceSellerOrder so = offered();
+        Integer seen = so.getVersion();
+        so.setAcceptanceStatus("EXPIRED");                       // the sweeper moved it after the seller's page loaded
+        so.setVersion(seen + 1);
+        assertThatThrownBy(() -> sellerSide.accept(so.getId(), new MarketplaceOrderDTOs.AcceptRequest(seen, null)))
+                .hasMessage("This order expired before it was accepted.");
+        assertThatThrownBy(() -> sellerSide.reject(so.getId(), new MarketplaceOrderDTOs.RejectRequest(seen, "no stock")))
+                .hasMessageContaining("cannot be rejected");
+        MarketplaceSellerOrder live = offered();
+        assertThatThrownBy(() -> sellerSide.accept(live.getId(), new MarketplaceOrderDTOs.AcceptRequest(live.getVersion() - 1, null)))
+                .isInstanceOf(org.springframework.dao.OptimisticLockingFailureException.class);
         verify(storeOrders, never()).placeMarketplace(any());
     }
 
