@@ -152,8 +152,10 @@ gate('1f')('MKT-1f — support cases and returns', () => {
         expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
         const ret = data(r.body).returns[0]
         expect(ret.bearerRole).to.eq('FULFILLER')
-        expect(ret.bearerOrgName, 'resolved from the line snapshot').to.contain('Shahzad')
+        expect(ret.bearerOrgName, 'the cost allocation between parties is not the customer\'s to read').to.eq(null)
         cy.loginAsOperator()
+        get(OPS.caseView(data(r.body).caseNo)).then((v) =>
+          expect(data(v.body).returns[0].bearerOrgName, 'resolved from the line snapshot, shown to the operator').to.contain('Shahzad'))
         post(OPS.decide, { returnNo: ret.returnNo, decision: 'APPROVED', note: 'pickup tomorrow' })
         asSeller()
         post(SELL.received, { returnNo: ret.returnNo, outcome: 'RESTOCK' }).then((x) => expect(ok(x.body), JSON.stringify(x.body)).to.eq(true))

@@ -160,8 +160,10 @@ public class MarketplaceSupportService {
     public PageResponse<SupportDTOs.CaseRow> queue(String status, Integer page, Integer size) {
         access.assertOperator();
         List<String> states = status == null || status.isBlank() ? OPEN_STATES : List.of(status.trim().toUpperCase(Locale.ROOT));
-        return PageResponse.of(cases.findByStatusInOrderByUrgentDescCreatedAtAsc(states,
-                PageRequest.of(page == null || page < 0 ? 0 : page, size == null || size < 1 ? 50 : Math.min(size, 100))),
+        PageRequest p = PageRequest.of(page == null || page < 0 ? 0 : page, size == null || size < 1 ? 50 : Math.min(size, 100));
+        boolean history = states.equals(List.of(MarketplaceSupportCase.RESOLVED));
+        return PageResponse.of(history ? cases.findByStatusInOrderByCreatedAtDesc(states, p)
+                : cases.findByStatusInOrderByUrgentDescCreatedAtAsc(states, p),
                 sc -> new SupportDTOs.CaseRow(sc.getCaseNo(), orderNo(sc), sc.getTopic(), sc.getStatus(), sc.isUrgent(),
                         sellerName(sc.getSellerOrgId()), sc.getCreatedAt(), sc.getUpdatedAt()));
     }
@@ -450,11 +452,14 @@ public class MarketplaceSupportService {
                 r.getCreditNoteNo(), r.getDecisionNote(), r.getCreatedAt());
     }
 
-    /** The customer's view of a return: no credit note, no bearer organisation (a seller's name is not theirs to know). */
+    /**
+     * The customer's view of a return: the bearer's ROLE (it explains a fee the customer pays) but never the bearer
+     * ORGANISATION — how a return's cost is allocated between MaxTheService and its sellers is internal — and no credit note.
+     */
     private SupportDTOs.ReturnView customerReturnView(MarketplaceReturn r) {
         SupportDTOs.ReturnView v = view(r);
         return new SupportDTOs.ReturnView(v.returnNo(), v.status(), v.reason(), v.quantity(), v.productName(), v.bearerRole(),
-                v.bearerRole().equals(ReturnCostPolicy.Party.CUSTOMER.name()) ? "You" : SUPPORT, v.lineAmount(), v.deduction(),
+                null, v.lineAmount(), v.deduction(),
                 v.refundAmount(), v.refundChannel(), v.outcome(), null, v.decisionNote(), v.createdAt());
     }
 

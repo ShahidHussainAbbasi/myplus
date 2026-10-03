@@ -114,6 +114,11 @@ class MarketplaceSupportServiceTest {
             return new PageImpl<>(caseTable.values().stream().filter(c -> st.contains(c.getStatus()))
                     .sorted((a, b) -> a.isUrgent() == b.isUrgent() ? a.getId().compareTo(b.getId()) : a.isUrgent() ? -1 : 1).toList());
         });
+        lenient().when(cases.findByStatusInOrderByCreatedAtDesc(any(), any())).thenAnswer(i -> {
+            Collection<String> st = i.getArgument(0);
+            return new PageImpl<>(caseTable.values().stream().filter(c -> st.contains(c.getStatus()))
+                    .sorted((a, b) -> b.getId().compareTo(a.getId())).toList());
+        });
         lenient().when(cases.findTop100BySellerOrgIdAndStatusOrderByCreatedAtAsc(anyLong(), anyString())).thenAnswer(i -> caseTable.values()
                 .stream().filter(c -> c.getSellerOrgId().equals(i.getArgument(0)) && c.getStatus().equals(i.getArgument(1))).toList());
         lenient().when(messages.save(any())).thenAnswer(i -> { MarketplaceSupportMessage m = i.getArgument(0); m.setId(ids.incrementAndGet()); msgTable.add(m); return m; });
@@ -365,6 +370,19 @@ class MarketplaceSupportServiceTest {
         verify(audit, times(1)).event(eq(MarketplaceAuditService.RETURN_DECIDED), anyString(), eq(no), eq(SELLER),
                 eq(MarketplaceAuditService.Actor.OPERATOR), eq("REQUESTED"), eq("APPROVED"), any(), any());
         assertThatThrownBy(() -> svc.decide(new SupportDTOs.DecisionRequest(no, "REJECTED", "late"))).hasMessageContaining("already approved");
+    }
+
+    @Test
+    @DisplayName("[MKT-R8.2] the open queue is worked oldest first; the Resolved list is history, newest first")
+    void resolvedNewestFirst() {
+        Placed a = delivered(ali, "COD");
+        String first = svc.open(ali, a.order().getOrderNo(), new SupportDTOs.OpenCaseRequest("OTHER", "one", null, null, null)).caseNo();
+        Placed b = delivered(ali, "COD");
+        String second = svc.open(ali, b.order().getOrderNo(), new SupportDTOs.OpenCaseRequest("OTHER", "two", null, null, null)).caseNo();
+        assertThat(svc.queue(null, 0, 10).getContent()).extracting(SupportDTOs.CaseRow::caseNo).containsExactly(first, second);
+        svc.resolve(new SupportDTOs.ResolveRequest(first, "done"));
+        svc.resolve(new SupportDTOs.ResolveRequest(second, "done"));
+        assertThat(svc.queue("RESOLVED", 0, 10).getContent()).extracting(SupportDTOs.CaseRow::caseNo).containsExactly(second, first);
     }
 
     // ── helpers ──

@@ -161,7 +161,11 @@ public class MarketplaceOfferService {
     public PageResponse<OfferDTOs.Offer> queue(String status, Integer page, Integer size) {
         access.assertOperator();
         String s = status == null || status.isBlank() ? Approval.PENDING_REVIEW.name() : parseApproval(status).name();
-        return PageResponse.of(offers.findByApprovalStatusOrderByCreatedAtAsc(s, page(page, size)),
+        // Waiting offers are worked oldest first; any decided list is history, newest first — otherwise, once it passes a
+        // page, the offer just decided is the one the operator cannot see (found by the 1c regression at 122 approved).
+        return PageResponse.of(Approval.PENDING_REVIEW.name().equals(s)
+                ? offers.findByApprovalStatusOrderByCreatedAtAsc(s, page(page, size))
+                : offers.findByApprovalStatusOrderByCreatedAtDesc(s, page(page, size)),
                 o -> toDto(o, products.findById(o.getMktProductId()).orElse(null)));
     }
 

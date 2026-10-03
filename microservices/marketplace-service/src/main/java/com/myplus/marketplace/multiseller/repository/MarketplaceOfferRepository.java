@@ -22,6 +22,9 @@ public interface MarketplaceOfferRepository extends JpaRepository<MarketplaceOff
     /** Operator queue — idx_mkt_offer_status_created. */
     Page<MarketplaceOffer> findByApprovalStatusOrderByCreatedAtAsc(String approvalStatus, Pageable page);
 
+    /** Decided offers (history), newest first — idx_mkt_offer_status_created read backwards. */
+    Page<MarketplaceOffer> findByApprovalStatusOrderByCreatedAtDesc(String approvalStatus, Pageable page);
+
     /** A seller's suspension or reinstatement re-publishes all its offers (bounded: one offer per product). */
     List<MarketplaceOffer> findByOrganizationId(Long organizationId);
 }

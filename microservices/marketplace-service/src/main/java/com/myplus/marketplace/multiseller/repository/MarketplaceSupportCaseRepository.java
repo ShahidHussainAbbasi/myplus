@@ -21,6 +21,9 @@ public interface MarketplaceSupportCaseRepository extends JpaRepository<Marketpl
     /** The operator's queue: urgent first, then oldest. idx_mkt_case_queue. */
     Page<MarketplaceSupportCase> findByStatusInOrderByUrgentDescCreatedAtAsc(Collection<String> statuses, Pageable page);
 
+    /** Resolved cases are history: newest first. */
+    Page<MarketplaceSupportCase> findByStatusInOrderByCreatedAtDesc(Collection<String> statuses, Pageable page);
+
     /** A customer's cases, newest first. */
     List<MarketplaceSupportCase> findTop50ByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
