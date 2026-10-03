@@ -61,9 +61,17 @@ const walk = (meta, body) => (only(meta.id) ? it : it.skip)(`${meta.id} ${meta.t
       bucket.push(cur)
       cy.log(`${prefix} ${cur.n}: ${doText}`)
     })
-    cy.then(() => fn())
+    // snap(): capture NOW — the moment the person sees the proof — before any behind-the-scenes check that logs in
+    // as someone else (a capture at the end of such a step showed a blank page: M-1e-04/05 in the first full run)
+    const snap = () => cy.then(() => {
+      const s = cur
+      s.shot = `${meta.id}/${prefix === 'STEP' ? '' : 'c'}${pad(s.n)}.png`
+      cy.screenshot(`${meta.id}/${prefix === 'STEP' ? '' : 'c'}${pad(s.n)}`, { capture: 'viewport', overwrite: true })
+    })
+    cy.then(() => fn(snap))
     cy.then(() => {
       const s = cur
+      if (s.shot) return
       if (opts.screen === false || (opts.screen === undefined && s.calls.length && !opts.alsoScreen)) return
       s.shot = `${meta.id}/${prefix === 'STEP' ? '' : 'c'}${pad(s.n)}.png`
       cy.screenshot(`${meta.id}/${prefix === 'STEP' ? '' : 'c'}${pad(s.n)}`, { capture: 'viewport', overwrite: true })
@@ -1204,13 +1212,14 @@ on('MKT manual walk — recorded', () => {
       cy.get('#mktAcceptWindowSave').click()
       cy.get('#mktAcceptWindowMsg').should('not.be.empty').and('not.contain', 'failed')
     })
-    step(`Customer (phone ${phone(5)}): order ${A_NAME}'s phone. The seller does nothing.`, `"${A_NAME} has 0:5x to confirm. Your stock is held."`, () => {
+    step(`Customer (phone ${phone(5)}): order ${A_NAME}'s phone. The seller does nothing.`, `"${A_NAME} has 0:5x to confirm. Your stock is held."`, (snap) => {
       customer()
       cy.visit(page(`product=${D.product}&city=Karachi`))
       buy(D.a, { ph: phone(5) })
       cy.get('#mktCoPlace').click()
       cy.get('#mktOrderDetail').invoke('text').should('match', /has 0:[0-5]\d to confirm/)
       cy.get('#mktCoOrderNo').invoke('text').then((no) => { D.o5 = no })
+      snap()
       as(SELLER_A)
       incoming('OFFERED').then((r) => { D.so5 = list(r.body).find((x) => x.orderNo === D.o5) })   // what the seller's page held
     })
@@ -1245,12 +1254,13 @@ on('MKT manual walk — recorded', () => {
   walk({ id: 'M-1e-05', slice: 'MKT-1e', title: 'A double click, or a lost answer, is still one order',
     persona: 'Customer (incognito window), developer tools (network)', reqs: ['MKT-R22.3'], pre: 'As M-1d-01.', auto: ['MKT-1e-03', 'MarketplacePublicControllerTest'] }, (step, call, cleanup) => {
     const count = (ph) => incoming('').then((r) => list(r.body).filter((x) => x.customerPhone === ph))
-    step(`Fill the checkout for ${A_NAME} (phone ${phone(6)}) and DOUBLE-click "Place order".`, 'One order number. The seller has exactly ONE order for that phone.', () => {
+    step(`Fill the checkout for ${A_NAME} (phone ${phone(6)}) and DOUBLE-click "Place order".`, 'One order number. The seller has exactly ONE order for that phone.', (snap) => {
       customer()
       cy.visit(page(`product=${D.product}&city=Karachi`))
       buy(D.a, { ph: phone(6) })
       cy.get('#mktCoPlace').dblclick()
       cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-/)
+      snap()
       as(SELLER_A)
       count(phone(6)).then((rows) => expect(rows).to.have.length(1))
     })
@@ -1265,9 +1275,10 @@ on('MKT manual walk — recorded', () => {
         cy.wait('@lost')
         cy.get('#mktCoError').should('have.text', 'We could not confirm your order. Press the button again; it will not be placed twice.')
       })
-    step('Press "Place order" again.', 'The order the server had already placed is shown — the SAME one: the seller has exactly ONE order for that phone.', () => {
+    step('Press "Place order" again.', 'The order the server had already placed is shown — the SAME one: the seller has exactly ONE order for that phone.', (snap) => {
       cy.get('#mktCoPlace').click()
       cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      snap()
       as(SELLER_A)
       count(phone(7)).then((rows) => expect(rows, 'not placed twice').to.have.length(1))
     })
