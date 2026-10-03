@@ -3894,34 +3894,39 @@
    "slice": "MKT-1f",
    "title": "One place to complain",
    "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "Ali's order from Shahzad Mobile Shop is DELIVERED.",
+   "pre": "Ali's order from Shahzad Mobile Shop is DELIVERED (the seller recorded the delivery).",
    "steps": [
     {
      "n": 1,
-     "do": "Customer: My orders → the order → \"Get help\" → \"Item not as described\" → note \"Box says 64GB\" → Send.",
-     "expect": "\"MaxTheService support is looking into this.\" A case number SC-…; Shahzad's phone number is NOT shown."
+     "do": "Customer: My orders.",
+     "expect": "The order reads \"Delivered\" and shows \"Get help\"."
     },
     {
      "n": 2,
-     "do": "Operator: Support cases → the case → \"Task the seller\" with \"Check the box and call the customer\".",
-     "expect": "The case reads \"Waiting for seller\"."
+     "do": "\"Get help\" → \"Something is wrong with my order\" → note \"Box was open\" → Send.",
+     "expect": "\"MaxTheService support is looking into this.\" A case number SC-…; no seller phone number anywhere."
     },
     {
      "n": 3,
-     "do": "Seller A: Sale → Marketplace → Tasks.",
-     "expect": "The task with the order number and the operator's text; Ali's phone is shown only for this order."
+     "do": "Operator: Support cases → the case → internal note \"check seller history\", then \"Task the seller\" with \"Check the box and call the customer\".",
+     "expect": "The case reads \"Waiting for seller\"."
     },
     {
      "n": 4,
-     "do": "Operator: reply \"We are replacing it\" to the customer.",
-     "expect": "Ali sees the reply from MaxTheService support."
+     "do": "Seller A: Sale → Marketplace → Tasks from MaxTheService → reply \"Charger sent with our rider today\".",
+     "expect": "The task shows the order number and the operator's text. (Seller B does not see it.)"
+    },
+    {
+     "n": 5,
+     "do": "Customer: open the case.",
+     "expect": "The seller's answer is relayed as MaxTheService support; the internal note is NOT shown."
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Operator: close the case with \"walk cleanup\".",
-     "expect": "The case reads Closed."
+     "do": "Operator: resolve the case with \"walk cleanup\".",
+     "expect": "The case reads Resolved."
     }
    ],
    "reqs": [
@@ -3930,7 +3935,7 @@
     "MKT-R23.1"
    ],
    "evidence": "design",
-   "source": "Design §12 support model, slice MKT-1f.",
+   "source": "Slice MKT-1f; gate 1f-01..03.",
    "warn": false,
    "auto": []
   },
@@ -3939,21 +3944,21 @@
    "slice": "MKT-1f",
    "title": "Return cost follows the cause",
    "persona": "admin@myplus.com (operator)",
-   "pre": "Seven delivered test orders, one per reason below.",
+   "pre": "Delivered test orders; one return opened per reason below.",
    "steps": [
     {
      "n": 1,
-     "do": "Approve a return with reason \"Wrong product sent\".",
-     "expect": "Cost bearer: Fulfiller."
+     "do": "Open a return with reason \"Wrong product sent\".",
+     "expect": "Cost bearer: Fulfiller (Shahzad Mobile Shop, from the order's snapshot)."
     },
     {
      "n": 2,
-     "do": "\"Damaged before handover\".",
+     "do": "\"Arrived damaged\".",
      "expect": "Cost bearer: Custodian."
     },
     {
      "n": 3,
-     "do": "\"Defective\".",
+     "do": "\"Does not work\".",
      "expect": "Cost bearer: Stock owner."
     },
     {
@@ -3963,61 +3968,56 @@
     },
     {
      "n": 5,
-     "do": "\"Change of mind\".",
-     "expect": "Cost bearer: Customer."
+     "do": "\"Changed my mind\" (inside the return days).",
+     "expect": "Cost bearer: Customer; the pickup fee (Rs 250) is deducted from the refund."
     },
     {
      "n": 6,
-     "do": "\"Delivery failure\".",
-     "expect": "Cost bearer: Carrier."
-    },
-    {
-     "n": 7,
-     "do": "\"Routing error\".",
-     "expect": "Cost bearer: MaxTheService."
+     "do": "\"Changed my mind\" on an order whose return days were 0 when it was placed.",
+     "expect": "Refused: \"The return period for this item …\" — a fault reason is still taken."
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Cancel the seven test returns.",
-     "expect": "They read Cancelled."
+     "do": "Operator: reject the test returns with \"walk cleanup\".",
+     "expect": "They read Rejected."
     }
    ],
    "reqs": [
     "MKT-R13.1"
    ],
    "evidence": "design",
-   "source": "MKT-1a ReturnAndSubstitutionPolicy (unit-tested); screens in MKT-1f.",
+   "source": "MKT-1a ReturnCostPolicy; slice MKT-1f; gate 1f-04, -05, -07.",
    "warn": false,
    "auto": []
   },
   {
    "id": "M-1f-03",
    "slice": "MKT-1f",
-   "title": "A return end to end",
+   "title": "A paid-online return end to end",
    "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "A delivered Rs 52,000 order inside its 7-day return window.",
+   "pre": "A delivered Rs 52,000 order paid online, inside its 7-day return window.",
    "steps": [
     {
      "n": 1,
-     "do": "Customer: My orders → Return → reason \"Defective\" → Send.",
-     "expect": "\"Return requested.\" Case RT-…."
+     "do": "Customer: My orders → Get help → Return this item → \"Wrong product sent\" → Send.",
+     "expect": "\"Return requested.\" Return RT-… under case SC-…."
     },
     {
      "n": 2,
-     "do": "Operator: check the policy → \"Arrange pickup\".",
-     "expect": "Status \"Pickup arranged\"."
+     "do": "Operator: Support cases → the return → Approve with \"pickup tomorrow\".",
+     "expect": "Status \"Approved — the seller's rider will collect it\"."
     },
     {
      "n": 3,
-     "do": "Seller: inspect → Approve → choose \"Quarantine\".",
-     "expect": "Status \"Approved\"; the unit is in quarantine stock, not sellable."
+     "do": "Seller A: Tasks → the return → \"Item received\" → Restock.",
+     "expect": "Status \"Refunded\"; the store order reads RETURNED and its invoice is reversed."
     },
     {
      "n": 4,
-     "do": "Open Seller A's settlement statement.",
-     "expect": "A REFUND line −52,000.00 and the commission reversal; the refund is approved once."
+     "do": "Customer: My orders.",
+     "expect": "The order shows one refund of Rs 52,000 — pressing \"Item received\" twice does not refund twice."
     }
    ],
    "cleanup": [
@@ -4031,7 +4031,7 @@
     "MKT-R13.2"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1f.",
+   "source": "Slice MKT-1f; gate 1f-04.",
    "warn": false,
    "auto": []
   },
@@ -4039,12 +4039,12 @@
    "id": "M-1f-04",
    "slice": "MKT-1f",
    "title": "Unsafe or expired goods escalate at once",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
+   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window) → admin@myplus.com (operator)",
    "pre": "A delivered order.",
    "steps": [
     {
      "n": 1,
-     "do": "My orders → Get help → \"Expired or unsafe\" → Send.",
+     "do": "My orders → Get help → Return this item → \"Expired or unsafe\" → note \"battery swollen\" → Send.",
      "expect": "Sent."
     },
     {
@@ -4056,15 +4056,15 @@
    "cleanup": [
     {
      "n": 1,
-     "do": "Operator: close it with \"walk cleanup\".",
-     "expect": "Closed."
+     "do": "Operator: resolve it with \"walk cleanup\".",
+     "expect": "Resolved."
     }
    ],
    "reqs": [
     "MKT-R13.4"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1f.",
+   "source": "Slice MKT-1f; gate 1f-08.",
    "warn": false,
    "auto": []
   },
@@ -4072,13 +4072,13 @@
    "id": "M-1f-05",
    "slice": "MKT-1f",
    "title": "Every action leaves a trail",
-   "persona": "admin@myplus.com (operator)",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
    "pre": "After M-1f-01 to -04.",
    "steps": [
     {
      "n": 1,
-     "do": "Operator console → Audit log → filter \"Marketplace\".",
-     "expect": "Each case, task, return decision and refund is listed with who, when and the order number."
+     "do": "Seller A: Settings → Activity (audit trail).",
+     "expect": "Each task, return decision and refund on Seller A's orders is listed with who (MaxTheService operator), when and the return number. A refused decision left no row."
     }
    ],
    "cleanup": [
@@ -4092,7 +4092,78 @@
     "MKT-R22.4"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1f, audit outbox.",
+   "source": "Slice MKT-1f, audit outbox (G-16); gate 1f-12.",
+   "warn": false,
+   "auto": []
+  },
+  {
+   "id": "M-1f-06",
+   "slice": "MKT-1f",
+   "title": "A cash-on-delivery return: cash back at pickup",
+   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)",
+   "pre": "A delivered cash-on-delivery order.",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: Return this item → \"Does not work\" → Send; operator approves.",
+     "expect": "Approved."
+    },
+    {
+     "n": 2,
+     "do": "Seller A: \"Item received\" → Quarantine, WITHOUT ticking \"Cash handed back\".",
+     "expect": "Refused: the rider must hand the cash back at pickup (ruling R-MKT-12)."
+    },
+    {
+     "n": 3,
+     "do": "Tick \"Cash handed back\" → Item received.",
+     "expect": "Status \"Refunded — cash at pickup\"; no card refund is attempted."
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None.",
+     "expect": "—"
+    }
+   ],
+   "reqs": [
+    "MKT-R13.2"
+   ],
+   "evidence": "design",
+   "source": "Rulings R-MKT-12, 13; gate 1f-10.",
+   "warn": false,
+   "auto": []
+  },
+  {
+   "id": "M-1f-07",
+   "slice": "MKT-1f",
+   "title": "No way around MaxTheService",
+   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window) → owner.business@myplus.com (Shahzad Mobile Shop)",
+   "pre": "A delivered marketplace order (store order SO-…).",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Shop page \"Return an order\" with the store order number and the phone.",
+     "expect": "Refused: returns for marketplace orders go through MaxTheService."
+    },
+    {
+     "n": 2,
+     "do": "Seller A: Orders → the store order → Process return.",
+     "expect": "Refused: \"… through MaxTheService\"; the order stays Delivered."
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None.",
+     "expect": "—"
+    }
+   ],
+   "reqs": [
+    "MKT-R8.2"
+   ],
+   "evidence": "design",
+   "source": "Slice MKT-1f trace; gate 1f-09.",
    "warn": false,
    "auto": []
   },

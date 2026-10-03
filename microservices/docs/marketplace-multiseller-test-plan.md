@@ -107,7 +107,7 @@ GL account **4500 Marketplace commission** is assumed by MKT-1g-06 (to be confir
 | MKT-R7.5 | 1 | MarketplaceOfferServiceTest.priceLimits<br>MarketplaceOfferServiceTest.pauseAndPublish | MKT-1c-01 | M-1c-01 |
 | MKT-R7.6 | 1 | OfferEligibilityTest.eligible<br>OfferEligibilityTest.unapproved<br>OfferEligibilityTest.inactiveSeller<br>OfferEligibilityTest.regulated<br>OfferEligibilityTest.deliveryArea<br>OfferEligibilityTest.stock<br>OfferEligibilityTest.priceLimits<br>OfferRankingTest.filtersBeforeSort<br>MarketplaceCatalogServiceTest.regulatedRefused<br>MarketplaceCatalogServiceTest.noRegulatedLaundering<br>MarketplaceOfferServiceTest.lifecycle<br>MarketplaceOrderFlowTest.eligibility<br>MarketplaceSellerServiceTest.decisionRepublishes<br>OfferProjectionServiceTest.liveRule<br>PublicOfferServiceTest.city<br>PublicOfferServiceTest.limitsAndApproval<br>PublicOfferServiceTest.cardFollowsGuardrails<br>PublicOfferServiceTest.likePattern<br>PublicOfferServiceTest.pageCap<br>PublicOfferServiceTest.productPage | MKT-1c-03<br>MKT-1c-07<br>MKT-1d-04<br>MKT-1d-05<br>MKT-1d-07<br>MKT-1d-09<br>MKT-1d-10 | M-1c-03<br>M-1c-05<br>M-1d-04<br>M-1d-05<br>M-1d-07<br>M-1d-08 |
 | MKT-R8.1 | 1 | — | — | M-1e-07<br>M-1f-01 |
-| MKT-R8.2 | 1 | — | MKT-1f-02<br>MKT-1f-03<br>MKT-1f-09 | M-1f-01 |
+| MKT-R8.2 | 1 | — | MKT-1f-02<br>MKT-1f-03<br>MKT-1f-09 | M-1f-01<br>M-1f-07 |
 | MKT-R9.1 | 0 | MarketplaceSellerServiceTest.acceptApplies<br>MarketplaceSellerServiceTest.staleVersion | MKT-0a-01<br>MKT-0a-05 | M-0a-03 |
 | MKT-R9.2 | 1 | OfferProjectionServiceTest.noForbiddenFields<br>PublicOfferServiceTest.view | MKT-1c-06 | M-0a-03<br>M-1c-06 |
 | MKT-R9.3 | 1 | OfferProjectionServiceTest.noForbiddenFields | MKT-1c-06 | M-0a-03<br>M-1c-06 |
@@ -126,7 +126,7 @@ GL account **4500 Marketplace commission** is assumed by MKT-1g-06 (to be confir
 | MKT-R12.3 | 5 | — | — | M-5-02 |
 | MKT-R12.4 | 2 | — | MKT-2-04 | M-2-04 |
 | MKT-R13.1 | 1 | ReturnAndSubstitutionPolicyTest.table<br>MarketplacePaymentServiceTest.refundOnce | MKT-1f-04<br>MKT-1f-05 | M-1e2-05<br>M-1f-02 |
-| MKT-R13.2 | 1 | — | MKT-1f-01<br>MKT-1f-04<br>MKT-1f-07<br>MKT-1f-10 | M-1f-03 |
+| MKT-R13.2 | 1 | — | MKT-1f-01<br>MKT-1f-04<br>MKT-1f-07<br>MKT-1f-10 | M-1f-03<br>M-1f-06 |
 | MKT-R13.3 | 1 | ReturnAndSubstitutionPolicyTest.resolvesThroughSnapshot<br>MarketplaceOrderFlowTest.checkoutHoldsAndOffers<br>MarketplacePolicyServiceTest.deactivated | MKT-1e-06<br>MKT-1f-06 | M-1c-07<br>M-1e-06 |
 | MKT-R13.4 | 1 | ReturnAndSubstitutionPolicyTest.escalation | MKT-1f-08 | M-1f-04 |
 | MKT-R14.1 | 1 | MarketplaceOfferServiceTest.policiesRequired<br>MarketplacePolicyServiceTest.warranty<br>OfferProjectionServiceTest.carriesDisplayFields<br>PublicOfferServiceTest.view | MKT-1c-01 | M-1c-00<br>M-1c-01<br>M-1c-06 |

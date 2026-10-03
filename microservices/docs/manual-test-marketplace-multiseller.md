@@ -785,75 +785,102 @@
 ### M-1f-01 One place to complain
 
 **Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** Ali's order from Shahzad Mobile Shop is DELIVERED.  
+**Before:** Ali's order from Shahzad Mobile Shop is DELIVERED (the seller recorded the delivery).  
 **Covers:** MKT-R8.2, MKT-R8.1, MKT-R23.1  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: My orders → the order → "Get help" → "Item not as described" → note "Box says 64GB" → Send. | "MaxTheService support is looking into this." A case number SC-…; Shahzad's phone number is NOT shown. |
-| 2 | Operator: Support cases → the case → "Task the seller" with "Check the box and call the customer". | The case reads "Waiting for seller". |
-| 3 | Seller A: Sale → Marketplace → Tasks. | The task with the order number and the operator's text; Ali's phone is shown only for this order. |
-| 4 | Operator: reply "We are replacing it" to the customer. | Ali sees the reply from MaxTheService support. |
-| C1 | Operator: close the case with "walk cleanup". | The case reads Closed. |
+| 1 | Customer: My orders. | The order reads "Delivered" and shows "Get help". |
+| 2 | "Get help" → "Something is wrong with my order" → note "Box was open" → Send. | "MaxTheService support is looking into this." A case number SC-…; no seller phone number anywhere. |
+| 3 | Operator: Support cases → the case → internal note "check seller history", then "Task the seller" with "Check the box and call the customer". | The case reads "Waiting for seller". |
+| 4 | Seller A: Sale → Marketplace → Tasks from MaxTheService → reply "Charger sent with our rider today". | The task shows the order number and the operator's text. (Seller B does not see it.) |
+| 5 | Customer: open the case. | The seller's answer is relayed as MaxTheService support; the internal note is NOT shown. |
+| C1 | Operator: resolve the case with "walk cleanup". | The case reads Resolved. |
 
 ### M-1f-02 Return cost follows the cause
 
 **Who:** admin@myplus.com (operator)  
-**Before:** Seven delivered test orders, one per reason below.  
+**Before:** Delivered test orders; one return opened per reason below.  
 **Covers:** MKT-R13.1  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Approve a return with reason "Wrong product sent". | Cost bearer: Fulfiller. |
-| 2 | "Damaged before handover". | Cost bearer: Custodian. |
-| 3 | "Defective". | Cost bearer: Stock owner. |
+| 1 | Open a return with reason "Wrong product sent". | Cost bearer: Fulfiller (Shahzad Mobile Shop, from the order's snapshot). |
+| 2 | "Arrived damaged". | Cost bearer: Custodian. |
+| 3 | "Does not work". | Cost bearer: Stock owner. |
 | 4 | "Not as described". | Cost bearer: Seller. |
-| 5 | "Change of mind". | Cost bearer: Customer. |
-| 6 | "Delivery failure". | Cost bearer: Carrier. |
-| 7 | "Routing error". | Cost bearer: MaxTheService. |
-| C1 | Cancel the seven test returns. | They read Cancelled. |
+| 5 | "Changed my mind" (inside the return days). | Cost bearer: Customer; the pickup fee (Rs 250) is deducted from the refund. |
+| 6 | "Changed my mind" on an order whose return days were 0 when it was placed. | Refused: "The return period for this item …" — a fault reason is still taken. |
+| C1 | Operator: reject the test returns with "walk cleanup". | They read Rejected. |
 
-### M-1f-03 A return end to end
+### M-1f-03 A paid-online return end to end
 
 **Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** A delivered Rs 52,000 order inside its 7-day return window.  
+**Before:** A delivered Rs 52,000 order paid online, inside its 7-day return window.  
 **Covers:** MKT-R13.2  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Customer: My orders → Return → reason "Defective" → Send. | "Return requested." Case RT-…. |
-| 2 | Operator: check the policy → "Arrange pickup". | Status "Pickup arranged". |
-| 3 | Seller: inspect → Approve → choose "Quarantine". | Status "Approved"; the unit is in quarantine stock, not sellable. |
-| 4 | Open Seller A's settlement statement. | A REFUND line −52,000.00 and the commission reversal; the refund is approved once. |
+| 1 | Customer: My orders → Get help → Return this item → "Wrong product sent" → Send. | "Return requested." Return RT-… under case SC-…. |
+| 2 | Operator: Support cases → the return → Approve with "pickup tomorrow". | Status "Approved — the seller's rider will collect it". |
+| 3 | Seller A: Tasks → the return → "Item received" → Restock. | Status "Refunded"; the store order reads RETURNED and its invoice is reversed. |
+| 4 | Customer: My orders. | The order shows one refund of Rs 52,000 — pressing "Item received" twice does not refund twice. |
 | C1 | None: refunds are records. Use a test order. | — |
 
 ### M-1f-04 Unsafe or expired goods escalate at once
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
+**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator)  
 **Before:** A delivered order.  
 **Covers:** MKT-R13.4  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | My orders → Get help → "Expired or unsafe" → Send. | Sent. |
+| 1 | My orders → Get help → Return this item → "Expired or unsafe" → note "battery swollen" → Send. | Sent. |
 | 2 | Operator: Support cases. | The case is URGENT and at the top of the queue at once. |
-| C1 | Operator: close it with "walk cleanup". | Closed. |
+| C1 | Operator: resolve it with "walk cleanup". | Resolved. |
 
 ### M-1f-05 Every action leaves a trail
 
-**Who:** admin@myplus.com (operator)  
+**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
 **Before:** After M-1f-01 to -04.  
 **Covers:** MKT-R22.4  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Operator console → Audit log → filter "Marketplace". | Each case, task, return decision and refund is listed with who, when and the order number. |
+| 1 | Seller A: Settings → Activity (audit trail). | Each task, return decision and refund on Seller A's orders is listed with who (MaxTheService operator), when and the return number. A refused decision left no row. |
 | C1 | Nothing to undo. | — |
+
+### M-1f-06 A cash-on-delivery return: cash back at pickup
+
+**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → admin@myplus.com (operator) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** A delivered cash-on-delivery order.  
+**Covers:** MKT-R13.2  
+**Evidence:** written from the design — not built yet
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: Return this item → "Does not work" → Send; operator approves. | Approved. |
+| 2 | Seller A: "Item received" → Quarantine, WITHOUT ticking "Cash handed back". | Refused: the rider must hand the cash back at pickup (ruling R-MKT-12). |
+| 3 | Tick "Cash handed back" → Item received. | Status "Refunded — cash at pickup"; no card refund is attempted. |
+| C1 | None. | — |
+
+### M-1f-07 No way around MaxTheService
+
+**Who:** Customer "Ali", phone 0300-1234567 (incognito window) → owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** A delivered marketplace order (store order SO-…).  
+**Covers:** MKT-R8.2  
+**Evidence:** written from the design — not built yet
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Shop page "Return an order" with the store order number and the phone. | Refused: returns for marketplace orders go through MaxTheService. |
+| 2 | Seller A: Orders → the store order → Process return. | Refused: "… through MaxTheService"; the order stays Delivered. |
+| C1 | None. | — |
 
 
 ## MKT-1g
