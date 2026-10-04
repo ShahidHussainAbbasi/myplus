@@ -23,4 +23,7 @@ public interface MarketplaceOrderRepository extends JpaRepository<MarketplaceOrd
 
     /** The abuse guard — idx_mkt_order_phone_status. Phones are stored as digits only. */
     long countByCustomerPhoneAndStatus(String customerPhone, String status);
+
+    /** MKT-1e2 "My orders" — idx_mkt_order_customer_created. Only orders proven to be the account's. */
+    Page<MarketplaceOrder> findByCustomerIdOrderByCreatedAtDesc(Long customerId, Pageable page);
 }

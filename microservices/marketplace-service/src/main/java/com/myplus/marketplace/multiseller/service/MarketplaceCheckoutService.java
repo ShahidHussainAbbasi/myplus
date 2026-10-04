@@ -78,6 +78,9 @@ public class MarketplaceCheckoutService {
     static final String DOC_TYPE = "MKT";
     static final int MAX_QUANTITY = 10;
     static final String COD = "COD";
+    /** MKT-1e2: paid online by a signed-in customer, collected by MaxTheService. */
+    static final String CARD = "CARD";
+    static final String DECLINED = "Your card was declined. Please use another card or choose cash on delivery.";
     /**
      * At most this many orders per phone waiting for sellers at once. A checkout HOLDS a seller's stock, and the
      * route is anonymous, so without a bound a script could keep a seller's whole stock held. A real shopper rarely
@@ -100,12 +103,27 @@ public class MarketplaceCheckoutService {
     private final DocumentNumberService numbers;
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
+    private final MarketplacePaymentService payments;
+    /** The seller side releases holds; it also calls {@link #hold}, so it is resolved on demand (a real cycle). */
+    private final org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSide;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
-    /** Not {@code @Transactional}: it runs its own two transactions with the remote hold between them. */
+    /** Anonymous (MKT-1e). */
     public MarketplaceOrderDTOs.OrderView checkout(MarketplaceOrderDTOs.CheckoutRequest req) {
+        return checkout(req, null);
+    }
+
+    /**
+     * Not {@code @Transactional}: it runs its own two transactions with the remote hold (and, for a card, the charge)
+     * between them. {@code customerId}: the signed-in account (MKT-1e2) — the order is theirs by proof — or null.
+     */
+    public MarketplaceOrderDTOs.OrderView checkout(MarketplaceOrderDTOs.CheckoutRequest req, Long customerId) {
         Contact c = validate(req);
+        boolean card = CARD.equals(c.paymentMode());
+        if (card && customerId == null) throw new ValidationException("Sign in to pay online.");
+        if (card && (req.cardToken() == null || req.cardToken().isBlank() || req.cardToken().length() > 200))
+            throw new ValidationException("Enter your card details.");
 
         MarketplaceOrder replay = orders.findByIdempotencyKey(c.key()).orElse(null);
         if (replay != null) return view(replay);                     // a double submit is the same order
@@ -134,13 +152,13 @@ public class MarketplaceCheckoutService {
         rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(List.of(new PhaseGuard.CheckoutLine(offer.getId(),
                 offer.getSellerOrganizationId(), StockSourceType.valueOf(offer.getStockSourceType()),
                 Regulated.valueOf(product.getRegulatedStatus())))));
-        if (!shippingPolicy.codEnabled(offer.getSellerOrganizationId()))
+        if (!card && !shippingPolicy.codEnabled(offer.getSellerOrganizationId()))   // cash only: a card needs no seller cash
             throw new ValidationException("This seller does not accept cash on delivery yet. Please choose another offer.");
 
         // ── tx 1: the order, its seller order, the snapshot, the number ──
         Long[] ids;
         try {
-            ids = tx().execute(s -> create(c, offer, product, price));
+            ids = tx().execute(s -> create(c, offer, product, price, customerId));
         } catch (DataIntegrityViolationException race) {
             // two submits with the same key arrived together: UNIQUE(idempotency_key) let one through
             return orders.findByIdempotencyKey(c.key()).map(this::view).orElseThrow(() -> race);
@@ -151,17 +169,31 @@ public class MarketplaceCheckoutService {
         MarketplaceSellerOrder so = sellerOrders.findById(sellerOrderId).orElseThrow();
         String refusal = hold(so, offer.getSourceProductId(), c.quantity());
 
+        // ── remote: the card, AFTER the stock is held (never charge for stock that cannot be held) ──
+        MarketplacePaymentService.Outcome paid = refusal != null || !card ? null
+                : payments.charge(orders.findById(orderId).orElseThrow(), req.cardToken());
+
         // ── tx 2: record the answer ──
         tx().executeWithoutResult(s -> {
             MarketplaceSellerOrder fresh = sellerOrders.findById(sellerOrderId).orElseThrow();
             MarketplaceOrder order = orders.findById(orderId).orElseThrow();
-            if (refusal == null) {
+            if (refusal != null) {
+                move(fresh, SellerOrder.CANCELLED);
+                cancel(order, "This seller no longer has enough stock. Please choose another offer.");
+            } else if (paid == MarketplacePaymentService.Outcome.FAILED) {
+                move(fresh, SellerOrder.CANCELLED);
+                fresh.setHeld(true);                                   // the release below gives the stock back
+                cancel(order, DECLINED);
+            } else if (paid == MarketplacePaymentService.Outcome.UNKNOWN) {
+                // never offered to a seller on an unconfirmed payment: the orphan rule cancels it and, if the provider
+                // later reports the charge, the refund backstop gives the money back
+                rule(() -> MarketplaceStateMachines.ORDER.transition(Order.valueOf(order.getStatus()), Order.PAYMENT_PENDING));
+                order.setStatus(Order.PAYMENT_PENDING.name());
+                fresh.setHeld(true);
+            } else {
                 move(fresh, SellerOrder.OFFERED);
                 fresh.setHeld(true);
                 fresh.setAcceptBy(LocalDateTime.now().plusMinutes(settings.acceptMinutes()));
-            } else {
-                move(fresh, SellerOrder.CANCELLED);
-                cancel(order, "This seller no longer has enough stock. Please choose another offer.");
             }
             sellerOrders.save(fresh);
             orders.save(order);
@@ -170,15 +202,20 @@ public class MarketplaceCheckoutService {
             LOG.info("MKT checkout {} not held: {}", c.key(), refusal);
             throw new ValidationException("This seller no longer has enough stock. Please choose another offer.");
         }
+        if (paid == MarketplacePaymentService.Outcome.FAILED) {
+            sellerSide.getObject().release(sellerOrders.findById(sellerOrderId).orElseThrow());
+            throw new ValidationException(DECLINED);
+        }
         return view(orders.findById(orderId).orElseThrow());
     }
 
-    private Long[] create(Contact c, MarketplaceOffer offer, MarketplaceProduct product, BigDecimal price) {
+    private Long[] create(Contact c, MarketplaceOffer offer, MarketplaceProduct product, BigDecimal price, Long customerId) {
         BigDecimal subtotal = price.multiply(BigDecimal.valueOf(c.quantity()));
         MarketplaceOrder o = new MarketplaceOrder();
         o.setIdempotencyKey(c.key());
         o.setStatus(Order.SUBMITTED.name());
-        o.setPaymentMode(COD);
+        o.setPaymentMode(c.paymentMode());
+        o.setCustomerId(customerId);
         o.setPaymentStatus(Payment.UNPAID.name());
         o.setCustomerName(c.name());
         o.setCustomerPhone(c.phone());
@@ -307,7 +344,7 @@ public class MarketplaceCheckoutService {
     }
 
     static MarketplaceOrderDTOs.LineView lineView(MarketplaceOrderLine l) {
-        return new MarketplaceOrderDTOs.LineView(l.getOfferId(), l.getMktProductId(), l.getProductName(), l.getQuantity(),
+        return new MarketplaceOrderDTOs.LineView(l.getId(), l.getOfferId(), l.getMktProductId(), l.getProductName(), l.getQuantity(),
                 l.getUnitPrice(), l.getLineTotal(), l.getStockSourceType(), l.getSellerOrganizationId(),
                 l.getStockOwnerOrganizationId(), l.getCustodianOrganizationId(), l.getFulfillerOrganizationId(),
                 l.getPromiseHours(), l.getWarrantyProvider(), l.getWarrantyMonths(), l.getWarrantyStarts(),
@@ -345,7 +382,7 @@ public class MarketplaceCheckoutService {
 
     // ── input ──────────────────────────────────────────────────────────────────────────────────────────
 
-    record Contact(String key, String name, String phone, String address, String city, int quantity) {
+    record Contact(String key, String name, String phone, String address, String city, int quantity, String paymentMode) {
     }
 
     static Contact validate(MarketplaceOrderDTOs.CheckoutRequest req) {
@@ -365,7 +402,9 @@ public class MarketplaceCheckoutService {
             throw new ValidationException("Enter the delivery address.");
         String city = trim(req.city());
         if (city == null || city.length() < 2 || city.length() > 60) throw new ValidationException("Enter the delivery city.");
-        return new Contact(key, name, d, address, city, qty);      // phone stored as digits: one shopper, one key
+        String mode = req.paymentMode() == null || req.paymentMode().isBlank() ? COD : req.paymentMode().trim().toUpperCase(Locale.ROOT);
+        if (!COD.equals(mode) && !CARD.equals(mode)) throw new ValidationException("Choose cash on delivery or pay online.");
+        return new Contact(key, name, d, address, city, qty, mode);   // phone stored as digits: one shopper, one key
     }
 
     static String digits(String s) {

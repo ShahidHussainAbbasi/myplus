@@ -34,6 +34,8 @@ public class MarketplaceSettingsService {
 
     private final MarketplacePlatformSettingRepository settings;
     private final SellerAccess access;
+    /** G-16 (R22.4): an operator's change to how the marketplace behaves is audited. */
+    private final MarketplaceAuditService audit;
 
     /** The current default; a missing or no-longer-valid stored value reads as RECOMMENDED, never as an error. */
     @Transactional(readOnly = true)
@@ -66,6 +68,7 @@ public class MarketplaceSettingsService {
         row.setUpdatedByUserId(access.userId());
         row.setUpdatedAt(LocalDateTime.now());
         settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
         return s;
     }
 
@@ -124,6 +127,100 @@ public class MarketplaceSettingsService {
         row.setUpdatedByUserId(access.userId());
         row.setUpdatedAt(LocalDateTime.now());
         settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
         return minutes;
+    }
+
+    // ── MKT-1f: the change-of-mind pickup fee (ruling R-MKT-14: the customer bears it) ─────────────────────
+
+    public static final java.math.BigDecimal DEFAULT_CHANGE_OF_MIND_FEE = new java.math.BigDecimal("250.00");
+    static final java.math.BigDecimal MAX_CHANGE_OF_MIND_FEE = new java.math.BigDecimal("5000.00");
+
+    /** The fee deducted from a change-of-mind refund. A missing or invalid stored value reads as the default. */
+    @Transactional(readOnly = true)
+    public java.math.BigDecimal changeOfMindFee() {
+        return settings.findById(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> { try { return new java.math.BigDecimal(v.trim()); } catch (NumberFormatException e) { return null; } })
+                .filter(f -> f.signum() >= 0 && f.compareTo(MAX_CHANGE_OF_MIND_FEE) <= 0)
+                .orElse(DEFAULT_CHANGE_OF_MIND_FEE).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public java.math.BigDecimal setChangeOfMindFee(java.math.BigDecimal amount) {
+        access.assertOperator();
+        if (amount == null || amount.signum() < 0 || amount.compareTo(MAX_CHANGE_OF_MIND_FEE) > 0)
+            throw new ValidationException("The change-of-mind fee is Rs 0 to 5,000.");
+        java.math.BigDecimal v = amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        MarketplacePlatformSetting row = settings.findById(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE).orElseGet(() -> {
+            MarketplacePlatformSetting n = new MarketplacePlatformSetting();
+            n.setSettingKey(MarketplacePlatformSetting.CHANGE_OF_MIND_FEE);
+            return n;
+        });
+        row.setSettingValue(v.toPlainString());
+        row.setUpdatedByUserId(access.userId());
+        row.setUpdatedAt(LocalDateTime.now());
+        settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", row.getSettingKey(), null, MarketplaceAuditService.Actor.OPERATOR, null, row.getSettingValue(), null, null);
+        return v;
+    }
+
+    // ── MKT-1g: settlement ───────────────────────────────────────────────────────────────────────────────
+
+    public static final int DEFAULT_T_PLUS_DAYS = 1;
+    static final int MAX_T_PLUS_DAYS = 10;
+
+    /** N in T+N (source §15, design §6.2 {@code mkt.settlement.tPlusDays}). A missing or invalid value reads as 1. */
+    @Transactional(readOnly = true)
+    public int tPlusDays() {
+        return settings.findById(MarketplacePlatformSetting.SETTLEMENT_T_PLUS_DAYS)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> { try { return Integer.parseInt(v.trim()); } catch (NumberFormatException e) { return -1; } })
+                .filter(n -> n >= 0 && n <= MAX_T_PLUS_DAYS)
+                .orElse(DEFAULT_T_PLUS_DAYS);
+    }
+
+    @Transactional
+    public int setTPlusDays(Integer days) {
+        access.assertOperator();
+        if (days == null || days < 0 || days > MAX_T_PLUS_DAYS)
+            throw new ValidationException("Payment days after the return window are 0 to 10 business days.");
+        save(MarketplacePlatformSetting.SETTLEMENT_T_PLUS_DAYS, String.valueOf(days));
+        return days;
+    }
+
+    /** The operator's books: the org whose ledger takes the commission, and the user postings are made as. */
+    public record Books(Long organizationId, Long userId) {}
+
+    /** Empty until an operator chooses (or first settles, which chooses the operator's own organisation). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Books> books() {
+        return settings.findById(MarketplacePlatformSetting.SETTLEMENT_BOOKS_ORG)
+                .flatMap(r -> {
+                    try { return java.util.Optional.of(new Books(Long.parseLong(r.getSettingValue().trim()), r.getUpdatedByUserId())); }
+                    catch (RuntimeException e) { return java.util.Optional.empty(); }
+                });
+    }
+
+    /** Book the marketplace in the CALLING operator's own organisation. */
+    @Transactional
+    public Books useMyBooks() {
+        access.assertOperator();
+        Long org = access.org();
+        save(MarketplacePlatformSetting.SETTLEMENT_BOOKS_ORG, String.valueOf(org));
+        return new Books(org, access.userId());
+    }
+
+    private void save(String key, String value) {
+        MarketplacePlatformSetting row = settings.findById(key).orElseGet(() -> {
+            MarketplacePlatformSetting n = new MarketplacePlatformSetting();
+            n.setSettingKey(key);
+            return n;
+        });
+        row.setSettingValue(value);
+        row.setUpdatedByUserId(access.userId());
+        row.setUpdatedAt(LocalDateTime.now());
+        settings.save(row);
+        audit.event("MKT_SETTING_CHANGED", "MKT_SETTING", key, null, MarketplaceAuditService.Actor.OPERATOR, null, value, null, null);
     }
 }

@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.data.domain.Page;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,7 @@ class MarketplaceOfferServiceTest {
     @Mock MarketplacePolicyService policies;
     @Mock OfferProjectionService projection;
     @Mock SellerAccess access;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceOfferService service;
 
     final Map<Long, MarketplaceOffer> offerRows = new HashMap<>();
@@ -241,5 +243,18 @@ class MarketplaceOfferServiceTest {
     void limits() {
         assertThatThrownBy(() -> service.setLimits(PHONE, new OfferDTOs.LimitsRequest(new BigDecimal("5"), new BigDecimal("1"))))
                 .hasMessageContaining("floor cannot be above the ceiling");
+    }
+
+    @Test
+    @DisplayName("[MKT-R7.4] offers waiting for review are worked oldest first; a decided list shows the newest first")
+    void queueOrder() {
+        when(offers.findByApprovalStatusOrderByCreatedAtAsc(anyString(), any()))
+                .thenReturn(Page.empty());
+        when(offers.findByApprovalStatusOrderByCreatedAtDesc(anyString(), any()))
+                .thenReturn(Page.empty());
+        service.queue(null, 0, 10);
+        service.queue("approved", 0, 10);
+        verify(offers).findByApprovalStatusOrderByCreatedAtAsc(eq("PENDING_REVIEW"), any());
+        verify(offers).findByApprovalStatusOrderByCreatedAtDesc(eq("APPROVED"), any());
     }
 }

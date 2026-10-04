@@ -53,11 +53,14 @@
 	function readState() {
 		var p = new URLSearchParams(global.location.search);
 		return { q: p.get('q') || '', city: p.get('city') || storedCity(), product: p.get('product') || '', sort: p.get('sort') || '',
-			checkout: p.get('checkout') || '', order: p.get('order') || '', phone: p.get('phone') || '' };
+			checkout: p.get('checkout') || '', order: p.get('order') || '', phone: p.get('phone') || '',
+			account: p.get('account') || '' };
 	}
 	function writeState(s, push, marker) {
 		var p = new URLSearchParams();
-		if (s.order) {
+		if (s.account) {
+			p.set('account', s.account);          // MKT-1e2: the account view stands alone
+		} else if (s.order) {
 			p.set('order', s.order);              // never the phone: it lives in sessionStorage, not in history or logs
 		} else if (s.product) {
 			p.set('product', s.product);
@@ -66,7 +69,7 @@
 		} else if (s.q) {
 			p.set('q', s.q);
 		}
-		if (s.city && !s.order) p.set('city', s.city);
+		if (s.city && !s.order && !s.account) p.set('city', s.city);
 		var lang = new URLSearchParams(global.location.search).get('lang');
 		if (lang) p.set('lang', lang);
 		var url = global.location.pathname + (p.toString() ? '?' + p.toString() : '');
@@ -104,6 +107,15 @@
 		});
 	}
 	function aborted(e) { return e && e.name === 'AbortError'; }
+	/** MKT-1e2: the account module (marketplace-account.js) uses the page's own helpers — one router, one language. */
+	global.mktPage = {
+		readState: function () { return readState(); },
+		writeState: function (s, push) { writeState(s, push); },
+		render: function () { return render(); },
+		tr: function () { return tr.apply(null, arguments); },
+		money: function (v) { return money(v); },
+		csrfHeaders: function () { return csrfHeaders(); }
+	};
 
 	// ── search view ────────────────────────────────────────────────────────────────────────────────────
 	var page = 0;
@@ -383,7 +395,10 @@
 			method: 'POST', credentials: 'same-origin', headers: csrfHeaders(), redirect: 'manual',
 			body: JSON.stringify({ offerId: offerId, quantity: Number($('mktCoQty').value || 1), expectedPrice: coOffer.price,
 				customerName: name, customerPhone: phone, address: address, city: $('mktCoCity').value,
-				idempotencyKey: attemptKey(offerId) })
+				idempotencyKey: attemptKey(offerId),
+				// MKT-1e2: null for an anonymous shopper (cash on delivery)
+				paymentMode: global.mktAccount ? global.mktAccount.paymentMode() : null,
+				cardToken: global.mktAccount ? global.mktAccount.cardToken() : null })
 		}).then(function (r) {
 			if (r.status === 403 || r.type === 'opaqueredirect') {   // refused before it reached the order: certain, not unknown
 				return { success: false, message: tr('ui.js.mktSessionExpired', 'This page expired. Please reload it and try again.') };
@@ -458,6 +473,10 @@
 			st.className = 'state ok';
 			st.textContent = tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
 			detail.textContent = tr('ui.js.mktConfirmedCod', '{0} will deliver and collect {1} in cash.', seller, money(o.total));
+		} else if (o.status === 'PAYMENT_PENDING') {
+			st.className = 'state wait';
+			st.textContent = tr('ui.js.mktPayConfirming', 'Confirming your payment');
+			detail.textContent = tr('ui.js.mktPaymentPending', 'We could not confirm your payment yet. If it was taken, it is refunded automatically.');
 		} else if (o.status === 'CANCELLED') {
 			st.className = 'state bad';
 			st.textContent = tr('ui.js.mktCancelledState', 'Cancelled');
@@ -482,11 +501,13 @@
 	function render() {
 		var s = readState();
 		stopPolling();
-		var view = s.order ? 'order' : (s.product && s.checkout ? 'checkout' : (s.product ? 'product' : 'search'));
+		var view = s.account ? 'account' : s.order ? 'order' : (s.product && s.checkout ? 'checkout' : (s.product ? 'product' : 'search'));
 		$('mktSearchView').hidden = view !== 'search';
 		$('mktProductView').hidden = view !== 'product';
 		$('mktCheckoutView').hidden = view !== 'checkout';
 		$('mktOrderView').hidden = view !== 'order';
+		if ($('mktAccountView')) $('mktAccountView').hidden = view !== 'account';
+		if (view === 'account') return global.mktAccount && global.mktAccount.open(s);
 		$('mktBuyBar').hidden = view !== 'product';
 		$('mktSearch').value = s.q;
 		$('mktCity').value = s.city;

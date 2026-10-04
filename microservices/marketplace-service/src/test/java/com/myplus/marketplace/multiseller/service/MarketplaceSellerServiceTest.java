@@ -48,6 +48,7 @@ class MarketplaceSellerServiceTest {
     @Mock MarketplaceAgreementAcceptanceRepository acceptances;
     @Mock SellerAccess access;
     @Mock OfferProjectionService projection;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceSellerService service;
 
     final Map<Long, MarketplaceSellerAccount> accountRows = new HashMap<>();

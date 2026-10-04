@@ -18,7 +18,15 @@
  * A slice's spec is switched on when that slice is implemented, and is then its gate.
  */
 
-const enabled = () => String(Cypress.env('mkt') || '').split(',').map((s) => s.trim()).filter(Boolean)
+const enabled = () => {
+  const v = Cypress.env('mkt')
+  // --env values are parsed as JSON: "1e2" arrives as the NUMBER 100 (scientific notation), and the 1e2 gate then
+  // skipped every case as "pending" — a silent no-op that reads like a pass. Refuse it loudly instead.
+  if (typeof v === 'number') {
+    throw new Error(`--env mkt=${v} arrived as a number. Pass it as JSON (--env '{"mkt":"1e2"}') or use mkt=all.`)
+  }
+  return String(v || '').split(',').map((s) => s.trim()).filter(Boolean)
+}
 
 /** `describe` when this slice is switched on for the run, `describe.skip` (reported as pending) otherwise. */
 const gate = (slice) => (enabled().includes('all') || enabled().includes(slice) ? describe : describe.skip)
@@ -62,7 +70,7 @@ const API = {
   incomingOrders: '/mkt/incomingOrders',                      // MKT-1e: ?status=OFFERED|ACCEPTED|…
   acceptOrder: '/mkt/acceptOrder',                            // MKT-1e: {id, version, serials: []}
   rejectOrder: '/mkt/rejectOrder',                            // MKT-1e: {id, version, reason}
-  statement: '/mkt/statement',
+  statement: '/mkt/statement',                              // MKT-1g: ?status=&size= → lines with the whole split
   // operator (MKT_OPERATE / MKT_SETTLE / MKT_SUPPORT)
   matchQueue: '/platform/mkt/matchQueue',                    // MKT-1b: ?status=PENDING_REVIEW|MATCHED|NEEDS_CORRECTION
   decideMatch: '/platform/mkt/decideMatch',                  // MKT-1b: {id, decision, mktProductId, note, version}
@@ -76,9 +84,9 @@ const API = {
   defaultSort: '/platform/mkt/defaultSort',                  // MKT-1d: GET → {sort}; POST {sort}
   sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…
   decideSeller: '/platform/mkt/decideSeller',                 // MKT-0a: {organizationId, decision, reason, version}
-  requestPayout: '/platform/mkt/requestPayout',
-  approvePayout: '/platform/mkt/approvePayout',
-  markPayoutPaid: '/platform/mkt/markPayoutPaid',
+  requestPayout: '/platform/mkt/requestPayout',            // MKT-1g: {organizationId, idempotencyKey}
+  approvePayout: '/platform/mkt/approvePayout',            // MKT-1g: {id} — never by its requester
+  markPayoutPaid: '/platform/mkt/markPayoutPaid',          // MKT-1g: {id, bankReference}
   supportCases: '/platform/mkt/supportCases',
   taskCase: '/platform/mkt/taskCase',
   // customer (platform-scoped account, R-MKT-5)
@@ -144,7 +152,13 @@ const expectRefused = (r, sentencePart) => {
  * Order matters and is itself asserted elsewhere: the operator entitles, then the owner switches the module on
  * and accepts the seller + data-sharing agreements.
  */
-const makeSeller = (email, displayName = 'MKT gate seller') => {
+/**
+ * The name each persona's shop trades under. Accepting the agreements fixes the name for good, so whichever gate makes
+ * a seller FIRST on a fresh system decides it: a per-gate default once named Seller A "MKT gate seller" when the 1g gate
+ * ran first, and 0a-07 (which reads "Shahzad Mobile Shop") then failed on every later run.
+ */
+const SHOP_NAMES = { 'owner.business@myplus.com': 'Shahzad Mobile Shop', 'owner.mobile@myplus.com': 'Mobile Distributor' }
+const makeSeller = (email, displayName = SHOP_NAMES[email] || 'MKT gate seller') => {
   cy.loginAsOperator()
   cy.setEntitlement(email, 'marketplaceSelling', 'ACTIVE', 'mkt gate')
   cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')

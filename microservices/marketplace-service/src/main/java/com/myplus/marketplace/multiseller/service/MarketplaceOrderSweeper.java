@@ -56,6 +56,7 @@ public class MarketplaceOrderSweeper {
     private final MarketplaceSellerOrderRepository sellerOrders;
     private final MarketplaceOrderRepository orders;
     private final SellerOrderService sellerOrderService;
+    private final MarketplacePaymentService payments;
     private final PlatformTransactionManager txManager;
 
     @Scheduled(fixedDelayString = "${mkt.orders.sweep-ms:30000}", initialDelayString = "${mkt.orders.sweep-initial-ms:30000}")
@@ -76,8 +77,10 @@ public class MarketplaceOrderSweeper {
             sellerOrderService.release(so);
             released++;
         }
-        if (expired + orphans + released > 0)
-            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries", expired, orphans, released);
+        int reconciled = payments.reconcile();                       // lost charge answers and refunds not yet done
+        if (expired + orphans + released + reconciled > 0)
+            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries, {} payments reconciled",
+                    expired, orphans, released, reconciled);
     }
 
     /**
@@ -110,6 +113,7 @@ public class MarketplaceOrderSweeper {
         MarketplaceSellerOrder fresh = sellerOrders.findById(sellerOrderId).orElse(done[0]);
         fresh.setHeld(true);   // force the attempt: an orphan's flag is false although the hold may exist
         sellerOrderService.release(fresh);
+        payments.refundIfCancelled(fresh.getMktOrderId());            // a card order's money goes back, once
         return true;
     }
 }

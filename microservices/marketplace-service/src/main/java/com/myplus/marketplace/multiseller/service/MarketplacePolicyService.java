@@ -28,6 +28,8 @@ public class MarketplacePolicyService {
 
     private final MarketplacePolicyRepository policies;
     private final SellerAccess access;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     @Transactional
     public OfferDTOs.Policy create(OfferDTOs.PolicyRequest req) {
@@ -78,7 +80,10 @@ public class MarketplacePolicyService {
             }
             default -> throw new ValidationException("A policy is WARRANTY, RETURN or COMMISSION.");
         }
-        return toDto(policies.save(p));
+        OfferDTOs.Policy out = toDto(policies.save(p));
+        audit.event("MKT_POLICY_CREATED", "MKT_POLICY", String.valueOf(out.id()), null, MarketplaceAuditService.Actor.OPERATOR,
+                null, type, null, name);
+        return out;
     }
 
     @Transactional
@@ -87,7 +92,10 @@ public class MarketplacePolicyService {
         MarketplacePolicy p = policies.findById(id).orElseThrow(() -> new ResourceNotFoundException("No such policy."));
         p.setActive(false);
         p.setIsDefault(false);
-        return toDto(policies.save(p));
+        OfferDTOs.Policy out = toDto(policies.save(p));
+        audit.event("MKT_POLICY_DEACTIVATED", "MKT_POLICY", String.valueOf(id), null, MarketplaceAuditService.Actor.OPERATOR,
+                "ACTIVE", "INACTIVE", null, p.getName());
+        return out;
     }
 
     @Transactional(readOnly = true)

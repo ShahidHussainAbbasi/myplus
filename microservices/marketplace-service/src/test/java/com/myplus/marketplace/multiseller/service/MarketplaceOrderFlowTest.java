@@ -84,6 +84,8 @@ class MarketplaceOrderFlowTest {
     @Mock MarketplaceOrderLineRepository lines;
     @Mock MarketplacePlatformSettingRepository settingRows;
     @Mock ShippingPolicy shipping;
+    @Mock MarketplacePaymentService payments;                       // MKT-1e2: cash orders never touch it
+    @Mock org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSideProvider;
     @Mock TradeClient trade;
     @Mock CatalogClient catalog;
     @Mock DocumentNumberService numbers;
@@ -91,6 +93,7 @@ class MarketplaceOrderFlowTest {
     @Mock MarketplaceSellerService sellers;
     @Mock OrderService storeOrders;
     @Mock PlatformTransactionManager txManager;
+    @Mock MarketplaceAuditService audit;                             // G-16: actions are audited
 
     MarketplaceCheckoutService checkout;
     SellerOrderService sellerSide;
@@ -106,13 +109,14 @@ class MarketplaceOrderFlowTest {
 
     @BeforeEach
     void wire() {
-        MarketplaceSettingsService settings = new MarketplaceSettingsService(settingRows, access);
+        MarketplaceSettingsService settings = new MarketplaceSettingsService(settingRows, access, audit);
         PublicOfferService publicOffers = new PublicOfferService(projections, products, settings);
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
-                lines, publicOffers, settings, shipping, trade, numbers, access, txManager);
-        sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, storeOrders, catalog, trade,
-                access, txManager);
-        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, txManager);
+                lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, sellerSideProvider);
+        sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
+                access, txManager, audit);
+        lenient().when(sellerSideProvider.getObject()).thenReturn(sellerSide);
+        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager);
 
         product = new MarketplaceProduct();
         product.setId(PRODUCT);
@@ -228,6 +232,11 @@ class MarketplaceOrderFlowTest {
     MarketplaceOrderDTOs.CheckoutRequest req(String key) {
         return new MarketplaceOrderDTOs.CheckoutRequest(OFFER, 1, new BigDecimal("52000"), "Ali", "0300-123 4567",
                 "1 Clifton", "Karachi", key);
+    }
+
+    MarketplaceOrderDTOs.CheckoutRequest card(String key, String token) {
+        return new MarketplaceOrderDTOs.CheckoutRequest(OFFER, 1, new BigDecimal("52000"), "Ali", "0300-123 4567",
+                "1 Clifton", "Karachi", key, "CARD", token);
     }
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
@@ -498,10 +507,100 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R7.4] the acceptance window is the operator's (1–60 min); a stored nonsense value reads as 5")
     void acceptWindow() {
-        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access);
+        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access, audit);
         assertThat(s.acceptMinutes()).isEqualTo(5);
         assertThatThrownBy(() -> s.setAcceptMinutes(0)).hasMessageContaining("1 to 60");
         assertThatThrownBy(() -> s.setAcceptMinutes(61)).hasMessageContaining("1 to 60");
         assertThat(s.setAcceptMinutes(1)).isEqualTo(1);
+    }
+    // ── MKT-1e2: card payment and the customer's cancel ─────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("[MKT-R20.1] online payment needs an account; nothing is created or held without one")
+    void cardNeedsAccount() {
+        assertThatThrownBy(() -> checkout.checkout(card("c1", "tok"), null)).hasMessage("Sign in to pay online.");
+        assertThat(orderTable).isEmpty();
+        verify(trade, never()).holdStock(any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R19.1] a card order does not need the seller to take cash; paid → offered to the seller, CARD, owned")
+    void cardPaidOffered() {
+        lenient().when(shipping.codEnabled(anyLong())).thenReturn(false);
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.SUCCEEDED);
+        MarketplaceOrderDTOs.OrderView v = checkout.checkout(card("c2", "tok"), 77L);
+        assertThat(v.sellerOrderStatus()).isEqualTo("OFFERED");
+        assertThat(v.paymentMode()).isEqualTo("CARD");
+        assertThat(orderTable.values()).singleElement().satisfies(o -> assertThat(o.getCustomerId()).isEqualTo(77L));
+    }
+
+    @Test
+    @DisplayName("[MKT-R19.1] a declined card cancels the order and gives the held stock back; the seller never sees it")
+    void cardDeclined() {
+        when(payments.charge(any(), eq("fail"))).thenReturn(MarketplacePaymentService.Outcome.FAILED);
+        assertThatThrownBy(() -> checkout.checkout(card("c3", "fail"), 77L)).hasMessage(MarketplaceCheckoutService.DECLINED);
+        MarketplaceSellerOrder so = soTable.values().iterator().next();
+        assertThat(so.getAcceptanceStatus()).isEqualTo("CANCELLED");
+        assertThat(orderTable.values().iterator().next().getStatus()).isEqualTo("CANCELLED");
+        verify(trade).releaseHold(so.getHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R22.3] a lost payment answer is never offered to a seller: PAYMENT_PENDING, stock still held for the sweeper")
+    void cardUnknown() {
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.UNKNOWN);
+        MarketplaceOrderDTOs.OrderView v = checkout.checkout(card("c4", "tok"), 77L);
+        assertThat(v.status()).isEqualTo("PAYMENT_PENDING");
+        assertThat(v.sellerOrderStatus()).isEqualTo("UNASSIGNED");
+        assertThat(soTable.values().iterator().next().getHeld()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.5] the customer cancels while the seller has not answered: stock back, refund asked; after Accept it cannot")
+    void customerCancel() {
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
+        com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
+        me.setId(77L);
+        checkout.checkout(req("cc1"), 77L);
+        MarketplaceSellerOrder so = soTable.values().iterator().next();
+        MarketplaceOrder o = orderTable.get(so.getMktOrderId());
+        lenient().when(orders.findByOrderNo(o.getOrderNo())).thenReturn(java.util.Optional.of(o));
+        MarketplaceOrderDTOs.AccountOrderView v = accounts.cancel(me, o.getOrderNo().toLowerCase(), "changed my mind");
+        assertThat(v.status()).isEqualTo("CANCELLED");
+        assertThat(v.cancelReason()).startsWith(MarketplaceAccountService.CANCELLED_BY_YOU);
+        assertThat(so.getAcceptanceStatus()).isEqualTo("CANCELLED");
+        verify(trade).releaseHold(so.getHoldKey());
+        verify(payments).refundIfCancelled(o.getId());
+        com.myplus.marketplace.multiseller.entity.MarketplaceCustomer stranger = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
+        stranger.setId(78L);
+        assertThatThrownBy(() -> accounts.cancel(stranger, o.getOrderNo(), null)).hasMessage("No such order.");
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.5] after the seller accepts, the customer's cancel is refused with the way forward")
+    void cancelAfterAccept() {
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
+        com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
+        me.setId(77L);
+        checkout.checkout(req("cc2"), 77L);
+        MarketplaceSellerOrder so = soTable.values().iterator().next();
+        so.setAcceptanceStatus("ACCEPTED");
+        MarketplaceOrder o = orderTable.get(so.getMktOrderId());
+        lenient().when(orders.findByOrderNo(o.getOrderNo())).thenReturn(java.util.Optional.of(o));
+        assertThatThrownBy(() -> accounts.cancel(me, o.getOrderNo(), null)).hasMessageContaining("already confirmed by the seller");
+        verify(trade, never()).releaseHold(anyString());
+    }
+
+    @Test
+    @DisplayName("[MKT-R22.4] a reject is audited under the seller; an accept that is refused (expired) records nothing")
+    void ordersAudited() {
+        MarketplaceSellerOrder late = offered();
+        late.setAcceptBy(LocalDateTime.now().minusSeconds(1));
+        assertThatThrownBy(() -> sellerSide.accept(late.getId(), new MarketplaceOrderDTOs.AcceptRequest(late.getVersion(), null)));
+        verify(audit, never()).event(eq("MKT_ORDER_ACCEPTED"), any(), any(), any(), any(), any(), any(), any(), any());
+        MarketplaceSellerOrder so = offered();
+        sellerSide.reject(so.getId(), new MarketplaceOrderDTOs.RejectRequest(so.getVersion(), "out of stock"));
+        verify(audit).event(eq("MKT_ORDER_REJECTED"), eq("MKT_SELLER_ORDER"), any(), eq(SELLER),
+                eq(MarketplaceAuditService.Actor.SELLER), eq("OFFERED"), eq("REJECTED"), any(), eq("out of stock"));
     }
 }

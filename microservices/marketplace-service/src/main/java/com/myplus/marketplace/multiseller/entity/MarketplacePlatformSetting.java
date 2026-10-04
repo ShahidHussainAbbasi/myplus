@@ -23,6 +23,12 @@ public class MarketplacePlatformSetting {
     public static final String DEFAULT_SORT = "public.defaultSort";
     /** MKT-1e — minutes a MERCHANT seller has to accept an order (source §10; default 5). */
     public static final String ACCEPT_MINUTES = "checkout.acceptMinutes";
+    /** MKT-1f (R-MKT-14): what a change-of-mind return costs the customer — the rider's pickup — in rupees. */
+    public static final String CHANGE_OF_MIND_FEE = "return.changeOfMindFee";
+    /** MKT-1g — N in T+N: business days after the return window closes before a line is payable (default 1). */
+    public static final String SETTLEMENT_T_PLUS_DAYS = "settlement.tPlusDays";
+    /** MKT-1g — the organisation whose ledger takes the commission (the operator's books); its user is updated_by. */
+    public static final String SETTLEMENT_BOOKS_ORG = "settlement.booksOrg";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

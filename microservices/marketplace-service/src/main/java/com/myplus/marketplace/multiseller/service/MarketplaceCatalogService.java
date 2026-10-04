@@ -60,6 +60,8 @@ public class MarketplaceCatalogService {
     private final MarketplaceSellerService sellers;
     private final SellerAccess access;
     private final CatalogClient catalog;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     // ── seller ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -126,7 +128,11 @@ public class MarketplaceCatalogService {
     public PageResponse<CatalogDTOs.Proposal> queue(String status, Integer page, Integer size) {
         access.assertOperator();
         Match m = status == null || status.isBlank() ? Match.PENDING_REVIEW : parse(status);
-        return PageResponse.of(sources.findByMatchStatusOrderByCreatedAtAsc(m.name(), page(page, size)),
+        // Waiting proposals are worked oldest first; a decided list is history, newest first — otherwise, once it
+        // passes one page, the decision just made is the one the operator cannot see.
+        return PageResponse.of(m == Match.PENDING_REVIEW
+                ? sources.findByMatchStatusOrderByCreatedAtAsc(m.name(), page(page, size))
+                : sources.findByMatchStatusOrderByCreatedAtDesc(m.name(), page(page, size)),
                 MarketplaceCatalogService::toDto);
     }
 
@@ -140,6 +146,7 @@ public class MarketplaceCatalogService {
         if (req.version() != null && !req.version().equals(s.getVersion()))
             throw new OptimisticLockingFailureException("proposal changed");
         String note = trim(req.note());
+        String before = s.getMatchStatus();
         switch (target) {
             case MATCHED -> {
                 move(s, Match.MATCHED);
@@ -157,7 +164,10 @@ public class MarketplaceCatalogService {
         }
         s.setReviewedByUserId(access.userId());
         s.setReviewedAt(LocalDateTime.now());
-        return toDto(sources.save(s));
+        CatalogDTOs.Proposal out = toDto(sources.save(s));
+        audit.event("MKT_MATCH_DECIDED", "MKT_PRODUCT_SOURCE", String.valueOf(s.getId()), s.getOrganizationId(),
+                MarketplaceAuditService.Actor.OPERATOR, before, target.name(), null, note);
+        return out;
     }
 
     @Transactional(readOnly = true)

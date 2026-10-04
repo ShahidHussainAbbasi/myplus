@@ -30,6 +30,7 @@ class MarketplaceSettingsServiceTest {
 
     @Mock MarketplacePlatformSettingRepository rows;
     @Mock SellerAccess access;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceSettingsService service;
 
     @Test

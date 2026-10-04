@@ -52,6 +52,8 @@ public class DeliveryService {
     private final DeliveryRecordRepository deliveryRepository;
     private final NotificationService notificationService;
     private final com.myplus.commerce.contracts.client.TradeClient tradeClient;
+    /** MKT-1f — stamps when a marketplace order's store order was delivered (the return window starts there). */
+    private final com.myplus.marketplace.multiseller.service.MarketplaceDeliveryHook marketplaceDelivery;
 
     /**
      * Record a delivery outcome for ONE parcel.
@@ -160,6 +162,7 @@ public class DeliveryService {
             order.setFulfilmentStatus(FulfilmentStatus.DELIVERED);
         }
         Order savedOrder = orderRepository.save(order);
+        marketplaceDelivery.afterSave(savedOrder);                                       // MKT-1f
         notificationService.notify(savedOrder, outcome,
                 "Delivery recorded by " + (userName == null ? "staff" : userName)
                         + (creditNotes.isEmpty() ? "" : " — credit " + String.join(",", creditNotes)));

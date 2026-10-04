@@ -20,6 +20,9 @@ public interface MarketplaceProductSourceRepository extends JpaRepository<Market
     /** Seller list — idx_mkt_source_org_created. */
     Page<MarketplaceProductSource> findByOrganizationIdOrderByCreatedAtDesc(Long organizationId, Pageable page);
 
-    /** Operator queue — idx_mkt_source_status_created. */
+    /** Operator queue, oldest waiting first — idx_mkt_source_status_created. */
     Page<MarketplaceProductSource> findByMatchStatusOrderByCreatedAtAsc(String matchStatus, Pageable page);
+
+    /** Operator history of decided proposals, newest first — the same index, read backwards. */
+    Page<MarketplaceProductSource> findByMatchStatusOrderByCreatedAtDesc(String matchStatus, Pageable page);
 }

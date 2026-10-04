@@ -1473,4 +1473,781 @@ on('MKT manual walk — recorded', () => {
           .then((x) => expect(ok(x.body), JSON.stringify(x.body)).to.eq(true))))
     })
   })
+
+  // ──────────────────────────────── MKT-1e2 ────────────────────────────────
+
+  const E = {}
+  const PW2 = 'Shop!ng2026'
+  const cph = (k) => `0312${String(run).slice(-6)}${k}`            // customer phones for the 1e2 walk
+  const signIn = (ph) => {
+    customer()
+    cy.visit(UI.publicPage)
+    cy.get('#mktAccountBtn').click()
+    cy.get('#mktAccPhone').clear().type(ph)
+    cy.get('#mktAccPassword').clear().type(PW2)
+    cy.get('#mktAccSubmit').click()
+    cy.get('#mktAccOrdersBox').should('be.visible')
+  }
+  const buyAs = (offerId, ph, { cardToken } = {}) => {
+    cy.visit(page(`product=${E.product}&city=Karachi`))
+    cy.get(`${UI.offerRow}[data-offer-id="${offerId}"] ${UI.chooseOffer}`).check()
+    cy.get(UI.buyButton).click()
+    cy.get('#mktCoName').clear().type('Ali Raza')
+    cy.get('#mktCoPhone').clear().type(ph)
+    cy.get('#mktCoAddress').clear().type('1 Clifton')
+    if (cardToken) {
+      cy.get('#mktPayCard').check()
+      cy.get('#mktCardToken').clear().type(cardToken)
+    }
+    cy.get('#mktCoPlace').click()
+  }
+
+  walk({ id: 'M-1e2-01', slice: 'MKT-1e2', title: 'A shopper creates an account with phone and password',
+    persona: 'Customer (incognito window)', reqs: ['MKT-R1.1', 'MKT-R22.3'],
+    pre: 'Shahzad Mobile Shop has a Live phone offer in Karachi (as M-1d-01).', auto: ['MKT-1e2-01', 'MKT-1e2-02'] }, (step, call, cleanup) => {
+    cy.then(() => seedPolicies(`${run}x`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}x`, price: 52000, qty: 40,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { E.a = o.offerId; E.product = o.mktProductId }))
+    step('Open /marketplace in an incognito window and press "Sign in" at the top.',
+      'The account panel opens: Phone number, Password, "Sign in", and "New here? Create an account". The forgot-password line says to contact MaxTheService support with an order number and the phone you ordered with.', () => {
+        customer()
+        cy.visit(UI.publicPage)
+        cy.get('#mktAccountBtn').should('have.text', 'Sign in').click()
+        cy.get('#mktAccSignIn').should('be.visible').and('contain', 'Contact MaxTheService support')
+      })
+    step(`Press "New here? Create an account". Phone ${cph(1)}, Your name "Ali Raza", Password "short". Press "Create account".`,
+      'Refused: "Choose a password of at least 8 characters." The hint under the password says "At least 8 characters. Not your phone number."', () => {
+        cy.get('#mktAccCreate').click()
+        cy.get('#mktAccHint').should('be.visible')
+        cy.get('#mktAccPhone').type(cph(1))
+        cy.get('#mktAccName').type('Ali Raza')
+        cy.get('#mktAccPassword').type('short')
+        cy.get('#mktAccSubmit').should('have.text', 'Create account').click()
+        cy.get('#mktAccMsg').should('have.text', 'Choose a password of at least 8 characters.')
+      })
+    step(`Password "${PW2}". Press "Create account".`,
+      'Signed in: the top button now reads "Ali Raza"; "My orders" shows "No orders yet." with "Add an order you placed before" below.', () => {
+        cy.get('#mktAccPassword').clear().type(PW2)
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccountBtn').should('have.text', 'Ali Raza')
+        cy.get('#mktMyOrders').should('contain', 'No orders yet.')
+        cy.get('#mktClaimForm').should('be.visible')
+      })
+    step('Developer tools → Application → Cookies: look for MKT_SESSION.',
+      'The session cookie is HttpOnly (page scripts cannot read it) and SameSite=Lax; document.cookie does not contain it.', () => {
+        call('Browser cookie MKT_SESSION (value withheld)', cy.getCookie('MKT_SESSION').then((c) => ({
+          status: 'cookie', body: { name: c.name, httpOnly: c.httpOnly, sameSite: c.sameSite, path: c.path, secure: c.secure } })))
+          .then((r) => { expect(r.body.httpOnly).to.eq(true); expect(r.body.sameSite).to.match(/lax/i) })
+        call('document.cookie as page scripts see it', cy.document().its('cookie').then((s) => ({ status: 'script', body: s || '(empty)' })))
+          .then((r) => expect(String(r.body)).not.to.contain('MKT_SESSION'))
+      }, { screen: false })
+    step(`Press "Sign out", then try to create another account with the same phone written as (${cph(1).slice(0, 4)}) ${cph(1).slice(4)}.`,
+      'Refused: "This phone number already has an account. Sign in instead." — one account per phone, however it is written.', () => {
+        cy.get('#mktAccLogout').click()
+        cy.get('#mktAccSignIn').should('be.visible')
+        cy.get('#mktAccCreate').click()
+        cy.get('#mktAccPhone').clear().type(`(${cph(1).slice(0, 4)}) ${cph(1).slice(4)}`)
+        cy.get('#mktAccName').clear().type('Someone Else')
+        cy.get('#mktAccPassword').clear().type('Another#2026')
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccMsg').should('contain', 'already has an account')
+      })
+    cleanup('Nothing to undo: the account stays for the next cases.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-02', slice: 'MKT-1e2', title: 'Five wrong passwords lock the phone for 15 minutes',
+    persona: 'Customer', reqs: ['MKT-R22.3'], pre: 'An account exists for a phone (here a fresh one).', auto: ['MKT-1e2-03'] }, (step, call, cleanup) => {
+    cy.then(() => { customer(); cy.visit(UI.publicPage); post('/marketplace/account/register', { phone: cph(2), name: 'Sara', password: PW2 }); post('/marketplace/account/logout', {}) })
+    step(`Sign in with phone ${cph(2)} and a wrong password, five times.`, 'Each time: "The phone number or password is not right." — the same sentence an unknown phone gets.', () => {
+      customer()
+      cy.visit(UI.publicPage)
+      cy.get('#mktAccountBtn').click()
+      cy.get('#mktAccPhone').type(cph(2))
+      for (let i = 0; i < 5; i++) {
+        cy.get('#mktAccPassword').clear().type('wrong-one')
+        cy.get('#mktAccSubmit').click()
+        cy.get('#mktAccMsg').should('have.text', 'The phone number or password is not right.')
+      }
+    })
+    step('Now type the RIGHT password and press "Sign in".', 'Refused: "Too many wrong passwords. Please try again in 15 minutes."', () => {
+      cy.get('#mktAccPassword').clear().type(PW2)
+      cy.get('#mktAccSubmit').click()
+      cy.get('#mktAccMsg').should('contain', 'try again in 15 minutes')
+    })
+    cleanup('Wait 15 minutes; the lock lifts by itself.', 'Signing in works again after 15 minutes.', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-03', slice: 'MKT-1e2', title: 'My orders shows only what is proven yours; an earlier order is added by number + phone',
+    persona: 'Customer', reqs: ['MKT-R1.1', 'MKT-R22.1'], pre: 'M-1e2-01 done (account for ' + 'the walk phone).', auto: ['MKT-1e2-04', 'MKT-1e2-05'] }, (step, call, cleanup) => {
+    step(`Signed OUT, order the phone with phone ${cph(1)} (cash on delivery).`, '"Waiting for Shahzad Mobile Shop to confirm" — an anonymous order.', () => {
+      customer()
+      buyAs(E.a, cph(1))
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => { E.anon = no })
+    })
+    step(`Sign in as ${cph(1)} and open My orders.`, 'The anonymous order is NOT there: the same phone is not proof that it is yours.', () => {
+      signIn(cph(1))
+      cy.get('#mktMyOrders').should('not.contain', E.anon)
+    })
+    step('Under "Add an order you placed before": the order number and a WRONG phone (03009999999). Press "Add to my orders".', 'Refused: "No such order. Check the order number and the phone it was placed with."', () => {
+      cy.get('#mktClaimNo').type(E.anon)
+      cy.get('#mktClaimPhone').type('03009999999')
+      cy.get('#mktClaimBtn').click()
+      cy.get('#mktClaimMsg').should('contain', 'No such order')
+    })
+    step(`The same number with phone ${cph(1)}. Press "Add to my orders".`, 'The order appears in My orders with its seller, "Waiting for the seller", the total and "Cash on delivery".', () => {
+      cy.get('#mktClaimPhone').clear().type(cph(1))
+      cy.get('#mktClaimBtn').click()
+      cy.get(`#mktMyOrders li[data-order-no="${E.anon}"]`).should('contain', 'Waiting for the seller').and('contain', 'Cash on delivery')
+    })
+    step('Signed in, order again (cash on delivery).', 'The new order is in My orders at once — no claim needed.', () => {
+      buyAs(E.a, cph(1))
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => {
+        E.mine = no
+        cy.visit(page('account=orders'))
+        cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('be.visible')
+      })
+    })
+    cleanup('None: M-1e2-04 cancels these orders.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-04', slice: 'MKT-1e2', title: 'The shopper cancels while the seller has not answered; after Accept they cannot',
+    persona: 'Customer, then owner.business@myplus.com', reqs: ['MKT-R10.5'], pre: 'M-1e2-03 done: two waiting orders in My orders.', auto: ['MKT-1e2-06'] }, (step, call, cleanup) => {
+    step(`Signed in as ${cph(1)}: My orders → "Cancel order" on ${'the first order'} → reason "changed my mind" → "Cancel order".`,
+      'The order turns "Cancelled" with "You cancelled this order. changed my mind"; its Cancel button is gone.', () => {
+        signIn(cph(1))
+        cy.get(`#mktMyOrders li[data-order-no="${E.anon}"] .mkt-cancel`).click()
+        cy.get('#uiC-input').type('changed my mind')
+        cy.get('.uiC-ok').click()
+        cy.get(`#mktMyOrders li[data-order-no="${E.anon}"]`).should('contain', 'Cancelled').and('contain', 'You cancelled this order.')
+          .find('.mkt-cancel').should('not.exist')
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → Incoming → "All".', 'The order reads "Cancelled": the seller is told, and the held stock was given back.', () => {
+      as(SELLER_A)
+      openMarketplace()
+      cy.get('#mktIncomingStatus').select('', { force: true })
+      cy.contains(`${UI.incoming} tr`, E.anon).should('contain', 'Cancelled')
+    })
+    step('The seller presses Accept on the OTHER waiting order. Then the shopper opens My orders.', 'That order reads "Confirmed" and has no Cancel button: after Accept, cancelling is a support case.', () => {
+      cy.contains(`${UI.incoming} tr`, E.mine).should('contain', 'Waiting for you').find(UI.acceptBtn).click()
+      cy.contains(`${UI.incoming} tr`, E.mine).should('contain', 'Accepted')
+      signIn(cph(1))
+      cy.get(`#mktMyOrders li[data-order-no="${E.mine}"]`).should('contain', 'Confirmed').find('.mkt-cancel').should('not.exist')
+    })
+    cleanup('None: the accepted sale is real (return it through Sale Returns if needed).', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-05', slice: 'MKT-1e2', title: 'Pay online now: charged at once; a seller reject refunds it exactly once',
+    persona: 'Customer, then owner.business@myplus.com', reqs: ['MKT-R19.1', 'MKT-R20.1', 'MKT-R13.1'], pre: 'Signed in (M-1e2-01).', auto: ['MKT-1e2-07'] }, (step, call, cleanup) => {
+    step('Signed in, buy the phone. At "How do you want to pay?" choose "Pay online now".', 'A card field appears, labelled test mode: "Test payments only: no real card is charged." The cash-on-delivery line is hidden.', () => {
+      signIn(cph(1))
+      cy.visit(page(`product=${E.product}&city=Karachi`))
+      cy.get(`${UI.offerRow}[data-offer-id="${E.a}"] ${UI.chooseOffer}`).check()
+      cy.get(UI.buyButton).click()
+      cy.get('#mktPayChoice').should('be.visible')
+      cy.get('#mktPayCard').check()
+      cy.get('#mktCardRow').should('be.visible')
+      cy.get('#mktCardNote').should('contain', 'no real card is charged')
+      cy.get('#mktCheckoutView .cod').should('not.be.visible')
+    })
+    step('Card "4242 4242 4242 4242", your details, "Place order".', '"Waiting for Shahzad Mobile Shop to confirm"; in My orders the order reads "Paid online".', () => {
+      cy.get('#mktCoName').clear().type('Ali Raza')
+      cy.get('#mktCoPhone').clear().type(cph(1))
+      cy.get('#mktCoAddress').clear().type('1 Clifton')
+      cy.get('#mktCardToken').type('4242424242424242')
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for')
+      cy.get('#mktCoOrderNo').should('not.be.empty').invoke('text').then((no) => {
+        E.paid = no
+        cy.visit(page('account=orders'))
+        cy.get(`#mktMyOrders li[data-order-no="${no}"]`).should('contain', 'Paid online')
+      })
+    })
+    step('As owner.business@: Incoming → that order → reason "out of stock" → Reject. Then the shopper reopens My orders.', 'The order reads "Cancelled", "The seller could not fulfil this order." and "Refunded".', () => {
+      as(SELLER_A)
+      openMarketplace()
+      cy.contains(`${UI.incoming} tr`, E.paid).find('input[placeholder*="cannot fulfil"]').type('out of stock')
+      cy.contains(`${UI.incoming} tr`, E.paid).find(UI.rejectBtn).click()
+      cy.contains(`${UI.incoming} tr`, E.paid).should('contain', 'Rejected')
+      signIn(cph(1))
+      cy.get(`#mktMyOrders li[data-order-no="${E.paid}"]`).should('contain', 'Cancelled').and('contain', 'Refunded')
+    })
+    step('Developer tools: GET /marketplace/account/orders and read that order\'s payments.', 'Exactly ONE succeeded CHARGE and ONE succeeded REFUND for the same amount — never two.', () => {
+      call('GET /marketplace/account/orders', get('/marketplace/account/orders?size=50')).then((r) => {
+        const o = list(r.body).find((x) => x.orderNo === E.paid)
+        expect(o.payments.filter((x) => x.kind === 'CHARGE' && x.status === 'SUCCEEDED')).to.have.length(1)
+        expect(o.payments.filter((x) => x.kind === 'REFUND' && x.status === 'SUCCEEDED')).to.have.length(1)
+      })
+    })
+    cleanup('None: a refunded order is complete.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1e2-06', slice: 'MKT-1e2', title: 'A declined card places nothing',
+    persona: 'Customer', reqs: ['MKT-R19.1'], pre: 'Signed in (M-1e2-01).', auto: ['MKT-1e2-08'] }, (step, call, cleanup) => {
+    step('Signed in, buy the phone, "Pay online now", card "fail" (the test card that is always declined). "Place order".',
+      'Refused on the checkout: "Your card was declined. Please use another card or choose cash on delivery." No order number is shown.', () => {
+        as(SELLER_A)
+        get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) => { E.waitingBefore = list(r.body).filter((x) => x.customerPhone === cph(1)).length })
+        signIn(cph(1))
+        buyAs(E.a, cph(1), { cardToken: 'fail' })
+        cy.get('#mktCoError').should('have.text', 'Your card was declined. Please use another card or choose cash on delivery.')
+        cy.get('#mktOrderView').should('not.be.visible')
+      })
+    step('As owner.business@: Incoming → "Waiting for you".', 'No new order from this shopper is waiting: the seller never sees a declined order, and its stock was given back.', () => {
+      as(SELLER_A)
+      get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) =>
+        expect(list(r.body).filter((x) => x.customerPhone === cph(1)), 'waiting orders from this shopper, before vs after').to.have.length(E.waitingBefore))
+      openMarketplace()
+    })
+    cleanup('Nothing was placed.', 'Nothing to undo.', () => {}, { screen: false })
+  })
+
+  // ──────────────────────────────── MKT-1f ────────────────────────────────
+
+  const F = {}
+  const fph = (k) => `0313${String(run).slice(-6)}${k}`
+  const F_PW = 'Shop!ng2026'
+  /** Signed in as `ph` (created if new) on the public page. */
+  const fSignIn = (ph) => {
+    customer()
+    cy.visit(UI.publicPage)
+    post('/marketplace/account/login', { phone: ph, password: F_PW }).then((r) => {
+      if (!ok(r.body)) post('/marketplace/account/register', { phone: ph, name: 'Ali Raza', password: F_PW })
+    })
+  }
+  /** A DELIVERED order for `ph`, through the seller's real steps: Accept → Packed → parcel → Delivered. Yields the order number. */
+  /** The 1f offer — published once, by whichever 1f case runs first (each case can be recorded on its own). */
+  const fOffer = () => (F.offer ? cy.wrap(F.offer) : seedPolicies(`${run}f`).then((p) => cy.then(() => publishOffer(SELLER_A,
+    { run: `${run}f`, price: 52000, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { F.offer = o.offerId; return F.offer }))
+  const fDelivered = (ph, mode = 'COD', offerId) => {
+    const o = {}
+    if (!offerId) fOffer()
+    fSignIn(ph)
+    cy.then(() => post(API.checkout, { offerId: offerId || F.offer, quantity: 1, expectedPrice: 52000, customerName: 'Ali Raza',
+      customerPhone: ph, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wf-${run}-${Math.random()}`, paymentMode: mode,
+      cardToken: mode === 'CARD' ? '4242424242424242' : undefined }).then((r) => {
+      expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+      Object.assign(o, { no: data(r.body).orderNo, so: data(r.body).sellerOrderId, v: data(r.body).sellerOrderVersion })
+    }))
+    as(SELLER_A)
+    cy.then(() => post(API.acceptOrder, { id: o.so, version: o.v }))
+    cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`).then((s) => { o.store = list(s.body).find((x) => x.orderNo === o.no).storeOrderId }))
+    cy.then(() => post('/updateOrderStatus', { id: o.store, status: 'PACKED' }))
+    cy.then(() => get(`/getOrder?id=${o.store}`).then((r) => {
+      const l = data(r.body).items[0]
+      post('/shipOrder', { id: o.store, lines: [{ orderItemId: l.id, quantity: l.quantity }], carrier: 'Own rider', trackingNumber: `W-${run}` })
+    }))
+    cy.then(() => post('/updateOrderStatus', { id: o.store, status: 'DELIVERED' }))
+    return cy.wrap(o)
+  }
+  const myOrders = (ph) => { fSignIn(ph); cy.visit(page('account=orders')); cy.get('#mktAccOrdersBox').should('be.visible') }
+  /** Fill the "Get help" form on the order's row. */
+  const getHelp = (no, { topic, reason, note }) => {
+    cy.get(`#mktMyOrders li[data-order-no="${no}"] .mkt-help`).click()
+    cy.get(`#mktMyOrders li[data-order-no="${no}"] .mkt-help-topic`).select(topic)
+    if (reason) cy.get(`#mktMyOrders li[data-order-no="${no}"] .mkt-help-reason`).select(reason)
+    if (note) cy.get(`#mktMyOrders li[data-order-no="${no}"] .mkt-help-note`).type(note)
+    cy.get(`#mktMyOrders li[data-order-no="${no}"] .mkt-help-send`).click()
+  }
+  const caseOf = (no) => `#mktMyOrders li[data-order-no="${no}"] .mkt-case`
+  const supportCases = () => { asOperator(); cy.visit('/platformDashboard'); cy.get('#platMktCasesBtn').click(); cy.get('#platMktCases').should('be.visible') }
+  const openCaseRow = (caseNo) => { cy.get(`#mktCaseList tr[data-case-no="${caseNo}"]`).click(); cy.get(`#mktCaseDetail [data-case-no="${caseNo}"]`).should('be.visible') }
+  const sellerTasks = () => { as(SELLER_A); openMarketplace(); cy.get('#mktTasksBox').should('be.visible') }
+
+  walk({ id: 'M-1f-01', slice: 'MKT-1f', title: 'One place to complain', persona: 'Customer → MaxTheService operator → owner.business@myplus.com',
+    reqs: ['MKT-R8.2', 'MKT-R22.1'], pre: 'Ali\'s order from Shahzad Mobile Shop is DELIVERED (the seller recorded the delivery).', auto: ['MKT-1f-01', 'MKT-1f-02', 'MKT-1f-03'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(1)).then((o) => { F.o1 = o.no }))
+    step('Customer: open /marketplace → your name → My orders.', 'The order reads "Delivered" and shows "Get help".', () => {
+      myOrders(fph(1))
+      cy.get(`#mktMyOrders li[data-order-no="${F.o1}"]`).should('contain', 'Delivered').find('.mkt-help').should('be.visible')
+    })
+    step('"Get help" → "Something is wrong with my order" → note "Box was open" → "Send to MaxTheService".',
+      'A help request SC-… appears under the order; nowhere is a seller phone number shown.', () => {
+        getHelp(F.o1, { topic: 'ORDER_PROBLEM', note: 'Box was open' })
+        cy.get(caseOf(F.o1)).should('contain', 'SC-').invoke('attr', 'data-case-no').then((c) => { F.c1 = c })
+        cy.get(caseOf(F.o1)).should('contain', 'Box was open').and('not.contain', 'Shahzad')   // the help thread never names the seller
+      })
+    step('Operator: platform dashboard → Support cases → the case → write "check seller history", tick "Internal note" → Send. Then write "Check the box and call the customer" → "Task the seller".',
+      'The thread shows the internal note marked (internal); the case reads "Waiting for seller".', () => {
+        supportCases()
+        openCaseRow(F.c1)
+        cy.get('#mktCaseDetail .mkt-op-reply').type('check seller history')
+        cy.get('#mktCaseDetail .mkt-op-internal').check()
+        cy.get('#mktCaseDetail .mkt-op-send').click()
+        cy.get('#mktCaseDetail').should('contain', '(internal)')
+        cy.get('#mktCaseDetail .mkt-op-reply').clear().type('Check the box and call the customer')
+        cy.get('#mktCaseDetail .mkt-op-task').click()
+        cy.get(`#mktCaseList tr[data-case-no="${F.c1}"]`).should('contain', 'Waiting for seller')
+      })
+    step('Seller A: Sale → Marketplace → "Tasks from MaxTheService" → the task → answer "Charger sent with our rider today" → Send.',
+      'The task shows the order number, the customer\'s pickup details and the operator\'s task — not the internal note. The answer is sent.', () => {
+        sellerTasks()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c1}"]`).should('contain', F.o1).and('contain', 'Check the box').and('not.contain', 'seller history')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c1}"] .mkt-task-reply`).type('Charger sent with our rider today')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c1}"] .mkt-task-send`).click()
+        cy.get('#mktTasks').should('contain', 'Sent to MaxTheService support')
+      })
+    step('Seller B (owner.mobile@) opens the same Tasks box.', 'Seller A\'s case is not there.', () => {
+      as(SELLER_B); openMarketplace()
+      cy.get('#mktTasks').should('not.contain', F.c1)
+    })
+    step('Customer: My orders.', 'The seller\'s answer is shown signed "MaxTheService support"; the internal note is NOT shown.', () => {
+      myOrders(fph(1))
+      cy.get(caseOf(F.o1)).should('contain', 'Charger sent with our rider today').and('contain', 'MaxTheService support').and('not.contain', 'seller history')
+    })
+    cleanup('Operator: the case → write "walk cleanup" → Resolve.', 'The case reads Resolved.', () => {
+      supportCases(); openCaseRow(F.c1)
+      cy.get('#mktCaseDetail .mkt-op-reply').type('walk cleanup')
+      cy.get('#mktCaseDetail .mkt-op-resolve').click()
+      cy.get('#platMktCaseStatus button[data-status="RESOLVED"]').click()
+      cy.get(`#mktCaseList tr[data-case-no="${F.c1}"]`).should('contain', 'Resolved')
+    })
+  })
+
+  walk({ id: 'M-1f-02', slice: 'MKT-1f', title: 'Return cost follows the cause', persona: 'Customer, then MaxTheService operator',
+    reqs: ['MKT-R13.1', 'MKT-R13.3'], pre: 'Delivered test orders (M-1f-01\'s offer, 7 return days).', auto: ['MKT-1f-04', 'MKT-1f-05', 'MKT-1f-06'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(2)).then((o) => { F.o2a = o.no }))
+    cy.then(() => fDelivered(fph(2)).then((o) => { F.o2b = o.no }))
+    step('Customer: My orders → Get help → "Return this item" → "Wrong item sent" → Send.', '"Return requested" RT-… under the order; the refund shown is Rs 52,000.', () => {
+      myOrders(fph(2))
+      getHelp(F.o2a, { topic: 'RETURN', reason: 'WRONG_PRODUCT', note: 'it is a 64GB' })
+      cy.get(caseOf(F.o2a)).should('contain', 'RT-').and('contain', 'Return requested').and('contain', '52,000')
+      cy.get(caseOf(F.o2a)).invoke('attr', 'data-case-no').then((c) => { F.c2a = c })
+    })
+    step('On the second order: Return this item → "Changed my mind" → Send.', 'Return requested; the refund is Rs 51,750 with "pickup fee Rs 250" — the customer bears a change of mind.', () => {
+      getHelp(F.o2b, { topic: 'RETURN', reason: 'CHANGE_OF_MIND' })
+      cy.get(caseOf(F.o2b)).should('contain', '51,750').and('contain', 'pickup fee')
+      cy.get(caseOf(F.o2b)).invoke('attr', 'data-case-no').then((c) => { F.c2b = c })
+    })
+    step('Operator: Support cases → the first case.', 'Cost bearer: FULFILLER (Shahzad Mobile Shop) — resolved from what the order line recorded when it was placed.', () => {
+      supportCases(); openCaseRow(F.c2a)
+      cy.get('#mktCaseDetail .mkt-op-return').should('contain', 'FULFILLER').and('contain', 'Shahzad')
+    })
+    step('The second case.', 'Cost bearer: CUSTOMER; Refund 51750.00 (−250.00).', () => {
+      openCaseRow(F.c2b)
+      cy.get('#mktCaseDetail .mkt-op-return').should('contain', 'CUSTOMER').and('contain', '−250')
+    })
+    cleanup('Operator: each return → note "walk cleanup" → Reject.', 'They read REJECTED; the customer is told why.', () => {
+      ;[F.c2a, F.c2b].forEach((c) => {
+        openCaseRow(c)
+        cy.get('#mktCaseDetail .mkt-op-return input').type('walk cleanup')
+        cy.get('#mktCaseDetail .mkt-reject').click()
+        cy.get('#mktCaseDetail .mkt-op-return').should('contain', 'REJECTED')
+      })
+    })
+  })
+
+  walk({ id: 'M-1f-03', slice: 'MKT-1f', title: 'A paid-online return end to end', persona: 'Customer → MaxTheService operator → owner.business@myplus.com',
+    reqs: ['MKT-R13.1', 'MKT-R13.2'], pre: 'A delivered Rs 52,000 order paid online, inside its 7-day return window.', auto: ['MKT-1f-04'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(3), 'CARD').then((o) => { F.o3 = o.no; F.s3 = o.store }))
+    step('Customer: My orders → Get help → Return this item → "Wrong item sent" → Send.', '"Return requested" RT-…; the order reads "Paid online".', () => {
+      myOrders(fph(3))
+      cy.get(`#mktMyOrders li[data-order-no="${F.o3}"]`).should('contain', 'Paid online')
+      getHelp(F.o3, { topic: 'RETURN', reason: 'WRONG_PRODUCT' })
+      cy.get(caseOf(F.o3)).should('contain', 'Return requested').invoke('attr', 'data-case-no').then((c) => { F.c3 = c })
+    })
+    step('Operator: Support cases → the case → note "pickup tomorrow" → Approve.', '"Approved. The seller\'s rider collects it." The return reads APPROVED.', () => {
+      supportCases(); openCaseRow(F.c3)
+      cy.get('#mktCaseDetail .mkt-op-return input').type('pickup tomorrow')
+      cy.get('#mktCaseDetail .mkt-approve').click()
+      cy.get('#mktCaseDetail .mkt-op-return').should('contain', 'APPROVED')
+    })
+    step('Seller A: Tasks from MaxTheService → the return → "Restock: back on the shelf" → "Item received". (No "Cash handed back" box: it was paid online.)',
+      '"Received. The customer\'s refund is done." The task leaves the list.', () => {
+        sellerTasks()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c3}"] .mkt-cash`).should('not.exist')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c3}"] .mkt-outcome`).select('RESTOCK')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c3}"] .mkt-received`).click()
+        cy.get('#mktTasks').should('contain', 'refund is done')
+      })
+    step('Developer tools: GET /getOrder for the store order behind it.', 'fulfilmentStatus RETURNED — the seller\'s books took a credit note against the invoice.', () => {
+      call('GET /getOrder', get(`/getOrder?id=${F.s3}`)).then((r) => expect(data(r.body).fulfilmentStatus).to.eq('RETURNED'))
+    }, { screen: false })
+    step('Customer: My orders.', 'The help request shows "Refunded" and the message that Rs 52,000 is on its way to the card; the order shows one refund.', (snap) => {
+      myOrders(fph(3))
+      cy.get(caseOf(F.o3)).should('contain', 'Refunded').and('contain', 'on its way to your card')
+      snap()
+      call('GET /marketplace/account/orders', get('/marketplace/account/orders?size=50')).then((r) => {
+        const o = list(r.body).find((x) => x.orderNo === F.o3)
+        expect(o.payments.filter((p) => p.kind === 'REFUND' && p.status === 'SUCCEEDED')).to.have.length(1)
+      })
+    })
+    cleanup('None: a refunded return is complete. (Pressing "Item received" again changes nothing: one credit note, one refund.)', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1f-04', slice: 'MKT-1f', title: 'Unsafe or expired goods escalate at once', persona: 'Customer → MaxTheService operator',
+    reqs: ['MKT-R13.4'], pre: 'A delivered order.', auto: ['MKT-1f-08'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(4)).then((o) => { F.o4 = o.no }))
+    step('Customer: My orders → Get help → Return this item → "Expired or unsafe" → note "battery swollen" → Send.', 'Return requested.', () => {
+      myOrders(fph(4))
+      getHelp(F.o4, { topic: 'RETURN', reason: 'EXPIRED_OR_UNSAFE', note: 'battery swollen' })
+      cy.get(caseOf(F.o4)).should('contain', 'Return requested').invoke('attr', 'data-case-no').then((c) => { F.c4 = c })
+    })
+    step('Operator: Support cases.', 'The case is marked URGENT and sits in the urgent group at the top — above every case that is not urgent, however much older.', () => {
+      supportCases()
+      cy.get(`#mktCaseList tr[data-case-no="${F.c4}"]`).should('contain', 'URGENT')
+      cy.get('#mktCaseList tbody tr').then(($rows) => {
+        const rows = [...$rows]
+        const mine = rows.findIndex((r) => r.getAttribute('data-case-no') === F.c4)
+        const firstCalm = rows.findIndex((r) => !r.textContent.includes('URGENT'))
+        expect(mine, 'the case is in the queue').to.be.at.least(0)
+        if (firstCalm >= 0) expect(mine, 'above every non-urgent case').to.be.below(firstCalm)
+      })
+    })
+    cleanup('Operator: the return → note "walk cleanup" → Reject; then resolve the case with "walk cleanup".', 'Rejected; Resolved.', () => {
+      openCaseRow(F.c4)
+      cy.get('#mktCaseDetail .mkt-op-return input').type('walk cleanup')
+      cy.get('#mktCaseDetail .mkt-reject').click()
+      cy.get('#mktCaseDetail .mkt-op-reply').type('walk cleanup')
+      cy.get('#mktCaseDetail .mkt-op-resolve').click()
+      cy.get(`#mktCaseList tr[data-case-no="${F.c4}"]`).should('not.exist')
+    })
+  })
+
+  walk({ id: 'M-1f-05', slice: 'MKT-1f', title: 'Every action leaves a trail', persona: 'owner.business@myplus.com',
+    reqs: ['MKT-R22.4'], pre: 'After M-1f-01 to -04.', auto: ['MKT-1f-12'] }, (step, call, cleanup) => {
+    step('Developer tools, signed in as Seller A: read the business\'s audit trail.',
+      'MKT_CASE_TASKED and MKT_RETURN_DECIDED rows for Seller A\'s orders, actor type PLATFORM_OPERATOR — the operator\'s actions, filed in the seller\'s own trail.', () => {
+        as(SELLER_A)
+        cy.findAudit((a) => a.action === 'MKT_RETURN_DECIDED' && a.actorType === 'PLATFORM_OPERATOR', 'a return decision in the seller\'s trail')
+        cy.auditLog().then((rows) => {
+          const mine = rows.filter((a) => String(a.action || '').startsWith('MKT_'))
+          call('audit trail (MKT_* rows)', cy.wrap({ status: 200, body: mine.slice(0, 5).map((a) => ({ action: a.action, ref: a.entityRef, actor: a.actorType, after: a.afterValue })) }))
+          expect(mine.map((a) => a.action)).to.include.members(['MKT_CASE_TASKED', 'MKT_RETURN_DECIDED'])
+        })
+      }, { screen: false })
+    cleanup('Nothing to undo: the trail is append-only.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1f-06', slice: 'MKT-1f', title: 'A cash-on-delivery return: cash back at pickup', persona: 'Customer → MaxTheService operator → owner.business@myplus.com',
+    reqs: ['MKT-R13.2'], pre: 'A delivered cash-on-delivery order.', auto: ['MKT-1f-10'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(6)).then((o) => { F.o6 = o.no }))
+    step('Customer: Return this item → "Does not work" → Send. Operator: approve it.', 'Approved; the customer is told the rider hands Rs 52,000 back in cash when collecting it.', () => {
+      myOrders(fph(6))
+      getHelp(F.o6, { topic: 'RETURN', reason: 'DEFECTIVE', note: 'screen flickers' })
+      cy.get(caseOf(F.o6)).invoke('attr', 'data-case-no').then((c) => { F.c6 = c })
+      cy.then(() => { supportCases(); openCaseRow(F.c6) })
+      cy.get('#mktCaseDetail .mkt-approve').click()
+      cy.get('#mktCaseDetail').should('contain', 'in cash when collecting it')
+    })
+    step('Seller A: Tasks → the return → "Quarantine" → "Item received" WITHOUT ticking "Cash handed back".',
+      'Refused: "This order was paid in cash: hand Rs 52,000 back to the customer at pickup, then tick "Cash handed back"." (ruling R-MKT-12)', () => {
+        sellerTasks()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c6}"] .mkt-outcome`).select('QUARANTINE')
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c6}"] .mkt-received`).click()
+        cy.get(`#mktTasks .mkt-task[data-case-no="${F.c6}"]`).should('contain', 'paid in cash')
+      })
+    step('Tick "Cash handed back (Rs 52,000)" → "Item received".', '"Received. The customer\'s refund is done." — recorded as cash at pickup; no card refund is attempted; the unit is quarantined, not sellable.', () => {
+      cy.get(`#mktTasks .mkt-task[data-case-no="${F.c6}"] .mkt-cash`).check()
+      cy.get(`#mktTasks .mkt-task[data-case-no="${F.c6}"] .mkt-received`).click()
+      cy.get('#mktTasks').should('contain', 'refund is done')
+    })
+    cleanup('None: the return is complete.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1f-07', slice: 'MKT-1f', title: 'No way around MaxTheService', persona: 'Customer, then owner.business@myplus.com',
+    reqs: ['MKT-R8.2'], pre: 'A delivered marketplace order (store order SO-…).', auto: ['MKT-1f-09'] }, (step, call, cleanup) => {
+    cy.then(() => fDelivered(fph(7), 'CARD').then((o) => { F.o7 = o.no; F.s7 = o.store }))
+    step('As the shopper, ask the shop\'s own return path (POST /storefront/return) with the store order and the phone.',
+      'Refused: "Returns for marketplace orders go through MaxTheService: open My orders on the marketplace and choose Get help."', () => {
+        customer()
+        call('POST /storefront/return', post('/storefront/return', { ref: F.s7, contact: fph(7), reason: 'bypass' }))
+          .then((r) => expect(msg(r.body)).to.contain('go through MaxTheService'))
+      }, { screen: false })
+    step('Seller A: the store order → Process return (POST /processReturn).', 'Refused: "This is a marketplace order: its return goes through MaxTheService, which refunds the customer." The order stays Delivered.', () => {
+      as(SELLER_A)
+      call('POST /processReturn', post('/processReturn', { id: F.s7 })).then((r) => expect(msg(r.body)).to.contain('through MaxTheService'))
+      call('GET /getOrder', get(`/getOrder?id=${F.s7}`)).then((r) => expect(data(r.body).fulfilmentStatus).to.eq('DELIVERED'))
+    }, { screen: false })
+    cleanup('Nothing was changed.', '—', () => {}, { screen: false })
+  })
+
+  // ──────────────────────────────── MKT-1g ────────────────────────────────
+
+  const G = {}
+  const gph = (k) => `0314${String(run).slice(-6)}${k}`
+  const OPS2 = 'ops2@myplus.com'   // the second operator (walk-reset.sql): a payout needs two people
+  /** The 1g offer: Rs 52,000 under a 0-day return policy, so with T+0 a line delivered on a business day is payable that day. */
+  const gOffer = () => (G.offer ? cy.wrap(G.offer) : seedPolicies(`${run}g`, { returnDays: 0 }).then((p) => cy.then(() => publishOffer(SELLER_A,
+    { run: `${run}g`, price: 52000, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { G.offer = o.offerId; return G.offer }))
+  /** Placed and accepted (not delivered). Yields {no, store}. */
+  const gAccepted = (ph, mode = 'CARD') => {
+    const o = {}
+    gOffer()
+    fSignIn(ph)
+    cy.then(() => post(API.checkout, { offerId: G.offer, quantity: 1, expectedPrice: 52000, customerName: 'Ali Raza',
+      customerPhone: ph, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wg-${run}-${Math.random()}`, paymentMode: mode,
+      cardToken: mode === 'CARD' ? '4242424242424242' : undefined }).then((r) => {
+      expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+      Object.assign(o, { no: data(r.body).orderNo, so: data(r.body).sellerOrderId, v: data(r.body).sellerOrderVersion })
+    }))
+    as(SELLER_A)
+    cy.then(() => post(API.acceptOrder, { id: o.so, version: o.v }))
+    cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`).then((s) => { o.store = list(s.body).find((x) => x.orderNo === o.no).storeOrderId }))
+    return cy.wrap(o)
+  }
+  /** The seller's delivery steps on the store order (signed in as Seller A): Packed → parcel with the own rider → Delivered. */
+  const gDeliver = (o, rec) => {
+    const c = rec || ((label, chain) => chain)
+    cy.then(() => c('POST /updateOrderStatus PACKED', post('/updateOrderStatus', { id: o.store, status: 'PACKED' })))
+    cy.then(() => get(`/getOrder?id=${o.store}`).then((r) => {
+      const l = data(r.body).items[0]
+      c('POST /shipOrder', post('/shipOrder', { id: o.store, lines: [{ orderItemId: l.id, quantity: l.quantity }], carrier: 'Own rider', trackingNumber: `WG-${run}` }))
+    }))
+    cy.then(() => c('POST /updateOrderStatus DELIVERED', post('/updateOrderStatus', { id: o.store, status: 'DELIVERED' }))
+      .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)))
+  }
+  const gDelivered = (ph, mode = 'CARD') => gAccepted(ph, mode).then((o) => { gDeliver(o); return cy.wrap(o) })
+  /** Operator → Platform dashboard → Settlement and payouts. */
+  const payouts = (email) => {
+    if (!G.org) { asOperator(); sellerOrg() }
+    if (email) cy.loginAsOperator(email); else asOperator()
+    cy.visit('/platformDashboard')
+    cy.get('#platMktPayoutsBtn').should('be.visible').click()
+    cy.get('#platMktPayouts').should('be.visible')
+    cy.get('#mktTPlus').should(($i) => expect($i.val()).to.not.eq(''))
+  }
+  const settleNow = () => {
+    cy.get('#mktRunSettlement').click()
+    return cy.get('#mktSetMsg').should('contain', 'Settled')
+  }
+  /** Seller A's organisation id, looked up once as admin@ (cached: the second operator never needs the lookup). */
+  const sellerOrg = () => (G.org ? cy.wrap(G.org) : cy.orgOf(SELLER_A).then((org) => { G.org = org.id; return org.id }))
+  const sellerRow = () => cy.then(() => cy.get(`#mktAccountList tr.mkt-account[data-org="${G.org}"]`, { timeout: 15000 }))
+  const statement = () => {
+    as(SELLER_A); openMarketplace()
+    cy.get('#mktStatementTab').scrollIntoView().click()
+    cy.get('#mktStatementTable tbody tr.mkt-line', { timeout: 15000 }).should('have.length.at.least', 1)
+  }
+  /** The order's statement row, scrolled into view (the capture must show the proof, not the offers above it). */
+  const line = (no) => cy.get('#mktStatementTable tbody tr.mkt-line').filter(`:contains("${no}")`).first()
+    .scrollIntoView({ offset: { top: -250, left: 0 } })
+  const num = ($el) => Number(($el.text() || '0').replace(/[^0-9.-]/g, ''))
+  const balanceOf = ($tr) => num($tr.find('.mkt-balance'))
+  /** The trial balance's rows ({code, name, debit, credit}, each account netted to one side). */
+  const tbRows = (r) => ((data(r.body) || r.body || {}).rows) || []
+  const creditOf = (rows, code) => { const a = rows.find((x) => x.code === code) || {}; return Number(a.credit || 0) - Number(a.debit || 0) }
+
+  walk({ id: 'M-1g-01', slice: 'MKT-1g', title: 'The worked example adds up', persona: 'MaxTheService operator (admin@myplus.com) → owner.business@myplus.com',
+    reqs: ['MKT-R15.5', 'MKT-R16.1'], auto: ['MKT-1g-01'],
+    pre: 'Ali\'s Rs 52,000 order from Shahzad Mobile Shop was paid online and delivered today, on a business day. Its offer was sold with 0 return days; commission policy: 8% of the items.' }, (step, call, cleanup) => {
+    cy.then(() => gDelivered(gph(1)).then((o) => { G.o1 = o.no }))
+    step('Operator: Platform dashboard → "Settlement and payouts". Type 0 in "Business days after the return window" → Save. If "Book commission in my organisation" is shown, press it.',
+      '"Settlement settings saved." The box shows 0, and "Book commission in my organisation" is gone: commission is booked in your organisation.', () => {
+        payouts()
+        cy.get('#mktTPlus').clear().type('0')
+        cy.get('#mktSetSave').click()
+        cy.get('#mktSetMsg').should('contain', 'Settlement settings saved.')
+        cy.get('body').then(($b) => { if ($b.find('#mktUseMyBooks:visible').length) cy.get('#mktUseMyBooks').click() })
+        cy.get('#mktUseMyBooks').should('not.be.visible')
+        cy.get('#mktTPlus').should('have.value', '0')
+      })
+    step('Press "Settle what is due now".',
+      '"Settled 1 line(s). …" (or more, if other delivered lines were due); Shahzad Mobile Shop is listed with a balance above zero.', () => {
+        settleNow().invoke('text').should('match', /Settled [1-9]/)
+        sellerRow().should(($tr) => expect(balanceOf($tr)).to.be.greaterThan(0))
+      })
+    step('Seller A (owner.business@myplus.com): Sale → Marketplace → "Show statement". Find Ali\'s order.',
+      'The row reads "Payable", payable on today\'s date. Customer paid 52,000; Commission 4,160; Delivery, fees, tax, reserve, correction 0; Payable to you 47,840. Every row adds up: payable + commission + the other deductions = what the customer paid.', () => {
+        statement()
+        line(G.o1).should('contain', 'Payable').then(($tr) => {
+          expect(num($tr.find('.mkt-customer-amount'))).to.eq(52000)
+          expect(num($tr.find('.mkt-commission'))).to.eq(4160)
+          expect(num($tr.find('.mkt-payable'))).to.eq(47840)
+        })
+        cy.get('#mktStatementTable tbody tr.mkt-line').each(($tr) => {
+          const n = (sel) => num($tr.find(sel))
+          const parts = n('.mkt-payable') + n('.mkt-commission') + n('.mkt-delivery') + n('.mkt-fees') + n('.mkt-tax') + n('.mkt-reserve') + n('.mkt-adjustment')
+          expect(Math.round(parts * 100), `row ${$tr.attr('data-line-id')} adds up`).to.eq(Math.round(n('.mkt-customer-amount') * 100))
+        })
+      })
+    step('Scroll to "Ledger" under the statement.',
+      'Two lines carry the order number as reference: SALE, 52,000 owed to you, and COMMISSION, 4,160 owed by you. The balance line above reads "MaxTheService owes you Rs …".', () => {
+        cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="SALE"]').filter(`:contains("${G.o1}")`).should('contain', '52,000')
+        cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="COMMISSION"]').filter(`:contains("${G.o1}")`).should('contain', '4,160')
+          .first().scrollIntoView()
+        cy.get('#mktBalance').should('contain', 'MaxTheService owes you')
+      })
+    cleanup('Nothing to undo: a settled line is paid out in M-1g-04, and the ledger is never edited.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1g-02', slice: 'MKT-1g', title: 'Nothing is payable before delivery and the return window', persona: 'owner.business@myplus.com and the MaxTheService operator',
+    reqs: ['MKT-R15.2', 'MKT-R15.3', 'MKT-R16.2'], auto: ['MKT-1g-02'],
+    pre: 'Ali placed a Rs 52,000 order (paid online) and Shahzad Mobile Shop ACCEPTED it, but has not delivered it. T+0 and 0 return days (M-1g-01).' }, (step, call, cleanup) => {
+    cy.then(() => gAccepted(gph(2)).then((o) => { G.a2 = o }))
+    step('Operator: Settlement and payouts → "Settle what is due now".', '"Settled 0 line(s) …" or a count that does not include this order: it is not delivered.', () => {
+      payouts(); settleNow()
+    })
+    step('Seller A: Sale → Marketplace → "Show statement". Find the order.',
+      'The row reads "Not delivered yet" and "Payable on" is "—". Nothing is owed on it and the ledger has no line for it.', () => {
+        statement()
+        line(G.a2.no).should('contain', 'Not delivered yet').find('.mkt-eligible-on').should('have.text', '—')
+        cy.get('#mktLedgerTable tbody').should('not.contain', G.a2.no)
+      })
+    step('Seller A records the delivery: Sale → Orders → the store order → Packed → Ship (carrier "Own rider") → Delivered. Then the operator presses "Settle what is due now" again.',
+      'The store order reads Delivered; the run settles it ("Settled 1 line(s)" or more).', (snap) => {
+        gDeliver(G.a2, call)
+        payouts()
+        settleNow().invoke('text').should('match', /Settled [1-9]/)
+        snap()
+      })
+    step('Seller A: "Show statement" again.', 'The row now reads "Payable", payable on today\'s date, with SALE and COMMISSION lines in the ledger.', () => {
+      statement()
+      line(G.a2.no).should('contain', 'Payable').find('.mkt-eligible-on').invoke('text').should('match', /^\d{4}-\d{2}-\d{2}$/)
+      cy.get('#mktLedgerTable tbody').should('contain', G.a2.no)
+    })
+    cleanup('None: the order was delivered and settled, as a real one would be.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1g-03', slice: 'MKT-1g', title: 'T+N counts business days and skips the weekend', persona: 'MaxTheService operator, then owner.business@myplus.com',
+    reqs: ['MKT-R15.1'], auto: ['MKT-1g-03'],
+    pre: 'Today is a Monday. A Rs 52,000 order (0 return days) is delivered today, after the operator sets T+5.' }, (step, call, cleanup) => {
+    step('Operator: Settlement and payouts → type 5 in "Business days after the return window" → Save.', '"Settlement settings saved." The box shows 5.', () => {
+      payouts()
+      cy.get('#mktTPlus').clear().type('5')
+      cy.get('#mktSetSave').click()
+      cy.get('#mktSetMsg').should('contain', 'Settlement settings saved.')
+      cy.get('#mktTPlus').should('have.value', '5')
+    })
+    cy.then(() => gDelivered(gph(3)).then((o) => { G.o3 = o.no }))
+    step('Ali\'s new order is delivered today (Monday). Operator: "Settle what is due now".', 'The order is not settled: it is counted as waiting ("… still wait for their payable date").', () => {
+      payouts(); settleNow().invoke('text').should('match', /[1-9]\d* still wait/)
+    })
+    step('Seller A: "Show statement" → the new order.',
+      '"Return days running", payable on the Monday a week later: five business days, Saturday and Sunday not counted.', () => {
+        statement()
+        line(G.o3).should('contain', 'Return days running').find('.mkt-eligible-on').invoke('text').then((d) => {
+          const on = new Date(`${d}T00:00:00Z`)
+          expect(on.getUTCDay(), `${d} is a Monday`).to.eq(1)
+          call('payable date', cy.wrap({ status: 200, body: { eligibleOn: d } }))
+        })
+      }, { alsoScreen: true })
+    cleanup('Operator: set "Business days after the return window" back to 0 → Save → "Settle what is due now".',
+      '"Settlement settings saved.", then "Settled 1 line(s) …": the waiting line\'s date follows the setting in force, so with 0 it is due today and settles.', () => {
+        payouts()
+        cy.get('#mktTPlus').clear().type('0')
+        cy.get('#mktSetSave').click()
+        cy.get('#mktTPlus').should('have.value', '0')
+        settleNow().invoke('text').should('match', /Settled [1-9]/)
+      })
+  })
+
+  walk({ id: 'M-1g-04', slice: 'MKT-1g', title: 'A payout needs two people and happens once', persona: 'admin@myplus.com, then ops2@myplus.com (a second operator)',
+    reqs: ['MKT-R16.3', 'MKT-R22.3'], auto: ['MKT-1g-04'],
+    pre: 'Shahzad Mobile Shop has a positive balance (M-1g-01, M-1g-02) and no payout open (one left by an earlier run is approved by ops2 and paid first). ops2@myplus.com exists (walk-reset.sql).' }, (step, call, cleanup) => {
+    // a payout cannot be withdrawn, only paid: finish one an earlier run (the gate) left open, so this case starts clean
+    asOperator()
+    sellerOrg().then((orgId) => {
+      get('/platform/mkt/payouts').then((r) => {
+        const open = list(r.body).find((p) => p.organizationId === orgId && p.status !== 'PAID')
+        if (!open) return
+        if (open.status === 'REQUESTED') { cy.loginAsOperator(OPS2); post(API.approvePayout, { id: open.id }) }
+        post(API.markPayoutPaid, { id: open.id, bankReference: `TRX-PRE-${run}` }).then((x) => expect(ok(x.body), JSON.stringify(x.body)).to.eq(true))
+      })
+    })
+    step('admin@myplus.com, developer tools: request a payout for Shahzad Mobile Shop twice with the SAME key (POST /platform/mkt/requestPayout), as a double click would.',
+      'Both answers are the same payout PO-… for the whole balance, status REQUESTED: one payout, not two.', () => {
+        asOperator()
+        sellerOrg().then((orgId) => {
+          const org = { id: orgId }
+          const k = `walk-po-${run}`
+          call('POST /platform/mkt/requestPayout', post(API.requestPayout, { organizationId: org.id, idempotencyKey: k })).then((r1) => {
+            expect(ok(r1.body), JSON.stringify(r1.body)).to.eq(true)
+            G.po = data(r1.body).payoutNo
+            call('POST /platform/mkt/requestPayout (same key)', post(API.requestPayout, { organizationId: org.id, idempotencyKey: k }))
+              .then((r2) => { expect(data(r2.body).id).to.eq(data(r1.body).id); expect(data(r2.body).status).to.eq('REQUESTED') })
+          })
+          call('POST /platform/mkt/requestPayout (a new key while one is open)', post(API.requestPayout, { organizationId: org.id, idempotencyKey: `${k}-2` }))
+            .then((r) => expect(msg(r.body)).to.contain('still'))
+        })
+      }, { screen: false })
+    step('Settlement and payouts → Shahzad Mobile Shop.', 'The row shows the payout PO-… with its amount and REQUESTED, and an "Approve" button; no "Request payout" button while it is open.', () => {
+      payouts()
+      sellerRow().should('contain', G.po).and('contain', 'REQUESTED').find('.mkt-approve-payout').should('be.visible')
+      sellerRow().find('.mkt-request-payout').should('not.exist')
+    })
+    step('The same operator presses "Approve".', 'Refused: "Another person must approve this payout: you requested it." The payout stays REQUESTED.', () => {
+      sellerRow().find('.mkt-approve-payout').click()
+      sellerRow().should('contain', 'Another person must approve this payout: you requested it.').and('contain', 'REQUESTED')
+    })
+    step('Sign out; sign in as ops2@myplus.com. Settlement and payouts → the payout → "Approve".', 'The row reads APPROVED and shows a "Bank reference" box with "Mark paid".', () => {
+      payouts(OPS2)
+      sellerRow().find('.mkt-approve-payout').click()
+      sellerRow().should('contain', 'APPROVED').find('.mkt-bank-ref').should('be.visible')
+    })
+    step('Press "Mark paid" with the box empty.', 'Refused: "Enter the bank\'s reference for the transfer."', () => {
+      sellerRow().find('.mkt-mark-paid').click()
+      sellerRow().should('contain', 'Enter the bank\'s reference for the transfer.')
+    })
+    step('Type "TRX-WALK-1" → "Mark paid".', 'The payout leaves the row; the balance is 0.', () => {
+      sellerRow().find('.mkt-bank-ref').type('TRX-WALK-1')
+      sellerRow().find('.mkt-mark-paid').click()
+      sellerRow().should('not.contain', 'APPROVED').should(($tr) => expect(balanceOf($tr)).to.eq(0))
+    })
+    step('Seller A: "Show statement".', 'The paid lines read "Paid" with the payout number; the ledger has a PAYOUT line PO-… for the amount; "MaxTheService owes you Rs 0."', () => {
+      statement()
+      cy.get('#mktStatementTable tbody tr.mkt-line[data-status="PAID"]').should('have.length.at.least', 1).first().should('contain', G.po)
+        .scrollIntoView({ offset: { top: -250, left: 0 } })
+      cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="PAYOUT"]').filter(`:contains("${G.po}")`).should('have.length', 1)
+      cy.get('#mktBalance').should('contain', 'owes you Rs 0')
+    })
+    cleanup('None: a paid payout is final (a mistake is corrected with a new ledger line, M-1g-05).', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-1g-05', slice: 'MKT-1g', title: 'Mistakes are corrected with a new line, never edited', persona: 'MaxTheService operator',
+    reqs: ['MKT-R15.6', 'MKT-R16.2'], auto: ['MKT-1g-05'], pre: 'Shahzad Mobile Shop has ledger lines (M-1g-01 to -04).' }, (step, call, cleanup) => {
+    step('Operator: Settlement and payouts → Shahzad Mobile Shop → "Ledger".', 'The seller\'s lines are listed; no line has an edit or delete control. Below them: an amount, a reason and "Record correction".', () => {
+      payouts()
+      sellerRow().then(($tr) => { G.bal5 = balanceOf($tr) })
+      sellerRow().find('.mkt-ledger').click()
+      cy.get('#mktOpsLedger .mkt-ops-ledger tbody tr.mkt-entry').should('have.length.at.least', 2).then(($rows) => { G.rows5 = $rows.length })
+      cy.get('#mktOpsLedger .mkt-ops-ledger').find('button, input').should('not.exist')
+      cy.get('#mktAdjSave').should('be.visible')
+    })
+    step('Type -100 and the reason "walk correction" → "Record correction".', 'A new ADJUSTMENT line "walk correction", 100 owed by the seller, is added at the top; every earlier line is unchanged; the balance is 100 lower.', () => {
+      cy.get('#mktAdjAmount').type('-100')
+      cy.get('#mktAdjReason').type('walk correction')
+      cy.get('#mktAdjSave').click()
+      cy.get('#mktOpsLedger .mkt-ops-ledger tbody tr.mkt-entry').should('have.length', G.rows5 + 1).first()
+        .should('have.attr', 'data-entry-type', 'ADJUSTMENT').and('contain', 'walk correction').and('contain', '100')
+      sellerRow().should(($tr) => expect(Math.round((G.bal5 - balanceOf($tr)) * 100)).to.eq(10000))
+    })
+    step('Developer tools: try to change a ledger line (PUT /platform/mkt/ledgerEntry).', 'There is no such route (404 or 405): the ledger has no edit path.', () => {
+      call('PUT /platform/mkt/ledgerEntry', cy.request({ method: 'PUT', url: '/platform/mkt/ledgerEntry', failOnStatusCode: false, body: { id: 1, credit: 0 } }))
+        .then((r) => expect(r.status).to.be.oneOf([404, 405]))
+    }, { screen: false })
+    cleanup('Record the opposite correction: +100, reason "walk correction undone".', 'A second ADJUSTMENT line; the balance is back where it was.', () => {
+      cy.get('#mktAdjAmount').clear().type('100')
+      cy.get('#mktAdjReason').clear().type('walk correction undone')
+      cy.get('#mktAdjSave').click()
+      cy.get('#mktOpsLedger .mkt-ops-ledger tbody tr.mkt-entry').first().should('contain', 'walk correction undone')
+      sellerRow().should(($tr) => expect(Math.round(balanceOf($tr) * 100)).to.eq(Math.round(G.bal5 * 100)))
+    })
+  })
+
+  walk({ id: 'M-1g-06', slice: 'MKT-1g', title: 'Commission reaches the books', persona: 'MaxTheService operator (admin@myplus.com)',
+    reqs: ['MKT-R15.5', 'MKT-R1.3'], auto: ['MKT-1g-06'], pre: 'A new Rs 52,000 order paid online, delivered today on a business day; T+0, 0 return days.' }, (step, call, cleanup) => {
+    step('Operator: read the trial balance of the books commission is booked in (GET /gl/trialBalance), account 4500 Marketplace Commission.', 'Note the 4500 balance (0 on a fresh system).', () => {
+      asOperator()
+      call('GET /gl/trialBalance', get('/gl/trialBalance')).then((r) => { G.rev0 = creditOf(tbRows(r), '4500') })
+    }, { screen: false })
+    cy.then(() => gDelivered(gph(6)).then((o) => { G.o6 = o.no }))
+    step('Settlement and payouts → "Settle what is due now".', '"Settled 1 line(s)."', () => { payouts(); settleNow().invoke('text').should('match', /Settled [1-9]/) })
+    step('Read the trial balance again.', '4500 Marketplace Commission is higher by exactly 4,160.00 (8% of 52,000); 2400 Marketplace Seller Balances moved by the 47,840.00 payable; the journal arrives within seconds through the outbox.', () => {
+      asOperator()
+      const until = (n) => get('/gl/trialBalance').then((r) => {
+        const rows = tbRows(r)
+        const rev1 = creditOf(rows, '4500')
+        if (Math.round((rev1 - G.rev0) * 100) === 416000 || n === 0) {
+          call('GET /gl/trialBalance', cy.wrap({ status: r.status, body: rows.filter((a) => ['1010', '2400', '4500'].includes(a.code)) }))
+          expect(Math.round((rev1 - G.rev0) * 100), '4500 moved by exactly the commission').to.eq(416000)
+          return
+        }
+        cy.wait(1000)
+        until(n - 1)
+      })
+      until(20)
+    }, { screen: false })
+    cleanup('Nothing to undo: the journal is the record.', '—', () => {}, { screen: false })
+  })
 })

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.security.access.AccessDeniedException;
 
 import com.myplus.commerce.contracts.client.CatalogClient;
@@ -52,6 +54,7 @@ class MarketplaceCatalogServiceTest {
     @Mock MarketplaceSellerService sellers;
     @Mock SellerAccess access;
     @Mock CatalogClient catalog;
+    @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
     @InjectMocks MarketplaceCatalogService service;
 
     final Map<Long, MarketplaceProduct> productRows = new HashMap<>();
@@ -270,5 +273,18 @@ class MarketplaceCatalogServiceTest {
         service.decide(1L, decision("REJECTED", null, "not a phone"));
         assertThatThrownBy(() -> service.decide(1L, decision("MATCHED", null, null)))
                 .hasMessage("A proposal that is rejected cannot be moved to matched.");
+    }
+
+    @Test
+    @DisplayName("[MKT-R6.4] the waiting queue is worked oldest first; a decided list shows the newest decision first")
+    void queueOrder() {
+        when(sources.findByMatchStatusOrderByCreatedAtAsc(anyString(), any())).thenReturn(Page.empty());
+        when(sources.findByMatchStatusOrderByCreatedAtDesc(anyString(), any())).thenReturn(Page.empty());
+        service.queue(null, 0, 10);
+        service.queue("matched", 0, 10);
+        service.queue("REJECTED", 0, 10);
+        verify(sources).findByMatchStatusOrderByCreatedAtAsc(eq("PENDING_REVIEW"), any());
+        verify(sources).findByMatchStatusOrderByCreatedAtDesc(eq("MATCHED"), any());
+        verify(sources).findByMatchStatusOrderByCreatedAtDesc(eq("REJECTED"), any());
     }
 }

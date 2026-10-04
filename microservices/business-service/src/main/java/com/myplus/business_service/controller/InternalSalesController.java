@@ -317,6 +317,7 @@ public class InternalSalesController {
             throw new ValidationException("At least one line is required");
         final String invoiceNo = body.getInvoiceNo();
         final String reason = body.getReason();
+        final Boolean quarantine = body.getQuarantine();
 
         // `saleReturn` reads `reason` (and `quarantine`, and `refundAs`) off the RAW REQUEST via getParameter.
         // The reason now arrives in the JSON body, so it would be invisible to it — and the credit note would
@@ -329,6 +330,9 @@ public class InternalSalesController {
                 new jakarta.servlet.http.HttpServletRequestWrapper(httpRequest) {
                     @Override public String getParameter(String name) {
                         if ("reason".equals(name)) return reason;
+                        // MKT-1f: a marketplace return inspected as faulty stays out of sellable stock. Null keeps the
+                        // raw request's value, so the door-refusal caller (which never sets it) is unchanged.
+                        if ("quarantine".equals(name) && quarantine != null) return String.valueOf(quarantine);
                         return super.getParameter(name);
                     }
                 };

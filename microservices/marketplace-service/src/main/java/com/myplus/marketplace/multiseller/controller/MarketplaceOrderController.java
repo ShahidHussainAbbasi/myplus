@@ -59,7 +59,11 @@ public class MarketplaceOrderController {
     @PostMapping("/mkt/seller-orders/{id}/accept")
     public ApiResponse<MarketplaceOrderDTOs.SellerOrderView> accept(@PathVariable Long id,
             @RequestBody(required = false) MarketplaceOrderDTOs.AcceptRequest body) {
-        return ApiResponse.success(sellerOrders.accept(id, body), "Accepted. The sale is in your books; deliver and collect the cash.");
+        MarketplaceOrderDTOs.SellerOrderView v = sellerOrders.accept(id, body);
+        // MKT-1f: a card order was paid online (MKT-1e2) — telling the rider to collect cash would charge the customer twice.
+        return ApiResponse.success(v, "CARD".equals(v.paymentMode())
+                ? "Accepted. The sale is in your books. This order is PAID ONLINE: deliver it and do not collect cash."
+                : "Accepted. The sale is in your books; deliver and collect the cash.");
     }
 
     @PostMapping("/mkt/seller-orders/{id}/reject")

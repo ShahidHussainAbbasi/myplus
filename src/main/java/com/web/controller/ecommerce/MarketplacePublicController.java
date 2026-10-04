@@ -100,10 +100,16 @@ public class MarketplacePublicController {
      */
     @PostMapping("/marketplace/public/checkout")
     @ResponseBody
-    public Object checkout(@RequestBody Map<String, Object> body) {
-        URI uri = UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/checkout").build().toUri();
+    public Object checkout(@RequestBody Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request) {
+        // MKT-1e2: a signed-in customer checks out on the account route (the order is theirs; card payment allowed)
+        String session = sessionOf(request);
+        URI uri = UriComponentsBuilder.fromUriString(gatewayUrl)
+                .path(session == null ? "/api/marketplace/public/mkt/checkout" : "/api/marketplace/public/mkt/account/checkout")
+                .build().toUri();
         try {
-            Map<String, Object> r = http.post().uri(uri).contentType(MediaType.APPLICATION_JSON).body(body).retrieve().body(JSON);
+            Map<String, Object> r = http.post().uri(uri).contentType(MediaType.APPLICATION_JSON)
+                    .headers(h -> { if (session != null) h.set(SESSION_HEADER, session); })
+                    .body(body).retrieve().body(JSON);
             return r == null ? Map.of("success", false, "message", "Could not place the order.") : r;
         } catch (HttpStatusCodeException e) {
             LOGGER.warn("marketplace checkout -> {}", e.getStatusCode());
@@ -126,6 +132,167 @@ public class MarketplacePublicController {
     static Map<String, Object> unknownOutcome() {
         return Map.of("success", false, "outcome", "UNKNOWN",
                 "message", "We could not confirm your order. Press the button again; it will not be placed twice.");
+    }
+
+    // ── MKT-1e2: the marketplace customer's account ────────────────────────────────────────────────────
+
+    /** The browser's cookie: HttpOnly (page script never reads it), Lax, scoped to /marketplace. */
+    static final String SESSION_COOKIE = "MKT_SESSION";
+    static final String SESSION_HEADER = "X-Mkt-Session";
+    private static final java.time.Duration SESSION_AGE = java.time.Duration.ofDays(30);
+
+    @PostMapping("/marketplace/account/register")
+    @ResponseBody
+    public Object register(@RequestBody Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        return signIn(accountPost("register", body, null), request, response);
+    }
+
+    @PostMapping("/marketplace/account/login")
+    @ResponseBody
+    public Object login(@RequestBody Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        return signIn(accountPost("login", body, null), request, response);
+    }
+
+    @PostMapping("/marketplace/account/logout")
+    @ResponseBody
+    public Object logout(jakarta.servlet.http.HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) {
+        Map<String, Object> r = accountPost("logout", Map.of(), sessionOf(request));
+        setCookie(response, request, "", java.time.Duration.ZERO);               // gone from the browser either way
+        return r;
+    }
+
+    @GetMapping("/marketplace/account/me")
+    @ResponseBody
+    public Object me(jakarta.servlet.http.HttpServletRequest request) {
+        return accountGet("/api/marketplace/public/mkt/account/me", Map.of(), sessionOf(request));
+    }
+
+    @GetMapping("/marketplace/account/orders")
+    @ResponseBody
+    public Object myOrders(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return accountGet("/api/marketplace/public/mkt/account/orders", query("page", page, "size", size), sessionOf(request));
+    }
+
+    @PostMapping("/marketplace/account/claim")
+    @ResponseBody
+    public Object claim(@RequestBody Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request) {
+        return accountPost("claim", body, sessionOf(request));
+    }
+
+    @PostMapping("/marketplace/account/orders/{orderNo}/cancel")
+    @ResponseBody
+    public Object cancel(@PathVariable String orderNo, @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        URI uri = UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/account/orders/{no}/cancel")
+                .encode().buildAndExpand(Map.of("no", orderNo)).toUri();
+        return accountCall(uri, body == null ? Map.of() : body, sessionOf(request));
+    }
+
+    // ── MKT-1f: support cases (the customer talks to MaxTheService only) ──────────────────────────────
+
+    @PostMapping("/marketplace/account/orders/{orderNo}/cases")
+    @ResponseBody
+    public Object openCase(@PathVariable String orderNo, @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/account/orders/{no}/cases", Map.of("no", orderNo), Map.of()),
+                body == null ? Map.of() : body, sessionOf(request));
+    }
+
+    @GetMapping("/marketplace/account/cases")
+    @ResponseBody
+    public Object myCases(jakarta.servlet.http.HttpServletRequest request) {
+        return accountGet("/api/marketplace/public/mkt/account/cases", Map.of(), sessionOf(request));
+    }
+
+    @GetMapping("/marketplace/account/cases/{caseNo}")
+    @ResponseBody
+    public Object myCase(@PathVariable String caseNo, jakarta.servlet.http.HttpServletRequest request) {
+        return accountGetVars("/api/marketplace/public/mkt/account/cases/{no}", Map.of("no", caseNo), sessionOf(request));
+    }
+
+    @PostMapping("/marketplace/account/cases/{caseNo}/messages")
+    @ResponseBody
+    public Object caseMessage(@PathVariable String caseNo, @RequestBody(required = false) Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/account/cases/{no}/messages", Map.of("no", caseNo), Map.of()),
+                body == null ? Map.of() : body, sessionOf(request));
+    }
+
+    /** The token goes into the HttpOnly cookie and is REMOVED from what the page receives. */
+    @SuppressWarnings("unchecked")
+    private Object signIn(Map<String, Object> r, jakarta.servlet.http.HttpServletRequest request,
+            jakarta.servlet.http.HttpServletResponse response) {
+        if (!Boolean.TRUE.equals(r.get("success")) || !(r.get("data") instanceof Map<?, ?> d) || d.get("token") == null) return r;
+        setCookie(response, request, String.valueOf(d.get("token")), SESSION_AGE);
+        Map<String, Object> out = new java.util.LinkedHashMap<>(r);
+        out.put("data", Map.of("name", String.valueOf(d.get("name")), "phone", String.valueOf(d.get("phone"))));
+        return out;
+    }
+
+    private static void setCookie(jakarta.servlet.http.HttpServletResponse response, jakarta.servlet.http.HttpServletRequest request,
+            String value, java.time.Duration age) {
+        response.addHeader(org.springframework.http.HttpHeaders.SET_COOKIE,
+                org.springframework.http.ResponseCookie.from(SESSION_COOKIE, value).httpOnly(true).secure(request.isSecure())
+                        .sameSite("Lax").path("/marketplace").maxAge(age).build().toString());
+    }
+
+    static String sessionOf(jakarta.servlet.http.HttpServletRequest request) {
+        if (request == null || request.getCookies() == null) return null;
+        for (jakarta.servlet.http.Cookie c : request.getCookies())
+            if (SESSION_COOKIE.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) return c.getValue();
+        return null;
+    }
+
+    private Map<String, Object> accountPost(String action, Object body, String session) {
+        return accountCall(UriComponentsBuilder.fromUriString(gatewayUrl).path("/api/marketplace/public/mkt/account/" + action)
+                .build().toUri(), body, session);
+    }
+
+    private Map<String, Object> accountCall(URI uri, Object body, String session) {
+        try {
+            Map<String, Object> r = http.post().uri(uri).contentType(MediaType.APPLICATION_JSON)
+                    .headers(h -> { if (session != null) h.set(SESSION_HEADER, session); })
+                    .body(body).retrieve().body(JSON);
+            return r == null ? Map.of("success", false, "message", "Please try again.") : r;
+        } catch (HttpStatusCodeException e) {
+            LOGGER.warn("marketplace account {} -> {}", uri.getPath(), e.getStatusCode());
+            return Map.of("success", false, "statusCode", e.getStatusCode().value(), "message",
+                    e.getStatusCode().is5xxServerError() ? "The marketplace is not available right now. Please try again."
+                            : messageOf(e, "Please try again."));
+        } catch (Exception e) {
+            LOGGER.error("marketplace account {} failed", uri.getPath(), e);
+            return Map.of("success", false, "message", "The marketplace is not available right now. Please try again.");
+        }
+    }
+
+    private Map<String, Object> accountGet(String path, Map<String, Object> query, String session) {
+        return accountRead(path, Map.of(), query, session);
+    }
+
+    /** A read whose path carries a value (strictly encoded as a URI variable, never concatenated). */
+    private Map<String, Object> accountGetVars(String path, Map<String, Object> vars, String session) {
+        return accountRead(path, vars, Map.of(), session);
+    }
+
+    private Map<String, Object> accountRead(String path, Map<String, Object> vars, Map<String, Object> query, String session) {
+        URI uri = null;
+        try {
+            uri = uri(gatewayUrl, path, vars, query);
+            Map<String, Object> r = http.get().uri(uri)
+                    .headers(h -> { if (session != null) h.set(SESSION_HEADER, session); })
+                    .retrieve().body(JSON);
+            return r == null ? Map.of("success", false, "message", "Please try again.") : r;
+        } catch (HttpStatusCodeException e) {
+            return Map.of("success", false, "statusCode", e.getStatusCode().value(), "message",
+                    e.getStatusCode().is5xxServerError() ? "The marketplace is not available right now. Please try again."
+                            : messageOf(e, "Please try again."));
+        } catch (Exception e) {
+            LOGGER.error("marketplace account read {} failed", uri == null ? path : uri.getPath(), e);
+            return Map.of("success", false, "message", "The marketplace is not available right now. Please try again.");
+        }
     }
 
     /** MKT-1e tracking: the order number AND the phone it was placed with. */

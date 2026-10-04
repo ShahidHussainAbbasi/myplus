@@ -24,6 +24,9 @@ public interface MarketplaceSellerOrderRepository extends JpaRepository<Marketpl
     /** The parent's seller orders (Phase 1: exactly one). */
     List<MarketplaceSellerOrder> findByMktOrderId(Long mktOrderId);
 
+    /** MKT-1f — the seller order behind a store order (idx_mkt_so_store_order, V30). */
+    Optional<MarketplaceSellerOrder> findFirstByStoreOrderId(Long storeOrderId);
+
     /** The sweeper — idx_mkt_so_sweep: OFFERED past their deadline, oldest first, bounded. */
     List<MarketplaceSellerOrder> findByAcceptanceStatusAndAcceptByBeforeOrderByAcceptByAsc(String acceptanceStatus,
             LocalDateTime before, Pageable page);

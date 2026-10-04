@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d and 1e built, unit-green, Cypress gates **48/48 on a live stack** and every manual case walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)) (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e, 1e2 and 1f built, unit-green, Cypress gates **69/69 in one run on a live stack** and every manual case of the built slices walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)). MKT-1g built, unit-green, gate 6/6 and walk M-1g-01..06 recorded on a live stack ([live verification](marketplace/live-verification-2026-10-03.md) §8)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
@@ -418,8 +418,9 @@ sequenceDiagram
 | `POST /public/mkt/checkout` · `GET /public/mkt/orders/{no}?phone=` | customer (anonymous in Phase 1; account in MKT-1e2) | one-seller COD checkout from an offer (idempotency key, CSRF) · tracking by number + phone |
 | `GET /mkt/seller-orders` · `POST /mkt/seller-orders/{id}/accept` · `/reject` | seller | the queue; acceptance within the window (IMEIs for serial-tracked items) |
 | `POST /mkt/orders/{id}/cancel` · `/returns` | customer | cancel / return request |
-| `GET /mkt/settlement/statement?from=&to=` | seller | own ledger entries, paged |
-| `POST /mkt/payouts` · `/{id}/approve` · `/{id}/mark-paid` | operator `MKT_SETTLE` | manual payout (idempotency key, bank ref) |
+| `GET /mkt/settlement/statement?status=` · `GET /mkt/settlement/account` | seller | own lines with the whole split, paged · balance, ledger rows, payouts |
+| `POST /mkt/operator/payouts` · `/{id}/approve` · `/{id}/mark-paid` | operator `MKT_SETTLE` | manual payout (idempotency key, four eyes, bank ref) |
+| `POST /mkt/operator/settlement/run` · `/adjust` · `GET/POST /settings` | operator | settle what is due · a correction as a new row · T+N and the operator's books (MKT-1g) |
 | `POST /mkt/support-cases` · `/{id}/tasks` | customer / operator | complaint intake, internal task to a party |
 
 Each has a monolith flat proxy that relays the downstream message (standard 8a) and one screen calling it (§ "A slice
@@ -501,9 +502,12 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 | # | Item | Recommendation | Needs ruling? |
 |---|---|---|---|
 | R-MKT-8 | Commission base: items only, or items + delivery? The source's example is a flat Rs. 500 | Policy carries `basis` (ITEMS / ITEMS_PLUS_DELIVERY / FIXED); default ITEMS | **yes** |
-| R-MKT-9 | Who invoices commission (a document for the seller's input tax)? | Operator raises a commission invoice per statement period through business-service | **yes** |
+| R-MKT-9 | Who invoices commission (a document for the seller's input tax)? | Operator raises a commission invoice per statement period through business-service. **MKT-1g ships without it**: commission tax is zero until ruled | **yes** |
 | R-MKT-10 | The marketplace order number series | `MKT-` per operator org, via `common-docnum` | no |
 | R-MKT-11 | Pilot city list | from the operator, config only | **yes** |
+| R-MKT-12 | Refunding a returned cash-on-delivery order | **Accepted 2026-10-03:** the seller's rider hands the cash back at pickup; recorded on the return | — |
+| R-MKT-13 | Who collects a return in Phase 1 | **Accepted 2026-10-03:** the seller's rider, from the customer's address | — |
+| R-MKT-14 | Change-of-mind returns | **Accepted 2026-10-03:** per the offer's snapshotted return policy; the customer bears the return cost | — |
 | K-1…K-6 | see analysis §5 | — | — |
 
 ## 10. Implement checklist (programme)
@@ -514,7 +518,7 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [x] MKT-1c offers + policies + approval + projection · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1c-offers.md))
 - [x] MKT-1d public catalogue + compare + sort · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1d-public-catalogue.md))
 - [x] MKT-1e one-seller COD checkout + acceptance window + snapshots · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1e-checkout-acceptance.md))
-- [ ] MKT-1e2 platform customer account + online payment (platform-collected) + customer cancel / My orders · gate
-- [ ] MKT-1f support + returns cost attribution · gate
-- [ ] MKT-1g commission + settlement ledger + payouts · gate
+- [x] MKT-1e2 platform customer account + online payment (sandbox; platform-collected) + customer cancel / My orders · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §6) ([slice](slices/mkt-1e2-customer-account-payment.md))
+- [x] MKT-1f support cases + returns with the cost bearer + escalation + audit · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §7) ([slice](slices/mkt-1f-support-returns.md))
+- [x] MKT-1g commission + settlement ledger + T+N eligibility + four-eyes payouts + GL posting · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §8) ([slice](slices/mkt-1g-settlement-payouts.md))
 - [ ] MKT-2…6 per their own slice docs

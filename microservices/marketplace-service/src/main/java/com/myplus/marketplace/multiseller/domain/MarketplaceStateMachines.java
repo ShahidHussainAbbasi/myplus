@@ -67,7 +67,9 @@ public final class MarketplaceStateMachines {
                     Settlement.REVERSED)
             .allow(Settlement.PENDING_RETURN_WINDOW, Settlement.ELIGIBLE, Settlement.ON_HOLD, Settlement.REVERSED)
             .allow(Settlement.ELIGIBLE, Settlement.APPROVED, Settlement.ON_HOLD, Settlement.DISPUTED)
-            .allow(Settlement.ON_HOLD, Settlement.ELIGIBLE, Settlement.DISPUTED, Settlement.REVERSED)
+            // MKT-1g: a hold lifted while the return window is still open goes back to waiting for the window
+            .allow(Settlement.ON_HOLD, Settlement.ELIGIBLE, Settlement.PENDING_RETURN_WINDOW, Settlement.DISPUTED,
+                    Settlement.REVERSED)
             .allow(Settlement.DISPUTED, Settlement.ELIGIBLE, Settlement.REVERSED)
             .allow(Settlement.APPROVED, Settlement.PROCESSING, Settlement.ON_HOLD)
             .allow(Settlement.PROCESSING, Settlement.PAID, Settlement.ON_HOLD)

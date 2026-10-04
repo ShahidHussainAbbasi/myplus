@@ -48,7 +48,7 @@ class PublicOfferServiceTest {
     @BeforeEach
     void wire() {
         // the REAL settings service over a mocked table: the fallback and RECOMMENDED rules are under test too
-        service = new PublicOfferService(projections, products, new MarketplaceSettingsService(settingRows, access));
+        service = new PublicOfferService(projections, products, new MarketplaceSettingsService(settingRows, access, org.mockito.Mockito.mock(MarketplaceAuditService.class)));
         lenient().when(settingRows.findById(MarketplacePlatformSetting.DEFAULT_SORT))
                 .thenAnswer(i -> Optional.ofNullable(defaultSort));
         product = new MarketplaceProduct();

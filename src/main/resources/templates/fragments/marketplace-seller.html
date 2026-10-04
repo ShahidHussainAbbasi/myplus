@@ -76,6 +76,12 @@
 
 		<!-- MKT-1b — products to publish. Shown only when the seller can sell (all three conditions). The key is
 		     computed by the SERVER; nothing here is merged without MaxTheService reviewing it. -->
+		<!-- MKT-1f: what MaxTheService asks of this shop — the customer talks to MaxTheService only (R8.2) -->
+		<div id="mktTasksBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" th:text="#{ui.mktTasksTitle}">Tasks from MaxTheService</h4>
+			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktTasksHint}">Answer MaxTheService support here; it tells the customer. For an approved return, your rider collects the item, then press Item received.</p>
+			<div id="mktTasks" aria-live="polite"></div>
+		</div>
 		<!-- MKT-1e: incoming marketplace orders — first, because each one has a clock running -->
 		<div id="mktIncomingBox" style="display:none;margin-top:18px">
 			<h4 style="font-weight:700;font-size:15px">
@@ -220,6 +226,47 @@
 					</tr></thead>
 					<tbody></tbody>
 				</table>
+			</div>
+		</div>
+
+		<!-- MKT-1g: what MaxTheService owes this shop, line by line. Every line adds up: paid = payable + commission +
+		     delivery + fees + tax + reserve + correction (R15.5). Read-only: the ledger has no edit path (R15.6). -->
+		<div id="mktStatementBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px">
+				<span th:text="#{ui.mktStatementTitle}">Settlement statement</span>
+				<button type="button" class="btn btn-xs btn-default" id="mktStatementTab" data-cy="mkt-statement-open"
+					th:text="#{ui.mktStatementShow}">Show statement</button>
+			</h4>
+			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktStatementHint}">A line becomes payable after delivery, once its return days have passed, on the next business day. Cash-on-delivery lines are already in your hands, so they count the commission you owe MaxTheService.</p>
+			<div id="mktStatementBody" style="display:none">
+				<p id="mktBalance" role="status" style="font-weight:600"></p>
+				<div class="table-responsive">
+					<table class="table table-condensed" id="mktStatementTable">
+						<thead><tr>
+							<th style="white-space:normal" th:text="#{ui.mktColOrder}">Order</th>
+							<th style="white-space:normal" th:text="#{ui.mktColStatus}">Status</th>
+							<th style="white-space:normal" th:text="#{ui.mktColPayableOn}">Payable on</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColCustomerPaid}">Customer paid</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColCommission}">Commission</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColDeductions}">Delivery, fees, tax, reserve, correction</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColPayable}">Payable to you</th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<h5 style="font-weight:700" th:text="#{ui.mktLedgerTitle}">Ledger</h5>
+				<div class="table-responsive">
+					<table class="table table-condensed" id="mktLedgerTable">
+						<thead><tr>
+							<th style="white-space:normal" th:text="#{ui.mktColDate}">Date</th>
+							<th style="white-space:normal" th:text="#{ui.mktColEntry}">Entry</th>
+							<th style="white-space:normal" th:text="#{ui.mktColRef}">Reference</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColOwedToYou}">Owed to you</th>
+							<th style="white-space:normal" class="text-right" th:text="#{ui.mktColOwedByYou}">Owed by you</th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
 			</div>
 		</div>
 	</div>

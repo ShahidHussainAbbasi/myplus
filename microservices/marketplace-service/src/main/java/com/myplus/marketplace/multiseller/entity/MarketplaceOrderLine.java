@@ -17,8 +17,8 @@ import lombok.Setter;
 
 /**
  * MKT-1e — an order line and its order-time SNAPSHOT (V28, source §13.3): price, the four parties, warranty,
- * returns and commission as they were when the shopper ordered. Written once; only {@code settlementStatus}
- * changes later (MKT-1g). A policy deactivated or replaced afterwards never rewrites this row.
+ * returns and commission as they were when the shopper ordered. Written once; only {@code settlementStatus} and
+ * {@code payoutId} change later (MKT-1g). A policy deactivated or replaced afterwards never rewrites this row.
  */
 @Entity
 @Table(name = "mkt_order_line")
@@ -112,6 +112,10 @@ public class MarketplaceOrderLine {
     /** {@code MarketplaceStatus.Settlement}; NOT_ELIGIBLE until MKT-1g's rules move it. */
     @Column(name = "settlement_status", nullable = false, length = 24)
     private String settlementStatus;
+
+    /** MKT-1g — the payout that settles this line; null until an operator requests one (V31). */
+    @Column(name = "payout_id")
+    private Long payoutId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

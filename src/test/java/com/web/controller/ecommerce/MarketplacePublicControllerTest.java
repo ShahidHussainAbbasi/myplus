@@ -37,7 +37,7 @@ class MarketplacePublicControllerTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> checkout() {
-        return (Map<String, Object>) controller.checkout(Map.of("offerId", 1, "idempotencyKey", "k1"));
+        return (Map<String, Object>) controller.checkout(Map.of("offerId", 1, "idempotencyKey", "k1"), new org.springframework.mock.web.MockHttpServletRequest());
     }
 
     @Test
@@ -93,5 +93,53 @@ class MarketplacePublicControllerTest {
                 .andRespond(withSuccess("{\"success\":true,\"data\":{\"content\":[]}}", MediaType.APPLICATION_JSON));
         @SuppressWarnings("unchecked") Map<String, Object> r = (Map<String, Object>) controller.search("%{enter}", "Karachi", null, null);
         assertThat(r).containsEntry("success", true);
+    }
+    @Test
+    @DisplayName("[MKT-R22.3] sign-in: the token goes into an HttpOnly cookie and never reaches the page")
+    void signInCookie() {
+        server.expect(requestTo("http://gw/api/marketplace/public/mkt/account/login")).andRespond(withSuccess(
+                "{\"success\":true,\"data\":{\"token\":\"T0K3N\",\"customerId\":5,\"name\":\"Ali\",\"phone\":\"03111234567\"}}",
+                MediaType.APPLICATION_JSON));
+        org.springframework.mock.web.MockHttpServletResponse res = new org.springframework.mock.web.MockHttpServletResponse();
+        @SuppressWarnings("unchecked") Map<String, Object> r = (Map<String, Object>) controller.login(Map.of("phone", "x", "password", "y"),
+                new org.springframework.mock.web.MockHttpServletRequest(), res);
+        assertThat(String.valueOf(r)).doesNotContain("T0K3N");
+        String cookie = res.getHeader("Set-Cookie");
+        assertThat(cookie).contains("MKT_SESSION=T0K3N").contains("HttpOnly").contains("SameSite=Lax").contains("Path=/marketplace");
+    }
+
+    @Test
+    @DisplayName("[MKT-R1.1] a signed-in checkout goes to the account route with the session header")
+    void signedInCheckout() {
+        server.expect(requestTo("http://gw/api/marketplace/public/mkt/account/checkout"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("X-Mkt-Session", "S1"))
+                .andRespond(withSuccess("{\"success\":true,\"data\":{\"orderNo\":\"MKT-000002\"}}", MediaType.APPLICATION_JSON));
+        org.springframework.mock.web.MockHttpServletRequest req = new org.springframework.mock.web.MockHttpServletRequest();
+        req.setCookies(new jakarta.servlet.http.Cookie("MKT_SESSION", "S1"));
+        @SuppressWarnings("unchecked") Map<String, Object> r = (Map<String, Object>) controller.checkout(Map.of("offerId", 1), req);
+        assertThat(r).containsEntry("success", true);
+    }
+
+    @Test
+    @DisplayName("[MKT-R22.3] sign-out clears the cookie in the browser")
+    void signOutClears() {
+        server.expect(requestTo("http://gw/api/marketplace/public/mkt/account/logout"))
+                .andRespond(withSuccess("{\"success\":true}", MediaType.APPLICATION_JSON));
+        org.springframework.mock.web.MockHttpServletResponse res = new org.springframework.mock.web.MockHttpServletResponse();
+        controller.logout(new org.springframework.mock.web.MockHttpServletRequest(), res);
+        assertThat(res.getHeader("Set-Cookie")).contains("MKT_SESSION=").contains("Max-Age=0");
+    }
+
+    @Test
+    @DisplayName("[MKT-R8.2] a support case is relayed with the session header; a hostile case number is encoded, never a template")
+    void caseRelayed() {
+        server.expect(requestTo("http://gw/api/marketplace/public/mkt/account/cases/SC-1%2F%7Bx%7D"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.header("X-Mkt-Session", "S3SS"))
+                .andRespond(withSuccess("{\"success\":true,\"data\":{}}", MediaType.APPLICATION_JSON));
+        org.springframework.mock.web.MockHttpServletRequest req = new org.springframework.mock.web.MockHttpServletRequest();
+        req.setCookies(new jakarta.servlet.http.Cookie("MKT_SESSION", "S3SS"));
+        @SuppressWarnings("unchecked") Map<String, Object> r = (Map<String, Object>) controller.myCase("SC-1/{x}", req);
+        assertThat(r).containsEntry("success", true);
+        server.verify();
     }
 }

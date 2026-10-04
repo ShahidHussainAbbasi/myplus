@@ -56,6 +56,10 @@
 		// MKT-1e: shown to any seller with an account — a suspended seller must still see and reject open orders
 		$('#mktIncomingBox').toggle(!!a);
 		if (a) mktIncomingLoad();
+		$('#mktTasksBox').toggle(!!a);
+		if (a) mktTasksLoad();
+		// MKT-1g: the statement — loaded when asked for, it is a page of money, not a glance
+		$('#mktStatementBox').toggle(!!a);
 	}
 
 	// ── MKT-1b: products to publish ───────────────────────────────────────────────────────────────────
@@ -416,6 +420,72 @@
 			.always(function () { $b.prop('disabled', false).text(label); });
 	}
 
+	// ── MKT-1f: tasks from MaxTheService ───────────────────────────────────────────────────────────────
+
+	var OUTCOMES = [['RESTOCK', 'ui.js.mktOutRestock', 'Restock: back on the shelf'],
+		['QUARANTINE', 'ui.js.mktOutQuarantine', 'Quarantine: faulty, not sellable'],
+		['WRITE_OFF', 'ui.js.mktOutWriteOff', 'Write off: unusable']];
+
+	function mktTasksLoad() {
+		return $.ajax({ url: ctx() + 'mkt/sellerTasks', dataType: 'json' }).done(function (res) {
+			var $box = $('#mktTasks').empty();
+			if (!ok(res)) { $box.append($('<p style="color:#b3261e"></p>').text(message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
+			var tasks = data(res) || [];
+			if (!tasks.length) { $box.append($('<p class="text-muted"></p>').text(tr('ui.js.mktNoTasks', 'Nothing from MaxTheService right now.'))); return; }
+			tasks.forEach(function (t) { $box.append(taskPanel(t)); });
+		});
+	}
+
+	function taskPanel(t) {
+		var $p = $('<div class="panel panel-default mkt-task" style="padding:10px 12px;margin-bottom:10px"></div>').attr('data-case-no', t.caseNo);
+		$('<div style="font-weight:700"></div>').text(t.orderNo + ' · ' + t.caseNo).appendTo($p);
+		$('<div style="font-size:13px"></div>').text([t.customerName, t.customerPhone, t.address, t.city].filter(Boolean).join(' · ')).appendTo($p);
+		var $ul = $('<ul style="list-style:none;padding:0;margin:8px 0;font-size:13px"></ul>').appendTo($p);
+		(t.messages || []).forEach(function (m) {
+			$('<li style="margin-bottom:4px"></li>').append($('<b></b>').text(m.from + ': ')).append(document.createTextNode(m.body)).appendTo($ul);
+		});
+		var $msg = $('<div role="status" style="font-size:12px;min-height:1.2em"></div>');
+		(t.returns || []).filter(function (r) { return r.status === 'APPROVED'; }).forEach(function (r) {
+			var $r = $('<div class="form-inline mkt-return" style="margin:6px 0"></div>').attr('data-return-no', r.returnNo);
+			$('<span style="margin-right:8px"></span>').text(r.returnNo + ' · ' + r.quantity + ' × ' + (r.productName || '')).appendTo($r);
+			var $out = $('<select class="form-control input-sm mkt-outcome"></select>').attr('aria-label', tr('ui.js.mktOutcome', 'What happens to the item')).appendTo($r);
+			OUTCOMES.forEach(function (o) { $('<option></option>').val(o[0]).text(tr(o[1], o[2])).appendTo($out); });
+			var $cash = null;
+			if (t.paymentMode !== 'CARD') {
+				var $l = $('<label style="margin:0 8px;font-weight:400"></label>');
+				$cash = $('<input type="checkbox" class="mkt-cash">').appendTo($l);
+				$l.append(document.createTextNode(' ' + tr('ui.js.mktCashBack', 'Cash handed back') + ' (' + money(r.refundAmount) + ')')).appendTo($r);
+			}
+			$('<button type="button" class="btn btn-xs btn-success mkt-received"></button>').text(tr('ui.js.mktReceived', 'Item received'))
+				.on('click', function () {
+					var $b = $(this);
+					taskPost('mkt/returnReceived', { returnNo: r.returnNo, outcome: $out.val(), cashHandedBack: $cash ? $cash.is(':checked') : null }, $b, $msg);
+				}).appendTo($r);
+			$p.append($r);
+		});
+		var $ta = $('<textarea class="form-control input-sm mkt-task-reply" rows="2" maxlength="2000"></textarea>')
+			.attr('aria-label', tr('ui.js.mktTaskAnswer', 'Your answer to MaxTheService')).appendTo($p);
+		$('<button type="button" class="btn btn-xs btn-primary mkt-task-send" style="margin-top:6px"></button>').text(tr('ui.js.mktCaseSend', 'Send'))
+			.on('click', function () { taskPost('mkt/sellerTaskReply', { caseNo: t.caseNo, body: $ta.val() }, $(this), $msg); }).appendTo($p);
+		$p.append($msg);
+		return $p;
+	}
+
+	/** POST, then show the server's sentence and redraw the tasks (a finished return leaves the list). */
+	function taskPost(path, body, $b, $msg) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		$msg.text('').css('color', '');
+		$.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+				var said = message(res, '');
+				mktTasksLoad().done(function () { $('#mktTasks').prepend($('<p role="status" style="color:#1b5e20;font-size:13px"></p>').text(said)); });
+			})
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
 	function tick() {
 		clearInterval(tickTimer);
 		tickTimer = setInterval(function () {
@@ -429,6 +499,79 @@
 		}, 1000);
 	}
 
+	// ── MKT-1g: settlement statement (read-only) ─────────────────────────────────────────────────────
+
+	var STATUS_TEXT = {
+		NOT_ELIGIBLE: ['ui.js.mktSetNotDelivered', 'Not delivered yet'],
+		PENDING_RETURN_WINDOW: ['ui.js.mktSetWindow', 'Return days running'],
+		ON_HOLD: ['ui.js.mktSetHold', 'On hold: a return is open'],
+		ELIGIBLE: ['ui.js.mktSetEligible', 'Payable'],
+		APPROVED: ['ui.js.mktSetApproved', 'Payout approved'],
+		PROCESSING: ['ui.js.mktSetProcessing', 'Being paid'],
+		PAID: ['ui.js.mktSetPaid', 'Paid'],
+		REVERSED: ['ui.js.mktSetReversed', 'Reversed'],
+		DISPUTED: ['ui.js.mktSetDisputed', 'Disputed']
+	};
+
+	function amountCell(cls, v) { return $('<td class="text-right"></td>').addClass(cls).text(money(v)); }
+
+	function statementRow(s) {
+		var st = STATUS_TEXT[s.status] || [null, s.status];
+		var other = [s.delivery, s.fees, s.tax, s.reserve, s.adjustment].reduce(function (a, b) { return a + Number(b || 0); }, 0);
+		var $tr = $('<tr class="mkt-line"></tr>').attr('data-line-id', s.id).attr('data-status', s.status);
+		$('<td></td>').append($('<b></b>').text(s.orderNo || ''))
+			.append($('<div class="text-muted" style="font-size:12px"></div>').text((s.quantity || 1) + ' × ' + (s.productName || '')
+				+ (s.collectedBy === 'SELLER' ? ' · ' + tr('ui.js.mktSetCod', 'cash on delivery') : '')))
+			.appendTo($tr);
+		$('<td></td>').text(st[0] ? tr(st[0], st[1]) : st[1])
+			.append(s.payoutNo ? $('<div class="text-muted" style="font-size:12px"></div>').text(s.payoutNo) : null).appendTo($tr);
+		$('<td class="mkt-eligible-on"></td>').text(s.eligibleOn || '—').appendTo($tr);
+		$tr.append(amountCell('mkt-customer-amount', s.customerAmount)).append(amountCell('mkt-commission', s.commission));
+		// the five smaller deductions share one column; each keeps its own value for whoever adds the line up
+		var $d = $('<td class="text-right"></td>').text(money(other)).appendTo($tr);
+		[['mkt-delivery', s.delivery], ['mkt-fees', s.fees], ['mkt-tax', s.tax], ['mkt-reserve', s.reserve], ['mkt-adjustment', s.adjustment]]
+			.forEach(function (p) { $('<span hidden></span>').addClass(p[0]).text(Number(p[1] || 0).toFixed(2)).appendTo($d); });
+		$tr.append(amountCell('mkt-payable', s.payable));
+		return $tr;
+	}
+
+	function emptyRow(cols, text, muted) {
+		return $('<tr></tr>').append($('<td></td>').attr('colspan', cols).toggleClass('text-muted', !!muted).text(text));
+	}
+
+	function mktStatementLoad() {
+		$('#mktStatementBody').show();
+		var $tb = $('#mktStatementTable tbody').empty();
+		var a = $.ajax({ url: ctx() + 'mkt/statement?size=50', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $tb.append(emptyRow(7, message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
+			var rows = (data(res) || {}).content || [];
+			if (!rows.length) $tb.append(emptyRow(7, tr('ui.js.mktSetEmpty', 'No marketplace sales yet.'), true));
+			rows.forEach(function (s) { $tb.append(statementRow(s)); });
+		}).fail(function (xhr) { $tb.append(emptyRow(7, failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.')))); });
+		var b = $.ajax({ url: ctx() + 'mkt/settlementAccount', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) return;
+			var v = data(res) || {}, bal = Number(v.balance || 0);
+			$('#mktBalance').text(bal >= 0
+				? tr('ui.js.mktBalanceOwed', 'MaxTheService owes you Rs {0}.').replace('{0}', money(bal))
+				: tr('ui.js.mktBalanceOwing', 'You owe MaxTheService Rs {0} in commission.').replace('{0}', money(-bal)))
+				.append(v.openPayout ? $('<span class="text-muted" style="font-weight:400"></span>')
+					.text(' ' + tr('ui.js.mktPayoutOpen', 'Payout {0}: {1}.').replace('{0}', v.openPayout.payoutNo)
+						.replace('{1}', v.openPayout.status)) : null);
+			var $lt = $('#mktLedgerTable tbody').empty();
+			(v.entries || []).forEach(function (e) {
+				$('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)
+					.append($('<td></td>').text((e.effectiveAt || '').substring(0, 10)))
+					.append($('<td></td>').text(e.entryType).append(e.memo ? $('<div class="text-muted" style="font-size:12px"></div>').text(e.memo) : null))
+					.append($('<td></td>').text(e.ref || ''))
+					.append($('<td class="text-right"></td>').text(Number(e.credit) ? money(e.credit) : ''))
+					.append($('<td class="text-right"></td>').text(Number(e.debit) ? money(e.debit) : ''))
+					.appendTo($lt);
+			});
+		});
+		return $.when(a, b);
+	}
+
+	$(document).on('click', '#mktStatementTab', function () { mktStatementLoad(); });
 	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
 	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
 	// elements first, so onclick="mktOfferSave(...)" on <button id="mktOfferSave"> called the BUTTON, not this
@@ -454,4 +597,6 @@
 	global.mktOfferSave = mktOfferSave;
 	global.mktOffersLoad = mktOffersLoad;
 	global.mktIncomingLoad = mktIncomingLoad;
+	global.mktTasksLoad = mktTasksLoad;
+	global.mktStatementLoad = mktStatementLoad;
 })(window);

@@ -105,6 +105,29 @@
         .terms{font-size:14px;color:var(--muted);display:grid;gap:2px}
         [hidden]{display:none!important}
         @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+        /* MKT-1e2 — account */
+        .acct{font:600 13px/1 'Satoshi',sans-serif;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+              border-radius:8px;padding:8px 12px;min-height:36px;cursor:pointer;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .acct:focus-visible{outline:none;box-shadow:var(--focus)}
+        .linkish{background:none;border:0;color:var(--brand);font:600 14px 'Satoshi',sans-serif;padding:10px 0;cursor:pointer;min-height:44px}
+        fieldset.pay{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:6px 0;display:grid;gap:6px}
+        fieldset.pay legend{font-weight:700;padding:0 4px}
+        .opt{display:flex;gap:8px;align-items:center;min-height:36px}
+        .acct-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+        ul.orders{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:10px}
+        ul.orders li{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:grid;gap:4px}
+        ul.orders .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+        ul.orders .st{font-weight:700} ul.orders .st.ok{color:var(--good)} ul.orders .st.bad{color:var(--bad)} ul.orders .st.wait{color:var(--warn)}
+        /* MKT-1f: help with a delivered order — one conversation with MaxTheService */
+        ul.orders .acts{display:flex;gap:8px;flex-wrap:wrap}
+        ul.orders .mkt-help{justify-self:start;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer;font:600 14px 'Satoshi',sans-serif}
+        .help-form{display:grid;gap:8px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+        .help-form textarea{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:80px;width:100%;resize:vertical}
+        .thread{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+        .thread li{border:0!important;padding:8px 10px!important;background:var(--bg)!important;border-radius:8px}
+        .thread li.me{background:var(--surface)!important;border:1px solid var(--line)!important}
+        .thread .who{font-size:13px;font-weight:700;color:var(--muted)}
+        ul.orders .mkt-cancel{justify-self:start;border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer;font:600 14px 'Satoshi',sans-serif}
     </style>
 </head>
 <body th:attr="data-ctx=@{/}">
@@ -112,6 +135,7 @@
 <header class="top">
     <div class="bar">
         <a class="brand" th:href="@{/marketplace}" th:text="#{ui.mktPageTitle}">MaxTheService Marketplace</a>
+        <button type="button" id="mktAccountBtn" class="acct" th:text="#{ui.mktAccSignIn}">Sign in</button>
         <nav class="langs" th:if="${supportedLanguages}" th:attr="aria-label=#{ui.mktLanguage}" aria-label="Language">
             <a th:each="l : ${supportedLanguages}" th:href="'?lang=' + ${l.tag}" th:lang="${l.tag}" th:text="${l.endonym}"
                th:attr="aria-current=${currentLang != null and l.tag == currentLang.tag}, data-lang=${l.tag}"
@@ -186,6 +210,15 @@
                 <input id="mktCoAddress" name="street-address" autocomplete="street-address" maxlength="300" required></label>
             <label class="f"><span th:text="#{ui.mktCityLabel}">Deliver to (city)</span>
                 <input id="mktCoCity" name="city" autocomplete="address-level2" maxlength="60" readonly></label>
+            <!-- MKT-1e2: a signed-in shopper may pay online (sandbox until a real provider is configured) -->
+            <fieldset class="pay" id="mktPayChoice" hidden>
+                <legend th:text="#{ui.mktPayHow}">How do you want to pay?</legend>
+                <label class="opt"><input type="radio" name="mktPay" id="mktPayCod" value="COD" checked> <span th:text="#{ui.mktPayCod}">Cash on delivery</span></label>
+                <label class="opt"><input type="radio" name="mktPay" id="mktPayCard" value="CARD"> <span th:text="#{ui.mktPayCard}">Pay online now</span></label>
+                <label class="f" id="mktCardRow" hidden><span th:text="#{ui.mktCardLabel}">Card (test mode)</span>
+                    <input id="mktCardToken" autocomplete="off" maxlength="40"></label>
+                <p class="terms" id="mktCardNote" hidden th:text="#{ui.mktCardNote}">Test payments only: no real card is charged. Type fail to see a declined card.</p>
+            </fieldset>
             <p class="cod" th:text="#{ui.mktCoCod}">Cash on delivery: you pay the seller when the order arrives. Nothing is charged now.</p>
             <div class="sum total"><span th:text="#{ui.mktCoTotal}">Total</span><span id="mktCoTotal"></span></div>
             <p id="mktCoError" class="err" role="alert"></p>
@@ -210,6 +243,43 @@
             <p id="mktOrderError" class="err" role="alert"></p>
         </div>
     </section>
+
+    <!-- ── MKT-1e2: the customer's account (phone + password) and My orders ──────────────────────────── -->
+    <section id="mktAccountView" hidden>
+        <a href="#" id="mktAccBack" class="back"><span aria-hidden="true">←</span> <span th:text="#{ui.mktBackShop}">Back to the marketplace</span></a>
+        <div class="panel" id="mktAccSignIn">
+            <h2 id="mktAccTitle" tabindex="-1" th:text="#{ui.mktAccTitle}">Your MaxTheService account</h2>
+            <form id="mktAccForm" novalidate>
+                <label class="f"><span th:text="#{ui.mktAccPhone}">Phone number</span>
+                    <input id="mktAccPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="32" required></label>
+                <label class="f" id="mktAccNameRow" hidden><span th:text="#{ui.mktCoName}">Your name</span>
+                    <input id="mktAccName" autocomplete="name" maxlength="120"></label>
+                <label class="f"><span th:text="#{ui.mktAccPassword}">Password</span>
+                    <input id="mktAccPassword" type="password" autocomplete="current-password" maxlength="128" required></label>
+                <p id="mktAccHint" class="terms" hidden th:text="#{ui.mktAccPwHint}">At least 8 characters. Not your phone number.</p>
+                <p id="mktAccMsg" class="err" role="alert"></p>
+                <button type="submit" class="go" id="mktAccSubmit" th:text="#{ui.mktAccSignIn}">Sign in</button>
+                <button type="button" class="linkish" id="mktAccCreate" th:text="#{ui.mktAccCreate}">New here? Create an account</button>
+                <p class="terms" th:text="#{ui.mktAccForgot}">Forgot your password? Contact MaxTheService support with an order number and the phone you ordered with.</p>
+            </form>
+        </div>
+        <div id="mktAccOrdersBox" hidden>
+            <div class="acct-head"><h2 id="mktMyOrdersTitle" tabindex="-1" th:text="#{ui.mktMyOrders}">My orders</h2>
+                <button type="button" class="linkish" id="mktAccLogout" th:text="#{ui.mktAccSignOut}">Sign out</button></div>
+            <ul id="mktMyOrders" class="orders" aria-live="polite"></ul>
+            <form id="mktClaimForm" class="panel" novalidate>
+                <h3 th:text="#{ui.mktClaimTitle}">Add an order you placed before</h3>
+                <div class="grid2">
+                    <label class="f"><span th:text="#{ui.mktCoOrderNo}">Order number</span>
+                        <input id="mktClaimNo" maxlength="32" autocomplete="off"></label>
+                    <label class="f"><span th:text="#{ui.mktTrackPhone}">The phone number you ordered with</span>
+                        <input id="mktClaimPhone" type="tel" inputmode="tel" autocomplete="tel" maxlength="32"></label>
+                </div>
+                <p id="mktClaimMsg" class="err" role="alert"></p>
+                <button type="submit" class="go" id="mktClaimBtn" th:text="#{ui.mktClaimBtn}">Add to my orders</button>
+            </form>
+        </div>
+    </section>
 </main>
 
 <div class="buybar" id="mktBuyBar" hidden>
@@ -223,6 +293,8 @@
 /*]]>*/</script>
 <script th:src="@{/js/common/i18n.js}" src="/js/common/i18n.js"></script>
 <script th:src="@{/js/common/api-response.js}" src="/js/common/api-response.js"></script>
+<script th:src="@{/js/common/confirm-dialog.js}" src="/js/common/confirm-dialog.js"></script>
 <script th:src="@{/js/marketplace/marketplace-public.js}" src="/js/marketplace/marketplace-public.js"></script>
+<script th:src="@{/js/marketplace/marketplace-account.js}" src="/js/marketplace/marketplace-account.js"></script>
 </body>
 </html>

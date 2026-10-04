@@ -71,11 +71,14 @@ public class SellerOrderService {
     private final MarketplaceOrderLineRepository lines;
     private final MarketplaceSellerService sellers;
     private final MarketplaceCheckoutService checkout;
+    private final MarketplacePaymentService payments;
     private final OrderService storeOrders;
     private final CatalogClient catalog;
     private final TradeClient trade;
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
+    /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
+    private final MarketplaceAuditService audit;
 
     @Transactional(readOnly = true)
     public PageResponse<MarketplaceOrderDTOs.SellerOrderView> mine(String status, Integer page, Integer size) {
@@ -127,7 +130,8 @@ public class SellerOrderService {
                     "MKT-SO-" + so.getId(), order.getOrderNo(), order.getCustomerName(), order.getCustomerPhone(),
                     order.getDeliveryAddress() + ", " + order.getCity(),
                     ls.stream().map(l -> new OrderService.MarketplaceSaleLine(l.getSourceProductId(), l.getProductName(),
-                            l.getQuantity(), l.getUnitPrice(), clean(serials.get(l.getId())))).toList()));
+                            l.getQuantity(), l.getUnitPrice(), clean(serials.get(l.getId())))).toList(),
+                    MarketplaceCheckoutService.CARD.equals(order.getPaymentMode()) ? "MARKETPLACE" : "COD"));
         } catch (RuntimeException saleFailure) {
             String why = DownstreamMessage.of(saleFailure);
             String rehold = checkout.hold(so, ls.get(0).getSourceProductId(), ls.get(0).getQuantity());
@@ -159,7 +163,11 @@ public class SellerOrderService {
             parent.setStatus(Order.CONFIRMED.name());
             orders.save(parent);
         });
-        return viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        if (SellerOrder.ACCEPTED.name().equals(done.acceptanceStatus()))                // a refused sale stays OFFERED: no row
+            audit.event("MKT_ORDER_ACCEPTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
+                    MarketplaceAuditService.Actor.SELLER, SellerOrder.OFFERED.name(), SellerOrder.ACCEPTED.name(), done.total(), done.invoiceNo());
+        return done;
     }
 
     public MarketplaceOrderDTOs.SellerOrderView reject(Long id, MarketplaceOrderDTOs.RejectRequest req) {
@@ -185,7 +193,12 @@ public class SellerOrderService {
             orders.save(parent);
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
-        return viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        payments.refundIfCancelled(so.getMktOrderId());               // a card order's money goes back, once
+        MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
+        if (SellerOrder.REJECTED.name().equals(done.acceptanceStatus()))
+            audit.event("MKT_ORDER_REJECTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
+                    MarketplaceAuditService.Actor.SELLER, SellerOrder.OFFERED.name(), SellerOrder.REJECTED.name(), done.total(), done.rejectReason());
+        return done;
     }
 
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────
@@ -261,7 +274,7 @@ public class SellerOrderService {
                 so.getInvoiceNo(), so.getStoreOrderNo(), so.getRejectReason(), so.getCreatedAt(),
                 ls.stream().map(l -> new MarketplaceOrderDTOs.SellerLineView(l.getId(), MarketplaceCheckoutService.lineView(l),
                         l.getSourceProductId(), l.getCommissionPolicyId(), l.getCommissionBasis(), l.getCommissionRate(),
-                        l.getCommissionFixed(), l.getSettlementStatus())).toList());
+                        l.getCommissionFixed(), l.getSettlementStatus())).toList(), so.getStoreOrderId(), o == null ? null : o.getPaymentMode(), so.getDeliveredAt());
     }
 
     private TransactionTemplate tx() {
