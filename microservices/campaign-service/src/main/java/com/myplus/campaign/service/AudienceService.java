@@ -25,7 +25,7 @@ public class AudienceService {
 
     private final AudienceRepository audienceRepository;
     private final AudienceMemberRepository memberRepository;
-    private final ModelMapper modelMapper = new ModelMapper();
+    private final ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean (constructor-injected), not a private copy
 
     public AudienceDTO createAudience(AudienceDTO dto) {
         Audience a = modelMapper.map(dto, Audience.class);

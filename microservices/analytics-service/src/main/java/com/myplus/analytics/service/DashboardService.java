@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final DashboardWidgetRepository widgetRepo;
-    private final ModelMapper modelMapper = new ModelMapper();
+    private final ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean (constructor-injected), not a private copy
 
     @Transactional(readOnly = true)
     public List<DashboardWidgetDTO> getUserWidgets(Long userId) {

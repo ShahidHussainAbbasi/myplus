@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.protocol.HTTP;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -248,10 +247,9 @@ public class SellController {
 		return lh;
 	}
 
-	ModelMapper modelMapper = new ModelMapper();
-	{
-		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-	}
+	@org.springframework.beans.factory.annotation.Autowired
+	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.SALE_DISPLAY)
+	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
 
 	private static java.math.BigDecimal nzbd(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
@@ -590,8 +588,6 @@ public class SellController {
 			 * Hoisting is safe because the mapper is a field on this controller and the converters are
 			 * idempotent — registering the same converter twice was always a no-op in effect, only in cost.
 			 */
-			modelMapper.addConverter(appUtil.localDateTimeToString);
-			modelMapper.addConverter(appUtil.localDateToString);
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
@@ -717,8 +713,6 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
@@ -893,8 +887,6 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
 				SellDTO sd = modelMapper.map(s, SellDTO.class);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded

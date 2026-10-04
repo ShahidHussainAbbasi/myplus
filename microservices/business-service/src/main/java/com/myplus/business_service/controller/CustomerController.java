@@ -116,7 +116,9 @@ public class CustomerController {
 	@Autowired
 	RequestUtil requestUtil;
 
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.DISPLAY)
+	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -189,8 +191,6 @@ public class CustomerController {
 
 			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
 			// so calling it inside the loop made every row rebuild what the row before it had just built.
-			modelMapper.addConverter(appUtil.localDateToString);
-			modelMapper.addConverter(appUtil.localDateTimeToString);
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
@@ -346,8 +346,6 @@ public class CustomerController {
 				 * in shape to the ones it loaded. Same pattern as PERF-9 (stock) and the existing
 				 * reconcilePurchase.
 				 */
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
 				CustomerDTO saved = modelMapper.map(obj, CustomerDTO.class);
 				// DR-2: the patched row must carry the badge too, or it vanishes after every edit. The bridge above ran
 				// inline (this controller holds no transaction), so the partner it stamped is read back first.

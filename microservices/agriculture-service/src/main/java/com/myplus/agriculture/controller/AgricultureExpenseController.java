@@ -45,7 +45,8 @@ public class AgricultureExpenseController {
     @Autowired
     com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org entry policy
 
-    private final ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    private ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean, not a private copy
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
     /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */

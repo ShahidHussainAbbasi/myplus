@@ -149,7 +149,9 @@ public class PurchaseService implements IPurchaseService{
 
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(PurchaseService.class);
 
-    ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.PURCHASE_INPUT)
+    ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
     
 	public List<Purchase> findAll() {
 		// TODO Auto-generated method stub
@@ -402,8 +404,6 @@ public class PurchaseService implements IPurchaseService{
 	}
 
 	private Purchase doAddPurchase(PurchaseDTO dto, AuthenticatedUser user, Long org, String idemKey) throws Exception {
-		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
-		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setUpdated(obj.getUpdated()!=null?obj.getUpdated():LocalDateTime.now());
 		obj.setDated(LocalDateTime.now());
@@ -605,8 +605,6 @@ public class PurchaseService implements IPurchaseService{
 
 		// Update the record (keep id + original audit/tenant; product is readonly on edit).
 		dto.setUserId(user.getUserId());
-		modelMapper.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
-		modelMapper.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);
 		Purchase obj = modelMapper.map(dto, Purchase.class);
 		obj.setPurchaseId(existing.getPurchaseId());
 		obj.setDated(existing.getDated() != null ? existing.getDated() : LocalDateTime.now());

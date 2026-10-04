@@ -45,7 +45,8 @@ public class ItemTypeController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	ModelMapper modelMapper;   // MM-1: the plain profile (config/MapperProfiles), configured once
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */

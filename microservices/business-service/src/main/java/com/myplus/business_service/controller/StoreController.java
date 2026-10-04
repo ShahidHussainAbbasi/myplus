@@ -35,7 +35,8 @@ public class StoreController {
     @Autowired
     private RequestUtil requestUtil;
 
-    private final ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    private ModelMapper modelMapper;   // MM-1: the plain profile (config/MapperProfiles)
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getUserId(); }
     private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getOrganizationId(); }

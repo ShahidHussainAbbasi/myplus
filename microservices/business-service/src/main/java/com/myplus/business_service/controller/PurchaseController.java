@@ -94,7 +94,9 @@ public class PurchaseController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.DISPLAY)
+	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -153,8 +155,6 @@ public class PurchaseController {
 
 			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
 			// so calling it inside the loop made every row rebuild what the row before it had just built.
-			modelMapper.addConverter(appUtil.localDateTimeToString);
-			modelMapper.addConverter(appUtil.localDateToString);
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
