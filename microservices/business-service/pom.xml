@@ -37,7 +37,8 @@
     <dependency><groupId>org.springframework.cloud</groupId><artifactId>spring-cloud-starter-bootstrap</artifactId></dependency>
     <dependency><groupId>com.mysql</groupId><artifactId>mysql-connector-j</artifactId><scope>runtime</scope></dependency>
     <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
-    <dependency><groupId>org.modelmapper</groupId><artifactId>modelmapper</artifactId></dependency>
+    <!-- MS-6: production maps with MapStruct only; ModelMapper remains for the frozen test oracle (config/MapperProfiles) -->
+    <dependency><groupId>org.modelmapper</groupId><artifactId>modelmapper</artifactId><scope>test</scope></dependency>
     <!-- MS-1: compile-time mappers replace ModelMapper pair by pair (docs/slices/ms-1-mapstruct-migration.md) -->
     <dependency><groupId>org.mapstruct</groupId><artifactId>mapstruct</artifactId><version>1.6.3</version></dependency>
     <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId></dependency>

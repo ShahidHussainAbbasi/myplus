@@ -255,7 +255,7 @@ public class SagaSaleWriter {
         // has just run; Customer.dueAmount is the CURRENT balance, so reading it at PRINT time would put
         // today's figure on a two-year-old reprint.
         //
-        // The explicit re-save matters: `ch` is built by ObjectMapperUtils.map (a DETACHED instance) and the
+        // The explicit re-save matters: `ch` is built by SaleHeaderMapper (a NEW, DETACHED instance) and the
         // save above returns a managed copy the caller ignores. Setting a field on `ch` after that save is
         // therefore invisible to JPA -- exactly why the first version of this silently stored nothing.
         if (ch.getCustomer() != null) {

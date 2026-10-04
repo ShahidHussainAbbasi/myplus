@@ -50,7 +50,6 @@ import com.myplus.business_service.dto.ReturnDocumentDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.util.AppUtil;
 import com.myplus.business_service.util.GenericResponse;
-import com.myplus.business_service.util.ObjectMapperUtils;
 import com.myplus.business_service.util.RequestUtil;
 
 @RestController
@@ -87,8 +86,6 @@ public class SellController {
 	RequestUtil requestUtil;
 	@Autowired private com.myplus.common.docnum.DocumentNumberService documentNumberService;
 	
-	@Autowired
-	ObjectMapperUtils objectMapperUtils;
 
     @Autowired
     private AppUtil appUtil;  

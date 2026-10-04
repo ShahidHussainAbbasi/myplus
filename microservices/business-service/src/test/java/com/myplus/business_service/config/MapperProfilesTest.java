@@ -19,7 +19,6 @@ import org.modelmapper.convention.MatchingStrategies;
 
 import com.myplus.business_service.dto.*;
 import com.myplus.business_service.entity.*;
-import com.myplus.business_service.util.AppUtil;
 
 /**
  * MM-1 — characterization: every profile maps EXACTLY as the old per-class mapper did once warm.
@@ -31,7 +30,7 @@ import com.myplus.business_service.util.AppUtil;
  */
 class MapperProfilesTest {
 
-    private final AppUtil appUtil = new AppUtil();
+    private final LegacyConverters appUtil = new LegacyConverters();
     private final MapperProfiles profiles = new MapperProfiles();
 
     // ── the old mappers, rebuilt as the old code left them WARM ─────────────────────────────────────────────────────

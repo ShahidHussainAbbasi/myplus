@@ -117,7 +117,7 @@ class MapStructOracleTest {
     @Test
     @DisplayName("MS-3: Customer both ways and Purchase → DTO equal the display profile (warm Customer / Purchase screens)")
     void displayPairs() {
-        com.myplus.business_service.util.AppUtil appUtil = new com.myplus.business_service.util.AppUtil();
+        LegacyConverters appUtil = new LegacyConverters();
         ModelMapper d = profiles.displayMapper(appUtil);
         CustomerMapperImpl c = new CustomerMapperImpl();
         PurchaseMapperImpl pu = new PurchaseMapperImpl();
@@ -131,7 +131,7 @@ class MapStructOracleTest {
     @Test
     @DisplayName("MS-4: the sale screens — Sell (with its header and buyer), CustomerHistory, Customer — equal the STRICT profile")
     void saleScreens() {
-        ModelMapper strict = profiles.saleDisplayMapper(new com.myplus.business_service.util.AppUtil());
+        ModelMapper strict = profiles.saleDisplayMapper(new LegacyConverters());
         SaleScreenMapperImpl m = new SaleScreenMapperImpl();
         org.assertj.core.api.SoftAssertions soft = new org.assertj.core.api.SoftAssertions();
         soft.assertThatCode(() -> sameAsOracle("Sell→DTO", strict, () -> fill(new Sell()), SellDTO.class, (Sell x) -> m.toDto(x))).doesNotThrowAnyException();
@@ -143,7 +143,7 @@ class MapStructOracleTest {
     @Test
     @DisplayName("MS-5: a purchase being saved — PurchaseDTO → Purchase equals the purchaseInput profile (typed and blank dates)")
     void purchaseInput() {
-        ModelMapper in = profiles.purchaseInputMapper(new com.myplus.business_service.util.AppUtil());
+        ModelMapper in = profiles.purchaseInputMapper(new LegacyConverters());
         PurchaseInputMapperImpl m = new PurchaseInputMapperImpl();
         // The fixture really carries the posted stock.* values, and the oracle really leaves the entity's b* fields
         // empty — PurchaseService copies them from dto.getStock() itself — so "ignored" is the oracle's own answer,
@@ -180,7 +180,7 @@ class MapStructOracleTest {
     @Test
     @DisplayName("⭐ MS-F2: a record with no time shows BLANK — the old mapper invented the current time")
     void nullDatesAreBlank() {
-        com.myplus.business_service.util.AppUtil appUtil = new com.myplus.business_service.util.AppUtil();
+        LegacyConverters appUtil = new LegacyConverters();
         PurchaseDTO oldWay = profiles.displayMapper(appUtil).map(new Purchase(), PurchaseDTO.class);
         assertThat(oldWay.getUpdated()).as("the old mapper: a purchase with no updated time showed NOW").isNotNull();
         PurchaseDTO p = new PurchaseMapperImpl().toDto(new Purchase());
@@ -196,5 +196,14 @@ class MapStructOracleTest {
         Purchase withTime = new Purchase();
         withTime.setUpdated(java.time.LocalDateTime.of(2026, 10, 4, 9, 5, 7));
         assertThat(new PurchaseMapperImpl().toDto(withTime).getUpdated()).isEqualTo("04-10-2026 09:05:07");
+    }
+
+    @Test
+    @DisplayName("MS-6: the sale header from the posted customer — equals ObjectMapperUtils' STRICT ModelMapper")
+    void saleHeader() {
+        ModelMapper strictPlain = new ModelMapper();
+        strictPlain.getConfiguration().setMatchingStrategy(org.modelmapper.convention.MatchingStrategies.STRICT);
+        sameAsOracle("CustomerDTO→CustomerHistory", strictPlain, () -> fill(new CustomerDTO()), CustomerHistory.class,
+                new SaleHeaderMapperImpl()::fromCustomer);
     }
 }
