@@ -65,8 +65,17 @@ overwrites it by payables source (the finance figure, or 0 on BUSINESS). **`getA
 stored advance even on BUSINESS, against the DTO's own "0 on BUSINESS" rule. Its only reader is `vender.cy.js`.
 **Decision needed:** apply the same payables-source rule there, or leave it.
 
-### MS-F2: null dates display as "now" (behaviour kept, decision needed)
-ModelMapper invoked AppUtil's converters for null sources, and those answer today / now. So a Customer or Purchase with
-no `dated`/`updated` shows the **current time**, which changes on every refresh. The empty-source oracle run found it.
-`DisplayDates` reproduces it explicitly. **Decision needed:** show blank instead (truthful), after checking that each
-screen renders a blank date.
+### MS-F2: null dates displayed as "now" — DECIDED 2026-10-04: blank
+ModelMapper invoked AppUtil's converters for null sources, and those answer today / now. The empty-source oracle run found
+it. **Decision (user): blank.** `DisplayDates` now returns null for a null date. The customer and purchase grids render a
+missing date as an empty cell, never "null". **Impact today: none visible.** In the 4 Oct data, customers and sales have
+no null `dated`/`updated`. The 61 purchases with a null `updated` are all OPENING bills, which `getUserPurchase` skips
+(no product). So this is preventive, proven by `MapStructOracleTest#nullDatesAreBlank` (old → "now", new → blank).
+The Cypress guard covers rendering only. *(An earlier draft of this note claimed those 61 rows showed "now" on the
+purchase grid. Wrong: they never reach it.)*
+
+### MS-F1 — DECIDED 2026-10-04: same rule
+`getAllVender` and `getUserVender` now build each row through one `vendorRow(obj, fromFinance)`: advance, bills, total
+and source follow the payables source in both. **And:** `getAllVender` returned the raw entities, as did getAllCompany,
+getAllCustomer, getAllItemType and getAllItemUnit. MM-2 had traced only purchases and sales, which was a Rule 0 miss.
+All five now return DTOs. Their only readers are the specs that check `status`.

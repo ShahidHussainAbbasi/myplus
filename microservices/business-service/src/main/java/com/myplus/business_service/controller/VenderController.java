@@ -82,17 +82,7 @@ public class VenderController {
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>(); 
 			// FP-4c — one primary-key read decides every row's figures
 			final boolean fromFinance = payablesSource != null && payablesSource.readsFromFinance(orgId());
-			objs.forEach(obj ->{
-				VenderDTO dto = venderMapper.toDto(obj);
-				dto.setPayablesSource(fromFinance ? "FINANCE" : "BUSINESS");
-				dto.setTotalOwed(com.myplus.business_service.service.PayablesSourceService.owedTo(obj, fromFinance));
-				dto.setBillsOwed(fromFinance ? obj.getPayableOtherOpen() : java.math.BigDecimal.ZERO);
-				dto.setAdvance(fromFinance ? obj.getPayableAdvance() : java.math.BigDecimal.ZERO);
-				fillCompanies(dto, obj);
-				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
-				dtos.add(dto);
-			});
+			objs.forEach(obj -> dtos.add(vendorRow(obj, fromFinance)));
 			// DR-2 — best-effort: a badge that cannot be worked out is not shown; the list never fails for it.
 			try { partyRoleService.markVenders(dtos); }
 			catch (Exception badge) { LOGGER.warn("alsoCustomer badge not computed", badge); }
@@ -138,6 +128,24 @@ public class VenderController {
 		}
 	}
 
+	/**
+	 * One supplier row as every list shows it (MS-F1). The figures follow the tenant's payables source: on FINANCE the
+	 * bills and the advance finance stamped; on BUSINESS purchases only, advance 0. Two lists used to build this
+	 * separately, and getAllVender had dropped the rule.
+	 */
+	private VenderDTO vendorRow(Vender obj, boolean fromFinance) {
+		VenderDTO dto = venderMapper.toDto(obj);
+		dto.setPayablesSource(fromFinance ? "FINANCE" : "BUSINESS");
+		dto.setTotalOwed(com.myplus.business_service.service.PayablesSourceService.owedTo(obj, fromFinance));
+		dto.setBillsOwed(fromFinance ? obj.getPayableOtherOpen() : java.math.BigDecimal.ZERO);
+		dto.setAdvance(fromFinance ? obj.getPayableAdvance() : java.math.BigDecimal.ZERO);
+		fillCompanies(dto, obj);
+		dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
+		dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
+		return dto;
+	}
+
+
 	@RequestMapping(value = "/getAllVender", method = RequestMethod.GET)
 	@ResponseBody
 	public GenericResponse getAllVender(final HttpServletRequest request) {
@@ -148,17 +156,13 @@ public class VenderController {
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>();
-			objs.forEach(obj ->{
-				VenderDTO dto = venderMapper.toDto(obj);
-				fillCompanies(dto, obj);
-				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
-				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
-				dtos.add(dto);
-			});
+			// MS-F1: the same row as the vendor list — advance, bills and total follow the payables source here too
+			final boolean fromFinance = payablesSource != null && payablesSource.readsFromFinance(orgId());
+			objs.forEach(obj -> dtos.add(vendorRow(obj, fromFinance)));
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);   // MM-2: DTOs, never entities
 			}
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getAllVender "+e.getCause(), e);			

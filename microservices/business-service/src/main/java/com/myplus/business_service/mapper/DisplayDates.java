@@ -9,7 +9,7 @@ import com.myplus.common.security.time.RenderZone;
 /**
  * MS-3 — the screen date formats, once, for every MapStruct mapper that shows dates. The same patterns and render-zone
  * step AppUtil's ModelMapper converters use ({@code dd-MM-yyyy}, {@code dd-MM-yyyy HH:mm:ss}); MapStructOracleTest holds
- * the two to identical output, null included.
+ * the two to identical output, except for MS-F2 below.
  */
 public interface DisplayDates {
 
@@ -17,16 +17,15 @@ public interface DisplayDates {
     DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
 
     /*
-     * ⚠ NULL → TODAY / NOW, deliberately preserved (found by the MS-3 oracle's empty-source run). ModelMapper invoked
-     * AppUtil's converters for null sources too, and those answer "today" / "now" — so a record with no `updated` shows
-     * the current time. That fabricates a timestamp and is recorded for a DECISION (ms-1-mapstruct-migration.md §6,
-     * MS-F2); it is reproduced here, explicitly, so the migration itself changes nothing a screen sees.
+     * MS-F2 (user decision 2026-10-04): no time recorded shows BLANK. The old ModelMapper converters answered "now" for a
+     * null. Preventive: on the 4 Oct data no row these screens list had a null (the 61 null-`updated` purchases are
+     * opening bills, which the purchase list skips), but any future one would have shown the current time.
      */
     default String displayDate(LocalDate v) {
-        return DATE.format(v == null ? com.myplus.common.security.time.TenantClock.today() : v);
+        return v == null ? null : DATE.format(v);
     }
 
     default String displayDateTime(LocalDateTime v) {
-        return DATE_TIME.format(RenderZone.toDisplay(v == null ? LocalDateTime.now() : v));
+        return v == null ? null : DATE_TIME.format(RenderZone.toDisplay(v));
     }
 }
