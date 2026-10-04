@@ -2034,7 +2034,7 @@
   {
    "id": "M-1e-02",
    "slice": "MKT-1e",
-   "title": "One checkout is one seller",
+   "title": "One checkout is one seller while the operator has not switched on baskets",
    "persona": "Customer (incognito window), developer tools",
    "reqs": [
     "MKT-R20.1",
@@ -2054,105 +2054,16 @@
     },
     {
      "n": 2,
-     "do": "Developer tools: POST /marketplace/public/checkout for Shahzad Mobile Shop's offer, adding \"lines\": [{offerId: <Mobile Distributor's offer>}].",
-     "expect": "The extra \"lines\" are ignored: the order has exactly one seller order, for Shahzad Mobile Shop. Mixing sellers in one checkout waits for Phase 2.",
+     "do": "Developer tools: POST /marketplace/public/checkout with a basket of both offers: \"lines\": [{offerId: <Shahzad Mobile Shop's offer>}, {offerId: <Mobile Distributor's offer>}]. (Operator: Platform → Marketplace policies → \"Customers can buy from several sellers in one order\" is OFF, the default.)",
+     "expect": "Refused: \"Items from different sellers must be checked out separately.\" Nothing is held or ordered. A multi-seller basket exists only when the operator switches it on (M-2a-01).",
      "calls": [
       {
-       "call": "POST /marketplace/public/checkout (+ lines)",
+       "call": "POST /marketplace/public/checkout (two sellers)",
        "status": 200,
        "body": {
-        "success": true,
-        "message": "Waiting for Shahzad Mobile Shop to confirm.",
-        "data": {
-         "orderNo": "MKT-000407",
-         "status": "SUBMITTED",
-         "paymentMode": "COD",
-         "paymentStatus": "UNPAID",
-         "subtotal": 52000,
-         "deliveryFee": 0,
-         "total": 52000,
-         "cancelReason": null,
-         "createdAt": "2026-10-03T22:35:37.439824",
-         "sellerOrderId": 407,
-         "sellerOrderVersion": 1,
-         "sellerOrderStatus": "OFFERED",
-         "sellerName": "Shahzad Mobile Shop",
-         "secondsToAccept": 299,
-         "city": "Karachi",
-         "lines": [
-          {
-           "id": 407,
-           "offerId": 139,
-           "mktProductId": 135,
-           "productName": "Samsung Galaxy A32 T179106665693787d 128GB Black",
-           "quantity": 1,
-           "unitPrice": 52000,
-           "lineTotal": 52000,
-           "stockSourceType": "MERCHANT",
-           "sellerOrganizationId": 6,
-           "stockOwnerOrganizationId": 6,
-           "custodianOrganizationId": 6,
-           "fulfillerOrganizationId": 6,
-           "promiseHours": 4,
-           "warrantyProvider": "Samsung Pakistan",
-           "warrantyMonths": 12,
-           "warrantyStarts": "DELIVERY",
-           "warrantyCovers": null,
-           "warrantyExcludes": null,
-           "returnDays": 7
-          }
-         ]
-        },
-        "statusCode": 200
-       }
-      },
-      {
-       "call": "GET the order",
-       "status": 200,
-       "body": {
-        "success": true,
-        "message": "Success",
-        "data": {
-         "orderNo": "MKT-000407",
-         "status": "SUBMITTED",
-         "paymentMode": "COD",
-         "paymentStatus": "UNPAID",
-         "subtotal": 52000,
-         "deliveryFee": 0,
-         "total": 52000,
-         "cancelReason": null,
-         "createdAt": "2026-10-03T22:35:37.439824",
-         "sellerOrderId": 407,
-         "sellerOrderVersion": 1,
-         "sellerOrderStatus": "OFFERED",
-         "sellerName": "Shahzad Mobile Shop",
-         "secondsToAccept": 299,
-         "city": "Karachi",
-         "lines": [
-          {
-           "id": 407,
-           "offerId": 139,
-           "mktProductId": 135,
-           "productName": "Samsung Galaxy A32 T179106665693787d 128GB Black",
-           "quantity": 1,
-           "unitPrice": 52000,
-           "lineTotal": 52000,
-           "stockSourceType": "MERCHANT",
-           "sellerOrganizationId": 6,
-           "stockOwnerOrganizationId": 6,
-           "custodianOrganizationId": 6,
-           "fulfillerOrganizationId": 6,
-           "promiseHours": 4,
-           "warrantyProvider": "Samsung Pakistan",
-           "warrantyMonths": 12,
-           "warrantyStarts": "DELIVERY",
-           "warrantyCovers": null,
-           "warrantyExcludes": null,
-           "returnDays": 7
-          }
-         ]
-        },
-        "statusCode": 200
+        "statusCode": 400,
+        "success": false,
+        "message": "Items from different sellers must be checked out separately."
        }
       }
      ]
@@ -2161,75 +2072,12 @@
    "cleanup": [
     {
      "n": 1,
-     "do": "As owner.business@: Incoming → Reject that order with the reason \"walk cleanup\".",
-     "expect": "The stock is released; the customer's page reads Cancelled.",
-     "calls": [
-      {
-       "call": "POST /mkt/rejectOrder",
-       "status": 200,
-       "body": {
-        "success": true,
-        "message": "Rejected. The stock is released and the shopper is told.",
-        "data": {
-         "id": 407,
-         "version": 3,
-         "orderNo": "MKT-000407",
-         "acceptanceStatus": "REJECTED",
-         "acceptBy": "2026-10-03T22:40:37.469903",
-         "secondsLeft": null,
-         "customerName": "Ali",
-         "customerPhone": "03006937872",
-         "address": "1 Clifton",
-         "city": "Karachi",
-         "total": 52000,
-         "invoiceNo": null,
-         "storeOrderNo": null,
-         "rejectReason": "walk cleanup",
-         "createdAt": "2026-10-03T22:35:37.441303",
-         "lines": [
-          {
-           "lineId": 407,
-           "line": {
-            "id": 407,
-            "offerId": 139,
-            "mktProductId": 135,
-            "productName": "Samsung Galaxy A32 T179106665693787d 128GB Black",
-            "quantity": 1,
-            "unitPrice": 52000,
-            "lineTotal": 52000,
-            "stockSourceType": "MERCHANT",
-            "sellerOrganizationId": 6,
-            "stockOwnerOrganizationId": 6,
-            "custodianOrganizationId": 6,
-            "fulfillerOrganizationId": 6,
-            "promiseHours": 4,
-            "warrantyProvider": "Samsung Pakistan",
-            "warrantyMonths": 12,
-            "warrantyStarts": "DELIVERY",
-            "warrantyCovers": null,
-            "warrantyExcludes": null,
-            "returnDays": 7
-           },
-           "sourceProductId": 242,
-           "commissionPolicyId": 224,
-           "commissionBasis": "ITEMS",
-           "commissionRate": 0.08,
-           "commissionFixed": null,
-           "settlementStatus": "NOT_ELIGIBLE"
-          }
-         ],
-         "storeOrderId": null,
-         "paymentMode": "COD",
-         "deliveredAt": null
-        },
-        "statusCode": 200
-       }
-      }
-     ]
+     "do": "Nothing was ordered or held.",
+     "expect": "Nothing to undo."
     }
    ],
-   "recordedAt": "2026-10-03T22:35:40.746Z",
-   "startedAt": "2026-10-03T22:35:36.517Z",
+   "recordedAt": "2026-10-04T10:50:04.060Z",
+   "startedAt": "2026-10-04T10:50:02.728Z",
    "result": "passed",
    "evidence": "recorded"
   },
@@ -5214,38 +5062,706 @@
    ]
   },
   {
-   "id": "M-2-01",
-   "slice": "MKT-2",
-   "title": "A two-seller basket splits into seller orders",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 2 switched on.",
+   "id": "M-2a-01",
+   "slice": "MKT-2a",
+   "title": "The operator decides whether one order can hold several sellers",
+   "persona": "MaxTheService operator (admin@myplus.com), then a customer (incognito window)",
+   "reqs": [
+    "MKT-R17.1",
+    "MKT-R17.2"
+   ],
+   "pre": "Shahzad Mobile Shop (Rs 52,000) and Mobile Distributor (Rs 51,500) both sell the same phone in Karachi. The switch is off (the default).",
+   "auto": [
+    "MKT-2a-01"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Add Seller A's and Seller B's offers to one basket → Checkout → Place order.",
-     "expect": "One order number with two parts, each naming its seller, promise and delivery fee."
+     "do": "Operator: Platform → \"Marketplace policies\".",
+     "expect": "Under the acceptance minutes: \"Customers can buy from several sellers in one order\", UNTICKED, with the hint \"Each seller confirms, delivers and is paid for its own part. When off, a basket with two sellers is refused.\"",
+     "shot": "shots/M-2a-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Seller B rejects its part.",
-     "expect": "Only that part is cancelled; Seller A's part continues."
+     "do": "Customer: open the phone (Karachi). Choose Shahzad Mobile Shop → \"Add to basket\"; choose Mobile Distributor → \"Add to basket\". Press \"Basket (2)\" at the top.",
+     "expect": "The basket lists the two sellers separately, one phone each; the total is Rs. 103,500. The note says each seller confirms and delivers its own items.",
+     "shot": "shots/M-2a-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Name \"Ali\", phone 03158353661, address \"1 Clifton\" → \"Place order\".",
+     "expect": "Refused under the button: \"Items from different sellers must be checked out separately.\" No order number; nothing is held.",
+     "shot": "shots/M-2a-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Operator: tick \"Customers can buy from several sellers in one order\" → Save.",
+     "expect": "\"Order settings saved.\" Reopening the panel shows it ticked.",
+     "shot": "shots/M-2a-01/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Customer: the same basket → \"Place order\" again.",
+     "expect": "\"Waiting for the sellers to confirm\" with an order number MKT-…; one row per seller, each \"Waiting for confirmation · m:ss left\".",
+     "shot": "shots/M-2a-01/05.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Seller A rejects its part with \"walk cleanup\".",
-     "expect": "Both parts are cancelled; stock released."
+     "do": "Both sellers reject their part with the reason \"walk cleanup\". Operator: untick the switch → Save.",
+     "expect": "The order reads Cancelled and its stock is back; the switch reads unticked again.",
+     "shot": "shots/M-2a-01/c01.jpg"
     }
    ],
+   "recordedAt": "2026-10-04T10:55:31.817Z",
+   "startedAt": "2026-10-04T10:54:43.960Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-02",
+   "slice": "MKT-2a",
+   "title": "One basket, one checkout, one part per seller",
+   "persona": "Customer (incognito window)",
    "reqs": [
     "MKT-R17.2",
     "MKT-R20.3"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-2.",
-   "warn": false,
-   "auto": []
+   "pre": "As M-2a-01, with the switch ON.",
+   "auto": [
+    "MKT-2a-02"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Open the phone (Karachi). Choose Shahzad Mobile Shop → \"Add to basket\".",
+     "expect": "Under the button: \"Added to your basket: … from Shahzad Mobile Shop.\" The top shows \"Basket (1)\".",
+     "shot": "shots/M-2a-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Choose Mobile Distributor → \"Add to basket\". Press \"Basket (2)\". Set Mobile Distributor's quantity to 2.",
+     "expect": "Two groups, Shahzad Mobile Shop (1 × Rs 52,000) and Mobile Distributor (2 × Rs 51,500). Total Rs. 155,000.",
+     "shot": "shots/M-2a-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Name \"Ali\", phone 03158353662, address \"1 Clifton\", cash on delivery → \"Place order\".",
+     "expect": "\"Waiting for the sellers to confirm\", one order number, and one row per seller: Shahzad Mobile Shop Rs. 52,000 and Mobile Distributor Rs. 103,000, each with its own \"m:ss left\". The Basket button is gone.",
+     "shot": "shots/M-2a-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Developer tools: GET the order (track with the phone).",
+     "expect": "One order, total 155,000, two sellerOrders with different sellers, each OFFERED with its own promisedBy and deliveryFee.",
+     "calls": [
+      {
+       "call": "GET /marketplace/public/orders/{no}",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Success",
+        "data": {
+         "orderNo": "MKT-000195",
+         "status": "SUBMITTED",
+         "paymentMode": "COD",
+         "paymentStatus": "UNPAID",
+         "subtotal": 155000,
+         "deliveryFee": 0,
+         "total": 155000,
+         "cancelReason": null,
+         "createdAt": "2026-10-05T10:55:35.120339",
+         "sellerOrderId": 233,
+         "sellerOrderVersion": 1,
+         "sellerOrderStatus": "OFFERED",
+         "sellerName": "Shahzad Mobile Shop, Mobile Distributor",
+         "secondsToAccept": 299,
+         "city": "Karachi",
+         "lines": [
+          {
+           "id": 233,
+           "offerId": 70,
+           "mktProductId": 57,
+           "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+           "quantity": 1,
+           "unitPrice": 52000,
+           "lineTotal": 52000,
+           "stockSourceType": "MERCHANT",
+           "sellerOrganizationId": 6,
+           "stockOwnerOrganizationId": 6,
+           "custodianOrganizationId": 6,
+           "fulfillerOrganizationId": 6,
+           "promiseHours": 4,
+           "warrantyProvider": "Samsung Pakistan",
+           "warrantyMonths": 12,
+           "warrantyStarts": "DELIVERY",
+           "warrantyCovers": null,
+           "warrantyExcludes": null,
+           "returnDays": 7
+          },
+          {
+           "id": 234,
+           "offerId": 71,
+           "mktProductId": 57,
+           "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+           "quantity": 2,
+           "unitPrice": 51500,
+           "lineTotal": 103000,
+           "stockSourceType": "MERCHANT",
+           "sellerOrganizationId": 16,
+           "stockOwnerOrganizationId": 16,
+           "custodianOrganizationId": 16,
+           "fulfillerOrganizationId": 16,
+           "promiseHours": 24,
+           "warrantyProvider": "Samsung Pakistan",
+           "warrantyMonths": 12,
+           "warrantyStarts": "DELIVERY",
+           "warrantyCovers": null,
+           "warrantyExcludes": null,
+           "returnDays": 7
+          }
+         ],
+         "sellerOrders": [
+          {
+           "id": 233,
+           "version": 1,
+           "sellerOrganizationId": 6,
+           "sellerName": "Shahzad Mobile Shop",
+           "status": "OFFERED",
+           "secondsToAccept": 299,
+           "subtotal": 52000,
+           "deliveryFee": 0,
+           "total": 52000,
+           "promisedBy": "2026-10-05T14:55:35.122442",
+           "deliveredAt": null,
+           "lines": [
+            {
+             "id": 233,
+             "offerId": 70,
+             "mktProductId": 57,
+             "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 4,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ]
+          },
+          {
+           "id": 234,
+           "version": 1,
+           "sellerOrganizationId": 16,
+           "sellerName": "Mobile Distributor",
+           "status": "OFFERED",
+           "secondsToAccept": 299,
+           "subtotal": 103000,
+           "deliveryFee": 0,
+           "total": 103000,
+           "promisedBy": "2026-10-06T10:55:35.133756",
+           "deliveredAt": null,
+           "lines": [
+            {
+             "id": 234,
+             "offerId": 71,
+             "mktProductId": 57,
+             "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+             "quantity": 2,
+             "unitPrice": 51500,
+             "lineTotal": 103000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 16,
+             "stockOwnerOrganizationId": 16,
+             "custodianOrganizationId": 16,
+             "fulfillerOrganizationId": 16,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ]
+          }
+         ]
+        },
+        "statusCode": 200
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Both sellers reject their part with the reason \"walk cleanup\".",
+     "expect": "The order page reads \"Cancelled\"; the held stock is released.",
+     "shot": "shots/M-2a-02/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-04T10:55:42.804Z",
+   "startedAt": "2026-10-04T10:55:32.250Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-03",
+   "slice": "MKT-2a",
+   "title": "Each seller sees only its own part",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop), then Mobile Distributor's owner",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R22.1"
+   ],
+   "pre": "A customer placed one basket: 1 phone from Shahzad Mobile Shop, 2 from Mobile Distributor (Rs 155,000 in all). The switch is ON.",
+   "auto": [
+    "MKT-2a-03"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\".",
+     "expect": "The order is listed with ONE phone and Rs 52,000: Mobile Distributor's items and the basket total of 155,000 appear nowhere.",
+     "shot": "shots/M-2a-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As Mobile Distributor's owner: the same screen.",
+     "expect": "The same order number with 2 phones and Rs 103,000; nothing of Shahzad Mobile Shop's.",
+     "shot": "shots/M-2a-03/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Both sellers reject their part with the reason \"walk cleanup\".",
+     "expect": "Both rows read Rejected; the stock is released."
+    }
+   ],
+   "recordedAt": "2026-10-04T10:56:00.859Z",
+   "startedAt": "2026-10-04T10:55:43.047Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-04",
+   "slice": "MKT-2a",
+   "title": "One seller accepts, the other rejects: the order goes ahead for the accepted part",
+   "persona": "Both sellers, then the customer",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R10.2"
+   ],
+   "pre": "A customer placed a basket: 1 phone from each seller, cash on delivery. The switch is ON.",
+   "auto": [
+    "MKT-2a-04"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Incoming → the order → Accept.",
+     "expect": "\"Accepted\" with an invoice: the sale of this part is in Shahzad Mobile Shop's books.",
+     "shot": "shots/M-2a-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the order page.",
+     "expect": "\"Confirmed by some sellers\": Shahzad Mobile Shop's row reads \"Confirmed: Shahzad Mobile Shop will deliver and collect Rs. 52,000 in cash\"; Mobile Distributor's still counts down.",
+     "shot": "shots/M-2a-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "As Mobile Distributor's owner: Incoming → the order → reason \"out of stock in store\" → Reject.",
+     "expect": "The row reads \"Rejected\" with the reason.",
+     "shot": "shots/M-2a-04/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: reopen the order page.",
+     "expect": "\"Confirmed\" and \"Each seller delivers its own items.\"; Mobile Distributor's row reads \"The seller could not fulfil this part\". The order is NOT cancelled.",
+     "shot": "shots/M-2a-04/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: Shahzad Mobile Shop's accepted part is a real sale (return it with the store's Sale Returns if needed); Mobile Distributor's stock was released on Reject.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-04T10:56:16.899Z",
+   "startedAt": "2026-10-04T10:56:00.987Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-05",
+   "slice": "MKT-2a",
+   "title": "All or nothing: one seller short means nothing is ordered",
+   "persona": "Two customers (two incognito windows)",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R10.2"
+   ],
+   "pre": "Both sellers have a second phone with exactly ONE in stock each (another product). The switch is ON.",
+   "auto": [
+    "MKT-2a-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer 1 (phone 03158353665): open that phone, choose Mobile Distributor, \"Buy from Mobile Distributor\", Place order.",
+     "expect": "\"Waiting for Mobile Distributor to confirm\": Mobile Distributor's only unit is now held.",
+     "shot": "shots/M-2a-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer 2 (phone 03158353666): add both sellers' units to the basket → Place order.",
+     "expect": "Refused: \"Mobile Distributor no longer has enough stock. Please remove its items and place the order again.\" No order number.",
+     "shot": "shots/M-2a-05/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Remove Mobile Distributor's item (\"Remove\") → Place order.",
+     "expect": "\"Waiting for Shahzad Mobile Shop to confirm\": Shahzad Mobile Shop's unit was not lost to the refused attempt.",
+     "shot": "shots/M-2a-05/03.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Each seller rejects its waiting order with the reason \"walk cleanup\".",
+     "expect": "Both orders read Cancelled; each unit is back in stock."
+    }
+   ],
+   "recordedAt": "2026-10-04T10:56:32.731Z",
+   "startedAt": "2026-10-04T10:56:17.167Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-06",
+   "slice": "MKT-2a",
+   "title": "Paid online: one charge, and a rejected part is refunded on its own, once",
+   "persona": "Customer with an account, then Mobile Distributor's owner",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R13.1"
+   ],
+   "pre": "The customer (phone 0315…6) has an account. The switch is ON. The test card token \"tok_ok\" is accepted.",
+   "auto": [
+    "MKT-2a-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in as 03158353667: basket with one phone from each seller → \"Pay online\", card token \"tok_ok\" → Place order.",
+     "expect": "\"Waiting for the sellers to confirm\"; Rs. 103,500 is charged once.",
+     "shot": "shots/M-2a-06/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "As Mobile Distributor's owner: Incoming → the order → reason \"no stock\" → Reject.",
+     "expect": "The row reads \"Rejected\".",
+     "shot": "shots/M-2a-06/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: My orders.",
+     "expect": "The order reads \"Waiting for the sellers to confirm\" and Rs. 103,500 · \"Partly refunded\"; Mobile Distributor's row reads \"The seller could not fulfil this part\"; Shahzad Mobile Shop's still waits.",
+     "shot": "shots/M-2a-06/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Developer tools: GET /marketplace/account/orders, the order's payments.",
+     "expect": "Exactly ONE CHARGE of 103,500 and ONE REFUND of 51,500 (B's part). Rejecting the part again changes nothing.",
+     "calls": [
+      {
+       "call": "GET /marketplace/account/orders",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Success",
+        "data": {
+         "content": [
+          {
+           "orderNo": "MKT-000201",
+           "status": "SUBMITTED",
+           "paymentMode": "CARD",
+           "paymentStatus": "PARTIALLY_REFUNDED",
+           "total": 103500,
+           "cancelReason": null,
+           "createdAt": "2026-10-05T10:56:35.716184",
+           "sellerName": "Shahzad Mobile Shop, Mobile Distributor",
+           "sellerOrderStatus": "OFFERED",
+           "secondsToAccept": 290,
+           "city": "Karachi",
+           "lines": [
+            {
+             "id": 243,
+             "offerId": 70,
+             "mktProductId": 57,
+             "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 4,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            },
+            {
+             "id": 244,
+             "offerId": 71,
+             "mktProductId": 57,
+             "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+             "quantity": 1,
+             "unitPrice": 51500,
+             "lineTotal": 51500,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 16,
+             "stockOwnerOrganizationId": 16,
+             "custodianOrganizationId": 16,
+             "fulfillerOrganizationId": 16,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ],
+           "payments": [
+            {
+             "kind": "CHARGE",
+             "status": "SUCCEEDED",
+             "amount": 103500,
+             "reason": null,
+             "at": "2026-10-05T10:56:35.791037"
+            },
+            {
+             "kind": "REFUND",
+             "status": "SUCCEEDED",
+             "amount": 51500,
+             "reason": "Part of MKT-000201 not fulfilled",
+             "at": "2026-10-05T10:56:42.157119"
+            }
+           ],
+           "canCancel": true,
+           "deliveredAt": null,
+           "canGetHelp": false,
+           "sellerOrders": [
+            {
+             "id": 243,
+             "version": 1,
+             "sellerOrganizationId": 6,
+             "sellerName": "Shahzad Mobile Shop",
+             "status": "OFFERED",
+             "secondsToAccept": 290,
+             "subtotal": 52000,
+             "deliveryFee": 0,
+             "total": 52000,
+             "promisedBy": "2026-10-05T14:56:35.717542",
+             "deliveredAt": null,
+             "lines": [
+              {
+               "id": 243,
+               "offerId": 70,
+               "mktProductId": 57,
+               "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+               "quantity": 1,
+               "unitPrice": 52000,
+               "lineTotal": 52000,
+               "stockSourceType": "MERCHANT",
+               "sellerOrganizationId": 6,
+               "stockOwnerOrganizationId": 6,
+               "custodianOrganizationId": 6,
+               "fulfillerOrganizationId": 6,
+               "promiseHours": 4,
+               "warrantyProvider": "Samsung Pakistan",
+               "warrantyMonths": 12,
+               "warrantyStarts": "DELIVERY",
+               "warrantyCovers": null,
+               "warrantyExcludes": null,
+               "returnDays": 7
+              }
+             ]
+            },
+            {
+             "id": 244,
+             "version": 3,
+             "sellerOrganizationId": 16,
+             "sellerName": "Mobile Distributor",
+             "status": "REJECTED",
+             "secondsToAccept": null,
+             "subtotal": 51500,
+             "deliveryFee": 0,
+             "total": 51500,
+             "promisedBy": "2026-10-06T10:56:35.722342",
+             "deliveredAt": null,
+             "lines": [
+              {
+               "id": 244,
+               "offerId": 71,
+               "mktProductId": 57,
+               "productName": "Samsung Galaxy A32 T17911112835366m 128GB Black",
+               "quantity": 1,
+               "unitPrice": 51500,
+               "lineTotal": 51500,
+               "stockSourceType": "MERCHANT",
+               "sellerOrganizationId": 16,
+               "stockOwnerOrganizationId": 16,
+               "custodianOrganizationId": 16,
+               "fulfillerOrganizationId": 16,
+               "promiseHours": 24,
+               "warrantyProvider": "Samsung Pakistan",
+               "warrantyMonths": 12,
+               "warrantyStarts": "DELIVERY",
+               "warrantyCovers": null,
+               "warrantyExcludes": null,
+               "returnDays": 7
+              }
+             ]
+            }
+           ]
+          }
+         ],
+         "pageNo": 0,
+         "pageSize": 20,
+         "totalElements": 1,
+         "totalPages": 1,
+         "last": true
+        },
+        "statusCode": 200
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Shahzad Mobile Shop rejects its part with the reason \"walk cleanup\".",
+     "expect": "The order reads \"Cancelled\" and \"Refunded\": the remaining 52,000 is refunded, and nothing is refunded twice.",
+     "shot": "shots/M-2a-06/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-04T10:56:49.796Z",
+   "startedAt": "2026-10-04T10:56:32.976Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-07",
+   "slice": "MKT-2a",
+   "title": "The customer cancels a basket no seller has answered",
+   "persona": "Customer with an account, then owner.business@myplus.com",
+   "reqs": [
+    "MKT-R17.2",
+    "MKT-R10.5"
+   ],
+   "pre": "The customer placed a basket (one phone from each seller, cash on delivery) and neither seller has answered. The switch is ON.",
+   "auto": [
+    "MKT-2a-07"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in as 03158353668: My orders.",
+     "expect": "The order lists both sellers, each \"Waiting for confirmation\", and offers \"Cancel order\".",
+     "shot": "shots/M-2a-07/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "\"Cancel order\" → reason \"ordered twice\" → \"Cancel order\".",
+     "expect": "The order reads \"Cancelled\"; BOTH sellers' rows read Cancelled; the Cancel button is gone.",
+     "shot": "shots/M-2a-07/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "As owner.business@myplus.com: Incoming → \"All\".",
+     "expect": "Shahzad Mobile Shop's part reads \"Cancelled\": the seller is told and the held stock was given back.",
+     "shot": "shots/M-2a-07/03.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the order ended and every hold was released.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-04T10:56:59.445Z",
+   "startedAt": "2026-10-04T10:56:50.067Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2a-08",
+   "slice": "MKT-2a",
+   "title": "Help is per seller: the customer picks the item, the case goes to that seller",
+   "persona": "Customer with an account, then the MaxTheService operator",
+   "reqs": [
+    "MKT-R8.2",
+    "MKT-R17.2"
+   ],
+   "pre": "The customer's basket (one phone from each seller) was ACCEPTED by both sellers. The switch is ON.",
+   "auto": [
+    "MKT-2a-08"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Signed in as 03158353669: My orders → the order → \"Get help\".",
+     "expect": "The form asks \"Item\" first, listing each phone with its seller (\"… × 1 · Shahzad Mobile Shop\", \"… × 1 · Mobile Distributor\"), then what you need help with.",
+     "shot": "shots/M-2a-08/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Item: Mobile Distributor's phone; \"Something is wrong with my order\"; note \"Where is the second phone?\" → \"Send to MaxTheService\".",
+     "expect": "A help request \"Help request SC-… · Mobile Distributor\" appears under the order: it is about Mobile Distributor's part only.",
+     "shot": "shots/M-2a-08/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: Platform → \"Support cases\" → the case.",
+     "expect": "The case shows the order, the customer's note, and Mobile Distributor as the seller tasked; Shahzad Mobile Shop is not involved.",
+     "shot": "shots/M-2a-08/03.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Operator: the case → write \"walk cleanup\" → Resolve. Operator: Platform → Marketplace policies → untick the switch → Save.",
+     "expect": "The case reads Resolved; the switch is off again (the default).",
+     "shot": "shots/M-2a-08/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-04T10:57:13.633Z",
+   "startedAt": "2026-10-04T10:56:59.697Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-2-02",

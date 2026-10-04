@@ -514,19 +514,19 @@
 
 > **Found by the walk:** DEFECT, fixed (gate): after Accept the order vanished from "Waiting for you", so the seller never saw it go through. The row now turns to Accepted in place, with the server's sentence.
 
-### M-1e-02 One checkout is one seller
+### M-1e-02 One checkout is one seller while the operator has not switched on baskets
 
 **Who:** Customer (incognito window), developer tools  
 **Before:** As M-1d-01.  
 **Covers:** MKT-R20.1, MKT-R17.1, MKT-R20.2  
-**Evidence:** recorded 2026-10-03 22:35 UTC  
+**Evidence:** recorded 2026-10-04 10:50 UTC  
 **Automated by:** MKT-1e-09
 
 | # | Do this | Expect |
 |---|---|---|
 | 1 | On the product page choose Shahzad Mobile Shop, then Mobile Distributor. | Only one can be chosen (radio buttons): choosing Mobile Distributor unchooses Shahzad Mobile Shop; the button reads "Buy from Mobile Distributor". |
-| 2 | Developer tools: POST /marketplace/public/checkout for Shahzad Mobile Shop's offer, adding "lines": [{offerId: <Mobile Distributor's offer>}]. | The extra "lines" are ignored: the order has exactly one seller order, for Shahzad Mobile Shop. Mixing sellers in one checkout waits for Phase 2. |
-| C1 | As owner.business@: Incoming → Reject that order with the reason "walk cleanup". | The stock is released; the customer's page reads Cancelled. |
+| 2 | Developer tools: POST /marketplace/public/checkout with a basket of both offers: "lines": [{offerId: <Shahzad Mobile Shop's offer>}, {offerId: <Mobile Distributor's offer>}]. (Operator: Platform → Marketplace policies → "Customers can buy from several sellers in one order" is OFF, the default.) | Refused: "Items from different sellers must be checked out separately." Nothing is held or ordered. A multi-seller basket exists only when the operator switches it on (M-2a-01). |
+| C1 | Nothing was ordered or held. | Nothing to undo. |
 
 ### M-1e-03 The seller rejects: the stock comes back and the customer is told
 
@@ -1005,20 +1005,134 @@
 > **Found by the walk:** DEFECT, fixed (live gate): the gate's trial-balance check read a "balance" field the trial balance does not have, so it could never pass. It now reads credit minus debit from the rows.
 
 
-## MKT-2
+## MKT-2a
 
-### M-2-01 A two-seller basket splits into seller orders
+### M-2a-01 The operator decides whether one order can hold several sellers
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 2 switched on.  
-**Covers:** MKT-R17.2, MKT-R20.3  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator (admin@myplus.com), then a customer (incognito window)  
+**Before:** Shahzad Mobile Shop (Rs 52,000) and Mobile Distributor (Rs 51,500) both sell the same phone in Karachi. The switch is off (the default).  
+**Covers:** MKT-R17.1, MKT-R17.2  
+**Evidence:** recorded 2026-10-04 10:55 UTC  
+**Automated by:** MKT-2a-01
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Add Seller A's and Seller B's offers to one basket → Checkout → Place order. | One order number with two parts, each naming its seller, promise and delivery fee. |
-| 2 | Seller B rejects its part. | Only that part is cancelled; Seller A's part continues. |
-| C1 | Seller A rejects its part with "walk cleanup". | Both parts are cancelled; stock released. |
+| 1 | Operator: Platform → "Marketplace policies". | Under the acceptance minutes: "Customers can buy from several sellers in one order", UNTICKED, with the hint "Each seller confirms, delivers and is paid for its own part. When off, a basket with two sellers is refused." |
+| 2 | Customer: open the phone (Karachi). Choose Shahzad Mobile Shop → "Add to basket"; choose Mobile Distributor → "Add to basket". Press "Basket (2)" at the top. | The basket lists the two sellers separately, one phone each; the total is Rs. 103,500. The note says each seller confirms and delivers its own items. |
+| 3 | Name "Ali", phone 03158353661, address "1 Clifton" → "Place order". | Refused under the button: "Items from different sellers must be checked out separately." No order number; nothing is held. |
+| 4 | Operator: tick "Customers can buy from several sellers in one order" → Save. | "Order settings saved." Reopening the panel shows it ticked. |
+| 5 | Customer: the same basket → "Place order" again. | "Waiting for the sellers to confirm" with an order number MKT-…; one row per seller, each "Waiting for confirmation · m:ss left". |
+| C1 | Both sellers reject their part with the reason "walk cleanup". Operator: untick the switch → Save. | The order reads Cancelled and its stock is back; the switch reads unticked again. |
+
+### M-2a-02 One basket, one checkout, one part per seller
+
+**Who:** Customer (incognito window)  
+**Before:** As M-2a-01, with the switch ON.  
+**Covers:** MKT-R17.2, MKT-R20.3  
+**Evidence:** recorded 2026-10-04 10:55 UTC  
+**Automated by:** MKT-2a-02
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Open the phone (Karachi). Choose Shahzad Mobile Shop → "Add to basket". | Under the button: "Added to your basket: … from Shahzad Mobile Shop." The top shows "Basket (1)". |
+| 2 | Choose Mobile Distributor → "Add to basket". Press "Basket (2)". Set Mobile Distributor's quantity to 2. | Two groups, Shahzad Mobile Shop (1 × Rs 52,000) and Mobile Distributor (2 × Rs 51,500). Total Rs. 155,000. |
+| 3 | Name "Ali", phone 03158353662, address "1 Clifton", cash on delivery → "Place order". | "Waiting for the sellers to confirm", one order number, and one row per seller: Shahzad Mobile Shop Rs. 52,000 and Mobile Distributor Rs. 103,000, each with its own "m:ss left". The Basket button is gone. |
+| 4 | Developer tools: GET the order (track with the phone). | One order, total 155,000, two sellerOrders with different sellers, each OFFERED with its own promisedBy and deliveryFee. |
+| C1 | Both sellers reject their part with the reason "walk cleanup". | The order page reads "Cancelled"; the held stock is released. |
+
+### M-2a-03 Each seller sees only its own part
+
+**Who:** owner.business@myplus.com (Shahzad Mobile Shop), then Mobile Distributor's owner  
+**Before:** A customer placed one basket: 1 phone from Shahzad Mobile Shop, 2 from Mobile Distributor (Rs 155,000 in all). The switch is ON.  
+**Covers:** MKT-R17.2, MKT-R22.1  
+**Evidence:** recorded 2026-10-04 10:56 UTC  
+**Automated by:** MKT-2a-03
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Sale → Marketplace → "Incoming marketplace orders". | The order is listed with ONE phone and Rs 52,000: Mobile Distributor's items and the basket total of 155,000 appear nowhere. |
+| 2 | As Mobile Distributor's owner: the same screen. | The same order number with 2 phones and Rs 103,000; nothing of Shahzad Mobile Shop's. |
+| C1 | Both sellers reject their part with the reason "walk cleanup". | Both rows read Rejected; the stock is released. |
+
+### M-2a-04 One seller accepts, the other rejects: the order goes ahead for the accepted part
+
+**Who:** Both sellers, then the customer  
+**Before:** A customer placed a basket: 1 phone from each seller, cash on delivery. The switch is ON.  
+**Covers:** MKT-R17.2, MKT-R10.2  
+**Evidence:** recorded 2026-10-04 10:56 UTC  
+**Automated by:** MKT-2a-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Incoming → the order → Accept. | "Accepted" with an invoice: the sale of this part is in Shahzad Mobile Shop's books. |
+| 2 | Customer: open the order page. | "Confirmed by some sellers": Shahzad Mobile Shop's row reads "Confirmed: Shahzad Mobile Shop will deliver and collect Rs. 52,000 in cash"; Mobile Distributor's still counts down. |
+| 3 | As Mobile Distributor's owner: Incoming → the order → reason "out of stock in store" → Reject. | The row reads "Rejected" with the reason. |
+| 4 | Customer: reopen the order page. | "Confirmed" and "Each seller delivers its own items."; Mobile Distributor's row reads "The seller could not fulfil this part". The order is NOT cancelled. |
+| C1 | None: Shahzad Mobile Shop's accepted part is a real sale (return it with the store's Sale Returns if needed); Mobile Distributor's stock was released on Reject. | — |
+
+### M-2a-05 All or nothing: one seller short means nothing is ordered
+
+**Who:** Two customers (two incognito windows)  
+**Before:** Both sellers have a second phone with exactly ONE in stock each (another product). The switch is ON.  
+**Covers:** MKT-R17.2, MKT-R10.2  
+**Evidence:** recorded 2026-10-04 10:56 UTC  
+**Automated by:** MKT-2a-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer 1 (phone 03158353665): open that phone, choose Mobile Distributor, "Buy from Mobile Distributor", Place order. | "Waiting for Mobile Distributor to confirm": Mobile Distributor's only unit is now held. |
+| 2 | Customer 2 (phone 03158353666): add both sellers' units to the basket → Place order. | Refused: "Mobile Distributor no longer has enough stock. Please remove its items and place the order again." No order number. |
+| 3 | Remove Mobile Distributor's item ("Remove") → Place order. | "Waiting for Shahzad Mobile Shop to confirm": Shahzad Mobile Shop's unit was not lost to the refused attempt. |
+| C1 | Each seller rejects its waiting order with the reason "walk cleanup". | Both orders read Cancelled; each unit is back in stock. |
+
+### M-2a-06 Paid online: one charge, and a rejected part is refunded on its own, once
+
+**Who:** Customer with an account, then Mobile Distributor's owner  
+**Before:** The customer (phone 0315…6) has an account. The switch is ON. The test card token "tok_ok" is accepted.  
+**Covers:** MKT-R17.2, MKT-R13.1  
+**Evidence:** recorded 2026-10-04 10:56 UTC  
+**Automated by:** MKT-2a-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Signed in as 03158353667: basket with one phone from each seller → "Pay online", card token "tok_ok" → Place order. | "Waiting for the sellers to confirm"; Rs. 103,500 is charged once. |
+| 2 | As Mobile Distributor's owner: Incoming → the order → reason "no stock" → Reject. | The row reads "Rejected". |
+| 3 | Customer: My orders. | The order reads "Waiting for the sellers to confirm" and Rs. 103,500 · "Partly refunded"; Mobile Distributor's row reads "The seller could not fulfil this part"; Shahzad Mobile Shop's still waits. |
+| 4 | Developer tools: GET /marketplace/account/orders, the order's payments. | Exactly ONE CHARGE of 103,500 and ONE REFUND of 51,500 (B's part). Rejecting the part again changes nothing. |
+| C1 | Shahzad Mobile Shop rejects its part with the reason "walk cleanup". | The order reads "Cancelled" and "Refunded": the remaining 52,000 is refunded, and nothing is refunded twice. |
+
+### M-2a-07 The customer cancels a basket no seller has answered
+
+**Who:** Customer with an account, then owner.business@myplus.com  
+**Before:** The customer placed a basket (one phone from each seller, cash on delivery) and neither seller has answered. The switch is ON.  
+**Covers:** MKT-R17.2, MKT-R10.5  
+**Evidence:** recorded 2026-10-04 10:56 UTC  
+**Automated by:** MKT-2a-07
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Signed in as 03158353668: My orders. | The order lists both sellers, each "Waiting for confirmation", and offers "Cancel order". |
+| 2 | "Cancel order" → reason "ordered twice" → "Cancel order". | The order reads "Cancelled"; BOTH sellers' rows read Cancelled; the Cancel button is gone. |
+| 3 | As owner.business@myplus.com: Incoming → "All". | Shahzad Mobile Shop's part reads "Cancelled": the seller is told and the held stock was given back. |
+| C1 | Nothing to undo: the order ended and every hold was released. | — |
+
+### M-2a-08 Help is per seller: the customer picks the item, the case goes to that seller
+
+**Who:** Customer with an account, then the MaxTheService operator  
+**Before:** The customer's basket (one phone from each seller) was ACCEPTED by both sellers. The switch is ON.  
+**Covers:** MKT-R8.2, MKT-R17.2  
+**Evidence:** recorded 2026-10-04 10:57 UTC  
+**Automated by:** MKT-2a-08
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Signed in as 03158353669: My orders → the order → "Get help". | The form asks "Item" first, listing each phone with its seller ("… × 1 · Shahzad Mobile Shop", "… × 1 · Mobile Distributor"), then what you need help with. |
+| 2 | Item: Mobile Distributor's phone; "Something is wrong with my order"; note "Where is the second phone?" → "Send to MaxTheService". | A help request "Help request SC-… · Mobile Distributor" appears under the order: it is about Mobile Distributor's part only. |
+| 3 | Operator: Platform → "Support cases" → the case. | The case shows the order, the customer's note, and Mobile Distributor as the seller tasked; Shahzad Mobile Shop is not involved. |
+| C1 | Operator: the case → write "walk cleanup" → Resolve. Operator: Platform → Marketplace policies → untick the switch → Save. | The case reads Resolved; the switch is off again (the default). |
+
+
+## MKT-2
 
 ### M-2-02 Shortage moves the order only on the same or better terms
 

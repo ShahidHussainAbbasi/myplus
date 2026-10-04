@@ -197,3 +197,28 @@ run was 74/75 (row 34).
 - Row 31's cause is app-wide: any `.btn` hidden with `.hide()`/`.toggle()` stays visible. Only this button was
   fixed here; the other call sites need an audit.
 - R-MKT-9 (commission invoice and its tax) is still unruled; commission tax is zero.
+
+## 9. MKT-2a — one basket from several sellers (run 2026-10-04)
+
+**The stack:** the same services and clock as §8 (libfaketime +1 day), built from `feature/expense-management` at
+6404a1ea plus this change. No migration: the parent order already owned a list of seller orders.
+
+**Gate `mkt-2a-multi-seller.cy.js`: 8 / 8. Earlier marketplace gates re-run after the change: 75 / 75 (0a 8, 1b 9,
+1c 11, 1d 10, 1e 10, 1e2 9, 1f 12, 1g 6), each run on its own.** Then 2a, 1f and 1e2 were re-run on the final build
+(29 / 29). The first live run of 2a was 7/8 (row 38).
+
+**Walk M-2a-01..08: 8 / 8 recorded**, and M-1e-02 re-recorded to the new rule (row 39): step by step, each expected
+result asserted, screens captured, cleanup done. M-2-01 (the design-only placeholder) is replaced by them.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 35 | walk M-2a-01 (first run) | the operator ticked "Customers can buy from several sellers in one order" before the panel had loaded its saved state; the late answer unticked it, Save then sent **off** and still said "Order settings saved." | the switch and its Save are disabled until the saved state has loaded | walk M-2a-01 |
+| 36 | trace before the walk (M-1f-01 asserts it) | the new seller name on a help request also showed on single-seller orders, where support is the only voice | the customer's thread names the seller only on an order from several sellers; the operator's case heading always names it | walk M-1f-01's assertion, M-2a-08 |
+| 37 | walk M-2a-06 (screen review) | My orders headed a basket waiting on two sellers "Waiting for the seller" | "Waiting for the sellers to confirm", as on the order page | walk M-2a-06 |
+| 38 | gate 2a-08 (first live run) | the test opened help with a topic that does not exist (`DELIVERY`); the server's refusal was right | the test uses `ORDER_PROBLEM` | gate 2a-08 |
+| 39 | trace of the checkout request | a request with both `offerId` and `lines` used to ignore `lines`; it now uses them, so M-1e-02's "extra lines are ignored" no longer described the system | M-1e-02 now shows the rule as it is: with the switch off, a basket from two sellers is refused; its walk step reopens the public page after clearing cookies and sends each line's shown price, as the screen does | walk M-1e-02 |
+
+**Open (2a):**
+- The order page shows each part's result but not its promised-by date.
+- A rejected part is not offered to another seller (shortage rerouting, R11.1–R11.3, is the next MKT-2 slice).
+- One delivery fee per part, as each offer sets it; there is no basket-level delivery price.

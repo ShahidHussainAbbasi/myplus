@@ -1,8 +1,8 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 61,
- "cypress": 61,
+ "unit": 62,
+ "cypress": 62,
  "automated": 67,
  "manual": 87,
  "gaps": [],
@@ -499,11 +499,13 @@
    "cypress": [
     "MKT-1f-02",
     "MKT-1f-03",
-    "MKT-1f-09"
+    "MKT-1f-09",
+    "MKT-2a-08"
    ],
    "manual": [
     "M-1f-01",
-    "M-1f-07"
+    "M-1f-07",
+    "M-2a-08"
    ]
   },
   {
@@ -588,13 +590,16 @@
    "cypress": [
     "MKT-1e-01",
     "MKT-1e-04",
-    "MKT-1e-05"
+    "MKT-1e-05",
+    "MKT-2a-05"
    ],
    "manual": [
     "M-1e-01",
     "M-1e-03",
     "M-1e-04",
-    "M-1e-10"
+    "M-1e-10",
+    "M-2a-04",
+    "M-2a-05"
    ]
   },
   {
@@ -641,12 +646,14 @@
    ],
    "cypress": [
     "MKT-1e-04",
-    "MKT-1e2-06"
+    "MKT-1e2-06",
+    "MKT-2a-07"
    ],
    "manual": [
     "M-1e-03",
     "M-1e-04",
-    "M-1e2-04"
+    "M-1e2-04",
+    "M-2a-07"
    ]
   },
   {
@@ -769,12 +776,14 @@
    ],
    "cypress": [
     "MKT-1f-04",
-    "MKT-1f-05"
+    "MKT-1f-05",
+    "MKT-2a-06"
    ],
    "manual": [
     "M-1e2-05",
     "M-1f-02",
-    "M-1f-03"
+    "M-1f-03",
+    "M-2a-06"
    ]
   },
   {
@@ -1022,11 +1031,16 @@
    "unit": [
     "PhaseGuardTest.oneSeller",
     "PhaseGuardTest.twoSellersRefused",
-    "PhaseGuardTest.empty"
+    "PhaseGuardTest.empty",
+    "MarketplaceOrderFlowTest.multiSellerOffRefused",
+    "MarketplaceOrderFlowTest.multiSellerSwitch"
    ],
-   "cypress": [],
+   "cypress": [
+    "MKT-2a-01"
+   ],
    "manual": [
-    "M-1e-02"
+    "M-1e-02",
+    "M-2a-01"
    ]
   },
   {
@@ -1034,13 +1048,36 @@
    "phase": "2",
    "text": "Phase 2: parent order + child seller orders with separate fulfilment, promises, settlement and returns; never \"just a frontend filter\"",
    "unit": [
-    "PhaseGuardTest.phase2AllowsMultiSeller"
+    "PhaseGuardTest.phase2AllowsMultiSeller",
+    "MarketplaceOrderFlowTest.splitsPerSeller",
+    "MarketplaceOrderFlowTest.oneRefusalCancelsAll",
+    "MarketplaceOrderFlowTest.cardChargedOnce",
+    "MarketplaceOrderFlowTest.partsLiveOnTheirOwn",
+    "MarketplaceOrderFlowTest.lastPartEndsTheOrder",
+    "MarketplaceOrderFlowTest.expiryAfterAcceptKeepsTheOrder",
+    "MarketplaceOrderFlowTest.customerCancelsEveryPart",
+    "MarketplacePaymentServiceTest.partRefundedOnce",
+    "MarketplacePaymentServiceTest.remainderAfterPart",
+    "MarketplacePaymentServiceTest.cashPartNothing"
    ],
    "cypress": [
-    "MKT-2-01"
+    "MKT-2a-02",
+    "MKT-2a-03",
+    "MKT-2a-04",
+    "MKT-2a-05",
+    "MKT-2a-06",
+    "MKT-2a-07",
+    "MKT-2a-08"
    ],
    "manual": [
-    "M-2-01"
+    "M-2a-01",
+    "M-2a-02",
+    "M-2a-03",
+    "M-2a-04",
+    "M-2a-05",
+    "M-2a-06",
+    "M-2a-07",
+    "M-2a-08"
    ]
   },
   {
@@ -1250,12 +1287,16 @@
    "req": "MKT-R20.3",
    "phase": "2",
    "text": "Phase 2 OMS maturity: parent/child orders, multi-seller cart, automatic rerouting, delivery integration, returns/refunds, merchant performance, COD reconciliation, payout approval, settlement reports",
-   "unit": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.splitsPerSeller",
+    "MarketplaceOrderFlowTest.multiSellerSwitch"
+   ],
    "cypress": [
-    "MKT-2-06"
+    "MKT-2-06",
+    "MKT-2a-02"
    ],
    "manual": [
-    "M-2-01"
+    "M-2a-02"
    ]
   },
   {
@@ -1332,6 +1373,7 @@
     "MarketplaceOrderFlowTest.validation",
     "MarketplaceOrderFlowTest.tracking",
     "MarketplaceOrderFlowTest.tenancyAndActiveSeller",
+    "MarketplaceOrderFlowTest.basketBounds",
     "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
@@ -1354,7 +1396,8 @@
     "MKT-1e-08",
     "MKT-1e2-05",
     "MKT-1f-03",
-    "MKT-1f-11"
+    "MKT-1f-11",
+    "MKT-2a-03"
    ],
    "manual": [
     "M-0a-02",
@@ -1367,6 +1410,7 @@
     "M-1e-11",
     "M-1e2-03",
     "M-1f-01",
+    "M-2a-03",
     "M-X-02"
    ]
   },

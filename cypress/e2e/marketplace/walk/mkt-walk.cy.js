@@ -1131,9 +1131,9 @@ on('MKT manual walk — recorded', () => {
     step(`Developer tools: POST /marketplace/public/checkout with a basket of both offers: "lines": [{offerId: <${A_NAME}'s offer>}, {offerId: <${B_NAME}'s offer>}]. (Operator: Platform → Marketplace policies → "Customers can buy from several sellers in one order" is OFF, the default.)`,
       `Refused: "Items from different sellers must be checked out separately." Nothing is held or ordered. A multi-seller basket exists only when the operator switches it on (M-2a-01).`, () => {
         cy.then(() => { asOperator(); post(API.acceptWindow, { multiSeller: false }) })
-        cy.then(() => customer())
+        cy.then(() => { customer(); cy.visit(UI.publicPage) })
         call('POST /marketplace/public/checkout (two sellers)', post(API.checkout, { customerName: 'Ali', customerPhone: phone(2), address: '1 Clifton',
-          city: 'Karachi', idempotencyKey: `w-${run}-2`, lines: [{ offerId: D.a, quantity: 1, expectedPrice: 52000 }, { offerId: D.b, quantity: 1 }] }))
+          city: 'Karachi', idempotencyKey: `w-${run}-2`, lines: [{ offerId: D.a, quantity: 1, expectedPrice: 52000 }, { offerId: D.b, quantity: 1, expectedPrice: 51500 }] }))
           .then((r) => {
             expect(ok(r.body), JSON.stringify(r.body)).to.eq(false)
             expect(msg(r.body)).to.include('Items from different sellers must be checked out separately.')
@@ -2259,7 +2259,11 @@ on('MKT manual walk — recorded', () => {
   /** The operator's switch, through the API (a case's starting state; M-2a-01 shows the screen). */
   const multiSeller = (on) => { asOperator(); return post(API.acceptWindow, { multiSeller: on, minutes: 5 }) }
   /** Platform → Marketplace policies: the switch as the operator sees it. */
-  const policies = () => { console_('#platMktPoliciesBtn'); return cy.get('#mktMultiSellerForm').scrollIntoView().should('be.visible') }
+  const policies = () => {
+    console_('#platMktPoliciesBtn')
+    cy.get('#mktMultiSellerForm').scrollIntoView().should('be.visible')
+    return cy.get('#mktMultiSeller').should('be.enabled')     // its saved state has loaded
+  }
   /** Customer: on the product page add A's offer (and B's, `qtyB` of it) to an empty basket and open the basket. */
   const fillBasket = (qtyB = 1, { withA = true, withB = true, product, a, b } = {}) => {
     customer()
@@ -2521,9 +2525,9 @@ on('MKT manual walk — recorded', () => {
       cy.contains(`${UI.incoming} tr`, H.o6).find(UI.rejectBtn).click()
       cy.contains(`${UI.incoming} tr`, H.o6).should('contain', 'Rejected')
     })
-    step('Customer: My orders.', `The order reads Rs. 103,500 · "Partly refunded"; ${B_NAME}'s row reads "The seller could not fulfil this part"; ${A_NAME}'s still waits.`, () => {
+    step('Customer: My orders.', `The order reads "Waiting for the sellers to confirm" and Rs. 103,500 · "Partly refunded"; ${B_NAME}'s row reads "The seller could not fulfil this part"; ${A_NAME}'s still waits.`, () => {
       hMyOrders(hph(7), 'Sana Basket')
-      rowOf(H.o6).should('contain', 'Partly refunded')
+      rowOf(H.o6).should('contain', 'Waiting for the sellers to confirm').and('contain', 'Partly refunded')
       rowOf(H.o6).find(`.mkt-acc-part[data-seller="${B_NAME}"]`).should('contain', 'The seller could not fulfil this part')
       rowOf(H.o6).find(`.mkt-acc-part[data-seller="${A_NAME}"]`).should('contain', 'Waiting for confirmation')
     })

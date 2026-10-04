@@ -378,10 +378,14 @@
 	}
 
 	function loadAcceptWindow() {
+		// MKT-2a: the switch stays disabled until its saved state is known, so a tick made before the answer arrives is
+		// neither overwritten by it nor saved as the opposite of what the operator sees
+		$('#mktMultiSeller, #mktMultiSellerSave').prop('disabled', true);
 		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', dataType: 'json' }).done(function (res) {
 			if (ok(res)) {
 				$('#mktAcceptWindow').val((data(res) || {}).minutes);
-				$('#mktMultiSeller').prop('checked', (data(res) || {}).multiSeller === true);   // MKT-2a
+				$('#mktMultiSeller').prop('checked', (data(res) || {}).multiSeller === true).prop('disabled', false);
+				$('#mktMultiSellerSave').prop('disabled', false);
 			}
 		});
 	}

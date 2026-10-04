@@ -1,8 +1,8 @@
 # Slice MKT-2a — one basket, several sellers: the parent order and its parts
 
 **Status:** BUILT 2026-10-04. Unit-green (marketplace-service 363 tests, 0 failures). Gate `mkt-2a-multi-seller.cy.js`
-**8/8 on a live stack**; the earlier gates 0a–1d re-run green after the change (1e–1g re-running). Manual cases
-M-2a-01..08 are written step by step in the walk spec; **recording on the live stack is pending**.
+**8/8 on a live stack**; the earlier gates 0a–1g re-run green after the change (75/75). Manual cases M-2a-01..08
+**walked and recorded** ([live verification](../marketplace/live-verification-2026-10-03.md) §9).
 
 Requirements: **MKT-R17.2** (a parent order with a child per seller, each with its own promise), **MKT-R20.3** (a
 multi-seller cart), plus MKT-R17.1 (Phase 1's one-seller rule stays the default), R10.2, R10.5, R13.1, R8.2 and R22.1

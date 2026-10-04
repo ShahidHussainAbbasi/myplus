@@ -270,6 +270,7 @@
 		var li = el('li');
 		li.setAttribute('data-order-no', o.orderNo);
 		var s = ST[o.status] || ['wait', null, o.status];
+		if (o.status === 'SUBMITTED' && (o.sellerOrders || []).length > 1) s = ['wait', 'ui.js.mktWaitingSellers', 'Waiting for the sellers to confirm'];   // MKT-2a
 		var top = el('div', 'row');
 		top.appendChild(el('b', 'orderno', o.orderNo));
 		top.appendChild(el('span', 'st ' + s[0], s[1] ? tr(s[1], s[2]) : s[2]));
