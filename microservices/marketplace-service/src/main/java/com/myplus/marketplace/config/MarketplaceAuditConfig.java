@@ -38,6 +38,6 @@ public class MarketplaceAuditConfig {
 
     @Bean
     public OutboxHealthRegistry outboxHealthRegistry() {
-        return () -> List.of("audit_outbox");
+        return () -> List.of("audit_outbox", "mkt_gl_outbox");
     }
 }

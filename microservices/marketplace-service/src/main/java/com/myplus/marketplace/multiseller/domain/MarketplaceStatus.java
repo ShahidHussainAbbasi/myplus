@@ -68,6 +68,8 @@ public final class MarketplaceStatus {
     /** Settlement ledger entry types (§16). */
     public enum LedgerEntryType {
         SALE, COMMISSION, DELIVERY_FEE, PROCESSING_FEE, TAX, RESERVE, RESERVE_RELEASE, REFUND, ADJUSTMENT, PAYOUT,
-        REVERSAL
+        REVERSAL,
+        /** MKT-1g — cash on delivery: the seller's rider already holds the customer's money (R-MKT-2). */
+        COLLECTED_BY_SELLER
     }
 }

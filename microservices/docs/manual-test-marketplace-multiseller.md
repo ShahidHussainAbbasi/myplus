@@ -823,7 +823,7 @@
 **Who:** Customer → MaxTheService operator → owner.business@myplus.com  
 **Before:** A delivered Rs 52,000 order paid online, inside its 7-day return window.  
 **Covers:** MKT-R13.1, MKT-R13.2  
-**Evidence:** recorded 2026-10-03 22:41 UTC  
+**Evidence:** recorded 2026-10-03 22:45 UTC  
 **Automated by:** MKT-1f-04
 
 | # | Do this | Expect |
@@ -903,40 +903,40 @@
 ### M-1g-01 The worked example adds up
 
 **Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** A delivered Rs 5,000 order: fixed commission Rs 500, delivery Rs 200, processing Rs 50, reserve Rs 100.  
+**Before:** A delivered card order: goods Rs 4,800 + delivery Rs 200 = Rs 5,000; commission 10% of items; sold under a 0-day return policy; the operator set T+0 and pressed "Settle what is due now".  
 **Covers:** MKT-R15.5, MKT-R16.1  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Sale → Marketplace → Settlement statement → open the line. | Customer paid 5,000.00 · Commission 500.00 · Delivery 200.00 · Processing 50.00 · Reserve 100.00 · Payable 4,150.00. |
-| 2 | Add them up. | 4,150 + 500 + 200 + 50 + 100 = 5,000. |
+| 1 | Sale → Marketplace → Settlement statement → Show statement. | The line: Customer paid 5,000 · Commission 480 · Delivery, fees, tax, reserve, correction 0 · Payable to you 4,520. |
+| 2 | Add them up. | 4,520 + 480 + 0 = 5,000. |
 | C1 | Nothing to undo. | — |
 
 ### M-1g-02 Nothing is payable before delivery and the return window
 
 **Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** An order placed today, not delivered.  
+**Before:** An order the seller accepted today, not yet delivered; the offer has a 7-day return policy.  
 **Covers:** MKT-R15.2, MKT-R15.3, MKT-R16.2  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settlement statement. | The line is NOT_ELIGIBLE. |
-| 2 | Record delivery; reload. | PENDING_RETURN_WINDOW. |
-| 3 | After the return window ends; reload. | ELIGIBLE. |
+| 1 | Settlement statement. | The line reads "Not delivered yet"; no Payable on date. |
+| 2 | Record delivery; reload. | "Return days running"; Payable on = delivery + 7 days, then the next business day. |
+| 3 | After that date the operator presses "Settle what is due now"; reload. | "Payable"; the ledger shows the SALE and COMMISSION lines. |
 | C1 | Nothing to undo. | — |
 
 ### M-1g-03 T+1 skips the weekend
 
 **Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** Delivery recorded on a Friday; trigger DELIVERED, T+1.  
+**Before:** Delivery recorded on a Friday under a 0-day return policy; T+1.  
 **Covers:** MKT-R15.1  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settlement statement → the line's "Payable on". | The following Monday (Tuesday if Monday is a bank holiday). |
+| 1 | Settlement statement → the line's "Payable on". | The following Monday. (No holiday calendar in Phase 1: weekends only.) |
 | C1 | Nothing to undo. | — |
 
 ### M-1g-04 Payouts need two people and happen once
@@ -948,37 +948,37 @@
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Operator 1: Payouts → Request for Seller A. | Payout PO-… REQUESTED. |
-| 2 | Operator 1: Approve it. | Refused: "Another person must approve this payout." |
+| 1 | Operator 1: Settlement and payouts → Seller A → Request payout. | Payout PO-… requested for the whole balance. |
+| 2 | Operator 1: Approve it. | Refused: "Another person must approve this payout: you requested it." |
 | 3 | Operator 2: Approve. | APPROVED. |
-| 4 | Operator 1: Mark paid, bank reference TRX-123. | PAID with TRX-123. |
-| 5 | Refresh and press Request again. | The same payout is shown; no second one is created. |
+| 4 | Operator 1: Mark paid with bank reference TRX-123. | PAID; the seller's balance is 0 and its statement lines read "Paid" with PO-…. |
+| 5 | Send the same request again (same request key). | The same payout is returned; no second one is created. |
 | C1 | None: payouts are records. Use a test seller. | — |
 
 ### M-1g-05 Mistakes are reversed, not edited
 
 **Who:** admin@myplus.com (operator)  
-**Before:** A PAID ledger line.  
+**Before:** Seller A has ledger lines.  
 **Covers:** MKT-R15.6, MKT-R16.2  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Look for an Edit action on any ledger line. | There is none. |
-| 2 | Record a correction of −100. | A new ADJUSTMENT line −100.00; the original line is unchanged. |
+| 1 | Settlement and payouts → Seller A → Ledger. Look for an Edit action on any line. | There is none. |
+| 2 | Record correction −100 with a reason. | A new ADJUSTMENT line of 100.00 owed by the seller; every earlier line unchanged; balance down 100. |
 | C1 | Record +100 to cancel the test correction. | The balance is back. |
 
 ### M-1g-06 Commission reaches the books
 
 **Who:** admin@myplus.com (operator)  
-**Before:** Note the trial balance line "Marketplace commission".  
+**Before:** Operator: note the trial balance lines 4500 Marketplace Commission and 2400 Marketplace Seller Balances.  
 **Covers:** MKT-R15.5, MKT-R1.3  
 **Evidence:** written from the design — not built yet
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settle one delivered order with commission Rs 480. | Settled. |
-| 2 | Finance → Trial balance. | "Marketplace commission" is higher by exactly 480.00; the seller-payable control account moved by the payable. |
+| 1 | Settle one delivered card order of Rs 5,000 with commission Rs 480. | 1 line settled. |
+| 2 | Finance → Trial balance. | 4500 is higher by exactly 480.00; 2400 moved by the payable (4,520.00); 1010 Bank by 5,000.00. |
 | C1 | Nothing to undo: the journal is the record. | — |
 
 

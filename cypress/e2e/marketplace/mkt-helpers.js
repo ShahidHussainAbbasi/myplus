@@ -70,7 +70,7 @@ const API = {
   incomingOrders: '/mkt/incomingOrders',                      // MKT-1e: ?status=OFFERED|ACCEPTED|…
   acceptOrder: '/mkt/acceptOrder',                            // MKT-1e: {id, version, serials: []}
   rejectOrder: '/mkt/rejectOrder',                            // MKT-1e: {id, version, reason}
-  statement: '/mkt/statement',
+  statement: '/mkt/statement',                              // MKT-1g: ?status=&size= → lines with the whole split
   // operator (MKT_OPERATE / MKT_SETTLE / MKT_SUPPORT)
   matchQueue: '/platform/mkt/matchQueue',                    // MKT-1b: ?status=PENDING_REVIEW|MATCHED|NEEDS_CORRECTION
   decideMatch: '/platform/mkt/decideMatch',                  // MKT-1b: {id, decision, mktProductId, note, version}
@@ -84,9 +84,9 @@ const API = {
   defaultSort: '/platform/mkt/defaultSort',                  // MKT-1d: GET → {sort}; POST {sort}
   sellers: '/platform/mkt/sellers',                           // MKT-0a: ?status=PENDING_APPROVAL|APPROVED|…
   decideSeller: '/platform/mkt/decideSeller',                 // MKT-0a: {organizationId, decision, reason, version}
-  requestPayout: '/platform/mkt/requestPayout',
-  approvePayout: '/platform/mkt/approvePayout',
-  markPayoutPaid: '/platform/mkt/markPayoutPaid',
+  requestPayout: '/platform/mkt/requestPayout',            // MKT-1g: {organizationId, idempotencyKey}
+  approvePayout: '/platform/mkt/approvePayout',            // MKT-1g: {id} — never by its requester
+  markPayoutPaid: '/platform/mkt/markPayoutPaid',          // MKT-1g: {id, bankReference}
   supportCases: '/platform/mkt/supportCases',
   taskCase: '/platform/mkt/taskCase',
   // customer (platform-scoped account, R-MKT-5)

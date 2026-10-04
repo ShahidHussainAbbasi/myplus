@@ -44,6 +44,9 @@ public class GlService {
             {"2000", "Accounts Payable", AccountType.LIABILITY, NormalSide.CREDIT},
             {"2100", "Tax Payable", AccountType.LIABILITY, NormalSide.CREDIT},
             {"2200", "Store Credit", AccountType.LIABILITY, NormalSide.CREDIT},
+            // MKT-1g — the marketplace operator's balance with its sellers, one account for both directions (a
+            // credit balance is owed to sellers, a debit balance is commission they owe). See MarketplacePostingRules.
+            {"2400", "Marketplace Seller Balances", AccountType.LIABILITY, NormalSide.CREDIT},
             {"3000", "Owner's Equity", AccountType.EQUITY, NormalSide.CREDIT},
             {"3100", "Retained Earnings", AccountType.EQUITY, NormalSide.CREDIT},
             {"4000", "Sales", AccountType.INCOME, NormalSide.CREDIT},
@@ -59,6 +62,10 @@ public class GlService {
             // a shop that cannot separate delivery income from goods income cannot tell whether its delivery
             // operation pays for itself. Backfilled by ensureDefaults() the same way 2200 and 4200 arrived.
             {"4300", "Delivery Income", AccountType.INCOME, NormalSide.CREDIT},
+            // MKT-1g — what MaxTheService earns on routed orders, and the operator's corrections to sellers' balances.
+            // Backfilled by ensureDefaults() like 4300. Only the operator's org ever posts to them.
+            {"4500", "Marketplace Commission", AccountType.INCOME, NormalSide.CREDIT},
+            {"4510", "Marketplace Adjustments", AccountType.INCOME, NormalSide.CREDIT},
             {"5000", "Cost of Goods Sold", AccountType.EXPENSE, NormalSide.DEBIT},
             {"5100", "Purchases / Expenses", AccountType.EXPENSE, NormalSide.DEBIT},
             // EX-0b — the accounts Expense Management posts to. Back-filled by ensureDefaults() into charts

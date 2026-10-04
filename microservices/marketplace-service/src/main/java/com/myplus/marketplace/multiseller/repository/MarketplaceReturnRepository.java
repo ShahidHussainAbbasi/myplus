@@ -22,4 +22,7 @@ public interface MarketplaceReturnRepository extends JpaRepository<MarketplaceRe
 
     /** A seller's approved returns waiting for "Item received". */
     List<MarketplaceReturn> findTop100BySellerOrgIdAndStatusOrderByCreatedAtAsc(Long sellerOrgId, String status);
+
+    /** MKT-1g — the returns of many lines at once (the settlement sweeper and the statement, no N+1). */
+    List<MarketplaceReturn> findByOrderLineIdIn(Collection<Long> orderLineIds);
 }

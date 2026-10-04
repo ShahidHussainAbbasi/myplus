@@ -416,6 +416,105 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/change-of-mind-fee", body, "Could not save the fee.");
     }
 
+    // ── MKT-1g: settlement statement, ledger and payouts ───────────────────────────────────────────────────
+
+    /** The seller's statement: its lines, each with the whole split. ?status=ELIGIBLE|PAID|… */
+    @RequestMapping(value = "/mkt/statement", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> statement(final HttpServletRequest request) {
+        return relayGet("/mkt/settlement/statement", request, "Could not load your settlement statement.", "status", "page", "size");
+    }
+
+    /** The seller's account: balance, ledger rows, payouts. */
+    @RequestMapping(value = "/mkt/settlementAccount", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> settlementAccount(final HttpServletRequest request) {
+        return relayGet("/mkt/settlement/account", request, "Could not load your settlement account.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settlementAccounts", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> settlementAccounts(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settlement/accounts", request, "Could not load the sellers' balances.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settlementAccount", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> sellerSettlementAccount(final HttpServletRequest request) {
+        String org = request.getParameter("organizationId");
+        if (org == null || !org.trim().matches("\\d{1,18}")) return refusal("Choose the seller.");
+        return relayGet("/mkt/operator/settlement/accounts/" + org.trim(), request, "Could not load the seller's account.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/runSettlement", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> runSettlement() {
+        return relayPost("/mkt/operator/settlement/run", Map.of(), "Could not run the settlement.");
+    }
+
+    /** Body: {organizationId, amount (signed), reason, idempotencyKey}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/adjustLedger", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> adjustLedger(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settlement/adjust", body, "Could not record the correction.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settlementSettings", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> settlementSettings(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settlement/settings", request, "Could not load the settlement settings.");
+    }
+
+    /** Body: {tPlusDays, useMyBooks}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settlementSettings", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> saveSettlementSettings(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settlement/settings", body, "Could not save the settlement settings.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/payouts", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> payouts(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/payouts", request, "Could not load the payouts.", "status", "page", "size");
+    }
+
+    /** Body: {organizationId, idempotencyKey}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/requestPayout", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> requestPayout(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/payouts", body, "Could not request the payout.");
+    }
+
+    /** Body: {id}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/approvePayout", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> approvePayout(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the payout.");
+        return relayPost("/mkt/operator/payouts/" + id + "/approve", Map.of(), "Could not approve the payout.");
+    }
+
+    /** Body: {id, bankReference}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/markPayoutPaid", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> markPayoutPaid(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the payout.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/operator/payouts/" + id + "/mark-paid", rest, "Could not record the payment.");
+    }
+
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────────
 
     private Map<String, Object> relayGet(String path, HttpServletRequest request, String fallback, String... params) {

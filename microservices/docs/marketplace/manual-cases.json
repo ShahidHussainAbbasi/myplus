@@ -4618,17 +4618,17 @@
    "slice": "MKT-1g",
    "title": "The worked example adds up",
    "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "A delivered Rs 5,000 order: fixed commission Rs 500, delivery Rs 200, processing Rs 50, reserve Rs 100.",
+   "pre": "A delivered card order: goods Rs 4,800 + delivery Rs 200 = Rs 5,000; commission 10% of items; sold under a 0-day return policy; the operator set T+0 and pressed \"Settle what is due now\".",
    "steps": [
     {
      "n": 1,
-     "do": "Sale → Marketplace → Settlement statement → open the line.",
-     "expect": "Customer paid 5,000.00 · Commission 500.00 · Delivery 200.00 · Processing 50.00 · Reserve 100.00 · Payable 4,150.00."
+     "do": "Sale → Marketplace → Settlement statement → Show statement.",
+     "expect": "The line: Customer paid 5,000 · Commission 480 · Delivery, fees, tax, reserve, correction 0 · Payable to you 4,520."
     },
     {
      "n": 2,
      "do": "Add them up.",
-     "expect": "4,150 + 500 + 200 + 50 + 100 = 5,000."
+     "expect": "4,520 + 480 + 0 = 5,000."
     }
    ],
    "cleanup": [
@@ -4643,7 +4643,7 @@
     "MKT-R16.1"
    ],
    "evidence": "design",
-   "source": "MKT-1a SettlementCalculator (unit-tested); screens in MKT-1g.",
+   "source": "Slice MKT-1g: SettlementCalculator through MarketplaceSettlementService.figures. Phase 1 has no processing fee or reserve, and the seller keeps the delivery fee (its rider delivers).",
    "warn": false,
    "auto": []
   },
@@ -4652,22 +4652,22 @@
    "slice": "MKT-1g",
    "title": "Nothing is payable before delivery and the return window",
    "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "An order placed today, not delivered.",
+   "pre": "An order the seller accepted today, not yet delivered; the offer has a 7-day return policy.",
    "steps": [
     {
      "n": 1,
      "do": "Settlement statement.",
-     "expect": "The line is NOT_ELIGIBLE."
+     "expect": "The line reads \"Not delivered yet\"; no Payable on date."
     },
     {
      "n": 2,
      "do": "Record delivery; reload.",
-     "expect": "PENDING_RETURN_WINDOW."
+     "expect": "\"Return days running\"; Payable on = delivery + 7 days, then the next business day."
     },
     {
      "n": 3,
-     "do": "After the return window ends; reload.",
-     "expect": "ELIGIBLE."
+     "do": "After that date the operator presses \"Settle what is due now\"; reload.",
+     "expect": "\"Payable\"; the ledger shows the SALE and COMMISSION lines."
     }
    ],
    "cleanup": [
@@ -4683,7 +4683,7 @@
     "MKT-R16.2"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1g.",
+   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
    "warn": false,
    "auto": []
   },
@@ -4692,12 +4692,12 @@
    "slice": "MKT-1g",
    "title": "T+1 skips the weekend",
    "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "Delivery recorded on a Friday; trigger DELIVERED, T+1.",
+   "pre": "Delivery recorded on a Friday under a 0-day return policy; T+1.",
    "steps": [
     {
      "n": 1,
      "do": "Settlement statement → the line's \"Payable on\".",
-     "expect": "The following Monday (Tuesday if Monday is a bank holiday)."
+     "expect": "The following Monday. (No holiday calendar in Phase 1: weekends only.)"
     }
    ],
    "cleanup": [
@@ -4711,7 +4711,7 @@
     "MKT-R15.1"
    ],
    "evidence": "design",
-   "source": "MKT-1a BusinessDayCalendar (unit-tested).",
+   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
    "warn": false,
    "auto": []
   },
@@ -4724,13 +4724,13 @@
    "steps": [
     {
      "n": 1,
-     "do": "Operator 1: Payouts → Request for Seller A.",
-     "expect": "Payout PO-… REQUESTED."
+     "do": "Operator 1: Settlement and payouts → Seller A → Request payout.",
+     "expect": "Payout PO-… requested for the whole balance."
     },
     {
      "n": 2,
      "do": "Operator 1: Approve it.",
-     "expect": "Refused: \"Another person must approve this payout.\""
+     "expect": "Refused: \"Another person must approve this payout: you requested it.\""
     },
     {
      "n": 3,
@@ -4739,13 +4739,13 @@
     },
     {
      "n": 4,
-     "do": "Operator 1: Mark paid, bank reference TRX-123.",
-     "expect": "PAID with TRX-123."
+     "do": "Operator 1: Mark paid with bank reference TRX-123.",
+     "expect": "PAID; the seller's balance is 0 and its statement lines read \"Paid\" with PO-…."
     },
     {
      "n": 5,
-     "do": "Refresh and press Request again.",
-     "expect": "The same payout is shown; no second one is created."
+     "do": "Send the same request again (same request key).",
+     "expect": "The same payout is returned; no second one is created."
     }
    ],
    "cleanup": [
@@ -4760,7 +4760,7 @@
     "MKT-R22.3"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1g.",
+   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
    "warn": false,
    "auto": []
   },
@@ -4769,17 +4769,17 @@
    "slice": "MKT-1g",
    "title": "Mistakes are reversed, not edited",
    "persona": "admin@myplus.com (operator)",
-   "pre": "A PAID ledger line.",
+   "pre": "Seller A has ledger lines.",
    "steps": [
     {
      "n": 1,
-     "do": "Look for an Edit action on any ledger line.",
+     "do": "Settlement and payouts → Seller A → Ledger. Look for an Edit action on any line.",
      "expect": "There is none."
     },
     {
      "n": 2,
-     "do": "Record a correction of −100.",
-     "expect": "A new ADJUSTMENT line −100.00; the original line is unchanged."
+     "do": "Record correction −100 with a reason.",
+     "expect": "A new ADJUSTMENT line of 100.00 owed by the seller; every earlier line unchanged; balance down 100."
     }
    ],
    "cleanup": [
@@ -4794,7 +4794,7 @@
     "MKT-R16.2"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1g.",
+   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
    "warn": false,
    "auto": []
   },
@@ -4803,17 +4803,17 @@
    "slice": "MKT-1g",
    "title": "Commission reaches the books",
    "persona": "admin@myplus.com (operator)",
-   "pre": "Note the trial balance line \"Marketplace commission\".",
+   "pre": "Operator: note the trial balance lines 4500 Marketplace Commission and 2400 Marketplace Seller Balances.",
    "steps": [
     {
      "n": 1,
-     "do": "Settle one delivered order with commission Rs 480.",
-     "expect": "Settled."
+     "do": "Settle one delivered card order of Rs 5,000 with commission Rs 480.",
+     "expect": "1 line settled."
     },
     {
      "n": 2,
      "do": "Finance → Trial balance.",
-     "expect": "\"Marketplace commission\" is higher by exactly 480.00; the seller-payable control account moved by the payable."
+     "expect": "4500 is higher by exactly 480.00; 2400 moved by the payable (4,520.00); 1010 Bank by 5,000.00."
     }
    ],
    "cleanup": [
@@ -4828,7 +4828,7 @@
     "MKT-R1.3"
    ],
    "evidence": "design",
-   "source": "Slice MKT-1g, finance-service posting.",
+   "source": "Slice MKT-1g: MKT_SETTLEMENT through mkt_gl_outbox to finance MarketplacePostingRules.",
    "warn": false,
    "auto": []
   },

@@ -112,7 +112,31 @@ public class PostingService {
         else if ("OPENING_AR_REVERSAL".equalsIgnoreCase(type)) postOpeningReceivableReversal(req);
         else if ("EXPENSE".equalsIgnoreCase(type)) postExpense(req);
         else if ("EXPENSE_REVERSAL".equalsIgnoreCase(type)) postExpenseReversal(req);
+        else if (MKT_SETTLEMENT.equalsIgnoreCase(type)) postMarketplace(MKT_SETTLEMENT, req,
+                MarketplacePostingRules.settlement(req.getPaidAmount(), req.getCommission()));
+        else if (MKT_ADJUSTMENT.equalsIgnoreCase(type)) postMarketplace(MKT_ADJUSTMENT, req,
+                MarketplacePostingRules.adjustment(req.getGrandTotal()));
+        else if (MKT_PAYOUT.equalsIgnoreCase(type)) postMarketplace(MKT_PAYOUT, req,
+                MarketplacePostingRules.payout(req.getGrandTotal()));
         else throw new IllegalArgumentException("Unknown event type: " + type);
+    }
+
+    // ---- MKT-1g: the marketplace operator's settlement ledger ---------------------------------------------------
+
+    static final String MKT_SETTLEMENT = "MKT_SETTLEMENT", MKT_ADJUSTMENT = "MKT_ADJUSTMENT", MKT_PAYOUT = "MKT_PAYOUT";
+
+    /**
+     * MKT-1g — a settled marketplace line, an operator's correction, or a payout, in the OPERATOR's books
+     * ({@link MarketplacePostingRules}). The event key already makes a redelivery a no-op; the ref check also stops
+     * the same ledger row being posted under a second key.
+     */
+    private void postMarketplace(String source, PostEventRequest r, List<JournalLineDTO> lines) {
+        if (r.getRef() == null || r.getRef().isBlank())
+            throw new IllegalArgumentException("A marketplace posting needs its ledger reference (ref).");
+        String ref = r.getRef().trim();
+        if (glService.hasJournal(source, ref)) return;
+        if (lines.isEmpty()) return;   // a fully refunded cash-on-delivery line: nothing moved
+        post(source, r.getDate(), ref, lines);
     }
 
     // ---- EX-0b: expenses ---------------------------------------------------------------------------------------

@@ -503,6 +503,127 @@
 			.always(function () { $b.prop('disabled', false); });
 	});
 
+	// ── MKT-1g: settlement and payouts ─────────────────────────────────────────────────────────────────
+
+	function key(prefix) { return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10); }
+
+	function say($el, res, fallback) {
+		$el.css('color', ok(res) ? '#1f7a4d' : '#b3261e').text(message(res, fallback));
+	}
+
+	function opsPost(path, body, $b, $msg, after) {
+		var label = $b.text();
+		$b.prop('disabled', true);
+		return $.ajax({ url: ctx() + path, type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify(body || {}) })
+			.done(function (res) { say($msg, res, ok(res) ? tr('ui.js.mktOfferSaved', 'Saved.') : tr('ui.js.saveFailed', 'Save failed')); if (ok(res) && after) after(res); })
+			.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false).text(label); });
+	}
+
+	function loadSettlementSettings() {
+		$.ajax({ url: ctx() + 'platform/mkt/settlementSettings', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) return;
+			var v = data(res) || {};
+			$('#mktTPlus').val(v.tPlusDays);
+			$('#mktUseMyBooks').toggle(!v.booksAreMine);
+			if (!v.booksOrganizationId) $('#mktSetMsg').css('color', '#8a5a00')
+				.text(tr('ui.js.mktNoBooks', 'No books chosen yet: the first settlement books commission in your organisation.'));
+		});
+	}
+
+	function loadAccounts() {
+		var $tb = $('#mktAccountList tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/settlementAccounts', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $tb.append($('<tr><td colspan="4"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+			var rows = data(res) || [];
+			if (!rows.length) $tb.append($('<tr><td colspan="4" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktNoBalances', 'No seller has a settled line yet.')).end());
+			rows.forEach(function (a) { $tb.append(accountRow(a)); });
+		});
+	}
+
+	function accountRow(a) {
+		var $tr = $('<tr class="mkt-account"></tr>').attr('data-org', a.organizationId);
+		var $msg = $('<div role="status" style="font-size:12px"></div>');
+		$('<td></td>').text(a.sellerName || ('#' + a.organizationId)).appendTo($tr);
+		$('<td class="text-right mkt-balance"></td>').text(money(a.balance)).css('color', Number(a.balance) < 0 ? '#b3261e' : '').appendTo($tr);
+		var p = a.openPayout;
+		$('<td></td>').text(p ? p.payoutNo + ' · ' + money(p.requestedAmount) + ' · ' + p.status : '—').appendTo($tr);
+		var $act = $('<td></td>').appendTo($tr);
+		if (!p && Number(a.balance) > 0) {
+			$('<button type="button" class="btn btn-xs btn-primary mkt-request-payout"></button>').text(tr('ui.js.mktRequestPayout', 'Request payout'))
+				.on('click', function () { opsPost('platform/mkt/requestPayout', { organizationId: a.organizationId, idempotencyKey: key('po') }, $(this), $msg, loadAccounts); })
+				.appendTo($act);
+		}
+		if (p && p.status === 'REQUESTED') {
+			$('<button type="button" class="btn btn-xs btn-success mkt-approve-payout"></button>').text(tr('ui.js.mktApprovePayout', 'Approve'))
+				.prop('title', p.requestedByMe ? tr('ui.js.mktNotYourOwn', 'Another operator must approve a payout you requested.') : '')
+				.on('click', function () { opsPost('platform/mkt/approvePayout', { id: p.id }, $(this), $msg, loadAccounts); })
+				.appendTo($act);
+		}
+		if (p && p.status === 'APPROVED') {
+			var $ref = $('<input type="text" maxlength="80" class="form-control input-sm mkt-bank-ref" style="display:inline-block;width:140px;margin-right:6px">')
+				.attr('placeholder', tr('ui.js.mktBankRef', 'Bank reference')).attr('aria-label', tr('ui.js.mktBankRef', 'Bank reference')).appendTo($act);
+			$('<button type="button" class="btn btn-xs btn-success mkt-mark-paid"></button>').text(tr('ui.js.mktMarkPaid', 'Mark paid'))
+				.on('click', function () { opsPost('platform/mkt/markPayoutPaid', { id: p.id, bankReference: $ref.val() }, $(this), $msg, loadAccounts); })
+				.appendTo($act);
+		}
+		$('<button type="button" class="btn btn-xs btn-default mkt-ledger" style="margin-left:6px"></button>').text(tr('ui.js.mktLedger', 'Ledger'))
+			.on('click', function () { openLedger(a.organizationId); }).appendTo($act);
+		$act.append($msg);
+		return $tr;
+	}
+
+	function openLedger(org) {
+		var $box = $('#mktOpsLedger').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/settlementAccount?organizationId=' + encodeURIComponent(org), dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $box.text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var v = data(res) || {};
+			$('<h4 style="font-weight:700"></h4>').text((v.sellerName || ('#' + org)) + ' · ' + money(v.balance)).appendTo($box);
+			var $t = $('<table class="table table-condensed mkt-ops-ledger"><thead><tr><th></th><th></th><th></th><th class="text-right"></th><th class="text-right"></th></tr></thead><tbody></tbody></table>').appendTo($box);
+			var heads = [tr('ui.js.mktColDate', 'Date'), tr('ui.js.mktColEntry', 'Entry'), tr('ui.js.mktColRef', 'Reference'),
+				tr('ui.js.mktColCredit', 'Owed to seller'), tr('ui.js.mktColDebit', 'Owed by seller')];
+			$t.find('th').each(function (i) { $(this).text(heads[i]); });
+			(v.entries || []).forEach(function (e) {
+				$t.find('tbody').append($('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)
+					.append($('<td></td>').text((e.effectiveAt || '').substring(0, 10)))
+					.append($('<td></td>').text(e.entryType).append(e.memo ? $('<div class="plat__hint"></div>').text(e.memo) : null))
+					.append($('<td></td>').text(e.ref || ''))
+					.append($('<td class="text-right"></td>').text(Number(e.credit) ? money(e.credit) : ''))
+					.append($('<td class="text-right"></td>').text(Number(e.debit) ? money(e.debit) : '')));
+			});
+			// a correction is a NEW line (R15.6): there is no edit control on any row above
+			var $f = $('<div class="form-inline" style="margin-top:8px"></div>').appendTo($box);
+			var $amt = $('<input type="number" step="0.01" class="form-control input-sm" id="mktAdjAmount" style="width:120px;margin-right:6px">')
+				.attr('placeholder', tr('ui.js.mktAdjAmount', 'Rs, minus to take back')).attr('aria-label', tr('ui.js.mktAdjAmount', 'Rs, minus to take back')).appendTo($f);
+			var $why = $('<input type="text" maxlength="300" class="form-control input-sm" id="mktAdjReason" style="width:260px;margin-right:6px">')
+				.attr('placeholder', tr('ui.js.mktAdjReason', 'Reason, shown to the seller')).attr('aria-label', tr('ui.js.mktAdjReason', 'Reason, shown to the seller')).appendTo($f);
+			var $m = $('<span role="status" style="margin-left:8px"></span>');
+			var adjKey = key('adj');
+			$('<button type="button" class="btn btn-sm btn-default" id="mktAdjSave"></button>').text(tr('ui.js.mktAdjSave', 'Record correction'))
+				.on('click', function () {
+					opsPost('platform/mkt/adjustLedger', { organizationId: org, amount: $amt.val() === '' ? null : Number($amt.val()),
+						reason: $why.val(), idempotencyKey: adjKey }, $(this), $m, function () { loadAccounts(); openLedger(org); });
+				}).appendTo($f);
+			$f.append($m);
+		});
+	}
+
+	$(document).on('click', '#platMktPayoutsBtn', function () {
+		$('#mktOpsLedger').empty();
+		$('#mktSetMsg').text('');
+		openPanel('#platMktPayouts', function () { loadSettlementSettings(); loadAccounts(); });
+	});
+	$(document).on('click', '#mktSetSave', function () {
+		opsPost('platform/mkt/settlementSettings', { tPlusDays: $('#mktTPlus').val() === '' ? null : Number($('#mktTPlus').val()) },
+			$(this), $('#mktSetMsg'), loadSettlementSettings);
+	});
+	$(document).on('click', '#mktUseMyBooks', function () {
+		opsPost('platform/mkt/settlementSettings', { useMyBooks: true }, $(this), $('#mktSetMsg'), loadSettlementSettings);
+	});
+	$(document).on('click', '#mktRunSettlement', function () {
+		opsPost('platform/mkt/runSettlement', {}, $(this), $('#mktSetMsg'), function () { loadAccounts(); loadSettlementSettings(); });
+	});
+
 	function openPanel(id, loader) {
 		$('.plat__panel').hide();
 		$(id).show();

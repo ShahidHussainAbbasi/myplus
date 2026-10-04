@@ -1,9 +1,9 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 57,
+ "unit": 61,
  "cypress": 61,
- "automated": 66,
+ "automated": 67,
  "manual": 87,
  "gaps": [],
  "unknown": [],
@@ -782,6 +782,8 @@
    "phase": "1",
    "text": "Return flow: request → policy check → notify fulfiller/owner → pickup → inspect → approve/reject refund → restock/quarantine/write-off → adjust settlement",
    "unit": [
+    "MarketplaceSettlementServiceTest.refundedReturnReducesTheLine",
+    "MarketplaceSettlementServiceTest.returnHoldsTheLine",
     "MarketplaceSupportServiceTest.deliveredAndOnce",
     "MarketplaceSupportServiceTest.cardRefundOnce",
     "MarketplaceSupportServiceTest.lostRefundNoSecondCreditNote",
@@ -877,7 +879,8 @@
     "BusinessDayCalendarTest.monday",
     "BusinessDayCalendarTest.fridayCrossesWeekend",
     "BusinessDayCalendarTest.holiday",
-    "BusinessDayCalendarTest.tPlusZero"
+    "BusinessDayCalendarTest.tPlusZero",
+    "MarketplaceSettlementServiceTest.eligibleOnSkipsTheWeekend"
    ],
    "cypress": [
     "MKT-1g-03"
@@ -891,7 +894,9 @@
    "phase": "1",
    "text": "Never pay the stock owner at order placement; payable = delivered + payment confirmed + no active cancellation + return/dispute conditions met",
    "unit": [
-    "MarketplaceStateMachinesTest.paidOnlyReverses"
+    "MarketplaceStateMachinesTest.paidOnlyReverses",
+    "MarketplaceSettlementServiceTest.nothingBeforeTheWindow",
+    "MarketplaceSettlementServiceTest.returnHoldsTheLine"
    ],
    "cypress": [
     "MKT-1g-02"
@@ -904,7 +909,9 @@
    "req": "MKT-R15.3",
    "phase": "1",
    "text": "Triggers DELIVERED · DELIVERED_PLUS_RETURN_WINDOW · PICKUP_COMPLETED · MANUAL_APPROVAL; low-risk = short window, high-risk = long",
-   "unit": [],
+   "unit": [
+    "MarketplaceSettlementServiceTest.noBooksNoSettlement"
+   ],
    "cypress": [],
    "manual": [
     "M-1g-02"
@@ -929,7 +936,12 @@
     "SettlementCalculatorTest.percentOfItems",
     "SettlementCalculatorTest.fractionalRateNotRoundedFirst",
     "SettlementCalculatorTest.reconcilesEverywhere",
-    "SettlementCalculatorTest.negativePayableRefused"
+    "SettlementCalculatorTest.negativePayableRefused",
+    "MarketplaceSettlementServiceTest.workedExample",
+    "MarketplaceSettlementServiceTest.fixedCommission",
+    "MarketplaceSettlementServiceTest.cardLineSettlesOnce",
+    "MarketplaceSettlementServiceTest.codLineOwesTheCommission",
+    "MarketplaceSettlementServiceTest.statementAddsUp"
    ],
    "cypress": [
     "MKT-1g-01",
@@ -945,7 +957,9 @@
    "phase": "1",
    "text": "**Immutable** settlement ledger; never `wallet.balance += amount`",
    "unit": [
-    "MarketplaceStateMachinesTest.paidOnlyReverses"
+    "MarketplaceStateMachinesTest.paidOnlyReverses",
+    "MarketplaceSettlementServiceTest.correctionIsANewRow",
+    "MarketplaceSettlementServiceTest.ledgerHasNoEditPath"
    ],
    "cypress": [
     "MKT-1g-05"
@@ -958,7 +972,9 @@
    "req": "MKT-R16.1",
    "phase": "1",
    "text": "Entities SettlementAccount, SettlementLedgerEntry, Payout with the listed fields",
-   "unit": [],
+   "unit": [
+    "MarketplaceSettlementServiceTest.statementAddsUp"
+   ],
    "cypress": [
     "MKT-1g-01"
    ],
@@ -970,7 +986,10 @@
    "req": "MKT-R16.2",
    "phase": "1",
    "text": "Settlement statuses NOT_ELIGIBLE · PENDING · ELIGIBLE · ON_HOLD · APPROVED · PROCESSING · PAID · REVERSED · DISPUTED",
-   "unit": [],
+   "unit": [
+    "MarketplaceSettlementServiceTest.nothingBeforeTheWindow",
+    "MarketplaceSettlementServiceTest.markPaidOnce"
+   ],
    "cypress": [
     "MKT-1g-02"
    ],
@@ -983,7 +1002,12 @@
    "req": "MKT-R16.3",
    "phase": "1",
    "text": "Every payout: idempotency key, approval rules, audit log, bank/payment reference, reconciliation",
-   "unit": [],
+   "unit": [
+    "MarketplaceSettlementServiceTest.nothingToPay",
+    "MarketplaceSettlementServiceTest.payoutIdempotentAndFourEyes",
+    "MarketplaceSettlementServiceTest.markPaidOnce",
+    "MarketplaceSettlementServiceTest.markPaidRefusedWhenBalanceShrank"
+   ],
    "cypress": [
     "MKT-1g-04"
    ],
@@ -1377,7 +1401,10 @@
     "MarketplacePaymentServiceTest.lostAnswer",
     "MarketplacePaymentServiceTest.reconcileLostThenRefund",
     "MarketplaceSellerServiceTest.idempotent",
-    "MarketplaceSellerServiceTest.staleDecision"
+    "MarketplaceSellerServiceTest.staleDecision",
+    "MarketplaceSettlementServiceTest.cardLineSettlesOnce",
+    "MarketplaceSettlementServiceTest.payoutIdempotentAndFourEyes",
+    "MarketplaceSettlementServiceTest.ledgerHasNoEditPath"
    ],
    "cypress": [
     "MKT-0a-05",
@@ -1400,6 +1427,9 @@
    "phase": "1",
    "text": "Every marketplace and support action audited",
    "unit": [
+    "MarketplaceAuditServiceTest.customerDeliverable",
+    "MarketplaceAuditServiceTest.operatorStated",
+    "MarketplaceOrderFlowTest.ordersAudited",
     "MarketplaceSupportServiceTest.decisionAudited"
    ],
    "cypress": [

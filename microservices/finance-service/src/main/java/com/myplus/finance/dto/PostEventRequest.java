@@ -42,4 +42,7 @@ public class PostEventRequest {
      * producer whose outbox stores the whole request (expense-service, payload JSON) may send it.
      */
     private java.util.List<JournalLineDTO> lines;
+
+    /** MKT-1g — {@code MKT_SETTLEMENT} only: the operator's commission on the line (→ Cr 4500). */
+    private BigDecimal commission;
 }
