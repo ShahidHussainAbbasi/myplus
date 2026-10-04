@@ -223,7 +223,7 @@ public class PurchaseController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);   // MM-2: the mapped DTOs, never the entities
 			}
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause(), e);			

@@ -149,6 +149,13 @@ public class SellDTO implements Serializable {
 	// The catalog master price at the moment of sale (snapshot) — lets reports compare catalog price vs sold rate.
 	private BigDecimal catalogPrice;
 
+	/**
+	 * MM-2 — the store the sale happened at, for READING (getAllSell). Never taken from a request: READ_ONLY keeps JSON
+	 * from setting it, and no code reads it from a DTO — the store of a sale is decided by the server's location scope.
+	 */
+	@com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+	private Long storeId;
+
 	// SF-10: unit cost (COGS) snapshot — carried to the Sale Detail Report so the UI can show per-line margin.
 	private BigDecimal costPrice;
 

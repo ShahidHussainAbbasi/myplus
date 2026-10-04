@@ -56,6 +56,11 @@ class PartyRoleServiceTest {
         ReflectionTestUtils.setField(service, "partyClient", party);
         ReflectionTestUtils.setField(service, "auditService", audit);
         setOffs = mock(PartySetOffService.class);
+        // The real methods never return null (they reduce from ZERO); a bare mock returns null for a BigDecimal, which
+        // made every test that reaches position() without stubbing these fail with an NPE in the SUM, not in the code
+        // under test. Default them to the real contract; a test that cares stubs a specific id, which wins.
+        when(setOffs.settleableReceivable(any())).thenReturn(java.math.BigDecimal.ZERO);
+        when(setOffs.settleablePayable(any())).thenReturn(java.math.BigDecimal.ZERO);
         setOffRepo = mock(com.myplus.business_service.repository.PartySetOffRepo.class);
         ReflectionTestUtils.setField(service, "setOffs", setOffs);
         ReflectionTestUtils.setField(service, "setOffRepo", setOffRepo);

@@ -22,10 +22,9 @@ const datesOf = (url) => cy.request(url).then((r) => {
   return ds
 })
 
-// Endpoints whose response IS the mapper's output. ⚠ NOT /getAllPurchase or /getAllSell: those map every row and then
-// return the raw ENTITIES (ISO dates) — found by this gate's first run, a pre-existing defect recorded as MM-2 in
-// the slice doc; their only readers are two specs that need entity-only fields (storeId, catalogPrice).
-const ENDPOINTS = ['/getUserPurchase', '/getUserSell', '/getUserCustomer?q=-1']
+// Every endpoint the profiles serve. /getAllPurchase and /getAllSell returned the raw ENTITIES (ISO dates) until MM-2
+// — found by this gate's first run; they now return the mapped DTOs like the rest.
+const ENDPOINTS = ['/getAllPurchase', '/getUserPurchase', '/getAllSell', '/getUserSell', '/getUserCustomer?q=-1']
 
 describe('MM-1 — one date format on every business screen, in any order', () => {
   beforeEach(() => cy.loginAsOwner())
