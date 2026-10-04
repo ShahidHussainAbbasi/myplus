@@ -36,7 +36,7 @@ const categories = () => cy.request('/expense/categories').its('body.data')
 const record = (body) =>
   cy.request({ method: 'POST', url: '/expense/vouchers?post=true', failOnStatusCode: false,
     headers: { 'Idempotency-Key': 'ex2b-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) }, body })
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localIsoDate()
 
 describe('EX-2b — expense tags', () => {
   const vehicleNo = 'EX2B-' + Date.now() % 1000000

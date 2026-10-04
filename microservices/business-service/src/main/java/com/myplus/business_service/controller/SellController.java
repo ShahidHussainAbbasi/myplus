@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +12,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.protocol.HTTP;
-import org.modelmapper.ModelMapper;
-import org.modelmapper.convention.MatchingStrategies;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -246,10 +246,8 @@ public class SellController {
 		return lh;
 	}
 
-	ModelMapper modelMapper = new ModelMapper();
-	{
-		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-	}
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.SaleScreenMapper saleScreenMapper;   // MS-4: compile-time, oracle-tested against the STRICT profile
 
 	private static java.math.BigDecimal nzbd(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
@@ -588,13 +586,11 @@ public class SellController {
 			 * Hoisting is safe because the mapper is a field on this controller and the converters are
 			 * idempotent — registering the same converter twice was always a no-op in effect, only in cost.
 			 */
-			modelMapper.addConverter(appUtil.localDateTimeToString);
-			modelMapper.addConverter(appUtil.localDateToString);
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				// SellDTO dto = appUtil.objTodtoConverter(o);
-				SellDTO dto = modelMapper.map(o, SellDTO.class);
+				SellDTO dto = saleScreenMapper.toDto(o);
 				if(o.getProductId() != null) {
 					// M4d (slice 94): name/sku/description from catalog; itemId from the reverse map (picker).
 					com.myplus.commerce.contracts.dto.ProductRef p = productById.get(o.getProductId());
@@ -623,11 +619,11 @@ public class SellController {
 					}
 
 					if (o.getCustomerHistory() != null) {
-						CustomerHistoryDTO customerHistoryDTO = modelMapper.map(o.getCustomerHistory(), CustomerHistoryDTO.class);
+						CustomerHistoryDTO customerHistoryDTO = saleScreenMapper.toDto(o.getCustomerHistory());
 						dto.setCustomerHistory(customerHistoryDTO);
 
 						if (o.getCustomerHistory().getCustomer() != null) {
-							CustomerDTO customerDTO = modelMapper.map(o.getCustomerHistory().getCustomer(), CustomerDTO.class);
+							CustomerDTO customerDTO = saleScreenMapper.toDto(o.getCustomerHistory().getCustomer());
 							dto.setCustomer(customerDTO);
 						}
 					}
@@ -683,7 +679,7 @@ public class SellController {
 			// the previous sale's value, and saving the edit sent THAT over this invoice's discount.
 			out.setTradeDiscount(ch.getTradeDiscount());
 			if (ch.getCustomer() != null) {
-				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+				out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 			}
 
 			// M4e.d (slice 106): line names from catalog ProductRef by productId (no Item load, no reverse map).
@@ -715,9 +711,7 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
-				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				SellDTO sd = saleScreenMapper.toDto(s);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
 				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
@@ -767,7 +761,7 @@ public class SellController {
 			// RST-R2a — the receipt says how the food left. A kitchen ticket header needs it too (R2b), and
 			// both read this one field rather than deriving it twice. Null prints nothing.
 			out.setOrderType(ch.getOrderType() == null ? null : ch.getOrderType().name());
-			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+			if (ch.getCustomer() != null) out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 
 			// SF-5 Model B: store credit applied on this sale (Σ STORE_CREDIT tenders) — printed on the receipt.
 			out.setStoreCreditApplied(paymentService.forInvoice(ch.getCustomer_history_id()).stream()
@@ -891,9 +885,7 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				modelMapper.addConverter(appUtil.localDateToString);
-				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				SellDTO sd = saleScreenMapper.toDto(s);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded
 				// here for the line name, so the trade invoice's Packing column costs no extra query.
@@ -945,7 +937,7 @@ public class SellController {
 	                com.myplus.business_service.dto.SaleReportPeriod.from(dto.getRp(), hasSd || hasEd);
 
 	        if(period != com.myplus.business_service.dto.SaleReportPeriod.CUSTOM) {
-	        	java.time.LocalDateTime[] range = period.range(java.time.LocalDate.now());
+	        	java.time.LocalDateTime[] range = period.range(TenantClock.today());
 	        	objs = sellService.findSellByDates(range[0], range[1], user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd && hasEd) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
@@ -961,7 +953,7 @@ public class SellController {
 	            // CUSTOM was asked for with no usable dates. Fall back to the DEFAULT period rather than
 	            // reporting an empty shop — the same period an operator gets when they ask for nothing.
 	            java.time.LocalDateTime[] fallback =
-	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(java.time.LocalDate.now());
+	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(TenantClock.today());
 	            objs = sellService.findSellByDates(fallback[0], fallback[1],
 	                    user.getOrganizationId(), user.getUserId());
 	        }
@@ -976,7 +968,7 @@ public class SellController {
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> rpProductById = productRefs(rpProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
-				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
+				SellDTO dtotemp = saleScreenMapper.toDto(obj);
 				com.myplus.commerce.contracts.dto.ProductRef p = rpProductById.get(obj.getProductId());
 				if(p != null) {
 					dtotemp.setItemName(p.getName());
@@ -1126,7 +1118,7 @@ public class SellController {
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
-				SellDTO dto = modelMapper.map(obj, SellDTO.class);
+				SellDTO dto = saleScreenMapper.toDto(obj);
 				dto.setDated(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -1134,7 +1126,7 @@ public class SellController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);   // MM-2: the mapped DTOs, never the entities
 			}
 		} catch (Exception e) {
 			appUtil.le(this.getClass(),e);
@@ -1276,7 +1268,7 @@ public class SellController {
 						ip.getFirstDueDate(), ip.getMarkupAmount());
 				com.myplus.common.installment.InstallmentEligibilityPolicy.Decision elig =
 						installmentPlanService.eligibility(orgId(), eligCustomerId, eligCnic, named, eligTerms,
-								java.time.LocalDate.now());
+								TenantClock.today());
 				if (!elig.allowed()) return new GenericResponse("FAILED", elig.reason());
 			}
 
@@ -1396,7 +1388,7 @@ public class SellController {
 					.anyMatch(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT))
 				return new GenericResponse("FAILED", "This sale was paid with store credit — void it and re-enter to change it.");
 			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
-			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : java.time.LocalDate.now());
+			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -1625,12 +1617,12 @@ public class SellController {
 				String mode = ch.getPaymentMode();
 				if (oldGrand.signum() > 0)
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+							.eventType("SALE_RETURN").date(TenantClock.today()).ref(ch.getInvoiceNo())
 							.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid)
 							.discountTotal(oldDiscount).shippingFee(oldShipping)   // reverse what the sale posted
 							.method(mode).build());
 				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+						.eventType("SALE").date(TenantClock.today()).ref(ch.getInvoiceNo())
 						.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
 						.discountTotal(nzbd(ch.getTradeDiscount())).shippingFee(nzbd(ch.getShippingFee()))
 						.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
@@ -1802,7 +1794,7 @@ public class SellController {
 				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
 
 			// Period close: a return posts a new credit dated today, so the CURRENT period must be open.
-			periodLockGuard.assertOpen(java.time.LocalDate.now());
+			periodLockGuard.assertOpen(TenantClock.today());
 
 			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
 			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
@@ -2052,7 +2044,7 @@ public class SellController {
 				java.math.BigDecimal retGross = retSub.add(retTax);
 				if (retGross.signum() > 0) {
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(creditNoteNo)
+							.eventType("SALE_RETURN").date(TenantClock.today()).ref(creditNoteNo)
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
 							.method("CASH").storeCredit(storeCreditIssued).build());   // credit-issue portion → Cr 2200 (not Cash)
 				}

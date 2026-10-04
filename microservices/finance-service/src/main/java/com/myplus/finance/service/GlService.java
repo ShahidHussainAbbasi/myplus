@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.security.CurrentUser;
 import com.myplus.finance.dto.AccountDTO;
 import com.myplus.finance.dto.JournalLineDTO;
@@ -199,10 +201,10 @@ public class GlService {
     @Transactional
     public Long postJournal(JournalPostRequest req) {
         Long org = CurrentUser.organizationId();
-        periodLockService.assertOpen(req.getEntryDate() != null ? req.getEntryDate() : LocalDate.now());   // period close guard
+        periodLockService.assertOpen(req.getEntryDate() != null ? req.getEntryDate() : TenantClock.today());   // period close guard
         validate(req.getLines());   // pure rule first — nothing persists on an invalid journal
         JournalEntry e = JournalEntry.builder()
-                .entryDate(req.getEntryDate() != null ? req.getEntryDate() : LocalDate.now())
+                .entryDate(req.getEntryDate() != null ? req.getEntryDate() : TenantClock.today())
                 .source(req.getSource() != null ? req.getSource() : "MANUAL")
                 .sourceRef(req.getSourceRef()).memo(req.getMemo())
                 .status("POSTED").organizationId(org).userId(CurrentUser.userId())
@@ -231,7 +233,7 @@ public class GlService {
     @Transactional(readOnly = true)
     public Map<String, Object> trialBalance(LocalDate asOf) {
         Long org = CurrentUser.organizationId();
-        LocalDate d = asOf != null ? asOf : LocalDate.now();
+        LocalDate d = asOf != null ? asOf : TenantClock.today();
         Map<Long, Account> byId = new HashMap<>();
         for (Account a : accountRepository.findByOrganizationIdOrderByCodeAsc(org)) byId.put(a.getId(), a);
 
@@ -290,8 +292,8 @@ public class GlService {
     @Transactional(readOnly = true)
     public Map<String, Object> taxRegister(LocalDate from, LocalDate to) {
         Long org = CurrentUser.organizationId();
-        LocalDate f = from != null ? from : LocalDate.now().withDayOfMonth(1);
-        LocalDate t = to != null ? to : LocalDate.now();
+        LocalDate f = from != null ? from : TenantClock.today().withDayOfMonth(1);
+        LocalDate t = to != null ? to : TenantClock.today();
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("from", f);
         out.put("to", t);
@@ -336,8 +338,8 @@ public class GlService {
     @Transactional(readOnly = true)
     public Map<String, Object> profitAndLoss(LocalDate from, LocalDate to) {
         Long org = CurrentUser.organizationId();
-        LocalDate f = from != null ? from : LocalDate.now().withDayOfMonth(1);
-        LocalDate t = to != null ? to : LocalDate.now();
+        LocalDate f = from != null ? from : TenantClock.today().withDayOfMonth(1);
+        LocalDate t = to != null ? to : TenantClock.today();
         Map<Long, Account> byId = accountsById(org);
         List<Map<String, Object>> income = new ArrayList<>(), expense = new ArrayList<>();
         BigDecimal totalIncome = BigDecimal.ZERO, totalExpense = BigDecimal.ZERO;
@@ -365,7 +367,7 @@ public class GlService {
     @Transactional(readOnly = true)
     public Map<String, Object> balanceSheet(LocalDate asOf) {
         Long org = CurrentUser.organizationId();
-        LocalDate d = asOf != null ? asOf : LocalDate.now();
+        LocalDate d = asOf != null ? asOf : TenantClock.today();
         Map<Long, Account> byId = accountsById(org);
         List<Map<String, Object>> assets = new ArrayList<>(), liabilities = new ArrayList<>(), equity = new ArrayList<>();
         BigDecimal totalAssets = BigDecimal.ZERO, totalLiab = BigDecimal.ZERO, totalEquity = BigDecimal.ZERO, netIncome = BigDecimal.ZERO;

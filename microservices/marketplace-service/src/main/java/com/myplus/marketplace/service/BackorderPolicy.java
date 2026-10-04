@@ -1,5 +1,7 @@
 package com.myplus.marketplace.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
@@ -76,7 +78,7 @@ public class BackorderPolicy {
 
     /** The date to promise a shortfall accepted today. */
     public LocalDate promisedDate(Long org) {
-        return LocalDate.now().plusDays(promiseDays(org));
+        return TenantClock.today().plusDays(promiseDays(org));
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.myplus.catalog.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.catalog.entity.BonusSchemeEntity;
 import com.myplus.catalog.repository.BonusSchemeRepository;
 import com.myplus.common.security.CurrentUser;
@@ -49,7 +51,7 @@ public class BonusSchemeController {
         Long userId = CurrentUser.userId();
         List<BonusSchemeEntity> rows = activeOnly
                 ? repo.findActiveScoped(orgId, userId).stream()
-                        .filter(b -> b.isLive(LocalDate.now())).toList()
+                        .filter(b -> b.isLive(TenantClock.today())).toList()
                 : repo.findScoped(orgId, userId);
         return ApiResponse.success(rows, "Bonus schemes loaded");
     }

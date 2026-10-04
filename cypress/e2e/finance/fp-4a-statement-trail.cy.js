@@ -21,7 +21,7 @@ const CAP = 'expenseManagement'
 const hdr = (t, extra = {}) => ({ Authorization: `Bearer ${t}`, 'Content-Type': 'application/json', ...extra })
 const token = () => cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: OWNER, password: PW } })
   .its('body.data.accessToken')
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localIsoDate()
 const key = () => `fp4a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
 /** A statement line in one comparable shape (dates may arrive as "yyyy-MM-dd" or [y, m, d]). */

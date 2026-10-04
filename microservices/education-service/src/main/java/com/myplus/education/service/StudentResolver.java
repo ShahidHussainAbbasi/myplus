@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -81,7 +83,7 @@ public class StudentResolver {
 
         if (access.getStatus() == PortalStatus.INVITED) {
             access.setStatus(PortalStatus.ACTIVE);
-            access.setActivatedOn(LocalDate.now());
+            access.setActivatedOn(TenantClock.today());
             access.setUpdated(LocalDateTime.now());
             portalAccessRepository.save(access);
         }

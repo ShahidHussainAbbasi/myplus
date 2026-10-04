@@ -7,7 +7,6 @@ import java.util.Optional;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -94,7 +93,8 @@ public class PurchaseController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.PurchaseMapper purchaseMapper;   // MS-3: compile-time, oracle-tested (null dates still show now: MS-F2)
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -153,12 +153,10 @@ public class PurchaseController {
 
 			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
 			// so calling it inside the loop made every row rebuild what the row before it had just built.
-			modelMapper.addConverter(appUtil.localDateTimeToString);
-			modelMapper.addConverter(appUtil.localDateToString);
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
-				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
+				PurchaseDTO dto = purchaseMapper.toDto(o);
 
 				// M4e.d (slice 106): identity from the purchase's own productId; name/sku from catalog ProductRef (no Item load).
 				if (o.getProductId() == null) return;   // truly unidentifiable line
@@ -211,7 +209,7 @@ public class PurchaseController {
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(obj ->{
-				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
+				PurchaseDTO dto = purchaseMapper.toDto(obj);
 //				dto.setItemUnitId(obj.getItemUnit().getId());
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
@@ -223,7 +221,7 @@ public class PurchaseController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),dtos);   // MM-2: the mapped DTOs, never the entities
 			}
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getAllPurchase "+e.getCause(), e);			

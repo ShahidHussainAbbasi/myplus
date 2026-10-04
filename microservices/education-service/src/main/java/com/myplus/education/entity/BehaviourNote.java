@@ -1,5 +1,7 @@
 package com.myplus.education.entity;
 
+import com.myplus.common.security.time.TenantClock;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -124,7 +126,7 @@ public class BehaviourNote {
     void prePersist() {
         if (status == null) status = NoteStatus.ACTIVE;
         if (type == null) type = BehaviourType.NEUTRAL;
-        if (occurredOn == null) occurredOn = LocalDate.now();
+        if (occurredOn == null) occurredOn = TenantClock.today();
         if (dated == null) dated = LocalDateTime.now();
     }
 }

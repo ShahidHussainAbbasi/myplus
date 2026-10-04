@@ -123,7 +123,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   it('two notes for one student on one day are both kept — no UNIQUE key here, deliberately', () => {
     // Every other Phase 2 table has a uniqueness guarantee. Two genuine incidents in a day is ordinary,
     // so uniqueness would be a bug rather than a protection.
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     post('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'NEUTRAL', occurredOn: today,
       description: TAG + ' first incident'
@@ -206,7 +206,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('guardian-informed is RECORDED, and nothing is sent', () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     post('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'CONCERN',
       description: TAG + ' guardian contacted', guardianInformed: 'true', guardianInformedOn: today

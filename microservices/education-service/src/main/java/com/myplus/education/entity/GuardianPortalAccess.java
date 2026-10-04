@@ -1,5 +1,7 @@
 package com.myplus.education.entity;
 
+import com.myplus.common.security.time.TenantClock;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -117,7 +119,7 @@ public class GuardianPortalAccess {
     @PrePersist
     void prePersist() {
         if (status == null) status = PortalStatus.INVITED;
-        if (invitedOn == null) invitedOn = LocalDate.now();
+        if (invitedOn == null) invitedOn = TenantClock.today();
         if (dated == null) dated = LocalDateTime.now();
     }
 }

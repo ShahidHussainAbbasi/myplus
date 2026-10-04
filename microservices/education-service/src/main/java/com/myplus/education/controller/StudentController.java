@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -396,7 +398,7 @@ public class StudentController {
                 if (!isBlank(gradeName)) s.setGradeId(gradeByName.get(gradeName.toLowerCase()));
                 String guardianName = row.get("guardianname");
                 if (!isBlank(guardianName)) s.setGuardianId(guardianByName.get(guardianName.toLowerCase()));
-                s.setEnrollDate(LocalDate.now());
+                s.setEnrollDate(TenantClock.today());
                 Student saved = studentRepository.save(s);
                 existing.add(enrollNo.toLowerCase());
                 if (autoDues) {

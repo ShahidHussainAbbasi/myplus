@@ -236,6 +236,29 @@
 		</resources>
 
 		<plugins>
+			<!-- TZ-2: "today" is the browser's day — ClientZone.today(); LocalDate.now() is the container's UTC day and is
+			     refused at build time (same guard as microservices/pom.xml). docs: microservices/docs/slices/tz-1-business-time-zone.md -->
+			<plugin>
+				<groupId>de.thetaphi</groupId>
+				<artifactId>forbiddenapis</artifactId>
+				<version>3.11</version>
+				<configuration>
+					<failOnUnsupportedJava>false</failOnUnsupportedJava>
+					<ignoreSignaturesOfMissingClasses>true</ignoreSignaturesOfMissingClasses>
+					<signatures><![CDATA[
+@defaultMessage The server's UTC day, not the person's: use com.web.util.ClientZone.today() (TZ-2)
+java.time.LocalDate#now()
+java.time.YearMonth#now()
+					]]></signatures>
+				</configuration>
+				<executions>
+					<execution>
+						<id>tz-2-business-day</id>
+						<phase>process-classes</phase>
+						<goals><goal>check</goal></goals>
+					</execution>
+				</executions>
+			</plugin>
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>

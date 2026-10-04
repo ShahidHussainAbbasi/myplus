@@ -51,11 +51,29 @@ const TAG = 'CyME' + Date.now()
 // Varying the TIME instead gives ~1,300 distinct windows, and the hour is what the unique key actually
 // keys on. A fixed far-future date keeps it clear of any real school data.
 const RUN = Date.now()
-const HH = String(RUN % 22).padStart(2, '0')          // 00-21, so +1 hour never crosses midnight
-const MM = String(Math.floor(RUN / 1000) % 60).padStart(2, '0')
-const DAY = '2027-03-15'
-const FROM = `${DAY}T${HH}:${MM}:00`
-const TO = `${DAY}T${String(Number(HH) + 1).padStart(2, '0')}:${MM}:00`
+/**
+ * A window no other run can have — ⚠ the old rule was not that (SCHED-2, 2026-10-04).
+ *
+ * Slots are keyed by uk_slot_provider_time (org, provider, startsAt) and are never deleted, so every run leaves
+ * its windows behind for good. The old rule took the hour from RUN % 22 and the minute from the run's second on
+ * ONE fixed date: 1,320 windows, filled up over weeks of runs, and on 2026-10-04 a run's FIRST publish answered
+ * `created: 0` because an older run already owned that hour — read at first as the timeout defect it was not.
+ *
+ * Now each run second owns its own HOUR on a calendar from 2030: two runs collide only if they start in the same
+ * second.
+ */
+const RUN_SECOND = Math.floor(RUN / 1000)
+// Each run second owns a 16-hour block; window k starts at a fixed offset inside it and never overlaps another
+// (k=0: 1 h at +0 · k=1..3: 4 h at +1, +5, +9 · k=4: 1 h at +13 → the block ends at +14, short of the next run's +16).
+const OFFSET_HOURS = [0, 1, 5, 9, 13]
+const windowAt = (k, hours) => {
+  const start = new Date(Date.UTC(2030, 0, 1) + ((RUN_SECOND * 16 + OFFSET_HOURS[k]) % 4_000_000) * 3_600_000)
+  const iso = (d) => d.toISOString().slice(0, 19)           // 2030-…T…:00:00 — the zone-less form the API takes
+  return { from: iso(start), to: iso(new Date(start.getTime() + hours * 3_600_000)) }
+}
+const FIRST = windowAt(0, 1)
+const FROM = FIRST.from
+const TO = FIRST.to
 const fx = {}
 
 describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', () => {
@@ -73,7 +91,9 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
     })
 
     cy.then(() => {
-      post('/saveMeetingEvent', { title: TAG + ' Evening', eventDateStr: '15-06-2027' })
+      // Dated far beyond any other spec's evenings: the guardian portal offers the OPEN evening with the LATEST
+      // date, so a leftover open evening dated later than this one used to take its place (4 Oct, SCHED-2).
+      post('/saveMeetingEvent', { title: TAG + ' Evening', eventDateStr: '15-06-2999' })
         .then((r) => { fx.eventId = ok(r, 'create the evening').object.id })
     })
   })
@@ -81,8 +101,10 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
   after(() => {
     cy.loginAsEduOwner()
     setConfig('edu.portal.enabled', 'true')
-    // Leave the evening OPEN so a re-run starts from a known state — the close case below flips it.
-    if (fx.eventId) post('/setMeetingEventStatus', { id: fx.eventId, status: 'OPEN' })
+    // CLOSE this run's evening. Every run creates its own, so leaving it OPEN bought nothing — and every run
+    // left one more open evening on the school's Parents' evenings screen (SCHED-2 review, 2026-10-04).
+    // Closing stops new bookings only; it deletes nothing, and no other spec relies on an open evening.
+    if (fx.eventId) post('/setMeetingEventStatus', { id: fx.eventId, status: 'CLOSED' })
   })
 
   // ── staff: publishing ───────────────────────────────────────────────────────────────────────────
@@ -116,6 +138,59 @@ describe('Education — guardian–teacher meetings (slice 3.4 / SCHED-1 B3)', (
       expect(b.object.created, 'nothing new is created').to.eq(0)
       expect(b.object.alreadyExisted, 'and the existing slots are reported, not treated as an error').to.eq(6)
     })
+  })
+
+  /*
+   * SCHED-2 — a big evening is ONE read and ONE write in the scheduling core.
+   *
+   * Publishing used to be a separate transaction per slot (and, on a re-publish, a failed INSERT per slot). On a
+   * cold call that overran education's 3 s read timeout, and the school saw ERROR for slots that had been made —
+   * this spec's first case failed exactly so on 2026-10-04. 48 slots is a long evening at five minutes each; both
+   * the first publish and the re-publish must answer well inside the timeout.
+   */
+  it('SCHED-2: three 48-slot evenings publish and re-publish — all six answers succeed, each well inside 3 s', () => {
+    // Measured on the unfixed build (2026-10-04, probe): 4 of 6 such calls took ~630 ms and 2 ran past 3000 ms
+    // and FAILED — two pooled connections per publish (an outer transaction plus a REQUIRES_NEW per slot) stall
+    // whenever the pool is busy. One call proves little; six in a row is what the old shape could not do.
+    cy.loginAsEduOwner()
+    ;[1, 2, 3].forEach((k) => {
+      const { from, to } = windowAt(k, 4)   // four hours, its own block — never this run's first evening
+      post('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
+        const b = ok(r, `publish evening ${k}`)
+        expect(b.object.created, 'four hours in five-minute slots').to.eq(48)
+        expect(r.duration, `evening ${k} answered in ${r.duration} ms — the client gives up at 3000`).to.be.lessThan(2500)
+      })
+      post('/publishMeetingSlots', { eventId: fx.eventId, staffId: fx.staffId, from, to, minutes: 5 }).then((r) => {
+        const b = ok(r, `re-publish evening ${k}`)
+        expect(b.object.created, 'nothing doubled').to.eq(0)
+        expect(b.object.alreadyExisted, 'every slot reported as already there').to.eq(48)
+        expect(r.duration, `re-publish ${k} answered in ${r.duration} ms`).to.be.lessThan(2500)
+      })
+    })
+  })
+
+  /*
+   * SCHED-2 — the SCREEN, not just the endpoint. Every case above publishes through the API, and all of them
+   * stayed green while the Teacher dropdown on School → Parents' evenings was EMPTY: the loader filled
+   * #meStaffDD and the screen's select was #meStaff. No school could publish an evening by hand.
+   */
+  it("SCHED-2: the Parents' evenings SCREEN lists the teachers and publishes slots from the form", () => {
+    cy.loginAsEduOwner()
+    cy.openSection('MeetingsDiv', '/educationDashboard')
+    cy.get('#meStaffDD option[value!=""]', { timeout: 20000 }).should('have.length.greaterThan', 0)   // real teachers, not the placeholder
+    // Select this run's evening the way a person does: its row's Slots button.
+    cy.contains('#tableMeetingEvents tr', TAG + ' Evening').find('button').first().click()
+    cy.get('#meStaffDD').select(String(fx.staffId), { force: true })
+    const { from, to } = windowAt(4, 1)
+    cy.get('#meFrom').clear().type(from)
+    cy.get('#meTo').clear().type(to)
+    cy.get('#meMinutes').clear().type('10')
+    cy.intercept('POST', '**/publishMeetingSlots').as('publish')
+    cy.get('#MeetingsDiv button[onclick="publishMeetingSlots()"]').click()
+    cy.wait('@publish').its('response.body.status').should('eq', 'SUCCESS')
+    cy.get('#meMsg').should('be.visible').and('have.class', 'alert-success').and('contain', 'created=6')
+    cy.get('#tableMeetingSlots tbody tr').should('have.length.at.least', 6)
+    cy.get('#tableMeetingSlots tbody tr').first().find('td').first().invoke('text').should('not.be.empty')
   })
 
   // ── the guardian: the FIRST write on the portal surface ─────────────────────────────────────────

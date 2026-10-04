@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.settings.SettingsService;
 import com.myplus.education.entity.GuardianPortalAccess;
 import com.myplus.education.entity.PortalStatus;
@@ -70,7 +72,7 @@ public class ChildResolver {
 
         if (access.getStatus() == PortalStatus.INVITED) {
             access.setStatus(PortalStatus.ACTIVE);
-            access.setActivatedOn(LocalDate.now());
+            access.setActivatedOn(TenantClock.today());
             access.setUpdated(LocalDateTime.now());
             portalAccessRepository.save(access);
         }

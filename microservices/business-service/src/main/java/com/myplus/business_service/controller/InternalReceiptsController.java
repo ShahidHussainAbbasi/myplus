@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
@@ -84,7 +86,7 @@ public class InternalReceiptsController {
             return ResponseEntity.status(404)
                     .body(Map.of("message", "Customer not found: " + request.getCustomerId()));
 
-        LocalDate paidOn = request.getPaidOn() != null ? request.getPaidOn() : LocalDate.now();
+        LocalDate paidOn = request.getPaidOn() != null ? request.getPaidOn() : TenantClock.today();
         String method = (request.getMethod() == null || request.getMethod().isBlank())
                 ? "CASH" : request.getMethod();
 

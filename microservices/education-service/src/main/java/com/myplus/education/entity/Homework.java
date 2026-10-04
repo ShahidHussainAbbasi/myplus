@@ -1,5 +1,7 @@
 package com.myplus.education.entity;
 
+import com.myplus.common.security.time.TenantClock;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -70,7 +72,7 @@ public class Homework {
 
     @PrePersist
     void prePersist() {
-        if (setOn == null) setOn = LocalDate.now();
+        if (setOn == null) setOn = TenantClock.today();
         if (dated == null) dated = LocalDateTime.now();
     }
 }

@@ -1,5 +1,7 @@
 package com.myplus.inventory.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.web.ApiResponse;
 import com.myplus.inventory.repository.StockEntryRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,7 +44,7 @@ public class PublicStockController {
          * needs its storefront to include dated stock, the fix is to put the capability in the availability
          * response's source of truth, not to guess it here.
          */
-        for (Object[] row : stockEntryRepository.availableByOrg(org, LocalDate.now(), true)) {
+        for (Object[] row : stockEntryRepository.availableByOrg(org, TenantClock.today(), true)) {
             if (row[0] == null) continue;
             Long productId = ((Number) row[0]).longValue();
             double available = row[1] == null ? 0d : ((Number) row[1]).doubleValue();

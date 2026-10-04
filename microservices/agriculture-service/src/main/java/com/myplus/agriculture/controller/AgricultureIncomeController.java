@@ -1,5 +1,7 @@
 package com.myplus.agriculture.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -43,7 +45,8 @@ public class AgricultureIncomeController {
     @Autowired
     com.myplus.common.settings.SettingsService settingsService;   // common-settings: per-org entry policy
 
-    private final ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    private ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean, not a private copy
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
     /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -73,7 +76,7 @@ public class AgricultureIncomeController {
             obj = modelMapper.map(dto, AgricultureIncome.class);
             obj.setUserId(userId);                 // audit
             obj.setOrganizationId(orgId());        // tenant scope
-            obj.setDated(LocalDate.now());
+            obj.setDated(TenantClock.today());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             // Resolve the plot only when one was given (null landId is valid when agri.entry.requireLand is off —
             // findById(null) would otherwise throw). Plot stays unset for an unattributed entry.

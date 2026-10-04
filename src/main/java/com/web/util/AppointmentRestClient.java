@@ -51,7 +51,7 @@ public class AppointmentRestClient {
     /** Anonymous public POST (e.g. patient booking) straight to the gateway open route; parsed ApiResponse. */
     @SuppressWarnings("unchecked")
     public Map<String, Object> postPublic(String path, Object body) {
-        HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = ClientZone.forward(new HttpHeaders());   // TZ-2: the booking's "today" is the visitor's
         headers.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<Map> resp = publicRest.exchange(gatewayUrl + PREFIX + path, HttpMethod.POST,
                 new HttpEntity<>(body, headers), Map.class);

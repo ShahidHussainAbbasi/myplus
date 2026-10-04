@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -357,7 +359,7 @@ return customerRepo.exists(example);
 		if (customerId == null) throw new RuntimeException("customerId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
 		// Period close: a receipt is dated on paidOn (or today) — that period must be open.
-		periodLockGuard.assertOpen(paidOn != null ? paidOn : java.time.LocalDate.now());
+		periodLockGuard.assertOpen(paidOn != null ? paidOn : TenantClock.today());
 
 		Customer customer = this.findById(customerId)
 				.orElseThrow(() -> new RuntimeException("Customer not found: " + customerId));

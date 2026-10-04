@@ -1,5 +1,6 @@
 package com.myplus.marketplace.multiseller.service;
 
+import com.myplus.common.security.time.TenantClock;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -181,7 +182,7 @@ public class MarketplaceSettlementService {
 
     @Scheduled(fixedDelayString = "${mkt.settlement.sweep-ms:600000}", initialDelayString = "${mkt.settlement.sweep-initial-ms:90000}")
     public void scheduledRun() {
-        SettlementDTOs.RunResult r = settleDue(LocalDate.now());
+        SettlementDTOs.RunResult r = settleDue(TenantClock.today());
         if (r.settled() > 0 || r.waitingForBooks() > 0)
             LOG.info("MKT-1g settlement: {} checked, {} settled, {} waiting, {} on hold, {} waiting for the operator's books",
                     r.checked(), r.settled(), r.waiting(), r.onHold(), r.waitingForBooks());
@@ -191,7 +192,7 @@ public class MarketplaceSettlementService {
     public SettlementDTOs.RunResult runNow() {
         access.assertOperator();
         new TransactionTemplate(txManager).executeWithoutResult(s -> ensureBooks());
-        return settleDue(LocalDate.now());
+        return settleDue(TenantClock.today());
     }
 
     /** Every delivered line still waiting, each in its own transaction: one bad line cannot stop the rest. */
@@ -492,7 +493,7 @@ public class MarketplaceSettlementService {
             move(l, Settlement.PAID);
         }
         gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
-                .eventType("MKT_PAYOUT").eventKey("MKT-PAY-" + po.getId()).date(LocalDate.now()).ref(po.getPayoutNo())
+                .eventType("MKT_PAYOUT").eventKey("MKT-PAY-" + po.getId()).date(TenantClock.today()).ref(po.getPayoutNo())
                 .grandTotal(amount).method("BANK").build());
         audit.event("MKT_PAYOUT_PAID", "MKT_PAYOUT", po.getPayoutNo(), po.getOrganizationId(), Actor.OPERATOR,
                 MarketplacePayout.APPROVED, MarketplacePayout.PAID, amount, "bank ref " + bankRef);
@@ -518,7 +519,7 @@ public class MarketplaceSettlementService {
                 amount.signum() < 0 ? amount.negate() : Money.ZERO, amount.signum() > 0 ? amount : Money.ZERO,
                 ref, clip(reason, 300), "adj:" + key, access.userId());
         gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
-                .eventType("MKT_ADJUSTMENT").eventKey("MKT-ADJ-" + ref).date(LocalDate.now()).ref(ref)
+                .eventType("MKT_ADJUSTMENT").eventKey("MKT-ADJ-" + ref).date(TenantClock.today()).ref(ref)
                 .grandTotal(amount).build());
         audit.event("MKT_LEDGER_ADJUSTED", "MKT_LEDGER_ENTRY", ref, req.organizationId(), Actor.OPERATOR, null, null,
                 amount, clip(reason, 200));

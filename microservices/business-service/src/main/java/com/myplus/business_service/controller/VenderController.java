@@ -7,7 +7,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,7 +60,8 @@ public class VenderController {
 	@Autowired
 	RequestUtil requestUtil;
 
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.VenderMapper venderMapper;   // MS-2: compile-time, oracle-tested
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -83,7 +83,7 @@ public class VenderController {
 			// FP-4c — one primary-key read decides every row's figures
 			final boolean fromFinance = payablesSource != null && payablesSource.readsFromFinance(orgId());
 			objs.forEach(obj ->{
-				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
+				VenderDTO dto = venderMapper.toDto(obj);
 				dto.setPayablesSource(fromFinance ? "FINANCE" : "BUSINESS");
 				dto.setTotalOwed(com.myplus.business_service.service.PayablesSourceService.owedTo(obj, fromFinance));
 				dto.setBillsOwed(fromFinance ? obj.getPayableOtherOpen() : java.math.BigDecimal.ZERO);
@@ -149,7 +149,7 @@ public class VenderController {
 
 			List<VenderDTO> dtos=new ArrayList<VenderDTO>();
 			objs.forEach(obj ->{
-				VenderDTO dto = modelMapper.map(obj, VenderDTO.class);
+				VenderDTO dto = venderMapper.toDto(obj);
 				fillCompanies(dto, obj);
 				dto.setDatedStr(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
@@ -185,7 +185,7 @@ public class VenderController {
 					return new GenericResponse("FOUND", "Vender '" + dto.getName() + "' already exists.");
 			}
 
-			obj = modelMapper.map(dto, Vender.class);
+			obj = venderMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				Vender existing = venderService.findById(dto.getId()).orElse(null);

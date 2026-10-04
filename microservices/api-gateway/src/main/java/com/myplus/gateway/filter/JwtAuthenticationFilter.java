@@ -237,7 +237,8 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 // Capped plans (DEMO / legacy demo): count create POSTs per (user, module) per day in Redis.
                 if (cap != null && writeAttempt) {
                     final int limit = cap;
-                    String key = "demo:" + userId + ":" + moduleOf(path) + ":" + LocalDate.now();
+                    // TZ-2: a technical quota bucket, deliberately the UTC day (explicit, so the build guard sees intent).
+                    String key = "demo:" + userId + ":" + moduleOf(path) + ":" + LocalDate.now(java.time.ZoneOffset.UTC);
                     return redis.opsForValue().increment(key)
                             .flatMap(count -> (count != null && count == 1L)
                                     ? redis.expire(key, Duration.ofSeconds(secondsToEndOfDay())).thenReturn(count)

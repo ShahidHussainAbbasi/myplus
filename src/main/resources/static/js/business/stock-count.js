@@ -217,7 +217,7 @@
                         productId: Number(row.id),
                         adjustmentType: item.diff > 0 ? 'INCREASE' : 'DECREASE',
                         quantity: Math.abs(diffPacks),
-                        reason: t('ui.js.countReason', 'Stock count ') + new Date().toISOString().slice(0, 10),
+                        reason: t('ui.js.countReason', 'Stock count ') + dateToYMD(new Date()),
                         idempotencyKey: global.FormKeys ? global.FormKeys.get('stockCount:' + row.id) : null
                     }),
                     success: function (resp) {

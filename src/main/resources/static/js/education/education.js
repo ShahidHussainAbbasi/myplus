@@ -3620,7 +3620,7 @@ function bnMessage(msg, cls) {
 }
 
 function loadBehaviourScreen() {
-	if (!$('#bnOccurred').val()) $('#bnOccurred').val(new Date().toISOString().slice(0, 10));
+	if (!$('#bnOccurred').val()) $('#bnOccurred').val(dateToYMD(new Date()));
 
 	var $type = $('#bnType').empty();
 	BN_TYPES.forEach(function (x) { $type.append($('<option>').val(x).text(t('ui.js.bn' + x))); });
@@ -3709,7 +3709,7 @@ function saveBehaviourNote() {
 		action: $.trim($('#bnAction').val()),
 		guardianInformed: $('#bnGuardian').is(':checked') ? 'true' : 'false'
 	};
-	if ($('#bnGuardian').is(':checked')) payload.guardianInformedOn = new Date().toISOString().slice(0, 10);
+	if ($('#bnGuardian').is(':checked')) payload.guardianInformedOn = dateToYMD(new Date());
 	if ($('#bnAuthor').val()) payload.recordedByStaffId = $('#bnAuthor').val();
 
 	$.post(serverContext + 'saveBehaviourNote', payload, function (res) {
@@ -3951,7 +3951,7 @@ function lvMessage(msg, cls) {
 }
 
 function loadStaffRegisterScreen() {
-	if (!$('#srDate').val()) $('#srDate').val(new Date().toISOString().slice(0, 10));
+	if (!$('#srDate').val()) $('#srDate').val(dateToYMD(new Date()));
 	loadStaffRegister();
 }
 
@@ -4198,7 +4198,7 @@ $(document).on('change', '#registrationType', function () {
 
 function loadSubstitutionScreen() {
 	// Default to today — this screen is opened on the morning it is used.
-	if (!$('#sbDate').val()) $('#sbDate').val(new Date().toISOString().slice(0, 10));
+	if (!$('#sbDate').val()) $('#sbDate').val(dateToYMD(new Date()));
 
 	$.get(serverContext + 'getAcademicYears', function (res) {
 		var years = (res && res.collection) || [];
@@ -5217,7 +5217,7 @@ function publishMeetingSlots() {
 	if (!currentMeetingEventId) { meetingMsg(t('ui.js.mePickEvening'), 'alert-warning'); return; }
 	$.post(serverContext + 'publishMeetingSlots', {
 		eventId: currentMeetingEventId,
-		staffId: $('#meStaff').val(),
+		staffId: $('#meStaffDD').val(),   // SCHED-2: was #meStaff, which the staff loader never filled
 		from: $('#meFrom').val(),
 		to: $('#meTo').val(),
 		minutes: $('#meMinutes').val()

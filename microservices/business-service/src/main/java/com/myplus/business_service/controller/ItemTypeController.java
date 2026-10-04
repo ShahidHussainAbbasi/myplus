@@ -7,7 +7,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +44,8 @@ public class ItemTypeController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.ItemTypeMapper itemTypeMapper;   // MS-2: compile-time, oracle-tested
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -63,7 +63,7 @@ public class ItemTypeController {
 
 			List<ItemTypeDTO> dtos = new ArrayList<ItemTypeDTO>();
 			objs.forEach(obj -> {
-				ItemTypeDTO dto = modelMapper.map(obj, ItemTypeDTO.class);
+				ItemTypeDTO dto = itemTypeMapper.toDto(obj);
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
@@ -107,7 +107,7 @@ public class ItemTypeController {
 
 			List<ItemTypeDTO> dtos = new ArrayList<ItemTypeDTO>();
 			objs.forEach(obj -> {
-				ItemTypeDTO dto = modelMapper.map(obj, ItemTypeDTO.class);
+				ItemTypeDTO dto = itemTypeMapper.toDto(obj);
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
@@ -140,7 +140,7 @@ public class ItemTypeController {
 					return new GenericResponse("FOUND", "The Item Type '"+dto.getName()+"' already exists.");
 			}
 
-			obj = modelMapper.map(dto, ItemType.class);
+			obj = itemTypeMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(itemTypeService.getOne(dto.getId()).getDated());

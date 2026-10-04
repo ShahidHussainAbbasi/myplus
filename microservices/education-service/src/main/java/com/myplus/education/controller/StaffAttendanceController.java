@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -63,8 +65,8 @@ public class StaffAttendanceController {
     }
 
     private static LocalDate parseDate(String s) {
-        if (!StringUtils.hasText(s)) return LocalDate.now();
-        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return LocalDate.now(); }
+        if (!StringUtils.hasText(s)) return TenantClock.today();
+        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return TenantClock.today(); }
     }
 
     private static LocalTime parseTime(String s) {

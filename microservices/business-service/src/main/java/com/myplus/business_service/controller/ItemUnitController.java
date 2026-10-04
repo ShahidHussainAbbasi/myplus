@@ -7,7 +7,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +44,8 @@ public class ItemUnitController {
     @Autowired
     private AppUtil appUtil;  
     
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.ItemUnitMapper itemUnitMapper;   // MS-2: compile-time, oracle-tested
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -63,7 +63,7 @@ public class ItemUnitController {
 
 			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
 			objs.forEach(obj -> {
-				ItemUnitDTO dto = modelMapper.map(obj, ItemUnitDTO.class);
+				ItemUnitDTO dto = itemUnitMapper.toDto(obj);
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
@@ -106,7 +106,7 @@ public class ItemUnitController {
 
 			List<ItemUnitDTO> dtos = new ArrayList<ItemUnitDTO>();
 			objs.forEach(obj -> {
-				ItemUnitDTO dto = modelMapper.map(obj, ItemUnitDTO.class);
+				ItemUnitDTO dto = itemUnitMapper.toDto(obj);
 				dto.setName(obj.getName());
 				dto.setDescription(obj.getDescription());
 
@@ -139,7 +139,7 @@ public class ItemUnitController {
 					return new GenericResponse("FOUND", "Item unit '" + dto.getName() + "' already exists.");
 			}
 
-			obj = modelMapper.map(dto, ItemUnit.class);
+			obj = itemUnitMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				obj.setDated(itemUnitService.getOne(dto.getId()).getDated());

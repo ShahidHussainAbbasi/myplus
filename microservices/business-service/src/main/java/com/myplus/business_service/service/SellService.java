@@ -9,7 +9,6 @@ import java.util.function.Function;
 import jakarta.transaction.Transactional;
 
 import org.apache.poi.xwpf.usermodel.*;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Example;
 import org.springframework.data.domain.Page;
@@ -30,7 +29,6 @@ import com.myplus.business_service.util.RequestUtil;
 @Transactional
 public class SellService implements ISellService {
 
-	ModelMapper modelMapper = new ModelMapper();
 
 	@Autowired
 	SellRepo sellRepo;

@@ -24,7 +24,7 @@ describe('OMS O8 — the round sheet a salesman carries', () => {
   const PRICE = 50
   const ctx = { outlet: {}, order: {} }
 
-  const iso = (d) => d.toISOString().slice(0, 10)
+  const iso = (d) => localIsoDate(d)
   const TODAY = iso(new Date())
 
   before(() => {

@@ -1,5 +1,7 @@
 package com.myplus.agriculture.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,7 +36,8 @@ public class LandController {
     @Autowired
     AppUtil appUtil;
 
-    private final ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    private ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean, not a private copy
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
     /** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -60,7 +63,7 @@ public class LandController {
             }
             obj = modelMapper.map(dto, Land.class);
             obj.setOrganizationId(orgId());        // tenant scope (user_id already set from dto)
-            obj.setDated(LocalDate.now());
+            obj.setDated(TenantClock.today());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             if (service.save(obj).getId() > 0) {
                 return new GenericResponse(appUtil.SUCCESS, "Land added successfully");

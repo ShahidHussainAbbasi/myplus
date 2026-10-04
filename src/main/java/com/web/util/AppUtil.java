@@ -108,7 +108,7 @@ public class AppUtil {
 
    	//Get current date
     public String getLocalDateStr() {
-    	return dateformatter.format(LocalDate.now());
+    	return dateformatter.format(ClientZone.today());
     }
 
     //Get current date time
@@ -149,14 +149,14 @@ public class AppUtil {
    	//Get current date
     public LocalDate getLocalDate(String dateStr) throws ParseException {
     	if(StringUtils.isEmpty(dateStr))
-    		return LocalDate.now();
+    		return ClientZone.today();
     	LocalDate date = LocalDate.parse(dateStr, dateformatter);
     	return date;
     }
    	//Get current Month
     public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {
     	if(StringUtils.isEmpty(monthYearStr))
-    		return LocalDate.now();
+    		return ClientZone.today();
     	
     	DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-yyyy");
     	YearMonth ym = YearMonth.parse("09-2017", fmt);
@@ -371,19 +371,19 @@ public class AppUtil {
     }
 
     public LocalDate firstDateOfMonth() {
-    	return LocalDate.now().withDayOfMonth(1);
+    	return ClientZone.today().withDayOfMonth(1);
     }
     
     public LocalDate lastDateOfMonth() {
-    	return LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+    	return ClientZone.today().withDayOfMonth(ClientZone.today().lengthOfMonth());
     }
 
     public LocalDate dateOfLastMonth() {
-    	return LocalDate.now().minusMonths(1);
+    	return ClientZone.today().minusMonths(1);
     }
 
     public LocalDate dateOfLastMonth(int month) {
-    	return LocalDate.now().minusMonths(month);
+    	return ClientZone.today().minusMonths(month);
     }
 
     //    for future use
@@ -414,7 +414,7 @@ public class AppUtil {
     	@Override
     	public LocalDate convert(MappingContext<String, LocalDate> arg0) {
 			if(isEmptyOrNull(arg0.getSource())) {
-		        return LocalDate.now();
+		        return ClientZone.today();
 			}
 	    	return LocalDate.parse(arg0.getSource().toString(), dateformatter);//dateformatter.parse(arg0.getSource().toString());
     	}
@@ -434,7 +434,7 @@ public class AppUtil {
 	public Converter<LocalDate,String> localDateToString = new Converter<LocalDate,String>() {
     	@Override
     	public String convert(MappingContext<LocalDate,String> arg0) {
-    		return isEmptyOrNull(arg0.getSource())? LocalDate.now().format(dateformatter) : dateformatter.format(arg0.getSource());
+    		return isEmptyOrNull(arg0.getSource())? ClientZone.today().format(dateformatter) : dateformatter.format(arg0.getSource());
     	}
 	};    
 

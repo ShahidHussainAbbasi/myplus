@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.entity.GlOutbox;
 import com.myplus.business_service.repository.GlOutboxRepo;
 import com.myplus.business_service.service.gl.GlEventPublisher;
@@ -88,7 +90,7 @@ public class GlOutboxService {
          *
          * Falls back to today only when the caller genuinely sent no date — never silently preferring it.
          */
-        o.setEventDate(req.getDate() != null ? req.getDate() : java.time.LocalDate.now());
+        o.setEventDate(req.getDate() != null ? req.getDate() : TenantClock.today());
         o.setMethod(req.getMethod());
         o.setStatus("PENDING");
         o.setAttempts(0);
@@ -128,7 +130,7 @@ public class GlOutboxService {
                 // by when the relay woke up. created_at is the fallback for rows queued before that column
                 // existed — still the transaction's own day, unlike now().
                 .date(o.getEventDate() != null ? o.getEventDate()
-                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : LocalDate.now()))
+                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : TenantClock.today()))
                 .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).subTotal(o.getSubTotal()).taxTotal(o.getTaxTotal())
                 .cost(o.getCost()).paidAmount(o.getPaidAmount()).method(o.getMethod())

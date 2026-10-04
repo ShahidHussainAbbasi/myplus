@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,7 +71,7 @@ public class InstallmentReminderService {
         Map<Long, Customer> customers = new HashMap<>();
         for (Customer c : customerRepo.findAllById(customerIds)) customers.put(c.getCustomerId(), c);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         List<ReminderViewDTO> out = new ArrayList<>();
         for (InstallmentReminder r : rows) {
             InstallmentPlan plan = plans.get(r.getPlanId());
@@ -115,7 +117,7 @@ public class InstallmentReminderService {
      */
     public int scanNow(Long orgId) {
         if (orgId == null) return 0;
-        return scanner.scanTenant(orgId, LocalDate.now());
+        return scanner.scanTenant(orgId, TenantClock.today());
     }
 
     private static Installment installmentOf(InstallmentPlan plan, Long installmentId) {

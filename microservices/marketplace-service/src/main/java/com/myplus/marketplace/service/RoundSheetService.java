@@ -1,5 +1,7 @@
 package com.myplus.marketplace.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -72,7 +74,7 @@ public class RoundSheetService {
     @Transactional(readOnly = true)
     public RoundSheetDTO forRound(LocalDate from, LocalDate to, Long bookedBy, String salesman,
                                   Long orgId, Long userId) {
-        LocalDate start = from != null ? from : LocalDate.now();
+        LocalDate start = from != null ? from : TenantClock.today();
         LocalDate end = to != null ? to : start;
 
         List<OrderDTO> dispatched = new ArrayList<>();

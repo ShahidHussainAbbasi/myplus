@@ -39,6 +39,20 @@ public class CommonSecurityAutoConfiguration {
     public static final class GatewayForwardingSecret {}
 
     /**
+     * TZ-2 — the zone "today" falls back to when no browser is asking (relays, schedulers). See
+     * {@link com.myplus.common.security.time.TenantClock}. Returns a marker bean; the side effect is the configuration.
+     */
+    @Bean
+    public TenantClockDefaultZone tenantClockDefaultZone(
+            @Value("${" + com.myplus.common.security.time.TenantClock.DEFAULT_ZONE_PROPERTY + ":Asia/Karachi}") String zone) {
+        com.myplus.common.security.time.TenantClock.configureDefaultZone(zone);
+        return new TenantClockDefaultZone();
+    }
+
+    /** Marker for the {@link com.myplus.common.security.time.TenantClock} default-zone wiring. */
+    public static final class TenantClockDefaultZone {}
+
+    /**
      * TZ-1 — the zone a browser-bound response is rendered in, from {@code X-Render-Tz} (set only by the monolith,
      * never forwarded service-to-service). See {@link com.myplus.common.security.time.RenderZone}.
      */

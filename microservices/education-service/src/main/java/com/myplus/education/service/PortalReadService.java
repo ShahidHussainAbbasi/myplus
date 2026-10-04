@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.*;
 
@@ -219,7 +221,7 @@ public class PortalReadService {
     public List<Map<String, Object>> notices(Long orgId, PortalSubjectType subjectType, Long callerGrade) {
         if (orgId == null || subjectType == null) return List.of();
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         List<Notice> pinned = new ArrayList<>();
         List<Notice> rest = new ArrayList<>();
         for (Notice n : noticeRepository.findPublishedForPortal(orgId, NoticeStatus.PUBLISHED)) {

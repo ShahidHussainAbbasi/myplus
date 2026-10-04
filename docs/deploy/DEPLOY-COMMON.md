@@ -86,6 +86,11 @@ INTERNAL_SECRET=<strong-value>           # openssl rand -base64 32   — empty i
 #   MAIL_USER     — FULL Gmail address. notification-service (signup verification + password reset).
 #   MAIL_USERNAME — legacy short form, read only by education-service and campaign-service.
 # Setting only MAIL_USERNAME is the classic "verification e-mail never arrives" cause.
+# PRODUCTION HAS ITS OWN SENDER (MAIL-DEV-2, 2026-10-04). Use an account — or a transactional mail provider —
+# whose password NO dev or test machine holds. On 2026-10-03 dev test runs got the shared Gmail account locked
+# out ("454-4.7.0 Too many login attempts"), and that account was also the production sender. Dev machines
+# send to the local Mailpit catcher instead: docker-compose.mailpit.yml (via COMPOSE_FILE in the DEV .env
+# only) and start-all.ps1. NEVER put COMPOSE_FILE=…mailpit… in a production .env.
 MAIL_USER=<you@gmail.com>
 MAIL_USERNAME=<you>
 MAIL_PASSWORD=<gmail app password>       # a Gmail APP password, not the account password

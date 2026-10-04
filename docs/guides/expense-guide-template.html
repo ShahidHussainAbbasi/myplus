@@ -133,6 +133,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#fp4c">FP-4c · Balances and credit limit</a></li>
       <li><a href="#fp5a">FP-5a · Payments land once</a></li>
       <li><a href="#fp5b">FP-5b · One Pay for both</a></li>
+      <li><a href="#tz2">TZ-2 · Your day, any hour</a></li>
       <li><a href="#findings">Defects found</a></li>
       <li><a href="#auto">Automated gates</a></li>
       <li><a href="#next">Coming next</a></li>
@@ -168,6 +169,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>FP-4c</b></td><td>Supplier list, purchase screen and credit limit count expense bills; advances shown; Pay still settles purchases</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">68 + 408</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 37 regression</span></td></tr>
             <tr><td><b>FP-5a</b></td><td>Every payment reaches the books exactly once, even when finance is briefly down (supplier payments, customer receipts, school fees)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 418 + 236</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 31 regression</span></td></tr>
             <tr><td><b>FP-5b</b></td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">27 + 419 + 72</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + regressions</span></td></tr>
+            <tr><td><b>TZ-2</b></td><td>“Today” is the browser’s day in every service and screen; a build check stops the old way coming back</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">1,779 · 0 new</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 84 regression</span></td></tr>
             <tr><td>EX-5</td><td>Receipt photos and PDFs attached to an expense</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-6 / 7</td><td>Staff expense claims, approval, reimbursement and advances</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-8</td><td>Expense reports, analytics and duplicate warnings</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
@@ -915,6 +917,34 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── TZ-2 ───────────────────────── -->
+    <section class="sec" id="tz2">
+      <h2>TZ-2 · “Today” is your day, at any hour</h2>
+      <p>The servers keep time in UTC, five hours behind Pakistan. Until this fix, between midnight and 05:00 the server still thought it was yesterday. It refused an expense dated today as “in the future”, defaulted payments to yesterday, and finance reports opened on the last day of the previous month. Now your browser tells the server which time zone you are in. The server works out “today” in that zone, and the screens build the date from your own calendar. You do not need to wait for midnight to test this: changing your computer’s time zone moves “today” in exactly the same way.</p>
+      <div class="case" data-case="tz-1">
+        <div class="case-head"><span class="cid">tz-1</span><h3>An expense dated today is accepted at any hour</h3><span class="pill pill-info">Owner · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Till → Expenses: the Date box shows today. Record Rent 3 in cash.</li><li>Change the computer’s time zone to (UTC+14:00) Kiritimati Island, reload, and record another dated the computer’s today.</li><li>Try the computer’s tomorrow.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Both of today’s expenses are saved and reach the books; tomorrow is refused as “in the future”.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> the server deciding “today” on its own UTC calendar.</div>
+        </div>
+      </div>
+      <div class="case" data-case="tz-2">
+        <div class="case-head"><span class="cid">tz-2</span><h3>Payment dialogs and finance reports open on your own today, even at 02:30</h3><span class="pill pill-info">Owner · Cashier</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.business</code><code>cashier.a</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Between 00:00 and 05:00, press Pay on a supplier (or Receive on a customer).</li><li>Open Finance → Profit &amp; Loss.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The dialog’s date is today, not yesterday. The report runs from the 1st of this month to today.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> screens that build a date in UTC (<code>toISOString()</code>).</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── findings ───────────────────────── -->
     <section class="card" id="findings">
       <h2>Defects found along the way</h2>
@@ -925,7 +955,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <tbody>
             <tr><td>Pay Supplier, Receive Payment, school fees</td><td>The payment is written to the books "best effort": if finance is down, the bills show paid but no voucher and no journal exist, and nothing goes back to fix it.</td><td><span class="pill pill-ok">Fixed · FP-5a</span></td></tr>
             <tr><td>Orgs 20 and 41 (marketplace, Shahzad Mobile)</td><td>Both carry the same 288,000 purchase journal of 23 Aug, so the ledger's 2000 account disagrees with their supplier documents (org 41 by 313,200).</td><td><span class="pill pill-bad">Open · FP-4b-GL</span></td></tr>
-            <tr><td>Every service (dates)</td><td>Containers run on UTC with no time zone set, so between midnight and 05:00 Pakistan time the server’s “today” is yesterday: an expense dated today is refused as “in the future”.</td><td><span class="pill pill-bad">Open · decision needed</span></td></tr>
+            <tr><td>Every service (dates)</td><td>Containers run on UTC with no time zone set, so between midnight and 05:00 Pakistan time the server’s “today” is yesterday: an expense dated today is refused as “in the future”.</td><td><span class="pill pill-ok">Fixed · TZ-2</span></td></tr>
             <tr><td>Demo BUSINESS (org 6)</td><td>One supplier carries a 100 balance with no bills behind it; its ledger 2000 differs by 10,865.50.</td><td><span class="pill pill-bad">Open</span></td></tr>
             <tr><td>Advances</td><td>Suppliers paid more than billed (org 6: 9,620; org 41: 25,200) were shown as 0. Now shown on finance figures (FP-4b/4c).</td><td><span class="pill pill-ok">Shown</span></td></tr>
           </tbody>
@@ -1008,6 +1038,7 @@ flowchart LR
             <tr><td>Welfare has no books yet</td><td>Recommended: ship the screen with a notice; welfare-to-books as its own slice</td><td><span class="pill pill-todo">Open</span></td></tr>
             <tr><td>Document numbers</td><td>One shared library (EX-0c), instead of a third copy</td><td><span class="pill pill-ok">Decided · built</span></td></tr>
             <tr><td>Where do supplier payables live?</td><td>Move them to finance: one supplier ledger for purchases and bills (phases FP-1 to FP-6)</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>Whose “today”?</td><td>The browser’s, as in Odoo: the screen sends its time zone and every service decides the day in it. With no browser (background jobs), Asia/Karachi.</td><td><span class="pill pill-ok">Decided · built</span></td></tr>
             <tr><td>Existing purchases</td><td>Copied to finance automatically for every business</td><td><span class="pill pill-ok">Decided · done</span></td></tr>
             <tr><td>Suppliers paid ahead</td><td>Shown as their own figure (Advance), never netted into others</td><td><span class="pill pill-ok">Decided</span></td></tr>
             <tr><td>Bills in the credit limit</td><td>Yes: total exposure, purchases plus bills</td><td><span class="pill pill-ok">Decided</span></td></tr>

@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.docnum.DocumentNumberService;
 
 import java.math.BigDecimal;
@@ -112,12 +114,12 @@ public class RepossessionService {
         if (plan == null) return Outcome.refuse("That plan could not be found.");
 
         RepossessionPolicy.Decision decision = RepossessionPolicy.evaluate(
-                standingOf(plan, LocalDate.now()), rulesFor(orgId));
+                standingOf(plan, TenantClock.today()), rulesFor(orgId));
         if (!decision.allowed()) return Outcome.refuse(decision.reason());
 
         // A repossession posts a credit dated today, so today's period must be open. Guarded BEFORE anything
         // is written, so a refusal leaves nothing half-done.
-        periodLockGuard.assertOpen(LocalDate.now());
+        periodLockGuard.assertOpen(TenantClock.today());
 
         CustomerHistory ch = plan.getInvoiceNo() == null ? null
                 : customerHistoryRepo.findByOrganizationIdAndInvoiceNo(orgId, plan.getInvoiceNo()).orElse(null);
@@ -249,7 +251,7 @@ public class RepossessionService {
 
         try {
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-                    .eventType("SALE_RETURN").date(LocalDate.now()).ref(ch.getInvoiceNo())
+                    .eventType("SALE_RETURN").date(TenantClock.today()).ref(ch.getInvoiceNo())
                     .grandTotal(retSub.add(retTax)).subTotal(retSub).taxTotal(retTax)
                     .cost(cost)                    // the whole unit comes back — full COGS reversal
                     .paidAmount(BigDecimal.ZERO)   // FORFEIT: no cash is refunded, so none is posted

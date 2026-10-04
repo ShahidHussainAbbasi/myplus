@@ -1,5 +1,7 @@
 package com.myplus.marketplace.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -141,7 +143,7 @@ public class DriverSettlementService {
             throw new ValidationException("Count the cash first — a settlement without a count has settled nothing.");
 
         List<Long> ids = new ArrayList<>(new LinkedHashSet<>(dto.getDeliveryIds()));
-        LocalDate on = dto.getSettlementDate() != null ? dto.getSettlementDate() : LocalDate.now();
+        LocalDate on = dto.getSettlementDate() != null ? dto.getSettlementDate() : TenantClock.today();
 
         // Re-read SCOPED and STILL-OPEN inside this transaction. The ids came from a browser, so the tenant
         // predicate belongs in the query rather than applied afterwards.

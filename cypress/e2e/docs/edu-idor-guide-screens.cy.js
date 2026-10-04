@@ -12,39 +12,21 @@
  *
  * TENANTS. The victim is demo.education@ and the attacker is owner.education@ (a different organisation, and an
  * OWNER — the caller the old branch check waved through). Only rows a case creates itself are attacked. Every
- * case registers an undo in SAFETY, run in after(), so a case that fails half-way still leaves nothing behind.
+ * case ends by deleting what it created, and after() sweeps both tenants by this run's tag, so a case that
+ * fails half-way still leaves nothing behind.
  *
  * Run headed:
  *   npx cypress run --headed --browser electron --spec cypress/e2e/docs/edu-idor-guide-screens.cy.js
  * One case:  --env guideOnly=E2
  */
-const OUT_DIR = 'cypress/guide-out/edu-idor'
-const ONLY = String(Cypress.env('guideOnly') || '').split(',').map((x) => x.trim()).filter(Boolean)
-const caseIt = (id, title, fn) => ((ONLY.length && !ONLY.includes(id)) ? it.skip : it)(`${id} — ${title}`, fn)
+import { guideCapture } from '../../support/guide-capture'
+
+const g = guideCapture({ outDir: 'cypress/guide-out/edu-idor', section: "One school cannot touch another school's records" })
+const { caseIt, testCase, act, snap, runInPage } = g
 const VICTIM = 'demo.education@myplus.com'
 const ATTACKER = 'owner.education@myplus.com'
 const run = String(Date.now()).slice(-5)
 const TAG = `IDOR${run}`
-
-const SAFETY = []
-let cur = null
-
-const testCase = (id, title, meta) => {
-  cur = { id, section: 'One school cannot touch another school\'s records', title, shots: [], actions: [], cleanup: [], ...meta }
-}
-const act = (text, expect, opts = {}) => {
-  const a = { do: text, expect: [].concat(expect || []), shots: [], via: opts.via || 'screen', code: opts.code || null, as: opts.as || null }
-  ;(opts.cleanup ? cur.cleanup : cur.actions).push(a)
-  return a
-}
-const snap = (a, name, subject) => {
-  const pos = cur.actions.includes(a) ? `a${cur.actions.indexOf(a) + 1}` : `c${cur.cleanup.indexOf(a) + 1}`
-  const file = `${cur.id}-${pos}-${name}`
-  a.shots.push(file)
-  cur.shots.push(file)
-  return subject ? cy.get(subject).screenshot(file, { overwrite: true })
-                 : cy.screenshot(file, { capture: 'viewport', overwrite: true })
-}
 
 const list = (b) => { for (const k of ['collection', 'data', 'object']) if (Array.isArray(b && b[k])) return b[k]; return Array.isArray(b) ? b : [] }
 const asVictim = () => cy.loginAsEducation()
@@ -90,13 +72,6 @@ const addOnScreen = (entity, fill) => {
 }
 
 // ── console ────────────────────────────────────────────────────────────────────────────────────────────────
-/** Run `code` in the page and yield the JSON the request it sends came back with. */
-const runInPage = (code, method, path) => {
-  const alias = `cmd${Math.floor(Math.random() * 1e9)}`
-  cy.intercept(method, `**/${path}*`).as(alias)
-  cy.window().then((w) => w.eval(code))
-  return cy.wait(`@${alias}`).its('response.body')
-}
 /** A POST command, with the response printed the way a tester sees it in the console. */
 const postCommand = (path, fields) =>
   `$.post(serverContext + '${path}', ${JSON.stringify(fields).replace(/"([a-zA-Z]+)":/g, '$1: ')}).done(function (r) { console.log(r.status, r.message) })`
@@ -151,12 +126,7 @@ const deleteOnScreen = (entity, text) => {
 describe('Test Book — EDU-IDOR-2, one school cannot touch another school\'s records (captured)', () => {
   beforeEach(() => cy.viewport(1366, 860))
 
-  afterEach(function () {
-    cur.passed = this.currentTest.state === 'passed'
-    cur.capturedAt = new Date().toISOString()
-    if (!cur.passed) cur.error = String((this.currentTest.err && this.currentTest.err.message) || '').slice(0, 400)
-    cy.writeFile(`${OUT_DIR}/${cur.id}.json`, cur)
-  })
+  afterEach(g.write)
 
   after(() => {
     asAttacker(); sweep()
@@ -175,7 +145,6 @@ describe('Test Book — EDU-IDOR-2, one school cannot touch another school\'s re
         data: [`${label[0].toUpperCase() + label.slice(1)} **${name}**`, 'Attacker\'s new name: **HIJACKED**'],
         rollback: `Cleanup deletes the test ${label} from the victim school with the grid's own Delete button. Nothing else is written.`,
       })
-      SAFETY.push(() => {})
 
       const a1 = act(`Sign in as **${VICTIM}**. ${setup.how}`, setup.expect, setup.via ? { via: setup.via } : {})
       asVictim()

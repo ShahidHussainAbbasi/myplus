@@ -102,9 +102,17 @@ describe('Audit #5 — money-op idempotency', () => {
           }).then((pr) => expect(pr.body.status, JSON.stringify(pr.body)).to.eq('SUCCESS'))
 
           const k = key()
+          // Pay what the vendor ACTUALLY owes: the server applies purchase tax authoritatively (demo.business has
+          // input tax on, so a 100 bill owes 110). Paying a fixed 100 left 10 and failed for a reason that is not
+          // idempotency — the same rule the receivePayment case above already follows.
+          let owed = 0
+          cy.request('/getUserVender').then((vr0) => {
+            owed = Number(((vr0.body.collection || vr0.body.data || []).find((x) => x.id === venderId) || {}).dueAmount || 0)
+            expect(owed, 'the credit purchase is owed').to.be.greaterThan(0)
+          })
           const pay = () => cy.request({ method: 'POST', url: '/payVendor', form: true,
-            body: { venderId, amount: 100, method: 'CASH', idempotencyKey: k }, failOnStatusCode: false })
-          pay().then((p1) => {
+            body: { venderId, amount: owed, method: 'CASH', idempotencyKey: k }, failOnStatusCode: false })
+          cy.then(() => pay()).then((p1) => {   // run-time: `owed` is set by the request above, not at queue time
             expect(p1.body.status).to.eq('SUCCESS')
             const v1 = (p1.body.object || {}).voucherNo
             pay().then((p2) => {

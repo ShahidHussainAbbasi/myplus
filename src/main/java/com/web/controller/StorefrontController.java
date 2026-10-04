@@ -181,7 +181,7 @@ public class StorefrontController {
     @SuppressWarnings("unchecked")
     private Object postPublic(String path, Map<String, Object> body) {
         try {
-            HttpHeaders headers = new HttpHeaders();
+            HttpHeaders headers = com.web.util.ClientZone.forward(new HttpHeaders());   // TZ-2
             headers.setContentType(MediaType.APPLICATION_JSON);
             return restTemplate.postForObject(gatewayUrl + path, new HttpEntity<>(body, headers), Map.class);
         } catch (HttpStatusCodeException e) {
@@ -266,7 +266,7 @@ public class StorefrontController {
     @ResponseBody
     public Object checkout(@RequestBody Map<String, Object> body) {
         try {
-            HttpHeaders headers = new HttpHeaders();
+            HttpHeaders headers = com.web.util.ClientZone.forward(new HttpHeaders());   // TZ-2
             headers.setContentType(MediaType.APPLICATION_JSON);
             return restTemplate.postForObject(gatewayUrl + "/api/marketplace/public/checkout",
                     new HttpEntity<>(body, headers), Map.class);

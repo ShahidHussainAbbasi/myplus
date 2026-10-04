@@ -3,6 +3,8 @@
  */
 package com.myplus.business_service.util;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.text.ParseException;
@@ -115,7 +117,7 @@ public class AppUtil {
 
    	//Get current date
     public String getLocalDateStr() {
-    	return dateformatter.format(LocalDate.now());
+    	return dateformatter.format(TenantClock.today());
     }
 
     //Get current date time
@@ -156,7 +158,7 @@ public class AppUtil {
    	//Get current date
     public LocalDate getLocalDate(String dateStr) throws ParseException {
     	if(StringUtils.isEmpty(dateStr))
-    		return LocalDate.now();
+    		return TenantClock.today();
     	LocalDate date = LocalDate.parse(dateStr, dateformatter);
     	return date;
     }
@@ -199,7 +201,7 @@ public class AppUtil {
    	//Get current Month
     public LocalDate getLocalDateByMonthYear(String monthYearStr) throws ParseException {
     	if(StringUtils.isEmpty(monthYearStr))
-    		return LocalDate.now();
+    		return TenantClock.today();
     	
     	DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM-yyyy");
     	YearMonth ym = YearMonth.parse("09-2017", fmt);
@@ -407,7 +409,7 @@ public class AppUtil {
      * and sales count silently under-reported for the same reason.
      */
     public LocalDateTime firstDateTimeOfMonth() {
-    	return LocalDate.now().withDayOfMonth(1).atStartOfDay();
+    	return TenantClock.today().withDayOfMonth(1).atStartOfDay();
     }
     
     /**
@@ -435,24 +437,24 @@ public class AppUtil {
      * on the last day of the month every sale rung after "now" fell outside the month it belongs to.
      */
     public LocalDateTime lastDateTimeOfMonth() {
-    	LocalDate today = LocalDate.now();
+    	LocalDate today = TenantClock.today();
     	return today.withDayOfMonth(today.lengthOfMonth()).atTime(java.time.LocalTime.MAX);
     }
 
     public LocalDate firstDateOfMonth() {
-    	return LocalDate.now().withDayOfMonth(1);
+    	return TenantClock.today().withDayOfMonth(1);
     }
     
     public LocalDate lastDateOfMonth() {
-    	return LocalDate.now().withDayOfMonth(LocalDate.now().lengthOfMonth());
+    	return TenantClock.today().withDayOfMonth(TenantClock.today().lengthOfMonth());
     }
 
     public LocalDate dateOfLastMonth() {
-    	return LocalDate.now().minusMonths(1);
+    	return TenantClock.today().minusMonths(1);
     }
 
     public LocalDate dateOfLastMonth(int month) {
-    	return LocalDate.now().minusMonths(month);
+    	return TenantClock.today().minusMonths(month);
     }
 
     //    for future use
@@ -483,7 +485,7 @@ public class AppUtil {
     	@Override
     	public LocalDate convert(MappingContext<String, LocalDate> arg0) {
 			if(isEmptyOrNull(arg0.getSource())) {
-		        return LocalDate.now();
+		        return TenantClock.today();
 			}
 	    	return LocalDate.parse(arg0.getSource().toString(), dateformatter);//dateformatter.parse(arg0.getSource().toString());
     	}
@@ -503,7 +505,7 @@ public class AppUtil {
 	public Converter<LocalDate,String> localDateToString = new Converter<LocalDate,String>() {
     	@Override
     	public String convert(MappingContext<LocalDate,String> arg0) {
-    		return isEmptyOrNull(arg0.getSource())? LocalDate.now().format(dateformatter) : dateformatter.format(arg0.getSource());
+    		return isEmptyOrNull(arg0.getSource())? TenantClock.today().format(dateformatter) : dateformatter.format(arg0.getSource());
     	}
 	};    
 

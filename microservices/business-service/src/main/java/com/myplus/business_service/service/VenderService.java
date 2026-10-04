@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -237,7 +239,7 @@ public class VenderService implements IVenderService {
 		if (venderId == null) throw new RuntimeException("venderId is required");
 		if (amount == null || amount.signum() <= 0) throw new RuntimeException("A positive amount is required");
 		// Period close: a vendor payment is dated on paidOn (or today) — that period must be open.
-		periodLockGuard.assertOpen(paidOn != null ? paidOn : java.time.LocalDate.now());
+		periodLockGuard.assertOpen(paidOn != null ? paidOn : TenantClock.today());
 		Vender vendor = venderRepo.findById(venderId)
 				.orElseThrow(() -> new RuntimeException("Vendor not found: " + venderId));
 

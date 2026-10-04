@@ -146,6 +146,11 @@ describe('P7.3 — education registration modals, keyboard-first', () => {
       openSection(section)
       clickNew(open)
       cy.get(`#${entity}Modal`).should('have.class', 'open')
+      // The form puts the cursor on its first field a frame AFTER it opens (focusFirstField on
+      // requestAnimationFrame). Walking before that lands means the late focus pulls the cursor back to
+      // the first field mid-walk — on 2026-10-04 that failed 1–3 forms per run, a different one each time.
+      // Wait for it, as a person necessarily does.
+      cy.focused({ timeout: 10000 }).should(($el) => expect(focusedFieldId($el), 'the form opened on its first field').to.eq(first))
 
       cy.window().then((w) => {
         const chain = w.EnterChain.fieldsIn(`#${entity}Modal`)

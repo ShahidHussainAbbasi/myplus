@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -7,7 +9,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,7 +115,8 @@ public class CustomerController {
 	@Autowired
 	RequestUtil requestUtil;
 
-	ModelMapper modelMapper = new ModelMapper();
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.CustomerMapper customerMapper;   // MS-3: compile-time, oracle-tested (null dates still show now: MS-F2)
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -187,12 +189,10 @@ public class CustomerController {
 
 			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
 			// so calling it inside the loop made every row rebuild what the row before it had just built.
-			modelMapper.addConverter(appUtil.localDateToString);
-			modelMapper.addConverter(appUtil.localDateTimeToString);
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
-				CustomerDTO dto = modelMapper.map(obj, CustomerDTO.class);
+				CustomerDTO dto = customerMapper.toDto(obj);
 				// dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -261,7 +261,7 @@ public class CustomerController {
 				}
 			}
 
-			obj = modelMapper.map(dto, Customer.class);
+			obj = customerMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
 				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
@@ -344,9 +344,7 @@ public class CustomerController {
 				 * in shape to the ones it loaded. Same pattern as PERF-9 (stock) and the existing
 				 * reconcilePurchase.
 				 */
-				modelMapper.addConverter(appUtil.localDateToString);
-				modelMapper.addConverter(appUtil.localDateTimeToString);
-				CustomerDTO saved = modelMapper.map(obj, CustomerDTO.class);
+				CustomerDTO saved = customerMapper.toDto(obj);
 				// DR-2: the patched row must carry the badge too, or it vanishes after every edit. The bridge above ran
 				// inline (this controller holds no transaction), so the partner it stamped is read back first.
 				try {
@@ -620,8 +618,8 @@ public class CustomerController {
 			@RequestParam(required = false) String reference,
 			@RequestParam(required = false) String idempotencyKey) {
 		try {
-			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? java.time.LocalDate.now() : appUtil.toLocalDateOrNull(paidOn);
-			if (on == null) on = java.time.LocalDate.now();
+			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? TenantClock.today() : appUtil.toLocalDateOrNull(paidOn);
+			if (on == null) on = TenantClock.today();
 			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference, idempotencyKey);
 			// FP-5a — committed; the receipt number if finance has answered, else "voucherPending"
 			if (ledgerOutbox != null) ledgerOutbox.fill(res, "receiptNo");

@@ -25,7 +25,7 @@ const token = (email) =>
 
 const hdr = (t, extra = {}) => ({ Authorization: `Bearer ${t}`, 'Content-Type': 'application/json', ...extra })
 const key = () => `fp3-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localIsoDate()
 const r2 = (n) => Math.round(n * 100) / 100
 
 const netByCode = (t) =>

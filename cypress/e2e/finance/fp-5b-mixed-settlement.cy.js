@@ -30,7 +30,7 @@ const netByCode = (t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`,
   return m
 })
 const delta = (b, a, code) => Math.round(((a[code] || 0) - (b[code] || 0)) * 100) / 100
-const day = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return d.toISOString().slice(0, 10) }
+const day = (offset) => { const d = new Date(); d.setDate(d.getDate() + offset); return localIsoDate(d) }
 const flip = (orgId, source, reason) =>
   cy.request({ method: 'POST', url: '/platform/payablesSource', form: true, failOnStatusCode: false, body: { organizationId: orgId, source, reason } }).its('body')
 

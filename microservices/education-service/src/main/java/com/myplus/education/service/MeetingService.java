@@ -71,7 +71,11 @@ public class MeetingService {
 
         // capacity 1: a parents' evening slot is one family's ten minutes. A school wanting group sessions
         // would pass a capacity, which the core already supports — it is simply not what this screen means.
-        return schedulingClient.generate(staffId, null, event.schedulingRef(), fromIso, toIso, minutes, 1);
+        final int slotMinutes = minutes;
+        return onceMoreOnTimeout(
+                () -> schedulingClient.generate(staffId, null, event.schedulingRef(), fromIso, toIso, slotMinutes, 1),
+                "The scheduling service did not answer in time. The slots may already be published — "
+                        + "open the evening and check before publishing again.");
     }
 
     /**
@@ -83,7 +87,8 @@ public class MeetingService {
     public List<Map<String, Object>> slotsFor(MeetingEvent event, Long orgId) {
         if (schedulingClient == null || event == null) return List.of();
 
-        Map<String, Object> res = schedulingClient.slots(event.schedulingRef());
+        Map<String, Object> res = onceMoreOnTimeout(() -> schedulingClient.slots(event.schedulingRef()),
+                "The scheduling service did not answer in time. Reload to see the slots.");
         Object data = res == null ? null : res.get("data");
         if (!(data instanceof List<?> raw)) return List.of();
 
@@ -121,14 +126,20 @@ public class MeetingService {
         if (event == null || event.getStatus() != MeetingEventStatus.OPEN) {
             throw new IllegalArgumentException("Booking for this evening is closed.");
         }
-        Map<String, Object> res = schedulingClient.book(slotId, guardianId, event.schedulingRef());
+        Map<String, Object> res = onceMoreOnTimeout(
+                () -> schedulingClient.book(slotId, guardianId, event.schedulingRef()),
+                "The scheduling service did not answer in time. The booking may already be made — "
+                        + "reload the slots before booking again.");
         Object data = res == null ? null : res.get("data");
         return data instanceof Map<?, ?> m ? new LinkedHashMap<>(castMap(m)) : new LinkedHashMap<>();
     }
 
     /** Cancel a booking in the core. Idempotent there, so a double-clicked Cancel is one cancellation. */
     public void cancel(Long bookingId) {
-        if (schedulingClient != null) schedulingClient.cancel(bookingId);
+        if (schedulingClient == null) return;
+        onceMoreOnTimeout(() -> { schedulingClient.cancel(bookingId); return null; },
+                "The scheduling service did not answer in time. The booking may already be cancelled — "
+                        + "reload before trying again.");
     }
 
     /** The evening a family may book, or null. Newest open evening — a school runs one at a time. */
@@ -149,5 +160,31 @@ public class MeetingService {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> castMap(Map<?, ?> m) {
         return (Map<String, Object>) m;
+    }
+
+    /**
+     * SCHED-2 — one more try when the scheduling core does not answer, then the truth.
+     *
+     * <p>Every call on this client is idempotent on the other side, by a UNIQUE key: a publish creates a slot
+     * at most once ({@code uk_slot_provider_time}), a booking once per family per slot
+     * ({@code uk_booking_slot_attendee}), a cancel is by id, and listing is a read. So after a timeout the work
+     * may well have been done, and asking again is safe: the second answer says so ({@code alreadyExisted},
+     * {@code alreadyBooked}).
+     *
+     * <p>Before this a read timeout fell through to the controller's catch-all and the school saw
+     * {@code ERROR} and a raw I/O message — for slots that had been created. If the retry also fails the
+     * caller now gets an {@link IllegalStateException} saying what is actually known, which the controllers
+     * already answer as FAILED with that sentence, and log.
+     */
+    <T> T onceMoreOnTimeout(java.util.function.Supplier<T> call, String whenStillUnanswered) {
+        try {
+            return call.get();
+        } catch (org.springframework.web.client.ResourceAccessException first) {
+            try {
+                return call.get();
+            } catch (org.springframework.web.client.ResourceAccessException again) {
+                throw new IllegalStateException(whenStillUnanswered, again);
+            }
+        }
     }
 }

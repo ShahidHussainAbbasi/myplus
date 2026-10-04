@@ -1,5 +1,7 @@
 package com.myplus.agriculture.util;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
@@ -33,7 +35,7 @@ public class AppUtil {
     /** Parse a dd-MM-yyyy string; falls back to today when empty/null. */
     public LocalDate getLocalDate(String dateStr) {
         if (StringUtils.isEmpty(dateStr)) {
-            return LocalDate.now();
+            return TenantClock.today();
         }
         return LocalDate.parse(dateStr, dateFormatter);
     }

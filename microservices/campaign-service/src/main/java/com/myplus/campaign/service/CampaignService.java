@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 public class CampaignService {
 
     private final CampaignRepository campaignRepository;
-    private final ModelMapper modelMapper = new ModelMapper();
+    private final ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean (constructor-injected), not a private copy
 
     public CampaignDTO createCampaign(CampaignDTO dto, Long userId) {
         Campaign c = modelMapper.map(dto, Campaign.class);

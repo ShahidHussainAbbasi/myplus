@@ -163,9 +163,7 @@
 	function defaultFirstDue() {
 		var d = new Date();
 		d.setMonth(d.getMonth() + 1);
-		return d.getFullYear() + '-'
-			+ String(d.getMonth() + 1).padStart(2, '0') + '-'
-			+ String(d.getDate()).padStart(2, '0');
+		return dateToYMD(d);   // main.js — one shared local-date helper (TZ-2)
 	}
 
 	/** Ask the server what the customer would owe, and show it. */

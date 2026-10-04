@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 public class TemplateService {
 
     private final TemplateRepository templateRepository;
-    private final ModelMapper modelMapper = new ModelMapper();
+    private final ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean (constructor-injected), not a private copy
 
     public TemplateDTO createTemplate(TemplateDTO dto) {
         Template t = modelMapper.map(dto, Template.class);

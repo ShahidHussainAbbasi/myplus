@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.dto.BusinessDTOs.DashboardChartsDTO;
 import com.myplus.business_service.dto.BusinessDTOs.DashboardStatsDTO;
 import com.myplus.business_service.repository.*;
@@ -27,7 +29,7 @@ public class DashboardService {
     private final com.myplus.commerce.contracts.client.CatalogClient catalogClient;
 
     public DashboardStatsDTO getStats(Long userId) {
-        YearMonth now = YearMonth.now();
+        YearMonth now = TenantClock.thisMonth();
         LocalDateTime monthStart = now.atDay(1).atStartOfDay();
         LocalDateTime monthEnd = now.atEndOfMonth().atTime(23, 59, 59);
 
@@ -48,7 +50,7 @@ public class DashboardService {
     }
 
     public DashboardChartsDTO getCharts(Long userId) {
-        int year = YearMonth.now().getYear();
+        int year = TenantClock.thisMonth().getYear();
         List<Object[]> monthly = sellRepository.monthlySales(userId, year);
         List<Map<String, Object>> monthlyRevenue = monthly.stream().map(row -> {
             Map<String, Object> m = new HashMap<>();

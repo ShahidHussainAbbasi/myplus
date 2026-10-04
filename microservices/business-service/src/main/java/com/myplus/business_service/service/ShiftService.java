@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.dto.ShiftReportDTO;
 import com.myplus.business_service.entity.*;
 import com.myplus.business_service.repository.CashMovementRepo;
@@ -100,7 +102,7 @@ public class ShiftService {
         if (toBooks) {
             drawerExpenses.enqueue(orgId, userId, com.myplus.commerce.contracts.dto.DrawerExpenseRequest.builder()
                     .movementId(saved.getId()).categoryId(categoryId).amount(saved.getAmount())
-                    .date(java.time.LocalDate.now()).storeId(saved.getStoreId()).reason(reason)
+                    .date(TenantClock.today()).storeId(saved.getStoreId()).reason(reason)
                     .build());
         }
         return saved;

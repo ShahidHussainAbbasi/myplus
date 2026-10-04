@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.docnum.DocumentNumberService;
 
 import com.myplus.common.security.CurrentUser;
@@ -53,7 +55,7 @@ public class PaymentService {
                 .partyName(req.getPartyName())
                 .amount(req.getAmount())
                 .method(req.getMethod())
-                .paidOn(req.getPaidOn() != null ? req.getPaidOn() : LocalDate.now())
+                .paidOn(req.getPaidOn() != null ? req.getPaidOn() : TenantClock.today())
                 .reference(req.getReference())
                 .sourceModule(req.getSourceModule())
                 .note(req.getNote())

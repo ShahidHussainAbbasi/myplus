@@ -7,7 +7,7 @@ describe('Tax register — output tax', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
   const parse = (b) => (typeof b === 'string' ? JSON.parse(b) : b)
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localIsoDate()
   const reg = () => cy.request(`/taxRegister?from=${today}&to=${today}`).then((r) => parse(r.body))
 
   it('a taxed sale adds output tax; voiding it records an adjustment', () => {

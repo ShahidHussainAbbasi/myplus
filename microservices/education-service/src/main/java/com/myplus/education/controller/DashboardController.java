@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -46,7 +48,7 @@ public class DashboardController {
             Long userId = user.getUserId();
 
             long allStudent = studentRepository.countByUserId(userId);
-            int currentYear = LocalDate.now().getYear();
+            int currentYear = TenantClock.today().getYear();
             long freshStudent = studentRepository.findByUserId(userId).stream()
                     .filter(s -> s.getEnrollDate() != null && s.getEnrollDate().getYear() == currentYear)
                     .count();

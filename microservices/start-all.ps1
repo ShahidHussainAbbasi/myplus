@@ -42,6 +42,21 @@ if (Test-Path $envFile) {
     Write-Host ("  Loaded secrets from {0}" -f (Split-Path $envFile -Leaf)) -ForegroundColor DarkGray
 }
 
+# --- Dev mail never reaches Gmail (MAIL-DEV-2) ---
+# The service configs default to smtp.gmail.com, and the account there is the PRODUCTION sender. Test runs
+# send hundreds of mails to throwaway addresses; on 2026-10-03 Gmail locked the account out for it. This
+# script is dev-only (production deploys through Docker), so unless .env names a MAIL_HOST on purpose, every
+# service it starts sends to the local Mailpit catcher - start it with:  docker compose up -d mailpit
+# and read the mail at http://localhost:8025. Nothing listening on 1025 just means mail is not delivered.
+if (-not $env:MAIL_HOST) {
+    $env:MAIL_HOST = 'localhost';  $env:MAIL_PORT = '1025';  $env:MAIL_PROTOCOL = 'smtp'
+    # The monolith's application.properties holds literal values, so it is redirected by Spring's own names.
+    $env:SPRING_MAIL_HOST = 'localhost';  $env:SPRING_MAIL_PORT = '1025';  $env:SPRING_MAIL_PROTOCOL = 'smtp'
+    Write-Host "  Mail -> Mailpit at localhost:1025 (read it at http://localhost:8025). Set MAIL_HOST in .env to override." -ForegroundColor DarkGray
+} else {
+    Write-Host ("  Mail -> {0}:{1} (MAIL_HOST set in .env)" -f $env:MAIL_HOST, $env:MAIL_PORT) -ForegroundColor Yellow
+}
+
 # Canonical start order: infra first (eureka, config), then gateway, then the services.
 $catalog = [ordered]@{
     'eureka-server'       = 8761

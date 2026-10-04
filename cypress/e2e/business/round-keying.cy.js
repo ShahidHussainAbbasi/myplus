@@ -25,7 +25,7 @@ describe('OMS O8 — keying the round back in from the marked-up sheet', () => {
   const PRICE = 100
   const ctx = { outlet: {}, order: {} }
 
-  const iso = (d) => d.toISOString().slice(0, 10)
+  const iso = (d) => localIsoDate(d)
   const TODAY = iso(new Date())
 
   before(() => {

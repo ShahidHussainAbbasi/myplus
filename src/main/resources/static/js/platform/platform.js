@@ -249,11 +249,11 @@
 		if (hrs < 24) return t('ui.js.hoursAgo', '{0} h ago').replace('{0}', hrs);
 		var days = Math.floor(hrs / 24);
 		if (days < 30) return t('ui.js.daysAgo', '{0} d ago').replace('{0}', days);
-		return d.toISOString().substring(0, 10);
+		return dateToYMD(d);   // TZ-1/2: the viewer's own day, not UTC's
 	}
 
 	function stamp(d) {
-		return d ? d.toISOString().substring(0, 16).replace('T', ' ') : '';
+		return d ? dateToYMD(d) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '';   // viewer's zone
 	}
 
 	/**

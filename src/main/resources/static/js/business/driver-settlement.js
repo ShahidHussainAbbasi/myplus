@@ -39,8 +39,7 @@
      * gate in this programme.
      */
     function localIsoDate(d) {
-        var p = function (n) { return (n < 10 ? '0' : '') + n; };
-        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        return dateToYMD(d);   // main.js — one shared local-date helper (TZ-2)
     }
 
     /** dd-MM-yyyy — the wire format the shared date picker writes, and what its visible box must start as. */

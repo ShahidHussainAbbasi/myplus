@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -144,7 +146,7 @@ public class HomeworkController {
             Map<Long, String> gradeNames = new HashMap<>();
             for (Grade g : gradeRepository.findScoped(org, uid)) gradeNames.put(g.getId(), gradeLabel(g));
 
-            LocalDate today = LocalDate.now();
+            LocalDate today = TenantClock.today();
             List<Map<String, Object>> out = new ArrayList<>();
             for (Homework h : tasks) {
                 Map<String, Object> m = new LinkedHashMap<>();
@@ -208,7 +210,7 @@ public class HomeworkController {
             hw.setTitle(title.trim());
             hw.setInstructions(StringUtils.hasText(request.getParameter("instructions"))
                     ? request.getParameter("instructions").trim() : null);
-            hw.setSetOn(setOn != null ? setOn : LocalDate.now());
+            hw.setSetOn(setOn != null ? setOn : TenantClock.today());
             hw.setDueOn(dueOn);
             hw.setMaxMarks(maxMarks);
             hw.setUpdated(LocalDateTime.now());
@@ -281,7 +283,7 @@ public class HomeworkController {
 
             // Slice 1.4: the grading scale is read ONCE per sheet, not per student.
             List<GradeBand> scale = gradingService.scale(org, uid);
-            LocalDate today = LocalDate.now();
+            LocalDate today = TenantClock.today();
 
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Student st : studentVisibilityService.visibleStudents(org, uid)) {

@@ -2842,8 +2842,9 @@
 				<h5 th:text="#{ui.publishSlots}">Publish a teacher's slots</h5>
 				<div class="row" style="margin-bottom:14px">
 					<div class="col-sm-3">
-						<label for="meStaff" th:text="#{ui.teacher}">Teacher</label>
-						<select class="form-control" id="meStaff"></select>
+						<label for="meStaffDD" th:text="#{ui.teacher}">Teacher</label>
+						<!-- SCHED-2: the id must be meStaffDD — getUserStaffs('me') fills "<prefix>StaffDD"; as "meStaff" it stayed EMPTY and no school could publish slots from this screen. -->
+						<select class="form-control" id="meStaffDD"></select>
 					</div>
 					<div class="col-sm-3">
 						<label for="meFrom" th:text="#{ui.from}">From</label>

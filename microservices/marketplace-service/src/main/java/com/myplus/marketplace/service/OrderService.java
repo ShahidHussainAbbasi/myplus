@@ -1,5 +1,7 @@
 package com.myplus.marketplace.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.commerce.contracts.client.InventoryClient;
 import com.myplus.commerce.contracts.dto.ReservationStatus;
 import com.myplus.commerce.contracts.dto.StockReservationLine;
@@ -1272,7 +1274,7 @@ public class OrderService {
                         q.getFrom(), q.getTo(), q.likePattern(),
                         // O5c: "today" doubles as the late-filter switch — null means no filter, which keeps
                         // one query serving every combination rather than a second near-identical one.
-                        q.isLateOnly() ? java.time.LocalDate.now() : null,
+                        q.isLateOnly() ? TenantClock.today() : null,
                         q.getBookedBy(),          // O7 D2: one rep's own orders, or everyone's when null
                         pageable),
                 this::toDTO);
@@ -1749,7 +1751,7 @@ public class OrderService {
         boolean complete = fs == FulfilmentStatus.DELIVERED || fs == FulfilmentStatus.CANCELLED
                 || fs == FulfilmentStatus.RETURNED || fs == FulfilmentStatus.SHIPPED;
         d.setLate(o.getPromisedDate() != null && !complete
-                && o.getPromisedDate().isBefore(java.time.LocalDate.now()));
+                && o.getPromisedDate().isBefore(TenantClock.today()));
 
         // OMS O4: the server says what may happen next, so the browser stops keeping its own (drifted) copy.
         // On the LIST too, not just the detail — the list draws action buttons, and that is exactly where the

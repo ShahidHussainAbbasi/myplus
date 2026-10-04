@@ -3,7 +3,6 @@ package com.myplus.business_service.controller;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,7 +34,8 @@ public class StoreController {
     @Autowired
     private RequestUtil requestUtil;
 
-    private final ModelMapper modelMapper = new ModelMapper();
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.myplus.business_service.mapper.StoreMapper storeMapper;   // MS-1: compile-time, oracle-tested
 
     private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getUserId(); }
     private Long orgId()  { AuthenticatedUser u = requestUtil.getCurrentUser(); return u == null ? null : u.getOrganizationId(); }
@@ -50,7 +50,7 @@ public class StoreController {
     public GenericResponse getStores() {
         try {
             List<StoreDTO> dtos = new ArrayList<>();
-            storeService.findScoped(orgId(), userId()).forEach(s -> dtos.add(modelMapper.map(s, StoreDTO.class)));
+            storeService.findScoped(orgId(), userId()).forEach(s -> dtos.add(storeMapper.toDto(s)));
             return new GenericResponse("SUCCESS", "Stores loaded", dtos);
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > getStores " + e.getMessage(), e);
@@ -75,7 +75,7 @@ public class StoreController {
                     // which is where it is reactivated.
                     .filter(StoreController::isOffered)
                     .forEach(s -> {
-                        StoreDTO dto = modelMapper.map(s, StoreDTO.class);
+                        StoreDTO dto = storeMapper.toDto(s);
                         dto.setActive(active != null && active.equals(s.getId()));
                         dtos.add(dto);
                     });
@@ -104,7 +104,7 @@ public class StoreController {
             s.setUserId(userId());              // creator (audit)
             s.setOrganizationId(orgId());       // tenant scope
             s = storeService.save(s);
-            return new GenericResponse("SUCCESS", "Store created", modelMapper.map(s, StoreDTO.class));
+            return new GenericResponse("SUCCESS", "Store created", storeMapper.toDto(s));
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > addStore " + e.getMessage(), e);
             return new GenericResponse("ERROR", "Could not create the store.");
@@ -133,7 +133,7 @@ public class StoreController {
                 s.setStatus(dto.getStatus().trim().toUpperCase());
             }
             s = storeService.save(s);
-            return new GenericResponse("SUCCESS", "Store updated", modelMapper.map(s, StoreDTO.class));
+            return new GenericResponse("SUCCESS", "Store updated", storeMapper.toDto(s));
         } catch (Exception e) {
             LOGGER.error(getClass().getName() + " > updateStore " + e.getMessage(), e);
             return new GenericResponse("ERROR", "Could not update the store.");

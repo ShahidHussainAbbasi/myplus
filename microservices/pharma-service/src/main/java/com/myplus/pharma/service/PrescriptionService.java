@@ -1,5 +1,7 @@
 package com.myplus.pharma.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.pharma.dto.PrescriptionDTO;
@@ -54,7 +56,7 @@ public class PrescriptionService {
                 throw new ValidationException(which + " needs a quantity greater than zero");
         }
 
-        LocalDate prescribed = dto.getPrescribedDate() != null ? dto.getPrescribedDate() : LocalDate.now();
+        LocalDate prescribed = dto.getPrescribedDate() != null ? dto.getPrescribedDate() : TenantClock.today();
         if (dto.getValidUntil() != null && dto.getValidUntil().isBefore(prescribed))
             throw new ValidationException("'Valid until' cannot be before the prescribed date");
 
@@ -156,7 +158,7 @@ public class PrescriptionService {
         Prescription.Status s = p.getStatus();
         if (s == null) return null;
         boolean terminal = s == Prescription.Status.FULLY_DISPENSED || s == Prescription.Status.CANCELLED;
-        if (!terminal && p.getValidUntil() != null && p.getValidUntil().isBefore(LocalDate.now()))
+        if (!terminal && p.getValidUntil() != null && p.getValidUntil().isBefore(TenantClock.today()))
             return Prescription.Status.EXPIRED.name();
         return s.name();
     }

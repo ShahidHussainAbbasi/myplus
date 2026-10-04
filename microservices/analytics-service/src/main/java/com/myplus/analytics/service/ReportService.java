@@ -25,7 +25,7 @@ public class ReportService {
 
     private final ReportDefinitionRepository definitionRepo;
     private final ReportExecutionRepository executionRepo;
-    private final ModelMapper modelMapper = new ModelMapper();
+    private final ModelMapper modelMapper;   // MM-1: the application's ModelMapper bean (constructor-injected), not a private copy
 
     public ReportDefinitionDTO createReport(ReportDefinitionDTO dto) {
         ReportDefinition r = modelMapper.map(dto, ReportDefinition.class);

@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.repository.PurchaseRepo;
 import com.myplus.business_service.repository.SellRepo;
 import com.myplus.business_service.util.RequestUtil;
@@ -34,8 +36,8 @@ public class TaxBreakdownService {
         AuthenticatedUser u = requestUtil.getCurrentUser();
         Long org = u != null ? u.getOrganizationId() : null;
         Long user = u != null ? u.getUserId() : null;
-        LocalDate fromD = from != null ? from : LocalDate.now().withDayOfMonth(1);
-        LocalDate toD = to != null ? to : LocalDate.now();
+        LocalDate fromD = from != null ? from : TenantClock.today().withDayOfMonth(1);
+        LocalDate toD = to != null ? to : TenantClock.today();
         LocalDateTime f = fromD.atStartOfDay();
         LocalDateTime t = toD.atTime(23, 59, 59);
 

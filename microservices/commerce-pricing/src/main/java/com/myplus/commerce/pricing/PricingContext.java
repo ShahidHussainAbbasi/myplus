@@ -17,8 +17,6 @@ import java.time.LocalDate;
  * @param on           the date to judge rule validity against; null means "ignore dates"
  */
 public record PricingContext(Long customerId, String customerType, LocalDate on) {
-
-    public static PricingContext of(Long customerId, String customerType) {
-        return new PricingContext(customerId, customerType, LocalDate.now());
-    }
+    // TZ-2: no "of(customer, type)" defaulting to LocalDate.now() — that is the SERVER's UTC day. The caller passes
+    // the business day (TenantClock.today() in a service) as {@code on}.
 }

@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -76,8 +78,8 @@ public class SubstitutionController {
 
     /** Defaults to today: the screen is opened on the morning it is used. */
     private static LocalDate parseDate(String s) {
-        if (!StringUtils.hasText(s)) return LocalDate.now();
-        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return LocalDate.now(); }
+        if (!StringUtils.hasText(s)) return TenantClock.today();
+        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return TenantClock.today(); }
     }
 
     // ── the day ─────────────────────────────────────────────────────────────────────────────────
