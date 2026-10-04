@@ -1,6 +1,6 @@
 # MS — ModelMapper → MapStruct, one record type at a time
 
-**Status:** DESIGN (2026-10-04), awaiting consent. Follows MM-1 (mapper profiles), which made today's behaviour explicit
+**Status:** MS-1..5 BUILT (2026-10-04; user chose "all of MS-1..5"). MS-6 (remove ModelMapper) not started. Follows MM-1 (mapper profiles), which made today's behaviour explicit
 and characterized it. That is exactly what a safe migration needs first.
 
 ## 1. Why (R&D)
@@ -48,3 +48,25 @@ flowchart LR
 - **Unit:** the characterization test against the MM-1 profile, plus the build itself, which fails on any unmapped field.
 - **Cypress:** the specs that render that pair (the MM-1 regression list), plus `mm-1-mapper-dates.cy.js`.
 - **Test Book:** a short section per slice: nothing on those screens should look different.
+
+## 6. Results and findings (2026-10-04)
+- **34 of 34** business-service `map()` calls now use MapStruct. Nine mappers: Store, Company, ItemType, ItemUnit, Vender,
+  Customer, Purchase (display), SaleScreen (Sell + CustomerHistory + Customer, STRICT oracle) and PurchaseInput.
+- `MapStructOracleTest` runs every pair against its MM-1 profile. Each comparison runs on a full fixture AND an
+  all-empty one, and fails if the oracle itself threw. A blindness check proves one dropped field fails it.
+- business-service 436/0/0/0. Cypress 151/151 across 18 specs (sale, purchase, returns, reports, stores, vendors,
+  payables, expense bills, idempotency, mm-1 gate).
+- **Left on ModelMapper:** `ObjectMapperUtils` (static STRICT, one call: CustomerDTO → CustomerHistory on the sale
+  write path). It moves in MS-6, which also deletes MapperProfiles once its oracle role ends.
+
+### MS-F1: an implicit field, now explicit (behaviour kept)
+ModelMapper silently copied `Vender.payableAdvance` into `VenderDTO.advance` (STANDARD token match). `getUserVender`
+overwrites it by payables source (the finance figure, or 0 on BUSINESS). **`getAllVender` does not**, so it shows the
+stored advance even on BUSINESS, against the DTO's own "0 on BUSINESS" rule. Its only reader is `vender.cy.js`.
+**Decision needed:** apply the same payables-source rule there, or leave it.
+
+### MS-F2: null dates display as "now" (behaviour kept, decision needed)
+ModelMapper invoked AppUtil's converters for null sources, and those answer today / now. So a Customer or Purchase with
+no `dated`/`updated` shows the **current time**, which changes on every refresh. The empty-source oracle run found it.
+`DisplayDates` reproduces it explicitly. **Decision needed:** show blank instead (truthful), after checking that each
+screen renders a blank date.

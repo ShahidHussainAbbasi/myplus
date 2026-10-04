@@ -214,7 +214,7 @@ class MapperProfilesTest {
     }
 
     /** The mapped result as comparable values — or the exception, which must ALSO be the same. */
-    private static Object outcome(ModelMapper m, Object source, Class<?> target) {
+    static Object outcome(ModelMapper m, Object source, Class<?> target) {
         try {
             return snapshot(m.map(source, target), 0);
         } catch (RuntimeException e) {
@@ -222,7 +222,7 @@ class MapperProfilesTest {
         }
     }
 
-    private static Object snapshot(Object o, int depth) {
+    static Object snapshot(Object o, int depth) {
         if (o == null) return null;
         Class<?> c0 = o.getClass();
         if (c0.isEnum() || o instanceof Enum<?> || !c0.getName().startsWith("com.myplus") || depth > 2) {

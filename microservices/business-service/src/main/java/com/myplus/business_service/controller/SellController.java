@@ -12,7 +12,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.protocol.HTTP;
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -248,8 +247,7 @@ public class SellController {
 	}
 
 	@org.springframework.beans.factory.annotation.Autowired
-	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.SALE_DISPLAY)
-	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
+	com.myplus.business_service.mapper.SaleScreenMapper saleScreenMapper;   // MS-4: compile-time, oracle-tested against the STRICT profile
 
 	private static java.math.BigDecimal nzbd(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
@@ -592,7 +590,7 @@ public class SellController {
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(o ->{
 				// SellDTO dto = appUtil.objTodtoConverter(o);
-				SellDTO dto = modelMapper.map(o, SellDTO.class);
+				SellDTO dto = saleScreenMapper.toDto(o);
 				if(o.getProductId() != null) {
 					// M4d (slice 94): name/sku/description from catalog; itemId from the reverse map (picker).
 					com.myplus.commerce.contracts.dto.ProductRef p = productById.get(o.getProductId());
@@ -621,11 +619,11 @@ public class SellController {
 					}
 
 					if (o.getCustomerHistory() != null) {
-						CustomerHistoryDTO customerHistoryDTO = modelMapper.map(o.getCustomerHistory(), CustomerHistoryDTO.class);
+						CustomerHistoryDTO customerHistoryDTO = saleScreenMapper.toDto(o.getCustomerHistory());
 						dto.setCustomerHistory(customerHistoryDTO);
 
 						if (o.getCustomerHistory().getCustomer() != null) {
-							CustomerDTO customerDTO = modelMapper.map(o.getCustomerHistory().getCustomer(), CustomerDTO.class);
+							CustomerDTO customerDTO = saleScreenMapper.toDto(o.getCustomerHistory().getCustomer());
 							dto.setCustomer(customerDTO);
 						}
 					}
@@ -681,7 +679,7 @@ public class SellController {
 			// the previous sale's value, and saving the edit sent THAT over this invoice's discount.
 			out.setTradeDiscount(ch.getTradeDiscount());
 			if (ch.getCustomer() != null) {
-				out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+				out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 			}
 
 			// M4e.d (slice 106): line names from catalog ProductRef by productId (no Item load, no reverse map).
@@ -713,7 +711,7 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				SellDTO sd = saleScreenMapper.toDto(s);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				if (p != null) { sd.setItemName(p.getName()); sd.setItemCode(p.getSku()); }
 				sd.setBatches(batchesBySell.getOrDefault(s.getSellId(), java.util.List.of()));
@@ -763,7 +761,7 @@ public class SellController {
 			// RST-R2a — the receipt says how the food left. A kitchen ticket header needs it too (R2b), and
 			// both read this one field rather than deriving it twice. Null prints nothing.
 			out.setOrderType(ch.getOrderType() == null ? null : ch.getOrderType().name());
-			if (ch.getCustomer() != null) out.setCustomer(modelMapper.map(ch.getCustomer(), CustomerDTO.class));
+			if (ch.getCustomer() != null) out.setCustomer(saleScreenMapper.toDto(ch.getCustomer()));
 
 			// SF-5 Model B: store credit applied on this sale (Σ STORE_CREDIT tenders) — printed on the receipt.
 			out.setStoreCreditApplied(paymentService.forInvoice(ch.getCustomer_history_id()).stream()
@@ -887,7 +885,7 @@ public class SellController {
 
 			List<SellDTO> sales = new java.util.ArrayList<>();
 			for (Sell s : lines) {
-				SellDTO sd = modelMapper.map(s, SellDTO.class);
+				SellDTO sd = saleScreenMapper.toDto(s);
 				com.myplus.commerce.contracts.dto.ProductRef p = productById.get(s.getProductId());
 				// B2B-P3g: `packing` is the catalog product's existing unit — the ProductRef is already loaded
 				// here for the line name, so the trade invoice's Packing column costs no extra query.
@@ -970,7 +968,7 @@ public class SellController {
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> rpProductById = productRefs(rpProductIds);
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
-				SellDTO dtotemp = modelMapper.map(obj, SellDTO.class);
+				SellDTO dtotemp = saleScreenMapper.toDto(obj);
 				com.myplus.commerce.contracts.dto.ProductRef p = rpProductById.get(obj.getProductId());
 				if(p != null) {
 					dtotemp.setItemName(p.getName());
@@ -1120,7 +1118,7 @@ public class SellController {
 
 			List<SellDTO> dtos=new ArrayList<SellDTO>();
 			objs.forEach(obj ->{
-				SellDTO dto = modelMapper.map(obj, SellDTO.class);
+				SellDTO dto = saleScreenMapper.toDto(obj);
 				dto.setDated(appUtil.getDateStr(obj.getDated()));
 				dto.setUpdated(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);

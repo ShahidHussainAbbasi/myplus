@@ -9,7 +9,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -117,8 +116,7 @@ public class CustomerController {
 	RequestUtil requestUtil;
 
 	@org.springframework.beans.factory.annotation.Autowired
-	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.DISPLAY)
-	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
+	com.myplus.business_service.mapper.CustomerMapper customerMapper;   // MS-3: compile-time, oracle-tested (null dates still show now: MS-F2)
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -194,7 +192,7 @@ public class CustomerController {
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
-				CustomerDTO dto = modelMapper.map(obj, CustomerDTO.class);
+				CustomerDTO dto = customerMapper.toDto(obj);
 				// dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				// dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -263,7 +261,7 @@ public class CustomerController {
 				}
 			}
 
-			obj = modelMapper.map(dto, Customer.class);
+			obj = customerMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
 				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
@@ -346,7 +344,7 @@ public class CustomerController {
 				 * in shape to the ones it loaded. Same pattern as PERF-9 (stock) and the existing
 				 * reconcilePurchase.
 				 */
-				CustomerDTO saved = modelMapper.map(obj, CustomerDTO.class);
+				CustomerDTO saved = customerMapper.toDto(obj);
 				// DR-2: the patched row must carry the badge too, or it vanishes after every edit. The bridge above ran
 				// inline (this controller holds no transaction), so the partner it stamped is read back first.
 				try {

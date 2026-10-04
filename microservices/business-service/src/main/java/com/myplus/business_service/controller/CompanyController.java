@@ -7,7 +7,6 @@ import java.util.List;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +45,7 @@ public class CompanyController {
 	RequestUtil requestUtil;
 
 	@org.springframework.beans.factory.annotation.Autowired
-	ModelMapper modelMapper;   // MM-1: the plain profile (config/MapperProfiles), configured once
+	com.myplus.business_service.mapper.CompanyMapper companyMapper;   // MS-2: compile-time, oracle-tested
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -66,7 +65,7 @@ public class CompanyController {
 
 			List<CompanyDTO> dtos=new ArrayList<CompanyDTO>(); 
 			objs.forEach(obj ->{
-				CompanyDTO dto = modelMapper.map(obj, CompanyDTO.class);
+				CompanyDTO dto = companyMapper.toDto(obj);
 				dto.setDatedStr(appUtil.getLocalDateTimeStr(obj.getDated()));
 				dto.setUpdatedStr(appUtil.getLocalDateTimeStr(obj.getUpdated()));
 				dtos.add(dto);
@@ -139,7 +138,7 @@ public class CompanyController {
 				}
 			}
 
-			obj = modelMapper.map(dto, Company.class);
+			obj = companyMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
 				Company existing = companyService.findById(dto.getId()).orElse(null);

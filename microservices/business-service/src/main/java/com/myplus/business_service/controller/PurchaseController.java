@@ -7,7 +7,6 @@ import java.util.Optional;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,8 +94,7 @@ public class PurchaseController {
     private AppUtil appUtil;  
     
 	@org.springframework.beans.factory.annotation.Autowired
-	@org.springframework.beans.factory.annotation.Qualifier(com.myplus.business_service.config.MapperProfiles.DISPLAY)
-	ModelMapper modelMapper;   // MM-1: configured once at startup; never addConverter per request
+	com.myplus.business_service.mapper.PurchaseMapper purchaseMapper;   // MS-3: compile-time, oracle-tested (null dates still show now: MS-F2)
 
 	private Long userId() { AuthenticatedUser u = requestUtil.getCurrentUser(); return u==null?null:u.getUserId(); }
 	/** Active tenant the request is scoped to (from the gateway's X-Org-Id header). */
@@ -158,7 +156,7 @@ public class PurchaseController {
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{
-				PurchaseDTO dto = modelMapper.map(o, PurchaseDTO.class);
+				PurchaseDTO dto = purchaseMapper.toDto(o);
 
 				// M4e.d (slice 106): identity from the purchase's own productId; name/sku from catalog ProductRef (no Item load).
 				if (o.getProductId() == null) return;   // truly unidentifiable line
@@ -211,7 +209,7 @@ public class PurchaseController {
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(obj ->{
-				PurchaseDTO dto = modelMapper.map(obj, PurchaseDTO.class);
+				PurchaseDTO dto = purchaseMapper.toDto(obj);
 //				dto.setItemUnitId(obj.getItemUnit().getId());
 //				dto.setItemUnitName(obj.getItemUnit().getName());
 //				dto.setItemTypeId(obj.getItemType().getId());
