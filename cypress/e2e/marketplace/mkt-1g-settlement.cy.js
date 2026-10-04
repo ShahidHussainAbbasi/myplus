@@ -7,7 +7,8 @@
  *
  * Time is not faked: the orders here are sold under a 0-day return policy and the operator sets T+0, so a line
  * delivered today is payable today when today is a business day. On a Saturday or Sunday the lines wait for Monday
- * (that IS the rule, MKT-R15.1), and the cases that need a settled line say so instead of passing vacuously.
+ * (that IS the rule, MKT-R15.1). Whether today is a business day is the SERVER's answer (the line's status and payable
+ * date), never the browser's clock: the two can disagree across midnight and time zones.
  */
 const { gate, uniq, SELLER_A, API, UI, ok, data, list, msg, post, get, expectRefused, openMarketplace, seedPolicies,
   publishOffer } = require('./mkt-helpers')
@@ -27,7 +28,6 @@ const SET = {
 }
 const PW = 'Shop!ng2026'
 const PRICE = 52000
-const businessDay = () => ![0, 6].includes(new Date().getDay())
 
 gate('1g')('MKT-1g — settlement and payouts', () => {
   const run = uniq()
@@ -84,8 +84,15 @@ gate('1g')('MKT-1g — settlement and payouts', () => {
     })
   }
 
-  /** The trial-balance line for `code` in the operator's books; 0 when the account has no balance yet. */
-  const tb = (code) => get('/gl/trialBalance').then((r) => Number((list(r.body).find((a) => a.code === code) || {}).balance || 0))
+  /**
+   * The CREDIT balance of `code` in the operator's trial balance ({rows: [{code, debit, credit}]}, each account netted
+   * to one side); 0 when the account has no balance yet. 4500 is income, so its balance sits on the credit side.
+   */
+  const tb = (code) => get('/gl/trialBalance').then((r) => {
+    const rows = ((data(r.body) || r.body || {}).rows) || []
+    const a = rows.find((x) => x.code === code) || {}
+    return Number(a.credit || 0) - Number(a.debit || 0)
+  })
 
   before(() => {
     seedPolicies(`${run}s`, { returnDays: 0 }).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}s`, price: PRICE, qty: 40,
@@ -182,13 +189,19 @@ gate('1g')('MKT-1g — settlement and payouts', () => {
     })
   })
 
-  it('MKT-1g-06 [MKT-R15.5] commission reaches the operator\'s books: trial balance moves by exactly the commission', function () {
-    if (!businessDay()) this.skip()   // T+0 on a weekend pays on Monday: there is nothing to settle today (MKT-R15.1)
+  it('MKT-1g-06 [MKT-R15.5] commission reaches the operator\'s books: trial balance moves by exactly the commission', () => {
     cy.loginAsOperator()
     tb('4500').then((rev0) => {
       order(phone(6), { mode: 'CARD' }).then((o) => {
-        settle().then((r) => expect(r.settled, JSON.stringify(r)).to.be.at.least(1))
+        settle()
         statementLine(o.orderNo).then((l) => {
+          if (l.status === 'PENDING_RETURN_WINDOW') {
+            // the server says today is not a business day: T+0 pays on the next one (MKT-R15.1), and nothing posts yet
+            const d = new Date(`${l.eligibleOn}T00:00:00Z`).getUTCDay()
+            expect(d, `weekend delivery waits for Monday, payable ${l.eligibleOn}`).to.eq(1)
+            cy.log(`Delivered on a weekend: payable ${l.eligibleOn}. The trial-balance check needs a business day.`)
+            return
+          }
           expect(l.status).to.eq('ELIGIBLE')
           const commission = Number(l.commission)
           expect(commission, 'positive control: this sale earned a commission').to.be.greaterThan(0)

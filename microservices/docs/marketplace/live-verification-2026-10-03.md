@@ -166,3 +166,34 @@ operator-set, default Rs 250).
 screens do not yet; write-off accounting beyond quarantine (Phase 1 keeps written-off goods out of sellable stock);
 returns feed the settlement ledger in MKT-1g.
 
+
+## 8. MKT-1g — settlement, payouts, commission in the books (run 2026-10-04)
+
+**The stack:** the same set of services, built from `feature/expense-management` at deba05fd plus this change, on
+a fresh MySQL 8 (all 31 marketplace migrations applied under `ddl-auto=validate`). **The clock:** settlement only
+happens on a business day, and the run fell on a Sunday, so every JVM (services and monolith) ran under libfaketime
+one day ahead (Monday 2026-10-05; `FAKETIME=+1d FAKETIME_FORCE_MONOTONIC_FIX=1`: without the fix flag Java's timed
+waits spin). The browser kept the real clock; nothing on these screens depends on it. A second operator,
+`ops2@myplus.com`, was added by `walk-reset.sql` because a payout needs two people.
+
+**Gate `mkt-1g-settlement.cy.js`: 6 / 6. All marketplace gates: 75 / 75 in one combined run on the final build
+(0a 8, 1b 9, 1c 11, 1d 10, 1e 10, 1e2 9, 1f 12, 1g 6).** The first live run of 1g was 5/6 (row 30); the first combined
+run was 74/75 (row 34).
+
+**Walk M-1g-01..06: 6 / 6 recorded** (step by step, each expected result asserted, screens captured, cleanup done).
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 30 | gate 1g-06 (first live run) | the trial-balance check read a `balance` field the trial balance does not have (it returns `rows` of `{code, debit, credit}`), so the money assertion could never pass; the journals themselves had posted correctly | reads credit − debit from the rows; the weekend check asks the server (the line's status and date), not the browser's clock | gate 1g-06, walk M-1g-06 |
+| 31 | walk M-1g-01 | "Book commission in my organisation" never hid, even with the books already the operator's: `theme.css` gives every `.btn` `display: inline-flex !important`, which beats jQuery's `.hide()` | the button is shown and hidden through a wrapper | walk M-1g-01 |
+| 32 | walk M-1g-01 | "Settle what is due now" answered "Saved." | it says how many lines settled, still wait, or are on hold (six bundles) | walk M-1g-01, -02, -03, -06 |
+| 33 | gate 1g-04 + walk M-1g-04 | a payout requested by mistake cannot be withdrawn, only approved and paid; the gate leaves one REQUESTED on every run | the walk finishes a left-over payout with the second operator before it starts | — (open, below) |
+| 34 | combined regression, gate 0a-07 | on a fresh system the gate that first made Seller A a seller named its shop: the shared helper's default called it "MKT gate seller" when the 1g gate ran first, and 0a-07 (which reads "Shahzad Mobile Shop") failed from then on, since accepting the agreements fixes the name | the helper names each persona's shop the same whichever gate runs first (this environment's name was corrected once by SQL) | gates 75/75 in one run |
+
+**Open (1g):**
+- A waiting line's payable date is computed from the T+N setting in force, so raising T+N moves dates sellers were
+  already shown (seen in walk M-1g-03). Recommendation: fix the date when the line starts waiting.
+- No way to withdraw a payout request (row 33).
+- Row 31's cause is app-wide: any `.btn` hidden with `.hide()`/`.toggle()` stays visible. Only this button was
+  fixed here; the other call sites need an audit.
+- R-MKT-9 (commission invoice and its tax) is still unruled; commission tax is zero.

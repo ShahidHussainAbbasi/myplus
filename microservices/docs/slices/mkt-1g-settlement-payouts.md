@@ -1,8 +1,8 @@
 # Slice MKT-1g — commission, the settlement ledger, T+N eligibility, manual payouts, GL posting
 
 **Status:** BUILT 2026-10-04 — unit-green (marketplace-service 350/350 with `FlywayMigrationTest` run against MySQL 8,
-`Skipped: 0`; finance-service 76/76 incl. `MarketplacePostingRulesTest`). Gate `mkt-1g-settlement.cy.js` rewritten to drive only real
-routes; **not yet run on a live stack**, manual cases M-1g-01..06 not yet walked.
+`Skipped: 0`; finance-service 76/76 incl. `MarketplacePostingRulesTest`). Gate `mkt-1g-settlement.cy.js` **6/6 on a live stack** and manual
+cases M-1g-01..06 **walked and recorded** 2026-10-04 ([live verification](../marketplace/live-verification-2026-10-03.md) §8).
 
 Requirements: **MKT-R15.1** (T+N business days), **MKT-R15.2** (never payable before delivery and the return
 conditions), **MKT-R15.3** (trigger), **MKT-R15.5** (the split reconciles), **MKT-R15.6** (immutable ledger),
@@ -134,6 +134,7 @@ approve / mark paid, ledger with "Record correction"). Six bundles.
 - **R-MKT-9** (who invoices commission, and its tax): not built. Until ruled, commission tax is zero.
 - Collecting what a cash-on-delivery seller owes (a negative balance) is MKT-2d (COD reconciliation).
 - A holiday calendar and settlement reports are MKT-2f.
+- Found live: a waiting line's payable date follows the current T+N; a payout request cannot be withdrawn (live verification §8).
 
 ## 4. Plan
 
@@ -143,4 +144,4 @@ approve / mark paid, ledger with "Record correction"). Six bundles.
 4. ✅ Monolith relays, seller statement, operator payouts panel, i18n.
 5. ✅ Gate rewritten without a test-only route (`/test/mkt/deliverAndSettleOne` is gone: the gate settles a real
    order sold under a 0-day policy with T+0).
-6. ○ Live run of the gate, manual walk M-1g-01..06, live-verification notes.
+6. ✅ Live run of the gate (6/6), recorded walk M-1g-01..06, live-verification §8.

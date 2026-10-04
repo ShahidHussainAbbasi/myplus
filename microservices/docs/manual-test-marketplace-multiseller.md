@@ -902,84 +902,107 @@
 
 ### M-1g-01 The worked example adds up
 
-**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** A delivered card order: goods Rs 4,800 + delivery Rs 200 = Rs 5,000; commission 10% of items; sold under a 0-day return policy; the operator set T+0 and pressed "Settle what is due now".  
+**Who:** MaxTheService operator (admin@myplus.com) → owner.business@myplus.com  
+**Before:** Ali's Rs 52,000 order from Shahzad Mobile Shop was paid online and delivered today, on a business day. Its offer was sold with 0 return days; commission policy: 8% of the items.  
 **Covers:** MKT-R15.5, MKT-R16.1  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:58 UTC  
+**Automated by:** MKT-1g-01
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Sale → Marketplace → Settlement statement → Show statement. | The line: Customer paid 5,000 · Commission 480 · Delivery, fees, tax, reserve, correction 0 · Payable to you 4,520. |
-| 2 | Add them up. | 4,520 + 480 + 0 = 5,000. |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Platform dashboard → "Settlement and payouts". Type 0 in "Business days after the return window" → Save. If "Book commission in my organisation" is shown, press it. | "Settlement settings saved." The box shows 0, and "Book commission in my organisation" is gone: commission is booked in your organisation. |
+| 2 | Press "Settle what is due now". | "Settled 1 line(s). …" (or more, if other delivered lines were due); Shahzad Mobile Shop is listed with a balance above zero. |
+| 3 | Seller A (owner.business@myplus.com): Sale → Marketplace → "Show statement". Find Ali's order. | The row reads "Payable", payable on today's date. Customer paid 52,000; Commission 4,160; Delivery, fees, tax, reserve, correction 0; Payable to you 47,840. Every row adds up: payable + commission + the other deductions = what the customer paid. |
+| 4 | Scroll to "Ledger" under the statement. | Two lines carry the order number as reference: SALE, 52,000 owed to you, and COMMISSION, 4,160 owed by you. The balance line above reads "MaxTheService owes you Rs …". |
+| C1 | Nothing to undo: a settled line is paid out in M-1g-04, and the ledger is never edited. | — |
+
+> **Found by the walk:** DEFECT, fixed (walk): "Book commission in my organisation" never hid. theme.css gives every .btn display:inline-flex !important, so hiding the button itself did nothing; it is now hidden through a wrapper.
+
+> **Found by the walk:** DEFECT, fixed (walk): "Settle what is due now" answered "Saved."; it now says how many lines settled, still wait, or are on hold.
 
 ### M-1g-02 Nothing is payable before delivery and the return window
 
-**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** An order the seller accepted today, not yet delivered; the offer has a 7-day return policy.  
+**Who:** owner.business@myplus.com and the MaxTheService operator  
+**Before:** Ali placed a Rs 52,000 order (paid online) and Shahzad Mobile Shop ACCEPTED it, but has not delivered it. T+0 and 0 return days (M-1g-01).  
 **Covers:** MKT-R15.2, MKT-R15.3, MKT-R16.2  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:58 UTC  
+**Automated by:** MKT-1g-02
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settlement statement. | The line reads "Not delivered yet"; no Payable on date. |
-| 2 | Record delivery; reload. | "Return days running"; Payable on = delivery + 7 days, then the next business day. |
-| 3 | After that date the operator presses "Settle what is due now"; reload. | "Payable"; the ledger shows the SALE and COMMISSION lines. |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Settlement and payouts → "Settle what is due now". | "Settled 0 line(s) …" or a count that does not include this order: it is not delivered. |
+| 2 | Seller A: Sale → Marketplace → "Show statement". Find the order. | The row reads "Not delivered yet" and "Payable on" is "—". Nothing is owed on it and the ledger has no line for it. |
+| 3 | Seller A records the delivery: Sale → Orders → the store order → Packed → Ship (carrier "Own rider") → Delivered. Then the operator presses "Settle what is due now" again. | The store order reads Delivered; the run settles it ("Settled 1 line(s)" or more). |
+| 4 | Seller A: "Show statement" again. | The row now reads "Payable", payable on today's date, with SALE and COMMISSION lines in the ledger. |
+| C1 | None: the order was delivered and settled, as a real one would be. | — |
 
-### M-1g-03 T+1 skips the weekend
+### M-1g-03 T+N counts business days and skips the weekend
 
-**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
-**Before:** Delivery recorded on a Friday under a 0-day return policy; T+1.  
+**Who:** MaxTheService operator, then owner.business@myplus.com  
+**Before:** Today is a Monday. A Rs 52,000 order (0 return days) is delivered today, after the operator sets T+5.  
 **Covers:** MKT-R15.1  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:58 UTC  
+**Automated by:** MKT-1g-03
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settlement statement → the line's "Payable on". | The following Monday. (No holiday calendar in Phase 1: weekends only.) |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Settlement and payouts → type 5 in "Business days after the return window" → Save. | "Settlement settings saved." The box shows 5. |
+| 2 | Ali's new order is delivered today (Monday). Operator: "Settle what is due now". | The order is not settled: it is counted as waiting ("… still wait for their payable date"). |
+| 3 | Seller A: "Show statement" → the new order. | "Return days running", payable on the Monday a week later: five business days, Saturday and Sunday not counted. |
+| C1 | Operator: set "Business days after the return window" back to 0 → Save → "Settle what is due now". | "Settlement settings saved.", then "Settled 1 line(s) …": the waiting line's date follows the setting in force, so with 0 it is due today and settles. |
 
-### M-1g-04 Payouts need two people and happen once
+> **Found by the walk:** FINDING, open: a waiting line's payable date follows the T+N setting in force, so changing T+N moves dates sellers were already shown. Recommendation: fix the date when the line starts waiting.
 
-**Who:** Two operator accounts  
-**Before:** Seller A has an ELIGIBLE balance.  
+### M-1g-04 A payout needs two people and happens once
+
+**Who:** admin@myplus.com, then ops2@myplus.com (a second operator)  
+**Before:** Shahzad Mobile Shop has a positive balance (M-1g-01, M-1g-02) and no payout open (one left by an earlier run is approved by ops2 and paid first). ops2@myplus.com exists (walk-reset.sql).  
 **Covers:** MKT-R16.3, MKT-R22.3  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:59 UTC  
+**Automated by:** MKT-1g-04
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Operator 1: Settlement and payouts → Seller A → Request payout. | Payout PO-… requested for the whole balance. |
-| 2 | Operator 1: Approve it. | Refused: "Another person must approve this payout: you requested it." |
-| 3 | Operator 2: Approve. | APPROVED. |
-| 4 | Operator 1: Mark paid with bank reference TRX-123. | PAID; the seller's balance is 0 and its statement lines read "Paid" with PO-…. |
-| 5 | Send the same request again (same request key). | The same payout is returned; no second one is created. |
-| C1 | None: payouts are records. Use a test seller. | — |
+| 1 | admin@myplus.com, developer tools: request a payout for Shahzad Mobile Shop twice with the SAME key (POST /platform/mkt/requestPayout), as a double click would. | Both answers are the same payout PO-… for the whole balance, status REQUESTED: one payout, not two. |
+| 2 | Settlement and payouts → Shahzad Mobile Shop. | The row shows the payout PO-… with its amount and REQUESTED, and an "Approve" button; no "Request payout" button while it is open. |
+| 3 | The same operator presses "Approve". | Refused: "Another person must approve this payout: you requested it." The payout stays REQUESTED. |
+| 4 | Sign out; sign in as ops2@myplus.com. Settlement and payouts → the payout → "Approve". | The row reads APPROVED and shows a "Bank reference" box with "Mark paid". |
+| 5 | Press "Mark paid" with the box empty. | Refused: "Enter the bank's reference for the transfer." |
+| 6 | Type "TRX-WALK-1" → "Mark paid". | The payout leaves the row; the balance is 0. |
+| 7 | Seller A: "Show statement". | The paid lines read "Paid" with the payout number; the ledger has a PAYOUT line PO-… for the amount; "MaxTheService owes you Rs 0." |
+| C1 | None: a paid payout is final (a mistake is corrected with a new ledger line, M-1g-05). | — |
 
-### M-1g-05 Mistakes are reversed, not edited
+### M-1g-05 Mistakes are corrected with a new line, never edited
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Seller A has ledger lines.  
+**Who:** MaxTheService operator  
+**Before:** Shahzad Mobile Shop has ledger lines (M-1g-01 to -04).  
 **Covers:** MKT-R15.6, MKT-R16.2  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:59 UTC  
+**Automated by:** MKT-1g-05
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settlement and payouts → Seller A → Ledger. Look for an Edit action on any line. | There is none. |
-| 2 | Record correction −100 with a reason. | A new ADJUSTMENT line of 100.00 owed by the seller; every earlier line unchanged; balance down 100. |
-| C1 | Record +100 to cancel the test correction. | The balance is back. |
+| 1 | Operator: Settlement and payouts → Shahzad Mobile Shop → "Ledger". | The seller's lines are listed; no line has an edit or delete control. Below them: an amount, a reason and "Record correction". |
+| 2 | Type -100 and the reason "walk correction" → "Record correction". | A new ADJUSTMENT line "walk correction", 100 owed by the seller, is added at the top; every earlier line is unchanged; the balance is 100 lower. |
+| 3 | Developer tools: try to change a ledger line (PUT /platform/mkt/ledgerEntry). | There is no such route (404 or 405): the ledger has no edit path. |
+| C1 | Record the opposite correction: +100, reason "walk correction undone". | A second ADJUSTMENT line; the balance is back where it was. |
 
 ### M-1g-06 Commission reaches the books
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Operator: note the trial balance lines 4500 Marketplace Commission and 2400 Marketplace Seller Balances.  
+**Who:** MaxTheService operator (admin@myplus.com)  
+**Before:** A new Rs 52,000 order paid online, delivered today on a business day; T+0, 0 return days.  
 **Covers:** MKT-R15.5, MKT-R1.3  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-04 06:59 UTC  
+**Automated by:** MKT-1g-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Settle one delivered card order of Rs 5,000 with commission Rs 480. | 1 line settled. |
-| 2 | Finance → Trial balance. | 4500 is higher by exactly 480.00; 2400 moved by the payable (4,520.00); 1010 Bank by 5,000.00. |
+| 1 | Operator: read the trial balance of the books commission is booked in (GET /gl/trialBalance), account 4500 Marketplace Commission. | Note the 4500 balance (0 on a fresh system). |
+| 2 | Settlement and payouts → "Settle what is due now". | "Settled 1 line(s)." |
+| 3 | Read the trial balance again. | 4500 Marketplace Commission is higher by exactly 4,160.00 (8% of 52,000); 2400 Marketplace Seller Balances moved by the 47,840.00 payable; the journal arrives within seconds through the outbox. |
 | C1 | Nothing to undo: the journal is the record. | — |
+
+> **Found by the walk:** DEFECT, fixed (live gate): the gate's trial-balance check read a "balance" field the trial balance does not have, so it could never pass. It now reads credit minus debit from the rows.
 
 
 ## MKT-2

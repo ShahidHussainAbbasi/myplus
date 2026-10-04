@@ -1,6 +1,6 @@
 # Multi-seller Marketplace (MKT): programme design
 
-**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e, 1e2 and 1f built, unit-green, Cypress gates **69/69 in one run on a live stack** and every manual case of the built slices walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)). MKT-1g built and unit-green; its gate and walk are not yet run live (§10)
+**Status:** IN BUILD. Rulings R-MKT-1…7 accepted 2026-10-03; R-MKT-8, 9 and 11 open. MKT-1a done; MKT-0a, 1b, 1c, 1d, 1e, 1e2 and 1f built, unit-green, Cypress gates **69/69 in one run on a live stack** and every manual case of the built slices walked and recorded ([live verification](marketplace/live-verification-2026-10-03.md)). MKT-1g built, unit-green, gate 6/6 and walk M-1g-01..06 recorded on a live stack ([live verification](marketplace/live-verification-2026-10-03.md) §8)
 ([analysis §6](marketplace-multiseller-analysis.md#6-rulings-needed-before-the-design-gate)). Each slice has its own
 doc under `slices/`. Cadence per standards:
 Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → manual
@@ -520,5 +520,5 @@ requirement ids maps to at least one unit, Cypress or manual case. Coverage is c
 - [x] MKT-1e one-seller COD checkout + acceptance window + snapshots · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md)) ([slice](slices/mkt-1e-checkout-acceptance.md))
 - [x] MKT-1e2 platform customer account + online payment (sandbox; platform-collected) + customer cancel / My orders · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §6) ([slice](slices/mkt-1e2-customer-account-payment.md))
 - [x] MKT-1f support cases + returns with the cost bearer + escalation + audit · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §7) ([slice](slices/mkt-1f-support-returns.md))
-- [x] MKT-1g commission + settlement ledger + T+N eligibility + four-eyes payouts + GL posting · unit-green; **gate not yet run on a live stack, walk not yet recorded** ([slice](slices/mkt-1g-settlement-payouts.md))
+- [x] MKT-1g commission + settlement ledger + T+N eligibility + four-eyes payouts + GL posting · unit-green, **gate passed on a live stack, manual walk recorded** ([live verification](marketplace/live-verification-2026-10-03.md) §8) ([slice](slices/mkt-1g-settlement-payouts.md))
 - [ ] MKT-2…6 per their own slice docs

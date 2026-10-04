@@ -4617,203 +4617,585 @@
    "id": "M-1g-01",
    "slice": "MKT-1g",
    "title": "The worked example adds up",
-   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "A delivered card order: goods Rs 4,800 + delivery Rs 200 = Rs 5,000; commission 10% of items; sold under a 0-day return policy; the operator set T+0 and pressed \"Settle what is due now\".",
+   "persona": "MaxTheService operator (admin@myplus.com) → owner.business@myplus.com",
+   "reqs": [
+    "MKT-R15.5",
+    "MKT-R16.1"
+   ],
+   "auto": [
+    "MKT-1g-01"
+   ],
+   "pre": "Ali's Rs 52,000 order from Shahzad Mobile Shop was paid online and delivered today, on a business day. Its offer was sold with 0 return days; commission policy: 8% of the items.",
    "steps": [
     {
      "n": 1,
-     "do": "Sale → Marketplace → Settlement statement → Show statement.",
-     "expect": "The line: Customer paid 5,000 · Commission 480 · Delivery, fees, tax, reserve, correction 0 · Payable to you 4,520."
+     "do": "Operator: Platform dashboard → \"Settlement and payouts\". Type 0 in \"Business days after the return window\" → Save. If \"Book commission in my organisation\" is shown, press it.",
+     "expect": "\"Settlement settings saved.\" The box shows 0, and \"Book commission in my organisation\" is gone: commission is booked in your organisation.",
+     "shot": "shots/M-1g-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Add them up.",
-     "expect": "4,520 + 480 + 0 = 5,000."
+     "do": "Press \"Settle what is due now\".",
+     "expect": "\"Settled 1 line(s). …\" (or more, if other delivered lines were due); Shahzad Mobile Shop is listed with a balance above zero.",
+     "shot": "shots/M-1g-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Seller A (owner.business@myplus.com): Sale → Marketplace → \"Show statement\". Find Ali's order.",
+     "expect": "The row reads \"Payable\", payable on today's date. Customer paid 52,000; Commission 4,160; Delivery, fees, tax, reserve, correction 0; Payable to you 47,840. Every row adds up: payable + commission + the other deductions = what the customer paid.",
+     "shot": "shots/M-1g-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Scroll to \"Ledger\" under the statement.",
+     "expect": "Two lines carry the order number as reference: SALE, 52,000 owed to you, and COMMISSION, 4,160 owed by you. The balance line above reads \"MaxTheService owes you Rs …\".",
+     "shot": "shots/M-1g-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
+     "do": "Nothing to undo: a settled line is paid out in M-1g-04, and the ledger is never edited.",
      "expect": "—"
     }
    ],
-   "reqs": [
-    "MKT-R15.5",
-    "MKT-R16.1"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-1g: SettlementCalculator through MarketplaceSettlementService.figures. Phase 1 has no processing fee or reserve, and the seller keeps the delivery fee (its rider delivers).",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-04T06:58:20.199Z",
+   "startedAt": "2026-10-04T06:57:58.722Z",
+   "result": "passed",
+   "evidence": "recorded",
+   "found": [
+    "DEFECT, fixed (walk): \"Book commission in my organisation\" never hid. theme.css gives every .btn display:inline-flex !important, so hiding the button itself did nothing; it is now hidden through a wrapper.",
+    "DEFECT, fixed (walk): \"Settle what is due now\" answered \"Saved.\"; it now says how many lines settled, still wait, or are on hold."
+   ]
   },
   {
    "id": "M-1g-02",
    "slice": "MKT-1g",
    "title": "Nothing is payable before delivery and the return window",
-   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "An order the seller accepted today, not yet delivered; the offer has a 7-day return policy.",
-   "steps": [
-    {
-     "n": 1,
-     "do": "Settlement statement.",
-     "expect": "The line reads \"Not delivered yet\"; no Payable on date."
-    },
-    {
-     "n": 2,
-     "do": "Record delivery; reload.",
-     "expect": "\"Return days running\"; Payable on = delivery + 7 days, then the next business day."
-    },
-    {
-     "n": 3,
-     "do": "After that date the operator presses \"Settle what is due now\"; reload.",
-     "expect": "\"Payable\"; the ledger shows the SALE and COMMISSION lines."
-    }
-   ],
-   "cleanup": [
-    {
-     "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
-    }
-   ],
+   "persona": "owner.business@myplus.com and the MaxTheService operator",
    "reqs": [
     "MKT-R15.2",
     "MKT-R15.3",
     "MKT-R16.2"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
-   "warn": false,
-   "auto": []
+   "auto": [
+    "MKT-1g-02"
+   ],
+   "pre": "Ali placed a Rs 52,000 order (paid online) and Shahzad Mobile Shop ACCEPTED it, but has not delivered it. T+0 and 0 return days (M-1g-01).",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Operator: Settlement and payouts → \"Settle what is due now\".",
+     "expect": "\"Settled 0 line(s) …\" or a count that does not include this order: it is not delivered.",
+     "shot": "shots/M-1g-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Seller A: Sale → Marketplace → \"Show statement\". Find the order.",
+     "expect": "The row reads \"Not delivered yet\" and \"Payable on\" is \"—\". Nothing is owed on it and the ledger has no line for it.",
+     "shot": "shots/M-1g-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Seller A records the delivery: Sale → Orders → the store order → Packed → Ship (carrier \"Own rider\") → Delivered. Then the operator presses \"Settle what is due now\" again.",
+     "expect": "The store order reads Delivered; the run settles it (\"Settled 1 line(s)\" or more).",
+     "calls": [
+      {
+       "call": "POST /updateOrderStatus PACKED",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Status updated",
+        "data": {
+         "policyWarnings": null,
+         "id": 61,
+         "organizationId": 6,
+         "invoiceNo": "INV-000061",
+         "orderNo": "SO-000061",
+         "booksStatus": "POSTED",
+         "customerName": "Ali Raza",
+         "customerContact": "03148467492",
+         "customerId": null,
+         "total": 52000,
+         "fulfilmentStatus": "PACKED",
+         "source": "MARKETPLACE",
+         "paymentMode": "MARKETPLACE",
+         "paymentStatus": "PENDING",
+         "paymentRef": "MKT-000103",
+         "refundRef": null,
+         "refundedAmount": null,
+         "cardToken": null,
+         "customerToken": null,
+         "cartToken": null,
+         "reservationId": null,
+         "reservationStatus": null,
+         "shippingAddress": "1 Clifton, Karachi",
+         "subTotal": 52000,
+         "taxTotal": null,
+         "shippingFee": null,
+         "shippingMethod": null,
+         "couponCode": null,
+         "discountAmount": null,
+         "returnReason": null,
+         "rejectionReason": null,
+         "bookedByUserId": null,
+         "bookedByName": null,
+         "amendmentReason": null,
+         "idempotencyKey": null,
+         "items": null,
+         "createdAt": "2026-10-05T06:58:23.644979",
+         "allowedTransitions": [
+          "CANCELLED"
+         ],
+         "timeline": null,
+         "shipments": null,
+         "promisedDate": null,
+         "late": false,
+         "readyToFulfil": null,
+         "refundableAmount": 52000
+        },
+        "statusCode": 200
+       }
+      },
+      {
+       "call": "POST /shipOrder",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Shipment recorded",
+        "data": {
+         "id": 53,
+         "shipmentNo": "SHP-000053",
+         "invoiceNo": "INV-000061",
+         "carrier": "Own rider",
+         "trackingNumber": "WG-179109707846749",
+         "status": "DISPATCHED",
+         "shippedAt": "2026-10-05T06:58:30.349185936",
+         "note": null,
+         "lines": [
+          {
+           "orderItemId": 61,
+           "quantity": 1,
+           "deliveredQuantity": null,
+           "productName": null
+          }
+         ]
+        },
+        "statusCode": 200
+       }
+      },
+      {
+       "call": "POST /updateOrderStatus DELIVERED",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Status updated",
+        "data": {
+         "policyWarnings": null,
+         "id": 61,
+         "organizationId": 6,
+         "invoiceNo": "INV-000061",
+         "orderNo": "SO-000061",
+         "booksStatus": "POSTED",
+         "customerName": "Ali Raza",
+         "customerContact": "03148467492",
+         "customerId": null,
+         "total": 52000,
+         "fulfilmentStatus": "DELIVERED",
+         "source": "MARKETPLACE",
+         "paymentMode": "MARKETPLACE",
+         "paymentStatus": "PENDING",
+         "paymentRef": "MKT-000103",
+         "refundRef": null,
+         "refundedAmount": null,
+         "cardToken": null,
+         "customerToken": null,
+         "cartToken": null,
+         "reservationId": null,
+         "reservationStatus": null,
+         "shippingAddress": "1 Clifton, Karachi",
+         "subTotal": 52000,
+         "taxTotal": null,
+         "shippingFee": null,
+         "shippingMethod": null,
+         "couponCode": null,
+         "discountAmount": null,
+         "returnReason": null,
+         "rejectionReason": null,
+         "bookedByUserId": null,
+         "bookedByName": null,
+         "amendmentReason": null,
+         "idempotencyKey": null,
+         "items": null,
+         "createdAt": "2026-10-05T06:58:23.644979",
+         "allowedTransitions": [
+          "RETURN_REQUESTED",
+          "RETURNED"
+         ],
+         "timeline": null,
+         "shipments": null,
+         "promisedDate": null,
+         "late": false,
+         "readyToFulfil": null,
+         "refundableAmount": 52000
+        },
+        "statusCode": 200
+       }
+      }
+     ],
+     "shot": "shots/M-1g-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Seller A: \"Show statement\" again.",
+     "expect": "The row now reads \"Payable\", payable on today's date, with SALE and COMMISSION lines in the ledger.",
+     "shot": "shots/M-1g-02/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: the order was delivered and settled, as a real one would be.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-04T06:58:37.377Z",
+   "startedAt": "2026-10-04T06:58:20.505Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-1g-03",
    "slice": "MKT-1g",
-   "title": "T+1 skips the weekend",
-   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
-   "pre": "Delivery recorded on a Friday under a 0-day return policy; T+1.",
+   "title": "T+N counts business days and skips the weekend",
+   "persona": "MaxTheService operator, then owner.business@myplus.com",
+   "reqs": [
+    "MKT-R15.1"
+   ],
+   "auto": [
+    "MKT-1g-03"
+   ],
+   "pre": "Today is a Monday. A Rs 52,000 order (0 return days) is delivered today, after the operator sets T+5.",
    "steps": [
     {
      "n": 1,
-     "do": "Settlement statement → the line's \"Payable on\".",
-     "expect": "The following Monday. (No holiday calendar in Phase 1: weekends only.)"
+     "do": "Operator: Settlement and payouts → type 5 in \"Business days after the return window\" → Save.",
+     "expect": "\"Settlement settings saved.\" The box shows 5.",
+     "shot": "shots/M-1g-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Ali's new order is delivered today (Monday). Operator: \"Settle what is due now\".",
+     "expect": "The order is not settled: it is counted as waiting (\"… still wait for their payable date\").",
+     "shot": "shots/M-1g-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Seller A: \"Show statement\" → the new order.",
+     "expect": "\"Return days running\", payable on the Monday a week later: five business days, Saturday and Sunday not counted.",
+     "calls": [
+      {
+       "call": "payable date",
+       "status": 200,
+       "body": {
+        "eligibleOn": "2026-10-12"
+       }
+      }
+     ],
+     "shot": "shots/M-1g-03/03.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
+     "do": "Operator: set \"Business days after the return window\" back to 0 → Save → \"Settle what is due now\".",
+     "expect": "\"Settlement settings saved.\", then \"Settled 1 line(s) …\": the waiting line's date follows the setting in force, so with 0 it is due today and settles.",
+     "shot": "shots/M-1g-03/c01.jpg"
     }
    ],
-   "reqs": [
-    "MKT-R15.1"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-04T06:58:50.442Z",
+   "startedAt": "2026-10-04T06:58:37.603Z",
+   "result": "passed",
+   "evidence": "recorded",
+   "found": [
+    "FINDING, open: a waiting line's payable date follows the T+N setting in force, so changing T+N moves dates sellers were already shown. Recommendation: fix the date when the line starts waiting."
+   ]
   },
   {
    "id": "M-1g-04",
    "slice": "MKT-1g",
-   "title": "Payouts need two people and happen once",
-   "persona": "Two operator accounts",
-   "pre": "Seller A has an ELIGIBLE balance.",
-   "steps": [
-    {
-     "n": 1,
-     "do": "Operator 1: Settlement and payouts → Seller A → Request payout.",
-     "expect": "Payout PO-… requested for the whole balance."
-    },
-    {
-     "n": 2,
-     "do": "Operator 1: Approve it.",
-     "expect": "Refused: \"Another person must approve this payout: you requested it.\""
-    },
-    {
-     "n": 3,
-     "do": "Operator 2: Approve.",
-     "expect": "APPROVED."
-    },
-    {
-     "n": 4,
-     "do": "Operator 1: Mark paid with bank reference TRX-123.",
-     "expect": "PAID; the seller's balance is 0 and its statement lines read \"Paid\" with PO-…."
-    },
-    {
-     "n": 5,
-     "do": "Send the same request again (same request key).",
-     "expect": "The same payout is returned; no second one is created."
-    }
-   ],
-   "cleanup": [
-    {
-     "n": 1,
-     "do": "None: payouts are records. Use a test seller.",
-     "expect": "—"
-    }
-   ],
+   "title": "A payout needs two people and happens once",
+   "persona": "admin@myplus.com, then ops2@myplus.com (a second operator)",
    "reqs": [
     "MKT-R16.3",
     "MKT-R22.3"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
-   "warn": false,
-   "auto": []
-  },
-  {
-   "id": "M-1g-05",
-   "slice": "MKT-1g",
-   "title": "Mistakes are reversed, not edited",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Seller A has ledger lines.",
+   "auto": [
+    "MKT-1g-04"
+   ],
+   "pre": "Shahzad Mobile Shop has a positive balance (M-1g-01, M-1g-02) and no payout open (one left by an earlier run is approved by ops2 and paid first). ops2@myplus.com exists (walk-reset.sql).",
    "steps": [
     {
      "n": 1,
-     "do": "Settlement and payouts → Seller A → Ledger. Look for an Edit action on any line.",
-     "expect": "There is none."
+     "do": "admin@myplus.com, developer tools: request a payout for Shahzad Mobile Shop twice with the SAME key (POST /platform/mkt/requestPayout), as a double click would.",
+     "expect": "Both answers are the same payout PO-… for the whole balance, status REQUESTED: one payout, not two.",
+     "calls": [
+      {
+       "call": "POST /platform/mkt/requestPayout",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Payout PO-000006 requested. Another operator must approve it.",
+        "data": {
+         "id": 6,
+         "payoutNo": "PO-000006",
+         "organizationId": 6,
+         "sellerName": "Shahzad Mobile Shop",
+         "requestedAmount": 282880,
+         "approvedAmount": null,
+         "status": "REQUESTED",
+         "bankReference": null,
+         "requestedAt": "2026-10-05T06:58:52.379995998",
+         "approvedAt": null,
+         "paidAt": null,
+         "requestedByMe": true,
+         "version": 0
+        },
+        "statusCode": 200
+       }
+      },
+      {
+       "call": "POST /platform/mkt/requestPayout (same key)",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Payout PO-000006 requested. Another operator must approve it.",
+        "data": {
+         "id": 6,
+         "payoutNo": "PO-000006",
+         "organizationId": 6,
+         "sellerName": "Shahzad Mobile Shop",
+         "requestedAmount": 282880,
+         "approvedAmount": null,
+         "status": "REQUESTED",
+         "bankReference": null,
+         "requestedAt": "2026-10-05T06:58:52.379996",
+         "approvedAt": null,
+         "paidAt": null,
+         "requestedByMe": true,
+         "version": 0
+        },
+        "statusCode": 200
+       }
+      },
+      {
+       "call": "POST /platform/mkt/requestPayout (a new key while one is open)",
+       "status": 200,
+       "body": {
+        "success": false,
+        "message": "Payout PO-000006 for this seller is still requested. Finish it before requesting another.",
+        "statusCode": 400
+       }
+      }
+     ]
     },
     {
      "n": 2,
-     "do": "Record correction −100 with a reason.",
-     "expect": "A new ADJUSTMENT line of 100.00 owed by the seller; every earlier line unchanged; balance down 100."
+     "do": "Settlement and payouts → Shahzad Mobile Shop.",
+     "expect": "The row shows the payout PO-… with its amount and REQUESTED, and an \"Approve\" button; no \"Request payout\" button while it is open.",
+     "shot": "shots/M-1g-04/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "The same operator presses \"Approve\".",
+     "expect": "Refused: \"Another person must approve this payout: you requested it.\" The payout stays REQUESTED.",
+     "shot": "shots/M-1g-04/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Sign out; sign in as ops2@myplus.com. Settlement and payouts → the payout → \"Approve\".",
+     "expect": "The row reads APPROVED and shows a \"Bank reference\" box with \"Mark paid\".",
+     "shot": "shots/M-1g-04/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Press \"Mark paid\" with the box empty.",
+     "expect": "Refused: \"Enter the bank's reference for the transfer.\"",
+     "shot": "shots/M-1g-04/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "Type \"TRX-WALK-1\" → \"Mark paid\".",
+     "expect": "The payout leaves the row; the balance is 0.",
+     "shot": "shots/M-1g-04/06.jpg"
+    },
+    {
+     "n": 7,
+     "do": "Seller A: \"Show statement\".",
+     "expect": "The paid lines read \"Paid\" with the payout number; the ledger has a PAYOUT line PO-… for the amount; \"MaxTheService owes you Rs 0.\"",
+     "shot": "shots/M-1g-04/07.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Record +100 to cancel the test correction.",
-     "expect": "The balance is back."
+     "do": "None: a paid payout is final (a mistake is corrected with a new ledger line, M-1g-05).",
+     "expect": "—"
     }
    ],
+   "recordedAt": "2026-10-04T06:59:02.281Z",
+   "startedAt": "2026-10-04T06:58:50.729Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-1g-05",
+   "slice": "MKT-1g",
+   "title": "Mistakes are corrected with a new line, never edited",
+   "persona": "MaxTheService operator",
    "reqs": [
     "MKT-R15.6",
     "MKT-R16.2"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-1g (built 2026-10-04, unit-green; not yet walked on a live stack).",
-   "warn": false,
-   "auto": []
+   "auto": [
+    "MKT-1g-05"
+   ],
+   "pre": "Shahzad Mobile Shop has ledger lines (M-1g-01 to -04).",
+   "steps": [
+    {
+     "n": 1,
+     "do": "Operator: Settlement and payouts → Shahzad Mobile Shop → \"Ledger\".",
+     "expect": "The seller's lines are listed; no line has an edit or delete control. Below them: an amount, a reason and \"Record correction\".",
+     "shot": "shots/M-1g-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Type -100 and the reason \"walk correction\" → \"Record correction\".",
+     "expect": "A new ADJUSTMENT line \"walk correction\", 100 owed by the seller, is added at the top; every earlier line is unchanged; the balance is 100 lower.",
+     "shot": "shots/M-1g-05/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Developer tools: try to change a ledger line (PUT /platform/mkt/ledgerEntry).",
+     "expect": "There is no such route (404 or 405): the ledger has no edit path.",
+     "calls": [
+      {
+       "call": "PUT /platform/mkt/ledgerEntry",
+       "status": 404,
+       "body": {
+        "type": "problemDetail.type.org.springframework.web.servlet.resource.NoResourceFoundException",
+        "title": "problemDetail.title.org.springframework.web.servlet.resource.NoResourceFoundException",
+        "status": 404,
+        "detail": "problemDetail.org.springframework.web.servlet.resource.NoResourceFoundException",
+        "instance": "/platform/mkt/ledgerEntry"
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Record the opposite correction: +100, reason \"walk correction undone\".",
+     "expect": "A second ADJUSTMENT line; the balance is back where it was.",
+     "shot": "shots/M-1g-05/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-04T06:59:05.945Z",
+   "startedAt": "2026-10-04T06:59:02.514Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-1g-06",
    "slice": "MKT-1g",
    "title": "Commission reaches the books",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "Operator: note the trial balance lines 4500 Marketplace Commission and 2400 Marketplace Seller Balances.",
+   "persona": "MaxTheService operator (admin@myplus.com)",
+   "reqs": [
+    "MKT-R15.5",
+    "MKT-R1.3"
+   ],
+   "auto": [
+    "MKT-1g-06"
+   ],
+   "pre": "A new Rs 52,000 order paid online, delivered today on a business day; T+0, 0 return days.",
    "steps": [
     {
      "n": 1,
-     "do": "Settle one delivered card order of Rs 5,000 with commission Rs 480.",
-     "expect": "1 line settled."
+     "do": "Operator: read the trial balance of the books commission is booked in (GET /gl/trialBalance), account 4500 Marketplace Commission.",
+     "expect": "Note the 4500 balance (0 on a fresh system).",
+     "calls": [
+      {
+       "call": "GET /gl/trialBalance",
+       "status": 200,
+       "body": {
+        "rows": [
+         {
+          "accountId": 31,
+          "code": "1010",
+          "name": "Bank",
+          "type": "ASSET",
+          "debit": 124800,
+          "credit": 0
+         },
+         {
+          "accountId": 44,
+          "code": "4500",
+          "name": "Marketplace Commission",
+          "type": "INCOME",
+          "debit": 0,
+          "credit": 124800
+         }
+        ],
+        "totalDebit": 124800,
+        "totalCredit": 124800,
+        "balanced": true
+       }
+      }
+     ]
     },
     {
      "n": 2,
-     "do": "Finance → Trial balance.",
-     "expect": "4500 is higher by exactly 480.00; 2400 moved by the payable (4,520.00); 1010 Bank by 5,000.00."
+     "do": "Settlement and payouts → \"Settle what is due now\".",
+     "expect": "\"Settled 1 line(s).\"",
+     "shot": "shots/M-1g-06/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Read the trial balance again.",
+     "expect": "4500 Marketplace Commission is higher by exactly 4,160.00 (8% of 52,000); 2400 Marketplace Seller Balances moved by the 47,840.00 payable; the journal arrives within seconds through the outbox.",
+     "calls": [
+      {
+       "call": "GET /gl/trialBalance",
+       "status": 200,
+       "body": [
+        {
+         "accountId": 31,
+         "code": "1010",
+         "name": "Bank",
+         "type": "ASSET",
+         "debit": 176800,
+         "credit": 0
+        },
+        {
+         "accountId": 37,
+         "code": "2400",
+         "name": "Marketplace Seller Balances",
+         "type": "LIABILITY",
+         "debit": 0,
+         "credit": 47840
+        },
+        {
+         "accountId": 44,
+         "code": "4500",
+         "name": "Marketplace Commission",
+         "type": "INCOME",
+         "debit": 0,
+         "credit": 128960
+        }
+       ]
+      }
+     ]
     }
    ],
    "cleanup": [
@@ -4823,14 +5205,13 @@
      "expect": "—"
     }
    ],
-   "reqs": [
-    "MKT-R15.5",
-    "MKT-R1.3"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-1g: MKT_SETTLEMENT through mkt_gl_outbox to finance MarketplacePostingRules.",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-04T06:59:10.894Z",
+   "startedAt": "2026-10-04T06:59:06.076Z",
+   "result": "passed",
+   "evidence": "recorded",
+   "found": [
+    "DEFECT, fixed (live gate): the gate's trial-balance check read a \"balance\" field the trial balance does not have, so it could never pass. It now reads credit minus debit from the rows."
+   ]
   },
   {
    "id": "M-2-01",

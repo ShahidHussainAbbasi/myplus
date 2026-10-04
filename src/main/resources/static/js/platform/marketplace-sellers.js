@@ -525,7 +525,7 @@
 			if (!ok(res)) return;
 			var v = data(res) || {};
 			$('#mktTPlus').val(v.tPlusDays);
-			$('#mktUseMyBooks').toggle(!v.booksAreMine);
+			$('#mktUseMyBooksWrap').toggle(!v.booksAreMine);   // the wrapper: a .btn cannot be hidden (theme.css !important)
 			if (!v.booksOrganizationId) $('#mktSetMsg').css('color', '#8a5a00')
 				.text(tr('ui.js.mktNoBooks', 'No books chosen yet: the first settlement books commission in your organisation.'));
 		});
@@ -621,7 +621,14 @@
 		opsPost('platform/mkt/settlementSettings', { useMyBooks: true }, $(this), $('#mktSetMsg'), loadSettlementSettings);
 	});
 	$(document).on('click', '#mktRunSettlement', function () {
-		opsPost('platform/mkt/runSettlement', {}, $(this), $('#mktSetMsg'), function () { loadAccounts(); loadSettlementSettings(); });
+		opsPost('platform/mkt/runSettlement', {}, $(this), $('#mktSetMsg'), function (res) {
+			// say what the run did, not "Saved.": the operator pressed it to learn how many lines became payable
+			var r = data(res) || {};
+			$('#mktSetMsg').text(tr('ui.js.mktRunDone', 'Settled {0} line(s). {1} still wait for their payable date; {2} are on hold for a return.')
+				.replace('{0}', r.settled || 0).replace('{1}', r.waiting || 0).replace('{2}', r.onHold || 0));
+			loadAccounts();
+			loadSettlementSettings();
+		});
 	});
 
 	function openPanel(id, loader) {

@@ -239,8 +239,10 @@
                 <label for="mktTPlus" th:text="#{ui.mktTPlusLabel}">Business days after the return window</label>
                 <input type="number" min="0" max="10" step="1" id="mktTPlus" class="form-control input-sm" style="width:80px;margin:0 8px">
                 <button type="button" class="btn btn-default btn-sm" id="mktSetSave" th:text="#{ui.save}">Save</button>
-                <button type="button" class="btn btn-default btn-sm" id="mktUseMyBooks" style="margin-left:8px"
-                        th:text="#{ui.mktUseMyBooks}">Book commission in my organisation</button>
+                <!-- shown and hidden through its wrapper: theme.css gives every .btn display:inline-flex !important,
+                     so .hide()/.toggle() on the button itself never hides it (found by the MKT-1g walk) -->
+                <span id="mktUseMyBooksWrap"><button type="button" class="btn btn-default btn-sm" id="mktUseMyBooks" style="margin-left:8px"
+                        th:text="#{ui.mktUseMyBooks}">Book commission in my organisation</button></span>
                 <button type="button" class="btn btn-primary btn-sm" id="mktRunSettlement" style="margin-left:8px"
                         th:text="#{ui.mktRunSettlement}">Settle what is due now</button>
                 <div id="mktSetMsg" role="status" style="margin-top:6px"></div>

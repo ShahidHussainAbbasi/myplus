@@ -152,7 +152,13 @@ const expectRefused = (r, sentencePart) => {
  * Order matters and is itself asserted elsewhere: the operator entitles, then the owner switches the module on
  * and accepts the seller + data-sharing agreements.
  */
-const makeSeller = (email, displayName = 'MKT gate seller') => {
+/**
+ * The name each persona's shop trades under. Accepting the agreements fixes the name for good, so whichever gate makes
+ * a seller FIRST on a fresh system decides it: a per-gate default once named Seller A "MKT gate seller" when the 1g gate
+ * ran first, and 0a-07 (which reads "Shahzad Mobile Shop") then failed on every later run.
+ */
+const SHOP_NAMES = { 'owner.business@myplus.com': 'Shahzad Mobile Shop', 'owner.mobile@myplus.com': 'Mobile Distributor' }
+const makeSeller = (email, displayName = SHOP_NAMES[email] || 'MKT gate seller') => {
   cy.loginAsOperator()
   cy.setEntitlement(email, 'marketplaceSelling', 'ACTIVE', 'mkt gate')
   cy.loginAs(email, 'Demo@2025!', '/getBusinessDashboardStats')
