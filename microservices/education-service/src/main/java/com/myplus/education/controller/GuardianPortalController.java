@@ -314,6 +314,10 @@ public class GuardianPortalController {
             out.put("notes", event.getNotes());
             out.put("slots", meetingService.slotsFor(event, orgId()));
             return new GenericResponse("SUCCESS", "", out);
+        } catch (IllegalStateException e) {
+            // SCHED-2: the scheduling core did not answer even on a second try — say so, not ERROR.
+            appUtil.le(getClass(), e);
+            return new GenericResponse("FAILED", e.getMessage());
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());

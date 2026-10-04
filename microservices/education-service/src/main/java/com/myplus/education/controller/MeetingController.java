@@ -232,6 +232,10 @@ public class MeetingController {
             MeetingEvent e = eventRepository.findByIdScoped(eventId, orgId(), userId()).orElse(null);
             if (e == null) return new GenericResponse("NOT_FOUND", "Evening not found");
             return new GenericResponse("SUCCESS", "", meetingService.slotsFor(e, orgId()));
+        } catch (IllegalStateException e) {
+            // SCHED-2: the scheduling core did not answer even on a second try — say so, not ERROR.
+            appUtil.le(getClass(), e);
+            return new GenericResponse("FAILED", e.getMessage());
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());

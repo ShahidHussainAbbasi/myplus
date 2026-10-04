@@ -5217,7 +5217,7 @@ function publishMeetingSlots() {
 	if (!currentMeetingEventId) { meetingMsg(t('ui.js.mePickEvening'), 'alert-warning'); return; }
 	$.post(serverContext + 'publishMeetingSlots', {
 		eventId: currentMeetingEventId,
-		staffId: $('#meStaff').val(),
+		staffId: $('#meStaffDD').val(),   // SCHED-2: was #meStaff, which the staff loader never filled
 		from: $('#meFrom').val(),
 		to: $('#meTo').val(),
 		minutes: $('#meMinutes').val()

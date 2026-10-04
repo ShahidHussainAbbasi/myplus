@@ -2,9 +2,11 @@ package com.myplus.appointment.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,8 +54,15 @@ public class SchedulingService {
      * cannot create a second copy of a slot. Existing slots are skipped and REPORTED rather than failing
      * the whole call — a school extending an evening from 18:00–19:00 to 18:00–20:00 should get the extra
      * hour, not an error about the hour it already published.
+     *
+     * <p><b>One read and one write</b> (SCHED-2). This used to be one {@code REQUIRES_NEW} transaction per slot
+     * inside an outer transaction — two pooled connections and a commit per slot, and every existing slot found
+     * by letting its INSERT fail. An evening is 18+ slots; on a cold first call that overran the caller's 3 s
+     * read timeout, and the school saw ERROR for slots that had been made. Now the existing start times are read
+     * once and only the missing slots are inserted, in one transaction. <b>Not {@code @Transactional} itself</b>:
+     * it only orchestrates, and holding a connection here while {@link #saveSlots} takes another is what doubled
+     * the pool use.
      */
-    @Transactional
     public Map<String, Object> generate(Long orgId, Long providerId, Long venueId, String externalRef,
                                         LocalDateTime from, LocalDateTime to, int minutes, int capacity) {
         if (orgId == null || providerId == null) {
@@ -67,6 +76,36 @@ public class SchedulingService {
                     "That window produces no slots — check the start, the end and the slot length.");
         }
 
+        Set<LocalDateTime> published = new HashSet<>();
+        for (Slot s : slotRepo.findByProviderInWindow(providerId, windows.get(0).startsAt(),
+                windows.get(windows.size() - 1).endsAt(), orgId)) {
+            published.add(s.getStartsAt());
+        }
+        List<SlotConflictDetector.Window> missing = new ArrayList<>();
+        for (SlotConflictDetector.Window w : windows) {
+            if (!published.contains(w.startsAt())) missing.add(w);
+        }
+
+        int created, existed = windows.size() - missing.size();
+        try {
+            if (!missing.isEmpty()) self.getObject().saveSlots(orgId, providerId, venueId, externalRef, missing, capacity);
+            created = missing.size();
+        } catch (DataIntegrityViolationException race) {
+            // Someone published part of this window between the read and the write (two tabs, a retry after a
+            // timeout). The batch rolled back as a whole, so fall back to slot-by-slot for what was missing.
+            int[] counts = saveOneByOne(orgId, providerId, venueId, externalRef, missing, capacity);
+            created = counts[0];
+            existed += counts[1];
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("created", created);
+        out.put("alreadyExisted", existed);
+        return out;
+    }
+
+    /** The race path: each slot in its own transaction, so one duplicate does not poison the rest. */
+    private int[] saveOneByOne(Long orgId, Long providerId, Long venueId, String externalRef,
+                               List<SlotConflictDetector.Window> windows, int capacity) {
         int created = 0, existed = 0;
         for (SlotConflictDetector.Window w : windows) {
             try {
@@ -82,22 +121,34 @@ public class SchedulingService {
                 existed++;
             }
         }
-        Map<String, Object> out = new LinkedHashMap<>();
-        out.put("created", created);
-        out.put("alreadyExisted", existed);
-        return out;
+        return new int[] { created, existed };
+    }
+
+    /** The missing slots of one generation, in ONE transaction — all or none. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveSlots(Long orgId, Long providerId, Long venueId, String externalRef,
+                          List<SlotConflictDetector.Window> windows, int capacity) {
+        List<Slot> slots = new ArrayList<>(windows.size());
+        for (SlotConflictDetector.Window w : windows) slots.add(newSlot(orgId, providerId, venueId, externalRef, w, capacity));
+        slotRepo.saveAll(slots);
+        slotRepo.flush();   // surface a UNIQUE clash HERE, inside this transaction, not at a later commit
     }
 
     /** ONE slot, in its own transaction, so a duplicate does not poison the whole generation. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveSlot(Long orgId, Long providerId, Long venueId, String externalRef,
                          SlotConflictDetector.Window w, int capacity) {
-        slotRepo.save(Slot.builder()
+        slotRepo.save(newSlot(orgId, providerId, venueId, externalRef, w, capacity));
+    }
+
+    private static Slot newSlot(Long orgId, Long providerId, Long venueId, String externalRef,
+                                SlotConflictDetector.Window w, int capacity) {
+        return Slot.builder()
                 .organizationId(orgId).providerId(providerId).venueId(venueId).externalRef(externalRef)
                 .startsAt(w.startsAt()).endsAt(w.endsAt())
                 .capacity(capacity <= 0 ? 1 : capacity)
                 .createdAt(LocalDateTime.now()).updatedAt(LocalDateTime.now())
-                .build());
+                .build();
     }
 
     /** The slots published under one reference, each with how many places are left. */

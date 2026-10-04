@@ -11,7 +11,8 @@
 # `docker compose` (and deploy.ps1, which calls it) then reads both files. Production's .env has no such
 # line, so production reads docker-compose.yml alone and is unchanged.
 #
-# Read the mail at http://localhost:8025 (bound to this machine only).
+# Read the mail at http://localhost:8025 (bound to this machine only). SMTP for processes outside Docker
+# (the local stack, start-all.ps1) is localhost:1025, also bound to this machine only.
 #
 # Five senders, each pointed here the way its own config reads it:
 #   notification / auth / education / campaign — the ${MAIL_HOST}/${MAIL_PORT}/${MAIL_PROTOCOL} placeholders
@@ -42,6 +43,9 @@ services:
       - "1025"
     ports:
       - "127.0.0.1:8025:8025"
+      # SCHED-2/MAIL-DEV-2: the LOCAL stack (start-all.ps1, java -jar outside Docker) sends here too.
+      # Bound to this machine only — with MP_SMTP_AUTH_ACCEPT_ANY it must never be reachable from outside.
+      - "127.0.0.1:1025:1025"
     networks:
       - myplus-net
 
