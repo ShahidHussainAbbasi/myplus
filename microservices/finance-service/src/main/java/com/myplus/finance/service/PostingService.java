@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.security.CurrentUser;
 import com.myplus.finance.dto.JournalLineDTO;
 import com.myplus.finance.dto.JournalPostRequest;
@@ -447,7 +449,7 @@ public class PostingService {
         glService.ensureDefaults();
         List<JournalLineDTO> lines = paymentLines(direction, amt, method);
         String source = "DISBURSEMENT".equalsIgnoreCase(direction) ? "PAYMENT" : "RECEIPT";
-        post(source, LocalDate.now(), null, lines);
+        post(source, TenantClock.today(), null, lines);
     }
 
     /** The journal a recorded payment posts — static so the posting rule is unit-tested without a ledger. */
@@ -476,7 +478,7 @@ public class PostingService {
 
     private void post(String source, LocalDate date, String ref, List<JournalLineDTO> lines) {
         glService.postJournal(JournalPostRequest.builder()
-                .entryDate(date != null ? date : LocalDate.now())
+                .entryDate(date != null ? date : TenantClock.today())
                 .source(source).sourceRef(ref).memo(ref != null ? source + " " + ref : source)
                 .lines(lines).build());
     }

@@ -1,5 +1,7 @@
 package com.myplus.inventory.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.commerce.contracts.dto.*;
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
@@ -116,7 +118,7 @@ public class ReservationService {
             }
         }
 
-        final LocalDate today = LocalDate.now();   // G1: FEFO excludes batches expired before today
+        final LocalDate today = TenantClock.today();   // G1: FEFO excludes batches expired before today
 
         // Pass 1 — verify EVERY line is fully satisfiable before holding anything (no partial holds).
         for (StockReservationLine line : req.getLines()) {

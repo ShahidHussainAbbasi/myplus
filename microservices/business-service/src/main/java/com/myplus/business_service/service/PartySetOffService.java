@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -130,7 +132,7 @@ public class PartySetOffService {
         if (c.getPartyId() == null || !c.getPartyId().equals(v.getPartyId())) {
             throw new PartyRoleService.Refusal("This customer and this supplier are not the same partner. Link them first.");
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         periodLockGuard.assertOpen(today);
         if (ledger == null) throw new PartyRoleService.Refusal("Set-off is not available in this installation.");
 
@@ -197,7 +199,7 @@ public class PartySetOffService {
 
         PartySetOff s = setOffRepo.findScoped(setOffId, org).orElseThrow(() -> new PartyRoleService.Refusal("Set-off not found."));
         if (!PartySetOff.POSTED.equals(s.getStatus())) throw new PartyRoleService.Refusal(s.getSetOffNo() + " is already reversed.");
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         periodLockGuard.assertOpen(today);
         if (ledger == null) throw new PartyRoleService.Refusal("Set-off is not available in this installation.");
 

@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.commerce.contracts.client.FinanceClient;
 import com.myplus.commerce.contracts.dto.PostingEventRequest;
 import com.myplus.common.outbox.OutboxDelivery;
@@ -86,7 +88,7 @@ public class GlOutboxService {
         o.setMethod(req.getMethod());
         // D-6 — the transaction date, kept on the row. The caller sends it; before V29 there was nowhere to
         // put it and it was silently dropped, so a retry posted whatever date it happened to run on.
-        o.setEventDate(req.getDate() != null ? req.getDate() : java.time.LocalDate.now());
+        o.setEventDate(req.getDate() != null ? req.getDate() : TenantClock.today());
         o.setStatus("PENDING");
         o.setAttempts(0);
         o.setOrganizationId(CurrentUser.organizationId());
@@ -124,7 +126,7 @@ public class GlOutboxService {
                  * now() for a row with neither.
                  */
                 .date(o.getEventDate() != null ? o.getEventDate()
-                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : LocalDate.now()))
+                        : (o.getCreatedAt() != null ? o.getCreatedAt().toLocalDate() : TenantClock.today()))
                 .ref(o.getRef())
                 .grandTotal(o.getGrandTotal()).paidAmount(o.getPaidAmount())
                 .method(o.getMethod())

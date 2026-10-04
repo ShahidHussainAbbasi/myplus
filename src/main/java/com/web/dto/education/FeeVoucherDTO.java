@@ -27,7 +27,7 @@ public class FeeVoucherDTO {
 	private String rsdStr = null;
 	private String sdStr = null;
 	private String edStr = null;
-	private LocalDate sd = LocalDate.now();
-	private LocalDate ed = LocalDate.now();
+	private LocalDate sd = com.web.util.ClientZone.today();
+	private LocalDate ed = com.web.util.ClientZone.today();
 	
 }

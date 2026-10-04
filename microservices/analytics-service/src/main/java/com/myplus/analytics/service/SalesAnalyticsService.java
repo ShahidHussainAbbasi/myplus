@@ -1,5 +1,7 @@
 package com.myplus.analytics.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.analytics.dto.MetricDTO;
 import com.myplus.analytics.dto.SalesAnalyticsDTO;
 import com.myplus.analytics.entity.AggregatedMetric;
@@ -26,7 +28,7 @@ public class SalesAnalyticsService {
 
     public List<SalesAnalyticsDTO> getSalesTrend(int months) {
         List<SalesAnalyticsDTO> result = new ArrayList<>();
-        YearMonth current = YearMonth.now();
+        YearMonth current = TenantClock.thisMonth();
         for (int i = months - 1; i >= 0; i--) {
             YearMonth ym = current.minusMonths(i);
             LocalDate start = ym.atDay(1);

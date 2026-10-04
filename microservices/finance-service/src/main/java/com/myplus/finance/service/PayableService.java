@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -181,7 +183,7 @@ public class PayableService {
         BigDecimal ap = BigDecimal.ZERO;
         @SuppressWarnings("unchecked")
         List<com.myplus.finance.dto.TrialBalanceRow> rows =
-                (List<com.myplus.finance.dto.TrialBalanceRow>) gl.trialBalance(LocalDate.now()).get("rows");
+                (List<com.myplus.finance.dto.TrialBalanceRow>) gl.trialBalance(TenantClock.today()).get("rows");
         for (com.myplus.finance.dto.TrialBalanceRow r : rows == null ? List.<com.myplus.finance.dto.TrialBalanceRow>of() : rows) {
             if ("2000".equals(r.getCode())) {
                 ap = (r.getCredit() == null ? BigDecimal.ZERO : r.getCredit())

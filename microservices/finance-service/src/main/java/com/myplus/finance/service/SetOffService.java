@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -69,7 +71,7 @@ public class SetOffService {
         if (sum(req.getCustomerAllocations()).compareTo(amount) != 0 || sum(req.getVendorAllocations()).compareTo(amount) != 0) {
             throw new Rejected("Each side's allocations must add up to the set-off amount");
         }
-        LocalDate on = req.getPaidOn() != null ? req.getPaidOn() : LocalDate.now();
+        LocalDate on = req.getPaidOn() != null ? req.getPaidOn() : TenantClock.today();
         String ref = blank(req.getReference()) ? req.getSetOffNo() : req.getReference();
 
         PaymentDTO receipt = paymentService.record(RecordPaymentRequest.builder()
@@ -110,7 +112,7 @@ public class SetOffService {
         }
         Payment receipt = paymentRepository.findById(s.getReceiptPaymentId()).orElseThrow(() -> new Rejected("Receipt leg missing"));
         Payment disbursement = paymentRepository.findById(s.getDisbursementPaymentId()).orElseThrow(() -> new Rejected("Payment leg missing"));
-        LocalDate on = req.getReversedOn() != null ? req.getReversedOn() : LocalDate.now();
+        LocalDate on = req.getReversedOn() != null ? req.getReversedOn() : TenantClock.today();
         String why = blank(req.getReason()) ? "" : ": " + req.getReason().trim();
 
         Payment mr = paymentRepository.save(mirror(receipt, on, "Reversal of " + s.getSetOffNo() + why));

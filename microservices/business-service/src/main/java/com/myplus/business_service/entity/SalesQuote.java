@@ -1,5 +1,7 @@
 package com.myplus.business_service.entity;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -132,7 +134,7 @@ public class SalesQuote implements Serializable {
     // the server refused every action on it — a confusing, silent mismatch. @Transient keeps JPA out of it.
     @Transient
     public QuoteStatus getEffectiveStatus() {
-        if (status != null && status.isOpen() && validUntil != null && validUntil.isBefore(LocalDate.now()))
+        if (status != null && status.isOpen() && validUntil != null && validUntil.isBefore(TenantClock.today()))
             return QuoteStatus.EXPIRED;
         return status;
     }

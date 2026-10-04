@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.docnum.DocumentNumberService;
 
 import com.myplus.business_service.entity.Customer;
@@ -258,7 +260,7 @@ public class OpeningBalanceService {
         // The document is changed IN PLACE (zeroed and stamped), so the period it is dated in — the cutover —
         // must still be open. Same rule, same guard as a voided sale (SaleVoidService).
         if (periodLockGuard != null)
-            periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : LocalDate.now());
+            periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
 
         BigDecimal reversed = applyReversal(ch, userId, reason, LocalDateTime.now());
         customerHistoryRepo.save(ch);
@@ -269,7 +271,7 @@ public class OpeningBalanceService {
         // ledger kept Dr 1100 / Cr 3000 for a debt no customer owed. Same outbox, same transaction: a rolled-back
         // reversal posts no journal, and a finance outage delays it rather than losing it.
         // Dated TODAY, as a voided sale's SALE_RETURN is — the correction belongs to the period it was made in.
-        postToLedger("OPENING_AR_REVERSAL", ch.getInvoiceNo(), reversed, LocalDate.now());
+        postToLedger("OPENING_AR_REVERSAL", ch.getInvoiceNo(), reversed, TenantClock.today());
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("reversed", invoiceNo);

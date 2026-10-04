@@ -19,7 +19,7 @@ const hdr = (t, extra = {}) => ({ Authorization: `Bearer ${t}`, 'Content-Type': 
 const ownerToken = () => cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: OWNER, password: PW } })
   .its('body.data.accessToken')
 const key = () => `fp4b-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localIsoDate()
 
 const status = (orgId) => cy.request(`/platform/payablesSource?organizationId=${orgId}`).then((r) => {
   expect(r.body.status, JSON.stringify(r.body).slice(0, 300)).to.eq('SUCCESS')

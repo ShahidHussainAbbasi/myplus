@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.docnum.DocumentNumberService;
 
 import java.time.LocalDateTime;
@@ -300,7 +302,7 @@ public class PurchaseService implements IPurchaseService{
 		convertBoxesToPacks(dto);
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		dto.setUserId(user.getUserId());
-		periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new bill is a today-dated entry
+		periodLockGuard.assertOpen(TenantClock.today());   // period close: a new bill is a today-dated entry
 
 		// Audit #5: dedup a double-click/retry of this purchase (same key → the SAME purchase, no second stock-in or payable).
 		final Long org = user.getOrganizationId();
@@ -511,7 +513,7 @@ public class PurchaseService implements IPurchaseService{
 		// F3b: auto-post the purchase to the GL (Dr Inventory + Dr TAX(input), Cr Cash(paid)/AP(rest)). Best-effort.
 		try {
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+					.eventType("PURCHASE").date(TenantClock.today()).ref(saved.getPurchaseInvoiceNo())
 					.grandTotal(nz(saved.getTotalAmount()).add(nz(saved.getTaxAmount())))   // bill = net + input tax
 					.taxTotal(nz(saved.getTaxAmount())).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
@@ -592,7 +594,7 @@ public class PurchaseService implements IPurchaseService{
 		if ("VOID".equals(existing.getStatus()))   // Audit #3: a voided bill is read-only
 			throw new BusinessRuleException("This bill is voided and cannot be edited.");
 		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
-		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : java.time.LocalDate.now());
+		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : TenantClock.today());
 
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
@@ -700,10 +702,10 @@ public class PurchaseService implements IPurchaseService{
 			java.math.BigDecimal oldGross = oldBillTotal.add(oldTax);
 			if (oldGross.signum() > 0)
 				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+						.eventType("PURCHASE_RETURN").date(TenantClock.today()).ref(saved.getPurchaseInvoiceNo())
 						.grandTotal(oldGross).taxTotal(oldTax).paidAmount(oldBillPaid).method("CASH").build());
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-					.eventType("PURCHASE").date(java.time.LocalDate.now()).ref(saved.getPurchaseInvoiceNo())
+					.eventType("PURCHASE").date(TenantClock.today()).ref(saved.getPurchaseInvoiceNo())
 					.grandTotal(nz(saved.getTotalAmount()).add(nz(saved.getTaxAmount())))
 					.taxTotal(nz(saved.getTaxAmount())).paidAmount(saved.getPaidAmount()).method("CASH").build());
 		} catch (Exception ex) {
@@ -766,7 +768,7 @@ public class PurchaseService implements IPurchaseService{
 		if (rq <= 0f) throw new BusinessRuleException("Return quantity must be greater than 0.");
 		if (rq > soldQty) throw new BusinessRuleException("Cannot return more than was purchased (" + soldQty + ").");
 		// Period close: a purchase return posts a new debit note dated today, so the CURRENT period must be open.
-		periodLockGuard.assertOpen(java.time.LocalDate.now());
+		periodLockGuard.assertOpen(TenantClock.today());
 		boolean partial = rq < soldQty;
 
 		// Phase B: reverse on the GROSS bill (goods + input tax). Both are returned proportionally on a partial return.
@@ -868,7 +870,7 @@ public class PurchaseService implements IPurchaseService{
 			glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
 					// The ledger line names the DEBIT NOTE that caused it, not the bill it reverses. Falls back to
 					// the bill number if the document write failed, so a GL line is never left without a reference.
-					.eventType("PURCHASE_RETURN").date(java.time.LocalDate.now())
+					.eventType("PURCHASE_RETURN").date(TenantClock.today())
 					.ref(debitNoteNo != null ? debitNoteNo : p.getPurchaseInvoiceNo())
 					.grandTotal(returnedGross).taxTotal(returnedTax).paidAmount(refund).method("CASH").build());
 		} catch (Exception ex) {
@@ -900,7 +902,7 @@ public class PurchaseService implements IPurchaseService{
 		if ("VOID".equals(p.getStatus()))
 			throw new BusinessRuleException("This bill is already voided.");
 		// Period close: a void reverses the ORIGINAL bill in place, so its period must still be open.
-		periodLockGuard.assertOpen(p.getDated() != null ? p.getDated().toLocalDate() : java.time.LocalDate.now());
+		periodLockGuard.assertOpen(p.getDated() != null ? p.getDated().toLocalDate() : TenantClock.today());
 		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		if (qty <= 0f)
 			throw new BusinessRuleException("Nothing to void on this bill.");

@@ -58,7 +58,7 @@ const untilInBooks = (t, id, tries = 20) =>
     return untilInBooks(t, id, tries - 1)
   })
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localIsoDate()
 
 describe('EX-1 — direct expense voucher (backend, gateway-direct)', () => {
   after(() => {

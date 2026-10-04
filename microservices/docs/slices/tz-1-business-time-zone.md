@@ -3,17 +3,68 @@
 Status: **DESIGN (2026-09-25). USER RULING: Option B — "Store UTC + per-tenant zone"** (Option A, a fixed
 Asia/Karachi JVM zone, was offered and declined). Each phase needs its own go-ahead.
 
-## TZ-2 (2026-10-04) — USER RULING: display and "today" follow the CLIENT (browser)
-Trigger: an expense dated "today" was refused as "in the future" at 02:38 PKT (containers are UTC, so the server's
-`LocalDate.now()` is yesterday from 00:00 to 05:00 PKT). User: *"fix it as per best practices … we decided it will be
-displayed as per client side (browser) UI/UX"*.
-- **Each request carries the browser's zone**: `X-Client-Tz` (IANA id from `Intl.DateTimeFormat().resolvedOptions()
-  .timeZone`), set once for every AJAX call in `main.js`; the monolith's GatewayClient forwards it; the gateway passes it;
-  `GatewayIdentityForwarding` carries it on service hops. Invalid ids are ignored.
-- **`TenantClock.today()`** (common-security) = today in the request's client zone, else `app.tz.default-zone`
-  (Asia/Karachi) for background work. Every BUSINESS-date decision uses it (future/backdate refusals, payment dates,
-  GL posting date, period lock); technical timestamps stay UTC `LocalDateTime.now()` (true instants).
-- **Display** converts in the browser (client zone) — the P1 work below, re-pointed from the tenant zone to the client.
+## TZ-2 — "today" is the CLIENT's day (2026-10-04) — USER RULING + consent: "go ahead with best practices & standards"
+**Trigger.** At 02:38 PKT an expense dated today was refused: *"An expense cannot be dated in the future"*. Every
+container runs on UTC, so between 00:00 and 05:00 PKT the server's `LocalDate.now()` is still yesterday. User: *"we
+decided it will be displayed as per client side (browser) UI/UX"*, then *"review e2e again 100% and do some R&D and go
+ahead with best practices & standards"*.
+
+### R&D — how mature products decide "today"
+| Product | Rule | Mechanism |
+|---|---|---|
+| Odoo | Store UTC; a date field's "today" is the **user's** day | `fields.Date.context_today(record)` reads `context['tz']`, which the web client sends from the browser |
+| ERPNext / Frappe | Store in the system zone; the user's zone is used for display | `frappe.utils.nowdate()` + per-user `time_zone` |
+| Shopify / Square | Orders and reports are in the shop's zone | The store's zone setting |
+| Java guidance (JSR-310, *Effective Java*-era practice) | Never use the JVM default zone for a business decision; inject `java.time.Clock` | `LocalDate.now(clock)`; enforced at build time with **forbiddenapis** (Apache Lucene, Elasticsearch) |
+
+**Chosen:** Odoo's model, which matches your ruling. The browser tells the server its zone on every request, the server works
+out "today" in that zone, and storage stays as it is. The server never trusts the client's clock, only its zone, so the
+most anyone can shift "today" is the real ±14 h world range.
+
+### Design
+```mermaid
+sequenceDiagram
+  participant B as Browser (main.js)
+  participant M as Monolith (BFF)
+  participant G as Gateway
+  participant S as Service A
+  participant T as Service B
+  B->>B: cookie myplus_tz = Intl…resolvedOptions().timeZone
+  B->>M: any request (AJAX, form, page) + cookie
+  M->>G: GatewayClient adds X-Client-Tz
+  G->>S: passes X-Client-Tz (not an identity header)
+  S->>S: TenantClock.today() = LocalDate.now(clock in X-Client-Tz)
+  S->>T: GatewayIdentityForwarding copies X-Client-Tz
+  Note over S,T: No request (relay, scheduler) → app.tz.default-zone (Asia/Karachi)
+```
+| Standard | Applied as |
+|---|---|
+| Single source of truth for "today" | `TenantClock.today()` / `thisMonth()` (common-security). The monolith uses `ClientZone.today()`, read from the same cookie |
+| Testable time (inject a Clock) | `TenantClock.useClock(Clock)` for tests; production uses `Clock.systemUTC()` |
+| Validate input, never guess | An unparseable zone is ignored, so the default zone applies |
+| Prevent regression at BUILD time | **forbiddenapis** in service-parent: `LocalDate#now()` and `YearMonth#now()` fail `mvn package`. The monolith has a JUnit guard against `toISOString()` dates in browser scripts |
+| One browser helper (DRY) | `localIsoDate(d)` in main.js replaces 9 UTC `toISOString()` dates and 2 private copies |
+| Activity times follow the viewer's zone (TZ-1 ruling) | platform.js "x ago" and stamp use local components |
+
+### Blast radius (Rule 0, counted)
+- **Services (measured after the sweep):** 149 `LocalDate.now()` lines, as follows.
+  - 8 are comments (left as they are).
+  - **140** code sites in 11 services became `TenantClock.today()`; **5** `YearMonth.now()` became `thisMonth()`. That is 72 files: business 60, education 42, finance 15, expense 6, inventory 5, marketplace 5, agriculture 4, pharma 3, analytics 2, catalog 2, appointment 1.
+  - The gateway demo-quota key is now explicit `LocalDate.now(ZoneOffset.UTC)`.
+  - `PricingContext.of()` had 0 callers and was removed.
+  - forbiddenapis needed an explicit `<phase>process-classes</phase>`. Without it the check silently never ran on compile or package. A probe class proved it red, then green.
+- **Monolith:** 12 `LocalDate.now()` (on 11 lines) (AppUtil defaults, FeeVoucherDTO) → `ClientZone.today()`. Outbound: GatewayClient (26 callers) plus 3 public header builders (storefront ×2, appointment public) add `X-Client-Tz`.
+- **Browser:** 9 UTC dates (business.js 4, stock-count 1, education.js 4) plus 2 UTC activity stamps (platform.js). driver-settlement.js and installment.js already use local dates; their private copies move to main.js.
+- **Out of scope:** 425 `LocalDateTime.now()` instants. They are correct UTC instants inside the JVM, and how they are stored and displayed is TZ-1 P1/P3. One known edge: a void or return checks the period lock with the sale's UTC date (`dated.toLocalDate()`), until P3.
+
+### Gate — `cypress/e2e/platform/tz-2-client-today.cy.js`
+The gate is deterministic at any hour. It picks a zone whose date differs from UTC's date right now: Pacific/Kiritimati (UTC+14) when the UTC hour is 10 or later, else Pacific/Pago_Pago (UTC−11).
+1. Header path (gateway): an expense dated the client's today is accepted, and the client's tomorrow is refused. On Kiritimati this is the reported defect; on Pago_Pago it is the reverse (old code accepted the client's tomorrow).
+2. An undated expense is dated the client's today.
+3. No zone, or an invalid zone, falls back to Asia/Karachi.
+4. Cookie path (monolith → gateway → expense): the same as case 1, through the screen's own endpoint.
+5. Browser: with `cy.clock` at 02:30 PKT, Receive payment and Pay supplier pre-fill the local day, not yesterday.
+6. The trial balance still balances. Every voucher is voided and Expense management is restored in `after()`.
 
 ## P1 progress (paused 2026-09-26)
 Written, NOT enabled: `common-security` `RenderZone`, `RenderZoneFilter`, `RenderZoneWebConfig` (web-layer-only

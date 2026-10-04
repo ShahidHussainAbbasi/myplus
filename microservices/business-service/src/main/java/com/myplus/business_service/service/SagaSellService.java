@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.dto.SellDTO;
 import com.myplus.business_service.entity.Customer;
@@ -190,7 +192,7 @@ public class SagaSellService {
      */
     public String addSell(CustomerHistoryDTO dto, java.util.Map<Integer, LoosePriceLock> looseLocks) {
         AuthenticatedUser user = requestUtil.getCurrentUser();
-        periodLockGuard.assertOpen(java.time.LocalDate.now());   // period close: a new sale is a today-dated entry
+        periodLockGuard.assertOpen(TenantClock.today());   // period close: a new sale is a today-dated entry
         assertOrderTypeAllowed(dto);                             // RST-R2a — before the key, the reserve, the write
 
         // SF-3: idempotent submission — one key per checkout attempt (client-supplied; fall back to a generated one
@@ -421,7 +423,7 @@ public class SagaSellService {
             // the sale own record. The picks ARE that record.
             BigDecimal cost = saleCosting.cogsFromPicks(reservation.getPicks(), lines);
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-                    .eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+                    .eventType("SALE").date(TenantClock.today()).ref(ch.getInvoiceNo())
                     .grandTotal(ch.getGrandTotal()).subTotal(ch.getSubTotal()).taxTotal(ch.getTaxTotal())
                     .cost(cost).paidAmount(ch.getPaidAmount()).method(ch.getPaymentMode())
                     .storeCredit(scRedeem)             // store-credit portion → Dr 2200 (not Cash)

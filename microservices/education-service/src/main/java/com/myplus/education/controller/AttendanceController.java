@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -200,7 +202,7 @@ public class AttendanceController {
             if (appUtil.isEmptyOrNull(gradeId)) {
                 return new GenericResponse("INVALID", "Please select a class");
             }
-            LocalDate date = appUtil.isEmptyOrNull(dateStr) ? LocalDate.now() : appUtil.getLocalDate(dateStr);
+            LocalDate date = appUtil.isEmptyOrNull(dateStr) ? TenantClock.today() : appUtil.getLocalDate(dateStr);
 
             Map<String, Attendance> existing = new LinkedHashMap<>();
             for (Attendance a : attendanceRepository.findByOrganizationIdAndAttDate(orgId(), date)) {
@@ -246,7 +248,7 @@ public class AttendanceController {
             }
             Long org = orgId();
             Long uid = userId();
-            LocalDate date = appUtil.isEmptyOrNull(req.getDateStr()) ? LocalDate.now() : appUtil.getLocalDate(req.getDateStr());
+            LocalDate date = appUtil.isEmptyOrNull(req.getDateStr()) ? TenantClock.today() : appUtil.getLocalDate(req.getDateStr());
             String gn = gradeName(req.getGradeId());
 
             // Slice 1.1 (D4): resolve the current term ONCE per batch, never per row — a 40-student

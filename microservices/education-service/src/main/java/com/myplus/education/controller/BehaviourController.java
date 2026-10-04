@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -148,7 +150,7 @@ public class BehaviourController {
             if (student == null) return new GenericResponse("NOT_FOUND", "Student not found");
 
             LocalDate occurredOn = parseDate(request.getParameter("occurredOn"));
-            String problem = BehaviourNoteRules.validate(description, occurredOn, LocalDate.now());
+            String problem = BehaviourNoteRules.validate(description, occurredOn, TenantClock.today());
             if (problem != null) return new GenericResponse("FAILED", problem);
 
             boolean guardianInformed = "true".equalsIgnoreCase(request.getParameter("guardianInformed"));
@@ -211,7 +213,7 @@ public class BehaviourController {
             }
             LocalDate occurredOn = parseDate(request.getParameter("occurredOn"));
             if (occurredOn == null) occurredOn = original.getOccurredOn();
-            String invalid = BehaviourNoteRules.validate(description, occurredOn, LocalDate.now());
+            String invalid = BehaviourNoteRules.validate(description, occurredOn, TenantClock.today());
             if (invalid != null) return new GenericResponse("FAILED", invalid);
 
             Student student = findVisible(org, uid, original.getStudentEnrollNo());
@@ -273,7 +275,7 @@ public class BehaviourController {
                 .type(type)
                 .category(StringUtils.hasText(request.getParameter("category"))
                         ? request.getParameter("category").trim() : null)
-                .occurredOn(occurredOn != null ? occurredOn : LocalDate.now())
+                .occurredOn(occurredOn != null ? occurredOn : TenantClock.today())
                 .description(description.trim())
                 .action(StringUtils.hasText(request.getParameter("action"))
                         ? request.getParameter("action").trim() : null)

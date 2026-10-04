@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -203,7 +205,7 @@ public class NoticeController {
             }
 
             n.setStatus(NoticeStatus.PUBLISHED);
-            n.setPublishedOn(LocalDate.now());
+            n.setPublishedOn(TenantClock.today());
             n.setUpdated(LocalDateTime.now());
             noticeRepository.save(n);
 

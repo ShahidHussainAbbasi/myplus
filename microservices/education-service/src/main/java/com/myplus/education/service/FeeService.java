@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -70,8 +72,8 @@ public class FeeService {
                 .findByOrganizationIdAndEnrollNoOrderByIdAsc(orgId, s.getEnrollNo());
         LocalDate lpd = fcs.stream().map(FeeCollection::getPaymentDate).filter(Objects::nonNull)
                 .max(LocalDate::compareTo)
-                .orElse(s.getEnrollDate() != null ? s.getEnrollDate() : LocalDate.now());
-        int dm = monthsBetween(lpd, LocalDate.now());
+                .orElse(s.getEnrollDate() != null ? s.getEnrollDate() : TenantClock.today());
+        int dm = monthsBetween(lpd, TenantClock.today());
         int months = aging ? (dm > 1 ? dm : 1) : 1;
         int prevBalance = fcs.isEmpty() ? 0
                 : (fcs.get(fcs.size() - 1).getDueBalance() == null ? 0 : fcs.get(fcs.size() - 1).getDueBalance());
@@ -136,7 +138,7 @@ public class FeeService {
         fc.setFeePaid(0);
         fc.setDueAmount(monthly);
         fc.setDueBalance(0);
-        fc.setPaymentDate(s.getEnrollDate() != null ? s.getEnrollDate() : LocalDate.now());
+        fc.setPaymentDate(s.getEnrollDate() != null ? s.getEnrollDate() : TenantClock.today());
         fc.setReceivedIn("OPENING_DUE");
         feeCollectionRepository.save(fc);
     }

@@ -1,5 +1,7 @@
 package com.myplus.appointment.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.appointment.dto.AppointmentDTO;
 import com.myplus.appointment.dto.BookingRequest;
 import com.myplus.appointment.entity.Booking;
@@ -150,7 +152,7 @@ public class AppointmentService {
         }
 
         int capacity = capacityFor(d);
-        String date = req.getDate() != null ? req.getDate() : LocalDate.now().toString();
+        String date = req.getDate() != null ? req.getDate() : TenantClock.today().toString();
         int lastAppointed = repo.findFirstByVenueIdAndProviderIdAndDateOrderByIdDesc(h.getId(), d.getId(), date)
                 .map(a -> a.getPatientsAppointed() == null ? 0 : a.getPatientsAppointed()).orElse(0);
         int appointed = lastAppointed + 1;

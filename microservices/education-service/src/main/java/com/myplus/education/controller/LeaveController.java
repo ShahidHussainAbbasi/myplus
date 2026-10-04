@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -165,7 +167,7 @@ public class LeaveController {
             LeaveType type = leaveTypeRepository.findByIdScoped(id, org, uid).orElse(null);
             if (type == null) return new GenericResponse("NOT_FOUND", "Leave type not found");
 
-            LocalDate now = LocalDate.now();
+            LocalDate now = TenantClock.today();
             for (LeaveRequest r : leaveRequestRepository.findByYearScoped(
                     now.withDayOfYear(1).minusYears(5), now.plusYears(5), org, uid)) {
                 if (Objects.equals(r.getLeaveTypeId(), id)) {
@@ -198,7 +200,7 @@ public class LeaveController {
             Long org = orgId(), uid = userId();
             Long staffId = parseLong(request.getParameter("staffId"));
             int year = Optional.ofNullable(parseInt(request.getParameter("year")))
-                    .orElse(LocalDate.now().getYear());
+                    .orElse(TenantClock.today().getYear());
             LocalDate from = LocalDate.of(year, 1, 1), to = LocalDate.of(year, 12, 31);
 
             List<LeaveType> types = leaveTypeRepository.findScoped(org, uid);
@@ -237,7 +239,7 @@ public class LeaveController {
             Long org = orgId(), uid = userId();
             Long staffId = parseLong(request.getParameter("staffId"));
             int year = Optional.ofNullable(parseInt(request.getParameter("year")))
-                    .orElse(LocalDate.now().getYear());
+                    .orElse(TenantClock.today().getYear());
             LocalDate from = LocalDate.of(year, 1, 1), to = LocalDate.of(year, 12, 31);
 
             List<LeaveRequest> requests = staffId != null

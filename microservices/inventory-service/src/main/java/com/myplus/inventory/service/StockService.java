@@ -1,5 +1,7 @@
 package com.myplus.inventory.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.commerce.contracts.client.CatalogClient;
 import com.myplus.commerce.contracts.dto.StockBatch;
 import com.myplus.inventory.dto.StockDTOs.*;
@@ -207,7 +209,7 @@ public class StockService {
     public java.util.Map<Long, java.util.Map<String, Float>> getLevelDetail(java.util.Collection<Long> ids) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate today = TenantClock.today();
         boolean scoped = (ids != null && !ids.isEmpty());
         java.util.Map<Long, java.util.Map<String, Float>> out = new java.util.HashMap<>();
         // Seed every product that has a StockLevel row with its physical on-hand (sellable/expired default 0).
@@ -259,7 +261,7 @@ public class StockService {
     public java.util.Map<String, Float> getLevelDetailFor(Long productId) {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();
-        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate today = TenantClock.today();
         java.util.Map<String, Float> m = new java.util.HashMap<>();
         m.put("onHand", stockLevelRepository.findByProductScoped(productId, orgId, userId)
                 .map(sl -> out(sl.getCurrentStock())).orElse(0f));
@@ -411,7 +413,7 @@ public class StockService {
         List<StockBatch> out = new ArrayList<>();
         // EXP-1 — a tenant that does not track expiry sees dated batches here too, because those are the
         // batches its sales will actually draw from (findForFefo below uses the identical flag).
-        for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, LocalDate.now(),
+        for (StockEntry e : stockEntryRepository.findForFefo(productId, orgId, userId, TenantClock.today(),
                 capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
             BigDecimal available = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
             if (available.signum() <= 0) continue;

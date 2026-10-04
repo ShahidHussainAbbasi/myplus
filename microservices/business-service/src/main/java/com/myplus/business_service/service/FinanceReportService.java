@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.business_service.entity.Customer;
 import com.myplus.business_service.entity.Installment;
 import com.myplus.business_service.entity.InstallmentPlan;
@@ -70,7 +72,7 @@ public class FinanceReportService {
     @Transactional(readOnly = true)
     public List<PartyAgingDTO> customerAging() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
-        LocalDate asOf = LocalDate.now();
+        LocalDate asOf = TenantClock.today();
         Map<Long, List<AgingRow>> byParty = new LinkedHashMap<>();
         Map<Long, String> names = new HashMap<>();
         // INST-2 — every open plan in the tenant, keyed by the invoice it finances. ONE query for the whole
@@ -159,7 +161,7 @@ public class FinanceReportService {
     @Transactional(readOnly = true)
     public List<PartyAgingDTO> vendorAging() {
         AuthenticatedUser u = requestUtil.getCurrentUser();
-        LocalDate asOf = LocalDate.now();
+        LocalDate asOf = TenantClock.today();
         Map<Long, List<AgingRow>> byParty = new LinkedHashMap<>();
         List<Purchase> bills = purchaseRepo.findOpenBillsScoped(u.getOrganizationId(), u.getUserId());
         for (Purchase p : bills) {

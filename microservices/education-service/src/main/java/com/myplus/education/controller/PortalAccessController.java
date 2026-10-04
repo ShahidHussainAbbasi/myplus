@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -157,7 +159,7 @@ public class PortalAccessController {
             access.setEmail(guardian.getEmail().trim());
             access.setGuardianName(guardian.getName());
             access.setStatus(PortalStatus.INVITED);
-            access.setInvitedOn(LocalDate.now());
+            access.setInvitedOn(TenantClock.today());
             access.setRevokedOn(null);
             access.setUpdated(LocalDateTime.now());
             portalAccessRepository.save(access);
@@ -220,7 +222,7 @@ public class PortalAccessController {
                 return new GenericResponse("SUCCESS", "Access is already revoked");
             }
             access.setStatus(PortalStatus.REVOKED);
-            access.setRevokedOn(LocalDate.now());
+            access.setRevokedOn(TenantClock.today());
             access.setUpdated(LocalDateTime.now());
             portalAccessRepository.save(access);
 
@@ -308,7 +310,7 @@ public class PortalAccessController {
         access.setEmail(email);
         access.setGuardianName(student.getName());   // the display name of the SUBJECT — see V25's header
         access.setStatus(PortalStatus.INVITED);
-        access.setInvitedOn(LocalDate.now());
+        access.setInvitedOn(TenantClock.today());
         access.setRevokedOn(null);
         access.setUpdated(LocalDateTime.now());
         portalAccessRepository.save(access);

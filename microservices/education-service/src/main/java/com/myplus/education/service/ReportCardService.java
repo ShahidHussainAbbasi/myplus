@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.education.entity.*;
 import com.myplus.education.repository.*;
 import com.myplus.education.service.TermAggregator.LineView;
@@ -194,7 +196,7 @@ public class ReportCardService {
                 .attendanceTotal(attendance == null ? null : attendance[1])
                 .version(reportCardRepository.maxVersionScoped(enrollNo, term.getId(), orgId, userId) + 1)
                 .status(ReportCardStatus.PUBLISHED)
-                .issuedOn(LocalDate.now())
+                .issuedOn(TenantClock.today())
                 .userId(userId)
                 .organizationId(orgId)
                 .dated(LocalDateTime.now())

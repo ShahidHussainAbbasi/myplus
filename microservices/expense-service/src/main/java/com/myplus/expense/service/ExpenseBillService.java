@@ -1,5 +1,7 @@
 package com.myplus.expense.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -169,7 +171,7 @@ public class ExpenseBillService {
             p.setVoucherId(v.getId());
             p.setAmount(take);
             p.setMethod(r.getMethod() == null ? "CASH" : r.getMethod().trim().toUpperCase());
-            p.setPaidOn(r.getPaidOn() == null ? LocalDate.now() : r.getPaidOn());
+            p.setPaidOn(r.getPaidOn() == null ? TenantClock.today() : r.getPaidOn());
             p.setStatus(ExpenseBillPayment.RECORDED);
             p.setIdempotencyKey(key);
             String ref = r.getClientRef();
@@ -228,8 +230,8 @@ public class ExpenseBillService {
         if (amount.compareTo(stillOwed) > 0)
             throw new ValidationException("That is more than is owed on this bill (" + stillOwed.max(BigDecimal.ZERO) + ").");
         String method = method(r.method());
-        LocalDate paidOn = r.paidOn() == null ? LocalDate.now() : r.paidOn();
-        if (paidOn.isAfter(LocalDate.now())) throw new ValidationException("A payment cannot be dated in the future.");
+        LocalDate paidOn = r.paidOn() == null ? TenantClock.today() : r.paidOn();
+        if (paidOn.isAfter(TenantClock.today())) throw new ValidationException("A payment cannot be dated in the future.");
         if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A bill cannot be paid before its own date.");
 
         ExpenseBillPayment p = new ExpenseBillPayment();

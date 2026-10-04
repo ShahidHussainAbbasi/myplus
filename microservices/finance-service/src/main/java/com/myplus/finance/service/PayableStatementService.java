@@ -1,5 +1,7 @@
 package com.myplus.finance.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -71,7 +73,7 @@ public class PayableStatementService {
     public Map<String, Object> aging() {
         Long org = CurrentUser.organizationId();
         if (org == null) throw new IllegalStateException("No tenant identity on the request");
-        return aging(docs.findOpen(org), docs.netBySupplier(org), java.time.LocalDate.now());
+        return aging(docs.findOpen(org), docs.netBySupplier(org), TenantClock.today());
     }
 
     static Map<String, Object> aging(List<PayableDoc> open, List<Object[]> nets, java.time.LocalDate asOf) {

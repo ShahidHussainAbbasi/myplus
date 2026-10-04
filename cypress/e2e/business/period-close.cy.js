@@ -11,7 +11,7 @@
 describe('Period close / lock', () => {
   beforeEach(() => { cy.loginAsBusiness() })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localIsoDate()
   const TTL_WAIT = 16000 // just over the default 15s per-org lock cache TTL
 
   const setLock = (through) =>

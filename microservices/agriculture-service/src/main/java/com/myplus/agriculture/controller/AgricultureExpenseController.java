@@ -1,5 +1,7 @@
 package com.myplus.agriculture.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +75,7 @@ public class AgricultureExpenseController {
             obj = modelMapper.map(dto, AgricultureExpense.class);
             obj.setUserId(userId);                 // audit
             obj.setOrganizationId(orgId());        // tenant scope
-            obj.setDated(LocalDate.now());
+            obj.setDated(TenantClock.today());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             // Resolve the plot only when one was given (null landId is valid when agri.entry.requireLand is off —
             // findById(null) would otherwise throw). Plot stays unset for an unattributed entry.

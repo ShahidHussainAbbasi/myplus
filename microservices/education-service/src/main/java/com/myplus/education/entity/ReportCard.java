@@ -1,5 +1,7 @@
 package com.myplus.education.entity;
 
+import com.myplus.common.security.time.TenantClock;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -117,7 +119,7 @@ public class ReportCard {
     void prePersist() {
         if (status == null) status = ReportCardStatus.PUBLISHED;
         if (version == 0) version = 1;
-        if (issuedOn == null) issuedOn = LocalDate.now();
+        if (issuedOn == null) issuedOn = TenantClock.today();
         if (dated == null) dated = LocalDateTime.now();
     }
 }

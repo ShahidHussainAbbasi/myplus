@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -70,7 +72,7 @@ public class ReminderScanner {
                initialDelayString = "${installment.remind.initial-delay-ms:60000}")
     public void scan() {
         try {
-            scanAllTenants(LocalDate.now());
+            scanAllTenants(TenantClock.today());
         } catch (Exception e) {
             // A scanner that throws on a timer takes its scheduler thread down with it and every later pass
             // silently never happens. Swallow at the boundary, loudly.

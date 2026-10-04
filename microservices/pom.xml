@@ -205,5 +205,42 @@
         </plugin>
       </plugins>
     </pluginManagement>
+    <plugins>
+      <!--
+        TZ-2 — "what day is it?" has ONE answer: TenantClock.today() (common-security). Design:
+        docs/slices/tz-1-business-time-zone.md §TZ-2.
+
+        LocalDate.now() answers in the JVM's zone and every container runs on UTC, so from 00:00 to 05:00 in Karachi
+        it said YESTERDAY: an expense dated today was refused as "in the future", payments defaulted to yesterday,
+        journals landed a day early. 140 sites were replaced in one sweep; this check keeps it that way, at BUILD
+        time, in every module (forbiddenapis — the Apache Lucene / Elasticsearch guard). A technical day that really
+        is UTC says so explicitly: LocalDate.now(ZoneOffset.UTC).
+        Main code only (goal "check"); tests may use fixed clocks or LocalDate.of.
+      -->
+      <plugin>
+        <groupId>de.thetaphi</groupId>
+        <artifactId>forbiddenapis</artifactId>
+        <version>3.11</version>
+        <configuration>
+          <failOnUnsupportedJava>false</failOnUnsupportedJava>
+          <ignoreSignaturesOfMissingClasses>true</ignoreSignaturesOfMissingClasses>
+          <signatures><![CDATA[
+@defaultMessage The server's UTC day, not the person's: use TenantClock.today() / TenantClock.thisMonth() (TZ-2)
+java.time.LocalDate#now()
+java.time.YearMonth#now()
+          ]]></signatures>
+        </configuration>
+        <executions>
+          <execution>
+            <id>tz-2-business-day</id>
+            <!-- explicit: the goal's default phase is later than process-classes, so a plain compile skipped it -->
+            <phase>process-classes</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>

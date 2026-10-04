@@ -1,5 +1,7 @@
 package com.myplus.expense.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -119,7 +121,7 @@ public class ExpenseVoucherService {
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
         }
-        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, LocalDate.now()));
+        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, TenantClock.today()));
         if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the subledger document goes VOID
         audit.record("EXPENSE_VOIDED", "EXPENSE", v.getVoucherNo(), v.getTotal(), null, v.getVoidReason());
         return VoucherView.of(v);
@@ -140,7 +142,7 @@ public class ExpenseVoucherService {
         Optional<ExpenseVoucher> replay = repo.findByOrganizationIdAndSourceAndSourceRef(org, ExpenseVoucher.SOURCE_DRAWER, ref);
         if (replay.isPresent()) return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(replay.get().getId(), replay.get().getVoucherNo());
 
-        LocalDate date = r.getDate() == null ? LocalDate.now() : r.getDate();
+        LocalDate date = r.getDate() == null ? TenantClock.today() : r.getDate();
         if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A pay-out needs an amount.");
         ExpenseCategory c = categories.activeCategory(org, r.getCategoryId());
         ExpenseVoucher v = new ExpenseVoucher();
@@ -210,7 +212,7 @@ public class ExpenseVoucherService {
 
     private ExpenseVoucher build(Long org, VoucherRequest r) {
         if (r == null) throw new ValidationException("Nothing to save.");
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         LocalDate date = r.voucherDate() == null ? today : r.voucherDate();
         if (date.isAfter(today)) throw new ValidationException("An expense cannot be dated in the future.");
         if (date.isBefore(today.minusDays(BACKDATE_DAYS)))

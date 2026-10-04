@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.docnum.DocumentNumberService;
 
 import java.math.BigDecimal;
@@ -133,7 +135,7 @@ public class SalesQuoteService {
             if (c != null && inMyTenant(c)) q.setCustomerName(c.getName());
         }
 
-        q.setValidUntil(LocalDate.now().plusDays(validityDays()));
+        q.setValidUntil(TenantClock.today().plusDays(validityDays()));
 
         for (SalesQuoteLine line : incoming.getLines()) {
             if (line == null || line.getProductId() == null) continue;

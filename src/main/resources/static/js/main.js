@@ -1,4 +1,17 @@
 ﻿var userId = -1;
+
+/*
+ * TZ-2 — tell the server which day it is HERE. The services run on UTC, so without this their "today" was yesterday
+ * from 00:00 to 05:00 in Karachi (an expense dated today was refused as "in the future"). Every request to this site
+ * carries the cookie; the monolith forwards it as X-Client-Tz and each service decides "today" in this zone. Only the
+ * ZONE is sent, never this machine's clock. Design: microservices/docs/slices/tz-1-business-time-zone.md §TZ-2.
+ */
+(function () {
+	try {
+		var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		if (tz) document.cookie = 'myplus_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; SameSite=Lax';
+	} catch (e) { /* no Intl: the server falls back to Asia/Karachi */ }
+})();
 var month = new Array();
 month[0] = "Jan";
 month[1] = "Feb";
@@ -1663,6 +1676,7 @@ function parseDate(dateStr, format) {
   return parts.length === 4 ? new Date(year, month-1, day) : undefined;
 }
 
+/** yyyy-MM-dd from LOCAL components — the ONE way a screen writes "today". Never toISOString(): that is the UTC day. */
 function dateToYMD(date) {
     var d = date.getDate();
     var m = date.getMonth() + 1;

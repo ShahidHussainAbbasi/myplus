@@ -1,5 +1,7 @@
 package com.myplus.pharma.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.common.web.exception.ResourceNotFoundException;
 import com.myplus.common.web.exception.ValidationException;
 import com.myplus.pharma.dto.DispenseRequest;
@@ -121,7 +123,7 @@ public class DispenseService {
         if (rx.getStatus() == Prescription.Status.CANCELLED)
             throw new ValidationException("This prescription was cancelled and cannot be dispensed.");
         if (rx.getStatus() == Prescription.Status.EXPIRED
-                || (rx.getValidUntil() != null && rx.getValidUntil().isBefore(LocalDate.now())))
+                || (rx.getValidUntil() != null && rx.getValidUntil().isBefore(TenantClock.today())))
             throw new ValidationException("This prescription expired"
                     + (rx.getValidUntil() != null ? " on " + rx.getValidUntil() : "") + " and cannot be dispensed.");
     }

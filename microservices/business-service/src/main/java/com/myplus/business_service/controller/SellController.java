@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -945,7 +947,7 @@ public class SellController {
 	                com.myplus.business_service.dto.SaleReportPeriod.from(dto.getRp(), hasSd || hasEd);
 
 	        if(period != com.myplus.business_service.dto.SaleReportPeriod.CUSTOM) {
-	        	java.time.LocalDateTime[] range = period.range(java.time.LocalDate.now());
+	        	java.time.LocalDateTime[] range = period.range(TenantClock.today());
 	        	objs = sellService.findSellByDates(range[0], range[1], user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd && hasEd) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
@@ -961,7 +963,7 @@ public class SellController {
 	            // CUSTOM was asked for with no usable dates. Fall back to the DEFAULT period rather than
 	            // reporting an empty shop — the same period an operator gets when they ask for nothing.
 	            java.time.LocalDateTime[] fallback =
-	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(java.time.LocalDate.now());
+	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(TenantClock.today());
 	            objs = sellService.findSellByDates(fallback[0], fallback[1],
 	                    user.getOrganizationId(), user.getUserId());
 	        }
@@ -1276,7 +1278,7 @@ public class SellController {
 						ip.getFirstDueDate(), ip.getMarkupAmount());
 				com.myplus.common.installment.InstallmentEligibilityPolicy.Decision elig =
 						installmentPlanService.eligibility(orgId(), eligCustomerId, eligCnic, named, eligTerms,
-								java.time.LocalDate.now());
+								TenantClock.today());
 				if (!elig.allowed()) return new GenericResponse("FAILED", elig.reason());
 			}
 
@@ -1396,7 +1398,7 @@ public class SellController {
 					.anyMatch(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT))
 				return new GenericResponse("FAILED", "This sale was paid with store credit — void it and re-enter to change it.");
 			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
-			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : java.time.LocalDate.now());
+			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -1625,12 +1627,12 @@ public class SellController {
 				String mode = ch.getPaymentMode();
 				if (oldGrand.signum() > 0)
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+							.eventType("SALE_RETURN").date(TenantClock.today()).ref(ch.getInvoiceNo())
 							.grandTotal(oldGrand).subTotal(oldSub).taxTotal(oldTax).cost(oldCost).paidAmount(oldPaid)
 							.discountTotal(oldDiscount).shippingFee(oldShipping)   // reverse what the sale posted
 							.method(mode).build());
 				glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-						.eventType("SALE").date(java.time.LocalDate.now()).ref(ch.getInvoiceNo())
+						.eventType("SALE").date(TenantClock.today()).ref(ch.getInvoiceNo())
 						.grandTotal(nzbd(ch.getGrandTotal())).subTotal(nzbd(ch.getSubTotal())).taxTotal(nzbd(ch.getTaxTotal()))
 						.discountTotal(nzbd(ch.getTradeDiscount())).shippingFee(nzbd(ch.getShippingFee()))
 						.cost(newCost).paidAmount(nzbd(ch.getPaidAmount())).method(mode).build());
@@ -1802,7 +1804,7 @@ public class SellController {
 				return new GenericResponse("FAILED", "Cannot return more than the sold quantity (" + soldQty + ").");
 
 			// Period close: a return posts a new credit dated today, so the CURRENT period must be open.
-			periodLockGuard.assertOpen(java.time.LocalDate.now());
+			periodLockGuard.assertOpen(TenantClock.today());
 
 			// G2 (slice 34): a saga sell decremented inventory-service (StockEntry/StockLevel), not local Stock.
 			// Route its return back through inventory (inverse saga) so on-hand is restored, not just local Stock.
@@ -2052,7 +2054,7 @@ public class SellController {
 				java.math.BigDecimal retGross = retSub.add(retTax);
 				if (retGross.signum() > 0) {
 					glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
-							.eventType("SALE_RETURN").date(java.time.LocalDate.now()).ref(creditNoteNo)
+							.eventType("SALE_RETURN").date(TenantClock.today()).ref(creditNoteNo)
 							.grandTotal(retGross).subTotal(retSub).taxTotal(retTax).cost(retCost).paidAmount(refundedAmount)
 							.method("CASH").storeCredit(storeCreditIssued).build());   // credit-issue portion → Cr 2200 (not Cash)
 				}

@@ -1047,7 +1047,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       const cat = (r.body.data || []).find((c) => c.active !== false)
       return token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`,
         headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg4b-' + run },
-        body: { voucherDate: new Date().toISOString().slice(0, 10), paidFrom: 'AP', supplierId: fpSup.id, payeeName: 'XG4B bill ' + run, lines: [{ categoryId: cat.id, amount: 65 }] } })
+        body: { voucherDate: localIsoDate(), paidFrom: 'AP', supplierId: fpSup.id, payeeName: 'XG4B bill ' + run, lines: [{ categoryId: cat.id, amount: 65 }] } })
         .its('body.success').should('eq', true))
     })
     cy.wait(4000)
@@ -1113,7 +1113,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       const cat = (r.body.data || []).find((c) => c.active !== false)
       return token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`,
         headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg4c-' + run },
-        body: { voucherDate: new Date().toISOString().slice(0, 10), paidFrom: 'AP', supplierId: limSup.id, lines: [{ categoryId: cat.id, amount: 300 }] } })
+        body: { voucherDate: localIsoDate(), paidFrom: 'AP', supplierId: limSup.id, lines: [{ categoryId: cat.id, amount: 300 }] } })
         .its('body.success').should('eq', true))
     })
     cy.loginAsOperator()
@@ -1209,7 +1209,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     SAFETY.push(() => { asPayables(); cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.' + CAP } }) })
     asPayables(true)
     newSupplier('5B').then((sp) => { mixSup = sp })
-    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) })()
+    const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return localIsoDate(d) })()
     cy.then(() => cy.request('/expense/categories')).then((r) => {
       const cat = (r.body.data || []).find((c) => c.active !== false)
       return cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: PAYABLES, password: PW } }).its('body.data.accessToken').then((tk) =>
@@ -1306,5 +1306,110 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       })
     })
     act('Nothing to undo — a 5 receipt on account stays as the test customer’s credit.', [], { cleanup: true })
+  })
+
+  // ═══ TZ-2 · "Today" is your day, at any hour ════════════════════════════════════════════════════════════════
+  // A zone whose date differs from UTC's right now: the night-time defect, reproduced without waiting for midnight.
+  const TZ_AHEAD = new Date().getUTCHours() >= 10
+  const TZ_ZONE = TZ_AHEAD ? 'Pacific/Kiritimati' : 'Pacific/Pago_Pago'
+  const TZ_LABEL = TZ_AHEAD ? '(UTC+14:00) Kiritimati Island' : '(UTC−11:00) Pago Pago / Samoa'
+  const dayIn = (zone, at = Date.now()) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at))
+  const dmy = (iso) => iso.split('-').reverse().join('-')
+  const nextDay = (iso) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10) }
+  const tzMade = []
+  const tzVoid = () => cy.then(() => tzMade.forEach((id) =>
+    cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book TZ-2' }, failOnStatusCode: false })))
+
+  caseIt('tz-1', 'An expense dated today is accepted at any hour', () => {
+    testCase('tz-1', 'tz2', 'An expense dated today is accepted at any hour', { who: ['owner.lifecycle (recorded)', 'owner.business', 'user.business'] })
+    setup('Expense management switched on (case 0a-3), then log out and in.')
+    setup('No need to wait for midnight: changing your computer’s time zone moves “today” exactly as 00:00–05:00 in Karachi did.')
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); tzVoid() })
+    openDashboard()
+    const today = dayIn(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    const payee = 'XG TZ ' + run
+    const a1 = act('<b>Till → Expenses</b>. Look at the <b>Date</b> box.', [`It shows <b>today on your computer’s calendar</b> (${dmy(today)} when recorded).`])
+    openExpenses()
+    cy.get('#expDateTemp').should('have.value', dmy(today))
+    snap(a1, 'date-today', '#ExpenseDiv form')
+    const a2 = act(`Category <b>Rent</b>, Amount <b>3</b>, Paid from <b>Cash</b>, Payee <b>${payee}</b>, press <b>Save and post</b>.`,
+      ['Saved — no “An expense cannot be dated in the future”.', `The row is dated <b>${dmy(today)}</b> and ends as <b>In the books</b>.`])
+    fillExpense({ category: 'Rent', amount: 3, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).within(() => {
+      cy.contains(dmy(today))
+      cy.get('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    })
+    cy.request('/expense/vouchers?size=50').then((r) => {
+      const v = ((r.body.data && r.body.data.content) || []).find((x) => x.payeeName === payee)
+      expect(v, 'the saved expense').to.exist
+      tzMade.push(v.id)
+    })
+    snap(a2, 'saved-today')
+    const zToday = dayIn(TZ_ZONE)
+    const a3 = act(`Change your computer’s time zone to <b>${TZ_LABEL}</b>, reload the page, open <b>Till → Expenses</b> and save another expense of <b>3</b> dated the computer’s new today.`,
+      [`Accepted, dated <b>${dmy(zToday)}</b> — ${TZ_AHEAD ? 'a day AHEAD of the server’s UTC calendar: exactly what was refused before' : 'your calendar, not the server’s'}.`],
+      { via: 'run' })
+    cy.setCookie('myplus_tz', encodeURIComponent(TZ_ZONE))
+    categoryByName('Rent').then((c) =>
+      cy.request({ method: 'POST', url: '/expense/vouchers?post=true', headers: { 'Idempotency-Key': 'xgtz-b-' + run },
+        body: { paidFrom: 'CASH', voucherDate: zToday, payeeName: payee + ' zone', lines: [{ categoryId: c.id, amount: 3 }] } }))
+      .its('body').then((b) => {
+        expect(b.success, JSON.stringify(b.message)).to.eq(true)
+        expect(b.data.voucherDate).to.eq(zToday)
+        tzMade.push(b.data.id)
+      })
+    act('Still on that time zone, set the date to the computer’s <b>tomorrow</b> and save.',
+      ['Refused: <b>“An expense cannot be dated in the future.”</b> — tomorrow is still tomorrow, wherever you are.'], { via: 'run' })
+    categoryByName('Rent').then((c) =>
+      cy.request({ method: 'POST', url: '/expense/vouchers?post=true', headers: { 'Idempotency-Key': 'xgtz-c-' + run }, failOnStatusCode: false,
+        body: { paidFrom: 'CASH', voucherDate: nextDay(zToday), lines: [{ categoryId: c.id, amount: 3 }] } }))
+      .its('body').then((b) => { expect(b.success).to.eq(false); expect(b.message).to.match(/future/i) })
+    cy.clearCookie('myplus_tz')
+    const c1 = act('Void both test expenses from their rows (reason <b>Test Book</b>), and set your computer’s time zone back to <b>(UTC+05:00) Islamabad, Karachi</b>.',
+      ['Both rows show <b>Void</b>; the trial balance is back where it started.'], { cleanup: true })
+    cy.then(() => tzMade.forEach((id) => cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book TZ-2' } })
+      .its('body.success').should('eq', true)))
+    openDashboard()
+    openExpenses()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'Void')
+    snap(c1, 'voided')
+    cy.then(() => { tzMade.length = 0 })
+  })
+
+  caseIt('tz-2', 'Payment dialogs and finance reports open on your own today — even at 02:30', () => {
+    testCase('tz-2', 'tz2', 'Payment dialogs and finance reports open on your own today — even at 02:30', { who: ['owner.lifecycle (recorded)', 'owner.business', 'cashier.a'] })
+    setup('A supplier with something owed (the recording makes one: a credit purchase of 10).')
+    asLifecycle()
+    const inv = 'XGTZINV-' + run
+    let sup = null
+    newSupplier('TZ').then((s) => { sup = s })
+    cy.then(() => creditPurchase(sup.id, 10, inv).its('status').should('eq', 'SUCCESS'))
+    SAFETY.push(() => { asLifecycle(); purchaseIdOf(inv).then((pid) => { if (pid) cy.request({ method: 'POST', url: '/voidPurchase', form: true, failOnStatusCode: false, body: { purchaseId: pid, reason: 'Test Book TZ-2' } }) }) })
+    cy.clearLocalStorage()
+    openDashboard()
+    // 02:30 in Karachi on 5 October = 21:30 UTC on 4 October: the hour the old screens wrote YESTERDAY.
+    const night = Date.parse('2026-10-04T21:30:00Z')
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const local = dayIn(zone, night)
+    cy.clock(night, ['Date'])
+    const a1 = act('Between <b>00:00 and 05:00</b> (the recording sets the clock to 02:30 on 5 October): <b>Register → Vender / Supplier</b>, press <b>Pay</b> on the supplier.',
+      [`The dialog’s <b>Date</b> is <b>today</b> (${local}) — not yesterday (${dayIn('UTC', night)}, the UTC day the screen used to write).`])
+    cy.then(() => openSuppliers(sup.name))
+    cy.then(() => cy.contains('#VenderDiv tr', sup.name, { timeout: 15000 }).find('.pay-vendor-btn').click())
+    cy.get('#pvDate').should('have.value', local)
+    snap(a1, 'pay-dialog', '#PayVendorModal')
+    cy.window().then((w) => { if (w.closeModal) w.closeModal('PayVendorModal') })
+    const a2 = act('Open <b>Finance → Profit &amp; Loss</b>.',
+      [`<b>From</b> is the 1st of this month (${local.slice(0, 8)}01) — it used to show the LAST day of the previous month.`, `<b>To</b> is today (${local}).`])
+    cy.window().then((w) => w.showFinance('pnl'))
+    cy.get('#finFrom').should('have.value', local.slice(0, 8) + '01')
+    cy.get('#finTo').should('have.value', local)
+    snap(a2, 'finance-range', '#FinanceDiv')
+    act('Void the test purchase (<b>Purchase</b> → its row → <b>Void</b>, reason <b>Test Book</b>).', ['The supplier owes nothing again.'], { cleanup: true, via: 'run' })
+    cy.then(() => purchaseIdOf(inv)).then((pid) => cy.request({ method: 'POST', url: '/voidPurchase', form: true, body: { purchaseId: pid, reason: 'Test Book TZ-2' } }))
+    cy.then(() => vendorRow(sup.id)).then((v) => expect(Number(v.dueAmount), 'supplier owes nothing').to.eq(0))
   })
 })

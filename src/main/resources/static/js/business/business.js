@@ -5099,7 +5099,7 @@ function openReceivePayment(customerId, name, due) {
 	$("#rcvAmount").val(d > 0 ? d : '');
 	$("#rcvMethod").val('CASH');
 	$("#rcvReference").val('');
-	$("#rcvDate").val(new Date().toISOString().slice(0, 10));
+	$("#rcvDate").val(dateToYMD(new Date()));
 	window.rcvIdemKey = newIdemKey();   // Audit #5
 	openModal('ReceivePaymentModal');
 	// DR-5: if this customer's partner is also a supplier we owe, say so (owner/admin only; applies nothing).
@@ -5154,7 +5154,7 @@ function openPayVendor(venderId, name, due) {
 	$("#pvAmount").val(d > 0 ? d : '');
 	$("#pvMethod").val('CASH');
 	$("#pvReference").val('');
-	$("#pvDate").val(new Date().toISOString().slice(0, 10));
+	$("#pvDate").val(dateToYMD(new Date()));
 	window.pvIdemKey = newIdemKey();   // Audit #5
 	openModal('PayVendorModal');
 	// DR-5: if this supplier's partner also owes us as a customer, say so (owner/admin only; applies nothing).
@@ -5487,8 +5487,8 @@ var FIN_REPORTS = {
 };
 var finCurrent = 'trialBalance';
 
-function finToday(){ return new Date().toISOString().slice(0,10); }
-function finMonthStart(){ var d=new Date(); return new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10); }
+function finToday(){ return dateToYMD(new Date()); }
+function finMonthStart(){ var d=new Date(); return dateToYMD(new Date(d.getFullYear(),d.getMonth(),1)); }
 function finPrefs(){ try{ return JSON.parse(localStorage.getItem('finPrefs')||'{}'); }catch(e){ return {}; } }
 function finSavePrefs(){
 	try{ localStorage.setItem('finPrefs', JSON.stringify({

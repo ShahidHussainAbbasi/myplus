@@ -1,5 +1,7 @@
 package com.myplus.business_service.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -141,7 +143,7 @@ public class SaleVoidService {
             }
         }
 
-        periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : LocalDate.now());
+        periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
 
         Long chId = ch.getCustomer_history_id();
         List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId, userId);
@@ -217,7 +219,7 @@ public class SaleVoidService {
         try {
             if (origGrand.signum() > 0)
                 glOutboxService.enqueue(PostingEventRequest.builder()
-                        .eventType("SALE_RETURN").date(LocalDate.now()).ref(ch.getInvoiceNo())
+                        .eventType("SALE_RETURN").date(TenantClock.today()).ref(ch.getInvoiceNo())
                         .grandTotal(origGrand).subTotal(origSub).taxTotal(origTax).cost(retCost).paidAmount(refund)
                         .discountTotal(origDiscount).shippingFee(origShipping)   // reverse BOTH document legs
                         .method("CASH").storeCredit(creditReissue).build());   // re-issued credit portion → Cr 2200

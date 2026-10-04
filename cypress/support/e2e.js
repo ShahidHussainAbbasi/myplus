@@ -3,6 +3,13 @@ import './commands'
 import { addMatchImageSnapshotCommand } from '@simonsmith/cypress-image-snapshot/command'
 import 'cypress-axe'
 
+/*
+ * TZ-2 — yyyy-MM-dd from LOCAL components: the day the shop (and, since TZ-2, the server) calls "today".
+ * Never toISOString().slice(0, 10): that is the UTC day, YESTERDAY from 00:00 to 05:00 in Karachi.
+ */
+globalThis.localIsoDate = (d = new Date()) =>
+  d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0')
+
 addMatchImageSnapshotCommand({
   // Anti-aliasing and font hinting differ run to run by a few pixels; 0.2% of the image is the tolerance, and a
   // real layout change (a moved label, a lost border, a wrapped rail) is far above it.

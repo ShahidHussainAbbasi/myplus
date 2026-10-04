@@ -1,5 +1,7 @@
 package com.myplus.education.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.education.entity.Term;
 import com.myplus.education.repository.TermRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +33,7 @@ public class TermService {
      */
     @Transactional(readOnly = true)
     public Term currentTerm(Long orgId, Long userId) {
-        return resolveCurrent(termRepository.findScoped(orgId, userId), LocalDate.now());
+        return resolveCurrent(termRepository.findScoped(orgId, userId), TenantClock.today());
     }
 
     /** Just the id, for stamping onto new rows. Null-safe. */

@@ -24,7 +24,7 @@ describe('Multi-rate tax — tax codes', () => {
 
   beforeEach(() => { cy.loginAsBusiness() })
 
-  const today = new Date().toISOString().slice(0, 10)
+  const today = localIsoDate()
   const parse = (b) => (typeof b === 'string' ? JSON.parse(b) : b)
   const breakdown = () => cy.request(`/taxBreakdown?from=${today}&to=${today}`).then((r) => parse(r.body).object || parse(r.body))
   // output tax booked at a given rate in the current breakdown (0 if that rate has no row yet)

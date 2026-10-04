@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -162,7 +164,7 @@ public class FeeCollectionController {
             if (charged.signum() <= 0) return;   // nothing charged → not an accounting event
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
                     .eventType("FEE_CHARGE")
-                    .date(java.time.LocalDate.now())
+                    .date(TenantClock.today())
                     .ref(String.valueOf(fc.getId()))       // no invoice number in education yet — the fee id traces it
                     .grandTotal(charged)
                     .build());
@@ -180,7 +182,7 @@ public class FeeCollectionController {
     public GenericResponse getFeeAging() {
         try {
             return new GenericResponse("SUCCESS", "",
-                    feeArrearsService.aging(orgId(), userId(), java.time.LocalDate.now()));
+                    feeArrearsService.aging(orgId(), userId(), TenantClock.today()));
         } catch (Exception e) {
             appUtil.le(getClass(), e);
             return new GenericResponse("ERROR", e.getMessage());
@@ -211,7 +213,7 @@ public class FeeCollectionController {
         try {
             glOutboxService.enqueue(com.myplus.commerce.contracts.dto.PostingEventRequest.builder()
                     .eventType(eventType)
-                    .date(java.time.LocalDate.now())
+                    .date(TenantClock.today())
                     .ref(String.valueOf(fc.getId()))
                     .grandTotal(amount)
                     .method(method)

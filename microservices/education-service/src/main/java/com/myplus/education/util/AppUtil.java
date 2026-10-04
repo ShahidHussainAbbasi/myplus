@@ -1,5 +1,7 @@
 package com.myplus.education.util;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -58,7 +60,7 @@ public class AppUtil {
      * Mirrors business-service's AppUtil, which is already lenient the same way.
      */
     public LocalDate getLocalDate(String dateStr) {
-        if (StringUtils.isEmpty(dateStr)) return LocalDate.now();
+        if (StringUtils.isEmpty(dateStr)) return TenantClock.today();
         String s = dateStr.trim();
         try {
             return LocalDate.parse(s, dateFormatter);                       // dd-MM-yyyy (the common case)
@@ -70,7 +72,7 @@ public class AppUtil {
             return java.time.YearMonth.parse(s, monthYearFormatter).atDay(1);   // MM-yyyy → 1st of the month
         } catch (java.time.format.DateTimeParseException e) {
             LOGGER.warn("Unparseable date '{}' — falling back to today", s);
-            return LocalDate.now();
+            return TenantClock.today();
         }
     }
 

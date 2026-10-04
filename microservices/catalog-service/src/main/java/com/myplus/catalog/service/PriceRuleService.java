@@ -1,5 +1,7 @@
 package com.myplus.catalog.service;
 
+import com.myplus.common.security.time.TenantClock;
+
 import com.myplus.catalog.dto.PriceRuleDTO;
 import com.myplus.catalog.entity.PriceRuleEntity;
 import com.myplus.catalog.entity.Product;
@@ -79,7 +81,7 @@ public class PriceRuleService {
                 .map(PriceRuleService::toLibrary).toList();
 
         PricingContext ctx = new PricingContext(request.getCustomerId(), request.getCustomerType(),
-                LocalDate.now());
+                TenantClock.today());
 
         for (PriceQuoteLine reqLine : request.getLines()) {
             Product p = (reqLine.getProductId() == null) ? null : products.get(reqLine.getProductId());

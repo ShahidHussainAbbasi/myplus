@@ -25,7 +25,10 @@ public final class GatewayIdentityForwarding {
             // Omitting it here would make an inter-service call fall back to the callee's local settings
             // store — reintroducing the very divergence the JWT claim exists to remove, on exactly the paths
             // (saga steps, relays) where it would be hardest to notice.
-            "X-Org-Caps");
+            "X-Org-Caps",
+            // TZ-2: the browser's zone, so "today" on the callee is the same day the first service decided on
+            // (an expense saved at 02:00 in Karachi posts a journal for THAT day, not UTC's yesterday).
+            com.myplus.common.security.time.TenantClock.HEADER);
 
     private GatewayIdentityForwarding() {}
 

@@ -1,5 +1,7 @@
 package com.myplus.education.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -111,7 +113,7 @@ public class AnalyticsController {
 
     // ---- KPI headlines ----------------------------------------------------
     private Map<String, Object> buildKpis(Long orgId, Long userId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         LocalDate yearStart = today.withDayOfYear(1);
         LocalDate yearEnd = yearStart.plusYears(1).minusDays(1);
         YearMonth thisMonth = YearMonth.from(today);
@@ -285,7 +287,7 @@ public class AnalyticsController {
 
     private List<YearMonth> last12Months() {
         List<YearMonth> months = new ArrayList<>();
-        YearMonth cur = YearMonth.now();
+        YearMonth cur = TenantClock.thisMonth();
         for (int i = 11; i >= 0; i--) months.add(cur.minusMonths(i));
         return months;
     }

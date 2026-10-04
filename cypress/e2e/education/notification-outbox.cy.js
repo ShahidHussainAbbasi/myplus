@@ -182,7 +182,7 @@ describe('Education — notification outbox (slice N1)', () => {
 
       // Param names verified against BehaviourController: `enrollNo`, and `occurredOn` is validated.
       // `guardianInformedOn` must not be in the future relative to the note, so both use today.
-      const today = new Date().toISOString().slice(0, 10)
+      const today = localIsoDate()
       post('/saveBehaviourNote', {
         enrollNo: student.enrollNo,
         type: 'CONCERN',        // the param is `type` — `noteType` would silently default to NEUTRAL

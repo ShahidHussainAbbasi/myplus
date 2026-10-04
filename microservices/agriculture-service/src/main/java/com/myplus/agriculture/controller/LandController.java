@@ -1,5 +1,7 @@
 package com.myplus.agriculture.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,7 +62,7 @@ public class LandController {
             }
             obj = modelMapper.map(dto, Land.class);
             obj.setOrganizationId(orgId());        // tenant scope (user_id already set from dto)
-            obj.setDated(LocalDate.now());
+            obj.setDated(TenantClock.today());
             obj.setUpdated(appUtil.getLocalDate(dto.getUpdatedStr()));
             if (service.save(obj).getId() > 0) {
                 return new GenericResponse(appUtil.SUCCESS, "Land added successfully");

@@ -317,6 +317,7 @@ public class GatewayClient {
         if (contentType != null) {
             headers.setContentType(contentType);
         }
+        ClientZone.forward(headers);   // TZ-2: the services decide "today" in the browser's zone, not UTC
         if (serverMode) {
             headers.setBearerAuth(tokenStore.getAccessToken());
         } else {

@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -620,8 +622,8 @@ public class CustomerController {
 			@RequestParam(required = false) String reference,
 			@RequestParam(required = false) String idempotencyKey) {
 		try {
-			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? java.time.LocalDate.now() : appUtil.toLocalDateOrNull(paidOn);
-			if (on == null) on = java.time.LocalDate.now();
+			java.time.LocalDate on = appUtil.isEmptyOrNull(paidOn) ? TenantClock.today() : appUtil.toLocalDateOrNull(paidOn);
+			if (on == null) on = TenantClock.today();
 			java.util.Map<String, Object> res = customerService.receivePayment(customerId, amount, method, on, reference, idempotencyKey);
 			// FP-5a — committed; the receipt number if finance has answered, else "voucherPending"
 			if (ledgerOutbox != null) ledgerOutbox.fill(res, "receiptNo");

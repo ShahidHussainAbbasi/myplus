@@ -1,5 +1,7 @@
 package com.myplus.business_service.controller;
 
+import com.myplus.common.security.time.TenantClock;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -124,7 +126,7 @@ public class InstallmentController {
     @GetMapping("/installmentPlans")
     @ResponseBody
     public GenericResponse plansForCustomer(@RequestParam("customerId") Long customerId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         List<InstallmentPlan> plans = installmentPlanService.plansForCustomer(orgId(), customerId);
         java.util.Map<Long, String> names = namesFor(plans);
         List<InstallmentPlanViewDTO> out = new ArrayList<>();
@@ -190,7 +192,7 @@ public class InstallmentController {
     @GetMapping("/installmentPlansOpen")
     @ResponseBody
     public GenericResponse openPlans() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = TenantClock.today();
         List<InstallmentPlan> plans = installmentPlanService.openPlans(orgId(), today);
         java.util.Map<Long, String> names = namesFor(plans);
         List<InstallmentPlanViewDTO> out = new ArrayList<>();

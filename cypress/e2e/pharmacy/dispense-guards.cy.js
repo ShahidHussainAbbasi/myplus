@@ -37,8 +37,8 @@ describe('Pharmacy — dispense guards', () => {
     const name = 'GuardExp_' + Date.now()
     cy.seedProduct({ name: name, sku: 'GE' + Date.now(), unit: 'tablet', stock: 20 }).then(({ productId }) => {
       // lapsed yesterday
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
-      const dayBefore = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10)
+      const yesterday = localIsoDate(new Date(Date.now() - 86400000))
+      const dayBefore = localIsoDate(new Date(Date.now() - 2 * 86400000))
       post('/addPrescription', rx(productId, name, { prescribedDate: dayBefore, validUntil: yesterday })).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         const rxId = r.body.data.id
