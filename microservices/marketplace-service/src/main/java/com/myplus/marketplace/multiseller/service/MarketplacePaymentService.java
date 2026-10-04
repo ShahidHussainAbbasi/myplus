@@ -106,15 +106,26 @@ public class MarketplacePaymentService {
         if (refund != null && MarketplacePayment.SUCCEEDED.equals(refund.getStatus())) return;
         if (refund == null) {
             try {
-                refund = tx().execute(s -> payments.saveAndFlush(fact(orderId, MarketplacePayment.REFUND, charge.getAmount(), key,
-                        o.getCancelReason())));
+                // MKT-2a: what is left of the charge after the parts already refunded on their own, decided under the
+                // order's lock so a part refunding at the same moment is counted exactly once
+                refund = tx().execute(s -> {
+                    orders.lockById(orderId);
+                    MarketplacePayment again = payments.findByIdempotencyKey(key).orElse(null);
+                    if (again != null) return again;
+                    BigDecimal left = charge.getAmount().subtract(partsRefunded(orderId));
+                    if (left.signum() <= 0) return null;                    // every part went back on its own
+                    return payments.saveAndFlush(fact(orderId, MarketplacePayment.REFUND, left, key, o.getCancelReason()));
+                });
             } catch (DataIntegrityViolationException race) {
                 return;                                              // another caller is refunding it
             }
+            if (refund == null) return;
+            if (MarketplacePayment.SUCCEEDED.equals(refund.getStatus())) return;
         }
+        BigDecimal amount = refund.getAmount();
         PaymentGateway.Refund answer;
         try {
-            answer = gateway.refund(charge.getProviderRef(), charge.getAmount());
+            answer = gateway.refund(charge.getProviderRef(), amount);
         } catch (RuntimeException lost) {
             LOG.warn("MKT refund {} for {}: no answer ({}); the sweeper retries", key, o.getOrderNo(), lost.toString());
             return;
@@ -136,6 +147,50 @@ public class MarketplacePaymentService {
     }
 
     static final String RETURN_KEY = "return:";
+    /** MKT-2a — one seller's part of a multi-seller order that ended while the other parts go ahead. */
+    static final String PART_KEY = "part:";
+
+    /** Part refunds written so far (SUCCEEDED or still PENDING): money already on its way back, never counted twice. */
+    private BigDecimal partsRefunded(Long orderId) {
+        return payments.findByMktOrderIdOrderByIdAsc(orderId).stream()
+                .filter(x -> MarketplacePayment.REFUND.equals(x.getKind()))
+                .filter(x -> x.getIdempotencyKey() != null && x.getIdempotencyKey().startsWith(PART_KEY))
+                .filter(x -> !MarketplacePayment.FAILED.equals(x.getStatus()))
+                .map(MarketplacePayment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * MKT-2a — give back one part's money (once per part, {@code part:} + its id) while the rest of the order goes
+     * ahead. Decided under the order's lock: when the whole order has already ended, the remainder refund of
+     * {@link #refundIfCancelled} covers this part and nothing is written here.
+     *
+     * @return true when the money has gone back (now or before); false when there was no card charge or it is pending
+     */
+    public boolean refundPart(Long orderId, Long sellerOrderId, BigDecimal amount, String reason) {
+        MarketplaceOrder o = orders.findById(orderId).orElse(null);
+        if (o == null || amount == null || amount.signum() <= 0) return false;
+        MarketplacePayment charge = payments.findByIdempotencyKey(chargeKey(o)).orElse(null);
+        if (charge == null || !MarketplacePayment.SUCCEEDED.equals(charge.getStatus())) return false;
+        String key = PART_KEY + sellerOrderId;
+        MarketplacePayment refund = payments.findByIdempotencyKey(key).orElse(null);
+        if (refund != null && MarketplacePayment.SUCCEEDED.equals(refund.getStatus())) return true;
+        if (refund == null) {
+            try {
+                refund = tx().execute(s -> {
+                    orders.lockById(orderId);
+                    if (payments.findByIdempotencyKey("refund:" + charge.getId()).isPresent()) return null;   // the whole order went back
+                    MarketplacePayment again = payments.findByIdempotencyKey(key).orElse(null);
+                    if (again != null) return again;
+                    return payments.saveAndFlush(fact(orderId, MarketplacePayment.REFUND, amount, key, reason));
+                });
+            } catch (DataIntegrityViolationException race) {
+                return false;                                         // another caller is refunding it
+            }
+            if (refund == null) return false;
+            if (MarketplacePayment.SUCCEEDED.equals(refund.getStatus())) return true;
+        }
+        return send(o, charge, refund);
+    }
 
     /**
      * MKT-1f — refund an approved, received return through the card it was paid with: once per return
@@ -159,11 +214,17 @@ public class MarketplacePaymentService {
                 return false;                                         // another caller is refunding it
             }
         }
+        return send(o, charge, refund);
+    }
+
+    /** Ask the provider for one written refund fact; the order turns PARTIALLY_REFUNDED or, at the charge, REFUNDED. */
+    private boolean send(MarketplaceOrder o, MarketplacePayment charge, MarketplacePayment refund) {
+        Long orderId = o.getId();
         PaymentGateway.Refund answer;
         try {
-            answer = gateway.refund(charge.getProviderRef(), amount);
+            answer = gateway.refund(charge.getProviderRef(), refund.getAmount());
         } catch (RuntimeException lost) {
-            LOG.warn("MKT return refund {} for {}: no answer ({}); the sweeper retries", key, o.getOrderNo(), lost.toString());
+            LOG.warn("MKT refund {} for {}: no answer ({}); the sweeper retries", refund.getIdempotencyKey(), o.getOrderNo(), lost.toString());
             return false;
         }
         Long refundId = refund.getId();
@@ -201,6 +262,8 @@ public class MarketplacePaymentService {
                 // MKT-1f: a return's refund belongs to a DELIVERED order, which refundIfCancelled ignores — route by key.
                 if (p.getIdempotencyKey().startsWith(RETURN_KEY)) refundReturn(p.getMktOrderId(),
                         Long.valueOf(p.getIdempotencyKey().substring(RETURN_KEY.length())), p.getAmount(), p.getReason());
+                else if (p.getIdempotencyKey().startsWith(PART_KEY)) refundPart(p.getMktOrderId(),
+                        Long.valueOf(p.getIdempotencyKey().substring(PART_KEY.length())), p.getAmount(), p.getReason());
                 else refundIfCancelled(o.getId());
                 n++;
             }

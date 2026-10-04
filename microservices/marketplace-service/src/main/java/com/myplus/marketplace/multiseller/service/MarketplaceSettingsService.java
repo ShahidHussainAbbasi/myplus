@@ -189,6 +189,30 @@ public class MarketplaceSettingsService {
         return days;
     }
 
+    // ── MKT-2a: one checkout, several sellers ────────────────────────────────────────────────────────────
+
+    /** Off unless an operator switched it on: a missing or unreadable value is off (the Phase 1 rule, R17.1). */
+    @Transactional(readOnly = true)
+    public boolean multiSeller() {
+        return settings.findById(MarketplacePlatformSetting.MULTI_SELLER)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> "true".equalsIgnoreCase(v.trim()))
+                .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean operatorMultiSeller() {
+        access.assertOperator();
+        return multiSeller();
+    }
+
+    @Transactional
+    public boolean setMultiSeller(boolean on) {
+        access.assertOperator();
+        save(MarketplacePlatformSetting.MULTI_SELLER, String.valueOf(on));
+        return on;
+    }
+
     /** The operator's books: the org whose ledger takes the commission, and the user postings are made as. */
     public record Books(Long organizationId, Long userId) {}
 

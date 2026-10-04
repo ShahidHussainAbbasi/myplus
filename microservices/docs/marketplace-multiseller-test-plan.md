@@ -141,7 +141,7 @@ GL account **4500 Marketplace commission** is assumed by MKT-1g-06 (to be confir
 | MKT-R16.2 | 1 | MarketplaceSettlementServiceTest.nothingBeforeTheWindow<br>MarketplaceSettlementServiceTest.markPaidOnce | MKT-1g-02 | M-1g-02<br>M-1g-05 |
 | MKT-R16.3 | 1 | MarketplaceSettlementServiceTest.nothingToPay<br>MarketplaceSettlementServiceTest.payoutIdempotentAndFourEyes<br>MarketplaceSettlementServiceTest.markPaidOnce<br>MarketplaceSettlementServiceTest.markPaidRefusedWhenBalanceShrank | MKT-1g-04 | M-1g-04 |
 | MKT-R17.1 | 1 | PhaseGuardTest.oneSeller<br>PhaseGuardTest.twoSellersRefused<br>PhaseGuardTest.empty | — | M-1e-02 |
-| MKT-R17.2 | 2 | PhaseGuardTest.phase2AllowsMultiSeller | MKT-2-01 | M-2-01 |
+| MKT-R17.2 | 2a | PhaseGuardTest.phase2AllowsMultiSeller, MarketplaceOrderFlowTest.splitsPerSeller | MKT-2a-02..08 | M-2a-01..08 |
 | MKT-R18.1 | 2 | OfferProjectionServiceTest.onlyLiveSyncs | MKT-2-05 | M-2-05 |
 | MKT-R18.2 | 1 | OfferProjectionServiceTest.liveRule<br>OfferProjectionServiceTest.syncStock | MKT-1d-06 | M-1d-01<br>M-1d-05 |
 | MKT-R18.3 | 2 | — | MKT-2-05 | M-2-05 |

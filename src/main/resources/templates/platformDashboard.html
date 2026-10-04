@@ -289,6 +289,14 @@
                 <button type="button" class="btn btn-default" id="mktAcceptWindowSave" th:text="#{ui.mktOfferSave}">Save</button>
                 <span id="mktAcceptWindowMsg" class="plat__hint" role="status"></span>
             </div>
+            <!-- MKT-2a: one checkout from several sellers (a parent order, one part per seller). Off until switched on. -->
+            <div class="plat__form" id="mktMultiSellerForm">
+                <label for="mktMultiSeller"><input type="checkbox" id="mktMultiSeller"/>
+                    <span th:text="#{ui.mktMultiSeller}">Customers can buy from several sellers in one order</span></label>
+                <button type="button" class="btn btn-default" id="mktMultiSellerSave" th:text="#{ui.mktOfferSave}">Save</button>
+                <span id="mktMultiSellerMsg" class="plat__hint" role="status"></span>
+                <div class="plat__hint" th:text="#{ui.mktMultiSellerHint}">Each seller confirms, delivers and is paid for its own part. When off, a basket with two sellers is refused.</div>
+            </div>
             <div class="plat__form" id="mktPolicyForm">
                 <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>
                 <select id="mktPolType" class="form-control">

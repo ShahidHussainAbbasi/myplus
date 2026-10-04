@@ -322,7 +322,7 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/settings/accept-window", request, "Could not load the acceptance window.");
     }
 
-    /** Body: {minutes: 1–60}. */
+    /** Body: {minutes: 1–60} and/or {multiSeller: true|false} (MKT-2a); a field not sent is left as it is. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/acceptWindow", method = RequestMethod.POST)
     @ResponseBody

@@ -26,7 +26,7 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/seller-orders/{id}/accept               seller: within the window {version, serials}
  *   POST /mkt/seller-orders/{id}/reject               seller: {version, reason}
  *   GET  /mkt/operator/orders?status=                 operator
- *   GET/POST /mkt/operator/settings/accept-window     operator: minutes a seller has to accept
+ *   GET/POST /mkt/operator/settings/accept-window     operator: minutes a seller has to accept; MKT-2a multi-seller checkout
  * </pre>
  */
 @RestController
@@ -80,12 +80,15 @@ public class MarketplaceOrderController {
 
     @GetMapping("/mkt/operator/settings/accept-window")
     public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> acceptWindow() {
-        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes()));
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes(), settings.multiSeller()));
     }
 
+    /** Each field is saved only when sent (MKT-2a added {@code multiSeller} to the same form). */
     @PostMapping("/mkt/operator/settings/accept-window")
     public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> setAcceptWindow(@RequestBody MarketplaceOrderDTOs.AcceptWindow body) {
-        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.setAcceptMinutes(body == null ? null : body.minutes())),
-                "Acceptance window saved.");
+        if (body == null || (body.minutes() == null && body.multiSeller() == null)) settings.setAcceptMinutes(null);   // refused in words
+        int minutes = body.minutes() == null ? settings.operatorAcceptMinutes() : settings.setAcceptMinutes(body.minutes());
+        boolean multi = body.multiSeller() == null ? settings.multiSeller() : settings.setMultiSeller(body.multiSeller());
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(minutes, multi), "Order settings saved.");
     }
 }

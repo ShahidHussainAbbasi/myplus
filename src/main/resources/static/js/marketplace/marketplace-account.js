@@ -106,7 +106,15 @@
 	};
 	var PAY = {
 		UNPAID: ['ui.js.mktPayCodShort', 'Cash on delivery'], CAPTURED: ['ui.js.mktPaidOnline', 'Paid online'],
-		REFUNDED: ['ui.js.mktRefunded', 'Refunded'], FAILED: ['ui.js.mktPayFailed', 'Payment declined']
+		REFUNDED: ['ui.js.mktRefunded', 'Refunded'], FAILED: ['ui.js.mktPayFailed', 'Payment declined'],
+		PARTIALLY_REFUNDED: ['ui.js.mktPartRefundedShort', 'Partly refunded']
+	};
+	/** MKT-2a — one seller's part of an order. */
+	var PART = {
+		UNASSIGNED: ['ui.js.mktPartWaiting', 'Waiting for confirmation'], OFFERED: ['ui.js.mktPartWaiting', 'Waiting for confirmation'],
+		ACCEPTED: ['ui.js.mktStConfirmed', 'Confirmed'], HANDED_OVER: ['ui.js.mktStConfirmed', 'Confirmed'],
+		REJECTED: ['ui.js.mktPartRejected', 'The seller could not fulfil this part'], EXPIRED: ['ui.js.mktPartExpired', 'Not confirmed in time'],
+		CANCELLED: ['ui.js.mktCancelledState', 'Cancelled']
 	};
 
 	// ── MKT-1f: help — one conversation with MaxTheService per order (R8.2) ────────────────────────────────
@@ -153,11 +161,20 @@
 		var topic = el('select'); topic.className = 'mkt-help-topic'; options(topic, TOPICS);
 		f.appendChild(field('ui.js.mktHelpWhat', 'What do you need help with?', topic));
 		var retBox = el('div', 'help-ret'); retBox.hidden = true;
+		// MKT-2a: an order from several sellers asks which item, for every topic: each seller handles its own part
+		var parts = o.sellerOrders || [], multi = parts.length > 1;
 		var item = el('select'); item.className = 'mkt-help-item';
-		(o.lines || []).forEach(function (l) { var op = el('option', null, l.productName + ' × ' + l.quantity); op.value = l.id; op.setAttribute('data-qty', l.quantity); item.appendChild(op); });
+		var helpable = multi ? parts.filter(function (p) { return p.status === 'ACCEPTED' || p.status === 'HANDED_OVER'; })
+			.reduce(function (all, p) { return all.concat((p.lines || []).map(function (l) { return { l: l, seller: p.sellerName }; })); }, [])
+			: (o.lines || []).map(function (l) { return { l: l, seller: null }; });
+		helpable.forEach(function (x) {
+			var op = el('option', null, x.l.productName + ' × ' + x.l.quantity + (x.seller ? ' · ' + x.seller : ''));
+			op.value = x.l.id; op.setAttribute('data-qty', x.l.quantity); item.appendChild(op);
+		});
 		var qty = el('input'); qty.type = 'number'; qty.min = '1'; qty.value = '1'; qty.className = 'mkt-help-qty';
 		var reason = el('select'); reason.className = 'mkt-help-reason'; options(reason, REASONS);
-		retBox.appendChild(field('ui.js.mktHelpItem', 'Item', item));
+		if (multi) f.appendChild(field('ui.js.mktHelpItem', 'Item', item));
+		else retBox.appendChild(field('ui.js.mktHelpItem', 'Item', item));
 		retBox.appendChild(field('ui.js.mktHelpQty', 'How many', qty));
 		retBox.appendChild(field('ui.js.mktHelpReason', 'Why are you returning it?', reason));
 		f.appendChild(retBox);
@@ -174,7 +191,8 @@
 			out.textContent = '';
 			send.disabled = true;
 			var body = { topic: topic.value, note: note.value };
-			if (topic.value === 'RETURN') { body.lineId = Number(item.value); body.quantity = Number(qty.value || 1); body.reason = reason.value; }
+			if (topic.value === 'RETURN' || multi) body.lineId = Number(item.value);
+			if (topic.value === 'RETURN') { body.quantity = Number(qty.value || 1); body.reason = reason.value; }
 			call('POST', 'marketplace/account/orders/' + encodeURIComponent(o.orderNo) + '/cases', body).then(function (r) {
 				send.disabled = false;
 				if (!ok(r)) { out.textContent = msg(r, tr('ui.js.saveFailed', 'Save failed')); return null; }
@@ -185,11 +203,12 @@
 		topic.focus();
 	}
 
-	/** The case under its order: messages (support's are signed MaxTheService), returns, and a reply box. */
-	function thread(c) {
+	/** The case under its order: messages (support's are signed MaxTheService), returns, and a reply box. On an order from
+	 *  several sellers the title names the seller whose part it is about (MKT-2a); otherwise support stays the one voice. */
+	function thread(c, multi) {
 		var box = el('div', 'help-form mkt-case');
 		box.setAttribute('data-case-no', c.caseNo);
-		box.appendChild(el('b', null, tr('ui.js.mktCaseTitle', 'Help request') + ' ' + c.caseNo));
+		box.appendChild(el('b', null, tr('ui.js.mktCaseTitle', 'Help request') + ' ' + c.caseNo + (multi && c.sellerName ? ' · ' + c.sellerName : '')));
 		(c.returns || []).forEach(function (r) {
 			var k = RET_ST[r.status];
 			box.appendChild(el('span', 'terms mkt-return', r.returnNo + ' · ' + (k ? tr(k, RET_FB[r.status]) : r.status)
@@ -236,7 +255,7 @@
 		var ul = $('mktMyOrders');
 		return call('GET', 'marketplace/account/cases').then(function (cr) {
 			casesByOrder = {};
-			(ok(cr) && Array.isArray(data(cr)) ? data(cr) : []).forEach(function (c) { if (!casesByOrder[c.orderNo]) casesByOrder[c.orderNo] = c; });
+			(ok(cr) && Array.isArray(data(cr)) ? data(cr) : []).forEach(function (c) { (casesByOrder[c.orderNo] = casesByOrder[c.orderNo] || []).push(c); });
 			return call('GET', 'marketplace/account/orders?size=50');
 		}).then(function (r) {
 			ul.textContent = '';
@@ -255,9 +274,22 @@
 		top.appendChild(el('b', 'orderno', o.orderNo));
 		top.appendChild(el('span', 'st ' + s[0], s[1] ? tr(s[1], s[2]) : s[2]));
 		li.appendChild(top);
-		(o.lines || []).forEach(function (l) { li.appendChild(el('span', 'terms', l.productName + ' × ' + l.quantity)); });
+		var parts = o.sellerOrders || [];
+		if (parts.length > 1) {
+			// MKT-2a: each seller's part, with its own state
+			parts.forEach(function (pt) {
+				var row = el('span', 'terms mkt-acc-part');
+				row.setAttribute('data-seller', pt.sellerName || '');
+				var ps = PART[pt.status] || [null, pt.status];
+				row.textContent = (pt.sellerName || '') + ': ' + (pt.lines || []).map(function (l) { return l.productName + ' × ' + l.quantity; }).join(', ')
+					+ ' · ' + (pt.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered') : (ps[0] ? tr(ps[0], ps[1]) : ps[1]));
+				li.appendChild(row);
+			});
+		} else {
+			(o.lines || []).forEach(function (l) { li.appendChild(el('span', 'terms', l.productName + ' × ' + l.quantity)); });
+		}
 		var mid = el('div', 'row');
-		mid.appendChild(el('span', null, (o.sellerName || '') + (o.city ? ' · ' + o.city : '')));
+		mid.appendChild(el('span', null, (parts.length > 1 ? '' : (o.sellerName || '')) + (o.city ? (parts.length > 1 ? '' : ' · ') + o.city : '')));
 		var p = PAY[o.paymentStatus] || [null, o.paymentStatus];
 		mid.appendChild(el('span', null, P.money(o.total) + ' · ' + (o.paymentMode === 'CARD' && o.paymentStatus === 'UNPAID'
 			? tr('ui.js.mktPaidOnline', 'Paid online') : (p[0] ? tr(p[0], p[1]) : p[1]))));
@@ -278,8 +310,7 @@
 			acts.appendChild(h);
 		}
 		if (acts.childNodes.length) li.appendChild(acts);
-		var c = casesByOrder[o.orderNo];
-		if (c) li.appendChild(thread(c));
+		(casesByOrder[o.orderNo] || []).forEach(function (c) { li.appendChild(thread(c, parts.length > 1)); });   // MKT-2a: one per seller
 		return li;
 	}
 

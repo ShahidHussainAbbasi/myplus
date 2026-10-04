@@ -13,6 +13,15 @@ public interface MarketplaceOrderRepository extends JpaRepository<MarketplaceOrd
     /** Checkout replay — uk_mkt_order_idem. */
     Optional<MarketplaceOrder> findByIdempotencyKey(String idempotencyKey);
 
+    /**
+     * MKT-2a — the order row locked for the rest of the transaction. Every refund of a multi-seller order (one part's,
+     * or the remainder when the whole order ends) is decided under this lock, so two parts ending together can never
+     * both count the same money.
+     */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select o from MarketplaceOrder o where o.id = :id")
+    Optional<MarketplaceOrder> lockById(@org.springframework.data.repository.query.Param("id") Long id);
+
     /** Tracking — uk_mkt_order_no. */
     Optional<MarketplaceOrder> findByOrderNo(String orderNo);
 

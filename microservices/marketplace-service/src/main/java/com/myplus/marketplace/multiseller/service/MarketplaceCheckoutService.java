@@ -4,8 +4,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,8 +58,8 @@ import com.myplus.marketplace.support.AsOrg;
 import lombok.RequiredArgsConstructor;
 
 /**
- * MKT-1e — the shopper's side: one-seller cash-on-delivery checkout, and tracking.
- * Contract: docs/slices/mkt-1e-checkout-acceptance.md
+ * MKT-1e — the shopper's side: checkout and tracking. MKT-2a: one checkout may buy from several sellers.
+ * Contracts: docs/slices/mkt-1e-checkout-acceptance.md, docs/slices/mkt-2a-multi-seller-orders.md
  *
  * <h3>Never optimistic (source §18.5, standard §0b)</h3>
  * A successful checkout means "the stock is held and the seller has been asked", never "confirmed". The order is
@@ -114,12 +117,27 @@ public class MarketplaceCheckoutService {
         return checkout(req, null);
     }
 
+    /** One basket line after every check: the offer, its live row and product, the server's price, the quantity. */
+    record Item(MarketplaceOffer offer, MarketplaceOfferProjection row, MarketplaceProduct product, BigDecimal price, int qty) {
+        BigDecimal total() {
+            return price.multiply(BigDecimal.valueOf(qty));
+        }
+    }
+
     /**
-     * Not {@code @Transactional}: it runs its own two transactions with the remote hold (and, for a card, the charge)
+     * Not {@code @Transactional}: it runs its own two transactions with the remote holds (and, for a card, the charge)
      * between them. {@code customerId}: the signed-in account (MKT-1e2) — the order is theirs by proof — or null.
+     *
+     * <h3>MKT-2a: several sellers</h3>
+     * The basket is split into one seller order (a "part") per seller, each holding all of its own lines under its own
+     * key. All or nothing at placement: if any part cannot be held, every part is cancelled and every hold released,
+     * and the shopper is told which seller could not. A card is charged ONCE, for the whole total, after every part is
+     * held. From there each part lives on its own (accept, reject, expire, refund, support); the parent follows its
+     * parts ({@link #follow}).
      */
     public MarketplaceOrderDTOs.OrderView checkout(MarketplaceOrderDTOs.CheckoutRequest req, Long customerId) {
         Contact c = validate(req);
+        List<Want> wants = wants(req);
         boolean card = CARD.equals(c.paymentMode());
         if (card && customerId == null) throw new ValidationException("Sign in to pay online.");
         if (card && (req.cardToken() == null || req.cardToken().isBlank() || req.cardToken().length() > 200))
@@ -132,85 +150,123 @@ public class MarketplaceCheckoutService {
             throw new ValidationException("You already have " + MAX_OPEN_PER_PHONE
                     + " orders waiting for sellers to confirm. Please wait for an answer first.");
 
-        MarketplaceOffer offer = offers.findById(req.offerId()).orElse(null);
-        MarketplaceOfferProjection row = offer == null ? null : projections.findById(offer.getId()).orElse(null);
-        MarketplaceProduct product = offer == null ? null : products.findById(offer.getMktProductId()).orElse(null);
-        if (offer == null || row == null || product == null || !PublicOfferService.visible(product)
-                || !MarketplaceOfferProjection.LIVE.equals(row.getStatus()))
-            throw new ValidationException("This offer is no longer available. Please choose another offer.");
+        boolean basket = wants.size() > 1;
+        List<Item> items = new ArrayList<>();
+        for (Want w : wants) items.add(item(w, c.city(), basket));
 
-        // the SAME eligibility the catalogue showed (city, quantity, price limits, stale stock, regulated)
-        if (publicOffers.eligible(product, List.of(row), c.city(), BigDecimal.valueOf(c.quantity()), null).isEmpty())
-            throw new ValidationException("This seller cannot deliver " + c.quantity() + " to " + c.city()
-                    + " right now. Please choose another offer.");
+        boolean multiSeller = settings.multiSeller();
+        rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(items.stream().map(i -> new PhaseGuard.CheckoutLine(
+                i.offer().getId(), i.offer().getSellerOrganizationId(), StockSourceType.valueOf(i.offer().getStockSourceType()),
+                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller));
 
-        BigDecimal price = row.getPrice().setScale(2, RoundingMode.HALF_UP);
-        if (req.expectedPrice() == null || price.compareTo(req.expectedPrice().setScale(2, RoundingMode.HALF_UP)) != 0)
-            throw new ValidationException("The price changed to Rs. " + String.format(Locale.ROOT, "%,.0f", price)
-                    + ". Please review and place the order again.");
+        // one part per seller, in the order the shopper added them
+        Map<Long, List<Item>> bySeller = new LinkedHashMap<>();
+        for (Item i : items) bySeller.computeIfAbsent(i.offer().getSellerOrganizationId(), k -> new ArrayList<>()).add(i);
+        if (!card) {                                                   // cash only: a card needs no seller cash
+            for (Long seller : bySeller.keySet())
+                if (!shippingPolicy.codEnabled(seller))
+                    throw new ValidationException(bySeller.size() == 1
+                            ? "This seller does not accept cash on delivery yet. Please choose another offer."
+                            : sellerName(seller) + " does not accept cash on delivery yet. Please remove its items or pay online.");
+        }
 
-        rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(List.of(new PhaseGuard.CheckoutLine(offer.getId(),
-                offer.getSellerOrganizationId(), StockSourceType.valueOf(offer.getStockSourceType()),
-                Regulated.valueOf(product.getRegulatedStatus())))));
-        if (!card && !shippingPolicy.codEnabled(offer.getSellerOrganizationId()))   // cash only: a card needs no seller cash
-            throw new ValidationException("This seller does not accept cash on delivery yet. Please choose another offer.");
-
-        // ── tx 1: the order, its seller order, the snapshot, the number ──
-        Long[] ids;
+        // ── tx 1: the order, one seller order per seller, the snapshots, the number ──
+        Long orderId;
         try {
-            ids = tx().execute(s -> create(c, offer, product, price, customerId));
+            orderId = tx().execute(s -> create(c, bySeller, customerId));
         } catch (DataIntegrityViolationException race) {
             // two submits with the same key arrived together: UNIQUE(idempotency_key) let one through
             return orders.findByIdempotencyKey(c.key()).map(this::view).orElseThrow(() -> race);
         }
-        Long orderId = ids[0], sellerOrderId = ids[1];
+        List<MarketplaceSellerOrder> parts = sellerOrders.findByMktOrderId(orderId);
 
-        // ── remote: hold the stock as the seller (outside any transaction) ──
-        MarketplaceSellerOrder so = sellerOrders.findById(sellerOrderId).orElseThrow();
-        String refusal = hold(so, offer.getSourceProductId(), c.quantity());
+        // ── remote: hold each part's stock as its seller (outside any transaction); stop at the first refusal ──
+        Long refusedSeller = null;
+        for (MarketplaceSellerOrder so : parts) {
+            String refusal = hold(so, lines.findBySellerOrderIdOrderByIdAsc(so.getId()));
+            if (refusal != null) {
+                LOG.info("MKT checkout {} part {} not held: {}", c.key(), so.getId(), refusal);
+                refusedSeller = so.getSellerOrganizationId();
+                break;
+            }
+        }
+        final Long refused = refusedSeller;
+        String refusedFor = refused == null ? null : bySeller.size() == 1
+                ? "This seller no longer has enough stock. Please choose another offer."
+                : sellerName(refused) + " no longer has enough stock. Please remove its items and place the order again.";
 
-        // ── remote: the card, AFTER the stock is held (never charge for stock that cannot be held) ──
-        MarketplacePaymentService.Outcome paid = refusal != null || !card ? null
+        // ── remote: the card, AFTER every part is held (never charge for stock that cannot be held) ──
+        MarketplacePaymentService.Outcome paid = refused != null || !card ? null
                 : payments.charge(orders.findById(orderId).orElseThrow(), req.cardToken());
 
-        // ── tx 2: record the answer ──
+        // ── tx 2: record the answer, for every part ──
         tx().executeWithoutResult(s -> {
-            MarketplaceSellerOrder fresh = sellerOrders.findById(sellerOrderId).orElseThrow();
             MarketplaceOrder order = orders.findById(orderId).orElseThrow();
-            if (refusal != null) {
-                move(fresh, SellerOrder.CANCELLED);
-                cancel(order, "This seller no longer has enough stock. Please choose another offer.");
-            } else if (paid == MarketplacePaymentService.Outcome.FAILED) {
-                move(fresh, SellerOrder.CANCELLED);
-                fresh.setHeld(true);                                   // the release below gives the stock back
-                cancel(order, DECLINED);
+            List<MarketplaceSellerOrder> fresh = sellerOrders.findByMktOrderId(orderId);
+            if (refused != null || paid == MarketplacePaymentService.Outcome.FAILED) {
+                for (MarketplaceSellerOrder so : fresh) {
+                    move(so, SellerOrder.CANCELLED);
+                    so.setHeld(true);                                   // the release below gives back whatever was held
+                }
+                cancel(order, refused != null ? refusedFor : DECLINED);
             } else if (paid == MarketplacePaymentService.Outcome.UNKNOWN) {
                 // never offered to a seller on an unconfirmed payment: the orphan rule cancels it and, if the provider
                 // later reports the charge, the refund backstop gives the money back
                 rule(() -> MarketplaceStateMachines.ORDER.transition(Order.valueOf(order.getStatus()), Order.PAYMENT_PENDING));
                 order.setStatus(Order.PAYMENT_PENDING.name());
-                fresh.setHeld(true);
+                fresh.forEach(so -> so.setHeld(true));
             } else {
-                move(fresh, SellerOrder.OFFERED);
-                fresh.setHeld(true);
-                fresh.setAcceptBy(LocalDateTime.now().plusMinutes(settings.acceptMinutes()));
+                LocalDateTime acceptBy = LocalDateTime.now().plusMinutes(settings.acceptMinutes());
+                for (MarketplaceSellerOrder so : fresh) {
+                    move(so, SellerOrder.OFFERED);
+                    so.setHeld(true);
+                    so.setAcceptBy(acceptBy);
+                }
             }
-            sellerOrders.save(fresh);
+            fresh.forEach(sellerOrders::save);
             orders.save(order);
         });
-        if (refusal != null) {
-            LOG.info("MKT checkout {} not held: {}", c.key(), refusal);
-            throw new ValidationException("This seller no longer has enough stock. Please choose another offer.");
-        }
-        if (paid == MarketplacePaymentService.Outcome.FAILED) {
-            sellerSide.getObject().release(sellerOrders.findById(sellerOrderId).orElseThrow());
-            throw new ValidationException(DECLINED);
+        if (refused != null || paid == MarketplacePaymentService.Outcome.FAILED) {
+            // after the commit; by key, so a part that was never held is a harmless no-op
+            for (MarketplaceSellerOrder so : sellerOrders.findByMktOrderId(orderId)) sellerSide.getObject().release(so);
+            throw new ValidationException(refused != null ? refusedFor : DECLINED);
         }
         return view(orders.findById(orderId).orElseThrow());
     }
 
-    private Long[] create(Contact c, MarketplaceOffer offer, MarketplaceProduct product, BigDecimal price, Long customerId) {
-        BigDecimal subtotal = price.multiply(BigDecimal.valueOf(c.quantity()));
+    /** One basket line checked exactly as the catalogue showed it; the messages name the product when there are several. */
+    private Item item(Want w, String city, boolean basket) {
+        MarketplaceOffer offer = offers.findById(w.offerId()).orElse(null);
+        MarketplaceOfferProjection row = offer == null ? null : projections.findById(offer.getId()).orElse(null);
+        MarketplaceProduct product = offer == null ? null : products.findById(offer.getMktProductId()).orElse(null);
+        if (offer == null || row == null || product == null || !PublicOfferService.visible(product)
+                || !MarketplaceOfferProjection.LIVE.equals(row.getStatus()))
+            throw new ValidationException(basket
+                    ? "An offer in your basket is no longer available. Please remove it and choose another."
+                    : "This offer is no longer available. Please choose another offer.");
+        String what = basket ? " (" + product.getCanonicalName() + ")" : "";
+
+        // the SAME eligibility the catalogue showed (city, quantity, price limits, stale stock, regulated)
+        if (publicOffers.eligible(product, List.of(row), city, BigDecimal.valueOf(w.qty()), null).isEmpty())
+            throw new ValidationException(basket
+                    ? sellerName(offer.getSellerOrganizationId()) + " cannot deliver " + w.qty() + what + " to " + city
+                            + " right now. Please remove it from your basket."
+                    : "This seller cannot deliver " + w.qty() + " to " + city + " right now. Please choose another offer.");
+
+        BigDecimal price = row.getPrice().setScale(2, RoundingMode.HALF_UP);
+        if (w.expectedPrice() == null || price.compareTo(w.expectedPrice().setScale(2, RoundingMode.HALF_UP)) != 0)
+            throw new ValidationException("The price" + (basket ? " of " + product.getCanonicalName() : "") + " changed to Rs. "
+                    + String.format(Locale.ROOT, "%,.0f", price) + ". Please review and place the order again.");
+        return new Item(offer, row, product, price, w.qty());
+    }
+
+    private String sellerName(Long org) {
+        return sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).filter(n -> n != null && !n.isBlank())
+                .orElse("A seller");
+    }
+
+    private Long create(Contact c, Map<Long, List<Item>> bySeller, Long customerId) {
+        BigDecimal subtotal = bySeller.values().stream().flatMap(List::stream).map(Item::total).reduce(BigDecimal.ZERO, BigDecimal::add);
         MarketplaceOrder o = new MarketplaceOrder();
         o.setIdempotencyKey(c.key());
         o.setStatus(Order.SUBMITTED.name());
@@ -228,16 +284,17 @@ public class MarketplaceCheckoutService {
         o.setOrderNo(String.format(Locale.ROOT, "MKT-%06d", numbers.next(PLATFORM_ORG, DOC_TYPE)));
         o = orders.saveAndFlush(o);
 
-        MarketplaceSellerOrder so = new MarketplaceSellerOrder();
-        so.setMktOrderId(o.getId());
-        so.setSellerOrganizationId(offer.getSellerOrganizationId());
-        so.setAcceptanceStatus(SellerOrder.UNASSIGNED.name());
-        so.setHoldKey("MKT-" + java.util.UUID.randomUUID());
-        so.setHeld(false);
-        so = sellerOrders.saveAndFlush(so);
-
-        lines.save(snapshot(so, offer, product, price, c.quantity()));
-        return new Long[] {o.getId(), so.getId()};
+        for (Map.Entry<Long, List<Item>> part : bySeller.entrySet()) {
+            MarketplaceSellerOrder so = new MarketplaceSellerOrder();
+            so.setMktOrderId(o.getId());
+            so.setSellerOrganizationId(part.getKey());
+            so.setAcceptanceStatus(SellerOrder.UNASSIGNED.name());
+            so.setHoldKey("MKT-" + java.util.UUID.randomUUID());
+            so.setHeld(false);
+            so = sellerOrders.saveAndFlush(so);
+            for (Item i : part.getValue()) lines.save(snapshot(so, i.offer(), i.product(), i.price(), i.qty()));
+        }
+        return o.getId();
     }
 
     /** The order-time copy of everything that could change later (source §13.3). */
@@ -283,13 +340,19 @@ public class MarketplaceCheckoutService {
         return l;
     }
 
-    /** @return null when held, otherwise why not. Never throws: an outage reads as "not held", never as "held". */
-    String hold(MarketplaceSellerOrder so, Long sourceProductId, int qty) {
+    /**
+     * Hold every line of one part under the part's key. A product on two lines is held once, for both quantities.
+     * @return null when held, otherwise why not. Never throws: an outage reads as "not held", never as "held".
+     */
+    String hold(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines) {
+        Map<Long, BigDecimal> qty = new LinkedHashMap<>();
+        for (MarketplaceOrderLine l : partLines) qty.merge(l.getSourceProductId(), BigDecimal.valueOf(l.getQuantity()), BigDecimal::add);
+        if (qty.isEmpty()) return "nothing to hold";
         try {
             StockHoldResponse r = AsOrg.call(so.getSellerOrganizationId(), () -> trade.holdStock(StockHoldRequest.builder()
                     .organizationId(so.getSellerOrganizationId())
                     .holdKey(so.getHoldKey())
-                    .lines(List.of(new StockReservationLine(sourceProductId, BigDecimal.valueOf(qty))))
+                    .lines(qty.entrySet().stream().map(e -> new StockReservationLine(e.getKey(), e.getValue())).toList())
                     .build()));
             if (r != null && r.isHeld()) return null;
             return r == null ? "inventory did not answer" : r.getReason();
@@ -330,17 +393,76 @@ public class MarketplaceCheckoutService {
 
     // ── shared ─────────────────────────────────────────────────────────────────────────────────────────
 
-    /** The shopper's view: the order, its (Phase 1: one) seller order, and the snapshot lines without commission. */
+    /**
+     * The shopper's view: the order, its parts (one per seller) and the snapshot lines without commission. The single
+     * {@code sellerOrder*} fields describe the first part, as before MKT-2a; {@code sellerName} names every seller.
+     */
     MarketplaceOrderDTOs.OrderView view(MarketplaceOrder o) {
-        MarketplaceSellerOrder so = sellerOrders.findByMktOrderId(o.getId()).stream().findFirst().orElse(null);
-        List<MarketplaceOrderDTOs.LineView> ls = so == null ? List.of()
-                : lines.findBySellerOrderIdOrderByIdAsc(so.getId()).stream().map(MarketplaceCheckoutService::lineView).toList();
-        String seller = so == null ? null : sellerAccounts.findByOrganizationId(so.getSellerOrganizationId())
-                .map(a -> a.getDisplayName()).orElse(null);
+        List<MarketplaceOrderDTOs.PartView> parts = parts(o);
+        MarketplaceOrderDTOs.PartView first = parts.isEmpty() ? null : parts.get(0);
+        List<MarketplaceOrderDTOs.LineView> ls = parts.stream().flatMap(p -> p.lines().stream()).toList();
+        String sellers = parts.isEmpty() ? null : String.join(", ", parts.stream().map(MarketplaceOrderDTOs.PartView::sellerName)
+                .filter(java.util.Objects::nonNull).distinct().toList());
+        Long secondsLeft = parts.stream().map(MarketplaceOrderDTOs.PartView::secondsToAccept).filter(java.util.Objects::nonNull)
+                .max(Long::compare).orElse(null);
         return new MarketplaceOrderDTOs.OrderView(o.getOrderNo(), o.getStatus(), o.getPaymentMode(), o.getPaymentStatus(),
                 o.getSubtotal(), o.getDeliveryFee(), o.getTotal(), o.getCancelReason(), o.getCreatedAt(),
-                so == null ? null : so.getId(), so == null ? null : so.getVersion(),
-                so == null ? null : so.getAcceptanceStatus(), seller, secondsLeft(so), o.getCity(), ls);
+                first == null ? null : first.id(), first == null ? null : first.version(),
+                first == null ? null : first.status(), sellers == null || sellers.isEmpty() ? null : sellers, secondsLeft,
+                o.getCity(), ls, parts);
+    }
+
+    /** MKT-2a — each seller's part, oldest first. */
+    List<MarketplaceOrderDTOs.PartView> parts(MarketplaceOrder o) {
+        List<MarketplaceSellerOrder> sos = sellerOrders.findByMktOrderId(o.getId()).stream()
+                .sorted(java.util.Comparator.comparing(MarketplaceSellerOrder::getId)).toList();
+        List<MarketplaceOrderDTOs.PartView> out = new ArrayList<>();
+        for (MarketplaceSellerOrder so : sos) {
+            List<MarketplaceOrderLine> ls = lines.findBySellerOrderIdOrderByIdAsc(so.getId());
+            BigDecimal subtotal = partTotal(ls);
+            int promise = ls.stream().map(MarketplaceOrderLine::getPromiseHours).filter(java.util.Objects::nonNull)
+                    .max(Integer::compare).orElse(0);
+            LocalDateTime from = so.getDecidedAt() != null && SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())
+                    ? so.getDecidedAt() : so.getCreatedAt();
+            out.add(new MarketplaceOrderDTOs.PartView(so.getId(), so.getVersion(), so.getSellerOrganizationId(),
+                    sellerAccounts.findByOrganizationId(so.getSellerOrganizationId()).map(a -> a.getDisplayName()).orElse(null),
+                    so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
+                    from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
+                    ls.stream().map(MarketplaceCheckoutService::lineView).toList()));
+        }
+        return out;
+    }
+
+    /** What one part costs the shopper. Phase 1: delivery is in the seller's price, so it is the sum of its lines. */
+    static BigDecimal partTotal(List<MarketplaceOrderLine> ls) {
+        return ls.stream().map(MarketplaceOrderLine::getLineTotal).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    static final java.util.Set<String> LIVE_PARTS = java.util.Set.of(SellerOrder.UNASSIGNED.name(), SellerOrder.OFFERED.name());
+    static final java.util.Set<String> ACCEPTED_PARTS = java.util.Set.of(SellerOrder.ACCEPTED.name(), SellerOrder.HANDED_OVER.name());
+
+    /**
+     * MKT-2a — the parent follows its parts, inside the caller's transaction, after one part moved:
+     * <ul>
+     *   <li>a part accepted → the order is CONFIRMED (once; a second acceptance changes nothing);</li>
+     *   <li>no part accepted and none still waiting → the order is CANCELLED with {@code reasonIfEnded};</li>
+     *   <li>otherwise (a part still waiting) → unchanged.</li>
+     * </ul>
+     * A cancelled order is never revived. With one part this is exactly MKT-1e's rule.
+     */
+    static void follow(MarketplaceOrder parent, List<MarketplaceSellerOrder> parts, String reasonIfEnded) {
+        if (Order.CANCELLED.name().equals(parent.getStatus())) return;
+        boolean accepted = parts.stream().anyMatch(p -> ACCEPTED_PARTS.contains(p.getAcceptanceStatus()));
+        boolean waiting = parts.stream().anyMatch(p -> LIVE_PARTS.contains(p.getAcceptanceStatus()));
+        if (accepted) {
+            if (!Order.CONFIRMED.name().equals(parent.getStatus())) {
+                rule(() -> MarketplaceStateMachines.ORDER.transition(Order.valueOf(parent.getStatus()), Order.CONFIRMED));
+                parent.setStatus(Order.CONFIRMED.name());
+            }
+        } else if (!waiting) {
+            cancel(parent, reasonIfEnded);
+        }
     }
 
     static MarketplaceOrderDTOs.LineView lineView(MarketplaceOrderLine l) {
@@ -385,11 +507,45 @@ public class MarketplaceCheckoutService {
     record Contact(String key, String name, String phone, String address, String city, int quantity, String paymentMode) {
     }
 
+    /** One basket line as asked for (before any check against the catalogue). */
+    record Want(Long offerId, int qty, BigDecimal expectedPrice) {
+    }
+
+    /** At most this many different offers in one basket. */
+    static final int MAX_LINES = 10;
+
+    /**
+     * MKT-2a — the basket: {@code lines} when sent, otherwise the one offer of an MKT-1e request. The same offer twice
+     * is one line with both quantities.
+     */
+    static List<Want> wants(MarketplaceOrderDTOs.CheckoutRequest req) {
+        if (req.lines() == null || req.lines().isEmpty()) {
+            int qty = req.quantity() == null ? 1 : req.quantity();
+            return List.of(new Want(req.offerId(), qty, req.expectedPrice()));
+        }
+        Map<Long, Want> merged = new LinkedHashMap<>();
+        for (MarketplaceOrderDTOs.CheckoutLine l : req.lines()) {
+            if (l == null || l.offerId() == null) throw new ValidationException("Your basket has an item without an offer. Please reload it.");
+            int qty = l.quantity() == null ? 1 : l.quantity();
+            if (qty < 1 || qty > MAX_QUANTITY) throw new ValidationException("You can order 1 to " + MAX_QUANTITY + " of each item.");
+            Want had = merged.get(l.offerId());
+            if (had != null && (had.expectedPrice() == null || l.expectedPrice() == null
+                    || had.expectedPrice().compareTo(l.expectedPrice()) != 0))
+                throw new ValidationException("Your basket shows two prices for the same item. Please reload it.");
+            merged.put(l.offerId(), new Want(l.offerId(), had == null ? qty : had.qty() + qty, l.expectedPrice()));
+        }
+        if (merged.size() > MAX_LINES) throw new ValidationException("A basket can hold up to " + MAX_LINES + " different items.");
+        for (Want w : merged.values())
+            if (w.qty() > MAX_QUANTITY) throw new ValidationException("You can order 1 to " + MAX_QUANTITY + " of each item.");
+        return List.copyOf(merged.values());
+    }
+
     static Contact validate(MarketplaceOrderDTOs.CheckoutRequest req) {
-        if (req == null || req.offerId() == null) throw new ValidationException("Choose an offer first.");
+        boolean basket = req != null && req.lines() != null && !req.lines().isEmpty();
+        if (req == null || (req.offerId() == null && !basket)) throw new ValidationException("Choose an offer first.");
         String key = trim(req.idempotencyKey());
         if (key == null || key.length() > 80) throw new ValidationException("Please reload the page and try again.");
-        int qty = req.quantity() == null ? 1 : req.quantity();
+        int qty = basket || req.quantity() == null ? 1 : req.quantity();
         if (qty < 1 || qty > MAX_QUANTITY) throw new ValidationException("You can order 1 to " + MAX_QUANTITY + " at a time.");
         String name = trim(req.customerName());
         if (name == null || name.length() < 2 || name.length() > 120) throw new ValidationException("Enter your name.");

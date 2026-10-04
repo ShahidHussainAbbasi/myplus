@@ -1118,7 +1118,7 @@ on('MKT manual walk — recorded', () => {
     cleanup('None: an accepted sale is a real sale in the seller\'s books (return it with the store\'s Sale Returns if needed).', '—', () => {}, { screen: false })
   })
 
-  walk({ id: 'M-1e-02', slice: 'MKT-1e', title: 'One checkout is one seller',
+  walk({ id: 'M-1e-02', slice: 'MKT-1e', title: 'One checkout is one seller while the operator has not switched on baskets',
     persona: 'Customer (incognito window), developer tools', reqs: ['MKT-R20.1', 'MKT-R17.1', 'MKT-R20.2'], pre: 'As M-1d-01.', auto: ['MKT-1e-09'] }, (step, call, cleanup) => {
     step(`On the product page choose ${A_NAME}, then ${B_NAME}.`, `Only one can be chosen (radio buttons): choosing ${B_NAME} unchooses ${A_NAME}; the button reads "Buy from ${B_NAME}".`, () => {
       customer()
@@ -1128,26 +1128,18 @@ on('MKT manual walk — recorded', () => {
       cy.get(`${UI.offerRow}[data-offer-id="${D.a}"] ${UI.chooseOffer}`).should('not.be.checked')
       cy.get(UI.buyButton).should('have.text', `Buy from ${B_NAME}`)
     })
-    step(`Developer tools: POST /marketplace/public/checkout for ${A_NAME}'s offer, adding "lines": [{offerId: <${B_NAME}'s offer>}].`,
-      `The extra "lines" are ignored: the order has exactly one seller order, for ${A_NAME}. Mixing sellers in one checkout waits for Phase 2.`, () => {
-        call('POST /marketplace/public/checkout (+ lines)', post(API.checkout, { offerId: D.a, quantity: 1, expectedPrice: 52000,
-          customerName: 'Ali', customerPhone: phone(2), address: '1 Clifton', city: 'Karachi', idempotencyKey: `w-${run}-2`,
-          lines: [{ offerId: D.b, quantity: 1 }] })).then((r) => {
-          expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
-          D.o2 = data(r.body)
-        })
-        cy.then(() => call('GET the order', get(API.trackOrder(D.o2.orderNo, phone(2))))).then((r) => {
-          const ls = data(r.body).lines
-          expect(ls).to.have.length(1)
-          expect(ls[0].offerId === undefined || ls[0].offerId === D.a).to.eq(true)
-          expect(data(r.body).sellerName).to.eq(A_NAME)
-        })
+    step(`Developer tools: POST /marketplace/public/checkout with a basket of both offers: "lines": [{offerId: <${A_NAME}'s offer>}, {offerId: <${B_NAME}'s offer>}]. (Operator: Platform → Marketplace policies → "Customers can buy from several sellers in one order" is OFF, the default.)`,
+      `Refused: "Items from different sellers must be checked out separately." Nothing is held or ordered. A multi-seller basket exists only when the operator switches it on (M-2a-01).`, () => {
+        cy.then(() => { asOperator(); post(API.acceptWindow, { multiSeller: false }) })
+        cy.then(() => customer())
+        call('POST /marketplace/public/checkout (two sellers)', post(API.checkout, { customerName: 'Ali', customerPhone: phone(2), address: '1 Clifton',
+          city: 'Karachi', idempotencyKey: `w-${run}-2`, lines: [{ offerId: D.a, quantity: 1, expectedPrice: 52000 }, { offerId: D.b, quantity: 1 }] }))
+          .then((r) => {
+            expect(ok(r.body), JSON.stringify(r.body)).to.eq(false)
+            expect(msg(r.body)).to.include('Items from different sellers must be checked out separately.')
+          })
       })
-    cleanup(`As owner.business@: Incoming → Reject that order with the reason "walk cleanup".`, 'The stock is released; the customer\'s page reads Cancelled.', () => {
-      as(SELLER_A)
-      call('POST /mkt/rejectOrder', post(API.rejectOrder, { id: D.o2.sellerOrderId, version: D.o2.sellerOrderVersion, reason: 'walk cleanup' }))
-        .then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
-    })
+    cleanup('Nothing was ordered or held.', 'Nothing to undo.', () => {}, { screen: false })
   })
 
   walk({ id: 'M-1e-03', slice: 'MKT-1e', title: 'The seller rejects: the stock comes back and the customer is told',
@@ -2249,5 +2241,366 @@ on('MKT manual walk — recorded', () => {
       until(20)
     }, { screen: false })
     cleanup('Nothing to undo: the journal is the record.', '—', () => {}, { screen: false })
+  })
+
+  // ──────────────────────────────── MKT-2a ────────────────────────────────
+
+  const H = {}
+  const hph = (k) => `0315${String(run).slice(-6)}${k}`            // customer phones for the 2a walk
+  const H_PW = 'Shop!ng2026'
+  /** Two sellers on ONE product: A at 52,000 (promise 4 h), B at 51,500 (promise 24 h). Published once, by the first 2a case. */
+  const hOffers = () => (H.a ? cy.wrap(H) : seedPolicies(`${run}m`).then((p) => {
+    publishOffer(SELLER_A, { run: `${run}m`, price: 52000, promiseHours: 4, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })
+      .then((o) => { H.a = o.offerId; H.product = o.mktProductId })
+    cy.then(() => publishOffer(SELLER_B, { run: `${run}mb`, price: 51500, promiseHours: 24, qty: 40, mktProductId: H.product,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns })).then((o) => { H.b = o.offerId })
+    return cy.then(() => H)
+  }))
+  /** The operator's switch, through the API (a case's starting state; M-2a-01 shows the screen). */
+  const multiSeller = (on) => { asOperator(); return post(API.acceptWindow, { multiSeller: on, minutes: 5 }) }
+  /** Platform → Marketplace policies: the switch as the operator sees it. */
+  const policies = () => { console_('#platMktPoliciesBtn'); return cy.get('#mktMultiSellerForm').scrollIntoView().should('be.visible') }
+  /** Customer: on the product page add A's offer (and B's, `qtyB` of it) to an empty basket and open the basket. */
+  const fillBasket = (qtyB = 1, { withA = true, withB = true, product, a, b } = {}) => {
+    customer()
+    cy.visit(page(`product=${product || H.product}&city=Karachi`), { onBeforeLoad: (w) => w.localStorage.removeItem('mkt.basket') })
+    if (withA) { cy.get(`${UI.offerRow}[data-offer-id="${a || H.a}"] ${UI.chooseOffer}`).check(); cy.get('#mktAddBtn').click() }
+    if (withB) { cy.get(`${UI.offerRow}[data-offer-id="${b || H.b}"] ${UI.chooseOffer}`).check(); cy.get('#mktAddBtn').click() }
+    cy.get('#mktBasketBtn').should('be.visible').click()
+    if (withB && qtyB > 1) cy.contains('.mkt-basket-group', B_NAME).find('.mkt-basket-qty').select(String(qtyB))
+  }
+  const contact = (ph, name = 'Ali') => {
+    cy.get('#mktCoName').clear().type(name)
+    cy.get('#mktCoPhone').clear().type(ph)
+    cy.get('#mktCoAddress').clear().type('1 Clifton')
+  }
+  /** A basket order placed through the API (a case's starting state). Yields the order. */
+  const hBasket = (ph, over = {}, signedIn = false) => {
+    if (!signedIn) { customer(); cy.visit(UI.publicPage) }
+    return post(API.checkout, Object.assign({ customerName: 'Ali', customerPhone: ph, address: '1 Clifton', city: 'Karachi',
+      idempotencyKey: `w2a-${run}-${ph}`, lines: [{ offerId: H.a, quantity: 1, expectedPrice: 52000 }, { offerId: H.b, quantity: 1, expectedPrice: 51500 }] }, over))
+      .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); return data(r.body) })
+  }
+  const hAccount = (ph, name) => {
+    customer()
+    cy.visit(UI.publicPage)
+    return post('/marketplace/account/login', { phone: ph, password: H_PW }).then((r) => {
+      if (!ok(r.body)) post('/marketplace/account/register', { phone: ph, name, password: H_PW })
+    })
+  }
+  const hMyOrders = (ph, name) => { hAccount(ph, name); cy.visit(page('account=orders')); cy.get('#mktAccOrdersBox').should('be.visible') }
+  const rowOf = (no) => cy.get(`#mktMyOrders li[data-order-no="${no}"]`)
+  /** The seller's own part of order `no`, in its Incoming list (status filter: Waiting for you, or All). */
+  const partRow = (email, no, all = false) => {
+    as(email)
+    openMarketplace()
+    if (all) cy.get('#mktIncomingStatus').select('', { force: true })
+    return cy.contains(`${UI.incoming} tr`, no)
+  }
+  /** Behind the scenes: the seller answers its part (cleanup, or a case's starting state). */
+  const answer = (email, no, verb) => {
+    as(email)
+    return get(`${API.incomingOrders}?status=OFFERED&size=100`).then((r) => {
+      const so = list(r.body).find((x) => x.orderNo === no)
+      if (!so) return null
+      return verb === 'accept' ? post(API.acceptOrder, { id: so.id, version: so.version })
+        : post(API.rejectOrder, { id: so.id, version: so.version, reason: 'walk cleanup' })
+    })
+  }
+  const orderPage = (no, ph) => { customer(); cy.visit(page(`order=${encodeURIComponent(no)}&phone=${ph}`)) }
+  const part = (seller) => cy.get(`#mktOrderParts .mkt-part[data-seller="${seller}"]`)
+
+  walk({ id: 'M-2a-01', slice: 'MKT-2a', title: 'The operator decides whether one order can hold several sellers',
+    persona: 'MaxTheService operator (admin@myplus.com), then a customer (incognito window)', reqs: ['MKT-R17.1', 'MKT-R17.2'],
+    pre: 'Shahzad Mobile Shop (Rs 52,000) and Mobile Distributor (Rs 51,500) both sell the same phone in Karachi. The switch is off (the default).',
+    auto: ['MKT-2a-01'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(false))
+    step('Operator: Platform → "Marketplace policies".',
+      'Under the acceptance minutes: "Customers can buy from several sellers in one order", UNTICKED, with the hint "Each seller confirms, delivers and is paid for its own part. When off, a basket with two sellers is refused."', () => {
+        policies()
+        cy.get('#mktMultiSeller').should('not.be.checked')
+        cy.get('#mktMultiSellerForm').should('contain', 'When off, a basket with two sellers is refused.')
+      })
+    step(`Customer: open the phone (Karachi). Choose ${A_NAME} → "Add to basket"; choose ${B_NAME} → "Add to basket". Press "Basket (2)" at the top.`,
+      `The basket lists the two sellers separately, one phone each; the total is Rs. 103,500. The note says each seller confirms and delivers its own items.`, () => {
+        fillBasket()
+        cy.get('.mkt-basket-group').should('have.length', 2)
+        cy.get('#mktCoTotal').should('contain', 'Rs. 103,500')
+        cy.get('#mktCoBasket').should('contain', 'Each seller confirms and delivers its own items.')
+      })
+    step(`Name "Ali", phone ${hph(1)}, address "1 Clifton" → "Place order".`,
+      'Refused under the button: "Items from different sellers must be checked out separately." No order number; nothing is held.', () => {
+        contact(hph(1))
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError').should('contain', 'Items from different sellers must be checked out separately.')
+        cy.get('#mktCoOrderNo').should('have.text', '')
+      })
+    step('Operator: tick "Customers can buy from several sellers in one order" → Save.', '"Order settings saved." Reopening the panel shows it ticked.', () => {
+      policies()
+      cy.get('#mktMultiSeller').check()
+      cy.get('#mktMultiSellerSave').click()
+      cy.get('#mktMultiSellerMsg').should('contain', 'Order settings saved.')
+      policies()
+      cy.get('#mktMultiSeller').should('be.checked')
+    })
+    step('Customer: the same basket → "Place order" again.', '"Waiting for the sellers to confirm" with an order number MKT-…; one row per seller, each "Waiting for confirmation · m:ss left".', () => {
+      fillBasket()
+      contact(hph(1))
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for the sellers to confirm')
+      cy.get('#mktOrderParts .mkt-part').should('have.length', 2)
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => { H.o1 = no })
+    })
+    cleanup('Both sellers reject their part with the reason "walk cleanup". Operator: untick the switch → Save.',
+      'The order reads Cancelled and its stock is back; the switch reads unticked again.', () => {
+        cy.then(() => answer(SELLER_A, H.o1, 'reject'))
+        cy.then(() => answer(SELLER_B, H.o1, 'reject'))
+        policies()
+        cy.get('#mktMultiSeller').uncheck()
+        cy.get('#mktMultiSellerSave').click()
+        cy.get('#mktMultiSellerMsg').should('contain', 'Order settings saved.')
+      })
+  })
+
+  walk({ id: 'M-2a-02', slice: 'MKT-2a', title: 'One basket, one checkout, one part per seller',
+    persona: 'Customer (incognito window)', reqs: ['MKT-R17.2', 'MKT-R20.3'],
+    pre: 'As M-2a-01, with the switch ON.', auto: ['MKT-2a-02'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    step(`Open the phone (Karachi). Choose ${A_NAME} → "Add to basket".`, `Under the button: "Added to your basket: … from ${A_NAME}." The top shows "Basket (1)".`, () => {
+      customer()
+      cy.visit(page(`product=${H.product}&city=Karachi`), { onBeforeLoad: (w) => w.localStorage.removeItem('mkt.basket') })
+      cy.get(`${UI.offerRow}[data-offer-id="${H.a}"] ${UI.chooseOffer}`).check()
+      cy.get('#mktAddBtn').click()
+      cy.get('#mktBasketMsg').should('contain', `from ${A_NAME}`)
+      cy.get('#mktBasketBtn').should('contain', 'Basket (1)')
+    })
+    step(`Choose ${B_NAME} → "Add to basket". Press "Basket (2)". Set ${B_NAME}'s quantity to 2.`,
+      `Two groups, ${A_NAME} (1 × Rs 52,000) and ${B_NAME} (2 × Rs 51,500). Total Rs. 155,000.`, () => {
+        cy.get(`${UI.offerRow}[data-offer-id="${H.b}"] ${UI.chooseOffer}`).check()
+        cy.get('#mktAddBtn').click()
+        cy.get('#mktBasketBtn').should('contain', 'Basket (2)').click()
+        cy.contains('.mkt-basket-group', B_NAME).find('.mkt-basket-qty').select('2')
+        cy.get('.mkt-basket-group').should('have.length', 2)
+        cy.get('#mktCoTotal').should('contain', 'Rs. 155,000')
+      })
+    step(`Name "Ali", phone ${hph(2)}, address "1 Clifton", cash on delivery → "Place order".`,
+      `"Waiting for the sellers to confirm", one order number, and one row per seller: ${A_NAME} Rs. 52,000 and ${B_NAME} Rs. 103,000, each with its own "m:ss left". The Basket button is gone.`, () => {
+        contact(hph(2))
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for the sellers to confirm')
+        part(A_NAME).should('contain', 'Rs. 52,000').and('contain', 'left')
+        part(B_NAME).should('contain', 'Rs. 103,000').and('contain', 'left')
+        cy.get('#mktBasketBtn').should('not.be.visible')
+        cy.get('#mktCoOrderNo').invoke('text').then((no) => { H.o2 = no })
+      })
+    step('Developer tools: GET the order (track with the phone).', 'One order, total 155,000, two sellerOrders with different sellers, each OFFERED with its own promisedBy and deliveryFee.', () => {
+      call('GET /marketplace/public/orders/{no}', get(API.trackOrder(H.o2, hph(2)))).then((r) => {
+        const o = data(r.body)
+        expect(Number(o.total)).to.eq(155000)
+        expect(o.sellerOrders).to.have.length(2)
+        expect(new Set(o.sellerOrders.map((s) => s.sellerOrganizationId)).size).to.eq(2)
+        o.sellerOrders.forEach((s) => { expect(s.status).to.eq('OFFERED'); expect(s).to.include.keys('promisedBy', 'deliveryFee') })
+      })
+    }, { screen: false })
+    cleanup('Both sellers reject their part with the reason "walk cleanup".', 'The order page reads "Cancelled"; the held stock is released.', () => {
+      cy.then(() => answer(SELLER_A, H.o2, 'reject'))
+      cy.then(() => answer(SELLER_B, H.o2, 'reject'))
+      orderPage(H.o2, hph(2))
+      cy.get(UI.checkoutStatus).should('contain', 'Cancelled')
+    })
+  })
+
+  walk({ id: 'M-2a-03', slice: 'MKT-2a', title: 'Each seller sees only its own part',
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop), then Mobile Distributor\'s owner', reqs: ['MKT-R17.2', 'MKT-R22.1'],
+    pre: `A customer placed one basket: 1 phone from ${A_NAME}, 2 from ${B_NAME} (Rs 155,000 in all). The switch is ON.`, auto: ['MKT-2a-03'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    cy.then(() => hBasket(hph(3), { lines: [{ offerId: H.a, quantity: 1, expectedPrice: 52000 }, { offerId: H.b, quantity: 2, expectedPrice: 51500 }] }))
+      .then((o) => { H.o3 = o.orderNo })
+    step(`As owner.business@myplus.com: Sale → Marketplace → "Incoming marketplace orders".`,
+      `The order is listed with ONE phone and Rs 52,000: ${B_NAME}'s items and the basket total of 155,000 appear nowhere.`, () => {
+        partRow(SELLER_A, H.o3).should('contain', '52,000').and('not.contain', '155,000').and('not.contain', '103,000').and('not.contain', B_NAME)
+      })
+    step(`As ${B_NAME}'s owner: the same screen.`, `The same order number with 2 phones and Rs 103,000; nothing of ${A_NAME}'s.`, () => {
+      partRow(SELLER_B, H.o3).should('contain', '103,000').and('not.contain', '155,000').and('not.contain', A_NAME)
+    })
+    cleanup('Both sellers reject their part with the reason "walk cleanup".', 'Both rows read Rejected; the stock is released.', () => {
+      cy.then(() => answer(SELLER_A, H.o3, 'reject'))
+      cy.then(() => answer(SELLER_B, H.o3, 'reject'))
+    }, { screen: false })
+  })
+
+  walk({ id: 'M-2a-04', slice: 'MKT-2a', title: 'One seller accepts, the other rejects: the order goes ahead for the accepted part',
+    persona: 'Both sellers, then the customer', reqs: ['MKT-R17.2', 'MKT-R10.2'],
+    pre: `A customer placed a basket: 1 phone from each seller, cash on delivery. The switch is ON.`, auto: ['MKT-2a-04'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    cy.then(() => hBasket(hph(4))).then((o) => { H.o4 = o.orderNo })
+    step(`As owner.business@myplus.com: Incoming → the order → Accept.`, '"Accepted" with an invoice: the sale of this part is in Shahzad Mobile Shop\'s books.', () => {
+      partRow(SELLER_A, H.o4).find(UI.acceptBtn).click()
+      cy.contains(`${UI.incoming} tr`, H.o4).should('contain', 'Accepted').and('contain', 'Invoice')
+    })
+    step('Customer: open the order page.', `"Confirmed by some sellers": ${A_NAME}'s row reads "Confirmed: ${A_NAME} will deliver and collect Rs. 52,000 in cash"; ${B_NAME}'s still counts down.`, () => {
+      orderPage(H.o4, hph(4))
+      cy.get(UI.checkoutStatus).should('contain', 'Confirmed by some sellers')
+      part(A_NAME).should('contain', `Confirmed: ${A_NAME} will deliver and collect Rs. 52,000 in cash`)
+      part(B_NAME).should('contain', 'left')
+    })
+    step(`As ${B_NAME}'s owner: Incoming → the order → reason "out of stock in store" → Reject.`, 'The row reads "Rejected" with the reason.', () => {
+      partRow(SELLER_B, H.o4).find('input[placeholder*="cannot fulfil"]').type('out of stock in store')
+      cy.contains(`${UI.incoming} tr`, H.o4).find(UI.rejectBtn).click()
+      cy.contains(`${UI.incoming} tr`, H.o4).should('contain', 'Rejected').and('contain', 'out of stock in store')
+    })
+    step('Customer: reopen the order page.', `"Confirmed" and "Each seller delivers its own items."; ${B_NAME}'s row reads "The seller could not fulfil this part". The order is NOT cancelled.`, () => {
+      orderPage(H.o4, hph(4))
+      cy.get(UI.checkoutStatus).should('contain', 'Confirmed').and('not.contain', 'some sellers')
+      cy.get('#mktOrderDetail').should('contain', 'Each seller delivers its own items.')
+      part(B_NAME).should('contain', 'The seller could not fulfil this part')
+    })
+    cleanup(`None: ${A_NAME}'s accepted part is a real sale (return it with the store's Sale Returns if needed); ${B_NAME}'s stock was released on Reject.`, '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2a-05', slice: 'MKT-2a', title: 'All or nothing: one seller short means nothing is ordered',
+    persona: 'Two customers (two incognito windows)', reqs: ['MKT-R17.2', 'MKT-R10.2'],
+    pre: 'Both sellers have a second phone with exactly ONE in stock each (another product). The switch is ON.', auto: ['MKT-2a-05'] }, (step, call, cleanup) => {
+    cy.then(() => multiSeller(true))
+    cy.then(() => seedPolicies(`${run}n`)).then((p) => {
+      publishOffer(SELLER_A, { run: `${run}na`, price: 52000, qty: 1, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })
+        .then((o) => { H.sa = o.offerId; H.sp = o.mktProductId })
+      cy.then(() => publishOffer(SELLER_B, { run: `${run}nb`, price: 51500, qty: 1, mktProductId: H.sp, warrantyPolicyId: p.warranty,
+        returnPolicyId: p.returns })).then((o) => { H.sb = o.offerId })
+    })
+    step(`Customer 1 (phone ${hph(5)}): open that phone, choose ${B_NAME}, "Buy from ${B_NAME}", Place order.`, `"Waiting for ${B_NAME} to confirm": ${B_NAME}'s only unit is now held.`, () => {
+      customer()
+      cy.visit(page(`product=${H.sp}&city=Karachi`), { onBeforeLoad: (w) => w.localStorage.removeItem('mkt.basket') })
+      cy.get(`${UI.offerRow}[data-offer-id="${H.sb}"] ${UI.chooseOffer}`).check()
+      cy.get(UI.buyButton).click()
+      contact(hph(5))
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', `Waiting for ${B_NAME} to confirm`)
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => { H.o5a = no })
+    })
+    step(`Customer 2 (phone ${hph(6)}): add both sellers' units to the basket → Place order.`,
+      `Refused: "${B_NAME} no longer has enough stock. Please remove its items and place the order again." No order number.`, () => {
+        fillBasket(1, { product: H.sp, a: H.sa, b: H.sb })
+        contact(hph(6), 'Sara')
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError').should('contain', `${B_NAME} no longer has enough stock. Please remove its items and place the order again.`)
+      })
+    step(`Remove ${B_NAME}'s item ("Remove") → Place order.`, `"Waiting for ${A_NAME} to confirm": ${A_NAME}'s unit was not lost to the refused attempt.`, () => {
+      cy.contains('.mkt-basket-group', B_NAME).find('.mkt-remove').click()
+      cy.get('.mkt-basket-group').should('have.length', 1)
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', `Waiting for ${A_NAME} to confirm`)
+      cy.get('#mktCoOrderNo').invoke('text').then((no) => { H.o5b = no })
+    })
+    cleanup('Each seller rejects its waiting order with the reason "walk cleanup".', 'Both orders read Cancelled; each unit is back in stock.', () => {
+      cy.then(() => answer(SELLER_B, H.o5a, 'reject'))
+      cy.then(() => answer(SELLER_A, H.o5b, 'reject'))
+    }, { screen: false })
+  })
+
+  walk({ id: 'M-2a-06', slice: 'MKT-2a', title: 'Paid online: one charge, and a rejected part is refunded on its own, once',
+    persona: 'Customer with an account, then Mobile Distributor\'s owner', reqs: ['MKT-R17.2', 'MKT-R13.1'],
+    pre: `The customer (phone ${'0315…6'}) has an account. The switch is ON. The test card token "tok_ok" is accepted.`, auto: ['MKT-2a-06'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    step(`Signed in as ${hph(7)}: basket with one phone from each seller → "Pay online", card token "tok_ok" → Place order.`,
+      '"Waiting for the sellers to confirm"; Rs. 103,500 is charged once.', () => {
+        hAccount(hph(7), 'Sana Basket')
+        cy.visit(page(`product=${H.product}&city=Karachi`), { onBeforeLoad: (w) => w.localStorage.removeItem('mkt.basket') })
+        cy.get(`${UI.offerRow}[data-offer-id="${H.a}"] ${UI.chooseOffer}`).check(); cy.get('#mktAddBtn').click()
+        cy.get(`${UI.offerRow}[data-offer-id="${H.b}"] ${UI.chooseOffer}`).check(); cy.get('#mktAddBtn').click()
+        cy.get('#mktBasketBtn').click()
+        contact(hph(7), 'Sana Basket')
+        cy.get('#mktPayCard').check()
+        cy.get('#mktCardToken').clear().type('tok_ok')
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'Waiting for the sellers to confirm')
+        cy.get('#mktCoOrderNo').invoke('text').then((no) => { H.o6 = no })
+      })
+    step(`As ${B_NAME}'s owner: Incoming → the order → reason "no stock" → Reject.`, 'The row reads "Rejected".', () => {
+      partRow(SELLER_B, H.o6).find('input[placeholder*="cannot fulfil"]').type('no stock')
+      cy.contains(`${UI.incoming} tr`, H.o6).find(UI.rejectBtn).click()
+      cy.contains(`${UI.incoming} tr`, H.o6).should('contain', 'Rejected')
+    })
+    step('Customer: My orders.', `The order reads Rs. 103,500 · "Partly refunded"; ${B_NAME}'s row reads "The seller could not fulfil this part"; ${A_NAME}'s still waits.`, () => {
+      hMyOrders(hph(7), 'Sana Basket')
+      rowOf(H.o6).should('contain', 'Partly refunded')
+      rowOf(H.o6).find(`.mkt-acc-part[data-seller="${B_NAME}"]`).should('contain', 'The seller could not fulfil this part')
+      rowOf(H.o6).find(`.mkt-acc-part[data-seller="${A_NAME}"]`).should('contain', 'Waiting for confirmation')
+    })
+    step('Developer tools: GET /marketplace/account/orders, the order\'s payments.', 'Exactly ONE CHARGE of 103,500 and ONE REFUND of 51,500 (B\'s part). Rejecting the part again changes nothing.', () => {
+      call('GET /marketplace/account/orders', get('/marketplace/account/orders')).then((r) => {
+        const o = list(r.body).find((x) => x.orderNo === H.o6)
+        const charges = o.payments.filter((p) => p.kind === 'CHARGE')
+        const refunds = o.payments.filter((p) => p.kind === 'REFUND')
+        expect(charges).to.have.length(1)
+        expect(Number(charges[0].amount)).to.eq(103500)
+        expect(refunds).to.have.length(1)
+        expect(Number(refunds[0].amount)).to.eq(51500)
+      })
+    }, { screen: false })
+    cleanup(`${A_NAME} rejects its part with the reason "walk cleanup".`, 'The order reads "Cancelled" and "Refunded": the remaining 52,000 is refunded, and nothing is refunded twice.', () => {
+      cy.then(() => answer(SELLER_A, H.o6, 'reject'))
+      hMyOrders(hph(7), 'Sana Basket')
+      rowOf(H.o6).should('contain', 'Cancelled').and('contain', 'Refunded')
+    })
+  })
+
+  walk({ id: 'M-2a-07', slice: 'MKT-2a', title: 'The customer cancels a basket no seller has answered',
+    persona: 'Customer with an account, then owner.business@myplus.com', reqs: ['MKT-R17.2', 'MKT-R10.5'],
+    pre: 'The customer placed a basket (one phone from each seller, cash on delivery) and neither seller has answered. The switch is ON.', auto: ['MKT-2a-07'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    cy.then(() => hAccount(hph(8), 'Bilal Basket')).then(() => hBasket(hph(8), { customerName: 'Bilal Basket' }, true)).then((o) => { H.o7 = o.orderNo })
+    step(`Signed in as ${hph(8)}: My orders.`, 'The order lists both sellers, each "Waiting for confirmation", and offers "Cancel order".', () => {
+      hMyOrders(hph(8), 'Bilal Basket')
+      rowOf(H.o7).find('.mkt-acc-part').should('have.length', 2).each(($p) => expect($p.text()).to.contain('Waiting for confirmation'))
+      rowOf(H.o7).find('.mkt-cancel').should('be.visible')
+    })
+    step('"Cancel order" → reason "ordered twice" → "Cancel order".', 'The order reads "Cancelled"; BOTH sellers\' rows read Cancelled; the Cancel button is gone.', () => {
+      rowOf(H.o7).find('.mkt-cancel').click()
+      cy.get('#uiC-input').type('ordered twice')
+      cy.get('.uiC-ok').click()
+      rowOf(H.o7).should('contain', 'Cancelled').find('.mkt-cancel').should('not.exist')
+      rowOf(H.o7).find('.mkt-acc-part').each(($p) => expect($p.text()).to.contain('Cancelled'))
+    })
+    step('As owner.business@myplus.com: Incoming → "All".', 'Shahzad Mobile Shop\'s part reads "Cancelled": the seller is told and the held stock was given back.', () => {
+      partRow(SELLER_A, H.o7, true).should('contain', 'Cancelled')
+    })
+    cleanup('Nothing to undo: the order ended and every hold was released.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2a-08', slice: 'MKT-2a', title: 'Help is per seller: the customer picks the item, the case goes to that seller',
+    persona: 'Customer with an account, then the MaxTheService operator', reqs: ['MKT-R8.2', 'MKT-R17.2'],
+    pre: 'The customer\'s basket (one phone from each seller) was ACCEPTED by both sellers. The switch is ON.', auto: ['MKT-2a-08'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true))
+    cy.then(() => hAccount(hph(9), 'Hina Basket')).then(() => hBasket(hph(9), { customerName: 'Hina Basket' }, true)).then((o) => { H.o8 = o.orderNo })
+    cy.then(() => answer(SELLER_A, H.o8, 'accept'))
+    cy.then(() => answer(SELLER_B, H.o8, 'accept'))
+    step(`Signed in as ${hph(9)}: My orders → the order → "Get help".`,
+      `The form asks "Item" first, listing each phone with its seller ("… × 1 · ${A_NAME}", "… × 1 · ${B_NAME}"), then what you need help with.`, () => {
+        hMyOrders(hph(9), 'Hina Basket')
+        rowOf(H.o8).find('.mkt-help').click()
+        rowOf(H.o8).find('.mkt-help-item option').should('have.length', 2)
+        rowOf(H.o8).find('.mkt-help-item').should('contain', A_NAME).and('contain', B_NAME)
+      })
+    step(`Item: ${B_NAME}'s phone; "Something is wrong with my order"; note "Where is the second phone?" → "Send to MaxTheService".`,
+      `A help request "Help request SC-… · ${B_NAME}" appears under the order: it is about ${B_NAME}'s part only.`, () => {
+        rowOf(H.o8).find('.mkt-help-item option').contains(B_NAME).then(($o) => rowOf(H.o8).find('.mkt-help-item').select($o.val()))
+        rowOf(H.o8).find('.mkt-help-topic').select('ORDER_PROBLEM')
+        rowOf(H.o8).find('.mkt-help-note').type('Where is the second phone?')
+        rowOf(H.o8).find('.mkt-help-send').click()
+        rowOf(H.o8).find('.mkt-case').should('contain', 'SC-').and('contain', B_NAME).invoke('attr', 'data-case-no').then((c) => { H.c8 = c })
+      })
+    step('Operator: Platform → "Support cases" → the case.', `The case shows the order, the customer's note, and ${B_NAME} as the seller tasked; ${A_NAME} is not involved.`, () => {
+      supportCases(); openCaseRow(H.c8)
+      cy.get('#mktCaseDetail').should('contain', 'Where is the second phone?').and('contain', B_NAME)
+    })
+    cleanup('Operator: the case → write "walk cleanup" → Resolve. Operator: Platform → Marketplace policies → untick the switch → Save.',
+      'The case reads Resolved; the switch is off again (the default).', () => {
+        cy.get('#mktCaseDetail .mkt-op-reply').type('walk cleanup')
+        cy.get('#mktCaseDetail .mkt-op-resolve').click()
+        cy.get('#platMktCaseStatus button[data-status="RESOLVED"]').click()
+        cy.get(`#mktCaseList tr[data-case-no="${H.c8}"]`).should('contain', 'Resolved')
+        cy.then(() => multiSeller(false))
+      })
   })
 })

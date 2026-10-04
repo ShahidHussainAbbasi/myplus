@@ -379,8 +379,25 @@
 
 	function loadAcceptWindow() {
 		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', dataType: 'json' }).done(function (res) {
-			if (ok(res)) $('#mktAcceptWindow').val((data(res) || {}).minutes);
+			if (ok(res)) {
+				$('#mktAcceptWindow').val((data(res) || {}).minutes);
+				$('#mktMultiSeller').prop('checked', (data(res) || {}).multiSeller === true);   // MKT-2a
+			}
 		});
+	}
+
+	/** MKT-2a — the multi-seller checkout switch; it rides on the acceptance-window endpoint, sending only itself. */
+	function saveMultiSeller() {
+		var $b = $('#mktMultiSellerSave').prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ multiSeller: $('#mktMultiSeller').is(':checked') }) })
+			.done(function (res) {
+				$('#mktMultiSellerMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e')
+					.text(message(res, ok(res) ? tr('ui.js.mktOfferSaved', 'Saved.') : tr('ui.js.saveFailed', 'Save failed')));
+				if (ok(res)) $('#mktMultiSeller').prop('checked', (data(res) || {}).multiSeller === true);
+			})
+			.fail(function (xhr) { $('#mktMultiSellerMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
 	}
 
 	function saveAcceptWindow() {
@@ -431,7 +448,8 @@
 			if (!ok(res)) { $d.append($('<p style="color:#b3261e"></p>').text(message(res, tr('ui.js.loadFailed', 'Could not load.')))); return; }
 			var c = data(res);
 			var $p = $('<div class="panel panel-default" style="padding:12px"></div>').attr('data-case-no', c.caseNo).appendTo($d);
-			$('<h4 style="margin-top:0"></h4>').text(c.caseNo + ' · ' + c.orderNo + (c.urgent ? ' · ' + tr('ui.js.mktUrgent', 'URGENT') : '')).appendTo($p);
+			// MKT-2a: the seller whose part the case is about (one case per seller part)
+			$('<h4 style="margin-top:0"></h4>').text(c.caseNo + ' · ' + c.orderNo + (c.sellerName ? ' · ' + c.sellerName : '') + (c.urgent ? ' · ' + tr('ui.js.mktUrgent', 'URGENT') : '')).appendTo($p);
 			var $ul = $('<ul style="list-style:none;padding:0;font-size:13px"></ul>').appendTo($p);
 			(c.messages || []).forEach(function (m) {
 				$('<li style="margin-bottom:4px"></li>').append($('<b></b>').text(m.from + (m.internal ? ' (' + tr('ui.js.mktInternal', 'internal') + ')' : '') + ': '))
@@ -647,6 +665,7 @@
 		loadOrders();
 	});
 	$(document).on('click', '#mktAcceptWindowSave', saveAcceptWindow);
+	$(document).on('click', '#mktMultiSellerSave', saveMultiSeller);
 	$(document).on('click', '.plat-mkt-back', function () {
 		$('.plat__panel').hide();
 		$('#platTenants').show();

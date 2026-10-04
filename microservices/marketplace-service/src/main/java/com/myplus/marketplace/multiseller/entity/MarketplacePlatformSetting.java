@@ -29,6 +29,8 @@ public class MarketplacePlatformSetting {
     public static final String SETTLEMENT_T_PLUS_DAYS = "settlement.tPlusDays";
     /** MKT-1g — the organisation whose ledger takes the commission (the operator's books); its user is updated_by. */
     public static final String SETTLEMENT_BOOKS_ORG = "settlement.booksOrg";
+    /** MKT-2a — "true" lets one checkout buy from several sellers (a parent order with one part per seller). Default off. */
+    public static final String MULTI_SELLER = "checkout.multiSeller";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

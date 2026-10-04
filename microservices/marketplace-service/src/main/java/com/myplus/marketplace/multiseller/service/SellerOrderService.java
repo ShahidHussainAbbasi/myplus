@@ -134,7 +134,7 @@ public class SellerOrderService {
                     MarketplaceCheckoutService.CARD.equals(order.getPaymentMode()) ? "MARKETPLACE" : "COD"));
         } catch (RuntimeException saleFailure) {
             String why = DownstreamMessage.of(saleFailure);
-            String rehold = checkout.hold(so, ls.get(0).getSourceProductId(), ls.get(0).getQuantity());
+            String rehold = checkout.hold(so, ls);                        // every line of the part, never just the first
             if (rehold == null) {                                          // the flag must say what is true
                 tx().executeWithoutResult(s -> sellerOrders.findById(so.getId()).ifPresent(f -> {
                     f.setHeld(true);
@@ -158,9 +158,7 @@ public class SellerOrderService {
             fresh.setDecidedAt(LocalDateTime.now());
             sellerOrders.save(fresh);
             MarketplaceOrder parent = orders.findById(fresh.getMktOrderId()).orElseThrow();
-            MarketplaceCheckoutService.rule(() -> com.myplus.marketplace.multiseller.domain.MarketplaceStateMachines.ORDER
-                    .transition(Order.valueOf(parent.getStatus()), Order.CONFIRMED));
-            parent.setStatus(Order.CONFIRMED.name());
+            MarketplaceCheckoutService.follow(parent, partsOf(parent.getId(), fresh), null);      // CONFIRMED, once
             orders.save(parent);
         });
         MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
@@ -189,11 +187,11 @@ public class SellerOrderService {
             fresh.setDecidedAt(LocalDateTime.now());
             sellerOrders.save(fresh);
             MarketplaceOrder parent = orders.findById(fresh.getMktOrderId()).orElseThrow();
-            MarketplaceCheckoutService.cancel(parent, REJECTED_FOR_SHOPPER);
+            MarketplaceCheckoutService.follow(parent, partsOf(parent.getId(), fresh), REJECTED_FOR_SHOPPER);
             orders.save(parent);
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
-        payments.refundIfCancelled(so.getMktOrderId());               // a card order's money goes back, once
+        moneyBack(sellerOrders.findById(so.getId()).orElseThrow());   // a card order's money for this part goes back, once
         MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
         if (SellerOrder.REJECTED.name().equals(done.acceptanceStatus()))
             audit.event("MKT_ORDER_REJECTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
@@ -202,6 +200,24 @@ public class SellerOrderService {
     }
 
     // ── internals ──────────────────────────────────────────────────────────────────────────────────────
+
+    /** Every part of the order, with {@code changed} standing in for its own (possibly unsaved) row. */
+    List<MarketplaceSellerOrder> partsOf(Long orderId, MarketplaceSellerOrder changed) {
+        return sellerOrders.findByMktOrderId(orderId).stream().map(p -> p.getId().equals(changed.getId()) ? changed : p).toList();
+    }
+
+    /**
+     * MKT-2a — after a part ended without being fulfilled (rejected, expired, orphaned, cancelled): when the whole
+     * order ended, the rest of the charge goes back ({@link MarketplacePaymentService#refundIfCancelled}); when other
+     * parts go ahead, only this part's money does. Both are once-only and safe to repeat. Cash orders have no charge.
+     */
+    void moneyBack(MarketplaceSellerOrder part) {
+        MarketplaceOrder o = orders.findById(part.getMktOrderId()).orElse(null);
+        if (o == null) return;
+        if (Order.CANCELLED.name().equals(o.getStatus())) payments.refundIfCancelled(o.getId());
+        else payments.refundPart(o.getId(), part.getId(), MarketplaceCheckoutService.partTotal(
+                lines.findBySellerOrderIdOrderByIdAsc(part.getId())), "Part of " + o.getOrderNo() + " not fulfilled");
+    }
 
     /** Another seller's id reads exactly like one that does not exist. */
     private MarketplaceSellerOrder own(Long id) {
@@ -270,7 +286,8 @@ public class SellerOrderService {
         return new MarketplaceOrderDTOs.SellerOrderView(so.getId(), so.getVersion(), o == null ? null : o.getOrderNo(),
                 so.getAcceptanceStatus(), so.getAcceptBy(), MarketplaceCheckoutService.secondsLeft(so),
                 o == null ? null : o.getCustomerName(), o == null ? null : o.getCustomerPhone(),
-                o == null ? null : o.getDeliveryAddress(), o == null ? null : o.getCity(), o == null ? null : o.getTotal(),
+                // MKT-2a: the seller's own part, never the whole order (another seller's items are none of its business)
+                o == null ? null : o.getDeliveryAddress(), o == null ? null : o.getCity(), MarketplaceCheckoutService.partTotal(ls),
                 so.getInvoiceNo(), so.getStoreOrderNo(), so.getRejectReason(), so.getCreatedAt(),
                 ls.stream().map(l -> new MarketplaceOrderDTOs.SellerLineView(l.getId(), MarketplaceCheckoutService.lineView(l),
                         l.getSourceProductId(), l.getCommissionPolicyId(), l.getCommissionBasis(), l.getCommissionRate(),

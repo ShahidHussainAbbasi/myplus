@@ -558,7 +558,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] the customer cancels while the seller has not answered: stock back, refund asked; after Accept it cannot")
     void customerCancel() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc1"), 77L);
@@ -579,7 +579,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] after the seller accepts, the customer's cancel is refused with the way forward")
     void cancelAfterAccept() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, checkout, sellerSide, payments, txManager, audit);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc2"), 77L);
@@ -602,5 +602,218 @@ class MarketplaceOrderFlowTest {
         sellerSide.reject(so.getId(), new MarketplaceOrderDTOs.RejectRequest(so.getVersion(), "out of stock"));
         verify(audit).event(eq("MKT_ORDER_REJECTED"), eq("MKT_SELLER_ORDER"), any(), eq(SELLER),
                 eq(MarketplaceAuditService.Actor.SELLER), eq("OFFERED"), eq("REJECTED"), any(), eq("out of stock"));
+    }
+
+    // ── MKT-2a: one checkout, several sellers ───────────────────────────────────────────────────────────
+
+    static final long OFFER_B = 12L, SOURCE_B = 556L;
+
+    /** A second seller's live offer for the same product, at 51,500; the operator's switch as given. */
+    void secondSeller(boolean multiSellerOn) {
+        MarketplaceOffer b = new MarketplaceOffer();
+        b.setId(OFFER_B);
+        b.setMktProductId(PRODUCT);
+        b.setSourceProductId(SOURCE_B);
+        b.setStockSourceType("MERCHANT");
+        b.setSellerOrganizationId(OTHER_SELLER);
+        b.setStockOwnerOrganizationId(OTHER_SELLER);
+        b.setCustodianOrganizationId(OTHER_SELLER);
+        b.setFulfillerOrganizationId(OTHER_SELLER);
+        b.setPromiseHours(24);
+        MarketplaceOfferProjection rb = new MarketplaceOfferProjection();
+        rb.setOfferId(OFFER_B);
+        rb.setMktProductId(PRODUCT);
+        rb.setSellerOrganizationId(OTHER_SELLER);
+        rb.setStockSourceType("MERCHANT");
+        rb.setRegulatedStatus("NONE");
+        rb.setPrice(new BigDecimal("51500"));
+        rb.setAvailableQty(new BigDecimal("5"));
+        rb.setPromiseHours(24);
+        rb.setDeliveryAreas("Karachi");
+        rb.setStatus("LIVE");
+        rb.setLastSyncAt(LocalDateTime.now().minusMinutes(1));
+        lenient().when(offers.findById(OFFER_B)).thenReturn(Optional.of(b));
+        lenient().when(projections.findById(OFFER_B)).thenReturn(Optional.of(rb));
+        MarketplaceSellerAccount acct = new MarketplaceSellerAccount();
+        acct.setDisplayName("Mobile Distributor");
+        lenient().when(accounts.findByOrganizationId(OTHER_SELLER)).thenReturn(Optional.of(acct));
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting on = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        on.setSettingKey("checkout.multiSeller");
+        on.setSettingValue(String.valueOf(multiSellerOn));
+        lenient().when(settingRows.findById("checkout.multiSeller")).thenReturn(Optional.of(on));
+    }
+
+    MarketplaceOrderDTOs.CheckoutRequest basket(String key, String mode, MarketplaceOrderDTOs.CheckoutLine... ls) {
+        return new MarketplaceOrderDTOs.CheckoutRequest(null, null, null, "Ali", "0300-123 4567", "1 Clifton", "Karachi", key,
+                mode, "CARD".equals(mode) ? "tok" : null, List.of(ls));
+    }
+
+    static MarketplaceOrderDTOs.CheckoutLine lineA(int qty) {
+        return new MarketplaceOrderDTOs.CheckoutLine(OFFER, qty, new BigDecimal("52000"));
+    }
+
+    static MarketplaceOrderDTOs.CheckoutLine lineB(int qty) {
+        return new MarketplaceOrderDTOs.CheckoutLine(OFFER_B, qty, new BigDecimal("51500"));
+    }
+
+    MarketplaceSellerOrder part(long seller) {
+        return soTable.values().stream().filter(x -> x.getSellerOrganizationId().equals(seller)).findFirst().orElseThrow();
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.1] the multi-seller checkout is off until the operator switches it on: two sellers are refused, nothing created")
+    void multiSellerOffRefused() {
+        secondSeller(false);
+        assertThatThrownBy(() -> checkout.checkout(basket("m0", null, lineA(1), lineB(1))))
+                .hasMessage("Items from different sellers must be checked out separately.");
+        assertThat(orderTable).isEmpty();
+        verify(trade, never()).holdStock(any());
+        assertThat(checkout.checkout(basket("m0b", null, lineA(2))).sellerOrders()).as("one seller, one part: still fine").hasSize(1);
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] [MKT-R20.3] one parent order, one part per seller: each holds only its own lines under its own key, each has its own deadline and promise")
+    void splitsPerSeller() {
+        secondSeller(true);
+        MarketplaceOrderDTOs.OrderView v = checkout.checkout(basket("m1", null, lineA(1), lineB(2)));
+        assertThat(v.status()).isEqualTo("SUBMITTED");
+        assertThat(v.total()).isEqualByComparingTo("155000");                         // 52,000 + 2 × 51,500
+        assertThat(v.sellerOrders()).hasSize(2);
+        assertThat(v.sellerOrders()).extracting(MarketplaceOrderDTOs.PartView::sellerName).containsExactly("Shahzad Mobile Shop", "Mobile Distributor");
+        assertThat(v.sellerOrders()).extracting(MarketplaceOrderDTOs.PartView::status).containsOnly("OFFERED");
+        assertThat(v.sellerOrders()).extracting(MarketplaceOrderDTOs.PartView::total).usingComparatorForType(BigDecimal::compareTo, BigDecimal.class)
+                .containsExactly(new BigDecimal("52000"), new BigDecimal("103000"));
+        assertThat(v.sellerOrders().get(0).promisedBy()).isBefore(v.sellerOrders().get(1).promisedBy());   // 4 h against 24 h
+        assertThat(v.sellerName()).isEqualTo("Shahzad Mobile Shop, Mobile Distributor");
+
+        ArgumentCaptor<StockHoldRequest> holds = ArgumentCaptor.forClass(StockHoldRequest.class);
+        verify(trade, org.mockito.Mockito.times(2)).holdStock(holds.capture());
+        assertThat(holds.getAllValues()).extracting(StockHoldRequest::getOrganizationId).containsExactly(SELLER, OTHER_SELLER);
+        assertThat(holds.getAllValues().get(1).getLines()).hasSize(1);
+        assertThat(holds.getAllValues().get(1).getLines().get(0).getItemId()).isEqualTo(SOURCE_B);
+        assertThat(holds.getAllValues().get(1).getLines().get(0).getQuantity()).isEqualByComparingTo("2");
+        assertThat(holds.getAllValues().get(0).getHoldKey()).isNotEqualTo(holds.getAllValues().get(1).getHoldKey());
+        assertThat(lineTable).extracting(MarketplaceOrderLine::getSellerOrganizationId).containsExactly(SELLER, OTHER_SELLER);
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] all or nothing: one seller cannot hold → every part cancelled, every hold released, that seller named")
+    void oneRefusalCancelsAll() {
+        secondSeller(true);
+        when(trade.holdStock(any())).thenReturn(held(true), held(false));
+        assertThatThrownBy(() -> checkout.checkout(basket("m2", null, lineA(1), lineB(1))))
+                .hasMessage("Mobile Distributor no longer has enough stock. Please remove its items and place the order again.");
+        assertThat(orderTable.values().iterator().next().getStatus()).isEqualTo("CANCELLED");
+        assertThat(soTable.values()).extracting(MarketplaceSellerOrder::getAcceptanceStatus).containsOnly("CANCELLED");
+        verify(trade).releaseHold(part(SELLER).getHoldKey());
+        verify(trade).releaseHold(part(OTHER_SELLER).getHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] a card is charged ONCE for the whole basket, after every part is held")
+    void cardChargedOnce() {
+        secondSeller(true);
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.SUCCEEDED);
+        checkout.checkout(basket("m3", "CARD", lineA(1), lineB(1)), 77L);
+        ArgumentCaptor<MarketplaceOrder> charged = ArgumentCaptor.forClass(MarketplaceOrder.class);
+        verify(payments).charge(charged.capture(), eq("tok"));
+        assertThat(charged.getValue().getTotal()).isEqualByComparingTo("103500");
+        InOrder o = inOrder(trade, payments);
+        o.verify(trade, org.mockito.Mockito.times(2)).holdStock(any());
+        o.verify(payments).charge(any(), any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] each seller answers for its own part: one accepts (order CONFIRMED), the other rejects (that part's money back, the order goes ahead)")
+    void partsLiveOnTheirOwn() {
+        secondSeller(true);
+        checkout.checkout(basket("m4", null, lineA(1), lineB(1)));
+        MarketplaceSellerOrder a = part(SELLER), b = part(OTHER_SELLER);
+        when(catalog.getProductsFresh(anyList(), anyBoolean())).thenReturn(List.of());
+        when(storeOrders.placeMarketplace(any())).thenReturn(sale());
+        MarketplaceOrderDTOs.SellerOrderView mine = sellerSide.accept(a.getId(), new MarketplaceOrderDTOs.AcceptRequest(a.getVersion(), null));
+        assertThat(mine.total()).as("the seller sees its own part, never the basket").isEqualByComparingTo("52000");
+        assertThat(mine.lines()).hasSize(1);
+        MarketplaceOrder parent = orderTable.get(a.getMktOrderId());
+        assertThat(parent.getStatus()).isEqualTo("CONFIRMED");
+
+        when(access.org()).thenReturn(OTHER_SELLER);
+        sellerSide.reject(b.getId(), new MarketplaceOrderDTOs.RejectRequest(b.getVersion(), "no stock"));
+        assertThat(parent.getStatus()).as("the accepted part goes ahead").isEqualTo("CONFIRMED");
+        verify(trade).releaseHold(b.getHoldKey());
+        verify(payments).refundPart(eq(parent.getId()), eq(b.getId()), org.mockito.ArgumentMatchers.argThat(x -> x.compareTo(new BigDecimal("51500")) == 0), anyString());
+        verify(payments, never()).refundIfCancelled(anyLong());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] the order ends only when its last part ends: the first rejection leaves it waiting, the second cancels it and refunds the rest")
+    void lastPartEndsTheOrder() {
+        secondSeller(true);
+        checkout.checkout(basket("m5", null, lineA(1), lineB(1)));
+        MarketplaceSellerOrder a = part(SELLER), b = part(OTHER_SELLER);
+        MarketplaceOrder parent = orderTable.get(a.getMktOrderId());
+        sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "no stock"));
+        assertThat(parent.getStatus()).isEqualTo("SUBMITTED");
+        b.setAcceptBy(LocalDateTime.now().minus(MarketplaceOrderSweeper.GRACE).minusSeconds(1));
+        sweeper.sweep();
+        assertThat(soTable.get(b.getId()).getAcceptanceStatus()).isEqualTo("EXPIRED");
+        assertThat(parent.getStatus()).isEqualTo("CANCELLED");
+        assertThat(parent.getCancelReason()).isEqualTo("The seller did not confirm in time.");
+        verify(payments).refundPart(eq(parent.getId()), eq(a.getId()), any(), anyString());
+        verify(payments).refundIfCancelled(parent.getId());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] a part that expires after the other was accepted never cancels the order")
+    void expiryAfterAcceptKeepsTheOrder() {
+        secondSeller(true);
+        checkout.checkout(basket("m6", null, lineA(1), lineB(1)));
+        MarketplaceSellerOrder a = part(SELLER), b = part(OTHER_SELLER);
+        when(catalog.getProductsFresh(anyList(), anyBoolean())).thenReturn(List.of());
+        when(storeOrders.placeMarketplace(any())).thenReturn(sale());
+        sellerSide.accept(a.getId(), new MarketplaceOrderDTOs.AcceptRequest(a.getVersion(), null));
+        b.setAcceptBy(LocalDateTime.now().minus(MarketplaceOrderSweeper.GRACE).minusSeconds(1));
+        sweeper.sweep();
+        assertThat(soTable.get(b.getId()).getAcceptanceStatus()).isEqualTo("EXPIRED");
+        assertThat(orderTable.get(a.getMktOrderId()).getStatus()).isEqualTo("CONFIRMED");
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] the customer cancels a basket no seller has accepted: every part at once; once one accepted, it is support")
+    void customerCancelsEveryPart() {
+        secondSeller(true);
+        MarketplaceAccountService acc = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
+        com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
+        me.setId(77L);
+        String no = checkout.checkout(basket("m7", null, lineA(1), lineB(1)), 77L).orderNo();
+        MarketplaceOrderDTOs.AccountOrderView v = acc.cancel(me, no, null);
+        assertThat(v.status()).isEqualTo("CANCELLED");
+        assertThat(v.sellerOrders()).extracting(MarketplaceOrderDTOs.PartView::status).containsOnly("CANCELLED");
+        verify(trade).releaseHold(part(SELLER).getHoldKey());
+        verify(trade).releaseHold(part(OTHER_SELLER).getHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.1] [MKT-R20.3] the switch is the operator's and off by default; a stored nonsense value reads as off")
+    void multiSellerSwitch() {
+        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access, audit);
+        assertThat(s.multiSeller()).isFalse();
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting junk = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        junk.setSettingValue("yes please");
+        when(settingRows.findById("checkout.multiSeller")).thenReturn(Optional.of(junk));
+        assertThat(s.multiSeller()).isFalse();
+        doThrow(new org.springframework.security.access.AccessDeniedException("operators only")).when(access).assertOperator();
+        assertThatThrownBy(() -> s.setMultiSeller(true)).hasMessage("operators only");
+    }
+
+    @Test
+    @DisplayName("[MKT-R22.1] a basket is bounded: the same offer twice is one line; more than 10 of an item, or two prices for it, are refused")
+    void basketBounds() {
+        assertThat(MarketplaceCheckoutService.wants(basket("w", null, lineA(2), lineA(3)))).singleElement()
+                .satisfies(w -> assertThat(w.qty()).isEqualTo(5));
+        assertThatThrownBy(() -> MarketplaceCheckoutService.wants(basket("w", null, lineA(6), lineA(5))))
+                .hasMessageContaining("1 to 10 of each item");
+        assertThatThrownBy(() -> MarketplaceCheckoutService.wants(basket("w", null, lineA(1),
+                new MarketplaceOrderDTOs.CheckoutLine(OFFER, 1, new BigDecimal("1"))))).hasMessageContaining("two prices");
     }
 }

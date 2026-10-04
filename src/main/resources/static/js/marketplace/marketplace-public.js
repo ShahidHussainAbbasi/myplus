@@ -4,6 +4,7 @@
  * Two views on one page, driven by the URL so every state can be shared, bookmarked and reached with Back:
  *   ?q=&city=            search results: one card per product, "Available from N sellers · From Rs. …"
  *   ?product=&city=&sort= one product's offers, sorted as the customer chose; nothing pre-selected
+ *   ?checkout=basket     MKT-2a: the basket, one group per seller, one checkout (microservices/docs/slices/mkt-2a-multi-seller-orders.md)
  *
  * No jQuery: an anonymous shopper's first page should be light. DOM is built with textContent only, never
  * innerHTML with data, so a seller's display name can never inject markup. Superseded requests are aborted, so a
@@ -66,6 +67,8 @@
 			p.set('product', s.product);
 			if (s.sort) p.set('sort', s.sort);
 			if (s.checkout) p.set('checkout', s.checkout);
+		} else if (s.checkout === 'basket') {
+			p.set('checkout', 'basket');          // MKT-2a: the basket belongs to no one product
 		} else if (s.q) {
 			p.set('q', s.q);
 		}
@@ -298,6 +301,128 @@
 			b.disabled = true;
 			b.textContent = tr('ui.js.mktChooseFirst', 'Choose a seller first');
 		}
+		$('mktAddBtn').disabled = !chosen;
+		$('mktBasketMsg').textContent = '';
+	}
+
+	// ── MKT-2a: the basket ─────────────────────────────────────────────────────────────────────────────
+	// Kept in this browser only (localStorage): what the shopper picked, with the price they SAW. The server re-checks
+	// every line at checkout and refuses a changed price in words; the page refreshes the lines when it opens.
+
+	var BASKET_KEY = 'mkt.basket', BASKET_MAX = 10;
+
+	function basketRead() {
+		try {
+			var b = JSON.parse(global.localStorage.getItem(BASKET_KEY) || '[]');
+			return Array.isArray(b) ? b.filter(function (l) { return l && l.offerId; }) : [];
+		} catch (e) { return []; }
+	}
+	function basketWrite(b) {
+		try { global.localStorage.setItem(BASKET_KEY, JSON.stringify(b)); } catch (e) { /* private window: the basket lives for this page */ }
+		basketMemo = b;
+		syncBasketBtn();
+	}
+	var basketMemo = null;
+	function basket() { return basketMemo || (basketMemo = basketRead()); }
+	function basketCount() { return basket().reduce(function (n, l) { return n + Number(l.qty || 0); }, 0); }
+
+	function syncBasketBtn() {
+		var b = $('mktBasketBtn'), n = basketCount();
+		b.hidden = n === 0;
+		b.textContent = tr('ui.js.mktBasketN', 'Basket ({0})', n);
+	}
+
+	function addToBasket() {
+		if (!chosen || !product) return;
+		var b = basket().slice(), had = null;
+		b.forEach(function (l) { if (String(l.offerId) === String(chosen.offerId)) had = l; });
+		var max = Math.max(1, Math.min(10, Math.floor(Number(chosen.availableQty || 1))));
+		if (had) {
+			if (had.qty >= max) { $('mktBasketMsg').textContent = tr('ui.js.mktBasketMax', 'You already have the most this seller can send.'); return; }
+			had.qty += 1;
+		} else {
+			if (b.length >= BASKET_MAX) { $('mktBasketMsg').textContent = tr('ui.js.mktBasketFull', 'Your basket is full. Place this order first.'); return; }
+			b.push({ offerId: chosen.offerId, productId: product.id, name: product.name, seller: chosen.sellerName,
+				sellerOrg: chosen.sellerOrganizationId, price: chosen.price, qty: 1, max: max });
+		}
+		basketWrite(b);
+		$('mktBasketMsg').textContent = tr('ui.js.mktAdded', 'Added to your basket: {0} from {1}.', product.name, chosen.sellerName);
+	}
+
+	/** Refresh each line from the server for this city: the price now, what is left, and whether it is still offered. */
+	function refreshBasket(city) {
+		var ids = [];
+		basket().forEach(function (l) { if (ids.indexOf(l.productId) < 0) ids.push(l.productId); });
+		return Promise.all(ids.map(function (id) {
+			return fetch(CTX + 'marketplace/public/products/' + encodeURIComponent(id) + '/offers?city=' + encodeURIComponent(city),
+				{ credentials: 'same-origin', headers: { Accept: 'application/json' } })
+				.then(function (r) { return r.json(); }).catch(function () { return null; });
+		})).then(function (answers) {
+			var live = {};
+			answers.forEach(function (res) {
+				((typeof global.apiList === 'function' ? global.apiList(res) : data(res)) || []).forEach(function (o) { live[String(o.offerId)] = o; });
+			});
+			var b = basket().map(function (l) {
+				var o = live[String(l.offerId)];
+				if (!o) return Object.assign({}, l, { gone: true });
+				var max = Math.max(1, Math.min(10, Math.floor(Number(o.availableQty || 1))));
+				return Object.assign({}, l, { gone: false, price: o.price, seller: o.sellerName, max: max, qty: Math.min(l.qty, max) });
+			});
+			basketWrite(b);
+			return b;
+		});
+	}
+
+	function drawBasket() {
+		var ul = $('mktBasketList'), groups = [], by = {};
+		ul.textContent = '';
+		basket().forEach(function (l) {
+			var k = String(l.sellerOrg || l.seller);
+			if (!by[k]) { by[k] = { seller: l.seller, lines: [] }; groups.push(by[k]); }
+			by[k].lines.push(l);
+		});
+		groups.forEach(function (g) {
+			var li = el('li', 'group mkt-basket-group');
+			li.setAttribute('data-seller', g.seller || '');
+			li.appendChild(el('span', 'seller', g.seller));
+			g.lines.forEach(function (l) {
+				var row = el('div', 'line mkt-basket-line');
+				row.setAttribute('data-offer-id', l.offerId);
+				row.appendChild(el('span', 'name', l.name));
+				if (l.gone) {
+					row.appendChild(el('span', 'gone', tr('ui.js.mktBasketGone', 'No longer offered to this city')));
+				} else {
+					var q = el('select', 'mkt-basket-qty');
+					q.setAttribute('aria-label', tr('ui.js.mktQtyOf', 'Quantity of {0}', l.name));
+					for (var i = 1; i <= (l.max || 10); i++) { var op = el('option', null, String(i)); op.value = i; q.appendChild(op); }
+					q.value = l.qty;
+					q.addEventListener('change', function () { setQty(l.offerId, Number(this.value)); });
+					row.appendChild(q);
+					row.appendChild(el('span', null, money(Number(l.price) * Number(l.qty))));
+				}
+				var rm = el('button', 'mkt-remove', tr('ui.js.mktRemove', 'Remove'));
+				rm.type = 'button';
+				rm.setAttribute('aria-label', tr('ui.js.mktRemoveOf', 'Remove {0}', l.name));
+				rm.addEventListener('click', function () { setQty(l.offerId, 0); });
+				row.appendChild(rm);
+				li.appendChild(row);
+			});
+			ul.appendChild(li);
+		});
+		var total = basket().filter(function (l) { return !l.gone; })
+			.reduce(function (t, l) { return t + Number(l.price) * Number(l.qty); }, 0);
+		$('mktCoTotal').textContent = money(total);
+		var usable = basket().filter(function (l) { return !l.gone; }).length > 0 && basket().every(function (l) { return !l.gone; });
+		$('mktCoPlace').disabled = !usable;
+		if (basket().length === 0) $('mktCoError').textContent = tr('ui.js.mktBasketEmpty', 'Your basket is empty.');
+		else if (!usable) $('mktCoError').textContent = tr('ui.js.mktBasketFix', 'Remove the items that are no longer offered to place the order.');
+		else $('mktCoError').textContent = '';
+	}
+
+	function setQty(offerId, qty) {
+		basketWrite(basket().map(function (l) { return String(l.offerId) === String(offerId) ? Object.assign({}, l, { qty: qty }) : l; })
+			.filter(function (l) { return l.qty > 0; }));
+		drawBasket();
 	}
 
 	// ── MKT-1e: checkout (cash on delivery) ────────────────────────────────────────────────────────────
@@ -339,11 +464,21 @@
 		coOffer = null;
 		$('mktCoError').textContent = '';
 		$('mktCoPlace').disabled = true;
+		var isBasket = s.checkout === 'basket';
+		$('mktCoSingle').hidden = isBasket;
+		$('mktCoBasket').hidden = !isBasket;
+		var back = $('mktCoBack').lastElementChild;           // the page's own (translated) "Change seller", kept for later
+		if (!back.getAttribute('data-orig')) back.setAttribute('data-orig', back.textContent);
+		back.textContent = isBasket ? tr('ui.js.mktKeepShopping', 'Keep shopping') : back.getAttribute('data-orig');
 		if (!s.city) {
 			$('mktCoError').textContent = tr('ui.js.mktCityFirst', 'Choose the delivery city first.');
 			return null;
 		}
 		$('mktCoCity').value = s.city;
+		if (isBasket) {
+			$('mktBasketList').textContent = '';
+			return refreshBasket(s.city).then(function () { drawBasket(); $('mktCoTitle').focus(); });
+		}
 		return Promise.all([
 			getJson('product', 'marketplace/public/products/' + encodeURIComponent(s.product), {}),
 			getJson('offers', 'marketplace/public/products/' + encodeURIComponent(s.product) + '/offers', { city: s.city })
@@ -379,13 +514,15 @@
 	/** Money is never optimistic: the button says what is happening, the result says what the SERVER decided. */
 	function placeOrder(ev) {
 		ev.preventDefault();
-		if (!coOffer) return;
+		var isBasket = readState().checkout === 'basket';
+		if (!isBasket && !coOffer) return;
+		if (isBasket && (basket().length === 0 || basket().some(function (l) { return l.gone; }))) return;
 		var name = $('mktCoName').value.trim(), phone = $('mktCoPhone').value.trim(), address = $('mktCoAddress').value.trim();
 		if (!name || !phone || !address) {
 			$('mktCoError').textContent = tr('ui.js.mktCoFixFields', 'Fill in your name, phone and address.');
 			return;
 		}
-		var b = $('mktCoPlace'), label = b.textContent, offerId = coOffer.offerId;
+		var b = $('mktCoPlace'), label = b.textContent, offerId = isBasket ? 'basket' : coOffer.offerId;
 		b.disabled = true;
 		b.textContent = tr('ui.js.mktPlacing', 'Placing your order…');
 		$('mktCoError').textContent = '';
@@ -393,7 +530,10 @@
 			// manual: a lapsed security token makes Spring REDIRECT an anonymous shopper to /login. Followed, that read
 			// as an unreadable answer; the "page expired" sentence below was never shown (recorded manual walk, M-1e-11)
 			method: 'POST', credentials: 'same-origin', headers: csrfHeaders(), redirect: 'manual',
-			body: JSON.stringify({ offerId: offerId, quantity: Number($('mktCoQty').value || 1), expectedPrice: coOffer.price,
+			body: JSON.stringify({ offerId: isBasket ? null : offerId, quantity: isBasket ? null : Number($('mktCoQty').value || 1),
+				expectedPrice: isBasket ? null : coOffer.price,
+				// MKT-2a: the basket's lines, each with the price the shopper saw (never charged: the server's is)
+				lines: isBasket ? basket().map(function (l) { return { offerId: l.offerId, quantity: l.qty, expectedPrice: l.price }; }) : null,
 				customerName: name, customerPhone: phone, address: address, city: $('mktCoCity').value,
 				idempotencyKey: attemptKey(offerId),
 				// MKT-1e2: null for an anonymous shopper (cash on delivery)
@@ -415,6 +555,7 @@
 			}
 			var o = data(res);
 			session('del', 'mkt.co.' + offerId);
+			if (isBasket) basketWrite([]);                     // placed: the basket is now an order
 			rememberPhone(o.orderNo, phone);
 			global.history.pushState(null, '', global.location.pathname + '?order=' + encodeURIComponent(o.orderNo));
 			syncLangLinks();
@@ -469,6 +610,9 @@
 			lines.appendChild(el('span', null, terms.join(' · ')));
 		});
 		clearInterval(countdownTimer);
+		var parts = o.sellerOrders || [];
+		$('mktOrderParts').hidden = parts.length < 2;
+		if (parts.length > 1) return showParts(o, parts);
 		if (o.status === 'CONFIRMED') {
 			st.className = 'state ok';
 			st.textContent = tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
@@ -497,11 +641,80 @@
 		}
 	}
 
+	/** MKT-2a — an order from several sellers: the order's state, then each seller's part on its own line. */
+	function showParts(o, parts) {
+		var st = $('mktCheckoutStatus'), detail = $('mktOrderDetail'), ul = $('mktOrderParts');
+		$('mktOrderLines').textContent = '';
+		ul.textContent = '';
+		var waiting = parts.some(function (p) { return p.status === 'OFFERED' || p.status === 'UNASSIGNED'; });
+		var card = o.paymentMode === 'CARD';
+		if (o.status === 'CANCELLED') {
+			st.className = 'state bad';
+			st.textContent = tr('ui.js.mktCancelledState', 'Cancelled');
+			detail.textContent = o.cancelReason || '';
+		} else if (o.status === 'PAYMENT_PENDING') {
+			st.className = 'state wait';
+			st.textContent = tr('ui.js.mktPayConfirming', 'Confirming your payment');
+			detail.textContent = tr('ui.js.mktPaymentPending', 'We could not confirm your payment yet. If it was taken, it is refunded automatically.');
+		} else if (o.status === 'CONFIRMED') {
+			st.className = 'state ok';
+			st.textContent = waiting ? tr('ui.js.mktPartlyConfirmed', 'Confirmed by some sellers') : tr('ui.js.mktConfirmedState', 'Confirmed');
+			detail.textContent = tr('ui.js.mktEachDelivers', 'Each seller delivers its own items.');
+		} else {
+			st.className = 'state wait';
+			st.textContent = tr('ui.js.mktWaitingSellers', 'Waiting for the sellers to confirm');
+			detail.textContent = tr('ui.js.mktStockHeldAll', 'Your stock is held while the sellers answer.');
+		}
+		var clocks = [];
+		parts.forEach(function (p) {
+			var li = el('li', 'mkt-part');
+			li.setAttribute('data-seller', p.sellerName || '');
+			li.setAttribute('data-status', p.status);
+			var head = el('div', 'sum');
+			head.appendChild(el('span', 'seller', p.sellerName || tr('ui.js.mktTheSeller', 'the seller')));
+			head.appendChild(el('span', null, money(p.total)));
+			li.appendChild(head);
+			(p.lines || []).forEach(function (l) { li.appendChild(el('span', 'terms', l.productName + ' × ' + l.quantity + ' · ' + money(l.lineTotal))); });
+			var ps = el('span', 'pstate');
+			if (p.status === 'ACCEPTED' || p.status === 'HANDED_OVER') {
+				ps.className = 'pstate ok';
+				ps.textContent = p.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered')
+					: card ? tr('ui.js.mktPartConfirmed', 'Confirmed: {0} will deliver', p.sellerName)
+						: tr('ui.js.mktPartConfirmedCod', 'Confirmed: {0} will deliver and collect {1} in cash', p.sellerName, money(p.total));
+			} else if (p.status === 'OFFERED' || p.status === 'UNASSIGNED') {
+				ps.className = 'pstate wait';
+				var deadline = p.secondsToAccept === null || p.secondsToAccept === undefined ? null : Date.now() + p.secondsToAccept * 1000;
+				clocks.push({ node: ps, deadline: deadline });
+			} else {
+				ps.className = 'pstate bad';
+				ps.textContent = (p.status === 'EXPIRED' ? tr('ui.js.mktPartExpired', 'Not confirmed in time')
+					: p.status === 'REJECTED' ? tr('ui.js.mktPartRejected', 'The seller could not fulfil this part')
+						: tr('ui.js.mktCancelledState', 'Cancelled'))
+					+ (card && o.status !== 'CANCELLED' ? ' · ' + tr('ui.js.mktPartRefunded', 'its amount is refunded to your card') : '');
+			}
+			li.appendChild(ps);
+			ul.appendChild(li);
+		});
+		var paint = function () {
+			clocks.forEach(function (c) {
+				var left = c.deadline === null ? null : Math.max(0, Math.round((c.deadline - Date.now()) / 1000));
+				c.node.textContent = left === null ? tr('ui.js.mktPartWaiting', 'Waiting for confirmation')
+					: tr('ui.js.mktPartLeft', 'Waiting for confirmation · {0} left', Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2));
+			});
+		};
+		paint();
+		if (clocks.length) {
+			countdownTimer = setInterval(paint, 1000);
+			pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 10000);   // the sellers' answers, when they come
+		}
+	}
+
 	// ── render from the URL ────────────────────────────────────────────────────────────────────────────
 	function render() {
 		var s = readState();
 		stopPolling();
-		var view = s.account ? 'account' : s.order ? 'order' : (s.product && s.checkout ? 'checkout' : (s.product ? 'product' : 'search'));
+		var view = s.account ? 'account' : s.order ? 'order'
+			: ((s.product && s.checkout) || s.checkout === 'basket' ? 'checkout' : (s.product ? 'product' : 'search'));
 		$('mktSearchView').hidden = view !== 'search';
 		$('mktProductView').hidden = view !== 'product';
 		$('mktCheckoutView').hidden = view !== 'checkout';
@@ -565,6 +778,18 @@
 			writeState(s, false);
 			loadOffers(s.city, $('mktOfferSort').value);
 		}));
+		$('mktAddBtn').addEventListener('click', addToBasket);
+		$('mktBasketBtn').addEventListener('click', function () {
+			var s = readState();
+			s.checkout = 'basket';
+			s.product = '';
+			s.order = '';
+			s.account = '';
+			writeState(s, true);
+			render();
+		});
+		global.addEventListener('storage', function (ev) { if (ev.key === BASKET_KEY) { basketMemo = null; syncBasketBtn(); } });
+		syncBasketBtn();
 		$('mktBuyBtn').addEventListener('click', function () {
 			if (!chosen) return;
 			var s = readState();

@@ -139,4 +139,48 @@ class MarketplacePaymentServiceTest {
         verify(gateway, times(1)).refund(eq("ch_late"), any());
         assertThat(order.getPaymentStatus()).isEqualTo("REFUNDED");
     }
+
+    // ── MKT-2a: a part of a multi-seller order ──────────────────────────────────────────────────────────
+
+    void byOrder() {
+        lenient().when(payments.findByMktOrderIdOrderByIdAsc(7L)).thenAnswer(i -> table.values().stream()
+                .sorted(java.util.Comparator.comparing(MarketplacePayment::getId)).toList());
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] one part's money goes back once while the order goes ahead: PARTIALLY_REFUNDED")
+    void partRefundedOnce() {
+        byOrder();
+        when(gateway.charge(anyString(), any(), anyString())).thenReturn(new PaymentGateway.Charge(true, "ch_1", null));
+        when(gateway.refund(eq("ch_1"), any())).thenReturn(new PaymentGateway.Refund(true, "re_1", null));
+        svc.charge(order, "tok");
+        assertThat(svc.refundPart(7L, 301L, new BigDecimal("20000.00"), "part not fulfilled")).isTrue();
+        assertThat(svc.refundPart(7L, 301L, new BigDecimal("20000.00"), "again")).isTrue();       // sweeper + reject, say
+        verify(gateway, times(1)).refund(eq("ch_1"), eq(new BigDecimal("20000.00")));
+        assertThat(order.getPaymentStatus()).isEqualTo("PARTIALLY_REFUNDED");
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] when the whole order ends after a part was refunded, only the REST goes back: never the same money twice")
+    void remainderAfterPart() {
+        byOrder();
+        when(gateway.charge(anyString(), any(), anyString())).thenReturn(new PaymentGateway.Charge(true, "ch_1", null));
+        when(gateway.refund(eq("ch_1"), any())).thenReturn(new PaymentGateway.Refund(true, "re_x", null));
+        svc.charge(order, "tok");
+        svc.refundPart(7L, 301L, new BigDecimal("20000.00"), "part");
+        order.setStatus("CANCELLED");
+        svc.refundIfCancelled(7L);
+        verify(gateway).refund("ch_1", new BigDecimal("32000.00"));
+        assertThat(order.getPaymentStatus()).isEqualTo("REFUNDED");
+        svc.refundPart(7L, 302L, new BigDecimal("32000.00"), "late part");                         // covered by the rest
+        verify(gateway, times(2)).refund(eq("ch_1"), any());
+        verify(orders, org.mockito.Mockito.atLeastOnce()).lockById(7L);
+    }
+
+    @Test
+    @DisplayName("[MKT-R17.2] a cash order has no charge: a part ending gives nothing back")
+    void cashPartNothing() {
+        assertThat(svc.refundPart(7L, 301L, new BigDecimal("20000.00"), "part")).isFalse();
+        verify(gateway, never()).refund(anyString(), any());
+    }
 }

@@ -26,7 +26,8 @@ import lombok.RequiredArgsConstructor;
  *
  * <p>Three passes, each bounded, each row in its own short transaction so one bad row cannot stop the rest:
  * <ol>
- *   <li><b>Expire</b>: OFFERED past {@code accept_by + GRACE} → EXPIRED, order CANCELLED, hold released.</li>
+ *   <li><b>Expire</b>: OFFERED past {@code accept_by + GRACE} → EXPIRED, hold released; the order CANCELLED once no
+ *       other part goes ahead (MKT-2a).</li>
  *   <li><b>Orphans</b>: UNASSIGNED older than {@link #ORPHAN_AFTER} (a crash between checkout's two transactions)
  *       → CANCELLED, release by key (harmless when nothing was held).</li>
  *   <li><b>Release retries</b>: a promise that ended with {@code held} still true (a release that failed).</li>
@@ -97,7 +98,8 @@ public class MarketplaceOrderSweeper {
                 sellerOrders.save(so);
                 MarketplaceOrder o = orders.findById(so.getMktOrderId()).orElse(null);
                 if (o != null && !"CANCELLED".equals(o.getStatus())) {
-                    MarketplaceCheckoutService.cancel(o, reasonForShopper);
+                    // MKT-2a: the order ends only when no other part is still going ahead
+                    MarketplaceCheckoutService.follow(o, sellerOrderService.partsOf(o.getId(), so), reasonForShopper);
                     orders.save(o);
                 }
                 done[0] = so;
@@ -113,7 +115,7 @@ public class MarketplaceOrderSweeper {
         MarketplaceSellerOrder fresh = sellerOrders.findById(sellerOrderId).orElse(done[0]);
         fresh.setHeld(true);   // force the attempt: an orphan's flag is false although the hold may exist
         sellerOrderService.release(fresh);
-        payments.refundIfCancelled(fresh.getMktOrderId());            // a card order's money goes back, once
+        sellerOrderService.moneyBack(fresh);                          // a card order's money for this part goes back, once
         return true;
     }
 }

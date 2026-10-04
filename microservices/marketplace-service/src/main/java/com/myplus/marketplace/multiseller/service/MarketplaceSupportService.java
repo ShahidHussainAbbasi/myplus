@@ -105,13 +105,14 @@ public class MarketplaceSupportService {
             throw new ValidationException("Choose what you need help with.");
         String topic = req.topic().trim().toUpperCase(Locale.ROOT);
         String note = clip(req.note(), 2000);
-        MarketplaceSellerOrder so = sellerOrder(o);
+        MarketplaceSellerOrder so = partFor(o, req.lineId());
         if (!SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus()) && !SellerOrder.HANDED_OVER.name().equals(so.getAcceptanceStatus()))
             throw new ValidationException("You can ask for help once the seller has confirmed the order. Until then you can cancel it in My orders.");
         if (!"RETURN".equals(topic) && note == null) throw new ValidationException("Tell us what went wrong.");
 
-        MarketplaceSupportCase sc = cases.findFirstByMktOrderIdAndStatusNotOrderByIdDesc(o.getId(), MarketplaceSupportCase.RESOLVED)
-                .orElse(null);
+        // MKT-2a: one open case per SELLER of the order — each seller is tasked with, and sees, only its own part
+        MarketplaceSupportCase sc = cases.findFirstByMktOrderIdAndSellerOrgIdAndStatusNotOrderByIdDesc(o.getId(),
+                so.getSellerOrganizationId(), MarketplaceSupportCase.RESOLVED).orElse(null);
         boolean opened = sc == null;
         if (opened) {
             sc = new MarketplaceSupportCase();
@@ -320,7 +321,8 @@ public class MarketplaceSupportService {
         MarketplaceOrder o = orders.findById(r.getMktOrderId()).orElseThrow();
         if (r.getCreditNoteNo() == null) {
             MarketplaceOrderLine line = lines.findById(r.getOrderLineId()).orElseThrow();
-            MarketplaceSellerOrder so = sellerOrder(o);
+            MarketplaceSellerOrder so = sellerOrders.findById(line.getSellerOrderId())          // MKT-2a: the line's own part
+                    .orElseThrow(() -> new ResourceNotFoundException(NO_ORDER));
             String notes = storeOrders.marketplaceReturn(so.getStoreOrderId(), org, line.getSourceProductId(), r.getQuantity(),
                     !"RESTOCK".equals(r.getOutcome()), "Marketplace return " + r.getReturnNo() + " (" + r.getReason() + ")");
             tx().executeWithoutResult(s -> {
@@ -420,7 +422,8 @@ public class MarketplaceSupportService {
                         m.getBody(), false, m.getCreatedAt()))
                 .toList();
         return new SupportDTOs.CaseView(sc.getCaseNo(), orderNo(sc), sc.getTopic(), sc.getStatus(), sc.isUrgent(), sc.getCreatedAt(),
-                ms, returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::customerReturnView).toList());
+                ms, returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::customerReturnView).toList(),
+                sellerName(sc.getSellerOrgId()));
     }
 
     private SupportDTOs.CaseView fullView(MarketplaceSupportCase sc) {
@@ -428,7 +431,7 @@ public class MarketplaceSupportService {
                 .map(m -> new SupportDTOs.MessageView(role(m.getAuthorKind()), m.getBody(), !m.isVisibleToCustomer(), m.getCreatedAt()))
                 .toList();
         return new SupportDTOs.CaseView(sc.getCaseNo(), orderNo(sc), sc.getTopic(), sc.getStatus(), sc.isUrgent(), sc.getCreatedAt(),
-                ms, returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::view).toList());
+                ms, returns.findByCaseIdOrderByIdAsc(sc.getId()).stream().map(this::view).toList(), sellerName(sc.getSellerOrgId()));
     }
 
     private SupportDTOs.SellerTask sellerTask(MarketplaceSupportCase sc) {
@@ -484,8 +487,26 @@ public class MarketplaceSupportService {
         return returns.findByReturnNo(norm(returnNo)).orElseThrow(() -> new ResourceNotFoundException(NO_RETURN));
     }
 
-    private MarketplaceSellerOrder sellerOrder(MarketplaceOrder o) {
-        return sellerOrders.findByMktOrderId(o.getId()).stream().findFirst().orElseThrow(() -> new ResourceNotFoundException(NO_ORDER));
+    /**
+     * MKT-2a — which seller's part the customer needs help with: the part of the chosen line; with no line, the one
+     * confirmed part (an order with several asks which item).
+     */
+    private MarketplaceSellerOrder partFor(MarketplaceOrder o, Long lineId) {
+        List<MarketplaceSellerOrder> parts = sellerOrders.findByMktOrderId(o.getId());
+        if (parts.isEmpty()) throw new ResourceNotFoundException(NO_ORDER);
+        if (lineId != null) {
+            MarketplaceOrderLine line = lines.findById(lineId).orElse(null);
+            MarketplaceSellerOrder part = line == null ? null
+                    : parts.stream().filter(p -> p.getId().equals(line.getSellerOrderId())).findFirst().orElse(null);
+            if (part == null) throw new ValidationException("Choose the item you need help with.");
+            return part;
+        }
+        if (parts.size() == 1) return parts.get(0);
+        List<MarketplaceSellerOrder> confirmed = parts.stream()
+                .filter(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.getAcceptanceStatus())).toList();
+        if (confirmed.size() == 1) return confirmed.get(0);
+        if (confirmed.isEmpty()) return parts.get(0);                       // refused below: nothing confirmed yet
+        throw new ValidationException("Choose the item you need help with.");
     }
 
     private void message(Long caseId, String kind, Long ref, String body, boolean visible) {

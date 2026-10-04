@@ -18,6 +18,10 @@ public interface MarketplaceSupportCaseRepository extends JpaRepository<Marketpl
     /** The order's case that is still open — one conversation per order. idx_mkt_case_order. */
     Optional<MarketplaceSupportCase> findFirstByMktOrderIdAndStatusNotOrderByIdDesc(Long mktOrderId, String status);
 
+    /** MKT-2a — the open case of one seller's part of an order. */
+    Optional<MarketplaceSupportCase> findFirstByMktOrderIdAndSellerOrgIdAndStatusNotOrderByIdDesc(Long mktOrderId, Long sellerOrgId,
+            String status);
+
     /** The operator's queue: urgent first, then oldest. idx_mkt_case_queue. */
     Page<MarketplaceSupportCase> findByStatusInOrderByUrgentDescCreatedAtAsc(Collection<String> statuses, Pageable page);
 

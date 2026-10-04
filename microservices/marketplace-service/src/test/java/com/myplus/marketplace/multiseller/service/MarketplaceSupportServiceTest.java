@@ -109,6 +109,9 @@ class MarketplaceSupportServiceTest {
                 .filter(c -> c.getCaseNo().equals(i.getArgument(0))).findFirst());
         lenient().when(cases.findFirstByMktOrderIdAndStatusNotOrderByIdDesc(anyLong(), anyString())).thenAnswer(i -> caseTable.values()
                 .stream().filter(c -> c.getMktOrderId().equals(i.getArgument(0)) && !c.getStatus().equals(i.getArgument(1))).findFirst());
+        lenient().when(cases.findFirstByMktOrderIdAndSellerOrgIdAndStatusNotOrderByIdDesc(anyLong(), anyLong(), anyString()))
+                .thenAnswer(i -> caseTable.values().stream().filter(c -> c.getMktOrderId().equals(i.getArgument(0))
+                        && c.getSellerOrgId().equals(i.getArgument(1)) && !c.getStatus().equals(i.getArgument(2))).findFirst());
         lenient().when(cases.findByStatusInOrderByUrgentDescCreatedAtAsc(any(), any())).thenAnswer(i -> {
             Collection<String> st = i.getArgument(0);
             return new PageImpl<>(caseTable.values().stream().filter(c -> st.contains(c.getStatus()))
@@ -141,6 +144,7 @@ class MarketplaceSupportServiceTest {
                 .filter(o -> o.getOrderNo().equals(i.getArgument(0))).findFirst());
         lenient().when(sellerOrders.findByMktOrderId(anyLong())).thenAnswer(i -> soTable.values().stream()
                 .filter(s -> s.getMktOrderId().equals(i.getArgument(0))).toList());
+        lenient().when(sellerOrders.findById(anyLong())).thenAnswer(i -> Optional.ofNullable(soTable.get((Long) i.getArgument(0))));
         lenient().when(lines.findById(anyLong())).thenAnswer(i -> Optional.ofNullable(lineTable.get((Long) i.getArgument(0))));
         lenient().when(storeOrders.marketplaceReturn(anyLong(), anyLong(), anyLong(), anyInt(), anyBoolean(), anyString()))
                 .thenReturn("CRN-000001");

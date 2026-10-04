@@ -127,6 +127,19 @@
         .thread li{border:0!important;padding:8px 10px!important;background:var(--bg)!important;border-radius:8px}
         .thread li.me{background:var(--surface)!important;border:1px solid var(--line)!important}
         .thread .who{font-size:13px;font-weight:700;color:var(--muted)}
+        /* MKT-2a: the basket (one checkout, several sellers) and an order's parts */
+        .basket-btn{margin-inline-start:8px}
+        .buybar .add{background:var(--surface);color:var(--brand);border:1px solid var(--brand)}
+        .buybar .note{font-size:14px;color:var(--muted)}
+        ul.basket,ul.parts{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+        ul.basket .seller,ul.parts .seller{font-weight:700}
+        ul.basket li.group,ul.parts li{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+        ul.basket .line{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;font-variant-numeric:tabular-nums}
+        ul.basket .line select{min-height:40px}
+        ul.basket .gone{color:var(--bad);font-size:14px}
+        ul.basket .mkt-remove{border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:8px;padding:6px 10px;min-height:40px;cursor:pointer}
+        ul.parts .pstate{font-weight:700} ul.parts .pstate.ok{color:var(--good)} ul.parts .pstate.bad{color:var(--bad)} ul.parts .pstate.wait{color:var(--warn)}
+        @media (max-width:640px){ul.basket .line{grid-template-columns:minmax(0,1fr) auto} ul.basket .line .name{grid-column:1/-1}}
         ul.orders .mkt-cancel{justify-self:start;border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:8px;padding:8px 12px;min-height:40px;cursor:pointer;font:600 14px 'Satoshi',sans-serif}
     </style>
 </head>
@@ -136,6 +149,8 @@
     <div class="bar">
         <a class="brand" th:href="@{/marketplace}" th:text="#{ui.mktPageTitle}">MaxTheService Marketplace</a>
         <button type="button" id="mktAccountBtn" class="acct" th:text="#{ui.mktAccSignIn}">Sign in</button>
+        <!-- MKT-2a: shown once something is in the basket; the count is written by the page -->
+        <button type="button" id="mktBasketBtn" class="acct basket-btn" hidden th:text="#{ui.mktBasket}">Basket</button>
         <nav class="langs" th:if="${supportedLanguages}" th:attr="aria-label=#{ui.mktLanguage}" aria-label="Language">
             <a th:each="l : ${supportedLanguages}" th:href="'?lang=' + ${l.tag}" th:lang="${l.tag}" th:text="${l.endonym}"
                th:attr="aria-current=${currentLang != null and l.tag == currentLang.tag}, data-lang=${l.tag}"
@@ -195,11 +210,18 @@
         <a href="#" id="mktCoBack" class="back"><span aria-hidden="true">←</span> <span th:text="#{ui.mktCoChange}">Change seller</span></a>
         <form class="panel" id="mktCoForm" autocomplete="on" novalidate>
             <h2 id="mktCoTitle" tabindex="-1" th:text="#{ui.mktCoTitle}">Your order</h2>
-            <div class="sum"><span id="mktCoProduct"></span><span id="mktCoUnit"></span></div>
-            <div class="sum"><span th:text="#{ui.mktCoSeller}">Seller</span><b id="mktCoSeller"></b></div>
-            <label class="f"><span th:text="#{ui.mktCoQty}">Quantity</span>
-                <select id="mktCoQty"></select>
-            </label>
+            <div id="mktCoSingle">
+                <div class="sum"><span id="mktCoProduct"></span><span id="mktCoUnit"></span></div>
+                <div class="sum"><span th:text="#{ui.mktCoSeller}">Seller</span><b id="mktCoSeller"></b></div>
+                <label class="f"><span th:text="#{ui.mktCoQty}">Quantity</span>
+                    <select id="mktCoQty"></select>
+                </label>
+            </div>
+            <!-- MKT-2a: the basket, one group per seller; each seller confirms and delivers its own part -->
+            <div id="mktCoBasket" hidden>
+                <p class="terms" id="mktCoBasketNote" th:text="#{ui.mktBasketNote}">Each seller confirms and delivers its own items. If a seller cannot, only that part is cancelled.</p>
+                <ul id="mktBasketList" class="basket"></ul>
+            </div>
             <div class="grid2">
                 <label class="f"><span th:text="#{ui.mktCoName}">Your name</span>
                     <input id="mktCoName" name="name" autocomplete="name" maxlength="120" required></label>
@@ -234,6 +256,7 @@
             <p id="mktOrderDetail" class="terms"></p>
             <div class="sum"><span th:text="#{ui.mktCoOrderNo}">Order number</span><b id="mktCoOrderNo" class="orderno"></b></div>
             <div id="mktOrderLines" class="terms"></div>
+            <ul id="mktOrderParts" class="parts" hidden></ul>
             <div class="sum total"><span th:text="#{ui.mktCoTotal}">Total</span><span id="mktOrderTotal"></span></div>
             <form id="mktTrackForm" hidden>
                 <label class="f"><span th:text="#{ui.mktTrackPhone}">The phone number you ordered with</span>
@@ -285,6 +308,8 @@
 <div class="buybar" id="mktBuyBar" hidden>
     <div class="in">
         <button type="button" id="mktBuyBtn" class="buy" disabled th:text="#{ui.mktChooseFirst}">Choose a seller first</button>
+        <button type="button" id="mktAddBtn" class="buy add" disabled th:text="#{ui.mktAddToBasket}">Add to basket</button>
+        <span id="mktBasketMsg" class="note" role="status" aria-live="polite"></span>
     </div>
 </div>
 

@@ -35,6 +35,7 @@ public class MarketplaceAccountService {
 
     private final MarketplaceOrderRepository orders;
     private final MarketplaceSellerOrderRepository sellerOrders;
+    private final com.myplus.marketplace.multiseller.repository.MarketplaceOrderLineRepository lines;
     private final MarketplaceCheckoutService checkout;
     private final SellerOrderService sellerSide;
     private final MarketplacePaymentService payments;
@@ -47,44 +48,56 @@ public class MarketplaceAccountService {
         return PageResponse.of(orders.findByCustomerIdOrderByCreatedAtDesc(c.getId(), p), this::accountView);
     }
 
-    /** Only while the seller has not answered (OFFERED). After acceptance it is a support case (MKT-1f). */
+    /**
+     * Only while no seller has accepted (every part still OFFERED, or already ended). After an acceptance it is a
+     * support case (MKT-1f). MKT-2a: every waiting part is cancelled together, in one transaction.
+     */
     public MarketplaceOrderDTOs.AccountOrderView cancel(MarketplaceCustomer c, String orderNo, String reason) {
         MarketplaceOrder o = own(c, orderNo);
         if ("CANCELLED".equals(o.getStatus())) return accountView(o);             // a double click
-        MarketplaceSellerOrder so = sellerOrders.findByMktOrderId(o.getId()).stream().findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("No such order."));
-        if (SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus()))
-            throw new ValidationException("This order is already confirmed by the seller. Ask MaxTheService support to cancel it.");
-        if (!SellerOrder.OFFERED.name().equals(so.getAcceptanceStatus()))
-            throw new ValidationException("This order can no longer be cancelled.");
+        List<MarketplaceSellerOrder> parts = sellerOrders.findByMktOrderId(o.getId());
+        if (parts.isEmpty()) throw new ResourceNotFoundException("No such order.");
+        if (parts.stream().anyMatch(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.getAcceptanceStatus())))
+            throw new ValidationException(ALREADY_CONFIRMED);
+        List<MarketplaceSellerOrder> waiting = parts.stream()
+                .filter(p -> SellerOrder.OFFERED.name().equals(p.getAcceptanceStatus())).toList();
+        if (waiting.isEmpty()) throw new ValidationException("This order can no longer be cancelled.");
         String why = reason == null || reason.isBlank() ? CANCELLED_BY_YOU
                 : (CANCELLED_BY_YOU + " " + reason.trim()).substring(0, Math.min(300, CANCELLED_BY_YOU.length() + 1 + reason.trim().length()));
-        Long soId = so.getId();
-        Integer seen = so.getVersion();
+        java.util.Map<Long, Integer> seen = new java.util.HashMap<>();
+        waiting.forEach(p -> seen.put(p.getId(), p.getVersion()));
         try {
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
-                MarketplaceSellerOrder fresh = sellerOrders.findById(soId).orElseThrow();
-                if (!seen.equals(fresh.getVersion()) || !SellerOrder.OFFERED.name().equals(fresh.getAcceptanceStatus()))
-                    throw new OptimisticLockingFailureException("seller order changed");
-                MarketplaceCheckoutService.move(fresh, SellerOrder.CANCELLED);
-                sellerOrders.save(fresh);
-                MarketplaceOrder parent = orders.findById(fresh.getMktOrderId()).orElseThrow();
-                MarketplaceCheckoutService.cancel(parent, why);
+                List<MarketplaceSellerOrder> fresh = new java.util.ArrayList<>();
+                for (Long id : seen.keySet()) {
+                    MarketplaceSellerOrder f = sellerOrders.findById(id).orElseThrow();
+                    if (!seen.get(id).equals(f.getVersion()) || !SellerOrder.OFFERED.name().equals(f.getAcceptanceStatus()))
+                        throw new OptimisticLockingFailureException("seller order changed");
+                    MarketplaceCheckoutService.move(f, SellerOrder.CANCELLED);
+                    sellerOrders.save(f);
+                    fresh.add(f);
+                }
+                MarketplaceOrder parent = orders.findById(o.getId()).orElseThrow();
+                MarketplaceCheckoutService.follow(parent, sellerOrders.findByMktOrderId(o.getId()).stream()
+                        .map(p -> fresh.stream().filter(f -> f.getId().equals(p.getId())).findFirst().orElse(p)).toList(), why);
                 orders.save(parent);
             });
         } catch (OptimisticLockingFailureException raced) {
-            // the seller answered (or the clock ran out) while the shopper pressed: say what happened instead
-            MarketplaceSellerOrder now = sellerOrders.findById(soId).orElseThrow();
-            if (SellerOrder.ACCEPTED.name().equals(now.getAcceptanceStatus()))
-                throw new ValidationException("This order is already confirmed by the seller. Ask MaxTheService support to cancel it.");
+            // a seller answered (or the clock ran out) while the shopper pressed: say what happened instead
+            if (sellerOrders.findByMktOrderId(o.getId()).stream()
+                    .anyMatch(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.getAcceptanceStatus())))
+                throw new ValidationException(ALREADY_CONFIRMED);
             return accountView(orders.findById(o.getId()).orElseThrow());
         }
-        sellerSide.release(sellerOrders.findById(soId).orElseThrow());           // after the commit: the stock goes back
+        for (Long id : seen.keySet()) sellerSide.release(sellerOrders.findById(id).orElseThrow());   // after the commit: the stock goes back
         payments.refundIfCancelled(o.getId());                                    // a card order's money goes back, once
-        audit.event("MKT_ORDER_CANCELLED", "MKT_ORDER", o.getOrderNo(), so.getSellerOrganizationId(), MarketplaceAuditService.Actor.CUSTOMER,
-                SellerOrder.OFFERED.name(), "CANCELLED", o.getTotal(), why);
+        for (MarketplaceSellerOrder p : waiting)
+            audit.event("MKT_ORDER_CANCELLED", "MKT_ORDER", o.getOrderNo(), p.getSellerOrganizationId(), MarketplaceAuditService.Actor.CUSTOMER,
+                    SellerOrder.OFFERED.name(), "CANCELLED", MarketplaceCheckoutService.partTotal(lines.findBySellerOrderIdOrderByIdAsc(p.getId())), why);
         return accountView(orders.findById(o.getId()).orElseThrow());
     }
+
+    static final String ALREADY_CONFIRMED = "This order is already confirmed by the seller. Ask MaxTheService support to cancel it.";
 
     /** Theirs, or "No such order." — the same answer for another account's order and for one that does not exist. */
     private MarketplaceOrder own(MarketplaceCustomer c, String orderNo) {
@@ -100,16 +113,23 @@ public class MarketplaceAccountService {
                 .map(p -> new MarketplaceOrderDTOs.PaymentView(p.getKind(), p.getStatus(), p.getAmount(), p.getReason(),
                         p.getUpdatedAt() != null ? p.getUpdatedAt() : p.getCreatedAt()))
                 .toList();
-        boolean canCancel = !"CANCELLED".equals(v.status()) && SellerOrder.OFFERED.name().equals(v.sellerOrderStatus());
+        List<MarketplaceOrderDTOs.PartView> parts = v.sellerOrders();
+        boolean anyAccepted = parts.stream().anyMatch(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.status()));
+        boolean canCancel = !"CANCELLED".equals(v.status()) && !anyAccepted
+                && parts.stream().anyMatch(p -> SellerOrder.OFFERED.name().equals(p.status()));
         // MKT-1f: the delivery happens in the seller's store order; the marketplace keeps only WHEN (delivered_at). Shown,
-        // never stored as a second status: CONFIRMED + delivered reads "DELIVERED" to the shopper.
-        java.time.LocalDateTime delivered = v.sellerOrderId() == null ? null
-                : sellerOrders.findById(v.sellerOrderId()).map(MarketplaceSellerOrder::getDeliveredAt).orElse(null);
+        // never stored as a second status: CONFIRMED + delivered reads "DELIVERED" to the shopper. MKT-2a: once EVERY
+        // accepted part is delivered, nothing still waiting; the date is the last delivery.
+        List<MarketplaceOrderDTOs.PartView> accepted = parts.stream()
+                .filter(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.status())).toList();
+        boolean waiting = parts.stream().anyMatch(p -> MarketplaceCheckoutService.LIVE_PARTS.contains(p.status()));
+        java.time.LocalDateTime delivered = accepted.isEmpty() || waiting || accepted.stream().anyMatch(p -> p.deliveredAt() == null)
+                ? null : accepted.stream().map(MarketplaceOrderDTOs.PartView::deliveredAt).max(java.time.LocalDateTime::compareTo).orElse(null);
         String status = "CONFIRMED".equals(v.status()) && delivered != null ? "DELIVERED" : v.status();
-        boolean canGetHelp = !"CANCELLED".equals(v.status()) && SellerOrder.ACCEPTED.name().equals(v.sellerOrderStatus());
+        boolean canGetHelp = !"CANCELLED".equals(v.status()) && anyAccepted;
         return new MarketplaceOrderDTOs.AccountOrderView(v.orderNo(), status, v.paymentMode(), v.paymentStatus(), v.total(),
                 v.cancelReason(), v.createdAt(), v.sellerName(), v.sellerOrderStatus(), v.secondsToAccept(), v.city(), v.lines(),
-                ps, canCancel, delivered, canGetHelp);
+                ps, canCancel, delivered, canGetHelp, parts);
     }
 
     /** Re-used by the controller for a claim's answer. */

@@ -26,10 +26,18 @@ public final class PhaseGuard {
     }
 
     public void checkCheckout(Collection<CheckoutLine> lines) {
+        checkCheckout(lines, false);
+    }
+
+    /**
+     * @param multiSellerOn MKT-2a: the operator switched on the multi-seller checkout, which the order splitting,
+     *                      per-part payment and per-seller returns now exist for. Phase 2 has it on by definition.
+     */
+    public void checkCheckout(Collection<CheckoutLine> lines, boolean multiSellerOn) {
         if (lines == null || lines.isEmpty())
             throw new MarketplaceRuleException("EMPTY_CHECKOUT", "Your basket is empty.");
         long sellers = lines.stream().map(CheckoutLine::sellerOrganizationId).distinct().count();
-        if (enabledPhase < 2 && sellers > 1)
+        if (enabledPhase < 2 && !multiSellerOn && sellers > 1)
             throw new MarketplaceRuleException("ONE_SELLER_PER_CHECKOUT",
                     "Items from different sellers must be checked out separately.");
         for (CheckoutLine l : lines) checkOffer(l.source(), l.regulated());

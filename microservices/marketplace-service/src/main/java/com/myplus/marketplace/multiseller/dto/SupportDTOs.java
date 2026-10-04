@@ -56,8 +56,9 @@ public final class SupportDTOs {
             String refundChannel, String outcome, String creditNoteNo, String decisionNote, LocalDateTime createdAt) {
     }
 
+    /** {@code sellerName}: MKT-2a — the seller whose part the case is about (an order from several sellers has one case each). */
     public record CaseView(String caseNo, String orderNo, String topic, String status, boolean urgent,
-            LocalDateTime createdAt, List<MessageView> messages, List<ReturnView> returns) {
+            LocalDateTime createdAt, List<MessageView> messages, List<ReturnView> returns, String sellerName) {
     }
 
     /** A row of the operator's queue. */

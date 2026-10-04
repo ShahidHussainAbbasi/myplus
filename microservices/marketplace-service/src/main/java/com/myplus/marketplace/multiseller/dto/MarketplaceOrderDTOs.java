@@ -17,13 +17,38 @@ public final class MarketplaceOrderDTOs {
      * (unitPrice, total, sellerOrganizationId …) is not bound.
      */
     public record CheckoutRequest(Long offerId, Integer quantity, BigDecimal expectedPrice, String customerName,
-            String customerPhone, String address, String city, String idempotencyKey, String paymentMode, String cardToken) {
+            String customerPhone, String address, String city, String idempotencyKey, String paymentMode, String cardToken,
+            List<CheckoutLine> lines) {
+
+        /** MKT-1e2: one offer, cash or card (every caller before MKT-2a). */
+        public CheckoutRequest(Long offerId, Integer quantity, BigDecimal expectedPrice, String customerName,
+                String customerPhone, String address, String city, String idempotencyKey, String paymentMode, String cardToken) {
+            this(offerId, quantity, expectedPrice, customerName, customerPhone, address, city, idempotencyKey, paymentMode,
+                    cardToken, null);
+        }
 
         /** MKT-1e: cash on delivery (every caller before MKT-1e2). */
         public CheckoutRequest(Long offerId, Integer quantity, BigDecimal expectedPrice, String customerName,
                 String customerPhone, String address, String city, String idempotencyKey) {
             this(offerId, quantity, expectedPrice, customerName, customerPhone, address, city, idempotencyKey, null, null);
         }
+    }
+
+    /**
+     * MKT-2a — one basket line. When {@code lines} is sent, {@code offerId}/{@code quantity}/{@code expectedPrice} are
+     * ignored. {@code expectedPrice} is the unit price the shopper saw; it is never charged.
+     */
+    public record CheckoutLine(Long offerId, Integer quantity, BigDecimal expectedPrice) {
+    }
+
+    /**
+     * MKT-2a — one seller's part of an order, as the shopper sees it: its own status, deadline, total and lines.
+     * {@code promisedBy} is when the seller's longest delivery promise runs out, counted from the acceptance (or,
+     * before it, from the order).
+     */
+    public record PartView(Long id, Integer version, Long sellerOrganizationId, String sellerName, String status,
+            Long secondsToAccept, BigDecimal subtotal, BigDecimal deliveryFee, BigDecimal total, LocalDateTime promisedBy,
+            LocalDateTime deliveredAt, List<LineView> lines) {
     }
 
     /** MKT-1e2 — one payment fact as the shopper sees it. */
@@ -34,7 +59,7 @@ public final class MarketplaceOrderDTOs {
     public record AccountOrderView(String orderNo, String status, String paymentMode, String paymentStatus, BigDecimal total,
             String cancelReason, LocalDateTime createdAt, String sellerName, String sellerOrderStatus, Long secondsToAccept,
             String city, List<LineView> lines, List<PaymentView> payments, boolean canCancel, LocalDateTime deliveredAt,
-            boolean canGetHelp) {
+            boolean canGetHelp, List<PartView> sellerOrders) {
     }
 
     /** What the SHOPPER sees of an order line: the snapshot of price, parties, warranty and returns. No commission. */
@@ -49,7 +74,7 @@ public final class MarketplaceOrderDTOs {
     public record OrderView(String orderNo, String status, String paymentMode, String paymentStatus,
             BigDecimal subtotal, BigDecimal deliveryFee, BigDecimal total, String cancelReason, LocalDateTime createdAt,
             Long sellerOrderId, Integer sellerOrderVersion, String sellerOrderStatus, String sellerName,
-            Long secondsToAccept, String city, List<LineView> lines) {
+            Long secondsToAccept, String city, List<LineView> lines, List<PartView> sellerOrders) {
     }
 
     /** The seller's line: the shopper's view plus the commission terms the seller is charged (snapshot). */
@@ -72,7 +97,14 @@ public final class MarketplaceOrderDTOs {
     public record RejectRequest(Integer version, String reason) {
     }
 
-    /** GET/POST /mkt/operator/settings/accept-window. */
-    public record AcceptWindow(Integer minutes) {
+    /**
+     * GET/POST /mkt/operator/settings/accept-window. MKT-2a: {@code multiSeller} rides on the same form — on a POST,
+     * a null field is left as it is.
+     */
+    public record AcceptWindow(Integer minutes, Boolean multiSeller) {
+
+        public AcceptWindow(Integer minutes) {
+            this(minutes, null);
+        }
     }
 }
