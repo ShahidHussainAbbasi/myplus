@@ -59,21 +59,28 @@ const SECTIONS = {
     ],
   },
   pricemode: {
-    dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 24), prefix: 'prm',
-    order: ['P1', 'P2', 'P3', 'P4', 'P5'],
-    title: 'What a purchase does to the selling price (PR-1)',
+    dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 27), prefix: 'prm',
+    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3'],
+    title: 'Selling price from purchases: Latest, Keep, markup and Per batch (PR-1 to PR-3c)',
     spec: 'cypress/e2e/docs/price-mode-guide.cy.js',
     notes: [
       ['blue', 'What is new', `<strong>Settings → Configuration → Purchasing → How a purchase affects the selling price</strong>:
-        <strong>Latest</strong> (default, as before — the purchase's sell rate becomes the price of all stock) or <strong>Keep</strong>
-        (a purchase never changes the price; the cost is still recorded). The purchase form now says what saving will do,
-        and the product form has a <strong>Price history</strong> link (owner and admin only — it shows the cost).`],
-      ['red', '⚠ Found by the walk (fixed 5 Oct)', `The history's time was <strong>5 hours early</strong> — a 13:00 change showed 08:00. The servers keep
-        UTC and the time went out without its zone. It is now shown in your own time, and the gate checks it.`],
-      ['amber', 'A void does not undo a price', `Voiding a bill reverses its stock and payment, not the price it set: the price was a decision and its
-        history keeps it. Cases P2–P3 save purchases, so they run on <code>owner.lifecycle@myplus.com</code> and void their bills.`],
+        <strong>Latest</strong> (default — the purchase's sell rate becomes the price of all stock), <strong>Keep</strong>
+        (a purchase never changes the price) or <strong>Per batch</strong> (each purchase's stock sells at its own price).
+        The <strong>markup rule</strong> suggests — or on Auto sets — a price from the cost, by business, category or product.
+        In Per batch the till shows a <strong>Batch</strong> list, and a sale of 10 across a 200 and a 250 batch is charged
+        <strong>7 × 200 + 3 × 250</strong>, shown in the cart before payment.`],
+      ['red', '⚠ Found by the walks (all fixed 5 Oct)', `The price history's time was <strong>5 hours early</strong> (UTC sent without its zone).
+        <strong>Use 240.45</strong> did nothing when clicked straight from the P/U box. Every <strong>Markup by category</strong>
+        save was refused (403). One product on two sale lines <strong>recorded both lines' batches</strong> on each, and 5 + 5
+        against 7 on the shelf was <strong>sold</strong>. In Per batch a <strong>typed price was re-priced to the batch's</strong>
+        at Complete Sale (S2).`],
+      ['amber', 'A void does not undo a price', `Voiding a bill reverses its stock and payment, not the price it set. Cases that save purchases or
+        sales run on <code>owner.lifecycle@myplus.com</code> and void them on screen; a voided <em>sale</em> leaves the sale list
+        entirely. Run the cases one at a time — a pricing setting one case changes is put back only at its end.`],
     ],
   },
+
 }
 
 const which = process.argv[2]
