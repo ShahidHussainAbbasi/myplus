@@ -5825,6 +5825,9 @@ function loadPosFeatureFlags(){
 		// PR-3b: + 'per_batch' (each purchase's stock sells at its own price).
 		window.posPurchasePriceMode = (function (m) { return (m === 'keep' || m === 'per_batch') ? m : 'latest'; })(
 			String(posSettingText(res, 'pos.pricing.purchaseMode', 'latest')).toLowerCase());
+		// PR-4 — the markup rule's mode, so the purchase form can say "waits for approval" before any cost is typed.
+		window.posMarkupMode = String(posSettingText(res, 'pos.pricing.markupMode', 'suggest')).toLowerCase();
+		if (typeof window.refreshPriceApprovalCount === 'function') window.refreshPriceApprovalCount();
 		// PR-2b — the business's markup %, shown on the Markup by category screen ("blank = the business's 14.5%").
 		window.posMarkupPct = posSettingText(res, 'pos.pricing.markupPct', '0');
 		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor

@@ -1,6 +1,6 @@
 # Selling price per purchase (batch price) and the purchase-based markup rule — analysis
 
-Status: **PR-1, PR-2, PR-2b, PR-3a, PR-3b and PR-3c built (§7–§10). PR-4 (approval) not started.**
+Status: **PR-1, PR-2, PR-2b, PR-3a, PR-3b, PR-3c (§7–§10) and PR-4 — approval (§11) — built.**
 
 ## 1. The question
 
@@ -360,4 +360,92 @@ nothing, pins before FEFO, another tenant's batch refused); business **502/502**
 
 **Not in PR-3c (stated on the page):** loose lines priced per batch; quotes, the storefront and B2B percent rules (decision
 3); PR-4 (approval of held-back price changes).
+
+
+## 11. PR-4 — the owner approves a price before customers see it (design, 2026-10-05)
+
+Decisions already taken (§6): order PR-1 → PR-4, and **owner/admin approve price changes** (decision 3). This section
+fills what §4.3 left open; nothing here changes a shop that does not choose it.
+
+### 11.1 What changes for the owner
+
+* **Settings → Purchasing → Price from the purchase cost** gains a fourth choice, **Approval — every price a purchase
+  would set waits for you**. Default stays **Suggest**.
+* In **Approval**, a purchase never moves the product's price by itself. The price it *would* set — the markup rule's
+  price when a % applies, otherwise the bill's S/U rate when it differs from today's price — becomes a **pending price
+  change**. The cost (last purchase rate) is still stamped, as in every mode.
+* In **Auto**, a change a guard held back (it would lower the price, or raise it past the cap) is no longer only a
+  sentence on the form: it becomes a pending change too, with the guard as its reason. Auto's own changes still apply
+  at once.
+* **Purchase → Price approvals** (owner/admin; a count badge on the menu) lists pending changes: product, price now,
+  proposed price, the change in % (red when it lowers the price), why (the rule and its %, or the guard), the bill, who
+  and when. **Approve** sets the price (history source **APPROVAL**, naming the bill); **Reject** records the decision
+  and changes nothing.
+* The purchase form says it before saving: *"Saving sends 240.45 for approval; the selling price stays 200.00 until an
+  owner or admin approves it (Purchase → Price approvals)."*
+
+### 11.2 Rules (each is a gate case)
+
+| Rule | Why |
+|---|---|
+| One pending change per product; a newer proposal **supersedes** the older (status SUPERSEDED) | two pending prices for one product cannot both be right; the latest cost is the one to judge |
+| Approve carries the price the screen showed (`expectedCurrent`); if the product's price is no longer that, **refused**: "The price is now X — it changed since this was proposed. Reload." | an approval decided against a price that has since moved would overwrite someone else's change (the BLK-4 rule, applied here) |
+| Approve/Reject are owner/admin; proposing is done by the purchase path for whoever records the purchase | approving your own bill's price is the control this exists for; a cashier recording goods-in must still be able to record it |
+| Keep never queues; Per batch prices the **batch** (no queue — a new batch has no price to protect, as in PR-3b) | "never changes the price" means never; Per batch has no shelf price to approve |
+| A decided change is final (APPROVED / REJECTED are not re-opened) | the record is the audit trail; a new purchase makes a new proposal |
+| Scoped by tenant on every read and write; another tenant's id is not found | anti-IDOR, like every catalog read |
+
+### 11.3 Trace (Rule 0)
+
+* **Readers of `pos.pricing.markupMode` — 5:** `MarkupPolicy.mode()`, `MarkupPolicy.suggest()` (both list the allowed
+  values: `approval` must be added to **both** or it silently reads as Suggest — the PR-1 lower-case trap's twin),
+  `PurchaseService.stampRatesOnProduct` (product), `PurchaseService.batchSellPrice` (batch — Approval behaves as
+  Suggest there), `PurchasePricingController.suggestedPrice` (the form's hint). Plus the settings catalogue entry.
+* **Writers of `products.selling_price` — 3:** the product form (`create`/`update`, MANUAL), `updatePrice` (purchase,
+  PURCHASE/MARKUP) and the new approval (APPROVAL). The approval goes **through `updatePrice`'s write** so the version
+  bump (BLK-4), the cache eviction (CACHE-1) and the history row all happen exactly as for a purchase.
+* **The new table** `price_change_requests` (catalog V24) has one writer per transition: propose (business → catalog),
+  approve/reject (owner/admin). Readers: the approvals list and its count. Nothing else reads it.
+
+### 11.4 Not in PR-4
+
+Notifications beyond the menu badge (email/WhatsApp); bulk approve; approving a Per-batch batch price; approving a
+price typed on the product form (the owner typed it — it is already their decision).
+
+### 11.5 PR-4 as built (2026-10-05)
+
+| Change | Where |
+|---|---|
+| `price_change_requests` (V24): tenant, product, price at proposal, proposed price, cost, source (MARKUP/PURCHASE), reason (APPROVAL / NEVER_LOWER / MAX_RISE), detail, bill ref, status PENDING/APPROVED/REJECTED/SUPERSEDED, who/when proposed and decided, decision note | catalog `PriceChangeRequest`, `PriceChangeRequestRepository` (every query takes the org) |
+| `PriceApprovalService`: **propose** (nothing when equal to the price now; supersedes the product's pending one), **list** (≤200 rows, product name and *live* price joined), **count**, **approve(id, expectedCurrent)** → refused with "The price is now X — it changed since this was proposed. Reload and decide again." when the price moved, else `ProductService.updatePrice(…, ref, APPROVAL)`, **reject(id, note)**; decided rows are final | catalog |
+| `/api/catalog/price-proposals`: POST propose (the purchase path); GET list, GET `/count`, POST `/{id}/approve`, `/{id}/reject` — owner/admin/super via `@PreAuthorize` | catalog `PriceApprovalController`; `CatalogClient.proposePrice` |
+| `ProductPriceHistory.APPROVAL`; `updatePrice` records the source it is given (MARKUP or APPROVAL) | catalog |
+| `MarkupPolicy.APPROVAL` in the ONE allowed-values set both `getChoice` calls use (§11.3's trap closed by construction); `Suggestion.detail()` ("14.5% on cost, the business rate") | business |
+| `PurchaseService.stampRatesOnProduct`: Approval → price not sent (cost still stamped), the rule's price proposed (MARKUP) or the bill's S/U (PURCHASE); Auto with a guard → the held price proposed with the guard as reason; Keep / Per batch → nothing proposed; the catalog unreadable → the price stays and nothing is proposed (never the bill's rate). Proposing is best-effort: it never refuses a bill | business |
+| Settings option **Approval — each new price waits for you** and its help | business `BusinessSettingsCatalog` |
+| **Purchase → Price approvals**: Waiting / Approved / Rejected / All; per row now, new, change % (red when lower), why, bill, when; Approve (confirm names old → new) and Reject (optional reason). Red count on the menu item **and on the closed Purchase button**; it refreshes after every purchase save | monolith `price-approvals.js`, `CatalogController` proxies, `businessDashboard.html` (owner/admin/super only, server-rendered), 35 keys × 6 languages |
+| Purchase form: Approval sentence (`data-effect="approval"`; `same` when nothing would change); a held-back sentence adds "It waits for approval in Purchase → Price approvals."; no Use button in Approval | monolith `price-history.js` |
+
+**Found while building:**
+
+| Finding | Cause | Status |
+|---|---|---|
+| **Typing in a form could be pulled back to its first box mid-number** — the purchase form's P/U got "2" and Invoice # got "10" (gate A12, intermittently red) | `openModal` / `revealSection` focus the first field one animation frame after showing it, and a frame is not a fixed time — a busy or throttled page ran it ~800 ms late (measured: the call stack is `crud-modal.js` → `focusFirstField`), after the user had clicked into P/U | **Fixed for every form** in `focus-flow.js`: auto-focus only places a cursor nobody placed — if focus is already inside the container it stands down. Its two callers (openModal, revealSection) both want this. Before: focus moved to Invoice # 4/4 runs; after: 0/3 (and it still lands on Invoice # when nothing was clicked first). Neighbour gates `business-modal-keyboard` 19/19, `purchase-rapid-entry` 28/28 |
+| The Price approvals count stayed hidden after saving the bill that created a proposal (guide T1 red) | the count was read on page load only | Fixed: refreshed after every `addPurchase`/`updatePurchase` (a global `ajaxComplete` hook — `callAjax` stays global for exactly this) |
+| The count on the menu item was invisible while the menu was closed | it lived only inside the dropdown | A second badge on the Purchase button (gate A11) |
+| Gate `pricing-markup` M1 expected three rule choices | PR-4 added the fourth | Gate updated |
+
+**Tests:** catalog `PriceApprovalServiceTest` **10/10** (catalog total 167/167); business `PurchaseApprovalTest` **7/7** and
+the Approval case in `MarkupPolicyTest` (business total 510/510). Gate `cypress/e2e/business/pricing-approval.cy.js`
+A1–A12 **12/12**, three runs in a row on the deployed build; neighbour gates `pricing-markup` 15/15,
+`pricing-purchase-mode` 10/10, `pricing-per-batch` 6/6, `pricing-per-batch-sale` 8/8. Step-by-step guide cases
+**T1–T5** in `cypress/e2e/docs/price-mode-guide.cy.js` (Test Book §27): approve on screen, reject with a reason, the
+moved-price refusal, Auto's held change queued, and who may decide.
+
+**Unrelated, seen on this fresh stack (both fail before any focus code runs):** `purchase-inline-product` 8 red —
+`#newProductFromPurchase` is not on the page for `demo.business@`; its only condition is `sec:authorize` on
+`product.create`, so that user lacks it on this database (why — **unverified**). `education-modal-keyboard` — the
+education login probe answers 500 (cause not investigated). notification-service restarts: access denied to
+`myplusdb_notification`, which does not exist on this stack — fixed on the branch meanwhile by the verification sweep
+(`init-db.sql`). The other two are left to that sweep.
 

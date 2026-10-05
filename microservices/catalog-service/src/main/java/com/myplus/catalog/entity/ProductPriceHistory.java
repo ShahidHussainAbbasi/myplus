@@ -18,6 +18,8 @@ public class ProductPriceHistory {
     public static final String IMPORT = "IMPORT";
     /** PR-2 — a purchase set the price through the business's markup rule (Auto). */
     public static final String MARKUP = "MARKUP";
+    /** PR-4 — the owner approved a price a purchase proposed (ref = that purchase's bill). */
+    public static final String APPROVAL = "APPROVAL";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

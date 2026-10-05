@@ -194,6 +194,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<button class="snav-btn" onclick="snavToggle(event,'snavPurchase')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.purchase}">Purchase</span>
+								<!-- PR-4: prices waiting for approval, on the closed menu too — a count inside a closed menu is never seen. -->
+								<span id="paCountTop" class="badge" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none;background:#b42318;margin-left:4px"></span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
@@ -201,6 +203,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- Task #21: a purchase return is a DEBIT NOTE, and it belongs with the purchases it
 								     reverses rather than in a combined "returns" screen away from either flow. -->
 								<li><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
+								<!-- PR-4: prices purchases would set, waiting for the owner. Owner/admin (catalog enforces it too). -->
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a id="navPriceApprovals" onclick="showPriceApprovals();document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.priceApprovals}">Price approvals</span> <span id="paCount" class="badge" style="display:none;background:#b42318"></span></a></li>
 							</ul>
 						</div>
 						<div class="snav-dd" id="snavSell">
@@ -1145,6 +1149,33 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</form>
+				</div>
+			</div>
+
+			<!-- PR-4: Price approvals. Rows are filled by price-approvals.js (showPriceApprovals). -->
+			<div id="PriceApprovalsDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.priceApprovals}">Price approvals</h4>
+				<p class="help-block" th:text="#{ui.priceApprovalsHelp}">Prices purchases would set, waiting for you. Nothing changes for customers until you approve. A newer purchase replaces an older proposal for the same product.</p>
+				<div class="pa-filters" role="group" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">
+					<button type="button" class="btn btn-default btn-sm active" data-pa-status="PENDING" aria-pressed="true" th:text="#{ui.paPending}">Waiting</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="APPROVED" aria-pressed="false" th:text="#{ui.paApproved}">Approved</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="REJECTED" aria-pressed="false" th:text="#{ui.paRejected}">Rejected</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="" aria-pressed="false" th:text="#{ui.paAll}">All</button>
+				</div>
+				<div class="tscroll" style="overflow-x:auto">
+					<table class="table table-condensed table-striped" id="tablePriceApprovals" style="width:100%">
+						<thead><tr>
+							<th th:text="#{ui.product}">Product</th>
+							<th style="text-align:right" th:text="#{ui.paNow}">Price now</th>
+							<th style="text-align:right" th:text="#{ui.paProposed}">Proposed</th>
+							<th style="text-align:right" th:text="#{ui.paChange}">Change</th>
+							<th th:text="#{ui.paWhy}">Why</th>
+							<th th:text="#{ui.paBill}">Bill</th>
+							<th th:text="#{ui.paWhen}">When</th>
+							<th style="width:170px"></th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
 				</div>
 			</div>
 
@@ -4703,6 +4734,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/catalog-products.js}"></script>
     <!-- PR-1: the purchase form's price-effect hint + the product's price history dialog. -->
     <script th:src="@{/js/business/price-history.js}"></script>
+    <!-- PR-4: the Price approvals screen and its menu badge (owner/admin). -->
+    <script th:src="@{/js/business/price-approvals.js}"></script>
     <!--
          SER-5 dashboard cards. Loads AFTER catalog-products.js because the category card's click handler
          calls openProductsForCategory(), which that file defines. The handler is delegated on `document`, so

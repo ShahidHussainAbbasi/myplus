@@ -14,6 +14,8 @@
  *  - Scrolling accounts for the sticky header, otherwise the thing we scroll to sits underneath it.
  *  - `.no-autofocus` on a field (or a container) opts out, for screens where landing in a box is wrong —
  *    the POS sell screen, say, where the barcode box has its own focus rules.
+ *  - Never moves a cursor the user already placed. Auto-focus runs a frame after a form opens; if the user got
+ *    into one of its fields first, they stay there.
  *  - Respects prefers-reduced-motion: those users get an instant jump, not a smooth glide.
  */
 (function () {
@@ -108,6 +110,12 @@
     /** Focus the first field worth typing into. Returns the element it focused, or null. */
     window.focusFirstField = function (container) {
         if (!container || !mayAutoFocus()) return null;
+        // Both callers (openModal, revealSection) run this a frame AFTER showing the container, and a frame is not
+        // a fixed time: a busy page or a throttled tab delays it by hundreds of ms. By then the user may already be
+        // typing in a field of this form — the purchase form pulled the cursor out of P/U back to Invoice # in
+        // mid-number ("10" in the invoice box, "2" as the rate). Auto-focus only places a cursor nobody placed.
+        var active = document.activeElement;
+        if (active && active !== container && container.contains(active)) return null;
         var fields = container.querySelectorAll(TYPEABLE);
         for (var i = 0; i < fields.length; i++) {
             if (skip(fields[i])) continue;

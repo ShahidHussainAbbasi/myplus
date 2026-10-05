@@ -72,7 +72,7 @@
         var $s = $('#purchaseSuggest');
         if (!$s.length) return;
         // Auto says it on the price line itself (below); Off and "no rule" say nothing.
-        if (!d || d.price == null || d.mode === 'off' || d.mode === 'auto') {
+        if (!d || d.price == null || d.mode === 'off' || d.mode === 'auto' || d.mode === 'approval') {
             $s.hide().empty().removeAttr('data-mode').removeAttr('data-price').removeAttr('data-sig'); return;
         }
         var price = money(d.price);
@@ -130,6 +130,22 @@
             return;
         }
 
+        // PR-4 Approval: nothing a purchase does moves the price by itself; the price it would set waits for approval —
+        // the rule's price when a % applies, else the S/U typed. Said before saving, whatever has been typed so far.
+        var approval = (d && d.mode === 'approval') || (!d && global.posMarkupMode === 'approval');
+        if (productId && !keep && approval) {
+            var proposed = (d && d.price != null) ? Number(d.price) : (sell > 0 ? sell : null);
+            var nowA = (d && d.current != null) ? Number(d.current) : currentPurchasePrice();
+            if (proposed == null) { $hint.hide().empty().removeAttr('data-effect'); return; }
+            if (nowA != null && Math.abs(nowA - proposed) < 0.005) {
+                $hint.attr('data-effect', 'same').text(t('ui.js.priceEffectSame', money(nowA))).show();
+            } else {
+                $hint.attr('data-effect', 'approval')
+                    .text(t('ui.js.priceEffectApproval', money(proposed), nowA != null ? money(nowA) : '—')).show();
+            }
+            return;
+        }
+
         // PR-2 Auto: the RULE decides the price, whatever S/U says — so the line speaks for the rule.
         if (productId && !keep && d && d.mode === 'auto' && d.price != null) {
             var cur = d.current != null ? Number(d.current) : currentPurchasePrice();
@@ -140,9 +156,9 @@
                     effect = 'auto'; text = t('ui.js.priceEffectAuto', money(cur), money(d.price), why(d));
                 }
             } else if (d.guard === 'NEVER_LOWER') {
-                effect = 'held'; text = t('ui.js.priceEffectHeldLower', money(cur), money(d.price));
+                effect = 'held'; text = t('ui.js.priceEffectHeldLower', money(cur), money(d.price)) + ' ' + t('ui.js.priceEffectQueued');
             } else {
-                effect = 'held'; text = t('ui.js.priceEffectHeldRise', money(cur), money(d.price));
+                effect = 'held'; text = t('ui.js.priceEffectHeldRise', money(cur), money(d.price)) + ' ' + t('ui.js.priceEffectQueued');
             }
             $hint.attr('data-effect', effect).text(text).show();
             return;
@@ -177,7 +193,8 @@
         MANUAL: 'ui.js.priceSourceManual',
         PURCHASE: 'ui.js.priceSourcePurchase',
         IMPORT: 'ui.js.priceSourceImport',
-        MARKUP: 'ui.js.priceSourceMarkup'
+        MARKUP: 'ui.js.priceSourceMarkup',
+        APPROVAL: 'ui.js.priceSourceApproval'
     };
     function sourceLabel(s) { return SOURCE_KEYS[s] ? t(SOURCE_KEYS[s]) : (s || ''); }
 

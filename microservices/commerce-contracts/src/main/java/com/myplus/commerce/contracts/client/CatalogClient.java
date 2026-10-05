@@ -84,6 +84,20 @@ public interface CatalogClient {
                      @RequestParam(name = "ref", required = false) String ref,
                      @RequestParam(name = "source", required = false) String source);
 
+    /**
+     * PR-4 — a price this purchase would set, sent to the owner's approval queue instead of to the product. Catalog
+     * answers with no proposal when the price is already that; a pending proposal for the product is superseded.
+     * {@code reason}: APPROVAL (the business chose Approval) | NEVER_LOWER | MAX_RISE (an Auto guard held it back).
+     */
+    @PostExchange("/price-proposals")
+    void proposePrice(@RequestParam(name = "productId") Long productId,
+                      @RequestParam(name = "proposedPrice") BigDecimal proposedPrice,
+                      @RequestParam(name = "cost", required = false) BigDecimal cost,
+                      @RequestParam(name = "source", required = false) String source,
+                      @RequestParam(name = "reason", required = false) String reason,
+                      @RequestParam(name = "detail", required = false) String detail,
+                      @RequestParam(name = "ref", required = false) String ref);
+
     /** PR-1 — naming the bill; recorded as a PURCHASE change. */
     default void updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate, String ref) {
         updatePrice(id, price, purchaseRate, ref, null);

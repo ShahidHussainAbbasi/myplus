@@ -1056,6 +1056,60 @@ public class CatalogController {
         }
     }
 
+    // ── PR-4 · Price approvals — straight proxies. Who may decide (owner/admin), which tenant's rows exist and whether the
+    //    price moved since a proposal are all decided in catalog-service, never in this hop. ─────────────────────────
+
+    /** PR-4 — the queue, newest first; {@code status} PENDING | APPROVED | REJECTED | SUPERSEDED, blank = all. */
+    @GetMapping(value = "/priceApprovals", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> priceApprovals(@RequestParam(name = "status", required = false) String status) {
+        try {
+            return catalog.get("/price-proposals", status == null || status.isBlank() ? null : "status=" + enc(status));
+        } catch (Exception e) {
+            LOGGER.error("priceApprovals proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — how many are waiting, for the menu badge. */
+    @GetMapping(value = "/priceApprovalCount", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> priceApprovalCount() {
+        try {
+            return catalog.get("/price-proposals/count");
+        } catch (Exception e) {
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — approve, sending the price the screen showed so a price that moved since is refused, not overwritten. */
+    @PostMapping(value = "/approvePriceChange", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> approvePriceChange(@RequestParam("id") Long id,
+                                                  @RequestParam(name = "expectedCurrent", required = false) java.math.BigDecimal expectedCurrent) {
+        try {
+            return catalog.postJson("/price-proposals/" + id + "/approve"
+                    + (expectedCurrent == null ? "" : "?expectedCurrent=" + expectedCurrent.toPlainString()), Map.of());
+        } catch (Exception e) {
+            LOGGER.error("approvePriceChange proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — reject, with an optional reason kept on the decision. */
+    @PostMapping(value = "/rejectPriceChange", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> rejectPriceChange(@RequestParam("id") Long id,
+                                                 @RequestParam(name = "note", required = false) String note) {
+        try {
+            return catalog.postJson("/price-proposals/" + id + "/reject"
+                    + (note == null || note.isBlank() ? "" : "?note=" + enc(note)), Map.of());
+        } catch (Exception e) {
+            LOGGER.error("rejectPriceChange proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** M1 (slice 42): a single catalog Product by id. */
     @GetMapping("/getCatalogProduct")
     @ResponseBody

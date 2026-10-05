@@ -740,12 +740,16 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Price from the purchase cost (markup rule)",
                         "Suggest (default): the purchase form suggests a selling price from the cost and your markup, "
                                 + "with a button to use it. Auto: saving a purchase sets the selling price by the rule "
-                                + "(never when purchases keep prices, never lower, and not past the rise limit below). "
-                                + "Off: no suggestion. Nothing happens until a markup % is set.",
+                                + "(never when purchases keep prices, never lower, and not past the rise limit below; a change "
+                                + "those hold back waits in Purchase → Price approvals). Approval: a purchase never changes the "
+                                + "price itself — the price it would set waits for an owner or admin to approve it. "
+                                + "Off: no suggestion. Nothing happens until a markup % is set (Approval also queues the bill's "
+                                + "sell rate when there is no %).",
                         MarkupPolicy.SUGGEST, "Purchasing",
                         List.of(new SettingEntry.Option(MarkupPolicy.OFF, "Off"),
                                 new SettingEntry.Option(MarkupPolicy.SUGGEST, "Suggest (default) — show it, you decide"),
-                                new SettingEntry.Option(MarkupPolicy.AUTO, "Auto — saving a purchase sets the price"))),
+                                new SettingEntry.Option(MarkupPolicy.AUTO, "Auto — saving a purchase sets the price"),
+                                new SettingEntry.Option(MarkupPolicy.APPROVAL, "Approval — each new price waits for you"))),
                 SettingEntry.money(MarkupPolicy.PCT_KEY,
                         "Markup %",
                         "The percentage for every product that has no markup of its own (set one on the product to "

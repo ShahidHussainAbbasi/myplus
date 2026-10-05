@@ -102,7 +102,7 @@ describe('PR-2 — the markup rule', () => {
     config().then((all) => {
       const v = (k) => { const e = all.find((x) => x.key === k); expect(e, k).to.be.an('object'); expect(e.group, k).to.eq('Purchasing'); return e }
       expect(v('pos.pricing.markupMode').value).to.eq('suggest')
-      expect(v('pos.pricing.markupMode').options.map((o) => o.value)).to.deep.eq(['off', 'suggest', 'auto'])
+      expect(v('pos.pricing.markupMode').options.map((o) => o.value)).to.deep.eq(['off', 'suggest', 'auto', 'approval'])   // PR-4 added Approval
       expect(Number(v('pos.pricing.markupPct').value), 'no platform default %').to.eq(0)
       expect(v('pos.pricing.markupBasis').value).to.eq('markup')
       expect(v('pos.pricing.markupRounding').options.map((o) => o.value)).to.deep.eq(['exact', 'up1', 'near5', 'near10'])

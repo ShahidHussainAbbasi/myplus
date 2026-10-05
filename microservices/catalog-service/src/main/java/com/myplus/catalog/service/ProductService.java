@@ -433,8 +433,9 @@ public class ProductService {
             p = productRepository.saveAndFlush(p);
             recordPriceChange(p, priceBefore, p.getSellingPrice(),
                     com.myplus.catalog.entity.ProductPriceHistory.MARKUP.equals(source)
-                            ? com.myplus.catalog.entity.ProductPriceHistory.MARKUP
-                            : com.myplus.catalog.entity.ProductPriceHistory.PURCHASE, ref);   // PR-1 / PR-2
+                            || com.myplus.catalog.entity.ProductPriceHistory.APPROVAL.equals(source)
+                            ? source
+                            : com.myplus.catalog.entity.ProductPriceHistory.PURCHASE, ref);   // PR-1 / PR-2 / PR-4
             changed(p);   // CACHE-1 — the cached picker row carries sellingPrice; a no-op purchase publishes nothing
         }
         return toDto(p);

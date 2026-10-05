@@ -32,6 +32,10 @@ public class MarkupPolicy {
     public static final String OFF = "off";
     public static final String SUGGEST = "suggest";
     public static final String AUTO = "auto";
+    /** PR-4 — a purchase never moves the price itself; the price it would set waits for the owner's approval. */
+    public static final String APPROVAL = "approval";
+    /** Every value the mode may hold. BOTH readers below list it: a value missing from one silently reads as Suggest. */
+    public static final Set<String> MODES = Set.of(OFF, SUGGEST, AUTO, APPROVAL);
 
     public static final String GUARD_NEVER_LOWER = "NEVER_LOWER";
     public static final String GUARD_MAX_RISE = "MAX_RISE";
@@ -43,11 +47,19 @@ public class MarkupPolicy {
                              BigDecimal cost, BigDecimal raw, BigDecimal price, BigDecimal current, String guard) {
         /** True when Auto would set this price on save: a rule price exists and no guard holds it back. */
         public boolean autoApplies() { return AUTO.equals(mode) && price != null && guard == null; }
+
+        /** PR-4 — what the purchase form and the queue say about why this price: "14.5% on cost, the business rate". */
+        public String detail() {
+            if (pct == null || price == null) return null;
+            String of = "PRODUCT".equals(pctSource) ? "this product's own" : "CATEGORY".equals(pctSource) ? "this category's"
+                    : "the business rate";
+            return pct.stripTrailingZeros().toPlainString() + "% " + ("margin".equals(basis) ? "margin" : "on cost") + ", " + of;
+        }
     }
 
     public String mode() {
         try {
-            return settings.getChoice(MODE_KEY, Set.of(OFF, SUGGEST, AUTO), SUGGEST);
+            return settings.getChoice(MODE_KEY, MODES, SUGGEST);
         } catch (RuntimeException unreadable) {
             return OFF;
         }
@@ -70,7 +82,7 @@ public class MarkupPolicy {
         boolean neverLower;
         int maxRise;
         try {
-            mode = settings.getChoice(MODE_KEY, Set.of(OFF, SUGGEST, AUTO), SUGGEST);
+            mode = settings.getChoice(MODE_KEY, MODES, SUGGEST);
             basis = settings.getChoice(BASIS_KEY, Set.of(MarkupCalculator.MARKUP, MarkupCalculator.MARGIN), MarkupCalculator.MARKUP);
             rounding = settings.getChoice(ROUNDING_KEY, Set.of(MarkupCalculator.EXACT, MarkupCalculator.UP1,
                     MarkupCalculator.NEAR5, MarkupCalculator.NEAR10), MarkupCalculator.EXACT);

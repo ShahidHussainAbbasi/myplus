@@ -1125,4 +1125,313 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     voidBills(t)
     resetModeOnScreen(c1)
   })
+
+  // ══ PR-4 · the owner approves a price before customers see it ═══════════════════════════════════════
+
+  const MODE = 'pos.pricing.markupMode'
+  /** Purchase → Price approvals, on the given filter. The menu closes itself after the click. */
+  const openApprovals = (status) => {
+    openMenu('snavPurchase'); cy.get('#navPriceApprovals').click()
+    cy.get('#PriceApprovalsDiv').should('be.visible')
+    if (status != null) {
+      cy.intercept('GET', '/priceApprovals*').as('paList')
+      cy.get(`#PriceApprovalsDiv [data-pa-status="${status}"]`).click()
+      cy.wait('@paList')
+    }
+  }
+  const paRow = (pid) => cy.get(`#tablePriceApprovals tbody tr[data-product="${pid}"]`, { timeout: 15000 })
+  /** A bill in Approval mode, entered and saved on screen (the case under test is what happens AFTER it). */
+  const approvalBill = (vname, inv, pidRef, cost) => {
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pidRef.value, cost))
+    cy.get('#purchasePriceEffect', { timeout: 10000 }).should('have.attr', 'data-effect')
+    savePurchase()
+  }
+  const resetRuleOnScreen = (step, alias) => {
+    openConfiguration()
+    cy.revealSetting(MODE)
+    cy.intercept('POST', '**/resetBusinessConfig').as('cfgReset')
+    cfgRow(MODE).find('.cfg-row__reset').click()
+    cy.wait('@cfgReset')
+    cy.revealSetting(MODE)
+    cy.get(`#businessConfigBody [data-key="${MODE}"]`).should('have.value', 'suggest')
+    cfgRow(MODE).closest('.cfg-group').as(alias)
+    snap(step, 'rule-reset', '@' + alias)
+  }
+  /** after(): a proposal a failed case left waiting is rejected, so the next run's list starts clean for it. */
+  const rejectIfWaiting = (pidRef) => SAFETY.push(() => {
+    if (!pidRef.value) return
+    asLifecycle()
+    cy.request({ url: '/priceApprovals?status=PENDING', failOnStatusCode: false }).then((r) => {
+      list(r.body && (r.body.data || r.body)).filter((x) => Number(x.productId) === Number(pidRef.value))
+        .forEach((x) => cy.request({ method: 'POST', url: '/rejectPriceChange', form: true, failOnStatusCode: false, body: { id: x.id, note: 'guide cleanup' } }))
+    })
+  })
+
+  caseIt('T1', 'Approval: a purchase proposes the price, and the owner approves it on screen', () => {
+    guardPricing()
+    const pname = `PRG Approve ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T1-${run}`
+    testCase('T1', 'Approval: a purchase proposes the price, and the owner approves it on screen', {
+      covers: ['PR4-1', 'PR4-2', 'PR4-3'], slice: 'PR-4', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner (only owner/admin approve)',
+      purpose: 'For a shop where nobody but the owner sets prices: a purchase never moves the selling price by itself. It proposes the price it would set; the owner sees a count on the Purchase menu, reviews the change (old, new, %, why, which bill) and approves it. Only then do customers pay the new price, and the history says it was approved.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', 'Markup % **14.5** (set by the run through the settings’ own request).',
+        `A product **${pname}** selling at **200** and the supplier **${vname}** — made through the same requests the forms send.`],
+      data: [`Rule **Approval**; bill **${inv}**, quantity **2**, P/U **210**`],
+      rollback: 'The bill is voided on screen and the rule is Reset to Suggest on screen. The product keeps the approved 240.45 (a void does not undo a price decision) and is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5')
+    const pidRef = { value: null }
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pidRef.value = id }); SAFETY.push(() => voidIfStanding(inv)); rejectIfWaiting(pidRef)
+
+    const a1 = act('**Settings → Configuration → Purchasing**: set **Price from the purchase cost (markup rule)** to **Approval — each new price waits for you**.',
+      ['The message at the top says **Saved**.', 'The help under the setting says a new price waits in **Purchase → Price approvals** until an owner or admin approves it.'])
+    openDashboard(); openConfiguration()
+    cfgSet(MODE, 'approval')
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    cfgRow(MODE).should('contain', 'Price approvals')
+    cfgRow(MODE).closest('.cfg-group').as('t1g')
+    snap(a1, 'approval-saved', '@t1g')
+
+    const a2 = act(`Reload. **Purchase → New Purchase**: supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**.`,
+      ['Under the rates: “**Saving sends 240.45 for approval; the selling price stays 200.00 until an owner or admin approves it (Purchase → Price approvals).**”',
+        'No **Use** button: in Approval the purchase form decides nothing.'])
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pidRef.value, 210))
+    cy.get('#purchasePriceEffect', { timeout: 10000 }).should('have.attr', 'data-effect', 'approval').and('contain', '240.45').and('contain', '200.00')
+    cy.get('#purchaseSuggestApply').should('not.exist')
+    snap(a2, 'will-wait', '#PurchaseModal .crud-box')
+
+    const a3 = act('Click **Save & Close**.',
+      ['The bill is saved and the form closes.', 'The **Purchase** menu button now carries a red count — the number of prices waiting.', 'The product still sells at **200**.'])
+    savePurchase()
+    cy.get('#paCountTop', { timeout: 15000 }).should('be.visible').invoke('text').then((n) => expect(Number(n)).to.be.greaterThan(0))
+    cy.then(() => catalogProduct(pidRef.value)).then((p) => expect(Number(p.sellingPrice), 'not moved yet').to.eq(200))
+    snap(a3, 'badge', '#snavPurchase')
+
+    const a4 = act('Open **Purchase → Price approvals**.',
+      [`The **Waiting** list has a row for **${pname}**: Now **200.00**, New **240.45**, Change **+20.2%**, Why **14.5% on cost, the business rate**, Bill **${inv}**, with **Approve** and **Reject** buttons.`])
+    openApprovals()
+    cy.then(() => paRow(pidRef.value).as('t1row'))
+    cy.get('@t1row').should('contain', '200.00').and('contain', '240.45').and('contain', '+20.2%').and('contain', '14.5% on cost').and('contain', inv)
+    cy.get('@t1row').find('.pa-approve').should('be.visible')
+    snap(a4, 'waiting', '#PriceApprovalsDiv')
+
+    const a5 = act('Click **Approve** on that row.',
+      [`A dialog asks “**Approve this price?** Set the selling price of ${pname} from 200.00 to 240.45. Customers are charged the new price from now on.”`])
+    cy.get('@t1row').find('.pa-approve').click()
+    cy.get('.uiC-card').should('be.visible').and('contain', 'Approve this price?').and('contain', 'from 200.00 to 240.45')
+    snap(a5, 'confirm', '.uiC-card')
+
+    const a6 = act('Click **Approve** in the dialog.',
+      ['“**Price approved.**” The row leaves the Waiting list.', 'Under **Approved**, the row is listed with the label **Approved**.'])
+    cy.intercept('POST', '/approvePriceChange').as('approve')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@approve').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#tablePriceApprovals tbody tr[data-product="${pidRef.value}"]`).should('not.exist'))
+    cy.intercept('GET', '/priceApprovals*').as('paList')
+    cy.get('#PriceApprovalsDiv [data-pa-status="APPROVED"]').click(); cy.wait('@paList')
+    cy.then(() => paRow(pidRef.value).first().should('contain', 'Approved').and('contain', '240.45'))
+    snap(a6, 'approved', '#PriceApprovalsDiv')
+
+    const a7 = act(`**Register → Products**, search **${pname}**, **Edit**, then **Price history**.`,
+      ['Sell Price is **240.45**.', `The newest history row: **200.00 → 240.45 · Approved · ${inv}** — the bill that proposed it.`])
+    openProduct(pname)
+    cy.get('#prodPrice').should('have.value', '240.45')
+    openHistory()
+    cy.get('#priceHistoryTable tbody tr').eq(0).should('have.attr', 'data-source', 'APPROVAL').and('contain', 'Approved').find('[data-k=ref]').should('have.text', inv)
+    snap(a7, 'history', '#PriceHistoryDialog > div')
+    closeHistory(); closeProduct()
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
+    const c2 = act('Cleanup: **Settings → Configuration → Purchasing**, click **Reset** on the markup rule.', ['It shows **Suggest (default)** again.'], { cleanup: true })
+    resetRuleOnScreen(c2, 't1c')
+  })
+
+  caseIt('T2', 'Reject: the price stays, and the reason is kept with the proposal', () => {
+    guardPricing()
+    const pname = `PRG Reject ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T2-${run}`, why = 'too high for this street'
+    testCase('T2', 'Reject: the price stays, and the reason is kept with the proposal', {
+      covers: ['PR4-4'], slice: 'PR-4', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'Not every new cost should reach the shelf. Rejecting leaves the price exactly as it was, records who decided and why, and the decision stays visible under Rejected.',
+      prereq: ['Rule **Approval**, Markup % **14.5** (set by the run through the settings’ own request).', `A product **${pname}** at **200** and the supplier **${vname}**.`,
+        `A saved bill **${inv}** (quantity 2, P/U 210) — entered on the Purchase form as in T1.`],
+      data: [`Reason **${why}**`],
+      rollback: 'The bill is voided on screen; the rule goes back to Suggest after the run. The product is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg(MODE, 'approval')
+    const pidRef = { value: null }
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pidRef.value = id }); SAFETY.push(() => voidIfStanding(inv)); rejectIfWaiting(pidRef)
+    approvalBill(vname, inv, pidRef, 210)
+
+    const a1 = act(`**Purchase → Price approvals**. On the row for **${pname}** (200.00 → 240.45), click **Reject**.`,
+      ['A dialog asks “**Reject this price?** The price stays 200.00. The decision is kept with the purchase.” with a **Reason (optional)** box.'])
+    openApprovals()
+    cy.then(() => paRow(pidRef.value).as('t2row'))
+    cy.get('@t2row').should('contain', '240.45').find('.pa-reject').click()
+    cy.get('.uiC-card').should('be.visible').and('contain', 'Reject this price?').and('contain', 'The price stays 200.00')
+    cy.get('.uiC-card .uiC-input').type(why)
+    snap(a1, 'reject-dialog', '.uiC-card')
+
+    const a2 = act(`Type **${why}** as the reason and click **Reject**.`,
+      ['“**Price change rejected.**” The row leaves the Waiting list.', `Under **Rejected** it is listed with the label **Rejected** and the reason **${why}**.`])
+    cy.intercept('POST', '/rejectPriceChange').as('reject')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@reject').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#tablePriceApprovals tbody tr[data-product="${pidRef.value}"]`).should('not.exist'))
+    cy.intercept('GET', '/priceApprovals*').as('paList')
+    cy.get('#PriceApprovalsDiv [data-pa-status="REJECTED"]').click(); cy.wait('@paList')
+    cy.then(() => paRow(pidRef.value).first().should('contain', 'Rejected').and('contain', why))
+    snap(a2, 'rejected', '#PriceApprovalsDiv')
+
+    const a3 = act(`**Register → Products**, search **${pname}**, **Edit**, then **Price history**.`,
+      ['Sell Price is still **200**; **Last purchase rate: 210.00**; one history row only (the product’s creation) — a rejected change leaves no price row.'])
+    openProduct(pname)
+    cy.get('#prodPrice').should('have.value', '200')
+    openHistory()
+    cy.get('#priceHistoryNow [data-k=lastPurchaseRate]').should('have.text', '210.00')
+    cy.get('#priceHistoryTable tbody tr').should('have.length', 1)
+    snap(a3, 'history', '#PriceHistoryDialog > div')
+    closeHistory(); closeProduct()
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
+  })
+
+  caseIt('T3', 'A price changed by someone else meanwhile is never overwritten: Approve is refused', () => {
+    guardPricing()
+    const pname = `PRG Stale ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T3-${run}`
+    testCase('T3', 'A price changed by someone else meanwhile is never overwritten: Approve is refused', {
+      covers: ['PR4-5'], slice: 'PR-4', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'The owner decides on what the screen showed. If the price moves after the list was opened — an admin re-prices the product by hand in another tab — Approve must not silently replace that price. It is refused, the list shows the price as it is now, and the owner decides again.',
+      prereq: ['Rule **Approval**, Markup % **14.5** (set through the settings’ own request).', `A product **${pname}** at **200**, the supplier **${vname}**, and a saved bill **${inv}** (quantity 2, P/U 210) entered on the Purchase form.`],
+      data: ['The other tab’s new price **205**'],
+      rollback: 'The waiting proposal is rejected on screen; the bill is voided on screen; the rule goes back to Suggest after the run. The product keeps 205 and is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg(MODE, 'approval')
+    const pidRef = { value: null }
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pidRef.value = id }); SAFETY.push(() => voidIfStanding(inv)); rejectIfWaiting(pidRef)
+    approvalBill(vname, inv, pidRef, 210)
+
+    const a1 = act('Open **Purchase → Price approvals** and leave it open.', [`The row for **${pname}** reads Now **200.00** → New **240.45**.`])
+    openApprovals()
+    cy.then(() => paRow(pidRef.value).should('contain', '200.00').and('contain', '240.45'))
+    snap(a1, 'listed', '#PriceApprovalsDiv')
+
+    const a2 = act(`Meanwhile, in another tab, someone opens **${pname}** on **Register → Products** and saves Sell Price **205**. (The run sends the Product form’s own save request.)`,
+      ['The product now sells at **205**. The approvals screen still shows 200.00 — it was opened before.'])
+    cy.then(() => catalogProduct(pidRef.value)).then((p) => cy.request({ method: 'POST', url: '/updateProduct', headers: { 'Content-Type': 'application/json' },
+      body: Object.assign({}, p, { sellingPrice: 205 }) }))
+    cy.then(() => catalogProduct(pidRef.value)).then((p) => expect(Number(p.sellingPrice)).to.eq(205))
+    cy.then(() => paRow(pidRef.value).should('contain', '200.00'))
+
+    const a3 = act('Click **Approve** on the row, then **Approve** in the dialog.',
+      ['A **Not saved** message: “**The price is now 205.00 — it changed since this was proposed. Reload and decide again.**”',
+        'Nothing changed: the product still sells at **205**.'])
+    cy.then(() => paRow(pidRef.value).find('.pa-approve').click())
+    cy.intercept('POST', '/approvePriceChange').as('approve')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@approve').its('response.body.success').should('eq', false)
+    // The confirm card is still leaving as the alert arrives: name the alert, not "every card".
+    cy.contains('.uiC-card', 'Not saved').should('be.visible').and('contain', 'The price is now 205.00').as('t3alert')
+    cy.then(() => catalogProduct(pidRef.value)).then((p) => expect(Number(p.sellingPrice), 'not overwritten').to.eq(205))
+    snap(a3, 'refused', '@t3alert')
+
+    const a4 = act('Click **OK**.', ['The list has reloaded: the row now reads Now **205.00** → New **240.45**, still waiting for a decision.'])
+    cy.get('@t3alert').find('[data-ui-confirm="ok"]').click()
+    cy.then(() => paRow(pidRef.value).should('contain', '205.00').and('contain', '240.45').find('.pa-approve').should('be.visible'))
+    snap(a4, 'reloaded', '#PriceApprovalsDiv')
+
+    const c1 = act('Cleanup: click **Reject** on the row, reason **guide cleanup**, confirm.', ['The row leaves the Waiting list; the product still sells at **205**.'], { cleanup: true })
+    cy.then(() => paRow(pidRef.value).find('.pa-reject').click())
+    cy.get('.uiC-card .uiC-input').type('guide cleanup')
+    cy.intercept('POST', '/rejectPriceChange').as('reject')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@reject').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#tablePriceApprovals tbody tr[data-product="${pidRef.value}"]`).should('not.exist'))
+    snap(c1, 'rejected', '#PriceApprovalsDiv')
+    const c2 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c2, 'voided', '#purchaseDiv')
+  })
+
+  caseIt('T4', 'Auto: a change Auto holds back is sent for approval instead of being lost', () => {
+    guardPricing()
+    const pname = `PRG Held ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T4-${run}`
+    testCase('T4', 'Auto: a change Auto holds back is sent for approval instead of being lost', {
+      covers: ['PR4-6'], slice: 'PR-4', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'Auto never lowers a price by itself (Q5), but a cheaper cost may still deserve a lower price. Instead of dropping that change, the purchase sends it to Price approvals with the reason it was held, so the owner can still choose it.',
+      prereq: ['Rule **Auto**, Markup % **14.5**, “Auto never lowers a price” on (set through the settings’ own request).', `A product **${pname}** at **300** and the supplier **${vname}**.`],
+      data: [`Bill **${inv}**, quantity **2**, P/U **210**`],
+      rollback: 'The proposal is rejected on screen and the bill voided on screen; the rule goes back to Suggest after the run. The product keeps 300 and is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg(MODE, 'auto'); resetCfg('pos.pricing.markupNeverLower')
+    const pidRef = { value: null }
+    supplier(vname); product(pname, 300, asLifecycle).then((id) => { pidRef.value = id }); SAFETY.push(() => voidIfStanding(inv)); rejectIfWaiting(pidRef)
+
+    const a1 = act(`**Purchase → New Purchase**: supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**.`,
+      ['“**The selling price stays 300.00: your markup rule gives 240.45, and Auto never lowers a price. It waits for approval in Purchase → Price approvals.**”'])
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pidRef.value, 210))
+    cy.get('#purchasePriceEffect', { timeout: 10000 }).should('have.attr', 'data-effect', 'held').and('contain', '300.00').and('contain', '240.45').and('contain', 'Price approvals')
+    snap(a1, 'held-queued', '#PurchaseModal .crud-box')
+
+    const a2 = act('Click **Save & Close**, then open **Purchase → Price approvals**.',
+      [`The product still sells at **300**. The Waiting list has **${pname}**: Now **300.00** → New **240.45**, Change **-19.9%** (in red), Why **Auto never lowers a price**.`])
+    savePurchase()
+    cy.then(() => catalogProduct(pidRef.value)).then((p) => expect(Number(p.sellingPrice)).to.eq(300))
+    openApprovals()
+    cy.then(() => paRow(pidRef.value).should('contain', '300.00').and('contain', '240.45').and('contain', '-19.9%').and('contain', 'Auto never lowers a price'))
+    snap(a2, 'queued', '#PriceApprovalsDiv')
+
+    const c1 = act('Cleanup: click **Reject** on the row, reason **guide cleanup**, confirm.', ['The row leaves the Waiting list; the price stays **300**.'], { cleanup: true })
+    cy.then(() => paRow(pidRef.value).find('.pa-reject').click())
+    cy.get('.uiC-card .uiC-input').type('guide cleanup')
+    cy.intercept('POST', '/rejectPriceChange').as('reject')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@reject').its('response.body.success').should('eq', true)
+    snap(c1, 'rejected', '#PriceApprovalsDiv')
+    const c2 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c2, 'voided', '#purchaseDiv')
+  })
+
+  caseIt('T5', 'Only owners and admins decide prices — a user does not see the screen, and is refused', () => {
+    cy.loginAsOwner()
+    const code = "fetch('/priceApprovals?status=PENDING').then(r => r.json()).then(j => console.log(j.success, j.message || ''))"
+    testCase('T5', 'Only owners and admins decide prices — a user does not see the screen, and is refused', {
+      covers: ['PR4-7'], slice: 'PR-4', tenant: 'owner.business@myplus.com with its admin.business@ and user.business@ members', role: 'Admin, then User',
+      purpose: 'Approving a price is an owner’s decision. An admin gets the same screen as the owner; a user sees neither the menu item nor the count, and the server refuses them even when asked directly.',
+      prereq: ['Passwords `Demo@2025!`.'],
+      data: ['None saved'],
+      rollback: 'Nothing changes.',
+    })
+
+    const a1 = act('Sign in as **admin.business@myplus.com**. Open the **Purchase** menu and click **Price approvals**.',
+      ['The menu has **Price approvals**; the screen opens on **Waiting** with the filters **Waiting · Approved · Rejected · All**.'])
+    cy.loginAsTier('admin', 'business'); openDashboard()
+    openApprovals()
+    cy.get('#PriceApprovalsDiv [data-pa-status]').should('have.length', 4)
+    cy.get('#PriceApprovalsDiv [data-pa-status="PENDING"]').should('have.class', 'active')
+    snap(a1, 'admin', '#PriceApprovalsDiv')
+
+    const a2 = act('Sign in as **user.business@myplus.com**. Open the **Purchase** menu.',
+      ['There is **no Price approvals** item and no red count — for a user they are not on the page at all.'])
+    cy.loginAsTier('user', 'business'); openDashboard()
+    openMenu('snavPurchase')
+    cy.get('#navPriceApprovals').should('not.exist')
+    cy.get('#paCountTop').should('not.exist')
+    cy.get('#PriceApprovalsDiv').should('not.exist')
+    snap(a2, 'user-no-item', '#snavPurchase')
+
+    const a3 = act('Still as the user, press **F12 → Console**, paste the command and press **Enter**.',
+      ['The console prints **false** and a refusal — no proposals come back.'], { via: 'console', code })
+    cy.then(() => g.runInPage(code, 'GET', 'priceApprovals')).then((body) => {
+      expect(body && body.success, JSON.stringify(body).slice(0, 200)).to.eq(false)
+      expect(list(body && body.data), 'no rows in a refusal').to.have.length(0)
+      a3.expect.push(`This run’s answer: “${(body.message || '').slice(0, 140)}”.`)
+    })
+  })
 })

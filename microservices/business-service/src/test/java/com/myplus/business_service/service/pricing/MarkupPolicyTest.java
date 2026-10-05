@@ -151,4 +151,16 @@ class MarkupPolicyTest {
         assertThat(s.price()).isNull();
         assertThat(policy.mode()).isEqualTo("off");
     }
+
+    @Test
+    @DisplayName("PR-4 — 'approval' (any case) is read as Approval by BOTH readers, never silently as Suggest; it never auto-applies")
+    void approval_is_a_mode_in_both_readers() {
+        stored(Map.of(MarkupPolicy.MODE_KEY, "APPROVAL", MarkupPolicy.PCT_KEY, "14.5"));
+        assertThat(policy.mode()).isEqualTo(MarkupPolicy.APPROVAL);
+        MarkupPolicy.Suggestion s = policy.suggest(d("210"), null, d("200"));
+        assertThat(s.mode()).isEqualTo(MarkupPolicy.APPROVAL);
+        assertThat(s.price()).isEqualByComparingTo("240.45");
+        assertThat(s.autoApplies()).isFalse();
+        assertThat(s.detail()).isEqualTo("14.5% on cost, the business rate");
+    }
 }

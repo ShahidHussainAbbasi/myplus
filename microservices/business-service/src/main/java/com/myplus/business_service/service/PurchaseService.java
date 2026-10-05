@@ -615,18 +615,29 @@ public class PurchaseService implements IPurchaseService{
 		boolean keep = PRICE_MODE_KEEP.equals(priceMode) || PRICE_MODE_PER_BATCH.equals(priceMode);
 		java.math.BigDecimal price = (hasSell && !keep) ? sell : null;
 		String source = null;
+		String markupMode = markupPolicy == null ? null : markupPolicy.mode();
+		boolean auto = com.myplus.business_service.service.pricing.MarkupPolicy.AUTO.equals(markupMode);
+		// PR-4 — APPROVAL: a purchase never moves the price itself. Decided before anything can fail, so a catalog outage
+		// below can only leave the price where it is, never let the bill's rate through.
+		boolean approval = com.myplus.business_service.service.pricing.MarkupPolicy.APPROVAL.equals(markupMode);
+		if (!keep && approval) price = null;
+		Proposal proposal = null;
 		// PR-2 — AUTO: the markup rule sets the price instead of the bill's S/U rate, inside its guards (never lower,
 		// the rise cap). KEEP wins over AUTO: "never changes the price" means never. No rule (no %) → the bill's
-		// rate, as before. A rule held back by a guard → the price does not move at all; the cost still stamps.
-		if (!keep && hasCost && markupPolicy != null
-				&& com.myplus.business_service.service.pricing.MarkupPolicy.AUTO.equals(markupPolicy.mode())) {
+		// rate, as before. A rule held back by a guard → the price does not move; PR-4: that change waits for approval.
+		// PR-4 — APPROVAL: the rule's price (or, with no rule, the bill's S/U rate) waits for approval.
+		if (!keep && (auto || approval) && (hasCost || (approval && hasSell)) && markupPolicy != null) {
 			try {
 				com.myplus.commerce.contracts.dto.ProductRef ref = catalogClient.getProduct(saved.getProductId());
-				var s = markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(),
-						ref == null ? null : ref.getCategoryMarkupPct(), ref == null ? null : ref.getSellingPrice());
-				if (s.price() != null) {
+				var s = hasCost ? markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(),
+						ref == null ? null : ref.getCategoryMarkupPct(), ref == null ? null : ref.getSellingPrice()) : null;
+				if (auto && s != null && s.price() != null) {
 					price = s.autoApplies() ? s.price() : null;
 					source = s.autoApplies() ? "MARKUP" : null;
+					if (!s.autoApplies() && s.guard() != null) proposal = new Proposal(s.price(), "MARKUP", s.guard(), s.detail());
+				} else if (approval) {
+					if (s != null && s.price() != null) proposal = new Proposal(s.price(), "MARKUP", "APPROVAL", s.detail());
+					else if (hasSell) proposal = new Proposal(sell, "PURCHASE", "APPROVAL", "the bill's sell rate");
 				}
 			} catch (RuntimeException catalogUnavailable) {
 				// Without the product's current price the guards cannot be checked, so the price does not move.
@@ -635,14 +646,29 @@ public class PurchaseService implements IPurchaseService{
 						phase, saved.getProductId(), catalogUnavailable);
 			}
 		}
-		if (price == null && !hasCost) return;
-		try {
-			catalogClient.updatePrice(saved.getProductId(), price, hasCost ? cost : null,
-					saved.getPurchaseInvoiceNo(), source);
-		} catch (Exception ex) {
-			LOG.warn("Option B: rate stamp on {} failed for product {} (purchase recorded)", phase, saved.getProductId(), ex);
+		if (price != null || hasCost) {
+			try {
+				catalogClient.updatePrice(saved.getProductId(), price, hasCost ? cost : null,
+						saved.getPurchaseInvoiceNo(), source);
+			} catch (Exception ex) {
+				LOG.warn("Option B: rate stamp on {} failed for product {} (purchase recorded)", phase, saved.getProductId(), ex);
+			}
+		}
+		// PR-4 — best-effort like the stamp: a queue hiccup never refuses a bill. Catalog drops a proposal equal to the
+		// price now and supersedes an older pending one for the product.
+		if (proposal != null) {
+			try {
+				catalogClient.proposePrice(saved.getProductId(), proposal.price(), hasCost ? cost : null, proposal.source(),
+						proposal.reason(), proposal.detail(), saved.getPurchaseInvoiceNo());
+			} catch (Exception ex) {
+				LOG.warn("PR-4: price proposal on {} failed for product {} (purchase recorded, price unchanged)",
+						phase, saved.getProductId(), ex);
+			}
 		}
 	}
+
+	/** PR-4 — a price waiting for the owner: what, from where (MARKUP | PURCHASE), why (APPROVAL | a guard), and the rule. */
+	record Proposal(java.math.BigDecimal price, String source, String reason, String detail) {}
 
 	@Override
 	@Transactional
