@@ -29,6 +29,9 @@ CREATE DATABASE IF NOT EXISTS myplusdb_marketplace;
 CREATE DATABASE IF NOT EXISTS myplusdb_campaign;
 CREATE DATABASE IF NOT EXISTS myplusdb_analytics;
 CREATE DATABASE IF NOT EXISTS myplusdb_appointment;
+-- notification-service (8093), slice 105 — the delivery record. MISSED here when 105 gave it a database, so every
+-- FRESH deploy crash-looped it on 1044 (found by the verify sweep, 2026-10-05). Third service missed after audit/party.
+CREATE DATABASE IF NOT EXISTS myplusdb_notification;
 -- (notification-service is stateless — no database.)
 
 GRANT ALL PRIVILEGES ON myplusdb.*             TO 'shahid'@'%';
@@ -47,4 +50,5 @@ GRANT ALL PRIVILEGES ON myplusdb_marketplace.*  TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_campaign.*     TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_analytics.*    TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_appointment.*  TO 'shahid'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_notification.* TO 'shahid'@'%';
 FLUSH PRIVILEGES;
