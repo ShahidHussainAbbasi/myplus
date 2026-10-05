@@ -74,6 +74,9 @@ public class ProductRef {
     private Boolean requiresSerial;
     private Boolean tracksBatch;
 
+    /** PR-2 — the product's own markup %, or null for "use the business's". Read by the purchase path's markup rule. */
+    private BigDecimal markupPct;
+
     /** Back-compat constructor for price-focused callers (sell saga, tests) written before M4d added display fields. */
     public ProductRef(Long id, String sku, String name, String unit, BigDecimal sellingPrice, BigDecimal taxRate) {
         this.id = id;

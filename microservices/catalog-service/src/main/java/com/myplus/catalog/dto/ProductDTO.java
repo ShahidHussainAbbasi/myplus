@@ -52,6 +52,8 @@ public class ProductDTO {
     private BigDecimal lastPurchaseRate;
     private BigDecimal lastSaleRate;
     private LocalDateTime lastRateAt;
+    /** PR-2 — the product's own markup %; null/blank = the business's. Round-trips on the product form. */
+    private BigDecimal markupPct;
     /** Pharmacy clinical flags (B1) — read-only here; set via PUT /products/{id}/clinical-flags. Carried so the
      *  product list can mark a medicine "Rx" without a second round trip. */
     private Boolean rxRequired;

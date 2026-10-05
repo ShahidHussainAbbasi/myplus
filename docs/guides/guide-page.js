@@ -97,11 +97,13 @@ function build(cfg) {
   const outDir = path.resolve(cfg.outDir)
   const CASE_DIR = path.resolve(ROOT, cfg.caseDir)
   const SLICES = cfg.slices || {}
+  const prefixes = [].concat(cfg.shotPrefix)
+  const isShot = (f) => prefixes.some((x) => f.startsWith(x))
   const version = { branch: sh('git rev-parse --abbrev-ref HEAD'), commit: sh('git rev-parse --short HEAD') }
 
   const cases = fs.existsSync(CASE_DIR)
     ? fs.readdirSync(CASE_DIR).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(fs.readFileSync(path.join(CASE_DIR, f), 'utf8')))
-        .sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)))
+        .sort((a, b) => a.id.localeCompare(b.id, 'en', { numeric: true }))   // P2 before P10, all P before Q
     : []
 
   // ── screenshots ───────────────────────────────────────────────────────────────────────────────────────────
@@ -111,13 +113,13 @@ function build(cfg) {
     for (const f of fs.readdirSync(dir)) {
       const p = path.join(dir, f)
       if (fs.statSync(p).isDirectory()) walk(p)
-      else if (f.startsWith(cfg.shotPrefix) && f.endsWith('.png') && !/\(failed\)/.test(f)) shotIndex[f.replace(/\.png$/, '')] = p
+      else if (isShot(f) && f.endsWith('.png') && !/\(failed\)/.test(f)) shotIndex[f.replace(/\.png$/, '')] = p
     }
   })(path.join(ROOT, 'cypress', 'screenshots'))
   // The run's own copies win: cypress/screenshots is shared and can be wiped by any other run.
   ;(function own(dir) {
     if (!fs.existsSync(dir)) return
-    for (const f of fs.readdirSync(dir)) if (f.startsWith(cfg.shotPrefix) && f.endsWith('.png')) shotIndex[f.replace(/\.png$/, '')] = path.join(dir, f)
+    for (const f of fs.readdirSync(dir)) if (isShot(f) && f.endsWith('.png')) shotIndex[f.replace(/\.png$/, '')] = path.join(dir, f)
   })(path.join(CASE_DIR, 'img'))
   fs.rmSync(path.join(outDir, 'img'), { recursive: true, force: true })
   fs.mkdirSync(path.join(outDir, 'img'), { recursive: true })

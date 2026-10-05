@@ -28,17 +28,115 @@
         return (v === undefined || v === null || v === '') ? null : Number(v);
     }
 
+    // ── PR-2: the markup rule's suggestion (asked of the server — the form never does the arithmetic) ──────────
+
+    var sug = { key: null, data: null, timer: null };
+
+    function pctText(v) { var n = Number(v); return isNaN(n) ? '' : String(Math.round(n * 100) / 100); }
+
+    /** "14.5% on cost, the business rate" — why this number, so the owner can check the rule did what they meant. */
+    function why(d) {
+        var basis = d.basis === 'margin' ? t('ui.js.markupMargin', pctText(d.pct)) : t('ui.js.markupOnCost', pctText(d.pct));
+        return basis + ', ' + (d.pctSource === 'PRODUCT' ? t('ui.js.markupOwn') : t('ui.js.markupBiz'));
+    }
+
+    /** Ask the server what the rule says for (product, cost) — once per change, debounced, late answers dropped. */
+    function requestSuggestion() {
+        var productId = $('#purchaseItemDD').val();
+        var cost = Number($('#purchasePurchaseRate').val());
+        if (!productId || !(cost > 0)) { sug.key = null; sug.data = null; clearTimeout(sug.timer); return; }
+        var key = productId + '|' + cost;
+        if (key === sug.key) return;
+        sug.key = key; sug.data = null;
+        clearTimeout(sug.timer);
+        sug.timer = setTimeout(function () {
+            // bgJson: background work never holds the blocking overlay over a purchase being typed.
+            bgJson(serverContext + 'suggestedPrice?productId=' + encodeURIComponent(productId) + '&cost=' + encodeURIComponent(cost),
+                function (resp) {
+                    if (sug.key !== key) return;   // the operator has moved to another product or cost
+                    sug.data = (resp && resp.status === 'SUCCESS') ? (resp.object || resp.data || null) : null;
+                    render();
+                });
+        }, 250);
+    }
+
+    /** The current answer, only if it is for what is on screen now. */
+    function suggestion() {
+        var key = $('#purchaseItemDD').val() + '|' + Number($('#purchasePurchaseRate').val());
+        return (sug.data && sug.key === key) ? sug.data : null;
+    }
+
+    function renderSuggest(d) {
+        var $s = $('#purchaseSuggest');
+        if (!$s.length) return;
+        // Auto says it on the price line itself (below); Off and "no rule" say nothing.
+        if (!d || d.price == null || d.mode === 'off' || d.mode === 'auto') {
+            $s.hide().empty().removeAttr('data-mode').removeAttr('data-price').removeAttr('data-sig'); return;
+        }
+        var price = money(d.price);
+        var mode = d.purchaseMode === 'keep' ? 'keep' : d.mode;
+        var offer = mode !== 'keep' && money($('#purchaseSellRate').val()) !== price;
+        /*
+         * Rebuild ONLY when what it says changes. Clicking "Use" while the cursor is still in P/U blurs P/U first,
+         * and its onblur re-renders this line — a rebuild there replaced the button between mousedown and mouseup,
+         * so the click was lost and S/U never changed (found by gate M9).
+         */
+        var sig = [mode, price, why(d), offer].join('|');
+        if ($s.attr('data-sig') === sig && $s.is(':visible')) return;
+        $s.attr('data-sig', sig).attr('data-mode', mode).attr('data-price', price).empty();
+        if (mode === 'keep') {
+            $s.append($('<span>').text(t('ui.js.markupKeep', price, why(d))));
+        } else {
+            $s.append($('<span>').text(t('ui.js.markupSuggest', price, why(d)) + ' '));
+            if (offer) {
+                $('<button type="button" class="btn btn-default btn-xs" id="purchaseSuggestApply">')
+                    .text(t('ui.js.markupUse', price)).appendTo($s);
+            }
+        }
+        $s.show();
+    }
+
+    // One delegated handler: survives any re-render, and reads the price the line is SHOWING.
+    $(document).on('click', '#purchaseSuggestApply', function () {
+        var price = $('#purchaseSuggest').attr('data-price');
+        if (!price) return;
+        $('#purchaseSellRate').val(price);
+        if (typeof calculateNetPurchase === 'function') calculateNetPurchase(); else render();
+    });
+
     function render() {
         var $hint = $('#purchasePriceEffect');
         if (!$hint.length) return;
+        requestSuggestion();
+        var d = suggestion();
+        renderSuggest(d);
         var productId = $('#purchaseItemDD').val();
         var typed = $('#purchaseSellRate').val();
         var sell = Number(typed);
+        var keep = global.posPurchasePriceMode === 'keep';
+        var effect, text;
+
+        // PR-2 Auto: the RULE decides the price, whatever S/U says — so the line speaks for the rule.
+        if (productId && !keep && d && d.mode === 'auto' && d.price != null) {
+            var cur = d.current != null ? Number(d.current) : currentPurchasePrice();
+            if (d.autoApplies) {
+                if (cur != null && Math.abs(cur - Number(d.price)) < 0.005) {
+                    effect = 'auto-same'; text = t('ui.js.priceEffectAutoSame', money(cur));
+                } else {
+                    effect = 'auto'; text = t('ui.js.priceEffectAuto', money(cur), money(d.price), why(d));
+                }
+            } else if (d.guard === 'NEVER_LOWER') {
+                effect = 'held'; text = t('ui.js.priceEffectHeldLower', money(cur), money(d.price));
+            } else {
+                effect = 'held'; text = t('ui.js.priceEffectHeldRise', money(cur), money(d.price));
+            }
+            $hint.attr('data-effect', effect).text(text).show();
+            return;
+        }
+
         if (!productId || typed === '' || !(sell > 0)) { $hint.hide().empty().removeAttr('data-effect'); return; }
 
         var now = currentPurchasePrice();
-        var keep = global.posPurchasePriceMode === 'keep';
-        var effect, text;
         if (keep) {
             effect = 'keep';
             text = (now != null)
@@ -64,7 +162,8 @@
     var SOURCE_KEYS = {
         MANUAL: 'ui.js.priceSourceManual',
         PURCHASE: 'ui.js.priceSourcePurchase',
-        IMPORT: 'ui.js.priceSourceImport'
+        IMPORT: 'ui.js.priceSourceImport',
+        MARKUP: 'ui.js.priceSourceMarkup'
     };
     function sourceLabel(s) { return SOURCE_KEYS[s] ? t(SOURCE_KEYS[s]) : (s || ''); }
 

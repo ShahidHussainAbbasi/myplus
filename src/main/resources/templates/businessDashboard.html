@@ -2166,6 +2166,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<!-- PR-1: what saving this line does to the product's selling price (Settings → Purchasing decides).
 							     Filled by price-history.js from calculateNetPurchase(); no input, so the keyboard walk is unchanged. -->
 							<div class="fg-cell fg-full fg-note" id="purchasePriceEffect" style="display:none"></div>
+							<!-- PR-2: the markup rule's suggestion and a button to use it (Suggest mode). Filled by price-history.js. -->
+							<div class="fg-cell fg-full fg-note" id="purchaseSuggest" style="display:none"></div>
 							<!-- Tax register Phase B: input-tax rate, a LINE field (cleared per line). Shown only when the org's
 							     "Purchase tax" is on (refreshPurchaseTaxRow). -->
 							<div class="fg-cell fg-sm" id="purchaseTaxRow" style="display:none">
@@ -3714,6 +3716,13 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- U15-B1 — the price is for ONE unit; the per-piece figure comes from the SERVER
 								     (/looseRatePreview), never divided here. Hidden until divisible AND priced. -->
 								<div id="prodPricePerPiece" class="help-block" style="display:none"></div>
+							</div>
+							<!-- PR-2: this product's own markup %, used to suggest its price from a purchase's cost. Blank = the
+							     business's (Settings → Purchasing). Sent as null when blank (catalog-products.js). -->
+							<div class="fg-cell">
+								<label class="fg-label" for="prodMarkupPct" th:text="#{ui.prodMarkupPct}">Markup %</label>
+								<input type="number" step="any" min="0" max="1000" class="form-control" id="prodMarkupPct"
+								       th:placeholder="#{ui.prodMarkupPctHelp}" placeholder="Blank = the business's markup">
 							</div>
 							<div class="fg-cell">
 								<label class="fg-label" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>

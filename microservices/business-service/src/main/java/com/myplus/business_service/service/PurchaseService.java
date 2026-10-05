@@ -136,6 +136,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.common.settings.SettingsService settingsService;     // B2B-P1 (#9): the purchase-side policy
 
+    @Autowired
+    com.myplus.business_service.service.pricing.MarkupPolicy markupPolicy;   // PR-2: the markup rule (Auto)
+
     /**
      * SER-2 — the per-unit register. Validates the serials on a receipt before the write and records the
      * units after it.
@@ -586,7 +589,7 @@ public class PurchaseService implements IPurchaseService{
 	public static final String PRICE_MODE_KEEP = "keep";
 
 	/** PR-1 — LATEST unless the tenant chose KEEP; an unreadable or unknown value is LATEST, today's behaviour. */
-	String purchasePriceMode() {
+	public String purchasePriceMode() {
 		try {
 			return settingsService.getChoice(PRICE_MODE_KEY,
 					java.util.Set.of(PRICE_MODE_LATEST, PRICE_MODE_KEEP), PRICE_MODE_LATEST);
@@ -605,11 +608,32 @@ public class PurchaseService implements IPurchaseService{
 		boolean hasCost = cost != null && cost.compareTo(java.math.BigDecimal.ZERO) > 0;
 		// PR-1 — KEEP: the bill still records its sell rate, but the product's price is the owner's to change.
 		// The cost is stamped either way: last purchase rate is a fact about the purchase, not a price decision.
-		if (hasSell && PRICE_MODE_KEEP.equals(purchasePriceMode())) hasSell = false;
-		if (!hasSell && !hasCost) return;
+		boolean keep = PRICE_MODE_KEEP.equals(purchasePriceMode());
+		java.math.BigDecimal price = (hasSell && !keep) ? sell : null;
+		String source = null;
+		// PR-2 — AUTO: the markup rule sets the price instead of the bill's S/U rate, inside its guards (never lower,
+		// the rise cap). KEEP wins over AUTO: "never changes the price" means never. No rule (no %) → the bill's
+		// rate, as before. A rule held back by a guard → the price does not move at all; the cost still stamps.
+		if (!keep && hasCost && markupPolicy != null
+				&& com.myplus.business_service.service.pricing.MarkupPolicy.AUTO.equals(markupPolicy.mode())) {
+			try {
+				com.myplus.commerce.contracts.dto.ProductRef ref = catalogClient.getProduct(saved.getProductId());
+				var s = markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(), ref == null ? null : ref.getSellingPrice());
+				if (s.price() != null) {
+					price = s.autoApplies() ? s.price() : null;
+					source = s.autoApplies() ? "MARKUP" : null;
+				}
+			} catch (RuntimeException catalogUnavailable) {
+				// Without the product's current price the guards cannot be checked, so the price does not move.
+				price = null;
+				LOG.warn("PR-2: markup rule skipped on {} for product {} — catalog unreadable; price left as it was",
+						phase, saved.getProductId(), catalogUnavailable);
+			}
+		}
+		if (price == null && !hasCost) return;
 		try {
-			catalogClient.updatePrice(saved.getProductId(), hasSell ? sell : null, hasCost ? cost : null,
-					saved.getPurchaseInvoiceNo());
+			catalogClient.updatePrice(saved.getProductId(), price, hasCost ? cost : null,
+					saved.getPurchaseInvoiceNo(), source);
 		} catch (Exception ex) {
 			LOG.warn("Option B: rate stamp on {} failed for product {} (purchase recorded)", phase, saved.getProductId(), ex);
 		}

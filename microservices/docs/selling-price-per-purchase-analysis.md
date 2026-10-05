@@ -121,3 +121,66 @@ separate — the markup result is never used as cost.
 | "From" price on the hint | the picker's `data-price` | **Verified** (guide P2 a4): a second New Purchase on the same page, after a bill moved the price, prefills and says the NEW price — the picker refreshes on save. |
 | Time of a change | catalog sends `changedAt` as an instant with its offset; the dialog shows it in the browser's time | Found in the guide walk: the containers run UTC, so a bare wall-clock "08:00" showed for a 13:00 change in Pakistan. Gate G10 now asserts the shown time is local now. |
 | Tests | catalog `ProductPriceHistoryTest` 7/7; business `PurchasePriceModeTest` 6/6; Cypress gate `pricing-purchase-mode.cy.js` G1–G10 **10/10** (2026-10-05); step-by-step guide `cypress/e2e/docs/price-mode-guide.cy.js` P1–P5 **5/5**, page built by `docs/guides/build-price-mode-guide.js` | |
+
+## 8. PR-2 — the markup rule (design, 2026-10-05)
+
+**What the owner sets** (Settings → Configuration → Purchasing, owner/admin):
+
+| Setting | Values | Default |
+|---|---|---|
+| `pos.pricing.markupMode` | `off` · `suggest` · `auto` | `suggest` |
+| `pos.pricing.markupBasis` | `markup` (on cost: 100 → 114.50 at 14.5%) · `margin` (of the price: 100 → 116.96 at 14.5%) | `markup` |
+| `pos.pricing.markupPct` | a percentage; **0 = no rule** | `0` (decision 4: no platform default) |
+| `pos.pricing.markupRounding` | `exact` · `up1` (up to the next whole rupee) · `near5` · `near10` | `exact` |
+| `pos.pricing.markupNeverLower` | Auto never lowers a price | on |
+| `pos.pricing.markupMaxRisePct` | Auto does not raise a price by more than this % (0 = no cap); above it the rule only suggests | `0` |
+
+**Per product:** an optional **Markup %** on the product form (`products.markup_pct`, V22). Blank = the business's
+percentage. Precedence product > tenant now; **category is PR-2b** — the column and precedence slot are reserved
+but there is no category screen to set it on, and a value nobody can set is not a feature.
+
+**One calculator, server-side** (`MarkupCalculator`, business-service, pure): cost → raw (`cost × (1+p)` or
+`cost ÷ (1−p)`, half-up to paisa) → rounded. The purchase form asks the server for the suggestion
+(`/suggestedPrice?productId&cost`); it never re-implements the arithmetic, so the screen and Auto cannot disagree.
+Margin ≥ 100% is refused (division by zero or a negative price).
+
+**How it combines with PR-1's purchase mode:**
+
+| Purchase mode | Markup off | Markup suggest | Markup auto |
+|---|---|---|---|
+| Latest | the bill's S/U rate becomes the price (as today) | the form shows *Suggested 114.50 · Apply*; Apply fills S/U; the bill's S/U becomes the price | the **rule's** price becomes the product price (history source MARKUP), within the guards; the bill keeps its own S/U as typed |
+| Keep | price never moves | suggestion shown for information | suggestion shown; price never moves (Keep wins — "never" means never) |
+
+Auto guards: never lower (on by default) and the rise cap. A guarded-out rule changes nothing and the hint says why.
+Approval of a held-back change is PR-4.
+
+```mermaid
+flowchart LR
+  A[Purchase form: cost typed] -->|/suggestedPrice| B[business: MarkupPolicy]
+  B --> C{product markup_pct?}
+  C -- yes --> D[product %]
+  C -- no --> E[tenant %]
+  D --> F[MarkupCalculator: basis + rounding]
+  E --> F
+  F --> G[hint: Suggested X · Apply]
+  H[Save purchase] --> I{mode}
+  I -- latest + auto --> J[guards: never lower, cap] -->|ok| K[catalog updatePrice source=MARKUP]
+  I -- latest + off/suggest --> L[catalog updatePrice bill S/U, source=PURCHASE]
+  I -- keep --> M[catalog updatePrice cost only]
+```
+
+Trace (Rule 0): `products.markup_pct` has 4 writers to cover — create, update (`fromDto`), CSV import (not in this
+slice: the column stays blank on import, stated on the page), `updatePrice` (never touches it). Readers: `toRef`
+(new `ProductRef.markupPct`), the product form, `MarkupPolicy`. `ProductRef` is a contract DTO — adding a nullable
+field is backward-compatible for every consumer (Jackson ignores unknown fields; verified on the `ProductRef` mapper
+config before shipping).
+
+### 8.1 PR-2 — found in the gate and the walk (2026-10-05)
+
+| Finding | Cause | Status |
+|---|---|---|
+| **Use 240.45 did nothing** when clicked straight from the P/U box (gate M9 red on the deployed build) | P/U's `onblur` re-rendered the suggestion line between mousedown and mouseup; the browser fires no `click` when the two land on different elements. Traced with a capture-phase event log: mousedown + mouseup on the button, no click. | Fixed: the line is rebuilt only when what it says changes (`data-sig`), and the button has one delegated handler. M9 passed with the fixed file evaluated on the page; **needs a monolith rebuild to ship**. |
+| Reopening the Products list while it is still reloading after a save throws `Cannot read properties of undefined (reading 'style')` inside DataTables (`catalog-products.js` `deliver`, l.1663) | A server-side page delivered into a table `showProducts()` has just rebuilt | **Pre-existing, not PR-2.** The grid still renders; console error only. Recorded, not fixed (needs consent). The guide waits for the reload. |
+
+Gate `cypress/e2e/business/pricing-markup.cy.js`: M1–M8, M10, M11 green on the deployed build; M9 green with the fix, pending deploy.
+Unit: business 31/31 (MarkupCalculatorTest 5, MarkupPolicyTest 9, PurchasePriceModeTest 11, +6 neighbours), catalog 152/152.

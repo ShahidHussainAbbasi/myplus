@@ -1,7 +1,7 @@
 /**
  * Builds one Test Book section of step-by-step cases from what a guide spec captured.
  *
- *   node docs/guides/build-testbook-section.js <section> <out.html>        section: eduidor | sched2
+ *   node docs/guides/build-testbook-section.js <section> <out.html>        section: eduidor | sched2 | pricemode
  *
  * Input:  cypress/guide-out/<dir>/<ID>.json   one file per case (actions, expected results, cleanup, pictures),
  *         written by the guide spec through cypress/support/guide-capture.js
@@ -56,6 +56,22 @@ const SECTIONS = {
         sender account of its own.`],
       ['amber', 'Evenings cannot be deleted', `Close booking is the only reversible step, so these cases use far-future times no real
         evening uses, and each ends by closing its evening.`],
+    ],
+  },
+  pricemode: {
+    dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 24), prefix: 'prm',
+    order: ['P1', 'P2', 'P3', 'P4', 'P5'],
+    title: 'What a purchase does to the selling price (PR-1)',
+    spec: 'cypress/e2e/docs/price-mode-guide.cy.js',
+    notes: [
+      ['blue', 'What is new', `<strong>Settings → Configuration → Purchasing → How a purchase affects the selling price</strong>:
+        <strong>Latest</strong> (default, as before — the purchase's sell rate becomes the price of all stock) or <strong>Keep</strong>
+        (a purchase never changes the price; the cost is still recorded). The purchase form now says what saving will do,
+        and the product form has a <strong>Price history</strong> link (owner and admin only — it shows the cost).`],
+      ['red', '⚠ Found by the walk (fixed 5 Oct)', `The history's time was <strong>5 hours early</strong> — a 13:00 change showed 08:00. The servers keep
+        UTC and the time went out without its zone. It is now shown in your own time, and the gate checks it.`],
+      ['amber', 'A void does not undo a price', `Voiding a bill reverses its stock and payment, not the price it set: the price was a decision and its
+        history keeps it. Cases P2–P3 save purchases, so they run on <code>owner.lifecycle@myplus.com</code> and void their bills.`],
     ],
   },
 }

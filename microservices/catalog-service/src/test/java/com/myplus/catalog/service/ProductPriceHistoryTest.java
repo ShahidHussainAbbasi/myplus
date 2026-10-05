@@ -199,4 +199,57 @@ class ProductPriceHistoryTest {
     private void found(Product p) {
         when(productRepository.findByIdScoped(ID, ORG, USER)).thenReturn(Optional.of(p));
     }
+
+    // ── PR-2 ────────────────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("PR-2 updatePrice from the markup rule (Auto) → the history row says MARKUP, naming the bill")
+    void markup_source_is_recorded() {
+        found(product("200.00"));
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.updatePrice(ID, new BigDecimal("241.50"), new BigDecimal("210.00"), "PUR-000126", "MARKUP");
+
+        ProductPriceHistory h = saved();
+        assertThat(h.getSource()).isEqualTo(ProductPriceHistory.MARKUP);
+        assertThat(h.getRef()).isEqualTo("PUR-000126");
+        assertThat(h.getNewPrice()).isEqualByComparingTo("241.50");
+    }
+
+    @Test
+    @DisplayName("PR-2 any other source string is recorded as PURCHASE — a caller cannot invent a history source")
+    void unknown_source_is_purchase() {
+        found(product("200.00"));
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        service.updatePrice(ID, new BigDecimal("250.00"), null, "PUR-000127", "MANUAL");
+
+        assertThat(saved().getSource()).isEqualTo(ProductPriceHistory.PURCHASE);
+    }
+
+    @Test
+    @DisplayName("PR-2 the product form round-trips its markup %; a cleared box (null) means the business's %")
+    void markup_round_trips() {
+        Product p = product("200.00");
+        found(p);
+        when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.myplus.catalog.dto.ProductDTO out = service.update(ID, ProductDTO.builder().name("Panadol")
+                .sellingPrice(new BigDecimal("200.00")).markupPct(new BigDecimal("14.5")).build());
+        assertThat(p.getMarkupPct()).isEqualByComparingTo("14.50");
+        assertThat(out.getMarkupPct()).isEqualByComparingTo("14.50");
+
+        service.update(ID, ProductDTO.builder().name("Panadol").sellingPrice(new BigDecimal("200.00")).build());
+        assertThat(p.getMarkupPct()).isNull();
+    }
+
+    @Test
+    @DisplayName("PR-2 a markup outside 0–1000 % is refused with a sentence, never stored")
+    void markup_range() {
+        found(product("200.00"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.update(ID, ProductDTO.builder().name("Panadol")
+                        .sellingPrice(new BigDecimal("200.00")).markupPct(new BigDecimal("-5")).build()))
+                .isInstanceOf(com.myplus.common.web.exception.ValidationException.class)
+                .hasMessageContaining("between 0 and 1000");
+    }
 }

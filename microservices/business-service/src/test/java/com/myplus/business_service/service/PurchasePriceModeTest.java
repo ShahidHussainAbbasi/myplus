@@ -3,6 +3,7 @@ package com.myplus.business_service.service;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,7 @@ class PurchasePriceModeTest {
 
     @Mock private CatalogClient catalogClient;
     @Mock private SettingsService settingsService;
+    @Mock private com.myplus.business_service.service.pricing.MarkupPolicy markupPolicy;   // PR-2
     @InjectMocks private PurchaseService service;
 
     private static Purchase bill(String sell, String cost) {
@@ -61,7 +63,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
-        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123");
+        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123", null);
     }
 
     @Test
@@ -71,7 +73,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
-        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"));
+        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
     }
 
     @Test
@@ -81,7 +83,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "edit");
 
-        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"));
+        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
     }
 
     @Test
@@ -91,7 +93,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", null), "receive");
 
-        verify(catalogClient, never()).updatePrice(any(), any(), any(), any());
+        verify(catalogClient, never()).updatePrice(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -101,7 +103,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
-        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123");
+        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123", null);
     }
 
     @Test
@@ -111,6 +113,79 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
-        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123");
+        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123", null);
+    }
+
+    // ── PR-2: the markup rule in Auto ───────────────────────────────────────────────────────────────
+
+    private static com.myplus.business_service.service.pricing.MarkupPolicy.Suggestion rule(String price, String guard) {
+        return new com.myplus.business_service.service.pricing.MarkupPolicy.Suggestion("auto", "markup", "exact",
+                new BigDecimal("15"), "BUSINESS", new BigDecimal("210.00"), price == null ? null : new BigDecimal(price),
+                price == null ? null : new BigDecimal(price), new BigDecimal("200.00"), guard);
+    }
+
+    private void auto(com.myplus.business_service.service.pricing.MarkupPolicy.Suggestion s) {
+        when(markupPolicy.mode()).thenReturn("auto");
+        com.myplus.commerce.contracts.dto.ProductRef ref = new com.myplus.commerce.contracts.dto.ProductRef();
+        ref.setSellingPrice(new BigDecimal("200.00"));
+        when(catalogClient.getProduct(50L)).thenReturn(ref);
+        when(markupPolicy.suggest(new BigDecimal("210.00"), null, new BigDecimal("200.00"))).thenReturn(s);
+    }
+
+    @Test
+    @DisplayName("PR-2 Auto: the RULE's price is sent, not the bill's S/U, and the history is told MARKUP")
+    void auto_sets_the_rule_price() {
+        stored(null);
+        auto(rule("241.50", null));
+
+        service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
+
+        verify(catalogClient).updatePrice(50L, new BigDecimal("241.50"), new BigDecimal("210.00"), "PUR-000123", "MARKUP");
+    }
+
+    @Test
+    @DisplayName("PR-2 Auto held back by a guard (never lower / cap) → the price does not move; the cost still stamps")
+    void auto_guarded_moves_nothing() {
+        stored(null);
+        auto(rule("190.00", com.myplus.business_service.service.pricing.MarkupPolicy.GUARD_NEVER_LOWER));
+
+        service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
+
+        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
+    }
+
+    @Test
+    @DisplayName("PR-2 Auto with no rule (no % set) → the bill's S/U rate, as before")
+    void auto_without_rule_is_latest() {
+        stored(null);
+        auto(rule(null, null));
+
+        service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
+
+        verify(catalogClient).updatePrice(50L, new BigDecimal("250.00"), new BigDecimal("210.00"), "PUR-000123", null);
+    }
+
+    @Test
+    @DisplayName("PR-2 KEEP wins over Auto: the rule is not even asked, only the cost is sent")
+    void keep_wins_over_auto() {
+        stored("keep");
+        lenient().when(markupPolicy.mode()).thenReturn("auto");
+
+        service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
+
+        verify(markupPolicy, never()).suggest(any(), any(), any());
+        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
+    }
+
+    @Test
+    @DisplayName("PR-2 Auto and catalog unreadable → the guards cannot be checked, so the price does not move")
+    void auto_catalog_down_moves_nothing() {
+        stored(null);
+        when(markupPolicy.mode()).thenReturn("auto");
+        when(catalogClient.getProduct(50L)).thenThrow(new RuntimeException("catalog down"));
+
+        service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
+
+        verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
     }
 }

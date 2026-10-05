@@ -121,6 +121,15 @@ public class ProductService {
         return toDto(getEntity(id));
     }
 
+    /** PR-2 — a markup is 0–1000 %; anything else is a typo, refused rather than turned into a wild price. */
+    private static BigDecimal validMarkup(BigDecimal pct) {
+        if (pct == null) return null;
+        if (pct.signum() < 0 || pct.compareTo(new BigDecimal("1000")) > 0) {
+            throw new com.myplus.common.web.exception.ValidationException("Markup must be between 0 and 1000 %");
+        }
+        return pct.setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
     /** Trim to null: an optional code is either a real value or absent — never the empty string. */
     private static String normalize(String s) {
         return (s == null || s.isBlank()) ? null : s.trim();
@@ -393,12 +402,18 @@ public class ProductService {
      *  Scoped via getEntity (anti-IDOR). */
     @Transactional
     public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate) {
-        return updatePrice(id, price, purchaseRate, null);
+        return updatePrice(id, price, purchaseRate, null, null);
     }
 
-    /** PR-1 — as above, naming the purchase that moved the price, for the price history. */
     @Transactional
     public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate, String ref) {
+        return updatePrice(id, price, purchaseRate, ref, null);
+    }
+
+    /** PR-1 — as above, naming the purchase that moved the price, for the price history. PR-2: {@code source}
+     *  MARKUP when the business's markup rule set the price (Auto); anything else is recorded as PURCHASE. */
+    @Transactional
+    public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate, String ref, String source) {
         Product p = getEntity(id);
         boolean touched = false;
         BigDecimal priceBefore = p.getSellingPrice();
@@ -416,7 +431,10 @@ public class ProductService {
             // BLK-4 — saveAndFlush: this write moves the version (it is exactly the change an open product form must
             // not overwrite), and the response should say so rather than carry the pre-write version.
             p = productRepository.saveAndFlush(p);
-            recordPriceChange(p, priceBefore, p.getSellingPrice(), com.myplus.catalog.entity.ProductPriceHistory.PURCHASE, ref);   // PR-1
+            recordPriceChange(p, priceBefore, p.getSellingPrice(),
+                    com.myplus.catalog.entity.ProductPriceHistory.MARKUP.equals(source)
+                            ? com.myplus.catalog.entity.ProductPriceHistory.MARKUP
+                            : com.myplus.catalog.entity.ProductPriceHistory.PURCHASE, ref);   // PR-1 / PR-2
             changed(p);   // CACHE-1 — the cached picker row carries sellingPrice; a no-op purchase publishes nothing
         }
         return toDto(p);
@@ -602,6 +620,8 @@ public class ProductService {
                 // RST: the checkout decides whether to reserve from the ref it already holds — never a
                 // second catalog call on the hot path.
                 .madeToOrder(Boolean.TRUE.equals(p.getMadeToOrder()))
+                // PR-2 — the purchase path reads the product's own markup off the ref it already fetches.
+                .markupPct(p.getMarkupPct())
                 .build();
     }
 
@@ -637,6 +657,7 @@ public class ProductService {
                 .lastPurchaseRate(p.getLastPurchaseRate())
                 .lastSaleRate(p.getLastSaleRate())
                 .lastRateAt(p.getLastRateAt())
+                .markupPct(p.getMarkupPct())   // PR-2: round-trips on the product form
                 .rxRequired(Boolean.TRUE.equals(p.getRxRequired()))
                 .controlledSubstance(Boolean.TRUE.equals(p.getControlledSubstance()))
                 // C6 — kept in step with the other toRef builder above. Two builders for one type is a
@@ -756,6 +777,8 @@ public class ProductService {
          */
         if (dto.getFormula() != null) p.setFormula(normalizeFormula(dto.getFormula()));
         p.setSellingPrice(dto.getSellingPrice());
+        // PR-2 — set as given: the form always sends it, and a cleared box (null) is the answer "use the business's %".
+        p.setMarkupPct(validMarkup(dto.getMarkupPct()));
         p.setTaxRate(dto.getTaxRate());
         p.setTaxCodeId(dto.getTaxCodeId());   // multi-rate tax: assigned code (null clears → taxRate/org default)
         if (dto.getIsActive() != null) p.setIsActive(dto.getIsActive());

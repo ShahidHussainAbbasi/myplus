@@ -204,6 +204,10 @@ public class Product {
     @Column(name = "last_rate_at")
     private LocalDateTime lastRateAt;
 
+    /** PR-2 — this product's own markup %, used to suggest its price from a purchase's cost. NULL = the business's %. */
+    @Column(name = "markup_pct", precision = 7, scale = 2)
+    private BigDecimal markupPct;
+
     @Builder.Default
     private Boolean isActive = true;
 

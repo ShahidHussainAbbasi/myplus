@@ -331,8 +331,9 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductDTO>> updatePrice(@PathVariable Long id,
                                                                @RequestParam(required = false) BigDecimal price,
                                                                @RequestParam(required = false) BigDecimal purchaseRate,
-                                                               @RequestParam(required = false) String ref) {
-        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price, purchaseRate, ref), "Price updated"));
+                                                               @RequestParam(required = false) String ref,
+                                                               @RequestParam(required = false) String source) {
+        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price, purchaseRate, ref, source), "Price updated"));
     }
 
     /** PR-1 — current prices + the price history (newest first). Scoped like every product read; owner/admin only,

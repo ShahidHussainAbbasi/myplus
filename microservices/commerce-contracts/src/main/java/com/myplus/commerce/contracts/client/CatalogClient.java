@@ -81,11 +81,17 @@ public interface CatalogClient {
     void updatePrice(@PathVariable Long id,
                      @RequestParam(name = "price", required = false) BigDecimal price,
                      @RequestParam(name = "purchaseRate", required = false) BigDecimal purchaseRate,
-                     @RequestParam(name = "ref", required = false) String ref);
+                     @RequestParam(name = "ref", required = false) String ref,
+                     @RequestParam(name = "source", required = false) String source);
+
+    /** PR-1 — naming the bill; recorded as a PURCHASE change. */
+    default void updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate, String ref) {
+        updatePrice(id, price, purchaseRate, ref, null);
+    }
 
     /** As above with no reference — the price history then shows the change without naming its bill. */
     default void updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate) {
-        updatePrice(id, price, purchaseRate, null);
+        updatePrice(id, price, purchaseRate, null, null);
     }
 
     /** B1: set a product's pharmacy clinical flags. Catalog is the single writer for these — the pharmacy

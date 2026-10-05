@@ -20,7 +20,7 @@
 import { guideCapture } from '../../support/guide-capture'
 
 const OUT_DIR = 'cypress/guide-out/price-mode'
-const g = guideCapture({ outDir: OUT_DIR, section: 'Selling price', keepShots: true })
+const g = guideCapture({ outDir: OUT_DIR, section: 'Selling price', keepShots: true })   // P = PR-1, Q = PR-2
 const { caseIt, testCase, act, snap } = g
 
 const KEY = 'pos.pricing.purchaseMode'
@@ -387,5 +387,242 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
       expect(body.data, 'no history in a refusal').to.not.exist
       a3.expect.push(`This run’s answer: “${(body.message || '').slice(0, 140)}”.`)
     })
+  })
+
+  // ══ PR-2 · the markup rule ═══════════════════════════════════════════════════════════════════════════
+
+  const MK = ['pos.pricing.markupMode', 'pos.pricing.markupPct', 'pos.pricing.markupBasis', 'pos.pricing.markupRounding',
+    'pos.pricing.markupNeverLower', 'pos.pricing.markupMaxRisePct', KEY]
+  /** Remember the lifecycle tenant's pricing settings; after() puts them back exactly. */
+  const guardPricing = () => {
+    asLifecycle()
+    cy.request('/getBusinessConfig').then((r) => {
+      const all = list(r.body)
+      const was = MK.map((k) => { const e = all.find((x) => x.key === k); return { k, chosen: !!e && e.isDefault === false, v: e && e.value } })
+      SAFETY.push(() => {
+        asLifecycle()
+        was.forEach((w) => cy.request({ method: 'POST', url: w.chosen ? '/saveBusinessConfig' : '/resetBusinessConfig', form: true,
+          body: w.chosen ? { key: w.k, value: w.v } : { key: w.k }, failOnStatusCode: false }))
+      })
+    })
+  }
+  const saveCfg = (key, value) => cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key, value } })
+  const resetCfg = (key) => cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key }, failOnStatusCode: false })
+  /** What an owner does on Configuration: change the box; the row saves on its own. */
+  const cfgSet = (key, value) => {
+    cy.revealSetting(key)
+    cy.intercept('POST', '**/saveBusinessConfig').as('cfgSave')
+    cy.get(`#businessConfigBody [data-key="${key}"]`).then(($el) => {
+      if ($el.is('select')) cy.wrap($el).select(String(value), { force: true })
+      else { cy.wrap($el).clear(); cy.get(`#businessConfigBody [data-key="${key}"]`).type(String(value)).blur() }
+    })
+    cy.wait('@cfgSave').its('response.body.success').should('eq', true)
+  }
+  const cfgRow = (key) => cy.get(`#businessConfigBody [data-key="${key}"]`).closest('.cfg-row')
+
+  caseIt('Q1', 'The owner sets a markup: 14.5% on cost, and sees what that means', () => {
+    guardPricing()
+    testCase('Q1', 'The owner sets a markup: 14.5% on cost, and sees what that means', {
+      covers: ['PR2-1'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner (only owner/admin change settings)',
+      purpose: 'The rule that suggests a selling price from what a purchase cost. Nothing happens until a percentage is set: there is no platform default. The screen spells out the difference between a markup on cost and a margin of the price, because shops mean different things by “14.5%”.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', 'No markup set yet (the run resets it first).'],
+      data: ['Markup % **14.5**'],
+      rollback: 'Every pricing setting the case touched is put back as it was after the run.',
+    })
+    const a1 = act('**Settings → Configuration → Purchasing**. Find **Price from the purchase cost (markup rule)**, **Markup %**, **The markup % is**, **Round the suggested price**, **Auto never lowers a price** and **Auto raises a price by at most (%)**.',
+      ['The rule is **Suggest (default)**, Markup % is **0**, the % is **On cost (markup) — 100 → 114.50 at 14.5%**, rounding **Exact**, never lower **on**, rise limit **0**.',
+        'The other choice of “The markup % is” reads **Of the price (margin) — 100 → 116.96 at 14.5%**.'])
+    cy.then(() => MK.forEach(resetCfg))
+    openDashboard(); openConfiguration()
+    cy.revealSetting('pos.pricing.markupMode')
+    cy.get('#businessConfigBody [data-key="pos.pricing.markupMode"]').should('have.value', 'suggest')
+    cy.get('#businessConfigBody [data-key="pos.pricing.markupBasis"] option[value="margin"]').should('contain', '116.96')
+    cfgRow('pos.pricing.markupMode').closest('.cfg-group').as('g1')
+    snap(a1, 'rule-settings', '@g1')
+
+    const a2 = act('Type **14.5** into **Markup %** and click outside the box.', ['The message at the top says **Saved**.'])
+    cfgSet('pos.pricing.markupPct', '14.5')
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    cfgRow('pos.pricing.markupPct').closest('.cfg-group').as('g2')
+    snap(a2, 'pct-saved', '@g2')
+  })
+
+  caseIt('Q2', 'Suggest: the purchase form offers the rule’s price, and one click uses it', () => {
+    guardPricing()
+    const pname = `PRG Markup ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-M-${run}`
+    testCase('Q2', 'Suggest: the purchase form offers the rule’s price, and one click uses it', {
+      covers: ['PR2-2', 'PR2-3'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'With a markup set, the purchase form suggests a selling price from the cost being typed, says which percentage it used, and offers a button to use it. The owner still decides: nothing changes unless the button is pressed.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', 'Markup % **14.5**, rule **Suggest** (Q1).',
+        `A product **${pname}** selling at **200**, supplier **${vname}** — made through the forms’ own requests.`],
+      data: [`Bill **${inv}**, quantity **2**, P/U price **210**`],
+      rollback: 'The bill is voided on screen; the price it set stays (a void does not undo a price). Settings are put back after the run.',
+    })
+    let pid
+    saveCfg('pos.pricing.markupPct', '14.5')
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pid = id }); SAFETY.push(() => voidIfStanding(inv))
+
+    const a1 = act(`**Purchase → New Purchase**: supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U price **210**.`,
+      ['A line appears: “**Suggested selling price 240.45 (14.5% on cost, the business rate).**” with a **Use 240.45** button.',
+        'S/U still shows **200**: nothing is applied by itself.'])
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pid, 210))
+    cy.get('#purchaseSuggest', { timeout: 10000 }).should('be.visible').and('have.attr', 'data-price', '240.45').and('contain', '14.5% on cost')
+    cy.get('#purchaseSellRate').should('have.value', '200')
+    snap(a1, 'suggested', '#PurchaseModal .crud-box')
+
+    const a2 = act('Click **Use 240.45** (straight from the P/U box, without clicking elsewhere first).',
+      ['S/U becomes **240.45** and the button goes.', 'The line under the rates: “**Saving changes this product’s selling price from 200.00 to 240.45, for all stock.**”'])
+    cy.get('#purchaseSuggestApply').click()
+    cy.get('#purchaseSellRate').should('have.value', '240.45')
+    cy.get('#purchaseSuggestApply').should('not.exist')
+    cy.get('#purchasePriceEffect').should('have.attr', 'data-effect', 'change').and('contain', '240.45')
+    snap(a2, 'used', '#PurchaseModal .crud-box')
+
+    const a3 = act('Click **Save & Close**, then open the product and its **Price history**.',
+      [`Sell Price **240.45**; the newest history row is **200.00 → 240.45 · Purchase · ${inv}**.`])
+    savePurchase()
+    openProduct(pname)
+    cy.get('#prodPrice').should('have.value', '240.45')
+    openHistory()
+    cy.get('#priceHistoryTable tbody tr').eq(0).should('have.attr', 'data-source', 'PURCHASE').find('[data-k=new]').should('have.text', '240.45')
+    snap(a3, 'history', '#PriceHistoryDialog > div')
+    closeHistory(); closeProduct()
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
+  })
+
+  caseIt('Q3', 'A product’s own markup wins over the business’s', () => {
+    guardPricing()
+    const pname = `PRG Own ${run}`, vname = `PRG Supplier ${run}`
+    testCase('Q3', 'A product’s own markup wins over the business’s', {
+      covers: ['PR2-4'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner',
+      purpose: 'Some products carry a different margin (accessories 30%, medicines 14.5%). A Markup % on the product overrides the business’s; blank means the business’s.',
+      prereq: ['Markup % **14.5** for the business (Q1).', `A product **${pname}** at **200** and the supplier **${vname}**.`],
+      data: ['Product Markup % **30**; P/U price **210** (the bill is not saved)'],
+      rollback: 'No bill is saved. The product is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5')
+    let pid
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pid = id })
+
+    const a1 = act(`**Register → Products**, search **${pname}**, **Edit**. Type **30** into **Markup %** (under Sell Price) and click **Save & Close**.`,
+      ['The form closes. Edit it again: **Markup %** shows **30**.'])
+    openDashboard(); openProduct(pname)
+    cy.get('#prodMarkupPct').should('have.value', '').type('30')
+    cy.intercept('POST', '**/updateProduct').as('upd')
+    cy.intercept('GET', '**/getProductPage*').as('reload')
+    cy.get('#addProduct').click()
+    cy.wait('@upd').its('response.body.success').should('eq', true)
+    // Wait for the list's own reload to land before reopening it. Reopening mid-reload throws inside DataTables
+    // (a reload delivered into a table that showProducts() just rebuilt) — a pre-existing defect, recorded, not PR-2.
+    cy.wait('@reload')
+    cy.get('#tableProduct_processing').should('not.be.visible')
+    openProduct(pname)
+    cy.get('#prodMarkupPct').should('have.value', '30')
+    snap(a1, 'own-markup', '#ProductModal .crud-box')
+    closeProduct()
+
+    const a2 = act(`**Purchase → New Purchase**: supplier **${vname}**, product **${pname}**, quantity **2**, P/U price **210**. Then close the form without saving.`,
+      ['“**Suggested selling price 273.00 (30% on cost, this product’s own).**”'])
+    newPurchase()
+    cy.then(() => fillLine(vname, `PRG-X-${run}`, pid, 210))
+    cy.get('#purchaseSuggest', { timeout: 10000 }).should('have.attr', 'data-price', '273.00').and('contain', 'this product')
+    snap(a2, 'suggested-own', '#PurchaseModal .crud-box')
+    cy.get('#PurchaseModal .crud-x').first().click({ force: true })
+  })
+
+  caseIt('Q4', 'Auto: saving a purchase sets the price by the rule, and says so first', () => {
+    guardPricing()
+    const pname = `PRG Auto ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-A-${run}`
+    testCase('Q4', 'Auto: saving a purchase sets the price by the rule, and says so first', {
+      covers: ['PR2-5', 'PR2-6'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'In Auto the rule decides the selling price on every purchase, whatever is typed in S/U. The purchase form says what will be set before saving, and the history records it as the markup rule with the bill.',
+      prereq: ['Markup % **14.5** (Q1).', `A product **${pname}** at **200** and the supplier **${vname}**.`],
+      data: [`Rule **Auto**; bill **${inv}**, quantity **2**, P/U **210**, S/U typed **250**`],
+      rollback: 'The bill is voided on screen and the rule is Reset to Suggest on screen. The product keeps 240.45 (a void does not undo a price) and is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5')
+    let pid
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pid = id }); SAFETY.push(() => voidIfStanding(inv))
+
+    const a1 = act('**Settings → Configuration → Purchasing**: set **Price from the purchase cost (markup rule)** to **Auto — saving a purchase sets the price**.', ['The message at the top says **Saved**.'])
+    openDashboard(); openConfiguration()
+    cfgSet('pos.pricing.markupMode', 'auto')
+    cy.get('#businessConfigMsg').should('contain', 'Saved')
+    cfgRow('pos.pricing.markupMode').closest('.cfg-group').as('g4')
+    snap(a1, 'auto-saved', '@g4')
+
+    const a2 = act(`Reload. **Purchase → New Purchase**: supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**, S/U **250**.`,
+      ['Under the rates: “**Saving sets this product’s selling price from 200.00 to 240.45 by your markup rule (14.5% on cost, the business rate).**”', 'No Use button: in Auto there is nothing to choose.'])
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pid, 210))
+    cy.get('#purchaseSellRate').clear().type('250')
+    cy.get('#purchasePriceEffect', { timeout: 10000 }).should('have.attr', 'data-effect', 'auto').and('contain', '240.45')
+    cy.get('#purchaseSuggestApply').should('not.exist')
+    snap(a2, 'will-set', '#PurchaseModal .crud-box')
+
+    const a3 = act('Click **Save & Close**, then open the product and its **Price history**.',
+      ['Sell Price **240.45**: the rule’s price, not the 250 typed on the bill.', `The newest history row: **200.00 → 240.45 · Markup rule · ${inv}**.`])
+    savePurchase()
+    openProduct(pname)
+    cy.get('#prodPrice').should('have.value', '240.45')
+    openHistory()
+    cy.get('#priceHistoryTable tbody tr').eq(0).should('have.attr', 'data-source', 'MARKUP').and('contain', 'Markup rule').find('[data-k=ref]').should('have.text', inv)
+    snap(a3, 'history', '#PriceHistoryDialog > div')
+    closeHistory(); closeProduct()
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
+    const c2 = act('Cleanup: open **Settings → Configuration → Purchasing** again and click **Reset** on the markup rule.', ['It shows **Suggest (default)** again.'], { cleanup: true })
+    openConfiguration()
+    cy.revealSetting('pos.pricing.markupMode')
+    cy.intercept('POST', '**/resetBusinessConfig').as('cfgReset')
+    cfgRow('pos.pricing.markupMode').find('.cfg-row__reset').click()
+    cy.wait('@cfgReset')
+    cy.revealSetting('pos.pricing.markupMode')
+    cy.get('#businessConfigBody [data-key="pos.pricing.markupMode"]').should('have.value', 'suggest')
+    cfgRow('pos.pricing.markupMode').closest('.cfg-group').as('g4c')
+    snap(c2, 'reset', '@g4c')
+  })
+
+  caseIt('Q5', 'Auto never lowers a price by itself', () => {
+    guardPricing()
+    const pname = `PRG Lower ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-N-${run}`
+    testCase('Q5', 'Auto never lowers a price by itself', {
+      covers: ['PR2-7'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'A cheaper purchase must not quietly cut the shelf price. With “Auto never lowers a price” on (the default), the form says the price stays and why, and saving leaves it alone. The cost is still recorded.',
+      prereq: ['Markup % **14.5**, rule **Auto** (set by the run through the settings’ own request).', `A product **${pname}** at **300** and the supplier **${vname}**.`],
+      data: [`Bill **${inv}**, quantity **2**, P/U **210**`],
+      rollback: 'The bill is voided on screen; the rule goes back to Suggest after the run. The product is deactivated after the run.',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg('pos.pricing.markupMode', 'auto')
+    let pid
+    supplier(vname); product(pname, 300, asLifecycle).then((id) => { pid = id }); SAFETY.push(() => voidIfStanding(inv))
+
+    const a1 = act(`**Purchase → New Purchase**: supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**.`,
+      ['“**The selling price stays 300.00: your markup rule gives 240.45, and Auto never lowers a price.**”'])
+    openDashboard(); newPurchase()
+    cy.then(() => fillLine(vname, inv, pid, 210))
+    cy.get('#purchasePriceEffect', { timeout: 10000 }).should('have.attr', 'data-effect', 'held').and('contain', '300.00').and('contain', '240.45')
+    snap(a1, 'held', '#PurchaseModal .crud-box')
+
+    const a2 = act('Click **Save & Close**, then open the product and its **Price history**.',
+      ['Sell Price is still **300**; **Last purchase rate: 210.00**; one history row only (the product’s creation).'])
+    savePurchase()
+    openProduct(pname)
+    cy.get('#prodPrice').should('have.value', '300')
+    openHistory()
+    cy.get('#priceHistoryNow [data-k=lastPurchaseRate]').should('have.text', '210.00')
+    cy.get('#priceHistoryTable tbody tr').should('have.length', 1)
+    snap(a2, 'history', '#PriceHistoryDialog > div')
+    closeHistory(); closeProduct()
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
   })
 })
