@@ -750,8 +750,11 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.get('#tillMoveCategory').select('', { force: true })
     cy.get('#tillMoveAmount').clear().type('10')
     cy.get('#tillMoveReason').clear().type('no category')
+    cy.intercept('POST', '**/cashMovement').as('move')
     cy.get('#tillMoveAdd').click()
-    cy.contains(/category/i, { timeout: 10000 }).should('be.visible')
+    cy.wait('@move').its('response.body.status').should('not.eq', 'SUCCESS')
+    // The refusal's own words — a bare /category/i also matches hidden menu items ("Markup by category").
+    cy.contains('Choose what the money was paid for (a category)', { timeout: 10000 }).should('be.visible')
     snap(a1, 'refused')
     const a2 = act('Choose <b>Pay In</b>, then <b>Cash Drop</b>.', ['The Category field is not shown for either, and neither creates an expense.'])
     cy.get('#tillMoveType').select('PAY_IN', { force: true })
