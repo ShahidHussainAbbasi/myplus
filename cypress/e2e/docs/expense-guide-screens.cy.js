@@ -525,6 +525,98 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.setCapability(CAP, true)
   })
 
+  // ═══ EX-1b · A refused expense says why, and can be posted again ═══════════════════════════════════════════
+  const yesterdayIso = () => { const d = new Date(); d.setDate(d.getDate() - 1); return localIsoDate(d) }
+  const dmyOf = (iso) => iso.split('-').reverse().join('-')
+  const openPeriodClose = () => {
+    openDashboard()
+    cy.window().then((w) => w.showFinance('periodClose'))
+    cy.contains('#FinanceDiv', /Books are (OPEN|CLOSED)/, { timeout: 20000 }).should('be.visible')
+  }
+  const reopenQuietly = () => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/finance/gl/period-lock`,
+    headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+
+  caseIt('1-8', 'A refused expense says why at once, and goes to the books once the period is reopened', () => {
+    testCase('1-8', 'ex1', 'A refused expense says why at once, and goes to the books once the period is reopened',
+      { who: ['owner.lifecycle (recorded)', 'owner.business', 'admin.business'] })
+    setup('Expense management switched on (case 0a-3). The books are open (Finance → Period Close says <b>Books are OPEN</b>).')
+    const payee = 'XG closed ' + run, y = yesterdayIso()
+    let id = null
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); reopenQuietly() })
+    reopenQuietly()
+    tb().then((before) => {
+      const a1 = act(`<b>Finance → Period Close</b>: Lock the books through <b>${dmyOf(y)}</b> (yesterday), press <b>Close period</b>, confirm.`,
+        [`The page says <b>Books are CLOSED through ${y}</b>.`])
+      openPeriodClose()
+      cy.get('#finLockDate').invoke('val', y).trigger('change')
+      cy.contains('#FinanceDiv button', 'Close period').click()
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.contains('#FinanceDiv', 'Books are CLOSED through ' + y, { timeout: 15000 }).should('be.visible')
+      snap(a1, 'closed', '#FinanceDiv')
+
+      const a2 = act(`<b>Till → Expenses</b>: Date <b>${dmyOf(y)}</b>, Category <b>Rent</b>, Amount <b>5</b>, Paid from <b>Cash</b>, Payee <b>${payee}</b>, press <b>Save and post</b>.`,
+        ['Within seconds the row shows <b>Not posted</b> — not minutes of “Posting…”.',
+          'Under it, in red, the books’ own reason: “<b>This period is closed (locked through ' + y + '). Reopen it to make changes.</b>”',
+          'A <b>Post again</b> button, and a line saying to reopen the period or void and record it again in an open period.'])
+      openDashboard(); openExpenses()
+      cy.get('#expDateTemp').clear().type(dmyOf(y)).blur()
+      cy.get('#expDate').then(($iso) => { if ($iso.val() !== y) cy.wrap($iso).invoke('val', y) })   // the picker mirrors the typed day
+      fillExpense({ category: 'Rent', amount: 5, paidFrom: 'CASH', payee })
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee).find('[data-cy=expense-posting-error]', { timeout: 20000 }).should('be.visible').and('contain', 'period is closed')
+      expenseRow(payee).find('.exp-chip').should('contain', 'Not posted')
+      expenseRow(payee).find('[data-cy=post-again]').should('be.visible')
+      cy.request('/expense/vouchers?size=50').then((r) => {
+        const v = ((r.body.data && r.body.data.content) || []).find((x) => x.payeeName === payee)
+        expect(v.voucherDate).to.eq(y)
+        id = v.id
+      })
+      snap(a2, 'refused', '#ExpenseDiv')
+      tb().then((mid) => expect(delta(before, mid, '6000'), 'nothing in the books').to.eq(0))
+
+      const a3 = act('Press <b>Post again</b> while the period is still closed.',
+        ['The button says <b>Sending…</b>, then the row is refused again with the same reason. Nothing reaches the books.'])
+      cy.intercept('POST', '**/post-again').as('again1')
+      expenseRow(payee).find('[data-cy=post-again]').click()
+      cy.wait('@again1').its('response.body.success').should('eq', true)
+      expenseRow(payee).find('[data-cy=expense-posting-error]', { timeout: 20000 }).should('contain', 'period is closed')
+      tb().then((mid) => expect(delta(before, mid, '6000')).to.eq(0))
+      snap(a3, 'refused-again', '#ExpenseDiv')
+
+      const a4 = act('<b>Finance → Period Close</b>: press <b>Reopen (clear lock)</b>, confirm.', ['<b>Books are OPEN — no period lock.</b>'])
+      openPeriodClose()
+      cy.contains('#FinanceDiv button', 'Reopen').click()
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.contains('#FinanceDiv', 'Books are OPEN', { timeout: 15000 }).should('be.visible')
+      snap(a4, 'reopened', '#FinanceDiv')
+
+      const a5 = act('<b>Till → Expenses</b>: on the row press <b>Post again</b>.',
+        ['“<b>Sent to the books again.</b>” The row reaches <b>In the books</b>; the reason and the button are gone.',
+          '<b>Finance → Trial Balance</b>: <b>6000 Rent</b> up 5 and <b>1000 Cash</b> down 5 — once, however often Post again was pressed.'])
+      openDashboard(); openExpenses()
+      cy.intercept('POST', '**/post-again').as('again2')
+      expenseRow(payee).find('[data-cy=post-again]').click()
+      cy.wait('@again2').its('response.body.success').should('eq', true)
+      expenseRow(payee).find('.exp-chip', { timeout: 20000 }).should('contain', 'In the books')
+      expenseRow(payee).find('[data-cy=post-again]').should('not.exist')
+      tb().then((after) => {
+        expect(delta(before, after, '6000'), 'rent once').to.eq(5)
+        expect(delta(before, after, '1000'), 'cash once').to.eq(-5)
+      })
+      snap(a5, 'in-the-books', '#ExpenseDiv')
+
+      const c1 = act(`Void it from its row: <b>Void</b>, reason <b>Test Book</b>, confirm.`, ['The row shows <b>Void</b>; 6000 and 1000 are back where they started.'], { cleanup: true })
+      expenseRow(payee).find('[data-cy=void-expense]').click()
+      cy.get('.uiC-input').type('Test Book')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'Void')
+      const settle = (n = 20) => tb().then((m) => (delta(before, m, '6000') === 0 || n <= 0) ? m : (cy.wait(1000), settle(n - 1)))
+      settle().then((m) => expect(delta(before, m, '6000'), 'reversed').to.eq(0))
+      snap(c1, 'voided', '#ExpenseDiv')
+    })
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',

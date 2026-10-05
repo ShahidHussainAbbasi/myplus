@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class OutboxRelay {
 
     private static final Logger LOG = LoggerFactory.getLogger(OutboxRelay.class);
-    private static final int MAX_ATTEMPTS = 20;
+    static final int MAX_ATTEMPTS = 20;
 
     /** Deliver one row via the channel. No-op if already POSTED/FAILED or the transport is unavailable. */
     public <E extends OutboxEntry> void deliver(OutboxDelivery<E> channel, Long id) {
@@ -31,11 +31,14 @@ public class OutboxRelay {
             channel.save(o);
         } catch (Exception ex) {
             o.setAttempts((o.getAttempts() == null ? 0 : o.getAttempts()) + 1);
-            o.setLastError(String.valueOf(ex.getMessage()));
-            if (o.getAttempts() >= MAX_ATTEMPTS) o.setStatus("FAILED");   // dead-letter for manual review
+            boolean refused = channel.permanent(ex);
+            String why = channel.describe(ex);
+            o.setLastError(why);
+            if (refused || o.getAttempts() >= MAX_ATTEMPTS) o.setStatus("FAILED");   // dead-letter for review / a re-drive
             o.setUpdatedAt(LocalDateTime.now());
             channel.save(o);
-            LOG.warn("{} outbox delivery failed for entry {} (attempt {}); will retry", channel.name(), id, o.getAttempts(), ex);
+            if (refused) LOG.warn("{} outbox entry {} refused downstream (not retried): {}", channel.name(), id, why);
+            else LOG.warn("{} outbox delivery failed for entry {} (attempt {}); will retry", channel.name(), id, o.getAttempts(), ex);
         }
     }
 

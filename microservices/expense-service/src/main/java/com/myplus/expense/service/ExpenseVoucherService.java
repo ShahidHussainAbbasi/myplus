@@ -175,6 +175,33 @@ public class ExpenseVoucherService {
         return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(v.getId(), v.getVoucherNo());
     }
 
+    /**
+     * EX-1b — send again what the books refused or never took: the posting of a POSTED voucher, the reversal of a
+     * VOIDED one, and a bill's subledger snapshot. Same event keys, so finance books each once however often it is
+     * sent. Never the posting of a voided voucher (it voided with no reversal). Anyone who may see the expense may ask —
+     * it changes no amount; whether the books accept it is finance's decision (a period still closed is refused again,
+     * with its reason). Saved through the entity, so a void racing it gets the version conflict, not a silent overlap.
+     */
+    @Transactional
+    public VoucherView postAgain(Long id) {
+        access.assertModuleOn();
+        ExpenseVoucher v = visible(id);
+        java.util.Set<String> kinds = ExpenseVoucher.POSTED.equals(v.getStatus())
+                ? java.util.Set.of(VoucherPostings.EXPENSE, VoucherPostings.PAYABLE)
+                : ExpenseVoucher.VOIDED.equals(v.getStatus())
+                    ? java.util.Set.of(VoucherPostings.EXPENSE_REVERSAL, VoucherPostings.PAYABLE)
+                    : java.util.Set.of();
+        int requeued = outbox.redrive(v.getId(), kinds);
+        if (requeued == 0) throw new ValidationException("Nothing is waiting to be sent to the books for this expense.");
+        if (ExpenseVoucher.POSTED.equals(v.getStatus()) && ExpenseVoucher.PS_FAILED.equals(v.getPostingStatus()))
+            v.setPostingStatus(ExpenseVoucher.PS_PENDING);
+        v.setPostingError(null);
+        v.setUpdatedAt(LocalDateTime.now());
+        v = repo.saveAndFlush(v);
+        audit.record("EXPENSE_POSTED_AGAIN", "EXPENSE", v.getVoucherNo(), v.getTotal(), requeued + " row(s) re-sent", null);
+        return VoucherView.of(v);
+    }
+
     /** A DRAFT may be discarded; anything posted stays, and is voided instead. */
     @Transactional
     public void deleteDraft(Long id) {
