@@ -195,19 +195,31 @@ function handleAjaxFailure(jqXHR, errorThrown, what) {
 }
 
 /*
- * SESS-2 — ANY ordinary request that finds the session ended goes to the login page.
+ * SESS-2 — ANY request that finds the session ended takes the person to the login page.
  *
- * Only 17 call sites route their failures through handleAjaxFailure; every other $.ajax/$.get in the app has its own
- * error handler, or none, so a dead session met there showed whatever that handler shows. The server now answers a
- * script on a dead session with 401 {code:"SESSION_EXPIRED"} (XhrAwareInvalidSessionStrategy, and SESS-1's advice
- * for a dead downstream token), and this hook turns that ONE answer into the redirect wherever it lands.
- * Deliberately narrow: an ordinary 401 refusal is left to its caller. Background reads (global:false) skip it on
- * purpose — the next thing the person clicks will meet it.
+ * Only 17 call sites route their failures through handleAjaxFailure; every other $.ajax/$.get has its own error
+ * handler, or none. The server answers a script on a dead session with 401 {code:"SESSION_EXPIRED"}
+ * (XhrAwareInvalidSessionStrategy; SESS-1's advice for a dead downstream token) — and hands the browser a FRESH,
+ * signed-out session, so every request after that one is answered with the LOGIN page instead.
+ *
+ * ⚠ A PREFILTER, not $(document).ajaxError. On a real dashboard the first request to meet a dead session is usually a
+ * background read (tiles, pickers: global:false), which global events never see. The first fix was an ajaxError hook:
+ * the background read swallowed the 401, and the person's click then got the login page where it asked for JSON —
+ * "parsererror" again (found by the Test Book walk, verify sweep 2026-10-05). A prefilter runs for EVERY request.
+ *
+ * Deliberately narrow: only the two shapes that mean the session is gone. An ordinary 401 or 403 refusal is left to
+ * its caller.
  */
-$(document).ajaxError(function (evt, jqXHR) {
-    if (jqXHR && jqXHR.status === 401 && /"code"\s*:\s*"SESSION_EXPIRED"/.test(jqXHR.responseText || '')) {
-        handleAjaxFailure(jqXHR, '', null);
-    }
+$.ajaxPrefilter(function (options, original, jqXHR) {
+    jqXHR.fail(function (x) {
+        var body = (x && typeof x.responseText === 'string') ? x.responseText : '';
+        var ended = (x && x.status === 401 && /"code"\s*:\s*"SESSION_EXPIRED"/.test(body))
+            || /name="username"|id="loginSubmit"/.test(body);
+        if (ended && !window.__sessionEndedRedirect) {
+            window.__sessionEndedRedirect = true;     // one redirect, however many requests were in flight
+            handleAjaxFailure(x, '', null);
+        }
+    });
 });
 
 // Fixed, dismissable error toast — always visible, stacks above the CRUD modal overlay (z-index 1050).

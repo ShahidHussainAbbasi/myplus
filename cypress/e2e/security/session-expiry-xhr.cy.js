@@ -45,6 +45,29 @@ describe('SESS-2 — an expired session goes to the login page, not a parser err
     cy.get('input[name="username"]').should('be.visible')
   })
 
+  it('⭐⭐ a BACKGROUND read meets the dead session first — the person still lands on the login page', () => {
+    /*
+     * Found by the guide walk (V7) after the first SESS-2 fix had gone green. On a real dashboard the first request to
+     * meet a dead session is not the person's click — it is a background read (tiles, pickers, the returns register:
+     * `global:false`, so no global ajax event ever sees it). Its 401 was swallowed, the answer handed the browser a
+     * FRESH anonymous session, and the click that followed got the LOGIN PAGE where it asked for JSON — parsererror
+     * again, with no session-expired code anywhere to recognise.
+     */
+    cy.loginAsOwner(OWNER)
+    cy.visitDashboardSettled()
+    cy.setCookie('JSESSIONID', DEAD)
+    cy.window().then((w) => { w.bgJson(w.serverContext + 'getSaleReturns') })
+    cy.location('pathname', { timeout: 15000 }).should('eq', '/login')
+  })
+
+  it('…and a click AFTER the background read used up the dead session also lands on the login page', () => {
+    cy.loginAsOwner(OWNER)
+    cy.visitDashboardSettled()
+    cy.clearCookie('JSESSIONID')           // signed out: what the browser holds once a dead session was replaced
+    cy.window().then((w) => { w.$.ajax({ url: w.serverContext + 'getUserSell', dataType: 'json' }) })
+    cy.location('pathname', { timeout: 15000 }).should('eq', '/login')
+  })
+
   it('a FORM SUBMIT after the session died also lands on the login page (callAjax path)', () => {
     /*
      * The parsererror branch of main.js's form submit is where the reported text came from ("form submit:
