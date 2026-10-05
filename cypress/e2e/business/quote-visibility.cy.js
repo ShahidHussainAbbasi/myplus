@@ -53,10 +53,14 @@ function quotableProduct() {
   })
 }
 
+/** Set once, by the OWNER, in before(): the outlet and the product every case quotes. */
+let seeded = { customer: null, product: null }
+
 function raiseQuote() {
-  return quotableCustomer().then((customer) => {
+  return cy.wrap(seeded).then(({ customer, product }) => {
+    expect(customer, 'the owner seeded a customer in before()').to.exist
     const customers = [customer]
-    return quotableProduct().then((product) => {
+    return cy.wrap(product).then(() => {
       const products = [product]
 
       return cy.request({
@@ -79,6 +83,17 @@ function raiseQuote() {
 }
 
 describe('#27 — quote visibility', () => {
+  /*
+   * The OWNER seeds the customer and product, once, and every case quotes THAT pair by id. A booker is — correctly —
+   * refused "You are not allowed to add customers", and lists only customers they created themselves, so on a fresh
+   * database a booker has no customer of their own to quote; on the long-lived one they had legacy rows. Quoting the
+   * distributor's outlet is what a field rep does; who may SEE a quote is what this spec is about.
+   */
+  before(() => {
+    cy.loginAsMarketplaceOwner()
+    quotableCustomer().then((c) => { seeded.customer = c })
+    quotableProduct().then((p) => { seeded.product = p })
+  })
 
   it('⭐ 1. a booker sees ONLY the quotes they raised', () => {
     /*
