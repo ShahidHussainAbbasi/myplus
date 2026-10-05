@@ -1,6 +1,6 @@
 # Selling price per purchase (batch price) and the purchase-based markup rule — analysis
 
-Status: **decisions taken 2026-10-04 (all five as recommended, §6). PR-1 built, awaiting build + gate.**
+Status: **PR-1, PR-2, PR-2b, PR-3a, PR-3b and PR-3c built (§7–§10). PR-4 (approval) not started.**
 
 ## 1. The question
 
@@ -320,3 +320,43 @@ that never had the field, so it is cleared for that comparison. `PurchasePriceMo
 Tests: business 57/57 (new `PurchasePerBatchTest` 6), inventory 19/19 on real MySQL (2 new). Gate
 `cypress/e2e/business/pricing-per-batch.cy.js` X1–X6 on `owner.pharma@`, pending deploy. The SALE still prices from the
 product until PR-3c.
+
+### 10.7 PR-3c as built — the sale is priced from the batches it takes (2026-10-05)
+
+**Order of a sale in Per batch** (every other mode is untouched — it never asks for a plan):
+`buildLines` → **plan** (inventory, read-only) → **split + re-price** → margin guard → credit guard → **reserve, pinned**
+→ write → confirm. The guards judge the prices that will be charged, and nothing is held until they pass.
+
+| Change | Where |
+|---|---|
+| `POST /reservations/plan` — the batches a reserve would take now, nothing held, status `PLANNED` (never persisted). A line's `stockEntryId` is a **preference** here (the cashier's chosen batch first, the rest FEFO) | inventory `ReservationService.plan`, `ReservationController`, `InventoryClient.plan` |
+| One in-memory allocator for plan and reserve, over the batches pass 1 loaded. On a **reserve** `stockEntryId` is a **pin**: only that batch, and a batch that can no longer cover it refuses the whole request with `batch changed: …` — nothing held. Pins are served before FEFO lines (a FEFO line listed first could otherwise eat a pinned batch). A batch id from another tenant or product is simply not among the loaded batches → refused | inventory `ReservationService.allocate` |
+| `StockReservationLine.stockEntryId`; `StockPick.{stockEntryId, sellPrice}`; `ReservationStatus.PLANNED` (old constructors kept; every existing call site unchanged) | commerce-contracts |
+| `BatchPriceSplit` (pure): paid units first, grouped by the batch's price (NULL = the product's price); the bonus rides on the last part's batches; an amount discount is shared in proportion, to the paisa, the last part taking the remainder; each part's cost is its own batches' (null if any is unknown — never guessed) | business |
+| `SagaSellService.priceByBatch`: plan (with the bonus retry of #17 P3 D11 — free goods withheld when only the paid units fit), split, then **re-build through `buildLines`** so discount, tax and cost are worked exactly as for any line; parts carry `priceReason = "Batch …"` and their batches' cost for the margin guard; reservation lines pinned per part | business |
+| Precedence: cashier's typed rate > contract/tier price > **batch price** > product price. "Typed" = `sellRate ≠ autoRate` (the till sends the rate it put in the box). Out of PR-3c, priced as before: loose (broken-pack) lines, lines naming serials, made-to-order items, and every EDIT | business `batchPriced` |
+| `autoRate`, `stockEntryId` on **both** `SellDTO` twins (the monolith relay drops an unknown field silently); MapStruct `toDto` ignores both | business + monolith |
+| `POST /batchPricePreview` — the same plan + split + line build, nothing held or written; `perBatch=false` outside Per batch | business `SellController`, monolith proxy, `PermissionInterceptor` (`sale.create`) |
+| Till: a **Batch** list (FEFO default, each batch with its quantity and price), the rate box starts at the first batch's price; Add to Cart previews the line and puts the parts in the cart with a note; **Complete Sale re-checks the whole cart** — if the batches change a price the cart is corrected and shown and nothing is posted until Complete again | monolith `per-batch-till.js`, hooks in `business.js` / `main.js`, `businessDashboard.html`, 6 languages |
+
+**Rule 0 — readers of the selling price (§10.1), as built:** 4 want the batch price — the sale line (#1), the till prefill
+(#2–3, via `/productStock` batches) and the per-piece hint (#4, it follows the box); 7 keep the product price (quotes,
+quick-pick labels, B2B percent rules, storefront, cart, markup guards ×2); 2 unaffected. The reservation's other callers
+(marketplace checkout, order holds) send no `stockEntryId` and get FEFO exactly as before.
+
+**Found while building:**
+
+| Finding | Cause | Status |
+|---|---|---|
+| The till's batch note never appeared (gate S6 red) | the notice row is collapsed (`pos-notice-empty`) unless `syncSellNoticeRow` opens it, and it decides from `:visible`, which is false for any child of a collapsed row | Fixed in `per-batch-till.js`: the note opens its row itself. A first fix changed `syncSellNoticeRow`'s rule instead — that opened the row for the older FEFO/sellable notices on EVERY shop's till and turned two unrelated gates red (`saga-sell-ui`, `contract-price-charged` — both green on the base build, red with it). Reverted; the rule is unchanged |
+| Complete Sale's confirm dialog opened late in Per batch | the whole-cart re-check runs first, by design | The gate waits for the re-check; noted in the guide (S1 a3, S3 a2) |
+
+**Tests:** inventory `ReservationServiceTest` **23/23** on real MySQL (7 new: plan names batch + price and holds nothing,
+the chosen batch first, plan shortfall wording, pinned reserve holds exactly its batch, a gone batch refuses and holds
+nothing, pins before FEFO, another tenant's batch refused); business **501/501** (new `PerBatchSaleTest` 11,
+`BatchPriceSplitTest` 7). Gate `cypress/e2e/business/pricing-per-batch-sale.cy.js` S1–S7 **7/7** on the deployed build
+(2026-10-05). Step-by-step guide cases R1 (PR-3a), X1 (PR-3b), S1–S3 (PR-3c) in `cypress/e2e/docs/price-mode-guide.cy.js`.
+
+**Not in PR-3c (stated on the page):** loose lines priced per batch; quotes, the storefront and B2B percent rules (decision
+3); PR-4 (approval of held-back price changes).
+

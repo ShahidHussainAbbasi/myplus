@@ -223,34 +223,45 @@ $(document).ready(function() {
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
-        	// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in place (no
-			// duplicate). A brand-new item is still appended. New-sale mode always appends.
-			var existingIdx = window.editingInvoice
-				? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
-				: -1;
-			if (existingIdx >= 0) {
-				// The item is locked in edit mode, so carry the original line's stock identity onto the edited line.
-				// updateSell keys stock by stockId — the sell form never sets it, so without this the line would save
-				// with NULL stock and drop out of the report.
-				var prevStock = data[existingIdx].stock || {};
-				if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
-				if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
-				data[existingIdx] = obj;
+			// PR-3c: in a Per-batch shop the server says how this line will be charged — one line per batch price.
+			var addLines = function(lines){
+			lines.forEach(function(obj){
+				// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in place (no
+				// duplicate). A brand-new item is still appended. New-sale mode always appends.
+				var existingIdx = window.editingInvoice
+					? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
+					: -1;
+				if (existingIdx >= 0) {
+					// The item is locked in edit mode, so carry the original line's stock identity onto the edited line.
+					// updateSell keys stock by stockId — the sell form never sets it, so without this the line would save
+					// with NULL stock and drop out of the report.
+					var prevStock = data[existingIdx].stock || {};
+					if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
+					if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
+					data[existingIdx] = obj;
+				} else {
+					data.push(obj);
+				}
+				// CART-1: the grid is drawn from data[] (sellCartRow keeps the U15-A2 loose rate, the SF-9 discount label and
+				// the counter's +/- in the ACTION cell). Replacing a line in edit mode used to APPEND a second row.
+				renderCart();
+				// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
+				// only when the customer or the product SET differs from what it last asked.
+				if (typeof LastRate !== 'undefined') LastRate.refresh();
+				// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
+				if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
+				resetForm();
+				resetBSDD('sellItemDD');
+				// Cart changed (item added / qty updated) â†’ recompute Change & Due from the live cart total
+				// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
+			});
+			};
+			if (window.PerBatchTill && PerBatchTill.enabled()) {
+				PerBatchTill.beforeAdd(obj, null,
+					function(lines){ if (lines) addLines(lines); });
 			} else {
-				data.push(obj);
+				addLines([obj]);
 			}
-			// CART-1: the grid is drawn from data[] (sellCartRow keeps the U15-A2 loose rate, the SF-9 discount label and
-			// the counter's +/- in the ACTION cell). Replacing a line in edit mode used to APPEND a second row.
-			renderCart();
-			// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
-			// only when the customer or the product SET differs from what it last asked.
-			if (typeof LastRate !== 'undefined') LastRate.refresh();
-			// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
-			if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
-			resetForm();
-			resetBSDD('sellItemDD');
-			// Cart changed (item added / qty updated) â†’ recompute Change & Due from the live cart total
-			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
 			calculateChange();
         }else{
         	showFormError(t('ui.js.pleaseSelectAnItemAndEnterA'));
@@ -3415,6 +3426,11 @@ function loadStock(label,value){
 		    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 			    	// $("#sellSellRate").val((data.bsellRate!=null && data.bsellRate!=='') ? data.bsellRate : (catalogSellPrice||''))
 					$("#sellSellRate").val((catalogSellPrice!=null && catalogSellPrice!=='') ? catalogSellPrice : (data.bsellRate||''))
+					// PR-3c: in a Per-batch shop the box starts at the first batch's own price, and a Batch choice appears.
+					if (window.PerBatchTill) {
+						var batchPrice = PerBatchTill.onBatches(data.batches, catalogSellPrice);
+						if (batchPrice != null && !isNaN(batchPrice)) $("#sellSellRate").val(batchPrice);
+					}
 					// B2B-P2-UI: remember what WE put in the box, then ask what this buyer actually pays. The
 					// catalog price stands until the quote answers, so the line is usable immediately and a
 					// pricing outage degrades to today's behaviour rather than blocking the sale.

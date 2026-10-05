@@ -19,5 +19,10 @@ public enum ReservationStatus {
      * this" are different facts, and only the second one says something went wrong upstream. Collapsing them
      * would hide the very leaks this status exists to surface.
      */
-    EXPIRED
+    EXPIRED,
+    /**
+     * PR-3c — the answer to a PLAN, never to a reserve: these are the batches a reserve would take right now, and
+     * nothing is held. Never persisted. A caller that receives it must still reserve, and the reserve may refuse.
+     */
+    PLANNED
 }

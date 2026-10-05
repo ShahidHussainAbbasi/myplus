@@ -146,6 +146,17 @@ public class SellDTO implements Serializable {
 	// The rate this line was actually SOLD at — the cashier may override the catalog price on the sell screen.
 	private BigDecimal sellRate;
 
+	/**
+	 * PR-3c — the rate the TILL put in the box (catalog, contract or batch price), sent beside {@code sellRate}.
+	 * Equal to it = the cashier did not type a price, so in Per batch mode the server prices the line from the
+	 * batches it takes (and may split it). Different, or null = the cashier's own price, which always wins.
+	 * Trusting it cannot lower a price: the most it does is ask for the batch's own price.
+	 */
+	private BigDecimal autoRate;
+
+	/** PR-3c — the batch the cashier chose for this line (stock_entries id); null = the shop's pick rule (FEFO). */
+	private Long stockEntryId;
+
 	// The catalog master price at the moment of sale (snapshot) — lets reports compare catalog price vs sold rate.
 	private BigDecimal catalogPrice;
 

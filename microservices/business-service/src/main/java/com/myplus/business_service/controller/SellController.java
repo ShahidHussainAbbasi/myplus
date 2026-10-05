@@ -1132,6 +1132,53 @@ public class SellController {
 		}
 	}
 	
+	/**
+	 * PR-3c — what a Per-batch shop would charge for these lines, before payment: each line as it will be invoiced
+	 * (split where its batches sell at different prices), the batch it is priced from, and the batch to pin.
+	 * Nothing is held or written. {@code perBatch=false} when the shop is not in Per batch mode (the till then
+	 * prices as it always has). A stock shortfall answers FAILED with the same sentence the sale would give.
+	 */
+	@PostMapping("/batchPricePreview")
+	@ResponseBody
+	public java.util.Map<String, Object> batchPricePreview(@RequestBody final CustomerHistoryDTO dto) {
+		java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+		try {
+			if (dto == null || appUtil.isEmptyOrNull(dto.getSales())) {
+				out.put("status", "FAILED"); out.put("message", "No sales data provided"); return out;
+			}
+			com.myplus.business_service.service.SagaSellService.PerBatch pb = sagaSellService.previewBatchPricing(dto);
+			out.put("status", "SUCCESS");
+			out.put("perBatch", pb != null);
+			java.util.List<java.util.Map<String, Object>> parts = new java.util.ArrayList<>();
+			if (pb != null) {
+				for (int j = 0; j < pb.lines().size(); j++) {
+					com.myplus.business_service.service.SagaLine l = pb.lines().get(j);
+					java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+					m.put("productId", l.productId());
+					m.put("quantity", l.quantity());
+					m.put("rate", l.sellRate());
+					m.put("lineTotal", l.totalAmount());
+					m.put("discount", l.discount());
+					m.put("bonusQuantity", l.bonusQuantity());
+					m.put("batch", l.priceReason());
+					final int ref = j;
+					m.put("stockEntryId", pb.reservationLines().stream()
+							.filter(r -> r.getLineRef() != null && r.getLineRef() == ref && r.getStockEntryId() != null)
+							.map(com.myplus.commerce.contracts.dto.StockReservationLine::getStockEntryId)
+							.findFirst().orElse(null));
+					parts.add(m);
+				}
+			}
+			out.put("parts", parts);
+		} catch (com.myplus.business_service.service.InsufficientStockException | com.myplus.common.web.exception.ValidationException refused) {
+			out.put("status", "FAILED"); out.put("message", refused.getMessage());
+		} catch (Exception e) {
+			LOGGER.warn("batchPricePreview failed", e);
+			out.put("status", "ERROR"); out.put("message", "Could not work out the batch prices.");
+		}
+		return out;
+	}
+
 	@RequestMapping(value = "/addSell", method = RequestMethod.POST)
 	@ResponseBody
 	@Transactional

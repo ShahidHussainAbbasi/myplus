@@ -33,8 +33,20 @@ public class StockPick {
     /** PR-3a — the {@link StockReservationLine#getLineRef() line} this pick was taken for; null if none was sent. */
     private Integer lineRef;
 
+    /** PR-3c — the batch row this pick came from, so a planned pick can be reserved exactly (pinned). */
+    private Long stockEntryId;
+
+    /** PR-3c — the price this batch sells at (PR-3b); null = the product's price. Pricing data, never cost. */
+    private BigDecimal sellPrice;
+
     /** The shape before PR-3a: no line reference. */
     public StockPick(Long itemId, String batchNo, BigDecimal quantity, LocalDate expiryDate, BigDecimal unitCost) {
-        this(itemId, batchNo, quantity, expiryDate, unitCost, null);
+        this(itemId, batchNo, quantity, expiryDate, unitCost, null, null, null);
+    }
+
+    /** The PR-3a shape: a line reference, no batch id or price. */
+    public StockPick(Long itemId, String batchNo, BigDecimal quantity, LocalDate expiryDate, BigDecimal unitCost,
+                     Integer lineRef) {
+        this(itemId, batchNo, quantity, expiryDate, unitCost, lineRef, null, null);
     }
 }

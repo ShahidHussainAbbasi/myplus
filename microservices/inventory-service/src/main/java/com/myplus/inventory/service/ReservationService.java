@@ -119,6 +119,7 @@ public class ReservationService {
         }
 
         final LocalDate today = TenantClock.today();   // G1: FEFO excludes batches expired before today
+        final boolean trackExpiry = capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
 
         /*
          * Pass 1 — verify EVERY product is fully satisfiable before holding anything (no partial holds).
@@ -127,29 +128,19 @@ public class ReservationService {
          * 7 on the shelf both passed, and pass 2 then held 5 + 2 with nothing noticing the second line came up short:
          * the sale recorded 10 units with 7 held. The need is the total for the product.
          */
-        java.util.Map<Long, BigDecimal> needByItem = new java.util.LinkedHashMap<>();
-        for (StockReservationLine l : req.getLines())
-            needByItem.merge(l.getItemId(), nz(l.getQuantity()), BigDecimal::add);
-        for (java.util.Map.Entry<Long, BigDecimal> want : needByItem.entrySet()) {
-            StockReservationLine line = new StockReservationLine(want.getKey(), want.getValue());
-            BigDecimal need = want.getValue();
-            BigDecimal available = BigDecimal.ZERO;
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today,
-                    capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
-                available = available.add(nz(e.getQuantity()).subtract(nz(e.getReservedQuantity())).max(BigDecimal.ZERO));
-            }
-            // U0: exact. The epsilon that used to pad this comparison existed only because float subtraction
-            // never lands on zero — it also meant a shop was told it had stock it did not have, by up to one
-            // epsilon. Exact decimals need no allowance and give no false yes.
-            if (available.compareTo(need) < 0) {
-                // Carry the numbers + productId so the sell orchestrator can render a friendly, name-resolved
-                // message ("Not enough sellable stock for 'X': 7 sellable, 10 requested") instead of a raw 500.
-                return outOfStock("product " + line.getItemId() + ": only " + fmtQty(available)
-                        + " sellable, " + fmtQty(need) + " requested");
-            }
-        }
+        java.util.Map<Long, List<StockEntry>> fefo = new java.util.HashMap<>();
+        StockReservationResponse shortage = checkTotals(req, orgId, userId, today, trackExpiry, fefo);
+        if (shortage != null) return shortage;
 
-        // Pass 2 — allocate FEFO and record the holds.
+        /*
+         * PR-3c — allocate IN MEMORY first, then hold exactly that. A pinned line (the sale priced it from that batch)
+         * takes from its batch only; if the batch cannot cover it, NOTHING is held and the caller is told the stock
+         * changed. Re-pricing it from another batch here would charge a price nobody showed the customer.
+         */
+        Allocation alloc = allocate(req.getLines(), fefo, true);
+        if (alloc.refusal != null) return outOfStock(alloc.refusal);
+
+        // Pass 2 — record the holds the allocation chose.
         final LocalDateTime deadline = reservationPolicy.expiryFor(orgId, LocalDateTime.now(),
                 req.getHoldKind() == null
                         ? com.myplus.commerce.contracts.dto.StockReservationRequest.HoldKind.CHECKOUT
@@ -179,51 +170,152 @@ public class ReservationService {
                 .build();
         }
 
-        for (StockReservationLine line : req.getLines()) {
-            final Integer lineRef = line.getLineRef();   // PR-3a: echoed on each pick taken for this line
-            /*
-             * U0 — exact allocation, in BASE UNITS.
-             *
-             * ⚠ THE `.floatValue()` HERE WAS THROWING PRECISION AWAY AT THE BOUNDARY. The request already
-             * arrives as BigDecimal; converting to float on entry and comparing with an epsilon on every
-             * iteration was the only reason the tolerance existed. With exact decimals the loop terminates on
-             * a true zero, so `remaining.signum() <= 0` says what it means and no residue can accumulate
-             * across batches.
-             *
-             * That matters most exactly where loose selling will land: a pack of 3, 6 or 7 leaves a float
-             * remainder that never reaches zero, so the last pieces of a batch could never be allocated.
-             */
-            BigDecimal remaining = nz(line.getQuantity());
-            for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today,
-                    capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
-                if (remaining.signum() <= 0) break;
-                BigDecimal avail = nz(e.getQuantity()).subtract(nz(e.getReservedQuantity()));
-                if (avail.signum() <= 0) continue;
-                BigDecimal take = avail.min(remaining);
-                e.setReservedQuantity(nz(e.getReservedQuantity()).add(take));
-                stockEntryRepository.save(e);
-                resv.addPick(ReservationPick.builder()
-                        .stockEntryId(e.getId()).productId(line.getItemId())
-                        .batchNo(e.getBatchNo()).quantity(take).expiryDate(e.getExpiryDate())
-                        // #17 P3: stamp what this batch cost, HERE, where the batch is already in hand.
-                        // Resolving it later would be a read per pick on the sale path.
-                        .unitCost(unitCostOf(e))
-                        .lineRef(lineRef)
-                        .build());
-                remaining = remaining.subtract(take);
-            }
-            /*
-             * PR-3a — a line that could not be held in full must never pass as reserved. Pass 1 now makes this
-             * unreachable short of a concurrent change between the passes; if it happens anyway, the whole hold is
-             * rolled back (this method is one transaction) rather than recording a sale for goods nobody holds.
-             */
-            if (remaining.signum() > 0) {
-                throw new ValidationException("product " + line.getItemId() + ": only part of "
-                        + fmtQty(nz(line.getQuantity())) + " could be held - stock changed while reserving; try again");
-            }
+        for (Take t : alloc.takes) {
+            StockEntry e = t.entry;
+            e.setReservedQuantity(nz(e.getReservedQuantity()).add(t.quantity));
+            stockEntryRepository.save(e);
+            resv.addPick(ReservationPick.builder()
+                    .stockEntryId(e.getId()).productId(t.productId)
+                    .batchNo(e.getBatchNo()).quantity(t.quantity).expiryDate(e.getExpiryDate())
+                    // #17 P3: stamp what this batch cost, HERE, where the batch is already in hand.
+                    // Resolving it later would be a read per pick on the sale path.
+                    .unitCost(unitCostOf(e))
+                    .lineRef(t.lineRef)   // PR-3a: echoed on each pick taken for this line
+                    .build());
         }
         reservationRepository.save(resv);
         return toResponse(resv);
+    }
+
+    /**
+     * PR-3c — which batches a reserve of these lines would take RIGHT NOW, without holding anything.
+     *
+     * <p>The sale needs the batches before it can price a line in Per batch mode, and it must show the cashier the
+     * same split it will charge. So it asks here first, prices from the answer, and then reserves exactly these
+     * batches with each line PINNED — a pin that can no longer be met refuses the sale instead of re-pricing it.
+     *
+     * <p>A line's {@code stockEntryId} here is a PREFERENCE (the batch the cashier chose): taken first, the rest FEFO.
+     * Read-only: the same rules as {@link #reserve} (expiry, quarantine, tenant scope), nothing written.
+     */
+    @Transactional(readOnly = true)
+    public StockReservationResponse plan(StockReservationRequest req, Long orgId, Long userId) {
+        final LocalDate today = TenantClock.today();
+        final boolean trackExpiry = capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
+        java.util.Map<Long, List<StockEntry>> fefo = new java.util.HashMap<>();
+        StockReservationResponse shortage = checkTotals(req, orgId, userId, today, trackExpiry, fefo);
+        if (shortage != null) return shortage;
+        Allocation alloc = allocate(req.getLines(), fefo, false);
+        if (alloc.refusal != null) return outOfStock(alloc.refusal);
+        List<StockPick> picks = new ArrayList<>();
+        for (Take t : alloc.takes) picks.add(pickOf(t.productId, t.entry, t.quantity, t.lineRef));
+        return new StockReservationResponse(null, ReservationStatus.PLANNED, picks, null, null);
+    }
+
+    /** Pass 1, shared by reserve and plan: the product's total sellable stock against its total need. */
+    private StockReservationResponse checkTotals(StockReservationRequest req, Long orgId, Long userId, LocalDate today,
+                                                 boolean trackExpiry, java.util.Map<Long, List<StockEntry>> fefo) {
+        java.util.Map<Long, BigDecimal> needByItem = new java.util.LinkedHashMap<>();
+        for (StockReservationLine l : req.getLines())
+            needByItem.merge(l.getItemId(), nz(l.getQuantity()), BigDecimal::add);
+        for (java.util.Map.Entry<Long, BigDecimal> want : needByItem.entrySet()) {
+            List<StockEntry> entries = stockEntryRepository.findForFefo(want.getKey(), orgId, userId, today, trackExpiry);
+            fefo.put(want.getKey(), entries);
+            BigDecimal need = want.getValue();
+            BigDecimal available = BigDecimal.ZERO;
+            for (StockEntry e : entries) available = available.add(availableOf(e));
+            // U0: exact. The epsilon that used to pad this comparison existed only because float subtraction
+            // never lands on zero — it also meant a shop was told it had stock it did not have, by up to one
+            // epsilon. Exact decimals need no allowance and give no false yes.
+            if (available.compareTo(need) < 0) {
+                // Carry the numbers + productId so the sell orchestrator can render a friendly, name-resolved
+                // message ("Not enough sellable stock for 'X': 7 sellable, 10 requested") instead of a raw 500.
+                return outOfStock("product " + want.getKey() + ": only " + fmtQty(available)
+                        + " sellable, " + fmtQty(need) + " requested");
+            }
+        }
+        return null;
+    }
+
+    private static BigDecimal availableOf(StockEntry e) {
+        return nz(e.getQuantity()).subtract(nz(e.getReservedQuantity())).max(BigDecimal.ZERO);
+    }
+
+    /** One planned take: so much of this batch, for that line. */
+    private record Take(Long productId, StockEntry entry, BigDecimal quantity, Integer lineRef) {}
+
+    /** The allocation, or the sentence that refuses it. */
+    private record Allocation(List<Take> takes, String refusal) {}
+
+    /**
+     * The allocator, in memory, over the batches pass 1 loaded (so a batch is never double-counted between lines).
+     *
+     * <p>Pinned lines go FIRST, whatever their position: a FEFO line listed before them could otherwise eat the very
+     * batch they were priced from. The takes are then returned in LINE order, each line's batches in the order taken.
+     *
+     * <p>{@code strictPins} — reserve: a pin is the only batch the line may take, and a pin that cannot be met refuses.
+     * Plan: a pin is a preference, taken first, the rest FEFO.
+     *
+     * <p>U0 — exact allocation in BASE UNITS: the loop ends on a true zero, so no residue accumulates across batches
+     * (a pack of 3, 6 or 7 sold loose would otherwise leave pieces that could never be allocated).
+     */
+    private Allocation allocate(List<StockReservationLine> lines, java.util.Map<Long, List<StockEntry>> fefo,
+                                boolean strictPins) {
+        java.util.Map<StockEntry, BigDecimal> left = new java.util.IdentityHashMap<>();
+        for (List<StockEntry> es : fefo.values()) for (StockEntry e : es) left.put(e, availableOf(e));
+
+        java.util.Map<Integer, List<Take>> byLine = new java.util.TreeMap<>();
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) if (lines.get(i).getStockEntryId() != null) order.add(i);
+        for (int i = 0; i < lines.size(); i++) if (lines.get(i).getStockEntryId() == null) order.add(i);
+
+        for (int i : order) {
+            StockReservationLine line = lines.get(i);
+            List<Take> takes = byLine.computeIfAbsent(i, k -> new ArrayList<>());
+            BigDecimal remaining = nz(line.getQuantity());
+            List<StockEntry> entries = fefo.getOrDefault(line.getItemId(), List.of());
+            if (line.getStockEntryId() != null) {
+                // Scoped by construction: only this tenant's, this product's, sellable batches are in `entries`.
+                StockEntry pinned = null;
+                for (StockEntry e : entries) if (line.getStockEntryId().equals(e.getId())) pinned = e;
+                BigDecimal avail = pinned == null ? BigDecimal.ZERO : left.get(pinned);
+                if (strictPins && avail.compareTo(remaining) < 0) {
+                    return new Allocation(null, "batch changed: product " + line.getItemId() + " batch "
+                            + (pinned != null && pinned.getBatchNo() != null ? pinned.getBatchNo() : line.getStockEntryId())
+                            + " has " + fmtQty(avail) + ", " + fmtQty(remaining) + " needed");
+                }
+                if (pinned != null && avail.signum() > 0) {
+                    BigDecimal take = avail.min(remaining);
+                    left.put(pinned, avail.subtract(take));
+                    takes.add(new Take(line.getItemId(), pinned, take, line.getLineRef()));
+                    remaining = remaining.subtract(take);
+                }
+            }
+            for (StockEntry e : entries) {
+                if (remaining.signum() <= 0) break;
+                BigDecimal avail = left.get(e);
+                if (avail.signum() <= 0) continue;
+                BigDecimal take = avail.min(remaining);
+                left.put(e, avail.subtract(take));
+                takes.add(new Take(line.getItemId(), e, take, line.getLineRef()));
+                remaining = remaining.subtract(take);
+            }
+            /*
+             * PR-3a — a line that could not be held in full must never pass as reserved. Pass 1 makes this unreachable
+             * for plain FEFO lines; with pins a batch-level shortfall is possible and refuses the whole request.
+             */
+            if (remaining.signum() > 0) {
+                return new Allocation(null, "product " + line.getItemId() + ": only part of "
+                        + fmtQty(nz(line.getQuantity())) + " could be held - stock changed while reserving; try again");
+            }
+        }
+        List<Take> all = new ArrayList<>();
+        for (List<Take> t : byLine.values()) all.addAll(t);
+        return new Allocation(all, null);
+    }
+
+    private static StockPick pickOf(Long productId, StockEntry e, BigDecimal qty, Integer lineRef) {
+        return new StockPick(productId, e.getBatchNo(), qty, e.getExpiryDate(), unitCostOf(e), lineRef,
+                e.getId(), e.getSellPrice());
     }
 
     @Transactional
@@ -404,7 +496,7 @@ public class ReservationService {
         List<StockPick> picks = new ArrayList<>();
         for (ReservationPick p : resv.getPicks()) {
             picks.add(new StockPick(p.getProductId(), p.getBatchNo(), nz(p.getQuantity()), p.getExpiryDate(),
-                    p.getUnitCost(), p.getLineRef()));
+                    p.getUnitCost(), p.getLineRef(), p.getStockEntryId(), null));
         }
         return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null,
                 resv.getExpiresAt());

@@ -220,6 +220,19 @@ public class SagaSellService {
         java.util.Set<Long> madeToOrder = new java.util.HashSet<>();
         List<SagaLine> lines = buildLines(dto, productNames, madeToOrder, looseLocks);
 
+        /*
+         * PR-3c — PER BATCH: price from the batches, BEFORE the guards and BEFORE anything is held.
+         *
+         * Inventory is asked which batches this sale would take (a plan, nothing held); each line the cashier did not
+         * price by hand is priced from those batches and split where they differ; the guards then judge the prices
+         * that will actually be charged; and the reserve takes exactly the planned batches, PINNED. A pinned batch
+         * that is gone by then refuses the sale ("stock changed") — it is never silently re-priced from another.
+         * Every other mode skips this block and reserves FEFO exactly as before.
+         */
+        PerBatch perBatch = isPerBatch()
+                ? priceByBatch(dto, lines, madeToOrder, productNames, looseLocks) : null;
+        if (perBatch != null) lines = perBatch.lines();
+
         // B2B-P0 (#3): whole-invoice margin policy, checked BEFORE anything is reserved or written — a sale
         // refused here has touched no stock and no ledger. The per-line warning on the sell screen cannot do
         // this: an invoice-level discount is applied after the lines are entered, so the sale can finish at or
@@ -243,7 +256,8 @@ public class SagaSellService {
          */
         List<StockReservationLine> reservationLines = new ArrayList<>();
         int lineRef = -1;   // PR-3a: each reservation line names its sale line, so its picks are recorded on THAT line
-        for (SagaLine l : lines) {
+        if (perBatch != null) reservationLines.addAll(perBatch.reservationLines());   // PR-3c: the planned batches, pinned
+        else for (SagaLine l : lines) {
             lineRef++;
             /*
              * ⚠ RST — A MADE-TO-ORDER LINE RESERVES NOTHING, because there is nothing to reserve.
@@ -302,8 +316,8 @@ public class SagaSellService {
          *
          * A genuinely short PAID quantity still fails, on the retry, exactly as before.
          */
-        boolean bonusWithheld = false;
-        if ((reservation == null || reservation.getStatus() != ReservationStatus.RESERVED)
+        boolean bonusWithheld = perBatch != null && perBatch.bonusWithheld();   // PR-3c: decided at the plan
+        if (perBatch == null && (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED)
                 && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
             List<StockReservationLine> paidOnly = new ArrayList<>();
             for (int i = 0; i < lines.size(); i++) {   // PR-3a: the same line references as the first attempt
@@ -323,6 +337,10 @@ public class SagaSellService {
 
         if (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED) {
             String reason = (reservation != null) ? reservation.getMessage() : null;
+            // PR-3c: a pinned batch another till has taken since the plan. Nothing is held; the cashier re-checks.
+            if (reason != null && reason.startsWith("batch changed")) {
+                throw new InsufficientStockException(friendlyBatchChanged(reason, productNames));
+            }
             throw new InsufficientStockException(friendlyOutOfStock(reason, productNames));
         }
         if (bonusWithheld) LOG.info("Bonus withheld on {} — insufficient stock for the free goods",
@@ -1208,6 +1226,211 @@ public class SagaSellService {
                         "A delivery order needs a customer contact — there is nowhere to send it otherwise.");
             }
         }
+    }
+
+    // ── PR-3c · Per batch: the sale is priced from the batches it takes ─────────────────────────────────────────
+
+    /** The Per-batch result: the lines as they will be charged, and the reservation that holds exactly their batches. */
+    public record PerBatch(List<SagaLine> lines, List<StockReservationLine> reservationLines, boolean bonusWithheld) {}
+
+    /** PR-3c — is this shop in Per batch mode? An unreadable setting is not (today's behaviour). */
+    boolean isPerBatch() {
+        try {
+            return PurchaseService.PRICE_MODE_PER_BATCH.equals(settingsService.getChoice(PurchaseService.PRICE_MODE_KEY,
+                    java.util.Set.of(PurchaseService.PRICE_MODE_LATEST, PurchaseService.PRICE_MODE_KEEP,
+                            PurchaseService.PRICE_MODE_PER_BATCH), PurchaseService.PRICE_MODE_LATEST));
+        } catch (RuntimeException unreadable) {
+            return false;
+        }
+    }
+
+    /**
+     * PR-3c — may this line be priced from its batches? Only when nobody chose its price: precedence is
+     * cashier's rate &gt; contract/tier price &gt; BATCH price &gt; product price.
+     *
+     * <p>Out of PR-3c, priced as before (stated on the page): a loose (broken-pack) line, a line naming serials, and a
+     * made-to-order item (no batches). An EDIT never comes here — it keeps the rates it was sold at.
+     */
+    static boolean batchPriced(SellDTO s, SagaLine l, boolean madeToOrder) {
+        if (madeToOrder || l.priceReason() != null) return false;               // a contract price applied
+        if ("LOOSE".equals(l.soldUnit())) return false;
+        if (s.getSerials() != null && !s.getSerials().isBlank()) return false;
+        BigDecimal typed = s.getSellRate();
+        if (typed == null || typed.signum() <= 0) return true;                   // no rate sent: the system prices it
+        return s.getAutoRate() != null && s.getAutoRate().compareTo(typed) == 0; // the till's own rate, not typed
+    }
+
+    /**
+     * PR-3c — plan, split, re-build. See {@link BatchPriceSplit} for the arithmetic.
+     *
+     * <p>Bonus: when the shelf cannot cover paid + bonus, the plan is retried with the paid quantities only and the
+     * free goods are withheld — the same rule (#17 P3 D11) the FEFO path applies after its reserve.
+     */
+    PerBatch priceByBatch(CustomerHistoryDTO dto, List<SagaLine> lines, java.util.Set<Long> madeToOrder,
+                          java.util.Map<Long, String> productNames, java.util.Map<Integer, LoosePriceLock> looseLocks) {
+        List<SellDTO> sales = dto.getSales();
+        boolean bonusWithheld = false;
+
+        StockReservationResponse plan = planFor(lines, sales, madeToOrder, true);
+        if (plan != null && plan.getStatus() != ReservationStatus.PLANNED
+                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
+            StockReservationResponse paidOnly = planFor(lines, sales, madeToOrder, false);
+            if (paidOnly != null && paidOnly.getStatus() == ReservationStatus.PLANNED) {
+                plan = paidOnly;
+                bonusWithheld = true;
+                for (SellDTO s : sales) s.setBonusQuantity(null);
+                lines = stripBonus(lines);
+                dto.getWarnings().add("Not enough stock for the free goods — the sale was completed without them.");
+            }
+        }
+        if (plan == null || plan.getStatus() != ReservationStatus.PLANNED) {
+            throw new InsufficientStockException(friendlyOutOfStock(plan != null ? plan.getMessage() : null, productNames));
+        }
+
+        // Split each line by the prices of the batches it takes.
+        java.util.Map<Integer, List<StockPick>> picksByLine = new java.util.HashMap<>();
+        for (StockPick p : plan.getPicks() == null ? List.<StockPick>of() : plan.getPicks()) {
+            if (p.getLineRef() != null) picksByLine.computeIfAbsent(p.getLineRef(), k -> new ArrayList<>()).add(p);
+        }
+        List<List<BatchPriceSplit.Part>> partsByLine = new ArrayList<>();
+        boolean rebuild = false;
+        for (int i = 0; i < lines.size(); i++) {
+            SagaLine l = lines.get(i);
+            boolean mto = madeToOrder.contains(l.productId());
+            boolean eligible = batchPriced(sales.get(i), l, mto);
+            List<BatchPriceSplit.Part> parts = BatchPriceSplit.split(exact(l.quantity()), exact(l.bonusQuantity()),
+                    eligible, picksByLine.get(i), l.catalogPrice());
+            partsByLine.add(parts);
+            if (parts.size() > 1 || (parts.get(0).rate() != null && parts.get(0).rate().compareTo(l.sellRate()) != 0))
+                rebuild = true;
+        }
+
+        // Re-build through THE line build (SF-1/SF-2), so discount, tax and cost are worked exactly as for any line.
+        List<SellDTO> partSales = new ArrayList<>();
+        List<BatchPriceSplit.Part> partOf = new ArrayList<>();
+        java.util.Map<Integer, LoosePriceLock> partLocks = new java.util.HashMap<>();
+        for (int i = 0; i < lines.size(); i++) {
+            SellDTO s = sales.get(i);
+            List<BatchPriceSplit.Part> parts = partsByLine.get(i);
+            boolean repriced = parts.get(0).rate() != null;
+            List<BigDecimal> discountShares = null;
+            if (repriced && isAmountDiscount(s)) {
+                List<BigDecimal> totals = new ArrayList<>();
+                for (BatchPriceSplit.Part pt : parts) totals.add(pt.rate().multiply(pt.paidQuantity()));
+                discountShares = BatchPriceSplit.shareDiscount(s.getStock().getBsellDiscount(), totals);
+            }
+            for (int k = 0; k < parts.size(); k++) {
+                BatchPriceSplit.Part pt = parts.get(k);
+                if (looseLocks != null && looseLocks.containsKey(i)) partLocks.put(partSales.size(), looseLocks.get(i));
+                SellDTO copy = repriced ? copyOf(s) : s;
+                if (repriced) {
+                    copy.setQuantity(pt.paidQuantity().floatValue());
+                    copy.setSellRate(pt.rate());
+                    copy.setAutoRate(pt.rate());
+                    copy.setBonusQuantity(pt.bonus() == null ? null : pt.bonus().floatValue());
+                    if (discountShares != null) copy.getStock().setBsellDiscount(discountShares.get(k));
+                }
+                partSales.add(copy);
+                partOf.add(pt);
+            }
+        }
+        List<SagaLine> built = lines;
+        if (rebuild) {
+            dto.setSales(partSales);
+            dto.getSerialsClaimed().clear();   // buildLines claims them again, once per (unsplit) serial line
+            try {
+                built = buildLines(dto, productNames, new java.util.HashSet<>(), partLocks);
+            } finally {
+                dto.setSales(sales);           // the request keeps the cashier's lines; the invoice gets the parts
+            }
+        }
+
+        // The parts' own cost (the margin guard judges each batch's cost) and a reason the receipt can show.
+        List<SagaLine> out = new ArrayList<>();
+        List<StockReservationLine> reservation = new ArrayList<>();
+        for (int j = 0; j < built.size(); j++) {
+            SagaLine l = built.get(j);
+            BatchPriceSplit.Part pt = partOf.get(j);
+            if (pt.rate() != null) {
+                l = new SagaLine(l.productId(), l.quantity(), l.sellRate(), l.discount(), l.totalAmount(), l.netAmount(),
+                        l.srp(), l.taxRate(), l.taxAmount(), l.lineGross(), l.catalogPrice(), l.discountType(),
+                        pt.unitCost() != null ? pt.unitCost() : l.costPrice(),
+                        pt.batchLabel() != null ? pt.batchLabel() : l.priceReason(),
+                        l.bonusQuantity(), l.soldUnit(), l.soldQuantity(), l.soldRate(), l.packSizeSnapshot());
+            }
+            out.add(l);
+            // Pinned: one reservation line per batch this part takes (a batch twice in one part is merged).
+            java.util.Map<Long, BigDecimal> byEntry = new java.util.LinkedHashMap<>();
+            BigDecimal unpinned = BigDecimal.ZERO;
+            for (BatchPriceSplit.Piece pc : pt.pieces()) {
+                if (pc.stockEntryId() == null) unpinned = unpinned.add(pc.quantity());
+                else byEntry.merge(pc.stockEntryId(), pc.quantity(), BigDecimal::add);
+            }
+            for (java.util.Map.Entry<Long, BigDecimal> e : byEntry.entrySet())
+                reservation.add(new StockReservationLine(l.productId(), e.getValue(), j, e.getKey()));
+            if (unpinned.signum() > 0) reservation.add(new StockReservationLine(l.productId(), unpinned, j));
+        }
+        return new PerBatch(out, reservation, bonusWithheld);
+    }
+
+    /** Ask inventory for the plan of these lines (issued = paid + bonus, or paid only). Made-to-order lines hold nothing. */
+    private StockReservationResponse planFor(List<SagaLine> lines, List<SellDTO> sales, java.util.Set<Long> madeToOrder,
+                                             boolean withBonus) {
+        List<StockReservationLine> req = new ArrayList<>();
+        for (int i = 0; i < lines.size(); i++) {
+            SagaLine l = lines.get(i);
+            if (madeToOrder.contains(l.productId())) continue;
+            BigDecimal qty = exact(l.quantity());
+            if (withBonus && l.bonusQuantity() != null) qty = qty.add(exact(l.bonusQuantity()));
+            req.add(new StockReservationLine(l.productId(), qty, i, sales.get(i).getStockEntryId()));
+        }
+        if (req.isEmpty()) return new StockReservationResponse(null, ReservationStatus.PLANNED, List.of(), null, null);
+        return inventoryClient.plan(new StockReservationRequest(null, req));
+    }
+
+    /**
+     * PR-3c — the till's preview: what {@link #addSell} would charge for this basket in Per batch mode, without
+     * holding or writing anything. Same plan, same split, same line build — the screen cannot disagree with the sale.
+     * Returns null when the shop is not in Per batch mode.
+     */
+    public PerBatch previewBatchPricing(CustomerHistoryDTO dto) {
+        if (!isPerBatch()) return null;
+        java.util.Map<Long, String> names = new java.util.HashMap<>();
+        java.util.Set<Long> mto = new java.util.HashSet<>();
+        List<SagaLine> lines = buildLines(dto, names, mto, java.util.Map.of());
+        return priceByBatch(dto, lines, mto, names, java.util.Map.of());
+    }
+
+    private static boolean isAmountDiscount(SellDTO s) {
+        var st = s.getStock();
+        if (st == null || st.getBsellDiscount() == null || st.getBsellDiscount().signum() <= 0) return false;
+        String type = st.getBsellDiscountType();
+        return !("%".equals(type) || "1".equals(type));
+    }
+
+    /** A field-for-field copy of a sale line, with its own stock block (a part's discount share must not leak). */
+    private static SellDTO copyOf(SellDTO s) {
+        SellDTO c = new SellDTO();
+        org.springframework.beans.BeanUtils.copyProperties(s, c);
+        if (s.getStock() != null) {
+            com.myplus.business_service.dto.StockDTO st = new com.myplus.business_service.dto.StockDTO();
+            org.springframework.beans.BeanUtils.copyProperties(s.getStock(), st);
+            c.setStock(st);
+        }
+        return c;
+    }
+
+    /** Float quantities (the line record's type) to an exact decimal: 0.1f is 0.1, not 0.100000001490116. */
+    private static BigDecimal exact(Float f) {
+        return f == null ? BigDecimal.ZERO : new BigDecimal(Float.toString(f));
+    }
+
+    private String friendlyBatchChanged(String reason, java.util.Map<Long, String> names) {
+        for (java.util.Map.Entry<Long, String> e : names.entrySet()) {
+            reason = reason.replace("product " + e.getKey(), "'" + e.getValue() + "'");
+        }
+        return "Stock changed while this sale was open — " + reason.replaceFirst("^batch changed: ", "")
+                + ". Nothing was charged; check the line's batch and price, then complete the sale again.";
     }
 
     private String friendlyOutOfStock(String reason, java.util.Map<Long, String> names) {

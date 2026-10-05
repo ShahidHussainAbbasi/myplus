@@ -2594,6 +2594,16 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-offset-2 col-sm-10">
 							<div id="sellSellableInfo" class="alert alert-warning" style="display:none;padding:6px 10px;margin:0 0 6px 0"></div>
 							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>
+							<!-- PR-3c: how the batches priced the last line added (Per batch shops only). Filled by per-batch-till.js. -->
+							<div id="sellBatchNote" class="alert alert-success" style="display:none;padding:6px 10px;margin:6px 0 0 0"></div>
+						</div>
+					</div>
+					<!-- PR-3c: the batch to sell from, each with its own price. Shown only in a Per batch shop, by
+					     per-batch-till.js; not in the keyboard walk (a select the cashier may skip — FEFO is the default). -->
+					<div class="form-group pos-fullrow" id="sellBatchPickRow" style="display:none">
+						<label class="control-label col-sm-2" for="sellBatchPick" th:text="#{ui.sellBatch}">Batch</label>
+						<div class="col-sm-10">
+							<select class="form-control" id="sellBatchPick" tabindex="-1"></select>
 						</div>
 					</div>
 					<div class="form-group">
@@ -4649,6 +4659,8 @@ tr.row-voided .js-edit-row{display:none !important}
          registry-driven: [] unless business-service has an ImportSpec for that entity. -->
     <script th:src="@{/js/common/data-import.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
+    <!-- PR-3c: Per batch pricing on the till. Inert unless the shop's purchase mode is Per batch. -->
+    <script th:src="@{/js/business/per-batch-till.js}"></script>
     <!-- DR-2: customer <-> supplier — "+ Supplier"/"+ Customer", link / unlink in the 360 view. -->
     <script th:src="@{/js/business/party-roles.js}"></script>
     <!-- The last-paid hint in the cart. Reads window.posShowLastRate and draws nothing without it,

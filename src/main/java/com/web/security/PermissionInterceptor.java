@@ -86,6 +86,7 @@ public class PermissionInterceptor implements HandlerInterceptor {
             // ── the two the owner asked for by name ────────────────────────────────────────────
             new Rule("POST", "/updateSell",            "sale.edit"),
             new Rule("POST", "/addSell",               "sale.create"),
+            new Rule("POST", "/batchPricePreview",     "sale.create"),   // PR-3c: the till's Per-batch preview
             new Rule("POST", "/updatePurchase",        "purchase.edit"),
             new Rule("POST", "/addPurchase",           "purchase.create"),
 

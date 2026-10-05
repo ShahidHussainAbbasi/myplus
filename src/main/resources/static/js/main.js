@@ -662,6 +662,10 @@ $(document).ready(function() {
 						// server records ONE invoice. Reset only after a successful sale (see jsonPost).
 						customerHistory.idempotencyKey = getSaleIdempotencyKey();
 
+						// PR-3c: a Per-batch shop re-checks the whole cart against the batches first. If the batches
+						// change a price, the cart is updated and shown, and nothing is posted until Complete again.
+						var postSale = function () {
+
 						/*
 						 * CONFIRM HERE — after validation, immediately before the post.
 						 *
@@ -705,6 +709,9 @@ $(document).ready(function() {
 						} else {
 							jsonPost("addSell", customerHistory);
 						}
+						};
+						if (window.PerBatchTill && PerBatchTill.enabled()) PerBatchTill.beforeComplete(customerHistory, postSale);
+						else postSale();
 					}
 			    }else{
 					/*

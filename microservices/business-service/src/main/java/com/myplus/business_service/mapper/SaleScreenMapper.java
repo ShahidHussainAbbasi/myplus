@@ -19,6 +19,7 @@ import com.myplus.business_service.entity.Sell;
 @Mapper
 public interface SaleScreenMapper extends DisplayDates {
 
+    @Mapping(target = "autoRate", ignore = true)      // PR-3c: a till input, never read back
     @Mapping(target = "batches", ignore = true)
     @Mapping(target = "category", ignore = true)
     @Mapping(target = "cc", ignore = true)
@@ -47,6 +48,7 @@ public interface SaleScreenMapper extends DisplayDates {
     @Mapping(target = "sellSId", ignore = true)
     @Mapping(target = "serials", ignore = true)
     @Mapping(target = "stock", ignore = true)
+    @Mapping(target = "stockEntryId", ignore = true)  // PR-3c: a till input; the sale's batches are in sell_batch
     SellDTO toDto(Sell sell);
 
     @Mapping(target = "autoCut", ignore = true)
