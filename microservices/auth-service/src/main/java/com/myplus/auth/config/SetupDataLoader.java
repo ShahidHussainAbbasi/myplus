@@ -29,6 +29,9 @@ public class SetupDataLoader {
     private final PasswordEncoder passwordEncoder;
     private final OrganizationService organizationService;
     private final com.myplus.auth.repository.OrgSettingRepository orgSettingRepository;
+    // Resolved on demand (as AuthService does): a seeded member is placed on its tenant's default permission set.
+    private final org.springframework.beans.factory.ObjectProvider<com.myplus.auth.service.PermissionService> permissionServiceProvider;
+    private final com.myplus.auth.repository.UserPermissionSetRepository userPermissionSetRepository;
 
     // F15: never seed a known-password admin in prod. Override via env: APP_SEED_ADMIN=false (prod),
     // or APP_ADMIN_PASSWORD=<strong> if you do seed one.
@@ -752,6 +755,29 @@ public class SetupDataLoader {
         u.setRoles(new HashSet<>(Collections.singletonList(role)));
         u = userRepository.save(u);
         organizationService.addMember(u.getId(), orgId, membershipRole);   // idempotent
+        placeOnDefaultSet(u, orgId, membershipRole);
+    }
+
+    /**
+     * A seeded admin/user lands on the tenant's default permission set, exactly as a member added on the Team screen
+     * does ({@code AuthService} → {@code defaultSetFor} + {@code assign}).
+     *
+     * <p>Why: V14 put every member that EXISTED on a set; these accounts are created after the migrations on a fresh
+     * database, so they had none — and a member on no set is minted nothing (deny by default). On every freshly built
+     * environment admin.business could not save a setting (403 settings.edit) and user.* could not add a product.
+     * Only a member with NO set is placed: a set someone chose stays. An owner is never placed (implicit access, G-4).
+     */
+    private void placeOnDefaultSet(User u, Long orgId, String membershipRole) {
+        if ("OWNER".equalsIgnoreCase(membershipRole)) return;
+        try {
+            if (userPermissionSetRepository.findByUserId(u.getId()).isPresent()) return;
+            com.myplus.auth.service.PermissionService perms = permissionServiceProvider.getObject();
+            final Long userId = u.getId();
+            perms.defaultSetFor(orgId, "ADMIN".equalsIgnoreCase(membershipRole))
+                    .ifPresent(ps -> perms.assign(userId, ps.getId(), orgId));
+        } catch (Exception e) {
+            log.warn("Seed: could not place {} on a permission set", u.getEmail(), e);
+        }
     }
 
     private Privilege createPrivilegeIfNotExists(String name) {

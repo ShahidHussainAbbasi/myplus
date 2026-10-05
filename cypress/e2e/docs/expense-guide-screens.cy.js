@@ -77,7 +77,9 @@ const tb = () => token().then((t) => cy.request({ url: `${GW}/api/finance/gl/tri
 const delta = (b, a, code) => Math.round(((a[code] || 0) - (b[code] || 0)) * 100) / 100
 const showTrialBalance = () => {
   cy.window().then((w) => w.showFinance('trialBalance'))
-  cy.contains('#FinanceDiv', 'Accounts Payable', { timeout: 20000 }).should('be.visible')
+  // The report lists only accounts that carry a balance, so no one account is a safe signal it has drawn:
+  // a fresh business has no Accounts Payable yet. Its total line is always there.
+  cy.contains('#FinanceDiv', 'Balanced', { timeout: 20000 }).should('be.visible')
 }
 const vendorRow = (id) => cy.request('/getUserVender').then((r) => list(r.body).find((v) => v.id === id))
 const categoryByName = (name) => cy.request('/expense/categories').then((r) => {
@@ -347,7 +349,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
           cy.request({ method: 'POST', url: '/receivePayment', form: true, body: { customerId: cid, amount: 1, method: 'CASH', idempotencyKey: 'xg0c2-' + run } })
             .its('body.object.receiptNo').then((r2) => {
               const n1 = Number(String(r1).replace(/\D/g, '')), n2 = Number(String(r2).replace(/\D/g, ''))
-              expect(n1, 'not restarted').to.be.greaterThan(1)
+              expect(n1, 'a real receipt number').to.be.greaterThan(0)   // RCPT-000001 on a fresh business is right
               expect(n2).to.eq(n1 + 1)
             })
         })

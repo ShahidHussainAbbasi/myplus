@@ -1698,7 +1698,7 @@ function renderPriceRules(rules){
 			? ('−' + Number(r.value || 0) + '% ' + t('ui.js.offCatalog'))
 			: Number(r.value || 0).toFixed(2);
 		var valid = (r.startsOn || r.endsOn)
-			? (escHtml(r.startsOn || '…') + ' â†’ ' + escHtml(r.endsOn || '…'))
+			? (escHtml(r.startsOn || '…') + ' → ' + escHtml(r.endsOn || '…'))
 			: '<span class="text-muted">' + escHtml(t('ui.js.always')) + '</span>';
 
 		var status = STATE_LABEL[state];
@@ -5562,7 +5562,7 @@ function finRunTrialBalance(){
 		rows.forEach(function(r){ h+='<tr><td>'+escHtml(r.code||'')+'</td><td>'+escHtml(r.name||'')+'</td><td class="text-right">'+Number(r.debit||0).toFixed(2)+'</td><td class="text-right">'+Number(r.credit||0).toFixed(2)+'</td></tr>'; });
 		if(!rows.length) h+='<tr><td colspan="4" class="text-center" style="color:#777">No ledger entries yet — post a sale or purchase to populate the GL.</td></tr>';
 		h+='</tbody><tfoot><tr><th colspan="2" class="text-right">Total</th><th class="text-right">'+Number(d.totalDebit||0).toFixed(2)+'</th><th class="text-right">'+Number(d.totalCredit||0).toFixed(2)+'</th></tr></tfoot></table>';
-		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced âœ“':'NOT balanced')+'</div>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced ✓':'NOT balanced')+'</div>';
 		finSet(h);
 	}, 'json').fail(finFail);
 }
@@ -5585,7 +5585,7 @@ function finRunBalanceSheet(){
 		var eq=(d.equity||[]).slice();
 		if(Number(d.netIncome||0)!==0) eq.push({code:'',name:'Net income (current period)',amount:d.netIncome});
 		h+=finSection('Equity', eq, d.totalEquity);
-		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' âœ“':' — NOT balanced')+'</div>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' ✓':' — NOT balanced')+'</div>';
 		finSet(h);
 	}, 'json').fail(finFail);
 }
@@ -5594,7 +5594,7 @@ function finRunTaxRegister(){
 	$.get(serverContext+'taxRegister', {from:$('#finFrom').val(), to:$('#finTo').val()}, function(resp){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp;
 		var f=function(x){return Number(x||0).toFixed(2);};
-		var h='<div style="color:#777;margin-bottom:8px">Period: '+escHtml((d.from||'').toString())+' â†’ '+escHtml((d.to||'').toString())+'</div>';
+		var h='<div style="color:#777;margin-bottom:8px">Period: '+escHtml((d.from||'').toString())+' → '+escHtml((d.to||'').toString())+'</div>';
 		h+='<table class="table" style="width:100%"><tbody>'
 			+'<tr><td>Output tax (sales)</td><td class="text-right">'+f(d.outputTax)+'</td></tr>'
 			+'<tr><td>Less adjustments (returns/voids)</td><td class="text-right">-'+f(d.outputAdjusted)+'</td></tr>'
