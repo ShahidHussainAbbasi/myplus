@@ -6228,8 +6228,13 @@ function applySerialQuantityLock() {
 
 	var hasSerial = $.trim($serial.val() || '') !== '';
 	if (hasSerial) {
+		var changed = $qty.val() !== '1';
 		$qty.val(1).prop('readonly', true).addClass('is-locked-by-serial')
 			.attr('title', t('ui.js.qtyLockedBySerial', 'One serial number is one unit.'));
+		// The line total follows the quantity, and nothing else recalculates it: .val() fires none of the box's own
+		// keyup/blur handlers. Without this a cashier who typed 2 and then scanned an IMEI got "1 x 500 = 1000.00" in
+		// the cart (verify sweep, 2026-10-05). Goods-in already does this — applyPurchaseSerialQuantityLock.
+		if (changed && typeof calculateNetSell === 'function') calculateNetSell();
 	} else if ($qty.hasClass('is-locked-by-serial')) {
 		// Only release a lock THIS rule applied. A quantity made readonly by anything else — a loose line,
 		// a future rule — is not ours to unlock.
