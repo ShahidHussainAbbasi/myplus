@@ -1160,7 +1160,11 @@ public class SellController {
 					m.put("lineTotal", l.totalAmount());
 					m.put("discount", l.discount());
 					m.put("bonusQuantity", l.bonusQuantity());
-					m.put("batch", l.priceReason());
+					// PR-3c: true = the batches set this price; false = the cashier's or a contract's price, which the till
+					// must keep marking as its own (re-sending it as "not typed" would let a later check re-price it).
+					boolean byBatch = Boolean.TRUE.equals(pb.batchPriced().get(j));
+					m.put("batchPriced", byBatch);
+					m.put("batch", byBatch ? l.priceReason() : null);
 					final int ref = j;
 					m.put("stockEntryId", pb.reservationLines().stream()
 							.filter(r -> r.getLineRef() != null && r.getLineRef() == ref && r.getStockEntryId() != null)

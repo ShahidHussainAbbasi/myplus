@@ -91,7 +91,9 @@
         var qty = Number(part.quantity), rate = Number(part.rate);
         line.quantity = qty;
         line.sellRate = rate;
-        line.autoRate = rate;                       // the server priced it; not typed
+        // Only a price the BATCHES set is the till's own. A typed (or contract) price keeps its own marker — marking
+        // it "not typed" here would let the Complete re-check re-price it from the batches (found by guide case S2).
+        line.autoRate = part.batchPriced ? rate : (from.autoRate != null ? from.autoRate : null);
         line.stockEntryId = part.stockEntryId != null ? part.stockEntryId : null;
         line.bonusQuantity = part.bonusQuantity != null ? part.bonusQuantity : null;
         line.batchNote = part.batch || null;        // shown in the cart beside the item
@@ -102,7 +104,7 @@
         }
         line.totalAmount = Math.round(qty * rate * 100) / 100;
         line.netAmount = line.totalAmount;
-        if (part.batch && line.itemName && line.itemName.indexOf(' — ' + part.batch) < 0) {
+        if (part.batchPriced && part.batch && line.itemName && line.itemName.indexOf(' — ' + part.batch) < 0) {
             line.itemName = String(line.itemName).split(' — Batch ')[0] + ' — ' + part.batch;
         }
         return line;

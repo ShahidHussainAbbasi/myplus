@@ -1231,7 +1231,8 @@ public class SagaSellService {
     // ── PR-3c · Per batch: the sale is priced from the batches it takes ─────────────────────────────────────────
 
     /** The Per-batch result: the lines as they will be charged, and the reservation that holds exactly their batches. */
-    public record PerBatch(List<SagaLine> lines, List<StockReservationLine> reservationLines, boolean bonusWithheld) {}
+    public record PerBatch(List<SagaLine> lines, List<StockReservationLine> reservationLines, boolean bonusWithheld,
+                           List<Boolean> batchPriced) {}
 
     /** PR-3c — is this shop in Per batch mode? An unreadable setting is not (today's behaviour). */
     boolean isPerBatch() {
@@ -1347,6 +1348,7 @@ public class SagaSellService {
 
         // The parts' own cost (the margin guard judges each batch's cost) and a reason the receipt can show.
         List<SagaLine> out = new ArrayList<>();
+        List<Boolean> priced = new ArrayList<>();   // per part: did the batches set its price (vs the cashier/contract)
         List<StockReservationLine> reservation = new ArrayList<>();
         for (int j = 0; j < built.size(); j++) {
             SagaLine l = built.get(j);
@@ -1359,6 +1361,7 @@ public class SagaSellService {
                         l.bonusQuantity(), l.soldUnit(), l.soldQuantity(), l.soldRate(), l.packSizeSnapshot());
             }
             out.add(l);
+            priced.add(pt.rate() != null);
             // Pinned: one reservation line per batch this part takes (a batch twice in one part is merged).
             java.util.Map<Long, BigDecimal> byEntry = new java.util.LinkedHashMap<>();
             BigDecimal unpinned = BigDecimal.ZERO;
@@ -1370,7 +1373,7 @@ public class SagaSellService {
                 reservation.add(new StockReservationLine(l.productId(), e.getValue(), j, e.getKey()));
             if (unpinned.signum() > 0) reservation.add(new StockReservationLine(l.productId(), unpinned, j));
         }
-        return new PerBatch(out, reservation, bonusWithheld);
+        return new PerBatch(out, reservation, bonusWithheld, priced);
     }
 
     /** Ask inventory for the plan of these lines (issued = paid + bonus, or paid only). Made-to-order lines hold nothing. */

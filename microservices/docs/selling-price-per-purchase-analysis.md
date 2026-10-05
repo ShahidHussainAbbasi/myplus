@@ -349,12 +349,13 @@ quick-pick labels, B2B percent rules, storefront, cart, markup guards ×2); 2 un
 | Finding | Cause | Status |
 |---|---|---|
 | The till's batch note never appeared (gate S6 red) | the notice row is collapsed (`pos-notice-empty`) unless `syncSellNoticeRow` opens it, and it decides from `:visible`, which is false for any child of a collapsed row | Fixed in `per-batch-till.js`: the note opens its row itself. A first fix changed `syncSellNoticeRow`'s rule instead — that opened the row for the older FEFO/sellable notices on EVERY shop's till and turned two unrelated gates red (`saga-sell-ui`, `contract-price-charged` — both green on the base build, red with it). Reverted; the rule is unchanged |
+| **A typed price was re-priced at Complete** — the cashier typed 230, the cart showed 230, Complete corrected it to the batch's 200 (guide case S2 red on the deployed build) | the Add preview echoed 230 back and the till stored it as its own price (`autoRate = 230`), so the whole-cart re-check read the line as "not typed" and priced it from the batch | Fixed: the preview says per part whether the BATCHES set the price (`batchPriced`); the till marks only those as its own. Gate S8 (typed price survives Complete) and `PerBatchSaleTest.previewMarksATypedPriceAsTheCashiers` |
 | Complete Sale's confirm dialog opened late in Per batch | the whole-cart re-check runs first, by design | The gate waits for the re-check; noted in the guide (S1 a3, S3 a2) |
 
 **Tests:** inventory `ReservationServiceTest` **23/23** on real MySQL (7 new: plan names batch + price and holds nothing,
 the chosen batch first, plan shortfall wording, pinned reserve holds exactly its batch, a gone batch refuses and holds
-nothing, pins before FEFO, another tenant's batch refused); business **501/501** (new `PerBatchSaleTest` 11,
-`BatchPriceSplitTest` 7). Gate `cypress/e2e/business/pricing-per-batch-sale.cy.js` S1–S7 **7/7** on the deployed build
+nothing, pins before FEFO, another tenant's batch refused); business **502/502** (new `PerBatchSaleTest` 12,
+`BatchPriceSplitTest` 7). Gate `cypress/e2e/business/pricing-per-batch-sale.cy.js` S1–S8 **8/8** on the deployed build
 (2026-10-05). Step-by-step guide cases R1 (PR-3a), X1 (PR-3b), S1–S3 (PR-3c) in `cypress/e2e/docs/price-mode-guide.cy.js`.
 
 **Not in PR-3c (stated on the page):** loose lines priced per batch; quotes, the storefront and B2B percent rules (decision

@@ -310,6 +310,7 @@ class PerBatchSaleTest {
 
         assertThat(pb.lines()).extracting(SagaLine::sellRate).usingElementComparator(BigDecimal::compareTo)
                 .containsExactly(new BigDecimal("200"), new BigDecimal("250"));
+        assertThat(pb.batchPriced()).containsExactly(true, true);
         verify(inventoryClient, never()).reserve(any(StockReservationRequest.class));
         verify(saleWriter, never()).writePending(any(), anyString(), anyString(), any(), anyList(), anyList());
     }
@@ -336,5 +337,16 @@ class PerBatchSaleTest {
         assertThat(lines).hasSize(1);
         assertThat(lines.get(0).sellRate()).isEqualByComparingTo("240");
         assertThat(lines.get(0).priceReason()).isEqualTo("Contract: Al-Karam");
+    }
+
+    @Test
+    @DisplayName("⭐ the preview marks a typed price as NOT batch-priced, so the till keeps it the cashier's")
+    void previewMarksATypedPriceAsTheCashiers() {
+        plan(pick(OLD, "B-0912", "2", "200", "150", 0));
+
+        SagaSellService.PerBatch pb = service.previewBatchPricing(sale(line(2f, "230", "200")));
+
+        assertThat(pb.lines()).singleElement().satisfies(l -> assertThat(l.sellRate()).isEqualByComparingTo("230"));
+        assertThat(pb.batchPriced()).containsExactly(false);
     }
 }

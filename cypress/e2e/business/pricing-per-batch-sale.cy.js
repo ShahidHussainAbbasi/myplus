@@ -257,4 +257,25 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       })
     })
   })
+
+  it('S8 the till: a typed price survives the Complete re-check', () => {
+    seedTwoBatches('S8').then(({ productId, old }) => {
+      openSale()
+      pickItem(productId)
+      cy.get('#sellSellRate').should('have.value', '200').clear().type('230')
+      addToCart(2)
+      cy.get('#tablesi tbody tr').should('have.length', 1).eq(0).should('contain', '230')
+      cy.window().then((w) => expect(Number(w.data[0].autoRate), 'still marked as typed').to.not.eq(230))
+      cy.intercept('POST', '/addSell').as('sale')
+      complete()
+      cy.wait('@sale').its('response.body').then((b) => {
+        expect(b.status, JSON.stringify(b).slice(0, 300)).to.eq('SUCCESS')
+        receipt(b.object).then((inv) => {
+          const ls = linesOf(inv, productId)
+          expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate)])).to.deep.eq([[2, 230]])
+          expect((ls[0].batches || []).map((x) => x.batchNo)).to.deep.eq([old.batchNo])
+        })
+      })
+    })
+  })
 })
