@@ -787,6 +787,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Owner Business: <b>Difference 0.00</b>; <b>Read from finance</b> is enabled; <b>Finance vs GL 2000</b> shown.</span></label></li><li><label><input type="checkbox"><span>Demo BUSINESS: <b>Difference 100.00</b> highlighted; <b>Read from finance</b> is disabled.</span></label></li><li><label><input type="checkbox"><span>Where Finance vs GL 2000 is not zero, a yellow warning explains it does not block the switch.</span></label></li></ul></div>
           </div>
           <div class="why"><b>Catches:</b> switching a business whose two sets of figures disagree, so its reports change numbers overnight.</div>
+          <div class="note"><b>Not recorded on 5 Oct.</b> The refusal half needs a business whose supplier figures disagree. The recording borrowed the demo business’s old difference of 100; a freshly built database has none, and the daily check (FP-6a) now repairs such differences by itself. Until the case makes its own disagreement, check it by hand on a business the operator panel shows with a non-zero <b>Difference</b>.</div>
         </div>
       </div>
       <div class="case" data-case="4b-3">
