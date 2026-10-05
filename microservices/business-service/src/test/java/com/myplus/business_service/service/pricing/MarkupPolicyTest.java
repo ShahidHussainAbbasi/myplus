@@ -72,6 +72,21 @@ class MarkupPolicyTest {
     }
 
     @Test
+    @DisplayName("PR-2b precedence: product 30% > category 20% > business 14.5%; source names which")
+    void category_precedence() {
+        stored(Map.of(MarkupPolicy.PCT_KEY, "14.5"));
+        MarkupPolicy.Suggestion cat = policy.suggest(d("100"), null, d("20"), d("100"));
+        assertThat(cat.price()).isEqualByComparingTo("120.00");
+        assertThat(cat.pctSource()).isEqualTo("CATEGORY");
+        MarkupPolicy.Suggestion own = policy.suggest(d("100"), d("30"), d("20"), d("100"));
+        assertThat(own.price()).isEqualByComparingTo("130.00");
+        assertThat(own.pctSource()).isEqualTo("PRODUCT");
+        MarkupPolicy.Suggestion biz = policy.suggest(d("100"), null, d("0"), d("100"));   // 0 on the category = not set
+        assertThat(biz.price()).isEqualByComparingTo("114.50");
+        assertThat(biz.pctSource()).isEqualTo("BUSINESS");
+    }
+
+    @Test
     @DisplayName("basis margin + rounding near5, stored as the settings screen may save them (MARGIN, NEAR5)")
     void basis_and_rounding_any_case() {
         stored(Map.of(MarkupPolicy.PCT_KEY, "14.5", MarkupPolicy.BASIS_KEY, "MARGIN", MarkupPolicy.ROUNDING_KEY, "Near5"));

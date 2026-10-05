@@ -23,4 +23,8 @@ public class StockPurchaseAdjust {
     private Float delta;              // newQty − oldQty (may be negative)
     private LocalDate expiryDate;     // optional — update the batch's expiry too
     private BigDecimal purchasePrice; // optional — update the batch's cost too
+    /** PR-3b — optional: the batch (stock_entries.id) this purchase booked in, and the price it now sells at. Applied
+     *  even when the quantity did not change — an edit that only corrects the S/U rate must still re-price its batch. */
+    private Long stockEntryId;
+    private BigDecimal sellPrice;
 }

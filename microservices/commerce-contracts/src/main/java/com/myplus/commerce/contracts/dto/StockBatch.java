@@ -30,4 +30,8 @@ public class StockBatch {
      * <p>Null on batches received before the field existed, where quantity x purchasePrice IS the total.
      */
     private BigDecimal paidTotal;
+
+    /** PR-3b — the batch row's id (what a sale pins in PR-3c) and the price it sells at; null = the product's price. */
+    private Long stockEntryId;
+    private BigDecimal sellPrice;
 }

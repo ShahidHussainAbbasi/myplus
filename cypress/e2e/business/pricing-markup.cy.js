@@ -12,6 +12,7 @@
  *          and Keep beats Auto
  *   M9–M10 the purchase form: Suggest offers "Use 114.50"; Auto says what will happen, or why it is held back
  *   M11    another tenant's product is not priced
+ *   M12–M15 PR-2b: category % between product and business; its screen; user refused; other tenant refused
  *
  * Tenant: owner.business@ (POS). Server state: every pricing setting this spec touches is put back EXACTLY in after().
  *
@@ -220,6 +221,76 @@ describe('PR-2 — the markup rule', () => {
           expect(refused, 'cross-tenant: ' + r.status + ' ' + JSON.stringify(r.body).slice(0, 200)).to.eq(true)
         })
       }, 'owner.pharma@myplus.com')
+    })
+  })
+
+  // ── PR-2b · markup by category ───────────────────────────────────────────────────────────────────────
+
+  const CAT = 'PRM2 Cat ' + STAMP
+  let catId = null
+  /** The spec's own category, made the way the product form makes one (a product naming it). */
+  const ensureCategory = () => (catId ? cy.wrap(catId)
+    : cy.seedProduct({ name: 'PRM2C_' + uniq(), sellingPrice: 200, category: CAT }).then((p) => product(p.productId))
+      .then((p) => { catId = p.categoryId; expect(catId, 'the spec category').to.exist; return cy.wrap(catId) }))
+  const setCatMarkup = (id, pct) => cy.request({ method: 'POST', url: '/setCategoryMarkup', headers: { 'Content-Type': 'application/json' },
+    body: { categoryId: id, markupPct: pct }, failOnStatusCode: false })
+  after(() => { cy.loginAsOwner(); if (catId) setCatMarkup(catId, null) })   // the category itself stays; its markup does not
+
+  it('M12 category % sits between the product\'s and the business\'s, and the suggestion names it', () => {
+    set('pos.pricing.markupPct', '14.5')
+    ensureCategory().then((cid) => {
+      setCatMarkup(cid, 20).then((r) => expect(r.body && r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true))
+      cy.seedProduct({ name: 'PRM2C_' + uniq(), sellingPrice: 200, category: CAT }).then(({ productId }) => {
+        suggest(productId, 100).then((s) => { expect(Number(s.price)).to.eq(120); expect(s.pctSource).to.eq('CATEGORY') })
+        setProductMarkup(productId, 30)
+        suggest(productId, 100).then((s) => { expect(Number(s.price)).to.eq(130); expect(s.pctSource).to.eq('PRODUCT') })
+        setProductMarkup(productId, null)
+        setCatMarkup(cid, null)
+        suggest(productId, 100).then((s) => { expect(Number(s.price)).to.eq(114.5); expect(s.pctSource).to.eq('BUSINESS') })
+      })
+    })
+  })
+
+  it('M13 the Markup by category screen saves a row and refuses a typo, in words', () => {
+    set('pos.pricing.markupPct', '14.5')
+    ensureCategory().then((cid) => {
+      setCatMarkup(cid, null)
+      cy.visit('/businessDashboard')
+      cy.get('#navCategoryMarkup').should('exist')
+      cy.window().then((w) => w.showCategoryMarkup())
+      cy.get('#CategoryMarkupDiv').should('be.visible')
+      cy.get('#cmBiz').should('contain', '14.5')
+      cy.intercept('POST', '**/setCategoryMarkup').as('cm')
+      cy.get(`#cmPct_${cid}`).should('have.value', '').type('20').blur()
+      cy.wait('@cm').its('response.body.success').should('eq', true)
+      cy.get(`#tableCategoryMarkup tr[data-category="${cid}"] .cm-state`).should('contain', 'Saved')
+      cy.request('/getUserCategories').then((r) => expect(Number(r.body.categories.find((c) => c.id === cid).markupPct)).to.eq(20))
+      cy.get(`#cmPct_${cid}`).clear().type('2000').blur()
+      cy.wait('@cm')
+      cy.get(`#tableCategoryMarkup tr[data-category="${cid}"] .cm-state`).should('have.class', 'text-danger').and('contain', 'between 0 and 1000')
+      cy.request('/getUserCategories').then((r) => expect(Number(r.body.categories.find((c) => c.id === cid).markupPct), 'typo not stored').to.eq(20))
+    })
+  })
+
+  it('M14 a user has no Markup by category, and the server refuses them', () => {
+    ensureCategory().then((cid) => {
+      cy.loginAsTier('user', 'business')
+      setCatMarkup(cid, 50).then((r) => expect(r.body && r.body.success, 'user refused: ' + JSON.stringify(r.body).slice(0, 200)).to.not.eq(true))
+      cy.visit('/businessDashboard')
+      cy.get('#navCategoryMarkup').should('not.exist')
+      cy.get('#CategoryMarkupDiv').should('not.exist')
+      cy.loginAsOwner()
+      cy.request('/getUserCategories').then((r) => expect(Number(r.body.categories.find((c) => c.id === cid).markupPct || 0), 'unchanged').to.not.eq(50))
+    })
+  })
+
+  it('M15 another tenant cannot set this business\'s category markup', () => {
+    ensureCategory().then((cid) => {
+      cy.asOtherTenant((auth) => {
+        cy.request({ method: 'PUT', url: `http://localhost:8765/api/catalog/categories/${cid}/markup`, headers: auth,
+          body: { markupPct: 99 }, failOnStatusCode: false }).then((r) => expect(r.status, JSON.stringify(r.body).slice(0, 200)).to.be.oneOf([403, 404]))
+      }, 'owner.pharma@myplus.com')
+      cy.request('/getUserCategories').then((r) => expect(Number(r.body.categories.find((c) => c.id === cid).markupPct || 0)).to.not.eq(99))
     })
   })
 })

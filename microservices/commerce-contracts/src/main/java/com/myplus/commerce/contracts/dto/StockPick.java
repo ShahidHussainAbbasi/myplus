@@ -29,4 +29,12 @@ public class StockPick {
      * made cost differ from the headline rate), else the batch purchase price.
      */
     private BigDecimal unitCost;
+
+    /** PR-3a — the {@link StockReservationLine#getLineRef() line} this pick was taken for; null if none was sent. */
+    private Integer lineRef;
+
+    /** The shape before PR-3a: no line reference. */
+    public StockPick(Long itemId, String batchNo, BigDecimal quantity, LocalDate expiryDate, BigDecimal unitCost) {
+        this(itemId, batchNo, quantity, expiryDate, unitCost, null);
+    }
 }

@@ -76,6 +76,8 @@ public class ProductRef {
 
     /** PR-2 — the product's own markup %, or null for "use the business's". Read by the purchase path's markup rule. */
     private BigDecimal markupPct;
+    /** PR-2b — the product's category's markup %, or null. Used only when the product has none of its own. */
+    private BigDecimal categoryMarkupPct;
 
     /** Back-compat constructor for price-focused callers (sell saga, tests) written before M4d added display fields. */
     public ProductRef(Long id, String sku, String name, String unit, BigDecimal sellingPrice, BigDecimal taxRate) {

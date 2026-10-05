@@ -153,10 +153,10 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     const a1 = act('Click **Settings → Configuration**, open the **Purchasing** group and find **How a purchase affects the selling price**.',
       ['The setting shows **Latest (default) — the purchase’s sell rate becomes the price**.',
         'The help says Keep never changes the selling price, and that every change is kept in the product’s price history.',
-        'Opening the list shows exactly two choices: **Latest** and **Keep**.'])
+        'Opening the list shows three choices: **Latest**, **Keep** and **Per batch**.'])
     openDashboard(); openConfiguration()
     cy.get(`#businessConfigBody [data-key="${KEY}"]`).should('have.value', 'latest')
-      .find('option').then(($o) => expect([...$o].map((o) => o.value)).to.deep.eq(['latest', 'keep']))
+      .find('option').then(($o) => expect([...$o].map((o) => o.value)).to.deep.eq(['latest', 'keep', 'per_batch']))
     modeRow().should('contain', 'price history')
     modeRow().closest('.cfg-group').as('grp')
     snap(a1, 'setting', '@grp')
@@ -624,5 +624,58 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
     voidBill(inv, pname)
     snap(c1, 'voided', '#purchaseDiv')
+  })
+
+  caseIt('Q6', 'Markup by category: a whole category gets its own percentage', () => {
+    guardPricing()
+    const cat = `PRG Cat ${run}`, pname = `PRG InCat ${run}`, vname = `PRG Supplier ${run}`
+    testCase('Q6', 'Markup by category: a whole category gets its own percentage', {
+      covers: ['PR2b-1', 'PR2b-2'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner or admin',
+      purpose: 'Shops price by department: medicines at one margin, accessories at another. A category’s markup applies to every product in it that has no markup of its own; a blank category uses the business’s.',
+      prereq: ['Markup % **14.5** for the business (Q1).', `A product **${pname}** at **200** in a category **${cat}**, and the supplier **${vname}** — made through the forms’ own requests.`],
+      data: [`Category **${cat}**: Markup % **20**; P/U price **210** (the bill is not saved)`],
+      rollback: 'The category’s markup is cleared on screen at the end. The product is deactivated after the run; the category stays (categories are not deleted).',
+    })
+    saveCfg('pos.pricing.markupPct', '14.5')
+    let pid
+    supplier(vname)
+    cy.seedProduct({ name: pname, sellingPrice: 200, category: cat }).then((p) => {
+      pid = p.productId
+      SAFETY.push(() => { asLifecycle(); cy.request({ method: 'POST', url: '/deactivateProduct', headers: { 'Content-Type': 'application/json' }, body: { checked: String(p.productId) }, failOnStatusCode: false }) })
+    })
+    let cid
+    cy.request('/getUserCategories').then((r) => { cid = r.body.categories.find((c) => c.name === cat).id })
+    SAFETY.push(() => { asLifecycle(); cy.then(() => cy.request({ method: 'POST', url: '/setCategoryMarkup', headers: { 'Content-Type': 'application/json' }, body: { categoryId: cid, markupPct: null }, failOnStatusCode: false })) })
+
+    const a1 = act('**Settings → Markup by category**.',
+      ['A table of the business’s categories, each with a **Markup %** box, blank where none is set.', 'Above it: “**The business’s markup is 14.5% — a blank category uses it.**”'])
+    openDashboard()
+    openMenu('snavSettings'); cy.get('#navCategoryMarkup').click()
+    cy.get('#CategoryMarkupDiv').should('be.visible')
+    cy.get('#cmBiz').should('contain', '14.5')
+    cy.then(() => cy.get(`#cmPct_${cid}`).should('have.value', ''))
+    snap(a1, 'screen', '#CategoryMarkupDiv')
+
+    const a2 = act(`Type **20** in the box for **${cat}** and press **Tab**.`, ['The row says **Saved**.'])
+    cy.intercept('POST', '**/setCategoryMarkup').as('cm')
+    cy.then(() => cy.get(`#cmPct_${cid}`).type('20').blur())
+    cy.wait('@cm').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#tableCategoryMarkup tr[data-category="${cid}"] .cm-state`).should('contain', 'Saved'))
+    snap(a2, 'saved', '#CategoryMarkupDiv')
+
+    const a3 = act(`**Purchase → New Purchase**: supplier **${vname}**, product **${pname}**, quantity **2**, P/U **210**. Close it without saving.`,
+      ['“**Suggested selling price 252.00 (20% on cost, this category’s).**”'])
+    newPurchase()
+    cy.then(() => fillLine(vname, `PRG-Y-${run}`, pid, 210))
+    cy.get('#purchaseSuggest', { timeout: 10000 }).should('have.attr', 'data-price', '252.00').and('contain', 'this category')
+    snap(a3, 'suggested-category', '#PurchaseModal .crud-box')
+    cy.get('#PurchaseModal .crud-x').first().click({ force: true })
+
+    const c1 = act(`Cleanup: **Settings → Markup by category**, clear the box for **${cat}** and press **Tab**.`, ['The row says **Saved**; the box is blank (the business’s 14.5% applies again).'], { cleanup: true })
+    openMenu('snavSettings'); cy.get('#navCategoryMarkup').click()
+    cy.then(() => cy.get(`#cmPct_${cid}`).should('have.value', '20').clear().blur())
+    cy.wait('@cm').its('response.body.success').should('eq', true)
+    cy.then(() => cy.get(`#tableCategoryMarkup tr[data-category="${cid}"] .cm-state`).should('contain', 'Saved'))
+    snap(c1, 'cleared', '#CategoryMarkupDiv')
   })
 })

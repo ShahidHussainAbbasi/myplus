@@ -99,7 +99,7 @@ class PurchasePriceModeTest {
     @Test
     @DisplayName("An unknown stored value → LATEST (today's behaviour), never a silent KEEP")
     void unknown_value_is_latest() {
-        stored("per_batch");
+        stored("fifo_price");   // PR-3b made per_batch a real mode; this case needs a value that is not one
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
@@ -129,7 +129,7 @@ class PurchasePriceModeTest {
         com.myplus.commerce.contracts.dto.ProductRef ref = new com.myplus.commerce.contracts.dto.ProductRef();
         ref.setSellingPrice(new BigDecimal("200.00"));
         when(catalogClient.getProduct(50L)).thenReturn(ref);
-        when(markupPolicy.suggest(new BigDecimal("210.00"), null, new BigDecimal("200.00"))).thenReturn(s);
+        when(markupPolicy.suggest(new BigDecimal("210.00"), null, null, new BigDecimal("200.00"))).thenReturn(s);
     }
 
     @Test
@@ -173,7 +173,7 @@ class PurchasePriceModeTest {
 
         service.stampRatesOnProduct(bill("250.00", "210.00"), "receive");
 
-        verify(markupPolicy, never()).suggest(any(), any(), any());
+        verify(markupPolicy, never()).suggest(any(), any(), any(), any());
         verify(catalogClient).updatePrice(eq(50L), isNull(), eq(new BigDecimal("210.00")), eq("PUR-000123"), isNull());
     }
 

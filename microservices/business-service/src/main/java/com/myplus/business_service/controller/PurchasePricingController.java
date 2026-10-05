@@ -41,7 +41,7 @@ public class PurchasePricingController {
             return new GenericResponse("ERROR", "Product not found");
         }
         if (ref == null) return new GenericResponse("ERROR", "Product not found");
-        MarkupPolicy.Suggestion s = markupPolicy.suggest(cost, ref.getMarkupPct(), ref.getSellingPrice());
+        MarkupPolicy.Suggestion s = markupPolicy.suggest(cost, ref.getMarkupPct(), ref.getCategoryMarkupPct(), ref.getSellingPrice());
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("mode", s.mode());
         out.put("purchaseMode", purchaseService.purchasePriceMode());
@@ -54,8 +54,10 @@ public class PurchasePricingController {
         out.put("price", s.price());
         out.put("current", s.current());
         out.put("guard", s.guard());
+        // The PRODUCT's price: never under Keep, and never under Per batch (PR-3b) — there the rule prices the batch.
+        String priceMode = purchaseService.purchasePriceMode();
         out.put("autoApplies", s.autoApplies()
-                && !PurchaseService.PRICE_MODE_KEEP.equals(purchaseService.purchasePriceMode()));
+                && !PurchaseService.PRICE_MODE_KEEP.equals(priceMode) && !PurchaseService.PRICE_MODE_PER_BATCH.equals(priceMode));
         return new GenericResponse("SUCCESS", "Suggested price", out);
     }
 }

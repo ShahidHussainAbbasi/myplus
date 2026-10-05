@@ -46,6 +46,10 @@ public class StockImportResult {
      *
      * <p>A {@code LinkedHashMap} so a bulk caller reading it back sees its own line order.
      */
+    /** PR-3b — the batch rows created, in line order, so a purchase can keep the id of the batch it booked in. */
+    @Builder.Default
+    private java.util.List<Long> entryIds = new java.util.ArrayList<>();
+
     @Builder.Default
     private Map<Long, BigDecimal> onHand = new LinkedHashMap<>();
 

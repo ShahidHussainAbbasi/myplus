@@ -122,7 +122,7 @@ public class ProductService {
     }
 
     /** PR-2 — a markup is 0–1000 %; anything else is a typo, refused rather than turned into a wild price. */
-    private static BigDecimal validMarkup(BigDecimal pct) {
+    static BigDecimal validMarkup(BigDecimal pct) {   // PR-2b: shared with CategoryService.setMarkup
         if (pct == null) return null;
         if (pct.signum() < 0 || pct.compareTo(new BigDecimal("1000")) > 0) {
             throw new com.myplus.common.web.exception.ValidationException("Markup must be between 0 and 1000 %");
@@ -622,6 +622,8 @@ public class ProductService {
                 .madeToOrder(Boolean.TRUE.equals(p.getMadeToOrder()))
                 // PR-2 — the purchase path reads the product's own markup off the ref it already fetches.
                 .markupPct(p.getMarkupPct())
+                // PR-2b — and its category's, so the rule can say WHICH % it used (product > category > business).
+                .categoryMarkupPct(p.getCategory() != null ? p.getCategory().getMarkupPct() : null)
                 .build();
     }
 

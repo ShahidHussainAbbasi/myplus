@@ -5806,8 +5806,11 @@ function loadPosFeatureFlags(){
 		window.posQuickPickDays = posSettingInt(res, 'pos.quickpick.days', 30);
 		// PR-1 — does a purchase move the selling price? 'latest' (default) | 'keep'. Lower-cased like the
 		// server's getChoice; anything else is 'latest', which is also what the server does with it.
-		window.posPurchasePriceMode = String(posSettingText(res, 'pos.pricing.purchaseMode', 'latest')).toLowerCase() === 'keep'
-			? 'keep' : 'latest';
+		// PR-3b: + 'per_batch' (each purchase's stock sells at its own price).
+		window.posPurchasePriceMode = (function (m) { return (m === 'keep' || m === 'per_batch') ? m : 'latest'; })(
+			String(posSettingText(res, 'pos.pricing.purchaseMode', 'latest')).toLowerCase());
+		// PR-2b — the business's markup %, shown on the Markup by category screen ("blank = the business's 14.5%").
+		window.posMarkupPct = posSettingText(res, 'pos.pricing.markupPct', '0');
 		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor
 		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
 		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a

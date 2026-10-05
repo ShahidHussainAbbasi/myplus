@@ -723,12 +723,17 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         "Latest (default): the sell rate on a purchase becomes the product's selling price, for "
                                 + "every unit in stock. Keep: a purchase never changes the selling price — only "
                                 + "the last purchase rate is updated, and you change the price yourself on the "
-                                + "product. Every change is kept in the product's price history.",
+                                + "product. Per batch: the sell rate belongs to that purchase's stock only; older "
+                                + "stock keeps its own price, and stock with none sells at the product's price. "
+                                + "Every change to the product's price is kept in its price history.",
                         PurchaseService.PRICE_MODE_LATEST, "Purchasing",
                         List.of(new SettingEntry.Option(PurchaseService.PRICE_MODE_LATEST,
                                         "Latest (default) — the purchase's sell rate becomes the price"),
                                 new SettingEntry.Option(PurchaseService.PRICE_MODE_KEEP,
-                                        "Keep — a purchase never changes the selling price"))),
+                                        "Keep — a purchase never changes the selling price"),
+                                // PR-3b — each purchase's stock sells at that purchase's price (pharmacy MRP, old stock).
+                                new SettingEntry.Option(PurchaseService.PRICE_MODE_PER_BATCH,
+                                        "Per batch — each purchase's stock sells at its own price"))),
                 // PR-2 — the markup rule: a selling price suggested (or, in Auto, set) from what a purchase cost.
                 // No default % (decision 4): 0 means "no rule", so nothing is suggested until the owner sets one.
                 SettingEntry.select(MarkupPolicy.MODE_KEY,

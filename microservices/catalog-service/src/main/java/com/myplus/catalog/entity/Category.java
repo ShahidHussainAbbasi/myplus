@@ -18,6 +18,10 @@ public class Category {
 
     private String description;
 
+    /** PR-2b — this category's markup %, between the product's own and the business's. NULL = the business's. */
+    @Column(name = "markup_pct", precision = 7, scale = 2)
+    private java.math.BigDecimal markupPct;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parentCategory;

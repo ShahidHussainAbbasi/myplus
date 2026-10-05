@@ -242,7 +242,9 @@ public class SagaSellService {
          * cover 11 units, so the batches recorded cover 11, so the cost covers 11.
          */
         List<StockReservationLine> reservationLines = new ArrayList<>();
+        int lineRef = -1;   // PR-3a: each reservation line names its sale line, so its picks are recorded on THAT line
         for (SagaLine l : lines) {
+            lineRef++;
             /*
              * ⚠ RST — A MADE-TO-ORDER LINE RESERVES NOTHING, because there is nothing to reserve.
              *
@@ -263,7 +265,7 @@ public class SagaSellService {
             if (madeToOrder.contains(l.productId())) continue;
             BigDecimal issued = BigDecimal.valueOf(l.quantity())
                     .add(BigDecimal.valueOf(l.bonusQuantity() != null ? l.bonusQuantity() : 0f));
-            reservationLines.add(new StockReservationLine(l.productId(), issued));
+            reservationLines.add(new StockReservationLine(l.productId(), issued, lineRef));
         }
 
         /*
@@ -304,8 +306,10 @@ public class SagaSellService {
         if ((reservation == null || reservation.getStatus() != ReservationStatus.RESERVED)
                 && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
             List<StockReservationLine> paidOnly = new ArrayList<>();
-            for (SagaLine l : lines)
-                paidOnly.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity())));
+            for (int i = 0; i < lines.size(); i++) {   // PR-3a: the same line references as the first attempt
+                SagaLine l = lines.get(i);
+                paidOnly.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity()), i));
+            }
 
             StockReservationResponse retry =
                     inventoryClient.reserve(new StockReservationRequest(idempotencyKey + "-nobonus", paidOnly));

@@ -124,7 +124,7 @@ class MapStructOracleTest {
         org.assertj.core.api.SoftAssertions soft = new org.assertj.core.api.SoftAssertions();
         soft.assertThatCode(() -> sameAsOracle("Customer→DTO", d, () -> fill(new Customer()), CustomerDTO.class, c::toDto)).doesNotThrowAnyException();
         soft.assertThatCode(() -> sameAsOracle("DTO→Customer", d, () -> fill(new CustomerDTO()), Customer.class, c::toEntity)).doesNotThrowAnyException();
-        soft.assertThatCode(() -> sameAsOracle("Purchase→DTO", d, () -> fill(new Purchase()), PurchaseDTO.class, pu::toDto)).doesNotThrowAnyException();
+        soft.assertThatCode(() -> sameAsOracle("Purchase→DTO", d, () -> withoutStockEntryId(fill(new Purchase())), PurchaseDTO.class, pu::toDto)).doesNotThrowAnyException();
         soft.assertAll();
     }
 
@@ -205,5 +205,15 @@ class MapStructOracleTest {
         strictPlain.getConfiguration().setMatchingStrategy(org.modelmapper.convention.MatchingStrategies.STRICT);
         sameAsOracle("CustomerDTO→CustomerHistory", strictPlain, () -> fill(new CustomerDTO()), CustomerHistory.class,
                 new SaleHeaderMapperImpl()::fromCustomer);
+    }
+
+    /**
+     * PR-3b — Purchase.stockEntryId is NEWER than the ModelMapper code this oracle stands for, so the old behaviour has
+     * no such field. Left filled, STANDARD matching fuzzes it onto PurchaseDTO.stock.stockId and invents a stock object
+     * the old screens never showed; MapStruct (production) rightly leaves stock null. Cleared here, not ignored there.
+     */
+    private static Purchase withoutStockEntryId(Purchase p) {
+        p.setStockEntryId(null);
+        return p;
     }
 }

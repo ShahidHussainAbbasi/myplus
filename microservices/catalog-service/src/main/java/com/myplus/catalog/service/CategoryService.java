@@ -59,6 +59,20 @@ public class CategoryService {
         return toDto(saved);
     }
 
+    /**
+     * PR-2b — set (or clear, with null) only this category's markup %. Its own writer on purpose: the general update
+     * rewrites name, description and parent from the DTO, so a markup screen going through it could wipe them.
+     * changed() evicts the category list AND the product refs (which carry the category's %) after commit.
+     */
+    @Transactional
+    public CategoryDTO setMarkup(Long id, java.math.BigDecimal pct) {
+        Category c = getEntity(id);   // scoped — anti-IDOR
+        c.setMarkupPct(ProductService.validMarkup(pct));
+        Category saved = categoryRepository.save(c);
+        changed(saved);
+        return toDto(saved);
+    }
+
     @Transactional
     public void delete(Long id) {
         Category c = getEntity(id);
@@ -96,6 +110,7 @@ public class CategoryService {
                 .name(c.getName())
                 .description(c.getDescription())
                 .parentId(c.getParentCategory() != null ? c.getParentCategory().getId() : null)
+                .markupPct(c.getMarkupPct())   // PR-2b
                 .build();
     }
 }

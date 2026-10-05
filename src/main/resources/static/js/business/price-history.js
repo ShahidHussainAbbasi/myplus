@@ -37,7 +37,9 @@
     /** "14.5% on cost, the business rate" — why this number, so the owner can check the rule did what they meant. */
     function why(d) {
         var basis = d.basis === 'margin' ? t('ui.js.markupMargin', pctText(d.pct)) : t('ui.js.markupOnCost', pctText(d.pct));
-        return basis + ', ' + (d.pctSource === 'PRODUCT' ? t('ui.js.markupOwn') : t('ui.js.markupBiz'));
+        var src = d.pctSource === 'PRODUCT' ? t('ui.js.markupOwn')
+            : d.pctSource === 'CATEGORY' ? t('ui.js.markupCat') : t('ui.js.markupBiz');   // PR-2b
+        return basis + ', ' + src;
     }
 
     /** Ask the server what the rule says for (product, cost) — once per change, debounced, late answers dropped. */
@@ -114,7 +116,19 @@
         var typed = $('#purchaseSellRate').val();
         var sell = Number(typed);
         var keep = global.posPurchasePriceMode === 'keep';
+        var perBatch = global.posPurchasePriceMode === 'per_batch';
         var effect, text;
+
+        // PR-3b Per batch: the price belongs to THIS purchase's stock; the product's price and older stock are untouched.
+        // With the markup rule on Auto the batch gets the rule's price (no guards: a new batch has no price to protect).
+        if (productId && perBatch) {
+            var batchPrice = (d && d.mode === 'auto' && d.price != null) ? Number(d.price) : (sell > 0 ? sell : null);
+            var nowP = currentPurchasePrice();
+            if (batchPrice == null) { $hint.hide().empty().removeAttr('data-effect'); return; }
+            $hint.attr('data-effect', 'batch')
+                .text(t('ui.js.priceEffectBatch', money(batchPrice), nowP != null ? money(nowP) : '—')).show();
+            return;
+        }
 
         // PR-2 Auto: the RULE decides the price, whatever S/U says — so the line speaks for the rule.
         if (productId && !keep && d && d.mode === 'auto' && d.price != null) {
@@ -229,6 +243,68 @@
         $('#prodPriceHistoryBtn').toggle(!!$('#productId').val());
     }
 
+    // ── 3. PR-2b: Markup by category (Settings → Markup by category) ─────────────────────────────
+
+    function showCategoryMarkup() {
+        $('.formDiv').hide();
+        $('#CategoryMarkupDiv').show();
+        var $body = $('#tableCategoryMarkup tbody').empty()
+            .append($('<tr>').append($('<td colspan="3">').text(t('ui.js.loading'))));
+        $('#cmBiz').remove();
+        // Read the business's % HERE, not from the page-load flags: opened quickly, those may not have arrived yet,
+        // and the line then said "no markup set" for a business that has one (found by gate M13).
+        bgJson(serverContext + 'getBusinessConfig', function (res) {
+            var biz = Number(posSettingText(res, 'pos.pricing.markupPct', '0'));
+            global.posMarkupPct = String(biz);
+            $('#cmBiz').remove();
+            $('#cmHelp').after($('<p class="help-block" id="cmBiz">').text(biz > 0
+                ? t('ui.js.cmBusinessPct', String(Math.round(biz * 100) / 100)) : t('ui.js.cmBusinessNone')));
+        });
+        bgJson(serverContext + 'getUserCategories', function (resp) {
+            var rows = (resp && resp.categories) || [];
+            $body.empty();
+            if (!rows.length) {
+                $body.append($('<tr>').append($('<td colspan="3" class="text-muted">').text(t('ui.js.cmNoCategories'))));
+                return;
+            }
+            rows.forEach(function (c) {
+                var $in = $('<input type="number" step="any" min="0" max="1000" class="form-control input-sm">')
+                    .attr('id', 'cmPct_' + c.id).attr('data-category', c.id)
+                    .attr('placeholder', t('ui.js.cmBlank'))
+                    .val(c.markupPct != null ? Number(c.markupPct) : '')
+                    .attr('data-saved', c.markupPct != null ? String(Number(c.markupPct)) : '');
+                $body.append($('<tr>').attr('data-category', c.id)
+                    .append($('<td>').text(c.name || ('#' + c.id)))
+                    .append($('<td>').append($in))
+                    .append($('<td class="cm-state" aria-live="polite">')));
+            });
+        });
+    }
+
+    /** Save a row when its box is left — only if it changed. Blank = clear (the business's % applies). */
+    $(document).on('change', '#tableCategoryMarkup input[data-category]', function () {
+        var $in = $(this), $state = $in.closest('tr').find('.cm-state');
+        var raw = String($in.val() || '').trim();
+        if (raw === ($in.attr('data-saved') || '')) return;
+        $state.removeClass('text-danger text-success').text(t('ui.js.cmSaving'));
+        // global:false keeps the blocking overlay off a settings row — and therefore skips the ajaxSend hook that adds
+        // the CSRF header (header.html, L16), so it is passed here. Without it every save was a 403 (found by gate M13).
+        $.ajax({ type: 'POST', url: serverContext + 'setCategoryMarkup', contentType: 'application/json', global: false,
+            headers: (typeof xsrfHeaders === 'function') ? xsrfHeaders() : {},
+            data: JSON.stringify({ categoryId: Number($in.attr('data-category')), markupPct: raw === '' ? null : Number(raw) }) })
+            .done(function (resp) {
+                if (resp && resp.success !== false) {
+                    var saved = resp.data && resp.data.markupPct != null ? String(Number(resp.data.markupPct)) : '';
+                    $in.attr('data-saved', saved).val(saved);
+                    $state.addClass('text-success').text(t('ui.js.cmSaved'));
+                } else {
+                    $state.addClass('text-danger').text((resp && resp.message) || t('ui.js.cmFailed'));
+                }
+            })
+            .fail(function () { $state.addClass('text-danger').text(t('ui.js.cmFailed')); });
+    });
+
+    global.showCategoryMarkup = showCategoryMarkup;
     global.PriceHistory = { render: render, open: open, syncButton: syncButton };
     global.renderPurchasePriceEffect = render;
 })(window);

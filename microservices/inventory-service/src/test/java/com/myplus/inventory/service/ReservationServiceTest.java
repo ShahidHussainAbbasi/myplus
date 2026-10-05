@@ -328,4 +328,55 @@ class ReservationServiceTest {
         assertThat(((Number) off[1]).doubleValue()).as("tracking OFF: all of it sellable").isEqualTo(100d);
         assertThat(((Number) off[2]).doubleValue()).as("tracking OFF: nothing is 'expired'").isEqualTo(0d);
     }
+
+    // ── PR-3a: lines, not just products ────────────────────────────────────────────────────────────
+
+    /**
+     * PR-3a — two lines of ONE product are checked TOGETHER. Before, each line was checked on its own (5 ≤ 7, 5 ≤ 7)
+     * and the hold took 5 + 2, so a sale was recorded for 10 units with 7 held. Now 10 > 7 is refused, holding nothing.
+     */
+    @Test
+    void two_lines_of_one_product_are_checked_together() {
+        StockEntry b = batch(7f, SOON);
+        stockLevel(7f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3a-1", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 0),
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 1))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(res.getMessage()).contains("only 7 sellable, 10 requested");
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+    }
+
+    /** PR-3a — every pick names the line it was taken for, so the sale records a line's batches on that line only. */
+    @Test
+    void picks_name_their_line() {
+        batch(3f, SOON);
+        batch(10f, LATER);
+        stockLevel(13f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3a-2", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(2), 0),
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(4), 1))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        BigDecimal line0 = BigDecimal.ZERO, line1 = BigDecimal.ZERO;
+        for (var p : res.getPicks()) {
+            assertThat(p.getLineRef()).as("every pick names its line").isNotNull();
+            if (p.getLineRef() == 0) line0 = line0.add(p.getQuantity()); else line1 = line1.add(p.getQuantity());
+        }
+        assertThat(line0).as("line 0 got exactly its 2").isEqualByComparingTo("2");
+        assertThat(line1).as("line 1 got exactly its 4 (1 left in the early batch + 3 from the later one)").isEqualByComparingTo("4");
+    }
+
+    /** A caller that sends no line reference (marketplace) gets picks with none — unchanged behaviour. */
+    @Test
+    void line_less_callers_are_unchanged() {
+        batch(10f, SOON);
+        stockLevel(10f);
+        StockReservationResponse res = service.reserve(request("k-pr3a-3", 4f), ORG, USER);
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        assertThat(res.getPicks()).allSatisfy(p -> assertThat(p.getLineRef()).isNull());
+    }
 }

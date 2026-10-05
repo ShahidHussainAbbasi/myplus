@@ -184,3 +184,139 @@ config before shipping).
 
 Gate `cypress/e2e/business/pricing-markup.cy.js`: M1–M8, M10, M11 green on the deployed build; M9 green with the fix, pending deploy.
 Unit: business 31/31 (MarkupCalculatorTest 5, MarkupPolicyTest 9, PurchasePriceModeTest 11, +6 neighbours), catalog 152/152.
+
+## 9. PR-2b — markup by category (2026-10-05)
+
+- `categories.markup_pct` (V23). Precedence **product > category > business**; the suggestion's `pctSource` says which
+  (PRODUCT / CATEGORY / BUSINESS) and the purchase form names it ("this category's").
+- Its own writer, `CategoryService.setMarkup` → `PUT /categories/{id}/markup` (owner/admin/super): the general category
+  update rewrites name, description and parent from the DTO, so a markup screen going through it could wipe them.
+  Scoped (anti-IDOR), validated 0–1000 like the product's, and it publishes `CatalogCategoriesChanged`, which already
+  evicts both the category list and the product refs (the refs carry `categoryMarkupPct`).
+- Readers: `toRef` → `ProductRef.categoryMarkupPct` → `MarkupPolicy.suggest(cost, product, category, current)` in both
+  callers (`PurchaseService` Auto, `PurchasePricingController` suggestion). The single-product `getRef` the purchase
+  path uses is uncached; the batch refs cache is evicted by the category event.
+- Screen: **Settings → Markup by category** (owner/admin; not under Price Rules, which only dealer-pricing shops see).
+  One row per category, saved when the box is left, with "Saved" or the server's sentence.
+- Tests: catalog `CategoryMarkupTest` 5/5; business `MarkupPolicyTest` 10/10 (category precedence added); gate
+  `pricing-markup.cy.js` M12–M15 (pending deploy).
+
+### 9.1 PR-2b — found by gate M13 (2026-10-05)
+
+| Finding | Cause | Status |
+|---|---|---|
+| **Every save on Markup by category was refused (403)** in the browser, though the same request from a test client succeeded | the save used `global: false` (no blocking overlay on a settings row), which also skips the `ajaxSend` hook that adds the CSRF header — the documented L16 trap in `header.html` | Fixed: `headers: xsrfHeaders()`. Verified with the fixed file evaluated on the deployed page. Needs a monolith rebuild. |
+| The screen said **"no markup set"** for a business with 14.5% when opened quickly | it read the page-load flag, which had not arrived yet | Fixed: the screen reads the business's % itself. Same verification. |
+
+## 10. PR-3 — PER_BATCH: each purchase sells at its own price (review, 2026-10-05)
+
+### 10.1 Trace (Rule 0)
+
+**Readers of the selling price — 13 call sites in 9 files** (excluding catalog's own mappers/writers):
+
+| # | Reader | What it does | In PER_BATCH |
+|---|---|---|---|
+| 1 | `SagaSellService:884` | the sale line's fallback price (after cashier rate and B2B quote) | **WANTS the batch price** — the core change |
+| 2–3 | `StockController:59, :115` (`/productStock`, `/getStockByBatch`) | the till / purchase form prefill (`bsellRate`) | **WANTS the batch price** (of the batch the cashier picked, or FEFO's first) |
+| 4 | `SellController:470` (`/looseInfo`) | the per-piece hint on a broken pack | **follows** the chosen batch's price |
+| 5 | `SalesQuoteService:509` | a quote's line price | keeps the catalog price (a quote prices the product; on conversion its locked rate is the cashier's rate, which wins) |
+| 6 | `SellService:260` | quick-pick tile label | keeps catalog (a label, not a charge) |
+| 7 | `PriceRuleService:88` | B2B PERCENT rules: % off the catalog price | keeps catalog in PR-3 (decision below) |
+| 8 | `PublicProductController:44` | storefront listing | keeps catalog (storefront is out of PR-3) |
+| 9 | `marketplace CartService:78` | storefront cart price | keeps catalog |
+| 10–11 | `PurchaseService:622`, `PurchasePricingController:44` | markup guards' "current price" | unchanged (in PER_BATCH the rule prices the batch; the guards compare with the product price) |
+| — | browser: picker `data-price` | till / purchase prefill | replaced by the batch price once a batch is chosen |
+
+Count: **4 want the batch price, 7 keep the catalog price, 2 unaffected.**
+
+**Order of a sale today:** `buildLines` (prices every line) → margin guard → credit guard → `reserve` (FEFO picks
+batches) → write. **The price is fixed before the batches are known** — PER_BATCH needs the batch first.
+
+**Contracts today:** `StockReservationLine {itemId, quantity}` cannot pin a batch; `StockPick {itemId, batchNo, quantity,
+expiry, unitCost}` has no sell price and no line reference; `StockImportLine` (purchase → stock) carries cost, no sell
+price; `GET /stock/batches/{productId}` exists (the drill-down can use it).
+
+### 10.2 ⚠ Existing defect found by the trace — batch rows doubled when one product is on two lines
+
+`SagaSaleWriter.recordBatches` attaches picks to a line **by product id**. Two lines of the same product each record
+**both** lines' picks. Verified in the live data: invoice `customer_history_id 6292`, product 2621 — **2 lines, 2 units
+sold, sell_batch rows for 4 units**. `cogsFromPicks` (the sale's own COGS) sums picks once and is right; but
+`sell_batch` is what the **edit and return paths** cost from, so they would cost that sale's goods twice. Rare today
+(1 invoice); PER_BATCH's line split makes "one product, two lines" the normal case — so this is fixed FIRST (PR-3a).
+
+### 10.3 Recommended design
+
+- **PR-3a — picks belong to a line, not a product.** The reservation line carries its sale-line index; each pick
+  echoes it; `recordBatches` matches on it. Gate: one product on two lines → batch rows sum to the units sold; a return
+  costs once. (Independent of PER_BATCH — a money fix on its own.)
+- **PR-3b — the batch's own price.** `stock_entries.sell_price` (nullable; existing batches stay NULL = the product
+  price, no backfill guess). `pos.pricing.purchaseMode` gains `per_batch`: the purchase writes its S/U rate (or the
+  markup rule's price) **to its batch**, not to the product. `/stock/batches` returns it.
+- **PR-3c — price after the pick, shown before the money.** In PER_BATCH the server first asks inventory for a
+  **plan** (the batches FEFO — or the cashier's chosen batch — would take, read-only), splits the line where the
+  plan crosses a price, prices each part, runs the guards, then **reserves exactly those batches** (pinned). If a
+  pinned batch is gone by then (another till sold it), the sale is refused with "stock changed — check the line",
+  never silently re-priced. The till shows the same plan before payment: `abc-123 — 7 @ 200 (B-0912) + 3 @ 250
+  (B-1003)`, with a batch drill-down to choose. Precedence unchanged above it: cashier's rate > B2B contract price >
+  **batch price** > product price.
+
+```mermaid
+flowchart LR
+  T[Till: product + qty] -->|plan| P[inventory: plan picks, read-only]
+  P --> S[business: split by batch price, price each part]
+  S --> G[margin + credit guards]
+  G -->|ok| R[reserve PINNED batches]
+  R -->|batch gone| X[refuse: stock changed, check the line]
+  R -->|reserved| W[write lines + batch rows per line]
+```
+
+### 10.4 Decisions needed before PR-3 is built
+
+1. Fix the doubled batch rows first as **PR-3a** (recommended — a money defect today, and PR-3c depends on it).
+2. **Plan, then pinned reserve** (recommended — what the till shows is what is charged; a race refuses instead of
+   re-pricing) versus reserve first and price from the picks (simpler, but the cashier sees the split only after
+   pressing Complete, and a guard refusal has to release stock).
+3. **Scope:** POS till and pharmacy dispense now; quotes, the storefront and B2B percent rules keep the product
+   price (recommended — each has its own price contract; stated on the screen and the page).
+
+### 10.5 Decisions taken (2026-10-05) and PR-3a as built
+
+Decisions: PR-3a first; plan then pinned reserve; till + pharmacy dispense (quotes, storefront and B2B percent rules
+keep the product price).
+
+**PR-3a — two defects, one slice.** The trace found a second hole beside the doubled batch rows: the reservation's
+pass 1 checked each **line** against stock on its own, so two lines of 5 against 7 both passed and pass 2 held 5 + 2
+without noticing the shortfall. **Red run on the deployed build:** B1 failed (each line recorded both lines' batches);
+B2 recorded `INV-000498` selling 10 against 7 on the shelf (voided afterwards, reason recorded).
+
+| Change | Where |
+|---|---|
+| `StockReservationLine.lineRef`, `StockPick.lineRef` (optional; old constructors kept, 7 call sites unchanged) | commerce-contracts |
+| `reservation_picks.line_ref` (V13); pass 1 sums need **per product across lines**; pass 2 echoes the line on each pick and refuses (rolls back) a line held short | inventory `ReservationService` |
+| reservation lines carry their position (both builders, incl. the no-bonus retry); `recordBatches` matches a pick to **its line**, falling back to product for line-less picks | business `SagaSellService`, `SagaSaleWriter` |
+
+Callers without a line (marketplace checkout and order holds) merge per product already and are unchanged.
+Tests: inventory `ReservationServiceTest` 16/16 on real MySQL (3 new: summed check, picks name their line, line-less
+unchanged); business `SaleBatchByLineTest` 3/3 + sale-path neighbours (27). Gate `cypress/e2e/business/sale-batches-by-line.cy.js`
+B1–B3: red on the old build as above; green pending deploy.
+
+### 10.6 PR-3b as built — each batch can carry its own price
+
+| Change | Where |
+|---|---|
+| `stock_entries.sell_price` (V14), NULL = the product's price; no backfill | inventory |
+| `StockImportLine.sellPrice`, `StockImportResult.entryIds`, `StockPurchaseAdjust.{stockEntryId, sellPrice}`, `StockBatch.{stockEntryId, sellPrice}` | commerce-contracts (one positional `StockBatch` call, in inventory, updated) |
+| import stores the price and returns the batch ids; `reconcilePurchase` re-prices the purchase's own batch **by id**, scoped to the tenant and product, **before** the delta (a price-only edit has delta 0) | inventory |
+| `purchase.stock_entry_id` (V79) — a batch number is optional and often blank, so the purchase keeps the batch's id | business |
+| `pos.pricing.purchaseMode` = `per_batch`: the product's price is not moved (cost still stamped); `batchSellPrice` = the bill's S/U, or the markup rule's price on Auto (no guards: a new batch has no price to protect); an edit re-prices its batch even when only S/U changed | business `PurchaseService` |
+| `/productStock` returns the batches in Per batch whatever the tenant tracks; `/suggestedPrice` never reports Auto applying to the product in Per batch | business |
+| purchase-form line: "This purchase's stock will sell at 250. Earlier stock keeps its own price, and the product's price stays 200." (6 languages) | monolith `price-history.js` |
+
+Found while building: MapStruct is strict, so `stockEntryId` is ignored on input (server-owned, never from the form);
+the MS-6 ModelMapper oracle fuzz-matched the new field onto `PurchaseDTO.stock.stockId` — the oracle stands for code
+that never had the field, so it is cleared for that comparison. `PurchasePriceModeTest.unknown_value_is_latest` used
+`per_batch` as its "unknown" example and now uses one that is not a mode.
+
+Tests: business 57/57 (new `PurchasePerBatchTest` 6), inventory 19/19 on real MySQL (2 new). Gate
+`cypress/e2e/business/pricing-per-batch.cy.js` X1–X6 on `owner.pharma@`, pending deploy. The SALE still prices from the
+product until PR-3c.

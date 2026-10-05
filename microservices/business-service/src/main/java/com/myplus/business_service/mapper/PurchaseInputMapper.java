@@ -24,6 +24,7 @@ public interface PurchaseInputMapper extends InputDates {
     @Mapping(target = "organizationId", ignore = true)
     @Mapping(target = "paidTotal", ignore = true)
     @Mapping(target = "storeId", ignore = true)
+    @Mapping(target = "stockEntryId", ignore = true)   // PR-3b: written by the stock-in, never taken from the form
     @Mapping(target = "voidReason", ignore = true)
     @Mapping(target = "voidedAt", ignore = true)
     @Mapping(target = "voidedBy", ignore = true)

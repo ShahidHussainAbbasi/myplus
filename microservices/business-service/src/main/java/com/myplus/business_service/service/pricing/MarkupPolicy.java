@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * PR-2 — the business's markup rule, read from Settings → Purchasing and the product's own markup %, and what it
- * suggests for one purchase cost. Precedence: the product's % > the business's % (a category level is PR-2b).
+ * suggests for one purchase cost. Precedence: the product's % > its category's % (PR-2b) > the business's %.
  *
  * <p>Answers a {@link Suggestion} rather than a bare price, because the purchase form has to say WHY: which % (the
  * product's or the business's), and — in Auto — whether a guard held the price back (it would lower it, or raise it
@@ -58,6 +58,11 @@ public class MarkupPolicy {
      * {@code current} is the product's selling price now (for the guards and the hint).
      */
     public Suggestion suggest(BigDecimal cost, BigDecimal productPct, BigDecimal current) {
+        return suggest(cost, productPct, null, current);
+    }
+
+    /** PR-2b — with the product's category's % between the product's own and the business's. */
+    public Suggestion suggest(BigDecimal cost, BigDecimal productPct, BigDecimal categoryPct, BigDecimal current) {
         String mode;
         String basis;
         String rounding;
@@ -76,8 +81,9 @@ public class MarkupPolicy {
             return new Suggestion(OFF, null, null, null, null, cost, null, null, current, null);
         }
         boolean own = productPct != null && productPct.signum() > 0;
-        BigDecimal pct = own ? productPct : businessPct;
-        String source = own ? "PRODUCT" : "BUSINESS";
+        boolean cat = !own && categoryPct != null && categoryPct.signum() > 0;
+        BigDecimal pct = own ? productPct : cat ? categoryPct : businessPct;
+        String source = own ? "PRODUCT" : cat ? "CATEGORY" : "BUSINESS";
         if (OFF.equals(mode) || pct == null || pct.signum() <= 0 || cost == null || cost.signum() <= 0) {
             return new Suggestion(mode, basis, rounding, pct, source, cost, null, null, current, null);
         }

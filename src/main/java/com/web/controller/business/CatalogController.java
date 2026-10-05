@@ -1013,12 +1013,33 @@ public class CatalogController {
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
                     row.put("id", c.get("id"));
                     row.put("name", c.get("name"));
+                    row.put("markupPct", c.get("markupPct"));   // PR-2b: the Markup by category screen reads it
                     cats.add(row);
                 }
             }
             return Map.of("success", true, "categories", cats);
         } catch (Exception e) {
             LOGGER.error("getUserCategories proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * PR-2b — set or clear one category's markup % → catalog PUT /categories/{id}/markup. Owner/admin, enforced in catalog;
+     * a refusal comes back as {@code success:false} with catalog's sentence. The id is parsed, never pasted as text.
+     */
+    @PostMapping("/setCategoryMarkup")
+    @ResponseBody
+    public Map<String, Object> setCategoryMarkup(@RequestBody final Map<String, Object> body) {
+        try {
+            Long id = Long.valueOf(String.valueOf(body.get("categoryId")).trim());
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("markupPct", body.get("markupPct"));
+            return catalog.putJson("/categories/" + id + "/markup", payload);
+        } catch (NumberFormatException e) {
+            return Map.of("success", false, "message", "categoryId is required");
+        } catch (Exception e) {
+            LOGGER.error("setCategoryMarkup proxy error", e);
             return ProxyErrors.failure(e);
         }
     }

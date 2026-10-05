@@ -56,6 +56,10 @@ public class StockEntry {
     @Column(name = "paid_total", precision = 19, scale = 2)
     private BigDecimal paidTotal;
 
+    /** PR-3b — the price this batch sells at when the business sells per batch (V14). Null = the product's price. */
+    @Column(name = "sell_price", precision = 19, scale = 2)
+    private BigDecimal sellPrice;
+
     /**
      * COGS-1 — how many units this batch was RECEIVED with. Set once, never changed.
      *

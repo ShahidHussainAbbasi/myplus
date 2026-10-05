@@ -64,6 +64,10 @@ public class Purchase implements Serializable {
 	private Long productId;
 	@Column(name = "batch_no")
 	private String batchNo;
+
+	/** PR-3b — the inventory batch (stock_entries.id) this line booked in (V79); lets an edit re-price exactly it. */
+	@Column(name = "stock_entry_id")
+	private Long stockEntryId;
 	@Column(name = "bpurchase_rate", precision = 19, scale = 2)
 	private BigDecimal bpurchaseRate;
 	@Column(name = "bsell_rate", precision = 19, scale = 2)

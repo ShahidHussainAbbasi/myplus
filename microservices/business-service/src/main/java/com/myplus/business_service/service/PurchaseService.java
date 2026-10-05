@@ -587,12 +587,14 @@ public class PurchaseService implements IPurchaseService{
 	public static final String PRICE_MODE_KEY = "pos.pricing.purchaseMode";
 	public static final String PRICE_MODE_LATEST = "latest";
 	public static final String PRICE_MODE_KEEP = "keep";
+	/** PR-3b — each purchase sells at its own price: the S/U rate goes to the purchase's BATCH, not to the product. */
+	public static final String PRICE_MODE_PER_BATCH = "per_batch";
 
 	/** PR-1 — LATEST unless the tenant chose KEEP; an unreadable or unknown value is LATEST, today's behaviour. */
 	public String purchasePriceMode() {
 		try {
 			return settingsService.getChoice(PRICE_MODE_KEY,
-					java.util.Set.of(PRICE_MODE_LATEST, PRICE_MODE_KEEP), PRICE_MODE_LATEST);
+					java.util.Set.of(PRICE_MODE_LATEST, PRICE_MODE_KEEP, PRICE_MODE_PER_BATCH), PRICE_MODE_LATEST);
 		} catch (RuntimeException unreadable) {
 			return PRICE_MODE_LATEST;
 		}
@@ -608,7 +610,9 @@ public class PurchaseService implements IPurchaseService{
 		boolean hasCost = cost != null && cost.compareTo(java.math.BigDecimal.ZERO) > 0;
 		// PR-1 — KEEP: the bill still records its sell rate, but the product's price is the owner's to change.
 		// The cost is stamped either way: last purchase rate is a fact about the purchase, not a price decision.
-		boolean keep = PRICE_MODE_KEEP.equals(purchasePriceMode());
+		// PR-3b — PER_BATCH never moves the PRODUCT's price either: the purchase's price lives on its batch.
+		String priceMode = purchasePriceMode();
+		boolean keep = PRICE_MODE_KEEP.equals(priceMode) || PRICE_MODE_PER_BATCH.equals(priceMode);
 		java.math.BigDecimal price = (hasSell && !keep) ? sell : null;
 		String source = null;
 		// PR-2 — AUTO: the markup rule sets the price instead of the bill's S/U rate, inside its guards (never lower,
@@ -618,7 +622,8 @@ public class PurchaseService implements IPurchaseService{
 				&& com.myplus.business_service.service.pricing.MarkupPolicy.AUTO.equals(markupPolicy.mode())) {
 			try {
 				com.myplus.commerce.contracts.dto.ProductRef ref = catalogClient.getProduct(saved.getProductId());
-				var s = markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(), ref == null ? null : ref.getSellingPrice());
+				var s = markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(),
+						ref == null ? null : ref.getCategoryMarkupPct(), ref == null ? null : ref.getSellingPrice());
 				if (s.price() != null) {
 					price = s.autoApplies() ? s.price() : null;
 					source = s.autoApplies() ? "MARKUP" : null;
@@ -670,6 +675,10 @@ public class PurchaseService implements IPurchaseService{
 		obj.setUserId(existing.getUserId());
 		obj.setOrganizationId(existing.getOrganizationId());
 		obj.setStoreId(existing.getStoreId());            // preserve the store on edit
+		// PR-3b — server-owned, never on the form: rebuilt from the DTO it was null, and the save wiped it, so the edit
+		// lost the batch it should re-price (found by gate X4). Inventory re-checks the product, so a changed product
+		// cannot re-price the old product's batch.
+		obj.setStockEntryId(existing.getStockEntryId());
 		obj.setProductId(dto.getProductId() != null ? dto.getProductId() : oldProductId);
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
@@ -739,13 +748,18 @@ public class PurchaseService implements IPurchaseService{
 		// rolls the record edit back too, so the record and inventory never diverge.
 		float newQty = saved.getQuantity() != null ? saved.getQuantity() : 0f;
 		float delta = newQty - oldQty;
-		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && delta != 0f) {
+		// PR-3b — in PER_BATCH an edit that only corrects the S/U rate must still re-price its batch (delta 0).
+		java.math.BigDecimal batchPrice = batchSellPrice(saved);
+		boolean reprice = batchPrice != null && saved.getStockEntryId() != null;
+		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && (delta != 0f || reprice)) {
 			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
 					.productId(saved.getProductId())
 					.batchNo(oldBatchNo)
 					.delta(delta)
 					.expiryDate(saved.getBexpDate())
 					.purchasePrice(saved.getBpurchaseRate())
+					.stockEntryId(reprice ? saved.getStockEntryId() : null)
+					.sellPrice(reprice ? batchPrice : null)
 					.build());
 		}
 
@@ -1015,7 +1029,7 @@ public class PurchaseService implements IPurchaseService{
 						java.math.RoundingMode.HALF_UP);
 			}
 
-			inventoryClient.importStock(List.of(
+			com.myplus.commerce.contracts.dto.StockImportResult booked = inventoryClient.importStock(List.of(
 					com.myplus.commerce.contracts.dto.StockImportLine.builder()
 							.productId(productId)
 							.quantity(received)
@@ -1024,11 +1038,44 @@ public class PurchaseService implements IPurchaseService{
 							.purchasePrice(obj.getBpurchaseRate())   // what the supplier billed, unchanged
 							.costPrice(effectiveCost)                // what the goods actually cost us
 							.paidTotal(paidTotal)                    // the exact figure, for allocation
+							.sellPrice(batchSellPrice(obj))          // PR-3b: null unless the business sells per batch
 							.build()));
+			// PR-3b — keep the batch this line booked in, so an edit can re-price exactly it.
+			if (booked != null && booked.getEntryIds() != null && !booked.getEntryIds().isEmpty()) {
+				obj.setStockEntryId(booked.getEntryIds().get(0));
+				this.save(obj);
+			}
 		} catch (Exception ex) {
 			LOG.warn("M3b: inventory stock-in failed for product {} (purchase recorded locally; reconcile later)",
 					dto.getProductId(), ex);
 		}
+	}
+
+	/**
+	 * PR-3b — the price THIS purchase's batch sells at, or null (the product's price applies).
+	 *
+	 * <p>Only in PER_BATCH. The bill's S/U rate — or, with the markup rule on Auto, the rule's price for this cost. The
+	 * Auto guards (never lower, the rise cap) protect the PRODUCT's shelf price; a new batch has no price of its own to
+	 * lower or raise, so they do not apply here. Settings or catalog unreadable → the bill's rate, never an invented one.
+	 */
+	java.math.BigDecimal batchSellPrice(Purchase obj) {
+		if (obj == null || !PRICE_MODE_PER_BATCH.equals(purchasePriceMode())) return null;
+		java.math.BigDecimal sell = obj.getBsellRate();
+		java.math.BigDecimal cost = obj.getBpurchaseRate();
+		java.math.BigDecimal price = (sell != null && sell.signum() > 0) ? sell : null;
+		if (cost != null && cost.signum() > 0 && markupPolicy != null
+				&& com.myplus.business_service.service.pricing.MarkupPolicy.AUTO.equals(markupPolicy.mode())) {
+			try {
+				com.myplus.commerce.contracts.dto.ProductRef ref = catalogClient.getProduct(obj.getProductId());
+				var s = markupPolicy.suggest(cost, ref == null ? null : ref.getMarkupPct(),
+						ref == null ? null : ref.getCategoryMarkupPct(), null);   // no current price: no guards for a new batch
+				if (s.price() != null) price = s.price();
+			} catch (RuntimeException unreadable) {
+				LOG.warn("PR-3b: markup rule skipped for the batch of product {} — catalog unreadable; the bill's rate is used",
+						obj.getProductId(), unreadable);
+			}
+		}
+		return price;
 	}
 
 	public void deleteAllByIdInBatch(Iterable<Long> ids) {

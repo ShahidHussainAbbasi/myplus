@@ -125,14 +125,14 @@ describe('PR-1 — purchase price mode + price history', () => {
     })
   })
 
-  it('G1 the setting is offered under Purchasing, default latest, choices latest | keep', () => {
+  it('G1 the setting is offered under Purchasing, default latest, choices latest | keep | per_batch', () => {
     resetMode()
     configEntry(KEY).then((e) => {
       expect(e, KEY + ' is in the business settings catalog').to.be.an('object')
       expect(e.group).to.eq('Purchasing')
       expect(e.type).to.eq('SELECT')
       expect(String(e.value).toLowerCase(), 'default').to.eq('latest')
-      expect((e.options || []).map((o) => o.value)).to.deep.eq(['latest', 'keep'])
+      expect((e.options || []).map((o) => o.value), 'PR-3b added per_batch').to.deep.eq(['latest', 'keep', 'per_batch'])
     })
   })
 

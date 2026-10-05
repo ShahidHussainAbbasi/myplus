@@ -120,9 +120,19 @@ public class ReservationService {
 
         final LocalDate today = TenantClock.today();   // G1: FEFO excludes batches expired before today
 
-        // Pass 1 — verify EVERY line is fully satisfiable before holding anything (no partial holds).
-        for (StockReservationLine line : req.getLines()) {
-            BigDecimal need = nz(line.getQuantity());
+        /*
+         * Pass 1 — verify EVERY product is fully satisfiable before holding anything (no partial holds).
+         *
+         * PR-3a — PER PRODUCT, SUMMED ACROSS LINES. It used to check each line on its own, so two lines of 5 against
+         * 7 on the shelf both passed, and pass 2 then held 5 + 2 with nothing noticing the second line came up short:
+         * the sale recorded 10 units with 7 held. The need is the total for the product.
+         */
+        java.util.Map<Long, BigDecimal> needByItem = new java.util.LinkedHashMap<>();
+        for (StockReservationLine l : req.getLines())
+            needByItem.merge(l.getItemId(), nz(l.getQuantity()), BigDecimal::add);
+        for (java.util.Map.Entry<Long, BigDecimal> want : needByItem.entrySet()) {
+            StockReservationLine line = new StockReservationLine(want.getKey(), want.getValue());
+            BigDecimal need = want.getValue();
             BigDecimal available = BigDecimal.ZERO;
             for (StockEntry e : stockEntryRepository.findForFefo(line.getItemId(), orgId, userId, today,
                     capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING))) {
@@ -170,6 +180,7 @@ public class ReservationService {
         }
 
         for (StockReservationLine line : req.getLines()) {
+            final Integer lineRef = line.getLineRef();   // PR-3a: echoed on each pick taken for this line
             /*
              * U0 — exact allocation, in BASE UNITS.
              *
@@ -197,8 +208,18 @@ public class ReservationService {
                         // #17 P3: stamp what this batch cost, HERE, where the batch is already in hand.
                         // Resolving it later would be a read per pick on the sale path.
                         .unitCost(unitCostOf(e))
+                        .lineRef(lineRef)
                         .build());
                 remaining = remaining.subtract(take);
+            }
+            /*
+             * PR-3a — a line that could not be held in full must never pass as reserved. Pass 1 now makes this
+             * unreachable short of a concurrent change between the passes; if it happens anyway, the whole hold is
+             * rolled back (this method is one transaction) rather than recording a sale for goods nobody holds.
+             */
+            if (remaining.signum() > 0) {
+                throw new ValidationException("product " + line.getItemId() + ": only part of "
+                        + fmtQty(nz(line.getQuantity())) + " could be held - stock changed while reserving; try again");
             }
         }
         reservationRepository.save(resv);
@@ -383,7 +404,7 @@ public class ReservationService {
         List<StockPick> picks = new ArrayList<>();
         for (ReservationPick p : resv.getPicks()) {
             picks.add(new StockPick(p.getProductId(), p.getBatchNo(), nz(p.getQuantity()), p.getExpiryDate(),
-                    p.getUnitCost()));
+                    p.getUnitCost(), p.getLineRef()));
         }
         return new StockReservationResponse(resv.getReservationId(), resv.getStatus(), picks, null,
                 resv.getExpiresAt());
