@@ -68,7 +68,7 @@ class ProductRefsCacheTest {
         ObjectProvider<MeterRegistry> noMetrics = new StaticListableBeanFactory().getBeanProvider(MeterRegistry.class);
         refsCache = new CatalogRefsCache(300, noMetrics);
         service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache);
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
         when(taxCodeRepository.findByOrganizationId(any())).thenReturn(List.of());
     }
 

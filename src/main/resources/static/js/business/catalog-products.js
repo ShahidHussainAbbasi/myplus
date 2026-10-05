@@ -626,6 +626,7 @@
         var f = document.getElementById('Product');
         if (f) f.reset();
         $('#productId').val('');
+        if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1: a new product has no history yet
         // DUP-1 — a cleared form is a new intent. Belt-and-braces beside the retire-on-success in saveProduct:
         // a key that somehow outlived its save must never reach the NEXT product, because the server would
         // correctly replay the old one and the new product would silently not exist.
@@ -991,6 +992,7 @@
             refreshProductPanel();     // refresh the index so the checks + panel exclude only THIS product
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
+            if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1: an existing product has a history
 
         }).fail(function () { showFormError(t('ui.js.couldNotLoadTheProduct')); });
     }
@@ -1026,6 +1028,7 @@
     /** Clear ONLY what identifies this product; leave the batch context selected. */
     function resetProductIdentityFields() {
         $('#productId').val('');
+        if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1
         // DUP-1 — the Save-&-Add-Another path. THE most important of the three: this is the one flow that keeps
         // the modal open across saves, so a key left in place here would make every subsequent product in the
         // run replay the first one.

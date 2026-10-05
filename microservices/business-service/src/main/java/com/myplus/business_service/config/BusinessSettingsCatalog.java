@@ -1,5 +1,6 @@
 package com.myplus.business_service.config;
 
+import com.myplus.business_service.service.PurchaseService;
 import com.myplus.common.settings.SettingEntry;
 import com.myplus.common.settings.SettingsCatalogProvider;
 import org.springframework.stereotype.Component;
@@ -713,6 +714,19 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         List.of(new SettingEntry.Option("off", "Off — no check"),
                                 new SettingEntry.Option("warn", "Warn (default) — ask before recording"),
                                 new SettingEntry.Option("block", "Block — refuse the purchase"))),
+                // PR-1 — does a purchase move the product's selling price? Default LATEST = today's behaviour, so no
+                // existing tenant sees a change. Settings writes are owner/admin only (SettingsController).
+                SettingEntry.select(PurchaseService.PRICE_MODE_KEY,
+                        "How a purchase affects the selling price",
+                        "Latest (default): the sell rate on a purchase becomes the product's selling price, for "
+                                + "every unit in stock. Keep: a purchase never changes the selling price — only "
+                                + "the last purchase rate is updated, and you change the price yourself on the "
+                                + "product. Every change is kept in the product's price history.",
+                        PurchaseService.PRICE_MODE_LATEST, "Purchasing",
+                        List.of(new SettingEntry.Option(PurchaseService.PRICE_MODE_LATEST,
+                                        "Latest (default) — the purchase's sell rate becomes the price"),
+                                new SettingEntry.Option(PurchaseService.PRICE_MODE_KEEP,
+                                        "Keep — a purchase never changes the selling price"))),
                 // B2B-P0 (#13). OFF by default, deliberately: this prints on documents our customers hand to
                 // THEIR customers. Enabled for trial accounts, or by a paying customer's own choice.
                 SettingEntry.bool("pos.receipt.showPromo",

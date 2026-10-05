@@ -3728,6 +3728,8 @@ function calculateNetPurchase(){
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
 	renderPurchaseBoxHint();
+	// PR-1 — say what saving this line does to the product's selling price (price-history.js).
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
@@ -4419,6 +4421,8 @@ function resetPurchaseForm(){
 	var box = document.getElementById('purchaseVendorDues');
 	if (wrap) wrap.style.display = 'none';
 	if (box) box.value = '';
+	// PR-1 — no product picked, so no price effect: never let the last bill's sentence greet a new one.
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 }
 
 // Toolbar "+ New Purchase" â†’ open the form modal fresh (mirrors newProduct/newEntity, but also
@@ -4763,6 +4767,8 @@ window.afterSavePurchase = function () {
 	if (typeof updatePurchaseProjectedOnHand === 'function') updatePurchaseProjectedOnHand();
 	// PUR-PAID-1: same reason — the last line's "Due on this line" would otherwise sit under an empty Paid box.
 	refreshPurchasePaid();
+	// PR-1 — and the last line's "selling price changes from … to …" under an empty sell rate.
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 
 	// Refresh the grid WITHOUT clear().draw() — blanking the table between every line is the flicker
 	// that makes rapid entry feel slow.
@@ -5798,6 +5804,10 @@ function loadPosFeatureFlags(){
 		window.posQuickPickEnabled = byKey['pos.quickpick.enabled'] === true;
 		window.posQuickPickCount = posSettingInt(res, 'pos.quickpick.count', 9);
 		window.posQuickPickDays = posSettingInt(res, 'pos.quickpick.days', 30);
+		// PR-1 — does a purchase move the selling price? 'latest' (default) | 'keep'. Lower-cased like the
+		// server's getChoice; anything else is 'latest', which is also what the server does with it.
+		window.posPurchasePriceMode = String(posSettingText(res, 'pos.pricing.purchaseMode', 'latest')).toLowerCase() === 'keep'
+			? 'keep' : 'latest';
 		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor
 		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
 		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a

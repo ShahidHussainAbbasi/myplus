@@ -37,6 +37,8 @@ public class ProductService {
     // CatalogProductsChanged every writer here already publishes; and the category list, which findOrCreateCategory
     // writes to.
     private final CatalogRefsCache refsCache;
+    // PR-1 — every selling-price change, written in the change's own transaction.
+    private final com.myplus.catalog.repository.ProductPriceHistoryRepository priceHistory;
 
     /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
     private java.util.Map<Long, BigDecimal> orgCodeRates() {
@@ -181,6 +183,7 @@ public class ProductService {
          * recoverable duplicate into an opaque 500.
          */
         Product saved = productRepository.saveAndFlush(p);
+        recordPriceChange(saved, null, saved.getSellingPrice(), com.myplus.catalog.entity.ProductPriceHistory.MANUAL, null);   // PR-1
         changed(saved);   // CACHE-1 — evicted after commit; a duplicate that throws above publishes nothing
         return toDto(saved);
     }
@@ -283,6 +286,7 @@ public class ProductService {
                 && productRepository.existsBySkuScoped(sku, CurrentUser.organizationId(), CurrentUser.userId())) {
             throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
+        java.math.BigDecimal priceBefore = p.getSellingPrice();   // PR-1 — read before the form overwrites it
         fromDto(dto, p);
         /*
          * saveAndFlush, not save: Hibernate increments the version when it FLUSHES, and a plain save() on a managed
@@ -290,6 +294,7 @@ public class ProductService {
          * version, and the next save from that response would be refused as stale against the caller's own edit.
          */
         Product saved = productRepository.saveAndFlush(p);
+        recordPriceChange(saved, priceBefore, saved.getSellingPrice(), com.myplus.catalog.entity.ProductPriceHistory.MANUAL, null);   // PR-1
         changed(saved);   // CACHE-1 — name / price / active may all have changed
         return toDto(saved);
     }
@@ -317,6 +322,56 @@ public class ProductService {
         return productRepository.findByCategoryScoped(categoryId, CurrentUser.organizationId(), CurrentUser.userId(), pageable).map(this::toDto);
     }
 
+    /**
+     * PR-1 — one history row when the selling price actually CHANGED (compareTo, so 110 and 110.00 are the same price).
+     * Same transaction as the change: a rolled-back purchase leaves no row, and no price moves without one.
+     */
+    private void recordPriceChange(Product p, BigDecimal before, BigDecimal after, String source, String ref) {
+        if (p == null || p.getId() == null) return;
+        boolean same = (before == null && after == null) || (before != null && after != null && before.compareTo(after) == 0);
+        if (same) return;
+        com.myplus.catalog.entity.ProductPriceHistory h = new com.myplus.catalog.entity.ProductPriceHistory();
+        h.setOrganizationId(p.getOrganizationId());
+        h.setProductId(p.getId());
+        h.setOldPrice(before);
+        h.setNewPrice(after);
+        h.setSource(source);
+        h.setRef(ref == null || ref.isBlank() ? null : (ref.length() > 80 ? ref.substring(0, 80) : ref));
+        h.setChangedBy(CurrentUser.userId());
+        h.setChangedAt(java.time.LocalDateTime.now());
+        priceHistory.save(h);
+    }
+
+    /** PR-1 — the product's current prices and its price history, newest first (last 50). Scoped (anti-IDOR). */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> priceHistory(Long id) {
+        Product p = getEntity(id);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("productId", p.getId());
+        out.put("name", p.getName());
+        out.put("sellingPrice", p.getSellingPrice());
+        out.put("lastPurchaseRate", p.getLastPurchaseRate());
+        out.put("lastSaleRate", p.getLastSaleRate());
+        // Plain rows, not the entity: the wire shape stays what the screen reads even if the table grows.
+        java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (com.myplus.catalog.entity.ProductPriceHistory h : priceHistory.findForProduct(p.getId(), p.getOrganizationId(),
+                org.springframework.data.domain.PageRequest.of(0, 50))) {
+            java.util.Map<String, Object> r = new java.util.LinkedHashMap<>();
+            r.put("oldPrice", h.getOldPrice());
+            r.put("newPrice", h.getNewPrice());
+            r.put("source", h.getSource());
+            r.put("ref", h.getRef());
+            r.put("changedBy", h.getChangedBy());
+            // An INSTANT on the wire, not a wall-clock time: changedAt is the JVM's own clock (UTC in the containers), and a
+            // bare "08:00" was read as the viewer's local time — 5 hours off in Pakistan. The browser shows it in its zone.
+            r.put("changedAt", h.getChangedAt() == null ? null
+                    : h.getChangedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime().toString());
+            rows.add(r);
+        }
+        out.put("history", rows);
+        return out;
+    }
+
     @Transactional
     public ProductDTO setActive(Long id, boolean active) {
         Product p = getEntity(id);   // scoped — anti-IDOR
@@ -338,8 +393,15 @@ public class ProductService {
      *  Scoped via getEntity (anti-IDOR). */
     @Transactional
     public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate) {
+        return updatePrice(id, price, purchaseRate, null);
+    }
+
+    /** PR-1 — as above, naming the purchase that moved the price, for the price history. */
+    @Transactional
+    public ProductDTO updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate, String ref) {
         Product p = getEntity(id);
         boolean touched = false;
+        BigDecimal priceBefore = p.getSellingPrice();
         if (isPositive(price)) {
             p.setSellingPrice(price);     // the LIVE master price
             p.setLastSaleRate(price);     // …and the record of what this purchase set it to
@@ -354,6 +416,7 @@ public class ProductService {
             // BLK-4 — saveAndFlush: this write moves the version (it is exactly the change an open product form must
             // not overwrite), and the response should say so rather than carry the pre-write version.
             p = productRepository.saveAndFlush(p);
+            recordPriceChange(p, priceBefore, p.getSellingPrice(), com.myplus.catalog.entity.ProductPriceHistory.PURCHASE, ref);   // PR-1
             changed(p);   // CACHE-1 — the cached picker row carries sellingPrice; a no-op purchase publishes nothing
         }
         return toDto(p);

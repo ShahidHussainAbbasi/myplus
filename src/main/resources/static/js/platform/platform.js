@@ -966,6 +966,37 @@
 	 * reconciliations behind the switch. business − finance must be 0 for the switch to finance (the server refuses
 	 * otherwise — this card only explains); finance − GL 2000 is a WARNING, never a block (ruling 5).
 	 */
+	/**
+	 * FP-6a — the automatic daily payables check for this tenant: clean days in a row (28 retire business as the source)
+	 * and the last week, each day either clean or what was repaired. Read-only: the check runs by itself.
+	 */
+	function renderPayablesRecon(orgId, $box) {
+		$.get(serverContext + 'platform/payablesReconciliation', { organizationId: orgId }).done(function (res) {
+			var d = res && (res.object || res.data);
+			if (!d || (res.status && res.status !== 'SUCCESS')) return;
+			var money = function (v) { return Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+			var h = '<div data-cy="plat-payables-recon" style="max-width:560px;margin-top:14px">'
+				+ '<h5>' + esc(t('ui.js.payablesReconTitle', 'Automatic check (daily)')) + '</h5>'
+				+ '<p><span data-cy="plat-payables-recon-streak"><strong>' + Number(d.cleanStreak || 0) + '</strong></span> '
+				+ esc(t('ui.js.payablesReconStreak', 'clean days in a row')) + ' · ' + esc(t('ui.js.payablesReconNeeded', 'needed to retire business as the source:')) + ' ' + Number(d.required || 28) + '</p>';
+			var days = (d.days || []).slice(0, 7);
+			if (!days.length) h += '<p class="text-muted">' + esc(t('ui.js.payablesReconNone', 'Not checked yet — the first check runs shortly after a deploy and every night.')) + '</p>';
+			else {
+				h += '<table class="table table-condensed"><tbody>';
+				days.forEach(function (r) {
+					var what = r.clean ? esc(t('ui.js.payablesReconClean', 'clean'))
+						: (r.error ? esc(t('ui.js.payablesReconError', 'could not check')) + ' — ' + esc(r.error)
+							: esc(t('ui.js.payablesReconRepaired', 'repaired')) + ': '
+								+ (r.docsResent ? r.docsResent + ' ' + esc(t('ui.js.payablesReconDocs', 'documents re-sent')) + ' ' : '')
+								+ (Number(r.ledgerAligned || 0) !== 0 ? esc(t('ui.js.payablesReconLedger', 'ledger aligned by')) + ' ' + money(r.ledgerAligned) : ''));
+					h += '<tr' + (r.clean ? '' : ' class="warning"') + '><td>' + esc(r.reconDay) + '</td><td data-cy="plat-payables-recon-day">' + what + '</td></tr>';
+				});
+				h += '</tbody></table>';
+			}
+			$box.append(h + '</div>');
+		});
+	}
+
 	function renderPayables(orgId) {
 		var $box = $('#platPayables');
 		if (!$box.length) return;
@@ -1005,6 +1036,7 @@
 			$box.html(h);
 			$box.find('[data-cy="plat-payables-finance"]').on('click', function () { switchPayables(orgId, 'FINANCE'); });
 			$box.find('[data-cy="plat-payables-business"]').on('click', function () { switchPayables(orgId, 'BUSINESS'); });
+			renderPayablesRecon(orgId, $box);
 		}).fail(function (xhr) {
 			$box.html('<div class="text-danger">' + esc(apiFailMessage(xhr, t('ui.js.loadFailed', 'Could not load'))) + '</div>');
 		});

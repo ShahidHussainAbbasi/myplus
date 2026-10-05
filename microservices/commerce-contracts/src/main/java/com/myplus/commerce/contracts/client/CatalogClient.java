@@ -80,7 +80,13 @@ public interface CatalogClient {
     @PutExchange("/products/{id}/price")
     void updatePrice(@PathVariable Long id,
                      @RequestParam(name = "price", required = false) BigDecimal price,
-                     @RequestParam(name = "purchaseRate", required = false) BigDecimal purchaseRate);
+                     @RequestParam(name = "purchaseRate", required = false) BigDecimal purchaseRate,
+                     @RequestParam(name = "ref", required = false) String ref);
+
+    /** As above with no reference — the price history then shows the change without naming its bill. */
+    default void updatePrice(Long id, BigDecimal price, BigDecimal purchaseRate) {
+        updatePrice(id, price, purchaseRate, null);
+    }
 
     /** B1: set a product's pharmacy clinical flags. Catalog is the single writer for these — the pharmacy
      *  Clinical &amp; Safety screen goes through here. Either flag may be null to leave it unchanged. */

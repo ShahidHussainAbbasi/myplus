@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -1042,6 +1043,22 @@ public class CatalogController {
             return catalog.get("/products/" + request.getParameter("id"));
         } catch (Exception e) {
             LOGGER.error("getCatalogProduct proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * PR-1 — a product's current prices and its selling-price history → catalog GET /products/{id}/price-history.
+     * Owner/admin only — enforced in catalog (the answer carries the cost); its refusal is carried through as
+     * {@code success:false} with catalog's message. The id is parsed, never pasted into the path as text.
+     */
+    @GetMapping(value = "/productPriceHistory", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> productPriceHistory(@RequestParam("productId") Long productId) {
+        try {
+            return catalog.get("/products/" + productId + "/price-history");
+        } catch (Exception e) {
+            LOGGER.error("productPriceHistory proxy error", e);
             return ProxyErrors.failure(e);
         }
     }

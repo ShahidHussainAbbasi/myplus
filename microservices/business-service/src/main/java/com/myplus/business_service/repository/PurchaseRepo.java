@@ -147,4 +147,16 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    /** FP-2 backfill — one tenant's supplier purchases, in stable id order, a page at a time. */
    @Query("select p from purchase p where p.organizationId = :org and p.venderId is not null order by p.purchaseId")
    List<Purchase> findSupplierPurchasesByOrg(@Param("org") Long org, org.springframework.data.domain.Pageable page);
+
+   /**
+    * FP-6a — Σ due over one tenant's live SUPPLIER purchases (vendor set, not void). due = paid − bill, so this is the
+    * NEGATIVE of what business owes them. A purchase with no supplier is a cash purchase and belongs to no one's payables.
+    */
+   @Query("select coalesce(sum(p.dueAmount), 0) from purchase p where p.organizationId = :org and p.venderId is not null "
+        + "and (p.status is null or p.status <> 'VOID')")
+   java.math.BigDecimal sumSupplierDueByOrg(@Param("org") Long org);
+
+   /** FP-6a — someone the background job can act as for this tenant (service calls need a user identity). */
+   @Query("select max(p.userId) from purchase p where p.organizationId = :org")
+   Long anyUserOfOrg(@Param("org") Long org);
 }

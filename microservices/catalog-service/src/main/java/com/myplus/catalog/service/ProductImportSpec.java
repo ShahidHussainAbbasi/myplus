@@ -88,6 +88,8 @@ public class ProductImportSpec implements ImportSpec<Product> {
 
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
+    // PR-1 — an imported product's opening price is the first row of its price history, as a created one's is.
+    @Autowired private com.myplus.catalog.repository.ProductPriceHistoryRepository priceHistory;
     // CACHE-1 — imported products must appear in the next picker read (see persist()).
     @Autowired private org.springframework.context.ApplicationEventPublisher events;
 
@@ -268,7 +270,24 @@ public class ProductImportSpec implements ImportSpec<Product> {
 
     @Override
     public int persist(List<Product> batch) {
-        int saved = productRepository.saveAll(batch).size();
+        List<Product> rows = productRepository.saveAll(batch);
+        int saved = rows.size();
+        // PR-1 — one opening row per priced product. Import only CREATES (an existing name is refused), so "old" is null.
+        List<com.myplus.catalog.entity.ProductPriceHistory> opening = new java.util.ArrayList<>();
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        Long by = com.myplus.common.security.CurrentUser.userId();
+        for (Product p : rows) {
+            if (p.getId() == null || p.getSellingPrice() == null) continue;
+            com.myplus.catalog.entity.ProductPriceHistory h = new com.myplus.catalog.entity.ProductPriceHistory();
+            h.setOrganizationId(p.getOrganizationId());
+            h.setProductId(p.getId());
+            h.setNewPrice(p.getSellingPrice());
+            h.setSource(com.myplus.catalog.entity.ProductPriceHistory.IMPORT);
+            h.setChangedBy(by);
+            h.setChangedAt(now);
+            opening.add(h);
+        }
+        if (!opening.isEmpty()) priceHistory.saveAll(opening);
         /*
          * CACHE-1 — ImportEngine.commit runs WITHOUT a transaction and saveAll commits by itself, so the rows are in
          * MySQL by this line: the picker listener's fallbackExecution then evicts at once, which IS the after-commit

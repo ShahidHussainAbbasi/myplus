@@ -154,6 +154,35 @@ public class PlatformAdminController {
         }
     }
 
+    /** FP-6a — a tenant's automatic payables reconciliation history and clean-days-in-a-row count. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/payablesReconciliation", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> payablesReconciliation(@org.springframework.web.bind.annotation.RequestParam("organizationId") Long organizationId) {
+        try {
+            return gateway.forMap(BUSINESS_PREFIX, businessDirectUrl, "/payables-reconciliation?organizationId=" + organizationId,
+                    HttpMethod.GET, null, null);
+        } catch (Exception e) {
+            LOGGER.error("platform payables-reconciliation read proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** FP-6a — check one tenant now (the daily job does this by itself). */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/payablesReconciliation/run", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> payablesReconciliationRun(final HttpServletRequest request) {
+        try {
+            return gateway.forMap(BUSINESS_PREFIX, businessDirectUrl,
+                    "/payables-reconciliation/run?organizationId=" + enc(request.getParameter("organizationId")),
+                    HttpMethod.POST, null, null);
+        } catch (Exception e) {
+            LOGGER.error("platform payables-reconciliation run proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** Change a tenant's plan. Validated against the Plan enum in auth-service, not here. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/plan", method = RequestMethod.POST)

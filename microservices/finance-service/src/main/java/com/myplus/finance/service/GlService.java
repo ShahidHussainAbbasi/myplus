@@ -49,6 +49,10 @@ public class GlService {
             // MKT-1g — the marketplace operator's balance with its sellers, one account for both directions (a
             // credit balance is owed to sellers, a debit balance is commission they owe). See MarketplacePostingRules.
             {"2400", "Marketplace Seller Balances", AccountType.LIABILITY, NormalSide.CREDIT},
+            // FP-6a — where the automatic payables reconciliation parks a difference between GL 2000 and the supplier
+            // ledger it cannot attribute (history: a 10x purchase journal, tax-only postings, unpaid cash purchases).
+            // A balance here is an explained, dated correction trail, never a silent change. Backfilled like 2200.
+            {"2990", "Payables Reconciliation Difference", AccountType.LIABILITY, NormalSide.CREDIT},
             {"3000", "Owner's Equity", AccountType.EQUITY, NormalSide.CREDIT},
             {"3100", "Retained Earnings", AccountType.EQUITY, NormalSide.CREDIT},
             {"4000", "Sales", AccountType.INCOME, NormalSide.CREDIT},

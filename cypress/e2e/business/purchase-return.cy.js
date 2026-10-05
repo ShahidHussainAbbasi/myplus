@@ -29,17 +29,23 @@ describe('Purchase Return — stock-out + AP reduction + GL reversal', () => {
             failOnStatusCode: false,
           }).then((pr) => expect(pr.body.status, JSON.stringify(pr.body)).to.eq('SUCCESS'))
 
-          vendorDue(venderId).then((d) => expect(d, 'credit purchase → payable 100').to.eq(100))
+          // The payable is the BILL: 100 of goods, plus input tax when the tenant has it on — demo.business's tax setting
+          // is changed by several specs (10% on 5 Oct: 110). Read it, never assume 100; the case is about the HALVING.
+          let owed = 0
+          vendorDue(venderId).then((d) => {
+            owed = d
+            expect(d, 'credit purchase → payable = the bill (100 goods, plus any input tax)').to.be.oneOf([100, 110])
+          })
 
           cy.request('/getUserPurchase').then((gp) => {
             const rec = (gp.body.collection || gp.body.data || []).find((x) => x.purchaseInvoiceNo === inv)
             expect(rec, 'purchase record').to.exist
             const purchaseId = rec.purchaseId || rec.id
-            // return 5 of 10 → returned value 50 → payable drops to 50
+            // return 5 of 10 → half the bill comes off → payable halves (50, or 55 with 10% tax)
             cy.request({ method: 'POST', url: '/purchaseReturn', form: true, body: { purchaseId, quantity: 5, reason: 'damaged' }, failOnStatusCode: false })
               .then((rr) => expect(rr.body.status, JSON.stringify(rr.body)).to.eq('SUCCESS'))
 
-            vendorDue(venderId).then((d) => expect(d, 'payable halved after returning half').to.be.closeTo(50, 0.01))
+            vendorDue(venderId).then((d) => expect(d, 'payable halved after returning half').to.be.closeTo(owed / 2, 0.01))
             cy.request('/gl/trialBalance').then((tr) => {
               const tb = parse(tr.body)
               expect(tb.balanced, 'GL still balanced after purchase return').to.eq(true)

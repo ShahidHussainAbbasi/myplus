@@ -401,6 +401,20 @@ public class PurchaseService implements IPurchaseService{
 		throw new DuplicateBillLineException(DuplicateBillLine.message(bill, vendorName, prior.get()));
 	}
 
+	/**
+	 * FP-6a guard — a purchase with NO supplier is a cash purchase ("Cash purchase (no vendor)" on the screen), so it is
+	 * paid in full: paid = the bill, goods + input tax. Without this, a cashier who typed the goods amount on a taxed
+	 * cash purchase left the tax "owed" — to nobody — and the ledger credited Payables for it, while finance's supplier
+	 * ledger (which needs a supplier) could never hold it: a standing GL 2000 difference found by the FP-6 review
+	 * (48 such rows on demo.business, e.g. 200 paid on a 220 bill). Applied on add and edit, before anything is written.
+	 */
+	static void cashPurchasePaidInFull(Purchase obj, java.math.BigDecimal bill) {
+		if (obj.getVenderId() == null && obj.getDueAmount() != null && obj.getDueAmount().signum() != 0) {
+			obj.setPaidAmount(bill);
+			obj.setDueAmount(java.math.BigDecimal.ZERO);
+		}
+	}
+
 	private Purchase doAddPurchase(PurchaseDTO dto, AuthenticatedUser user, Long org, String idemKey) throws Exception {
 		Purchase obj = purchaseInputMapper.toEntity(dto);
 		obj.setUpdated(obj.getUpdated()!=null?obj.getUpdated():LocalDateTime.now());
@@ -470,6 +484,7 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal paid = obj.getPaidAmount() != null ? obj.getPaidAmount() : bill;
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
+		cashPurchasePaidInFull(obj, bill);
 
 		// DOC-INT C: does this vendor's bill already have this line? Asked BEFORE the credit check and before any
 		// write or stock-in, so a held save has changed nothing. AFTER the idempotency replay in addPurchase, so a
@@ -479,7 +494,7 @@ public class PurchaseService implements IPurchaseService{
 		// B2B-P1 (#9, supplier side): would this bill take us past what we are willing to owe this vendor?
 		// Checked BEFORE the write and before any stock-in, so `block` refuses having changed nothing and
 		// `warn` asks while the decision is still reversible. Inert unless the vendor has a limit set.
-		assertVendorCreditPolicy(obj, bill.subtract(paid), Boolean.TRUE.equals(dto.getCreditAcknowledged()));
+		assertVendorCreditPolicy(obj, bill.subtract(obj.getPaidAmount()), Boolean.TRUE.equals(dto.getCreditAcknowledged()));
 
 		/*
 		 * SER-2 — check the serials BEFORE the write, in the same place and for the same reason as the vendor
@@ -563,7 +578,24 @@ public class PurchaseService implements IPurchaseService{
 		}
 	}
 
-	private void stampRatesOnProduct(Purchase saved, String phase) {
+	/** PR-1 — the setting that decides whether a purchase moves the selling price. Values LOWER-case: getChoice
+	 *  lower-cases what is stored and matches it against these — an upper-case set would never match, and KEEP
+	 *  would silently behave as LATEST. */
+	public static final String PRICE_MODE_KEY = "pos.pricing.purchaseMode";
+	public static final String PRICE_MODE_LATEST = "latest";
+	public static final String PRICE_MODE_KEEP = "keep";
+
+	/** PR-1 — LATEST unless the tenant chose KEEP; an unreadable or unknown value is LATEST, today's behaviour. */
+	String purchasePriceMode() {
+		try {
+			return settingsService.getChoice(PRICE_MODE_KEY,
+					java.util.Set.of(PRICE_MODE_LATEST, PRICE_MODE_KEEP), PRICE_MODE_LATEST);
+		} catch (RuntimeException unreadable) {
+			return PRICE_MODE_LATEST;
+		}
+	}
+
+	void stampRatesOnProduct(Purchase saved, String phase) {
 		if (saved == null || saved.getProductId() == null) return;
 		// Read the SAVED BILL, not the incoming DTO: these are the very fields tablePurchase renders, so the
 		// product can never show a rate that disagrees with the invoice it came from.
@@ -571,9 +603,13 @@ public class PurchaseService implements IPurchaseService{
 		java.math.BigDecimal cost = saved.getBpurchaseRate();
 		boolean hasSell = sell != null && sell.compareTo(java.math.BigDecimal.ZERO) > 0;
 		boolean hasCost = cost != null && cost.compareTo(java.math.BigDecimal.ZERO) > 0;
+		// PR-1 — KEEP: the bill still records its sell rate, but the product's price is the owner's to change.
+		// The cost is stamped either way: last purchase rate is a fact about the purchase, not a price decision.
+		if (hasSell && PRICE_MODE_KEEP.equals(purchasePriceMode())) hasSell = false;
 		if (!hasSell && !hasCost) return;
 		try {
-			catalogClient.updatePrice(saved.getProductId(), hasSell ? sell : null, hasCost ? cost : null);
+			catalogClient.updatePrice(saved.getProductId(), hasSell ? sell : null, hasCost ? cost : null,
+					saved.getPurchaseInvoiceNo());
 		} catch (Exception ex) {
 			LOG.warn("Option B: rate stamp on {} failed for product {} (purchase recorded)", phase, saved.getProductId(), ex);
 		}
@@ -644,6 +680,7 @@ public class PurchaseService implements IPurchaseService{
 				: (existing.getPaidAmount() != null ? existing.getPaidAmount() : bill);
 		obj.setPaidAmount(paid);
 		obj.setDueAmount(paid.subtract(bill));
+		cashPurchasePaidInFull(obj, bill);
 
 		/*
 		 * SER-2 (fix) — the register follows the bill when the bill is EDITED.
