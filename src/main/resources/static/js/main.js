@@ -217,7 +217,10 @@ $.ajaxPrefilter(function (options, original, jqXHR) {
             || /name="username"|id="loginSubmit"/.test(body);
         if (ended && !window.__sessionEndedRedirect) {
             window.__sessionEndedRedirect = true;     // one redirect, however many requests were in flight
-            handleAjaxFailure(x, '', null);
+            // The sentence for BOTH shapes. handleAjaxFailure substitutes it only for the SESSION_EXPIRED code; for the
+            // login-page shape it would pass this note through as given, and an empty one put a blank banner on Sign in.
+            handleAjaxFailure(x, (typeof t === 'function' && t('ui.js.sessionEnded'))
+                || 'Your session has ended. Sign in again.', null);
         }
     });
 });

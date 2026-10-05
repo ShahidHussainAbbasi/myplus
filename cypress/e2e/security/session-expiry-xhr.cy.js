@@ -58,6 +58,9 @@ describe('SESS-2 — an expired session goes to the login page, not a parser err
     cy.setCookie('JSESSIONID', DEAD)
     cy.window().then((w) => { w.bgJson(w.serverContext + 'getSaleReturns') })
     cy.location('pathname', { timeout: 15000 }).should('eq', '/login')
+    // ⚠ The page says WHY, in words. The first prefilter build sent an EMPTY message here (the login-page shape carries
+    // no SESSION_EXPIRED code), and Sign in showed a blank banner — found on the V7 guide picture.
+    cy.get('.msg-bar.info').invoke('text').should('match', /\S/)
   })
 
   it('…and a click AFTER the background read used up the dead session also lands on the login page', () => {
@@ -66,6 +69,7 @@ describe('SESS-2 — an expired session goes to the login page, not a parser err
     cy.clearCookie('JSESSIONID')           // signed out: what the browser holds once a dead session was replaced
     cy.window().then((w) => { w.$.ajax({ url: w.serverContext + 'getUserSell', dataType: 'json' }) })
     cy.location('pathname', { timeout: 15000 }).should('eq', '/login')
+    cy.get('.msg-bar.info').invoke('text').should('match', /\S/)
   })
 
   it('a FORM SUBMIT after the session died also lands on the login page (callAjax path)', () => {
