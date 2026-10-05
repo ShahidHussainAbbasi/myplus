@@ -105,7 +105,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <p>Step-by-step manual tests for every slice of Expense Management and of the supplier payables that now live in finance, for every business type and every login tier. Each case says who to log in as, what to do, what you should see, and which real mistake it catches. Tick the results as you go; your ticks stay in this browser only.</p>
     <div class="meta">
       <span>Branch <b>feature/expense-management</b></span>
-      <span>Updated 3 Oct 2026, 16:10</span>
+      <span>Updated 5 Oct 2026</span>
       <span>Password for every test login: <b class="mono" style="color:inherit">Demo@2025!</b></span>
     </div>
   </div>
@@ -133,6 +133,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#fp4c">FP-4c · Balances and credit limit</a></li>
       <li><a href="#fp5a">FP-5a · Payments land once</a></li>
       <li><a href="#fp5b">FP-5b · One Pay for both</a></li>
+      <li><a href="#fp6a">FP-6a · The daily check</a></li>
       <li><a href="#tz2">TZ-2 · Your day, any hour</a></li>
       <li><a href="#findings">Defects found</a></li>
       <li><a href="#auto">Automated gates</a></li>
@@ -170,6 +171,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>FP-5a</b></td><td>Every payment reaches the books exactly once, even when finance is briefly down (supplier payments, customer receipts, school fees)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 418 + 236</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 31 regression</span></td></tr>
             <tr><td><b>FP-5b</b></td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">27 + 419 + 72</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + regressions</span></td></tr>
             <tr><td><b>FP-6a</b></td><td>Every business, every night and after every deploy: supplier payables checked automatically (business ⇄ finance ⇄ ledger), repaired automatically, and recorded; 28 clean days retire business as the source</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">453 + 78</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 129 regression</span></td></tr>
+            <tr><td><b>FP-6a</b></td><td>Every business’s supplier figures and books are checked automatically every day; a difference is repaired by itself and recorded</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">finance 78 · expense 27</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">see the review</span></td></tr>
             <tr><td><b>TZ-2</b></td><td>“Today” is the browser’s day in every service and screen; a build check stops the old way coming back</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">1,779 · 0 new</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 84 regression</span></td></tr>
             <tr><td>EX-5</td><td>Receipt photos and PDFs attached to an expense</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-6 / 7</td><td>Staff expense claims, approval, reimbursement and advances</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
@@ -186,7 +188,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <div class="facts">
         <div class="fact"><b>Open the app</b><code>http://localhost:8080</code></div>
         <div class="fact"><b>Password</b>Every test login uses <code>Demo@2025!</code></div>
-        <div class="fact"><b>Everything up to FP-5a is live</b>3 Oct, 15:27: auth, expense (V5), finance (V13), business (V76), education (V31), the gateway and the monolith run this branch</div>
+        <div class="fact"><b>Everything up to FP-6a is live</b>5 Oct: auth, expense (V5), finance (V13), business (V79), education (V31), welfare, agriculture, the gateway and the monolith run this branch. The recording ran on that stack.</div>
         <div class="fact"><b>Platform operator</b><code>admin@myplus.com</code> with password <code>Admin@2025!</code> (dev default)</div>
         <div class="fact"><b>Supplier figures switch</b>Every business reads supplier figures from <b>business</b> until the operator switches it (FP-4b). Switch back when you are done.</div>
       </div>
@@ -914,6 +916,56 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A note says payments here settled purchases and bills together; <b>Back to business</b> is disabled.</span></label></li></ul></div>
           </div>
           <div class="why"><b>Catches:</b> a business switched back to screens that would misstate its supplier statements.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── FP-6a ───────────────────────── -->
+    <section class="sec" id="fp6a">
+      <h2>FP-6a · The automatic daily check</h2>
+      <p>Every business is checked by itself, every night at 03:30 (Karachi) and 10 minutes after every start: business’s supplier figures against finance’s supplier documents, and those against the books’ <b>2000 Accounts Payable</b>. A difference is repaired automatically — documents re-sent, then the books aligned against <b>2990 Payables Reconciliation Difference</b> — and the day is recorded. After <b>28 clean days in a row</b> a business can stop keeping its own payables (FP-6b). The operator sees the history; nobody has to press anything.</p>
+      <div class="case" data-case="6a-1">
+        <div class="case-head"><span class="cid">6a-1</span><h3>The operator sees every business checked automatically, every day</h3><span class="pill pill-info">Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Platform → Owner Lifecycle’s organization → Supplier balances → <b>Automatic check (daily)</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Clean days in a row, 28 required, and the last days each clean or repaired. No button.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a check that never ran, or a history that does not survive a restart.</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-2">
+        <div class="case-head"><span class="cid">6a-2</span><h3>A ledger difference no supplier document explains is repaired automatically, once</h3><span class="pill pill-info">Owner · Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Post a journal Dr 6900 / Cr 2000 77. Let the check run.</li><li>Open the operator panel and the trial balance.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Today “repaired: ledger aligned by 77.00”; streak 0; 2000 back; 2990 holds 77; balanced. A second run posts nothing.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> Accounts Payable that disagrees with what suppliers are owed, and a repair posted twice.</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-3">
+        <div class="case-head"><span class="cid">6a-3</span><h3>A purchase with no supplier is a cash purchase: it is paid in full</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>New Purchase, no vendor, P/U 220, Paid 200. Save.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Recorded as paid 220, owing nothing.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> money “owed to nobody” left in Accounts Payable (the cause found in the demo business).</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-4">
+        <div class="case-head"><span class="cid">6a-4</span><h3>A shop owner cannot read or run the check</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Ask for the check’s history or a run as the owner.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Refused (403).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a platform repair tool reachable by a tenant.</div>
         </div>
       </div>
     </section>

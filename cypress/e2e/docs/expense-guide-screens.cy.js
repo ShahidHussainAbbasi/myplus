@@ -1308,6 +1308,155 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     act('Nothing to undo — a 5 receipt on account stays as the test customer’s credit.', [], { cleanup: true })
   })
 
+  // ═══ FP-6a · The automatic daily check ════════════════════════════════════════════════════════════════════
+  // The check runs by itself (03:30 Karachi and 10 min after every start). "Check now" steps send the same call the
+  // nightly job makes — the operator console has no button for it, by design.
+  const reconRun = (org) => cy.request({ method: 'POST', url: '/platform/payablesReconciliation/run', form: true, body: { organizationId: org } })
+    .its('body').then((b) => { expect(b.status, JSON.stringify(b.message)).to.eq('SUCCESS'); return b.object || b.data })
+  const reconHistory = (org) => cy.request({ url: '/platform/payablesReconciliation', qs: { organizationId: org } })
+    .its('body').then((b) => { expect(b.status).to.eq('SUCCESS'); return b.object || b.data })
+  const journal = (lines, memo) => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/finance/gl/journal`,
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: { source: 'MANUAL', memo, lines } })
+    .its('status').should('be.oneOf', [200, 201]))
+  const reconPanel = () => {
+    openTenantPanel(LIFECYCLE_ORG_NAME)
+    cy.get('[data-cy=plat-payables-recon]', { timeout: 20000 }).should('be.visible')
+  }
+
+  caseIt('6a-1', 'The operator sees every business checked automatically, every day', () => {
+    testCase('6a-1', 'fp6a', 'The operator sees every business checked automatically, every day', { who: ['admin@myplus.com (operator)'] })
+    setup('Nothing to prepare: the check runs by itself 10 minutes after every start and every night at 03:30 (Karachi).')
+    cy.loginAsOperator()
+    const a1 = act('Make sure today has been checked: the run asks for the check now, exactly as the nightly job does.',
+      ['A row for <b>today</b> is recorded. Business’s supplier figures and finance’s supplier documents agree (difference <b>0</b>).'], { via: 'run' })
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => {
+      expect(d.reconDay).to.match(/^\d{4}-\d{2}-\d{2}$/)
+      expect(Number(d.shadowDiff), 'business = finance').to.eq(0)
+    })
+    const a2 = act(`Platform → open <b>${LIFECYCLE_ORG_NAME}</b> → <b>Supplier balances</b>, and scroll to <b>Automatic check (daily)</b>.`,
+      ['“<b>N</b> clean days in a row · needed to retire business as the source: <b>28</b>”.',
+        'A table of the last days, newest first: each says <b>clean</b>, or what was <b>repaired</b> (documents re-sent, ledger aligned by an amount), or why it <b>could not check</b>.',
+        'There is no button: the check runs by itself.'])
+    reconPanel()
+    cy.get('[data-cy=plat-payables-recon]').should('contain', '28').and('contain', 'clean days in a row')
+    cy.get('[data-cy=plat-payables-recon-day]').should('have.length.greaterThan', 0)
+    cy.get('[data-cy=plat-payables-recon] button').should('not.exist')
+    snap(a2, 'panel', '[data-cy=plat-payables-recon]')
+    act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('6a-2', 'A ledger difference no supplier document explains is repaired automatically, once', () => {
+    testCase('6a-2', 'fp6a', 'A ledger difference no supplier document explains is repaired automatically, once',
+      { who: ['owner.lifecycle (recorded)', 'admin@myplus.com (operator)'] })
+    setup('Expense management not needed. The business’s supplier ledger and its books agree (case 6a-1 recorded difference 0).')
+    setup('This case <b>makes</b> the difference on purpose — an accountant’s journal that moves Accounts Payable with no supplier bill behind it, the kind of error the 5 Oct review found in three businesses.')
+    let before = null, mid = null
+    asLifecycle(true)
+    tb().then((m) => { before = m })
+    openDashboard()
+    const a1 = act('<b>Finance → Trial Balance</b>. Note <b>2000 Accounts Payable</b> and, if listed, <b>2990 Payables Reconciliation Difference</b>.',
+      ['The trial balance says <b>balanced</b>.'])
+    showTrialBalance()
+    snap(a1, 'before', '#FinanceDiv')
+    const a2 = act('Post a manual journal: Dr <b>6900 Other Operating Expenses 77</b>, Cr <b>2000 Accounts Payable 77</b> (an accountant’s entry; there is no screen for manual journals yet).',
+      ['Accounts Payable is now <b>77 higher</b> than every supplier’s bills add up to.'], { via: 'run' })
+    journal([{ accountCode: '6900', debit: 77 }, { accountCode: '2000', credit: 77 }], 'Test Book 6a-2: a payables difference with no document')
+    tb().then((m) => { mid = m; expect(delta(before, m, '2000'), '2000 moved').to.eq(-77) })
+    const a3 = act('Wait for the nightly check — or, as the operator, ask for it now (the same call).',
+      ['Today is recorded as <b>not clean</b>: the ledger was <b>aligned by 77.00</b> against <b>2990 Payables Reconciliation Difference</b>.'], { via: 'run' })
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => {
+      expect(d.clean, 'a repaired day is not clean').to.eq(false)
+      expect(Number(d.ledgerAligned), 'aligned').to.be.gte(77)
+    })
+    const a4 = act(`Platform → <b>${LIFECYCLE_ORG_NAME}</b> → <b>Supplier balances</b> → <b>Automatic check (daily)</b>.`,
+      ['Today’s row reads <b>repaired: ledger aligned by 77.00</b> (highlighted).', 'The clean streak is back to <b>0</b> — a day that needed a repair never counts towards the 28.'])
+    reconPanel()
+    cy.get('[data-cy=plat-payables-recon-streak]').should('contain', '0')
+    cy.get('[data-cy=plat-payables-recon-day]').first().should('contain', 'repaired').and('contain', '77.00')
+    snap(a4, 'repaired', '[data-cy=plat-payables-recon]')
+    const a5 = act('Ask for the check again.', ['Nothing more is posted: 2990 does not move a second time.'], { via: 'run' })
+    cy.then(() => reconRun(lifecycleOrg))
+    asLifecycle(true)
+    tb().then((m) => {
+      expect(delta(mid, m, '2000'), '2000 aligned back').to.eq(77)
+      expect(delta(mid, m, '2990'), '2990 carries the 77').to.eq(-77)
+      expect(delta(before, m, '2000'), '2000 equals the supplier ledger again').to.eq(0)
+    })
+    const a6 = act('As the owner, <b>Finance → Trial Balance</b> again.',
+      ['Still <b>balanced</b>. <b>2000</b> is back to the figure in step 1; <b>2990 Payables Reconciliation Difference</b> shows the <b>77.00</b> that nothing explained.'])
+    openDashboard(); showTrialBalance()
+    cy.contains('#FinanceDiv', '2990', { timeout: 20000 }).should('be.visible')
+    snap(a6, 'after', '#FinanceDiv')
+    const c1 = act('Reverse the test journal (Dr 2000 77 / Cr 6900 77), and let the check run again (or ask for it).',
+      ['The check aligns the ledger back: <b>2990</b> returns to its figure in step 1, <b>2000</b> still equals the supplier ledger, the trial balance balances. Today stays <b>repaired</b> in the history.'],
+      { cleanup: true, via: 'run' })
+    journal([{ accountCode: '2000', debit: 77 }, { accountCode: '6900', credit: 77 }], 'Test Book 6a-2: clean-up')
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg))
+    asLifecycle(true)
+    tb().then((m) => {
+      expect(delta(before, m, '2000'), '2000 as before').to.eq(0)
+      expect(delta(before, m, '2990'), '2990 as before').to.eq(0)
+      expect(delta(before, m, '6900'), '6900 as before').to.eq(0)
+    })
+  })
+
+  caseIt('6a-3', 'A purchase with no supplier is a cash purchase: it is paid in full', () => {
+    testCase('6a-3', 'fp6a', 'A purchase with no supplier is a cash purchase: it is paid in full', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    const inv = 'XG6A3-' + run
+    let pid = null
+    setup('A product to buy (the recording makes one through the Product form’s request).')
+    asLifecycle(true)
+    cy.seedProduct({ name: 'XG6A3_' + run, sellingPrice: 300 }).then((p) => { pid = p.productId })
+    SAFETY.push(() => { asLifecycle(); purchaseIdOf(inv).then((id) => { if (id) cy.request({ method: 'POST', url: '/voidPurchase', form: true, failOnStatusCode: false, body: { purchaseId: id, reason: 'Test Book clean-up' } }) }) })
+    const a1 = act(`<b>Purchase → New Purchase</b>. Leave Vendor as <b>Cash purchase (no vendor)</b>. Invoice <b>${inv}</b>, the product, quantity <b>1</b>, P/U <b>220</b>, and type <b>200</b> in <b>Paid</b>. Press <b>Save &amp; Close</b>.`,
+      ['The bill is saved.'])
+    cy.openPurchaseSection('purchaseDiv')
+    cy.get('#newPurchase').click()
+    cy.get('#PurchaseModal').should('have.class', 'open')
+    cy.settled('#purchaseInvoiceNo')
+    cy.get('#purchaseInvoiceNo').clear().type(inv)
+    cy.intercept('GET', '/productStock*').as('prefill')
+    cy.then(() => cy.get('#purchaseItemDD').select(String(pid), { force: true }))
+    cy.wait('@prefill', { timeout: 15000 })
+    cy.get('#purchaseQuantity').clear().type('1')
+    cy.get('#purchasePurchaseRate').clear().type('220')
+    cy.get('#purchasePaid').clear().type('200')
+    snap(a1, 'form', '#PurchaseModal .crud-box')
+    cy.intercept('POST', '/addPurchase').as('save')
+    cy.get('#addPurchase').click()
+    cy.wait('@save').its('response.body.status').should('eq', 'SUCCESS')
+    const a2 = act(`Search the purchase list for <b>${inv}</b>.`,
+      ['It is recorded as <b>paid 220.00</b> — the whole bill — and <b>owes nothing</b>. With no supplier there is nobody to owe the 20 to; before 5 Oct the 20 stayed in Accounts Payable, owed to nobody.'])
+    cy.request('/getUserPurchase').then((r) => {
+      const p = list(r.body).find((x) => x.purchaseInvoiceNo === inv)
+      expect(p, 'the purchase').to.exist
+      expect(Number(p.paidAmount), 'paid in full').to.eq(220)
+      expect(Number(p.dueAmount || 0), 'nothing owed').to.eq(0)
+    })
+    cy.get('#purchaseDiv input[type="search"]').first().clear().type(inv)
+    cy.contains('#purchaseDiv tr', inv, { timeout: 15000 }).should('be.visible')
+    snap(a2, 'paid-in-full', '#purchaseDiv')
+    const c1 = act(`Purchase list → <b>${inv}</b> → <b>Void</b>, reason <b>Test Book clean-up</b>.`, ['The bill leaves the list; stock and cash are reversed.'], { cleanup: true })
+    cy.contains('#purchaseDiv tr', inv).find('.purchase-void-btn').click({ force: true })
+    cy.get('.uiC-card .uiC-input').type('Test Book clean-up')
+    cy.intercept('POST', '**/voidPurchase').as('void')
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@void').its('response.body.status').should('eq', 'SUCCESS')
+  })
+
+  caseIt('6a-4', 'A shop owner cannot read or run the check', () => {
+    testCase('6a-4', 'fp6a', 'A shop owner cannot read or run the check', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
+    asLifecycle(true)
+    const a1 = act('As the owner, open <code>/platform/payablesReconciliation?organizationId=&lt;your org&gt;</code>, and try to run it.',
+      ['Both refused (403). The check is the platform’s, not a shop setting; nothing on the owner’s screens mentions it.'], { via: 'run' })
+    cy.request({ url: '/platform/payablesReconciliation', qs: { organizationId: lifecycleOrg }, failOnStatusCode: false }).its('status').should('eq', 403)
+    cy.request({ method: 'POST', url: '/platform/payablesReconciliation/run', form: true, body: { organizationId: lifecycleOrg }, failOnStatusCode: false })
+      .its('status').should('eq', 403)
+    act('Nothing to undo — both were refused.', [], { cleanup: true })
+  })
+
   // ═══ TZ-2 · "Today" is your day, at any hour ════════════════════════════════════════════════════════════════
   // A zone whose date differs from UTC's right now: the night-time defect, reproduced without waiting for midnight.
   const TZ_AHEAD = new Date().getUTCHours() >= 10
