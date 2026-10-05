@@ -340,8 +340,15 @@ describe('R4 — guarantors on an installment plan', () => {
      * Asserted by CLEARING the tenant's own override and reading what the platform then answers.
      */
     const run = uniq()
-    cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true,
-                 body: { key: REQ, value: '' }, failOnStatusCode: false })
+    /*
+     * RESET, not a blank save (verify sweep 2026-10-05). This posted value '' — which SET-GUIDE / UI-CFG-1 since made
+     * a REFUSAL for a whole-number setting ("must be a whole number"; going back to the default is Reset's job). The
+     * refusal was never read, so the override of 2 from case 5 stayed and the case failed "expected 2 to equal 0" —
+     * reading as the shipped default being wrong when it was the clearing that never happened. Asserted now.
+     */
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: REQ } })
+      .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'),
+        `reset took: ${JSON.stringify(b)}`).to.eq(true))
 
     readConfig(REQ).then((row) => {
       expect(row, 'the setting is registered and reachable in Configuration').to.be.an('object')

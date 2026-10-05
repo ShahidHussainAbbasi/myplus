@@ -772,6 +772,35 @@ Cypress.Commands.add('ensureCompany', () => {
 })
 
 /**
+ * A supplier for the signed-in tenant — seeded through the Supplier form's own request if it has none.
+ *
+ * Added by the verify sweep (2026-10-05): `debit-note-supplier-filter` case 1 waited 30 s for a supplier in the
+ * register's picker and went red on a fresh database, where owner.marketplace@ has NONE (getUserVenders answers
+ * only its "Nothing Selected" placeholder). The product was right; the fixture assumed existence (GATE-RUNBOOK §7).
+ * Reads the same `<option>` markup the picker is filled from, so "eligible" means what the screen will list.
+ * Yields the supplier id.
+ */
+Cypress.Commands.add('ensureVendor', () => {
+  const ids = (html) => (String(html || '').match(/value=['"]?(\d+)/g) || []).map((m) => m.replace(/\D/g, ''))
+  return cy.request({ url: '/getUserVenders', failOnStatusCode: false }).then((r) => {
+    const found = ids(r.body)
+    if (found.length) return cy.wrap(found[0])
+    const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+    return cy.ensureCompany().then((companyId) => cy.request({
+      method: 'POST', url: '/addVender', form: true, failOnStatusCode: false,
+      body: { name: `Supplier_${stamp}`, companyId, mobile: '0301' + stamp.slice(-7), email: `sup${stamp}@test.com` },
+    })).then((c) => {
+      expect(c.body.status, `addVender: ${JSON.stringify(c.body)}`).to.be.oneOf(['SUCCESS', 'FOUND'])
+      return cy.request({ url: '/getUserVenders', failOnStatusCode: false })
+    }).then((r2) => {
+      const made = ids(r2.body)
+      expect(made.length, 'the seeded supplier is listed').to.be.greaterThan(0)
+      return cy.wrap(made[0])
+    })
+  })
+})
+
+/**
  * Open the sale screen and WAIT for the tenant's POS feature flags to land.
  *
  * The race this closes: businessDashboard fires loadPosFeatureFlags() on load (business.js ~line 160),
@@ -1159,6 +1188,29 @@ Cypress.Commands.add('setShape', (code) => {
     })
 })
 
+/** One paid sale of a freshly seeded product (qty 2 at 100). Yields the /addSell response. Used by ensureSale. */
+Cypress.Commands.add('seedSale', () => {
+  const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
+  // cy.seedProduct creates the catalog product AND its opening stock, and defaults a purchase cost so the
+  // sale below posts real COGS rather than zero (its own note explains why that matters).
+  return cy.seedProduct({ name: `SeedCN_${stamp}`, sellingPrice: 100, stock: 10 }).then(({ productId }) =>
+    cy.request({
+      method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
+      failOnStatusCode: false,
+      body: {
+        customer: { name: `SeedCNC_${stamp}`, contact: '03009999999' },
+        // quantity 2 so the caller's "a line with quantity > 1" preference is satisfied and returning 1
+        // cannot exceed what was sold.
+        sales: [{ productId, quantity: 2, sellRate: 100, totalAmount: 200 }],
+        tenders: [{ method: 'CASH', amount: 200 }],
+        paidAmount: 200, grandTotal: 200, idempotencyKey: `cy-seedcn-${stamp}`,
+      },
+    })).then((sr) => {
+      expect(sr.body.status, `seed sale: ${JSON.stringify(sr.body).slice(0, 200)}`).to.eq('SUCCESS')
+      return cy.wrap(sr)
+    })
+})
+
 /**
  * The tenant HAS a sale — seeded if it does not. Yields the /getUserSell response.
  *
@@ -1172,27 +1224,7 @@ Cypress.Commands.add('setShape', (code) => {
  * feedback_fixture_eligibility: existence is not eligibility — SEED.
  */
 Cypress.Commands.add('ensureSale', () => {
-  const makeOne = () => {
-    const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`
-    // cy.seedProduct creates the catalog product AND its opening stock, and defaults a purchase cost so the
-    // sale below posts real COGS rather than zero (its own note explains why that matters).
-    return cy.seedProduct({ name: `SeedCN_${stamp}`, sellingPrice: 100, stock: 10 }).then(({ productId }) =>
-      cy.request({
-        method: 'POST', url: '/addSell', headers: { 'Content-Type': 'application/json' },
-        failOnStatusCode: false,
-        body: {
-          customer: { name: `SeedCNC_${stamp}`, contact: '03009999999' },
-          // quantity 2 so the caller's "a line with quantity > 1" preference is satisfied and returning 1
-          // cannot exceed what was sold.
-          sales: [{ productId, quantity: 2, sellRate: 100, totalAmount: 200 }],
-          tenders: [{ method: 'CASH', amount: 200 }],
-          paidAmount: 200, grandTotal: 200, idempotencyKey: `cy-seedcn-${stamp}`,
-        },
-      })).then((sr) => {
-        expect(sr.body.status, `seed sale: ${JSON.stringify(sr.body).slice(0, 200)}`).to.eq('SUCCESS')
-        return cy.request({ method: 'GET', url: '/getUserSell?q=-1' })
-      })
-  }
+  const makeOne = () => cy.seedSale().then(() => cy.request({ method: 'GET', url: '/getUserSell?q=-1' }))
 
   return cy
     .request({ method: 'GET', url: '/getUserSell?q=-1' })

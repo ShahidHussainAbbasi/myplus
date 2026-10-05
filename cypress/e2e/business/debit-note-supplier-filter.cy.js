@@ -30,6 +30,9 @@ function openDebitRegister() {
 describe('Debit notes — supplier filter and bulk print', () => {
   it('⭐ choosing a supplier re-reads the register WITH the filter', () => {
     cy.loginAsMarketplaceOwner()
+    // Seed, never assume: a fresh database gives this tenant no supplier, and the picker below would wait for one
+    // that never comes (verify sweep 2026-10-05: red on exactly that, with the filter itself untested).
+    cy.ensureVendor()
     cy.intercept('GET', '**/getPurchaseReturns*').as('register')
 
     openDebitRegister()

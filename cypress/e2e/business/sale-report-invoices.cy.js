@@ -23,6 +23,10 @@ const OWNER = 'owner.business@myplus.com'
 
 /** Open the Sale Detail Report and run it, so the grid holds real rows. */
 function openReportWithRows() {
+  // SEED, never assume (GATE-RUNBOOK §7). A full return DELETES the sale line by design, so a tenant whose only
+  // sale was returned in full by an earlier spec has nothing to report — verify sweep 2026-10-05 found all three
+  // document cases red on exactly that, waiting for rows that could not exist.
+  cy.ensureSale()
   cy.visitDashboardSettled()
   cy.get('#sellType').select('SRDiv', { force: true })
   cy.get('#SRDiv').should('be.visible')
