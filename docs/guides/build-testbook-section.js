@@ -85,7 +85,23 @@ const SECTIONS = {
         entirely. Run the cases one at a time — a pricing setting one case changes is put back only at its end.`],
     ],
   },
-
+  verifysweep: {
+    dir: 'verify-sweep', anchor: 'verifysweep', number: Number(process.env.TB_NUMBER || 28), prefix: 'vs',
+    order: ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7'],
+    title: 'Verify sweep: the “not yet verified” list, walked on screen',
+    spec: 'cypress/e2e/docs/verify-sweep-guide.cy.js',
+    notes: [
+      ['blue', 'What this section is', `Section 13 listed areas that were built but never checked. Each case below was performed on the
+        real screens of a freshly deployed stack, checked step by step and photographed. The automated gates for the same
+        areas were run too — results and every fix are in <code>microservices/docs/slices/verify-sweep-2026-10.md</code>.`],
+      ['red', '⚠ Found by the sweep (5 Oct)', `<strong>A session that ended showed “parsererror”</strong> on the next click — fixed (V7).
+        <strong>Notification sending never started on a fresh install</strong>: its database was never created or granted — fixed.
+        Six automated checks were red only because they assumed rows a long-lived database happens to have (a supplier, a sale this
+        month, three invoices) — they now create what they need.`],
+      ['amber', 'Money moves', `V1–V3 sell, buy and return on <code>owner.lifecycle@myplus.com</code>, the sacrificial business. V5–V6 run
+        on <code>owner.mobile@myplus.com</code>, the shop the serial feature belongs to; V6 resets its setting on screen.`],
+    ],
+  },
 }
 
 const which = process.argv[2]
