@@ -29,6 +29,7 @@ import com.security.CsrfCookieFilter;
 import com.security.RevokeTokenLogoutHandler;
 import com.security.SessionRegistryLogoutHandler;
 import com.security.TokenStore;
+import com.security.XhrAwareInvalidSessionStrategy;
 import com.security.google2fa.CustomWebAuthenticationDetailsSource;
 import com.web.util.AuthServerClient;
 
@@ -198,7 +199,9 @@ public class SecSecurityConfig {
             // registry populated. Dropping the block entirely would silently empty the SessionRegistry and
             // take the "users online" badge (and any future active-sessions screen) with it.
             .sessionManagement(session -> session
-                .invalidSessionUrl("/invalidSession.html")
+                // SESS-2: a page still lands on /invalidSession.html; a script gets 401 SESSION_EXPIRED instead of
+                // that page's HTML, which jQuery reported as "parsererror".
+                .invalidSessionStrategy(new XhrAwareInvalidSessionStrategy("/invalidSession.html"))
                 .sessionFixation(fixation -> fixation.changeSessionId())
                 .maximumSessions(-1)
                 .sessionRegistry(sessionRegistry())

@@ -194,6 +194,22 @@ function handleAjaxFailure(jqXHR, errorThrown, what) {
         + (status ? ' (' + status + ')' : ''));
 }
 
+/*
+ * SESS-2 — ANY ordinary request that finds the session ended goes to the login page.
+ *
+ * Only 17 call sites route their failures through handleAjaxFailure; every other $.ajax/$.get in the app has its own
+ * error handler, or none, so a dead session met there showed whatever that handler shows. The server now answers a
+ * script on a dead session with 401 {code:"SESSION_EXPIRED"} (XhrAwareInvalidSessionStrategy, and SESS-1's advice
+ * for a dead downstream token), and this hook turns that ONE answer into the redirect wherever it lands.
+ * Deliberately narrow: an ordinary 401 refusal is left to its caller. Background reads (global:false) skip it on
+ * purpose — the next thing the person clicks will meet it.
+ */
+$(document).ajaxError(function (evt, jqXHR) {
+    if (jqXHR && jqXHR.status === 401 && /"code"\s*:\s*"SESSION_EXPIRED"/.test(jqXHR.responseText || '')) {
+        handleAjaxFailure(jqXHR, '', null);
+    }
+});
+
 // Fixed, dismissable error toast — always visible, stacks above the CRUD modal overlay (z-index 1050).
 function showErrorToast(msg) {
     var el = document.getElementById('formErrorToast');
