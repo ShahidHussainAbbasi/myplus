@@ -644,7 +644,22 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
   caseIt('2b-2', 'A branch user sees only their branch', () => {
     testCase('2b-2', 'ex2b', 'A branch user sees only their branch', { who: ['teacher.a (recorded; granted one branch)', 'teacher.b', 'owner.education'] })
     setup('Expense management is on for the school (case 2a-1; the recording switches it on and back off).')
+    setup('Two branches, <b>CY Branch 1</b> and <b>CY Branch 2</b>, and <b>teacher.a</b> granted only Branch 1 — the recording makes them through the School form’s and the Team screen’s own requests if they are missing.')
     signInD(DASH[0])
+    // Seed what this case reads, never borrow it from another spec's run (a fresh database has neither branch).
+    const rowsOf = (b) => list(b)
+    const ensureBranch = (name) => cy.request('/getUserSchool').then((r) => {
+      const hit = rowsOf(r.body).find((x) => x.branchName === name || x.name === name)
+      return hit ? cy.wrap(hit.id) : cy.request({ method: 'POST', url: '/addSchool', form: true, body: { name, branchName: name, status: 'Active' } })
+        .then(() => cy.request('/getUserSchool')).then((rr) => rowsOf(rr.body).find((x) => x.branchName === name || x.name === name).id)
+    })
+    ensureBranch('CY Branch 2')
+    ensureBranch('CY Branch 1').then((branchId) => cy.request('/team/users').then((t) => {
+      const ta = rowsOf(t.body).find((u) => u.email === 'teacher.a@myplus.com')
+      expect(ta, 'teacher.a is a member of this school').to.exist
+      return cy.request({ method: 'POST', url: '/assignStores', headers: { 'Content-Type': 'application/json' },
+        body: { userId: ta.userId, storeIds: [branchId], roleAtLocation: 'USER' } }).its('body.success').should('eq', true)
+    }))
     cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
     SAFETY.push(() => { signInD(DASH[0]); resetModule() })
     let ownerSchools = 0
