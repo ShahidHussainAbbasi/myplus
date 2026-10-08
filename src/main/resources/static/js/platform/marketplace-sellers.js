@@ -430,8 +430,8 @@
 	};
 	var SH_RESULT = {
 		PENDING: ['ui.js.mktShRPending', 'Looking for another seller'], REASSIGNED: ['ui.js.mktShRMoved', 'Moved to another seller'],
-		SUBSTITUTION_REQUESTED: ['ui.js.mktShRAsked', 'Customer asked to choose'], LINE_CANCELLED: ['ui.js.mktShRLine', 'Items cancelled, refunded'],
-		ORDER_CANCELLED: ['ui.js.mktShROrder', 'Order cancelled, refunded']
+		SUBSTITUTION_REQUESTED: ['ui.js.mktShRAsked', 'Customer asked to choose'], LINE_CANCELLED: ['ui.js.mktShRLine', 'Items cancelled'],
+		ORDER_CANCELLED: ['ui.js.mktShROrder', 'Order cancelled']
 	};
 	var SH_STATE = {
 		RECORDED: ['ui.js.mktShRecorded', 'Recorded'], DISPUTED: ['ui.js.mktShDisputedOp', 'Disputed by the seller'],

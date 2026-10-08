@@ -2607,4 +2607,253 @@ on('MKT manual walk — recorded', () => {
         cy.then(() => multiSeller(false))
       })
   })
+
+  // ──────────────────────────────── MKT-2b ────────────────────────────────
+
+  const K = {}
+  const kph = (k) => `0316${String(run).slice(-6)}${k}`            // customer phones for the 2b walk
+  /**
+   * Three phones, each sold by both sellers, so every case has exactly one other seller to try (published once):
+   *   later   A 52,000 in 4 h · B 51,500 in 24 h   (cheaper but later: the customer is asked)
+   *   quiet   A 52,000 in 24 h · B 51,500 in 4 h   (cheaper and sooner: moved without asking)
+   *   dearer  A 51,000 in 4 h · B 51,500 in 4 h    (dearer: asked if cash, never offered to a card)
+   */
+  const kOffers = () => (K.later ? cy.wrap(K) : seedPolicies(`${run}k`).then((p) => {
+    const pair = (key, aPrice, aHours, bPrice, bHours) => {
+      K[key] = {}
+      publishOffer(SELLER_A, { run: `${run}k${key}`, price: aPrice, promiseHours: aHours, qty: 40, warrantyPolicyId: p.warranty,
+        returnPolicyId: p.returns }).then((o) => { K[key].a = o.offerId; K[key].aPrice = aPrice; K[key].product = o.mktProductId })
+      cy.then(() => publishOffer(SELLER_B, { run: `${run}k${key}b`, price: bPrice, promiseHours: bHours, qty: 40,
+        mktProductId: K[key].product, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })).then((o) => { K[key].b = o.offerId })
+    }
+    pair('later', 52000, 4, 51500, 24)
+    pair('quiet', 52000, 24, 51500, 4)
+    pair('dearer', 51000, 4, 51500, 4)
+    return cy.then(() => K)
+  }))
+  /** The operator's reroute switch, through the API (a case's starting state; M-2b-01 shows the screen). */
+  const reroute = (on) => { asOperator(); return post(API.acceptWindow, { reroute: on, minutes: 5, multiSeller: false }) }
+  /** A one-seller order from Shahzad Mobile Shop, placed through the API (a case's starting state). */
+  const kOrder = (key, ph, over = {}, signedIn = false) => {
+    if (!signedIn) { customer(); cy.visit(UI.publicPage) }
+    return post(API.checkout, Object.assign({ customerName: 'Ali', customerPhone: ph, address: '1 Clifton', city: 'Karachi',
+      idempotencyKey: `w2b-${run}-${ph}`, lines: [{ offerId: K[key].a, quantity: 1, expectedPrice: K[key].aPrice }] }, over))
+      .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); return data(r.body) })
+  }
+  /** Shahzad Mobile Shop rejects its part on Incoming, with a reason and a cause, as the owner does. */
+  const rejectOnScreen = (no, reason, cause) => {
+    partRow(SELLER_A, no).find('input[placeholder*="cannot fulfil"]').type(reason)
+    if (cause) cy.contains(`${UI.incoming} tr`, no).find('.mkt-reject-cause').select(cause)
+    cy.contains(`${UI.incoming} tr`, no).find(UI.rejectBtn).click()
+    return cy.contains(`${UI.incoming} tr`, no).should('contain', 'Rejected')
+  }
+  const shortRow = () => part(A_NAME)
+
+  walk({ id: 'M-2b-01', slice: 'MKT-2b', title: 'A rejection is recorded with its cause; with the switch off the order ends as before',
+    persona: 'MaxTheService operator, then owner.business@myplus.com (Shahzad Mobile Shop), then the customer', reqs: ['MKT-R11.4', 'MKT-R12.4', 'MKT-R11.1'],
+    pre: 'Both sellers sell the same phone in Karachi (Shahzad Mobile Shop Rs 52,000 in 24 h, Mobile Distributor Rs 51,500 in 4 h). A customer has ordered it from Shahzad Mobile Shop, cash on delivery.',
+    auto: ['MKT-2b-01', 'MKT-2b-08'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(false))
+    cy.then(() => kOrder('quiet', kph(1))).then((o) => { K.o1 = o.orderNo })
+    step('Operator: Platform → "Marketplace policies".',
+      'Below the multi-seller switch: "When a seller cannot fulfil a part, find another seller", UNTICKED, with the hint "Same price or lower and no later: moved without asking. Otherwise the customer chooses within 30 minutes. When off, the part is cancelled and refunded."', () => {
+        console_('#platMktPoliciesBtn')
+        cy.get('#mktRerouteForm').scrollIntoView().should('be.visible').and('contain', 'Otherwise the customer chooses within 30 minutes.')
+        cy.get('#mktReroute').should('be.enabled').and('not.be.checked')
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → Incoming → the order. Open the "Cause" list under the reason box.',
+      'Three causes: "Out of stock in my shop" (the default), "My supplier could not deliver", "MaxTheService showed the wrong stock". "Not accepted in time" is not offered: only the clock records it.', () => {
+        partRow(SELLER_A, K.o1).find('.mkt-reject-cause option').then(($o) => {
+          expect([...$o].map((x) => x.textContent)).to.deep.eq(['Out of stock in my shop', 'My supplier could not deliver', 'MaxTheService showed the wrong stock'])
+        })
+      })
+    step('Reason "supplier did not deliver", cause "My supplier could not deliver" → Reject.',
+      'The row reads "Rejected" with the reason and "Cause: My supplier could not deliver · Recorded", and a "Dispute this cause" button.', () => {
+        rejectOnScreen(K.o1, 'supplier did not deliver', 'SUPPLIER_STALE_STOCK')
+        cy.contains(`${UI.incoming} tr`, K.o1).find('.mkt-so-shortage').should('contain', 'Cause: My supplier could not deliver · Recorded')
+          .find('.mkt-dispute').should('be.visible')
+      })
+    step('Customer: open the order page.', '"Cancelled" and "The seller could not fulfil this order.", exactly as before this slice: with the switch off no other seller is tried, and the recorded cause is not shown to the customer. Nothing is charged to the seller.', () => {
+      orderPage(K.o1, kph(1))
+      cy.get(UI.checkoutStatus).should('contain', 'Cancelled')
+      cy.get('#mktOrderDetail').should('contain', 'The seller could not fulfil this order.')
+      cy.get('#mktOrderParts').should('not.be.visible')
+      call('GET /marketplace/public/orders/{no}', get(API.trackOrder(K.o1, kph(1)))).then((r) => {
+        const v = data(r.body)
+        expect(v.sellerOrders).to.have.length(1)
+        expect(v.sellerOrders[0].shortage).to.eq(null)
+      })
+    }, { alsoScreen: true })
+    cleanup('Nothing to undo: the order is already cancelled and its stock released; the cause stays on record by design.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2b-02', slice: 'MKT-2b', title: 'Cheaper and sooner from another seller: the part moves without asking',
+    persona: 'MaxTheService operator, Shahzad Mobile Shop, the customer, then Mobile Distributor', reqs: ['MKT-R11.1', 'MKT-R11.3'],
+    pre: 'As M-2b-01: Mobile Distributor sells the SAME phone for less (Rs 51,500) and sooner (4 h). A new cash order from Shahzad Mobile Shop.',
+    auto: ['MKT-2b-02'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(false))
+    cy.then(() => kOrder('quiet', kph(2))).then((o) => { K.o2 = o.orderNo })
+    step('Operator: Platform → "Marketplace policies" → tick "When a seller cannot fulfil a part, find another seller" → Save.', '"Order settings saved." Reopening the panel shows it ticked.', () => {
+      console_('#platMktPoliciesBtn')
+      cy.get('#mktReroute').should('be.enabled').check()
+      cy.get('#mktRerouteSave').click()
+      cy.get('#mktRerouteMsg').should('contain', 'Order settings saved.')
+      console_('#platMktPoliciesBtn')
+      cy.get('#mktReroute').should('be.enabled').and('be.checked')
+    })
+    step('As owner.business@myplus.com: Incoming → the order → reason "none left", cause "Out of stock in my shop" → Reject.', 'The row reads "Rejected", "Cause: Out of stock in my shop · Recorded".', () => {
+      rejectOnScreen(K.o2, 'none left', 'MERCHANT_STALE_STOCK')
+      cy.contains(`${UI.incoming} tr`, K.o2).find('.mkt-so-shortage').should('contain', 'Out of stock in my shop')
+    })
+    step('Customer: open the order page.', `Still waiting, not cancelled. ${A_NAME}'s row: "Moved to ${B_NAME} at the same or a lower price". ${B_NAME}'s row: Rs. 51,500, "Waiting for confirmation · m:ss left".`, () => {
+      orderPage(K.o2, kph(2))
+      cy.get(UI.checkoutStatus).should('not.contain', 'Cancelled')
+      shortRow().should('contain', `Moved to ${B_NAME} at the same or a lower price`)
+      part(B_NAME).should('contain', 'Rs. 51,500').and('contain', 'left')
+    })
+    step(`As ${B_NAME}'s owner: Sale → Marketplace → Incoming.`, 'The order is waiting for them with one phone at Rs 51,500 and its own countdown.', () => {
+      partRow(SELLER_B, K.o2).should('contain', '51,500').find(UI.acceptBtn).should('be.visible')
+    })
+    cleanup(`${B_NAME} rejects with "walk cleanup". Operator: untick the switch → Save.`, 'The order reads Cancelled; the switch is off again (the default).', () => {
+      cy.then(() => answer(SELLER_B, K.o2, 'reject'))
+      cy.then(() => reroute(false))
+      orderPage(K.o2, kph(2))
+      cy.get(UI.checkoutStatus).should('contain', 'Cancelled')
+    })
+  })
+
+  walk({ id: 'M-2b-03', slice: 'MKT-2b', title: 'A later delivery needs the customer: they accept the other seller',
+    persona: 'Shahzad Mobile Shop, then the customer, then Mobile Distributor', reqs: ['MKT-R11.2'],
+    pre: 'The switch is ON. Mobile Distributor sells the same phone for Rs 51,500 but in 24 h (Shahzad Mobile Shop promised 4 h). A new cash order from Shahzad Mobile Shop.',
+    auto: ['MKT-2b-03'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(true))
+    cy.then(() => kOrder('later', kph(3))).then((o) => { K.o3 = o.orderNo })
+    step('As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject.', 'The row reads "Rejected".', () => {
+      rejectOnScreen(K.o3, 'none left')
+    })
+    step('Customer: open the order page.',
+      `${A_NAME}'s row: "${A_NAME} could not fulfil these items. ${B_NAME} can deliver them for Rs. 51,500 (Rs. 500 less), within 24 hours.", "Answer within 29:5x…", and two buttons "Accept ${B_NAME}" and "Decline".`, () => {
+        orderPage(K.o3, kph(3))
+        shortRow().find('.mkt-sh-offer').should('contain', `${B_NAME} can deliver them for Rs. 51,500`).and('contain', 'Rs. 500 less').and('contain', 'within 24 hours')
+        shortRow().find('.mkt-sh-left').should('contain', 'Answer within 29:')
+        shortRow().find('.mkt-sh-accept').should('contain', `Accept ${B_NAME}`)
+        shortRow().find('.mkt-sh-decline').should('be.visible')
+      })
+    step(`Press "Accept ${B_NAME}".`, `${A_NAME}'s row: "You chose ${B_NAME} for these items". A new row for ${B_NAME}: Rs. 51,500, "Waiting for confirmation · m:ss left".`, () => {
+      shortRow().find('.mkt-sh-accept').click()
+      shortRow().should('contain', `You chose ${B_NAME} for these items`)
+      part(B_NAME).should('contain', 'Rs. 51,500').and('contain', 'left')
+    })
+    step(`As ${B_NAME}'s owner: Incoming.`, 'The order waits for them at Rs 51,500.', () => {
+      partRow(SELLER_B, K.o3).should('contain', '51,500')
+    })
+    cleanup(`${B_NAME} rejects with "walk cleanup".`, 'The order reads Cancelled; both holds are released.', () => {
+      cy.then(() => answer(SELLER_B, K.o3, 'reject'))
+      orderPage(K.o3, kph(3))
+      cy.get(UI.checkoutStatus).should('contain', 'Cancelled')
+    })
+  })
+
+  walk({ id: 'M-2b-04', slice: 'MKT-2b', title: 'The customer declines the other seller: the order ends with their reason',
+    persona: 'Shahzad Mobile Shop, then the customer', reqs: ['MKT-R11.2'],
+    pre: 'As M-2b-03, a new cash order.', auto: ['MKT-2b-04'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(true))
+    cy.then(() => kOrder('later', kph(4))).then((o) => { K.o4 = o.orderNo })
+    step('As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject.', 'The row reads "Rejected".', () => {
+      rejectOnScreen(K.o4, 'none left')
+    })
+    step('Customer: open the order page → "Decline".', '"Cancelled" with "You declined the alternative offered for this order."; the row reads "You declined the alternative". The held phone at Mobile Distributor is released.', () => {
+      orderPage(K.o4, kph(4))
+      shortRow().find('.mkt-sh-decline').click()
+      cy.get(UI.checkoutStatus).should('contain', 'Cancelled')
+      cy.get('#mktOrderDetail').should('contain', 'You declined the alternative offered for this order.')
+      shortRow().should('contain', 'You declined the alternative')
+    })
+    cleanup('Nothing to undo: the order is cancelled and every hold released.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2b-05', slice: 'MKT-2b', title: 'Paid by card: a dearer seller is never offered; the money goes back',
+    persona: 'A signed-in customer (paid by card), then Shahzad Mobile Shop', reqs: ['MKT-R11.2', 'MKT-R13.1'],
+    pre: 'The switch is ON. Shahzad Mobile Shop sells a phone at Rs 51,000; Mobile Distributor sells the same phone at Rs 51,500. The customer has an account and paid by card.',
+    auto: ['MKT-2b-05'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(true))
+    cy.then(() => hAccount(kph(5), 'Sana Card'))
+    cy.then(() => kOrder('dearer', kph(5), { customerName: 'Sana Card', paymentMode: 'CARD', cardToken: 'tok_ok' }, true)).then((o) => { K.o5 = o.orderNo })
+    step('As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject.', 'The row reads "Rejected".', () => {
+      rejectOnScreen(K.o5, 'none left')
+    })
+    step('Customer: My orders.', '"Cancelled" and "Rs. 51,000 · Refunded"; the part reads "No other seller had these items". The dearer phone at Mobile Distributor was not offered, because a card is never asked for more.', () => {
+      hMyOrders(kph(5), 'Sana Card')
+      rowOf(K.o5).should('contain', 'Cancelled').and('contain', 'Refunded')
+      rowOf(K.o5).find('.mkt-shortage').should('contain', 'No other seller had these items')
+    })
+    cleanup('Nothing to undo: the order is cancelled and the card refunded.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2b-06', slice: 'MKT-2b', title: 'The customer cancels while the other seller waits for their answer',
+    persona: 'A signed-in customer, after Shahzad Mobile Shop rejected', reqs: ['MKT-R10.5', 'MKT-R11.2'],
+    pre: 'As M-2b-03, ordered by a signed-in customer; Shahzad Mobile Shop has rejected, and Mobile Distributor is offered for their answer.',
+    auto: ['MKT-2b-06'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(true))
+    cy.then(() => hAccount(kph(6), 'Bilal Answer'))
+    cy.then(() => kOrder('later', kph(6), { customerName: 'Bilal Answer' }, true)).then((o) => { K.o6 = o.orderNo })
+    cy.then(() => answer(SELLER_A, K.o6, 'reject'))
+    step('Customer: My orders.', `The order reads "Waiting for your answer"; ${A_NAME}'s row offers ${B_NAME} with "Accept ${B_NAME}" and "Decline"; "Cancel order" is there.`, () => {
+      hMyOrders(kph(6), 'Bilal Answer')
+      rowOf(K.o6).should('contain', 'Waiting for your answer')
+      rowOf(K.o6).find('.mkt-sh-accept').should('contain', `Accept ${B_NAME}`)
+      rowOf(K.o6).find('.mkt-cancel').should('be.visible')
+    })
+    step('"Cancel order" → reason "found it elsewhere" → confirm.', 'The order reads "Cancelled"; the Accept and Decline buttons are gone.', () => {
+      rowOf(K.o6).find('.mkt-cancel').click()
+      cy.get('#uiC-input').type('found it elsewhere')
+      cy.get('.uiC-ok').click()
+      rowOf(K.o6).should('contain', 'Cancelled').find('.mkt-sh-accept').should('not.exist')
+    })
+    cleanup('Nothing to undo: the order is cancelled and the other seller\'s hold released.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2b-07', slice: 'MKT-2b', title: 'The seller disputes a recorded cause and MaxTheService overturns it; no money moves',
+    persona: 'Shahzad Mobile Shop, then the MaxTheService operator', reqs: ['MKT-R11.4', 'MKT-R12.4'],
+    pre: 'The switch is OFF. A new cash order from Shahzad Mobile Shop.', auto: ['MKT-2b-07'] }, (step, call, cleanup) => {
+    cy.then(() => kOffers()).then(() => reroute(false))
+    cy.then(() => kOrder('quiet', kph(7))).then((o) => { K.o7 = o.orderNo })
+    step('As owner.business@myplus.com: Incoming → the order → reason "listing was wrong", cause "MaxTheService showed the wrong stock" → Reject.', 'The row reads "Rejected", "Cause: MaxTheService showed the wrong stock · Recorded".', () => {
+      rejectOnScreen(K.o7, 'listing was wrong', 'PLATFORM_SYNC_DEFECT')
+    })
+    step('Set the list to "Rejected (cause and disputes)". On the order: "Dispute this cause" → write "The listing still showed 3 in stock" → "Send dispute".',
+      '"Disputed: MaxTheService is reviewing it" and "You said: The listing still showed 3 in stock"; the Dispute button is gone.', () => {
+        cy.intercept('GET', '**/mkt/incomingOrders*status=REJECTED*').as('rejectedList')
+        cy.get('#mktIncomingStatus').select('REJECTED', { force: true })
+        cy.wait('@rejectedList')                                   // the filtered list has replaced the old one
+        cy.contains(`${UI.incoming} tr`, K.o7).find('.mkt-dispute').click()
+        cy.contains(`${UI.incoming} tr`, K.o7).find('.mkt-dispute-note').type('The listing still showed 3 in stock')
+        cy.contains(`${UI.incoming} tr`, K.o7).find('.mkt-dispute-send').click()
+        cy.contains(`${UI.incoming} tr`, K.o7).find('.mkt-so-shortage').should('contain', 'Disputed: MaxTheService is reviewing it')
+          .and('contain', 'You said: The listing still showed 3 in stock').find('.mkt-dispute').should('not.exist')
+      })
+    step('Operator: Platform → "Unfulfilled parts" (the "Disputed" tab is open).', `The order, ${A_NAME}, "MaxTheService showed the wrong stock", the seller's words, "Order cancelled, refunded", "Disputed by the seller", a reason box and "Uphold the cause" / "Overturn it".`, () => {
+      console_('#platMktShortagesBtn')
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).should('contain', A_NAME).and('contain', 'MaxTheService showed the wrong stock')
+        .and('contain', 'Seller: The listing still showed 3 in stock').and('contain', 'Disputed by the seller')
+    })
+    step('Press "Overturn it" with the reason empty.', 'Refused: "Write the reason for the seller."', () => {
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).find('.mkt-shortage-overturn').click()
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).should('contain', 'Write the reason for the seller.')
+    })
+    step('Reason "Our sync was late; not the seller\'s fault." → "Overturn it".', '"Overturned by MaxTheService" with the reason; the buttons are gone. No payment line changes anywhere.', () => {
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).find('.mkt-shortage-note').type('Our sync was late; not the seller\'s fault.')
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).find('.mkt-shortage-overturn').click()
+      cy.contains('#mktShortageList .mkt-shortage-row', K.o7).should('contain', 'Overturned by MaxTheService').find('.mkt-shortage-uphold').should('not.exist')
+    })
+    step('As owner.business@myplus.com: Incoming → "Rejected (cause and disputes)".', '"Overturned by MaxTheService" and "MaxTheService: Our sync was late; not the seller\'s fault."', () => {
+      partRow(SELLER_A, K.o7, true)
+      cy.intercept('GET', '**/mkt/incomingOrders*status=REJECTED*').as('rejectedList')
+      cy.get('#mktIncomingStatus').select('REJECTED', { force: true })
+      cy.wait('@rejectedList')                                   // the filtered list has replaced the old one
+      cy.contains(`${UI.incoming} tr`, K.o7).find('.mkt-so-shortage').should('contain', 'Overturned by MaxTheService')
+        .and('contain', 'MaxTheService: Our sync was late')
+    })
+    cleanup('Nothing to undo: the decision is the record (it never moved money).', '—', () => {}, { screen: false })
+  })
 })

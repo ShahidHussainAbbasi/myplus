@@ -314,7 +314,13 @@
 	 * The countdown is driven by the SERVER's seconds-left, turned into a local deadline on arrival — so a seller
 	 * whose clock is wrong still sees the true time left. Re-read every 15 s while the section is open.
 	 */
-	function mktIncomingLoad() {
+	function mktIncomingLoad(auto) {
+		// MKT-2b: the 15 s refresh never wipes a dispute the seller is writing; it tries again on the next tick
+		if (auto === true && $('#mktIncomingOrders .mkt-dispute-form:not([hidden])').length) {
+			clearTimeout(incomingTimer);
+			incomingTimer = setTimeout(function () { mktIncomingLoad(true); }, 15000);
+			return $.Deferred().resolve().promise();
+		}
 		var status = $('#mktIncomingStatus').val();
 		return $.ajax({ url: ctx() + 'mkt/incomingOrders?size=50' + (status ? '&status=' + encodeURIComponent(status) : ''),
 			dataType: 'json' }).done(function (res) {
@@ -329,7 +335,7 @@
 			tick();
 		}).always(function () {
 			clearTimeout(incomingTimer);
-			if ($('#MarketplaceDiv').is(':visible')) incomingTimer = setTimeout(mktIncomingLoad, 15000);
+			if ($('#MarketplaceDiv').is(':visible')) incomingTimer = setTimeout(function () { mktIncomingLoad(true); }, 15000);
 		});
 	}
 

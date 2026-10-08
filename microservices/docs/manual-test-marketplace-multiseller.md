@@ -1132,45 +1132,118 @@
 | C1 | Operator: the case → write "walk cleanup" → Resolve. Operator: Platform → Marketplace policies → untick the switch → Save. | The case reads Resolved; the switch is off again (the default). |
 
 
-## MKT-2
+## MKT-2b
 
-### M-2-02 Shortage moves the order only on the same or better terms
+### M-2b-01 A rejection is recorded with its cause; with the switch off the order ends as before
 
-**Who:** owner.business@myplus.com (Shahzad Mobile Shop) and Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 2. Seller B has the same phone cheaper and faster.  
-**Covers:** MKT-R11.1, MKT-R11.2  
-**Evidence:** written from the design — not built yet
-
-| # | Do this | Expect |
-|---|---|---|
-| 1 | Seller A rejects for "shortage". | The order moves to Seller B and the customer's page reads "Now from Seller B". |
-| 2 | Repeat with Seller B dearer or slower. | The customer is ASKED first; nothing moves until they answer. |
-| C1 | Reject the test orders. | Released. |
-
-### M-2-03 Never a different variant without asking
-
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 2. Only a 64GB is in stock.  
-**Covers:** MKT-R11.3  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator, then owner.business@myplus.com (Shahzad Mobile Shop), then the customer  
+**Before:** Both sellers sell the same phone in Karachi (Shahzad Mobile Shop Rs 52,000 in 24 h, Mobile Distributor Rs 51,500 in 4 h). A customer has ordered it from Shahzad Mobile Shop, cash on delivery.  
+**Covers:** MKT-R11.4, MKT-R12.4, MKT-R11.1  
+**Evidence:** recorded 2026-10-08 09:41 UTC  
+**Automated by:** MKT-2b-01, MKT-2b-08
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | The seller rejects the 128GB line for shortage. | The customer is asked "Accept 64GB instead?"; nothing changes until they answer. |
-| 2 | Decline. | The line is cancelled and refunded. |
-| C1 | Nothing to undo. | — |
+| 1 | Operator: Platform → "Marketplace policies". | Below the multi-seller switch: "When a seller cannot fulfil a part, find another seller", UNTICKED, with the hint "Same price or lower and no later: moved without asking. Otherwise the customer chooses within 30 minutes. When off, the part is cancelled and refunded." |
+| 2 | As owner.business@myplus.com: Sale → Marketplace → Incoming → the order. Open the "Cause" list under the reason box. | Three causes: "Out of stock in my shop" (the default), "My supplier could not deliver", "MaxTheService showed the wrong stock". "Not accepted in time" is not offered: only the clock records it. |
+| 3 | Reason "supplier did not deliver", cause "My supplier could not deliver" → Reject. | The row reads "Rejected" with the reason and "Cause: My supplier could not deliver · Recorded", and a "Dispute this cause" button. |
+| 4 | Customer: open the order page. | "Cancelled" and "The seller could not fulfil this order.", exactly as before this slice: with the switch off no other seller is tried, and the recorded cause is not shown to the customer. Nothing is charged to the seller. |
+| C1 | Nothing to undo: the order is already cancelled and its stock released; the cause stays on record by design. | — |
 
-### M-2-04 Shortage cause and responsibility are recorded
+### M-2b-02 Cheaper and sooner from another seller: the part moves without asking
 
-**Who:** admin@myplus.com (operator)  
-**Before:** After M-2-02.  
+**Who:** MaxTheService operator, Shahzad Mobile Shop, the customer, then Mobile Distributor  
+**Before:** As M-2b-01: Mobile Distributor sells the SAME phone for less (Rs 51,500) and sooner (4 h). A new cash order from Shahzad Mobile Shop.  
+**Covers:** MKT-R11.1, MKT-R11.3  
+**Evidence:** recorded 2026-10-08 09:42 UTC  
+**Automated by:** MKT-2b-02
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: Platform → "Marketplace policies" → tick "When a seller cannot fulfil a part, find another seller" → Save. | "Order settings saved." Reopening the panel shows it ticked. |
+| 2 | As owner.business@myplus.com: Incoming → the order → reason "none left", cause "Out of stock in my shop" → Reject. | The row reads "Rejected", "Cause: Out of stock in my shop · Recorded". |
+| 3 | Customer: open the order page. | Still waiting, not cancelled. Shahzad Mobile Shop's row: "Moved to Mobile Distributor at the same or a lower price". Mobile Distributor's row: Rs. 51,500, "Waiting for confirmation · m:ss left". |
+| 4 | As Mobile Distributor's owner: Sale → Marketplace → Incoming. | The order is waiting for them with one phone at Rs 51,500 and its own countdown. |
+| C1 | Mobile Distributor rejects with "walk cleanup". Operator: untick the switch → Save. | The order reads Cancelled; the switch is off again (the default). |
+
+### M-2b-03 A later delivery needs the customer: they accept the other seller
+
+**Who:** Shahzad Mobile Shop, then the customer, then Mobile Distributor  
+**Before:** The switch is ON. Mobile Distributor sells the same phone for Rs 51,500 but in 24 h (Shahzad Mobile Shop promised 4 h). A new cash order from Shahzad Mobile Shop.  
+**Covers:** MKT-R11.2  
+**Evidence:** recorded 2026-10-08 09:42 UTC  
+**Automated by:** MKT-2b-03
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject. | The row reads "Rejected". |
+| 2 | Customer: open the order page. | Shahzad Mobile Shop's row: "Shahzad Mobile Shop could not fulfil these items. Mobile Distributor can deliver them for Rs. 51,500 (Rs. 500 less), within 24 hours.", "Answer within 29:5x…", and two buttons "Accept Mobile Distributor" and "Decline". |
+| 3 | Press "Accept Mobile Distributor". | Shahzad Mobile Shop's row: "You chose Mobile Distributor for these items". A new row for Mobile Distributor: Rs. 51,500, "Waiting for confirmation · m:ss left". |
+| 4 | As Mobile Distributor's owner: Incoming. | The order waits for them at Rs 51,500. |
+| C1 | Mobile Distributor rejects with "walk cleanup". | The order reads Cancelled; both holds are released. |
+
+### M-2b-04 The customer declines the other seller: the order ends with their reason
+
+**Who:** Shahzad Mobile Shop, then the customer  
+**Before:** As M-2b-03, a new cash order.  
+**Covers:** MKT-R11.2  
+**Evidence:** recorded 2026-10-08 09:42 UTC  
+**Automated by:** MKT-2b-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject. | The row reads "Rejected". |
+| 2 | Customer: open the order page → "Decline". | "Cancelled" with "You declined the alternative offered for this order."; the row reads "You declined the alternative". The held phone at Mobile Distributor is released. |
+| C1 | Nothing to undo: the order is cancelled and every hold released. | — |
+
+### M-2b-05 Paid by card: a dearer seller is never offered; the money goes back
+
+**Who:** A signed-in customer (paid by card), then Shahzad Mobile Shop  
+**Before:** The switch is ON. Shahzad Mobile Shop sells a phone at Rs 51,000; Mobile Distributor sells the same phone at Rs 51,500. The customer has an account and paid by card.  
+**Covers:** MKT-R11.2, MKT-R13.1  
+**Evidence:** recorded 2026-10-08 09:45 UTC  
+**Automated by:** MKT-2b-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Incoming → the order → reason "none left" → Reject. | The row reads "Rejected". |
+| 2 | Customer: My orders. | "Cancelled" and "Rs. 51,000 · Refunded"; the part reads "No other seller had these items". The dearer phone at Mobile Distributor was not offered, because a card is never asked for more. |
+| C1 | Nothing to undo: the order is cancelled and the card refunded. | — |
+
+### M-2b-06 The customer cancels while the other seller waits for their answer
+
+**Who:** A signed-in customer, after Shahzad Mobile Shop rejected  
+**Before:** As M-2b-03, ordered by a signed-in customer; Shahzad Mobile Shop has rejected, and Mobile Distributor is offered for their answer.  
+**Covers:** MKT-R10.5, MKT-R11.2  
+**Evidence:** recorded 2026-10-08 09:45 UTC  
+**Automated by:** MKT-2b-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: My orders. | The order reads "Waiting for your answer"; Shahzad Mobile Shop's row offers Mobile Distributor with "Accept Mobile Distributor" and "Decline"; "Cancel order" is there. |
+| 2 | "Cancel order" → reason "found it elsewhere" → confirm. | The order reads "Cancelled"; the Accept and Decline buttons are gone. |
+| C1 | Nothing to undo: the order is cancelled and the other seller's hold released. | — |
+
+### M-2b-07 The seller disputes a recorded cause and MaxTheService overturns it; no money moves
+
+**Who:** Shahzad Mobile Shop, then the MaxTheService operator  
+**Before:** The switch is OFF. A new cash order from Shahzad Mobile Shop.  
 **Covers:** MKT-R11.4, MKT-R12.4  
-**Evidence:** written from the design — not built yet
+**Evidence:** recorded 2026-10-08 09:43 UTC  
+**Automated by:** MKT-2b-07
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Operator → the order → Shortage panel. | Cause "merchant stock not updated", responsible party Seller A, effect on seller performance. No money taken without the dispute step. |
-| C1 | Nothing to undo. | — |
+| 1 | As owner.business@myplus.com: Incoming → the order → reason "listing was wrong", cause "MaxTheService showed the wrong stock" → Reject. | The row reads "Rejected", "Cause: MaxTheService showed the wrong stock · Recorded". |
+| 2 | Set the list to "Rejected (cause and disputes)". On the order: "Dispute this cause" → write "The listing still showed 3 in stock" → "Send dispute". | "Disputed: MaxTheService is reviewing it" and "You said: The listing still showed 3 in stock"; the Dispute button is gone. |
+| 3 | Operator: Platform → "Unfulfilled parts" (the "Disputed" tab is open). | The order, Shahzad Mobile Shop, "MaxTheService showed the wrong stock", the seller's words, "Order cancelled, refunded", "Disputed by the seller", a reason box and "Uphold the cause" / "Overturn it". |
+| 4 | Press "Overturn it" with the reason empty. | Refused: "Write the reason for the seller." |
+| 5 | Reason "Our sync was late; not the seller's fault." → "Overturn it". | "Overturned by MaxTheService" with the reason; the buttons are gone. No payment line changes anywhere. |
+| 6 | As owner.business@myplus.com: Incoming → "Rejected (cause and disputes)". | "Overturned by MaxTheService" and "MaxTheService: Our sync was late; not the seller's fault." |
+| C1 | Nothing to undo: the decision is the record (it never moved money). | — |
+
+
+## MKT-2
 
 ### M-2-05 Checkout never hangs on a slow seller
 

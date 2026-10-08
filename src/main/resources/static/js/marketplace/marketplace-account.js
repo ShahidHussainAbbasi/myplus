@@ -286,7 +286,7 @@
 				var ps = PART[pt.status] || [null, pt.status];
 				var sv = pt.shortage ? P.shortage(o, pt, null, function () { loadOrders(); }) : null;
 				row.textContent = (pt.sellerName || '') + ': ' + (pt.lines || []).map(function (l) { return l.productName + ' × ' + l.quantity; }).join(', ')
-					+ ' · ' + (pt.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered') : sv ? '' : (ps[0] ? tr(ps[0], ps[1]) : ps[1]));
+					+ (sv && !pt.deliveredAt ? '' : ' · ' + (pt.deliveredAt ? tr('ui.js.mktPartDelivered', 'Delivered') : (ps[0] ? tr(ps[0], ps[1]) : ps[1])));
 				if (sv) {
 					row.appendChild(sv.node);
 					if (sv.clock) sv.clock.paint(sv.clock.deadline === null ? null : Math.max(0, Math.round((sv.clock.deadline - Date.now()) / 1000)));

@@ -5764,100 +5764,429 @@
    "evidence": "recorded"
   },
   {
-   "id": "M-2-02",
-   "slice": "MKT-2",
-   "title": "Shortage moves the order only on the same or better terms",
-   "persona": "owner.business@myplus.com (Shahzad Mobile Shop) and Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 2. Seller B has the same phone cheaper and faster.",
+   "id": "M-2b-01",
+   "slice": "MKT-2b",
+   "title": "A rejection is recorded with its cause; with the switch off the order ends as before",
+   "persona": "MaxTheService operator, then owner.business@myplus.com (Shahzad Mobile Shop), then the customer",
+   "reqs": [
+    "MKT-R11.4",
+    "MKT-R12.4",
+    "MKT-R11.1"
+   ],
+   "pre": "Both sellers sell the same phone in Karachi (Shahzad Mobile Shop Rs 52,000 in 24 h, Mobile Distributor Rs 51,500 in 4 h). A customer has ordered it from Shahzad Mobile Shop, cash on delivery.",
+   "auto": [
+    "MKT-2b-01",
+    "MKT-2b-08"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Seller A rejects for \"shortage\".",
-     "expect": "The order moves to Seller B and the customer's page reads \"Now from Seller B\"."
+     "do": "Operator: Platform → \"Marketplace policies\".",
+     "expect": "Below the multi-seller switch: \"When a seller cannot fulfil a part, find another seller\", UNTICKED, with the hint \"Same price or lower and no later: moved without asking. Otherwise the customer chooses within 30 minutes. When off, the part is cancelled and refunded.\"",
+     "shot": "shots/M-2b-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Repeat with Seller B dearer or slower.",
-     "expect": "The customer is ASKED first; nothing moves until they answer."
+     "do": "As owner.business@myplus.com: Sale → Marketplace → Incoming → the order. Open the \"Cause\" list under the reason box.",
+     "expect": "Three causes: \"Out of stock in my shop\" (the default), \"My supplier could not deliver\", \"MaxTheService showed the wrong stock\". \"Not accepted in time\" is not offered: only the clock records it.",
+     "shot": "shots/M-2b-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Reason \"supplier did not deliver\", cause \"My supplier could not deliver\" → Reject.",
+     "expect": "The row reads \"Rejected\" with the reason and \"Cause: My supplier could not deliver · Recorded\", and a \"Dispute this cause\" button.",
+     "shot": "shots/M-2b-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Customer: open the order page.",
+     "expect": "\"Cancelled\" and \"The seller could not fulfil this order.\", exactly as before this slice: with the switch off no other seller is tried, and the recorded cause is not shown to the customer. Nothing is charged to the seller.",
+     "calls": [
+      {
+       "call": "GET /marketplace/public/orders/{no}",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Success",
+        "data": {
+         "orderNo": "MKT-000449",
+         "status": "CANCELLED",
+         "paymentMode": "COD",
+         "paymentStatus": "UNPAID",
+         "subtotal": 52000,
+         "deliveryFee": 0,
+         "total": 52000,
+         "cancelReason": "The seller could not fulfil this order.",
+         "createdAt": "2026-10-09T09:41:17.27753",
+         "sellerOrderId": 541,
+         "sellerOrderVersion": 3,
+         "sellerOrderStatus": "REJECTED",
+         "sellerName": "Shahzad Mobile Shop",
+         "secondsToAccept": null,
+         "city": "Karachi",
+         "lines": [
+          {
+           "id": 541,
+           "offerId": 190,
+           "mktProductId": 137,
+           "productName": "Samsung Galaxy A32 T1791452434179516kquiet 128GB Black",
+           "quantity": 1,
+           "unitPrice": 52000,
+           "lineTotal": 52000,
+           "stockSourceType": "MERCHANT",
+           "sellerOrganizationId": 6,
+           "stockOwnerOrganizationId": 6,
+           "custodianOrganizationId": 6,
+           "fulfillerOrganizationId": 6,
+           "promiseHours": 24,
+           "warrantyProvider": "Samsung Pakistan",
+           "warrantyMonths": 12,
+           "warrantyStarts": "DELIVERY",
+           "warrantyCovers": null,
+           "warrantyExcludes": null,
+           "returnDays": 7
+          }
+         ],
+         "sellerOrders": [
+          {
+           "id": 541,
+           "version": 3,
+           "sellerOrganizationId": 6,
+           "sellerName": "Shahzad Mobile Shop",
+           "status": "REJECTED",
+           "secondsToAccept": null,
+           "subtotal": 52000,
+           "deliveryFee": 0,
+           "total": 52000,
+           "promisedBy": "2026-10-10T09:41:17.279829",
+           "deliveredAt": null,
+           "lines": [
+            {
+             "id": 541,
+             "offerId": 190,
+             "mktProductId": 137,
+             "productName": "Samsung Galaxy A32 T1791452434179516kquiet 128GB Black",
+             "quantity": 1,
+             "unitPrice": 52000,
+             "lineTotal": 52000,
+             "stockSourceType": "MERCHANT",
+             "sellerOrganizationId": 6,
+             "stockOwnerOrganizationId": 6,
+             "custodianOrganizationId": 6,
+             "fulfillerOrganizationId": 6,
+             "promiseHours": 24,
+             "warrantyProvider": "Samsung Pakistan",
+             "warrantyMonths": 12,
+             "warrantyStarts": "DELIVERY",
+             "warrantyCovers": null,
+             "warrantyExcludes": null,
+             "returnDays": 7
+            }
+           ],
+           "shortage": null
+          }
+         ]
+        },
+        "statusCode": 200
+       }
+      }
+     ],
+     "shot": "shots/M-2b-01/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Reject the test orders.",
-     "expect": "Released."
+     "do": "Nothing to undo: the order is already cancelled and its stock released; the cause stays on record by design.",
+     "expect": "—"
     }
    ],
+   "recordedAt": "2026-10-08T09:41:43.820Z",
+   "startedAt": "2026-10-08T09:40:34.634Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2b-02",
+   "slice": "MKT-2b",
+   "title": "Cheaper and sooner from another seller: the part moves without asking",
+   "persona": "MaxTheService operator, Shahzad Mobile Shop, the customer, then Mobile Distributor",
    "reqs": [
     "MKT-R11.1",
-    "MKT-R11.2"
+    "MKT-R11.3"
    ],
-   "evidence": "design",
-   "source": "MKT-1a ReturnAndSubstitutionPolicy; slice MKT-2.",
-   "warn": false,
-   "auto": []
-  },
-  {
-   "id": "M-2-03",
-   "slice": "MKT-2",
-   "title": "Never a different variant without asking",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 2. Only a 64GB is in stock.",
+   "pre": "As M-2b-01: Mobile Distributor sells the SAME phone for less (Rs 51,500) and sooner (4 h). A new cash order from Shahzad Mobile Shop.",
+   "auto": [
+    "MKT-2b-02"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "The seller rejects the 128GB line for shortage.",
-     "expect": "The customer is asked \"Accept 64GB instead?\"; nothing changes until they answer."
+     "do": "Operator: Platform → \"Marketplace policies\" → tick \"When a seller cannot fulfil a part, find another seller\" → Save.",
+     "expect": "\"Order settings saved.\" Reopening the panel shows it ticked.",
+     "shot": "shots/M-2b-02/01.jpg"
     },
     {
      "n": 2,
-     "do": "Decline.",
-     "expect": "The line is cancelled and refunded."
+     "do": "As owner.business@myplus.com: Incoming → the order → reason \"none left\", cause \"Out of stock in my shop\" → Reject.",
+     "expect": "The row reads \"Rejected\", \"Cause: Out of stock in my shop · Recorded\".",
+     "shot": "shots/M-2b-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer: open the order page.",
+     "expect": "Still waiting, not cancelled. Shahzad Mobile Shop's row: \"Moved to Mobile Distributor at the same or a lower price\". Mobile Distributor's row: Rs. 51,500, \"Waiting for confirmation · m:ss left\".",
+     "shot": "shots/M-2b-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As Mobile Distributor's owner: Sale → Marketplace → Incoming.",
+     "expect": "The order is waiting for them with one phone at Rs 51,500 and its own countdown.",
+     "shot": "shots/M-2b-02/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
-     "expect": "—"
+     "do": "Mobile Distributor rejects with \"walk cleanup\". Operator: untick the switch → Save.",
+     "expect": "The order reads Cancelled; the switch is off again (the default).",
+     "shot": "shots/M-2b-02/c01.jpg"
     }
    ],
-   "reqs": [
-    "MKT-R11.3"
-   ],
-   "evidence": "design",
-   "source": "Slice MKT-2.",
-   "warn": false,
-   "auto": []
+   "recordedAt": "2026-10-08T09:42:09.299Z",
+   "startedAt": "2026-10-08T09:41:44.637Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
-   "id": "M-2-04",
-   "slice": "MKT-2",
-   "title": "Shortage cause and responsibility are recorded",
-   "persona": "admin@myplus.com (operator)",
-   "pre": "After M-2-02.",
+   "id": "M-2b-03",
+   "slice": "MKT-2b",
+   "title": "A later delivery needs the customer: they accept the other seller",
+   "persona": "Shahzad Mobile Shop, then the customer, then Mobile Distributor",
+   "reqs": [
+    "MKT-R11.2"
+   ],
+   "pre": "The switch is ON. Mobile Distributor sells the same phone for Rs 51,500 but in 24 h (Shahzad Mobile Shop promised 4 h). A new cash order from Shahzad Mobile Shop.",
+   "auto": [
+    "MKT-2b-03"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Operator → the order → Shortage panel.",
-     "expect": "Cause \"merchant stock not updated\", responsible party Seller A, effect on seller performance. No money taken without the dispute step."
+     "do": "As owner.business@myplus.com: Incoming → the order → reason \"none left\" → Reject.",
+     "expect": "The row reads \"Rejected\".",
+     "shot": "shots/M-2b-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the order page.",
+     "expect": "Shahzad Mobile Shop's row: \"Shahzad Mobile Shop could not fulfil these items. Mobile Distributor can deliver them for Rs. 51,500 (Rs. 500 less), within 24 hours.\", \"Answer within 29:5x…\", and two buttons \"Accept Mobile Distributor\" and \"Decline\".",
+     "shot": "shots/M-2b-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Press \"Accept Mobile Distributor\".",
+     "expect": "Shahzad Mobile Shop's row: \"You chose Mobile Distributor for these items\". A new row for Mobile Distributor: Rs. 51,500, \"Waiting for confirmation · m:ss left\".",
+     "shot": "shots/M-2b-03/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As Mobile Distributor's owner: Incoming.",
+     "expect": "The order waits for them at Rs 51,500.",
+     "shot": "shots/M-2b-03/04.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Nothing to undo.",
+     "do": "Mobile Distributor rejects with \"walk cleanup\".",
+     "expect": "The order reads Cancelled; both holds are released.",
+     "shot": "shots/M-2b-03/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-08T09:42:32.768Z",
+   "startedAt": "2026-10-08T09:42:09.636Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2b-04",
+   "slice": "MKT-2b",
+   "title": "The customer declines the other seller: the order ends with their reason",
+   "persona": "Shahzad Mobile Shop, then the customer",
+   "reqs": [
+    "MKT-R11.2"
+   ],
+   "pre": "As M-2b-03, a new cash order.",
+   "auto": [
+    "MKT-2b-04"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Incoming → the order → reason \"none left\" → Reject.",
+     "expect": "The row reads \"Rejected\".",
+     "shot": "shots/M-2b-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the order page → \"Decline\".",
+     "expect": "\"Cancelled\" with \"You declined the alternative offered for this order.\"; the row reads \"You declined the alternative\". The held phone at Mobile Distributor is released.",
+     "shot": "shots/M-2b-04/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the order is cancelled and every hold released.",
      "expect": "—"
     }
    ],
+   "recordedAt": "2026-10-08T09:42:42.551Z",
+   "startedAt": "2026-10-08T09:42:33.120Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2b-05",
+   "slice": "MKT-2b",
+   "title": "Paid by card: a dearer seller is never offered; the money goes back",
+   "persona": "A signed-in customer (paid by card), then Shahzad Mobile Shop",
+   "reqs": [
+    "MKT-R11.2",
+    "MKT-R13.1"
+   ],
+   "pre": "The switch is ON. Shahzad Mobile Shop sells a phone at Rs 51,000; Mobile Distributor sells the same phone at Rs 51,500. The customer has an account and paid by card.",
+   "auto": [
+    "MKT-2b-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Incoming → the order → reason \"none left\" → Reject.",
+     "expect": "The row reads \"Rejected\".",
+     "shot": "shots/M-2b-05/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: My orders.",
+     "expect": "\"Cancelled\" and \"Rs. 51,000 · Refunded\"; the part reads \"No other seller had these items\". The dearer phone at Mobile Distributor was not offered, because a card is never asked for more.",
+     "shot": "shots/M-2b-05/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the order is cancelled and the card refunded.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T09:45:34.710Z",
+   "startedAt": "2026-10-08T09:44:35.311Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2b-06",
+   "slice": "MKT-2b",
+   "title": "The customer cancels while the other seller waits for their answer",
+   "persona": "A signed-in customer, after Shahzad Mobile Shop rejected",
+   "reqs": [
+    "MKT-R10.5",
+    "MKT-R11.2"
+   ],
+   "pre": "As M-2b-03, ordered by a signed-in customer; Shahzad Mobile Shop has rejected, and Mobile Distributor is offered for their answer.",
+   "auto": [
+    "MKT-2b-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: My orders.",
+     "expect": "The order reads \"Waiting for your answer\"; Shahzad Mobile Shop's row offers Mobile Distributor with \"Accept Mobile Distributor\" and \"Decline\"; \"Cancel order\" is there.",
+     "shot": "shots/M-2b-06/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "\"Cancel order\" → reason \"found it elsewhere\" → confirm.",
+     "expect": "The order reads \"Cancelled\"; the Accept and Decline buttons are gone.",
+     "shot": "shots/M-2b-06/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the order is cancelled and the other seller's hold released.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T09:45:42.611Z",
+   "startedAt": "2026-10-08T09:45:35.251Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2b-07",
+   "slice": "MKT-2b",
+   "title": "The seller disputes a recorded cause and MaxTheService overturns it; no money moves",
+   "persona": "Shahzad Mobile Shop, then the MaxTheService operator",
    "reqs": [
     "MKT-R11.4",
     "MKT-R12.4"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-2.",
-   "warn": false,
-   "auto": []
+   "pre": "The switch is OFF. A new cash order from Shahzad Mobile Shop.",
+   "auto": [
+    "MKT-2b-07"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Incoming → the order → reason \"listing was wrong\", cause \"MaxTheService showed the wrong stock\" → Reject.",
+     "expect": "The row reads \"Rejected\", \"Cause: MaxTheService showed the wrong stock · Recorded\".",
+     "shot": "shots/M-2b-07/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Set the list to \"Rejected (cause and disputes)\". On the order: \"Dispute this cause\" → write \"The listing still showed 3 in stock\" → \"Send dispute\".",
+     "expect": "\"Disputed: MaxTheService is reviewing it\" and \"You said: The listing still showed 3 in stock\"; the Dispute button is gone.",
+     "shot": "shots/M-2b-07/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: Platform → \"Unfulfilled parts\" (the \"Disputed\" tab is open).",
+     "expect": "The order, Shahzad Mobile Shop, \"MaxTheService showed the wrong stock\", the seller's words, \"Order cancelled, refunded\", \"Disputed by the seller\", a reason box and \"Uphold the cause\" / \"Overturn it\".",
+     "shot": "shots/M-2b-07/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Press \"Overturn it\" with the reason empty.",
+     "expect": "Refused: \"Write the reason for the seller.\"",
+     "shot": "shots/M-2b-07/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Reason \"Our sync was late; not the seller's fault.\" → \"Overturn it\".",
+     "expect": "\"Overturned by MaxTheService\" with the reason; the buttons are gone. No payment line changes anywhere.",
+     "shot": "shots/M-2b-07/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "As owner.business@myplus.com: Incoming → \"Rejected (cause and disputes)\".",
+     "expect": "\"Overturned by MaxTheService\" and \"MaxTheService: Our sync was late; not the seller's fault.\"",
+     "shot": "shots/M-2b-07/06.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Nothing to undo: the decision is the record (it never moved money).",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T09:43:25.776Z",
+   "startedAt": "2026-10-08T09:43:00.892Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-2-05",

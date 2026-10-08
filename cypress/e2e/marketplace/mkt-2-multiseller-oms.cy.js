@@ -22,28 +22,8 @@ gate('2')('MKT-2 — multi-seller orders and shortage handling', () => {
 
   // MKT-2-01 moved to mkt-2a-multi-seller.cy.js (MKT-2a-02, with 2a-03..08 covering the rest of R17.2).
 
-  it('MKT-2-02 [MKT-R11.1] [MKT-R11.2] a rejected child is REASSIGNED silently only to the same product at ≤ price and ≤ promise', () => {
-    checkout([{ offerId: two[0].offerId, quantity: 1 }]).then((r) => {
-      const so = data(r.body).sellerOrders[0]
-      post(API.rejectOrder, { id: so.id, reason: 'shortage' }).then(() =>
-        get(API.myMarketplaceOrders).then((o) => {
-          const mine = list(o.body).find((x) => x.orderNo === data(r.body).orderNo)
-          expect(mine.shortageResult).to.be.oneOf(['REASSIGNED', 'SUBSTITUTION_REQUESTED', 'LINE_CANCELLED'])
-        }))
-    })
-  })
-
-  it('MKT-2-03 [MKT-R11.3] a different variant is never substituted without the customer', () => {
-    get(API.myMarketplaceOrders).then((r) => list(r.body).filter((o) => o.shortageResult === 'REASSIGNED')
-      .forEach((o) => expect(o.substitutedVariant, o.orderNo).to.not.exist))
-  })
-
-  it('MKT-2-04 [MKT-R11.4] [MKT-R12.4] the shortage records its cause and party; no debit without evidence', () => {
-    get(API.myMarketplaceOrders).then((r) => list(r.body).filter((o) => o.shortageResult).forEach((o) => {
-      expect(o).to.include.keys('shortageCause', 'shortageResponsibleOrganizationId')
-      expect(o.autoDebited, 'never auto-debit a stakeholder').to.not.eq(true)
-    }))
-  })
+  // MKT-2-02..04 moved to mkt-2b-shortage-reroute.cy.js: 2b-02 (silent move, R11.1/R11.3), 2b-03..05 (the shopper's
+  // approval, R11.2), 2b-01 and 2b-07 (cause, party and dispute; never a debit, R11.4/R12.4).
 
   it('MKT-2-05 [MKT-R18.1] [MKT-R18.3] routing answers within the deadline or says it is still checking', () => {
     const t0 = Date.now()

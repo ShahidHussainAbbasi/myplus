@@ -443,7 +443,10 @@ public class MarketplaceCheckoutService {
      * cause and party are the seller's and the operator's business, never shown here.
      */
     MarketplaceOrderDTOs.ShortageView shortageView(com.myplus.marketplace.multiseller.entity.MarketplaceShortage sh, BigDecimal partTotal) {
-        if (sh == null) return null;
+        // the shopper hears of a shortage only when another seller was looked for; a cause alone is between the
+        // seller and MaxTheService (the order then reads exactly as before MKT-2b)
+        if (sh == null || (sh.getAttempts() == 0 && !com.myplus.marketplace.multiseller.entity.MarketplaceShortage.PENDING.equals(sh.getResult())))
+            return null;
         MarketplaceSellerOrder moved = sh.getReplacementSellerOrderId() == null ? null
                 : sellerOrders.findById(sh.getReplacementSellerOrderId()).orElse(null);
         String movedTo = moved == null ? null : sellerName(moved.getSellerOrganizationId());

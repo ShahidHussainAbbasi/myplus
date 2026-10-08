@@ -222,3 +222,31 @@ result asserted, screens captured, cleanup done. M-2-01 (the design-only placeho
 - The order page shows each part's result but not its promised-by date.
 - A rejected part is not offered to another seller (shortage rerouting, R11.1–R11.3, is the next MKT-2 slice).
 - One delivery fee per part, as each offer sets it; there is no basket-level delivery price.
+
+## 10. MKT-2b — shortage, reroute and the customer's approval (run 2026-10-08)
+
+**The stack:** the same services and clock as §8 (libfaketime +1 day), rebuilt from `feature/expense-management` at
+8046af00 plus this change. V32 (`mkt_shortage`, two columns on `mkt_seller_order`) migrated on start;
+`FlywayMigrationTest` validated it against the entities on MySQL (6 / 6).
+
+**Gate `mkt-2b-shortage-reroute.cy.js`: 8 / 8. Every earlier marketplace gate in one run: 83 / 83 (0a–2a).** After the
+fixes below, 1e, 2a and 2b were re-run on the final build: 26 / 26. The first live runs of 2b were 4/8 and then 7/8
+(rows 40 and 41).
+
+**Walk M-2b-01..07: 7 / 7 recorded**, step by step, each expected result asserted, screens captured, cleanup done.
+The design-only placeholders M-2-02..04 are replaced by them.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 40 | gate 2b (first live run) | the test read the order number while Cypress was still queueing commands, and expected "Saved" where the screen says "Order settings saved." | the reads wait for the order; the assertion uses the screen's words | gate 2b-02, 2b-03, 2b-07, 2b-08 |
+| 41 | gate 2b-07, walk M-2b-07 | the seller's list had no way to show rejected orders, so a dispute could only be found under "All"; and choosing a filter redrew the list just after the Dispute button was pressed | a "Rejected (cause and disputes)" filter; the steps wait for the filtered list; the 15-second refresh never redraws while a dispute is being written | gate 2b-07, walk M-2b-07 |
+| 42 | walk M-2b-01 (screen review) | with the switch off, the customer's order read "No other seller had these items" although none was tried | the customer hears of a shortage only when another seller was looked for; otherwise the order reads exactly as before | gate 2b-01, walk M-2b-01 |
+| 43 | walk M-2b-03 (screen review) | the offer ran into its countdown ("…within 24 hours.Answer within…") | each on its own line | walk M-2b-03 |
+| 44 | walk M-2b-07 (screen review) | the operator's list said "Order cancelled, refunded" for cash orders, where nothing was paid | "Order cancelled" / "Items cancelled" | walk M-2b-07 |
+| 45 | gate 1e-01 (re-run under load) | when the offers arrived after the customer had started typing, the checkout moved focus to its title and the typing was lost ("Fill in your name, phone and address.") | the title takes focus only when the customer is not already in the form | gate 1e-01 |
+| 46 | walk M-2b-06 (screen review) | My orders showed a stray "·" after a part being moved | removed | walk M-2b-05, M-2b-06 |
+
+**Open (2b):**
+- A part is moved whole; splitting it across two sellers is not designed.
+- A card order is only offered alternatives that cost no more (the card token is not kept).
+- Upheld causes are not yet used anywhere (seller scoring is a later slice).

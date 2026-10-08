@@ -461,6 +461,16 @@
 		return k;
 	}
 
+	/**
+	 * Move focus to the checkout's title for screen readers, unless the shopper is already typing in the form: the
+	 * offers can arrive after they started, and taking focus then dropped what they typed (gate 1e-01 under load).
+	 */
+	function focusCheckout() {
+		var a = doc.activeElement;
+		if (a && a !== doc.body && $('mktCheckoutView').contains(a)) return;
+		$('mktCoTitle').focus();
+	}
+
 	function openCheckout(s) {
 		coOffer = null;
 		$('mktCoError').textContent = '';
@@ -478,7 +488,7 @@
 		$('mktCoCity').value = s.city;
 		if (isBasket) {
 			$('mktBasketList').textContent = '';
-			return refreshBasket(s.city).then(function () { drawBasket(); $('mktCoTitle').focus(); });
+			return refreshBasket(s.city).then(function () { drawBasket(); focusCheckout(); });
 		}
 		return Promise.all([
 			getJson('product', 'marketplace/public/products/' + encodeURIComponent(s.product), {}),
@@ -500,7 +510,7 @@
 			for (var i = 1; i <= max; i++) { var opt = el('option', null, String(i)); opt.value = i; q.appendChild(opt); }
 			coTotal();
 			$('mktCoPlace').disabled = false;
-			$('mktCoTitle').focus();
+			focusCheckout();
 		}).catch(function (e) {
 			if (aborted(e)) return;
 			$('mktCoError').textContent = tr('ui.js.mktOffline', 'The marketplace is not reachable. Check your connection and try again.');
@@ -751,13 +761,13 @@
 		}
 		if (sh.result === 'SUBSTITUTION_REQUESTED' && !sh.decision) {
 			var diff = Number(sh.priceDifference) || 0;
-			box.appendChild(el('span', 'mkt-sh-offer', tr('ui.js.mktShOffer', '{0} could not fulfil these items. {1} can deliver them for {2}{3}, within {4} hours.',
+			box.appendChild(el('div', 'mkt-sh-offer', tr('ui.js.mktShOffer', '{0} could not fulfil these items. {1} can deliver them for {2}{3}, within {4} hours.',
 				p.sellerName || tr('ui.js.mktTheSeller', 'the seller'), sh.proposalSeller || '', money(sh.proposalTotal),
 				diff > 0 ? ' (' + tr('ui.js.mktShMore', '{0} more, paid in cash', money(diff)) + ')'
 					: diff < 0 ? ' (' + tr('ui.js.mktShLess', '{0} less', money(-diff)) + ')' : '', sh.proposalPromiseHours || '')));
-			var left = el('span', 'mkt-sh-left');
+			var left = el('div', 'mkt-sh-left');
 			box.appendChild(left);
-			var err = el('span', 'err'); err.setAttribute('role', 'alert');
+			var err = el('div', 'err'); err.setAttribute('role', 'alert');
 			var answer = function (accept, btn) {
 				err.textContent = '';
 				btn.disabled = true;
@@ -774,7 +784,7 @@
 					err.textContent = tr('ui.js.mktOffline', 'The marketplace is not reachable. Check your connection and try again.');
 				});
 			};
-			var acts = el('span', 'acts');
+			var acts = el('div', 'acts');
 			var yes = el('button', 'go mkt-sh-accept', tr('ui.js.mktShAccept', 'Accept {0}', sh.proposalSeller || ''));
 			yes.type = 'button';
 			yes.addEventListener('click', function () { answer(true, yes); });

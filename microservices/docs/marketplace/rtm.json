@@ -1,7 +1,7 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 62,
+ "unit": 65,
  "cypress": 62,
  "automated": 67,
  "manual": 87,
@@ -642,18 +642,21 @@
     "MarketplaceOrderFlowTest.reject",
     "MarketplaceOrderFlowTest.sweeperExpires",
     "MarketplaceOrderFlowTest.customerCancel",
-    "MarketplaceOrderFlowTest.cancelAfterAccept"
+    "MarketplaceOrderFlowTest.cancelAfterAccept",
+    "MarketplaceOrderFlowTest.cancelDuringProposal"
    ],
    "cypress": [
     "MKT-1e-04",
     "MKT-1e2-06",
-    "MKT-2a-07"
+    "MKT-2a-07",
+    "MKT-2b-06"
    ],
    "manual": [
     "M-1e-03",
     "M-1e-04",
     "M-1e2-04",
-    "M-2a-07"
+    "M-2a-07",
+    "M-2b-06"
    ]
   },
   {
@@ -675,25 +678,41 @@
    "phase": "2",
    "text": "Shortage flow: recheck → reserve → mark offer unavailable → alternates → reprice → **customer approval** if price/product/timing changes → partial / substitute / cancel line / cancel order → refund captured amount → record cause + party → SLA",
    "unit": [
-    "ReturnAndSubstitutionPolicyTest.silentReassignment"
+    "ReturnAndSubstitutionPolicyTest.silentReassignment",
+    "MarketplaceOrderFlowTest.silentReassign",
+    "MarketplaceOrderFlowTest.cashMayBeAskedMore",
+    "MarketplaceOrderFlowTest.noCandidateEndsTheLine",
+    "MarketplaceOrderFlowTest.expiryReroutes"
    ],
    "cypress": [
-    "MKT-2-02"
+    "MKT-2b-02",
+    "MKT-2b-08"
    ],
    "manual": [
-    "M-2-02"
+    "M-2b-01",
+    "M-2b-02"
    ]
   },
   {
    "req": "MKT-R11.2",
    "phase": "2",
    "text": "Results REASSIGNED · PARTIALLY_FULFILLED · SUBSTITUTION_REQUESTED · LINE_CANCELLED · ORDER_CANCELLED · REFUND_PENDING",
-   "unit": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.proposalAccepted",
+    "MarketplaceOrderFlowTest.proposalDeclined",
+    "MarketplaceOrderFlowTest.proposalExpires",
+    "MarketplaceOrderFlowTest.cardNeverAskedMore"
+   ],
    "cypress": [
-    "MKT-2-02"
+    "MKT-2b-03",
+    "MKT-2b-04",
+    "MKT-2b-05"
    ],
    "manual": [
-    "M-2-02"
+    "M-2b-03",
+    "M-2b-04",
+    "M-2b-05",
+    "M-2b-06"
    ]
   },
   {
@@ -701,25 +720,30 @@
    "phase": "2",
    "text": "Never substitute strength, size, variant, colour, pack size or brand without customer approval",
    "unit": [
-    "ReturnAndSubstitutionPolicyTest.protectedAttributes"
+    "ReturnAndSubstitutionPolicyTest.protectedAttributes",
+    "MarketplaceOrderFlowTest.silentReassign"
    ],
    "cypress": [
-    "MKT-2-03"
+    "MKT-2b-02"
    ],
    "manual": [
-    "M-2-03"
+    "M-2b-02"
    ]
   },
   {
    "req": "MKT-R11.4",
    "phase": "2",
    "text": "Shortage responsibility by cause (merchant stale stock, supplier stale, platform sync defect, custodian count, carrier loss, customer invalid combination)",
-   "unit": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly"
+   ],
    "cypress": [
-    "MKT-2-04"
+    "MKT-2b-01",
+    "MKT-2b-07"
    ],
    "manual": [
-    "M-2-04"
+    "M-2b-01",
+    "M-2b-07"
    ]
   },
   {
@@ -756,12 +780,17 @@
    "req": "MKT-R12.4",
    "phase": "2",
    "text": "Never auto-debit a stakeholder without evidence **and** a dispute process",
-   "unit": [],
+   "unit": [
+    "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly",
+    "MarketplaceOrderFlowTest.disputeAndRuleMoveNoMoney"
+   ],
    "cypress": [
-    "MKT-2-04"
+    "MKT-2b-01",
+    "MKT-2b-07"
    ],
    "manual": [
-    "M-2-04"
+    "M-2b-01",
+    "M-2b-07"
    ]
   },
   {
@@ -783,7 +812,8 @@
     "M-1e2-05",
     "M-1f-02",
     "M-1f-03",
-    "M-2a-06"
+    "M-2a-06",
+    "M-2b-05"
    ]
   },
   {
