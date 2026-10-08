@@ -194,6 +194,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<button class="snav-btn" onclick="snavToggle(event,'snavPurchase')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.purchase}">Purchase</span>
+								<!-- PR-4: prices waiting for approval, on the closed menu too — a count inside a closed menu is never seen. -->
+								<span id="paCountTop" class="badge" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none;background:#b42318;margin-left:4px"></span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
@@ -201,6 +203,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<!-- Task #21: a purchase return is a DEBIT NOTE, and it belongs with the purchases it
 								     reverses rather than in a combined "returns" screen away from either flow. -->
 								<li><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
+								<!-- PR-4: prices purchases would set, waiting for the owner. Owner/admin (catalog enforces it too). -->
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a id="navPriceApprovals" onclick="showPriceApprovals();document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.priceApprovals}">Price approvals</span> <span id="paCount" class="badge" style="display:none;background:#b42318"></span></a></li>
 							</ul>
 						</div>
 						<div class="snav-dd" id="snavSell">
@@ -319,6 +323,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showStores();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-home"></span> <span th:text="#{ui.stores}">Stores</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showTaxSettings();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.taxSettings}">Tax Settings</span></a></li>
 								<li sec:authorize="hasAuthority('ROLE_OWNER')"><a id="navPriceRules" onclick="showPriceRules();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.priceRules}">Price Rules</span></a></li>
+								<!-- PR-2b: a markup % per category, for the purchase markup rule. Owner/admin (catalog enforces it too). -->
+								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a id="navCategoryMarkup" onclick="showCategoryMarkup();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-scale"></span> <span th:text="#{ui.categoryMarkup}">Markup by category</span></a></li>
 								<!-- #17 P1: bonus schemes sit beside price rules because they ARE the same engine —
 								     one resolver, one precedence model, one screen pattern. -->
 								<li data-capability="bonusSchemes" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')"><a id="navBonusSchemes" onclick="showBonusSchemes();document.getElementById('snavSettings').classList.remove('snav-open');"><span class="glyphicon glyphicon-gift"></span> <span th:text="#{ui.bonusSchemes}">Bonus Offers</span></a></li>
@@ -1143,6 +1149,45 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</form>
+				</div>
+			</div>
+
+			<!-- PR-4: Price approvals. Rows are filled by price-approvals.js (showPriceApprovals). -->
+			<div id="PriceApprovalsDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.priceApprovals}">Price approvals</h4>
+				<p class="help-block" th:text="#{ui.priceApprovalsHelp}">Prices purchases would set, waiting for you. Nothing changes for customers until you approve. A newer purchase replaces an older proposal for the same product.</p>
+				<div class="pa-filters" role="group" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px">
+					<button type="button" class="btn btn-default btn-sm active" data-pa-status="PENDING" aria-pressed="true" th:text="#{ui.paPending}">Waiting</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="APPROVED" aria-pressed="false" th:text="#{ui.paApproved}">Approved</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="REJECTED" aria-pressed="false" th:text="#{ui.paRejected}">Rejected</button>
+					<button type="button" class="btn btn-default btn-sm" data-pa-status="" aria-pressed="false" th:text="#{ui.paAll}">All</button>
+				</div>
+				<div class="tscroll" style="overflow-x:auto">
+					<table class="table table-condensed table-striped" id="tablePriceApprovals" style="width:100%">
+						<thead><tr>
+							<th th:text="#{ui.product}">Product</th>
+							<th style="text-align:right" th:text="#{ui.paNow}">Price now</th>
+							<th style="text-align:right" th:text="#{ui.paProposed}">Proposed</th>
+							<th style="text-align:right" th:text="#{ui.paChange}">Change</th>
+							<th th:text="#{ui.paWhy}">Why</th>
+							<th th:text="#{ui.paBill}">Bill</th>
+							<th th:text="#{ui.paWhen}">When</th>
+							<th style="width:170px"></th>
+						</tr></thead>
+						<tbody></tbody>
+					</table>
+				</div>
+			</div>
+
+			<!-- PR-2b: Markup by category. Rows are filled by price-history.js (showCategoryMarkup). -->
+			<div id="CategoryMarkupDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')" style="display:none">
+				<h4 style="font-weight:700;color:#1f4e8c" th:text="#{ui.categoryMarkup}">Markup by category</h4>
+				<p class="help-block" id="cmHelp" th:text="#{ui.categoryMarkupHelp}">The markup the purchase form uses for products in each category. A product's own markup wins; a blank category uses the business's (Settings → Purchasing).</p>
+				<div class="tscroll" style="max-width:640px">
+					<table class="table table-condensed" id="tableCategoryMarkup" style="width:100%">
+						<thead><tr><th th:text="#{ui.category}">Category</th><th style="width:180px" th:text="#{ui.prodMarkupPct}">Markup %</th><th style="width:120px"></th></tr></thead>
+						<tbody></tbody>
+					</table>
 				</div>
 			</div>
 
@@ -2163,6 +2208,11 @@ tr.row-voided .js-edit-row{display:none !important}
 								<input type="number" step="any" class="form-control" id="purchaseSellRate"
 									name="stock.bsellRate" placeholder=" Sell Amount 0.0" th:placeholder="#{ui.sellAmount00}" onblur="calculateNetPurchase()" onkeyup="calculateNetPurchase()">
 							</div>
+							<!-- PR-1: what saving this line does to the product's selling price (Settings → Purchasing decides).
+							     Filled by price-history.js from calculateNetPurchase(); no input, so the keyboard walk is unchanged. -->
+							<div class="fg-cell fg-full fg-note" id="purchasePriceEffect" style="display:none"></div>
+							<!-- PR-2: the markup rule's suggestion and a button to use it (Suggest mode). Filled by price-history.js. -->
+							<div class="fg-cell fg-full fg-note" id="purchaseSuggest" style="display:none"></div>
 							<!-- Tax register Phase B: input-tax rate, a LINE field (cleared per line). Shown only when the org's
 							     "Purchase tax" is on (refreshPurchaseTaxRow). -->
 							<div class="fg-cell fg-sm" id="purchaseTaxRow" style="display:none">
@@ -2575,6 +2625,16 @@ tr.row-voided .js-edit-row{display:none !important}
 						<div class="col-sm-offset-2 col-sm-10">
 							<div id="sellSellableInfo" class="alert alert-warning" style="display:none;padding:6px 10px;margin:0 0 6px 0"></div>
 							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>
+							<!-- PR-3c: how the batches priced the last line added (Per batch shops only). Filled by per-batch-till.js. -->
+							<div id="sellBatchNote" class="alert alert-success" style="display:none;padding:6px 10px;margin:6px 0 0 0"></div>
+						</div>
+					</div>
+					<!-- PR-3c: the batch to sell from, each with its own price. Shown only in a Per batch shop, by
+					     per-batch-till.js; not in the keyboard walk (a select the cashier may skip — FEFO is the default). -->
+					<div class="form-group pos-fullrow" id="sellBatchPickRow" style="display:none">
+						<label class="control-label col-sm-2" for="sellBatchPick" th:text="#{ui.sellBatch}">Batch</label>
+						<div class="col-sm-10">
+							<select class="form-control" id="sellBatchPick" tabindex="-1"></select>
 						</div>
 					</div>
 					<div class="form-group">
@@ -3703,9 +3763,21 @@ tr.row-voided .js-edit-row{display:none !important}
 							<div class="fg-cell">
 								<label class="fg-label" for="prodPrice" th:text="#{ui.sellPrice}">Sell Price</label>
 								<input type="number" step="any" min="0" class="form-control" id="prodPrice">
+								<!-- PR-1: every change to this price, and what moved it. Owner/admin (catalog refuses anyone else —
+								     the answer carries the cost). Shown only for a product that exists (PriceHistory.syncButton). -->
+								<a href="javascript:void(0)" id="prodPriceHistoryBtn" class="help-block" style="display:none"
+								   sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"
+								   onclick="PriceHistory.open()" th:text="#{ui.priceHistory}">Price history</a>
 								<!-- U15-B1 — the price is for ONE unit; the per-piece figure comes from the SERVER
 								     (/looseRatePreview), never divided here. Hidden until divisible AND priced. -->
 								<div id="prodPricePerPiece" class="help-block" style="display:none"></div>
+							</div>
+							<!-- PR-2: this product's own markup %, used to suggest its price from a purchase's cost. Blank = the
+							     business's (Settings → Purchasing). Sent as null when blank (catalog-products.js). -->
+							<div class="fg-cell">
+								<label class="fg-label" for="prodMarkupPct" th:text="#{ui.prodMarkupPct}">Markup %</label>
+								<input type="number" step="any" min="0" max="1000" class="form-control" id="prodMarkupPct"
+								       th:placeholder="#{ui.prodMarkupPctHelp}" placeholder="Blank = the business's markup">
 							</div>
 							<div class="fg-cell">
 								<label class="fg-label" for="prodTaxCode" th:text="#{ui.tax2}">Tax</label>
@@ -4618,6 +4690,8 @@ tr.row-voided .js-edit-row{display:none !important}
          registry-driven: [] unless business-service has an ImportSpec for that entity. -->
     <script th:src="@{/js/common/data-import.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
+    <!-- PR-3c: Per batch pricing on the till. Inert unless the shop's purchase mode is Per batch. -->
+    <script th:src="@{/js/business/per-batch-till.js}"></script>
     <!-- DR-2: customer <-> supplier — "+ Supplier"/"+ Customer", link / unlink in the 360 view. -->
     <script th:src="@{/js/business/party-roles.js}"></script>
     <!-- The last-paid hint in the cart. Reads window.posShowLastRate and draws nothing without it,
@@ -4658,6 +4732,10 @@ tr.row-voided .js-edit-row{display:none !important}
          distinct audience. Inert unless the tenant turned on pos.installment.enabled. -->
     <script th:src="@{/js/business/installment.js}"></script>
     <script th:src="@{/js/business/catalog-products.js}"></script>
+    <!-- PR-1: the purchase form's price-effect hint + the product's price history dialog. -->
+    <script th:src="@{/js/business/price-history.js}"></script>
+    <!-- PR-4: the Price approvals screen and its menu badge (owner/admin). -->
+    <script th:src="@{/js/business/price-approvals.js}"></script>
     <!--
          SER-5 dashboard cards. Loads AFTER catalog-products.js because the category card's click handler
          calls openProductsForCategory(), which that file defines. The handler is delegated on `document`, so

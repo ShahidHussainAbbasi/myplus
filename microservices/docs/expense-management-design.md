@@ -1,8 +1,9 @@
 # Expense Management — programme design (`expense-service`)
 
-**Status:** DESIGN — awaiting the design-gate go-ahead. No code written. Cadence per standards:
-Analyze → share → **Document → Standards → Design** (this file) → write the Cypress cases → Implement → Test → Commit.
-Each EX-n slice below gets its own `slices/ex-n-*.md` before it is built.
+**Status (2026-10-05):** EX-0a, EX-0b, EX-0c, EX-1, EX-2a, EX-2b, EX-3 and EX-4 (= FP-3) **built and live**, with the
+payables programme FP-1…FP-6a around them (`finance-payables-subledger-design.md`). EX-5…EX-9 not started. End-to-end
+review of everything built: §11. _(Originally: DESIGN — awaiting the design-gate go-ahead.)_ Each EX-n slice has its
+own `slices/ex-n-*.md`.
 
 **Rulings recorded (user, 2026-10-02)**
 
@@ -591,14 +592,74 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 
 ## 10. Implement checklist (programme level — each slice doc carries its own)
 
-- [ ] EX-0a capability `defaultOn` + `EXPENSE_MANAGEMENT` · gate
-- [ ] EX-0b finance `EXPENSE` events + accounts + boundary rule · tests
-- [ ] EX-1 expense-service + direct voucher + business UI · gate
-- [ ] EX-2 four dashboards + DimensionProvider SPI · gates
-- [ ] EX-3 drawer convergence · gate
-- [ ] EX-4 expense bills (AP) · gate
+- [x] EX-0a capability `defaultOn` + `EXPENSE_MANAGEMENT` · gate
+- [x] EX-0b finance `EXPENSE` events + accounts + boundary rule · tests
+- [x] EX-1 expense-service + direct voucher + business UI · gate
+- [x] EX-2 four dashboards (EX-2a) + tags SPI (EX-2b) · gates
+- [x] EX-3 drawer convergence · gate
+- [x] EX-4 expense bills (AP) — built as FP-3 · gate
 - [ ] EX-5 receipts · gate
 - [ ] EX-6 claims + approvals · gate
 - [ ] EX-7 reimbursement + advances · gate
 - [ ] EX-8 reports + analytics + duplicate warning + tax · gate
 - [ ] EX-9 agriculture convergence · gate
+
+---
+
+## 11. End-to-end review (2026-10-05)
+
+Everything built was re-run on one freshly seeded stack (all services of the branch, `--profile full`), the code was
+read against this design, and the database was queried. Counts, not impressions.
+
+### 11.1 Gates — 14 Cypress specs, 78 cases, plus unit tests
+
+| Result | Specs |
+|---|---|
+| **Green** (77 cases) | ex-0a 5/5 · ex-1 api 7/7 · ex-1 ui 4/4 · ex-2a 13/13 · ex-2b 4/4 · ex-3 6/6 · fp-3 9/9 · fp-payables-shadow 5/5 · fp-4a 4/4 · fp-4c 5/5 · fp-5a 4/4 · fp-5b 5/5 · fp-6a 6/6 · fp-4b 3/4 |
+| **Red, the spec's fault** (1) | fp-4b case 2 — it needs a tenant whose supplier figures *disagree*, and borrows demo.business's historical 100 drift. A fresh database has no drift, and FP-6a now repairs drift automatically, so the case can never be relied on. **Fix:** the gate must make its own disagreement on a reserved tenant (as fp-6a plants its 77), not find one |
+| Unit | expense 27/27, finance 78/78, Skipped 0 (Flyway on real MySQL) |
+
+First-run reds that were **environment, not code** (each confirmed, then re-run green): the stack had been started without
+`--profile full` (education/welfare/agriculture absent → gateway 503 → monolith 500); the local `.env` operator password
+differed from the specs' default (`--env adminPassword`); notification-service's DB was missing (fixed on the branch by
+the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed owner.education already had a school
+(existence is not eligibility) — it now seeds one.
+
+### 11.2 Findings — the product against this design
+
+| # | Finding | Evidence | Severity |
+|---|---|---|---|
+| E1 | **A failed posting can never be retried.** §5.4 promises FAILED → PENDING (redrive); nothing implements it. The list shows "Not posted" with the reason in a tooltip; the only way out is void and re-record, which the screen does not say. A closed period is the likely cause in practice | no redrive endpoint/job in expense-service; `expense.js` FAILED chip | **High** — money paid that never reaches the books |
+| E2 | **Three dashboards record expenses into books they cannot see.** School, welfare and farm have Expenses but no P&L / trial balance screen (business has `showFinance`; the other three have none) | template grep: 0 finance screens on welfare/agriculture; education only its fee ledger | **High** — the module's whole value (§1) is invisible there |
+| E3 | **Welfare is told "Each expense is posted to your books"** while welfare has no ledger link at all (§4b F5) and R-5's recommended notice was never shipped | `fragments/expense.html`; welfare-service has no outbox/finance client | Medium |
+| E4 | **The expense list silently stops at 200** rows (`size=200`, no paging, no total, no "showing N of M") | `expense.js expenseLoad` | Medium |
+| E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | Medium |
+| E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | Medium |
+| E7 | **Drafts are unreachable from the screen**: the API keeps DRAFT/post/delete; the proxy exposes none of `/post` or DELETE, and the form always posts. Harmless now, dead weight until a slice uses it | proxy mappings; `expense.js` posts `?post=true` | Low |
+| E8 | **`storeId` is accepted unvalidated** from the request (and the proxy forwards the whole body): any store id, even another tenant's, can be stamped. No reader uses it yet — **must be validated before EX-8 reports by store** | `ExpenseVoucherService.build`: `v.setStoreId(r.storeId())` | Low now, High at EX-8 |
+| E9 | **One line per voucher on screen** (the API takes up to 50); a split bill (rent + service charge) needs two expenses | `expense.js` builds one `line` | Low |
+| E10 | Paid bill cannot be voided — no payment reversal (FP-3 known limit, still open) | FP-3 §3 | Low |
+| E11 | FP-6a's daily check trusts expense-bill documents as reported; no expense-side parity yet | FP-6 §4 "Open" | Low |
+| E12 | Still open from §4b: F2 analytics `finance.expenses` has no producer; F3 `agriculture_expense` hard delete, now a second farm expense screen beside Expenses (SUPER only) until EX-9; F4 `Purchase.purchaseExpense` is `Float` | grep | Low (tracked) |
+| E13 | A concurrent duplicate save answers "already being saved" rather than the winning voucher the comment promises | `ExpenseVoucherService.record` catch | Low (UI retries with the same key and then gets the replay) |
+| E14 | **Seeded admin/user accounts held no permissions on a freshly built environment.** V14 placed every member that existed on a permission set; the demo-tier accounts are created by `SetupDataLoader` after the migrations, so they had none and were minted nothing (deny by default): admin.business got 403 `settings.edit` on Configuration, which failed guide case 0a-3 | `PermissionInterceptor perm.refused … needs=settings.edit`; `user_permission_set` empty for every seeded member | **Fixed** — `SetupDataLoader.placeOnDefaultSet` (same `defaultSetFor` + `assign` as the Team screen; only a member with no set; never an owner). Verified: Administrator / Standard / Principal / Teacher placed, token carries `settings.edit`; user-tier refusals still hold (EX-0a, EX-1, EX-2a 29/29). booker.marketplace stays on role privileges (no marketplace catalogue) |
+| E15 | **Trial balance and balance sheet said “Balanced âœ“”**, P&L “Period: … â†’ …” — double-encoded characters in four on-screen strings | `business.js` 1701, 5565, 5588, 5597 | **Fixed** (the comments with the same bytes are untouched) |
+
+**What holds (verified, not assumed):** posting is outbox-only and idempotent (unique `event_key`, finance
+`processed_event`); EXP- numbers allocated late inside the transaction (a refused post rolls the counter back); every read
+scoped by org and, for a USER, by author; foreign id → 404; drawer vouchers idempotent on `(org, source, source_ref)` and
+not voidable; a bill with a pending or recorded payment cannot be voided; the module stays OFF for every tenant until
+switched on.
+
+### 11.3 What is left (in order)
+
+1. **E1 redrive** (owner-visible "Post again" on a FAILED voucher, same event key) — small, closes a money gap.
+2. **E2** a P&L / trial balance on the education, welfare and farm dashboards (the business finance screen, shared) — and
+   **E3** the welfare notice until welfare-to-books (R-5).
+3. **E4 + E5 + E6** list paging/total, the expense settings catalog, a category screen for owners.
+4. fp-4b case 2 made self-sufficient (11.1).
+5. Programme slices: EX-5 receipts (needs R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
+   EX-9 farm convergence (R-4), FP-6b/6c after 28 clean days.
+6. Rulings still open: R-3 receipt storage, R-4 history back-posting, R-5 welfare books; FREE-plan inclusion "applied,
+   confirm".
+

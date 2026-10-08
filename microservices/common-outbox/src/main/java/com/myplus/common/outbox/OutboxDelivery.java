@@ -28,4 +28,16 @@ public interface OutboxDelivery<E extends OutboxEntry> {
 
     /** Deliver one row downstream. Throws on failure so the relay can retry; owns identity forwarding (runAs). */
     void send(E entry);
+
+    /**
+     * Is this failure one that retrying cannot fix — the downstream ANSWERED and refused (a closed period, a rule)?
+     * Such a row is dead-lettered at once instead of being retried {@link OutboxRelay#MAX_ATTEMPTS} times, so the
+     * person who caused it learns why in seconds. Default {@code false}: every channel that does not opt in keeps
+     * retrying everything, exactly as before (an outage, a timeout and a misconfigured secret all look like errors too).
+     */
+    default boolean permanent(Exception failure) { return false; }
+
+    /** The words stored as the row's last error. Default the exception's message; a channel may extract the
+     *  downstream's own reason (e.g. the {@code message} of a JSON error body) so it can be shown to a person. */
+    default String describe(Exception failure) { return String.valueOf(failure.getMessage()); }
 }

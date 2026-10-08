@@ -38,6 +38,17 @@ describe('Download PDF — one file for a batch of invoices', () => {
   before(() => {
     cy.loginAsOwner(OWNER)
     /*
+     * SEED to three, never assume (verify sweep 2026-10-05): on a fresh database this tenant had ONE invoice and the
+     * hook went red before any download was attempted. A full return deletes a sale line by design, so earlier specs
+     * can also leave fewer. Counted on the report itself — the rows the Download PDF button actually reads.
+     */
+    const report = () => cy.request({ method: 'POST', url: '/loadSR', form: true,
+      body: { rp: '4', sd: '01-01-2020 00:00:00', ed: '31-12-2030 00:00:00' } })
+    report().then((r) => {
+      const have = new Set((r.body.collection || []).map((x) => x.invoiceNo).filter(Boolean)).size
+      for (let i = have; i < 3; i++) cy.seedSale()
+    })
+    /*
      * `/loadSR` is the Sale Detail Report itself: the same screen the Download PDF button lives on, reading
      * the same rows the operator selects. If it cannot name three invoices there is genuinely nothing to
      * download, and no assertion about downloading them would mean anything.

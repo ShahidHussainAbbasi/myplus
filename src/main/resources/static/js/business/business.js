@@ -223,34 +223,45 @@ $(document).ready(function() {
 			// var item = {"id":$("#sellItemDD").val(), "name":$( "#sellItemDD :selected" ).text()};
 			// obj.item = item;
 
-        	// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in place (no
-			// duplicate). A brand-new item is still appended. New-sale mode always appends.
-			var existingIdx = window.editingInvoice
-				? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
-				: -1;
-			if (existingIdx >= 0) {
-				// The item is locked in edit mode, so carry the original line's stock identity onto the edited line.
-				// updateSell keys stock by stockId — the sell form never sets it, so without this the line would save
-				// with NULL stock and drop out of the report.
-				var prevStock = data[existingIdx].stock || {};
-				if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
-				if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
-				data[existingIdx] = obj;
+			// PR-3c: in a Per-batch shop the server says how this line will be charged — one line per batch price.
+			var addLines = function(lines){
+			lines.forEach(function(obj){
+				// Edit mode ("Update Item"): if this item is already a line on the invoice, REPLACE it in place (no
+				// duplicate). A brand-new item is still appended. New-sale mode always appends.
+				var existingIdx = window.editingInvoice
+					? data.findIndex(function(d){ return String(d.productId) === String(obj.productId); })
+					: -1;
+				if (existingIdx >= 0) {
+					// The item is locked in edit mode, so carry the original line's stock identity onto the edited line.
+					// updateSell keys stock by stockId — the sell form never sets it, so without this the line would save
+					// with NULL stock and drop out of the report.
+					var prevStock = data[existingIdx].stock || {};
+					if (prevStock.stockId != null) obj.stock.stockId = prevStock.stockId;
+					if (prevStock.batchNo != null) obj.stock.batchNo = prevStock.batchNo;
+					data[existingIdx] = obj;
+				} else {
+					data.push(obj);
+				}
+				// CART-1: the grid is drawn from data[] (sellCartRow keeps the U15-A2 loose rate, the SF-9 discount label and
+				// the counter's +/- in the ACTION cell). Replacing a line in edit mode used to APPEND a second row.
+				renderCart();
+				// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
+				// only when the customer or the product SET differs from what it last asked.
+				if (typeof LastRate !== 'undefined') LastRate.refresh();
+				// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
+				if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
+				resetForm();
+				resetBSDD('sellItemDD');
+				// Cart changed (item added / qty updated) â†’ recompute Change & Due from the live cart total
+				// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
+			});
+			};
+			if (window.PerBatchTill && PerBatchTill.enabled()) {
+				PerBatchTill.beforeAdd(obj, null,
+					function(lines){ if (lines) addLines(lines); });
 			} else {
-				data.push(obj);
+				addLines([obj]);
 			}
-			// CART-1: the grid is drawn from data[] (sellCartRow keeps the U15-A2 loose rate, the SF-9 discount label and
-			// the counter's +/- in the ACTION cell). Replacing a line in edit mode used to APPEND a second row.
-			renderCart();
-			// The cart changed, so the set of products to ask about changed. Cheap: LastRate re-fetches
-			// only when the customer or the product SET differs from what it last asked.
-			if (typeof LastRate !== 'undefined') LastRate.refresh();
-			// B1 (pharmacy): same early warning on the manual Add-to-Cart path as on the scan path.
-			if (typeof rxNoticeIfNeeded === 'function') rxNoticeIfNeeded(obj.productId, obj.itemName);
-			resetForm();
-			resetBSDD('sellItemDD');
-			// Cart changed (item added / qty updated) â†’ recompute Change & Due from the live cart total
-			// (#sellTotal). Standard POS: Due = bill − Received for THIS invoice.
 			calculateChange();
         }else{
         	showFormError(t('ui.js.pleaseSelectAnItemAndEnterA'));
@@ -1687,7 +1698,7 @@ function renderPriceRules(rules){
 			? ('−' + Number(r.value || 0) + '% ' + t('ui.js.offCatalog'))
 			: Number(r.value || 0).toFixed(2);
 		var valid = (r.startsOn || r.endsOn)
-			? (escHtml(r.startsOn || '…') + ' â†’ ' + escHtml(r.endsOn || '…'))
+			? (escHtml(r.startsOn || '…') + ' → ' + escHtml(r.endsOn || '…'))
 			: '<span class="text-muted">' + escHtml(t('ui.js.always')) + '</span>';
 
 		var status = STATE_LABEL[state];
@@ -2102,7 +2113,7 @@ function buildCustomerRow(obj){
 		"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
 		"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
 		"<div id=dueAmount>"+(obj.dueAmount!=null?obj.dueAmount:0)+"</div>",
-		"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",obj.updated,
+		"<div id=creditBalance>"+(obj.creditBalance!=null?Number(obj.creditBalance).toFixed(2):'0.00')+"</div>",escHtml(obj.updated||''),   // MS-F2: no time recorded is a blank cell, never "null"
 		"<div class='row-actions'>"
 		// Receive only makes sense when the customer owes something — hide it when the due is 0.
 		+ ((Number(obj.dueAmount)||0) > 0 ? "<button type=button class='btn btn-xs btn-primary rcv-pay-btn' data-cid='"+obj.customerId+"' data-name=\""+escHtml(obj.name||'')+"\" data-due='"+obj.dueAmount+"' title='Receive a payment against this customer'><span class='glyphicon glyphicon-usd'></span> Receive</button> " : "")
@@ -2410,7 +2421,7 @@ function loadDataTable(){
 							// (display-only; no form field), consistent with the Total and Paid columns.
 							"<div id=purchaseDue>"+(obj.totalAmount!=null?Math.max(0,((Number(obj.totalAmount)||0)+(Number(obj.taxAmount)||0))-(Number(obj.paidAmount)||0)).toFixed(2):'')+"</div>",
 							"<div id=purchaseExpiry>"+obj.stock.bexpDate+"</div>",
-						"<div id=purchaseDate>"+obj.updated+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return some or all stock to the vendor — reduces on-hand and the payable by the returned portion. The bill stays active.'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Cancel the WHOLE bill — reverses all stock-in and the payable, and makes it read-only. Use for a mistaken purchase.'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
+						"<div id=purchaseDate>"+escHtml(obj.updated||'')+"</div><span class='row-actions'>"+ (obj.status === 'VOID' ? "<span class='label label-default' title='Voided bill'>VOID</span>" : "<button type=button class='btn btn-xs btn-warning purchase-return-btn' data-pid='"+obj.purchaseId+"' data-qty='"+obj.quantity+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Return some or all stock to the vendor — reduces on-hand and the payable by the returned portion. The bill stays active.'><span class='glyphicon glyphicon-share-alt'></span> Return</button>"   + (window.canVoidInvoice ? " <button type=button class='btn btn-xs btn-danger purchase-void-btn' data-pid='"+obj.purchaseId+"' data-inv=\""+escHtml(obj.purchaseInvoiceNo||'')+"\" title='Cancel the WHOLE bill — reverses all stock-in and the payable, and makes it read-only. Use for a mistaken purchase.'><span class='glyphicon glyphicon-ban-circle'></span> Void</button>" : ""))+ "</span>"
 						]);
 					});
 				} else if (getAll === "Sell") {
@@ -3415,6 +3426,11 @@ function loadStock(label,value){
 		    		$("#sellPurchaseRate").val(data.bpurchaseRate);
 			    	// $("#sellSellRate").val((data.bsellRate!=null && data.bsellRate!=='') ? data.bsellRate : (catalogSellPrice||''))
 					$("#sellSellRate").val((catalogSellPrice!=null && catalogSellPrice!=='') ? catalogSellPrice : (data.bsellRate||''))
+					// PR-3c: in a Per-batch shop the box starts at the first batch's own price, and a Batch choice appears.
+					if (window.PerBatchTill) {
+						var batchPrice = PerBatchTill.onBatches(data.batches, catalogSellPrice);
+						if (batchPrice != null && !isNaN(batchPrice)) $("#sellSellRate").val(batchPrice);
+					}
 					// B2B-P2-UI: remember what WE put in the box, then ask what this buyer actually pays. The
 					// catalog price stands until the quote answers, so the line is usable immediately and a
 					// pricing outage degrades to today's behaviour rather than blocking the sale.
@@ -3728,6 +3744,8 @@ function calculateNetPurchase(){
 	var s= $("#purchaseSellRate").val()*ONE;
 	var qty= $("#purchaseQuantity").val()*ONE;
 	renderPurchaseBoxHint();
+	// PR-1 — say what saving this line does to the product's selling price (price-history.js).
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 	discountType = $("#discountTypeDD :selected").val();
 	var purchaseDiscount = $("#purchaseDiscount").val()*1>0?$("#purchaseDiscount").val()*ONE:0;
 	var purchaseTotalAmount = $($("#purchaseTotalAmount").val(parseFloat(qty * p).toFixed(2))).val();
@@ -4419,6 +4437,8 @@ function resetPurchaseForm(){
 	var box = document.getElementById('purchaseVendorDues');
 	if (wrap) wrap.style.display = 'none';
 	if (box) box.value = '';
+	// PR-1 — no product picked, so no price effect: never let the last bill's sentence greet a new one.
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 }
 
 // Toolbar "+ New Purchase" â†’ open the form modal fresh (mirrors newProduct/newEntity, but also
@@ -4763,6 +4783,8 @@ window.afterSavePurchase = function () {
 	if (typeof updatePurchaseProjectedOnHand === 'function') updatePurchaseProjectedOnHand();
 	// PUR-PAID-1: same reason — the last line's "Due on this line" would otherwise sit under an empty Paid box.
 	refreshPurchasePaid();
+	// PR-1 — and the last line's "selling price changes from … to …" under an empty sell rate.
+	if (typeof renderPurchasePriceEffect === 'function') renderPurchasePriceEffect();
 
 	// Refresh the grid WITHOUT clear().draw() — blanking the table between every line is the flicker
 	// that makes rapid entry feel slow.
@@ -5540,7 +5562,7 @@ function finRunTrialBalance(){
 		rows.forEach(function(r){ h+='<tr><td>'+escHtml(r.code||'')+'</td><td>'+escHtml(r.name||'')+'</td><td class="text-right">'+Number(r.debit||0).toFixed(2)+'</td><td class="text-right">'+Number(r.credit||0).toFixed(2)+'</td></tr>'; });
 		if(!rows.length) h+='<tr><td colspan="4" class="text-center" style="color:#777">No ledger entries yet — post a sale or purchase to populate the GL.</td></tr>';
 		h+='</tbody><tfoot><tr><th colspan="2" class="text-right">Total</th><th class="text-right">'+Number(d.totalDebit||0).toFixed(2)+'</th><th class="text-right">'+Number(d.totalCredit||0).toFixed(2)+'</th></tr></tfoot></table>';
-		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced âœ“':'NOT balanced')+'</div>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">'+(d.balanced?'Balanced ✓':'NOT balanced')+'</div>';
 		finSet(h);
 	}, 'json').fail(finFail);
 }
@@ -5563,7 +5585,7 @@ function finRunBalanceSheet(){
 		var eq=(d.equity||[]).slice();
 		if(Number(d.netIncome||0)!==0) eq.push({code:'',name:'Net income (current period)',amount:d.netIncome});
 		h+=finSection('Equity', eq, d.totalEquity);
-		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' âœ“':' — NOT balanced')+'</div>';
+		h+='<div style="text-align:right;font-weight:700;color:'+(d.balanced?'#0f6e56':'#c0392b')+'">Assets '+Number(d.totalAssets||0).toFixed(2)+' = Liab + Equity '+(Number(d.totalLiabilities||0)+Number(d.totalEquity||0)).toFixed(2)+(d.balanced?' ✓':' — NOT balanced')+'</div>';
 		finSet(h);
 	}, 'json').fail(finFail);
 }
@@ -5572,7 +5594,7 @@ function finRunTaxRegister(){
 	$.get(serverContext+'taxRegister', {from:$('#finFrom').val(), to:$('#finTo').val()}, function(resp){
 		var d=(typeof resp==='string')?JSON.parse(resp):resp;
 		var f=function(x){return Number(x||0).toFixed(2);};
-		var h='<div style="color:#777;margin-bottom:8px">Period: '+escHtml((d.from||'').toString())+' â†’ '+escHtml((d.to||'').toString())+'</div>';
+		var h='<div style="color:#777;margin-bottom:8px">Period: '+escHtml((d.from||'').toString())+' → '+escHtml((d.to||'').toString())+'</div>';
 		h+='<table class="table" style="width:100%"><tbody>'
 			+'<tr><td>Output tax (sales)</td><td class="text-right">'+f(d.outputTax)+'</td></tr>'
 			+'<tr><td>Less adjustments (returns/voids)</td><td class="text-right">-'+f(d.outputAdjusted)+'</td></tr>'
@@ -5798,6 +5820,16 @@ function loadPosFeatureFlags(){
 		window.posQuickPickEnabled = byKey['pos.quickpick.enabled'] === true;
 		window.posQuickPickCount = posSettingInt(res, 'pos.quickpick.count', 9);
 		window.posQuickPickDays = posSettingInt(res, 'pos.quickpick.days', 30);
+		// PR-1 — does a purchase move the selling price? 'latest' (default) | 'keep'. Lower-cased like the
+		// server's getChoice; anything else is 'latest', which is also what the server does with it.
+		// PR-3b: + 'per_batch' (each purchase's stock sells at its own price).
+		window.posPurchasePriceMode = (function (m) { return (m === 'keep' || m === 'per_batch') ? m : 'latest'; })(
+			String(posSettingText(res, 'pos.pricing.purchaseMode', 'latest')).toLowerCase());
+		// PR-4 — the markup rule's mode, so the purchase form can say "waits for approval" before any cost is typed.
+		window.posMarkupMode = String(posSettingText(res, 'pos.pricing.markupMode', 'suggest')).toLowerCase();
+		if (typeof window.refreshPriceApprovalCount === 'function') window.refreshPriceApprovalCount();
+		// PR-2b — the business's markup %, shown on the Markup by category screen ("blank = the business's 14.5%").
+		window.posMarkupPct = posSettingText(res, 'pos.pricing.markupPct', '0');
 		// Per-tenant sale-screen composition. One POS serves a corner shop, a wholesale distributor
 		// and a pharmacy, so WHICH fields belong on the sale is the tenant's answer, not ours. Every
 		// one of these fails OPEN (absent key => shown): the default is today's full screen, and a
@@ -6196,8 +6228,13 @@ function applySerialQuantityLock() {
 
 	var hasSerial = $.trim($serial.val() || '') !== '';
 	if (hasSerial) {
+		var changed = $qty.val() !== '1';
 		$qty.val(1).prop('readonly', true).addClass('is-locked-by-serial')
 			.attr('title', t('ui.js.qtyLockedBySerial', 'One serial number is one unit.'));
+		// The line total follows the quantity, and nothing else recalculates it: .val() fires none of the box's own
+		// keyup/blur handlers. Without this a cashier who typed 2 and then scanned an IMEI got "1 x 500 = 1000.00" in
+		// the cart (verify sweep, 2026-10-05). Goods-in already does this — applyPurchaseSerialQuantityLock.
+		if (changed && typeof calculateNetSell === 'function') calculateNetSell();
 	} else if ($qty.hasClass('is-locked-by-serial')) {
 		// Only release a lock THIS rule applied. A quantity made readonly by anything else — a loose line,
 		// a future rule — is not ours to unlock.

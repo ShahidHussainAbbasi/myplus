@@ -112,7 +112,7 @@ public class CompanyController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs.stream().map(companyMapper::toDto).collect(java.util.stream.Collectors.toList()));   // MM-2: DTOs, never entities
 			}
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getAllCompany "+e.getCause(), e);			

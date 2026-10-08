@@ -22,6 +22,26 @@ import lombok.RequiredArgsConstructor;
 public class PayablesSourceController {
 
     private final PayablesSourceService service;
+    private final com.myplus.business_service.service.PayablesReconciliationService reconciliation;
+
+    /**
+     * FP-6a — a tenant's reconciliation history (newest first) and its clean-days-in-a-row count. Operator only, like
+     * the switch. The check runs by itself every day and after every deploy; nothing here is needed to keep it going.
+     */
+    @GetMapping("/payables-reconciliation")
+    public GenericResponse reconciliationHistory(@RequestParam("organizationId") Long organizationId) {
+        if (!com.myplus.common.security.CurrentUser.isPlatformOperator())
+            return new GenericResponse("ERROR", "Only a platform operator can read this.");
+        return new GenericResponse("SUCCESS", "Payables reconciliation", reconciliation.history(organizationId));
+    }
+
+    /** FP-6a — check one tenant NOW (the daily job does the same). For a support question or a test; never required. */
+    @PostMapping("/payables-reconciliation/run")
+    public GenericResponse reconcileNow(@RequestParam("organizationId") Long organizationId) {
+        if (!com.myplus.common.security.CurrentUser.isPlatformOperator())
+            return new GenericResponse("ERROR", "Only a platform operator can run this.");
+        return new GenericResponse("SUCCESS", "Checked", reconciliation.runOrg(organizationId));
+    }
 
     @GetMapping("/payables-source")
     public GenericResponse status(@RequestParam("organizationId") Long organizationId) {

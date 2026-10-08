@@ -70,7 +70,7 @@ class CatalogRefsWritersTest {
         categories = new CategoryService(categoryRepository, refsCache, events);
         taxCodes = new TaxCodeService(taxCodeRepository, refsCache, events);
         products = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache);
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
     }
 
     @AfterEach
@@ -268,6 +268,7 @@ class CatalogRefsWritersTest {
     private ProductImportSpec importSpec() {
         ProductImportSpec spec = new ProductImportSpec();
         ReflectionTestUtils.setField(spec, "categoryRepository", categoryRepository);
+        ReflectionTestUtils.setField(spec, "priceHistory", org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));   // PR-1
         ReflectionTestUtils.setField(spec, "events", events);
         return spec;
     }

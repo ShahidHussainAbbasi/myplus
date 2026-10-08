@@ -111,6 +111,12 @@ public class ExpenseController {
         return ApiResponse.success(vouchers.post(id), "Posting to the books");
     }
 
+    /** EX-1b — send again what the books refused (after reopening a period, say). */
+    @PostMapping("/vouchers/{id}/post-again")
+    public ApiResponse<VoucherView> postAgain(@PathVariable Long id) {
+        return ApiResponse.success(vouchers.postAgain(id), "Sent to the books again");
+    }
+
     @PostMapping("/vouchers/{id}/void")
     public ApiResponse<VoucherView> voidVoucher(@PathVariable Long id, @RequestBody(required = false) VoidRequest r) {
         return ApiResponse.success(vouchers.voidVoucher(id, r == null ? null : r.reason()), "Expense voided");

@@ -301,7 +301,7 @@ public class PayableOutboxService {
         }
     }
 
-    int backfillOrg(Long org) {
+    public int backfillOrg(Long org) {   // FP-6a: also the daily reconciliation's document repair
         int page = 0, total = 0;
         while (true) {
             List<Purchase> batch = purchases.findSupplierPurchasesByOrg(org, PageRequest.of(page++, BACKFILL_BATCH));

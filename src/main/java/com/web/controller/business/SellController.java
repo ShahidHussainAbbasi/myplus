@@ -342,6 +342,18 @@ public class SellController {
         }
     }
 
+    /** PR-3c — the Per-batch price preview for the till (nothing held or written). Pricing lives in business-service. */
+    @RequestMapping(value = "/batchPricePreview", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> batchPricePreview(@RequestBody final CustomerHistoryDTO dto) {
+        try {
+            return client.postJson("/batchPricePreview", dto);
+        } catch (Exception e) {
+            LOGGER.error("batchPricePreview proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     // In-place edit of an existing invoice (Phase 3). The frontend routes here (instead of addSell)
     // when the cart carries a customer_history_id; business-service reverts the old lines' stock/dues
     // and re-applies the edited cart under the SAME invoice number, all-or-nothing.

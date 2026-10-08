@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -1012,12 +1013,33 @@ public class CatalogController {
                     Map<String, Object> row = new java.util.LinkedHashMap<>();
                     row.put("id", c.get("id"));
                     row.put("name", c.get("name"));
+                    row.put("markupPct", c.get("markupPct"));   // PR-2b: the Markup by category screen reads it
                     cats.add(row);
                 }
             }
             return Map.of("success", true, "categories", cats);
         } catch (Exception e) {
             LOGGER.error("getUserCategories proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * PR-2b — set or clear one category's markup % → catalog PUT /categories/{id}/markup. Owner/admin, enforced in catalog;
+     * a refusal comes back as {@code success:false} with catalog's sentence. The id is parsed, never pasted as text.
+     */
+    @PostMapping("/setCategoryMarkup")
+    @ResponseBody
+    public Map<String, Object> setCategoryMarkup(@RequestBody final Map<String, Object> body) {
+        try {
+            Long id = Long.valueOf(String.valueOf(body.get("categoryId")).trim());
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("markupPct", body.get("markupPct"));
+            return catalog.putJson("/categories/" + id + "/markup", payload);
+        } catch (NumberFormatException e) {
+            return Map.of("success", false, "message", "categoryId is required");
+        } catch (Exception e) {
+            LOGGER.error("setCategoryMarkup proxy error", e);
             return ProxyErrors.failure(e);
         }
     }
@@ -1034,6 +1056,60 @@ public class CatalogController {
         }
     }
 
+    // ── PR-4 · Price approvals — straight proxies. Who may decide (owner/admin), which tenant's rows exist and whether the
+    //    price moved since a proposal are all decided in catalog-service, never in this hop. ─────────────────────────
+
+    /** PR-4 — the queue, newest first; {@code status} PENDING | APPROVED | REJECTED | SUPERSEDED, blank = all. */
+    @GetMapping(value = "/priceApprovals", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> priceApprovals(@RequestParam(name = "status", required = false) String status) {
+        try {
+            return catalog.get("/price-proposals", status == null || status.isBlank() ? null : "status=" + enc(status));
+        } catch (Exception e) {
+            LOGGER.error("priceApprovals proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — how many are waiting, for the menu badge. */
+    @GetMapping(value = "/priceApprovalCount", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> priceApprovalCount() {
+        try {
+            return catalog.get("/price-proposals/count");
+        } catch (Exception e) {
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — approve, sending the price the screen showed so a price that moved since is refused, not overwritten. */
+    @PostMapping(value = "/approvePriceChange", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> approvePriceChange(@RequestParam("id") Long id,
+                                                  @RequestParam(name = "expectedCurrent", required = false) java.math.BigDecimal expectedCurrent) {
+        try {
+            return catalog.postJson("/price-proposals/" + id + "/approve"
+                    + (expectedCurrent == null ? "" : "?expectedCurrent=" + expectedCurrent.toPlainString()), Map.of());
+        } catch (Exception e) {
+            LOGGER.error("approvePriceChange proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** PR-4 — reject, with an optional reason kept on the decision. */
+    @PostMapping(value = "/rejectPriceChange", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> rejectPriceChange(@RequestParam("id") Long id,
+                                                 @RequestParam(name = "note", required = false) String note) {
+        try {
+            return catalog.postJson("/price-proposals/" + id + "/reject"
+                    + (note == null || note.isBlank() ? "" : "?note=" + enc(note)), Map.of());
+        } catch (Exception e) {
+            LOGGER.error("rejectPriceChange proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** M1 (slice 42): a single catalog Product by id. */
     @GetMapping("/getCatalogProduct")
     @ResponseBody
@@ -1042,6 +1118,22 @@ public class CatalogController {
             return catalog.get("/products/" + request.getParameter("id"));
         } catch (Exception e) {
             LOGGER.error("getCatalogProduct proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /**
+     * PR-1 — a product's current prices and its selling-price history → catalog GET /products/{id}/price-history.
+     * Owner/admin only — enforced in catalog (the answer carries the cost); its refusal is carried through as
+     * {@code success:false} with catalog's message. The id is parsed, never pasted into the path as text.
+     */
+    @GetMapping(value = "/productPriceHistory", produces = "application/json")
+    @ResponseBody
+    public Map<String, Object> productPriceHistory(@RequestParam("productId") Long productId) {
+        try {
+            return catalog.get("/products/" + productId + "/price-history");
+        } catch (Exception e) {
+            LOGGER.error("productPriceHistory proxy error", e);
             return ProxyErrors.failure(e);
         }
     }

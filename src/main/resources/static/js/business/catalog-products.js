@@ -626,6 +626,7 @@
         var f = document.getElementById('Product');
         if (f) f.reset();
         $('#productId').val('');
+        if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1: a new product has no history yet
         // DUP-1 — a cleared form is a new intent. Belt-and-braces beside the retire-on-success in saveProduct:
         // a key that somehow outlived its save must never reach the NEXT product, because the server would
         // correctly replay the old one and the new product would silently not exist.
@@ -956,6 +957,7 @@
             $('#prodSku').val(p.sku || '');
             $('#prodBarcode').val(p.barcode || '');
             $('#prodPrice').val(p.sellingPrice != null ? p.sellingPrice : '');
+            $('#prodMarkupPct').val(p.markupPct != null ? p.markupPct : '');   // PR-2: round-trips
             $('#prodTax').val(p.taxRate != null ? p.taxRate : '');
             loadTaxCodes(p.taxCodeId != null ? p.taxCodeId : '');
             $('#prodUnit').val(p.unit || '');
@@ -991,6 +993,7 @@
             refreshProductPanel();     // refresh the index so the checks + panel exclude only THIS product
             openModal('ProductModal');
             updateReadOnly(true);   // make the key fields readonly when editing
+            if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1: an existing product has a history
 
         }).fail(function () { showFormError(t('ui.js.couldNotLoadTheProduct')); });
     }
@@ -1026,11 +1029,13 @@
     /** Clear ONLY what identifies this product; leave the batch context selected. */
     function resetProductIdentityFields() {
         $('#productId').val('');
+        if (global.PriceHistory) global.PriceHistory.syncButton();   // PR-1
         // DUP-1 — the Save-&-Add-Another path. THE most important of the three: this is the one flow that keeps
         // the modal open across saves, so a key left in place here would make every subsequent product in the
         // run replay the first one.
         retireProductKey();
-        ['prodName', 'prodSku', 'prodBarcode', 'prodPrice', 'prodDesc'].forEach(function (id) {
+        // PR-2: prodMarkupPct belongs to THIS product, so it clears with the price rather than riding onto the next.
+        ['prodName', 'prodSku', 'prodBarcode', 'prodPrice', 'prodMarkupPct', 'prodDesc'].forEach(function (id) {
             $('#' + id).val('');
         });
         $('#prodSku').removeClass('alert-danger');
@@ -1087,6 +1092,9 @@
             name: $('#prodName').val().trim(), sku: (sku || '').trim() || null,
             barcode: $('#prodBarcode').val().trim() || null,
             sellingPrice: s2n($('#prodPrice').val()),
+            // PR-2 — blank means "the business's markup", so it is sent as null, never as 0 (s2n('') would be 0,
+            // and 0 is a real answer the server would store as this product's own rule).
+            markupPct: ($('#prodMarkupPct').val() || '').trim() === '' ? null : Number($('#prodMarkupPct').val()),
             taxCodeId: codeId ? Number(codeId) : null,
             taxRate: codeId ? null : s2n($('#prodTax').val()),
             unit: $('#prodUnit').val(),

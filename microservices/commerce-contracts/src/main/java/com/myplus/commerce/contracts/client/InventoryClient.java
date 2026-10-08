@@ -44,6 +44,13 @@ public interface InventoryClient {
     @PostExchange("/reservations")
     StockReservationResponse reserve(@RequestBody StockReservationRequest request);
 
+    /**
+     * PR-3c — which batches a reserve of these lines would take right now; nothing is held (status PLANNED).
+     * A line's {@code stockEntryId} is a preference here (the cashier's chosen batch), a strict pin on {@link #reserve}.
+     */
+    @PostExchange("/reservations/plan")
+    StockReservationResponse plan(@RequestBody StockReservationRequest request);
+
     /** Saga step 3 — confirm a held reservation: stock is decremented. Idempotent on reservationId. */
     @PostExchange("/reservations/{reservationId}/confirm")
     StockReservationResponse confirm(@PathVariable String reservationId);

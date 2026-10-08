@@ -45,8 +45,12 @@ describe('EX-2b — expense tags', () => {
   let land = null
 
   before(() => {
-    // seed one vehicle (school) and one land (farm), then switch the module on for both
+    // seed one school and one vehicle (school) and one land (farm), then switch the module on for both.
+    // The school is seeded too: case 1 asserts a SCHOOL tag is offered, and a fresh database has none for this
+    // tenant (existence is not eligibility — a school seen in another org proves nothing here).
     signIn(SCHOOL)
+    cy.request({ method: 'POST', url: '/addSchool', form: true, body: { name: 'EX2B School', branchName: 'EX2B School', status: 'Active' } })
+      .its('body.status').should('be.oneOf', ['SUCCESS', 'FOUND'])
     cy.request({ method: 'POST', url: '/addVehicle', form: true, body: { name: 'EX2B Bus', number: vehicleNo } })
       .its('body.status').should('be.oneOf', ['SUCCESS', 'FOUND'])
     signIn(FARM)

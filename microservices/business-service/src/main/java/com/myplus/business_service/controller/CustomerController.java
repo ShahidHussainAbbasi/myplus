@@ -187,8 +187,7 @@ public class CustomerController {
 			if(appUtil.isEmptyOrNull(objs))
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()));
 
-			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
-			// so calling it inside the loop made every row rebuild what the row before it had just built.
+			// PERF-10 → MS-3: the mapper is generated at build time; nothing is configured per request or per row.
 
 			List<CustomerDTO> dtos=new ArrayList<CustomerDTO>(); 
 			objs.forEach(obj ->{
@@ -232,7 +231,7 @@ public class CustomerController {
 			if(appUtil.isEmptyOrNull(objs)){
 				return new GenericResponse("NOT_FOUND",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
 			}else {
-				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs);
+				return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()),objs.stream().map(customerMapper::toDto).collect(java.util.stream.Collectors.toList()));   // MM-2: DTOs, never entities
 			}
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > getAllCustomer "+e.getCause(), e);			

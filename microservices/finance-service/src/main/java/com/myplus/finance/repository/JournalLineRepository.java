@@ -13,6 +13,10 @@ import java.util.List;
 @Repository
 public interface JournalLineRepository extends JpaRepository<JournalLine, Long> {
 
+    /** FP-6a — the newest line on an account: a value that changes with EVERY posting to it (the alignment's state key). */
+    @Query("SELECT MAX(jl.id) FROM JournalLine jl WHERE jl.accountId = :accountId")
+    Long maxLineIdForAccount(@org.springframework.data.repository.query.Param("accountId") Long accountId);
+
     /** Trial balance / balance-sheet rows as {@code [accountId, Σdebit, Σcredit]} for entries dated on/before asOf. */
     @Query("SELECT jl.accountId, COALESCE(SUM(jl.debit),0), COALESCE(SUM(jl.credit),0) FROM JournalLine jl "
             + "WHERE jl.entry.organizationId = :orgId AND jl.entry.entryDate <= :asOf GROUP BY jl.accountId")

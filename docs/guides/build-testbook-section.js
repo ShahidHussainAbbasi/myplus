@@ -1,7 +1,7 @@
 /**
  * Builds one Test Book section of step-by-step cases from what a guide spec captured.
  *
- *   node docs/guides/build-testbook-section.js <section> <out.html>        section: eduidor | sched2
+ *   node docs/guides/build-testbook-section.js <section> <out.html>        section: eduidor | sched2 | pricemode
  *
  * Input:  cypress/guide-out/<dir>/<ID>.json   one file per case (actions, expected results, cleanup, pictures),
  *         written by the guide spec through cypress/support/guide-capture.js
@@ -56,6 +56,50 @@ const SECTIONS = {
         sender account of its own.`],
       ['amber', 'Evenings cannot be deleted', `Close booking is the only reversible step, so these cases use far-future times no real
         evening uses, and each ends by closing its evening.`],
+    ],
+  },
+  pricemode: {
+    dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 27), prefix: 'prm',
+    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3', 'T1', 'T2', 'T3', 'T4', 'T5'],
+    title: 'Selling price from purchases: Latest, Keep, markup, Per batch and Approval (PR-1 to PR-4)',
+    spec: 'cypress/e2e/docs/price-mode-guide.cy.js',
+    notes: [
+      ['blue', 'What is new', `<strong>Settings → Configuration → Purchasing → How a purchase affects the selling price</strong>:
+        <strong>Latest</strong> (default — the purchase's sell rate becomes the price of all stock), <strong>Keep</strong>
+        (a purchase never changes the price) or <strong>Per batch</strong> (each purchase's stock sells at its own price).
+        The <strong>markup rule</strong> suggests — or on Auto sets — a price from the cost, by business, category or product.
+        In Per batch the till shows a <strong>Batch</strong> list, and a sale of 10 across a 200 and a 250 batch is charged
+        <strong>7 × 200 + 3 × 250</strong>, shown in the cart before payment. With the markup rule on <strong>Approval</strong>
+        a purchase never moves the price: it proposes one, the <strong>Purchase</strong> menu shows a red count, and an owner
+        or admin approves or rejects it in <strong>Purchase → Price approvals</strong>. Approve is refused if the price
+        moved since the list was opened (T3).`],
+      ['red', '⚠ Found by the walks (all fixed 5 Oct)', `The price history's time was <strong>5 hours early</strong> (UTC sent without its zone).
+        <strong>Use 240.45</strong> did nothing when clicked straight from the P/U box. Every <strong>Markup by category</strong>
+        save was refused (403). One product on two sale lines <strong>recorded both lines' batches</strong> on each, and 5 + 5
+        against 7 on the shelf was <strong>sold</strong>. In Per batch a <strong>typed price was re-priced to the batch's</strong>
+        at Complete Sale (S2). Opening a form could <strong>pull the cursor out of the field being typed</strong> back to
+        its first box a moment later ("10" landed in Invoice #, "2" in P/U); and the Price approvals count did not move
+        until the page was reloaded (T1).`],
+      ['amber', 'A void does not undo a price', `Voiding a bill reverses its stock and payment, not the price it set. Cases that save purchases or
+        sales run on <code>owner.lifecycle@myplus.com</code> and void them on screen; a voided <em>sale</em> leaves the sale list
+        entirely. Run the cases one at a time — a pricing setting one case changes is put back only at its end.`],
+    ],
+  },
+  verifysweep: {
+    dir: 'verify-sweep', anchor: 'verifysweep', number: Number(process.env.TB_NUMBER || 28), prefix: 'vs',
+    order: ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7'],
+    title: 'Verify sweep: the “not yet verified” list, walked on screen',
+    spec: 'cypress/e2e/docs/verify-sweep-guide.cy.js',
+    notes: [
+      ['blue', 'What this section is', `Section 13 listed areas that were built but never checked. Each case below was performed on the
+        real screens of a freshly deployed stack, checked step by step and photographed. The automated gates for the same
+        areas were run too — results and every fix are in <code>microservices/docs/slices/verify-sweep-2026-10.md</code>.`],
+      ['red', '⚠ Found by the sweep (5 Oct)', `<strong>A session that ended showed “parsererror”</strong> on the next click — fixed (V7).
+        <strong>Notification sending never started on a fresh install</strong>: its database was never created or granted — fixed.
+        Six automated checks were red only because they assumed rows a long-lived database happens to have (a supplier, a sale this
+        month, three invoices) — they now create what they need.`],
+      ['amber', 'Money moves', `V1–V3 sell, buy and return on <code>owner.lifecycle@myplus.com</code>, the sacrificial business. V5–V6 run
+        on <code>owner.mobile@myplus.com</code>, the shop the serial feature belongs to; V6 resets its setting on screen.`],
     ],
   },
 }

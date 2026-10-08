@@ -80,4 +80,49 @@ class StockImportServiceTest {
                     assertThat(e.getBatchNo()).isEqualTo("B1");
                 });
     }
+
+    // ── PR-3b: the batch's own selling price ─────────────────────────────────────────────────────────
+
+    @Autowired private StockService stockService;
+
+    private static void as(Long orgId) {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        new com.myplus.common.security.AuthenticatedUser(USER, "t@t.com", List.of(), orgId), null, List.of()));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void signOut() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+
+    @Test
+    void a_batch_is_booked_with_its_own_price_and_its_id_is_returned() {
+        var result = service.importStock(List.of(StockImportLine.builder()
+                .productId(10L).quantity(5f).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build(),
+                StockImportLine.builder().productId(10L).quantity(3f).purchasePrice(new BigDecimal("200.00")).build()), ORG, USER);
+
+        assertThat(result.getEntryIds()).hasSize(2);
+        var priced = stockEntryRepository.findById(result.getEntryIds().get(0)).orElseThrow();
+        var plain = stockEntryRepository.findById(result.getEntryIds().get(1)).orElseThrow();
+        assertThat(priced.getSellPrice()).isEqualByComparingTo("250.00");
+        assertThat(plain.getSellPrice()).as("no price sent = the product's price applies").isNull();
+    }
+
+    @Test
+    void an_edit_that_only_changes_the_rate_re_prices_its_batch_and_only_this_tenants() {
+        var result = service.importStock(List.of(StockImportLine.builder()
+                .productId(10L).quantity(5f).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build()), ORG, USER);
+        Long id = result.getEntryIds().get(0);
+
+        as(2L);   // another tenant: not found, never written
+        stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+                .productId(10L).delta(0f).stockEntryId(id).sellPrice(new BigDecimal("1.00")).build());
+        assertThat(stockEntryRepository.findById(id).orElseThrow().getSellPrice()).isEqualByComparingTo("250.00");
+
+        as(ORG);  // its own tenant, delta 0: the price still changes
+        stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+                .productId(10L).delta(0f).stockEntryId(id).sellPrice(new BigDecimal("260.00")).build());
+        var e = stockEntryRepository.findById(id).orElseThrow();
+        assertThat(e.getSellPrice()).isEqualByComparingTo("260.00");
+        assertThat(e.getQuantity()).as("quantity untouched by a price-only edit").isEqualByComparingTo("5");
+    }
 }

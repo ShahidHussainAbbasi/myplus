@@ -216,7 +216,9 @@ public class SagaSaleWriter {
             }
         }
         LocalDateTime now = LocalDateTime.now();
+        int lineIndex = -1;   // PR-3a: the line's position, which is what its picks were reserved under
         for (SagaLine l : lines) {
+            lineIndex++;
             Sell sell = new Sell();
             sell.setUserId(user.getUserId());
             sell.setOrganizationId(user.getOrganizationId());
@@ -248,14 +250,14 @@ public class SagaSaleWriter {
             sell.setDated(now);
             sell.setUpdated(now);
             sell = sellService.save(sell);
-            recordBatches(sell, l, picks, user);
+            recordBatches(sell, l, lineIndex, picks, user);
         }
         customerService.recomputeDue(ch.getCustomer());
         // B2B-P3b-2 (#4): snapshot what the customer owes AFTER this sale. Taken here because recomputeDue
         // has just run; Customer.dueAmount is the CURRENT balance, so reading it at PRINT time would put
         // today's figure on a two-year-old reprint.
         //
-        // The explicit re-save matters: `ch` is built by ObjectMapperUtils.map (a DETACHED instance) and the
+        // The explicit re-save matters: `ch` is built by SaleHeaderMapper (a NEW, DETACHED instance) and the
         // save above returns a managed copy the caller ignores. Setting a field on `ch` after that save is
         // therefore invisible to JPA -- exactly why the first version of this silently stored nothing.
         if (ch.getCustomer() != null) {
@@ -274,12 +276,19 @@ public class SagaSaleWriter {
      * <p>Picks are matched on product id, and a line split across several batches yields several rows --
      * which is the whole reason this is a child table rather than a column.
      */
-    private void recordBatches(Sell sell, SagaLine line, java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks, AuthenticatedUser user) {
+    void recordBatches(Sell sell, SagaLine line, int lineIndex, java.util.List<com.myplus.commerce.contracts.dto.StockPick> picks, AuthenticatedUser user) {
         if (picks == null || picks.isEmpty() || sell == null || sell.getSellId() == null) return;
         try {
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
             for (com.myplus.commerce.contracts.dto.StockPick p : picks) {
                 if (p == null || p.getItemId() == null || !p.getItemId().equals(line.productId())) continue;
+                /*
+                 * PR-3a — BY LINE, not by product. Matching on product alone made two lines of the same product each
+                 * record BOTH lines' batches (live: invoice 6292, 2 sold, 4 recorded), and returns and edits cost from
+                 * these rows. A pick that names its line belongs to that line only; an old pick (no line, from an
+                 * inventory without PR-3a) falls back to the product match, as before.
+                 */
+                if (p.getLineRef() != null && p.getLineRef() != lineIndex) continue;
                 /*
                  * #17 P3 — a pick with a COST is never skipped, even with no batch number.
                  *

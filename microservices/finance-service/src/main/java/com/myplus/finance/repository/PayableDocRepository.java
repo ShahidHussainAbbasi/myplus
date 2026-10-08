@@ -21,6 +21,15 @@ public interface PayableDocRepository extends JpaRepository<PayableDoc, Long> {
     BigDecimal sumOpen(@Param("org") Long org);
 
     /**
+     * FP-6a — Σ(amount − paid) over every NON-VOID document: what the supplier ledger nets to, advances included. An
+     * overpaid bill is SETTLED with a negative balance, so {@link #sumOpen} leaves it out while GL 2000 carries the
+     * overpayment — a false difference for every tenant holding an advance. Optional source filter (null = all).
+     */
+    @Query("select coalesce(sum(d.amount - d.paid), 0) from PayableDoc d "
+         + "where d.organizationId = :org and d.status <> 'VOID' and (:source is null or d.source = :source)")
+    BigDecimal sumNet(@Param("org") Long org, @Param("source") String source);
+
+    /**
      * Per supplier, Σ(amount − paid) over every non-void document — an overpaid line counts negative, so a supplier
      * paid more than billed nets below zero (an ADVANCE). Business shows the same net, floored at zero.
      */

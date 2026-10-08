@@ -22,14 +22,46 @@
 const OWNER = 'owner.marketplace@myplus.com'
 
 /** Raise a quote as whoever is currently signed in, and yield its id. */
-function raiseQuote() {
+/*
+ * SEED, never assert-or-skip (GATE-RUNBOOK §7). These asserted "the tenant has a customer / a product" and took row 0;
+ * on a fresh database (verify sweep 2026-10-05) the marketplace tenant had neither, and five cases went red before a
+ * single quote was raised. Eligible = a NAMED customer (a quote prints the name) and a product with an id.
+ */
+const named = (rows) => (rows || []).filter((c) => c && c.customerId && c.name && String(c.name).trim())
+function quotableCustomer() {
   return cy.request({ url: '/getUserCustomer' }).then((c) => {
-    const customers = (c.body && c.body.collection) || []
-    expect(customers.length, 'the tenant has a customer to quote').to.be.greaterThan(0)
+    const ok = named(c.body && c.body.collection)
+    if (ok.length) return cy.wrap(ok[0])
+    const name = `Quote Customer ${Date.now()}`
+    return cy.request({ method: 'POST', url: '/addCustomer', form: true, failOnStatusCode: false,
+      body: { name, contact: '03' + String(Date.now()).slice(-9) } })
+      .then((r) => expect(r.body.status, `addCustomer: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
+      .then(() => cy.request({ url: '/getUserCustomer' }))
+      .then((c2) => {
+        const made = named(c2.body && c2.body.collection).find((x) => x.name === name)
+        expect(made, 'the seeded customer is readable back').to.exist
+        return cy.wrap(made)
+      })
+  })
+}
+function quotableProduct() {
+  return cy.request({ url: '/getUserProduct' }).then((p) => {
+    const ok = ((p.body && p.body.collection) || []).filter((x) => x && x.id)
+    if (ok.length) return cy.wrap(ok[0])
+    return cy.seedProduct({ name: `Quote Product ${Date.now()}`, sellingPrice: 100, stock: 10 })
+      .then(({ productId }) => cy.wrap({ id: productId }))
+  })
+}
 
-    return cy.request({ url: '/getUserProduct' }).then((p) => {
-      const products = (p.body && p.body.collection) || []
-      expect(products.length, 'the tenant has a product to quote').to.be.greaterThan(0)
+/** Set once, by the OWNER, in before(): the outlet and the product every case quotes. */
+let seeded = { customer: null, product: null }
+
+function raiseQuote() {
+  return cy.wrap(seeded).then(({ customer, product }) => {
+    expect(customer, 'the owner seeded a customer in before()').to.exist
+    const customers = [customer]
+    return cy.wrap(product).then(() => {
+      const products = [product]
 
       return cy.request({
         method: 'POST', url: '/addQuote',
@@ -51,6 +83,17 @@ function raiseQuote() {
 }
 
 describe('#27 — quote visibility', () => {
+  /*
+   * The OWNER seeds the customer and product, once, and every case quotes THAT pair by id. A booker is — correctly —
+   * refused "You are not allowed to add customers", and lists only customers they created themselves, so on a fresh
+   * database a booker has no customer of their own to quote; on the long-lived one they had legacy rows. Quoting the
+   * distributor's outlet is what a field rep does; who may SEE a quote is what this spec is about.
+   */
+  before(() => {
+    cy.loginAsMarketplaceOwner()
+    quotableCustomer().then((c) => { seeded.customer = c })
+    quotableProduct().then((p) => { seeded.product = p })
+  })
 
   it('⭐ 1. a booker sees ONLY the quotes they raised', () => {
     /*

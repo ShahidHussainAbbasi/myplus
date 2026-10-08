@@ -1,6 +1,6 @@
 # MS — ModelMapper → MapStruct, one record type at a time
 
-**Status:** MS-1..5 BUILT (2026-10-04; user chose "all of MS-1..5"). MS-6 (remove ModelMapper) not started. Follows MM-1 (mapper profiles), which made today's behaviour explicit
+**Status:** MS-1..6 BUILT (2026-10-04). business-service production code has **no ModelMapper**: it is test-scope only, for the frozen oracle. Follows MM-1 (mapper profiles), which made today's behaviour explicit
 and characterized it. That is exactly what a safe migration needs first.
 
 ## 1. Why (R&D)
@@ -65,8 +65,32 @@ overwrites it by payables source (the finance figure, or 0 on BUSINESS). **`getA
 stored advance even on BUSINESS, against the DTO's own "0 on BUSINESS" rule. Its only reader is `vender.cy.js`.
 **Decision needed:** apply the same payables-source rule there, or leave it.
 
-### MS-F2: null dates display as "now" (behaviour kept, decision needed)
-ModelMapper invoked AppUtil's converters for null sources, and those answer today / now. So a Customer or Purchase with
-no `dated`/`updated` shows the **current time**, which changes on every refresh. The empty-source oracle run found it.
-`DisplayDates` reproduces it explicitly. **Decision needed:** show blank instead (truthful), after checking that each
-screen renders a blank date.
+### MS-F2: null dates displayed as "now" — DECIDED 2026-10-04: blank
+ModelMapper invoked AppUtil's converters for null sources, and those answer today / now. The empty-source oracle run found
+it. **Decision (user): blank.** `DisplayDates` now returns null for a null date. The customer and purchase grids render a
+missing date as an empty cell, never "null". **Impact today: none visible.** In the 4 Oct data, customers and sales have
+no null `dated`/`updated`. The 61 purchases with a null `updated` are all OPENING bills, which `getUserPurchase` skips
+(no product). So this is preventive, proven by `MapStructOracleTest#nullDatesAreBlank` (old → "now", new → blank).
+The Cypress guard covers rendering only. *(An earlier draft of this note claimed those 61 rows showed "now" on the
+purchase grid. Wrong: they never reach it.)*
+
+### MS-F1 — DECIDED 2026-10-04: same rule
+`getAllVender` and `getUserVender` now build each row through one `vendorRow(obj, fromFinance)`: advance, bills, total
+and source follow the payables source in both. **And:** `getAllVender` returned the raw entities, as did getAllCompany,
+getAllCustomer, getAllItemType and getAllItemUnit. MM-2 had traced only purchases and sales, which was a Rule 0 miss.
+All five now return DTOs. Their only readers are the specs that check `status`.
+
+## 7. MS-6: ModelMapper out of production (2026-10-04)
+- **Rule 0, counted.** Three production files referenced ModelMapper:
+  - `ObjectMapperUtils`: static STRICT; one caller, the sale write path; plus one unused injection in SellController.
+  - `MapperProfiles`: the oracle only.
+  - `AppUtil`: its 8 ModelMapper `Converter` fields were used only by MapperProfiles.
+- The sale header (CustomerDTO → CustomerHistory) is now `SaleHeaderMapper.fromCustomer`, oracle-tested against a STRICT
+  plain ModelMapper. Five same-name fields carry over. `dated`/`updated` stay empty, as ModelMapper left them; the
+  service stamps them anyway.
+- `ObjectMapperUtils` is deleted. `MapperProfiles` moved to test sources as a plain class (no `@Configuration`, so the
+  Spring Boot tests do not pick it up). The converters are frozen **verbatim** in `src/test/.../LegacyConverters.java`.
+- ⚠ **The frozen copy first drifted.** AppUtil overloads `isEmptyOrNull`, and the original converters bound to its
+  **String** overload (blank-aware). A single `Object` delegate made `""` non-empty, so the oracle threw on blank dates.
+  "The oracle really maps" caught it; the copy now has the same overloads.
+- `modelmapper` is `<scope>test</scope>`. The packaged jar holds 0 ModelMapper classes. business-service 438/0/0/0.

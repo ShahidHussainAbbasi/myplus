@@ -328,4 +328,192 @@ class ReservationServiceTest {
         assertThat(((Number) off[1]).doubleValue()).as("tracking OFF: all of it sellable").isEqualTo(100d);
         assertThat(((Number) off[2]).doubleValue()).as("tracking OFF: nothing is 'expired'").isEqualTo(0d);
     }
+
+    // ── PR-3a: lines, not just products ────────────────────────────────────────────────────────────
+
+    /**
+     * PR-3a — two lines of ONE product are checked TOGETHER. Before, each line was checked on its own (5 ≤ 7, 5 ≤ 7)
+     * and the hold took 5 + 2, so a sale was recorded for 10 units with 7 held. Now 10 > 7 is refused, holding nothing.
+     */
+    @Test
+    void two_lines_of_one_product_are_checked_together() {
+        StockEntry b = batch(7f, SOON);
+        stockLevel(7f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3a-1", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 0),
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 1))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(res.getMessage()).contains("only 7 sellable, 10 requested");
+        assertThat(stockEntryRepository.findById(b.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+    }
+
+    /** PR-3a — every pick names the line it was taken for, so the sale records a line's batches on that line only. */
+    @Test
+    void picks_name_their_line() {
+        batch(3f, SOON);
+        batch(10f, LATER);
+        stockLevel(13f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3a-2", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(2), 0),
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(4), 1))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        BigDecimal line0 = BigDecimal.ZERO, line1 = BigDecimal.ZERO;
+        for (var p : res.getPicks()) {
+            assertThat(p.getLineRef()).as("every pick names its line").isNotNull();
+            if (p.getLineRef() == 0) line0 = line0.add(p.getQuantity()); else line1 = line1.add(p.getQuantity());
+        }
+        assertThat(line0).as("line 0 got exactly its 2").isEqualByComparingTo("2");
+        assertThat(line1).as("line 1 got exactly its 4 (1 left in the early batch + 3 from the later one)").isEqualByComparingTo("4");
+    }
+
+    /** A caller that sends no line reference (marketplace) gets picks with none — unchanged behaviour. */
+    @Test
+    void line_less_callers_are_unchanged() {
+        batch(10f, SOON);
+        stockLevel(10f);
+        StockReservationResponse res = service.reserve(request("k-pr3a-3", 4f), ORG, USER);
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        assertThat(res.getPicks()).allSatisfy(p -> assertThat(p.getLineRef()).isNull());
+    }
+
+    // ── PR-3c: plan, then pinned reserve ───────────────────────────────────────────────────────────
+
+    private StockEntry pricedBatch(double qty, LocalDate expiry, String no, String sellPrice) {
+        StockEntry e = batch(qty, expiry);
+        e.setBatchNo(no);
+        e.setSellPrice(sellPrice == null ? null : new BigDecimal(sellPrice));
+        return stockEntryRepository.save(e);
+    }
+
+    /** PR-3c — a plan names each batch's id and price, holds NOTHING, and is the FEFO a reserve would take. */
+    @Test
+    void plan_names_batch_and_price_and_holds_nothing() {
+        StockEntry old = pricedBatch(7f, SOON, "B-OLD", "200");
+        StockEntry neu = pricedBatch(10f, LATER, "B-NEW", "250");
+        stockLevel(17f);
+
+        StockReservationResponse plan = service.plan(new StockReservationRequest(null, List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(10), 0))), ORG, USER);
+
+        assertThat(plan.getStatus()).isEqualTo(ReservationStatus.PLANNED);
+        assertThat(plan.getReservationId()).as("a plan is not a hold").isNull();
+        assertThat(plan.getPicks()).hasSize(2);
+        assertThat(plan.getPicks().get(0).getStockEntryId()).isEqualTo(old.getId());
+        assertThat(plan.getPicks().get(0).getQuantity()).isEqualByComparingTo("7");
+        assertThat(plan.getPicks().get(0).getSellPrice()).isEqualByComparingTo("200");
+        assertThat(plan.getPicks().get(1).getStockEntryId()).isEqualTo(neu.getId());
+        assertThat(plan.getPicks().get(1).getQuantity()).isEqualByComparingTo("3");
+        assertThat(plan.getPicks().get(1).getSellPrice()).isEqualByComparingTo("250");
+        assertThat(stockEntryRepository.findById(old.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(stockEntryRepository.findById(neu.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(reservationRepository.count()).isZero();
+    }
+
+    /** PR-3c — on a plan the cashier's chosen batch is taken FIRST, then FEFO for the rest. */
+    @Test
+    void plan_takes_the_chosen_batch_first() {
+        StockEntry old = pricedBatch(7f, SOON, "B-OLD", null);
+        StockEntry neu = pricedBatch(4f, LATER, "B-NEW", "250");
+        stockLevel(11f);
+
+        StockReservationResponse plan = service.plan(new StockReservationRequest(null, List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(6), 0, neu.getId()))), ORG, USER);
+
+        assertThat(plan.getStatus()).isEqualTo(ReservationStatus.PLANNED);
+        assertThat(plan.getPicks().get(0).getStockEntryId()).isEqualTo(neu.getId());
+        assertThat(plan.getPicks().get(0).getQuantity()).isEqualByComparingTo("4");
+        assertThat(plan.getPicks().get(1).getStockEntryId()).isEqualTo(old.getId());
+        assertThat(plan.getPicks().get(1).getQuantity()).isEqualByComparingTo("2");
+        assertThat(plan.getPicks().get(1).getSellPrice()).as("a batch with no price says so (null)").isNull();
+    }
+
+    /** PR-3c — a plan short on stock says so in the same words as the reserve. */
+    @Test
+    void plan_out_of_stock_uses_the_reserve_sentence() {
+        pricedBatch(3f, SOON, "B1", "200");
+        StockReservationResponse plan = service.plan(new StockReservationRequest(null, List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 0))), ORG, USER);
+        assertThat(plan.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(plan.getMessage()).contains("only 3 sellable, 5 requested");
+    }
+
+    /** PR-3c — a pinned reserve holds exactly the named batch, even when FEFO would have chosen another. */
+    @Test
+    void pinned_reserve_holds_exactly_the_named_batch() {
+        StockEntry old = pricedBatch(7f, SOON, "B-OLD", "200");
+        StockEntry neu = pricedBatch(10f, LATER, "B-NEW", "250");
+        stockLevel(17f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3c-pin", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(3), 0, neu.getId()))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        assertThat(res.getPicks()).singleElement().satisfies(p -> {
+            assertThat(p.getStockEntryId()).isEqualTo(neu.getId());
+            assertThat(p.getLineRef()).isEqualTo(0);
+        });
+        assertThat(stockEntryRepository.findById(neu.getId()).get().getReservedQuantity()).isEqualByComparingTo("3");
+        assertThat(stockEntryRepository.findById(old.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+    }
+
+    /**
+     * PR-3c — the race: the plan said 7 from B-OLD, another till took 5 of them, and the sale now pins 7. It is refused
+     * ("batch changed") and NOTHING is held — never quietly topped up from B-NEW at a different price.
+     */
+    @Test
+    void pinned_reserve_refuses_when_the_batch_no_longer_covers_it() {
+        StockEntry old = pricedBatch(7f, SOON, "B-OLD", "200");
+        StockEntry neu = pricedBatch(10f, LATER, "B-NEW", "250");
+        stockLevel(17f);
+        // Another till holds 5 of the old batch.
+        service.reserve(new StockReservationRequest("k-other-till", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 0, old.getId()))), ORG, USER);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3c-race", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(7), 0, old.getId()))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(res.getMessage()).startsWith("batch changed").contains("B-OLD").contains("has 2, 7 needed");
+        assertThat(stockEntryRepository.findById(old.getId()).get().getReservedQuantity()).as("only the other till's 5").isEqualByComparingTo("5");
+        assertThat(stockEntryRepository.findById(neu.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+    }
+
+    /** PR-3c — a pinned line is served BEFORE a FEFO line listed ahead of it, which could otherwise eat its batch. */
+    @Test
+    void pins_are_served_before_fefo_lines() {
+        StockEntry old = pricedBatch(5f, SOON, "B-OLD", "200");
+        StockEntry neu = pricedBatch(5f, LATER, "B-NEW", "250");
+        stockLevel(10f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3c-order", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 0),               // FEFO, listed first
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(5), 1, old.getId()))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.RESERVED);
+        for (var p : res.getPicks()) {
+            if (p.getLineRef() == 1) assertThat(p.getStockEntryId()).isEqualTo(old.getId());
+            else assertThat(p.getStockEntryId()).isEqualTo(neu.getId());
+        }
+    }
+
+    /** PR-3c — another tenant's batch id is simply not found: the pin refuses, nothing is held anywhere. */
+    @Test
+    void a_pin_on_another_tenants_batch_is_refused() {
+        StockEntry mine = pricedBatch(5f, SOON, "B-MINE", "200");
+        StockEntry theirs = StockEntry.builder().productId(PRODUCT).quantity(BigDecimal.TEN).reservedQuantity(BigDecimal.ZERO)
+                .batchNo("B-THEIRS").organizationId(99L).userId(99L).build();
+        theirs = stockEntryRepository.save(theirs);
+        stockLevel(5f);
+
+        StockReservationResponse res = service.reserve(new StockReservationRequest("k-pr3c-idor", List.of(
+                new StockReservationLine(PRODUCT, BigDecimal.valueOf(2), 0, theirs.getId()))), ORG, USER);
+
+        assertThat(res.getStatus()).isEqualTo(ReservationStatus.OUT_OF_STOCK);
+        assertThat(stockEntryRepository.findById(theirs.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+        assertThat(stockEntryRepository.findById(mine.getId()).get().getReservedQuantity()).isEqualByComparingTo("0");
+    }
 }

@@ -35,6 +35,9 @@ public class StockController {
 	@Autowired
 	private com.myplus.common.settings.CapabilityService capabilityService;   // #22: skip the FEFO call off-vertical
 
+	@Autowired
+	private com.myplus.business_service.service.PurchaseService purchaseService;   // PR-3b: per-batch pricing needs the batches
+
 	/**
 	 * The sell/dispense screen pre-fill, keyed by the catalog productId: on-hand + FEFO batches from inventory,
 	 * sell price + description from the catalog Product master. Same StockDTO shape the sell handler reuses.
@@ -74,9 +77,11 @@ public class StockController {
 			 * Correctness is untouched either way: FEFO allocation happens server-side at submit. This is the
 			 * screen's PRE-FILL hint, not the rule that decides which batch leaves the shelf.
 			 */
+			// PR-3b: a business selling PER BATCH needs the batches whatever it tracks — each carries its own price.
 			boolean tracksBatches =
 					capabilityService.isEnabled(com.myplus.common.settings.Capability.BATCH_TRACKING)
-					|| capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING);
+					|| capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING)
+					|| com.myplus.business_service.service.PurchaseService.PRICE_MODE_PER_BATCH.equals(purchaseService.purchasePriceMode());
 			if (tracksBatches) {
 				java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
 				dto.setBatches(batches);

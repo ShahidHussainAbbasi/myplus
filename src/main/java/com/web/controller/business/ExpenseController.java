@@ -89,6 +89,13 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/void", body));
     }
 
+    /** EX-1b — send again what the books refused (after a period is reopened, say). */
+    @PostMapping(value = "/vouchers/{id}/post-again", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> postAgain(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
+    }
+
     /** FP-3 — the suppliers a bill can be owed to (business-service's list, read through expense-service). */
     @GetMapping(value = "/suppliers", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody

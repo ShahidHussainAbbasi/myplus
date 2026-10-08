@@ -29,6 +29,10 @@ public class ReservationPick {
     @Column(name = "unit_cost", precision = 19, scale = 6)
     private BigDecimal unitCost;
 
+    /** PR-3a — the caller's order line this pick was taken for (V13). Null on older picks and line-less callers. */
+    @Column(name = "line_ref")
+    private Integer lineRef;
+
     /** G2 inverse saga (slice 34): how much of this pick has already been returned to stock. Caps repeated
      *  partial returns so a batch is never restored beyond what was originally picked from it. Default 0. */
     @Builder.Default

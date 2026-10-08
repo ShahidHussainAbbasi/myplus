@@ -123,6 +123,23 @@ public class PurchaseController {
      * was unusable. A shop recording IMEIs it can never look up is the same mistake with worse consequences —
      * "who did we sell this handset to?" is where a warranty claim, a return and a police enquiry all start.
      */
+    /**
+     * PR-2 — what the markup rule suggests for a product at a purchase cost → business-service {@code /suggestedPrice}.
+     * The purchase form asks here instead of doing the arithmetic, so the screen and Auto cannot disagree. Numbers
+     * are parsed before they reach the downstream query, never pasted in as text.
+     */
+    @RequestMapping(value = "/suggestedPrice", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> suggestedPrice(@org.springframework.web.bind.annotation.RequestParam("productId") Long productId,
+                                              @org.springframework.web.bind.annotation.RequestParam(name = "cost", required = false) java.math.BigDecimal cost) {
+        try {
+            return client.get("/suggestedPrice", "productId=" + productId + (cost == null ? "" : "&cost=" + cost.toPlainString()));
+        } catch (Exception e) {
+            LOGGER.error("suggestedPrice proxy error", e);
+            return ProxyErrors.statusError(e);
+        }
+    }
+
     @RequestMapping(value = "/serialUnits", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> serialUnits(final HttpServletRequest request) {

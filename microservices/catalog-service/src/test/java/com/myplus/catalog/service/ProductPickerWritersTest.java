@@ -71,7 +71,7 @@ class ProductPickerWritersTest {
     void setUp() {
         TestTenant.authenticate(ORG, USER);
         service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache);
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
     }
 
     @AfterEach
@@ -209,6 +209,7 @@ class ProductPickerWritersTest {
         ProductImportSpec spec = new ProductImportSpec();
         ReflectionTestUtils.setField(spec, "productRepository", productRepository);
         ReflectionTestUtils.setField(spec, "events", events);
+        ReflectionTestUtils.setField(spec, "priceHistory", org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));   // PR-1
         when(productRepository.saveAll(any())).thenAnswer(i -> i.getArgument(0));
 
         assertThat(spec.persist(List.of(product(ORG)))).isEqualTo(1);

@@ -2,13 +2,12 @@ package com.myplus.business_service.config;
 
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
-import com.myplus.business_service.util.AppUtil;
 
 /**
+ * MS-6 — now TEST-ONLY: the frozen oracle MapStructOracleTest characterizes the MapStruct mappers against. Not a Spring
+ * configuration any more (production has no ModelMapper). Below, the MM-1 description as it was.
+ *
  * MM-1 — every ModelMapper in business-service, configured ONCE here and only mapped with afterwards.
  * Design: microservices/docs/slices/mm-1-mapper-profiles.md.
  *
@@ -23,7 +22,6 @@ import com.myplus.business_service.util.AppUtil;
  * fields STANDARD matches (nested {@code stock.*}, {@code Customer.getId()} → {@code customerId}), which is why
  * {@code refactor/modelmapper-typemaps} was not merged.
  */
-@Configuration
 public class MapperProfiles {
 
     public static final String DISPLAY = "displayMapper";
@@ -31,15 +29,12 @@ public class MapperProfiles {
     public static final String PURCHASE_INPUT = "purchaseInputMapper";
 
     /** STANDARD, no converters: Company, ItemType, ItemUnit, Store, Vender. */
-    @Bean
-    @Primary
     public ModelMapper modelMapper() {
         return new ModelMapper();
     }
 
     /** STANDARD + LocalDate/LocalDateTime → "dd-MM-yyyy[ HH:mm:ss]": the Customer and Purchase screens. */
-    @Bean(DISPLAY)
-    public ModelMapper displayMapper(AppUtil appUtil) {
+    public ModelMapper displayMapper(LegacyConverters appUtil) {
         ModelMapper m = new ModelMapper();
         m.addConverter(appUtil.localDateToString);
         m.addConverter(appUtil.localDateTimeToString);
@@ -47,8 +42,7 @@ public class MapperProfiles {
     }
 
     /** STRICT + the same display converters: the sale screens (SellController was STRICT on its own). */
-    @Bean(SALE_DISPLAY)
-    public ModelMapper saleDisplayMapper(AppUtil appUtil) {
+    public ModelMapper saleDisplayMapper(LegacyConverters appUtil) {
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         m.addConverter(appUtil.localDateTimeToString);
@@ -57,8 +51,7 @@ public class MapperProfiles {
     }
 
     /** STANDARD + "dd-MM-yyyy[ HH:mm:ss]" → LocalDate/LocalDateTime, blank → null: a purchase being saved. */
-    @Bean(PURCHASE_INPUT)
-    public ModelMapper purchaseInputMapper(AppUtil appUtil) {
+    public ModelMapper purchaseInputMapper(LegacyConverters appUtil) {
         ModelMapper m = new ModelMapper();
         m.addConverter(appUtil.stringToLocalDateTimeIgnoreEmptyOrNull);
         m.addConverter(appUtil.stringToLocalDateIgnoreEmptyOrNull);

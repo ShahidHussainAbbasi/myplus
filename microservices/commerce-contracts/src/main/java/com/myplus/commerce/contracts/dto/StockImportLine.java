@@ -32,4 +32,7 @@ public class StockImportLine {
      * <p>Null for every ordinary delivery, where rate x quantity IS the total and always was.
      */
     private BigDecimal paidTotal;
+
+    /** PR-3b — the price THIS batch sells at (per-batch selling). Null = the product's price, as before. */
+    private BigDecimal sellPrice;
 }

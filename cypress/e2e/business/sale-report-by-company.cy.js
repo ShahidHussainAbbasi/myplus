@@ -35,6 +35,9 @@ function openReport() {
 describe('#18 — sale report by company', () => {
   beforeEach(() => {
     cy.loginAsOwner(OWNER)
+    // SEED, never assume: "the month has sales" went red on a fresh database (verify sweep 2026-10-05) — a full
+    // return deletes the sale line by design, so an earlier spec can leave this tenant with none.
+    cy.ensureSale()
   })
 
   it('⭐ the report rows carry the manufacturer', () => {

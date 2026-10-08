@@ -10,5 +10,7 @@ public class CategoryDTO {
     private String name;
     private String description;
     private Long parentId;
+    /** PR-2b — read-only here; set through PUT /categories/{id}/markup (owner/admin). */
+    private java.math.BigDecimal markupPct;
     private List<CategoryDTO> children;
 }

@@ -151,8 +151,7 @@ public class PurchaseController {
 							objs.stream().map(Purchase::getPurchaseId)
 									.filter(java.util.Objects::nonNull).toList());
 
-			// PERF-10: registered ONCE, not once per row — addConverter drops the mapper's type cache,
-			// so calling it inside the loop made every row rebuild what the row before it had just built.
+			// PERF-10 → MS-3: the mapper is generated at build time; nothing is configured per request or per row.
 
 			List<PurchaseDTO> dtos=new ArrayList<PurchaseDTO>();
 			objs.forEach(o ->{

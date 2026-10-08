@@ -105,7 +105,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <p>Step-by-step manual tests for every slice of Expense Management and of the supplier payables that now live in finance, for every business type and every login tier. Each case says who to log in as, what to do, what you should see, and which real mistake it catches. Tick the results as you go; your ticks stay in this browser only.</p>
     <div class="meta">
       <span>Branch <b>feature/expense-management</b></span>
-      <span>Updated 3 Oct 2026, 16:10</span>
+      <span>Updated 5 Oct 2026</span>
       <span>Password for every test login: <b class="mono" style="color:inherit">Demo@2025!</b></span>
     </div>
   </div>
@@ -133,7 +133,9 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#fp4c">FP-4c · Balances and credit limit</a></li>
       <li><a href="#fp5a">FP-5a · Payments land once</a></li>
       <li><a href="#fp5b">FP-5b · One Pay for both</a></li>
+      <li><a href="#fp6a">FP-6a · The daily check</a></li>
       <li><a href="#tz2">TZ-2 · Your day, any hour</a></li>
+      <li><a href="#review">Review · 5 Oct</a></li>
       <li><a href="#findings">Defects found</a></li>
       <li><a href="#auto">Automated gates</a></li>
       <li><a href="#next">Coming next</a></li>
@@ -169,6 +171,8 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>FP-4c</b></td><td>Supplier list, purchase screen and credit limit count expense bills; advances shown; Pay still settles purchases</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">68 + 408</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 37 regression</span></td></tr>
             <tr><td><b>FP-5a</b></td><td>Every payment reaches the books exactly once, even when finance is briefly down (supplier payments, customer receipts, school fees)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">69 + 418 + 236</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 31 regression</span></td></tr>
             <tr><td><b>FP-5b</b></td><td>One Pay Supplier settles purchases and expense bills together, oldest first</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">27 + 419 + 72</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + regressions</span></td></tr>
+            <tr><td><b>FP-6a</b></td><td>Every business, every night and after every deploy: supplier payables checked automatically (business ⇄ finance ⇄ ledger), repaired automatically, and recorded; 28 clean days retire business as the source</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">453 + 78</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 129 regression</span></td></tr>
+            <tr><td><b>FP-6a</b></td><td>Every business’s supplier figures and books are checked automatically every day; a difference is repaired by itself and recorded</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">finance 78 · expense 27</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">see the review</span></td></tr>
             <tr><td><b>TZ-2</b></td><td>“Today” is the browser’s day in every service and screen; a build check stops the old way coming back</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">1,779 · 0 new</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 84 regression</span></td></tr>
             <tr><td>EX-5</td><td>Receipt photos and PDFs attached to an expense</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-6 / 7</td><td>Staff expense claims, approval, reimbursement and advances</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
@@ -185,7 +189,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <div class="facts">
         <div class="fact"><b>Open the app</b><code>http://localhost:8080</code></div>
         <div class="fact"><b>Password</b>Every test login uses <code>Demo@2025!</code></div>
-        <div class="fact"><b>Everything up to FP-5a is live</b>3 Oct, 15:27: auth, expense (V5), finance (V13), business (V76), education (V31), the gateway and the monolith run this branch</div>
+        <div class="fact"><b>Everything up to FP-6a is live</b>5 Oct: auth, expense (V5), finance (V13), business (V79), education (V31), welfare, agriculture, the gateway and the monolith run this branch. The recording ran on that stack.</div>
         <div class="fact"><b>Platform operator</b><code>admin@myplus.com</code> with password <code>Admin@2025!</code> (dev default)</div>
         <div class="fact"><b>Supplier figures switch</b>Every business reads supplier figures from <b>business</b> until the operator switches it (FP-4b). Switch back when you are done.</div>
       </div>
@@ -497,6 +501,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> the module showing for a business that switched it off, or a switch that silently rewrites the books.</div>
         </div>
       </div>
+      <div class="case" data-case="1-8">
+        <div class="case-head"><span class="cid">1-8</span><h3>A refused expense says why at once, and goes to the books once the period is reopened</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>owner.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Finance → Period Close: close the books through yesterday.</li><li>Record Rent 5 dated yesterday.</li><li>Post again; reopen; Post again.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Not posted within seconds, with the reason on the row; refused again while closed; In the books once reopened — once.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a refusal retried for minutes and then shown as “Something went wrong”, with no way to send it again.</div>
+        </div>
+      </div>
     </section>
 
 
@@ -783,6 +798,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Owner Business: <b>Difference 0.00</b>; <b>Read from finance</b> is enabled; <b>Finance vs GL 2000</b> shown.</span></label></li><li><label><input type="checkbox"><span>Demo BUSINESS: <b>Difference 100.00</b> highlighted; <b>Read from finance</b> is disabled.</span></label></li><li><label><input type="checkbox"><span>Where Finance vs GL 2000 is not zero, a yellow warning explains it does not block the switch.</span></label></li></ul></div>
           </div>
           <div class="why"><b>Catches:</b> switching a business whose two sets of figures disagree, so its reports change numbers overnight.</div>
+          <div class="note"><b>Not recorded on 5 Oct.</b> The refusal half needs a business whose supplier figures disagree. The recording borrowed the demo business’s old difference of 100; a freshly built database has none, and the daily check (FP-6a) now repairs such differences by itself. Until the case makes its own disagreement, check it by hand on a business the operator panel shows with a non-zero <b>Difference</b>.</div>
         </div>
       </div>
       <div class="case" data-case="4b-3">
@@ -917,6 +933,56 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── FP-6a ───────────────────────── -->
+    <section class="sec" id="fp6a">
+      <h2>FP-6a · The automatic daily check</h2>
+      <p>Every business is checked by itself, every night at 03:30 (Karachi) and 10 minutes after every start: business’s supplier figures against finance’s supplier documents, and those against the books’ <b>2000 Accounts Payable</b>. A difference is repaired automatically — documents re-sent, then the books aligned against <b>2990 Payables Reconciliation Difference</b> — and the day is recorded. After <b>28 clean days in a row</b> a business can stop keeping its own payables (FP-6b). The operator sees the history; nobody has to press anything.</p>
+      <div class="case" data-case="6a-1">
+        <div class="case-head"><span class="cid">6a-1</span><h3>The operator sees every business checked automatically, every day</h3><span class="pill pill-info">Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Platform → Owner Lifecycle’s organization → Supplier balances → <b>Automatic check (daily)</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Clean days in a row, 28 required, and the last days each clean or repaired. No button.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a check that never ran, or a history that does not survive a restart.</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-2">
+        <div class="case-head"><span class="cid">6a-2</span><h3>A ledger difference no supplier document explains is repaired automatically, once</h3><span class="pill pill-info">Owner · Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Post a journal Dr 6900 / Cr 2000 77. Let the check run.</li><li>Open the operator panel and the trial balance.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Today “repaired: ledger aligned by 77.00”; streak 0; 2000 back; 2990 holds 77; balanced. A second run posts nothing.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> Accounts Payable that disagrees with what suppliers are owed, and a repair posted twice.</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-3">
+        <div class="case-head"><span class="cid">6a-3</span><h3>A purchase with no supplier is a cash purchase: it is paid in full</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>New Purchase, no vendor, P/U 220, Paid 200. Save.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Recorded as paid 220, owing nothing.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> money “owed to nobody” left in Accounts Payable (the cause found in the demo business).</div>
+        </div>
+      </div>
+      <div class="case" data-case="6a-4">
+        <div class="case-head"><span class="cid">6a-4</span><h3>A shop owner cannot read or run the check</h3><span class="pill pill-info">Owner</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Ask for the check’s history or a run as the owner.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Refused (403).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a platform repair tool reachable by a tenant.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── TZ-2 ───────────────────────── -->
     <section class="sec" id="tz2">
       <h2>TZ-2 · “Today” is your day, at any hour</h2>
@@ -945,6 +1011,35 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── review ───────────────────────── -->
+    <section class="card" id="review">
+      <h2>End-to-end review · 5 Oct 2026</h2>
+      <p class="muted">Every gate re-run on one freshly seeded stack with every service of this branch, the code read against the design, and the databases queried. Full write-up: <code>microservices/docs/expense-management-design.md</code> §11.</p>
+      <div class="facts">
+        <div class="fact"><b>Cypress gates</b>14 specs · 78 cases · <b>77 pass</b></div>
+        <div class="fact"><b>Unit tests</b>expense 27/27 · finance 78/78 · 0 skipped</div>
+        <div class="fact"><b>The one red</b>fp-4b case 2 borrows old demo drift a fresh database does not have — the spec's fault</div>
+      </div>
+      <h3>What to fix next</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>Finding</th><th>Severity</th></tr></thead>
+          <tbody>
+            <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) can never be retried; the row only says “Not posted”. The only way out is void and re-record, and the screen does not say so.</td><td><span class="pill pill-bad">High</span></td></tr>
+            <tr><td>E2</td><td>The school, welfare and farm dashboards record expenses into books they <b>cannot see</b>: no Profit &amp; Loss or Trial Balance screen there.</td><td><span class="pill pill-bad">High</span></td></tr>
+            <tr><td>E3</td><td>Welfare is told “each expense is posted to your books”, but welfare has no books yet.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E4</td><td>The Expenses list stops at 200 rows without saying so.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E5</td><td>The expense settings were never built (post limit for users, receipt rule, default “paid from”); how far back a date may go is fixed at 365 days.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E6</td><td>No screen to add or rename expense categories — every business has the 8 defaults.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E8</td><td>The store on an expense is not checked. Nothing reads it yet; it must be checked before reports by store.</td><td><span class="pill pill-todo">Low now</span></td></tr>
+            <tr><td>E9</td><td>One line per expense on screen; a split bill needs two expenses.</td><td><span class="pill pill-todo">Low</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>What holds</h3>
+      <p class="muted" style="margin:0">Every expense reaches the books exactly once (outbox, one key per posting); numbers have no gaps; another business’s expense is “not found”; a user sees only their own; till expenses and paid bills cannot be voided; the module stays off until a business switches it on.</p>
+    </section>
+
     <!-- ───────────────────────── findings ───────────────────────── -->
     <section class="card" id="findings">
       <h2>Defects found along the way</h2>
@@ -954,9 +1049,9 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <thead><tr><th>Where</th><th>What</th><th>Status</th></tr></thead>
           <tbody>
             <tr><td>Pay Supplier, Receive Payment, school fees</td><td>The payment is written to the books "best effort": if finance is down, the bills show paid but no voucher and no journal exist, and nothing goes back to fix it.</td><td><span class="pill pill-ok">Fixed · FP-5a</span></td></tr>
-            <tr><td>Orgs 20 and 41 (marketplace, Shahzad Mobile)</td><td>Both carry the same 288,000 purchase journal of 23 Aug, so the ledger's 2000 account disagrees with their supplier documents (org 41 by 313,200).</td><td><span class="pill pill-bad">Open · FP-4b-GL</span></td></tr>
+            <tr><td>Orgs 20 and 41 (marketplace, Shahzad Mobile)</td><td>Both carry the same 288,000 purchase journal of 23 Aug, so the ledger's 2000 account disagrees with their supplier documents (org 41 by 313,200).</td><td><span class="pill pill-ok">Fixed automatically · FP-6a (5 Oct)</span></td></tr>
             <tr><td>Every service (dates)</td><td>Containers run on UTC with no time zone set, so between midnight and 05:00 Pakistan time the server’s “today” is yesterday: an expense dated today is refused as “in the future”.</td><td><span class="pill pill-ok">Fixed · TZ-2</span></td></tr>
-            <tr><td>Demo BUSINESS (org 6)</td><td>One supplier carries a 100 balance with no bills behind it; its ledger 2000 differs by 10,865.50.</td><td><span class="pill pill-bad">Open</span></td></tr>
+            <tr><td>Demo BUSINESS (org 6)</td><td>One supplier carries a 100 balance with no bills behind it; its ledger 2000 differs by 10,865.50.</td><td><span class="pill pill-ok">Fixed automatically · FP-6a (5 Oct)</span></td></tr>
             <tr><td>Advances</td><td>Suppliers paid more than billed (org 6: 9,620; org 41: 25,200) were shown as 0. Now shown on finance figures (FP-4b/4c).</td><td><span class="pill pill-ok">Shown</span></td></tr>
           </tbody>
         </table>
@@ -998,6 +1093,9 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>LedgerOutboxIntegrationTest</code> (4, real MySQL)</td><td>Delivered after commit with its number; finance down → settlement commits, request waits, lands once; rollback sends nothing; one request per reference</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>finance/fp-5a-ledger-record.cy.js</code> (4)</td><td>Pay Supplier and Receive Payment move the books exactly once and replay the same number; a school fee reaches the books once</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>finance/fp-4c-balance-stamp.cy.js</code> (5)</td><td>Bills stamped on the supplier; total vs Pay figure; edit keeps it; credit limit refuses on FINANCE and allows on BUSINESS; on screen</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td><code>finance/fp-5b-mixed-settlement.cy.js</code> (5)</td><td>One Pay settles purchases and bills oldest first; one PV; the switch back is refused after a mixed payment</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td><code>finance/fp-6a-reconciliation.cy.js</code> (6)</td><td>A check records today; a planted 77 in GL 2000 is aligned once against 2990, books balanced; a second run posts nothing; history and streak; operator panel; owner refused</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
+            <tr><td>Re-run of all 14 specs, 5 Oct</td><td>Every gate above on one fresh stack. fp-4b case 2 red: it needs a tenant whose figures disagree and borrows old demo drift — the spec must make its own</td><td><span class="pill pill-warn">77/78</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -1008,16 +1106,16 @@ pre.cmd code{font-size:12px;color:var(--txt)}
 
     <!-- ───────────────────────── next ───────────────────────── -->
     <section class="card" id="next">
-      <h2>Coming next: FP-5, one way to pay a supplier</h2>
-      <p><b>FP-5a</b> makes every payment reach the books exactly once: the payment request is saved with the bills it settles, sent to finance after it commits, and retried if finance is down; finance recognises a repeat and answers with the first voucher. <b>FP-5b</b> lets one Pay Supplier settle purchases and expense bills together, oldest first. Manual cases are added here as each is built.</p>
+      <h2>Coming next</h2>
+      <p>First the review’s fixes (E1 “post again” for a failed expense; a Profit &amp; Loss on the school, welfare and farm dashboards; list paging; expense settings; a category screen). Then the programme: <b>EX-5</b> receipts, <b>EX-6/7</b> staff claims and reimbursement, <b>EX-8</b> reports, <b>EX-9</b> farm expenses onto this module, and <b>FP-6b/6c</b> — business stops keeping its own payables once a business has 28 clean days in a row.</p>
       <pre class="mermaid diagram">
 flowchart LR
-  A[Pay Supplier 1,000] --> B[Oldest open documents first: purchases and bills]
-  B --> C[Saved with the payment request, in one step]
-  C --> D{Finance reachable?}
-  D -- yes --> E[One PV voucher, one journal]
-  D -- not now --> F[Retried until it lands, never twice]
-  E --> G[Bill side told to Expenses]
+  A[Every night, every business] --> B{Supplier figures, documents and GL 2000 agree?}
+  B -- yes --> C[Clean day: streak +1]
+  B -- no --> D[Re-send documents, then align GL 2000 against 2990]
+  D --> E[Repaired day: streak back to 0]
+  C --> F{28 clean days?}
+  F -- yes --> G[FP-6b: finance becomes the only payables source]
       </pre>
     </section>
 
@@ -1046,6 +1144,8 @@ flowchart LR
             <tr><td>One Pay Supplier for purchases and bills</td><td>Business allocates, oldest first of any kind; one finance payment; the bill side reaches Expenses by outbox</td><td><span class="pill pill-ok">Decided</span></td></tr>
             <tr><td>Best-effort payment records</td><td>Fixed for supplier payments, customer receipts and school fees together (FP-5a)</td><td><span class="pill pill-ok">Decided</span></td></tr>
             <tr><td>Switching back after a mixed payment</td><td>Refused, with the reason shown to the operator</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>When does business stop keeping its own payables?</td><td>After <b>28</b> clean days in a row of the automatic daily check</td><td><span class="pill pill-ok">Decided</span></td></tr>
+            <tr><td>A business whose figures disagree</td><td>Fixed automatically, with no manual step, the same on dev and production: documents re-sent first, then the ledger aligned against 2990 Payables Reconciliation Difference</td><td><span class="pill pill-ok">Decided · built</span></td></tr>
           </tbody>
         </table>
       </div>

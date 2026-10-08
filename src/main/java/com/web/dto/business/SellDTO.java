@@ -92,6 +92,16 @@ public class SellDTO implements Serializable {
 	 */
 	private java.math.BigDecimal sellRate;
 
+	/**
+	 * PR-3c — the rate the till itself put in the box. Relayed for the same reason as {@code sellRate}: a field this
+	 * DTO lacks is dropped between the browser and business-service without any error. Equal to sellRate = not typed,
+	 * so a Per-batch shop prices the line from its batches.
+	 */
+	private java.math.BigDecimal autoRate;
+
+	/** PR-3c — the batch the cashier chose for this line (stock_entries id); null = FEFO. Relayed, never decided here. */
+	private Long stockEntryId;
+
 	private Float totalAmount=0.0F;
 
 	private Float netAmount=0.0F;

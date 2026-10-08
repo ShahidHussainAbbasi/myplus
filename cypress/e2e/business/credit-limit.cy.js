@@ -284,12 +284,9 @@ describe('B2B P1 — credit limit & payment terms (#9)', () => {
 
   describe('supplier side (#9 says customer/supplier)', () => {
 
-    const companyId = () =>
-      cy.request('/getUserCompany').then((r) => {
-        const found = list(r.body)
-        expect(found.length, 'a company exists for the vendor to belong to').to.be.greaterThan(0)
-        return cy.wrap(found[0].id)
-      })
+    // SEED, never assume (verify sweep 2026-10-05): on a fresh database owner.business@ has no company, and this asserted
+    // one existed. cy.ensureCompany() makes one through the Company form's own request when there is none.
+    const companyId = () => cy.ensureCompany()
 
     it('a purchase past the supplier limit asks for confirmation, then records once acknowledged', () => {
       setConfig('pos.purchase.creditLimitPolicy', 'warn')

@@ -23,8 +23,8 @@ import jakarta.servlet.http.HttpServletRequest;
  * nothing on screen suggested.
  *
  * <p>Now: {@code 401 {success:false, code:"SESSION_EXPIRED", message:…}}, and the HTTP session is invalidated
- * on the way out so the next request starts clean. {@code ajax-overlay.js}'s global {@code ajaxError} hook
- * reads the code and sends the page to {@code /login}.
+ * on the way out so the next request starts clean. main.js's global {@code ajaxError} hook (SESS-2) reads the
+ * code and sends the page to {@code /login}. (This said ajax-overlay.js did; nothing there ever read it.)
  *
  * <h3>⚠ @Order is LOAD-BEARING — without it this never runs</h3>
  * {@code RestResponseEntityExceptionHandler} declares {@code @ExceptionHandler(Exception.class)}, and

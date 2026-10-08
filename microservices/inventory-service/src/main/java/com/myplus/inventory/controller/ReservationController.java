@@ -28,6 +28,15 @@ public class ReservationController {
         return reservationService.reserve(request, CurrentUser.organizationId(), CurrentUser.userId());
     }
 
+    /**
+     * PR-3c — the batches a reserve would take now, holding nothing (status PLANNED). The Per-batch sale prices
+     * its lines from this answer and then reserves exactly these batches, pinned.
+     */
+    @PostMapping("/plan")
+    public StockReservationResponse plan(@RequestBody StockReservationRequest request) {
+        return reservationService.plan(request, CurrentUser.organizationId(), CurrentUser.userId());
+    }
+
     @PostMapping("/{reservationId}/confirm")
     public StockReservationResponse confirm(@PathVariable String reservationId) {
         return reservationService.confirm(reservationId, CurrentUser.organizationId(), CurrentUser.userId());

@@ -27,7 +27,6 @@ import com.myplus.business_service.entity.Sell;
 
 import com.myplus.business_service.dto.CustomerHistoryDTO;
 import com.myplus.business_service.util.AppUtil;
-import com.myplus.business_service.util.ObjectMapperUtils;
 import com.myplus.business_service.util.RequestUtil;
 
 @Service
@@ -187,6 +186,9 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		return CustomerHistoryRepo.findByUserIdAndDateRange(userId, sd, ed);
 	}
 
+	@org.springframework.beans.factory.annotation.Autowired
+	com.myplus.business_service.mapper.SaleHeaderMapper saleHeaderMapper;   // MS-6 (was ObjectMapperUtils)
+
 	public CustomerHistory saveUpdateCustomerHistory(CustomerHistoryDTO dto) {
 		CustomerHistory customerHistoryObj = dto.getCustomer_history_id() != null ? this.getReferenceById(dto.getCustomer_history_id()) : new CustomerHistory();
 
@@ -195,7 +197,7 @@ public class CustomerHistoryService implements ICustomerHistoryService {
 		}
 		
 		AuthenticatedUser user = requestUtil.getCurrentUser();
-		customerHistoryObj = ObjectMapperUtils.map(dto.getCustomer(), CustomerHistory.class);
+		customerHistoryObj = saleHeaderMapper.fromCustomer(dto.getCustomer());   // MS-6: compile-time, oracle-tested
 		customerHistoryObj.setUserId(user.getUserId());                       // audit
 		customerHistoryObj.setOrganizationId(user.getOrganizationId());       // tenant scope
 		customerHistoryObj.setDated(LocalDateTime.now());

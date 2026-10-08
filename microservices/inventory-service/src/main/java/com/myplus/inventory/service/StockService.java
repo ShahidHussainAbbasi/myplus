@@ -286,6 +286,17 @@ public class StockService {
      *  StockLevel-vs-batch drift. Guarded: a batch can't drop below what's already reserved/sold. Returns new on-hand. */
     @Transactional
     public Float reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust adj) {
+        /*
+         * PR-3b — re-price the purchase's OWN batch, found by its id (a batch number is optional and often blank).
+         * Before the delta, and whatever the delta: an edit that only corrects the S/U rate has a delta of 0, which
+         * applyStockDelta returns on at once. Scoped: another tenant's id is not found, never written.
+         */
+        if (adj.getStockEntryId() != null && adj.getSellPrice() != null && adj.getSellPrice().signum() > 0) {
+            stockEntryRepository.findById(adj.getStockEntryId())
+                    .filter(e -> java.util.Objects.equals(e.getOrganizationId(), CurrentUser.organizationId())
+                            && java.util.Objects.equals(e.getProductId(), adj.getProductId()))
+                    .ifPresent(e -> { e.setSellPrice(adj.getSellPrice()); stockEntryRepository.save(e); });
+        }
         return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
                 adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId()));
     }
@@ -424,7 +435,7 @@ public class StockService {
             if (paid == null && e.getPurchasePrice() != null && e.getQuantity() != null)
                 paid = e.getPurchasePrice().multiply(e.getQuantity());
             out.add(new StockBatch(productId, e.getBatchNo(), e.getExpiryDate(), available,
-                    e.getPurchasePrice(), paid));
+                    e.getPurchasePrice(), paid, e.getId(), e.getSellPrice()));   // PR-3b: id + its own price
         }
         return out;
     }

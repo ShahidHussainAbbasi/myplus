@@ -194,6 +194,37 @@ function handleAjaxFailure(jqXHR, errorThrown, what) {
         + (status ? ' (' + status + ')' : ''));
 }
 
+/*
+ * SESS-2 — ANY request that finds the session ended takes the person to the login page.
+ *
+ * Only 17 call sites route their failures through handleAjaxFailure; every other $.ajax/$.get has its own error
+ * handler, or none. The server answers a script on a dead session with 401 {code:"SESSION_EXPIRED"}
+ * (XhrAwareInvalidSessionStrategy; SESS-1's advice for a dead downstream token) — and hands the browser a FRESH,
+ * signed-out session, so every request after that one is answered with the LOGIN page instead.
+ *
+ * ⚠ A PREFILTER, not $(document).ajaxError. On a real dashboard the first request to meet a dead session is usually a
+ * background read (tiles, pickers: global:false), which global events never see. The first fix was an ajaxError hook:
+ * the background read swallowed the 401, and the person's click then got the login page where it asked for JSON —
+ * "parsererror" again (found by the Test Book walk, verify sweep 2026-10-05). A prefilter runs for EVERY request.
+ *
+ * Deliberately narrow: only the two shapes that mean the session is gone. An ordinary 401 or 403 refusal is left to
+ * its caller.
+ */
+$.ajaxPrefilter(function (options, original, jqXHR) {
+    jqXHR.fail(function (x) {
+        var body = (x && typeof x.responseText === 'string') ? x.responseText : '';
+        var ended = (x && x.status === 401 && /"code"\s*:\s*"SESSION_EXPIRED"/.test(body))
+            || /name="username"|id="loginSubmit"/.test(body);
+        if (ended && !window.__sessionEndedRedirect) {
+            window.__sessionEndedRedirect = true;     // one redirect, however many requests were in flight
+            // The sentence for BOTH shapes. handleAjaxFailure substitutes it only for the SESSION_EXPIRED code; for the
+            // login-page shape it would pass this note through as given, and an empty one put a blank banner on Sign in.
+            handleAjaxFailure(x, (typeof t === 'function' && t('ui.js.sessionEnded'))
+                || 'Your session has ended. Sign in again.', null);
+        }
+    });
+});
+
 // Fixed, dismissable error toast — always visible, stacks above the CRUD modal overlay (z-index 1050).
 function showErrorToast(msg) {
     var el = document.getElementById('formErrorToast');
@@ -662,6 +693,10 @@ $(document).ready(function() {
 						// server records ONE invoice. Reset only after a successful sale (see jsonPost).
 						customerHistory.idempotencyKey = getSaleIdempotencyKey();
 
+						// PR-3c: a Per-batch shop re-checks the whole cart against the batches first. If the batches
+						// change a price, the cart is updated and shown, and nothing is posted until Complete again.
+						var postSale = function () {
+
 						/*
 						 * CONFIRM HERE — after validation, immediately before the post.
 						 *
@@ -705,6 +740,9 @@ $(document).ready(function() {
 						} else {
 							jsonPost("addSell", customerHistory);
 						}
+						};
+						if (window.PerBatchTill && PerBatchTill.enabled()) PerBatchTill.beforeComplete(customerHistory, postSale);
+						else postSale();
 					}
 			    }else{
 					/*

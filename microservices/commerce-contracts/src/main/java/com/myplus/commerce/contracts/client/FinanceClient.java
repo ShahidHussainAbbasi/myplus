@@ -68,6 +68,13 @@ public interface FinanceClient {
     @GetExchange("/api/finance/payables/reconciliation")
     java.util.Map<String, Object> payablesReconciliation();
 
+    /**
+     * FP-6a — align GL 2000 to the supplier ledger for the caller's tenant: finance computes the difference itself and
+     * posts ONE journal against 2990. Idempotent per ledger state (account 2000's newest line); runKey labels it. {@code /internal/**}: no gateway route reaches it.
+     */
+    @PostExchange("/internal/finance/payables/align-ledger")
+    java.util.Map<String, Object> alignPayablesLedger(@RequestParam("runKey") String runKey);
+
     /** FP-4b — supplier aging {rows: [PartyAgingDTO-shaped], advances: [{partyId, partyName, advance}]}. */
     @GetExchange("/api/finance/payables/aging")
     java.util.Map<String, Object> payablesAging();

@@ -40,6 +40,7 @@ public class StockImportService {
      */
     @Transactional
     public StockImportResult importStock(List<StockImportLine> lines, Long orgId, Long userId) {
+        java.util.List<Long> entryIds = new java.util.ArrayList<>();   // PR-3b
         int created = 0;
         Map<Long, BigDecimal> onHand = new LinkedHashMap<>();
         for (StockImportLine l : lines) {
@@ -69,10 +70,12 @@ public class StockImportService {
                     .receivedQuantity(add)
                     .productId(l.getProductId()).quantity(add).reservedQuantity(BigDecimal.ZERO)
                     .batchNo(l.getBatchNo()).expiryDate(l.getExpiryDate()).purchasePrice(l.getPurchasePrice())
+                    .sellPrice(l.getSellPrice() != null && l.getSellPrice().signum() > 0 ? l.getSellPrice() : null)   // PR-3b
                     .organizationId(orgId).userId(userId).build();
             stockEntryRepository.save(entry);
+            entryIds.add(entry.getId());   // PR-3b: the caller keeps the id of the batch it booked in
             created++;
         }
-        return StockImportResult.builder().created(created).onHand(onHand).build();
+        return StockImportResult.builder().created(created).onHand(onHand).entryIds(entryIds).build();
     }
 }

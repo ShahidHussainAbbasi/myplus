@@ -52,6 +52,24 @@
 		return '<span class="label label-warning" title="' + esc(v.postingError || '') + '">' + esc(tr('ui.js.expPosting', 'Posting…')) + '</span>';
 	}
 
+	/**
+	 * EX-1b — what the books refused, in their own words, and the way out. Shown on the row (a tooltip hid it): a
+	 * refused posting, or a void whose reversal has not reached the books. Post again re-sends the same posting — after
+	 * the cause is fixed (a period reopened) it lands, and it can never be booked twice.
+	 */
+	function refusal(v) {
+		var refused = (v.status === 'POSTED' && v.postingStatus === 'FAILED') || (v.status === 'VOIDED' && v.postingError);
+		if (!refused) return '';
+		return '<div class="text-danger" data-cy="expense-posting-error" style="font-size:12px;margin-top:3px;white-space:normal">'
+			+ esc(v.postingError || tr('ui.js.expNotPostedWhy', 'The books did not take it.')) + '</div>'
+			+ '<button type="button" class="btn btn-xs btn-warning" data-cy="post-again" data-id="' + esc(v.id) + '" style="margin-top:3px">'
+			+ esc(tr('ui.js.expPostAgain', 'Post again')) + '</button>'
+			+ (v.status === 'POSTED'
+				? '<div class="text-muted" style="font-size:11.5px;white-space:normal">' + esc(tr('ui.js.expPostAgainHint',
+					'Fix the cause first — reopen the period in Finance → Period Close — or void it and record it again in an open period.')) + '</div>'
+				: '');
+	}
+
 	var canVoid = false;
 
 	/**
@@ -84,7 +102,7 @@
 				: v.paidFrom === 'AP' ? tr('ui.js.expBill', 'Bill') : tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
-			+ '<td class="exp-chip">' + chip(v) + billState(v) + '</td>';
+			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + '</td>';
 		if (canVoid) {
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
 			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
@@ -335,6 +353,29 @@
 	$(document).on('click', '#tableExpense [data-cy="pay-bill"]', function () {
 		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'));
 	});
+	// EX-1b — only the pressed button shows it is working (§0c); the row is redrawn from the server's answer.
+	$(document).on('click', '#tableExpense [data-cy="post-again"]', function () {
+		var $b = $(this), id = $b.attr('data-id'), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSendingAgain', 'Sending…'));
+		$.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(id) + '/post-again', type: 'POST', dataType: 'json' })
+			.done(function (res) {
+				if (!res || res.success !== true) {
+					$b.prop('disabled', false).html(label);
+					msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
+					return;
+				}
+				var $tr = $b.closest('tr');
+				if (res.data) $tr.replaceWith(row(res.data));
+				msg(tr('ui.js.expSentAgain', 'Sent to the books again.'), 'ok');
+				watch(id, 15);
+			})
+			.fail(function (xhr) {
+				$b.prop('disabled', false).html(label);
+				msg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			});
+	});
+
 	$(document).on('click', '#tableExpense [data-cy="void-expense"]', function () {
 		expenseVoid($(this).attr('data-id'), $(this).attr('data-no'));
 	});

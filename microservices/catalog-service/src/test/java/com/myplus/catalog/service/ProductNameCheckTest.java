@@ -49,7 +49,7 @@ class ProductNameCheckTest {
     @BeforeEach
     void setUp() {
         service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache);
+                refsCache, org.mockito.Mockito.mock(com.myplus.catalog.repository.ProductPriceHistoryRepository.class));
         // No authentication in the context: CurrentUser then yields null org/user, which is fine here —
         // these tests assert what the SERVICE does with the repository's answer, and the scoping itself is
         // proven against a real dialect in ProductRepoScopingTest.

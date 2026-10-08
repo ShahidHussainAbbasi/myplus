@@ -1,5 +1,8 @@
 package com.myplus.business_service.config;
 
+import com.myplus.business_service.service.PurchaseService;
+import com.myplus.business_service.service.pricing.MarkupCalculator;
+import com.myplus.business_service.service.pricing.MarkupPolicy;
 import com.myplus.common.settings.SettingEntry;
 import com.myplus.common.settings.SettingsCatalogProvider;
 import org.springframework.stereotype.Component;
@@ -713,6 +716,68 @@ public class BusinessSettingsCatalog implements SettingsCatalogProvider {
                         List.of(new SettingEntry.Option("off", "Off — no check"),
                                 new SettingEntry.Option("warn", "Warn (default) — ask before recording"),
                                 new SettingEntry.Option("block", "Block — refuse the purchase"))),
+                // PR-1 — does a purchase move the product's selling price? Default LATEST = today's behaviour, so no
+                // existing tenant sees a change. Settings writes are owner/admin only (SettingsController).
+                SettingEntry.select(PurchaseService.PRICE_MODE_KEY,
+                        "How a purchase affects the selling price",
+                        "Latest (default): the sell rate on a purchase becomes the product's selling price, for "
+                                + "every unit in stock. Keep: a purchase never changes the selling price — only "
+                                + "the last purchase rate is updated, and you change the price yourself on the "
+                                + "product. Per batch: the sell rate belongs to that purchase's stock only; older "
+                                + "stock keeps its own price, and stock with none sells at the product's price. "
+                                + "Every change to the product's price is kept in its price history.",
+                        PurchaseService.PRICE_MODE_LATEST, "Purchasing",
+                        List.of(new SettingEntry.Option(PurchaseService.PRICE_MODE_LATEST,
+                                        "Latest (default) — the purchase's sell rate becomes the price"),
+                                new SettingEntry.Option(PurchaseService.PRICE_MODE_KEEP,
+                                        "Keep — a purchase never changes the selling price"),
+                                // PR-3b — each purchase's stock sells at that purchase's price (pharmacy MRP, old stock).
+                                new SettingEntry.Option(PurchaseService.PRICE_MODE_PER_BATCH,
+                                        "Per batch — each purchase's stock sells at its own price"))),
+                // PR-2 — the markup rule: a selling price suggested (or, in Auto, set) from what a purchase cost.
+                // No default % (decision 4): 0 means "no rule", so nothing is suggested until the owner sets one.
+                SettingEntry.select(MarkupPolicy.MODE_KEY,
+                        "Price from the purchase cost (markup rule)",
+                        "Suggest (default): the purchase form suggests a selling price from the cost and your markup, "
+                                + "with a button to use it. Auto: saving a purchase sets the selling price by the rule "
+                                + "(never when purchases keep prices, never lower, and not past the rise limit below; a change "
+                                + "those hold back waits in Purchase → Price approvals). Approval: a purchase never changes the "
+                                + "price itself — the price it would set waits for an owner or admin to approve it. "
+                                + "Off: no suggestion. Nothing happens until a markup % is set (Approval also queues the bill's "
+                                + "sell rate when there is no %).",
+                        MarkupPolicy.SUGGEST, "Purchasing",
+                        List.of(new SettingEntry.Option(MarkupPolicy.OFF, "Off"),
+                                new SettingEntry.Option(MarkupPolicy.SUGGEST, "Suggest (default) — show it, you decide"),
+                                new SettingEntry.Option(MarkupPolicy.AUTO, "Auto — saving a purchase sets the price"),
+                                new SettingEntry.Option(MarkupPolicy.APPROVAL, "Approval — each new price waits for you"))),
+                SettingEntry.money(MarkupPolicy.PCT_KEY,
+                        "Markup %",
+                        "The percentage for every product that has no markup of its own (set one on the product to "
+                                + "override). 0 = no rule.",
+                        "0", "Purchasing"),
+                SettingEntry.select(MarkupPolicy.BASIS_KEY,
+                        "The markup % is",
+                        "On cost: 14.5% on a cost of 100 is 114.50. Of the price (margin): 14.5% of the price on a "
+                                + "cost of 100 is 116.96. Shops mean different things by \"14.5%\" — pick yours.",
+                        MarkupCalculator.MARKUP, "Purchasing",
+                        List.of(new SettingEntry.Option(MarkupCalculator.MARKUP, "On cost (markup) — 100 → 114.50 at 14.5%"),
+                                new SettingEntry.Option(MarkupCalculator.MARGIN, "Of the price (margin) — 100 → 116.96 at 14.5%"))),
+                SettingEntry.select(MarkupPolicy.ROUNDING_KEY,
+                        "Round the suggested price",
+                        "Exact: to the paisa. Up to the next rupee: never below the rule. Nearest 5 / 10: a shelf price.",
+                        MarkupCalculator.EXACT, "Purchasing",
+                        List.of(new SettingEntry.Option(MarkupCalculator.EXACT, "Exact"),
+                                new SettingEntry.Option(MarkupCalculator.UP1, "Up to the next rupee"),
+                                new SettingEntry.Option(MarkupCalculator.NEAR5, "Nearest 5"),
+                                new SettingEntry.Option(MarkupCalculator.NEAR10, "Nearest 10"))),
+                SettingEntry.bool(MarkupPolicy.NEVER_LOWER_KEY,
+                        "Auto never lowers a price",
+                        "On (default): a cheaper purchase never brings the selling price down by itself.",
+                        true, "Purchasing"),
+                SettingEntry.intOf(MarkupPolicy.MAX_RISE_KEY,
+                        "Auto raises a price by at most (%)",
+                        "Above this rise the rule only suggests, and the price stays until you change it. 0 = no limit.",
+                        0, "Purchasing"),
                 // B2B-P0 (#13). OFF by default, deliberately: this prints on documents our customers hand to
                 // THEIR customers. Enabled for trial accounts, or by a paying customer's own choice.
                 SettingEntry.bool("pos.receipt.showPromo",

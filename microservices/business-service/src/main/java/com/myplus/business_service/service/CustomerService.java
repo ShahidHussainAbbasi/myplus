@@ -75,8 +75,6 @@ public class CustomerService implements ICustomerService{
 	@Autowired
 	com.myplus.common.subledger.SubledgerService subledgerService;   // shared AR/AP settlement
 
-	// @Autowired
-	// ObjectMapperUtils objectMapperUtils;
 
 	public List<Customer> findAll() {
 return customerRepo.findAll();

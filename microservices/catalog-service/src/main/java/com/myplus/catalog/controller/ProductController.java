@@ -330,8 +330,18 @@ public class ProductController {
     @PutMapping("/{id}/price")
     public ResponseEntity<ApiResponse<ProductDTO>> updatePrice(@PathVariable Long id,
                                                                @RequestParam(required = false) BigDecimal price,
-                                                               @RequestParam(required = false) BigDecimal purchaseRate) {
-        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price, purchaseRate), "Price updated"));
+                                                               @RequestParam(required = false) BigDecimal purchaseRate,
+                                                               @RequestParam(required = false) String ref,
+                                                               @RequestParam(required = false) String source) {
+        return ResponseEntity.ok(ApiResponse.success(productService.updatePrice(id, price, purchaseRate, ref, source), "Price updated"));
+    }
+
+    /** PR-1 — current prices + the price history (newest first). Scoped like every product read; owner/admin only,
+     *  because the answer carries the cost (last purchase rate) a cashier's screens never show. */
+    @GetMapping("/{id}/price-history")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> priceHistory(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(productService.priceHistory(id), "Price history"));
     }
 
     @PutMapping("/{id}/activate")

@@ -179,7 +179,8 @@ public class PayableService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> reconciliation() {
-        BigDecimal open = repo.sumOpen(CurrentUser.organizationId());
+        // FP-6a: NET of advances (an overpaid bill is part of what GL 2000 holds) — see PayableDocRepository#sumNet
+        BigDecimal open = repo.sumNet(CurrentUser.organizationId(), null);
         BigDecimal ap = BigDecimal.ZERO;
         @SuppressWarnings("unchecked")
         List<com.myplus.finance.dto.TrialBalanceRow> rows =
@@ -192,6 +193,7 @@ public class PayableService {
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("subledgerOpen", open);
+        out.put("purchaseNet", repo.sumNet(CurrentUser.organizationId(), "PURCHASE"));   // what business's purchases mirror
         out.put("glAccountsPayable", ap);
         out.put("difference", ap.subtract(open));
         return out;

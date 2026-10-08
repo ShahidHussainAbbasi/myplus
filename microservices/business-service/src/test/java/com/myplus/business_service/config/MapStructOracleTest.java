@@ -26,10 +26,7 @@ class MapStructOracleTest {
 
     static <S, T> void sameAsOracle(String what, ModelMapper oracle, Supplier<S> source, Class<T> target, Function<S, T> mapStruct) {
         compare(what, oracle, source, target, mapStruct);
-        // The empty run can include "now" (MS-F2: null dates display as the current time) — two clocks a second apart are
-        // not a difference, so a mismatch is retried ONCE; a real difference fails twice.
-        try { compare(what + " (empty source)", oracle, () -> emptyLike(source.get()), target, mapStruct); }
-        catch (AssertionError tickedOver) { compare(what + " (empty source)", oracle, () -> emptyLike(source.get()), target, mapStruct); }
+        compare(what + " (empty source)", oracle, () -> emptyLike(source.get()), target, mapStruct);
     }
 
     /** A fresh instance of the source's class, nothing set: how null fields map. */
@@ -45,7 +42,27 @@ class MapStructOracleTest {
         Object actual;
         try { actual = snapshot(mapStruct.apply(source.get()), 0); }
         catch (RuntimeException e) { actual = "THREW " + e; }
-        assertThat(actual).as("%s differs: %s", what, diff(expected, actual)).isEqualTo(expected);
+        assertThat(actual).as("%s differs: %s", what, diff(expected, actual)).isEqualTo(decided(expected, actual));
+    }
+
+    /**
+     * MS-F2 (user decision 2026-10-04): where the oracle shows "now" for a NULL dated/updated, MapStruct shows blank.
+     * Only these six fields, only null, and the oracle's side must really be a timestamp; anything else is still a
+     * difference.
+     */
+    static final java.util.Set<String> MS_F2 = java.util.Set.of("CustomerDTO.dated", "CustomerDTO.updated",
+            "PurchaseDTO.dated", "PurchaseDTO.updated", "SellDTO.dated", "SellDTO.updated");
+
+    @SuppressWarnings("unchecked")
+    static Object decided(Object expected, Object actual) {
+        if (!(expected instanceof java.util.Map<?, ?> e) || !(actual instanceof java.util.Map<?, ?> a)) return expected;
+        java.util.Map<Object, Object> out = new java.util.LinkedHashMap<>((java.util.Map<Object, Object>) e);
+        for (java.util.Map.Entry<?, ?> en : e.entrySet()) {
+            Object k = en.getKey(), x = en.getValue(), y = a.get(k);
+            if (MS_F2.contains(String.valueOf(k)) && y == null && x != null && String.valueOf(x).matches("\\d{2}-\\d{2}-\\d{4}.*")) out.put(k, null);
+            else if (x instanceof java.util.Map && y instanceof java.util.Map) out.put(k, decided(x, y));
+        }
+        return out;
     }
 
     /** Only the fields that differ: field = oracle → MapStruct. */
@@ -100,21 +117,21 @@ class MapStructOracleTest {
     @Test
     @DisplayName("MS-3: Customer both ways and Purchase → DTO equal the display profile (warm Customer / Purchase screens)")
     void displayPairs() {
-        com.myplus.business_service.util.AppUtil appUtil = new com.myplus.business_service.util.AppUtil();
+        LegacyConverters appUtil = new LegacyConverters();
         ModelMapper d = profiles.displayMapper(appUtil);
         CustomerMapperImpl c = new CustomerMapperImpl();
         PurchaseMapperImpl pu = new PurchaseMapperImpl();
         org.assertj.core.api.SoftAssertions soft = new org.assertj.core.api.SoftAssertions();
         soft.assertThatCode(() -> sameAsOracle("Customer→DTO", d, () -> fill(new Customer()), CustomerDTO.class, c::toDto)).doesNotThrowAnyException();
         soft.assertThatCode(() -> sameAsOracle("DTO→Customer", d, () -> fill(new CustomerDTO()), Customer.class, c::toEntity)).doesNotThrowAnyException();
-        soft.assertThatCode(() -> sameAsOracle("Purchase→DTO", d, () -> fill(new Purchase()), PurchaseDTO.class, pu::toDto)).doesNotThrowAnyException();
+        soft.assertThatCode(() -> sameAsOracle("Purchase→DTO", d, () -> withoutStockEntryId(fill(new Purchase())), PurchaseDTO.class, pu::toDto)).doesNotThrowAnyException();
         soft.assertAll();
     }
 
     @Test
     @DisplayName("MS-4: the sale screens — Sell (with its header and buyer), CustomerHistory, Customer — equal the STRICT profile")
     void saleScreens() {
-        ModelMapper strict = profiles.saleDisplayMapper(new com.myplus.business_service.util.AppUtil());
+        ModelMapper strict = profiles.saleDisplayMapper(new LegacyConverters());
         SaleScreenMapperImpl m = new SaleScreenMapperImpl();
         org.assertj.core.api.SoftAssertions soft = new org.assertj.core.api.SoftAssertions();
         soft.assertThatCode(() -> sameAsOracle("Sell→DTO", strict, () -> fill(new Sell()), SellDTO.class, (Sell x) -> m.toDto(x))).doesNotThrowAnyException();
@@ -126,7 +143,7 @@ class MapStructOracleTest {
     @Test
     @DisplayName("MS-5: a purchase being saved — PurchaseDTO → Purchase equals the purchaseInput profile (typed and blank dates)")
     void purchaseInput() {
-        ModelMapper in = profiles.purchaseInputMapper(new com.myplus.business_service.util.AppUtil());
+        ModelMapper in = profiles.purchaseInputMapper(new LegacyConverters());
         PurchaseInputMapperImpl m = new PurchaseInputMapperImpl();
         // The fixture really carries the posted stock.* values, and the oracle really leaves the entity's b* fields
         // empty — PurchaseService copies them from dto.getStock() itself — so "ignored" is the oracle's own answer,
@@ -158,5 +175,45 @@ class MapStructOracleTest {
     static Object nested(Object o, String field) {
         try { java.lang.reflect.Field f = o.getClass().getDeclaredField(field); f.setAccessible(true); return f.get(o); }
         catch (ReflectiveOperationException e) { return null; }
+    }
+
+    @Test
+    @DisplayName("⭐ MS-F2: a record with no time shows BLANK — the old mapper invented the current time")
+    void nullDatesAreBlank() {
+        LegacyConverters appUtil = new LegacyConverters();
+        PurchaseDTO oldWay = profiles.displayMapper(appUtil).map(new Purchase(), PurchaseDTO.class);
+        assertThat(oldWay.getUpdated()).as("the old mapper: a purchase with no updated time showed NOW").isNotNull();
+        PurchaseDTO p = new PurchaseMapperImpl().toDto(new Purchase());
+        assertThat(p.getDated()).isNull();
+        assertThat(p.getUpdated()).isNull();
+        CustomerDTO c = new CustomerMapperImpl().toDto(new Customer());
+        assertThat(c.getDated()).isNull();
+        assertThat(c.getUpdated()).isNull();
+        SellDTO s = new SaleScreenMapperImpl().toDto(new Sell());
+        assertThat(s.getDated()).isNull();
+        assertThat(s.getUpdated()).isNull();
+        // a time that IS recorded still shows, in the screen format
+        Purchase withTime = new Purchase();
+        withTime.setUpdated(java.time.LocalDateTime.of(2026, 10, 4, 9, 5, 7));
+        assertThat(new PurchaseMapperImpl().toDto(withTime).getUpdated()).isEqualTo("04-10-2026 09:05:07");
+    }
+
+    @Test
+    @DisplayName("MS-6: the sale header from the posted customer — equals ObjectMapperUtils' STRICT ModelMapper")
+    void saleHeader() {
+        ModelMapper strictPlain = new ModelMapper();
+        strictPlain.getConfiguration().setMatchingStrategy(org.modelmapper.convention.MatchingStrategies.STRICT);
+        sameAsOracle("CustomerDTO→CustomerHistory", strictPlain, () -> fill(new CustomerDTO()), CustomerHistory.class,
+                new SaleHeaderMapperImpl()::fromCustomer);
+    }
+
+    /**
+     * PR-3b — Purchase.stockEntryId is NEWER than the ModelMapper code this oracle stands for, so the old behaviour has
+     * no such field. Left filled, STANDARD matching fuzzes it onto PurchaseDTO.stock.stockId and invents a stock object
+     * the old screens never showed; MapStruct (production) rightly leaves stock null. Cleared here, not ignored there.
+     */
+    private static Purchase withoutStockEntryId(Purchase p) {
+        p.setStockEntryId(null);
+        return p;
     }
 }

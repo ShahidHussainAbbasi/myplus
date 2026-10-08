@@ -115,7 +115,7 @@ public class ItemTypeController {
 				dto.setUpdatedStr(appUtil.getDateStr(obj.getUpdated()));
 				dtos.add(dto);
 			});
-			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), objs);
+			return new GenericResponse("SUCCESS",messages.getMessage("message.userNotFound", null, request.getLocale()), dtos);   // MM-2: DTOs, never entities
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName() + " > getAllItem " + e.getCause(), e);
 			return new GenericResponse("ERROR", messages.getMessage("message.userNotFound", null, request.getLocale()),

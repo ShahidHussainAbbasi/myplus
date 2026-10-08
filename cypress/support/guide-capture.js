@@ -16,7 +16,7 @@
  *
  * Run one case: --env guideOnly=P2
  */
-export const guideCapture = ({ outDir, section }) => {
+export const guideCapture = ({ outDir, section, keepShots = false }) => {
   const ONLY = String(Cypress.env('guideOnly') || '').split(',').map((x) => x.trim()).filter(Boolean)
   let cur = null
 
@@ -39,8 +39,13 @@ export const guideCapture = ({ outDir, section }) => {
     const file = `${cur.id}-${pos}-${name}`
     a.shots.push(file)
     cur.shots.push(file)
-    return subject ? cy.get(subject).screenshot(file, { overwrite: true })
-                   : cy.screenshot(file, { capture: 'viewport', overwrite: true })
+    const shot = subject ? cy.get(subject).screenshot(file, { overwrite: true })
+                         : cy.screenshot(file, { capture: 'viewport', overwrite: true })
+    if (!keepShots) return shot
+    // keepShots: copy each picture next to the case JSON. cypress/screenshots is SHARED and any run with the default
+    // trashAssetsBeforeRuns wipes it (35 of 42 dual-role pictures vanished that way between capture and build).
+    return cy.readFile(`cypress/screenshots/${Cypress.spec.name}/${file}.png`, 'base64')
+      .then((b64) => cy.writeFile(`${outDir}/img/${file}.png`, b64, 'base64'))
   }
 
   /** afterEach: record the outcome and write the case — even a failed one, so the page can say so. */

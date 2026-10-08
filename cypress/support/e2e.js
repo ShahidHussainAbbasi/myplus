@@ -74,6 +74,30 @@ Cypress.Commands.overwrite('visit', (originalFn, ...args) => {
   })
 })
 
+// …and the same freeze from a hidden IFRAME's own print (verify sweep, 2026-10-05).
+//
+// The stub above replaces `print` on the TOP window only. Every document path — reprint from the returns
+// register, credit/debit notes, receipts — renders into a hidden iframe and calls
+// `frame.contentWindow.print()` (receipt.js `printWhenReady`), which is a DIFFERENT window object and was never
+// stubbed. `returns-list.cy.js` case 2 hung for 10+ minutes on it with no failure and no screenshot — the
+// signature described above. The getter is wrapped so every frame window handed out has a no-op print; the
+// flag is per window, so a frame that navigates (new window object) is neutralised again on first access.
+Cypress.on('window:before:load', (win) => {
+  const proto = win.HTMLIFrameElement && win.HTMLIFrameElement.prototype
+  const desc = proto && Object.getOwnPropertyDescriptor(proto, 'contentWindow')
+  if (!desc || !desc.get) return
+  Object.defineProperty(proto, 'contentWindow', {
+    configurable: true,
+    get() {
+      const cw = desc.get.call(this)
+      try {
+        if (cw && !cw.__cyNoPrint) { cw.print = function () {}; cw.__cyNoPrint = true }
+      } catch (e) { /* cross-origin frame: not ours, leave it */ }
+      return cw
+    },
+  })
+})
+
 // Keep the seeded demo accounts under their 50-create/module/day cap: clear the gateway's
 // Redis write-counters before every test so a long suite never trips DEMO_LIMIT mid-run on a
 // create POST. Counter-only (no data purge); no-ops when Redis/docker isn't reachable.

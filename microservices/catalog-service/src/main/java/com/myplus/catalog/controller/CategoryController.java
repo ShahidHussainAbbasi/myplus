@@ -37,6 +37,20 @@ public class CategoryController {
         return ResponseEntity.ok(ApiResponse.success(categoryService.update(id, dto), "Updated"));
     }
 
+    /** PR-2b — a category's markup % (body {"markupPct": 14.5}, or null to clear). Owner/admin: it moves prices. */
+    @PutMapping("/{id}/markup")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+    public ResponseEntity<ApiResponse<CategoryDTO>> setMarkup(@PathVariable Long id, @RequestBody java.util.Map<String, Object> body) {
+        Object v = body == null ? null : body.get("markupPct");
+        java.math.BigDecimal pct;
+        try {
+            pct = (v == null || String.valueOf(v).isBlank()) ? null : new java.math.BigDecimal(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            throw new com.myplus.common.web.exception.ValidationException("Markup must be a number");
+        }
+        return ResponseEntity.ok(ApiResponse.success(categoryService.setMarkup(id, pct), "Markup saved"));
+    }
+
     @PreAuthorize("hasAuthority('DELETE_PRIVILEGE')")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
