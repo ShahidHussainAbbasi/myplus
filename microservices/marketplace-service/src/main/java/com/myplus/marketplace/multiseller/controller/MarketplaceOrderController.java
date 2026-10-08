@@ -11,6 +11,7 @@ import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
 import com.myplus.marketplace.multiseller.dto.MarketplaceOrderDTOs;
 import com.myplus.marketplace.multiseller.service.MarketplaceCheckoutService;
+import com.myplus.marketplace.multiseller.service.MarketplaceRoutingService;
 import com.myplus.marketplace.multiseller.service.MarketplaceSettingsService;
 import com.myplus.marketplace.multiseller.service.SellerOrderService;
 
@@ -27,6 +28,9 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/seller-orders/{id}/reject               seller: {version, reason}
  *   GET  /mkt/operator/orders?status=                 operator
  *   GET/POST /mkt/operator/settings/accept-window     operator: minutes a seller has to accept; MKT-2a multi-seller checkout
+ *   GET  /mkt/operator/routing                        operator (MKT-2c): limits, sellers not answering, the test switch
+ *   POST /mkt/operator/routing/close                  operator: {sellerOrganizationId} — ask that seller again now
+ *   POST /mkt/operator/routing/test                   operator: {sellerOrganizationId, delayMs} — test switch only
  * </pre>
  */
 @RestController
@@ -36,6 +40,8 @@ public class MarketplaceOrderController {
     private final MarketplaceCheckoutService checkout;
     private final SellerOrderService sellerOrders;
     private final MarketplaceSettingsService settings;
+    /** MKT-2c. */
+    private final MarketplaceRoutingService routing;
 
     @PostMapping("/public/mkt/checkout")
     public ApiResponse<MarketplaceOrderDTOs.OrderView> checkout(@RequestBody MarketplaceOrderDTOs.CheckoutRequest body) {
@@ -93,5 +99,24 @@ public class MarketplaceOrderController {
         boolean multi = body.multiSeller() == null ? settings.multiSeller() : settings.setMultiSeller(body.multiSeller());
         boolean reroute = body.reroute() == null ? settings.reroute() : settings.setReroute(body.reroute());
         return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(minutes, multi, reroute), "Order settings saved.");
+    }
+
+    // ── MKT-2c: live routing ─────────────────────────────────────────────────────────────────────────────
+
+    @GetMapping("/mkt/operator/routing")
+    public ApiResponse<MarketplaceOrderDTOs.RoutingView> routing() {
+        return ApiResponse.success(routing.view());
+    }
+
+    @PostMapping("/mkt/operator/routing/close")
+    public ApiResponse<MarketplaceOrderDTOs.RoutingView> closeCircuit(@RequestBody(required = false) MarketplaceOrderDTOs.RoutingClose body) {
+        return ApiResponse.success(routing.close(body == null ? null : body.sellerOrganizationId()),
+                "The seller will be asked again on its next order.");
+    }
+
+    @PostMapping("/mkt/operator/routing/test")
+    public ApiResponse<MarketplaceOrderDTOs.RoutingView> routingTest(@RequestBody(required = false) MarketplaceOrderDTOs.RoutingTest body) {
+        MarketplaceOrderDTOs.RoutingView v = routing.test(body);
+        return ApiResponse.success(v, v.slowSellerOrganizationId() == null ? "Test slowness is off." : "Test slowness is on.");
     }
 }

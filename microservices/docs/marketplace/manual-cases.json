@@ -6189,34 +6189,185 @@
    "evidence": "recorded"
   },
   {
-   "id": "M-2-05",
-   "slice": "MKT-2",
-   "title": "Checkout never hangs on a slow seller",
-   "persona": "Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 2. The operator's test switch makes one seller slow.",
+   "id": "M-2c-01",
+   "slice": "MKT-2c",
+   "title": "The operator sees how sellers are asked for stock, and (on a test system) makes one slow",
+   "persona": "MaxTheService operator (admin@myplus.com)",
+   "reqs": [
+    "MKT-R18.3"
+   ],
+   "pre": "A test system: marketplace-service was started with the test switch (MKT_ROUTING_TEST_SWITCH=true). Every seller is answering.",
+   "auto": [
+    "MKT-2c-04",
+    "MKT-2c-06"
+   ],
    "steps": [
     {
      "n": 1,
-     "do": "Check out an item whose top offer belongs to the slow seller.",
-     "expect": "Within about 2 seconds the next seller is tried, or the screen says \"We are checking availability\". It never spins without end."
+     "do": "Operator: Platform → \"Marketplace policies\" → the box \"Asking sellers for stock at checkout\".",
+     "expect": "\"Each seller has 800 ms to answer and a checkout 2000 ms in all. A seller that does not answer 3 times in a row is not asked for 30 seconds.\" Below it: \"Every seller is being asked.\" Then the test-only fields: \"Test only: make this seller slow\" (a list of the sellers), \"Delay in milliseconds (0 = off)\" and Save.",
+     "shot": "shots/M-2c-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Choose \"Shahzad Mobile Shop\", delay 3000 → Save.",
+     "expect": "\"Test slowness is on.\" Reopening the panel shows the same seller and 3000.",
+     "shot": "shots/M-2c-01/02.jpg"
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Operator: switch the test slowness off.",
-     "expect": "Normal."
+     "do": "Delay 0 → Save.",
+     "expect": "\"Test slowness is off.\"",
+     "shot": "shots/M-2c-01/c01.jpg"
     }
    ],
+   "recordedAt": "2026-10-08T11:26:03.517Z",
+   "startedAt": "2026-10-08T11:25:32.691Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2c-02",
+   "slice": "MKT-2c",
+   "title": "Checkout never hangs on a slow seller: the customer is told in time and buys from another",
+   "persona": "Customer \"Ali\" (incognito window)",
    "reqs": [
     "MKT-R18.1",
     "MKT-R18.3",
     "MKT-R18.5"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-2.",
-   "warn": false,
-   "auto": []
+   "pre": "Shahzad Mobile Shop (Rs 52,000) and Mobile Distributor (Rs 51,500) both sell the same phone in Karachi. Test slowness is on for Shahzad Mobile Shop: 3 seconds (M-2c-01).",
+   "auto": [
+    "MKT-2c-01",
+    "MKT-2c-02",
+    "MKT-2c-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: open the phone (Karachi) → choose Shahzad Mobile Shop → \"Buy now\". Name \"Ali\", phone 03170237202, address \"1 Clifton\" → \"Place order\".",
+     "expect": "Within about 2 seconds, under the button: \"This seller did not answer in time. Please choose another offer.\" No order number. The button works again.",
+     "shot": "shots/M-2c-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Choose Mobile Distributor instead → \"Buy now\" → the same details → \"Place order\".",
+     "expect": "\"Waiting for Mobile Distributor to confirm\" with an order number MKT-….",
+     "shot": "shots/M-2c-02/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Mobile Distributor rejects with the reason \"walk cleanup\". Operator: test delay 0 → Save.",
+     "expect": "The order reads Cancelled; \"Test slowness is off.\"",
+     "shot": "shots/M-2c-02/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-08T11:24:18.437Z",
+   "startedAt": "2026-10-08T11:24:06.695Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2c-03",
+   "slice": "MKT-2c",
+   "title": "A seller that keeps not answering is not asked for a while; the operator asks it again",
+   "persona": "Customer \"Ali\" (incognito window), then the MaxTheService operator",
+   "reqs": [
+    "MKT-R18.3",
+    "MKT-R18.5"
+   ],
+   "pre": "Test slowness is on for Shahzad Mobile Shop: 3 seconds. Every seller is being asked.",
+   "auto": [
+    "MKT-2c-04"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: choose Shahzad Mobile Shop → \"Buy now\" → name, phone 03170237203, address → \"Place order\". When the answer comes, press \"Place order\" again, three times in all.",
+     "expect": "Each time, in under a second: \"This seller did not answer in time. Please choose another offer.\"",
+     "shot": "shots/M-2c-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Press \"Place order\" a fourth time.",
+     "expect": "The same sentence at once: Shahzad Mobile Shop is not being asked any more, so there is nothing to wait for.",
+     "shot": "shots/M-2c-03/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Operator: Platform → \"Marketplace policies\" → \"Asking sellers for stock at checkout\".",
+     "expect": "\"Shahzad Mobile Shop is not answering: not asked until hh:mm:ss.\" with a button \"Ask it again now\".",
+     "shot": "shots/M-2c-03/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "The shop says it is fixed: delay 0 → Save, then \"Ask it again now\" on Shahzad Mobile Shop's line.",
+     "expect": "\"Test slowness is off.\", then \"The seller will be asked again on its next order.\" and \"Every seller is being asked.\"",
+     "shot": "shots/M-2c-03/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Customer: choose Shahzad Mobile Shop again → \"Buy now\" → the same details → \"Place order\".",
+     "expect": "\"Waiting for Shahzad Mobile Shop to confirm\" with an order number MKT-….",
+     "shot": "shots/M-2c-03/05.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Shahzad Mobile Shop rejects with the reason \"walk cleanup\".",
+     "expect": "The order reads Cancelled."
+    }
+   ],
+   "recordedAt": "2026-10-08T11:24:31.704Z",
+   "startedAt": "2026-10-08T11:24:18.742Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2c-04",
+   "slice": "MKT-2c",
+   "title": "One slow seller in a basket: the basket is refused in time, that seller named",
+   "persona": "Customer \"Ali\" (incognito window)",
+   "reqs": [
+    "MKT-R18.1",
+    "MKT-R17.2",
+    "MKT-R18.5"
+   ],
+   "pre": "Operator: \"Customers can buy from several sellers in one order\" is ticked (M-2a-01). Test slowness is on for Shahzad Mobile Shop: 3 seconds.",
+   "auto": [
+    "MKT-2c-03"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Customer: open the phone (Karachi). Choose Shahzad Mobile Shop → \"Add to basket\"; choose Mobile Distributor → \"Add to basket\". Open the basket; name, phone 03170237204, address → \"Place order\".",
+     "expect": "Within about 2 seconds, under the button: \"Shahzad Mobile Shop did not answer in time. Please remove its items and place the order again.\" No order number.",
+     "shot": "shots/M-2c-04/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "\"Remove\" on Shahzad Mobile Shop's phone → \"Place order\".",
+     "expect": "\"Waiting for Mobile Distributor to confirm\" with an order number MKT-…: only Mobile Distributor's phone was ordered.",
+     "shot": "shots/M-2c-04/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Mobile Distributor rejects with \"walk cleanup\". Operator: test delay 0 → Save; untick \"Customers can buy from several sellers in one order\" → Save.",
+     "expect": "The order reads Cancelled; \"Test slowness is off.\"; the multi-seller switch is off again.",
+     "shot": "shots/M-2c-04/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-08T11:24:43.798Z",
+   "startedAt": "2026-10-08T11:24:31.928Z",
+   "result": "passed",
+   "evidence": "recorded"
   },
   {
    "id": "M-2-06",

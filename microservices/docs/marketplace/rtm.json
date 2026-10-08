@@ -1,7 +1,7 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 65,
+ "unit": 66,
  "cypress": 62,
  "automated": 67,
  "manual": 87,
@@ -679,6 +679,7 @@
    "text": "Shortage flow: recheck → reserve → mark offer unavailable → alternates → reprice → **customer approval** if price/product/timing changes → partial / substitute / cancel line / cancel order → refund captured amount → record cause + party → SLA",
    "unit": [
     "ReturnAndSubstitutionPolicyTest.silentReassignment",
+    "MarketplaceOrderFlowTest.slowCandidatePassedOver",
     "MarketplaceOrderFlowTest.silentReassign",
     "MarketplaceOrderFlowTest.cashMayBeAskedMore",
     "MarketplaceOrderFlowTest.noCandidateEndsTheLine",
@@ -1086,6 +1087,7 @@
     "MarketplaceOrderFlowTest.lastPartEndsTheOrder",
     "MarketplaceOrderFlowTest.expiryAfterAcceptKeepsTheOrder",
     "MarketplaceOrderFlowTest.customerCancelsEveryPart",
+    "MarketplaceOrderFlowTest.slowSellerInBasketNamed",
     "MarketplacePaymentServiceTest.partRefundedOnce",
     "MarketplacePaymentServiceTest.remainderAfterPart",
     "MarketplacePaymentServiceTest.cashPartNothing"
@@ -1097,7 +1099,8 @@
     "MKT-2a-05",
     "MKT-2a-06",
     "MKT-2a-07",
-    "MKT-2a-08"
+    "MKT-2a-08",
+    "MKT-2c-03"
    ],
    "manual": [
     "M-2a-01",
@@ -1107,7 +1110,8 @@
     "M-2a-05",
     "M-2a-06",
     "M-2a-07",
-    "M-2a-08"
+    "M-2a-08",
+    "M-2c-04"
    ]
   },
   {
@@ -1115,13 +1119,15 @@
    "phase": "2",
    "text": "Never call every stakeholder during checkout; two stages: projection shortlist → live reservation on ≤ 3–5 candidates",
    "unit": [
+    "MarketplaceOrderFlowTest.sellersAskedAtOnce",
     "OfferProjectionServiceTest.onlyLiveSyncs"
    ],
    "cypress": [
-    "MKT-2-05"
+    "MKT-2c-03"
    ],
    "manual": [
-    "M-2-05"
+    "M-2c-02",
+    "M-2c-04"
    ]
   },
   {
@@ -1144,12 +1150,26 @@
    "req": "MKT-R18.3",
    "phase": "2",
    "text": "Per-stakeholder timeout 300–800 ms, ≤ 3–5 candidates, 2 s overall deadline, circuit breakers (starting points for load test)",
-   "unit": [],
+   "unit": [
+    "LiveRoutingTest.deadlineCapsTimeout",
+    "LiveRoutingTest.refusalIsAnAnswer",
+    "LiveRoutingTest.halfOpen",
+    "LiveRoutingTest.lateRefusalNotReleased",
+    "LiveRoutingTest.lateHoldReleased",
+    "MarketplaceOrderFlowTest.slowSellerRefusedInTime",
+    "MarketplaceOrderFlowTest.sellersAskedAtOnce",
+    "MarketplaceOrderFlowTest.circuitOpens",
+    "MarketplaceOrderFlowTest.slowCandidatePassedOver"
+   ],
    "cypress": [
-    "MKT-2-05"
+    "MKT-2c-01",
+    "MKT-2c-02",
+    "MKT-2c-04"
    ],
    "manual": [
-    "M-2-05"
+    "M-2c-01",
+    "M-2c-02",
+    "M-2c-03"
    ]
   },
   {
@@ -1180,19 +1200,26 @@
     "OfferEligibilityTest.stale",
     "MarketplaceOrderFlowTest.checkoutHoldsAndOffers",
     "MarketplaceOrderFlowTest.holdOutage",
+    "MarketplaceOrderFlowTest.slowSellerRefusedInTime",
+    "MarketplaceOrderFlowTest.slowSellerInBasketNamed",
     "OfferProjectionServiceTest.noAnswerStaysUnconfirmed",
     "PublicOfferServiceTest.stale",
     "PublicOfferServiceTest.cardFollowsGuardrails"
    ],
    "cypress": [
     "MKT-1e-01",
-    "MKT-1e-05"
+    "MKT-1e-05",
+    "MKT-2c-01",
+    "MKT-2c-03",
+    "MKT-2c-05"
    ],
    "manual": [
     "M-1d-05",
     "M-1e-01",
     "M-1e-04",
-    "M-2-05"
+    "M-2c-02",
+    "M-2c-03",
+    "M-2c-04"
    ]
   },
   {
@@ -1427,7 +1454,8 @@
     "MKT-1e2-05",
     "MKT-1f-03",
     "MKT-1f-11",
-    "MKT-2a-03"
+    "MKT-2a-03",
+    "MKT-2c-06"
    ],
    "manual": [
     "M-0a-02",

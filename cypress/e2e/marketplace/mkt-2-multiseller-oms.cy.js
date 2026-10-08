@@ -25,13 +25,8 @@ gate('2')('MKT-2 — multi-seller orders and shortage handling', () => {
   // MKT-2-02..04 moved to mkt-2b-shortage-reroute.cy.js: 2b-02 (silent move, R11.1/R11.3), 2b-03..05 (the shopper's
   // approval, R11.2), 2b-01 and 2b-07 (cause, party and dispute; never a debit, R11.4/R12.4).
 
-  it('MKT-2-05 [MKT-R18.1] [MKT-R18.3] routing answers within the deadline or says it is still checking', () => {
-    const t0 = Date.now()
-    checkout([{ offerId: two[0].offerId, quantity: 1 }]).then((r) => {
-      expect(Date.now() - t0, 'overall routing deadline 2s + network').to.be.lessThan(4000)
-      if (!ok(r.body)) expect(r.body.message).to.match(/checking availability|choose another offer/)
-    })
-  })
+  // MKT-2-05 moved to mkt-2c-live-routing.cy.js: 2c-01/02 (the per-seller timeout, the late hold released, R18.3/R18.5),
+  // 2c-03 (sellers asked at once within one deadline, R18.1), 2c-04 (the circuit, R18.3), 2c-05 (the shopper's screen).
 
   it('MKT-2-06 [MKT-R10.6] [MKT-R20.3] acceptance terms vary by order value (configured, read on the path)', () => {
     checkout([{ offerId: two[0].offerId, quantity: 3 }]).then((r) => {

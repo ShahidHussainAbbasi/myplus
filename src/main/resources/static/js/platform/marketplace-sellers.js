@@ -392,6 +392,66 @@
 		});
 	}
 
+	/** MKT-2c — how sellers are asked for stock: the limits in force, who is not being asked, and the test switch. */
+	function loadRouting() {
+		$.ajax({ url: ctx() + 'platform/mkt/routing', dataType: 'json' }).done(function (res) {
+			if (ok(res)) renderRouting(data(res) || {});
+			else $('#mktRoutingMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.')));
+		});
+	}
+
+	function renderRouting(v) {
+		$('#mktRoutingLimits').text(tr('ui.js.mktRoutingLimits',
+			'Each seller has {0} ms to answer and a checkout {1} ms in all. A seller that does not answer {2} times in a row is not asked for {3} seconds.')
+			.replace('{0}', v.holdTimeoutMs).replace('{1}', v.deadlineMs).replace('{2}', v.breakerFailures).replace('{3}', v.breakerOpenSeconds));
+		var $open = $('#mktRoutingOpen').empty();
+		var list = v.notAnswering || [];
+		if (!list.length) $open.append($('<div class="plat__hint mkt-routing-none"></div>').text(tr('ui.js.mktRoutingAllAnswering', 'Every seller is being asked.')));
+		list.forEach(function (c) {
+			var until = String(c.until || '').replace('T', ' ').substring(11, 19);
+			$open.append($('<div class="mkt-routing-row" style="margin:6px 0 12px"></div>').attr('data-seller', c.sellerOrganizationId)
+				.append($('<span></span>').text(tr('ui.js.mktRoutingNotAsked', '{0} is not answering: not asked until {1}.')
+					.replace('{0}', c.sellerName).replace('{1}', until)))
+				.append(' ')
+				.append($('<button type="button" class="btn btn-default btn-xs mkt-routing-close"></button>')
+					.attr('data-seller', c.sellerOrganizationId).text(tr('ui.js.mktRoutingAskAgain', 'Ask it again now'))));
+		});
+		$('#mktRoutingTest').toggle(v.testSwitch === true);
+		if (v.testSwitch === true) {
+			var $sel = $('#mktRoutingSeller').empty();
+			(v.sellers || []).forEach(function (s) {
+				$sel.append($('<option></option>').val(s.sellerOrganizationId).text(s.name || ('#' + s.sellerOrganizationId)));
+			});
+			if (v.slowSellerOrganizationId) $sel.val(String(v.slowSellerOrganizationId));
+			$('#mktRoutingDelay').val(v.slowDelayMs || 0);
+		}
+	}
+
+	function closeCircuit() {
+		var $b = $(this).prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/routingClose', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ sellerOrganizationId: Number($b.attr('data-seller')) }) })
+			.done(function (res) {
+				$('#mktRoutingMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed')));
+				if (ok(res)) renderRouting(data(res) || {});
+			})
+			.fail(function (xhr) { $('#mktRoutingMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
+	function saveRoutingTest() {
+		var $b = $('#mktRoutingTestSave').prop('disabled', true);
+		var delay = Number($('#mktRoutingDelay').val() || 0);
+		$.ajax({ url: ctx() + 'platform/mkt/routingTest', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ sellerOrganizationId: delay > 0 ? Number($('#mktRoutingSeller').val()) : null, delayMs: delay }) })
+			.done(function (res) {
+				$('#mktRoutingMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed')));
+				if (ok(res)) renderRouting(data(res) || {});
+			})
+			.fail(function (xhr) { $('#mktRoutingMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
 	/** MKT-2a — the multi-seller checkout switch; it rides on the acceptance-window endpoint, sending only itself. */
 	function saveMultiSeller() {
 		var $b = $('#mktMultiSellerSave').prop('disabled', true);
@@ -750,7 +810,7 @@
 	}
 
 	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
-	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); }); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); loadRouting(); }); });
 	$(document).on('click', '#platMktOrdersBtn', function () { openPanel('#platMktOrders', loadOrders); });
 	$(document).on('click', '#platMktOrderStatus button', function () {
 		$('#platMktOrderStatus button').removeClass('is-on');
@@ -761,6 +821,8 @@
 	$(document).on('click', '#mktAcceptWindowSave', saveAcceptWindow);
 	$(document).on('click', '#mktMultiSellerSave', saveMultiSeller);
 	$(document).on('click', '#mktRerouteSave', saveReroute);
+	$(document).on('click', '.mkt-routing-close', closeCircuit);                  // MKT-2c
+	$(document).on('click', '#mktRoutingTestSave', saveRoutingTest);
 	$(document).on('click', '#platMktShortagesBtn', function () { openPanel('#platMktShortages', loadShortages); });
 	$(document).on('click', '#platMktShortageStatus button', function () {
 		$('#platMktShortageStatus button').removeClass('is-on');

@@ -161,9 +161,10 @@ public class MarketplaceShortageService {
         BigDecimal was = MarketplaceCheckoutService.partTotal(ls);
         boolean card = MarketplaceCheckoutService.CARD.equals(o.getPaymentMode());
 
+        long until = checkout.routingDeadline();                              // MKT-2c: one deadline for every candidate
         for (Candidate c : candidates(o, ls, card, was)) {
             String holdKey = "MKT-" + UUID.randomUUID();
-            if (hold(c, holdKey) != null) continue;                           // that seller cannot hold it: the next one
+            if (!hold(c, holdKey, until).held()) continue;                    // that seller cannot hold it: the next one
             boolean done;
             try {
                 done = c.silent() ? reassign(sh.getId(), c, holdKey) : propose(sh.getId(), c, holdKey);
@@ -253,8 +254,12 @@ public class MarketplaceShortageService {
         return out.size() > MAX_CANDIDATES ? out.subList(0, MAX_CANDIDATES) : out;
     }
 
-    /** Hold the candidate's stock as that seller, under {@code key}. @return null when held, otherwise why not. */
-    String hold(Candidate c, String key) {
+    /**
+     * Hold the candidate's stock as that seller, under {@code key}, as a routed call (MKT-2c): a seller that does not
+     * answer in time, or whose circuit is open, is passed over like one without stock, and a hold that lands late is
+     * released by that key.
+     */
+    LiveRouting.Answer hold(Candidate c, String key, long until) {
         MarketplaceSellerOrder probe = new MarketplaceSellerOrder();
         probe.setSellerOrganizationId(c.seller());
         probe.setHoldKey(key);
@@ -264,7 +269,7 @@ public class MarketplaceShortageService {
             l.setQuantity(n.qty());
             return l;
         }).toList();
-        return checkout.hold(probe, want);
+        return checkout.route(probe, want, until);
     }
 
     /** Silent move: a new part for the new seller, offered at once; the short part stops waiting. */

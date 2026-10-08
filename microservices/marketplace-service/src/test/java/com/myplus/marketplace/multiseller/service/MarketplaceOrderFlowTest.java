@@ -101,6 +101,7 @@ class MarketplaceOrderFlowTest {
     MarketplaceOrderSweeper sweeper;
     MarketplaceSettingsService settings;
     MarketplaceShortageService shortages;
+    LiveRouting routing;
     final Map<Long, com.myplus.marketplace.multiseller.entity.MarketplaceShortage> shTable = new HashMap<>();
 
     final Map<Long, MarketplaceOrder> orderTable = new HashMap<>();
@@ -116,7 +117,9 @@ class MarketplaceOrderFlowTest {
         settings = new MarketplaceSettingsService(settingRows, access, audit);
         PublicOfferService publicOffers = new PublicOfferService(projections, products, settings);
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
-                lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider);
+                lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
+                routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,
+                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null));
         shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
                 publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
@@ -344,10 +347,10 @@ class MarketplaceOrderFlowTest {
     }
 
     @Test
-    @DisplayName("[MKT-R18.5] an inventory outage is 'not held', never 'held'")
+    @DisplayName("[MKT-R18.5] an inventory outage is 'not held', never 'held', and the shopper is told the seller did not answer")
     void holdOutage() {
         when(trade.holdStock(any())).thenThrow(new RuntimeException("connect timed out"));
-        assertThatThrownBy(() -> checkout.checkout(req("o"))).hasMessageContaining("no longer has enough stock");
+        assertThatThrownBy(() -> checkout.checkout(req("o"))).hasMessage("This seller did not answer in time. Please choose another offer.");
         assertThat(soTable.values().iterator().next().getHeld()).isFalse();
     }
 
@@ -713,10 +716,12 @@ class MarketplaceOrderFlowTest {
 
         ArgumentCaptor<StockHoldRequest> holds = ArgumentCaptor.forClass(StockHoldRequest.class);
         verify(trade, org.mockito.Mockito.times(2)).holdStock(holds.capture());
-        assertThat(holds.getAllValues()).extracting(StockHoldRequest::getOrganizationId).containsExactly(SELLER, OTHER_SELLER);
-        assertThat(holds.getAllValues().get(1).getLines()).hasSize(1);
-        assertThat(holds.getAllValues().get(1).getLines().get(0).getItemId()).isEqualTo(SOURCE_B);
-        assertThat(holds.getAllValues().get(1).getLines().get(0).getQuantity()).isEqualByComparingTo("2");
+        // MKT-2c: the sellers are asked at the same time, so the calls arrive in either order
+        assertThat(holds.getAllValues()).extracting(StockHoldRequest::getOrganizationId).containsExactlyInAnyOrder(SELLER, OTHER_SELLER);
+        StockHoldRequest second = holds.getAllValues().stream().filter(h -> h.getOrganizationId() == OTHER_SELLER).findFirst().orElseThrow();
+        assertThat(second.getLines()).hasSize(1);
+        assertThat(second.getLines().get(0).getItemId()).isEqualTo(SOURCE_B);
+        assertThat(second.getLines().get(0).getQuantity()).isEqualByComparingTo("2");
         assertThat(holds.getAllValues().get(0).getHoldKey()).isNotEqualTo(holds.getAllValues().get(1).getHoldKey());
         assertThat(lineTable).extracting(MarketplaceOrderLine::getSellerOrganizationId).containsExactly(SELLER, OTHER_SELLER);
     }
@@ -725,7 +730,7 @@ class MarketplaceOrderFlowTest {
     @DisplayName("[MKT-R17.2] all or nothing: one seller cannot hold → every part cancelled, every hold released, that seller named")
     void oneRefusalCancelsAll() {
         secondSeller(true);
-        when(trade.holdStock(any())).thenReturn(held(true), held(false));
+        when(trade.holdStock(any())).thenAnswer(i -> held(i.<StockHoldRequest>getArgument(0).getOrganizationId() != OTHER_SELLER));
         assertThatThrownBy(() -> checkout.checkout(basket("m2", null, lineA(1), lineB(1))))
                 .hasMessage("Mobile Distributor no longer has enough stock. Please remove its items and place the order again.");
         assertThat(orderTable.values().iterator().next().getStatus()).isEqualTo("CANCELLED");
@@ -840,6 +845,91 @@ class MarketplaceOrderFlowTest {
                 .hasMessageContaining("1 to 10 of each item");
         assertThatThrownBy(() -> MarketplaceCheckoutService.wants(basket("w", null, lineA(1),
                 new MarketplaceOrderDTOs.CheckoutLine(OFFER, 1, new BigDecimal("1"))))).hasMessageContaining("two prices");
+    }
+
+    // ── MKT-2c: live routing — a seller's stock is asked for with a deadline ─────────────────────────────────
+
+    /** {@code slowSeller}'s holds answer (held) only after {@code ms}; everyone else's at once. */
+    void slow(Long slowSeller, long ms) {
+        when(trade.holdStock(any())).thenAnswer(i -> {
+            if (slowSeller.equals(i.<StockHoldRequest>getArgument(0).getOrganizationId())) Thread.sleep(ms);
+            return held(true);
+        });
+    }
+
+    @Test
+    @DisplayName("[MKT-R18.3] [MKT-R18.5] a seller that does not answer within its timeout: the shopper is told at once, the order CANCELLED, and the hold that lands late is released")
+    void slowSellerRefusedInTime() {
+        slow(SELLER, 1500);
+        long t0 = System.nanoTime();
+        assertThatThrownBy(() -> checkout.checkout(req("r1"))).hasMessage("This seller did not answer in time. Please choose another offer.");
+        assertThat((System.nanoTime() - t0) / 1_000_000).as("the 1 s timeout, not the seller's 1.5 s").isLessThan(1400);
+        MarketplaceSellerOrder so = soTable.values().iterator().next();
+        assertThat(so.getAcceptanceStatus()).isEqualTo("CANCELLED");
+        assertThat(orderTable.values().iterator().next().getStatus()).isEqualTo("CANCELLED");
+        // once by the checkout itself, once more when the late hold lands
+        verify(trade, org.mockito.Mockito.timeout(3000).times(2)).releaseHold(so.getHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R18.1] [MKT-R18.3] a basket from two sellers waits for the slower one, never for the sum")
+    void sellersAskedAtOnce() {
+        secondSeller(true);
+        when(trade.holdStock(any())).thenAnswer(i -> {
+            Thread.sleep(600);
+            return held(true);
+        });
+        long t0 = System.nanoTime();
+        MarketplaceOrderDTOs.OrderView v = checkout.checkout(basket("r2", null, lineA(1), lineB(1)));
+        assertThat((System.nanoTime() - t0) / 1_000_000).as("two 600 ms sellers in parallel").isLessThan(1100);
+        assertThat(v.sellerOrders()).extracting(MarketplaceOrderDTOs.PartView::status).containsOnly("OFFERED");
+    }
+
+    @Test
+    @DisplayName("[MKT-R18.5] [MKT-R17.2] one slow seller in a basket: the whole basket refused, that seller named, every hold released")
+    void slowSellerInBasketNamed() {
+        secondSeller(true);
+        slow(OTHER_SELLER, 1500);
+        assertThatThrownBy(() -> checkout.checkout(basket("r3", null, lineA(1), lineB(1))))
+                .hasMessage("Mobile Distributor did not answer in time. Please remove its items and place the order again.");
+        assertThat(soTable.values()).extracting(MarketplaceSellerOrder::getAcceptanceStatus).containsOnly("CANCELLED");
+        verify(trade).releaseHold(part(SELLER).getHoldKey());
+        verify(trade, org.mockito.Mockito.timeout(3000).times(2)).releaseHold(part(OTHER_SELLER).getHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R18.3] after 3 calls in a row it did not answer, a seller is not asked again for a while: refused at once, without a call; the operator can ask it again")
+    void circuitOpens() {
+        slow(SELLER, 1200);
+        for (int i = 0; i < 3; i++) assertThatThrownBy(() -> checkout.checkout(req("c" + System.nanoTime()))).hasMessageContaining("did not answer in time");
+        verify(trade, org.mockito.Mockito.times(3)).holdStock(any());
+        long t0 = System.nanoTime();
+        assertThatThrownBy(() -> checkout.checkout(req("c4"))).hasMessage("This seller did not answer in time. Please choose another offer.");
+        assertThat((System.nanoTime() - t0) / 1_000_000).as("refused without waiting").isLessThan(300);
+        verify(trade, org.mockito.Mockito.times(3)).holdStock(any());
+        assertThat(routing.openCircuits()).singleElement().satisfies(c -> {
+            assertThat(c.sellerOrganizationId()).isEqualTo(SELLER);
+            assertThat(c.failures()).isEqualTo(3);
+        });
+        org.mockito.Mockito.doReturn(held(true)).when(trade).holdStock(any());
+        assertThat(routing.close(SELLER)).isTrue();
+        assertThat(checkout.checkout(req("c5")).status()).isEqualTo("SUBMITTED");
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.1] [MKT-R18.3] a reroute passes over a candidate seller that does not answer in time, and releases what it held late")
+    void slowCandidatePassedOver() {
+        rerouteTo("51500", 4);
+        checkout.checkout(req("r5"));
+        org.mockito.Mockito.reset(trade);
+        slow(OTHER_SELLER, 1500);
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).as("no other seller answered in time: the part ends").isIn("LINE_CANCELLED", "ORDER_CANCELLED");
+        assertThat(soTable).hasSize(1);
+        ArgumentCaptor<String> released = ArgumentCaptor.forClass(String.class);
+        verify(trade, org.mockito.Mockito.timeout(3000).atLeast(2)).releaseHold(released.capture());
+        assertThat(released.getAllValues()).as("the candidate's late hold, under its own key").anyMatch(k -> !k.equals(a.getHoldKey()));
     }
 
     // ── MKT-2b: a part its seller did not fulfil — recorded, moved, offered to the shopper, or cancelled ──────────

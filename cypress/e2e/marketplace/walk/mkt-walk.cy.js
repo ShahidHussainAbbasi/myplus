@@ -2856,4 +2856,173 @@ on('MKT manual walk — recorded', () => {
     })
     cleanup('Nothing to undo: the decision is the record (it never moved money).', '—', () => {}, { screen: false })
   })
+
+  // ──────────────────────────────── MKT-2c ────────────────────────────────
+  // Needs marketplace-service started with MKT_ROUTING_TEST_SWITCH=true (the operator's test switch, never in production).
+
+  const lph = (k) => `0317${String(run).slice(-6)}${k}`            // customer phones for the 2c walk
+  const ROUTING = { view: '/platform/mkt/routing', close: '/platform/mkt/routingClose', test: '/platform/mkt/routingTest' }
+  /** Behind the scenes: Shahzad Mobile Shop answers after `ms` (0 = normally) and is asked again (a case's starting state). */
+  const slowShop = (ms) => {
+    asOperator()
+    return get(ROUTING.view).then((r) => {
+      const org = data(r.body).sellers.find((x) => x.name === A_NAME).sellerOrganizationId
+      post(ROUTING.test, { sellerOrganizationId: ms ? org : null, delayMs: ms })
+      return post(ROUTING.close, { sellerOrganizationId: org })
+    })
+  }
+  /** Platform → Marketplace policies → the routing box. */
+  const routingBox = () => {
+    console_('#platMktPoliciesBtn')
+    return cy.get('#mktRoutingForm').scrollIntoView().should('be.visible').and('contain', 'Each seller has')
+  }
+  /** Customer: the phone's page, one seller's offer chosen → "Buy now" → the contact details. */
+  const buyFrom = (offerId, ph) => {
+    customer()
+    cy.visit(page(`product=${H.product}&city=Karachi`))
+    cy.get(`${UI.offerRow}[data-offer-id="${offerId}"] ${UI.chooseOffer}`).check()
+    cy.get(UI.buyButton).click()
+    contact(ph)
+  }
+  const SLOW = 'This seller did not answer in time. Please choose another offer.'
+
+  walk({ id: 'M-2c-01', slice: 'MKT-2c', title: 'The operator sees how sellers are asked for stock, and (on a test system) makes one slow',
+    persona: 'MaxTheService operator (admin@myplus.com)', reqs: ['MKT-R18.3'],
+    pre: 'A test system: marketplace-service was started with the test switch (MKT_ROUTING_TEST_SWITCH=true). Every seller is answering.',
+    auto: ['MKT-2c-04', 'MKT-2c-06'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => slowShop(0))
+    step('Operator: Platform → "Marketplace policies" → the box "Asking sellers for stock at checkout".',
+      '"Each seller has 800 ms to answer and a checkout 2000 ms in all. A seller that does not answer 3 times in a row is not asked for 30 seconds." Below it: "Every seller is being asked." Then the test-only fields: "Test only: make this seller slow" (a list of the sellers), "Delay in milliseconds (0 = off)" and Save.', () => {
+        routingBox().should('contain', 'Each seller has 800 ms to answer and a checkout 2000 ms in all. A seller that does not answer 3 times in a row is not asked for 30 seconds.')
+        cy.get('#mktRoutingOpen').should('contain', 'Every seller is being asked.')
+        cy.get('#mktRoutingTest').should('be.visible')
+        cy.get('#mktRoutingSeller option').should('contain', A_NAME).and('contain', B_NAME)
+        cy.get('#mktRoutingDelay').should('have.value', '0')
+        cy.wait(1000)                                               // the panel's other lists have drawn
+        cy.get('#mktRoutingForm').scrollIntoView()                 // the whole box on the screen
+      })
+    step(`Choose "${A_NAME}", delay 3000 → Save.`, '"Test slowness is on." Reopening the panel shows the same seller and 3000.', () => {
+      cy.get('#mktRoutingSeller').select(A_NAME)
+      cy.get('#mktRoutingDelay').clear().type('3000')
+      cy.get('#mktRoutingTestSave').click()
+      cy.get('#mktRoutingMsg').should('contain', 'Test slowness is on.')
+      routingBox()
+      cy.get('#mktRoutingSeller option:selected').should('have.text', A_NAME)
+      cy.get('#mktRoutingDelay').should('have.value', '3000')
+    })
+    cleanup('Delay 0 → Save.', '"Test slowness is off."', () => {
+      cy.get('#mktRoutingDelay').clear().type('0')
+      cy.get('#mktRoutingTestSave').click()
+      cy.get('#mktRoutingMsg').should('contain', 'Test slowness is off.')
+    })
+  })
+
+  walk({ id: 'M-2c-02', slice: 'MKT-2c', title: 'Checkout never hangs on a slow seller: the customer is told in time and buys from another',
+    persona: 'Customer "Ali" (incognito window)', reqs: ['MKT-R18.1', 'MKT-R18.3', 'MKT-R18.5'],
+    pre: `${A_NAME} (Rs 52,000) and ${B_NAME} (Rs 51,500) both sell the same phone in Karachi. Test slowness is on for ${A_NAME}: 3 seconds (M-2c-01).`,
+    auto: ['MKT-2c-01', 'MKT-2c-02', 'MKT-2c-05'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => slowShop(3000))
+    step(`Customer: open the phone (Karachi) → choose ${A_NAME} → "Buy now". Name "Ali", phone ${lph(2)}, address "1 Clifton" → "Place order".`,
+      `Within about 2 seconds, under the button: "${SLOW}" No order number. The button works again.`, () => {
+        buyFrom(H.a, lph(2))
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError', { timeout: 2500 }).should('have.text', SLOW)
+        cy.get('#mktCoOrderNo').should('have.text', '')
+        cy.get('#mktCoPlace').should('not.be.disabled')
+      })
+    step(`Choose ${B_NAME} instead → "Buy now" → the same details → "Place order".`,
+      `"Waiting for ${B_NAME} to confirm" with an order number MKT-….`, () => {
+        buyFrom(H.b, lph(2))
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', `Waiting for ${B_NAME} to confirm`)
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { H.r2 = no })
+      })
+    cleanup(`${B_NAME} rejects with the reason "walk cleanup". Operator: test delay 0 → Save.`, 'The order reads Cancelled; "Test slowness is off."', () => {
+      cy.then(() => answer(SELLER_B, H.r2, 'reject'))
+      routingBox()
+      cy.get('#mktRoutingDelay').clear().type('0')
+      cy.get('#mktRoutingTestSave').click()
+      cy.get('#mktRoutingMsg').should('contain', 'Test slowness is off.')
+    })
+  })
+
+  walk({ id: 'M-2c-03', slice: 'MKT-2c', title: 'A seller that keeps not answering is not asked for a while; the operator asks it again',
+    persona: 'Customer "Ali" (incognito window), then the MaxTheService operator', reqs: ['MKT-R18.3', 'MKT-R18.5'],
+    pre: `Test slowness is on for ${A_NAME}: 3 seconds. Every seller is being asked.`,
+    auto: ['MKT-2c-04'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => slowShop(3000))
+    step(`Customer: choose ${A_NAME} → "Buy now" → name, phone ${lph(3)}, address → "Place order". When the answer comes, press "Place order" again, three times in all.`,
+      `Each time, in under a second: "${SLOW}"`, () => {
+        buyFrom(H.a, lph(3))
+        for (let i = 0; i < 3; i++) {
+          cy.get('#mktCoError').invoke('text', '')
+          cy.get('#mktCoPlace').should('not.be.disabled').click()
+          cy.get('#mktCoError', { timeout: 2500 }).should('have.text', SLOW)
+        }
+      })
+    step('Press "Place order" a fourth time.', `The same sentence at once: ${A_NAME} is not being asked any more, so there is nothing to wait for.`, () => {
+      cy.get('#mktCoError').invoke('text', '')
+      cy.get('#mktCoPlace').should('not.be.disabled').click()
+      cy.get('#mktCoError', { timeout: 500 }).should('have.text', SLOW)
+    })
+    step('Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout".',
+      `"${A_NAME} is not answering: not asked until hh:mm:ss." with a button "Ask it again now".`, () => {
+        routingBox()
+        cy.contains('#mktRoutingOpen .mkt-routing-row', A_NAME).should('contain', 'is not answering: not asked until')
+          .find('.mkt-routing-close').should('contain', 'Ask it again now')
+      })
+    step(`The shop says it is fixed: delay 0 → Save, then "Ask it again now" on ${A_NAME}'s line.`,
+      '"Test slowness is off.", then "The seller will be asked again on its next order." and "Every seller is being asked."', () => {
+        cy.get('#mktRoutingDelay').clear().type('0')
+        cy.get('#mktRoutingTestSave').click()
+        cy.get('#mktRoutingMsg').should('contain', 'Test slowness is off.')
+        cy.contains('#mktRoutingOpen .mkt-routing-row', A_NAME).find('.mkt-routing-close').click()
+        cy.get('#mktRoutingMsg').should('contain', 'The seller will be asked again on its next order.')
+        cy.get('#mktRoutingOpen').should('contain', 'Every seller is being asked.')
+      })
+    step(`Customer: choose ${A_NAME} again → "Buy now" → the same details → "Place order".`, `"Waiting for ${A_NAME} to confirm" with an order number MKT-….`, () => {
+      buyFrom(H.a, lph(3))
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', `Waiting for ${A_NAME} to confirm`)
+      cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { H.r3 = no })
+    })
+    cleanup(`${A_NAME} rejects with the reason "walk cleanup".`, 'The order reads Cancelled.', () => {
+      cy.then(() => answer(SELLER_A, H.r3, 'reject'))
+    }, { screen: false })
+  })
+
+  walk({ id: 'M-2c-04', slice: 'MKT-2c', title: 'One slow seller in a basket: the basket is refused in time, that seller named',
+    persona: 'Customer "Ali" (incognito window)', reqs: ['MKT-R18.1', 'MKT-R17.2', 'MKT-R18.5'],
+    pre: `Operator: "Customers can buy from several sellers in one order" is ticked (M-2a-01). Test slowness is on for ${A_NAME}: 3 seconds.`,
+    auto: ['MKT-2c-03'] }, (step, call, cleanup) => {
+    cy.then(() => hOffers()).then(() => multiSeller(true)).then(() => slowShop(3000))
+    step(`Customer: open the phone (Karachi). Choose ${A_NAME} → "Add to basket"; choose ${B_NAME} → "Add to basket". Open the basket; name, phone ${lph(4)}, address → "Place order".`,
+      `Within about 2 seconds, under the button: "${A_NAME} did not answer in time. Please remove its items and place the order again." No order number.`, () => {
+        fillBasket()
+        contact(lph(4))
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError', { timeout: 2500 }).should('have.text', `${A_NAME} did not answer in time. Please remove its items and place the order again.`)
+        cy.get('#mktCoOrderNo').should('have.text', '')
+      })
+    step(`"Remove" on ${A_NAME}'s phone → "Place order".`, `"Waiting for ${B_NAME} to confirm" with an order number MKT-…: only ${B_NAME}'s phone was ordered.`, () => {
+      cy.contains('.mkt-basket-group', A_NAME).find('.mkt-remove').click()
+      cy.get('.mkt-basket-group').should('have.length', 1)
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', `Waiting for ${B_NAME} to confirm`)
+      cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { H.r4 = no })
+    })
+    cleanup(`${B_NAME} rejects with "walk cleanup". Operator: test delay 0 → Save; untick "Customers can buy from several sellers in one order" → Save.`,
+      'The order reads Cancelled; "Test slowness is off."; the multi-seller switch is off again.', () => {
+        cy.then(() => answer(SELLER_B, H.r4, 'reject'))
+        routingBox()
+        cy.get('#mktRoutingDelay').clear().type('0')
+        cy.get('#mktRoutingTestSave').click()
+        cy.get('#mktRoutingMsg').should('contain', 'Test slowness is off.')
+        cy.then(() => slowShop(0))
+        policies()
+        cy.get('#mktMultiSeller').uncheck()
+        cy.get('#mktMultiSellerSave').click()
+        cy.get('#mktMultiSellerMsg').should('contain', 'Order settings saved.')
+      })
+  })
 })

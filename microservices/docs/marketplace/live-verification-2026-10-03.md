@@ -250,3 +250,27 @@ The design-only placeholders M-2-02..04 are replaced by them.
 - A part is moved whole; splitting it across two sellers is not designed.
 - A card order is only offered alternatives that cost no more (the card token is not kept).
 - Upheld causes are not yet used anywhere (seller scoring is a later slice).
+
+## 11. MKT-2c — live routing: deadlines and sellers that do not answer (run 2026-10-08)
+
+**The stack:** the same services and clock as §8 (libfaketime +1 day), rebuilt from `feature/expense-management` at
+e1fc36b8 plus this change. marketplace-service was started with `MKT_ROUTING_TEST_SWITCH=true`, so the operator's test
+switch could make Shahzad Mobile Shop slow (3 s). No migration.
+
+**Gate `mkt-2c-live-routing.cy.js`: 6 / 6. Every marketplace gate in one run: 98 / 98 (0a–2c).** The first live run of 2c
+was 4/6 (row 47). In the full run, every hold that did not answer in time came from the 2c cases (marketplace-service
+log: 24 "not held: TIMED_OUT/NOT_ANSWERING", all during the 2c runs), so the 800 ms limit refused no healthy seller in
+the other 92 cases. The log also shows each late hold released by its own key ("late answer … (HELD); releasing").
+
+**Walk M-2c-01..04: 4 / 4 recorded**, step by step, each expected result asserted, screens captured, cleanup done.
+The design-only placeholder M-2-05 is replaced by them.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 47 | gate 2c-04 (first live run) | the gate timed the checkout from when Cypress queued it, not from when it was sent, so a refusal that took a few milliseconds read as 3,953 ms; the next case then started with the test slowness still on | the clock starts when the request is sent; every case sets its own starting state | gate 2c-04, 2c-06 |
+| 48 | walk M-2c-01, M-2c-03 (screen review) | the first screen showed only the top of the new box, and "Ask it again now" sat against the label below it | the step shows the whole box; each "not answering" line has its own space | walk M-2c-01, M-2c-03 |
+
+**Open (2c):**
+- The circuits are per instance; a shared store is only worth it with many instances.
+- A slow seller in a basket refuses the whole basket (all or nothing, MKT-2a); offering the rest at once is not designed.
+- The limits (800 ms, 2 s, 3 failures, 30 s) are the source's starting points until a load test sets them.

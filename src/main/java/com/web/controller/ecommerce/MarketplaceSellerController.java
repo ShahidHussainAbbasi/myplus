@@ -330,6 +330,31 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/accept-window", body, "Could not save the acceptance window.");
     }
 
+    // ── MKT-2c: live routing — the limits, the sellers not being asked right now, the test switch ─────────
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/routing", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> routing(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/routing", request, "Could not load how sellers are asked for stock.");
+    }
+
+    /** Body: {sellerOrganizationId}. Its next checkout asks it again. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/routingClose", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> routingClose(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/routing/close", body, "Could not change the seller.");
+    }
+
+    /** Body: {sellerOrganizationId, delayMs}; refused by the service unless it was started with the test switch. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/routingTest", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> routingTest(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/routing/test", body, "Could not save the test switch.");
+    }
+
     // ── MKT-1f: support cases and returns ───────────────────────────────────────────────────────────────
 
     /** A seller's tasks from MaxTheService: its own cases waiting on it and approved returns to collect. */

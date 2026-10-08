@@ -231,6 +231,43 @@ public class MarketplaceSettingsService {
         return on;
     }
 
+    // ── MKT-2c: the operator's test switch for live routing ──────────────────────────────────────────────
+
+    /** One seller made slow on purpose, so the routing deadline can be seen working. */
+    public record SlowSeller(Long sellerOrganizationId, long delayMs) {}
+
+    static final long MAX_TEST_DELAY_MS = 30_000;
+
+    /** The stored test slowness, or null (off, missing or unreadable). {@link LiveRouting} honours it only when
+     *  {@code mkt.routing.test-switch} is on. */
+    @Transactional(readOnly = true)
+    public SlowSeller slowSeller() {
+        return settings.findById(MarketplacePlatformSetting.ROUTING_SLOW_SELLER)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> {
+                    String[] p = v.trim().split(":");
+                    try {
+                        SlowSeller s = new SlowSeller(Long.parseLong(p[0]), Long.parseLong(p[1]));
+                        return s.delayMs() > 0 && s.delayMs() <= MAX_TEST_DELAY_MS ? s : null;
+                    } catch (RuntimeException e) { return null; }
+                })
+                .orElse(null);
+    }
+
+    /** {@code seller} null, or delay 0, switches it off. */
+    @Transactional
+    public SlowSeller setSlowSeller(Long seller, Long delayMs) {
+        access.assertOperator();
+        if (seller == null || delayMs == null || delayMs == 0) {
+            save(MarketplacePlatformSetting.ROUTING_SLOW_SELLER, "");
+            return null;
+        }
+        if (delayMs < 0 || delayMs > MAX_TEST_DELAY_MS)
+            throw new ValidationException("The test delay is 1 to 30,000 milliseconds.");
+        save(MarketplacePlatformSetting.ROUTING_SLOW_SELLER, seller + ":" + delayMs);
+        return new SlowSeller(seller, delayMs);
+    }
+
     /** The operator's books: the org whose ledger takes the commission, and the user postings are made as. */
     public record Books(Long organizationId, Long userId) {}
 

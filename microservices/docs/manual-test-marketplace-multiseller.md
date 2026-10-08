@@ -1243,19 +1243,69 @@
 | C1 | Nothing to undo: the decision is the record (it never moved money). | — |
 
 
-## MKT-2
+## MKT-2c
 
-### M-2-05 Checkout never hangs on a slow seller
+### M-2c-01 The operator sees how sellers are asked for stock, and (on a test system) makes one slow
 
-**Who:** Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 2. The operator's test switch makes one seller slow.  
-**Covers:** MKT-R18.1, MKT-R18.3, MKT-R18.5  
-**Evidence:** written from the design — not built yet
+**Who:** MaxTheService operator (admin@myplus.com)  
+**Before:** A test system: marketplace-service was started with the test switch (MKT_ROUTING_TEST_SWITCH=true). Every seller is answering.  
+**Covers:** MKT-R18.3  
+**Evidence:** recorded 2026-10-08 11:26 UTC  
+**Automated by:** MKT-2c-04, MKT-2c-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Check out an item whose top offer belongs to the slow seller. | Within about 2 seconds the next seller is tried, or the screen says "We are checking availability". It never spins without end. |
-| C1 | Operator: switch the test slowness off. | Normal. |
+| 1 | Operator: Platform → "Marketplace policies" → the box "Asking sellers for stock at checkout". | "Each seller has 800 ms to answer and a checkout 2000 ms in all. A seller that does not answer 3 times in a row is not asked for 30 seconds." Below it: "Every seller is being asked." Then the test-only fields: "Test only: make this seller slow" (a list of the sellers), "Delay in milliseconds (0 = off)" and Save. |
+| 2 | Choose "Shahzad Mobile Shop", delay 3000 → Save. | "Test slowness is on." Reopening the panel shows the same seller and 3000. |
+| C1 | Delay 0 → Save. | "Test slowness is off." |
+
+### M-2c-02 Checkout never hangs on a slow seller: the customer is told in time and buys from another
+
+**Who:** Customer "Ali" (incognito window)  
+**Before:** Shahzad Mobile Shop (Rs 52,000) and Mobile Distributor (Rs 51,500) both sell the same phone in Karachi. Test slowness is on for Shahzad Mobile Shop: 3 seconds (M-2c-01).  
+**Covers:** MKT-R18.1, MKT-R18.3, MKT-R18.5  
+**Evidence:** recorded 2026-10-08 11:24 UTC  
+**Automated by:** MKT-2c-01, MKT-2c-02, MKT-2c-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: open the phone (Karachi) → choose Shahzad Mobile Shop → "Buy now". Name "Ali", phone 03170237202, address "1 Clifton" → "Place order". | Within about 2 seconds, under the button: "This seller did not answer in time. Please choose another offer." No order number. The button works again. |
+| 2 | Choose Mobile Distributor instead → "Buy now" → the same details → "Place order". | "Waiting for Mobile Distributor to confirm" with an order number MKT-…. |
+| C1 | Mobile Distributor rejects with the reason "walk cleanup". Operator: test delay 0 → Save. | The order reads Cancelled; "Test slowness is off." |
+
+### M-2c-03 A seller that keeps not answering is not asked for a while; the operator asks it again
+
+**Who:** Customer "Ali" (incognito window), then the MaxTheService operator  
+**Before:** Test slowness is on for Shahzad Mobile Shop: 3 seconds. Every seller is being asked.  
+**Covers:** MKT-R18.3, MKT-R18.5  
+**Evidence:** recorded 2026-10-08 11:24 UTC  
+**Automated by:** MKT-2c-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: choose Shahzad Mobile Shop → "Buy now" → name, phone 03170237203, address → "Place order". When the answer comes, press "Place order" again, three times in all. | Each time, in under a second: "This seller did not answer in time. Please choose another offer." |
+| 2 | Press "Place order" a fourth time. | The same sentence at once: Shahzad Mobile Shop is not being asked any more, so there is nothing to wait for. |
+| 3 | Operator: Platform → "Marketplace policies" → "Asking sellers for stock at checkout". | "Shahzad Mobile Shop is not answering: not asked until hh:mm:ss." with a button "Ask it again now". |
+| 4 | The shop says it is fixed: delay 0 → Save, then "Ask it again now" on Shahzad Mobile Shop's line. | "Test slowness is off.", then "The seller will be asked again on its next order." and "Every seller is being asked." |
+| 5 | Customer: choose Shahzad Mobile Shop again → "Buy now" → the same details → "Place order". | "Waiting for Shahzad Mobile Shop to confirm" with an order number MKT-…. |
+| C1 | Shahzad Mobile Shop rejects with the reason "walk cleanup". | The order reads Cancelled. |
+
+### M-2c-04 One slow seller in a basket: the basket is refused in time, that seller named
+
+**Who:** Customer "Ali" (incognito window)  
+**Before:** Operator: "Customers can buy from several sellers in one order" is ticked (M-2a-01). Test slowness is on for Shahzad Mobile Shop: 3 seconds.  
+**Covers:** MKT-R18.1, MKT-R17.2, MKT-R18.5  
+**Evidence:** recorded 2026-10-08 11:24 UTC  
+**Automated by:** MKT-2c-03
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Customer: open the phone (Karachi). Choose Shahzad Mobile Shop → "Add to basket"; choose Mobile Distributor → "Add to basket". Open the basket; name, phone 03170237204, address → "Place order". | Within about 2 seconds, under the button: "Shahzad Mobile Shop did not answer in time. Please remove its items and place the order again." No order number. |
+| 2 | "Remove" on Shahzad Mobile Shop's phone → "Place order". | "Waiting for Mobile Distributor to confirm" with an order number MKT-…: only Mobile Distributor's phone was ordered. |
+| C1 | Mobile Distributor rejects with "walk cleanup". Operator: test delay 0 → Save; untick "Customers can buy from several sellers in one order" → Save. | The order reads Cancelled; "Test slowness is off."; the multi-seller switch is off again. |
+
+
+## MKT-2
 
 ### M-2-06 Acceptance terms differ by order value
 

@@ -336,6 +336,21 @@
                 <span id="mktRerouteMsg" class="plat__hint" role="status"></span>
                 <div class="plat__hint" th:text="#{ui.mktRerouteHint}">Same price or lower and no later: moved without asking. Otherwise the customer chooses within 30 minutes. When off, the part is cancelled and refunded.</div>
             </div>
+            <!-- MKT-2c: how sellers are asked for stock at checkout: the limits, the sellers not being asked, the test switch -->
+            <div class="plat__form" id="mktRoutingForm">
+                <strong th:text="#{ui.mktRouting}">Asking sellers for stock at checkout</strong>
+                <div class="plat__hint" id="mktRoutingLimits"></div>
+                <div id="mktRoutingOpen"></div>
+                <div id="mktRoutingTest" style="display:none">
+                    <label for="mktRoutingSeller" th:text="#{ui.mktRoutingTestSeller}">Test only: make this seller slow</label>
+                    <select id="mktRoutingSeller" class="form-control"></select>
+                    <label for="mktRoutingDelay" th:text="#{ui.mktRoutingTestDelay}">Delay in milliseconds (0 = off)</label>
+                    <input type="number" id="mktRoutingDelay" class="form-control" min="0" max="30000" step="100"/>
+                    <button type="button" class="btn btn-default" id="mktRoutingTestSave" th:text="#{ui.mktOfferSave}">Save</button>
+                    <div class="plat__hint" th:text="#{ui.mktRoutingTestHint}">This system was started with the test switch. Use it to see a slow seller refused in time; switch it off afterwards.</div>
+                </div>
+                <span id="mktRoutingMsg" class="plat__hint" role="status"></span>
+            </div>
             <div class="plat__form" id="mktPolicyForm">
                 <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>
                 <select id="mktPolType" class="form-control">

@@ -33,6 +33,9 @@ public class MarketplacePlatformSetting {
     public static final String MULTI_SELLER = "checkout.multiSeller";
     /** MKT-2b — "true" moves a part a seller could not fulfil to another seller, or asks the customer. Default off. */
     public static final String SHORTAGE_REROUTE = "shortage.reroute";
+    /** MKT-2c — the operator's test switch: "{sellerOrg}:{delayMs}" makes that seller's holds slow. Read only when
+     *  {@code mkt.routing.test-switch=true}; empty or unparseable reads as off. */
+    public static final String ROUTING_SLOW_SELLER = "routing.testSlowSeller";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

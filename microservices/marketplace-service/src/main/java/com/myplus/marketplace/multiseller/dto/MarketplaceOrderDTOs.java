@@ -149,4 +149,22 @@ public final class MarketplaceOrderDTOs {
             this(minutes, multiSeller, null);
         }
     }
+
+    // ── MKT-2c: live routing, for the operator ──────────────────────────────────────────────────────────
+
+    /** GET /mkt/operator/routing. {@code slowSeller*} and {@code sellers} only when the test switch is available. */
+    public record RoutingView(long holdTimeoutMs, long deadlineMs, int breakerFailures, long breakerOpenSeconds,
+            List<RoutingCircuit> notAnswering, boolean testSwitch, Long slowSellerOrganizationId, Long slowDelayMs,
+            String slowSellerName, List<RoutingSeller> sellers) {}
+
+    /** A seller not being asked until {@code until}, after {@code failures} calls in a row it did not answer. */
+    public record RoutingCircuit(Long sellerOrganizationId, String sellerName, int failures, java.time.LocalDateTime until) {}
+
+    public record RoutingSeller(Long sellerOrganizationId, String name) {}
+
+    /** POST /mkt/operator/routing/test: seller null or delay 0 switches it off. */
+    public record RoutingTest(Long sellerOrganizationId, Long delayMs) {}
+
+    /** POST /mkt/operator/routing/close. */
+    public record RoutingClose(Long sellerOrganizationId) {}
 }

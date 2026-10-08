@@ -112,6 +112,8 @@ public class MarketplaceCheckoutService {
     private final com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortages;
     /** The seller side releases holds; it also calls {@link #hold}, so it is resolved on demand (a real cycle). */
     private final org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSide;
+    /** MKT-2c: every seller asked at once, each with a timeout, the checkout with one deadline, circuits per seller. */
+    private final LiveRouting routing;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -183,20 +185,23 @@ public class MarketplaceCheckoutService {
         }
         List<MarketplaceSellerOrder> parts = sellerOrders.findByMktOrderId(orderId);
 
-        // ── remote: hold each part's stock as its seller (outside any transaction); stop at the first refusal ──
+        // ── remote: hold every part's stock as its seller, all at once, outside any transaction (MKT-2c: each seller
+        //    has its own timeout and the whole checkout one deadline; never wait on a seller past them) ──
+        List<LiveRouting.Answer> answers = routing.holdAll(parts.stream()
+                .map(so -> ask(so, lines.findBySellerOrderIdOrderByIdAsc(so.getId()))).toList(), routing.deadlineFromNow());
         Long refusedSeller = null;
-        for (MarketplaceSellerOrder so : parts) {
-            String refusal = hold(so, lines.findBySellerOrderIdOrderByIdAsc(so.getId()));
-            if (refusal != null) {
-                LOG.info("MKT checkout {} part {} not held: {}", c.key(), so.getId(), refusal);
-                refusedSeller = so.getSellerOrganizationId();
-                break;
+        boolean silent = false;
+        for (int i = 0; i < parts.size(); i++) {
+            LiveRouting.Answer a = answers.get(i);
+            if (a.held()) continue;
+            LOG.info("MKT checkout {} part {} not held: {} ({})", c.key(), parts.get(i).getId(), a.kind(), a.reason());
+            if (refusedSeller == null) {                                    // the first one the shopper added
+                refusedSeller = parts.get(i).getSellerOrganizationId();
+                silent = a.silent();
             }
         }
         final Long refused = refusedSeller;
-        String refusedFor = refused == null ? null : bySeller.size() == 1
-                ? "This seller no longer has enough stock. Please choose another offer."
-                : sellerName(refused) + " no longer has enough stock. Please remove its items and place the order again.";
+        String refusedFor = refused == null ? null : refusal(refused, silent, bySeller.size() == 1);
 
         // ── remote: the card, AFTER every part is held (never charge for stock that cannot be held) ──
         MarketplacePaymentService.Outcome paid = refused != null || !card ? null
@@ -344,19 +349,54 @@ public class MarketplaceCheckoutService {
     }
 
     /**
-     * Hold every line of one part under the part's key. A product on two lines is held once, for both quantities.
+     * What the shopper is told when a part could not be held (R18.5: never a silent confirm). A seller that did not
+     * answer in time is named as such, so the shopper knows another offer may work where "no stock" would not.
+     */
+    String refusal(Long seller, boolean silent, boolean oneSeller) {
+        if (silent) return oneSeller
+                ? "This seller did not answer in time. Please choose another offer."
+                : sellerName(seller) + " did not answer in time. Please remove its items and place the order again.";
+        return oneSeller
+                ? "This seller no longer has enough stock. Please choose another offer."
+                : sellerName(seller) + " no longer has enough stock. Please remove its items and place the order again.";
+    }
+
+    /** MKT-2c: one part's hold as a routed call: as its seller, under the part's own key. */
+    LiveRouting.Ask ask(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines) {
+        return new LiveRouting.Ask(so.getSellerOrganizationId(), so.getHoldKey(), holdRequest(so, partLines));
+    }
+
+    /** MKT-2c, for a reroute (MKT-2b): one candidate seller asked like a checkout part, within {@code until}. */
+    LiveRouting.Answer route(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines, long until) {
+        return routing.hold(ask(so, partLines), until);
+    }
+
+    /** MKT-2c: the overall deadline for one routing decision, starting now. */
+    long routingDeadline() {
+        return routing.deadlineFromNow();
+    }
+
+    /** Every line of one part under the part's key. A product on two lines is held once, for both quantities. */
+    static StockHoldRequest holdRequest(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines) {
+        Map<Long, BigDecimal> qty = new LinkedHashMap<>();
+        for (MarketplaceOrderLine l : partLines) qty.merge(l.getSourceProductId(), BigDecimal.valueOf(l.getQuantity()), BigDecimal::add);
+        return StockHoldRequest.builder()
+                .organizationId(so.getSellerOrganizationId())
+                .holdKey(so.getHoldKey())
+                .lines(qty.entrySet().stream().map(e -> new StockReservationLine(e.getKey(), e.getValue())).toList())
+                .build();
+    }
+
+    /**
+     * Hold every line of one part under the part's key, waiting as long as it takes: the seller's own re-hold after a
+     * failed sale ({@link SellerOrderService#accept}), which is not routing. Checkout and a reroute use {@link #ask}.
      * @return null when held, otherwise why not. Never throws: an outage reads as "not held", never as "held".
      */
     String hold(MarketplaceSellerOrder so, List<MarketplaceOrderLine> partLines) {
-        Map<Long, BigDecimal> qty = new LinkedHashMap<>();
-        for (MarketplaceOrderLine l : partLines) qty.merge(l.getSourceProductId(), BigDecimal.valueOf(l.getQuantity()), BigDecimal::add);
-        if (qty.isEmpty()) return "nothing to hold";
+        StockHoldRequest req = holdRequest(so, partLines);
+        if (req.getLines().isEmpty()) return "nothing to hold";
         try {
-            StockHoldResponse r = AsOrg.call(so.getSellerOrganizationId(), () -> trade.holdStock(StockHoldRequest.builder()
-                    .organizationId(so.getSellerOrganizationId())
-                    .holdKey(so.getHoldKey())
-                    .lines(qty.entrySet().stream().map(e -> new StockReservationLine(e.getKey(), e.getValue())).toList())
-                    .build()));
+            StockHoldResponse r = AsOrg.call(so.getSellerOrganizationId(), () -> trade.holdStock(req));
             if (r != null && r.isHeld()) return null;
             return r == null ? "inventory did not answer" : r.getReason();
         } catch (RuntimeException e) {
