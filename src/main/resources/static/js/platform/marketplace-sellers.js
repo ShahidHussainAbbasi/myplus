@@ -554,6 +554,55 @@
 		return $tr;
 	}
 
+	// ── MKT-2e: seller performance ────────────────────────────────────────────────────────────────────
+	// Read from the orders placed in the window; a flag is a note for the operator, never a sanction (R12.4).
+	var perfDays = 30;
+	var PERF_FLAG = {
+		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
+		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+	};
+	function perfRate(rate, part, whole) {
+		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
+		return tr('ui.js.mktPerfRate', '{0}% ({1} of {2})').replace('{0}', Math.round(rate * 100)).replace('{1}', part).replace('{2}', whole);
+	}
+	function perfSpeed(m) {
+		if (m === null || m === undefined) return '—';
+		return m < 1 ? tr('ui.js.mktPerfUnderMinute', 'Under a minute on average')
+			: tr('ui.js.mktPerfMinutes', '{0} min on average').replace('{0}', m);
+	}
+	function loadPerformance() {
+		var $tb = $('#mktPerfList tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/sellerPerformance?days=' + perfDays, dataType: 'json' })
+			.done(function (res) {
+				if (!ok(res)) { $tb.append($('<tr><td colspan="7"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+				var rows = (data(res) || {}).sellers || [];
+				if (!rows.length) $tb.append($('<tr><td colspan="7" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktPerfNone', 'No marketplace orders in this window.')).end());
+				rows.forEach(function (r) { $tb.append(perfRow(r)); });
+			})
+			.fail(function (xhr) { $tb.append($('<tr><td colspan="7"></td></tr>').find('td').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))).end()); });
+	}
+	function perfRow(r) {
+		var $tr = $('<tr class="mkt-perf-row"></tr>').attr('data-org', r.organizationId)
+			.attr('data-flags', (r.flags || []).join(','));
+		$tr.append($('<td></td>').append($('<b></b>').text(r.sellerName || ('#' + r.organizationId))));
+		var $f = $('<td class="mkt-perf-flags"></td>');
+		if (!(r.flags || []).length) $f.addClass('text-muted').text(tr('ui.js.mktPerfFlagNone', 'Nothing'));
+		(r.flags || []).forEach(function (k) {
+			$('<div class="mkt-perf-flag" style="color:#b3261e;font-weight:600"></div>').attr('data-flag', k).text(lbl(PERF_FLAG, k)).appendTo($f);
+		});
+		$tr.append($f);
+		$tr.append($('<td class="mkt-perf-accept"></td>').text(perfRate(r.acceptanceRate, r.accepted, r.accepted + r.missed)));
+		$tr.append($('<td class="mkt-perf-speed"></td>').text(perfSpeed(r.avgMinutesToAccept)));
+		$tr.append($('<td class="mkt-perf-ontime"></td>').text(perfRate(r.onTimeRate, r.onTime, r.due)));
+		var $miss = $('<td class="mkt-perf-missed"></td>').text(String(r.missed));
+		if (r.disputed) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfDisputed', '{0} under dispute').replace('{0}', r.disputed)));
+		if (r.excused) $miss.append($('<div class="text-muted" style="font-size:12px"></div>').text(tr('ui.js.mktPerfExcused', "{0} not the seller's fault").replace('{0}', r.excused)));
+		$tr.append($miss);
+		$tr.append($('<td class="mkt-perf-returns"></td>').text(String(r.sellerFaultReturns || 0)));
+		return $tr;
+	}
+
 	function saveAcceptWindow() {
 		var $b = $('#mktAcceptWindowSave').prop('disabled', true);
 		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', type: 'POST', contentType: 'application/json', dataType: 'json',
@@ -899,6 +948,13 @@
 		$(this).addClass('is-on');
 		shortageStatus = $(this).attr('data-status');
 		loadShortages();
+	});
+	$(document).on('click', '#platMktPerformanceBtn', function () { openPanel('#platMktPerformance', loadPerformance); });   // MKT-2e
+	$(document).on('click', '#platMktPerfDays button', function () {
+		$('#platMktPerfDays button').removeClass('is-on');
+		$(this).addClass('is-on');
+		perfDays = Number($(this).attr('data-days')) || 30;
+		loadPerformance();
 	});
 	$(document).on('click', '.plat-mkt-back', function () {
 		$('.plat__panel').hide();

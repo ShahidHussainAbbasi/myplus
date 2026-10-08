@@ -79,6 +79,9 @@
                 <!-- MKT-2b: parts sellers did not fulfil — the cause recorded, disputes to decide. -->
                 <button type="button" class="btn btn-default" id="platMktShortagesBtn"
                         th:text="#{ui.mktShortagesTitle}">Unfulfilled parts</button>
+                <!-- MKT-2e: how each seller handles its orders. A flag is a record, never a sanction (R12.4). -->
+                <button type="button" class="btn btn-default" id="platMktPerformanceBtn"
+                        th:text="#{ui.mktPerfTitle}">Seller performance</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -250,6 +253,37 @@
                         <th th:text="#{ui.mktShColCause}">Cause</th>
                         <th th:text="#{ui.mktShColResult}">For the customer</th>
                         <th th:text="#{ui.mktColStatus}">Status</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- ── MKT-2e: seller performance ─────────────────────────────────────────────────────────── -->
+        <!-- Read from the orders placed in the window, never stored. Flags are notes for the operator: nothing is
+             stopped or charged by them (R12.4). -->
+        <section id="platMktPerformance" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktPerfTitle}">Seller performance</h3>
+            <p class="plat__hint" th:text="#{ui.mktPerfHint}">How each seller handled the orders placed in the window. A flag is a note for MaxTheService, never a penalty: nothing is stopped or charged by it. A rate needs at least 5 orders.</p>
+            <div class="plat-seg" id="platMktPerfDays" role="group" th:attr="aria-label=#{ui.mktPerfDays}">
+                <button type="button" data-days="7" th:text="#{ui.mktPerf7}">7 days</button>
+                <button type="button" data-days="30" class="is-on" th:text="#{ui.mktPerf30}">30 days</button>
+                <button type="button" data-days="90" th:text="#{ui.mktPerf90}">90 days</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktPerfList">
+                    <thead><tr>
+                        <th style="white-space:normal" th:text="#{ui.mktColSeller}">Seller</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColFlags}">Needs attention</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColAccepted}">Orders accepted</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColSpeed}">Time to accept</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColOnTime}">Delivered on time</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColMissed}">Not fulfilled by the seller</th>
+                        <th style="white-space:normal" th:text="#{ui.mktPerfColReturns}">Returns the seller caused</th>
                     </tr></thead>
                     <tbody></tbody>
                 </table>

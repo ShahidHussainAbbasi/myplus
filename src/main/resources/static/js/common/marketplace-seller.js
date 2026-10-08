@@ -60,6 +60,9 @@
 		if (a) mktTasksLoad();
 		// MKT-1g: the statement — loaded when asked for, it is a page of money, not a glance
 		$('#mktStatementBox').toggle(!!a);
+		// MKT-2e: the shop's own scorecard, the figures MaxTheService sees for it
+		$('#mktPerfBox').toggle(!!a);
+		if (a) mktPerfLoad();
 	}
 
 	// ── MKT-1b: products to publish ───────────────────────────────────────────────────────────────────
@@ -645,6 +648,37 @@
 		return $.when(a, b);
 	}
 
+	// ── MKT-2e: your performance ──────────────────────────────────────────────────────────────────────
+	var PERF_FLAG = {
+		LOW_ACCEPTANCE: ['ui.js.mktPerfFlagAcceptance', 'Accepts fewer than 80% of its orders'],
+		LATE_DELIVERY: ['ui.js.mktPerfFlagLate', 'Delivers fewer than 90% on time'],
+		COD_OVERDUE: ['ui.js.mktPerfFlagCod', 'Late paying for cash orders']
+	};
+	function perfRate(rate, part, whole) {
+		if (rate === null || rate === undefined) return tr('ui.js.mktPerfNotEnough', 'Not enough orders yet');
+		return tr('ui.js.mktPerfRate', '{0}% ({1} of {2})').replace('{0}', Math.round(rate * 100)).replace('{1}', part).replace('{2}', whole);
+	}
+	function mktPerfLoad() {
+		return $.ajax({ url: ctx() + 'mkt/myPerformance?days=30', dataType: 'json' }).done(function (res) {
+			var $f = $('#mktPerfFlags').empty();
+			if (!ok(res)) { $f.text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var r = ((data(res) || {}).sellers || [])[0] || {};
+			$('#mktPerfAccept').text(perfRate(r.acceptanceRate, r.accepted || 0, (r.accepted || 0) + (r.missed || 0)));
+			var m = r.avgMinutesToAccept;
+			$('#mktPerfSpeed').text(m === null || m === undefined ? '—' : m < 1 ? tr('ui.js.mktPerfUnderMinute', 'Under a minute on average')
+				: tr('ui.js.mktPerfMinutes', '{0} min on average').replace('{0}', m));
+			$('#mktPerfOnTime').text(perfRate(r.onTimeRate, r.onTime || 0, r.due || 0));
+			$('#mktPerfReturns').text(String(r.sellerFaultReturns || 0));
+			if (r.disputed) $('<div class="text-muted" style="font-size:13px"></div>')
+				.text(tr('ui.js.mktPerfMineDisputed', '{0} unfulfilled orders you disputed are not counted until MaxTheService decides.').replace('{0}', r.disputed)).appendTo($f);
+			(r.flags || []).forEach(function (k) {
+				var v = PERF_FLAG[k];
+				$('<div class="alert alert-warning mkt-perf-flag" style="padding:6px 12px;margin:6px 0 0"></div>').attr('data-flag', k)
+					.text(tr('ui.js.mktPerfNoted', 'MaxTheService has noted: {0}.').replace('{0}', v ? tr(v[0], v[1]) : k)).appendTo($f);
+			});
+		}).fail(function (xhr) { $('#mktPerfFlags').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
+	}
+
 	$(document).on('click', '#mktStatementTab', function () { mktStatementLoad(); });
 	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
 	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
@@ -673,4 +707,5 @@
 	global.mktIncomingLoad = mktIncomingLoad;
 	global.mktTasksLoad = mktTasksLoad;
 	global.mktStatementLoad = mktStatementLoad;
+	global.mktPerfLoad = mktPerfLoad;
 })(window);

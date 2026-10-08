@@ -239,11 +239,12 @@ gate('2d')('MKT-2d — cash orders: what sellers owe, and the money they pay', (
     owing(phone(5)).then((commission) => {
       cy.loginAsOperator()
       const k = `once-${run}`
-      post(COD.pay, { organizationId: org, amount: commission, reference: 'HBL-ONCE', idempotencyKey: k }).then((r1) => {
+      const ref = `HBL-ONCE-${run}`                    // unique per run: the ledger keeps every earlier run's lines
+      post(COD.pay, { organizationId: org, amount: commission, reference: ref, idempotencyKey: k }).then((r1) => {
         expect(ok(r1.body), JSON.stringify(r1.body)).to.eq(true)
-        post(COD.pay, { organizationId: org, amount: commission, reference: 'HBL-ONCE', idempotencyKey: k }).then((r2) => {
+        post(COD.pay, { organizationId: org, amount: commission, reference: ref, idempotencyKey: k }).then((r2) => {
           expect(ok(r2.body), 'a double click is the same payment').to.eq(true)
-          expect(data(r2.body).entries.filter((e) => e.memo && e.memo.includes('HBL-ONCE')).length).to.eq(1)
+          expect(data(r2.body).entries.filter((e) => e.memo && e.memo.includes(ref)).length).to.eq(1)
           expect(Number(data(r2.body).balance)).to.eq(0)
         })
       })

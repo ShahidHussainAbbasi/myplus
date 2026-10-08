@@ -271,6 +271,20 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- MKT-2e: how this shop handled its marketplace orders: the same figures MaxTheService sees for it. A flag is
+		     a note, never a penalty (R12.4). Equal offers rank the shop that accepts more of its orders first. -->
+		<div id="mktPerfBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" th:text="#{ui.mktPerfMineTitle}">Your performance</h4>
+			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktPerfMineHint}">How you handled the marketplace orders placed in the last 30 days. When two offers are otherwise equal, customers see the seller that accepts more of its orders first.</p>
+			<div class="row" id="mktPerfTiles">
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColAccepted}">Orders accepted</div><div id="mktPerfAccept" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColSpeed}">Time to accept</div><div id="mktPerfSpeed" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColOnTime}">Delivered on time</div><div id="mktPerfOnTime" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColReturnsMine}">Returns you caused</div><div id="mktPerfReturns" style="font-weight:700"></div></div>
+			</div>
+			<div id="mktPerfFlags" role="status" style="margin-top:8px"></div>
+		</div>
 	</div>
 </div>
 </body>

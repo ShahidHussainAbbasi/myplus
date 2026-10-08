@@ -25,4 +25,13 @@ public interface MarketplaceReturnRepository extends JpaRepository<MarketplaceRe
 
     /** MKT-1g — the returns of many lines at once (the settlement sweeper and the statement, no N+1). */
     List<MarketplaceReturn> findByOrderLineIdIn(Collection<Long> orderLineIds);
+
+    /**
+     * MKT-2e — per seller, the returns whose cost the seller itself bears (R13.1: wrong product, not as described, …),
+     * on parts placed since {@code from}, not refused. Rows: [sellerOrgId, count].
+     */
+    @org.springframework.data.jpa.repository.Query("select r.sellerOrgId, count(r) from MarketplaceReturn r, MarketplaceOrderLine l, "
+            + "MarketplaceSellerOrder so where r.orderLineId = l.id and l.sellerOrderId = so.id and so.createdAt >= :from "
+            + "and r.bearerOrgId = r.sellerOrgId and r.status <> 'REJECTED' group by r.sellerOrgId")
+    List<Object[]> sellerFaultReturns(@org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from);
 }

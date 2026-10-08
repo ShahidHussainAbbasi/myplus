@@ -301,3 +301,29 @@ captured, cleanup done. Mobile Distributor plays the seller, so the walk and the
 - The customer is told to pay online, which needs an account; the sentence does not say so.
 - To start from a known state the gate squares Shahzad Mobile Shop (a payment, or a correction to zero). On this test
   system it left the payout from row 33 unpayable; a payout still cannot be withdrawn (row 33).
+
+## 13. MKT-2e — merchant performance (run 2026-10-08)
+
+**Gate `mkt-2e-merchant-performance.cy.js`: 8 / 8**, on its first live run and again after the screen fixes below. Every
+figure is checked as a difference from the figures read just before the action. The ranking case publishes the better
+seller's offer second, with a positive control that the offer id alone would have listed it last. Migration V33 (the
+`created_at` index) applied on the live database.
+
+**Every marketplace gate in one run on the usual clock: 112 / 116 passing, 3 pending (2d's later phase, as designed),
+1 failing**: MKT-2d-05, a defect in the gate itself (row 53). Fixed, 2d re-run alone: 7 / 7 with the 3 later cases
+pending. So 0a–2e: **113 / 113** of the cases that run on this clock.
+
+**Walk M-2e-01..03: 3 / 3 recorded**, step by step, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 52 | walk M-2e-01 (screen review) | "Needs attention" was the last column, off the right edge of a 1366-pixel screen: every flag was invisible while the gate, which reads the DOM, passed. Average time to accept read "0 min on average" | the column is second and the headers wrap; below one minute it reads "Under a minute on average" | walk M-2e-01, M-2e-02 |
+| 53 | the combined gate run | MKT-2d-05 counted ledger lines by the fixed reference "HBL-ONCE"; on a stack where the gate had run before it found 3, so the gate could pass only once per database | the reference carries the run's id | gate MKT-2d-05 |
+| 54 | walk M-2e-02, M-2e-03 (screen review) | the screen was captured before the page's other lists had drawn, so the rejected order and "Your performance" were off screen | the step waits for the lists, then scrolls to the row; M-2e-03 asserts the box is on screen | walk M-2e-02, M-2e-03 |
+
+**Open (2e):**
+- The two demo shops read 16% and 40% accepted: every earlier gate and walk ends its orders by rejecting them without
+  a cause, which counts as the seller's miss. Test data, not a product defect; the 2e gate names a platform cause for
+  its own cleanup.
+- No customer ratings are collected yet, so the scorecard has no rating column and the ranking's rating key stays empty.
+- A flag stops or charges nothing (R12.4). Any consequence would be a new decision with its own dispute process.

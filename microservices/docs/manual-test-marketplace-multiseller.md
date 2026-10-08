@@ -1357,6 +1357,56 @@
 | C1 | Mobile Distributor rejects the order with "walk cleanup". Operator: untick "Stop cash on delivery for a seller that has not paid in time" → Save. | The order reads Cancelled; "Settlement settings saved." and the box is unticked. |
 
 
+## MKT-2e
+
+### M-2e-01 The operator reads how each seller handles its orders, over 7, 30 or 90 days
+
+**Who:** MaxTheService operator (admin@myplus.com)  
+**Before:** Both shops have had marketplace orders in the last 30 days (earlier cases).  
+**Covers:** MKT-R20.3  
+**Evidence:** recorded 2026-10-08 15:54 UTC  
+**Automated by:** MKT-2e-01, MKT-2e-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: Platform dashboard → "Seller performance". | "Seller performance", with "30 days" selected. One row per shop that had an order in the last 30 days, shops that need attention first. Shahzad Mobile Shop's row: "Orders accepted" as "<percent>% (<accepted> of <decided>)", "Time to accept" in minutes, "Delivered on time", "Not fulfilled by the seller", "Returns the seller caused", and in red under "Needs attention" each reason, or "Nothing". |
+| 2 | Press "7 days". | "7 days" is selected and the figures are those of the orders placed in the last 7 days: never more orders than in 30 days. |
+| 3 | Press "90 days". | "90 days" is selected; Shahzad Mobile Shop has at least as many orders as in 30 days. |
+| C1 | None: reading changes nothing. | — |
+
+### M-2e-02 A missed order counts against the seller until it disputes it; overturned, it is not the seller's fault
+
+**Who:** owner.mobile@myplus.com (Mobile Distributor), then the MaxTheService operator  
+**Before:** A customer has just ordered Mobile Distributor's phone, cash on delivery. Mobile Distributor has no stock on the shelf.  
+**Covers:** MKT-R20.3, MKT-R11.4, MKT-R12.4  
+**Evidence:** recorded 2026-10-08 15:55 UTC  
+**Automated by:** MKT-2e-02, MKT-2e-03, MKT-2e-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace → Incoming orders → the new order → reason "none on the shelf", cause "Out of stock in my shop" → Reject. | The row reads "Rejected", "Cause: … · Recorded". |
+| 2 | Operator: Platform dashboard → "Seller performance". | Mobile Distributor's "Not fulfilled by the seller" is one more than before. |
+| 3 | As owner.mobile@myplus.com: Incoming orders → "Rejected (cause and disputes)" → the order → "Dispute this cause" → "The stock count said 3" → "Send dispute". | "Disputed: MaxTheService is reviewing it". |
+| 4 | Operator: "Seller performance" again. | Mobile Distributor's "Not fulfilled by the seller" is back to what it was, with "1 under dispute" (or one more than before) under it: a disputed record is not used until MaxTheService decides. |
+| 5 | Operator: "Unfulfilled parts" → the order → reason "Our count was late; not the seller's fault." → "Overturn it". | "Overturned by MaxTheService". |
+| 6 | Operator: "Seller performance" again. | Mobile Distributor: "Not fulfilled by the seller" as before the order, nothing under dispute from it, and one more "not the seller's fault". |
+| C1 | None: the order ended when it was rejected, and the decision is the record (it moved no money). | — |
+
+### M-2e-03 The seller reads its own scorecard; of two equal offers the customer sees the seller that accepts more first
+
+**Who:** owner.mobile@myplus.com (Mobile Distributor), then a customer (incognito window)  
+**Before:** Both shops sell the same phone at Rs 52,000, delivery in 24 hours, the same warranty and return policy, both in Karachi.  
+**Covers:** MKT-R20.3  
+**Evidence:** recorded 2026-10-08 15:55 UTC  
+**Automated by:** MKT-2e-07, MKT-2e-08
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.mobile@myplus.com: Sale → Marketplace. Scroll to "Your performance". | Four figures for the last 30 days: "Orders accepted", "Time to accept", "Delivered on time", "Returns you caused", the same MaxTheService sees; under them, for each reason, "MaxTheService has noted: …". |
+| 2 | Customer: open the phone both shops sell (Karachi). | The shop that accepts more of its orders is listed first, although it published its offer later: price, delivery time and policies are the same. |
+| C1 | None: both offers stay on sale, as after M-1d. | — |
+
+
 ## MKT-2
 
 ### M-2-06 Acceptance terms differ by order value

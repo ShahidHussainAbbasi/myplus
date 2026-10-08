@@ -526,6 +526,23 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/settlement/settings", request, "Could not load the settlement settings.");
     }
 
+    // ── MKT-2e: seller performance ─────────────────────────────────────────────────────────────────────
+
+    /** The seller's own scorecard. ?days=7|30|90 */
+    @RequestMapping(value = "/mkt/myPerformance", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> myPerformance(final HttpServletRequest request) {
+        return relayGet("/mkt/seller/performance", request, "Could not load your performance.", "days");
+    }
+
+    /** Every seller's scorecard, flagged first. ?days=7|30|90 */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/sellerPerformance", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> sellerPerformance(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/performance", request, "Could not load the sellers' performance.", "days");
+    }
+
     /** MKT-2d — cash orders: what each seller collected, paid and owes, and since when. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/codReconciliation", method = RequestMethod.GET)
