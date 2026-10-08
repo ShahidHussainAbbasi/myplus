@@ -394,6 +394,37 @@ public class MarketplaceSellerController {
     }
 
     /** Body: {returnNo, decision: APPROVED|REJECTED, note}. */
+    // ── MKT-2b: a part a seller did not fulfil — the seller disputes the recorded cause, the operator decides ──
+
+    /** Body: {id, note}. The seller's own record only; another seller's id reads as missing (checked by the service). */
+    @RequestMapping(value = "/mkt/shortageDispute", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> shortageDispute(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the record.");
+        return relayPost("/mkt/seller/shortages/" + id + "/dispute", Map.of("note", String.valueOf(body.getOrDefault("note", ""))),
+                "Could not send the dispute.");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/shortages", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> shortages(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/shortages", request, "Could not load the shortages.", "status", "page", "size");
+    }
+
+    /** Body: {id, outcome: UPHELD|OVERTURNED, note}. Neither outcome moves money (R12.4). */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/shortageDecide", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> shortageDecide(@RequestBody final Map<String, Object> body) {
+        Object id = body == null ? null : body.get("id");
+        if (id == null || !String.valueOf(id).matches("\\d+")) return refusal("Choose the record.");
+        Map<String, Object> rest = new HashMap<>(body);
+        rest.remove("id");
+        return relayPost("/mkt/operator/shortages/" + id + "/decide", rest, "Could not record the decision.");
+    }
+
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/returnDecision", method = RequestMethod.POST)
     @ResponseBody

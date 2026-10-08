@@ -151,6 +151,8 @@ public class SecSecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/marketplace", "/marketplace/public/**").permitAll()
                 // MKT-1e: the anonymous checkout — this ONE path, by method. Not CSRF-exempt: the page sends the token.
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/marketplace/public/checkout").permitAll()
+                // MKT-2b: the shopper's answer to an alternative seller, proven by the order's phone (as tracking is)
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/marketplace/public/orders/*/shortages/*/decision").permitAll()
                 // MKT-1e2: the marketplace CUSTOMER's account. Not a staff login: the customer is identified by their
                 // own HttpOnly session cookie, checked by marketplace-service. CSRF stays on for every POST.
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/marketplace/account/me", "/marketplace/account/orders",
@@ -158,6 +160,7 @@ public class SecSecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/marketplace/account/register",
                         "/marketplace/account/login", "/marketplace/account/logout", "/marketplace/account/claim",
                         "/marketplace/account/orders/*/cancel", "/marketplace/account/orders/*/cases",
+                        "/marketplace/account/orders/*/shortages/*/decision",
                         "/marketplace/account/cases/*/messages").permitAll()
                 // Privileged Endpoint Rules — logged-in "change my password" still requires the privilege.
                 // (The forgot/reset flow is token-gated by the auth-service, so it is permitAll above.)

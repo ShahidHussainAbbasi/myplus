@@ -117,7 +117,8 @@
 		render: function () { return render(); },
 		tr: function () { return tr.apply(null, arguments); },
 		money: function (v) { return money(v); },
-		csrfHeaders: function () { return csrfHeaders(); }
+		csrfHeaders: function () { return csrfHeaders(); },
+		shortage: function (o, p, phone, done) { return shortage(o, p, phone, done); }
 	};
 
 	// ── search view ────────────────────────────────────────────────────────────────────────────────────
@@ -611,8 +612,10 @@
 		});
 		clearInterval(countdownTimer);
 		var parts = o.sellerOrders || [];
-		$('mktOrderParts').hidden = parts.length < 2;
-		if (parts.length > 1) return showParts(o, parts);
+		// MKT-2b: a part being moved to another seller is shown per part, even on a one-seller order
+		var perPart = parts.length > 1 || parts.some(function (p) { return !!p.shortage; });
+		$('mktOrderParts').hidden = !perPart;
+		if (perPart) return showParts(o, parts);
 		if (o.status === 'CONFIRMED') {
 			st.className = 'state ok';
 			st.textContent = tr('ui.js.mktConfirmedBy', 'Confirmed by {0}', seller);
@@ -646,7 +649,10 @@
 		var st = $('mktCheckoutStatus'), detail = $('mktOrderDetail'), ul = $('mktOrderParts');
 		$('mktOrderLines').textContent = '';
 		ul.textContent = '';
-		var waiting = parts.some(function (p) { return p.status === 'OFFERED' || p.status === 'UNASSIGNED'; });
+		var waiting = parts.some(function (p) {
+			return p.status === 'OFFERED' || p.status === 'UNASSIGNED'
+				|| (p.shortage && !p.shortage.decision && (p.shortage.result === 'PENDING' || p.shortage.result === 'SUBSTITUTION_REQUESTED'));   // MKT-2b
+		});
 		var card = o.paymentMode === 'CARD';
 		if (o.status === 'CANCELLED') {
 			st.className = 'state bad';
@@ -665,7 +671,7 @@
 			st.textContent = tr('ui.js.mktWaitingSellers', 'Waiting for the sellers to confirm');
 			detail.textContent = tr('ui.js.mktStockHeldAll', 'Your stock is held while the sellers answer.');
 		}
-		var clocks = [];
+		var clocks = [], moving = false;
 		parts.forEach(function (p) {
 			var li = el('li', 'mkt-part');
 			li.setAttribute('data-seller', p.sellerName || '');
@@ -685,6 +691,12 @@
 				ps.className = 'pstate wait';
 				var deadline = p.secondsToAccept === null || p.secondsToAccept === undefined ? null : Date.now() + p.secondsToAccept * 1000;
 				clocks.push({ node: ps, deadline: deadline });
+			} else if (p.shortage) {
+				var sv = shortage(o, p, session('get', 'mkt.ph.' + o.orderNo) || '', function () { openOrder(o.orderNo); });
+				ps.className = 'pstate ' + sv.tone;
+				ps.appendChild(sv.node);
+				if (sv.clock) clocks.push(sv.clock);
+				if (sv.live) moving = true;
 			} else {
 				ps.className = 'pstate bad';
 				ps.textContent = (p.status === 'EXPIRED' ? tr('ui.js.mktPartExpired', 'Not confirmed in time')
@@ -698,15 +710,88 @@
 		var paint = function () {
 			clocks.forEach(function (c) {
 				var left = c.deadline === null ? null : Math.max(0, Math.round((c.deadline - Date.now()) / 1000));
+				if (c.paint) return c.paint(left);
 				c.node.textContent = left === null ? tr('ui.js.mktPartWaiting', 'Waiting for confirmation')
 					: tr('ui.js.mktPartLeft', 'Waiting for confirmation · {0} left', Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2));
 			});
 		};
 		paint();
-		if (clocks.length) {
-			countdownTimer = setInterval(paint, 1000);
-			pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 10000);   // the sellers' answers, when they come
+		if (clocks.length) countdownTimer = setInterval(paint, 1000);
+		if (clocks.length || moving) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 10000);   // the answers, when they come
+	}
+
+	function mmss(left) { return Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2); }
+
+	/**
+	 * MKT-2b — what became of a part its seller could not fulfil (R11.1–R11.3), for the order page and My orders.
+	 * Returns null when the part has no shortage record; otherwise {node, tone, live, clock}: {@code live} while it is
+	 * still being resolved (the page keeps asking), {@code clock} for the time left to answer an alternative. The
+	 * shopper's answer is proven by the order's phone, as tracking is, or by their account when {@code phone} is null
+	 * (My orders); {@code done} redraws after it.
+	 */
+	function shortage(o, p, phone, done) {
+		var sh = p.shortage;
+		if (!sh) return null;
+		var card = o.paymentMode === 'CARD', box = el('span', 'mkt-shortage');
+		box.setAttribute('data-result', sh.result || '');
+		var refunded = card && o.status !== 'CANCELLED' ? ' · ' + tr('ui.js.mktPartRefunded', 'its amount is refunded to your card') : '';
+		if (sh.decision === 'ACCEPTED') {
+			box.textContent = tr('ui.js.mktShAccepted', 'You chose {0} for these items', sh.proposalSeller || '');
+			return { node: box, tone: 'ok' };
 		}
+		if (sh.result === 'PENDING') {
+			box.textContent = tr('ui.js.mktShLooking', '{0} could not fulfil these items. Looking for another seller.', p.sellerName || tr('ui.js.mktTheSeller', 'the seller'));
+			return { node: box, tone: 'wait', live: true };
+		}
+		if (sh.result === 'REASSIGNED') {
+			var less = Number(sh.priceDifference) < 0 ? -Number(sh.priceDifference) : 0;
+			box.textContent = tr('ui.js.mktShMoved', 'Moved to {0} at the same or a lower price', sh.movedTo || '')
+				+ (less && card ? ' · ' + tr('ui.js.mktShDiffBack', '{0} is refunded to your card', money(less)) : '');
+			return { node: box, tone: 'ok' };
+		}
+		if (sh.result === 'SUBSTITUTION_REQUESTED' && !sh.decision) {
+			var diff = Number(sh.priceDifference) || 0;
+			box.appendChild(el('span', 'mkt-sh-offer', tr('ui.js.mktShOffer', '{0} could not fulfil these items. {1} can deliver them for {2}{3}, within {4} hours.',
+				p.sellerName || tr('ui.js.mktTheSeller', 'the seller'), sh.proposalSeller || '', money(sh.proposalTotal),
+				diff > 0 ? ' (' + tr('ui.js.mktShMore', '{0} more, paid in cash', money(diff)) + ')'
+					: diff < 0 ? ' (' + tr('ui.js.mktShLess', '{0} less', money(-diff)) + ')' : '', sh.proposalPromiseHours || '')));
+			var left = el('span', 'mkt-sh-left');
+			box.appendChild(left);
+			var err = el('span', 'err'); err.setAttribute('role', 'alert');
+			var answer = function (accept, btn) {
+				err.textContent = '';
+				btn.disabled = true;
+				// a signed-in shopper answers from My orders by account (phone === null); anyone else by the order's phone
+				fetch(CTX + (phone === null ? 'marketplace/account/orders/' : 'marketplace/public/orders/') + encodeURIComponent(o.orderNo)
+					+ '/shortages/' + encodeURIComponent(sh.id) + '/decision', {
+					method: 'POST', credentials: 'same-origin', headers: csrfHeaders(), body: JSON.stringify(phone === null ? { accept: accept } : { phone: phone || '', accept: accept })
+				}).then(function (r) { return r.json(); }).then(function (r) {
+					btn.disabled = false;
+					if (!ok(r)) { err.textContent = message(r, tr('ui.js.saveFailed', 'Save failed')); return; }
+					done();
+				}).catch(function () {
+					btn.disabled = false;
+					err.textContent = tr('ui.js.mktOffline', 'The marketplace is not reachable. Check your connection and try again.');
+				});
+			};
+			var acts = el('span', 'acts');
+			var yes = el('button', 'go mkt-sh-accept', tr('ui.js.mktShAccept', 'Accept {0}', sh.proposalSeller || ''));
+			yes.type = 'button';
+			yes.addEventListener('click', function () { answer(true, yes); });
+			var no = el('button', 'mkt-sh-decline', tr('ui.js.mktShDecline', 'Decline'));
+			no.type = 'button';
+			no.addEventListener('click', function () { answer(false, no); });
+			acts.appendChild(yes); acts.appendChild(no);
+			box.appendChild(acts); box.appendChild(err);
+			var deadline = sh.secondsToDecide === null || sh.secondsToDecide === undefined ? null : Date.now() + sh.secondsToDecide * 1000;
+			return { node: box, tone: 'wait', live: true, clock: { deadline: deadline, paint: function (s) {
+				left.textContent = s === null ? '' : tr('ui.js.mktShLeft', 'Answer within {0}. Declining returns your money for these items.', mmss(s));
+			} } };
+		}
+		box.textContent = (sh.decision === 'DECLINED' ? tr('ui.js.mktShDeclined', 'You declined the alternative')
+			: sh.decision === 'EXPIRED' ? tr('ui.js.mktShExpired', 'The alternative was not answered in time')
+				: tr('ui.js.mktShNone', 'No other seller had these items')) + refunded;
+		return { node: box, tone: 'bad' };
 	}
 
 	// ── render from the URL ────────────────────────────────────────────────────────────────────────────

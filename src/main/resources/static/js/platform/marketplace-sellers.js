@@ -380,12 +380,14 @@
 	function loadAcceptWindow() {
 		// MKT-2a: the switch stays disabled until its saved state is known, so a tick made before the answer arrives is
 		// neither overwritten by it nor saved as the opposite of what the operator sees
-		$('#mktMultiSeller, #mktMultiSellerSave').prop('disabled', true);
+		$('#mktMultiSeller, #mktMultiSellerSave, #mktReroute, #mktRerouteSave').prop('disabled', true);
 		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', dataType: 'json' }).done(function (res) {
 			if (ok(res)) {
 				$('#mktAcceptWindow').val((data(res) || {}).minutes);
 				$('#mktMultiSeller').prop('checked', (data(res) || {}).multiSeller === true).prop('disabled', false);
 				$('#mktMultiSellerSave').prop('disabled', false);
+				$('#mktReroute').prop('checked', (data(res) || {}).reroute === true).prop('disabled', false);   // MKT-2b
+				$('#mktRerouteSave').prop('disabled', false);
 			}
 		});
 	}
@@ -402,6 +404,94 @@
 			})
 			.fail(function (xhr) { $('#mktMultiSellerMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
 			.always(function () { $b.prop('disabled', false); });
+	}
+
+	/** MKT-2b — the shortage reroute switch; it rides on the same endpoint, sending only itself. */
+	function saveReroute() {
+		var $b = $('#mktRerouteSave').prop('disabled', true);
+		$.ajax({ url: ctx() + 'platform/mkt/acceptWindow', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ reroute: $('#mktReroute').is(':checked') }) })
+			.done(function (res) {
+				$('#mktRerouteMsg').css('color', ok(res) ? '#1f7a4d' : '#b3261e')
+					.text(message(res, ok(res) ? tr('ui.js.mktOfferSaved', 'Saved.') : tr('ui.js.saveFailed', 'Save failed')));
+				if (ok(res)) $('#mktReroute').prop('checked', (data(res) || {}).reroute === true);
+			})
+			.fail(function (xhr) { $('#mktRerouteMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+			.always(function () { $b.prop('disabled', false); });
+	}
+
+	// ── MKT-2b: unfulfilled parts — the cause recorded against a party, and the disputes to decide ──────────
+	var shortageStatus = 'DISPUTED';
+	var SH_CAUSE = {
+		MERCHANT_STALE_STOCK: ['ui.js.mktCauseMerchant', 'Out of stock in my shop'],
+		SUPPLIER_STALE_STOCK: ['ui.js.mktCauseSupplier', 'My supplier could not deliver'],
+		PLATFORM_SYNC_DEFECT: ['ui.js.mktCausePlatform', 'MaxTheService showed the wrong stock'],
+		NO_RESPONSE: ['ui.js.mktCauseNoResponse', 'Not accepted in time']
+	};
+	var SH_RESULT = {
+		PENDING: ['ui.js.mktShRPending', 'Looking for another seller'], REASSIGNED: ['ui.js.mktShRMoved', 'Moved to another seller'],
+		SUBSTITUTION_REQUESTED: ['ui.js.mktShRAsked', 'Customer asked to choose'], LINE_CANCELLED: ['ui.js.mktShRLine', 'Items cancelled, refunded'],
+		ORDER_CANCELLED: ['ui.js.mktShROrder', 'Order cancelled, refunded']
+	};
+	var SH_STATE = {
+		RECORDED: ['ui.js.mktShRecorded', 'Recorded'], DISPUTED: ['ui.js.mktShDisputedOp', 'Disputed by the seller'],
+		UPHELD: ['ui.js.mktShUpheld', 'Upheld by MaxTheService'], OVERTURNED: ['ui.js.mktShOverturned', 'Overturned by MaxTheService']
+	};
+	function lbl(map, k) { var v = map[k]; return v ? tr(v[0], v[1]) : (k || ''); }
+
+	function loadShortages() {
+		var $tb = $('#mktShortageList tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/shortages?size=100' + (shortageStatus ? '&status=' + encodeURIComponent(shortageStatus) : ''), dataType: 'json' })
+			.done(function (res) {
+				if (!ok(res)) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+				var rows = (data(res) || {}).content || [];
+				if (!rows.length) $tb.append($('<tr><td colspan="5" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktShNoneOp', 'Nothing here.')).end());
+				rows.forEach(function (r) { $tb.append(shortageRow(r)); });
+			})
+			.fail(function (xhr) { $tb.append($('<tr><td colspan="5"></td></tr>').find('td').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))).end()); });
+	}
+
+	function shortageRow(r) {
+		var $tr = $('<tr class="mkt-shortage-row"></tr>').attr('data-shortage-id', r.id).attr('data-order-no', r.orderNo);
+		$tr.append($('<td></td>').append($('<b></b>').text(r.orderNo || '')));
+		$tr.append($('<td></td>').text(r.sellerName || ''));
+		var $cause = $('<td></td>').append($('<div></div>').text(lbl(SH_CAUSE, r.cause)));
+		if (r.evidence) $cause.append($('<div class="text-muted" style="font-size:12px"></div>').text(r.evidence));
+		if (r.disputeNote) $cause.append($('<div style="font-size:12px"></div>').text(tr('ui.js.mktShSellerSaid', 'Seller: {0}').replace('{0}', r.disputeNote)));
+		$tr.append($cause);
+		$tr.append($('<td></td>').text(lbl(SH_RESULT, r.result)
+			+ (r.minutesToResolve !== null && r.minutesToResolve !== undefined ? ' · ' + tr('ui.js.mktShMinutes', '{0} min').replace('{0}', r.minutesToResolve) : '')));
+		var $st = $('<td></td>').append($('<span class="mkt-shortage-status"></span>').attr('data-status', r.status).text(lbl(SH_STATE, r.status)));
+		if (r.decisionNote) $st.append($('<div class="text-muted" style="font-size:12px"></div>').text(r.decisionNote));
+		if (r.status === 'DISPUTED') {
+			var $note = $('<input type="text" class="form-control input-sm mkt-shortage-note" maxlength="500" style="margin-top:4px">')
+				.attr('placeholder', tr('ui.js.mktShWhy', 'Your reason (the seller sees it)'))
+				.attr('aria-label', tr('ui.js.mktShWhy', 'Your reason (the seller sees it)'));
+			var $msg = $('<div role="status" style="font-size:12px"></div>');
+			var decide = function (outcome, $b) {
+				$b.prop('disabled', true);
+				$msg.text('').css('color', '');
+				$.ajax({ url: ctx() + 'platform/mkt/shortageDecide', type: 'POST', contentType: 'application/json', dataType: 'json',
+					data: JSON.stringify({ id: r.id, outcome: outcome, note: $note.val() }) })
+					.done(function (res) {
+						if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+						var $now = shortageRow(data(res));
+						$now.find('td:last').append($('<div role="status" style="font-size:12px;color:#1f7a4d"></div>').text(message(res, '')));
+						$tr.replaceWith($now);
+					})
+					.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+					.always(function () { $b.prop('disabled', false); });
+			};
+			var $up = $('<button type="button" class="btn btn-xs btn-default mkt-shortage-uphold" style="margin:4px 4px 0 0"></button>')
+				.text(tr('ui.js.mktShUphold', 'Uphold the cause'));
+			$up.on('click', function () { decide('UPHELD', $up); });
+			var $over = $('<button type="button" class="btn btn-xs btn-default mkt-shortage-overturn" style="margin-top:4px"></button>')
+				.text(tr('ui.js.mktShOverturn', 'Overturn it'));
+			$over.on('click', function () { decide('OVERTURNED', $over); });
+			$st.append($note).append($up).append($over).append($msg);
+		}
+		$tr.append($st);
+		return $tr;
 	}
 
 	function saveAcceptWindow() {
@@ -670,6 +760,14 @@
 	});
 	$(document).on('click', '#mktAcceptWindowSave', saveAcceptWindow);
 	$(document).on('click', '#mktMultiSellerSave', saveMultiSeller);
+	$(document).on('click', '#mktRerouteSave', saveReroute);
+	$(document).on('click', '#platMktShortagesBtn', function () { openPanel('#platMktShortages', loadShortages); });
+	$(document).on('click', '#platMktShortageStatus button', function () {
+		$('#platMktShortageStatus button').removeClass('is-on');
+		$(this).addClass('is-on');
+		shortageStatus = $(this).attr('data-status');
+		loadShortages();
+	});
 	$(document).on('click', '.plat-mkt-back', function () {
 		$('.plat__panel').hide();
 		$('#platTenants').show();

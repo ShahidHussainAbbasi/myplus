@@ -59,6 +59,8 @@ public class MarketplaceOrderSweeper {
     private final SellerOrderService sellerOrderService;
     private final MarketplacePaymentService payments;
     private final PlatformTransactionManager txManager;
+    /** MKT-2b: an expired part is a shortage (the seller did not answer); its alternatives and proposals have a clock too. */
+    private final MarketplaceShortageService shortages;
 
     @Scheduled(fixedDelayString = "${mkt.orders.sweep-ms:30000}", initialDelayString = "${mkt.orders.sweep-initial-ms:30000}")
     public void sweep() {
@@ -78,10 +80,11 @@ public class MarketplaceOrderSweeper {
             sellerOrderService.release(so);
             released++;
         }
+        int shortageWork = shortages.sweep();                        // MKT-2b: proposals, interrupted reroutes, their holds
         int reconciled = payments.reconcile();                       // lost charge answers and refunds not yet done
-        if (expired + orphans + released + reconciled > 0)
-            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries, {} payments reconciled",
-                    expired, orphans, released, reconciled);
+        if (expired + orphans + released + shortageWork + reconciled > 0)
+            LOG.info("MKT sweep: {} expired, {} orphans cancelled, {} release retries, {} shortage steps, {} payments reconciled",
+                    expired, orphans, released, shortageWork, reconciled);
     }
 
     /**
@@ -90,18 +93,25 @@ public class MarketplaceOrderSweeper {
      */
     boolean end(Long sellerOrderId, SellerOrder from, SellerOrder to, String reasonForShopper) {
         MarketplaceSellerOrder[] done = new MarketplaceSellerOrder[1];
+        boolean[] moving = new boolean[1];
         try {
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
                 MarketplaceSellerOrder so = sellerOrders.findById(sellerOrderId).orElse(null);
                 if (so == null || !from.name().equals(so.getAcceptanceStatus())) return;   // someone else got there
                 MarketplaceCheckoutService.move(so, to);
-                sellerOrders.save(so);
                 MarketplaceOrder o = orders.findById(so.getMktOrderId()).orElse(null);
-                if (o != null && !"CANCELLED".equals(o.getStatus())) {
+                if (o != null && to == SellerOrder.EXPIRED) {
+                    // MKT-2b: the seller did not answer: recorded, and moved to another seller when the operator allows
+                    moving[0] = shortages.begin(so, o, sellerOrderService.partsOf(o.getId(), so),
+                            com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause.NO_RESPONSE,
+                            "Not accepted within the acceptance window.", reasonForShopper);
+                    orders.save(o);
+                } else if (o != null && !"CANCELLED".equals(o.getStatus())) {
                     // MKT-2a: the order ends only when no other part is still going ahead
                     MarketplaceCheckoutService.follow(o, sellerOrderService.partsOf(o.getId(), so), reasonForShopper);
                     orders.save(o);
                 }
+                sellerOrders.save(so);
                 done[0] = so;
             });
         } catch (OptimisticLockingFailureException concurrent) {
@@ -115,7 +125,7 @@ public class MarketplaceOrderSweeper {
         MarketplaceSellerOrder fresh = sellerOrders.findById(sellerOrderId).orElse(done[0]);
         fresh.setHeld(true);   // force the attempt: an orphan's flag is false although the hold may exist
         sellerOrderService.release(fresh);
-        sellerOrderService.moneyBack(fresh);                          // a card order's money for this part goes back, once
+        sellerOrderService.afterShort(sellerOrderId, moving[0]);      // the part's money back once, or another seller looked for
         return true;
     }
 }

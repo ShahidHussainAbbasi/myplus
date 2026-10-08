@@ -80,15 +80,18 @@ public class MarketplaceOrderController {
 
     @GetMapping("/mkt/operator/settings/accept-window")
     public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> acceptWindow() {
-        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes(), settings.multiSeller()));
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(settings.operatorAcceptMinutes(), settings.multiSeller(),
+                settings.reroute()));
     }
 
     /** Each field is saved only when sent (MKT-2a added {@code multiSeller} to the same form). */
     @PostMapping("/mkt/operator/settings/accept-window")
     public ApiResponse<MarketplaceOrderDTOs.AcceptWindow> setAcceptWindow(@RequestBody MarketplaceOrderDTOs.AcceptWindow body) {
-        if (body == null || (body.minutes() == null && body.multiSeller() == null)) settings.setAcceptMinutes(null);   // refused in words
+        if (body == null || (body.minutes() == null && body.multiSeller() == null && body.reroute() == null))
+            settings.setAcceptMinutes(null);                                                          // refused in words
         int minutes = body.minutes() == null ? settings.operatorAcceptMinutes() : settings.setAcceptMinutes(body.minutes());
         boolean multi = body.multiSeller() == null ? settings.multiSeller() : settings.setMultiSeller(body.multiSeller());
-        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(minutes, multi), "Order settings saved.");
+        boolean reroute = body.reroute() == null ? settings.reroute() : settings.setReroute(body.reroute());
+        return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(minutes, multi, reroute), "Order settings saved.");
     }
 }

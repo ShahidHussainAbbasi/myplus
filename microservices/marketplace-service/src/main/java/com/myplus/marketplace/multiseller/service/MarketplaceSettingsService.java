@@ -213,6 +213,24 @@ public class MarketplaceSettingsService {
         return on;
     }
 
+    // ── MKT-2b: a short part moves to another seller ─────────────────────────────────────────────────────
+
+    /** Off unless an operator switched it on: a missing or unreadable value is off (the part ends, as in Phase 1). */
+    @Transactional(readOnly = true)
+    public boolean reroute() {
+        return settings.findById(MarketplacePlatformSetting.SHORTAGE_REROUTE)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> "true".equalsIgnoreCase(v.trim()))
+                .orElse(false);
+    }
+
+    @Transactional
+    public boolean setReroute(boolean on) {
+        access.assertOperator();
+        save(MarketplacePlatformSetting.SHORTAGE_REROUTE, String.valueOf(on));
+        return on;
+    }
+
     /** The operator's books: the org whose ledger takes the commission, and the user postings are made as. */
     public record Books(Long organizationId, Long userId) {}
 

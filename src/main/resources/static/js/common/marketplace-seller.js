@@ -355,6 +355,7 @@
 		}
 		if (so.invoiceNo) $st.append($('<div style="font-size:12px"></div>').text(tr('ui.js.mktSoInvoice', 'Invoice {0}').replace('{0}', so.invoiceNo)));
 		if (so.rejectReason) $st.append($('<div class="text-muted" style="font-size:12px"></div>').text(so.rejectReason));
+		if (so.shortage) $st.append(shortageBox(so.shortage));
 		$tr.append($st);
 
 		var $act = $('<td style="min-width:220px"></td>');
@@ -386,9 +387,16 @@
 				.attr('placeholder', tr('ui.js.mktRejectPh', 'Why you cannot fulfil it'))
 				.attr('aria-label', tr('ui.js.mktRejectPh', 'Why you cannot fulfil it'));
 			$act.append($reason);
+			// MKT-2b: why it cannot be fulfilled — recorded against the seller (R11.4), never debited (R12.4)
+			var $cause = $('<select class="form-control input-sm mkt-reject-cause" style="margin-top:4px"></select>')
+				.attr('aria-label', tr('ui.js.mktCauseLabel', 'Cause'));
+			CAUSES.forEach(function (c) { $cause.append($('<option></option>').val(c[0]).text(tr(c[1], c[2]))); });
+			$act.append($cause);
 			$('<button type="button" class="btn btn-xs btn-default mkt-reject" style="margin-top:4px"></button>')
 				.text(tr('ui.js.mktReject', 'Reject'))
-				.on('click', function () { soPost('mkt/rejectOrder', { id: so.id, version: so.version, reason: $reason.val() }, $(this), $msg, $tr); })
+				.on('click', function () {
+					soPost('mkt/rejectOrder', { id: so.id, version: so.version, reason: $reason.val(), cause: $cause.val() }, $(this), $msg, $tr);
+				})
 				.appendTo($act);
 			$act.append($msg);
 		} else if (so.storeOrderNo) {
@@ -397,6 +405,55 @@
 		}
 		$tr.append($act);
 		return $tr;
+	}
+
+	/** MKT-2b — the causes a seller can name when it rejects; the clock records NO_RESPONSE itself. */
+	var CAUSES = [['MERCHANT_STALE_STOCK', 'ui.js.mktCauseMerchant', 'Out of stock in my shop'],
+		['SUPPLIER_STALE_STOCK', 'ui.js.mktCauseSupplier', 'My supplier could not deliver'],
+		['PLATFORM_SYNC_DEFECT', 'ui.js.mktCausePlatform', 'MaxTheService showed the wrong stock']];
+	var CAUSE_LABEL = { NO_RESPONSE: ['ui.js.mktCauseNoResponse', 'Not accepted in time'] };
+	CAUSES.forEach(function (c) { CAUSE_LABEL[c[0]] = [c[1], c[2]]; });
+	var SH_STATUS = {
+		RECORDED: ['ui.js.mktShRecorded', 'Recorded'], DISPUTED: ['ui.js.mktShDisputed', 'Disputed: MaxTheService is reviewing it'],
+		UPHELD: ['ui.js.mktShUpheld', 'Upheld by MaxTheService'], OVERTURNED: ['ui.js.mktShOverturned', 'Overturned by MaxTheService']
+	};
+
+	/** The record kept of an unfulfilled part: its cause, and a dispute while it is only recorded. Nothing is charged. */
+	function shortageBox(sh) {
+		var c = CAUSE_LABEL[sh.cause] || [null, sh.cause], st = SH_STATUS[sh.status] || [null, sh.status];
+		var $b = $('<div class="mkt-so-shortage" style="font-size:12px;margin-top:4px"></div>').attr('data-shortage-status', sh.status);
+		$b.append($('<div></div>').text(tr('ui.js.mktShCause', 'Cause: {0}').replace('{0}', c[0] ? tr(c[0], c[1]) : c[1])
+			+ ' · ' + (st[0] ? tr(st[0], st[1]) : st[1])));
+		if (sh.disputeNote) $b.append($('<div class="text-muted"></div>').text(tr('ui.js.mktShYouSaid', 'You said: {0}').replace('{0}', sh.disputeNote)));
+		if (sh.decisionNote) $b.append($('<div class="text-muted"></div>').text(tr('ui.js.mktShTheySaid', 'MaxTheService: {0}').replace('{0}', sh.decisionNote)));
+		if (sh.canDispute) {
+			var $form = $('<div class="mkt-dispute-form" hidden></div>');
+			var $note = $('<textarea class="form-control input-sm mkt-dispute-note" maxlength="500" rows="2"></textarea>')
+				.attr('aria-label', tr('ui.js.mktDisputeWhy', 'Why this cause is wrong'))
+				.attr('placeholder', tr('ui.js.mktDisputeWhy', 'Why this cause is wrong'));
+			var $msg = $('<div role="status"></div>');
+			var $send = $('<button type="button" class="btn btn-xs btn-primary mkt-dispute-send" style="margin-top:4px"></button>')
+				.text(tr('ui.js.mktDisputeSend', 'Send dispute'));
+			$send.on('click', function () {
+				$send.prop('disabled', true);
+				$msg.text('').css('color', '');
+				$.ajax({ url: ctx() + 'mkt/shortageDispute', type: 'POST', contentType: 'application/json', dataType: 'json',
+					data: JSON.stringify({ id: sh.id, note: $note.val() }) })
+					.done(function (res) {
+						if (!ok(res)) { $msg.css('color', '#b3261e').text(message(res, tr('ui.js.saveFailed', 'Save failed'))); return; }
+						$b.replaceWith(shortageBox(data(res)).append($('<div role="status" style="color:#1b5e20"></div>').text(message(res, ''))));
+					})
+					.fail(function (xhr) { $msg.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))); })
+					.always(function () { $send.prop('disabled', false); });
+			});
+			$form.append($note).append($send).append($msg);
+			$('<button type="button" class="btn btn-xs btn-default mkt-dispute" style="margin-top:4px"></button>')
+				.text(tr('ui.js.mktDispute', 'Dispute this cause'))
+				.on('click', function () { $form.prop('hidden', false); $(this).remove(); $note.trigger('focus'); })
+				.appendTo($b);
+			$b.append($form);
+		}
+		return $b;
 	}
 
 	/**

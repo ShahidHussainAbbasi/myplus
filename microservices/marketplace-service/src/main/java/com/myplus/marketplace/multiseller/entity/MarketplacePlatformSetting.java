@@ -31,6 +31,8 @@ public class MarketplacePlatformSetting {
     public static final String SETTLEMENT_BOOKS_ORG = "settlement.booksOrg";
     /** MKT-2a — "true" lets one checkout buy from several sellers (a parent order with one part per seller). Default off. */
     public static final String MULTI_SELLER = "checkout.multiSeller";
+    /** MKT-2b — "true" moves a part a seller could not fulfil to another seller, or asks the customer. Default off. */
+    public static final String SHORTAGE_REROUTE = "shortage.reroute";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

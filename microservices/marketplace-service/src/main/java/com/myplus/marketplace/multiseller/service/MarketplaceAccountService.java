@@ -42,6 +42,8 @@ public class MarketplaceAccountService {
     private final PlatformTransactionManager txManager;
     /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
     private final MarketplaceAuditService audit;
+    /** MKT-2b: a short part still being moved (or offered to the shopper) ends with the order. */
+    private final MarketplaceShortageService shortages;
 
     public PageResponse<MarketplaceOrderDTOs.AccountOrderView> myOrders(MarketplaceCustomer c, Integer page, Integer size) {
         PageRequest p = PageRequest.of(page == null || page < 0 ? 0 : page, size == null || size < 1 ? 20 : Math.min(size, 50));
@@ -61,13 +63,17 @@ public class MarketplaceAccountService {
             throw new ValidationException(ALREADY_CONFIRMED);
         List<MarketplaceSellerOrder> waiting = parts.stream()
                 .filter(p -> SellerOrder.OFFERED.name().equals(p.getAcceptanceStatus())).toList();
-        if (waiting.isEmpty()) throw new ValidationException("This order can no longer be cancelled.");
+        boolean beingMoved = parts.stream().anyMatch(p -> Boolean.TRUE.equals(p.getShortagePending()));
+        if (waiting.isEmpty() && !beingMoved) throw new ValidationException("This order can no longer be cancelled.");
         String why = reason == null || reason.isBlank() ? CANCELLED_BY_YOU
                 : (CANCELLED_BY_YOU + " " + reason.trim()).substring(0, Math.min(300, CANCELLED_BY_YOU.length() + 1 + reason.trim().length()));
         java.util.Map<Long, Integer> seen = new java.util.HashMap<>();
         waiting.forEach(p -> seen.put(p.getId(), p.getVersion()));
+        List<com.myplus.marketplace.multiseller.entity.MarketplaceShortage> ended = new java.util.ArrayList<>();
         try {
             new TransactionTemplate(txManager).executeWithoutResult(s -> {
+                ended.clear();
+                ended.addAll(shortages.cancelWithOrder(o.getId()));     // MKT-2b: an alternative being offered ends too
                 List<MarketplaceSellerOrder> fresh = new java.util.ArrayList<>();
                 for (Long id : seen.keySet()) {
                     MarketplaceSellerOrder f = sellerOrders.findById(id).orElseThrow();
@@ -90,6 +96,7 @@ public class MarketplaceAccountService {
             return accountView(orders.findById(o.getId()).orElseThrow());
         }
         for (Long id : seen.keySet()) sellerSide.release(sellerOrders.findById(id).orElseThrow());   // after the commit: the stock goes back
+        ended.forEach(shortages::releaseProposal);                                // and an alternative's hold
         payments.refundIfCancelled(o.getId());                                    // a card order's money goes back, once
         for (MarketplaceSellerOrder p : waiting)
             audit.event("MKT_ORDER_CANCELLED", "MKT_ORDER", o.getOrderNo(), p.getSellerOrganizationId(), MarketplaceAuditService.Actor.CUSTOMER,
@@ -115,14 +122,16 @@ public class MarketplaceAccountService {
                 .toList();
         List<MarketplaceOrderDTOs.PartView> parts = v.sellerOrders();
         boolean anyAccepted = parts.stream().anyMatch(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.status()));
+        // MKT-2b: a short part still being moved, or offered to the shopper, waits as an OFFERED part does
+        boolean moving = parts.stream().anyMatch(MarketplaceAccountService::beingMoved);
         boolean canCancel = !"CANCELLED".equals(v.status()) && !anyAccepted
-                && parts.stream().anyMatch(p -> SellerOrder.OFFERED.name().equals(p.status()));
+                && (moving || parts.stream().anyMatch(p -> SellerOrder.OFFERED.name().equals(p.status())));
         // MKT-1f: the delivery happens in the seller's store order; the marketplace keeps only WHEN (delivered_at). Shown,
         // never stored as a second status: CONFIRMED + delivered reads "DELIVERED" to the shopper. MKT-2a: once EVERY
         // accepted part is delivered, nothing still waiting; the date is the last delivery.
         List<MarketplaceOrderDTOs.PartView> accepted = parts.stream()
                 .filter(p -> MarketplaceCheckoutService.ACCEPTED_PARTS.contains(p.status())).toList();
-        boolean waiting = parts.stream().anyMatch(p -> MarketplaceCheckoutService.LIVE_PARTS.contains(p.status()));
+        boolean waiting = moving || parts.stream().anyMatch(p -> MarketplaceCheckoutService.LIVE_PARTS.contains(p.status()));
         java.time.LocalDateTime delivered = accepted.isEmpty() || waiting || accepted.stream().anyMatch(p -> p.deliveredAt() == null)
                 ? null : accepted.stream().map(MarketplaceOrderDTOs.PartView::deliveredAt).max(java.time.LocalDateTime::compareTo).orElse(null);
         String status = "CONFIRMED".equals(v.status()) && delivered != null ? "DELIVERED" : v.status();
@@ -130,6 +139,11 @@ public class MarketplaceAccountService {
         return new MarketplaceOrderDTOs.AccountOrderView(v.orderNo(), status, v.paymentMode(), v.paymentStatus(), v.total(),
                 v.cancelReason(), v.createdAt(), v.sellerName(), v.sellerOrderStatus(), v.secondsToAccept(), v.city(), v.lines(),
                 ps, canCancel, delivered, canGetHelp, parts);
+    }
+
+    static boolean beingMoved(MarketplaceOrderDTOs.PartView p) {
+        MarketplaceOrderDTOs.ShortageView sh = p.shortage();
+        return sh != null && sh.decision() == null && ("PENDING".equals(sh.result()) || "SUBSTITUTION_REQUESTED".equals(sh.result()));
     }
 
     /** Re-used by the controller for a claim's answer. */
