@@ -290,6 +290,33 @@
                 </table>
             </div>
             <div id="mktOpsLedger" aria-live="polite"></div>
+            <!-- MKT-2d: cash orders. The seller's rider keeps the customer's cash, so the seller owes MaxTheService its
+                 commission: what it owes, since when, and recording the money it pays (the shop's cash-up, D5, for sellers). -->
+            <div id="mktCodBox" style="margin-top:18px">
+                <h4 style="font-weight:700" th:text="#{ui.mktCodTitle}">Cash orders: what sellers owe</h4>
+                <p class="plat__hint" th:text="#{ui.mktCodHint}">A seller's rider keeps the cash from cash-on-delivery orders, so the seller owes MaxTheService its commission. Record each payment a seller makes; a payment that is less than owed needs a note.</p>
+                <div class="form-inline" id="mktCodSettings" style="margin-bottom:10px">
+                    <label for="mktCodDays" th:text="#{ui.mktCodDays}">Days a seller has to pay</label>
+                    <input type="number" min="1" max="60" step="1" id="mktCodDays" class="form-control input-sm" style="width:80px;margin:0 8px">
+                    <label for="mktCodStop" style="font-weight:400;margin-left:8px"><input type="checkbox" id="mktCodStop"/>
+                        <span th:text="#{ui.mktCodStop}">Stop cash on delivery for a seller that has not paid in time</span></label>
+                    <button type="button" class="btn btn-default btn-sm" id="mktCodSave" style="margin-left:8px" th:text="#{ui.save}">Save</button>
+                    <div id="mktCodMsg" role="status" style="margin-top:6px"></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-condensed" id="mktCodList">
+                        <thead><tr>
+                            <th th:text="#{ui.mktColSeller}">Seller</th>
+                            <th class="text-right" th:text="#{ui.mktCodCollected}">Cash collected</th>
+                            <th class="text-right" th:text="#{ui.mktCodPaid}">Paid to MaxTheService</th>
+                            <th class="text-right" th:text="#{ui.mktCodOwes}">Owes now</th>
+                            <th th:text="#{ui.mktCodPayBy}">Pay by</th>
+                            <th th:text="#{ui.mktColAction}">Action</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- ── MKT-1c: policies (append-only: create and deactivate, never edit) ─────────────────── -->

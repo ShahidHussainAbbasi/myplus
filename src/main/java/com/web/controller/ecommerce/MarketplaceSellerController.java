@@ -526,7 +526,23 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/settlement/settings", request, "Could not load the settlement settings.");
     }
 
-    /** Body: {tPlusDays, useMyBooks}. */
+    /** MKT-2d — cash orders: what each seller collected, paid and owes, and since when. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/codReconciliation", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> codReconciliation(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settlement/cod", request, "Could not load what sellers owe for cash orders.");
+    }
+
+    /** MKT-2d — body: {organizationId, amount, reference, note, idempotencyKey}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/recordRemittance", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> recordRemittance(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settlement/remittance", body, "Could not record the seller's payment.");
+    }
+
+    /** Body: {tPlusDays, useMyBooks, codRemitDays, codStopWhenOverdue}; a field not sent is left as it is. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/settlementSettings", method = RequestMethod.POST)
     @ResponseBody

@@ -1305,6 +1305,58 @@
 | C1 | Mobile Distributor rejects with "walk cleanup". Operator: test delay 0 → Save; untick "Customers can buy from several sellers in one order" → Save. | The order reads Cancelled; "Test slowness is off."; the multi-seller switch is off again. |
 
 
+## MKT-2d
+
+### M-2d-01 A cash order delivered: the operator and the seller see what is owed, since when and by when
+
+**Who:** MaxTheService operator (admin@myplus.com), then owner.mobile@myplus.com (Mobile Distributor)  
+**Before:** Ali's Rs 52,000 cash-on-delivery order from Mobile Distributor was delivered today, on a business day; the offer was sold with 0 return days and settlement runs T+0 (M-1g-01). Mobile Distributor owed nothing before it. Days to pay: 7.  
+**Covers:** MKT-R20.3  
+**Evidence:** recorded 2026-10-08 12:06 UTC  
+**Automated by:** MKT-2d-01, MKT-2d-02
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: Platform dashboard → "Settlement and payouts" → "Settle what is due now". Scroll to "Cash orders: what sellers owe". | "Settled 1 line(s). …" Under "Cash orders: what sellers owe", Mobile Distributor's row: "Cash collected" includes the 52,000 Ali paid the rider; "Owes now" is the commission on that order, in red; "Pay by" is 7 days from today, with "Owed since <today>." under it. "Days a seller has to pay" reads 7. |
+| 2 | Log in as owner.mobile@myplus.com. Sale → Marketplace → "Show statement". | Under "You owe MaxTheService Rs <the commission> in commission.", in yellow: "Please pay MaxTheService Rs <the commission> for your cash orders by <the pay-by date>." |
+| 3 | Scroll down to "Ledger". | Ali's order is there three times: SALE (owed to you, 52,000), COMMISSION (owed by you) and COLLECTED_BY_SELLER, "Cash collected by your rider on delivery" (owed by you, 52,000). |
+| C1 | None: the debt is paid in M-2d-02 and M-2d-03. | — |
+
+### M-2d-02 The seller pays part of what it owes: the operator records it, with the reason it is short
+
+**Who:** MaxTheService operator (admin@myplus.com), then owner.mobile@myplus.com  
+**Before:** Mobile Distributor owes MaxTheService the commission on Ali's cash order (M-2d-01). It sent half of it by bank transfer.  
+**Covers:** MKT-R20.3, MKT-R15.6  
+**Evidence:** recorded 2026-10-08 12:06 UTC  
+**Automated by:** MKT-2d-03, MKT-2d-04
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: "Settlement and payouts" → "Cash orders: what sellers owe" → Mobile Distributor's row. Type half of what it owes in the amount box, "HBL-2210" as the reference, leave the reason empty → "Record payment". | Under the button, in red: "The seller owes Rs <owed> and paid Rs <half>. Say why it paid less: the note is shown on the seller's statement." Nothing is recorded: "Owes now" is unchanged. |
+| 2 | Type "Rider still holds one order's cash" in the reason box → "Record payment". | "Payment recorded for Mobile Distributor." "Paid to MaxTheService" goes up by the half; "Owes now" is the other half; "Owed since" is the same date as before: the debt is smaller, not newer. |
+| 3 | As owner.mobile@myplus.com: Sale → Marketplace → "Show statement". | The yellow line now asks for the rest, by the same date: "Please pay MaxTheService Rs <the other half> for your cash orders by <the same date>." |
+| 4 | Scroll down to "Ledger". | The newest line is REMITTANCE, RM-…, owed to you: the half, with "Paid to MaxTheService for cash orders, ref HBL-2210. Rider still holds one order's cash". Nothing above it was changed. |
+| C1 | None: Mobile Distributor still owes the other half; it is collected in M-2d-03, twelve days later. | — |
+
+### M-2d-03 Twelve days later the seller has not paid: it is late, the operator stops its cash orders, then records the payment
+
+**Who:** MaxTheService operator, a customer (incognito window), owner.mobile@myplus.com  
+**Before:** Twelve days after M-2d-02 (the whole system restarted on a clock 12 days later). Mobile Distributor still owes the other half; it had 7 days to pay.  
+**Covers:** MKT-R20.3  
+**Evidence:** recorded 2026-10-08 12:11 UTC  
+**Automated by:** MKT-2d-08, MKT-2d-09, MKT-2d-10
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: "Settlement and payouts" → "Cash orders: what sellers owe". | Mobile Distributor's row is red and among the first: "Overdue. Owed since <date>." under its pay-by date. Its cash orders still work: the stop box is not ticked. |
+| 2 | Tick "Stop cash on delivery for a seller that has not paid in time" → Save. | "Settlement settings saved." Mobile Distributor's row adds "Cash on delivery is stopped for this seller." |
+| 3 | Customer: open Mobile Distributor's phone (Karachi) → "Buy now". Name "Ali", phone 03180184823, address "1 Clifton", cash on delivery → "Place order". | Under the button: "This seller cannot take cash on delivery right now. Please pay online or choose another offer." No order number. |
+| 4 | As owner.mobile@myplus.com: Sale → Marketplace → "Show statement". | In red: "Overdue: please pay MaxTheService Rs <what is left> for your cash orders. It was due by <date>." and below it "Customers cannot choose cash on delivery from you until you pay." |
+| 5 | Mobile Distributor pays the rest. Operator: its row → the amount box already holds what is left; reference "HBL-2299" → "Record payment". | "Payment recorded for Mobile Distributor." Its row is no longer red; "Owes now" reads "—". |
+| 6 | Customer: the same order again → "Place order". | "Waiting for Mobile Distributor to confirm" with an order number MKT-…: cash on delivery works again. |
+| C1 | Mobile Distributor rejects the order with "walk cleanup". Operator: untick "Stop cash on delivery for a seller that has not paid in time" → Save. | The order reads Cancelled; "Settlement settings saved." and the box is unticked. |
+
+
 ## MKT-2
 
 ### M-2-06 Acceptance terms differ by order value

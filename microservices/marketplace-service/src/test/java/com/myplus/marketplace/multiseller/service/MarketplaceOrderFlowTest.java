@@ -84,6 +84,7 @@ class MarketplaceOrderFlowTest {
     @Mock MarketplaceOrderLineRepository lines;
     @Mock MarketplacePlatformSettingRepository settingRows;
     @Mock ShippingPolicy shipping;
+    @Mock CodStandingService codStanding;
     @Mock MarketplacePaymentService payments;                       // MKT-1e2: cash orders never touch it
     @Mock org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSideProvider;
     @Mock TradeClient trade;
@@ -119,7 +120,7 @@ class MarketplaceOrderFlowTest {
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
                 routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,
-                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null));
+                        java.time.Duration.ofSeconds(30), false, System::nanoTime, () -> null), codStanding);
         shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
                 publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
@@ -360,6 +361,28 @@ class MarketplaceOrderFlowTest {
         for (int i = 0; i < 3; i++) checkout.checkout(req("g" + i));
         assertThatThrownBy(() -> checkout.checkout(new MarketplaceOrderDTOs.CheckoutRequest(OFFER, 1, new BigDecimal("52000"),
                 "Ali", "(0300) 1234567", "1 Clifton", "Karachi", "g4"))).hasMessageContaining("already have 3 orders waiting");
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] a seller whose cash-order debt is overdue, with the operator's stop on: cash refused before anything is held; online still fine")
+    void codStoppedWhenOverdue() {
+        when(codStanding.codStopped(SELLER)).thenReturn(true);
+        assertThatThrownBy(() -> checkout.checkout(req("cs1"))).isInstanceOf(ValidationException.class)
+                .hasMessage("This seller cannot take cash on delivery right now. Please pay online or choose another offer.");
+        assertThat(orderTable).isEmpty();
+        verify(trade, never()).holdStock(any());
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.SUCCEEDED);
+        assertThat(checkout.checkout(card("cs2", "tok"), 77L).paymentMode()).as("a card needs no seller cash").isEqualTo("CARD");
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] in a basket, the stopped seller is named")
+    void codStoppedNamedInBasket() {
+        secondSeller(true);
+        lenient().when(codStanding.codStopped(anyLong())).thenAnswer(i -> i.getArgument(0).equals(OTHER_SELLER));
+        assertThatThrownBy(() -> checkout.checkout(basket("cs3", null, lineA(1), lineB(1))))
+                .hasMessageEndingWith(" cannot take cash on delivery right now. Please remove its items or pay online.");
+        verify(trade, never()).holdStock(any());
     }
 
     @Test

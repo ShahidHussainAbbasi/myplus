@@ -241,6 +241,7 @@
 			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktStatementHint}">A line becomes payable after delivery, once its return days have passed, on the next business day. Cash-on-delivery lines are already in your hands, so they count the commission you owe MaxTheService.</p>
 			<div id="mktStatementBody" style="display:none">
 				<p id="mktBalance" role="status" style="font-weight:600"></p>
+				<div id="mktCodStanding" class="alert" role="status" style="display:none;padding:8px 12px"></div>
 				<div class="table-responsive">
 					<table class="table table-condensed" id="mktStatementTable">
 						<thead><tr>

@@ -23,10 +23,11 @@ import com.myplus.finance.dto.JournalLineDTO;
  *                                                  Cr/Dr 2400 the difference (owed to / by the seller)
  *   MKT_ADJUSTMENT  an operator's correction       +x: Dr 4510 / Cr 2400     −x: Dr 2400 / Cr 4510
  *   MKT_PAYOUT      the bank transfer to a seller  Dr 2400 / Cr 1010
+ *   MKT_REMITTANCE  a seller paid what it owed     Dr 1010 / Cr 2400   (MKT-2d: cash on delivery the rider collected)
  * </pre>
  *
  * <p>The card receipt is booked when the line settles, net of any refund: Phase 1 posts nothing at capture, so a
- * refund before settlement never needs a reversing journal. Booking the receipt at capture is MKT-2d.
+ * refund before settlement never needs a reversing journal. Booking the receipt at capture is not built yet.
  */
 public final class MarketplacePostingRules {
 
@@ -67,6 +68,13 @@ public final class MarketplacePostingRules {
         BigDecimal a = nz(amount);
         if (a.signum() <= 0) throw new IllegalArgumentException("A marketplace payout must be more than zero.");
         return List.of(dr(SELLER_BALANCES, a), cr(BANK, a));
+    }
+
+    /** MKT-2d — the seller paid the platform what it owed for cash orders: the debit balance on 2400 comes down. */
+    public static List<JournalLineDTO> remittance(BigDecimal amount) {
+        BigDecimal a = nz(amount);
+        if (a.signum() <= 0) throw new IllegalArgumentException("A seller's payment to the marketplace must be more than zero.");
+        return List.of(dr(BANK, a), cr(SELLER_BALANCES, a));
     }
 
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }

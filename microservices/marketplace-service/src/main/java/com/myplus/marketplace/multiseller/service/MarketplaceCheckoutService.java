@@ -114,6 +114,7 @@ public class MarketplaceCheckoutService {
     private final org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSide;
     /** MKT-2c: every seller asked at once, each with a timeout, the checkout with one deadline, circuits per seller. */
     private final LiveRouting routing;
+    private final CodStandingService codStanding;
 
     // ── checkout ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -173,6 +174,11 @@ public class MarketplaceCheckoutService {
                     throw new ValidationException(bySeller.size() == 1
                             ? "This seller does not accept cash on delivery yet. Please choose another offer."
                             : sellerName(seller) + " does not accept cash on delivery yet. Please remove its items or pay online.");
+            for (Long seller : bySeller.keySet())                     // MKT-2d: only when the operator switched it on
+                if (codStanding.codStopped(seller))
+                    throw new ValidationException(bySeller.size() == 1
+                            ? "This seller cannot take cash on delivery right now. Please pay online or choose another offer."
+                            : sellerName(seller) + " cannot take cash on delivery right now. Please remove its items or pay online.");
         }
 
         // ── tx 1: the order, one seller order per seller, the snapshots, the number ──

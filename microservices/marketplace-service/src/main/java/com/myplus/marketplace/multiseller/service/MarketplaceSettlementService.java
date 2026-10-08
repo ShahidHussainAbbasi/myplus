@@ -91,6 +91,7 @@ public class MarketplaceSettlementService {
     static final int BATCH = 200;
     static final String PAYOUT_DOC = "PO";
     static final String ADJUSTMENT_DOC = "ADJ";
+    static final String REMITTANCE_DOC = "RM";
     static final BigDecimal MAX_ADJUSTMENT = new BigDecimal("1000000.00");
     static final String CARD = "CARD";
 
@@ -118,6 +119,7 @@ public class MarketplaceSettlementService {
     private final DocumentNumberService numbers;
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
+    private final CodStandingService cod;
 
     // ── the arithmetic (pure, given the rows) ──────────────────────────────────────────────────────────────
 
@@ -373,8 +375,9 @@ public class MarketplaceSettlementService {
         List<SettlementDTOs.PayoutView> ps = payouts.findByOrganizationIdOrderByRequestedAtDesc(org, PageRequest.of(0, 20))
                 .getContent().stream().map(x -> view(x, operator)).toList();
         Optional<MarketplacePayout> open = payouts.findFirstByOrganizationIdAndStatusIn(org, IN_FLIGHT);
-        return new SettlementDTOs.AccountView(org, sellerName(org), Money.scale(Money.nz(entries.balance(org))),
-                open.map(x -> view(x, operator)).orElse(null), rows, ps);
+        BigDecimal balance = Money.scale(Money.nz(entries.balance(org)));
+        return new SettlementDTOs.AccountView(org, sellerName(org), balance, open.map(x -> view(x, operator)).orElse(null),
+                rows, ps, cod.standing(org, balance, TenantClock.today()));
     }
 
     // ── operator: accounts, payouts, corrections ───────────────────────────────────────────────────────────
@@ -526,6 +529,78 @@ public class MarketplaceSettlementService {
         return account(req.organizationId(), true);
     }
 
+    // ── MKT-2d: cash orders: what sellers owe, and the money they pay ───────────────────────────────────────
+
+    /**
+     * Every seller that ever collected cash for a marketplace order, or owes: what its riders collected, what it paid
+     * MaxTheService, what it owes now and since when. Overdue first, then the largest debt.
+     */
+    @Transactional(readOnly = true)
+    public List<SettlementDTOs.CodRow> codReconciliation() {
+        access.assertOperator();
+        Map<Long, BigDecimal> collected = sideOf(entries.totalsOfType(LedgerEntryType.COLLECTED_BY_SELLER.name()), 1);
+        Map<Long, BigDecimal> remitted = sideOf(entries.totalsOfType(LedgerEntryType.REMITTANCE.name()), 2);
+        LocalDate today = TenantClock.today();
+        List<SettlementDTOs.CodRow> out = new ArrayList<>();
+        for (Object[] row : entries.balances()) {
+            Long org = ((Number) row[0]).longValue();
+            BigDecimal bal = row[1] == null ? Money.ZERO : Money.scale(new BigDecimal(row[1].toString()));
+            BigDecimal cash = collected.getOrDefault(org, Money.ZERO);
+            if (cash.signum() == 0 && bal.signum() >= 0) continue;     // never took cash and owes nothing
+            out.add(new SettlementDTOs.CodRow(org, sellerName(org), cash, remitted.getOrDefault(org, Money.ZERO), bal,
+                    cod.standing(org, bal, today)));
+        }
+        out.sort((a, b) -> a.standing().overdue() != b.standing().overdue() ? (a.standing().overdue() ? -1 : 1)
+                : b.standing().owed().compareTo(a.standing().owed()));
+        return out;
+    }
+
+    private static Map<Long, BigDecimal> sideOf(List<Object[]> rows, int column) {
+        Map<Long, BigDecimal> m = new HashMap<>();
+        for (Object[] r : rows)
+            m.put(((Number) r[0]).longValue(), r[column] == null ? Money.ZERO : Money.scale(new BigDecimal(r[column].toString())));
+        return m;
+    }
+
+    /**
+     * The seller paid MaxTheService (a bank transfer, or cash at the office) for its cash orders: a REMITTANCE credit
+     * and the operator's journal (Dr bank, Cr sellers' control account). Never more than it owes; a payment that is less
+     * says why, as the shop's cash-up does for a short drawer. The same key records it once.
+     */
+    @Transactional
+    public SettlementDTOs.AccountView recordRemittance(SettlementDTOs.RemittanceRequest req) {
+        access.assertOperator();
+        if (req == null || req.organizationId() == null) throw new ValidationException("Choose the seller.");
+        String key = req.idempotencyKey() == null ? "" : req.idempotencyKey().trim();
+        if (key.isEmpty() || key.length() > 70) throw new ValidationException("The request is missing its idempotency key.");
+        if (entries.existsByIdempotencyKey("rem:" + key)) return account(req.organizationId(), true);
+        Long org = req.organizationId();
+        BigDecimal amount = req.amount() == null ? Money.ZERO : Money.scale(req.amount());
+        if (amount.signum() <= 0) throw new ValidationException("Enter the amount the seller paid.");
+        BigDecimal owed = Money.scale(Money.nz(entries.balance(org))).negate().max(Money.ZERO);
+        if (owed.signum() == 0) throw new ValidationException("This seller owes nothing for cash orders.");
+        if (amount.compareTo(owed) > 0)
+            throw new ValidationException("The seller owes Rs " + money(owed) + ". Enter at most that; record anything more "
+                    + "as a correction.");
+        String reference = req.reference() == null ? "" : req.reference().trim();
+        if (reference.isEmpty()) throw new ValidationException("Enter the bank's reference, or the receipt number for cash.");
+        if (reference.length() > 80) throw new ValidationException("The reference is at most 80 characters.");
+        String note = req.note() == null ? "" : req.note().trim();
+        if (amount.compareTo(owed) < 0 && note.length() < 3)
+            throw new ValidationException("The seller owes Rs " + money(owed) + " and paid Rs " + money(amount)
+                    + ". Say why it paid less: the note is shown on the seller's statement.");
+        Books books = ensureBooks();
+        String ref = String.format(Locale.ROOT, "RM-%06d", numbers.next(MarketplaceCheckoutService.PLATFORM_ORG, REMITTANCE_DOC));
+        String memo = "Paid to MaxTheService for cash orders, ref " + clip(reference, 80) + (note.isEmpty() ? "" : ". " + note);
+        append(org, null, null, LedgerEntryType.REMITTANCE, Money.ZERO, amount, ref, clip(memo, 300), "rem:" + key, access.userId());
+        gl.enqueue(books.organizationId(), books.userId(), PostingEventRequest.builder()
+                .eventType("MKT_REMITTANCE").eventKey("MKT-REM-" + ref).date(TenantClock.today()).ref(ref)
+                .grandTotal(amount).method("BANK").build());
+        audit.event("MKT_REMITTANCE_RECORDED", "MKT_LEDGER_ENTRY", ref, org, Actor.OPERATOR, null, null, amount,
+                clip("ref " + reference + (note.isEmpty() ? "" : "; " + note), 200));
+        return account(org, true);
+    }
+
     // ── settings ───────────────────────────────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -533,7 +608,8 @@ public class MarketplaceSettlementService {
         access.assertOperator();
         Optional<Books> b = settings.books();
         return new SettlementDTOs.SettingsView(settings.tPlusDays(), b.map(Books::organizationId).orElse(null),
-                b.map(x -> x.organizationId().equals(access.org())).orElse(false));
+                b.map(x -> x.organizationId().equals(access.org())).orElse(false), settings.codRemitDays(),
+                settings.codStopWhenOverdue());
     }
 
     @Transactional
@@ -542,6 +618,8 @@ public class MarketplaceSettlementService {
         if (req == null) throw new ValidationException("Nothing to save.");
         if (req.tPlusDays() != null) settings.setTPlusDays(req.tPlusDays());
         if (Boolean.TRUE.equals(req.useMyBooks())) settings.useMyBooks();
+        if (req.codRemitDays() != null) settings.setCodRemitDays(req.codRemitDays());
+        if (req.codStopWhenOverdue() != null) settings.setCodStopWhenOverdue(req.codStopWhenOverdue());
         return settingsView();
     }
 

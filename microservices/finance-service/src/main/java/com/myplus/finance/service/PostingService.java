@@ -120,15 +120,18 @@ public class PostingService {
                 MarketplacePostingRules.adjustment(req.getGrandTotal()));
         else if (MKT_PAYOUT.equalsIgnoreCase(type)) postMarketplace(MKT_PAYOUT, req,
                 MarketplacePostingRules.payout(req.getGrandTotal()));
+        else if (MKT_REMITTANCE.equalsIgnoreCase(type)) postMarketplace(MKT_REMITTANCE, req,
+                MarketplacePostingRules.remittance(req.getGrandTotal()));
         else throw new IllegalArgumentException("Unknown event type: " + type);
     }
 
     // ---- MKT-1g: the marketplace operator's settlement ledger ---------------------------------------------------
 
-    static final String MKT_SETTLEMENT = "MKT_SETTLEMENT", MKT_ADJUSTMENT = "MKT_ADJUSTMENT", MKT_PAYOUT = "MKT_PAYOUT";
+    static final String MKT_SETTLEMENT = "MKT_SETTLEMENT", MKT_ADJUSTMENT = "MKT_ADJUSTMENT", MKT_PAYOUT = "MKT_PAYOUT",
+            MKT_REMITTANCE = "MKT_REMITTANCE";
 
     /**
-     * MKT-1g — a settled marketplace line, an operator's correction, or a payout, in the OPERATOR's books
+     * MKT-1g — a settled marketplace line, an operator's correction, a payout or (MKT-2d) a seller's payment, in the OPERATOR's books
      * ({@link MarketplacePostingRules}). The event key already makes a redelivery a no-op; the ref check also stops
      * the same ledger row being posted under a second key.
      */

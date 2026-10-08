@@ -88,6 +88,18 @@ class MarketplacePostingRulesTest {
     }
 
     @Test
+    @DisplayName("MKT-2d: a seller pays what it owes for cash orders: the bank receives it, 2400 comes back toward zero")
+    void remittance() {
+        List<JournalLineDTO> j = MarketplacePostingRules.remittance(m("480.00"));
+        balances(j);
+        assertThat(debit(j, "1010")).isEqualByComparingTo("480.00");
+        assertThat(credit(j, "2400")).isEqualByComparingTo("480.00");
+        assertThat(credit(j, "4500")).isZero();
+        assertThatThrownBy(() -> MarketplacePostingRules.remittance(BigDecimal.ZERO)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> MarketplacePostingRules.remittance(m("-1.00"))).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     @DisplayName("negative inputs are refused rather than posted as the opposite side")
     void negativeRefused() {
         assertThatThrownBy(() -> MarketplacePostingRules.settlement(m("-1.00"), m("0.00"))).isInstanceOf(IllegalArgumentException.class);

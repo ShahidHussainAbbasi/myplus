@@ -81,6 +81,7 @@ class MarketplaceSettlementServiceTest {
     @Mock SellerAccess access;
     @Mock PlatformTransactionManager txManager;
     MarketplaceSettlementService svc;
+    CodStandingService cod;
 
     final Map<Long, MarketplaceOrderLine> lineTable = new HashMap<>();
     final Map<Long, MarketplaceSellerOrder> soTable = new HashMap<>();
@@ -92,8 +93,10 @@ class MarketplaceSettlementServiceTest {
 
     @BeforeEach
     void wire() {
+        cod = new CodStandingService(entries, settings);
         svc = new MarketplaceSettlementService(lines, sellerOrders, orders, returns, entries, payouts, accounts, settings, gl,
-                audit, numbers, access, txManager);
+                audit, numbers, access, txManager, cod);
+        lenient().when(settings.codRemitDays()).thenReturn(7);
         lenient().when(txManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         lenient().when(numbers.next(anyLong(), anyString())).thenAnswer(i -> ids.incrementAndGet());
         lenient().when(settings.tPlusDays()).thenReturn(1);
@@ -140,7 +143,15 @@ class MarketplaceSettlementServiceTest {
             return ledger.stream().filter(e -> ls.contains(e.getOrderLineId())).toList();
         });
         lenient().when(entries.findByOrganizationIdOrderByIdDesc(anyLong(), any())).thenAnswer(i -> new PageImpl<>(ledger.stream()
-                .filter(e -> e.getOrganizationId().equals(i.getArgument(0))).toList()));
+                .filter(e -> e.getOrganizationId().equals(i.getArgument(0)))
+                .sorted((a, b) -> b.getId().compareTo(a.getId())).toList()));                  // newest first, as the index reads
+        lenient().when(entries.balances()).thenAnswer(i -> ledger.stream().map(MarketplaceSettlementEntry::getOrganizationId)
+                .distinct().sorted().map(o -> new Object[] { o, balance(o) }).toList());
+        lenient().when(entries.totalsOfType(anyString())).thenAnswer(i -> ledger.stream()
+                .filter(e -> e.getEntryType().equals(i.getArgument(0))).map(MarketplaceSettlementEntry::getOrganizationId)
+                .distinct().map(o -> new Object[] { o,
+                        sumOf(o, i.getArgument(0), MarketplaceSettlementEntry::getDebitAmount),
+                        sumOf(o, i.getArgument(0), MarketplaceSettlementEntry::getCreditAmount) }).toList());
         lenient().when(payouts.save(any())).thenAnswer(i -> {
             MarketplacePayout p = i.getArgument(0);
             if (p.getId() == null) p.setId(ids.incrementAndGet());
@@ -161,6 +172,11 @@ class MarketplaceSettlementServiceTest {
     BigDecimal balance(Long org) {
         return ledger.stream().filter(e -> e.getOrganizationId().equals(org))
                 .map(e -> e.getCreditAmount().subtract(e.getDebitAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    BigDecimal sumOf(Long org, String type, java.util.function.Function<MarketplaceSettlementEntry, BigDecimal> side) {
+        return ledger.stream().filter(e -> e.getOrganizationId().equals(org) && e.getEntryType().equals(type)).map(side)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     static BigDecimal m(String v) { return new BigDecimal(v); }
@@ -459,5 +475,185 @@ class MarketplaceSettlementServiceTest {
         assertThatThrownBy(() -> svc.requestPayout(new SettlementDTOs.PayoutRequest(SELLER, "k"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> svc.adjust(new SettlementDTOs.AdjustmentRequest(SELLER, m("1"), "abc", "k"))).isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> svc.accounts()).isInstanceOf(AccessDeniedException.class);
+    }
+
+    // ── MKT-2d: cash orders, what a seller owes, and its payment ─────────────────────────────────────────────
+
+    static final LocalDate TODAY = LocalDate.of(2026, 10, 20);
+
+    /** A cash order settled {@code daysAgo} days before TODAY: the seller owes its 480 commission from that day. */
+    MarketplaceOrderLine owing(int daysAgo) {
+        int before = ledger.size();
+        MarketplaceOrderLine l = order("COD", "4800.00", "200.00", 0, FRIDAY);
+        svc.settleDue(LocalDate.of(2026, 10, 5));
+        ledger.subList(before, ledger.size()).forEach(e -> e.setEffectiveAt(TODAY.minusDays(daysAgo).atTime(10, 0)));
+        return l;
+    }
+
+    SettlementDTOs.AccountView pay(String amount, String ref, String note, String key) {
+        return svc.recordRemittance(new SettlementDTOs.RemittanceRequest(SELLER, m(amount), ref, note, key));
+    }
+
+    /** The REMITTANCE rows the service just wrote are dated {@code daysAgo} before TODAY. */
+    void dateLatest(int daysAgo) {
+        ledger.stream().filter(e -> "REMITTANCE".equals(e.getEntryType()) && e.getEffectiveAt().toLocalDate().isAfter(TODAY))
+                .forEach(e -> e.setEffectiveAt(TODAY.minusDays(daysAgo).atTime(12, 0)));
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] cash orders: owed = the negative balance, since the day it went negative; pay-by = + 7 days; overdue after it")
+    void owedSinceAndOverdue() {
+        owing(10);
+        SettlementDTOs.CodStanding s = cod.standing(SELLER, balance(SELLER), TODAY);
+        assertThat(s.owed()).isEqualByComparingTo("480.00");
+        assertThat(s.owedSince()).isEqualTo(TODAY.minusDays(10));
+        assertThat(s.payBy()).isEqualTo(TODAY.minusDays(3));
+        assertThat(s.overdue()).isTrue();
+        assertThat(s.codStopped()).as("the stop switch is off by default").isFalse();
+        assertThat(cod.standing(SELLER, balance(SELLER), TODAY.minusDays(3)).overdue()).as("the pay-by day itself is in time").isFalse();
+        org.mockito.Mockito.when(settings.codStopWhenOverdue()).thenReturn(true);
+        assertThat(cod.standing(SELLER, balance(SELLER), TODAY).codStopped()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] a newer cash order adds to the debt but does not make it newer; a seller owed money owes nothing")
+    void newerOrderKeepsTheDate() {
+        owing(10);
+        owing(2);
+        SettlementDTOs.CodStanding s = cod.standing(SELLER, balance(SELLER), TODAY);
+        assertThat(s.owed()).isEqualByComparingTo("960.00");
+        assertThat(s.owedSince()).isEqualTo(TODAY.minusDays(10));
+        order("CARD", "9600.00", "0.00", 0, FRIDAY);
+        svc.settleDue(LocalDate.of(2026, 10, 5));
+        assertThat(balance(SELLER)).isPositive();
+        SettlementDTOs.CodStanding none = cod.standing(SELLER, balance(SELLER), TODAY);
+        assertThat(none.owed()).isZero();
+        assertThat(none.owedSince()).isNull();
+        assertThat(none.overdue()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] [MKT-R15.6] the seller pays: a REMITTANCE credit, one journal (Dr bank, Cr 2400), audited; the same key once")
+    void remittanceRecordedOnce() {
+        owing(10);
+        SettlementDTOs.AccountView v = pay("480.00", "HBL-123", null, "r1");
+        assertThat(v.balance()).isZero();
+        assertThat(v.cod().owed()).isZero();
+        assertThat(ledger.stream().filter(e -> "REMITTANCE".equals(e.getEntryType())).toList()).singleElement().satisfies(e -> {
+            assertThat(e.getCreditAmount()).isEqualByComparingTo("480.00");
+            assertThat(e.getDebitAmount()).isZero();
+            assertThat(e.getRef()).startsWith("RM-");
+            assertThat(e.getMemo()).contains("HBL-123");
+            assertThat(e.getOrderLineId()).isNull();
+        });
+        ArgumentCaptor<PostingEventRequest> j = ArgumentCaptor.forClass(PostingEventRequest.class);
+        verify(gl, times(2)).enqueue(any(), any(), j.capture());
+        PostingEventRequest rem = j.getAllValues().get(1);
+        assertThat(rem.getEventType()).isEqualTo("MKT_REMITTANCE");
+        assertThat(rem.getGrandTotal()).isEqualByComparingTo("480.00");
+        verify(audit).event(eq("MKT_REMITTANCE_RECORDED"), any(), any(), eq(SELLER), any(), any(), any(), any(), any());
+        pay("480.00", "HBL-123", null, "r1");                               // a double click
+        assertThat(ledger.stream().filter(e -> "REMITTANCE".equals(e.getEntryType())).count()).isEqualTo(1);
+        verify(gl, times(2)).enqueue(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] a part payment says why, and keeps the debt's date: smaller, not newer")
+    void partPayment() {
+        owing(10);
+        assertThatThrownBy(() -> pay("200.00", "HBL-1", "", "p0")).isInstanceOf(ValidationException.class)
+                .hasMessage("The seller owes Rs 480.00 and paid Rs 200.00. Say why it paid less: the note is shown on the seller's statement.");
+        pay("200.00", "HBL-1", "Rider still holds two orders' cash", "p1");
+        dateLatest(1);
+        SettlementDTOs.CodStanding s = cod.standing(SELLER, balance(SELLER), TODAY);
+        assertThat(s.owed()).isEqualByComparingTo("280.00");
+        assertThat(s.owedSince()).isEqualTo(TODAY.minusDays(10));
+        assertThat(s.overdue()).isTrue();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] once squared, a new debt starts its own clock")
+    void newDebtNewClock() {
+        owing(20);
+        pay("480.00", "HBL-1", null, "q1");
+        dateLatest(15);
+        owing(2);
+        SettlementDTOs.CodStanding s = cod.standing(SELLER, balance(SELLER), TODAY);
+        assertThat(s.owed()).isEqualByComparingTo("480.00");
+        assertThat(s.owedSince()).isEqualTo(TODAY.minusDays(2));
+        assertThat(s.overdue()).isFalse();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] a payment is refused, in a sentence: more than owed, nothing owed, no amount, no reference")
+    void remittanceRefusals() {
+        assertThatThrownBy(() -> pay("10.00", "HBL-1", null, "n0")).isInstanceOf(ValidationException.class)
+                .hasMessage("This seller owes nothing for cash orders.");
+        owing(3);
+        assertThatThrownBy(() -> pay("480.01", "HBL-1", null, "n1")).isInstanceOf(ValidationException.class)
+                .hasMessageStartingWith("The seller owes Rs 480.00. Enter at most that");
+        assertThatThrownBy(() -> pay("0", "HBL-1", null, "n2")).isInstanceOf(ValidationException.class)
+                .hasMessage("Enter the amount the seller paid.");
+        assertThatThrownBy(() -> pay("480.00", " ", null, "n3")).isInstanceOf(ValidationException.class)
+                .hasMessage("Enter the bank's reference, or the receipt number for cash.");
+        assertThat(ledger.stream().filter(e -> "REMITTANCE".equals(e.getEntryType()))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] the operator's list: cash collected, paid, owed and since when; overdue first; a card-only seller is not on it")
+    void codReconciliationRows() {
+        owing(10);
+        pay("100.00", "HBL-1", "part", "c1");
+        dateLatest(5);
+        MarketplaceOrderLine card = order("CARD", "1000.00", "0.00", 0, FRIDAY);
+        card.setSellerOrganizationId(8L);
+        svc.settleDue(LocalDate.of(2026, 10, 5));
+        List<SettlementDTOs.CodRow> rows = svc.codReconciliation();
+        assertThat(rows).singleElement().satisfies(r -> {
+            assertThat(r.organizationId()).isEqualTo(SELLER);
+            assertThat(r.cashCollected()).isEqualByComparingTo("5000.00");
+            assertThat(r.remitted()).isEqualByComparingTo("100.00");
+            assertThat(r.balance()).isEqualByComparingTo("-380.00");
+            assertThat(r.standing().owed()).isEqualByComparingTo("380.00");
+        });
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] owed-since across pages: one line's rows are one step even when a page splits them")
+    void walkAcrossPages() {
+        // oldest → newest: −50 (day 30); line 9 settles on day 20: SALE +1000, COMMISSION −100, COLLECTED −1000 (→ −150);
+        // −300 (day 4) → −450. Read newest first, two rows a page, the page boundary inside line 9.
+        MarketplaceSettlementEntry older = entry(null, "50.00", "0.00", 30);
+        MarketplaceSettlementEntry sale = entry(9L, "0.00", "1000.00", 20);
+        MarketplaceSettlementEntry fee = entry(9L, "100.00", "0.00", 20);
+        MarketplaceSettlementEntry cash = entry(9L, "1000.00", "0.00", 20);
+        MarketplaceSettlementEntry debt = entry(null, "300.00", "0.00", 4);
+        CodStandingService.Walk w = CodStandingService.walk(new CodStandingService.Walk(null, m("-450.00"), false, null),
+                List.of(debt, cash));
+        assertThat(w.done()).isFalse();
+        w = CodStandingService.walk(w, List.of(fee, sale));
+        assertThat(w.done()).as("inside line 9 the balance is briefly +950, but the line is one step").isFalse();
+        assertThat(w.balanceBefore()).isEqualByComparingTo("-50.00");
+        w = CodStandingService.walk(w, List.of(older));
+        assertThat(w.since()).as("never back to zero since day 30").isEqualTo(TODAY.minusDays(30));
+        // the balance before the very first row is zero: the next page (none) would stop there
+        assertThat(w.balanceBefore()).isZero();
+    }
+
+    MarketplaceSettlementEntry entry(Long line, String debit, String credit, int daysAgo) {
+        MarketplaceSettlementEntry e = new MarketplaceSettlementEntry();
+        e.setOrderLineId(line);
+        e.setDebitAmount(m(debit));
+        e.setCreditAmount(m(credit));
+        e.setEffectiveAt(TODAY.minusDays(daysAgo).atStartOfDay());
+        return e;
+    }
+
+    @Test
+    @DisplayName("operator-only: a tenant recording a payment or reading what sellers owe gets the same 403")
+    void codOperatorOnly() {
+        org.mockito.Mockito.doThrow(new AccessDeniedException("Access denied")).when(access).assertOperator();
+        assertThatThrownBy(() -> pay("1.00", "x", null, "k")).isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> svc.codReconciliation()).isInstanceOf(AccessDeniedException.class);
     }
 }

@@ -268,6 +268,46 @@ public class MarketplaceSettingsService {
         return new SlowSeller(seller, delayMs);
     }
 
+    // ── MKT-2d: what a seller owes for cash orders ───────────────────────────────────────────────────────
+
+    public static final int DEFAULT_COD_REMIT_DAYS = 7;
+    static final int MAX_COD_REMIT_DAYS = 60;
+
+    /** Days a seller has to pay what it owes for cash orders. A missing or invalid value reads as 7. */
+    @Transactional(readOnly = true)
+    public int codRemitDays() {
+        return settings.findById(MarketplacePlatformSetting.COD_REMIT_DAYS)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> { try { return Integer.parseInt(v.trim()); } catch (NumberFormatException e) { return -1; } })
+                .filter(n -> n >= 1 && n <= MAX_COD_REMIT_DAYS)
+                .orElse(DEFAULT_COD_REMIT_DAYS);
+    }
+
+    @Transactional
+    public int setCodRemitDays(Integer days) {
+        access.assertOperator();
+        if (days == null || days < 1 || days > MAX_COD_REMIT_DAYS)
+            throw new ValidationException("Days to pay for cash orders are 1 to 60.");
+        save(MarketplacePlatformSetting.COD_REMIT_DAYS, String.valueOf(days));
+        return days;
+    }
+
+    /** Off unless an operator switched it on: a seller that owes keeps taking cash orders, as before. */
+    @Transactional(readOnly = true)
+    public boolean codStopWhenOverdue() {
+        return settings.findById(MarketplacePlatformSetting.COD_STOP_WHEN_OVERDUE)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(v -> "true".equalsIgnoreCase(v.trim()))
+                .orElse(false);
+    }
+
+    @Transactional
+    public boolean setCodStopWhenOverdue(boolean on) {
+        access.assertOperator();
+        save(MarketplacePlatformSetting.COD_STOP_WHEN_OVERDUE, String.valueOf(on));
+        return on;
+    }
+
     /** The operator's books: the org whose ledger takes the commission, and the user postings are made as. */
     public record Books(Long organizationId, Long userId) {}
 

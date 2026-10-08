@@ -780,10 +780,79 @@
 		});
 	}
 
+	// ── MKT-2d: cash orders: what sellers owe, and the money they pay ──────────────────────────────────────
+
+	function loadCod() {
+		var $tb = $('#mktCodList tbody').empty();
+		$.ajax({ url: ctx() + 'platform/mkt/codReconciliation', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $tb.append($('<tr><td colspan="6"></td></tr>').find('td').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))).end()); return; }
+			var rows = data(res) || [];
+			if (!rows.length) $tb.append($('<tr><td colspan="6" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktCodNone', 'No seller has collected cash for a marketplace order yet.')).end());
+			rows.forEach(function (r) { $tb.append(codRow(r)); });
+		});
+	}
+
+	function codRow(r) {
+		var st = r.standing || {}, owed = Number(st.owed || 0);
+		var $tr = $('<tr class="mkt-cod-row"></tr>').attr('data-org', r.organizationId).toggleClass('danger', !!st.overdue);
+		$('<td></td>').text(r.sellerName || ('#' + r.organizationId)).appendTo($tr);
+		$('<td class="text-right mkt-cod-collected"></td>').text(money(r.cashCollected)).appendTo($tr);
+		$('<td class="text-right mkt-cod-paid"></td>').text(money(r.remitted)).appendTo($tr);
+		$('<td class="text-right mkt-cod-owed"></td>').text(owed ? money(owed) : '—').css('color', owed ? '#b3261e' : '').appendTo($tr);
+		var $when = $('<td class="mkt-cod-payby"></td>').appendTo($tr);
+		if (owed) {
+			$('<span style="white-space:nowrap"></span>').text(st.payBy || '').appendTo($when);
+			$('<div class="plat__hint" style="min-width:150px"></div>').text((st.overdue ? tr('ui.js.mktCodOverdue', 'Overdue. Owed since {0}.') : tr('ui.js.mktCodSince', 'Owed since {0}.'))
+				.replace('{0}', st.owedSince || '')).appendTo($when);
+			if (st.codStopped) $('<div class="plat__hint mkt-cod-stopped" style="color:#b3261e"></div>')
+				.text(tr('ui.js.mktCodStopped', 'Cash on delivery is stopped for this seller.')).appendTo($when);
+		} else $when.text('—');
+		var $act = $('<td></td>').appendTo($tr);
+		if (owed) {
+			var payKey = key('rem');
+			var $amt = $('<input type="number" step="0.01" min="0.01" class="form-control input-sm mkt-cod-amount" style="display:inline-block;width:110px;margin:0 6px 4px 0">')
+				.val(owed.toFixed(2)).attr('aria-label', tr('ui.js.mktCodAmount', 'Amount paid, Rs')).attr('placeholder', tr('ui.js.mktCodAmount', 'Amount paid, Rs')).appendTo($act);
+			var $ref = $('<input type="text" maxlength="80" class="form-control input-sm mkt-cod-ref" style="display:inline-block;width:150px;margin:0 6px 4px 0">')
+				.attr('aria-label', tr('ui.js.mktCodRef', 'Bank or receipt reference')).attr('placeholder', tr('ui.js.mktCodRef', 'Bank or receipt reference')).appendTo($act);
+			var $note = $('<input type="text" maxlength="200" class="form-control input-sm mkt-cod-note" style="display:inline-block;width:200px;margin:0 6px 4px 0">')
+				.attr('aria-label', tr('ui.js.mktCodNote', 'Why less than owed (if it is)')).attr('placeholder', tr('ui.js.mktCodNote', 'Why less than owed (if it is)')).appendTo($act);
+			var $msg = $('<div role="status" class="mkt-cod-msg" style="font-size:12px"></div>');
+			$('<button type="button" class="btn btn-xs btn-primary mkt-cod-record"></button>').text(tr('ui.js.mktCodRecord', 'Record payment'))
+				.on('click', function () {
+					opsPost('platform/mkt/recordRemittance', { organizationId: r.organizationId, amount: $amt.val() === '' ? null : Number($amt.val()),
+						reference: $ref.val(), note: $note.val(), idempotencyKey: payKey }, $(this), $msg, function () {
+						loadAccounts();
+						setTimeout(function () {
+							loadCod();
+							$('#mktCodMsg').css('color', '#1f7a4d').text(tr('ui.js.mktCodRecorded', 'Payment recorded for {0}.')
+								.replace('{0}', r.sellerName || ('#' + r.organizationId)));
+						}, 0);
+					});
+				}).appendTo($act);
+			$act.append($msg);
+		}
+		return $tr;
+	}
+
+	function loadCodSettings() {
+		$.ajax({ url: ctx() + 'platform/mkt/settlementSettings', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) return;
+			var v = data(res) || {};
+			$('#mktCodDays').val(v.codRemitDays);
+			$('#mktCodStop').prop('checked', !!v.codStopWhenOverdue);
+		});
+	}
+
+	$(document).on('click', '#mktCodSave', function () {
+		opsPost('platform/mkt/settlementSettings', { codRemitDays: $('#mktCodDays').val() === '' ? null : Number($('#mktCodDays').val()),
+			codStopWhenOverdue: $('#mktCodStop').prop('checked') }, $(this), $('#mktCodMsg'), function () { loadCodSettings(); loadCod(); });
+	});
+
 	$(document).on('click', '#platMktPayoutsBtn', function () {
 		$('#mktOpsLedger').empty();
 		$('#mktSetMsg').text('');
-		openPanel('#platMktPayouts', function () { loadSettlementSettings(); loadAccounts(); });
+		$('#mktCodMsg').text('');
+		openPanel('#platMktPayouts', function () { loadSettlementSettings(); loadAccounts(); loadCodSettings(); loadCod(); });
 	});
 	$(document).on('click', '#mktSetSave', function () {
 		opsPost('platform/mkt/settlementSettings', { tPlusDays: $('#mktTPlus').val() === '' ? null : Number($('#mktTPlus').val()) },
@@ -800,6 +869,7 @@
 				.replace('{0}', r.settled || 0).replace('{1}', r.waiting || 0).replace('{2}', r.onHold || 0));
 			loadAccounts();
 			loadSettlementSettings();
+			loadCod();                                         // a settled cash line is a new debt (MKT-2d)
 		});
 	});
 

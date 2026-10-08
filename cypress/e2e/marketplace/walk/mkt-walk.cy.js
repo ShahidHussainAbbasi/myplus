@@ -3025,4 +3025,235 @@ on('MKT manual walk — recorded', () => {
         cy.get('#mktMultiSellerMsg').should('contain', 'Order settings saved.')
       })
   })
+
+  // ──────────────────────────────── MKT-2d ────────────────────────────────
+  // Cash orders: what a seller owes MaxTheService, since when, and the money it pays. Mobile Distributor plays the seller
+  // (the gate uses Shahzad Mobile Shop, so the two never share a debt). M-2d-01 and -02 run on today's stack;
+  // M-2d-03 runs after the whole stack is restarted twelve days later (FAKETIME=+12d), with --env later=1.
+
+  const CD = {}
+  const dph = (k) => `0318${String(run).slice(-6)}${k}`            // customer phones for the 2d walk
+  const COD_STOPPED = 'This seller cannot take cash on delivery right now. Please pay online or choose another offer.'
+  /** Mobile Distributor's offer, sold with 0 return days (so a line delivered today settles today under T+0). */
+  const dOffer = () => (CD.offer ? cy.wrap(CD) : seedPolicies(`${run}cd`, { returnDays: 0 }).then((p) => cy.then(() => publishOffer(SELLER_B,
+    { run: `${run}cd`, price: 52000, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })))
+    .then((o) => { CD.offer = o.offerId; CD.product = o.mktProductId; return CD }))
+  const dOrg = () => (CD.org ? cy.wrap(CD.org) : (asOperator(), cy.orgOf(SELLER_B).then((o) => { CD.org = o.id; return o.id })))
+  const dAccount = () => { asOperator(); return dOrg().then((org) => get(`/platform/mkt/settlementAccount?organizationId=${org}`)).then((r) => data(r.body)) }
+  /** Behind the scenes: Mobile Distributor starts square (pays what it owes, or a correction takes a positive balance to zero). */
+  const dSquare = () => dAccount().then((a) => {
+    const bal = Number(a.balance)
+    if (bal < 0) return post('/platform/mkt/recordRemittance', { organizationId: CD.org, amount: -bal, reference: 'WALK-SQUARE', idempotencyKey: `wsq-${run}-${Math.random()}` })
+    if (bal > 0) return post('/platform/mkt/adjustLedger', { organizationId: CD.org, amount: -bal, reason: 'walk: start from zero', idempotencyKey: `wsq-${run}-${Math.random()}` })
+    return null
+  })
+  /** Behind the scenes: Ali's cash order from Mobile Distributor, accepted and delivered through the seller's real steps. */
+  const dDelivered = (ph) => {
+    const o = {}
+    dOffer()
+    fSignIn(ph)
+    cy.then(() => post(API.checkout, { offerId: CD.offer, quantity: 1, expectedPrice: 52000, customerName: 'Ali Raza', customerPhone: ph,
+      address: '1 Clifton', city: 'Karachi', idempotencyKey: `wd-${run}-${Math.random()}`, paymentMode: 'COD' }).then((r) => {
+      expect(ok(r.body), JSON.stringify(r.body)).to.eq(true)
+      Object.assign(o, { no: data(r.body).orderNo, so: data(r.body).sellerOrderId, v: data(r.body).sellerOrderVersion })
+    }))
+    as(SELLER_B)
+    cy.then(() => post(API.acceptOrder, { id: o.so, version: o.v }))
+    cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`).then((s) => { o.store = list(s.body).find((x) => x.orderNo === o.no).storeOrderId }))
+    cy.then(() => gDeliver(o))
+    return cy.wrap(o)
+  }
+  /** Operator → Platform dashboard → "Settlement and payouts", scrolled to "Cash orders: what sellers owe". */
+  const codBox = () => {
+    dOrg()
+    asOperator()
+    cy.visit('/platformDashboard')
+    cy.get('#platMktPayoutsBtn').should('be.visible').click()
+    cy.get('#mktCodDays').should(($i) => expect($i.val()).to.not.eq(''))
+    cy.wait(800)                                                  // the panel's other lists have drawn
+    cy.get('#mktCodBox').scrollIntoView()
+  }
+  const dRow = () => cy.then(() => cy.get(`#mktCodList tr.mkt-cod-row[data-org="${CD.org}"]`, { timeout: 15000 }))
+  const amountOf = ($el) => Number(($el.text() || '0').replace(/[^0-9.]/g, ''))
+  const rs = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 })
+  const rs2 = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  /** Seller B: Sale → Marketplace → "Show statement". */
+  const dStatement = () => {
+    as(SELLER_B); openMarketplace()
+    cy.get('#mktStatementTab').scrollIntoView().click()
+    cy.get('#mktStatementBody').should('be.visible')
+  }
+  /** Customer: Mobile Distributor's phone (Karachi) → "Buy now" → the contact details. */
+  const dBuy = (ph) => {
+    customer()
+    cy.visit(page(`product=${CD.product}&city=Karachi`))
+    cy.get(`${UI.offerRow}[data-offer-id="${CD.offer}"] ${UI.chooseOffer}`).check()
+    cy.get(UI.buyButton).click()
+    contact(ph)
+  }
+
+  walk({ id: 'M-2d-01', slice: 'MKT-2d', title: 'A cash order delivered: the operator and the seller see what is owed, since when and by when',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.mobile@myplus.com (Mobile Distributor)', reqs: ['MKT-R20.3'],
+    pre: 'Ali\'s Rs 52,000 cash-on-delivery order from Mobile Distributor was delivered today, on a business day; the offer was sold with 0 return days and settlement runs T+0 (M-1g-01). Mobile Distributor owed nothing before it. Days to pay: 7.',
+    auto: ['MKT-2d-01', 'MKT-2d-02'] }, (step, call, cleanup) => {
+    cy.then(() => dSquare()).then(() => dDelivered(dph(1))).then((o) => { CD.o1 = o.no })
+    asOperator()
+    cy.then(() => post('/platform/mkt/settlementSettings', { codRemitDays: 7, codStopWhenOverdue: false }))
+    step('Operator: Platform dashboard → "Settlement and payouts" → "Settle what is due now". Scroll to "Cash orders: what sellers owe".',
+      '"Settled 1 line(s). …" Under "Cash orders: what sellers owe", Mobile Distributor\'s row: "Cash collected" includes the 52,000 Ali paid the rider; "Owes now" is the commission on that order, in red; "Pay by" is 7 days from today, with "Owed since <today>." under it. "Days a seller has to pay" reads 7.', (snap) => {
+        codBox()
+        cy.get('#mktRunSettlement').click()
+        cy.get('#mktSetMsg').should('contain', 'Settled')
+        cy.get('#mktCodDays').should('have.value', '7')
+        cy.get('#mktCodBox').scrollIntoView()
+        dRow().find('.mkt-cod-owed').should(($td) => expect(amountOf($td)).to.be.greaterThan(0))
+        dRow().find('.mkt-cod-collected').should(($td) => expect(amountOf($td)).to.be.at.least(52000))
+        dRow().find('.mkt-cod-payby').should('contain', 'Owed since')
+        cy.get('#mktCodBox').scrollIntoView()
+        snap()                                                    // the proof on screen, before the behind-the-scenes check
+        cy.then(() => dAccount()).then((a) => {
+          CD.owed = -Number(a.balance)
+          CD.since = a.cod.owedSince
+          CD.payBy = a.cod.payBy
+          expect(CD.owed, 'the commission of the one cash order').to.be.greaterThan(0)
+          expect(a.entries[0].effectiveAt.substring(0, 10), 'owed since today').to.eq(CD.since)
+          const d = new Date(`${CD.since}T00:00:00Z`)
+          d.setUTCDate(d.getUTCDate() + 7)
+          expect(CD.payBy, 'pay by = owed since + 7 days').to.eq(d.toISOString().substring(0, 10))
+        })
+      })
+    step('Log in as owner.mobile@myplus.com. Sale → Marketplace → "Show statement".',
+      'Under "You owe MaxTheService Rs <the commission> in commission.", in yellow: "Please pay MaxTheService Rs <the commission> for your cash orders by <the pay-by date>."', () => {
+        dStatement()
+        cy.get('#mktCodStanding').should('be.visible').and('have.class', 'alert-warning')
+          .and('have.text', `Please pay MaxTheService Rs ${rs(CD.owed)} for your cash orders by ${CD.payBy}.`)
+        cy.get('#mktCodStanding').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Scroll down to "Ledger".',
+      'Ali\'s order is there three times: SALE (owed to you, 52,000), COMMISSION (owed by you) and COLLECTED_BY_SELLER, "Cash collected by your rider on delivery" (owed by you, 52,000).', () => {
+        cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="SALE"]').filter(`:contains("${CD.o1}")`).should('have.length', 1).and('contain', '52,000')
+        cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="COMMISSION"]').filter(`:contains("${CD.o1}")`).should('have.length', 1)
+        cy.get('#mktLedgerTable tbody tr.mkt-entry[data-entry-type="COLLECTED_BY_SELLER"]').filter(`:contains("${CD.o1}")`).should('have.length', 1)
+          .and('contain', 'Cash collected by your rider on delivery').and('contain', '52,000')
+        cy.get('#mktLedgerTable tbody tr.mkt-entry').first().scrollIntoView({ offset: { top: -200, left: 0 } })
+      })
+    cleanup('None: the debt is paid in M-2d-02 and M-2d-03.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2d-02', slice: 'MKT-2d', title: 'The seller pays part of what it owes: the operator records it, with the reason it is short',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.mobile@myplus.com', reqs: ['MKT-R20.3', 'MKT-R15.6'],
+    pre: 'Mobile Distributor owes MaxTheService the commission on Ali\'s cash order (M-2d-01). It sent half of it by bank transfer.',
+    auto: ['MKT-2d-03', 'MKT-2d-04'] }, (step, call, cleanup) => {
+    cy.then(() => dAccount()).then((a) => {
+      CD.owed = -Number(a.balance)
+      CD.since = a.cod.owedSince
+      CD.payBy = a.cod.payBy
+      CD.part = Math.floor(CD.owed / 2)
+      expect(CD.owed, 'precondition: Mobile Distributor owes (M-2d-01)').to.be.greaterThan(0)
+    })
+    step('Operator: "Settlement and payouts" → "Cash orders: what sellers owe" → Mobile Distributor\'s row. Type half of what it owes in the amount box, "HBL-2210" as the reference, leave the reason empty → "Record payment".',
+      'Under the button, in red: "The seller owes Rs <owed> and paid Rs <half>. Say why it paid less: the note is shown on the seller\'s statement." Nothing is recorded: "Owes now" is unchanged.', () => {
+        codBox()
+        dRow().within(() => {
+          cy.get('.mkt-cod-amount').clear().type(String(CD.part))
+          cy.get('.mkt-cod-ref').type('HBL-2210')
+          cy.get('.mkt-cod-record').click()
+          cy.get('.mkt-cod-msg').should('have.text', `The seller owes Rs ${rs2(CD.owed)} and paid Rs ${rs2(CD.part)}. Say why it paid less: the note is shown on the seller's statement.`)
+          cy.get('.mkt-cod-owed').should(($td) => expect(amountOf($td)).to.eq(CD.owed))
+        })
+      })
+    step('Type "Rider still holds one order\'s cash" in the reason box → "Record payment".',
+      '"Payment recorded for Mobile Distributor." "Paid to MaxTheService" goes up by the half; "Owes now" is the other half; "Owed since" is the same date as before: the debt is smaller, not newer.', () => {
+        dRow().within(() => {
+          cy.get('.mkt-cod-note').type('Rider still holds one order\'s cash')
+          cy.get('.mkt-cod-record').click()
+        })
+        cy.get('#mktCodMsg').should('have.text', 'Payment recorded for Mobile Distributor.')
+        dRow().find('.mkt-cod-owed').should(($td) => expect(amountOf($td)).to.eq(Math.round((CD.owed - CD.part) * 100) / 100))
+        dRow().find('.mkt-cod-payby').should('contain', `Owed since ${CD.since}.`)
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Show statement".',
+      'The yellow line now asks for the rest, by the same date: "Please pay MaxTheService Rs <the other half> for your cash orders by <the same date>."', () => {
+        dStatement()
+        cy.get('#mktCodStanding').should('have.text', `Please pay MaxTheService Rs ${rs(Math.round((CD.owed - CD.part) * 100) / 100)} for your cash orders by ${CD.payBy}.`)
+        cy.get('#mktCodStanding').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Scroll down to "Ledger".',
+      'The newest line is REMITTANCE, RM-…, owed to you: the half, with "Paid to MaxTheService for cash orders, ref HBL-2210. Rider still holds one order\'s cash". Nothing above it was changed.', () => {
+        cy.get('#mktLedgerTable tbody tr.mkt-entry').first().should('have.attr', 'data-entry-type', 'REMITTANCE')
+          .and('contain', 'RM-').and('contain', 'Paid to MaxTheService for cash orders, ref HBL-2210. Rider still holds one order\'s cash')
+          .and('contain', rs(CD.part))
+          .scrollIntoView({ offset: { top: -200, left: 0 } })
+      })
+    cleanup('None: Mobile Distributor still owes the other half; it is collected in M-2d-03, twelve days later.', '—', () => {}, { screen: false })
+  })
+
+  const laterWalk = Cypress.env('later') ? walk : (meta) => it.skip(`${meta.id} ${meta.title} (run with later=1, twelve days later)`)
+  laterWalk({ id: 'M-2d-03', slice: 'MKT-2d', title: 'Twelve days later the seller has not paid: it is late, the operator stops its cash orders, then records the payment',
+    persona: 'MaxTheService operator, a customer (incognito window), owner.mobile@myplus.com', reqs: ['MKT-R20.3'],
+    pre: 'Twelve days after M-2d-02 (the whole system restarted on a clock 12 days later). Mobile Distributor still owes the other half; it had 7 days to pay.',
+    auto: ['MKT-2d-08', 'MKT-2d-09', 'MKT-2d-10'] }, (step, call, cleanup) => {
+    cy.then(() => dOffer()).then(() => dAccount()).then((a) => {
+      CD.owed = -Number(a.balance)
+      expect(CD.owed, 'precondition: Mobile Distributor still owes (M-2d-02)').to.be.greaterThan(0)
+      expect(a.cod.overdue, 'precondition: twelve days have passed').to.eq(true)
+      CD.payBy = a.cod.payBy
+    })
+    asOperator()
+    cy.then(() => post('/platform/mkt/settlementSettings', { codStopWhenOverdue: false }))
+    step('Operator: "Settlement and payouts" → "Cash orders: what sellers owe".',
+      'Mobile Distributor\'s row is red and among the first: "Overdue. Owed since <date>." under its pay-by date. Its cash orders still work: the stop box is not ticked.', () => {
+        codBox()
+        dRow().should('have.class', 'danger').find('.mkt-cod-payby').should('contain', 'Overdue. Owed since')
+        cy.get('#mktCodStop').should('not.be.checked')
+      })
+    step('Tick "Stop cash on delivery for a seller that has not paid in time" → Save.',
+      '"Settlement settings saved." Mobile Distributor\'s row adds "Cash on delivery is stopped for this seller."', () => {
+        cy.get('#mktCodStop').check()
+        cy.get('#mktCodSave').click()
+        cy.get('#mktCodMsg').should('contain', 'Settlement settings saved.')
+        dRow().find('.mkt-cod-stopped').should('have.text', 'Cash on delivery is stopped for this seller.')
+      })
+    step(`Customer: open Mobile Distributor's phone (Karachi) → "Buy now". Name "Ali", phone ${dph(3)}, address "1 Clifton", cash on delivery → "Place order".`,
+      `Under the button: "${COD_STOPPED}" No order number.`, () => {
+        dBuy(dph(3))
+        cy.get('#mktCoPlace').click()
+        cy.get('#mktCoError').should('have.text', COD_STOPPED)
+        cy.get('#mktCoOrderNo').should('have.text', '')
+      })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → "Show statement".',
+      'In red: "Overdue: please pay MaxTheService Rs <what is left> for your cash orders. It was due by <date>." and below it "Customers cannot choose cash on delivery from you until you pay."', () => {
+        dStatement()
+        cy.get('#mktCodStanding').should('have.class', 'alert-danger')
+          .and('contain', `Overdue: please pay MaxTheService Rs ${rs(CD.owed)} for your cash orders. It was due by ${CD.payBy}.`)
+          .and('contain', 'Customers cannot choose cash on delivery from you until you pay.')
+        cy.get('#mktCodStanding').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Mobile Distributor pays the rest. Operator: its row → the amount box already holds what is left; reference "HBL-2299" → "Record payment".',
+      '"Payment recorded for Mobile Distributor." Its row is no longer red; "Owes now" reads "—".', () => {
+        codBox()
+        dRow().within(() => {
+          cy.get('.mkt-cod-amount').should(($i) => expect(Number($i.val())).to.eq(CD.owed))
+          cy.get('.mkt-cod-ref').type('HBL-2299')
+          cy.get('.mkt-cod-record').click()
+        })
+        cy.get('#mktCodMsg').should('have.text', 'Payment recorded for Mobile Distributor.')
+        dRow().should('not.have.class', 'danger').find('.mkt-cod-owed').should('have.text', '—')
+      })
+    step('Customer: the same order again → "Place order".', '"Waiting for Mobile Distributor to confirm" with an order number MKT-…: cash on delivery works again.', () => {
+      dBuy(dph(3))
+      cy.get('#mktCoPlace').click()
+      cy.get(UI.checkoutStatus).should('contain', 'Waiting for Mobile Distributor to confirm')
+      cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { CD.o3 = no })
+    })
+    cleanup('Mobile Distributor rejects the order with "walk cleanup". Operator: untick "Stop cash on delivery for a seller that has not paid in time" → Save.',
+      'The order reads Cancelled; "Settlement settings saved." and the box is unticked.', () => {
+        cy.then(() => answer(SELLER_B, CD.o3, 'reject'))
+        codBox()
+        cy.get('#mktCodStop').uncheck()
+        cy.get('#mktCodSave').click()
+        cy.get('#mktCodMsg').should('contain', 'Settlement settings saved.')
+        cy.get('#mktCodStop').should('not.be.checked')
+      })
+  })
 })

@@ -34,7 +34,25 @@ public final class SettlementDTOs {
 
     /** The seller's account: what MaxTheService owes it now (negative = it owes MaxTheService), and its rows. */
     public record AccountView(Long organizationId, String sellerName, BigDecimal balance, PayoutView openPayout,
-            List<EntryRow> entries, List<PayoutView> payouts) {
+            List<EntryRow> entries, List<PayoutView> payouts, CodStanding cod) {
+    }
+
+    /**
+     * MKT-2d — what the seller owes MaxTheService for cash orders, and since when. {@code owed} is the negative balance
+     * (zero when the seller is owed money or square); {@code payBy} = owedSince + the operator's days to pay;
+     * {@code overdue} once today is after it; {@code codStopped} when the operator's switch stops its cash orders.
+     */
+    public record CodStanding(BigDecimal owed, LocalDate owedSince, LocalDate payBy, boolean overdue, boolean codStopped) {
+    }
+
+    /** MKT-2d — one seller on the operator's cash-order reconciliation. */
+    public record CodRow(Long organizationId, String sellerName, BigDecimal cashCollected, BigDecimal remitted,
+            BigDecimal balance, CodStanding standing) {
+    }
+
+    /** MKT-2d — money the seller paid MaxTheService. {@code note} is required when it is less than owed. */
+    public record RemittanceRequest(Long organizationId, BigDecimal amount, String reference, String note,
+            String idempotencyKey) {
     }
 
     /** The operator's list of sellers with a ledger. */
@@ -61,9 +79,15 @@ public final class SettlementDTOs {
     }
 
     /** The operator's settlement settings: T+N, and whose ledger takes the commission. */
-    public record SettingsView(int tPlusDays, Long booksOrganizationId, boolean booksAreMine) {
+    public record SettingsView(int tPlusDays, Long booksOrganizationId, boolean booksAreMine, int codRemitDays,
+            boolean codStopWhenOverdue) {
     }
 
-    public record SettingsRequest(Integer tPlusDays, Boolean useMyBooks) {
+    /** A field not sent is left as it is. MKT-2d added the two cash-order settings. */
+    public record SettingsRequest(Integer tPlusDays, Boolean useMyBooks, Integer codRemitDays, Boolean codStopWhenOverdue) {
+
+        public SettingsRequest(Integer tPlusDays, Boolean useMyBooks) {
+            this(tPlusDays, useMyBooks, null, null);
+        }
     }
 }

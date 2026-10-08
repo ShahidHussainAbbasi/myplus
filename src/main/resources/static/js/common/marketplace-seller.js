@@ -620,6 +620,17 @@
 				.append(v.openPayout ? $('<span class="text-muted" style="font-weight:400"></span>')
 					.text(' ' + tr('ui.js.mktPayoutOpen', 'Payout {0}: {1}.').replace('{0}', v.openPayout.payoutNo)
 						.replace('{1}', v.openPayout.status)) : null);
+			// MKT-2d: cash orders: what the seller owes MaxTheService, by when, and whether its cash orders are stopped
+			var c = v.cod || {}, $cod = $('#mktCodStanding').empty().hide();
+			if (Number(c.owed || 0) > 0) {
+				$cod.show().toggleClass('alert-danger', !!c.overdue).toggleClass('alert-warning', !c.overdue)
+					.append($('<span></span>').text((c.overdue
+						? tr('ui.js.mktCodSellerOverdue', 'Overdue: please pay MaxTheService Rs {0} for your cash orders. It was due by {1}.')
+						: tr('ui.js.mktCodSellerDue', 'Please pay MaxTheService Rs {0} for your cash orders by {1}.'))
+						.replace('{0}', money(c.owed)).replace('{1}', c.payBy || '')));
+				if (c.codStopped) $('<div style="margin-top:4px;font-weight:600"></div>')
+					.text(tr('ui.js.mktCodSellerStopped', 'Customers cannot choose cash on delivery from you until you pay.')).appendTo($cod);
+			}
 			var $lt = $('#mktLedgerTable tbody').empty();
 			(v.entries || []).forEach(function (e) {
 				$('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)

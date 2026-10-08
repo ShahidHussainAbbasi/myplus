@@ -44,8 +44,9 @@ for f in sorted(UNIT.rglob('*Test.java')):
     for m in re.finditer(r'@DisplayName\("([^"]*)"\)\s*void\s+(\w+)', src):
         cite('unit', ID.findall(m.group(1)), f'{f.stem}.{m.group(2)}')
 
+# it(...), or now(...)/later(...) in a gate that runs in two phases of the clock (mkt-2d)
 for f in sorted(CY.glob('*.cy.js')):
-    for m in re.finditer(r"\bit\(\s*['`](MKT-[\w-]+?)\s((?:\[MKT-R[\d.]+\]\s*)+)", f.read_text(encoding='utf-8')):
+    for m in re.finditer(r"\b(?:it|now|later)\(\s*['`](MKT-[\w-]+?)\s((?:\[MKT-R[\d.]+\]\s*)+)", f.read_text(encoding='utf-8')):
         cite('cypress', ID.findall(m.group(2)), m.group(1))
 
 manual = json.loads((HERE / 'manual-cases.json').read_text(encoding='utf-8'))['cases']

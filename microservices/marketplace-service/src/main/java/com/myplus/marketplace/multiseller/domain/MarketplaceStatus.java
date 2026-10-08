@@ -70,6 +70,8 @@ public final class MarketplaceStatus {
         SALE, COMMISSION, DELIVERY_FEE, PROCESSING_FEE, TAX, RESERVE, RESERVE_RELEASE, REFUND, ADJUSTMENT, PAYOUT,
         REVERSAL,
         /** MKT-1g — cash on delivery: the seller's rider already holds the customer's money (R-MKT-2). */
-        COLLECTED_BY_SELLER
+        COLLECTED_BY_SELLER,
+        /** MKT-2d — the seller paid MaxTheService what it owed for cash orders (a bank transfer or cash received). */
+        REMITTANCE
     }
 }

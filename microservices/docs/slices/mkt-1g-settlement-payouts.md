@@ -103,7 +103,7 @@ Until it is set, due lines wait (`waitingForBooks` in the run result) rather tha
 | `MKT_PAYOUT` | Dr 2400 / Cr 1010 |
 
 2400 **Marketplace Seller Balances** carries both directions, so it always equals the sum of the sellers' balances.
-The card receipt is booked when the line settles, net of refunds; booking it at capture is MKT-2d.
+The card receipt is booked when the line settles, net of refunds; booking it at capture is not built yet (MKT-2d left it out).
 
 ### 2.6 Endpoints (monolith flat route → marketplace-service)
 
@@ -132,7 +132,7 @@ approve / mark paid, ledger with "Record correction"). Six bundles.
 
 - **R-MKT-8** (commission base): unchanged — the policy carries the basis; the gate's default policy is ITEMS.
 - **R-MKT-9** (who invoices commission, and its tax): not built. Until ruled, commission tax is zero.
-- Collecting what a cash-on-delivery seller owes (a negative balance) is MKT-2d (COD reconciliation).
+- Collecting what a cash-on-delivery seller owes (a negative balance): built in [MKT-2d](mkt-2d-cod-reconciliation.md).
 - A holiday calendar and settlement reports are MKT-2f.
 - Found live: a waiting line's payable date follows the current T+N; a payout request cannot be withdrawn (live verification §8).
 

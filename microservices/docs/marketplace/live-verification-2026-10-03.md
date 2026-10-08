@@ -274,3 +274,30 @@ The design-only placeholder M-2-05 is replaced by them.
 - The circuits are per instance; a shared store is only worth it with many instances.
 - A slow seller in a basket refuses the whole basket (all or nothing, MKT-2a); offering the rest at once is not designed.
 - The limits (800 ms, 2 s, 3 failures, 30 s) are the source's starting points until a load test sets them.
+
+## 12. MKT-2d — cash orders: what sellers owe, and the money they pay (run 2026-10-08)
+
+**The stack:** the same services as §11, rebuilt from `feature/expense-management` at 03778cfd plus this change
+(marketplace-service, finance-service, the monolith). No migration. The gate and the walk ran in **two phases of the
+clock**, because "late" needs days to pass: first on the usual clock (libfaketime +1 day), then with the **whole** stack
+(every service and the monolith) restarted under +12 days, then back to +1 day.
+
+**Gate `mkt-2d-cod-reconciliation.cy.js`: 10 / 10** (2d-01..07 on the usual clock, 2d-08..10 twelve days later), each phase
+passing on its first live run. The money check reads the operator's trial balance: 2400 came back by exactly what the
+seller paid. **Every marketplace gate in one run on the usual clock: 105 / 105 (0a–2d)**, with 2d's three later cases
+pending in that run, as designed.
+
+**Walk M-2d-01..03: 3 / 3 recorded** (M-2d-03 twelve days later), step by step, each expected result asserted, screens
+captured, cleanup done. Mobile Distributor plays the seller, so the walk and the gate never share a debt.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 49 | unit test, before any screen | "owed since" stopped inside one order's own rows: between its SALE credit and its COLLECTED_BY_SELLER debit the balance is briefly positive, so a seller that kept owing seemed to owe only since its newest cash order | one order line's rows are one step, also across a page boundary | `newerOrderKeepsTheDate`, `walkAcrossPages` |
+| 50 | walk M-2d-01 (first run) | after "Settle what is due now" the cash-order list was not reloaded, so a new debt did not show until the panel was reopened | the list reloads with the run | walk M-2d-01 |
+| 51 | walk M-2d-01, M-2d-02 (screen review) | the pay-by date wrapped across lines, and the ledger line a step talked about was below the screen | the date stays on one line; the ledger is its own step, scrolled to | walk M-2d-01, M-2d-02 |
+
+**Open (2d):**
+- Stopping cash orders is all or nothing per seller; a limit by amount owed is not designed.
+- The customer is told to pay online, which needs an account; the sentence does not say so.
+- To start from a known state the gate squares Shahzad Mobile Shop (a payment, or a correction to zero). On this test
+  system it left the payout from row 33 unpayable; a payout still cannot be withdrawn (row 33).

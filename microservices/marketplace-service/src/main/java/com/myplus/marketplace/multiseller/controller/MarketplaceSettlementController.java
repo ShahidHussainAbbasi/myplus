@@ -28,7 +28,9 @@ import lombok.RequiredArgsConstructor;
  *   GET  /mkt/operator/settlement/accounts/{org}          one seller's account
  *   POST /mkt/operator/settlement/run                     settle what is due now
  *   POST /mkt/operator/settlement/adjust                  {organizationId, amount (signed), reason, idempotencyKey}
- *   GET/POST /mkt/operator/settlement/settings            {tPlusDays, useMyBooks}
+ *   GET/POST /mkt/operator/settlement/settings            {tPlusDays, useMyBooks, codRemitDays, codStopWhenOverdue}
+ *   GET  /mkt/operator/settlement/cod                     MKT-2d: cash orders, what each seller owes and since when
+ *   POST /mkt/operator/settlement/remittance              MKT-2d: {organizationId, amount, reference, note, idempotencyKey}
  *   GET  /mkt/operator/payouts?status=
  *   POST /mkt/operator/payouts                            {organizationId, idempotencyKey}
  *   POST /mkt/operator/payouts/{id}/approve               a different operator from the requester
@@ -75,6 +77,16 @@ public class MarketplaceSettlementController {
     @PostMapping("/mkt/operator/settlement/adjust")
     public ApiResponse<SettlementDTOs.AccountView> adjust(@RequestBody(required = false) SettlementDTOs.AdjustmentRequest body) {
         return ApiResponse.success(settlement.adjust(body), "Correction recorded as a new ledger line.");
+    }
+
+    @GetMapping("/mkt/operator/settlement/cod")
+    public ApiResponse<List<SettlementDTOs.CodRow>> codReconciliation() {
+        return ApiResponse.success(settlement.codReconciliation());
+    }
+
+    @PostMapping("/mkt/operator/settlement/remittance")
+    public ApiResponse<SettlementDTOs.AccountView> recordRemittance(@RequestBody SettlementDTOs.RemittanceRequest body) {
+        return ApiResponse.success(settlement.recordRemittance(body), "Payment recorded on the seller's statement.");
     }
 
     @GetMapping("/mkt/operator/settlement/settings")

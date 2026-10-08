@@ -36,6 +36,10 @@ public class MarketplacePlatformSetting {
     /** MKT-2c — the operator's test switch: "{sellerOrg}:{delayMs}" makes that seller's holds slow. Read only when
      *  {@code mkt.routing.test-switch=true}; empty or unparseable reads as off. */
     public static final String ROUTING_SLOW_SELLER = "routing.testSlowSeller";
+    /** MKT-2d — days a seller has to pay MaxTheService what it owes for cash orders (default 7). */
+    public static final String COD_REMIT_DAYS = "cod.remitDays";
+    /** MKT-2d — "true" stops cash on delivery for a seller that has not paid in time. Default off. */
+    public static final String COD_STOP_WHEN_OVERDUE = "cod.stopWhenOverdue";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

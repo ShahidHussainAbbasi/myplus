@@ -37,4 +37,9 @@ public interface MarketplaceSettlementEntryRepository extends Repository<Marketp
     @Query("select e.organizationId, coalesce(sum(e.creditAmount), 0) - coalesce(sum(e.debitAmount), 0) "
             + "from MarketplaceSettlementEntry e group by e.organizationId order by e.organizationId")
     List<Object[]> balances();
+
+    /** MKT-2d — per seller, the debits and credits of one entry type: [orgId, debit, credit]. Bounded by the sellers. */
+    @Query("select e.organizationId, coalesce(sum(e.debitAmount), 0), coalesce(sum(e.creditAmount), 0) "
+            + "from MarketplaceSettlementEntry e where e.entryType = :type group by e.organizationId")
+    List<Object[]> totalsOfType(@Param("type") String entryType);
 }

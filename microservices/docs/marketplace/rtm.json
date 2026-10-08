@@ -999,13 +999,16 @@
    "unit": [
     "MarketplaceStateMachinesTest.paidOnlyReverses",
     "MarketplaceSettlementServiceTest.correctionIsANewRow",
-    "MarketplaceSettlementServiceTest.ledgerHasNoEditPath"
+    "MarketplaceSettlementServiceTest.ledgerHasNoEditPath",
+    "MarketplaceSettlementServiceTest.remittanceRecordedOnce"
    ],
    "cypress": [
-    "MKT-1g-05"
+    "MKT-1g-05",
+    "MKT-2d-04"
    ],
    "manual": [
-    "M-1g-05"
+    "M-1g-05",
+    "M-2d-02"
    ]
   },
   {
@@ -1345,15 +1348,38 @@
    "phase": "2",
    "text": "Phase 2 OMS maturity: parent/child orders, multi-seller cart, automatic rerouting, delivery integration, returns/refunds, merchant performance, COD reconciliation, payout approval, settlement reports",
    "unit": [
+    "MarketplaceOrderFlowTest.codStoppedWhenOverdue",
+    "MarketplaceOrderFlowTest.codStoppedNamedInBasket",
     "MarketplaceOrderFlowTest.splitsPerSeller",
-    "MarketplaceOrderFlowTest.multiSellerSwitch"
+    "MarketplaceOrderFlowTest.multiSellerSwitch",
+    "MarketplaceSettlementServiceTest.owedSinceAndOverdue",
+    "MarketplaceSettlementServiceTest.newerOrderKeepsTheDate",
+    "MarketplaceSettlementServiceTest.remittanceRecordedOnce",
+    "MarketplaceSettlementServiceTest.partPayment",
+    "MarketplaceSettlementServiceTest.newDebtNewClock",
+    "MarketplaceSettlementServiceTest.remittanceRefusals",
+    "MarketplaceSettlementServiceTest.codReconciliationRows",
+    "MarketplaceSettlementServiceTest.walkAcrossPages"
    ],
    "cypress": [
     "MKT-2-06",
-    "MKT-2a-02"
+    "MKT-2a-02",
+    "MKT-2d-01",
+    "MKT-2d-02",
+    "MKT-2d-03",
+    "MKT-2d-04",
+    "MKT-2d-05",
+    "MKT-2d-06",
+    "MKT-2d-07",
+    "MKT-2d-08",
+    "MKT-2d-09",
+    "MKT-2d-10"
    ],
    "manual": [
-    "M-2a-02"
+    "M-2a-02",
+    "M-2d-01",
+    "M-2d-02",
+    "M-2d-03"
    ]
   },
   {
@@ -1455,7 +1481,8 @@
     "MKT-1f-03",
     "MKT-1f-11",
     "MKT-2a-03",
-    "MKT-2c-06"
+    "MKT-2c-06",
+    "MKT-2d-06"
    ],
    "manual": [
     "M-0a-02",
