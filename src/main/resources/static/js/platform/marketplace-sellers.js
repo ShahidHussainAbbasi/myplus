@@ -883,6 +883,110 @@
 		return $tr;
 	}
 
+	// ── MKT-2f: the settlement report and bank holidays ──────────────────────────────────────────────────
+
+	/** In the order of the table's headers (Closing second, so it is always on screen); the CSV follows the table. */
+	var REPORT_COLS = ['closing', 'opening', 'sales', 'commission', 'feesAndTax', 'reserve', 'refunds', 'corrections',
+		'collectedBySeller', 'remitted', 'paidOut'];
+	var lastReport = null;
+
+	function reportCells($tr, r) {
+		REPORT_COLS.forEach(function (c) {
+			var v = Number(r[c] || 0);
+			$('<td class="text-right"></td>').addClass('mkt-rep-' + c).text(v ? money(v) : '—').css('color', v < 0 ? '#b3261e' : '').appendTo($tr);
+		});
+		$('<td class="text-right mkt-rep-lines"></td>').text(r.lines || 0).appendTo($tr);
+		return $tr;
+	}
+
+	function loadReport() {
+		var $tb = $('#mktReportList tbody').empty(), $tf = $('#mktReportList tfoot').empty();
+		var q = [];
+		if ($('#mktRepFrom').val()) q.push('from=' + encodeURIComponent($('#mktRepFrom').val()));
+		if ($('#mktRepTo').val()) q.push('to=' + encodeURIComponent($('#mktRepTo').val()));
+		lastReport = null;
+		$('#mktRepCsv').prop('disabled', true);
+		$('#mktRepMsg').text('');
+		$.ajax({ url: ctx() + 'platform/mkt/settlementReport' + (q.length ? '?' + q.join('&') : ''), dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $('#mktRepMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var v = data(res) || {};
+			$('#mktRepFrom').val(v.from);
+			$('#mktRepTo').val(v.to);
+			var rows = v.rows || [];
+			if (!rows.length) $tb.append($('<tr><td colspan="13" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktRepNone', 'No seller has a ledger entry by the end of this period.')).end());
+			rows.forEach(function (r) {
+				var $tr = $('<tr class="mkt-rep-row"></tr>').attr('data-org', r.organizationId);
+				$('<td></td>').text(r.sellerName || ('#' + r.organizationId)).appendTo($tr);
+				$tb.append(reportCells($tr, r));
+			});
+			if (rows.length) {
+				var $t = $('<tr class="mkt-rep-total" style="font-weight:700"></tr>');
+				$('<td></td>').text(tr('ui.js.mktRepTotal', 'All sellers')).appendTo($t);
+				$tf.append(reportCells($t, v.totals || {}));
+				lastReport = v;
+				$('#mktRepCsv').prop('disabled', false);
+			}
+		}).fail(function (xhr) { $('#mktRepMsg').css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
+	}
+
+	/** Built in the browser from the figures on screen: the file and the table cannot differ. */
+	function reportCsv(v) {
+		function cell(x) { x = x == null ? '' : String(x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; }
+		var heads = $('#mktReportList thead th').map(function () { return $(this).text().trim(); }).get();
+		var out = [['Seller ID'].concat(heads).map(cell).join(',')];
+		(v.rows || []).forEach(function (r) {
+			out.push([r.organizationId, r.sellerName || ''].concat(REPORT_COLS.map(function (c) { return Number(r[c] || 0).toFixed(2); }), [r.lines || 0]).map(cell).join(','));
+		});
+		var t = v.totals || {};
+		out.push(['', tr('ui.js.mktRepTotal', 'All sellers')].concat(REPORT_COLS.map(function (c) { return Number(t[c] || 0).toFixed(2); }), [t.lines || 0]).map(cell).join(','));
+		return out.join('\r\n') + '\r\n';
+	}
+
+	$(document).on('click', '#mktRepShow', loadReport);
+	$(document).on('click', '#mktRepCsv', function () {
+		if (!lastReport) return;
+		var blob = new Blob(['﻿' + reportCsv(lastReport)], { type: 'text/csv;charset=utf-8' });
+		var a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		a.download = 'settlement-report-' + lastReport.from + '-to-' + lastReport.to + '.csv';
+		document.body.appendChild(a);
+		a.click();
+		setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+	});
+
+	function holidayRows(list) {
+		var $tb = $('#mktHolidayList tbody').empty();
+		if (!list.length) $tb.append($('<tr><td colspan="3" class="text-muted"></td></tr>').find('td').text(tr('ui.js.mktHolNone', 'No bank holiday listed: only Saturday and Sunday are skipped.')).end());
+		list.forEach(function (h) {
+			var $tr = $('<tr class="mkt-holiday"></tr>').attr('data-date', h.date);
+			$('<td style="white-space:nowrap"></td>').text(h.date).appendTo($tr);
+			$('<td></td>').text(h.name).appendTo($tr);
+			var $act = $('<td></td>').appendTo($tr);
+			if (h.removable) {
+				$('<button type="button" class="btn btn-xs btn-default mkt-holiday-remove"></button>').text(tr('ui.js.mktHolRemove', 'Remove'))
+					.on('click', function () {
+						opsPost('platform/mkt/removeHoliday', { date: h.date }, $(this), $('#mktHolMsg'), function (res) { holidayRows(data(res) || []); });
+					}).appendTo($act);
+			} else $('<span class="plat__hint"></span>').text(tr('ui.js.mktHolPast', 'Past: kept')).appendTo($act);
+			$tb.append($tr);
+		});
+	}
+
+	function loadHolidays() {
+		$.ajax({ url: ctx() + 'platform/mkt/holidays', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $('#mktHolMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			holidayRows(data(res) || []);
+		});
+	}
+
+	$(document).on('click', '#mktHolAdd', function () {
+		opsPost('platform/mkt/addHoliday', { date: $('#mktHolDate').val() || null, name: $('#mktHolName').val() }, $(this), $('#mktHolMsg'), function (res) {
+			$('#mktHolDate').val('');
+			$('#mktHolName').val('');
+			holidayRows(data(res) || []);
+		});
+	});
+
 	function loadCodSettings() {
 		$.ajax({ url: ctx() + 'platform/mkt/settlementSettings', dataType: 'json' }).done(function (res) {
 			if (!ok(res)) return;
@@ -901,7 +1005,9 @@
 		$('#mktOpsLedger').empty();
 		$('#mktSetMsg').text('');
 		$('#mktCodMsg').text('');
-		openPanel('#platMktPayouts', function () { loadSettlementSettings(); loadAccounts(); loadCodSettings(); loadCod(); });
+		$('#mktRepMsg').text('');
+		$('#mktHolMsg').text('');
+		openPanel('#platMktPayouts', function () { loadSettlementSettings(); loadAccounts(); loadCodSettings(); loadCod(); loadReport(); loadHolidays(); });
 	});
 	$(document).on('click', '#mktSetSave', function () {
 		opsPost('platform/mkt/settlementSettings', { tPlusDays: $('#mktTPlus').val() === '' ? null : Number($('#mktTPlus').val()) },
@@ -919,6 +1025,7 @@
 			loadAccounts();
 			loadSettlementSettings();
 			loadCod();                                         // a settled cash line is a new debt (MKT-2d)
+			loadReport();
 		});
 	});
 

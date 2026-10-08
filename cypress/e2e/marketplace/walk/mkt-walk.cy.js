@@ -3439,4 +3439,216 @@ on('MKT manual walk — recorded', () => {
       })
     cleanup('None: both offers stay on sale, as after M-1d.', '—', () => {}, { screen: false })
   })
+  // ──────────────────────────────── MKT-2f ────────────────────────────────
+  // Settlement reports and bank holidays. Every report figure is checked against the service (the shops carry every
+  // earlier run's money); the holiday case builds its own line with 3 return days, so its payable day is in the future.
+
+  const RP = {}
+  const iso = (d) => d.toISOString().substring(0, 10)
+  const plusDays = (s, n) => { const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return iso(d) }
+  const isWeekend = (s) => [0, 6].includes(new Date(`${s}T00:00:00Z`).getUTCDay())
+  const nextBusinessDay = (s) => { let d = plusDays(s, 1); while (isWeekend(d)) d = plusDays(d, 1); return d }
+  const rRs = (v) => (Number(v || 0) ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—')
+  /** Behind the scenes: the operator's report for a period ('' = this month). */
+  const rReport = (q = '') => {
+    asOperator()
+    return get(`/platform/mkt/settlementReport${q}`).then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); return data(r.body) })
+  }
+  /** Operator: Platform dashboard → "Settlement and payouts" → scroll to `box`. */
+  const payoutsPanel = (box) => {
+    asOperator()
+    cy.intercept('GET', '**/platform/mkt/settlementReport*').as('rep')
+    cy.intercept('GET', '**/platform/mkt/holidays*').as('hol')
+    cy.visit(UI.operatorPage)
+    cy.get('#platMktPayoutsBtn').should('be.visible').click()
+    cy.wait(['@rep', '@hol'])
+    cy.get('#mktAccountList tbody tr').should('have.length.at.least', 1)
+    cy.wait(600)                                                   // the panel's other lists have drawn above it
+    return cy.get(box).scrollIntoView({ offset: { top: -80, left: 0 } }).should('be.visible')
+  }
+  /** The seller's statement line for an order. */
+  const rLine = (no) => {
+    as(SELLER_A)
+    return get(`${API.statement}?size=100`).then((r) => list(r.body).find((x) => x.orderNo === no))
+  }
+
+  walk({ id: 'M-2f-01', slice: 'MKT-2f', title: 'The operator reads the settlement report for a period and downloads it',
+    persona: 'MaxTheService operator (admin@myplus.com)', reqs: ['MKT-R20.3', 'MKT-R15.6'],
+    pre: 'Both shops have settled marketplace sales (earlier cases).', auto: ['MKT-2f-01', 'MKT-2f-02', 'MKT-2f-04', 'MKT-2f-06'] }, (step, call, cleanup) => {
+    cy.then(() => rReport()).then((v) => { RP.month = v })
+    step('Operator: Platform dashboard → "Settlement and payouts". Scroll to "Settlement report".',
+      'From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; "All sellers" adds them up. For every shop, Opening plus the columns is its Closing.', (snap) => {
+        payoutsPanel('#mktReportBox')
+        cy.get('#mktRepFrom').should('have.value', RP.month.from)
+        cy.get('#mktRepTo').should('have.value', RP.month.to)
+        expect(RP.month.from.endsWith('-01'), 'from the 1st').to.eq(true)
+        cy.get('#mktReportList .mkt-rep-row').should('have.length', RP.month.rows.length)
+        RP.month.rows.forEach((r) => {
+          const cols = ['opening', 'sales', 'commission', 'feesAndTax', 'reserve', 'refunds', 'corrections', 'collectedBySeller', 'remitted', 'paidOut']
+          expect(cols.reduce((t, c) => t + Math.round(Number(r[c]) * 100), 0), `${r.sellerName} adds up`).to.eq(Math.round(Number(r.closing) * 100))
+          cy.get(`#mktReportList .mkt-rep-row[data-org="${r.organizationId}"]`).within(() => {
+            cy.get('.mkt-rep-sales').should('have.text', rRs(r.sales))
+            cy.get('.mkt-rep-commission').should('have.text', rRs(r.commission))
+            cy.get('.mkt-rep-closing').should('have.text', rRs(r.closing))
+          })
+        })
+        cy.get('#mktReportList .mkt-rep-total .mkt-rep-closing').should('have.text', rRs(RP.month.totals.closing))
+        cy.get('#mktReportList .mkt-rep-total .mkt-rep-closing').should(($c) => {
+          const box = $c.closest('.table-responsive')[0].getBoundingClientRect()
+          expect($c[0].getBoundingClientRect().right, 'Closing is on screen, not past the table\'s scroll edge').to.be.at.most(box.right)
+        })
+        cy.get('#mktReportBox').scrollIntoView({ offset: { top: -40, left: 0 } })
+        snap()
+      })
+    step('Set "From" to today and "To" to yesterday. Press "Show".',
+      '"The start of the period is after its end." The table is empty and "Download CSV" cannot be pressed.', () => {
+        cy.get('#mktRepFrom').clear().type(RP.month.to)
+        cy.get('#mktRepTo').clear().type(plusDays(RP.month.to, -1))
+        cy.get('#mktRepShow').click()
+        cy.get('#mktRepMsg').should('have.text', 'The start of the period is after its end.')
+        cy.get('#mktReportList .mkt-rep-row').should('have.length', 0)
+        cy.get('#mktRepCsv').should('be.disabled')
+      })
+    step('Set "From" to 10 days ago and "To" to today. Press "Show".',
+      'The shops with money in those days. Each shop\'s "Opening" is what it was owed at the start of the 10 days: the closing of the days before.', () => {
+        RP.from = plusDays(RP.month.to, -9)
+        cy.then(() => rReport(`?from=${plusDays(RP.month.to, -30)}&to=${plusDays(RP.month.to, -10)}`)).then((v) => { RP.before = v })
+        cy.then(() => rReport(`?from=${RP.from}&to=${RP.month.to}`)).then((v) => { RP.ten = v })
+        payoutsPanel('#mktReportBox')
+        cy.intercept('GET', `**/platform/mkt/settlementReport?from=${RP.from}*`).as('ten')
+        cy.get('#mktRepFrom').clear().type(RP.from)
+        cy.get('#mktRepTo').clear().type(RP.month.to)
+        cy.get('#mktRepShow').click()
+        cy.wait('@ten')
+        cy.then(() => {
+          RP.ten.rows.forEach((r) => {
+            const b = RP.before.rows.find((x) => x.organizationId === r.organizationId)
+            expect(Number(r.opening), `${r.sellerName}: opening = the closing of the days before`).to.eq(b ? Number(b.closing) : 0)
+            cy.get(`#mktReportList .mkt-rep-row[data-org="${r.organizationId}"] .mkt-rep-opening`).should('have.text', rRs(r.opening))
+          })
+        })
+        cy.get('#mktReportBox').scrollIntoView({ offset: { top: -40, left: 0 } })
+      })
+    step('Press "Download CSV".',
+      'A file "settlement-report-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel.', (snap) => {
+        cy.get('#mktRepCsv').should('not.be.disabled').click()
+        snap()
+        cy.then(() => cy.readFile(`cypress/downloads/settlement-report-${RP.from}-to-${RP.month.to}.csv`, 'utf8')).then((t) => {
+          const lines = t.replace(/^﻿/, '').trim().split(/\r\n/)
+          expect(lines[0]).to.eq('Seller ID,Seller,Closing,Opening,Sales,Commission,Fees and tax,Reserve,Refunds,Corrections,Cash kept by seller,Paid in by seller,Paid out,Lines')
+          expect(lines.length).to.eq(RP.ten.rows.length + 2)
+          expect(lines[lines.length - 1]).to.contain('All sellers')
+          RP.csv = lines.slice(0, 3).join('\n')
+        })
+      })
+    cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2f-02', slice: 'MKT-2f', title: 'A bank holiday added ahead of time moves a line due that day to the next business day',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R15.1', 'MKT-R22.1'],
+    pre: 'Shahzad Mobile Shop has just delivered a marketplace phone sold with a 3-day return policy, so it becomes payable a few days from now.',
+    auto: ['MKT-2f-07', 'MKT-2f-08'] }, (step, call, cleanup) => {
+    // behind the scenes: the sale and its delivery, the way the shop does it (as in M-1g)
+    let offer
+    cy.then(() => rReport()).then((v) => { RP.today = v.to })
+    seedPolicies(`${run}rp`, { returnDays: 3 }).then((p) => publishOffer(SELLER_A, { run: `${run}rp`, price: 52000, qty: 5,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns })).then((o) => { offer = o })
+    cy.then(() => {
+      customer()
+      cy.visit(UI.publicPage)
+      post(API.checkout, { lines: [{ offerId: offer.offerId, quantity: 1, expectedPrice: 52000 }], customerName: 'Ali',
+        customerPhone: `0318${String(run).slice(-6)}2`, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wrp-${run}` })
+        .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); RP.no = data(r.body).orderNo })
+    })
+    as(SELLER_A)
+    cy.then(() => get(`${API.incomingOrders}?status=OFFERED&size=100`)).then((r) => {
+      const so = list(r.body).find((x) => x.orderNo === RP.no)
+      return post(API.acceptOrder, { id: so.id, version: so.version })
+    }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`)).then((r) => {
+      const store = list(r.body).find((x) => x.orderNo === RP.no).storeOrderId
+      post('/updateOrderStatus', { id: store, status: 'PACKED' })
+      get(`/getOrder?id=${store}`).then((g) => {
+        const l = data(g.body).items[0]
+        post('/shipOrder', { id: store, lines: [{ orderItemId: l.id, quantity: l.quantity }], carrier: 'Own rider', trackingNumber: `WRP-${run}` })
+      })
+      post('/updateOrderStatus', { id: store, status: 'DELIVERED' }).then((u) => expect(ok(u.body), JSON.stringify(u.body)).to.eq(true))
+    })
+    cy.then(() => rLine(RP.no)).then((l) => { RP.day = l.eligibleOn; RP.next = nextBusinessDay(l.eligibleOn) })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show".',
+      'The delivered order\'s line, "Payable on" a weekday a few days from now (after its 3 return days).', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.contains(`${UI.statementTable} tr.mkt-line`, RP.no).scrollIntoView({ offset: { top: -200, left: 0 } })
+          .find('.mkt-eligible-on').should('have.text', RP.day)
+        cy.then(() => expect(isWeekend(RP.day), 'a weekday').to.eq(false))
+      })
+    step('Operator: Platform dashboard → "Settlement and payouts" → "Bank holidays". Day: today, Name "Test". Press "Add holiday".',
+      '"A holiday can be added only for a day after today: lines already payable keep their day." Nothing is added.', () => {
+        payoutsPanel('#mktHolidayBox')
+        cy.get('#mktHolDate').type(RP.today)
+        cy.get('#mktHolName').type('Test')
+        cy.get('#mktHolAdd').click()
+        cy.get('#mktHolMsg').should('have.text', 'A holiday can be added only for a day after today: lines already payable keep their day.')
+        cy.get('#mktHolidayList tbody').should('not.contain', 'Test')
+      })
+    step('Day: the line\'s payable day. Name "Walk bank holiday". Press "Add holiday".',
+      '"Holiday added. Lines due that day are paid on the next business day." The day is listed with its name and a "Remove" button.', () => {
+        cy.get('#mktHolDate').clear().type(RP.day)
+        cy.get('#mktHolName').clear().type(`Walk bank holiday ${M}`)
+        cy.get('#mktHolAdd').click()
+        cy.get('#mktHolMsg').should('have.text', 'Holiday added. Lines due that day are paid on the next business day.')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"]`).should('contain', `Walk bank holiday ${M}`)
+          .find('.mkt-holiday-remove').should('be.visible')
+      })
+    step('As owner.business@myplus.com: the statement again.',
+      'The same line is now "Payable on" the next business day after the holiday (a Monday if the holiday was a Friday).', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.contains(`${UI.statementTable} tr.mkt-line`, RP.no).scrollIntoView({ offset: { top: -200, left: 0 } })
+          .find('.mkt-eligible-on').should('have.text', RP.next)
+      })
+    cleanup('Operator: "Bank holidays" → the walk\'s holiday → "Remove". Then the shop\'s statement.',
+      '"Holiday removed." It is no longer listed, and the line is "Payable on" its own day again.', () => {
+        payoutsPanel('#mktHolidayBox')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"] .mkt-holiday-remove`).click()
+        cy.get('#mktHolMsg').should('have.text', 'Holiday removed.')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"]`).should('not.exist')
+        cy.then(() => rLine(RP.no)).then((l) => expect(l.eligibleOn, 'back to its own day').to.eq(RP.day))
+      })
+  })
+
+  walk({ id: 'M-2f-03', slice: 'MKT-2f', title: 'A seller reads its own period summary: the figures MaxTheService reconciles with',
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R20.3', 'MKT-R22.1'],
+    pre: 'The shop has settled marketplace sales (earlier cases).', auto: ['MKT-2f-05'] }, (step, call, cleanup) => {
+    cy.then(() => rReport()).then((v) => { RP.mine = v.rows.find((x) => x.sellerName === A_NAME) })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show". Scroll to "Period summary".',
+      'This month to today: "Owed to you at the start", Sales, Commission, "Delivery, fees and tax", "Reserve held and released", Refunds, Corrections, "Cash your riders kept", "You paid MaxTheService", "Paid out to you", "Owed to you at the end", and "<n> sale line(s) settled in this period.": the same figures as the shop\'s row in MaxTheService\'s report. When the shop owes money at the end, the last line reads "You owe MaxTheService at the end" with the amount in red.', () => {
+        as(SELLER_A)
+        cy.intercept('GET', '**/mkt/settlementReport*').as('mine')
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.wait('@mine')
+        cy.get('#mktMyReport tbody tr').should('have.length', 11)
+        const abs = (v) => Math.abs(Number(v)).toLocaleString('en-US', { maximumFractionDigits: 2 })
+        cy.get('#mktMyReport .mkt-myrep-opening td').eq(1).should('have.text', abs(RP.mine.opening))
+        cy.get('#mktMyReport .mkt-myrep-sales td').eq(1).should('have.text', rRs(RP.mine.sales))
+        cy.get('#mktMyReport .mkt-myrep-commission td').eq(1).should('have.text', rRs(RP.mine.commission))
+        cy.get('#mktMyReport .mkt-myrep-closing td').eq(0).should('have.text', Number(RP.mine.closing) < 0 ? 'You owe MaxTheService at the end' : 'Owed to you at the end')
+        cy.get('#mktMyReport .mkt-myrep-closing td').eq(1).should('have.text', abs(RP.mine.closing))
+        cy.get('#mktMyRepMsg').should('have.text', `${RP.mine.lines} sale line(s) settled in this period.`)
+        cy.wait(600)
+        cy.get('#mktMyReport').scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+    step('In the browser\'s address bar open /platform/mkt/settlementReport (MaxTheService\'s report of every shop).',
+      'Refused: the shop sees only its own row.', () => {
+        call('GET /platform/mkt/settlementReport as the shop', get('/platform/mkt/settlementReport')).then((r) => {
+          expect(r.status).to.eq(403)
+          expect(ok(r.body)).to.eq(false)
+        })
+      })
+    cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
+  })
 })

@@ -1407,6 +1407,55 @@
 | C1 | None: both offers stay on sale, as after M-1d. | — |
 
 
+## MKT-2f
+
+### M-2f-01 The operator reads the settlement report for a period and downloads it
+
+**Who:** MaxTheService operator (admin@myplus.com)  
+**Before:** Both shops have settled marketplace sales (earlier cases).  
+**Covers:** MKT-R20.3, MKT-R15.6  
+**Evidence:** recorded 2026-10-08 16:43 UTC  
+**Automated by:** MKT-2f-01, MKT-2f-02, MKT-2f-04, MKT-2f-06
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Operator: Platform dashboard → "Settlement and payouts". Scroll to "Settlement report". | From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; "All sellers" adds them up. For every shop, Opening plus the columns is its Closing. |
+| 2 | Set "From" to today and "To" to yesterday. Press "Show". | "The start of the period is after its end." The table is empty and "Download CSV" cannot be pressed. |
+| 3 | Set "From" to 10 days ago and "To" to today. Press "Show". | The shops with money in those days. Each shop's "Opening" is what it was owed at the start of the 10 days: the closing of the days before. |
+| 4 | Press "Download CSV". | A file "settlement-report-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel. |
+| C1 | None: reading changes nothing. | — |
+
+### M-2f-02 A bank holiday added ahead of time moves a line due that day to the next business day
+
+**Who:** MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** Shahzad Mobile Shop has just delivered a marketplace phone sold with a 3-day return policy, so it becomes payable a few days from now.  
+**Covers:** MKT-R15.1, MKT-R22.1  
+**Evidence:** recorded 2026-10-08 16:44 UTC  
+**Automated by:** MKT-2f-07, MKT-2f-08
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show". | The delivered order's line, "Payable on" a weekday a few days from now (after its 3 return days). |
+| 2 | Operator: Platform dashboard → "Settlement and payouts" → "Bank holidays". Day: today, Name "Test". Press "Add holiday". | "A holiday can be added only for a day after today: lines already payable keep their day." Nothing is added. |
+| 3 | Day: the line's payable day. Name "Walk bank holiday". Press "Add holiday". | "Holiday added. Lines due that day are paid on the next business day." The day is listed with its name and a "Remove" button. |
+| 4 | As owner.business@myplus.com: the statement again. | The same line is now "Payable on" the next business day after the holiday (a Monday if the holiday was a Friday). |
+| C1 | Operator: "Bank holidays" → the walk's holiday → "Remove". Then the shop's statement. | "Holiday removed." It is no longer listed, and the line is "Payable on" its own day again. |
+
+### M-2f-03 A seller reads its own period summary: the figures MaxTheService reconciles with
+
+**Who:** owner.business@myplus.com (Shahzad Mobile Shop)  
+**Before:** The shop has settled marketplace sales (earlier cases).  
+**Covers:** MKT-R20.3, MKT-R22.1  
+**Evidence:** recorded 2026-10-08 16:44 UTC  
+**Automated by:** MKT-2f-05
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show". Scroll to "Period summary". | This month to today: "Owed to you at the start", Sales, Commission, "Delivery, fees and tax", "Reserve held and released", Refunds, Corrections, "Cash your riders kept", "You paid MaxTheService", "Paid out to you", "Owed to you at the end", and "<n> sale line(s) settled in this period.": the same figures as the shop's row in MaxTheService's report. When the shop owes money at the end, the last line reads "You owe MaxTheService at the end" with the amount in red. |
+| 2 | In the browser's address bar open /platform/mkt/settlementReport (MaxTheService's report of every shop). | Refused: the shop sees only its own row. |
+| C1 | None: reading changes nothing. | — |
+
+
 ## MKT-2
 
 ### M-2-06 Acceptance terms differ by order value

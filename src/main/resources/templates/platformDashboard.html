@@ -351,6 +351,71 @@
                     </table>
                 </div>
             </div>
+            <!-- 13 columns do not fit the panel: Closing, the figure the operator reconciles, comes right after the seller,
+                 and the breakdown scrolls (the first recording had Closing off the right edge: found on screen, not by the gate) -->
+            <style>
+                #mktReportList { font-size: 11px; }
+                #mktReportList th { white-space: normal; padding: 6px 4px; vertical-align: bottom; line-height: 1.2; }
+                #mktReportList td { padding: 6px 4px; white-space: nowrap; }
+                #mktReportList td:first-child { white-space: normal; min-width: 80px; }
+                #mktReportList .mkt-rep-closing { font-weight: 700; }
+            </style>
+            <!-- MKT-2f: the settlement report, read from the ledger only, so it cannot disagree with any statement -->
+            <div id="mktReportBox" style="margin-top:18px">
+                <h4 style="font-weight:700" th:text="#{ui.mktReportTitle}">Settlement report</h4>
+                <p class="plat__hint" th:text="#{ui.mktReportHint}">Each seller's ledger over the period, from the seller's side: what it was owed at the start, what each kind of entry added or took away, and what it is owed at the end. Download it to reconcile with the bank.</p>
+                <div class="form-inline" style="margin-bottom:10px">
+                    <label for="mktRepFrom" th:text="#{ui.mktRepFrom}">From</label>
+                    <input type="date" id="mktRepFrom" class="form-control input-sm" style="margin:0 8px">
+                    <label for="mktRepTo" th:text="#{ui.mktRepTo}">To</label>
+                    <input type="date" id="mktRepTo" class="form-control input-sm" style="margin:0 8px">
+                    <button type="button" class="btn btn-default btn-sm" id="mktRepShow" th:text="#{ui.mktRepShow}">Show</button>
+                    <button type="button" class="btn btn-default btn-sm" id="mktRepCsv" style="margin-left:8px" disabled th:text="#{ui.mktRepCsv}">Download CSV</button>
+                    <div id="mktRepMsg" role="status" style="margin-top:6px"></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-condensed mkt-report-table" id="mktReportList">
+                        <thead><tr>
+                            <th th:text="#{ui.mktColSeller}">Seller</th>
+                            <th class="text-right" style="font-weight:800" th:text="#{ui.mktRepClosing}">Closing</th>
+                            <th class="text-right" th:text="#{ui.mktRepOpening}">Opening</th>
+                            <th class="text-right" th:text="#{ui.mktRepSales}">Sales</th>
+                            <th class="text-right" th:text="#{ui.mktRepCommission}">Commission</th>
+                            <th class="text-right" th:text="#{ui.mktRepFees}">Fees and tax</th>
+                            <th class="text-right" th:text="#{ui.mktRepReserve}">Reserve</th>
+                            <th class="text-right" th:text="#{ui.mktRepRefunds}">Refunds</th>
+                            <th class="text-right" th:text="#{ui.mktRepCorrections}">Corrections</th>
+                            <th class="text-right" th:text="#{ui.mktRepCollected}">Cash kept by seller</th>
+                            <th class="text-right" th:text="#{ui.mktRepRemitted}">Paid in by seller</th>
+                            <th class="text-right" th:text="#{ui.mktRepPaidOut}">Paid out</th>
+                            <th class="text-right" th:text="#{ui.mktRepLines}">Lines</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                        <tfoot></tfoot>
+                    </table>
+                </div>
+            </div>
+            <!-- MKT-2f: bank holidays. Only a day after today can be added or removed, so no payable day already reached moves. -->
+            <div id="mktHolidayBox" style="margin-top:18px">
+                <h4 style="font-weight:700" th:text="#{ui.mktHolTitle}">Bank holidays</h4>
+                <p class="plat__hint" th:text="#{ui.mktHolHint}">Saturday and Sunday are never business days. Add each bank holiday ahead of time: a line that would become payable that day is paid on the next business day.</p>
+                <div class="form-inline" style="margin-bottom:10px">
+                    <label for="mktHolDate" th:text="#{ui.mktHolDate}">Day</label>
+                    <input type="date" id="mktHolDate" class="form-control input-sm" style="margin:0 8px">
+                    <label for="mktHolName" th:text="#{ui.mktHolName}">Name</label>
+                    <input type="text" maxlength="80" id="mktHolName" class="form-control input-sm" style="width:200px;margin:0 8px">
+                    <button type="button" class="btn btn-default btn-sm" id="mktHolAdd" th:text="#{ui.mktHolAdd}">Add holiday</button>
+                    <div id="mktHolMsg" role="status" style="margin-top:6px"></div>
+                </div>
+                <table class="table table-condensed" id="mktHolidayList" style="max-width:520px">
+                    <thead><tr>
+                        <th th:text="#{ui.mktHolDate}">Day</th>
+                        <th th:text="#{ui.mktHolName}">Name</th>
+                        <th th:text="#{ui.mktColAction}">Action</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </section>
 
         <!-- ── MKT-1c: policies (append-only: create and deactivate, never edit) ─────────────────── -->

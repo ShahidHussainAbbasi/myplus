@@ -269,6 +269,20 @@
 						<tbody></tbody>
 					</table>
 				</div>
+				<!-- MKT-2f: the shop's own row of the settlement report: the same figures MaxTheService reconciles with -->
+				<h5 style="font-weight:700" th:text="#{ui.mktMyReportTitle}">Period summary</h5>
+				<p class="text-muted" style="font-size:13px" th:text="#{ui.mktMyReportHint}">Each line is what it added to, or took from, what MaxTheService owes you over the period.</p>
+				<div class="form-inline" style="margin-bottom:8px">
+					<label for="mktMyRepFrom" th:text="#{ui.mktRepFrom}">From</label>
+					<input type="date" id="mktMyRepFrom" class="form-control input-sm" style="margin:0 8px">
+					<label for="mktMyRepTo" th:text="#{ui.mktRepTo}">To</label>
+					<input type="date" id="mktMyRepTo" class="form-control input-sm" style="margin:0 8px">
+					<button type="button" class="btn btn-xs btn-default" id="mktMyRepShow" th:text="#{ui.mktRepShow}">Show</button>
+					<div id="mktMyRepMsg" role="status" style="margin-top:6px"></div>
+				</div>
+				<table class="table table-condensed" id="mktMyReport" style="max-width:460px">
+					<tbody></tbody>
+				</table>
 			</div>
 		</div>
 

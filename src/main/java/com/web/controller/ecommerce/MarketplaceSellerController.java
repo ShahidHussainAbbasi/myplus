@@ -543,6 +543,46 @@ public class MarketplaceSellerController {
         return relayGet("/mkt/operator/performance", request, "Could not load the sellers' performance.", "days");
     }
 
+    // ── MKT-2f: settlement reports and bank holidays ───────────────────────────────────────────────────
+
+    /** The seller's own report row. ?from=&to= (ISO dates; this month by default) */
+    @RequestMapping(value = "/mkt/settlementReport", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> mySettlementReport(final HttpServletRequest request) {
+        return relayGet("/mkt/settlement/report", request, "Could not load your settlement report.", "from", "to");
+    }
+
+    /** Every seller's ledger over the period, column by column. ?from=&to= */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/settlementReport", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> settlementReport(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settlement/report", request, "Could not load the settlement report.", "from", "to");
+    }
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/holidays", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> holidays(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settlement/holidays", request, "Could not load the bank holidays.");
+    }
+
+    /** Body: {date, name}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/addHoliday", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> addHoliday(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settlement/holidays", body, "Could not add the holiday.");
+    }
+
+    /** Body: {date}. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/removeHoliday", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> removeHoliday(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settlement/holidays/remove", body, "Could not remove the holiday.");
+    }
+
     /** MKT-2d — cash orders: what each seller collected, paid and owes, and since when. */
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @RequestMapping(value = "/platform/mkt/codReconciliation", method = RequestMethod.GET)

@@ -583,6 +583,8 @@
 
 	function statementRow(s) {
 		var st = STATUS_TEXT[s.status] || [null, s.status];
+		// the status moves at the next settlement check (every few minutes); until then a delivered line is not "not delivered"
+		if (s.status === 'NOT_ELIGIBLE' && s.deliveredAt) st = ['ui.js.mktSetDelivered', 'Delivered'];
 		var other = [s.delivery, s.fees, s.tax, s.reserve, s.adjustment].reduce(function (a, b) { return a + Number(b || 0); }, 0);
 		var $tr = $('<tr class="mkt-line"></tr>').attr('data-line-id', s.id).attr('data-status', s.status);
 		$('<td></td>').append($('<b></b>').text(s.orderNo || ''))
@@ -645,7 +647,45 @@
 					.appendTo($lt);
 			});
 		});
-		return $.when(a, b);
+		return $.when(a, b, mktMyReportLoad());
+	}
+
+	// ── MKT-2f: the period summary: the shop's own row of the settlement report ──────────────────────────
+	var MY_REPORT = [
+		['opening', 'ui.js.mktMyRepOpening', 'Owed to you at the start'],
+		['sales', 'ui.js.mktMyRepSales', 'Sales'],
+		['commission', 'ui.js.mktMyRepCommission', 'Commission'],
+		['feesAndTax', 'ui.js.mktMyRepFees', 'Delivery, fees and tax'],
+		['reserve', 'ui.js.mktMyRepReserve', 'Reserve held and released'],
+		['refunds', 'ui.js.mktMyRepRefunds', 'Refunds'],
+		['corrections', 'ui.js.mktMyRepCorrections', 'Corrections'],
+		['collectedBySeller', 'ui.js.mktMyRepCollected', 'Cash your riders kept'],
+		['remitted', 'ui.js.mktMyRepRemitted', 'You paid MaxTheService'],
+		['paidOut', 'ui.js.mktMyRepPaidOut', 'Paid out to you'],
+		['closing', 'ui.js.mktMyRepClosing', 'Owed to you at the end']
+	];
+	function mktMyReportLoad() {
+		var q = [];
+		if ($('#mktMyRepFrom').val()) q.push('from=' + encodeURIComponent($('#mktMyRepFrom').val()));
+		if ($('#mktMyRepTo').val()) q.push('to=' + encodeURIComponent($('#mktMyRepTo').val()));
+		var $tb = $('#mktMyReport tbody').empty(), $m = $('#mktMyRepMsg').text('');
+		return $.ajax({ url: ctx() + 'mkt/settlementReport' + (q.length ? '?' + q.join('&') : ''), dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $m.css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			var v = data(res) || {}, r = (v.rows || [])[0] || {};
+			$('#mktMyRepFrom').val(v.from);
+			$('#mktMyRepTo').val(v.to);
+			MY_REPORT.forEach(function (c) {
+				var n = Number(r[c[0]] || 0), edge = c[0] === 'opening' || c[0] === 'closing';
+				// a negative start or end is money the shop owes: said that way, never "owed to you: -4,160"
+				var label = edge && n < 0 ? (c[0] === 'opening' ? ['ui.js.mktMyRepOwedStart', 'You owed MaxTheService at the start']
+					: ['ui.js.mktMyRepOwedEnd', 'You owe MaxTheService at the end']) : [c[1], c[2]];
+				$('<tr></tr>').addClass('mkt-myrep-' + c[0]).css('font-weight', edge ? 700 : '')
+					.append($('<td></td>').text(tr(label[0], label[1])))
+					.append($('<td class="text-right"></td>').text(edge ? money(Math.abs(n)) : n ? money(n) : '—').css('color', n < 0 ? '#b3261e' : ''))
+					.appendTo($tb);
+			});
+			$m.css('color', '').addClass('text-muted').text(tr('ui.js.mktMyRepLines', '{0} sale line(s) settled in this period.').replace('{0}', r.lines || 0));
+		}).fail(function (xhr) { $m.css('color', '#b3261e').text(failMessage(xhr, tr('ui.js.loadFailed', 'Could not load.'))); });
 	}
 
 	// ── MKT-2e: your performance ──────────────────────────────────────────────────────────────────────
@@ -680,6 +720,7 @@
 	}
 
 	$(document).on('click', '#mktStatementTab', function () { mktStatementLoad(); });
+	$(document).on('click', '#mktMyRepShow', function () { mktMyReportLoad(); });
 	$(document).on('change', '#mktIncomingStatus', mktIncomingLoad);
 	// Bound here, NOT as inline onclick: inside a <form>, an inline handler resolves names through the form's named
 	// elements first, so onclick="mktOfferSave(...)" on <button id="mktOfferSave"> called the BUTTON, not this
@@ -708,4 +749,5 @@
 	global.mktTasksLoad = mktTasksLoad;
 	global.mktStatementLoad = mktStatementLoad;
 	global.mktPerfLoad = mktPerfLoad;
+	global.mktMyReportLoad = mktMyReportLoad;
 })(window);

@@ -6682,6 +6682,165 @@
    "evidence": "recorded"
   },
   {
+   "id": "M-2f-01",
+   "slice": "MKT-2f",
+   "title": "The operator reads the settlement report for a period and downloads it",
+   "persona": "MaxTheService operator (admin@myplus.com)",
+   "reqs": [
+    "MKT-R20.3",
+    "MKT-R15.6"
+   ],
+   "pre": "Both shops have settled marketplace sales (earlier cases).",
+   "auto": [
+    "MKT-2f-01",
+    "MKT-2f-02",
+    "MKT-2f-04",
+    "MKT-2f-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Operator: Platform dashboard → \"Settlement and payouts\". Scroll to \"Settlement report\".",
+     "expect": "From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; \"All sellers\" adds them up. For every shop, Opening plus the columns is its Closing.",
+     "shot": "shots/M-2f-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Set \"From\" to today and \"To\" to yesterday. Press \"Show\".",
+     "expect": "\"The start of the period is after its end.\" The table is empty and \"Download CSV\" cannot be pressed.",
+     "shot": "shots/M-2f-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Set \"From\" to 10 days ago and \"To\" to today. Press \"Show\".",
+     "expect": "The shops with money in those days. Each shop's \"Opening\" is what it was owed at the start of the 10 days: the closing of the days before.",
+     "shot": "shots/M-2f-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Press \"Download CSV\".",
+     "expect": "A file \"settlement-report-<from>-to-<to>.csv\": a header line with the same columns, one line per shop, and \"All sellers\". It opens in Excel.",
+     "shot": "shots/M-2f-01/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: reading changes nothing.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:43:41.261Z",
+   "startedAt": "2026-10-08T16:43:24.346Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2f-02",
+   "slice": "MKT-2f",
+   "title": "A bank holiday added ahead of time moves a line due that day to the next business day",
+   "persona": "MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)",
+   "reqs": [
+    "MKT-R15.1",
+    "MKT-R22.1"
+   ],
+   "pre": "Shahzad Mobile Shop has just delivered a marketplace phone sold with a 3-day return policy, so it becomes payable a few days from now.",
+   "auto": [
+    "MKT-2f-07",
+    "MKT-2f-08"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Statement\" → \"Show\".",
+     "expect": "The delivered order's line, \"Payable on\" a weekday a few days from now (after its 3 return days).",
+     "shot": "shots/M-2f-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Operator: Platform dashboard → \"Settlement and payouts\" → \"Bank holidays\". Day: today, Name \"Test\". Press \"Add holiday\".",
+     "expect": "\"A holiday can be added only for a day after today: lines already payable keep their day.\" Nothing is added.",
+     "shot": "shots/M-2f-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Day: the line's payable day. Name \"Walk bank holiday\". Press \"Add holiday\".",
+     "expect": "\"Holiday added. Lines due that day are paid on the next business day.\" The day is listed with its name and a \"Remove\" button.",
+     "shot": "shots/M-2f-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.business@myplus.com: the statement again.",
+     "expect": "The same line is now \"Payable on\" the next business day after the holiday (a Monday if the holiday was a Friday).",
+     "shot": "shots/M-2f-02/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Operator: \"Bank holidays\" → the walk's holiday → \"Remove\". Then the shop's statement.",
+     "expect": "\"Holiday removed.\" It is no longer listed, and the line is \"Payable on\" its own day again.",
+     "shot": "shots/M-2f-02/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:44:41.331Z",
+   "startedAt": "2026-10-08T16:43:41.631Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2f-03",
+   "slice": "MKT-2f",
+   "title": "A seller reads its own period summary: the figures MaxTheService reconciles with",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
+   "reqs": [
+    "MKT-R20.3",
+    "MKT-R22.1"
+   ],
+   "pre": "The shop has settled marketplace sales (earlier cases).",
+   "auto": [
+    "MKT-2f-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Statement\" → \"Show\". Scroll to \"Period summary\".",
+     "expect": "This month to today: \"Owed to you at the start\", Sales, Commission, \"Delivery, fees and tax\", \"Reserve held and released\", Refunds, Corrections, \"Cash your riders kept\", \"You paid MaxTheService\", \"Paid out to you\", \"Owed to you at the end\", and \"<n> sale line(s) settled in this period.\": the same figures as the shop's row in MaxTheService's report. When the shop owes money at the end, the last line reads \"You owe MaxTheService at the end\" with the amount in red.",
+     "shot": "shots/M-2f-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "In the browser's address bar open /platform/mkt/settlementReport (MaxTheService's report of every shop).",
+     "expect": "Refused: the shop sees only its own row.",
+     "calls": [
+      {
+       "call": "GET /platform/mkt/settlementReport as the shop",
+       "status": 403,
+       "body": {
+        "message": "AccessDenied",
+        "error": null,
+        "status": "Unauthorized Access !!",
+        "object": null,
+        "collection": null,
+        "success": false
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: reading changes nothing.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:44:51.517Z",
+   "startedAt": "2026-10-08T16:44:41.932Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
    "id": "M-2-06",
    "slice": "MKT-2",
    "title": "Acceptance terms differ by order value",
