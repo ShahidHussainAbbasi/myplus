@@ -79,6 +79,9 @@ public class SellerOrderService {
     private final PlatformTransactionManager txManager;
     /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
     private final MarketplaceAuditService audit;
+    /** MKT-2b: every part a seller does not fulfil is recorded, and moved to another seller when the operator allows. */
+    private final MarketplaceShortageService shortages;
+    private final com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;
 
     @Transactional(readOnly = true)
     public PageResponse<MarketplaceOrderDTOs.SellerOrderView> mine(String status, Integer page, Integer size) {
@@ -103,7 +106,11 @@ public class SellerOrderService {
         Map<Long, MarketplaceOrder> parents = orders.findAllById(
                 rows.getContent().stream().map(MarketplaceSellerOrder::getMktOrderId).distinct().toList()).stream()
                 .collect(Collectors.toMap(MarketplaceOrder::getId, Function.identity()));
-        return PageResponse.of(rows, so -> view(so, parents.get(so.getMktOrderId()), bySo.getOrDefault(so.getId(), List.of())));
+        Map<Long, com.myplus.marketplace.multiseller.entity.MarketplaceShortage> shortBy = soIds.isEmpty() ? Map.of()
+                : shortageRows.findBySellerOrderIdIn(soIds).stream()
+                        .collect(Collectors.toMap(com.myplus.marketplace.multiseller.entity.MarketplaceShortage::getSellerOrderId, Function.identity()));
+        return PageResponse.of(rows, so -> view(so, parents.get(so.getMktOrderId()), bySo.getOrDefault(so.getId(), List.of()),
+                MarketplaceShortageService.sellerView(shortBy.get(so.getId()))));
     }
 
     /** Not {@code @Transactional}: the remote release and sale sit between short transactions. */
@@ -178,20 +185,24 @@ public class SellerOrderService {
         if (reason == null || reason.isEmpty())
             throw new ValidationException("Give a reason. MaxTheService support will see it.");
         if (reason.length() > 300) throw new ValidationException("Keep the reason under 300 characters.");
+        com.myplus.marketplace.multiseller.entity.MarketplaceShortage.Cause cause =
+                MarketplaceShortageService.sellerCause(req == null ? null : req.cause());      // before anything changes
 
+        boolean[] moving = new boolean[1];
         tx().executeWithoutResult(s -> {
             MarketplaceSellerOrder fresh = sellerOrders.findById(so.getId()).orElseThrow();
             MarketplaceCheckoutService.move(fresh, SellerOrder.REJECTED);
             fresh.setRejectReason(reason);
             fresh.setDecidedByUserId(access.userId());
             fresh.setDecidedAt(LocalDateTime.now());
-            sellerOrders.save(fresh);
             MarketplaceOrder parent = orders.findById(fresh.getMktOrderId()).orElseThrow();
-            MarketplaceCheckoutService.follow(parent, partsOf(parent.getId(), fresh), REJECTED_FOR_SHOPPER);
+            // MKT-2b: recorded with its cause; the order follows, or waits while another seller is looked for
+            moving[0] = shortages.begin(fresh, parent, partsOf(parent.getId(), fresh), cause, reason, REJECTED_FOR_SHOPPER);
+            sellerOrders.save(fresh);
             orders.save(parent);
         });
         release(sellerOrders.findById(so.getId()).orElseThrow());     // after the commit: the stock goes back
-        moneyBack(sellerOrders.findById(so.getId()).orElseThrow());   // a card order's money for this part goes back, once
+        afterShort(so.getId(), moving[0]);
         MarketplaceOrderDTOs.SellerOrderView done = viewOf(sellerOrders.findById(so.getId()).orElseThrow());
         if (SellerOrder.REJECTED.name().equals(done.acceptanceStatus()))
             audit.event("MKT_ORDER_REJECTED", "MKT_SELLER_ORDER", done.orderNo(), so.getSellerOrganizationId(),
@@ -217,6 +228,22 @@ public class SellerOrderService {
         if (Order.CANCELLED.name().equals(o.getStatus())) payments.refundIfCancelled(o.getId());
         else payments.refundPart(o.getId(), part.getId(), MarketplaceCheckoutService.partTotal(
                 lines.findBySellerOrderIdOrderByIdAsc(part.getId())), "Part of " + o.getOrderNo() + " not fulfilled");
+    }
+
+    /**
+     * MKT-2b — after a short part's commit: look for another seller (the money stays while one is found), or give this
+     * part's money back now. A failure to look is left to the sweeper, which retries; the seller's answer stands.
+     */
+    void afterShort(Long sellerOrderId, boolean moving) {
+        if (!moving) {
+            moneyBack(sellerOrders.findById(sellerOrderId).orElseThrow());     // a card order's money for this part, once
+            return;
+        }
+        try {
+            shortages.resolve(sellerOrderId);
+        } catch (RuntimeException e) {
+            LOG.warn("MKT shortage of part {} not resolved now; the sweeper retries: {}", sellerOrderId, e.toString());
+        }
     }
 
     /** Another seller's id reads exactly like one that does not exist. */
@@ -279,10 +306,12 @@ public class SellerOrderService {
     }
 
     private MarketplaceOrderDTOs.SellerOrderView viewOf(MarketplaceSellerOrder so) {
-        return view(so, orders.findById(so.getMktOrderId()).orElse(null), lines.findBySellerOrderIdOrderByIdAsc(so.getId()));
+        return view(so, orders.findById(so.getMktOrderId()).orElse(null), lines.findBySellerOrderIdOrderByIdAsc(so.getId()),
+                MarketplaceShortageService.sellerView(shortageRows.findBySellerOrderId(so.getId()).orElse(null)));
     }
 
-    static MarketplaceOrderDTOs.SellerOrderView view(MarketplaceSellerOrder so, MarketplaceOrder o, List<MarketplaceOrderLine> ls) {
+    static MarketplaceOrderDTOs.SellerOrderView view(MarketplaceSellerOrder so, MarketplaceOrder o, List<MarketplaceOrderLine> ls,
+            MarketplaceOrderDTOs.SellerShortageView shortage) {
         return new MarketplaceOrderDTOs.SellerOrderView(so.getId(), so.getVersion(), o == null ? null : o.getOrderNo(),
                 so.getAcceptanceStatus(), so.getAcceptBy(), MarketplaceCheckoutService.secondsLeft(so),
                 o == null ? null : o.getCustomerName(), o == null ? null : o.getCustomerPhone(),
@@ -291,7 +320,8 @@ public class SellerOrderService {
                 so.getInvoiceNo(), so.getStoreOrderNo(), so.getRejectReason(), so.getCreatedAt(),
                 ls.stream().map(l -> new MarketplaceOrderDTOs.SellerLineView(l.getId(), MarketplaceCheckoutService.lineView(l),
                         l.getSourceProductId(), l.getCommissionPolicyId(), l.getCommissionBasis(), l.getCommissionRate(),
-                        l.getCommissionFixed(), l.getSettlementStatus())).toList(), so.getStoreOrderId(), o == null ? null : o.getPaymentMode(), so.getDeliveredAt());
+                        l.getCommissionFixed(), l.getSettlementStatus())).toList(), so.getStoreOrderId(), o == null ? null : o.getPaymentMode(), so.getDeliveredAt(),
+                shortage);
     }
 
     private TransactionTemplate tx() {

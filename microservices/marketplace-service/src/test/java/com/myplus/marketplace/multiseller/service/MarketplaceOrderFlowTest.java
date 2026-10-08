@@ -94,10 +94,14 @@ class MarketplaceOrderFlowTest {
     @Mock OrderService storeOrders;
     @Mock PlatformTransactionManager txManager;
     @Mock MarketplaceAuditService audit;                             // G-16: actions are audited
+    @Mock com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortageRows;   // MKT-2b
 
     MarketplaceCheckoutService checkout;
     SellerOrderService sellerSide;
     MarketplaceOrderSweeper sweeper;
+    MarketplaceSettingsService settings;
+    MarketplaceShortageService shortages;
+    final Map<Long, com.myplus.marketplace.multiseller.entity.MarketplaceShortage> shTable = new HashMap<>();
 
     final Map<Long, MarketplaceOrder> orderTable = new HashMap<>();
     final Map<Long, MarketplaceSellerOrder> soTable = new HashMap<>();
@@ -109,14 +113,16 @@ class MarketplaceOrderFlowTest {
 
     @BeforeEach
     void wire() {
-        MarketplaceSettingsService settings = new MarketplaceSettingsService(settingRows, access, audit);
+        settings = new MarketplaceSettingsService(settingRows, access, audit);
         PublicOfferService publicOffers = new PublicOfferService(projections, products, settings);
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
-                lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, sellerSideProvider);
+                lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider);
+        shortages = new MarketplaceShortageService(shortageRows, sellerOrders, orders, lines, offers, projections, products,
+                publicOffers, settings, checkout, payments, trade, access, audit, txManager, sellerSideProvider);
         sellerSide = new SellerOrderService(sellerOrders, orders, lines, sellers, checkout, payments, storeOrders, catalog, trade,
-                access, txManager, audit);
+                access, txManager, audit, shortages, shortageRows);
         lenient().when(sellerSideProvider.getObject()).thenReturn(sellerSide);
-        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager);
+        sweeper = new MarketplaceOrderSweeper(sellerOrders, orders, sellerSide, payments, txManager, shortages);
 
         product = new MarketplaceProduct();
         product.setId(PRODUCT);
@@ -190,6 +196,25 @@ class MarketplaceOrderFlowTest {
         lenient().when(lines.save(any())).thenAnswer(i -> { MarketplaceOrderLine l = i.getArgument(0); l.setId(ids.incrementAndGet()); lineTable.add(l); return l; });
         lenient().when(lines.findBySellerOrderIdOrderByIdAsc(anyLong())).thenAnswer(i -> lineTable.stream()
                 .filter(l -> l.getSellerOrderId().equals(i.getArgument(0))).toList());
+        // MKT-2b: the shortage records, in memory too
+        lenient().when(shortageRows.save(any())).thenAnswer(i -> save(shTable, i.getArgument(0)));
+        lenient().when(shortageRows.findById(anyLong())).thenAnswer(i -> Optional.ofNullable(shTable.get((Long) i.getArgument(0))));
+        lenient().when(shortageRows.findBySellerOrderId(anyLong())).thenAnswer(i -> shTable.values().stream()
+                .filter(x -> x.getSellerOrderId().equals(i.getArgument(0))).findFirst());
+        lenient().when(shortageRows.findByMktOrderIdOrderByIdAsc(anyLong())).thenAnswer(i -> shTable.values().stream()
+                .filter(x -> x.getMktOrderId().equals(i.getArgument(0))).sorted(java.util.Comparator.comparing(
+                        com.myplus.marketplace.multiseller.entity.MarketplaceShortage::getId)).toList());
+        lenient().when(shortageRows.findByMktOrderIdIn(any())).thenAnswer(i -> shTable.values().stream()
+                .filter(x -> ((java.util.Collection<?>) i.getArgument(0)).contains(x.getMktOrderId())).toList());
+        lenient().when(shortageRows.findBySellerOrderIdIn(any())).thenAnswer(i -> shTable.values().stream()
+                .filter(x -> ((java.util.Collection<?>) i.getArgument(0)).contains(x.getSellerOrderId())).toList());
+        lenient().when(shortageRows.findByResultAndProposalExpiresAtBefore(anyString(), any(), any())).thenAnswer(i -> shTable.values()
+                .stream().filter(x -> x.getResult().equals(i.getArgument(0)) && x.getProposalExpiresAt() != null
+                        && x.getProposalExpiresAt().isBefore(i.getArgument(1))).toList());
+        lenient().when(shortageRows.findByResultAndCreatedAtBefore(anyString(), any(), any())).thenAnswer(i -> shTable.values()
+                .stream().filter(x -> x.getResult().equals(i.getArgument(0)) && x.getCreatedAt().isBefore(i.getArgument(1))).toList());
+        lenient().when(shortageRows.findByProposalHeldTrueAndResultNot(anyString(), any())).thenAnswer(i -> shTable.values()
+                .stream().filter(x -> Boolean.TRUE.equals(x.getProposalHeld()) && !x.getResult().equals(i.getArgument(0))).toList());
     }
 
     @SuppressWarnings("unchecked")
@@ -558,7 +583,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] the customer cancels while the seller has not answered: stock back, refund asked; after Accept it cannot")
     void customerCancel() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit, shortages);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc1"), 77L);
@@ -579,7 +604,7 @@ class MarketplaceOrderFlowTest {
     @Test
     @DisplayName("[MKT-R10.5] after the seller accepts, the customer's cancel is refused with the way forward")
     void cancelAfterAccept() {
-        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
+        MarketplaceAccountService accounts = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit, shortages);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         checkout.checkout(req("cc2"), 77L);
@@ -782,7 +807,7 @@ class MarketplaceOrderFlowTest {
     @DisplayName("[MKT-R17.2] the customer cancels a basket no seller has accepted: every part at once; once one accepted, it is support")
     void customerCancelsEveryPart() {
         secondSeller(true);
-        MarketplaceAccountService acc = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit);
+        MarketplaceAccountService acc = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit, shortages);
         com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
         me.setId(77L);
         String no = checkout.checkout(basket("m7", null, lineA(1), lineB(1)), 77L).orderNo();
@@ -815,5 +840,249 @@ class MarketplaceOrderFlowTest {
                 .hasMessageContaining("1 to 10 of each item");
         assertThatThrownBy(() -> MarketplaceCheckoutService.wants(basket("w", null, lineA(1),
                 new MarketplaceOrderDTOs.CheckoutLine(OFFER, 1, new BigDecimal("1"))))).hasMessageContaining("two prices");
+    }
+
+    // ── MKT-2b: a part its seller did not fulfil — recorded, moved, offered to the shopper, or cancelled ──────────
+
+    static final String PHONE = "0300-123 4567";
+
+    /** The reroute switch on, and OTHER_SELLER selling the same product at {@code price} within {@code promise} hours. */
+    MarketplaceOfferProjection rerouteTo(String price, int promise) {
+        secondSeller(false);
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting on = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        on.setSettingKey("shortage.reroute");
+        on.setSettingValue("true");
+        lenient().when(settingRows.findById("shortage.reroute")).thenReturn(Optional.of(on));
+        MarketplaceOfferProjection rb = projections.findById(OFFER_B).orElseThrow();
+        rb.setPrice(new BigDecimal(price));
+        rb.setPromiseHours(promise);
+        offers.findById(OFFER_B).orElseThrow().setPromiseHours(promise);
+        lenient().when(projections.findByMktProductIdAndStatusOrderByPriceAsc(PRODUCT, MarketplaceOfferProjection.LIVE))
+                .thenAnswer(i -> List.of(row, rb));
+        return rb;
+    }
+
+    com.myplus.marketplace.multiseller.entity.MarketplaceShortage shortageOf(MarketplaceSellerOrder so) {
+        return shTable.values().stream().filter(x -> x.getSellerOrderId().equals(so.getId())).findFirst().orElseThrow();
+    }
+
+    MarketplaceSellerOrder rejectFirst(String cause) {
+        MarketplaceSellerOrder a = part(SELLER);
+        sellerSide.reject(a.getId(), new MarketplaceOrderDTOs.RejectRequest(a.getVersion(), "none left", cause));
+        return a;
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.4] [MKT-R12.4] with the switch off, a rejection is recorded with its cause and party and the order ends as before; nothing is debited")
+    void switchOffRecordsCauseOnly() {
+        checkout.checkout(req("s0"));
+        MarketplaceSellerOrder a = rejectFirst("SUPPLIER_STALE_STOCK");
+        var sh = shortageOf(a);
+        assertThat(sh.getCause()).isEqualTo("SUPPLIER_STALE_STOCK");
+        assertThat(sh.getResponsibleRole()).isEqualTo("SUPPLIER");
+        assertThat(sh.getStatus()).isEqualTo("RECORDED");
+        assertThat(sh.getResult()).isEqualTo("ORDER_CANCELLED");
+        assertThat(sh.getEvidence()).isEqualTo("none left");
+        assertThat(orderTable.get(a.getMktOrderId()).getStatus()).isEqualTo("CANCELLED");
+        assertThat(soTable).hasSize(1);
+        assertThatThrownBy(() -> MarketplaceShortageService.sellerCause("NO_RESPONSE"))
+                .as("the clock's cause is never the seller's to pick").isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.1] [MKT-R11.3] same product, cheaper and no later: moved to the other seller without asking; a card gets the difference back")
+    void silentReassign() {
+        rerouteTo("51500", 4);
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.SUCCEEDED);
+        checkout.checkout(basket("s1", "CARD", lineA(1)), 77L);
+        MarketplaceSellerOrder a = rejectFirst(null);
+        MarketplaceSellerOrder b = part(OTHER_SELLER);
+        MarketplaceOrder parent = orderTable.get(a.getMktOrderId());
+        assertThat(b.getAcceptanceStatus()).isEqualTo("OFFERED");
+        assertThat(b.getReplacesSellerOrderId()).isEqualTo(a.getId());
+        assertThat(b.getHeld()).isTrue();
+        assertThat(a.getShortagePending()).isFalse();
+        assertThat(parent.getStatus()).as("the order goes on with the new seller").isEqualTo("SUBMITTED");
+        assertThat(parent.getTotal()).isEqualByComparingTo("51500");
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).isEqualTo("REASSIGNED");
+        assertThat(sh.getReplacementSellerOrderId()).isEqualTo(b.getId());
+        verify(payments).refundPart(eq(parent.getId()), eq(a.getId()), org.mockito.ArgumentMatchers.argThat(x -> x.compareTo(new BigDecimal("500")) == 0), anyString());
+        verify(trade).releaseHold(a.getHoldKey());
+        MarketplaceOrderDTOs.PartView old = checkout.view(parent).sellerOrders().stream().filter(p -> p.id().equals(a.getId())).findFirst().orElseThrow();
+        assertThat(old.shortage().movedTo()).isEqualTo("Mobile Distributor");
+        assertThat(old.shortage().priceDifference()).isEqualByComparingTo("-500");
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.2] a later promise needs the shopper: the alternative is held and offered; accepting makes it the order's new part")
+    void proposalAccepted() {
+        rerouteTo("51500", 24);
+        String no = checkout.checkout(req("s2")).orderNo();
+        MarketplaceSellerOrder a = rejectFirst("MERCHANT_STALE_STOCK");
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).isEqualTo("SUBSTITUTION_REQUESTED");
+        assertThat(sh.getProposalHeld()).isTrue();
+        assertThat(sh.getProposalTotal()).isEqualByComparingTo("51500");
+        assertThat(soTable).as("no part until the shopper says yes").hasSize(1);
+        MarketplaceOrder parent = orderTable.get(a.getMktOrderId());
+        assertThat(parent.getStatus()).as("the order waits for the answer").isEqualTo("SUBMITTED");
+        MarketplaceOrderDTOs.ShortageView v = checkout.view(parent).sellerOrders().get(0).shortage();
+        assertThat(v.proposalSeller()).isEqualTo("Mobile Distributor");
+        assertThat(v.proposalPromiseHours()).isEqualTo(24);
+        assertThat(v.secondsToDecide()).isBetween(1790L, 1800L);
+
+        assertThatThrownBy(() -> shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision("0300 000 0000", true)))
+                .as("another phone reads as no order").hasMessage("No such order.");
+        shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision(PHONE, true));
+        MarketplaceSellerOrder b = part(OTHER_SELLER);
+        assertThat(b.getAcceptanceStatus()).isEqualTo("OFFERED");
+        assertThat(b.getHoldKey()).as("the proposal's hold becomes the part's").isEqualTo(sh.getProposalHoldKey());
+        assertThat(sh.getCustomerDecision()).isEqualTo("ACCEPTED");
+        assertThat(sh.getResult()).isEqualTo("REASSIGNED");
+        assertThat(sh.getProposalHeld()).isFalse();
+        assertThat(parent.getTotal()).isEqualByComparingTo("51500");
+        assertThat(shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision(PHONE, true)).status())
+                .as("a repeated yes changes nothing").isEqualTo("SUBMITTED");
+        assertThat(soTable).hasSize(2);
+        assertThatThrownBy(() -> shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision(PHONE, false)))
+                .hasMessage("This alternative is no longer open.");
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.2] declining the alternative ends the part: its hold is released and the order follows")
+    void proposalDeclined() {
+        rerouteTo("51500", 24);
+        String no = checkout.checkout(req("s3")).orderNo();
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision(PHONE, false));
+        assertThat(sh.getCustomerDecision()).isEqualTo("DECLINED");
+        assertThat(sh.getResult()).isEqualTo("ORDER_CANCELLED");
+        assertThat(orderTable.get(a.getMktOrderId()).getStatus()).isEqualTo("CANCELLED");
+        assertThat(orderTable.get(a.getMktOrderId()).getCancelReason()).isEqualTo(MarketplaceShortageService.DECLINED_FOR_SHOPPER);
+        verify(trade).releaseHold(sh.getProposalHoldKey());
+        assertThat(sh.getProposalHeld()).isFalse();
+        verify(payments).refundIfCancelled(a.getMktOrderId());
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.2] an unanswered alternative expires on the clock: the part ends and the hold goes back")
+    void proposalExpires() {
+        rerouteTo("51500", 24);
+        checkout.checkout(req("s4"));
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        sh.setProposalExpiresAt(LocalDateTime.now().minusSeconds(1));
+        sweeper.sweep();
+        assertThat(sh.getCustomerDecision()).isEqualTo("EXPIRED");
+        assertThat(sh.getResult()).isEqualTo("ORDER_CANCELLED");
+        assertThat(orderTable.get(a.getMktOrderId()).getCancelReason()).isEqualTo(MarketplaceShortageService.EXPIRED_FOR_SHOPPER);
+        verify(trade).releaseHold(sh.getProposalHoldKey());
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.2] a card order is never asked to pay more: a dearer alternative is not offered, the part ends and is refunded")
+    void cardNeverAskedMore() {
+        rerouteTo("53000", 4);
+        when(payments.charge(any(), eq("tok"))).thenReturn(MarketplacePaymentService.Outcome.SUCCEEDED);
+        checkout.checkout(basket("s5", "CARD", lineA(1)), 77L);
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).isEqualTo("ORDER_CANCELLED");
+        assertThat(sh.getProposalSellerOrgId()).isNull();
+        assertThat(soTable).hasSize(1);
+        verify(payments).refundIfCancelled(a.getMktOrderId());
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.1] a cash order may be offered a dearer alternative; the difference is shown, never charged")
+    void cashMayBeAskedMore() {
+        rerouteTo("53000", 4);
+        checkout.checkout(req("s6"));
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).isEqualTo("SUBSTITUTION_REQUESTED");
+        assertThat(checkout.view(orderTable.get(a.getMktOrderId())).sellerOrders().get(0).shortage().priceDifference())
+                .isEqualByComparingTo("1000");
+        verify(payments, never()).charge(any(), any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.1] a seller already in the order is never a candidate: with none left, only that line ends and the rest goes on")
+    void noCandidateEndsTheLine() {
+        rerouteTo("51500", 4);
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting multi = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        multi.setSettingValue("true");
+        lenient().when(settingRows.findById("checkout.multiSeller")).thenReturn(Optional.of(multi));
+        checkout.checkout(basket("s7", null, lineA(1), lineB(1)));
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        assertThat(sh.getResult()).isEqualTo("LINE_CANCELLED");
+        assertThat(orderTable.get(a.getMktOrderId()).getStatus()).isEqualTo("SUBMITTED");
+        assertThat(soTable).hasSize(2);
+        verify(payments, never()).refundIfCancelled(anyLong());
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.5] the shopper cancels while an alternative waits for them: the record ends with the order and its hold goes back")
+    void cancelDuringProposal() {
+        rerouteTo("51500", 24);
+        MarketplaceAccountService acc = new MarketplaceAccountService(orders, sellerOrders, lines, checkout, sellerSide, payments, txManager, audit, shortages);
+        com.myplus.marketplace.multiseller.entity.MarketplaceCustomer me = new com.myplus.marketplace.multiseller.entity.MarketplaceCustomer();
+        me.setId(77L);
+        String no = checkout.checkout(req("s8"), 77L).orderNo();
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        assertThat(acc.view(orderTable.get(a.getMktOrderId())).canCancel()).as("still the shopper's to cancel").isTrue();
+        assertThat(acc.cancel(me, no, null).status()).isEqualTo("CANCELLED");
+        assertThat(sh.getCustomerDecision()).isEqualTo("CANCELLED");
+        assertThat(sh.getResult()).isEqualTo("ORDER_CANCELLED");
+        verify(trade).releaseHold(sh.getProposalHoldKey());
+        assertThatThrownBy(() -> shortages.decide(no, sh.getId(), new MarketplaceOrderDTOs.ShortageDecision(PHONE, true)))
+                .hasMessage("This alternative is no longer open.");
+    }
+
+    @Test
+    @DisplayName("[MKT-R11.1] a part not accepted in time is recorded against the seller (NO_RESPONSE) and moved like a rejection")
+    void expiryReroutes() {
+        rerouteTo("51500", 4);
+        checkout.checkout(req("s9"));
+        MarketplaceSellerOrder a = part(SELLER);
+        a.setAcceptBy(LocalDateTime.now().minus(MarketplaceOrderSweeper.GRACE).minusSeconds(1));
+        sweeper.sweep();
+        var sh = shortageOf(a);
+        assertThat(a.getAcceptanceStatus()).isEqualTo("EXPIRED");
+        assertThat(sh.getCause()).isEqualTo("NO_RESPONSE");
+        assertThat(sh.getResponsibleRole()).isEqualTo("MERCHANT");
+        assertThat(sh.getResult()).isEqualTo("REASSIGNED");
+        assertThat(part(OTHER_SELLER).getAcceptanceStatus()).isEqualTo("OFFERED");
+    }
+
+    @Test
+    @DisplayName("[MKT-R12.4] the seller disputes the cause and the operator decides; neither step moves any money")
+    void disputeAndRuleMoveNoMoney() {
+        checkout.checkout(req("s10"));
+        MarketplaceSellerOrder a = rejectFirst(null);
+        var sh = shortageOf(a);
+        org.mockito.Mockito.clearInvocations(payments);
+        when(access.org()).thenReturn(OTHER_SELLER);
+        assertThatThrownBy(() -> shortages.dispute(sh.getId(), new MarketplaceOrderDTOs.DisputeRequest("not mine")))
+                .as("another seller's record reads as missing").hasMessage("No such record.");
+        when(access.org()).thenReturn(SELLER);
+        assertThatThrownBy(() -> shortages.dispute(sh.getId(), new MarketplaceOrderDTOs.DisputeRequest(" "))).hasMessageContaining("Say why");
+        assertThat(shortages.dispute(sh.getId(), new MarketplaceOrderDTOs.DisputeRequest("The listing showed 3 in stock")).status())
+                .isEqualTo("DISPUTED");
+        assertThatThrownBy(() -> shortages.dispute(sh.getId(), new MarketplaceOrderDTOs.DisputeRequest("again")))
+                .hasMessageContaining("already disputed");
+        assertThatThrownBy(() -> shortages.rule(sh.getId(), new MarketplaceOrderDTOs.ShortageRuling("OVERTURNED", "")))
+                .hasMessage("Write the reason for the seller.");
+        assertThat(shortages.rule(sh.getId(), new MarketplaceOrderDTOs.ShortageRuling("overturned", "Sync was late")).status())
+                .isEqualTo("OVERTURNED");
+        assertThatThrownBy(() -> shortages.rule(sh.getId(), new MarketplaceOrderDTOs.ShortageRuling("UPHELD", "x")))
+                .hasMessage("Only a disputed record is decided.");
+        org.mockito.Mockito.verifyNoInteractions(payments);
+        doThrow(new org.springframework.security.access.AccessDeniedException("operators only")).when(access).assertOperator();
+        assertThatThrownBy(() -> shortages.operatorList(null, 0, 10)).hasMessage("operators only");
     }
 }

@@ -78,6 +78,17 @@ public class MarketplaceSellerOrder {
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
 
+    /**
+     * MKT-2b (V32): this part was not fulfilled and another seller is being looked for, or the customer is being
+     * asked: the order must not end meanwhile ({@code MarketplaceCheckoutService.follow} counts it as waiting).
+     */
+    @Column(name = "shortage_pending", nullable = false)
+    private Boolean shortagePending = Boolean.FALSE;
+
+    /** MKT-2b (V32): a part made by moving a short part to another seller names the part it replaces. */
+    @Column(name = "replaces_seller_order_id")
+    private Long replacesSellerOrderId;
+
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;

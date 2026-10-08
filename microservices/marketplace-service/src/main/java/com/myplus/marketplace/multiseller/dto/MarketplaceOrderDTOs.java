@@ -48,7 +48,40 @@ public final class MarketplaceOrderDTOs {
      */
     public record PartView(Long id, Integer version, Long sellerOrganizationId, String sellerName, String status,
             Long secondsToAccept, BigDecimal subtotal, BigDecimal deliveryFee, BigDecimal total, LocalDateTime promisedBy,
-            LocalDateTime deliveredAt, List<LineView> lines) {
+            LocalDateTime deliveredAt, List<LineView> lines, ShortageView shortage) {
+    }
+
+    /**
+     * MKT-2b — what became of a part its seller could not fulfil, as the shopper sees it. {@code result}: PENDING while
+     * another seller is looked for, then REASSIGNED ({@code movedTo} names the new seller), SUBSTITUTION_REQUESTED (the
+     * shopper is asked: the proposal fields and {@code secondsToDecide}), LINE_CANCELLED or ORDER_CANCELLED.
+     * {@code priceDifference} is the proposal's total minus the part's (negative when cheaper).
+     */
+    public record ShortageView(Long id, String result, String movedTo, String proposalSeller, BigDecimal proposalTotal,
+            Integer proposalPromiseHours, Long secondsToDecide, BigDecimal priceDifference, String decision) {
+    }
+
+    /** MKT-2b — POST /public/mkt/orders/{no}/shortages/{id}/decision: the shopper's answer, proven by the order's phone. */
+    public record ShortageDecision(String phone, Boolean accept) {
+    }
+
+    /** MKT-2b — the record of a part a seller did not fulfil, as that seller sees it (R11.4), and its dispute (R12.4). */
+    public record SellerShortageView(Long id, String cause, String responsibleRole, String result, String status,
+            String disputeNote, String decisionNote, boolean canDispute) {
+    }
+
+    /** MKT-2b — POST /mkt/seller/shortages/{id}/dispute. */
+    public record DisputeRequest(String note) {
+    }
+
+    /** MKT-2b — the operator's list of unfulfilled parts: cause, party, outcome, dispute, and how long it took. */
+    public record OperatorShortageView(Long id, String orderNo, Long sellerOrganizationId, String sellerName, String cause,
+            String responsibleRole, String evidence, String result, String status, String disputeNote, String decisionNote,
+            String customerDecision, LocalDateTime createdAt, LocalDateTime resolvedAt, Long minutesToResolve) {
+    }
+
+    /** MKT-2b — POST /mkt/operator/shortages/{id}/decide: UPHELD (the record stands) or OVERTURNED. */
+    public record ShortageRuling(String outcome, String note) {
     }
 
     /** MKT-1e2 — one payment fact as the shopper sees it. */
@@ -86,7 +119,8 @@ public final class MarketplaceOrderDTOs {
     public record SellerOrderView(Long id, Integer version, String orderNo, String acceptanceStatus,
             LocalDateTime acceptBy, Long secondsLeft, String customerName, String customerPhone, String address,
             String city, BigDecimal total, String invoiceNo, String storeOrderNo, String rejectReason,
-            LocalDateTime createdAt, List<SellerLineView> lines, Long storeOrderId, String paymentMode, LocalDateTime deliveredAt) {
+            LocalDateTime createdAt, List<SellerLineView> lines, Long storeOrderId, String paymentMode, LocalDateTime deliveredAt,
+            SellerShortageView shortage) {
     }
 
     /** POST /mkt/seller-orders/{id}/accept. {@code serials}: order line id → the serial numbers / IMEIs sent. */
@@ -94,17 +128,25 @@ public final class MarketplaceOrderDTOs {
     }
 
     /** POST /mkt/seller-orders/{id}/reject. */
-    public record RejectRequest(Integer version, String reason) {
+    public record RejectRequest(Integer version, String reason, String cause) {
+
+        public RejectRequest(Integer version, String reason) {
+            this(version, reason, null);
+        }
     }
 
     /**
-     * GET/POST /mkt/operator/settings/accept-window. MKT-2a: {@code multiSeller} rides on the same form — on a POST,
-     * a null field is left as it is.
+     * GET/POST /mkt/operator/settings/accept-window. MKT-2a added {@code multiSeller} and MKT-2b {@code reroute} to the
+     * same form; on a POST, a null field is left as it is.
      */
-    public record AcceptWindow(Integer minutes, Boolean multiSeller) {
+    public record AcceptWindow(Integer minutes, Boolean multiSeller, Boolean reroute) {
 
         public AcceptWindow(Integer minutes) {
-            this(minutes, null);
+            this(minutes, null, null);
+        }
+
+        public AcceptWindow(Integer minutes, Boolean multiSeller) {
+            this(minutes, multiSeller, null);
         }
     }
 }

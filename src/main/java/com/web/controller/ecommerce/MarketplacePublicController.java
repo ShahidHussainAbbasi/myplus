@@ -191,6 +191,16 @@ public class MarketplacePublicController {
         return accountCall(uri, body == null ? Map.of() : body, sessionOf(request));
     }
 
+    /** MKT-2b: a signed-in shopper's answer to an alternative seller (the order is theirs by account). */
+    @PostMapping("/marketplace/account/orders/{orderNo}/shortages/{id}/decision")
+    @ResponseBody
+    public Object accountShortageDecision(@PathVariable String orderNo, @PathVariable String id,
+            @RequestBody(required = false) Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request) {
+        if (id == null || !id.matches("\\d+")) return Map.of("success", false, "message", "No such order.");
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/account/orders/{no}/shortages/{id}/decision",
+                Map.of("no", orderNo, "id", id), Map.of()), body == null ? Map.of() : body, sessionOf(request));
+    }
+
     // ── MKT-1f: support cases (the customer talks to MaxTheService only) ──────────────────────────────
 
     @PostMapping("/marketplace/account/orders/{orderNo}/cases")
@@ -301,6 +311,18 @@ public class MarketplacePublicController {
     public Object track(@PathVariable String orderNo, @RequestParam(required = false) String phone) {
         return relay("/api/marketplace/public/mkt/orders/{no}", Map.of("no", orderNo), query("phone", blank(phone)),
                 "Could not load the order.");
+    }
+
+    /**
+     * MKT-2b: the shopper's answer to an alternative seller, proven by the order's phone in the body (as tracking is).
+     * Anonymous; the order number and the record id travel as URI variables, never concatenated.
+     */
+    @PostMapping("/marketplace/public/orders/{orderNo}/shortages/{id}/decision")
+    @ResponseBody
+    public Object shortageDecision(@PathVariable String orderNo, @PathVariable String id, @RequestBody Map<String, Object> body) {
+        if (id == null || !id.matches("\\d+")) return Map.of("success", false, "message", "No such order.");
+        return accountCall(uri(gatewayUrl, "/api/marketplace/public/mkt/orders/{no}/shortages/{id}/decision",
+                Map.of("no", orderNo, "id", id), Map.of()), body, null);
     }
 
     /**

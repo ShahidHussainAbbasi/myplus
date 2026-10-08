@@ -17,6 +17,7 @@ import com.myplus.marketplace.multiseller.entity.MarketplaceCustomer;
 import com.myplus.marketplace.multiseller.service.MarketplaceAccountService;
 import com.myplus.marketplace.multiseller.service.MarketplaceCheckoutService;
 import com.myplus.marketplace.multiseller.service.MarketplaceCustomerService;
+import com.myplus.marketplace.multiseller.service.MarketplaceShortageService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -45,6 +46,7 @@ public class MarketplaceAccountController {
     private final MarketplaceCustomerService customers;
     private final MarketplaceAccountService accounts;
     private final MarketplaceCheckoutService checkout;
+    private final MarketplaceShortageService shortages;
 
     public record Register(String phone, String name, String password, String email) { }
 
@@ -95,6 +97,16 @@ public class MarketplaceAccountController {
             @PathVariable String orderNo, @RequestBody(required = false) Cancel b) {
         return ApiResponse.success(accounts.cancel(customers.authenticate(token), orderNo, b == null ? null : b.reason()),
                 "Your order is cancelled.");
+    }
+
+    /** MKT-2b: the signed-in shopper's answer to an alternative seller, from My orders. */
+    @PostMapping("/public/mkt/account/orders/{orderNo}/shortages/{id}/decision")
+    public ApiResponse<MarketplaceOrderDTOs.OrderView> shortageDecision(@RequestHeader(value = SESSION, required = false) String token,
+            @PathVariable String orderNo, @PathVariable Long id, @RequestBody(required = false) MarketplaceOrderDTOs.ShortageDecision b) {
+        Boolean accept = b == null ? null : b.accept();
+        MarketplaceOrderDTOs.OrderView v = shortages.decideAsCustomer(customers.authenticate(token).getId(), orderNo, id, accept);
+        return ApiResponse.success(v, Boolean.TRUE.equals(accept)
+                ? "Accepted. The new seller is asked to confirm." : "Declined. Your money for this part is returned.");
     }
 
     /** The checkout for a signed-in customer: the order is theirs by proof, and online payment is allowed. */

@@ -76,6 +76,9 @@
                 <!-- MKT-1g: sellers' balances, payouts (four eyes) and ledger corrections. -->
                 <button type="button" class="btn btn-default" id="platMktPayoutsBtn"
                         th:text="#{ui.mktPayoutsTitle}">Settlement and payouts</button>
+                <!-- MKT-2b: parts sellers did not fulfil — the cause recorded, disputes to decide. -->
+                <button type="button" class="btn btn-default" id="platMktShortagesBtn"
+                        th:text="#{ui.mktShortagesTitle}">Unfulfilled parts</button>
                 <button type="button" class="btn btn-primary plat__provision" id="platProvisionBtn"
                         th:text="#{ui.provisionTenant}">+ Provision tenant</button>
             </div>
@@ -225,6 +228,34 @@
             </div>
         </section>
 
+        <!-- ── MKT-2b: unfulfilled parts ──────────────────────────────────────────────────────────── -->
+        <!-- A cause is a record against a party (R11.4), never a charge (R12.4): upholding or overturning moves no money. -->
+        <section id="platMktShortages" class="plat__panel" style="display:none">
+            <button type="button" class="plat__back plat-mkt-back">
+                <span class="glyphicon glyphicon-chevron-left"></span>
+                <span th:text="#{ui.allTenants}">All tenants</span>
+            </button>
+            <h3 th:text="#{ui.mktShortagesTitle}">Unfulfilled parts</h3>
+            <p class="plat__hint" th:text="#{ui.mktShortagesHint}">Each part a seller rejected or did not accept in time, its cause and what happened to the customer. Deciding a dispute moves no money.</p>
+            <div class="plat-seg" id="platMktShortageStatus" role="group">
+                <button type="button" data-status="DISPUTED" class="is-on" th:text="#{ui.mktShDisputedTab}">Disputed</button>
+                <button type="button" data-status="RECORDED" th:text="#{ui.mktShRecordedTab}">Recorded</button>
+                <button type="button" data-status="" th:text="#{ui.mktShAllTab}">All</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-condensed" id="mktShortageList">
+                    <thead><tr>
+                        <th th:text="#{ui.mktColOrder}">Order</th>
+                        <th th:text="#{ui.mktColSeller}">Seller</th>
+                        <th th:text="#{ui.mktShColCause}">Cause</th>
+                        <th th:text="#{ui.mktShColResult}">For the customer</th>
+                        <th th:text="#{ui.mktColStatus}">Status</th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- ── MKT-1g: settlement and payouts ───────────────────────────────────────────────────── -->
         <!-- Four eyes: the operator who requests a payout cannot approve it (R22.3). The ledger is append-only: a
              mistake is corrected with a new line, never an edit (R15.6). -->
@@ -296,6 +327,14 @@
                 <button type="button" class="btn btn-default" id="mktMultiSellerSave" th:text="#{ui.mktOfferSave}">Save</button>
                 <span id="mktMultiSellerMsg" class="plat__hint" role="status"></span>
                 <div class="plat__hint" th:text="#{ui.mktMultiSellerHint}">Each seller confirms, delivers and is paid for its own part. When off, a basket with two sellers is refused.</div>
+            </div>
+            <!-- MKT-2b: a part a seller cannot fulfil is moved to another seller, or offered to the customer. Off until switched on. -->
+            <div class="plat__form" id="mktRerouteForm">
+                <label for="mktReroute"><input type="checkbox" id="mktReroute"/>
+                    <span th:text="#{ui.mktReroute}">When a seller cannot fulfil a part, find another seller</span></label>
+                <button type="button" class="btn btn-default" id="mktRerouteSave" th:text="#{ui.mktOfferSave}">Save</button>
+                <span id="mktRerouteMsg" class="plat__hint" role="status"></span>
+                <div class="plat__hint" th:text="#{ui.mktRerouteHint}">Same price or lower and no later: moved without asking. Otherwise the customer chooses within 30 minutes. When off, the part is cancelled and refunded.</div>
             </div>
             <div class="plat__form" id="mktPolicyForm">
                 <label for="mktPolType" th:text="#{ui.mktPolType}">Kind</label>

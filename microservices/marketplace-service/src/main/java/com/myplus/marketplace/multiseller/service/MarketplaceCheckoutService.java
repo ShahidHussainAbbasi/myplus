@@ -29,6 +29,7 @@ import com.myplus.commerce.contracts.dto.StockHoldResponse;
 import com.myplus.commerce.contracts.dto.StockReservationLine;
 import com.myplus.marketplace.multiseller.domain.MarketplaceRuleException;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStateMachines;
+import com.myplus.marketplace.multiseller.domain.MarketplaceStatus;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Order;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Payment;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Regulated;
@@ -107,6 +108,8 @@ public class MarketplaceCheckoutService {
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
     private final MarketplacePaymentService payments;
+    /** MKT-2b: what became of a part its seller could not fulfil, shown on the shopper's view. */
+    private final com.myplus.marketplace.multiseller.repository.MarketplaceShortageRepository shortages;
     /** The seller side releases holds; it also calls {@link #hold}, so it is resolved on demand (a real cycle). */
     private final org.springframework.beans.factory.ObjectProvider<SellerOrderService> sellerSide;
 
@@ -260,7 +263,7 @@ public class MarketplaceCheckoutService {
         return new Item(offer, row, product, price, w.qty());
     }
 
-    private String sellerName(Long org) {
+    String sellerName(Long org) {
         return sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).filter(n -> n != null && !n.isBlank())
                 .orElse("A seller");
     }
@@ -298,7 +301,7 @@ public class MarketplaceCheckoutService {
     }
 
     /** The order-time copy of everything that could change later (source §13.3). */
-    private MarketplaceOrderLine snapshot(MarketplaceSellerOrder so, MarketplaceOffer offer, MarketplaceProduct product,
+    MarketplaceOrderLine snapshot(MarketplaceSellerOrder so, MarketplaceOffer offer, MarketplaceProduct product,
             BigDecimal price, int qty) {
         MarketplaceOrderLine l = new MarketplaceOrderLine();
         l.setSellerOrderId(so.getId());
@@ -416,6 +419,8 @@ public class MarketplaceCheckoutService {
     List<MarketplaceOrderDTOs.PartView> parts(MarketplaceOrder o) {
         List<MarketplaceSellerOrder> sos = sellerOrders.findByMktOrderId(o.getId()).stream()
                 .sorted(java.util.Comparator.comparing(MarketplaceSellerOrder::getId)).toList();
+        Map<Long, com.myplus.marketplace.multiseller.entity.MarketplaceShortage> shortBy = new java.util.HashMap<>();
+        for (var sh : shortages.findByMktOrderIdOrderByIdAsc(o.getId())) shortBy.put(sh.getSellerOrderId(), sh);
         List<MarketplaceOrderDTOs.PartView> out = new ArrayList<>();
         for (MarketplaceSellerOrder so : sos) {
             List<MarketplaceOrderLine> ls = lines.findBySellerOrderIdOrderByIdAsc(so.getId());
@@ -428,9 +433,32 @@ public class MarketplaceCheckoutService {
                     sellerAccounts.findByOrganizationId(so.getSellerOrganizationId()).map(a -> a.getDisplayName()).orElse(null),
                     so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
                     from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
-                    ls.stream().map(MarketplaceCheckoutService::lineView).toList()));
+                    ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal)));
         }
         return out;
+    }
+
+    /**
+     * MKT-2b — the shopper's view of a short part: who it moved to, or the alternative they are asked about. The
+     * cause and party are the seller's and the operator's business, never shown here.
+     */
+    MarketplaceOrderDTOs.ShortageView shortageView(com.myplus.marketplace.multiseller.entity.MarketplaceShortage sh, BigDecimal partTotal) {
+        // the shopper hears of a shortage only when another seller was looked for; a cause alone is between the
+        // seller and MaxTheService (the order then reads exactly as before MKT-2b)
+        if (sh == null || (sh.getAttempts() == 0 && !com.myplus.marketplace.multiseller.entity.MarketplaceShortage.PENDING.equals(sh.getResult())))
+            return null;
+        MarketplaceSellerOrder moved = sh.getReplacementSellerOrderId() == null ? null
+                : sellerOrders.findById(sh.getReplacementSellerOrderId()).orElse(null);
+        String movedTo = moved == null ? null : sellerName(moved.getSellerOrganizationId());
+        // what the shopper pays now against what they paid: the new part once moved, the alternative while asked
+        BigDecimal now = moved != null ? partTotal(lines.findBySellerOrderIdOrderByIdAsc(moved.getId())) : sh.getProposalTotal();
+        boolean asking = MarketplaceStatus.ShortageResult.SUBSTITUTION_REQUESTED.name().equals(sh.getResult());
+        Long toDecide = !asking || sh.getProposalExpiresAt() == null ? null
+                : Math.max(0, Duration.between(LocalDateTime.now(), sh.getProposalExpiresAt()).getSeconds());
+        return new MarketplaceOrderDTOs.ShortageView(sh.getId(), sh.getResult(), movedTo,
+                sh.getProposalSellerOrgId() == null ? null : sellerName(sh.getProposalSellerOrgId()), sh.getProposalTotal(),
+                sh.getProposalPromiseHours(), toDecide,
+                now == null ? null : now.subtract(partTotal), sh.getCustomerDecision());
     }
 
     /** What one part costs the shopper. Phase 1: delivery is in the seller's price, so it is the sum of its lines. */
@@ -447,14 +475,16 @@ public class MarketplaceCheckoutService {
      * <ul>
      *   <li>a part accepted → the order is CONFIRMED (once; a second acceptance changes nothing);</li>
      *   <li>no part accepted and none still waiting → the order is CANCELLED with {@code reasonIfEnded};</li>
-     *   <li>otherwise (a part still waiting) → unchanged.</li>
+     *   <li>otherwise (a part still waiting, or a short part being moved to another seller — MKT-2b) → unchanged.</li>
      * </ul>
      * A cancelled order is never revived. With one part this is exactly MKT-1e's rule.
      */
     static void follow(MarketplaceOrder parent, List<MarketplaceSellerOrder> parts, String reasonIfEnded) {
         if (Order.CANCELLED.name().equals(parent.getStatus())) return;
         boolean accepted = parts.stream().anyMatch(p -> ACCEPTED_PARTS.contains(p.getAcceptanceStatus()));
-        boolean waiting = parts.stream().anyMatch(p -> LIVE_PARTS.contains(p.getAcceptanceStatus()));
+        // MKT-2b: a part whose shortage is still being resolved (another seller looked for, or the shopper asked) waits too
+        boolean waiting = parts.stream().anyMatch(p -> LIVE_PARTS.contains(p.getAcceptanceStatus())
+                || Boolean.TRUE.equals(p.getShortagePending()));
         if (accepted) {
             if (!Order.CONFIRMED.name().equals(parent.getStatus())) {
                 rule(() -> MarketplaceStateMachines.ORDER.transition(Order.valueOf(parent.getStatus()), Order.CONFIRMED));
