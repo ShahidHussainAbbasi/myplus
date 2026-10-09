@@ -147,10 +147,11 @@ public class ExpenseVoucherService {
         }
         try {
             v.voidWith(reason, access.userId(), LocalDateTime.now());
+            v.setVoidPostedOn(TenantClock.today());          // EX-8a — the reversal's own date, kept
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
         }
-        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, TenantClock.today()));
+        if (v.voidNeedsReversal()) outbox.enqueue(v, VoucherPostings.reversal(v, v.getVoidPostedOn()));
         if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the subledger document goes VOID
         audit.record("EXPENSE_VOIDED", "EXPENSE", v.getVoucherNo(), v.getTotal(), null, v.getVoidReason());
         return VoucherView.of(v);
@@ -310,7 +311,10 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = new ExpenseVoucher();
         v.setOrganizationId(org);
         v.setUserId(access.userId());
-        v.setStoreId(r.storeId());
+        // E8 — a branch is not taken from the request until it can be checked against the caller's own branches (EX-8e).
+        // The till's pay-outs keep theirs: business-service sets it from the drawer that paid (recordFromDrawer).
+        if (r.storeId() != null)
+            throw new ValidationException("Choosing a branch for an expense is not available yet. A pay-out from the till carries its branch.");
         v.setVoucherDate(date);
         v.setPaidFrom(from.name());
         v.setPayeeName(limit(r.payeeName(), 160));

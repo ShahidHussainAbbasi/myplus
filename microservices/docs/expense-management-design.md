@@ -609,7 +609,8 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-6 claims + approvals · gate 8/8 (`slices/ex-6-claims.md`)
 - [x] EX-7a paying approved claims back · gate 4/4 (`slices/ex-7a-claim-payback.md`)
 - [x] EX-7b advances (give, settle claims against, return unused) · gate 5/5 (`slices/ex-7b-advances.md`)
-- [ ] EX-8 reports + analytics + duplicate warning + tax · gate
+- [x] EX-8a the expense report (category, member, month, paid from; CSV; reconciles with the P&L) + E8 · gate 6/6 (`slices/ex-8a-expense-report.md`)
+- [ ] EX-8b duplicate warning · EX-8c analytics producer (F2) · EX-8d recoverable tax · EX-8e report by branch · gates
 - [ ] EX-9 agriculture convergence · gate
 
 ---
@@ -644,7 +645,7 @@ the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed
 | E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | **Fixed — EX-2f** (`slices/ex-2f-expense-settings.md`): `backdateDays` (default 30, was 365) and `defaultPaidFrom`, Till → Expenses → Settings; gate 4/4. `userPostLimit` → **EX-6b (not built; EX-6 shipped claims without it)**, receipt rule → EX-5, tax → EX-8 |
 | E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | **Fixed — EX-2e** (`slices/ex-2e-category-screen.md`): Till → Expenses → Categories; gate 5/5. Found on the way: a till pay-out whose category was switched off before delivery was refused for good — the drawer receiver now keeps the cashier's choice |
 | E7 | **Drafts are unreachable from the screen**: the API keeps DRAFT/post/delete; the proxy exposes none of `/post` or DELETE, and the form always posts. Harmless now, dead weight until a slice uses it | proxy mappings; `expense.js` posts `?post=true` | Low |
-| E8 | **`storeId` is accepted unvalidated** from the request (and the proxy forwards the whole body): any store id, even another tenant's, can be stamped. No reader uses it yet — **must be validated before EX-8 reports by store** | `ExpenseVoucherService.build`: `v.setStoreId(r.storeId())` | Low now, High at EX-8 |
+| E8 | **`storeId` is accepted unvalidated** from the request (and the proxy forwards the whole body): any store id, even another tenant's, can be stamped. No reader uses it yet — **must be validated before EX-8 reports by store** | `ExpenseVoucherService.build`: `v.setStoreId(r.storeId())` | Low now, High at EX-8 — **Fixed, EX-8a**: a branch is refused on the user path until EX-8e checks it against the caller's branches; the till's pay-outs keep theirs |
 | E9 | **One line per voucher on screen** (the API takes up to 50); a split bill (rent + service charge) needs two expenses | `expense.js` builds one `line` | Low |
 | E10 | Paid bill cannot be voided — no payment reversal (FP-3 known limit, still open) | FP-3 §3 | **Fixed — FP-3b** (`slices/fp-3b-payment-reversal.md`): mirror payment + opposite journal in finance, bill re-opened; gate 7/7 |
 | E11 | FP-6a's daily check trusts expense-bill documents as reported; no expense-side parity yet | FP-6 §4 "Open" | **Fixed — FP-6b-parity** (`slices/fp-6b-expense-bill-parity.md`): bills compared with expense-service and re-sent; a bill owes in the ledger only once in the books; gate 3/3 |
@@ -667,7 +668,7 @@ switched on.
 4. ~~A payment reversal~~ — done, FP-3b. ~~Expense-bill parity in the daily check (E11)~~ — done.
 5. fp-4b case 2 made self-sufficient (11.1).
 6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). ~~EX-7b advances~~ — done (`slices/ex-7b-advances.md`). EX-6b the user-tier post limit
-   (`userPostLimit`, §6.2; today a user posts any amount directly), EX-8 reports (validate `storeId` first — E8),
+   (`userPostLimit`, §6.2; today a user posts any amount directly), ~~EX-8a the expense report (and E8)~~ — done (`slices/ex-8a-expense-report.md`); EX-8b–e,
    EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).

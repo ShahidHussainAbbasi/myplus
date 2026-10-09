@@ -418,6 +418,43 @@
 			});
 	});
 
+	// ── EX-8a — the report over the list's From/To. The server's figures, rendered as they come: it adds up exactly as
+	// the profit and loss does (an expense on its own date, a void as a minus on the day it was voided).
+	function reportQuery() {
+		var q = [];
+		if ($('#expFrom').val()) q.push('from=' + encodeURIComponent($('#expFrom').val()));
+		if ($('#expTo').val()) q.push('to=' + encodeURIComponent($('#expTo').val()));
+		return q;
+	}
+	function expenseReportToggle() {
+		var $p = $('#expReportPanel'), open = !$p.is(':visible');
+		$p.toggle(open);
+		$('#expReportOpen').attr('aria-expanded', String(open));
+		if (open) expenseReportRun();
+	}
+	function expenseReportRun(btn) {
+		var q = reportQuery(), $m = $('#expReportMsg').text('');
+		$('#expReportCsv').attr('href', ctx() + 'expense/reports/expenses.csv' + (q.length ? '?' + q.join('&') : ''));
+		q.push('by=' + encodeURIComponent($('#expReportBy').val() || 'category'));
+		var $b = btn ? $(btn).prop('disabled', true) : null;
+		return $.ajax({ url: ctx() + 'expense/reports/summary?' + q.join('&'), dataType: 'json' })
+			.done(function (res) {
+				var d = res && res.success === true && res.data;
+				if (!d) { $m.css('color', '#b3261e').text((res && res.message) || tr('ui.js.expLoadFailed', 'Could not load expenses.')); return; }
+				$('#expReportTable tbody').html(d.groups.length ? d.groups.map(function (g) {
+					return '<tr data-cy="report-row"><td>' + esc(g.label) + '</td>'
+						+ '<td style="text-align:right">' + esc(g.count) + '</td>'
+						+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(g.amount)) + '</td></tr>';
+				}).join('') : '<tr><td colspan="3" class="text-muted">' + esc(tr('ui.js.expNone', 'No expenses in this period.')) + '</td></tr>');
+				$('#expReportTotal').text(money(d.total));
+			})
+			.fail(function (xhr) {
+				$m.css('color', '#b3261e').text(typeof global.apiFailMessage === 'function'
+					? global.apiFailMessage(xhr, tr('ui.js.expLoadFailed', 'Could not load expenses.')) : tr('ui.js.expLoadFailed', 'Could not load expenses.'));
+			})
+			.always(function () { if ($b) $b.prop('disabled', false); });
+	}
+
 	/** EX-6 — owner/admin: how many claims wait for a decision, and a way to see only those. */
 	var claimFilter = '';
 	function loadClaimsWaiting() {
@@ -1016,5 +1053,7 @@
 	global.expensePayClose = expensePayClose;
 	global.expenseClaimsFilter = expenseClaimsFilter;
 	global.expenseAdvancesToggle = expenseAdvancesToggle;
+	global.expenseReportToggle = expenseReportToggle;
+	global.expenseReportRun = expenseReportRun;
 	global.expenseAdvanceGive = expenseAdvanceGive;
 })(window);

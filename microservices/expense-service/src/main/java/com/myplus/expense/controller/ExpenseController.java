@@ -37,6 +37,7 @@ public class ExpenseController {
     private final com.myplus.expense.service.ExpenseBillService bills;
     private final com.myplus.expense.service.ExpenseClaimService claims;
     private final com.myplus.expense.service.ExpenseAdvanceService advances;   // EX-7b
+    private final com.myplus.expense.service.ExpenseReportService reports;     // EX-8a
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -130,6 +131,28 @@ public class ExpenseController {
         // and a query but no custom headers. Either way the same UNIQUE index carries the guarantee.
         String k = key != null && !key.isBlank() ? key : keyParam;
         return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
+    }
+
+    // ── EX-8a — the expense report (reconciles with the P&L) and its CSV ───────────────────────────────────────
+
+    @GetMapping("/reports/summary")
+    public ApiResponse<com.myplus.expense.service.ExpenseReportService.Summary> reportSummary(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to,
+            @RequestParam(required = false) String by) {
+        return ApiResponse.success(reports.summary(from, to, by));
+    }
+
+    @GetMapping(value = "/reports/expenses.csv", produces = "text/csv")
+    public org.springframework.http.ResponseEntity<byte[]> reportCsv(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        byte[] body = reports.csv(from, to).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"expenses.csv\"")
+                .header("Cache-Control", "private, no-store")
+                .body(body);
     }
 
     // ── EX-7b — advances to staff (owner/admin give and take back; a member sees their own balance) ─────────────

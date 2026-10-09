@@ -179,6 +179,40 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
     }
 
+    // ── EX-8a — the expense report and its CSV (scope and rules are the service's) ──────────────────────────────
+
+    @GetMapping(value = "/reports/summary", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> reportSummary(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                                @RequestParam(required = false) String by) {
+        StringBuilder q = new StringBuilder("/reports/summary?x=1");
+        param(q, "from", from);
+        param(q, "to", to);
+        param(q, "by", by);
+        return call(() -> expense.get(q.toString()));
+    }
+
+    /** The CSV, with its own headers set here: a download named expenses-FROM-TO.csv, never cached. */
+    @GetMapping("/reports/expenses.csv")
+    public ResponseEntity<byte[]> reportCsv(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+        StringBuilder q = new StringBuilder("/reports/expenses.csv?x=1");
+        param(q, "from", from);
+        param(q, "to", to);
+        try {
+            ResponseEntity<byte[]> r = expense.getBytes(q.toString());
+            String name = "expenses" + (from != null && from.matches("\\d{4}-\\d{2}-\\d{2}") ? "-" + from : "")
+                    + (to != null && to.matches("\\d{4}-\\d{2}-\\d{2}") ? "-" + to : "") + ".csv";
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/csv; charset=UTF-8")
+                    .header("Content-Disposition", "attachment; filename=\"" + name + "\"")
+                    .header("Cache-Control", "private, no-store")
+                    .header("X-Content-Type-Options", "nosniff")
+                    .body(r.getBody());
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return ResponseEntity.status(e.getStatusCode()).contentType(MediaType.APPLICATION_JSON).body(e.getResponseBodyAsByteArray());
+        }
+    }
+
     // ── EX-7b — advances to staff. Who may give, to whom, and how much is the service's rule. ─────────────────
 
     @GetMapping(value = "/advances", produces = MediaType.APPLICATION_JSON_VALUE)

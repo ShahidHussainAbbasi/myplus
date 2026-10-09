@@ -48,6 +48,10 @@ public class ExpenseVoucher {
     @Column(name = "store_id")
     private Long storeId;
 
+    /** EX-8a — the date the void's reversal is posted under (TenantClock), so the report counts it on the P&L's day. */
+    @Column(name = "void_posted_on")
+    private java.time.LocalDate voidPostedOn;
+
     @Column(name = "voucher_no", length = 20)
     private String voucherNo;
 

@@ -84,7 +84,11 @@ const showTrialBalance = () => {
 const vendorRow = (id) => cy.request('/getUserVender').then((r) => list(r.body).find((v) => v.id === id))
 const categoryByName = (name) => cy.request('/expense/categories').then((r) => {
   const cats = (r.body && r.body.data) || []
-  return cats.find((c) => c.name === name && c.active !== false) || cats.find((c) => c.active !== false)
+  // strict: a name this business does not have FAILS here. Falling back to "the first category" once recorded a
+  // Utilities case as Rent without anyone noticing (EX-8a, 9-1).
+  const hit = cats.find((c) => c.name === name && c.active !== false)
+  expect(hit, `category "${name}" in this business (has: ${cats.filter((c) => c.active !== false).map((c) => c.name).join(', ')})`).to.exist
+  return hit
 })
 
 /** A supplier of the lifecycle business, created through the Vender / Supplier form's own request. */
@@ -1364,6 +1368,89 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     act('Open <b>Finance → Trial Balance</b>.', ['<b>1010 Bank</b> is 20 higher and <b>1300</b> is back where it was before case 8-1: of the 50 given, 30 was spent on the business (the claim) and 20 came back.'], { via: 'run' })
     schoolTb().then((a) => { expect(tbDelta(before, a, '1010')).to.eq(20); expect(tbDelta(before, a, '1300')).to.eq(-20) })
     act('Nothing to undo — nothing is held.', [], { cleanup: true })
+  })
+
+  // ═══ EX-8a · The expense report ══════════════════════════════════════════════════════════════════════════
+  const lcToday = () => localIsoDate(new Date())
+  const lcReport = (by = 'category') => token().then((t) => cy.request({ url: `${GW}/api/expense/reports/summary?from=${lcToday()}&to=${lcToday()}&by=${by}`,
+    headers: { Authorization: `Bearer ${t}` } }).its('body.data'))
+  const lcPnl = () => token().then((t) => cy.request({ url: `${GW}/api/finance/gl/pnl?from=${lcToday()}&to=${lcToday()}`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.totalExpense').then(Number))
+  const openReport = (by) => {
+    cy.get('#expReportPanel').then(($p) => { if (!$p.is(':visible')) cy.get('[data-cy=expense-report-open]').click() })
+    cy.get('[data-cy=report-by]').select(by, { force: true })
+    cy.get('[data-cy=report-run]').click()
+    cy.get('[data-cy=report-row]').should('exist')
+  }
+  const r2x = (n) => Math.round(Number(n) * 100) / 100
+
+  caseIt('9-1', 'See what was spent, grouped by category', () => {
+    testCase('9-1', 'ex9', 'See what was spent, grouped by category', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business (their own)'] })
+    setup('Expense management switched on (case 0a-3). The list’s From and To are today (the report uses the same dates).')
+    const ids = [], rent = 'XG9 rent ' + run, util = 'XG9 power ' + run
+    let r0 = null, p0 = null
+    fresh5(ids)
+    lcReport().then((r) => { r0 = r.total }); lcPnl().then((p) => { p0 = p })
+    const a1 = act(`Record <b>Rent 40</b> in cash (Payee <b>${rent}</b>) and <b>Electricity, gas and water 25</b> by bank (Payee <b>${util}</b>).`, ['Both reach <b>In the books</b>.'])
+    fillExpense({ category: 'Rent', amount: 40, paidFrom: 'CASH', payee: rent })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(rent).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(rent, ids)
+    fillExpense({ category: 'Electricity, gas and water', amount: 25, paidFrom: 'BANK', payee: util })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(util).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(util, ids)
+    const a2 = act('Press <b>Report</b> (beside Search), Group by <b>Category</b>, <b>Show</b>.',
+      ['One row per category with its number of lines and amount, largest first, and a <b>Total</b> — 65.00 more than before the two expenses.'])
+    openReport('category')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'by-category')
+    act('Open <b>Finance → Profit and Loss</b> for today.', ['Its expense total moved by the same <b>65.00</b>: the report counts exactly what the books count.'], { via: 'run' })
+    lcReport().then((r) => lcPnl().then((p) => { expect(r2x(r.total - r0)).to.eq(65); expect(r2x(p - p0)).to.eq(65) }))
+    act('Kept for case 9-2 (it voids the rent) and 9-3; voided at the end of 9-3.', [], { cleanup: true })
+  })
+
+  caseIt('9-2', 'A void counts on the day it is voided', () => {
+    testCase('9-2', 'ex9', 'A void counts on the day it is voided', { who: ['owner.lifecycle (recorded)'] })
+    const rent = 'XG9 rent ' + run
+    setup(`The two expenses of case 9-1 (Rent 40, ${rent}).`)
+    let r0 = null, p0 = null
+    asLifecycle(true); openDashboard(); openExpenses()
+    lcReport().then((r) => { r0 = r.total }); lcPnl().then((p) => { p0 = p })
+    const a1 = act(`Void <b>${rent}</b> (reason “Test Book”), then <b>Report → Show</b> again.`,
+      ['The Rent row is <b>40.00 lower</b> and so is the Total: a void is a minus on the day it is voided, not a row quietly left out — an expense recorded last month and voided today lowers <b>today’s</b> figures, exactly as the profit and loss does.'])
+    expenseRow(rent).find('[data-cy=void-expense]').click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(rent).find('.exp-chip').should('contain', 'Void')
+    cy.wait(3000)
+    openReport('category')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'after-void')
+    act('Profit and Loss for today.', ['Also <b>40.00 lower</b>.'], { via: 'run' })
+    lcReport().then((r) => lcPnl().then((p) => { expect(r2x(r.total - r0)).to.eq(-40); expect(r2x(p - p0)).to.eq(-40) }))
+    act('Nothing more to undo: the rent is voided.', [], { cleanup: true })
+  })
+
+  caseIt('9-3', 'Group by month or paid from, and download the CSV', () => {
+    testCase('9-3', 'ex9', 'Group by month or paid from, and download the CSV', { who: ['owner.lifecycle (recorded)'] })
+    const util = 'XG9 power ' + run
+    asLifecycle(true); openDashboard(); openExpenses()
+    const a1 = act('Report → Group by <b>Paid from</b> → Show.', ['Rows for <b>Cash</b>, <b>Bank</b> (and Till, Bill or Claim where they were used), adding up to the same Total as by category.'])
+    openReport('paidFrom')
+    cy.get('[data-cy=report-row]').contains('Bank').should('exist')
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'by-paid-from')
+    act('Group by <b>Member</b>, then <b>Month</b>.', ['Each adds up to the same Total. A member (user.business) sees only their own expenses, as “You”.'], { via: 'run' })
+    lcReport('category').then((c) => ['member', 'month', 'paidFrom'].forEach((by) => lcReport(by).then((g) => expect(r2x(g.total)).to.eq(r2x(c.total)))))
+    act('Press <b>CSV</b>.', ['A file <b>expenses-FROM-TO.csv</b>: one row per line — date, number, category, account, paid from, payee, member, amount — the voided rent as its own <b>-40.00</b> row on the day it was voided. Its amounts add up to the report’s Total.'], { via: 'run' })
+    token().then((t) => cy.request({ url: `${GW}/api/expense/reports/expenses.csv?from=${lcToday()}&to=${lcToday()}`, headers: { Authorization: `Bearer ${t}` } }).then((res) => {
+      // Amount and Kind are always the last two cells and never quoted (a category or payee may hold a quoted comma)
+      const rows = res.body.trim().split(/\r?\n/)
+      lcReport().then((r) => expect(r2x(rows.slice(1).reduce((s, l) => s + Number(l.split(',').slice(-2)[0]), 0))).to.eq(r2x(r.total)))
+    }))
+    act(`Void <b>${util}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.request('/expense/vouchers?size=100').its('body.data.content').then((l) => {
+      const v = l.find((x) => x.payeeName === util && x.status === 'POSTED')
+      if (v) cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+    })
   })
 
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════

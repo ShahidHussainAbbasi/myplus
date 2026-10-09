@@ -68,6 +68,23 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
     @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org AND v.paidFrom = 'AP' AND v.voucherNo IS NOT NULL ORDER BY v.id")
     List<ExpenseVoucher> findBillsOfOrg(@Param("org") Long org);
 
+    /**
+     * EX-8a — expenses IN THE BOOKS dated in the period (a later void does not take them out of their own day: its
+     * reversal counts on its day, {@link #voidsInRange}). The P&L's rule, so the report reconciles with it.
+     */
+    @Query("SELECT DISTINCT v FROM ExpenseVoucher v LEFT JOIN FETCH v.lines WHERE v.organizationId = :org "
+         + "AND (:userId IS NULL OR v.userId = :userId) AND v.postingStatus = 'POSTED_GL' AND v.status IN ('POSTED','VOIDED') "
+         + "AND v.voucherDate >= :from AND v.voucherDate <= :to")
+    List<ExpenseVoucher> postedInRange(@Param("org") Long org, @Param("userId") Long userId,
+                                       @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    /** EX-8a — voids whose reversal reached the books, by the reversal's own date. */
+    @Query("SELECT DISTINCT v FROM ExpenseVoucher v LEFT JOIN FETCH v.lines WHERE v.organizationId = :org "
+         + "AND (:userId IS NULL OR v.userId = :userId) AND v.status = 'VOIDED' AND v.postingStatus = 'POSTED_GL' "
+         + "AND v.postingError IS NULL AND v.voidPostedOn >= :from AND v.voidPostedOn <= :to")
+    List<ExpenseVoucher> voidsInRange(@Param("org") Long org, @Param("userId") Long userId,
+                                      @Param("from") LocalDate from, @Param("to") LocalDate to);
+
     /** EX-2d / E4 — what the list's filter adds up to: posted expenses only (a void or a draft spent nothing). */
     interface Totals { long getCount(); java.math.BigDecimal getTotal(); }
 

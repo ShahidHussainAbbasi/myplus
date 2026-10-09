@@ -131,6 +131,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#ex6">EX-6 · Expense claims</a></li>
       <li><a href="#ex7">EX-7a · Paying claims back</a></li>
       <li><a href="#ex8">EX-7b · Advances to staff</a></li>
+      <li><a href="#ex9">EX-8a · The expense report</a></li>
       <li><a href="#fp12">FP-1/2 · Payables in finance</a></li>
       <li><a href="#fp4a">FP-4a · Supplier statement</a></li>
       <li><a href="#fp4b">FP-4b · The operator's switch</a></li>
@@ -188,7 +189,8 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>EX-6</b></td><td>Staff claim what they paid from their own pocket; an owner or admin approves it (never their own), and the business then owes it back (Cr 2300)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">77 + 70</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">8/8 + 95 regression</span></td></tr>
             <tr><td><b>EX-7a</b></td><td>An owner or admin pays an approved claim back, in cash or by bank, in parts if need be; the books clear 2300 and never touch Accounts Payable</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">82 + 87 + 73</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4 + 158 regression</span></td></tr>
             <tr><td><b>EX-7b</b></td><td>Advances to staff: given (1300), claims settled from them with no money moving, the rest taken back; staff only, never to yourself, never more than is held</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">88 + 91</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 172 regression</span></td></tr>
-            <tr><td>EX-8</td><td>Expense reports, analytics and duplicate warnings</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td><b>EX-8a</b></td><td>The expense report (by category, member, month, paid from; CSV), counting exactly what the profit and loss counts; and a branch can no longer be stamped from the screen's request (E8)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">94</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 111 regression</span></td></tr>
+            <tr><td>EX-8b–e</td><td>Duplicate warning (same payee, date and amount), the analytics feed, recoverable input tax, and reporting by branch</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-9</td><td>Farm expenses move onto the shared module</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
           </tbody>
         </table>
@@ -1009,6 +1011,45 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── EX-8a ───────────────────────── -->
+    <section class="sec" id="ex9">
+      <h2>EX-8a · The expense report</h2>
+      <p>Expenses → <b>Report</b>: what was spent in the list’s period, grouped by category, member, month or paid from, with a CSV of every line. It counts exactly what the profit and loss counts — an expense on its own date, a void as a minus on the day it was voided, nothing the books refused — so the two never disagree. A member sees a report of their own expenses.</p>
+      <div class="case" data-case="9-1">
+        <div class="case-head"><span class="cid">9-1</span><h3>See what was spent, grouped by category</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Record Rent 40 (cash) and Electricity, gas and water 25 (bank).</li><li>Report → Category → Show.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A row per category, largest first, and a Total 65.00 higher; Profit and Loss moved by the same 65.00.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a report that disagrees with the profit and loss for the same days.</div>
+        </div>
+      </div>
+      <div class="case" data-case="9-2">
+        <div class="case-head"><span class="cid">9-2</span><h3>A void counts on the day it is voided</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Void the Rent 40; Report → Show again.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Rent and the Total are 40.00 lower — and so is the profit and loss.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a void that silently rewrites an earlier period in the report but not in the books.</div>
+        </div>
+      </div>
+      <div class="case" data-case="9-3">
+        <div class="case-head"><span class="cid">9-3</span><h3>Group by month or paid from, and download the CSV</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Group by Paid from, Member, Month.</li><li>Press CSV.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Each grouping adds up to the same Total.</span></label></li><li><label><input type="checkbox"><span>One row per line; the void its own negative row; the rows sum to the Total.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a breakdown or a download that does not add up to the figure on screen.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── FP-1/2 ───────────────────────── -->
     <section class="sec" id="fp12">
       <h2>FP-1/2 · Finance keeps the supplier ledger in step</h2>
@@ -1395,6 +1436,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>expense/ex-2f-settings.cy.js (4)</code></td><td>30 days back allowed, 31 refused; the owner narrows it; the default Paid from reaches every form; a user cannot change it</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/fp-3b-payment-reversal.cy.js (7)</code></td><td>Reverse a payment: 2000 and cash move back exactly, PV-…-R; once only; then the bill voids; closed period refused; security; on screen</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td><code>finance/fp-6b-expense-bill-parity.cy.js (3)</code></td><td>A refused bill is not owed in the ledger; posted again it is; a stale document is found, re-sent, and the books are not moved</td><td><span class="pill pill-ok">Pass 3/3</span></td></tr>
+            <tr><td><code>expense/ex-8a-expense-report.cy.js (6)</code></td><td>The report and the P&amp;L move together (two expenses in, a void out); an expense the books refused is in neither; every grouping adds up; the CSV sums to the report with the void as a negative row; a user sees only their own; a branch from the request is refused (E8)</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
             <tr><td><code>expense/ex-7b-advances.cy.js (5)</code></td><td>Given in cash (1300 up, cash down) and seen by the member; a claim settled from it (2300 and 1300 down, no cash or bank); the rest taken back by bank; refused to yourself, to a guardian or student, by a user, beyond what is held; a settlement reversed puts it back on the balance and mirrors the books</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>expense/ex-7a-claim-payback.cy.js (4)</code></td><td>Paid back in two parts (2300 cleared, cash and bank down, 2000 unchanged); void refused until the payment is reversed, then the books as before; own claim and a user refused; a waiting claim and an overpayment refused</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/ex-6-claims.cy.js (8)</code></td><td>A user claims (waiting, not money spent); the owner approves from the queue (Cr 2300, no cash moved); own claim refused; reject with a reason the claimant reads (and no new receipts on it); withdraw; no other door (record, post, pay); switched off refused; the same receipt on a waiting claim warned about</td><td><span class="pill pill-ok">Pass 8/8</span></td></tr>
@@ -1411,7 +1453,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <!-- ───────────────────────── next ───────────────────────── -->
     <section class="card" id="next">
       <h2>Coming next</h2>
-      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff. Next: <b>EX-6b</b> a limit on what a user may post directly, <b>EX-8</b> reports, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
+      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff, and <b>EX-8a</b> the expense report. Next: <b>EX-8b–e</b> the duplicate warning, the analytics feed, recoverable tax and reporting by branch, <b>EX-6b</b> a limit on what a user may post directly, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
       <pre class="mermaid diagram">
 flowchart LR
   A[Every night, every business] --> B{Supplier figures, documents and GL 2000 agree?}

@@ -211,6 +211,40 @@
 		<button type="button" class="btn btn-default" onclick="expenseLoad()">
 			<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span>
 		</button>
+		<!-- EX-8a — the report over the same From/To; it adds up exactly as the P&L does -->
+		<button type="button" class="btn btn-default" id="expReportOpen" data-cy="expense-report-open"
+			aria-controls="expReportPanel" aria-expanded="false" onclick="expenseReportToggle()">
+			<span class="glyphicon glyphicon-stats"></span> <span th:text="#{ui.expReport}">Report</span>
+		</button>
+	</div>
+	<div id="expReportPanel" class="well well-sm" data-cy="expense-report" style="display:none;max-width:900px">
+		<p class="help-block" style="margin-top:0" th:text="#{ui.expReportHelp}">
+			What reached the books in this period, as the profit and loss counts it: an expense on its own date, a void as a minus on the day it was voided.</p>
+		<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+			<label for="expReportBy" th:text="#{ui.expReportBy}">Group by</label>
+			<select class="form-control input-sm" id="expReportBy" data-cy="report-by" data-no-search="true">
+				<option value="category" th:text="#{ui.category}">Category</option>
+				<option value="member" th:text="#{ui.expAdvMember}">Member</option>
+				<option value="month" th:text="#{ui.expReportMonth}">Month</option>
+				<option value="paidFrom" th:text="#{ui.paidFrom}">Paid from</option>
+			</select>
+			<button type="button" class="btn btn-primary btn-sm" data-cy="report-run" onclick="expenseReportRun(this)" th:text="#{ui.expReportRun}">Show</button>
+			<a class="btn btn-default btn-sm" id="expReportCsv" data-cy="report-csv" href="#" download>
+				<span class="glyphicon glyphicon-download-alt"></span> <span th:text="#{ui.expReportCsv}">CSV</span></a>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-condensed" id="expReportTable" style="margin-bottom:4px">
+				<thead><tr>
+					<th></th>
+					<th style="text-align:right" th:text="#{ui.expReportLines}">Lines</th>
+					<th style="text-align:right" th:text="#{ui.amount}">Amount</th>
+				</tr></thead>
+				<tbody></tbody>
+				<tfoot><tr><th th:text="#{ui.total}">Total</th><th></th>
+					<th style="text-align:right;font-variant-numeric:tabular-nums" id="expReportTotal" data-cy="report-total"></th></tr></tfoot>
+			</table>
+		</div>
+		<span id="expReportMsg" role="status" aria-live="polite"></span>
 	</div>
 	<!-- EX-6 — owner/admin: claims waiting for a decision (expense.js fills and shows it while Expense claims is on) -->
 	<div id="expClaimsWaiting" class="alert alert-info" data-cy="claims-waiting" role="status"
