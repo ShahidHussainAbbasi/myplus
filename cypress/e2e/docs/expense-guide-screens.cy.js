@@ -1544,6 +1544,50 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.then(() => ids.forEach(voidQuietly))
   })
 
+  caseIt('9-7', 'See what each branch spent', () => {
+    testCase('9-7', 'ex9', 'See what each branch spent', { who: ['user.education (one branch)', 'owner.education (recorded)'] })
+    setup('A school with several branches. Each expense carries the branch the person recording it is working in — taken from their sign-in, never chosen on the form.')
+    const payee = 'XG9 branch ' + run
+    let branch = null
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    const regrant = (ids) => schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/org/locations/grant`,
+      headers: { Authorization: `Bearer ${t}` }, body: { userId: 96, storeIds: ids, roleAtLocation: 'USER', replace: true } }))
+    SAFETY.push(() => { regrant([]); schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/settings/reset?key=${MGMT_KEY}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })) })
+    act('As the owner: give <b>user.education</b> access to <b>one</b> branch (Team → the member → Branches).', ['They now work in that branch: it is their active branch when they sign in.'], { via: 'run' })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/tags?source=education`, headers: { Authorization: `Bearer ${t}` } }).its('body.data')
+      .then((l) => { branch = l.find((x) => x.type === 'SCHOOL'); regrant([branch.id]) }))
+    act(`As <b>user.education</b>: <b>Fee → Expenses</b>, record <b>Rent 12</b> in cash, Payee <b>${payee}</b>.`, ['Saved. There is no branch to choose: the expense carries the branch they work in.'], { via: 'run' })
+    asSchool('user')
+    schoolExpenses()
+    cy.get('#expCategory option').contains('Rent').then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type('12')
+    cy.get('#expPaidFrom').select('CASH', { force: true })
+    cy.get('#expPayee').clear().type(payee)
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg', { timeout: 20000 }).should('contain', 'Expense saved')
+    const a3 = act('As the owner: <b>Expenses → Report</b>, Group by <b>Branch</b>, <b>Show</b>.',
+      ['One row per branch, by its name, with what it spent; expenses recorded outside any branch (an owner’s, or before branches were used) under <b>No branch</b>. The Total is the same as by category, and the CSV gains a <b>Branch</b> column.'])
+    asSchool('owner')
+    schoolExpenses()
+    cy.get('[data-cy=expense-report-open]').click()
+    cy.get('[data-cy=report-by]').select('branch', { force: true })
+    cy.get('[data-cy=report-run]').click()
+    cy.then(() => cy.contains('[data-cy=report-row]', branch.label, { timeout: 20000 }).should('be.visible'))
+    cy.get('#expReportPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'by-branch')
+    act('As user.education, send another branch’s number with an expense (only possible outside the screen).', ['Refused: “An expense is recorded for the branch you are working in…”.'], { via: 'run' })
+    schoolToken('user').then((u) => cy.request({ url: `${GW}/api/expense/categories`, headers: { Authorization: `Bearer ${u}` } }).its('body.data').then((cats) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`, failOnStatusCode: false,
+        headers: { Authorization: `Bearer ${u}`, 'Idempotency-Key': 'xg97-' + run },
+        body: { paidFrom: 'CASH', payeeName: payee, storeId: 999999, lines: [{ categoryId: cats.find((c) => c.accountCode === '6000').id, amount: 1 }] } })
+        .its('body.message').should('contain', 'branch you are working in')))
+    act(`Void <b>${payee}</b> (reason “Test Book”), take the branch away from user.education, and switch expense management off again.`, [], { cleanup: true })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${t}` } }).its('body.data.content')
+      .then((l) => l.filter((v) => v.payeeName === payee && v.status === 'POSTED').forEach((v) => cy.request({ method: 'POST',
+        url: `${GW}/api/expense/vouchers/${v.id}/void`, headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' }, failOnStatusCode: false }))))
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',
