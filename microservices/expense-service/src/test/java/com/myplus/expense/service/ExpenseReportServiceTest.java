@@ -143,6 +143,21 @@ class ExpenseReportServiceTest {
     }
 
     @Test
+    @DisplayName("⭐ EX-8b — the same payee, date and amount is named by number (payee trimmed, case-blind); nothing asked without a payee")
+    void possibleDuplicates() {
+        ExpenseSettings settings = mock(ExpenseSettings.class);
+        ExpenseVoucherService vouchers = new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), mock(ExpenseOutboxService.class),
+                mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
+                mock(ExpenseBillPaymentRepo.class), settings, mock(ReceiptService.class));
+        ExpenseVoucher posted = voucher("EXP-000040", D1, "CASH", 4L, "Rent", "6000", "40");
+        ExpenseVoucher waiting = voucher(null, D1, "EMPLOYEE", 5L, "Rent", "6000", "40");
+        when(repo.sameExpense(eq(7L), eq(D1), eq(new BigDecimal("40.00")), eq("k-electric"))).thenReturn(List.of(posted, waiting));
+        assertThat(vouchers.possibleDuplicates(D1, new BigDecimal("40"), "  K-Electric ")).containsExactly("EXP-000040", "a claim waiting for approval");
+        assertThat(vouchers.possibleDuplicates(D1, new BigDecimal("40"), " ")).isEmpty();
+        verify(repo, org.mockito.Mockito.times(1)).sameExpense(any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("⭐ E8 — a branch is refused on the user path (it could not be checked); nothing is saved")
     void noBranchFromTheRequest() {
         when(access.userId()).thenReturn(3L);

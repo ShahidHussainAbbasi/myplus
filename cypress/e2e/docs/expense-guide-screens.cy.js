@@ -1453,6 +1453,34 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     })
   })
 
+  caseIt('9-4', 'The same payee, day and amount again is questioned before saving', () => {
+    testCase('9-4', 'ex9', 'The same payee, day and amount again is questioned before saving', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business'] })
+    const ids = [], payee = 'XG9 K-Electric ' + run
+    fresh5(ids)
+    const a1 = act(`Record <b>Rent 12</b> in cash, Payee <b>${payee}</b>.`, ['Saved and in the books.'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    const a2 = act(`Record it again: Rent <b>12</b>, Payee <b>${payee.toLowerCase()}</b> (the same payee, typed in small letters), and press Save.`,
+      ['Before anything is saved: “<b>This looks like an expense already recorded</b> — EXP-… is already recorded for this payee on the same day for the same amount. Save this one as well?”'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee: payee.toLowerCase() })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('.uiC-card', { timeout: 20000 }).should('contain', 'already recorded')
+    snap(a2, 'warning')
+    const a3 = act('Press <b>Cancel</b>.', ['Nothing is saved; the form keeps what was typed. Pressing Save again asks again — every time.'])
+    cy.get('.uiC-cancel').click()
+    cy.wait(1000)
+    cy.get('#tableExpense tbody tr.expense-row').filter(`:contains("${payee.toLowerCase()}")`).should('have.length', 0)
+    act('Press Save again and <b>Confirm</b> (two identical fares on one day are real).', ['Saved. A different amount, another day, another payee, or a voided expense is never questioned.'], { via: 'run' })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee.toLowerCase()).should('exist')
+    rowId(payee.toLowerCase(), ids)
+    act('Void both test expenses (reason “Test Book”).', [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',

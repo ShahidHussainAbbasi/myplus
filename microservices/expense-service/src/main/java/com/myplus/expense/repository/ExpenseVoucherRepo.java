@@ -85,6 +85,16 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
     List<ExpenseVoucher> voidsInRange(@Param("org") Long org, @Param("userId") Long userId,
                                       @Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    /**
+     * EX-8b — the same payee, date and amount already recorded in this business (whoever recorded it): not voided, and
+     * not a claim that was turned down or taken back. The payee is compared trimmed and case-blind.
+     */
+    @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org AND v.voucherDate = :date AND v.total = :total "
+         + "AND LOWER(TRIM(v.payeeName)) = :payee AND v.status <> 'VOIDED' "
+         + "AND (v.claimStatus IS NULL OR v.claimStatus IN ('SUBMITTED','APPROVED')) ORDER BY v.id")
+    List<ExpenseVoucher> sameExpense(@Param("org") Long org, @Param("date") LocalDate date,
+                                     @Param("total") java.math.BigDecimal total, @Param("payee") String payee);
+
     /** EX-2d / E4 — what the list's filter adds up to: posted expenses only (a void or a draft spent nothing). */
     interface Totals { long getCount(); java.math.BigDecimal getTotal(); }
 

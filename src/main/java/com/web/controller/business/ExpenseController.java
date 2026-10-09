@@ -179,6 +179,18 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
     }
 
+    /** EX-8b — the same payee, date and amount already recorded (numbers only). */
+    @GetMapping(value = "/vouchers/duplicates", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> possibleDuplicates(@RequestParam(required = false) String date, @RequestParam(required = false) String amount,
+                                                     @RequestParam(required = false) String payee) {
+        StringBuilder q = new StringBuilder("/vouchers/duplicates?x=1");
+        param(q, "date", date);
+        param(q, "amount", amount);
+        param(q, "payee", payee);
+        return call(() -> expense.get(q.toString()));
+    }
+
     // ── EX-8a — the expense report and its CSV (scope and rules are the service's) ──────────────────────────────
 
     @GetMapping(value = "/reports/summary", produces = MediaType.APPLICATION_JSON_VALUE)

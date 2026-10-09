@@ -133,6 +133,14 @@ public class ExpenseController {
         return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
     }
 
+    /** EX-8b — the same payee, date and amount already recorded (numbers only): the screen asks before saving. */
+    @GetMapping("/vouchers/duplicates")
+    public ApiResponse<List<String>> possibleDuplicates(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false) java.math.BigDecimal amount, @RequestParam(required = false) String payee) {
+        return ApiResponse.success(vouchers.possibleDuplicates(date, amount, payee));
+    }
+
     // ── EX-8a — the expense report (reconciles with the P&L) and its CSV ───────────────────────────────────────
 
     @GetMapping("/reports/summary")

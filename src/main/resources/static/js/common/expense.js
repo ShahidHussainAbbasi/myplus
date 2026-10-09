@@ -586,8 +586,9 @@
 		var $b = $(btn), label = $b.html();
 		$b.prop('disabled', true).html('<span class="glyphicon glyphicon-hourglass"></span> ' + esc(tr('ui.js.expSaving', 'Saving…')));
 		msg('');
-		// EX-5 — the receipt goes first (compressed here), so the save carries it and the owner's rule is checked there
-		formReceipt().then(function (ids) {
+		// EX-8b — the same payee, date and amount already recorded? Asked every time Save is pressed; Cancel saves nothing.
+		// EX-5 — then the receipt (compressed here), so the save carries it and the owner's rule is checked there
+		sameExpense(body, amount).then(formReceipt).then(function (ids) {
 			body.receiptIds = ids;
 			return $.ajax({
 				url: ctx() + (isClaim ? 'expense/claims' : 'expense/vouchers?post=true'), type: 'POST', contentType: 'application/json', dataType: 'json',
@@ -614,6 +615,23 @@
 		}).always(function () {
 			$b.prop('disabled', false).html(label);
 		});
+	}
+
+	/** EX-8b — warn (never refuse) when the same payee, date and amount is already recorded in the business. */
+	function sameExpense(body, amount) {
+		var payee = String(body.payeeName || '').trim();
+		if (!payee || typeof global.uiConfirm !== 'function') return $.Deferred().resolve().promise();
+		var q = 'date=' + encodeURIComponent(body.voucherDate) + '&amount=' + encodeURIComponent(amount) + '&payee=' + encodeURIComponent(payee);
+		return $.ajax({ url: ctx() + 'expense/vouchers/duplicates?' + q, dataType: 'json' }).then(function (res) {
+			var nos = (res && res.success === true && res.data) || [];
+			if (!nos.length) return null;
+			return $.Deferred(function (d) {
+				global.uiConfirm({ title: tr('ui.js.expDupTitle', 'This looks like an expense already recorded'),
+					message: tr('ui.js.expDupMsg', '{0} is already recorded for {1} on the same day for the same amount. Save this one as well?')
+						.replace('{0}', nos.join(', ')).replace('{1}', payee),
+					tone: 'warning' }).then(function (ok) { if (ok) d.resolve(); else d.reject('cancelled'); });
+			}).promise();
+		}, function () { return $.Deferred().resolve().promise(); });   // the check could not run: the save is not blocked by it
 	}
 
 	// ── EX-5 — receipts ────────────────────────────────────────────────────────────────────────────────────────

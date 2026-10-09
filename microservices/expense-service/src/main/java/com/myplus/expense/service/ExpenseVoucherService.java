@@ -232,6 +232,20 @@ public class ExpenseVoucherService {
         return VoucherView.of(v);
     }
 
+    /**
+     * EX-8b — what this expense may duplicate: the same payee, date and amount already recorded in the business. A
+     * warning, never a refusal (two identical taxi fares on one day are real); the screen asks before saving. Named by
+     * number only, so a member learns no more about a colleague's expense than that it exists.
+     */
+    @Transactional(readOnly = true)
+    public List<String> possibleDuplicates(LocalDate date, java.math.BigDecimal amount, String payee) {
+        access.assertModuleOn();
+        if (date == null || amount == null || amount.signum() <= 0 || payee == null || payee.isBlank()) return List.of();
+        return repo.sameExpense(access.org(), date, amount.setScale(2, java.math.RoundingMode.HALF_UP), payee.trim().toLowerCase())
+                .stream().map(v -> v.getVoucherNo() != null ? v.getVoucherNo() : "a claim waiting for approval")
+                .distinct().toList();
+    }
+
     /** A DRAFT may be discarded; anything posted stays, and is voided instead. */
     @Transactional
     public void deleteDraft(Long id) {
