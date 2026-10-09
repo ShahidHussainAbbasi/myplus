@@ -25,6 +25,7 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
     public static final String BACKDATE_DAYS = "expense.voucher.backdateDays";
     public static final String DEFAULT_PAID_FROM = "expense.voucher.defaultPaidFrom";
     public static final String RECEIPT_REQUIRED_ABOVE = "expense.receipt.requiredAbove";
+    public static final String INPUT_TAX_RECOVERABLE = "expense.tax.inputRecoverable";   // EX-8d
     public static final int BACKDATE_DEFAULT = 30, BACKDATE_MAX = 3650;
 
     @Override
@@ -42,7 +43,13 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
                 SettingEntry.money(RECEIPT_REQUIRED_ABOVE, "Receipt required above",
                         "0 (default): a receipt is never required. Above this amount, an expense cannot be saved without "
                                 + "a photo or PDF of its receipt.",
-                        "0", "Expenses"));
+                        "0", "Expenses"),
+                // EX-8d — read by ExpenseVoucherService.build (a tax part is refused while this is off)
+                SettingEntry.bool(INPUT_TAX_RECOVERABLE, "Recover input tax on expenses",
+                        "Off (default): an expense is a cost including its tax. On: the form asks how much of each "
+                                + "amount is tax you can reclaim; that part goes to the tax account and is netted in the "
+                                + "tax register, and only the rest is an expense.",
+                        false, "Expenses"));
     }
 
     /** 0 (today only) to ten years: a negative window or a typo of 100000 days is refused in words. */

@@ -43,6 +43,18 @@ class ExpensePostingRulesTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test @DisplayName("⭐ EX-8d — recoverable input tax: Dr 6200 net + Dr 2100 tax / Cr cash is accepted")
+    void input_tax_debit_is_allowed() {
+        assertThatCode(() -> ExpensePostingRules.check(List.of(dr("6200", "100"), dr("2100", "15"), cr("1000", "115")), TYPE))
+                .doesNotThrowAnyException();
+    }
+
+    @Test @DisplayName("EX-8d — tax alone is not an expense: Dr 2100 / Cr cash with no cost line is refused")
+    void tax_alone_is_refused() {
+        assertThatThrownBy(() -> ExpensePostingRules.check(List.of(dr("2100", "15"), cr("1000", "15")), TYPE))
+                .hasMessageContaining("at least one cost line");
+    }
+
     @Test @DisplayName("one voucher, two categories, paid from bank")
     void split_voucher_is_allowed() {
         assertThatCode(() -> ExpensePostingRules.check(

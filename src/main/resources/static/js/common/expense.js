@@ -578,6 +578,8 @@
 			dueDate: isBill ? ($('#expDue').val() || null) : null,
 			lines: [(function () {
 				var line = { categoryId: Number(categoryId), amount: amount, description: $('#expNote').val() };
+				var tax = Number($('#expTax').val());
+				if ($('#expTaxGroup').is(':visible') && tax > 0) line.taxAmount = tax;   // EX-8d — the server checks it
 				var tag = String($('#expTag').val() || '');
 				if (tag.indexOf(':') > 0) { line.tagType = tag.split(':')[0]; line.tagId = Number(tag.split(':')[1]); }
 				return line;
@@ -603,7 +605,7 @@
 				: tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
 			$f.removeData('idemKey');
 			$f.removeData('receipt');
-			$('#expAmount, #expPayee, #expNote, #expReceipt').val('');
+			$('#expAmount, #expPayee, #expNote, #expReceipt, #expTax').val('');
 			applyPaidFromDefault();                          // EX-2f: the next expense starts from the owner's default
 			expenseLoad();
 		}).fail(function (xhr) {
@@ -879,6 +881,7 @@
 	// Read by EVERY member's form (the default Paid from must REACH the form — the "saved default tender never reached
 	// New Sale" lesson), changed by owner/admin in the Settings panel. The server validates and answers in words.
 	var KEY_BACK = 'expense.voucher.backdateDays', KEY_PAID = 'expense.voucher.defaultPaidFrom', KEY_RCPT = 'expense.receipt.requiredAbove';
+	var KEY_TAX = 'expense.tax.inputRecoverable';   // EX-8d
 	var expSettings = {};
 	function loadExpenseSettings() {
 		return $.ajax({ url: ctx() + 'expense/settings', dataType: 'json' }).done(function (res) {
@@ -888,6 +891,11 @@
 			$('#expSetBackdate').val(expSettings[KEY_BACK] != null ? expSettings[KEY_BACK] : '');
 			if (expSettings[KEY_PAID]) $('#expSetPaidFrom').val(expSettings[KEY_PAID]);
 			$('#expSetReceiptAbove').val(expSettings[KEY_RCPT] != null ? expSettings[KEY_RCPT] : '');
+			// EX-8d — the tax field is offered only while the business recovers input tax
+			var taxOn = String(expSettings[KEY_TAX]) === 'true';
+			$('#expSetInputTax').prop('checked', taxOn);
+			$('#expTaxGroup').toggle(taxOn);
+			if (!taxOn) $('#expTax').val('');
 			// EX-5 — tell the person filling the form when a receipt will be required
 			var above = Number(expSettings[KEY_RCPT] || 0);
 			$('#expReceiptHint').text(above > 0
@@ -1066,6 +1074,7 @@
 	global.expenseSettingsToggle = expenseSettingsToggle;
 	global.expenseSettingSaveBackdate = function (btn) { expenseSettingSave(btn, KEY_BACK, String($('#expSetBackdate').val() || '').trim()); };
 	global.expenseSettingSavePaidFrom = function (btn) { expenseSettingSave(btn, KEY_PAID, $('#expSetPaidFrom').val()); };
+	global.expenseSettingSaveInputTax = function (box) { expenseSettingSave(box, KEY_TAX, box.checked ? 'true' : 'false'); };
 	global.expenseSettingSaveReceiptAbove = function (btn) { expenseSettingSave(btn, KEY_RCPT, String($('#expSetReceiptAbove').val() || '0').trim()); };
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;

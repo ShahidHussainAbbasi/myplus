@@ -22,14 +22,16 @@ class ExpenseSettingsTest {
     private final ExpenseSettingsCatalog catalog = new ExpenseSettingsCatalog();
 
     @Test
-    @DisplayName("the catalog registers exactly the keys something reads; backdate 30, paid-from Cash, receipt rule 0 = never")
+    @DisplayName("the catalog registers exactly the keys something reads; backdate 30, paid-from Cash, receipt rule 0 = never, input tax off")
     void catalogIsWhatIsRead() {
         assertThat(catalog.entries()).extracting(SettingEntry::key)
                 .containsExactly(ExpenseSettingsCatalog.BACKDATE_DAYS, ExpenseSettingsCatalog.DEFAULT_PAID_FROM,
-                        ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE);          // EX-5: read by ReceiptService.attachOnSave
+                        ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE,           // EX-5: read by ReceiptService.attachOnSave
+                        ExpenseSettingsCatalog.INPUT_TAX_RECOVERABLE);           // EX-8d: read by ExpenseVoucherService.build
         assertThat(catalog.entries().get(0).defaultValue()).isEqualTo("30");
         assertThat(catalog.entries().get(1).defaultValue()).isEqualTo("CASH");
         assertThat(catalog.entries().get(2).defaultValue()).isEqualTo("0");
+        assertThat(catalog.entries().get(3).defaultValue()).as("input tax is recovered only when switched on").isEqualTo("false");
     }
 
     @Test

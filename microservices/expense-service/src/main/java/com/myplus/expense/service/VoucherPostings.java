@@ -28,6 +28,9 @@ public final class VoucherPostings {
 
     public static final String EXPENSE = "EXPENSE", EXPENSE_REVERSAL = "EXPENSE_REVERSAL";
 
+    /** EX-8d — finance's tax account; input tax is its debit side. */
+    static final String INPUT_TAX = "2100";
+
     private VoucherPostings() { }
 
     /** The idempotency key finance dedups on: ONE per voucher and action, so a retry can never post twice. */
@@ -38,11 +41,17 @@ public final class VoucherPostings {
     public static PostingEventRequest post(ExpenseVoucher v) {
         PaidFrom from = PaidFrom.of(v.getPaidFrom());
         Map<String, BigDecimal> byAccount = new LinkedHashMap<>();
-        for (ExpenseVoucherLine l : v.getLines()) byAccount.merge(l.getAccountCode(), l.getAmount(), BigDecimal::add);
+        BigDecimal tax = BigDecimal.ZERO;
+        for (ExpenseVoucherLine l : v.getLines()) {
+            byAccount.merge(l.getAccountCode(), l.netAmount(), BigDecimal::add);
+            if (l.getTaxAmount() != null) tax = tax.add(l.getTaxAmount());
+        }
 
         List<PostingLine> lines = new ArrayList<>();
         String memo = v.getPayeeName() != null && !v.getPayeeName().isBlank() ? v.getPayeeName() : v.getVoucherNo();
         byAccount.forEach((code, amt) -> lines.add(PostingLine.builder().accountCode(code).debit(amt).lineMemo(memo).build()));
+        // EX-8d — the recoverable input tax to the tax account, where the register nets it against output tax
+        if (tax.signum() > 0) lines.add(PostingLine.builder().accountCode(INPUT_TAX).debit(tax).lineMemo("Input tax").build());
         lines.add(PostingLine.builder().accountCode(from.creditAccount()).credit(v.getTotal()).lineMemo(from.name()).build());
 
         return PostingEventRequest.builder()

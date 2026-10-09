@@ -158,6 +158,38 @@ class ExpenseReportServiceTest {
     }
 
     @Test
+    @DisplayName("⭐ EX-8d — a tax part is refused while recovery is off, and must be less than its amount; the report counts the net")
+    void inputTaxRules() {
+        when(access.userId()).thenReturn(3L);
+        when(repo.findByOrganizationIdAndIdempotencyKey(any(), any())).thenReturn(Optional.empty());
+        ExpenseSettings settings = mock(ExpenseSettings.class);
+        when(settings.backdateDays()).thenReturn(30);
+        ExpenseCategoryService cats = mock(ExpenseCategoryService.class);
+        com.myplus.expense.entity.ExpenseCategory power = new com.myplus.expense.entity.ExpenseCategory();
+        power.setId(1L);
+        power.setAccountCode("6100");
+        power.setName("Power");
+        when(cats.activeCategory(any(), any())).thenReturn(power);
+        ExpenseVoucherService vouchers = new ExpenseVoucherService(repo, cats, mock(ExpenseOutboxService.class),
+                mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
+                mock(ExpenseBillPaymentRepo.class), settings, mock(ReceiptService.class));
+        VoucherRequest taxed = new VoucherRequest(LocalDate.now(), "CASH", null, null, null,
+                List.of(new LineRequest(1L, new BigDecimal("115"), null, null, null, new BigDecimal("15"))), null, null, null);
+        assertThatThrownBy(() -> vouchers.record(taxed, true, "k1")).hasMessageContaining("switched off");
+        when(settings.inputTaxRecoverable()).thenReturn(true);
+        VoucherRequest all = new VoucherRequest(LocalDate.now(), "CASH", null, null, null,
+                List.of(new LineRequest(1L, new BigDecimal("15"), null, null, null, new BigDecimal("15"))), null, null, null);
+        assertThatThrownBy(() -> vouchers.record(all, true, "k2")).hasMessageContaining("less than the amount");
+        verify(repo, never()).saveAndFlush(any());
+
+        ExpenseVoucher v = voucher("EXP-9", D1, "CASH", 3L, "Power", "6100", "115");
+        v.getLines().get(0).setTaxAmount(new BigDecimal("15"));
+        when(repo.postedInRange(any(), any(), any(), any())).thenReturn(List.of(v));
+        when(repo.voidsInRange(any(), any(), any(), any())).thenReturn(List.of());
+        assertThat(service.summary(D1, D9, "category").total()).isEqualByComparingTo("100");   // the cost, as the P&L
+    }
+
+    @Test
     @DisplayName("⭐ E8 — a branch is refused on the user path (it could not be checked); nothing is saved")
     void noBranchFromTheRequest() {
         when(access.userId()).thenReturn(3L);

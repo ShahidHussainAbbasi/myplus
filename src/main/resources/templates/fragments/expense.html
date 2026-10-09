@@ -56,6 +56,12 @@
 				<input type="number" min="0" step="0.01" class="form-control input-sm" id="expSetReceiptAbove" data-cy="set-receipt-above" style="width:130px" inputmode="decimal">
 				<button type="button" class="btn btn-default btn-sm" data-cy="set-receipt-above-save" onclick="expenseSettingSaveReceiptAbove(this)" th:text="#{ui.js.expCatSave}">Save</button>
 			</div>
+			<!-- EX-8d — recover input tax on expenses (off by default) -->
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+				<label style="font-weight:normal;margin:0"><input type="checkbox" id="expSetInputTax" data-cy="set-input-tax" onchange="expenseSettingSaveInputTax(this)">
+					<span th:text="#{ui.expSetInputTax}">Recover input tax on expenses</span></label>
+				<span class="help-block" style="margin:0" th:text="#{ui.expSetInputTaxHelp}">On: the form asks how much of each amount is tax you can reclaim.</span>
+			</div>
 			<span id="expSetMsg" role="status" aria-live="polite"></span>
 		</div>
 		<!-- EX-7b — what each member holds of the business's money (1300), giving one and taking back what is unused.
@@ -143,6 +149,14 @@
 			<div class="form-group" id="expTagGroup" style="display:none">
 				<label class="control-label col-sm-3" for="expTag" th:text="#{ui.expFor}">For</label>
 				<div class="col-sm-5"><select class="form-control" id="expTag" data-cy="expense-tag"></select></div>
+			</div>
+			<!-- EX-8d — the tax inside the amount, shown only while the business recovers input tax -->
+			<div class="form-group" id="expTaxGroup" style="display:none">
+				<label class="control-label col-sm-3" for="expTax" th:text="#{ui.expTaxIncluded}">Tax included</label>
+				<div class="col-sm-4">
+					<input type="number" step="0.01" min="0" class="form-control" id="expTax" data-cy="expense-tax" inputmode="decimal">
+					<span class="help-block" style="margin-bottom:0" th:text="#{ui.expTaxIncludedHelp}">The part of the amount that is tax you can reclaim. Only the rest is an expense.</span>
+				</div>
 			</div>
 			<div class="form-group">
 				<label class="control-label col-sm-3" for="expPaidFrom" th:text="#{ui.paidFrom}">Paid from</label>
