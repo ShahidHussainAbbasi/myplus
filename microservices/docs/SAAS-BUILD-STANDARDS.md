@@ -87,6 +87,28 @@ the risk axis, never by counting how many places have a guard.
 
 ---
 
+### 0d. ASK BEFORE EVERY BUILD AND RESTART. (the user, restated 2026-10-09)
+
+**The user controls compiling, building, testing with Maven, deploying and restarting — every service and the
+monolith.** An assistant or developer working in this repo prepares the change and hands over the exact command;
+it does not run it.
+
+| Needs the user's explicit yes, every time | Fine without asking |
+|---|---|
+| `mvn compile / test / package / install`, `deploy.ps1`, `start-all.ps1`, `stop-all.ps1`, `docker compose up / build / restart / stop`, `java -jar`, killing a process | editing code and docs, reading files and logs, `git status / diff`, read-only HTTP probes |
+
+- **"continue", "go-ahead", "yes" approve the WORK — never a build or restart.** Only a yes to an explicit
+  "shall I rebuild and restart X?" counts, and only for that one run.
+- **"I'll deploy myself" stands until the user says it is done.** If the stack is not updated yet, say so and wait.
+- Cypress runs only when the user asked for a run in that conversation (it reads live data and writes test rows).
+- End every implementation with: what changed → the exact command(s) to build and restart → what to look for →
+  "tell me when it is up and I will run the gate."
+
+Broken on 2026-10-09 (HMS S1): Maven tests and installs were run unasked, then a one-word "continue" was taken as
+permission to run `deploy.ps1` for six services after the user had said they would deploy themselves.
+
+---
+
 ### 0. NEVER ASSUME. REVIEW 100% END TO END.
 
 **This one comes before the others, because breaking it is how every other standard gets broken.**

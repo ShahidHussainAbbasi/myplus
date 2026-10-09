@@ -262,7 +262,16 @@
 
     // ── 3. PR-2b: Markup by category (Settings → Markup by category) ─────────────────────────────
 
+    /**
+     * What a blank box means, short enough for the box: the business's own % once it is known ("14.5 (business)"),
+     * otherwise "Business %". The long sentence ("Blank = the business's") was cut off in a 150px box.
+     */
+    function cmPlaceholder(bizPct) {
+        return bizPct > 0 ? t('ui.js.cmInherit', String(Math.round(bizPct * 100) / 100)) : t('ui.js.cmBlank');
+    }
+
     function showCategoryMarkup() {
+        var bizPct = null;   // the two reads below arrive in either order; whichever is second sets the final text
         $('.formDiv').hide();
         $('#CategoryMarkupDiv').show();
         var $body = $('#tableCategoryMarkup tbody').empty()
@@ -273,6 +282,8 @@
         bgJson(serverContext + 'getBusinessConfig', function (res) {
             var biz = Number(posSettingText(res, 'pos.pricing.markupPct', '0'));
             global.posMarkupPct = String(biz);
+            bizPct = biz;
+            $('#tableCategoryMarkup input[data-category]').attr('placeholder', cmPlaceholder(biz));
             $('#cmBiz').remove();
             $('#cmHelp').after($('<p class="help-block" id="cmBiz">').text(biz > 0
                 ? t('ui.js.cmBusinessPct', String(Math.round(biz * 100) / 100)) : t('ui.js.cmBusinessNone')));
@@ -287,7 +298,7 @@
             rows.forEach(function (c) {
                 var $in = $('<input type="number" step="any" min="0" max="1000" class="form-control input-sm">')
                     .attr('id', 'cmPct_' + c.id).attr('data-category', c.id)
-                    .attr('placeholder', t('ui.js.cmBlank'))
+                    .attr('placeholder', cmPlaceholder(bizPct))
                     .val(c.markupPct != null ? Number(c.markupPct) : '')
                     .attr('data-saved', c.markupPct != null ? String(Number(c.markupPct)) : '');
                 $body.append($('<tr>').attr('data-category', c.id)

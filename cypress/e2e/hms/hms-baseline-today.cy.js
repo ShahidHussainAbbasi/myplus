@@ -246,9 +246,9 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
 
     it('B-03 a doctor full for the day refuses the next booking with a reason', () => {
       clinicWithDoctor(2).then(({ hospitalId, doctorId }) => {
-        book(hospitalId, doctorId, 'Cap One ' + stamp(), '03001000001').its('body.status').should('eq', 'SUCCESS')
-        book(hospitalId, doctorId, 'Cap Two ' + stamp(), '03001000002').its('body.status').should('eq', 'SUCCESS')
-        book(hospitalId, doctorId, 'Cap Three ' + stamp(), '03001000003').then((third) => {
+        book(hospitalId, doctorId, 'Cap One ' + stamp(), uniquePhone()).its('body.status').should('eq', 'SUCCESS')
+        book(hospitalId, doctorId, 'Cap Two ' + stamp(), uniquePhone()).its('body.status').should('eq', 'SUCCESS')
+        book(hospitalId, doctorId, 'Cap Three ' + stamp(), uniquePhone()).then((third) => {
           expect(third.body.status, JSON.stringify(third.body)).to.eq('FAILURE')
           expect(third.body.error, 'the refusal says why').to.be.a('string').and.not.be.empty
         })
@@ -278,12 +278,13 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
   // ── B-07 — ⚠ KNOWN DEFECT, found by this file on 2026-10-08 ─────────────────────────────────────────────
   // appointment-service resolves the patient by PHONE ALONE (findFirstByPhoneAndOrganizationId) and ignores
   // the name typed. Two people on one family phone become ONE patient under the first name — a wrong-patient
-  // record the moment a clinical history hangs off it. Red today; opt in with --env hmsDefects=1.
+  // record the moment a clinical history hangs off it. Was red until S1; now a regression guard.
   //
   // EXPECTED (client decision 2026-10-09, design §1): ONE patient per phone. A different name on a known phone
   // is REFUSED and the refusal names the patient already on that number — never silently filed under them.
   // (With the clinic setting "family on one phone" ON, reception adds the son deliberately instead — S1.)
-  ;(Cypress.env('hmsDefects') ? it : it.skip)('B-07 ⚠ a different name on a known phone is refused, never merged', () => {
+  // FIXED 2026-10-09 by HMS S1 (AppointmentService.differentName) — runs by default now, as a regression guard.
+  it('B-07 a different name on a known phone is refused, never merged', () => {
     cy.task('clearDemoCaps')
     cy.loginAsAppointmentOwner()
     const phone = uniquePhone()

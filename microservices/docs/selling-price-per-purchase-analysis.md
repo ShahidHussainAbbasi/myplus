@@ -1,6 +1,6 @@
 # Selling price per purchase (batch price) and the purchase-based markup rule — analysis
 
-Status: **PR-1, PR-2, PR-2b, PR-3a, PR-3b, PR-3c (§7–§10) and PR-4 — approval (§11) — built.**
+Status: **COMPLETE — PR-1, PR-2, PR-2b, PR-3a, PR-3b, PR-3c, CART-3 (§7–§10.8) and PR-4 (§11) built, committed and verified end to end on the deployed stack (§12, 2026-10-09).** Open items: §12.3.
 
 ## 1. The question
 
@@ -92,14 +92,14 @@ separate — the markup result is never used as cost.
 
 ## 5. Slices (each: gate first, Cypress + unit, Test Book, step-by-step capture)
 
-| Slice | Scope | Risk |
-|---|---|---|
-| **PR-1** | The mode setting with `LATEST` / `KEEP` + price history + "suggested price" on the purchase form | Low — today's behaviour stays the default |
-| **PR-2** | Markup rule (markup/margin, rounding, SUGGEST/AUTO, product/category/tenant precedence) | Medium — touches the purchase path |
-| **PR-3** | `PER_BATCH`: `StockEntry.sell_price`, price-after-pick, line split, batch drill-down picker | **High — money on every sale**; needs the full reader classification of §2 |
-| **PR-4** | `APPROVAL` mode + approval queue | Medium |
+| Slice | Scope | Risk | Status (2026-10-09) |
+|---|---|---|---|
+| **PR-1** | The mode setting with `LATEST` / `KEEP` + price history + "suggested price" on the purchase form | Low — today's behaviour stays the default | ✅ built §7, gate 10/10 |
+| **PR-2** | Markup rule (markup/margin, rounding, SUGGEST/AUTO, product/category/tenant precedence) | Medium — touches the purchase path | ✅ built §8 + category PR-2b §9, gate 15/15 |
+| **PR-3** | `PER_BATCH`: `StockEntry.sell_price`, price-after-pick, line split, batch drill-down picker | **High — money on every sale**; needs the full reader classification of §2 | ✅ built as PR-3a §10.5, PR-3b §10.6, PR-3c §10.7, CART-3 §10.8; gates 3/3, 6/6, 11/11 |
+| **PR-4** | `APPROVAL` mode + approval queue | Medium | ✅ built §11.5, gate 12/12 |
 
-## 6. Decisions needed
+## 6. Decisions — all taken 2026-10-04 as recommended (CART-3 display: one row with batch sub-lines, 2026-10-08)
 
 1. **Default for existing tenants:** keep `LATEST` (no surprise), with Pharmacy getting `PER_BATCH` only when chosen? *(recommended)*
 2. **A line spanning two batch prices:** split into two lines *(recommended — exact and auditable)* or price the whole line at one batch?
@@ -182,7 +182,7 @@ config before shipping).
 | **Use 240.45 did nothing** when clicked straight from the P/U box (gate M9 red on the deployed build) | P/U's `onblur` re-rendered the suggestion line between mousedown and mouseup; the browser fires no `click` when the two land on different elements. Traced with a capture-phase event log: mousedown + mouseup on the button, no click. | Fixed: the line is rebuilt only when what it says changes (`data-sig`), and the button has one delegated handler. M9 passed with the fixed file evaluated on the page; **needs a monolith rebuild to ship**. |
 | Reopening the Products list while it is still reloading after a save throws `Cannot read properties of undefined (reading 'style')` inside DataTables (`catalog-products.js` `deliver`, l.1663) | A server-side page delivered into a table `showProducts()` has just rebuilt | **Pre-existing, not PR-2.** The grid still renders; console error only. Recorded, not fixed (needs consent). The guide waits for the reload. |
 
-Gate `cypress/e2e/business/pricing-markup.cy.js`: M1–M8, M10, M11 green on the deployed build; M9 green with the fix, pending deploy.
+Gate `cypress/e2e/business/pricing-markup.cy.js`: M1–M11 green on the deployed build after the fix (2026-10-05); 15/15 with PR-2b's cases, re-run 2026-10-09.
 Unit: business 31/31 (MarkupCalculatorTest 5, MarkupPolicyTest 9, PurchasePriceModeTest 11, +6 neighbours), catalog 152/152.
 
 ## 9. PR-2b — markup by category (2026-10-05)
@@ -199,7 +199,7 @@ Unit: business 31/31 (MarkupCalculatorTest 5, MarkupPolicyTest 9, PurchasePriceM
 - Screen: **Settings → Markup by category** (owner/admin; not under Price Rules, which only dealer-pricing shops see).
   One row per category, saved when the box is left, with "Saved" or the server's sentence.
 - Tests: catalog `CategoryMarkupTest` 5/5; business `MarkupPolicyTest` 10/10 (category precedence added); gate
-  `pricing-markup.cy.js` M12–M15 (pending deploy).
+  `pricing-markup.cy.js` M12–M15 — green on the deployed build after the two §9.1 fixes (15/15, re-run 2026-10-09).
 
 ### 9.1 PR-2b — found by gate M13 (2026-10-05)
 
@@ -298,7 +298,7 @@ B2 recorded `INV-000498` selling 10 against 7 on the shelf (voided afterwards, r
 Callers without a line (marketplace checkout and order holds) merge per product already and are unchanged.
 Tests: inventory `ReservationServiceTest` 16/16 on real MySQL (3 new: summed check, picks name their line, line-less
 unchanged); business `SaleBatchByLineTest` 3/3 + sale-path neighbours (27). Gate `cypress/e2e/business/sale-batches-by-line.cy.js`
-B1–B3: red on the old build as above; green pending deploy.
+B1–B3: red on the old build as above; green 3/3 on the deployed build (2026-10-05, re-run 2026-10-09).
 
 ### 10.6 PR-3b as built — each batch can carry its own price
 
@@ -318,7 +318,7 @@ that never had the field, so it is cleared for that comparison. `PurchasePriceMo
 `per_batch` as its "unknown" example and now uses one that is not a mode.
 
 Tests: business 57/57 (new `PurchasePerBatchTest` 6), inventory 19/19 on real MySQL (2 new). Gate
-`cypress/e2e/business/pricing-per-batch.cy.js` X1–X6 on `owner.pharma@`, pending deploy. The SALE still prices from the
+`cypress/e2e/business/pricing-per-batch.cy.js` X1–X6 on `owner.pharma@`: 6/6 on the deployed build after the X4 fix (an edit wiped the server-owned `stock_entry_id`; `updatePurchase` now carries it over), re-run 2026-10-09. The SALE still prices from the
 product until PR-3c.
 
 ### 10.7 PR-3c as built — the sale is priced from the batches it takes (2026-10-05)
@@ -473,4 +473,36 @@ moved-price refusal, Auto's held change queued, and who may decide.
 education login probe answers 500 (cause not investigated). notification-service restarts: access denied to
 `myplusdb_notification`, which does not exist on this stack — fixed on the branch meanwhile by the verification sweep
 (`init-db.sql`). The other two are left to that sweep.
+
+
+## 12. End-to-end verification and close-out (2026-10-09)
+
+### 12.1 What was checked against the running system
+
+| Check | Evidence |
+|---|---|
+| Every slice is in `HEAD` | migrations catalog V21–V24, inventory V13–V14, business V79; `PriceApprovalService`, `MarkupCalculator`/`MarkupPolicy`, `BatchPriceSplit`, `previewBatchPricing`, `sellCartGroupRow`/`UIG` — all present |
+| Every migration ran | `flyway_schema_history`: catalog 24, inventory 14, business V79 applied (business now at 80 from other work) |
+| Gates on the deployed build | purchase mode 10/10 · markup 15/15 · batch lines 3/3 · Per batch 6/6 · Per batch sale (incl. CART-3) 11/11 · approval 12/12 |
+| Cart regression (CART-3 touches the cart grid every shop uses) | 24 specs green (plus the 6 pricing gates above: 30 in all): cart-grid-sync, park-claim, park-hold, contract-price-charged, last-sold-rate, saga-sell-ui, sell, sell-edit, bonus-schemes-p3, installment-down-payment, installment-screen, pack-loose-ux-till, pos-cell-layout, pos-checkout-chain, pos-keyboard, pos-shortcuts, receipt-one-discount-row, restaurant-counter, sale-duplicate-guard, sale-trade-discount, sell-loose-receipt, sell-loose-till, serial-till-entry, session-visibility |
+| Step-by-step guide | all 21 cases P1–P5, Q1–Q6, R1, X1, S1–S3, T1–T5 re-captured on this build — 21/21 verified, 89 pictures; page https://claude.ai/artifact/XxkS1wMiBXsrgFbZ72YPTQ (v4) |
+| Server left as found | no `pos.pricing.*` setting rows, no category markups, every guide bill VOID |
+
+### 12.2 Found by the close-out regression (not CART-3) — fixed and committed (`53c03c85`)
+
+| Finding | Fix |
+|---|---|
+| ⚠ LR-1 (since 2026-09-08): switching the last-rate setting off left the hints already drawn — `annotate()` returned before its own removal loop | `last-rate.js`: return early only when there is no table |
+| `contract-price-charged`: Add clicked before the till filled the quantity (QTY-RACE, the stock read fills it) | the spec waits for the quantity |
+| `last-sold-rate` case 5 waited for a hint request that case 7 moved to PICK time | the spec watches the pick's request |
+| `pricing-per-batch-sale` S8: `confirmSale({optional:true})` looked once, before the late dialog | the spec waits for the dialog |
+
+### 12.3 Still open — deliberately, or for a later slice
+
+* **Test Book** §27 S1 and the section-1 till summary still describe two cart lines; the corrected §27 is built from the
+  2026-10-09 captures (`build-testbook-section.js pricemode`) and is being merged.
+* **Pre-existing, not fixed (needs consent):** reopening Products while its grid reloads throws inside DataTables (§8.1).
+* **Cosmetic:** the Markup by category box truncates its placeholder ("Blank = the busine").
+* **Out of scope by decision:** loose (broken-pack) lines, quotes, the storefront and B2B percent rules keep the product
+  price in Per batch; approval notifications beyond the menu badge, bulk approve, approving a batch price (§11.4).
 

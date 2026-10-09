@@ -12,6 +12,7 @@
  *   - entitlement `clinic` ACTIVE for owner.pharma's org (granted by the operator; left ACTIVE like MKT-0a — the
  *     module itself is switched OFF again, which is what decides behaviour)
  *   - capability `clinic` switched on → reset to its default (OFF)
+ *   - the same entitlement + switch for owner.business@ (S1-08's cross-tenant control) → switch reset in the case
  *   - clinic settings familyOnOnePhone / cnicRequired → reset to defaults
  *   - patients created → RETIRED (clinical records are never hard-deleted); their pharmacy customers → deleted
  *
@@ -29,8 +30,14 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
   let seq = 0
   const newPhone = () => '034' + run.slice(-6) + String(seq++ % 10) + String(Math.floor(Math.random() * 10))
   const created = { patients: [], customers: [] }
+  // S1-01's patient, read by later cases. A plain variable: Cypress clears aliases between tests.
+  let ali = null
+  // Names this spec gives its patients — the after() sweep retires ANY of them left by an interrupted run.
+  const PREFIXES = ['Ali Khan ', 'Cnic Check ', 'Rashid Ahmed ', 'Usman Rashid ', 'Front Desk ']
 
-  const relogin = (email) => cy.loginAs(email, PW, '/getBusinessDashboardStats', 'hms-s1-' + email + '-' + Date.now())
+  // One session per (account, phase). A FRESH token is needed only when the clinic switch changes, because the
+  // capability travels in the token; any other case reuses the phase's session.
+  const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s1-${run}-${phase}`)
   const post = (url, body) =>
     cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const lookup = (phone) =>
@@ -50,18 +57,32 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
     cy.task('clearDemoCaps')
     cy.loginAsOperator()
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms s1 gate')
-    relogin(OWNER)
+    relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
     relogin(OWNER)                       // the capability travels in the token: a new token carries it
   })
 
   after(() => {
-    relogin(OWNER)
-    created.patients.forEach((id) => post(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
+    relogin(OWNER, 'cleanup')
+    // This run's patients, plus any a previous interrupted run left behind (same names, 7-digit run suffix).
+    const sweep = new Set(created.patients)
+    const customers = new Set(created.customers)
+    PREFIXES.forEach((prefix) =>
+      cy.request({ url: '/clinic/patients?q=' + encodeURIComponent(prefix.trim()), failOnStatusCode: false }).then((r) => {
+        ;((r.body && r.body.data) || []).forEach((p) => {
+          if (PREFIXES.some((x) => new RegExp('^' + x + '\\d{7}$').test(p.name))) {
+            sweep.add(p.id)
+            if (p.customerId) customers.add(p.customerId)
+          }
+        })
+      }))
+    cy.then(() => {
+      sweep.forEach((id) => post(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
+      customers.forEach((id) =>
+        cy.request({ method: 'POST', url: '/deleteCustomer', form: true, body: { checked: String(id) }, failOnStatusCode: false }))
+    })
     ;['clinic.patient.familyOnOnePhone', 'clinic.patient.cnicRequired'].forEach((k) =>
       cy.request({ method: 'POST', url: `/clinic/settings/reset?key=${k}`, failOnStatusCode: false }))
-    created.customers.forEach((id) =>
-      cy.request({ method: 'POST', url: '/deleteCustomer', form: true, body: { checked: String(id) }, failOnStatusCode: false }))
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -104,7 +125,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
       expect(p.partyId, 'one person in party-service').to.be.a('number')
       expect(p.customerId, 'registered as the pharmacy customer at the same time').to.be.a('number')
       expect(p.linkPending).to.eq(false)
-      cy.wrap(p).as('ali')
+      ali = p
     })
 
     // EXPECTED on screen: the patient card with the MRN and "✓ Linked"; the patient at the top of the list.
@@ -117,7 +138,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
 
   it('S1-02 [B-01(2)] the patient IS the pharmacy customer — same name, phone and person, no second record', () => {
     relogin(OWNER)
-    cy.get('@ali').then((ali) => {
+    cy.then(() => {
       cy.request('/getUserCustomer').then((r) => {
         const list = (r.body && (r.body.collection || r.body.data || r.body.object)) || []
         const c = list.find((x) => Number(x.customerId || x.id) === Number(ali.customerId))
@@ -134,7 +155,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
   // ── S1-03 — one patient per phone ──────────────────────────────────────────────────────────────────
   it('S1-03 [M-02] the same phone again opens the existing patient; a second registration is refused with the MRN', () => {
     relogin(OWNER)
-    cy.get('@ali').then((ali) => {
+    cy.then(() => {
       // 1. On screen: type the known number (another spelling of it).
       cy.visit('/clinicDashboard')
       cy.get('#clinPatPhone').type('+92' + ali.phone.slice(1) + '{enter}')
@@ -181,7 +202,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.cnic).to.eq('42201-1234567-1')
     })
-    setClinicSetting('clinic.patient.cnicRequired', 'false')
+    cy.request({ method: 'POST', url: '/clinic/settings/reset?key=clinic.patient.cnicRequired' })
   })
 
   it('S1-06 with "family on one phone" on, reception adds a family member deliberately; each gets an MRN', () => {
@@ -215,7 +236,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
       expect(ps[0].mrn).to.not.eq(ps[1].mrn)
     })
     cy.screenshot('hms-s1/S1-06-family-member-added', { capture: 'viewport' })
-    setClinicSetting('clinic.patient.familyOnOnePhone', 'false')
+    cy.request({ method: 'POST', url: '/clinic/settings/reset?key=clinic.patient.familyOnOnePhone' })
   })
 
   // ── S1-07 — the ladder ─────────────────────────────────────────────────────────────────────────────
@@ -229,23 +250,36 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
   })
 
   // ── S1-08 — another clinic ─────────────────────────────────────────────────────────────────────────
-  it('S1-08 [M-14] another organisation cannot read the patient, by id or by phone', () => {
-    cy.get('@ali').then((ali) => {
-      relogin(OTHER_CLINIC)
+  it('S1-08 [M-14] another organisation — with its OWN clinic switched on — cannot read the patient, by id or by phone', () => {
+    // The other organisation gets the clinic too: otherwise the module switch refuses first and this case would
+    // pass even with org scoping broken (a gate that tests nothing). Its switch is reset at the end of the case.
+    cy.loginAsOperator()
+    cy.setEntitlement(OTHER_CLINIC, 'clinic', 'ACTIVE', 'hms s1 gate: cross-tenant control')
+    relogin(OTHER_CLINIC, 'pre')
+    cy.setCapability('clinic', true)
+    relogin(OTHER_CLINIC, 'on')
+    cy.then(() => {
       cy.request({ url: `/clinic/patients/${ali.id}`, failOnStatusCode: false }).then((r) => {
         expect(r.body && r.body.success, 'refused').to.not.eq(true)
+        // Refused BY SCOPING: "not found", exactly like an id that does not exist — not "not switched on".
+        expect(r.body.message, JSON.stringify(r.body)).to.match(/Patient not found/)
         expect(JSON.stringify(r.body || ''), 'no name leaks').to.not.contain(ali.name)
       })
-      lookup(ali.phone).then((r) => expect(JSON.stringify(r.body || ''), 'no name leaks').to.not.contain(ali.name))
+      // By phone: the number is simply unknown in this clinic — the answer is an empty list, not Ali.
+      lookup(ali.phone).then((r) => {
+        expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
+        expect(r.body.data.patients, 'another clinic sees nobody on this number').to.have.length(0)
+      })
     })
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' } })
   })
 
   // ── S1-09 — the switch is real (last: it turns the module off) ─────────────────────────────────────
   it('S1-09 with the clinic switched off, the menu hides it and the server refuses patient reads', () => {
-    cy.get('@ali').then((ali) => {
+    cy.then(() => {
       relogin(OWNER)
       cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' } })
-      relogin(OWNER)
+      relogin(OWNER, 'off')
       cy.visit('/businessDashboard')
       cy.get('li[data-capability="clinic"]').should('have.class', 'cap-off')
       cy.request({ url: `/clinic/patients/${ali.id}`, failOnStatusCode: false }).then((r) => {
@@ -255,7 +289,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
       cy.visit('/clinicDashboard')
       cy.get('#clinModuleOff').should('be.visible').and('contain', 'not switched on')
       cy.screenshot('hms-s1/S1-09-module-off', { capture: 'viewport' })
-      // put it back on so after() can retire this run's patients
+      // put it back on so after() (a fresh 'cleanup' token) can retire this run's patients
       cy.setCapability('clinic', true)
     })
   })

@@ -115,6 +115,13 @@ public class ClinicController {
         try {
             ResponseEntity<String> r = c.run();
             return ResponseEntity.status(r.getStatusCode()).contentType(MediaType.APPLICATION_JSON).body(r.getBody());
+        } catch (com.web.error.DownstreamNotFoundException e) {
+            // GatewayClient turns a 404 into this, not an HttpStatusCodeException. Without this branch another
+            // clinic's patient ("Patient not found", by design) reached the screen as "the clinic is not reachable"
+            // — found by hms-s1-patient-desk.cy.js S1-08. The service's own body and the 404 pass through.
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
+                    .body(e.getBody() != null && !e.getBody().isBlank() ? e.getBody()
+                            : "{\"success\":false,\"message\":\"Patient not found.\"}");
         } catch (HttpStatusCodeException e) {
             return ResponseEntity.status(e.getStatusCode()).contentType(MediaType.APPLICATION_JSON)
                     .body(e.getResponseBodyAsString());

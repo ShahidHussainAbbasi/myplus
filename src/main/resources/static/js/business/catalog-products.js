@@ -1630,7 +1630,7 @@
                 exportAll(lazyPdfButton({ orientation: 'landscape', pageSize: 'LEGAL', footer: true }))
             ].concat((typeof importButtons === 'function') ? importButtons('Product') : []),
 
-            ajax: function (d, callback) {
+            ajax: function (d, callback, settings) {
                 /*
                  * The adapter between DataTables' request shape and /getProductPage.
                  *
@@ -1656,8 +1656,19 @@
                     else params.category = global.productCategoryFilter;
                 }
 
+                /*
+                 * ⚠ Is the table that asked still alive? A page can still be in flight when the grid is destroyed -
+                 * rebuilt by loadProductTable() (reopening Products while it reloads after a save) or by the shared
+                 * loadDataTable() opening another section. Handing the reply to a destroyed table threw "Cannot read
+                 * properties of undefined (reading 'style')" inside DataTables (doc selling-price-per-purchase §8.1).
+                 * destroy() removes the table's settings from DataTable.settings, so that list is the truth; the
+                 * reply is dropped and a rebuilt grid asks for its own page.
+                 */
+                var alive = function () { return $.inArray(settings, $.fn.dataTable.settings) !== -1; };
+
                 /** Hand DataTables a drawn set. `total` is the FILTERED total it paginates by. */
                 var deliver = function (rows, total) {
+                    if (!alive()) return;
                     if (rows.length) userId = rows[0].userId;   // keeps the shared bookkeeping happy
 
                     callback({
@@ -1675,6 +1686,7 @@
                 };
 
                 var onFail = function (jqXHR, textStatus, errorThrown) {
+                    if (!alive()) return;
                     callback({ draw: d.draw, recordsTotal: 0, recordsFiltered: 0, data: [] });
                     handleAjaxFailure(jqXHR, errorThrown, 'loadProductTable');
                 };
