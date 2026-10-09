@@ -59,6 +59,8 @@ public class MarketplaceOfferService {
     private final MarketplacePolicyService policies;
     private final OfferProjectionService projection;
     private final SellerAccess access;
+    /** MKT-3a: which organisation is the MaxTheService warehouse. */
+    private final MarketplaceSettingsService settings;
     /** G-16 (R22.4): every marketplace action audited, filed under the seller it concerns. */
     private final MarketplaceAuditService audit;
 
@@ -90,9 +92,14 @@ public class MarketplaceOfferService {
                 .orElseThrow(() -> new ResourceNotFoundException("No such marketplace product."));
         MarketplaceProductSource source = matchedSource(org, product.getId());
 
-        StockSourceType stockSource = parseSource(req.stockSourceType() != null ? req.stockSourceType()
-                : (o.getStockSourceType() == null ? StockSourceType.MERCHANT.name() : o.getStockSourceType()));
-        rule(() -> PHASE.checkOffer(stockSource, Regulated.valueOf(product.getRegulatedStatus())));
+        // MKT-3a: the source follows WHO lists it. The warehouse's offers are PLATFORM stock; no one else's can be.
+        boolean warehouse = settings.warehouseOrg().filter(org::equals).isPresent();
+        StockSourceType asked = req.stockSourceType() == null ? null : parseSource(req.stockSourceType());
+        if (asked == StockSourceType.PLATFORM && !warehouse)
+            throw new ValidationException("Only the MaxTheService warehouse sells MaxTheService's own stock.");
+        StockSourceType stockSource = warehouse ? StockSourceType.PLATFORM : asked != null ? asked
+                : (o.getStockSourceType() == null ? StockSourceType.MERCHANT : parseSource(o.getStockSourceType()));
+        rule(() -> PHASE.checkOffer(stockSource, Regulated.valueOf(product.getRegulatedStatus()), warehouse));
 
         // ── terms (a partial edit keeps what it does not mention) ──
         if (req.marketplacePrice() != null) o.setMarketplacePrice(req.marketplacePrice().setScale(2, java.math.RoundingMode.HALF_UP));

@@ -1,10 +1,10 @@
 {
  "total": 87,
  "anyTest": 87,
- "unit": 66,
- "cypress": 62,
- "automated": 67,
- "manual": 87,
+ "unit": 68,
+ "cypress": 64,
+ "automated": 69,
+ "manual": 86,
  "gaps": [],
  "unknown": [],
  "rows": [
@@ -22,7 +22,6 @@
    "manual": [
     "M-1e2-01",
     "M-1e2-03",
-    "M-3-01",
     "M-X-03"
    ]
   },
@@ -34,9 +33,7 @@
     "PhaseGuardTest.sourcesByPhase"
    ],
    "cypress": [],
-   "manual": [
-    "M-3-01"
-   ]
+   "manual": []
   },
   {
    "req": "MKT-R1.3",
@@ -123,8 +120,25 @@
    "req": "MKT-R4.2",
    "phase": "3",
    "text": "PLATFORM: owner = MaxTheService, custodian/fulfiller = platform warehouse",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "OfferEligibilityTest.platformStock",
+    "PhaseGuardTest.platformStock",
+    "MarketplaceOfferServiceTest.platformStock",
+    "MarketplaceSellerServiceTest.platformNameRefused",
+    "MarketplaceSettingsServiceTest.warehouseWindow",
+    "PlatformWarehouseServiceTest.name",
+    "PlatformWarehouseServiceTest.refused",
+    "PlatformWarehouseServiceTest.changeOnlyWhenEmpty",
+    "PlatformWarehouseServiceTest.platformName"
+   ],
+   "cypress": [
+    "MKT-3a-01",
+    "MKT-3a-02",
+    "MKT-3a-03",
+    "MKT-3a-04",
+    "MKT-3a-05",
+    "MKT-3a-06"
+   ],
    "manual": [
     "M-3-01"
    ]
@@ -210,7 +224,8 @@
     "MarketplaceOfferServiceTest.oneOfferAndActiveSeller"
    ],
    "cypress": [
-    "MKT-1c-01"
+    "MKT-1c-01",
+    "MKT-3a-02"
    ],
    "manual": [
     "M-1c-01"
@@ -446,6 +461,7 @@
     "OfferEligibilityTest.deliveryArea",
     "OfferEligibilityTest.stock",
     "OfferEligibilityTest.priceLimits",
+    "OfferEligibilityTest.platformStock",
     "OfferRankingTest.filtersBeforeSort",
     "MarketplaceCatalogServiceTest.regulatedRefused",
     "MarketplaceCatalogServiceTest.noRegulatedLaundering",
@@ -643,7 +659,8 @@
     "MarketplaceOrderFlowTest.sweeperExpires",
     "MarketplaceOrderFlowTest.customerCancel",
     "MarketplaceOrderFlowTest.cancelAfterAccept",
-    "MarketplaceOrderFlowTest.cancelDuringProposal"
+    "MarketplaceOrderFlowTest.cancelDuringProposal",
+    "MarketplaceSettingsServiceTest.warehouseWindow"
    ],
    "cypress": [
     "MKT-1e-04",
@@ -651,7 +668,8 @@
     "MKT-2-06-01",
     "MKT-2-06-03",
     "MKT-2a-07",
-    "MKT-2b-06"
+    "MKT-2b-06",
+    "MKT-3a-04"
    ],
    "manual": [
     "M-1e-03",
@@ -659,7 +677,8 @@
     "M-1e2-04",
     "M-2a-07",
     "M-2b-06",
-    "M-2-06"
+    "M-2-06",
+    "M-3-01"
    ]
   },
   {
@@ -1455,8 +1474,14 @@
    "req": "MKT-R20.4",
    "phase": "3",
    "text": "Phase 3 platform stock: warehouse, central stock, pick/pack, transfer, platform delivery, central returns",
-   "unit": [],
-   "cypress": [],
+   "unit": [
+    "PhaseGuardTest.platformStock",
+    "PlatformWarehouseServiceTest.name"
+   ],
+   "cypress": [
+    "MKT-3a-01",
+    "MKT-3a-05"
+   ],
    "manual": [
     "M-3-01"
    ]
@@ -1522,6 +1547,7 @@
     "MarketplaceCustomerServiceTest.claim",
     "MarketplaceOfferServiceTest.partiesStamped",
     "MarketplaceOfferServiceTest.tenancy",
+    "MarketplaceOfferServiceTest.platformStock",
     "MarketplaceOrderFlowTest.validation",
     "MarketplaceOrderFlowTest.tracking",
     "MarketplaceOrderFlowTest.tenancyAndActiveSeller",
@@ -1530,9 +1556,12 @@
     "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
+    "MarketplaceSellerServiceTest.platformNameRefused",
     "MarketplaceSettingsServiceTest.operatorOnly",
     "MarketplaceSupportServiceTest.isolation",
     "MarketplaceSupportServiceTest.operatorOnly",
+    "PlatformWarehouseServiceTest.operatorOnly",
+    "PlatformWarehouseServiceTest.platformName",
     "SellerAccessTest.tiers",
     "SellerAccessTest.operatorIsRoleAdmin",
     "SellerAccessTest.orgFromToken",
@@ -1559,7 +1588,8 @@
     "MKT-2d-06",
     "MKT-2e-06",
     "MKT-2f-05",
-    "MKT-2f-07"
+    "MKT-2f-07",
+    "MKT-3a-03"
    ],
    "manual": [
     "M-0a-02",
@@ -1576,6 +1606,7 @@
     "M-2f-02",
     "M-2f-03",
     "M-2-06",
+    "M-3-01",
     "M-X-02"
    ]
   },

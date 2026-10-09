@@ -347,6 +347,23 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/accept-tiers", body, "Could not save the acceptance rules.");
     }
 
+    // ── MKT-3a: the MaxTheService warehouse ─────────────────────────────────────────────────────────────
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/warehouse", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> warehouse(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/warehouse", request, "Could not load the warehouse.");
+    }
+
+    /** Body: {organizationId}; null removes the warehouse. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/warehouse", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setWarehouse(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/warehouse", body, "Could not save the warehouse.");
+    }
+
     // ── MKT-2c: live routing — the limits, the sellers not being asked right now, the test switch ─────────
 
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

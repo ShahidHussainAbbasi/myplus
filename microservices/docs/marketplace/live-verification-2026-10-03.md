@@ -371,3 +371,28 @@ waiting order's deadline exactly as it was. No migration.
 |---|---|---|---|---|
 | 60 | review of the placeholder gate | the old MKT-2-06 case asserted a field (`acceptTermsSource`) that never existed, and returned early, passing, whenever the checkout failed: it could never have tested anything | a real gate; the placeholder file is deleted (its other cases had moved to 2a–2c) | gate MKT-2-06-01..07 |
 | 61 | walk M-2-06 (screen review) | "Acceptance rules saved. They apply to orders placed from now on." wrapped beside the buttons, half under them | the sentence has its own line under the buttons | walk M-2-06 |
+
+## 16. MKT-3a — the MaxTheService warehouse sells its own stock (run 2026-10-09)
+
+**Gate `mkt-3a-platform-stock.cy.js`: 6 / 6** on the final build. The warehouse is the seeded tenant
+`owner.warehouse@myplus.com`, named in the real form. Its offer is `PLATFORM` and reads "MaxTheService" / "Sold and
+shipped by MaxTheService"; its part's deadline is its creation plus 1440 minutes; delivered, its line stays
+`NOT_ELIGIBLE` while a shop's line delivered in the same run moves to `PENDING_RETURN_WINDOW` (checked in the database:
+the one `NOT_ELIGIBLE` delivered line is the warehouse's, and 87 lines were waiting, fewer than the run's batch of 200,
+so the run reached both). No migration.
+
+**Walk M-3-01: recorded**, 6 steps and 1 cleanup, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 62 | the trace, before any test | raising the phase guard to phase 3 to open `PLATFORM` would also have opened the multi-seller checkout | a separate flag, on when a warehouse is named, opens `PLATFORM` alone | unit `PhaseGuardTest.platformStock` |
+| 63 | review of gate 3a-03 | it passed because the seller had not matched the product, not because of the stock source | the seller edits its OWN offer and the exact refusal sentence is asserted | gate MKT-3a-03 |
+| 64 | review of gate 3a-05 | "not settled" could pass because the return window had not ended for any line | a shop's control line in the same run must move on; both lines' status asserted | gate MKT-3a-05 |
+| 65 | gate MKT-3a-01 (second run) | naming a shop with offers was refused for the wrong reason ("the warehouse has offers live") once a warehouse existed | the operator's choice is checked first, then the current warehouse | gate MKT-3a-01, unit `PlatformWarehouseServiceTest.changeOnlyWhenEmpty` |
+| 66 | walk M-3-01 (screen review) | the warehouse's Incoming list carried an order left by an interrupted walk run | rejected; each run's cleanup rejects its own order | walk M-3-01 cleanup |
+
+**Open (3a):**
+- Settlement of the warehouse's sales: "not settled" is built, pending Shahid's ruling (the alternative is settled at
+  0% commission).
+- The public offer's `availableQty` is the last stock sync and does not drop when a hold is taken (every seller,
+  pre-existing). The walk does not claim it does.

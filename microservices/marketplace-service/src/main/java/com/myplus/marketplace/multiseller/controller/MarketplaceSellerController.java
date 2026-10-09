@@ -12,6 +12,7 @@ import com.myplus.common.web.ApiResponse;
 import com.myplus.common.web.PageResponse;
 import com.myplus.marketplace.multiseller.dto.SellerDTOs;
 import com.myplus.marketplace.multiseller.service.MarketplaceSellerService;
+import com.myplus.marketplace.multiseller.service.PlatformWarehouseService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,6 +25,8 @@ import lombok.RequiredArgsConstructor;
  *   POST /mkt/seller/agreements                   accept both agreements + apply (owner/admin, capability ON)
  *   GET  /mkt/operator/sellers?status=&page=&size= the operator's queue (ROLE_ADMIN)
  *   POST /mkt/operator/sellers/{org}/decision     APPROVE | REJECT | SUSPEND | REINSTATE (ROLE_ADMIN)
+ *   GET  /mkt/operator/warehouse                  MKT-3a: the MaxTheService warehouse and who could be it (ROLE_ADMIN)
+ *   POST /mkt/operator/warehouse                  {organizationId}: name it; null removes it (ROLE_ADMIN)
  * </pre>
  */
 @RestController
@@ -32,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 public class MarketplaceSellerController {
 
     private final MarketplaceSellerService service;
+    private final PlatformWarehouseService warehouse;
 
     @GetMapping("/seller")
     public ApiResponse<SellerDTOs.SellerView> mySeller() {
@@ -54,5 +58,17 @@ public class MarketplaceSellerController {
             @RequestBody SellerDTOs.DecisionRequest body) {
         SellerDTOs.Account a = service.decide(organizationId, body);
         return ApiResponse.success(a, "Seller account is now " + a.status().toLowerCase().replace('_', ' ') + ".");
+    }
+
+    @GetMapping("/operator/warehouse")
+    public ApiResponse<SellerDTOs.Warehouse> warehouse() {
+        return ApiResponse.success(warehouse.view());
+    }
+
+    @PostMapping("/operator/warehouse")
+    public ApiResponse<SellerDTOs.Warehouse> setWarehouse(@RequestBody(required = false) SellerDTOs.WarehouseRequest body) {
+        SellerDTOs.Warehouse w = warehouse.set(body);
+        return ApiResponse.success(w, w.organizationId() == null ? "No warehouse: MaxTheService sells no stock of its own."
+                : w.organizationName() + " is the MaxTheService warehouse. Its offers read \"Sold and shipped by MaxTheService\".");
     }
 }

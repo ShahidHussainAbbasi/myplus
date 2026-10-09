@@ -53,6 +53,7 @@ class MarketplaceOfferServiceTest {
     @Mock OfferProjectionService projection;
     @Mock SellerAccess access;
     @Mock MarketplaceAuditService audit;                              // G-16: actions are audited
+    @Mock MarketplaceSettingsService settings;                        // MKT-3a: which org is the warehouse (none by default)
     @InjectMocks MarketplaceOfferService service;
 
     final Map<Long, MarketplaceOffer> offerRows = new HashMap<>();
@@ -256,5 +257,21 @@ class MarketplaceOfferServiceTest {
         service.queue("approved", 0, 10);
         verify(offers).findByApprovalStatusOrderByCreatedAtAsc(eq("PENDING_REVIEW"), any());
         verify(offers).findByApprovalStatusOrderByCreatedAtDesc(eq("APPROVED"), any());
+    }
+
+    @Test
+    @DisplayName("[MKT-R4.2] [MKT-R22.1] the warehouse's offers are PLATFORM stock (owner MaxTheService); no other seller can claim it")
+    void platformStock() {
+        org = SELLER_B;
+        assertThatThrownBy(() -> service.save(new OfferDTOs.SaveRequest(null, PHONE, "PLATFORM", null, null,
+                new BigDecimal("52000"), "Karachi", 4, WARRANTY, RETURN, null, null)))
+                .hasMessage("Only the MaxTheService warehouse sells MaxTheService's own stock.");
+        org = SELLER_A;
+        lenient().when(settings.warehouseOrg()).thenReturn(Optional.of(SELLER_A));
+        // even when it asks for MERCHANT: the source follows who lists it
+        OfferDTOs.Offer o = service.save(new OfferDTOs.SaveRequest(null, PHONE, "MERCHANT", null, null,
+                new BigDecimal("52000"), "Karachi", 4, WARRANTY, RETURN, null, null));
+        assertThat(offerRows.get(o.id()).getStockSourceType()).isEqualTo("PLATFORM");
+        assertThat(offerRows.get(o.id()).getStockOwnerOrganizationId()).isEqualTo(SELLER_A);
     }
 }

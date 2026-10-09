@@ -463,6 +463,14 @@
                 <button type="button" class="btn btn-default" id="mktTiersSave" th:text="#{ui.mktTiersSave}">Save rules</button>
                 <div id="mktTiersMsg" class="plat__hint" role="status" style="margin-top:6px"></div>
             </div>
+            <!-- MKT-3a: the MaxTheService warehouse. Its offers are MaxTheService's own stock: "Sold and shipped by MaxTheService". -->
+            <div class="plat__form" id="mktWarehouseForm">
+                <label for="mktWarehouseOrg" th:text="#{ui.mktWarehouseTitle}">MaxTheService warehouse</label>
+                <div class="plat__hint" th:text="#{ui.mktWarehouseHint}">The organisation whose stock MaxTheService sells as its own. Its offers read "Sold and shipped by MaxTheService"; it picks and packs each order within 24 hours. Only an approved seller with no offers of its own can be chosen.</div>
+                <select id="mktWarehouseOrg" class="form-control"></select>
+                <button type="button" class="btn btn-default" id="mktWarehouseSave" th:text="#{ui.mktOfferSave}">Save</button>
+                <div id="mktWarehouseMsg" class="plat__hint" role="status" style="margin-top:6px"></div>
+            </div>
             <!-- MKT-2a: one checkout from several sellers (a parent order, one part per seller). Off until switched on. -->
             <div class="plat__form" id="mktMultiSellerForm">
                 <label for="mktMultiSeller"><input type="checkbox" id="mktMultiSeller"/>

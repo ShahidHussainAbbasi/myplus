@@ -64,4 +64,21 @@ class PhaseGuardTest {
     void empty() {
         assertThatThrownBy(() -> phase1.checkCheckout(List.of())).hasMessage("Your basket is empty.");
     }
+
+    @Test
+    @DisplayName("[MKT-R4.2] [MKT-R20.4] platform stock is sellable once a warehouse is named, without lifting Phase 1's other limits")
+    void platformStock() {
+        assertThatThrownBy(() -> phase1.checkOffer(StockSourceType.PLATFORM, Regulated.NONE)).hasMessageContaining("platform");
+        assertThatCode(() -> phase1.checkOffer(StockSourceType.PLATFORM, Regulated.NONE, true)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> phase1.checkOffer(StockSourceType.SUPPLIER, Regulated.NONE, true)).hasMessageContaining("supplier");
+        assertThatThrownBy(() -> phase1.checkOffer(StockSourceType.PLATFORM, Regulated.PRESCRIPTION, true))
+                .extracting(e -> ((MarketplaceRuleException) e).code()).isEqualTo("REGULATED_BLOCKED");
+        // the multi-seller switch stays the operator's: the warehouse and a shop in one basket are two sellers
+        assertThatThrownBy(() -> phase1.checkCheckout(List.of(
+                new CheckoutLine(1, 101, StockSourceType.PLATFORM, Regulated.NONE),
+                new CheckoutLine(2, 102, StockSourceType.MERCHANT, Regulated.NONE)), false, true))
+                .hasMessage("Items from different sellers must be checked out separately.");
+        assertThatCode(() -> phase1.checkCheckout(List.of(new CheckoutLine(1, 101, StockSourceType.PLATFORM, Regulated.NONE)),
+                false, true)).doesNotThrowAnyException();
+    }
 }

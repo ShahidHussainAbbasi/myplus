@@ -3755,4 +3755,90 @@ on('MKT manual walk — recorded', () => {
         cy.get('#mktAcceptTiersForm').scrollIntoView({ offset: { top: -120, left: 0 } })
       })
   })
+
+  const WAREHOUSE = 'owner.warehouse@myplus.com'
+  const PS = {}
+  const warehouseBox = () => {
+    asOperator()
+    cy.visit(UI.operatorPage)
+    cy.get('#platMktPoliciesBtn').should('be.visible').click()
+    return cy.get('#mktWarehouseForm').scrollIntoView({ offset: { top: -120, left: 0 } }).should('be.visible')
+  }
+  const stockLeft = (label) => call(label, get(`${API.publicOffers(PS.product)}?city=Karachi`))
+    .then((r) => list(r.body).find((x) => x.offerId === PS.offer).availableQty)
+  let call
+
+  walk({ id: 'M-3-01', slice: 'MKT-3', title: 'Platform stock from the MaxTheService warehouse',
+    persona: 'admin@myplus.com (operator), a customer (incognito), owner.warehouse@myplus.com (the warehouse), owner.business@myplus.com',
+    reqs: ['MKT-R4.2', 'MKT-R20.4', 'MKT-R10.5', 'MKT-R22.1'],
+    pre: 'The seeded tenant "Central Warehouse" (owner.warehouse@) is an approved seller with no offers of its own, or is already the warehouse. It lists a phone at Rs 52,000, 20 in stock, delivering to Karachi (the MKT-1c steps).',
+    auto: ['MKT-3a-01', 'MKT-3a-02', 'MKT-3a-03', 'MKT-3a-04'] }, (step, call_, cleanup) => {
+    call = call_
+    cy.then(() => {
+      asOperator()
+      cy.orgOf(WAREHOUSE).then((o) => { PS.org = o.id })
+      cy.then(() => post('/platform/mkt/warehouse', { organizationId: PS.org }))
+      seedPolicies(`${run}p`).then((p) => cy.then(() => publishOffer(WAREHOUSE, { run: `${run}p`, price: 52000, qty: 20,
+        promiseHours: 24, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })))
+        .then((o) => { PS.offer = o.offerId; PS.product = o.mktProductId })
+    })
+    step('As admin@myplus.com: Platform → "Marketplace policies". Find "MaxTheService warehouse".',
+      'The list offers only approved sellers with no offers of their own; Shahzad Mobile Shop (it has offers) is not in it. Central Warehouse is chosen.', () => {
+        warehouseBox()
+        cy.get('#mktWarehouseOrg').should('have.value', String(PS.org))
+        cy.get('#mktWarehouseOrg option').should('not.contain', A_NAME)
+      })
+    step('Keep "Central Warehouse" chosen and press "Save".',
+      '"Central Warehouse is the MaxTheService warehouse. Its offers read "Sold and shipped by MaxTheService"."', () => {
+        cy.get('#mktWarehouseSave').click()
+        cy.get('#mktWarehouseMsg').should('contain', 'is the MaxTheService warehouse. Its offers read "Sold and shipped by MaxTheService".')
+        cy.get('#mktWarehouseForm').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Customer (incognito): open the phone\'s product page, city Karachi.',
+      'The warehouse\'s row names the seller "MaxTheService" (never "Central Warehouse") with "Sold and shipped by MaxTheService" under it. 20 in stock.', () => {
+        customer()
+        cy.visit(page(`product=${PS.product}&city=Karachi`))
+        cy.get(`${UI.offerRow}[data-offer-id="${PS.offer}"]`).should('contain', 'Sold and shipped by MaxTheService')
+          .and('not.contain', 'Central Warehouse')
+        stockLeft('GET the product\'s offers (availableQty before)').then((q) => expect(Number(q)).to.eq(20))
+      }, { alsoScreen: true })
+    step(`Choose the MaxTheService row, "Buy", Quantity 1, name "Ali", phone ${phone(71)}, address "1 Clifton". Press "Place order".`,
+      '"MaxTheService is packing your order" and "In stock at MaxTheService and set aside for you. Packed within 23:5x:xx." The unit is set aside (held) for this order.', () => {
+        buy(PS.offer, { ph: phone(71), qty: 1 })
+        cy.get('#mktCoTotal').should('have.text', 'Rs. 52,000')
+        cy.get('#mktCoPlace').click()
+        cy.get(UI.checkoutStatus).should('contain', 'MaxTheService is packing your order')
+        cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/).then((no) => { PS.order = no })
+        cy.get('#mktOrderDetail').invoke('text')
+          .should('match', /In stock at MaxTheService and set aside for you\. Packed within (24:00:00|23:[0-5]\d:[0-5]\d)\./)
+      }, { alsoScreen: true })
+    step('As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders".',
+      'The order waits for the warehouse to pick it, with about 24 hours on the clock (23:5x:xx), not the shops\' 5 minutes.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, PS.order).find(UI.countdown).invoke('text').should('match', /^(24:00:00|23:[0-5]\d:[0-5]\d)$/)
+        cy.contains(`${UI.incoming} tr`, PS.order).scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+    step('As owner.business@myplus.com, in the browser\'s developer tools: save one of its own offers as MaxTheService stock (stockSourceType PLATFORM).',
+      'Refused in words: "Only the MaxTheService warehouse sells MaxTheService\'s own stock." The offer stays the shop\'s own stock.', () => {
+        as(SELLER_A)
+        cy.then(() => get(`${API.myOffers}?size=1`)).then((r) => {
+          const mine = list(r.body)[0]
+          call('POST /mkt/saveOffer {id, stockSourceType: PLATFORM} as the shop',
+            post(API.saveOffer, { id: mine.id || mine.offerId, stockSourceType: 'PLATFORM' })).then((x) => {
+            expect(ok(x.body)).to.eq(false)
+            expect(msg(x.body)).to.contain('Only the MaxTheService warehouse sells MaxTheService\'s own stock.')
+          })
+        })
+      })
+    cleanup('As owner.warehouse@: Incoming → Reject the order with the reason "walk cleanup".',
+      'The row reads "Rejected"; the held unit is released.', () => {
+        as(WAREHOUSE)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, PS.order).find('input[placeholder*="cannot fulfil"]').type('walk cleanup')
+        cy.contains(`${UI.incoming} tr`, PS.order).find(UI.rejectBtn).click()
+        cy.contains(`${UI.incoming} tr`, PS.order).should('contain', 'Rejected')
+        cy.contains(`${UI.incoming} tr`, PS.order).scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+  })
 })

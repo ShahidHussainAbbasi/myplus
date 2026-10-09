@@ -42,6 +42,8 @@ public class MarketplacePlatformSetting {
     public static final String COD_REMIT_DAYS = "cod.remitDays";
     /** MKT-2d — "true" stops cash on delivery for a seller that has not paid in time. Default off. */
     public static final String COD_STOP_WHEN_OVERDUE = "cod.stopWhenOverdue";
+    /** MKT-3a — the organisation that is the MaxTheService warehouse (sells PLATFORM stock). Empty: none. */
+    public static final String WAREHOUSE_ORG = "platform.warehouseOrg";
 
     @Id
     @Column(name = "setting_key", nullable = false, length = 64)

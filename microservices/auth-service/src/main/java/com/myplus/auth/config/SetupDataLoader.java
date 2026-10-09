@@ -599,6 +599,16 @@ public class SetupDataLoader {
                     //
                     // ⚠ Used by the FP-5 gates and the Test Book's mixed-payment cases only. Expect it on FINANCE.
                     {"owner.payables@myplus.com",     "Payables",    "BUSINESS"},
+
+                    // ── MKT-3a: the MaxTheService warehouse. ───────────────────────────────────────────────
+                    //
+                    // The operator names ONE approved seller with no offers of its own as the warehouse; its offers
+                    // are then MaxTheService's own stock. No existing tenant qualifies without harm (each already
+                    // sells, or exists to be reconfigured), so the warehouse is its own seeded tenant, on the
+                    // existing inventory like any shop (R4.2: "an operator-owned org on the existing inventory").
+                    //
+                    // ⚠ Used by the MKT-3 gates and walk only. Expect it named as the warehouse.
+                    {"owner.warehouse@myplus.com",    "MaxTheService Warehouse", "BUSINESS"},
             };
             for (String[] o : moduleOwners) {
                 ensureOwner(o[0], o[1], o[2], ownerRole);
@@ -625,6 +635,9 @@ public class SetupDataLoader {
              */
             ensureCapability("owner.mobile@myplus.com", "org.cap.serialTracking");
             ensureCapability("owner.mobile@myplus.com", "org.cap.conditionGrading");
+            // MKT-3a: the warehouse stocks phones too; the IMEI of each unit is scanned when it is picked
+            ensureShape("owner.warehouse@myplus.com", "retail");
+            ensureCapability("owner.warehouse@myplus.com", "org.cap.serialTracking");
             log.info("Module OWNER test users ensured ({}, ROLE_OWNER, demo=false, own org): {}",
                     moduleOwners.length,
                     Arrays.stream(moduleOwners).map(o -> o[0]).collect(java.util.stream.Collectors.joining(", ")));

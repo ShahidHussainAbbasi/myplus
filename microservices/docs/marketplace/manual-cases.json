@@ -6937,37 +6937,115 @@
    "id": "M-3-01",
    "slice": "MKT-3",
    "title": "Platform stock from the MaxTheService warehouse",
-   "persona": "admin@myplus.com (operator) and Customer \"Ali\", phone 0300-1234567 (incognito window)",
-   "pre": "Phase 3.",
+   "persona": "admin@myplus.com (operator), a customer (incognito), owner.warehouse@myplus.com (the warehouse), owner.business@myplus.com",
+   "pre": "The seeded tenant \"Central Warehouse\" (owner.warehouse@) is an approved seller with no offers of its own, or is already the warehouse. It lists a phone at Rs 52,000, 20 in stock, delivering to Karachi (the MKT-1c steps).",
    "steps": [
     {
      "n": 1,
-     "do": "Warehouse: receive 100 education kits.",
-     "expect": "Stock 100."
+     "do": "As admin@myplus.com: Platform → \"Marketplace policies\". Find \"MaxTheService warehouse\".",
+     "expect": "The list offers only approved sellers with no offers of their own; Shahzad Mobile Shop (it has offers) is not in it. Central Warehouse is chosen.",
+     "shot": "shots/M-3-01/01.jpg"
     },
     {
      "n": 2,
-     "do": "Customer buys one.",
-     "expect": "The offer reads \"Sold and shipped by MaxTheService\"; stock 99; picking and packing happen in the warehouse screens."
+     "do": "Keep \"Central Warehouse\" chosen and press \"Save\".",
+     "expect": "\"Central Warehouse is the MaxTheService warehouse. Its offers read \"Sold and shipped by MaxTheService\".\"",
+     "shot": "shots/M-3-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Customer (incognito): open the phone's product page, city Karachi.",
+     "expect": "The warehouse's row names the seller \"MaxTheService\" (never \"Central Warehouse\") with \"Sold and shipped by MaxTheService\" under it. 20 in stock.",
+     "calls": [
+      {
+       "call": "GET the product's offers (availableQty before)",
+       "status": 200,
+       "body": {
+        "success": true,
+        "message": "Success",
+        "data": [
+         {
+          "offerId": 361,
+          "mktProductId": 272,
+          "sellerOrganizationId": 23,
+          "sellerName": "MaxTheService",
+          "price": 52000,
+          "availableQty": 20,
+          "promiseHours": 24,
+          "rating": null,
+          "warrantyMonths": 12,
+          "warrantyProvider": "Samsung Pakistan",
+          "warrantyStartsOn": "DELIVERY",
+          "warrantyCovers": null,
+          "warrantyExcludes": null,
+          "returnDays": 7,
+          "deliveryAreas": [
+           "Karachi"
+          ],
+          "lastSyncAt": "2026-10-10T05:51:34.058478",
+          "checkedSecondsAgo": 3,
+          "soldByMaxTheService": true
+         }
+        ],
+        "statusCode": 200
+       }
+      }
+     ],
+     "shot": "shots/M-3-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Choose the MaxTheService row, \"Buy\", Quantity 1, name \"Ali\", phone 030072248771, address \"1 Clifton\". Press \"Place order\".",
+     "expect": "\"MaxTheService is packing your order\" and \"In stock at MaxTheService and set aside for you. Packed within 23:5x:xx.\" The unit is set aside (held) for this order.",
+     "shot": "shots/M-3-01/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "As owner.warehouse@myplus.com: Sale → Marketplace → \"Incoming marketplace orders\".",
+     "expect": "The order waits for the warehouse to pick it, with about 24 hours on the clock (23:5x:xx), not the shops' 5 minutes.",
+     "shot": "shots/M-3-01/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "As owner.business@myplus.com, in the browser's developer tools: save one of its own offers as MaxTheService stock (stockSourceType PLATFORM).",
+     "expect": "Refused in words: \"Only the MaxTheService warehouse sells MaxTheService's own stock.\" The offer stays the shop's own stock.",
+     "calls": [
+      {
+       "call": "POST /mkt/saveOffer {id, stockSourceType: PLATFORM} as the shop",
+       "status": 200,
+       "body": {
+        "success": false,
+        "message": "Only the MaxTheService warehouse sells MaxTheService's own stock.",
+        "statusCode": 400
+       }
+      }
+     ]
     }
    ],
    "cleanup": [
     {
      "n": 1,
-     "do": "Return the kit.",
-     "expect": "Stock 100."
+     "do": "As owner.warehouse@: Incoming → Reject the order with the reason \"walk cleanup\".",
+     "expect": "The row reads \"Rejected\"; the held unit is released.",
+     "shot": "shots/M-3-01/c01.jpg"
     }
    ],
    "reqs": [
     "MKT-R4.2",
     "MKT-R20.4",
-    "MKT-R1.1",
-    "MKT-R1.2"
+    "MKT-R10.5",
+    "MKT-R22.1"
    ],
-   "evidence": "design",
-   "source": "Slice MKT-3.",
-   "warn": false,
-   "auto": []
+   "evidence": "recorded",
+   "auto": [
+    "MKT-3a-01",
+    "MKT-3a-02",
+    "MKT-3a-03",
+    "MKT-3a-04"
+   ],
+   "recordedAt": "2026-10-09T05:52:03.055Z",
+   "startedAt": "2026-10-09T05:51:21.226Z",
+   "result": "passed"
   },
   {
    "id": "M-4-01",

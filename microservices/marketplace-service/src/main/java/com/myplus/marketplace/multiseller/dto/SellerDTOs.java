@@ -35,4 +35,12 @@ public final class SellerDTOs {
     /** POST /mkt/operator/sellers/{org}/decision. decision: APPROVE | REJECT | SUSPEND | REINSTATE. */
     public record DecisionRequest(String decision, String reason, Integer version) {
     }
+
+    /** MKT-3a — the MaxTheService warehouse: who it is (null: none), and the approved sellers it could be. */
+    public record Warehouse(Long organizationId, String organizationName, long liveOffers, List<Account> candidates) {
+    }
+
+    /** MKT-3a — {organizationId}: name the warehouse; null clears it. */
+    public record WarehouseRequest(Long organizationId) {
+    }
 }

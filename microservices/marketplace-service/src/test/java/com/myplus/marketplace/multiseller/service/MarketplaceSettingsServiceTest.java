@@ -75,4 +75,18 @@ class MarketplaceSettingsServiceTest {
         assertThat(service.resolve("<script>")).isEqualTo(OfferSort.WARRANTY);
         assertThat(service.resolve("recommended")).isNull();
     }
+
+    @Test
+    @DisplayName("[MKT-R10.5] [MKT-R4.2] the warehouse has the PLATFORM hold (24 hours) to pick and pack; every other seller its own window")
+    void warehouseWindow() {
+        MarketplacePlatformSetting w = new MarketplacePlatformSetting();
+        w.setSettingValue("42");
+        when(rows.findById(MarketplacePlatformSetting.WAREHOUSE_ORG)).thenReturn(Optional.of(w));
+        assertThat(service.acceptMinutesFor(42L, new java.math.BigDecimal("52000"))).isEqualTo(24 * 60);
+        assertThat(service.acceptMinutesFor(7L, new java.math.BigDecimal("52000"))).isEqualTo(5);
+        assertThat(service.platformStock()).isTrue();
+        w.setSettingValue("");                                       // removed: no warehouse, no platform stock
+        assertThat(service.warehouseOrg()).isEmpty();
+        assertThat(service.platformStock()).isFalse();
+    }
 }

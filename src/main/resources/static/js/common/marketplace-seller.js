@@ -308,9 +308,11 @@
 	};
 	var incomingTimer = null, tickTimer = null;
 
+	/** m:ss, or h:mm:ss from an hour up (MKT-3a: the warehouse has 24 hours to pick and pack). */
 	function mm(sec) {
 		sec = Math.max(0, Math.floor(sec));
-		return Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2);
+		var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = ('0' + (sec % 60)).slice(-2);
+		return h ? h + ':' + ('0' + m).slice(-2) + ':' + s2 : m + ':' + s2;
 	}
 
 	/**

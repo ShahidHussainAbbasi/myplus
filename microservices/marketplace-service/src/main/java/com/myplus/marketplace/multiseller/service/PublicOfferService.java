@@ -121,7 +121,8 @@ public class PublicOfferService {
         EligibilityContext base = EligibilityContext.phase1(city == null || city.isBlank() ? null : city.trim(),
                 qty == null || qty.signum() <= 0 ? BigDecimal.ONE : qty, Instant.now());
         EligibilityContext ctx = new EligibilityContext(base.city(), base.quantity(), product.getPriceFloor(),
-                product.getPriceCeiling(), base.enabledPhase(), base.blockRegulated(), base.staleAfter(), base.now());
+                product.getPriceCeiling(), base.enabledPhase(), base.blockRegulated(), base.staleAfter(), base.now(),
+                settings.platformStock());                                  // MKT-3a: the warehouse's offers
         return OfferRanker.rank(rows.stream().map(p -> candidate(p, performance.acceptanceRate(p.getSellerOrganizationId()))).toList(),
                 sort, ctx);
     }
@@ -161,6 +162,7 @@ public class PublicOfferService {
                 p.getWarrantyMonths(), p.getWarrantyProvider(), p.getWarrantyStarts(), p.getWarrantyCovers(),
                 p.getWarrantyExcludes(), p.getReturnDays(), List.copyOf(areas(p.getDeliveryAreas())), p.getLastSyncAt(),
                 p.getLastSyncAt() == null ? null
-                        : Math.max(0, java.time.Duration.between(p.getLastSyncAt(), java.time.LocalDateTime.now()).getSeconds()));
+                        : Math.max(0, java.time.Duration.between(p.getLastSyncAt(), java.time.LocalDateTime.now()).getSeconds()),
+                StockSourceType.PLATFORM.name().equals(p.getStockSourceType()));                // MKT-3a
     }
 }

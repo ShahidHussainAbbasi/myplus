@@ -163,7 +163,7 @@ public class MarketplaceCheckoutService {
         boolean multiSeller = settings.multiSeller();
         rule(() -> MarketplaceCatalogService.PHASE.checkCheckout(items.stream().map(i -> new PhaseGuard.CheckoutLine(
                 i.offer().getId(), i.offer().getSellerOrganizationId(), StockSourceType.valueOf(i.offer().getStockSourceType()),
-                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller));
+                Regulated.valueOf(i.product().getRegulatedStatus()))).toList(), multiSeller, settings.platformStock()));
 
         // one part per seller, in the order the shopper added them
         Map<Long, List<Item>> bySeller = new LinkedHashMap<>();
@@ -235,7 +235,8 @@ public class MarketplaceCheckoutService {
                     move(so, SellerOrder.OFFERED);
                     so.setHeld(true);
                     // MKT-2-06: each seller's window follows the value of ITS part, not the whole basket
-                    so.setAcceptBy(now.plusMinutes(settings.acceptMinutesFor(partTotal(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))));
+                    so.setAcceptBy(now.plusMinutes(settings.acceptMinutesFor(so.getSellerOrganizationId(),
+                            partTotal(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))));
                 }
             }
             fresh.forEach(sellerOrders::save);
@@ -276,6 +277,7 @@ public class MarketplaceCheckoutService {
     }
 
     String sellerName(Long org) {
+        if (settings.warehouseOrg().filter(org::equals).isPresent()) return PlatformWarehouseService.NAME;   // MKT-3a
         return sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).filter(n -> n != null && !n.isBlank())
                 .orElse("A seller");
     }
@@ -477,7 +479,7 @@ public class MarketplaceCheckoutService {
             LocalDateTime from = so.getDecidedAt() != null && SellerOrder.ACCEPTED.name().equals(so.getAcceptanceStatus())
                     ? so.getDecidedAt() : so.getCreatedAt();
             out.add(new MarketplaceOrderDTOs.PartView(so.getId(), so.getVersion(), so.getSellerOrganizationId(),
-                    sellerAccounts.findByOrganizationId(so.getSellerOrganizationId()).map(a -> a.getDisplayName()).orElse(null),
+                    sellerName(so.getSellerOrganizationId()),
                     so.getAcceptanceStatus(), secondsLeft(so), subtotal, BigDecimal.ZERO, subtotal,
                     from == null || promise == 0 ? null : from.plusHours(promise), so.getDeliveredAt(),
                     ls.stream().map(MarketplaceCheckoutService::lineView).toList(), shortageView(shortBy.get(so.getId()), subtotal)));

@@ -152,6 +152,18 @@ public class MarketplaceSettingsService {
         return acceptTiers().minutesFor(partValue, acceptMinutes());
     }
 
+    /**
+     * MKT-3a — the window for one seller's part. The MaxTheService warehouse does not decide whether to sell its own
+     * stock: it has until the PLATFORM hold ends to pick and pack it (R10.5 "platform: immediate / until pick"), where
+     * accepting is recording the pick, with the serials scanned. Every other seller: {@link #acceptMinutesFor(java.math.BigDecimal)}.
+     */
+    public int acceptMinutesFor(Long sellerOrg, java.math.BigDecimal partValue) {
+        if (sellerOrg != null && warehouseOrg().filter(sellerOrg::equals).isPresent())
+            return (int) com.myplus.marketplace.multiseller.domain.AcceptanceTerms.defaults()
+                    .forSource(com.myplus.marketplace.multiseller.domain.StockSourceType.PLATFORM).holdFor().toMinutes();
+        return acceptMinutesFor(partValue);
+    }
+
     @Transactional(readOnly = true)
     public com.myplus.marketplace.multiseller.domain.AcceptanceByValue operatorAcceptTiers() {
         access.assertOperator();
@@ -370,6 +382,28 @@ public class MarketplaceSettingsService {
         Long org = access.org();
         save(MarketplacePlatformSetting.SETTLEMENT_BOOKS_ORG, String.valueOf(org));
         return new Books(org, access.userId());
+    }
+
+    /** MKT-3a — the MaxTheService warehouse's organisation; empty (no platform stock) when none or unreadable. */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Long> warehouseOrg() {
+        return settings.findById(MarketplacePlatformSetting.WAREHOUSE_ORG)
+                .flatMap(r -> {
+                    try { return java.util.Optional.of(Long.parseLong(r.getSettingValue().trim())); }
+                    catch (RuntimeException e) { return java.util.Optional.empty(); }
+                });
+    }
+
+    /** PLATFORM stock is sellable: a warehouse is named. */
+    @Transactional(readOnly = true)
+    public boolean platformStock() {
+        return warehouseOrg().isPresent();
+    }
+
+    /** MKT-3a — written by {@link PlatformWarehouseService} only, after its checks; null clears. */
+    void saveWarehouseOrg(Long org) {
+        access.assertOperator();
+        save(MarketplacePlatformSetting.WAREHOUSE_ORG, org == null ? "" : String.valueOf(org));
     }
 
     private void save(String key, String value) {

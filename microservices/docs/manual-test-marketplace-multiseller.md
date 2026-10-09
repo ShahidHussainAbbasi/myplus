@@ -1483,16 +1483,21 @@
 
 ### M-3-01 Platform stock from the MaxTheService warehouse
 
-**Who:** admin@myplus.com (operator) and Customer "Ali", phone 0300-1234567 (incognito window)  
-**Before:** Phase 3.  
-**Covers:** MKT-R4.2, MKT-R20.4, MKT-R1.1, MKT-R1.2  
-**Evidence:** written from the design — not built yet
+**Who:** admin@myplus.com (operator), a customer (incognito), owner.warehouse@myplus.com (the warehouse), owner.business@myplus.com  
+**Before:** The seeded tenant "Central Warehouse" (owner.warehouse@) is an approved seller with no offers of its own, or is already the warehouse. It lists a phone at Rs 52,000, 20 in stock, delivering to Karachi (the MKT-1c steps).  
+**Covers:** MKT-R4.2, MKT-R20.4, MKT-R10.5, MKT-R22.1  
+**Evidence:** recorded 2026-10-09 05:52 UTC  
+**Automated by:** MKT-3a-01, MKT-3a-02, MKT-3a-03, MKT-3a-04
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Warehouse: receive 100 education kits. | Stock 100. |
-| 2 | Customer buys one. | The offer reads "Sold and shipped by MaxTheService"; stock 99; picking and packing happen in the warehouse screens. |
-| C1 | Return the kit. | Stock 100. |
+| 1 | As admin@myplus.com: Platform → "Marketplace policies". Find "MaxTheService warehouse". | The list offers only approved sellers with no offers of their own; Shahzad Mobile Shop (it has offers) is not in it. Central Warehouse is chosen. |
+| 2 | Keep "Central Warehouse" chosen and press "Save". | "Central Warehouse is the MaxTheService warehouse. Its offers read "Sold and shipped by MaxTheService"." |
+| 3 | Customer (incognito): open the phone's product page, city Karachi. | The warehouse's row names the seller "MaxTheService" (never "Central Warehouse") with "Sold and shipped by MaxTheService" under it. 20 in stock. |
+| 4 | Choose the MaxTheService row, "Buy", Quantity 1, name "Ali", phone 030072248771, address "1 Clifton". Press "Place order". | "MaxTheService is packing your order" and "In stock at MaxTheService and set aside for you. Packed within 23:5x:xx." The unit is set aside (held) for this order. |
+| 5 | As owner.warehouse@myplus.com: Sale → Marketplace → "Incoming marketplace orders". | The order waits for the warehouse to pick it, with about 24 hours on the clock (23:5x:xx), not the shops' 5 minutes. |
+| 6 | As owner.business@myplus.com, in the browser's developer tools: save one of its own offers as MaxTheService stock (stockSourceType PLATFORM). | Refused in words: "Only the MaxTheService warehouse sells MaxTheService's own stock." The offer stays the shop's own stock. |
+| C1 | As owner.warehouse@: Incoming → Reject the order with the reason "walk cleanup". | The row reads "Rejected"; the held unit is released. |
 
 
 ## MKT-4

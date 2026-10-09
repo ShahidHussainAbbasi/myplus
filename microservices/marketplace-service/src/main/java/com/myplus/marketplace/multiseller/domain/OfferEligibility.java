@@ -25,7 +25,7 @@ public final class OfferEligibility {
             return Optional.of("This offer is not available. Please choose another offer.");
         if (!c.sellerActive())
             return Optional.of("This seller is not taking orders right now. Please choose another offer.");
-        if (c.source().launchPhase() > ctx.enabledPhase())
+        if (!c.source().enabledIn(ctx.enabledPhase(), ctx.platformStock()))
             return Optional.of("This offer is not available yet. Please choose another offer.");
         if (ctx.blockRegulated() && c.regulated() != MarketplaceStatus.Regulated.NONE)
             return Optional.of("This product cannot be ordered on the marketplace.");

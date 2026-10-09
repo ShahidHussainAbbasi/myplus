@@ -216,4 +216,12 @@ class MarketplaceSellerServiceTest {
         assertThat(v.requiredVersion()).isEqualTo("v1");
         verify(accounts).findByOrganizationId(eq(ORG));
     }
+
+    @Test
+    @DisplayName("[MKT-R4.2] [MKT-R22.1] a shop cannot apply under MaxTheService's own name: customers would read it as platform stock")
+    void platformNameRefused() {
+        assertThatThrownBy(() -> service.accept(new SellerDTOs.AcceptRequest("v1", "Max The Service")))
+                .isInstanceOf(com.myplus.common.web.exception.ValidationException.class)
+                .hasMessage("That is MaxTheService's own name. Enter the name of your business.");
+    }
 }

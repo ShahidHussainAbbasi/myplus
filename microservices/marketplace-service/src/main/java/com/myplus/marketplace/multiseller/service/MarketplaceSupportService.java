@@ -524,6 +524,7 @@ public class MarketplaceSupportService {
     }
 
     private String sellerName(Long org) {
+        if (org != null && settings.warehouseOrg().filter(org::equals).isPresent()) return PlatformWarehouseService.NAME;   // MKT-3a
         return sellerAccounts.findByOrganizationId(org).map(a -> a.getDisplayName()).orElse(null);
     }
 

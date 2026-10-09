@@ -440,6 +440,28 @@
 		opsPost('platform/mkt/acceptTiers', { tiers: tiers }, $(this), $('#mktTiersMsg'), function (res) { showTiers(data(res)); });
 	});
 
+	/** MKT-3a — the MaxTheService warehouse: none, or one approved seller with no offers of its own. */
+	function showWarehouse(v) {
+		v = v || {};
+		var $s = $('#mktWarehouseOrg').empty();
+		$s.append($('<option value=""></option>').text(tr('ui.js.mktWarehouseNone', 'None: MaxTheService sells no stock of its own')));
+		(v.candidates || []).forEach(function (a) {
+			$s.append($('<option></option>').val(a.organizationId).text(a.displayName + ' (#' + a.organizationId + ')'));
+		});
+		$s.val(v.organizationId == null ? '' : String(v.organizationId));
+	}
+	function loadWarehouse() {
+		$.ajax({ url: ctx() + 'platform/mkt/warehouse', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $('#mktWarehouseMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			showWarehouse(data(res));
+		});
+	}
+	$(document).on('click', '#mktWarehouseSave', function () {
+		var v = $('#mktWarehouseOrg').val();
+		opsPost('platform/mkt/warehouse', { organizationId: v === '' ? null : Number(v) }, $(this), $('#mktWarehouseMsg'),
+			function (res) { showWarehouse(data(res)); });
+	});
+
 	/** MKT-2c — how sellers are asked for stock: the limits in force, who is not being asked, and the test switch. */
 	function loadRouting() {
 		$.ajax({ url: ctx() + 'platform/mkt/routing', dataType: 'json' }).done(function (res) {
@@ -1084,7 +1106,7 @@
 	}
 
 	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
-	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); loadAcceptTiers(); loadRouting(); }); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); loadAcceptTiers(); loadWarehouse(); loadRouting(); }); });
 	$(document).on('click', '#platMktOrdersBtn', function () { openPanel('#platMktOrders', loadOrders); });
 	$(document).on('click', '#platMktOrderStatus button', function () {
 		$('#platMktOrderStatus button').removeClass('is-on');

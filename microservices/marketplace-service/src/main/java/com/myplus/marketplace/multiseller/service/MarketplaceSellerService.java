@@ -86,6 +86,8 @@ public class MarketplaceSellerService {
         boolean applying = account == null || SellerAccount.REJECTED.name().equals(account.getStatus());
         if (applying && (name == null || name.length() < 2 || name.length() > 120))
             throw new ValidationException("Enter the name customers will see for your business (2 to 120 characters).");
+        if (applying && PlatformWarehouseService.isPlatformName(name))      // MKT-3a: customers would read it as MaxTheService's own stock
+            throw new ValidationException("That is MaxTheService's own name. Enter the name of your business.");
 
         LocalDateTime now = LocalDateTime.now();
         MarketplaceAgreementAcceptance first = null;

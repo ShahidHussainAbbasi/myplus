@@ -27,4 +27,13 @@ public enum StockSourceType {
     public int launchPhase() {
         return launchPhase;
     }
+
+    /**
+     * MKT-3a — sellable at {@code enabledPhase}? PLATFORM is sellable earlier once the operator has named the
+     * MaxTheService warehouse ({@code platformStock}): only that organisation can list PLATFORM stock, so the switch is
+     * the warehouse itself, not a phase number (raising the phase would also lift Phase 1's one-seller checkout).
+     */
+    public boolean enabledIn(int enabledPhase, boolean platformStock) {
+        return launchPhase <= enabledPhase || (this == PLATFORM && platformStock);
+    }
 }

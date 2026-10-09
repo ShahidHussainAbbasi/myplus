@@ -110,4 +110,18 @@ class OfferEligibilityTest {
                 true, Duration.ofMinutes(30), NOW);
         assertThat(OfferEligibility.isEligible(ok(), ceiling)).isFalse();
     }
+
+    @Test
+    @DisplayName("[MKT-R4.2] [MKT-R7.6] a PLATFORM offer is shown only while a warehouse is named; the other guardrails still apply")
+    void platformStock() {
+        OfferCandidate own = base(Approval.APPROVED, true, StockSourceType.PLATFORM, Regulated.NONE, Set.of("Karachi"), "3",
+                NOW.minusSeconds(30));
+        EligibilityContext p1 = ctx("1");
+        EligibilityContext on = new EligibilityContext(p1.city(), p1.quantity(), null, null, p1.enabledPhase(),
+                p1.blockRegulated(), p1.staleAfter(), p1.now(), true);
+        assertThat(OfferEligibility.refusal(own, p1)).contains("This offer is not available yet. Please choose another offer.");
+        assertThat(OfferEligibility.refusal(own, on)).isEmpty();
+        assertThat(OfferEligibility.refusal(base(Approval.APPROVED, true, StockSourceType.PLATFORM, Regulated.NONE,
+                Set.of("Lahore"), "3", NOW.minusSeconds(30)), on)).contains("This seller does not deliver to karachi.");
+    }
 }

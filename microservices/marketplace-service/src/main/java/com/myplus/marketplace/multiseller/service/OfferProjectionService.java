@@ -77,7 +77,9 @@ public class OfferProjectionService {
         p.setOfferId(offer.getId());
         p.setMktProductId(offer.getMktProductId());
         p.setSellerOrganizationId(offer.getSellerOrganizationId());
-        p.setSellerDisplayName(seller == null ? "" : seller.getDisplayName());
+        // MKT-3a: platform stock is sold and shipped by MaxTheService, whatever the warehouse organisation is called
+        p.setSellerDisplayName(com.myplus.marketplace.multiseller.domain.StockSourceType.PLATFORM.name().equals(offer.getStockSourceType())
+                ? PlatformWarehouseService.NAME : seller == null ? "" : seller.getDisplayName());
         p.setStockSourceType(offer.getStockSourceType());
         p.setRegulatedStatus(product == null ? Regulated.NONE.name() : product.getRegulatedStatus());
         p.setPrice(offer.getMarketplacePrice());

@@ -270,7 +270,10 @@
 		radio.value = o.offerId;
 		radio.addEventListener('change', function () { chosen = o; syncBuy(); });
 		label.appendChild(radio);
-		label.appendChild(el('span', 'o-seller', o.sellerName));
+		var who = el('span', 'o-seller', o.sellerName);
+		// MKT-3a (R4.2): MaxTheService's own stock, from its warehouse; under the name, so the row keeps its grid
+		if (o.soldByMaxTheService) who.appendChild(el('small', 'o-platform', tr('ui.js.mktSoldByUs', 'Sold and shipped by MaxTheService')));
+		label.appendChild(who);
 		label.appendChild(el('span', 'o-price', money(o.price)));
 		var facts = el('span', 'o-facts');
 		facts.appendChild(el('span', null, delivery(o.promiseHours)));
@@ -640,13 +643,16 @@
 			detail.textContent = o.cancelReason || '';
 		} else {
 			st.className = 'state wait';
-			st.textContent = tr('ui.js.mktWaitingFor', 'Waiting for {0} to confirm', seller);
+			// MKT-3a: MaxTheService's own stock is not waiting for anyone's yes: it is set aside and being packed
+			var own = (o.lines || []).length && (o.lines || []).every(function (l) { return l.stockSourceType === 'PLATFORM'; });
+			st.textContent = own ? tr('ui.js.mktPacking', 'MaxTheService is packing your order')
+				: tr('ui.js.mktWaitingFor', 'Waiting for {0} to confirm', seller);
 			var deadline = o.secondsToAccept === null || o.secondsToAccept === undefined ? null : Date.now() + o.secondsToAccept * 1000;
 			var paint = function () {
 				var left = deadline === null ? null : Math.max(0, Math.round((deadline - Date.now()) / 1000));
 				detail.textContent = left === null ? tr('ui.js.mktStockHeld', 'Your stock is held while the seller answers.')
-					: tr('ui.js.mktHasTime', '{0} has {1} to confirm. Your stock is held.', seller,
-						Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2));
+					: own ? tr('ui.js.mktPackWithin', 'In stock at MaxTheService and set aside for you. Packed within {0}.', mmss(left))
+					: tr('ui.js.mktHasTime', '{0} has {1} to confirm. Your stock is held.', seller, mmss(left));
 			};
 			paint();
 			countdownTimer = setInterval(paint, 1000);
@@ -722,7 +728,7 @@
 				var left = c.deadline === null ? null : Math.max(0, Math.round((c.deadline - Date.now()) / 1000));
 				if (c.paint) return c.paint(left);
 				c.node.textContent = left === null ? tr('ui.js.mktPartWaiting', 'Waiting for confirmation')
-					: tr('ui.js.mktPartLeft', 'Waiting for confirmation · {0} left', Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2));
+					: tr('ui.js.mktPartLeft', 'Waiting for confirmation · {0} left', mmss(left));
 			});
 		};
 		paint();
@@ -730,7 +736,12 @@
 		if (clocks.length || moving) pollTimer = setTimeout(function () { openOrder(o.orderNo); }, 10000);   // the answers, when they come
 	}
 
-	function mmss(left) { return Math.floor(left / 60) + ':' + ('0' + (left % 60)).slice(-2); }
+	/** m:ss, or h:mm:ss from an hour up (MKT-3a: MaxTheService packs within 24 hours). */
+	function mmss(left) {
+		left = Math.max(0, Math.floor(left));
+		var h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), sec = ('0' + (left % 60)).slice(-2);
+		return h ? h + ':' + ('0' + m).slice(-2) + ':' + sec : m + ':' + sec;
+	}
 
 	/**
 	 * MKT-2b — what became of a part its seller could not fulfil (R11.1–R11.3), for the order page and My orders.
