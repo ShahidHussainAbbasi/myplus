@@ -41,6 +41,6 @@ class PaymentClientRefTest {
         assertEquals("PV-000009", out.getReceiptNo());
         verify(repo, never()).save(any());
         verify(numbers, never()).next(any(), anyString());
-        verify(posting, never()).postPayment(anyString(), any(BigDecimal.class), any());
+        verify(posting, never()).postPayment(anyString(), any(BigDecimal.class), any(), any());
     }
 }

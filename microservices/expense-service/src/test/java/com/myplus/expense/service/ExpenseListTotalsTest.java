@@ -34,7 +34,7 @@ class ExpenseListTotalsTest {
         when(access.visibleUserId()).thenReturn(visibleUserId);
         return new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), mock(ExpenseOutboxService.class),
                 mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
-                mock(ExpenseBillPaymentRepo.class), settings30());
+                mock(ExpenseBillPaymentRepo.class), settings30(), mock(ReceiptService.class));
     }
 
     private static ExpenseVoucherRepo.Totals totals(long count, BigDecimal total) {
@@ -83,7 +83,7 @@ class ExpenseListTotalsTest {
     @DisplayName("a page is at most 200 rows whatever is asked, and page/size arrive as asked within that")
     void pageSizeIsBounded() {
         ArgumentCaptor<Pageable> p = ArgumentCaptor.forClass(Pageable.class);
-        when(repo.search(eq(7L), isNull(), isNull(), isNull(), isNull(), p.capture()))
+        when(repo.search(eq(7L), isNull(), isNull(), isNull(), isNull(), isNull(), p.capture()))
                 .thenReturn(new PageImpl<ExpenseVoucher>(List.of()));
         ExpenseVoucherService s = service(null);
 

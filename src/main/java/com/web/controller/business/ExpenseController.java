@@ -77,6 +77,47 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
     }
 
+    // ── EX-5 — receipts ──────────────────────────────────────────────────────────────────────────────
+
+    @PostMapping(value = "/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> uploadReceipt(@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+                                                @RequestParam(value = "voucherId", required = false) Long voucherId) {
+        StringBuilder q = new StringBuilder("/receipts?x=1");
+        if (voucherId != null) q.append("&voucherId=").append(voucherId);
+        return call(() -> {
+            try {
+                return expense.postFile(q.toString(), file.getBytes(), file.getOriginalFilename());
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException("The receipt could not be read", e);
+            }
+        });
+    }
+
+    @GetMapping(value = "/vouchers/{id}/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> receipts(@PathVariable Long id) {
+        return call(() -> expense.get("/vouchers/" + id + "/receipts"));
+    }
+
+    /** The file, with the type, disposition and no-cache headers expense-service set (passed through by strip()). */
+    @GetMapping("/receipts/{id}/content")
+    public ResponseEntity<byte[]> receiptContent(@PathVariable Long id) {
+        try {
+            return expense.getBytes("/receipts/" + id + "/content");
+        } catch (com.web.error.DownstreamNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (org.springframework.web.client.HttpStatusCodeException e) {
+            return ResponseEntity.status(e.getStatusCode()).build();
+        }
+    }
+
+    @DeleteMapping(value = "/receipts/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> removeReceipt(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.DELETE, "/receipts/" + id, null));
+    }
+
     /** EX-2b — what expenses can be tagged to on this dashboard (education | agriculture). */
     @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
@@ -89,12 +130,13 @@ public class ExpenseController {
     @GetMapping(value = "/vouchers", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> list(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-                                       @RequestParam(required = false) String status,
+                                       @RequestParam(required = false) String status, @RequestParam(required = false) String claim,
                                        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
         StringBuilder q = new StringBuilder("/vouchers?page=").append(page).append("&size=").append(size);
         param(q, "from", from);
         param(q, "to", to);
         param(q, "status", status);
+        param(q, "claim", claim);
         return call(() -> expense.get(q.toString()));
     }
 
@@ -135,6 +177,24 @@ public class ExpenseController {
     @ResponseBody
     public ResponseEntity<String> postAgain(@PathVariable Long id) {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
+    }
+
+    // ── EX-6 — claims: money a member paid from their own pocket. Who may decide is the service's rule. ────────
+
+    @PostMapping(value = "/claims", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> submitClaim(@RequestBody Map<String, Object> body,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/claims?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    @PostMapping(value = "/claims/{id}/{action:approve|reject|withdraw}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> decideClaim(@PathVariable Long id, @PathVariable String action,
+                                              @RequestBody(required = false) Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/claims/" + id + "/" + action, body));
     }
 
     /** FP-3 — the suppliers a bill can be owed to (business-service's list, read through expense-service). */

@@ -447,16 +447,39 @@ public class PostingService {
      *  transaction, so the payment and its journal are atomic — a failure here rolls the payment back too. */
     @Transactional
     public void postPayment(String direction, BigDecimal amount, String method) {
+        postPayment(direction, amount, method, null);
+    }
+
+    /** EX-7a — the party decides what a disbursement settles: a supplier (2000) or a member's claim (2300). */
+    @Transactional
+    public void postPayment(String direction, BigDecimal amount, String method, com.myplus.finance.entity.PartyType party) {
         BigDecimal amt = nz(amount);
         if (amt.signum() <= 0) return;
         glService.ensureDefaults();
-        List<JournalLineDTO> lines = paymentLines(direction, amt, method);
+        List<JournalLineDTO> lines = paymentLines(direction, amt, method, party);
         String source = "DISBURSEMENT".equalsIgnoreCase(direction) ? "PAYMENT" : "RECEIPT";
         post(source, TenantClock.today(), null, lines);
     }
 
     /** The journal a recorded payment posts — static so the posting rule is unit-tested without a ledger. */
     static List<JournalLineDTO> paymentLines(String direction, BigDecimal amt, String method) {
+        return paymentLines(direction, amt, method, null);
+    }
+
+    /** EX-7a — 2300 Employee Reimbursements Payable: what the business owes members for approved claims. */
+    static final String EMPLOYEE_PAYABLE = "2300";
+
+    /**
+     * EX-7a (fixes F6) — a disbursement used to debit 2000 whoever it paid. Paying a member back for an approved claim
+     * clears 2300 instead, and AP is not touched. Money coming back FROM a member (an unused advance) is EX-7b and is
+     * refused here until then, rather than silently credited to customers' 1100.
+     */
+    static List<JournalLineDTO> paymentLines(String direction, BigDecimal amt, String method, com.myplus.finance.entity.PartyType party) {
+        if (party == com.myplus.finance.entity.PartyType.EMPLOYEE) {
+            if (!"DISBURSEMENT".equalsIgnoreCase(direction))
+                throw new IllegalArgumentException("Money received from a member is not supported yet.");
+            return List.of(dr(EMPLOYEE_PAYABLE, amt), cr(cashAccount(method), amt));
+        }
         return "DISBURSEMENT".equalsIgnoreCase(direction)
                 ? List.of(dr(AP, amt), cr(cashAccount(method), amt))      // we pay a vendor
                 : List.of(dr(cashAccount(method), amt), cr(AR, amt));     // a customer pays us
@@ -464,6 +487,16 @@ public class PostingService {
 
     /** FP-3b — the opposite of {@link #paymentLines}: a disbursement reversed is Dr cash·bank / Cr 2000. */
     static List<JournalLineDTO> paymentReversalLines(String direction, BigDecimal amt, String method) {
+        return paymentReversalLines(direction, amt, method, null);
+    }
+
+    /** EX-7a — the exact opposite of {@link #paymentLines(String, BigDecimal, String, com.myplus.finance.entity.PartyType)}. */
+    static List<JournalLineDTO> paymentReversalLines(String direction, BigDecimal amt, String method, com.myplus.finance.entity.PartyType party) {
+        if (party == com.myplus.finance.entity.PartyType.EMPLOYEE) {
+            if (!"DISBURSEMENT".equalsIgnoreCase(direction))
+                throw new IllegalArgumentException("Money received from a member is not supported yet.");
+            return List.of(dr(cashAccount(method), amt), cr(EMPLOYEE_PAYABLE, amt));
+        }
         return "DISBURSEMENT".equalsIgnoreCase(direction)
                 ? List.of(dr(cashAccount(method), amt), cr(AP, amt))
                 : List.of(dr(AR, amt), cr(cashAccount(method), amt));
@@ -472,10 +505,16 @@ public class PostingService {
     /** FP-3b — post a payment's reversal, dated {@code date}; a closed period refuses it like any journal. */
     @Transactional
     public void postPaymentReversal(String direction, BigDecimal amount, String method, LocalDate date, String ref) {
+        postPaymentReversal(direction, amount, method, date, ref, null);
+    }
+
+    @Transactional
+    public void postPaymentReversal(String direction, BigDecimal amount, String method, LocalDate date, String ref,
+                                    com.myplus.finance.entity.PartyType party) {
         BigDecimal amt = nz(amount);
         if (amt.signum() <= 0) return;
         glService.ensureDefaults();
-        post("PAYMENT_REVERSAL", date, ref, paymentReversalLines(direction, amt, method));
+        post("PAYMENT_REVERSAL", date, ref, paymentReversalLines(direction, amt, method, party));
     }
 
     /** DR-4 — the mirror of both set-off legs: Dr 1100 / Cr 1900 and Dr 1900 / Cr 2000. */

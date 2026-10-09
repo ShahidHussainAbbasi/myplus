@@ -181,6 +181,18 @@ public enum Capability {
                     + "profit and loss. Off until you switch it on.", true),
 
     /**
+     * EX-6 — expense claims: a member records what they paid from their own pocket; an owner or admin approves it,
+     * and the business owes it back (2300 Employee Reimbursement Payable) until it is reimbursed (EX-7).
+     *
+     * <h3>Opt-in, and NOT in {@link Plan#FREE}</h3>
+     * A workflow with its own approvals; meaningless without {@link #EXPENSE_MANAGEMENT}. FREE's bar ("without it,
+     * can the shop complete a sale?" — EntitlementCeilingTest) is not met, so FREE leaves it out, as Xero tiers it.
+     */
+    EXPENSE_CLAIMS("expenseClaims", "Expense claims",
+            "Staff record what they paid from their own pocket; an owner or admin approves it and the business owes "
+                    + "it back. Needs Expense management. Off until you switch it on.", true),
+
+    /**
      * MKT-0a — sell this business's stock on the MaxTheService marketplace, as one of several sellers of the same
      * product. See microservices/docs/marketplace-multiseller-design.md.
      *

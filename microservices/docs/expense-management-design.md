@@ -125,7 +125,7 @@ Legend: ✅ exists and is usable · 🟡 exists, needs change · ⬜ does not ex
 | ⚠ F3 | `agriculture_expense` is **hard-deleted** (`service.deleteById`, controller `:153`), no `@Version`, no ledger | code read | — |
 | ⚠ F4 | `Purchase.purchaseExpense` is a **`Float`** (money standard) and no service-layer code writes it | grep | whether the DTO mapping fills it |
 | F5 | welfare-service has **no ledger link at all** — no outbox, no finance client. Donations never reach the books | grep | — |
-| F6 | = §4a "disbursement" row | code read | — |
+| F6 | = §4a "disbursement" row | code read | **Fixed — EX-7a** (`slices/ex-7a-claim-payback.md`): `PartyType.EMPLOYEE`; a disbursement to a member is Dr 2300, not 2000. A receipt FROM a member is refused until EX-7b |
 
 ### 4c. Per-vertical activity lifecycle — expenses (UI → API → DB)
 
@@ -313,6 +313,13 @@ stateDiagram-v2
 Claim (EX-6), separate aggregate, Odoo-shaped:
 `DRAFT → SUBMITTED → APPROVED | REJECTED | RETURNED (→ DRAFT)`; APPROVED **produces** an `ExpenseVoucher`
 with `paidFrom=EMPLOYEE` (Cr reimbursement payable). Payment state lives on the reimbursement, not the claim.
+
+> **As built (EX-6, 2026-10-09) — deviation:** a claim **is** the `ExpenseVoucher` with `paidFrom=EMPLOYEE` and a
+> `claim_status` of `SUBMITTED → APPROVED | REJECTED | WITHDRAWN`. It stays DRAFT while it waits, and approval posts it
+> through the same `postInTx` every expense uses. A separate aggregate would have duplicated the lines, categories, tags,
+> date window, receipts, numbering, posting, outbox and void. RETURNED is not built: a rejected claim carries its
+> reason, and the member submits a new one. Payment state still lives on the reimbursement (EX-7).
+> `slices/ex-6-claims.md` §1b.
 
 The UI shows **"Posting…"** while `postingStatus = PENDING` and never shows the voucher as in the books until
 `POSTED_GL` (§0b). A `FAILED` post is surfaced on the voucher and in the outbox health view, never silent.
@@ -585,7 +592,7 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 | R-5 | Welfare has no ledger (F5); its P&L would show spending without donations | ship welfare UI in EX-2 but flag; welfare-to-GL is its own slice | **decided 2026-10-09**: NGO fund accounting (§11.3); flag shipped in EX-2c |
 | R-6 | Journal lines have no dimensions (G2) | keep dimensions in expense-service for EX-1..8 reports; adding `store_id` to `journal_line` is a finance slice of its own | no |
 | R-7 | `DocumentNumberService` would become a third copy | extract to a common library **before** EX-1 (DRY rule), or accept a third copy with a dated TODO | **yes** |
-| R-8 | Approvals need a reporting line (G8) | EX-6 uses privilege + amount threshold (SalesQuote pattern); hierarchy waits for HRM | no |
+| R-8 | Approvals need a reporting line (G8) | EX-6 uses privilege + amount threshold (SalesQuote pattern); hierarchy waits for HRM | **as built (EX-6):** owner or admin approves any claim, never their own; **no amount threshold yet**. The USER-tier post limit (`userPostLimit`, §6.2) is a separate slice, **EX-6b**, not built |
 | R-9 | Port/infra: a 17th service = Eureka, gateway route, start-all, docker-compose, Terraform task | accepted by R1; mirror party-service's wiring list | no |
 
 ---
@@ -598,9 +605,10 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-2 four dashboards (EX-2a) + tags SPI (EX-2b) · gates
 - [x] EX-3 drawer convergence · gate
 - [x] EX-4 expense bills (AP) — built as FP-3 · gate
-- [ ] EX-5 receipts · gate
-- [ ] EX-6 claims + approvals · gate
-- [ ] EX-7 reimbursement + advances · gate
+- [x] EX-5 receipts · gate 6/6 (`slices/ex-5-receipts.md`)
+- [x] EX-6 claims + approvals · gate 8/8 (`slices/ex-6-claims.md`)
+- [x] EX-7a paying approved claims back · gate 4/4 (`slices/ex-7a-claim-payback.md`)
+- [ ] EX-7b advances (give, settle claims against, return unused) · gate
 - [ ] EX-8 reports + analytics + duplicate warning + tax · gate
 - [ ] EX-9 agriculture convergence · gate
 
@@ -633,7 +641,7 @@ the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed
 | E2 | **Three dashboards record expenses into books they cannot see.** School, welfare and farm have Expenses but no P&L / trial balance screen (business has `showFinance`; the other three have none) | template grep: 0 finance screens on welfare/agriculture; education only its fee ledger | **Fixed — EX-2c** (`slices/ex-2c-books-on-every-dashboard.md`): one shared Finance fragment + script on all four dashboards; Tax Register only for business; gate 6/6. Found on the way: **S1** — 5 finance read endpoints had no authority check (any member could read the P&L); now owner/admin/super |
 | E3 | **Welfare is told "Each expense is posted to your books"** while welfare has no ledger link at all (§4b F5) and R-5's recommended notice was never shipped | `fragments/expense.html`; welfare-service has no outbox/finance client | **Fixed — EX-2c**: `ui.welfareBooksNote` on the Expenses screen and the reports until welfare fund accounting ships; the farm reports carry `ui.farmBooksNote` (its own Income/Expense records never reach the books) until EX-9 |
 | E4 | **The expense list silently stops at 200** rows (`size=200`, no paging, no total, no "showing N of M") | `expense.js expenseLoad` | **Fixed — EX-2d** (`slices/ex-2d-list-paging-and-total.md`): 50 a page, "Showing a–b of N", the period total (posted, list scope); gate 5/5. Found on the way: **E16** a typed date never reached any `data-dp-iso` field (9) — fixed in `date-picker.js` |
-| E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | **Fixed — EX-2f** (`slices/ex-2f-expense-settings.md`): `backdateDays` (default 30, was 365) and `defaultPaidFrom`, Till → Expenses → Settings; gate 4/4. `userPostLimit` → EX-6, receipt rule → EX-5, tax → EX-8 |
+| E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | **Fixed — EX-2f** (`slices/ex-2f-expense-settings.md`): `backdateDays` (default 30, was 365) and `defaultPaidFrom`, Till → Expenses → Settings; gate 4/4. `userPostLimit` → **EX-6b (not built; EX-6 shipped claims without it)**, receipt rule → EX-5, tax → EX-8 |
 | E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | **Fixed — EX-2e** (`slices/ex-2e-category-screen.md`): Till → Expenses → Categories; gate 5/5. Found on the way: a till pay-out whose category was switched off before delivery was refused for good — the drawer receiver now keeps the cashier's choice |
 | E7 | **Drafts are unreachable from the screen**: the API keeps DRAFT/post/delete; the proxy exposes none of `/post` or DELETE, and the form always posts. Harmless now, dead weight until a slice uses it | proxy mappings; `expense.js` posts `?post=true` | Low |
 | E8 | **`storeId` is accepted unvalidated** from the request (and the proxy forwards the whole body): any store id, even another tenant's, can be stamped. No reader uses it yet — **must be validated before EX-8 reports by store** | `ExpenseVoucherService.build`: `v.setStoreId(r.storeId())` | Low now, High at EX-8 |
@@ -658,7 +666,8 @@ switched on.
 3. ~~**E4** list paging/total~~ — done, EX-2d. ~~**E6** a category screen~~ — done, EX-2e. ~~**E5** the expense settings~~ — done, EX-2f.
 4. ~~A payment reversal~~ — done, FP-3b. ~~Expense-bill parity in the daily check (E11)~~ — done.
 5. fp-4b case 2 made self-sufficient (11.1).
-6. Programme slices: EX-5 receipts (R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
+6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). EX-7b advances, EX-6b the user-tier post limit
+   (`userPostLimit`, §6.2; today a user posts any amount directly), EX-8 reports (validate `storeId` first — E8),
    EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).

@@ -41,7 +41,8 @@ class OptInCapabilityTest {
 
     /** The opt-in modules, listed by hand on purpose: adding one is a decision this test must be told about. */
     private static final java.util.Set<Capability> OPT_IN =
-            java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING);
+            java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING,
+                    Capability.EXPENSE_CLAIMS);   // EX-6
 
     @Test
     @DisplayName("Expense management is declared opt-in, and so is nothing else but the listed modules")

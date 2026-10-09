@@ -30,6 +30,9 @@ public class ExpenseVoucher {
 
     public static final String DRAFT = "DRAFT", POSTED = "POSTED", VOIDED = "VOIDED";
     public static final String SOURCE_MANUAL = "MANUAL", SOURCE_DRAWER = "DRAWER";
+    /** EX-6 — a claim's own state (the voucher stays DRAFT until it is approved and posted). */
+    public static final String CLAIM_SUBMITTED = "SUBMITTED", CLAIM_APPROVED = "APPROVED", CLAIM_REJECTED = "REJECTED",
+            CLAIM_WITHDRAWN = "WITHDRAWN";
     public static final String PS_NONE = "NONE", PS_PENDING = "PENDING", PS_POSTED_GL = "POSTED_GL", PS_FAILED = "FAILED";
 
     @Id
@@ -114,6 +117,25 @@ public class ExpenseVoucher {
     @Column(name = "version", nullable = false)
     private Integer version;
 
+    // ── EX-6 — a claim (paid_from EMPLOYEE). NULL on every other voucher. ─────────────────────────────
+    @Column(name = "claim_status", length = 16)
+    private String claimStatus;
+
+    /** Who paid it — written at submit (the trail must read after the person has left). */
+    @Column(name = "claimant_name", length = 160)
+    private String claimantName;
+
+    @Column(name = "decided_by")
+    private Long decidedBy;
+
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
+    @Column(name = "decision_note", length = 255)
+    private String decisionNote;
+
+    public boolean isClaim() { return "EMPLOYEE".equals(paidFrom); }
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -163,6 +185,9 @@ public class ExpenseVoucher {
         // with nothing owed behind it; the payment is reversed first, then the bill.
         if (isBill() && paidAmount != null && paidAmount.signum() > 0)
             throw new IllegalStateException("This bill has payments against it. Reverse the payments first, then void the bill.");
+        // EX-7a — the member was paid back: voiding the claim alone would leave money paid out against nothing owed
+        if (isClaim() && paidAmount != null && paidAmount.signum() > 0)
+            throw new IllegalStateException("This claim has been paid back. Reverse the payment first, then void the claim.");
         if (reason == null || reason.isBlank()) throw new IllegalArgumentException("Say why this expense is being voided.");
         if (PS_PENDING.equals(postingStatus))
             throw new IllegalStateException("This expense is still being posted to the books. Void it once it shows In the books.");
@@ -178,8 +203,13 @@ public class ExpenseVoucher {
     }
 
     /** What is still owed on a bill (0 for anything else, and for a voided bill). */
+    /** EX-7a — what is still OWED on: a bill (to its supplier) or an approved claim (to the member who paid). */
+    public boolean isOwed() {
+        return isBill() || (isClaim() && CLAIM_APPROVED.equals(claimStatus));
+    }
+
     public BigDecimal openAmount() {
-        if (!isBill() || VOIDED.equals(status)) return BigDecimal.ZERO;
+        if (!isOwed() || VOIDED.equals(status)) return BigDecimal.ZERO;
         return total.subtract(paidAmount == null ? BigDecimal.ZERO : paidAmount);
     }
 
@@ -189,7 +219,7 @@ public class ExpenseVoucher {
      */
     /** FP-3b — a payment the books have REVERSED: what it paid is owed again. Never below zero paid. */
     public void reversePayment(BigDecimal amount) {
-        if (!isBill()) throw new IllegalStateException("Only a bill's payment can be reversed.");
+        if (!isOwed()) throw new IllegalStateException("Only a bill's or a claim's payment can be reversed.");
         if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("A reversal needs an amount greater than zero.");
         BigDecimal paid = paidAmount == null ? BigDecimal.ZERO : paidAmount;
         if (amount.compareTo(paid) > 0) throw new IllegalStateException("That is more than has been paid on this bill (" + paid + ").");
@@ -197,8 +227,8 @@ public class ExpenseVoucher {
     }
 
     public void applyPayment(BigDecimal amount) {
-        if (!isBill()) throw new IllegalStateException("Only a bill can be paid — this expense was already paid when recorded.");
-        if (!POSTED.equals(status)) throw new IllegalStateException("Only a posted bill can be paid (this one is " + status + ").");
+        if (!isOwed()) throw new IllegalStateException("Only a bill or an approved claim can be paid — this expense was already paid when recorded.");
+        if (!POSTED.equals(status)) throw new IllegalStateException("Only a posted bill or claim can be paid (this one is " + status + ").");
         if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("A payment needs an amount greater than zero.");
         if (amount.compareTo(openAmount()) > 0) throw new IllegalStateException("That is more than is owed on this bill (" + openAmount() + ").");
         this.paidAmount = (paidAmount == null ? BigDecimal.ZERO : paidAmount).add(amount);

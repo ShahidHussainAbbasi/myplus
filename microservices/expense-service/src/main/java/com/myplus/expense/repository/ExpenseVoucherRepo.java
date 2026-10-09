@@ -50,9 +50,11 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
          + "AND (:status IS NULL OR v.status = :status) "
          + "AND (:from IS NULL OR v.voucherDate >= :from) "
          + "AND (:to IS NULL OR v.voucherDate <= :to) "
+         + "AND (:claim IS NULL OR v.claimStatus = :claim) "
          + "ORDER BY v.voucherDate DESC, v.id DESC")
     Page<ExpenseVoucher> search(@Param("org") Long org, @Param("userId") Long userId, @Param("status") String status,
-                                @Param("from") LocalDate from, @Param("to") LocalDate to, Pageable pageable);
+                                @Param("from") LocalDate from, @Param("to") LocalDate to, @Param("claim") String claim,
+                                Pageable pageable);
 
     /**
      * E11 — what this tenant's bills owe IN THE BOOKS: posted, journal landed, net of payments. Exactly the documents

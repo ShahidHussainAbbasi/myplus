@@ -513,6 +513,9 @@ services:
       EUREKA_URI: http://eureka-server:8761/eureka
       CONFIG_URI: http://config-server:8888
       INTERNAL_SECRET: ${INTERNAL_SECRET}
+    # EX-5 — receipts are evidence: on their own named volume, kept across rebuilds (back it up with the database)
+    volumes:
+      - expense-receipts:/data/receipts
     networks: [myplus-net]
     depends_on:
       mysql:
@@ -862,3 +865,7 @@ volumes:
   mysql-data:
     external: true
     name: myplus-mysql-data
+  # EX-5 — expense receipts (photos and PDFs). Named so it is not project-prefixed; kept by `docker compose down`.
+  # Back it up alongside the database: a receipt is the evidence behind a posted expense.
+  expense-receipts:
+    name: myplus-expense-receipts

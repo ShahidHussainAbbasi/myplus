@@ -25,6 +25,7 @@ import com.myplus.common.web.exception.ValidationException;
 public class ExpenseAccess {
 
     public static final String CAPABILITY = "expenseManagement";
+    public static final String CLAIMS = "expenseClaims";    // EX-6
 
     public Long org() {
         Long org = CurrentUser.organizationId();
@@ -40,6 +41,26 @@ public class ExpenseAccess {
             throw new ValidationException("Expense management is not switched on for this business. "
                     + "An owner can switch it on in Settings → Configuration.");
         }
+    }
+
+    /** EX-6 — claims need their own switch, on top of Expense management. */
+    public void assertClaimsOn() {
+        assertModuleOn();
+        Set<String> caps = CurrentUser.capabilities();
+        if (caps == null || !caps.contains(CLAIMS)) {
+            throw new ValidationException("Expense claims are not switched on for this business. "
+                    + "An owner can switch them on in Configuration → Modules.");
+        }
+    }
+
+    /**
+     * EX-6 — may approve a claim: the business's owner or an admin. NOT the platform operator (SUPER): approving
+     * posts money to a tenant's books, and the operator is support only (design §6.3).
+     */
+    public boolean canApprove() {
+        return CurrentUser.get().map(u -> u.getAuthorities() != null && u.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(n -> "ROLE_OWNER".equals(n) || "ADMIN_PRIVILEGE".equals(n))).orElse(false);
     }
 
     /** Owner or admin: sees every voucher in the business. */

@@ -35,6 +35,7 @@ public class ExpenseController {
     private final ExpenseVoucherService vouchers;
     private final com.myplus.expense.service.ExpenseTagService tagService;
     private final com.myplus.expense.service.ExpenseBillService bills;
+    private final com.myplus.expense.service.ExpenseClaimService claims;
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -100,9 +101,10 @@ public class ExpenseController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String claim,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
-        return ApiResponse.success(vouchers.list(from, to, status, page, size));
+        return ApiResponse.success(vouchers.list(from, to, status, claim, page, size));
     }
 
     /** EX-2d — what the list's date filter adds up to (posted only), for the footer. */
@@ -127,6 +129,33 @@ public class ExpenseController {
         // and a query but no custom headers. Either way the same UNIQUE index carries the guarantee.
         String k = key != null && !key.isBlank() ? key : keyParam;
         return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
+    }
+
+    // ── EX-6 — claims ────────────────────────────────────────────────────────────────────────────────
+
+    @PostMapping("/claims")
+    public ApiResponse<VoucherView> submitClaim(@RequestBody VoucherRequest r,
+                                                @RequestHeader(value = "Idempotency-Key", required = false) String key,
+                                                @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        String k = key != null && !key.isBlank() ? key : keyParam;
+        return ApiResponse.success(claims.submit(r, k), "Claim sent for approval");
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/claims/{id}/approve")
+    public ApiResponse<VoucherView> approveClaim(@PathVariable Long id) {
+        return ApiResponse.success(claims.approve(id), "Claim approved — posting to the books");
+    }
+
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/claims/{id}/reject")
+    public ApiResponse<VoucherView> rejectClaim(@PathVariable Long id, @RequestBody(required = false) VoidRequest r) {
+        return ApiResponse.success(claims.reject(id, r == null ? null : r.reason()), "Claim rejected");
+    }
+
+    @PostMapping("/claims/{id}/withdraw")
+    public ApiResponse<VoucherView> withdrawClaim(@PathVariable Long id) {
+        return ApiResponse.success(claims.withdraw(id), "Claim withdrawn");
     }
 
     @PostMapping("/vouchers/{id}/post")
