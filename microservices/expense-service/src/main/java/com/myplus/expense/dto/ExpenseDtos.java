@@ -30,7 +30,8 @@ public final class ExpenseDtos {
 
     /** FP-3 — {@code supplierId} and {@code dueDate} belong to a bill (paidFrom = AP) and are refused on anything else. */
     public record VoucherRequest(LocalDate voucherDate, String paidFrom, Long storeId, String payeeName, String note,
-                                 List<LineRequest> lines, Long supplierId, LocalDate dueDate) { }
+                                 List<LineRequest> lines, Long supplierId, LocalDate dueDate,
+                                 List<Long> receiptIds) { }      // EX-5: receipts uploaded for this expense
 
     /** FP-3 — pay (part of) a bill. method CASH | BANK; paidOn defaults to today. */
     public record PayRequest(BigDecimal amount, String method, LocalDate paidOn) { }
@@ -67,13 +68,20 @@ public final class ExpenseDtos {
                               String postingError, String voidReason, LocalDateTime voidedAt, Long userId,
                               Integer version, List<LineView> lines, String source, String sourceRef,
                               Long supplierId, String supplierName, LocalDate dueDate, BigDecimal paidAmount,
-                              BigDecimal openAmount) {
+                              BigDecimal openAmount, int receipts) {
         public static VoucherView of(ExpenseVoucher v) {
             return new VoucherView(v.getId(), v.getVoucherNo(), v.getVoucherDate(), v.getPaidFrom(), v.getStoreId(),
                     v.getPayeeName(), v.getNote(), v.getTotal(), v.getStatus(), v.getPostingStatus(),
                     v.getPostingError(), v.getVoidReason(), v.getVoidedAt(), v.getUserId(), v.getVersion(),
                     v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef(),
-                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount());
+                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount(), 0);
+        }
+
+        /** EX-5 — the same view with how many receipts the expense has. */
+        public VoucherView withReceipts(int n) {
+            return new VoucherView(id, voucherNo, voucherDate, paidFrom, storeId, payeeName, note, total, status, postingStatus,
+                    postingError, voidReason, voidedAt, userId, version, lines, source, sourceRef, supplierId, supplierName,
+                    dueDate, paidAmount, openAmount, n);
         }
     }
 }

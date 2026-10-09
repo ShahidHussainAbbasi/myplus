@@ -22,12 +22,14 @@ class ExpenseSettingsTest {
     private final ExpenseSettingsCatalog catalog = new ExpenseSettingsCatalog();
 
     @Test
-    @DisplayName("the catalog registers exactly the two keys something reads; backdate defaults to 30, paid-from to Cash")
+    @DisplayName("the catalog registers exactly the keys something reads; backdate 30, paid-from Cash, receipt rule 0 = never")
     void catalogIsWhatIsRead() {
         assertThat(catalog.entries()).extracting(SettingEntry::key)
-                .containsExactly(ExpenseSettingsCatalog.BACKDATE_DAYS, ExpenseSettingsCatalog.DEFAULT_PAID_FROM);
+                .containsExactly(ExpenseSettingsCatalog.BACKDATE_DAYS, ExpenseSettingsCatalog.DEFAULT_PAID_FROM,
+                        ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE);          // EX-5: read by ReceiptService.attachOnSave
         assertThat(catalog.entries().get(0).defaultValue()).isEqualTo("30");
         assertThat(catalog.entries().get(1).defaultValue()).isEqualTo("CASH");
+        assertThat(catalog.entries().get(2).defaultValue()).isEqualTo("0");
     }
 
     @Test

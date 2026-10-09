@@ -96,6 +96,15 @@
 		return out + paysBtn;
 	}   // set from the table header: the Actions column is rendered only for owner/admin
 
+	/** EX-5 — "Receipts (n)", or "Add receipt" on an expense that still takes one. */
+	function receiptsBtn(v) {
+		var n = Number(v.receipts || 0);
+		if (!n && v.status === 'VOIDED') return '';
+		return ' <button type="button" class="btn btn-xs btn-default" data-cy="expense-receipts" data-id="' + esc(v.id) + '">'
+			+ '<span class="glyphicon glyphicon-paperclip"></span> '
+			+ esc(n ? tr('ui.js.expReceipts', 'Receipts') + ' (' + n + ')' : tr('ui.js.expReceiptAdd', 'Add a receipt')) + '</button>';
+	}
+
 	function row(v) {
 		// EX-2b — a tagged line reads "Fuel and transport · Bus (LEA-123)": the category, then what it was for.
 		var cats = (v.lines || []).map(function (l) {
@@ -109,7 +118,7 @@
 				: v.paidFrom === 'AP' ? tr('ui.js.expBill', 'Bill') : tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
-			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + '</td>';
+			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + receiptsBtn(v) + '</td>';
 		if (canVoid) {
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
 			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
@@ -370,9 +379,13 @@
 		var $b = $(btn), label = $b.html();
 		$b.prop('disabled', true).html('<span class="glyphicon glyphicon-hourglass"></span> ' + esc(tr('ui.js.expSaving', 'Saving…')));
 		msg('');
-		$.ajax({
-			url: ctx() + 'expense/vouchers?post=true', type: 'POST', contentType: 'application/json', dataType: 'json',
-			headers: { 'Idempotency-Key': $f.data('idemKey') }, data: JSON.stringify(body)
+		// EX-5 — the receipt goes first (compressed here), so the save carries it and the owner's rule is checked there
+		formReceipt().then(function (ids) {
+			body.receiptIds = ids;
+			return $.ajax({
+				url: ctx() + 'expense/vouchers?post=true', type: 'POST', contentType: 'application/json', dataType: 'json',
+				headers: { 'Idempotency-Key': $f.data('idemKey') }, data: JSON.stringify(body)
+			});
 		}).done(function (res) {
 			if (!res || res.success !== true) {
 				msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
@@ -380,15 +393,111 @@
 			}
 			msg(tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
 			$f.removeData('idemKey');
-			$('#expAmount, #expPayee, #expNote').val('');
+			$f.removeData('receipt');
+			$('#expAmount, #expPayee, #expNote, #expReceipt').val('');
 			applyPaidFromDefault();                          // EX-2f: the next expense starts from the owner's default
 			expenseLoad();
 		}).fail(function (xhr) {
+			if (xhr === 'cancelled') return;                // the person chose not to save (duplicate receipt)
+			if (typeof xhr === 'string') { msg(xhr, 'bad'); return; }
 			// The key is KEPT: pressing Save again replays this fill rather than recording it twice.
 			msg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
 				: tr('ui.js.saveFailed', 'Save failed'), 'bad');
 		}).always(function () {
 			$b.prop('disabled', false).html(label);
+		});
+	}
+
+	// ── EX-5 — receipts ────────────────────────────────────────────────────────────────────────────────────────
+	// A photo is made smaller HERE before it is sent (long side 1600 px, JPEG), so a phone photo of several MB goes up
+	// as a few hundred KB; a PDF goes as it is. The server decides what the file really is from its first bytes.
+	var PHOTO_MAX = 1600;
+	function compress(file) {
+		var d = $.Deferred();
+		if (!file) return d.resolve(null).promise();
+		if (file.type === 'application/pdf') return d.resolve({ blob: file, name: file.name }).promise();
+		if (!/^image\/(jpeg|png|webp)$/.test(file.type)) {
+			return d.reject(/heic|heif/i.test(file.type + file.name)
+				? tr('ui.js.expReceiptHeic', 'This phone photo format (HEIC) cannot be read here. Set the camera to "Most compatible", or attach a JPEG or PDF.')
+				: tr('ui.js.expReceiptType', 'A receipt must be a photo (JPEG, PNG or WEBP) or a PDF.')).promise();
+		}
+		var url = URL.createObjectURL(file), img = new Image();
+		img.onload = function () {
+			var k = Math.min(1, PHOTO_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+			if (k === 1 && file.size < 400 * 1024) { URL.revokeObjectURL(url); d.resolve({ blob: file, name: file.name }); return; }
+			var c = document.createElement('canvas');
+			c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+			var g = c.getContext('2d');
+			g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);   // a transparent PNG becomes white, not black
+			g.drawImage(img, 0, 0, c.width, c.height);
+			URL.revokeObjectURL(url);
+			c.toBlob(function (b) { d.resolve({ blob: b || file, name: (file.name || 'receipt').replace(/\.\w+$/, '') + '.jpg' }); }, 'image/jpeg', 0.82);
+		};
+		img.onerror = function () { URL.revokeObjectURL(url); d.reject(tr('ui.js.expReceiptType', 'A receipt must be a photo (JPEG, PNG or WEBP) or a PDF.')); };
+		img.src = url;
+		return d.promise();
+	}
+	function uploadReceipt(file, voucherId) {
+		return compress(file).then(function (c) {
+			var fd = new FormData();
+			fd.append('file', c.blob, c.name);
+			if (voucherId) fd.append('voucherId', voucherId);
+			return $.ajax({ url: ctx() + 'expense/receipts', type: 'POST', data: fd, processData: false, contentType: false, dataType: 'json' })
+				.then(function (res) {
+					if (!res || res.success !== true) return $.Deferred().reject((res && res.message) || tr('ui.js.saveFailed', 'Save failed'));
+					return res.data;
+				});
+		});
+	}
+	/** The form's receipt, uploaded once per chosen file (a retried save reuses it), after a duplicate warning. */
+	function formReceipt() {
+		var $f = $('#ExpenseForm'), input = $('#expReceipt')[0], file = input && input.files && input.files[0];
+		if (!file) return $.Deferred().resolve([]).promise();
+		var sig = file.name + ':' + file.size + ':' + file.lastModified, kept = $f.data('receipt');
+		var uploaded = (kept && kept.sig === sig) ? $.Deferred().resolve(kept.r).promise() : uploadReceipt(file, null);
+		return uploaded.then(function (r) {
+			$f.data('receipt', { sig: sig, r: r });          // a retried save reuses the upload — and warns again
+			if (!r.alsoOn || !r.alsoOn.length || typeof global.uiConfirm !== 'function') return [r.id];
+			return $.Deferred(function (d) {
+				global.uiConfirm({ title: tr('ui.js.expReceiptDupTitle', 'This receipt is already on another expense'),
+					message: tr('ui.js.expReceiptDupMsg', 'The same receipt is on {0}. Save this expense anyway?').replace('{0}', r.alsoOn.join(', ')),
+					tone: 'warning' }).then(function (ok) { if (ok) d.resolve([r.id]); else d.reject('cancelled'); });
+			}).promise();
+		});
+	}
+
+	function receiptRow(rc, canRemove) {
+		return '<tr data-cy="receipt-row" data-rid="' + esc(rc.id) + '">'
+			+ '<td><a href="' + esc(ctx() + 'expense/receipts/' + encodeURIComponent(rc.id) + '/content') + '" target="_blank" rel="noopener" data-cy="receipt-view">'
+			+ '<span class="glyphicon glyphicon-' + (rc.contentType === 'application/pdf' ? 'file' : 'picture') + '"></span> '
+			+ esc(rc.name || tr('ui.js.expReceipt', 'Receipt')) + '</a></td>'
+			+ '<td class="text-muted">' + esc(Math.max(1, Math.round((rc.size || 0) / 1024))) + ' KB</td>'
+			+ '<td>' + (rc.alsoOn && rc.alsoOn.length ? '<span class="text-warning" data-cy="receipt-also-on">'
+				+ esc(tr('ui.js.expReceiptAlsoOn', 'Also on')) + ' ' + esc(rc.alsoOn.join(', ')) + '</span>' : '') + '</td>'
+			+ '<td>' + (canRemove ? '<button type="button" class="btn btn-xs btn-default" data-cy="receipt-remove" data-rid="' + esc(rc.id) + '">'
+				+ esc(tr('ui.js.expReceiptRemove', 'Remove')) + '</button>' : '') + '</td></tr>';
+	}
+	function showReceipts(voucherId) {
+		var $v = $('#tableExpense tbody tr.expense-row[data-id="' + voucherId + '"]');
+		var cols = $('#tableExpense thead th').length, voided = $v.hasClass('row-voided');
+		$('#tableExpense tbody tr.exp-rcpt-detail[data-for="' + voucherId + '"]').remove();
+		var $d = $('<tr class="exp-rcpt-detail" data-cy="receipts-list">').attr('data-for', voucherId)
+			.html('<td colspan="' + cols + '" class="text-muted">' + esc(tr('ui.js.loading', 'Loading…')) + '</td>');
+		$v.after($d);
+		return $.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(voucherId) + '/receipts', dataType: 'json' })
+			.done(function (res) {
+				var list = (res && res.data) || [];
+				var add = voided ? '' : '<label class="btn btn-xs btn-default" style="margin:0">'
+					+ '<span class="glyphicon glyphicon-paperclip"></span> ' + esc(tr('ui.js.expReceiptAdd', 'Add a receipt'))
+					+ '<input type="file" data-cy="receipt-add" data-id="' + esc(voucherId) + '" accept="image/jpeg,image/png,image/webp,application/pdf,image/*" style="display:none"></label>';
+				$d.html('<td colspan="' + cols + '"><table class="table table-condensed" style="margin:0;background:transparent"><tbody>'
+					+ (list.length ? list.map(function (rc) { return receiptRow(rc, canVoid); }).join('') : '<tr><td class="text-muted">' + esc(tr('ui.js.expNoReceipt', 'No receipt yet.')) + '</td></tr>')
+					+ '</tbody></table>' + add + ' <span class="exp-rcpt-msg" role="status" aria-live="polite"></span></td>');
+			});
+	}
+	function redrawRow(id) {
+		return $.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(id), dataType: 'json' }).done(function (res) {
+			if (res && res.data) $('#tableExpense tbody tr.expense-row[data-id="' + id + '"]').replaceWith(row(res.data));
 		});
 	}
 
@@ -537,7 +646,7 @@
 	// ── EX-2f / E5 — expense settings ─────────────────────────────────────────────────────────────────────────
 	// Read by EVERY member's form (the default Paid from must REACH the form — the "saved default tender never reached
 	// New Sale" lesson), changed by owner/admin in the Settings panel. The server validates and answers in words.
-	var KEY_BACK = 'expense.voucher.backdateDays', KEY_PAID = 'expense.voucher.defaultPaidFrom';
+	var KEY_BACK = 'expense.voucher.backdateDays', KEY_PAID = 'expense.voucher.defaultPaidFrom', KEY_RCPT = 'expense.receipt.requiredAbove';
 	var expSettings = {};
 	function loadExpenseSettings() {
 		return $.ajax({ url: ctx() + 'expense/settings', dataType: 'json' }).done(function (res) {
@@ -546,6 +655,12 @@
 			applyPaidFromDefault();
 			$('#expSetBackdate').val(expSettings[KEY_BACK] != null ? expSettings[KEY_BACK] : '');
 			if (expSettings[KEY_PAID]) $('#expSetPaidFrom').val(expSettings[KEY_PAID]);
+			$('#expSetReceiptAbove').val(expSettings[KEY_RCPT] != null ? expSettings[KEY_RCPT] : '');
+			// EX-5 — tell the person filling the form when a receipt will be required
+			var above = Number(expSettings[KEY_RCPT] || 0);
+			$('#expReceiptHint').text(above > 0
+				? tr('ui.js.expReceiptRequiredHint', 'Required for an expense above {0}. Photos are made smaller before they are sent.').replace('{0}', money(above))
+				: tr('ui.js.expReceiptHint', 'A photo or PDF of the bill. Photos are made smaller before they are sent.'));
 		});
 	}
 	function applyPaidFromDefault() {
@@ -597,6 +712,39 @@
 	}
 
 	$(document).on('change', '#expPaidFrom', toggleBill);
+	$(document).on('click', '#tableExpense [data-cy="expense-receipts"]', function () {
+		var id = $(this).attr('data-id');
+		var $open = $('#tableExpense tbody tr.exp-rcpt-detail[data-for="' + id + '"]');
+		if ($open.length) { $open.remove(); return; }
+		showReceipts(id);
+	});
+	$(document).on('change', '#tableExpense [data-cy="receipt-add"]', function () {
+		var id = $(this).attr('data-id'), file = this.files && this.files[0], $m = $(this).closest('td').find('.exp-rcpt-msg');
+		if (!file) return;
+		$m.css('color', '').text(tr('ui.js.expSaving', 'Saving…'));
+		uploadReceipt(file, id).done(function (r) {
+			redrawRow(id).always(function () {
+				showReceipts(id).done(function () {
+					if (r.alsoOn && r.alsoOn.length) $('#tableExpense tr.exp-rcpt-detail[data-for="' + id + '"] .exp-rcpt-msg').css('color', '#a15c00')
+						.text(tr('ui.js.expReceiptAlsoOn', 'Also on') + ' ' + r.alsoOn.join(', '));
+				});
+			});
+		}).fail(function (e) {
+			$m.css('color', '#b3261e').text(typeof e === 'string' ? e : (typeof global.apiFailMessage === 'function'
+				? global.apiFailMessage(e, tr('ui.js.saveFailed', 'Save failed')) : tr('ui.js.saveFailed', 'Save failed')));
+		});
+	});
+	$(document).on('click', '#tableExpense [data-cy="receipt-remove"]', function () {
+		var rid = $(this).attr('data-rid'), id = $(this).closest('tr.exp-rcpt-detail').attr('data-for');
+		var go = function () {
+			$.ajax({ url: ctx() + 'expense/receipts/' + encodeURIComponent(rid), type: 'DELETE', dataType: 'json' })
+				.always(function () { redrawRow(id).always(function () { showReceipts(id); }); });
+		};
+		if (typeof global.uiConfirm === 'function') global.uiConfirm({ title: tr('ui.js.expReceiptRemoveTitle', 'Remove this receipt?'),
+			message: tr('ui.js.expReceiptRemoveMsg', 'It is taken off the expense; the file is kept for the audit trail.'), tone: 'danger' })
+			.then(function (ok) { if (ok) go(); });
+		else go();
+	});
 	$(document).on('click', '#tableExpense [data-cy="bill-payments"]', function () {
 		var id = $(this).attr('data-id');
 		var $open = $('#tableExpense tbody tr.exp-pay-detail[data-for="' + id + '"]');
@@ -644,6 +792,7 @@
 	global.expenseSettingsToggle = expenseSettingsToggle;
 	global.expenseSettingSaveBackdate = function (btn) { expenseSettingSave(btn, KEY_BACK, String($('#expSetBackdate').val() || '').trim()); };
 	global.expenseSettingSavePaidFrom = function (btn) { expenseSettingSave(btn, KEY_PAID, $('#expSetPaidFrom').val()); };
+	global.expenseSettingSaveReceiptAbove = function (btn) { expenseSettingSave(btn, KEY_RCPT, String($('#expSetReceiptAbove').val() || '0').trim()); };
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
 })(window);

@@ -46,6 +46,8 @@ public class GatewayClient {
             new ParameterizedTypeReference<>() {};
     private static final ParameterizedTypeReference<Boolean> BOOLEAN_TYPE =
             new ParameterizedTypeReference<>() {};
+    private static final ParameterizedTypeReference<byte[]> BYTES_TYPE =
+            new ParameterizedTypeReference<>() {};
 
     /** Thread-safe once configured; used only to read the {@code message} out of an upstream error envelope. */
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON =
@@ -145,6 +147,11 @@ public class GatewayClient {
     public ResponseEntity<String> forStringEntity(String servicePrefix, String directBaseUrl, String path,
                                                    HttpMethod method, Object body, MediaType contentType) {
         return execute(servicePrefix, directBaseUrl, path, method, body, contentType, STRING_TYPE);
+    }
+
+    /** EX-5 — a binary answer (a receipt image or PDF) passed through untouched; a String body would corrupt it. */
+    public ResponseEntity<byte[]> forBytesEntity(String servicePrefix, String directBaseUrl, String path) {
+        return execute(servicePrefix, directBaseUrl, path, HttpMethod.GET, null, null, BYTES_TYPE);
     }
 
     public String forString(String servicePrefix, String directBaseUrl, String path,

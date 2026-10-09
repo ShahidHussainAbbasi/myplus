@@ -796,6 +796,61 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     resetBoth()
   })
 
+  caseIt('1-11', 'Keep the receipt with the expense', () => {
+    testCase('1-11', 'ex1', 'Keep the receipt with the expense', { who: ['owner.lifecycle (recorded)', 'user.business'] })
+    setup('Expense management switched on (case 0a-3). A photo of a bill on this computer (the recording uses a 2400×1800 test photo).')
+    const RC = 'expense.receipt.requiredAbove', payee = 'XG receipt ' + run, payee2 = 'XG receipt again ' + run
+    const ids = []
+    const resetRule = () => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${RC}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+    asLifecycle(true)
+    resetRule()
+    SAFETY.push(() => { asLifecycle(); resetRule() })
+    SAFETY.push(() => { asLifecycle(); ids.forEach((id) => cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })) })
+    openDashboard(); openExpenses()
+    const a1 = act(`<b>Till → Expenses</b>: Rent <b>12</b> in cash, Payee <b>${payee}</b>, and in <b>Receipt</b> choose the photo of the bill. Press <b>Save and post</b>.`,
+      ['The row shows <b>Receipts (1)</b>.', 'The photo was made smaller on this computer before it was sent (a phone photo of several MB goes up as a few hundred KB).'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-photo.jpg', { force: true })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('body').then(($b) => { if ($b.find('[data-ui-confirm="ok"]:visible').length) cy.get('[data-ui-confirm="ok"]').click() })
+    expenseRow(payee).find('[data-cy=expense-receipts]', { timeout: 25000 }).should('contain', 'Receipts (1)')
+    expenseRow(payee).invoke('attr', 'data-id').then((id) => ids.push(id))
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'saved')
+    const a2 = act('Press <b>Receipts (1)</b>, then the file’s name.', ['The receipt is listed with its size; the name opens the photo in a new tab (it is kept on the server, not on this computer).'])
+    expenseRow(payee).find('[data-cy=expense-receipts]').click()
+    cy.get('[data-cy=receipt-row]').should('have.length', 1)
+    cy.get('[data-cy=receipt-view]').invoke('attr', 'href').then((href) => cy.request({ url: href, encoding: 'binary' })
+      .its('headers.content-type').should('contain', 'image/jpeg'))
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'listed')
+    const a3 = act(`Record another expense (Rent 12, Payee <b>${payee2}</b>) with the <b>same photo</b>.`,
+      ['Before saving: <b>This receipt is already on another expense</b> — “The same receipt is on EXP-…. Save this expense anyway?”.', '<b>Cancel</b> saves nothing.'])
+    fillExpense({ category: 'Rent', amount: 12, paidFrom: 'CASH', payee: payee2 })
+    cy.get('#expReceipt').selectFile('cypress/fixtures/receipt-photo.jpg', { force: true })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('.uiC-card', { timeout: 20000 }).should('contain', 'already on another expense')
+    snap(a3, 'duplicate')
+    cy.get('.uiC-cancel').click()
+    cy.contains('#tableExpense tbody tr.expense-row', payee2).should('not.exist')
+    const a4 = act('<b>Settings</b>: <b>Receipt required above</b> <b>10</b>, Save. Then record Rent <b>15</b> with no receipt.',
+      ['Under Receipt: “Required for an expense above 10.00”.', 'Saving is refused: “A receipt is required for an expense above 10. Attach a photo or PDF of the receipt.”'])
+    cy.get('#expReceipt').then(($i) => { $i.val('') })
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-receipt-above]').clear().type('10')
+    cy.get('[data-cy=set-receipt-above-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expReceiptHint').should('contain', 'Required for an expense above')
+    fillExpense({ category: 'Rent', amount: 15, paidFrom: 'CASH', payee: 'XG no receipt ' + run })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'A receipt is required for an expense above 10')
+    snap(a4, 'required', '#ExpenseForm')
+    cy.then(() => {
+      act('As <b>user.business</b>: ask for this receipt.', ['Not found — a receipt is read only through its own expense (a cashier sees only their own).'], { via: 'run' })
+      act('Settings → Receipt required above → <b>0</b>; void the test expense (reason "Test Book").', [], { cleanup: true })
+    })
+    resetRule()
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',

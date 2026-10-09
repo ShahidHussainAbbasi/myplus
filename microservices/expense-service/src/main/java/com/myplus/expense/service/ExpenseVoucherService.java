@@ -58,12 +58,19 @@ public class ExpenseVoucherService {
     private final ExpenseTagService tags;
     private final com.myplus.expense.repository.ExpenseBillPaymentRepo billPayments;
     private final ExpenseSettings expenseSettings;   // EX-2f
+    private final ReceiptService receipts;            // EX-5
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
         int s = Math.max(1, Math.min(size <= 0 ? 50 : size, 200));
-        return PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to,
+        PageResponse<VoucherView> out = PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to,
                 PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
+        // EX-5 — how many receipts each row has, in one query for the page
+        if (out.getContent() != null && !out.getContent().isEmpty()) {
+            java.util.Map<Long, Integer> n = receipts.counts(out.getContent().stream().map(VoucherView::id).toList());
+            out.setContent(out.getContent().stream().map(v -> v.withReceipts(n.getOrDefault(v.id(), 0))).toList());
+        }
+        return out;
     }
 
     /**
@@ -79,7 +86,8 @@ public class ExpenseVoucherService {
 
     @Transactional(readOnly = true)
     public VoucherView get(Long id) {
-        return VoucherView.of(visible(id));
+        ExpenseVoucher v = visible(id);
+        return VoucherView.of(v).withReceipts(receipts.counts(java.util.List.of(v.getId())).getOrDefault(v.getId(), 0));
     }
 
     /** Record (and, when {@code post}, post) a voucher. A replayed Idempotency-Key returns the first voucher. */
@@ -103,8 +111,9 @@ public class ExpenseVoucherService {
             throw new ValidationException("This expense is already being saved. Refresh the list.");
         }
         audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), v.getPaidFrom(), null);
+        receipts.attachOnSave(v, r.receiptIds());           // EX-5: the receipts, and "required above X", in this save
         if (post) postInTx(v);
-        return VoucherView.of(v);
+        return VoucherView.of(v).withReceipts(r.receiptIds() == null ? 0 : (int) r.receiptIds().stream().distinct().count());
     }
 
     @Transactional

@@ -193,7 +193,7 @@ class ExpensePostAgainTest {
         when(access.visibleUserId()).thenReturn(null);   // owner/admin: sees everyone's (Mockito would answer 0)
         when(repo.saveAndFlush(any(ExpenseVoucher.class))).thenAnswer(i -> i.getArgument(0));
         return new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), outboxMock, mock(ExpenseAuditService.class),
-                access, mock(DocumentNumberService.class), mock(ExpenseTagService.class), mock(ExpenseBillPaymentRepo.class), settings30());
+                access, mock(DocumentNumberService.class), mock(ExpenseTagService.class), mock(ExpenseBillPaymentRepo.class), settings30(), mock(ReceiptService.class));
     }
 
     @Test

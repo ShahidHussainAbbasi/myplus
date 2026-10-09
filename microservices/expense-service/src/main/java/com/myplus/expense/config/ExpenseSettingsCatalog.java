@@ -24,6 +24,7 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
 
     public static final String BACKDATE_DAYS = "expense.voucher.backdateDays";
     public static final String DEFAULT_PAID_FROM = "expense.voucher.defaultPaidFrom";
+    public static final String RECEIPT_REQUIRED_ABOVE = "expense.receipt.requiredAbove";
     public static final int BACKDATE_DEFAULT = 30, BACKDATE_MAX = 3650;
 
     @Override
@@ -36,13 +37,20 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
                 SettingEntry.select(DEFAULT_PAID_FROM, "Paid from, by default",
                         "What the New Expense form starts with. Each expense can still be changed before saving.",
                         "CASH", "Expenses",
-                        List.of(new SettingEntry.Option("CASH", "Cash"), new SettingEntry.Option("BANK", "Bank"))));
+                        List.of(new SettingEntry.Option("CASH", "Cash"), new SettingEntry.Option("BANK", "Bank"))),
+                // EX-5 — read by ReceiptService.attachOnSave
+                SettingEntry.money(RECEIPT_REQUIRED_ABOVE, "Receipt required above",
+                        "0 (default): a receipt is never required. Above this amount, an expense cannot be saved without "
+                                + "a photo or PDF of its receipt.",
+                        "0", "Expenses"));
     }
 
     /** 0 (today only) to ten years: a negative window or a typo of 100000 days is refused in words. */
     @org.springframework.context.annotation.Bean
     public SettingWriteGuard expenseBackdateGuard() {
         return (org, key, value) -> {
+            if (RECEIPT_REQUIRED_ABOVE.equals(key) && new java.math.BigDecimal(value).signum() < 0)
+                throw new IllegalArgumentException("The amount above which a receipt is required cannot be negative.");
             if (!BACKDATE_DAYS.equals(key)) return;
             int days = Integer.parseInt(value);
             if (days < 0 || days > BACKDATE_MAX)

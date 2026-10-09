@@ -34,7 +34,7 @@ class ExpenseListTotalsTest {
         when(access.visibleUserId()).thenReturn(visibleUserId);
         return new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), mock(ExpenseOutboxService.class),
                 mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
-                mock(ExpenseBillPaymentRepo.class), settings30());
+                mock(ExpenseBillPaymentRepo.class), settings30(), mock(ReceiptService.class));
     }
 
     private static ExpenseVoucherRepo.Totals totals(long count, BigDecimal total) {

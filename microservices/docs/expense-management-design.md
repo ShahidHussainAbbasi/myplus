@@ -598,7 +598,7 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-2 four dashboards (EX-2a) + tags SPI (EX-2b) · gates
 - [x] EX-3 drawer convergence · gate
 - [x] EX-4 expense bills (AP) — built as FP-3 · gate
-- [ ] EX-5 receipts · gate
+- [x] EX-5 receipts · gate 6/6 (`slices/ex-5-receipts.md`)
 - [ ] EX-6 claims + approvals · gate
 - [ ] EX-7 reimbursement + advances · gate
 - [ ] EX-8 reports + analytics + duplicate warning + tax · gate
@@ -658,7 +658,7 @@ switched on.
 3. ~~**E4** list paging/total~~ — done, EX-2d. ~~**E6** a category screen~~ — done, EX-2e. ~~**E5** the expense settings~~ — done, EX-2f.
 4. ~~A payment reversal~~ — done, FP-3b. ~~Expense-bill parity in the daily check (E11)~~ — done.
 5. fp-4b case 2 made self-sufficient (11.1).
-6. Programme slices: EX-5 receipts (R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
+6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
    EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).
