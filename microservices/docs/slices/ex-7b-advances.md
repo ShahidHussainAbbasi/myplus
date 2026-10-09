@@ -58,3 +58,6 @@ member (1300 Employee Advance, an asset) until the member either spends it on th
 - **Regression (27 specs: every expense and finance gate, set-off, GL posting): 172 of 173 passed.** The one failure is
   fp-4b case 2, "demo.business carries the known 100", the known data-dependent gate defect (design §11.3 item 5),
   untouched here. EX-6, EX-7a and EX-7b passed in the same run, back to back.
+- **Found on the recorded screen:** gate case 5 reversed a settlement and left its claim owed (12 in 2300 after every
+  run). The case now voids the claim at its end; the two leftovers from earlier runs were voided. Gate re-run 5/5.
+- Test Book cases 8-1 to 8-3 recorded and published.
