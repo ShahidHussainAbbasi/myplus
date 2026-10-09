@@ -28,7 +28,13 @@ public enum PaidFrom {
      * it later is a disbursement in finance (Dr 2000 / Cr cash·bank), so the expense is in the books the day the bill
      * arrives (accrual) and the cash leaves the day it is paid.
      */
-    AP("2000");
+    AP("2000"),
+
+    /**
+     * EX-6 — a CLAIM: a member paid from their own pocket; once approved the business owes it back — 2300 Employee
+     * Reimbursement Payable — until it is reimbursed (EX-7: Dr 2300 / Cr cash·bank). Only the claim path creates one.
+     */
+    EMPLOYEE("2300");
 
     private final String creditAccount;
 

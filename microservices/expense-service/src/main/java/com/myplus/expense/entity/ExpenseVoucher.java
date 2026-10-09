@@ -30,6 +30,9 @@ public class ExpenseVoucher {
 
     public static final String DRAFT = "DRAFT", POSTED = "POSTED", VOIDED = "VOIDED";
     public static final String SOURCE_MANUAL = "MANUAL", SOURCE_DRAWER = "DRAWER";
+    /** EX-6 — a claim's own state (the voucher stays DRAFT until it is approved and posted). */
+    public static final String CLAIM_SUBMITTED = "SUBMITTED", CLAIM_APPROVED = "APPROVED", CLAIM_REJECTED = "REJECTED",
+            CLAIM_WITHDRAWN = "WITHDRAWN";
     public static final String PS_NONE = "NONE", PS_PENDING = "PENDING", PS_POSTED_GL = "POSTED_GL", PS_FAILED = "FAILED";
 
     @Id
@@ -113,6 +116,25 @@ public class ExpenseVoucher {
     @Version
     @Column(name = "version", nullable = false)
     private Integer version;
+
+    // ── EX-6 — a claim (paid_from EMPLOYEE). NULL on every other voucher. ─────────────────────────────
+    @Column(name = "claim_status", length = 16)
+    private String claimStatus;
+
+    /** Who paid it — written at submit (the trail must read after the person has left). */
+    @Column(name = "claimant_name", length = 160)
+    private String claimantName;
+
+    @Column(name = "decided_by")
+    private Long decidedBy;
+
+    @Column(name = "decided_at")
+    private LocalDateTime decidedAt;
+
+    @Column(name = "decision_note", length = 255)
+    private String decisionNote;
+
+    public boolean isClaim() { return "EMPLOYEE".equals(paidFrom); }
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

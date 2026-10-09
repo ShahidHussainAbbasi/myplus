@@ -68,20 +68,22 @@ public final class ExpenseDtos {
                               String postingError, String voidReason, LocalDateTime voidedAt, Long userId,
                               Integer version, List<LineView> lines, String source, String sourceRef,
                               Long supplierId, String supplierName, LocalDate dueDate, BigDecimal paidAmount,
-                              BigDecimal openAmount, int receipts) {
+                              BigDecimal openAmount, int receipts,
+                              String claimStatus, String claimantName, String decisionNote, LocalDateTime decidedAt) {
         public static VoucherView of(ExpenseVoucher v) {
             return new VoucherView(v.getId(), v.getVoucherNo(), v.getVoucherDate(), v.getPaidFrom(), v.getStoreId(),
                     v.getPayeeName(), v.getNote(), v.getTotal(), v.getStatus(), v.getPostingStatus(),
                     v.getPostingError(), v.getVoidReason(), v.getVoidedAt(), v.getUserId(), v.getVersion(),
                     v.getLines().stream().map(LineView::of).toList(), v.getSource(), v.getSourceRef(),
-                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount(), 0);
+                    v.getSupplierId(), v.getSupplierName(), v.getDueDate(), v.getPaidAmount(), v.openAmount(), 0,
+                    v.getClaimStatus(), v.getClaimantName(), v.getDecisionNote(), v.getDecidedAt());
         }
 
         /** EX-5 — the same view with how many receipts the expense has. */
         public VoucherView withReceipts(int n) {
             return new VoucherView(id, voucherNo, voucherDate, paidFrom, storeId, payeeName, note, total, status, postingStatus,
                     postingError, voidReason, voidedAt, userId, version, lines, source, sourceRef, supplierId, supplierName,
-                    dueDate, paidAmount, openAmount, n);
+                    dueDate, paidAmount, openAmount, n, claimStatus, claimantName, decisionNote, decidedAt);
         }
     }
 }

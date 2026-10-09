@@ -83,7 +83,7 @@ class ExpenseListTotalsTest {
     @DisplayName("a page is at most 200 rows whatever is asked, and page/size arrive as asked within that")
     void pageSizeIsBounded() {
         ArgumentCaptor<Pageable> p = ArgumentCaptor.forClass(Pageable.class);
-        when(repo.search(eq(7L), isNull(), isNull(), isNull(), isNull(), p.capture()))
+        when(repo.search(eq(7L), isNull(), isNull(), isNull(), isNull(), isNull(), p.capture()))
                 .thenReturn(new PageImpl<ExpenseVoucher>(List.of()));
         ExpenseVoucherService s = service(null);
 

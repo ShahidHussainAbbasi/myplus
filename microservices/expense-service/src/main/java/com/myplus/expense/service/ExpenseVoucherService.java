@@ -62,9 +62,16 @@ public class ExpenseVoucherService {
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
+        return list(from, to, status, null, page, size);
+    }
+
+    /** EX-6 — {@code claim}: only claims in that state (the approvers' queue: SUBMITTED). */
+    @Transactional(readOnly = true)
+    public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, String claim, int page, int size) {
         int s = Math.max(1, Math.min(size <= 0 ? 50 : size, 200));
+        String c = blankToNull(claim);
         PageResponse<VoucherView> out = PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to,
-                PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
+                c == null ? null : c.toUpperCase(java.util.Locale.ROOT), PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
         // EX-5 — how many receipts each row has, in one query for the page
         if (out.getContent() != null && !out.getContent().isEmpty()) {
             java.util.Map<Long, Integer> n = receipts.counts(out.getContent().stream().map(VoucherView::id).toList());
@@ -120,6 +127,8 @@ public class ExpenseVoucherService {
     public VoucherView post(Long id) {
         access.assertModuleOn();
         ExpenseVoucher v = visible(id);
+        // EX-6 — a claim is posted by APPROVING it (owner/admin, not the claimant); this command would skip that.
+        if (v.isClaim()) throw new ValidationException("A claim goes to the books when an owner or admin approves it.");
         postInTx(v);
         return VoucherView.of(v);
     }
@@ -229,12 +238,13 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = visible(id);
         if (!ExpenseVoucher.DRAFT.equals(v.getStatus()))
             throw new ValidationException("A posted expense cannot be deleted. Void it instead, with a reason.");
+        if (v.isClaim()) throw new ValidationException("A claim is withdrawn, not deleted — its trail is kept.");   // EX-6
         repo.delete(v);
     }
 
     // ── internals ───────────────────────────────────────────────────────────────────────────────────
 
-    private void postInTx(ExpenseVoucher v) {
+    void postInTx(ExpenseVoucher v) {   // EX-6: also the claim's approval
         // the number is taken LAST before the outbox: the counter row stays locked until this commits
         long seq = numbers.next(v.getOrganizationId(), DOC_TYPE);
         try {
@@ -250,7 +260,7 @@ public class ExpenseVoucherService {
     }
 
     /** The voucher, if this caller may see it. Another tenant's — or, for a user, a colleague's — is "not found". */
-    private ExpenseVoucher visible(Long id) {
+    ExpenseVoucher visible(Long id) {
         ExpenseVoucher v = repo.findByIdAndOrganizationId(id, access.org())
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         Long only = access.visibleUserId();
@@ -258,7 +268,10 @@ public class ExpenseVoucherService {
         return v;
     }
 
-    private ExpenseVoucher build(Long org, VoucherRequest r) {
+    private ExpenseVoucher build(Long org, VoucherRequest r) { return build(org, r, false); }
+
+    /** EX-6 — {@code asClaim}: the claim path, the only one that may build an EMPLOYEE voucher. */
+    ExpenseVoucher build(Long org, VoucherRequest r, boolean asClaim) {
         if (r == null) throw new ValidationException("Nothing to save.");
         LocalDate today = TenantClock.today();
         LocalDate date = r.voucherDate() == null ? today : r.voucherDate();
@@ -274,6 +287,12 @@ public class ExpenseVoucherService {
         // in the books with no cash leaving any drawer, and (being a till expense) it could never be voided.
         if (from == PaidFrom.DRAWER)
             throw new ValidationException("A pay-out from the till is recorded at the till (Till → Cash Drawer).");
+        // EX-6 — money paid from your own pocket is a CLAIM: it is owed back only once an owner or admin approves it,
+        // so it can never be recorded (and posted) straight in.
+        if (from == PaidFrom.EMPLOYEE && !asClaim)
+            throw new ValidationException("Money you paid yourself is a claim: choose \"Me (claim)\" so it goes for approval.");
+        if (asClaim && from != PaidFrom.EMPLOYEE)
+            throw new ValidationException("A claim is money you paid yourself.");
         // FP-3 — a bill is owed to a supplier business-service confirms for THIS caller; nothing else carries one.
         String supplierName = null;
         if (from == PaidFrom.AP) {
