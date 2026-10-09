@@ -20,6 +20,11 @@ public class ExpenseSettings {
         return Math.max(0, Math.min(d, ExpenseSettingsCatalog.BACKDATE_MAX));
     }
 
+    /** EX-8d — may an expense carry a recoverable input-tax part? */
+    public boolean inputTaxRecoverable() {
+        return settings.getBool(ExpenseSettingsCatalog.INPUT_TAX_RECOVERABLE);
+    }
+
     /** EX-5 — above this a receipt is required; 0 (or anything not positive) = never. */
     public java.math.BigDecimal receiptRequiredAbove() {
         java.math.BigDecimal v = settings.getDecimal(ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE, java.math.BigDecimal.ZERO);

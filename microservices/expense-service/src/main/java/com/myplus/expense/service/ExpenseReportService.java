@@ -38,7 +38,7 @@ public class ExpenseReportService {
     static final long MAX_DAYS = 731;
 
     public record Entry(LocalDate date, String voucherNo, String categoryName, String accountCode, String paidFrom,
-                        String payee, Long userId, BigDecimal amount, boolean isVoid) { }
+                        String payee, Long userId, BigDecimal amount, boolean isVoid, BigDecimal tax) { }
 
     public record Group(String key, String label, BigDecimal amount, long count) { }
 
@@ -84,7 +84,7 @@ public class ExpenseReportService {
     public String csv(LocalDate from, LocalDate to) {
         LocalDate[] p = period(from, to);
         Function<Entry, String[]> member = memberKey();
-        StringBuilder out = new StringBuilder("Date,Number,Category,Account,Paid from,Payee,Member,Amount,Kind\r\n");
+        StringBuilder out = new StringBuilder("Date,Number,Category,Account,Paid from,Payee,Member,Input tax,Amount,Kind\r\n");
         entries(p[0], p[1]).stream().sorted(Comparator.comparing(Entry::date).thenComparing(e -> String.valueOf(e.voucherNo())))
                 .forEach(e -> out.append(e.date()).append(',')
                         .append(cell(e.voucherNo())).append(',')
@@ -93,6 +93,7 @@ public class ExpenseReportService {
                         .append(cell(paidFromLabel(e.paidFrom()))).append(',')
                         .append(cell(e.payee())).append(',')
                         .append(cell(member.apply(e)[1])).append(',')
+                        .append(e.tax().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()).append(',')
                         .append(e.amount().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()).append(',')
                         .append(e.isVoid() ? "Void" : "Expense").append("\r\n"));
         return out.toString();
@@ -111,9 +112,10 @@ public class ExpenseReportService {
     }
 
     private static Entry entry(ExpenseVoucher v, ExpenseVoucherLine l, LocalDate on, boolean isVoid) {
-        BigDecimal amt = l.getAmount() == null ? BigDecimal.ZERO : l.getAmount();
+        BigDecimal amt = l.netAmount();          // EX-8d — what the expense account carries (recoverable tax is not a cost)
+        BigDecimal tax = l.getTaxAmount() == null ? BigDecimal.ZERO : l.getTaxAmount();
         return new Entry(on, v.getVoucherNo(), l.getCategoryName(), l.getAccountCode(), v.getPaidFrom(), v.getPayeeName(),
-                v.getUserId(), isVoid ? amt.negate() : amt, isVoid);
+                v.getUserId(), isVoid ? amt.negate() : amt, isVoid, isVoid ? tax.negate() : tax);
     }
 
     /** The member a line belongs to: named from auth's staff list for an owner/admin; "You" for a member's own report. */

@@ -26,7 +26,13 @@ public final class ExpenseDtos {
         }
     }
 
-    public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) { }
+    public record LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId,
+                              BigDecimal taxAmount) {
+        /** Before EX-8d: no recoverable tax. */
+        public LineRequest(Long categoryId, BigDecimal amount, String description, String tagType, Long tagId) {
+            this(categoryId, amount, description, tagType, tagId, null);
+        }
+    }
 
     /** FP-3 — {@code supplierId} and {@code dueDate} belong to a bill (paidFrom = AP) and are refused on anything else. */
     public record VoucherRequest(LocalDate voucherDate, String paidFrom, Long storeId, String payeeName, String note,
@@ -56,10 +62,10 @@ public final class ExpenseDtos {
     public record VoucherTotals(long count, BigDecimal total) { }
 
     public record LineView(int lineNo, Long categoryId, String categoryName, String accountCode, String description,
-                           BigDecimal amount, String tagType, Long tagId, String tagLabel) {
+                           BigDecimal amount, String tagType, Long tagId, String tagLabel, BigDecimal taxAmount) {
         public static LineView of(ExpenseVoucherLine l) {
             return new LineView(l.getLineNo(), l.getCategoryId(), l.getCategoryName(), l.getAccountCode(),
-                    l.getDescription(), l.getAmount(), l.getTagType(), l.getTagId(), l.getTagLabel());
+                    l.getDescription(), l.getAmount(), l.getTagType(), l.getTagId(), l.getTagLabel(), l.getTaxAmount());
         }
     }
 

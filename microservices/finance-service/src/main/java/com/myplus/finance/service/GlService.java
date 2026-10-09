@@ -3,6 +3,7 @@ package com.myplus.finance.service;
 import com.myplus.common.security.time.TenantClock;
 
 import com.myplus.common.security.CurrentUser;
+import com.myplus.common.web.exception.ValidationException;
 import com.myplus.finance.dto.AccountDTO;
 import com.myplus.finance.dto.JournalLineDTO;
 import com.myplus.finance.dto.JournalPostRequest;
@@ -20,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
@@ -314,6 +317,9 @@ public class GlService {
                 else if ("SALE_RETURN".equals(source)) outputAdjusted = outputAdjusted.add(debit);
                 else if ("PURCHASE".equals(source)) inputTax = inputTax.add(debit);
                 else if ("PURCHASE_RETURN".equals(source)) inputAdjusted = inputAdjusted.add(credit);
+                // EX-8d — input tax recovered on an expense, and its void
+                else if ("EXPENSE".equals(source)) inputTax = inputTax.add(debit);
+                else if ("EXPENSE_REVERSAL".equals(source)) inputAdjusted = inputAdjusted.add(credit);
             }
             for (JournalLine jl : journalLineRepository.ledgerForAccountInRange(tax.getId(), org, f, t)) {
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -364,6 +370,36 @@ public class GlService {
         out.put("income", income); out.put("expense", expense);
         out.put("totalIncome", totalIncome); out.put("totalExpense", totalExpense);
         out.put("netProfit", totalIncome.subtract(totalExpense));
+        return out;
+    }
+
+    /** AN-1 — the most months one call may ask for (two years: this year beside last). */
+    public static final int MAX_MONTHS = 24;
+
+    /**
+     * AN-1 — the P&L month by month, for analytics' trend. Each month is {@link #profitAndLoss} over that month (the
+     * current month up to today), so a month here is exactly what the P&L screen shows for it: one rule, not two.
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> monthlyProfitAndLoss(YearMonth from, YearMonth to) {
+        YearMonth now = YearMonth.from(TenantClock.today());
+        YearMonth t = to != null ? to : now;
+        YearMonth f = from != null ? from : t.minusMonths(11);
+        if (f.isAfter(t)) throw new ValidationException("The first month cannot be after the last month.");
+        if (t.isAfter(now)) throw new ValidationException("The last month cannot be after this month.");
+        if (ChronoUnit.MONTHS.between(f, t) + 1 > MAX_MONTHS)
+            throw new ValidationException("At most " + MAX_MONTHS + " months at a time.");
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (YearMonth m = f; !m.isAfter(t); m = m.plusMonths(1)) {
+            LocalDate end = m.equals(now) ? TenantClock.today() : m.atEndOfMonth();
+            Map<String, Object> p = profitAndLoss(m.atDay(1), end);
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("month", m.toString());
+            row.put("from", p.get("from")); row.put("to", p.get("to"));
+            row.put("totalIncome", p.get("totalIncome")); row.put("totalExpense", p.get("totalExpense"));
+            row.put("netProfit", p.get("netProfit"));
+            out.add(row);
+        }
         return out;
     }
 

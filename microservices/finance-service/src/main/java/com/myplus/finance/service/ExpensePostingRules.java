@@ -34,6 +34,9 @@ public final class ExpensePostingRules {
     /** Cost of Goods Sold — moved by the sale path only. */
     static final String COGS = "5000";
 
+    /** EX-8d — the tax account: an expense may debit it with the recoverable input tax inside what was paid. */
+    static final String INPUT_TAX = "2100";
+
     /** Every account an expense may be paid from or owed on. */
     static final Set<String> CREDIT_ACCOUNTS = Set.of("1000", "1010", "2000", "2300", "1300");
 
@@ -48,7 +51,7 @@ public final class ExpensePostingRules {
     public static void check(List<JournalLineDTO> lines, Function<String, Optional<AccountType>> typeOf) {
         if (lines == null || lines.size() < 2)
             throw new IllegalArgumentException("An expense needs at least one cost line and one payment line.");
-        boolean anyDebit = false, anyCredit = false;
+        boolean anyDebit = false, anyCredit = false, anyCost = false;
         for (JournalLineDTO l : lines) {
             String code = l.getAccountCode();
             if (code == null || code.isBlank())
@@ -56,6 +59,8 @@ public final class ExpensePostingRules {
             BigDecimal d = nz(l.getDebit()), c = nz(l.getCredit());
             if (d.signum() > 0) {
                 anyDebit = true;
+                if (INPUT_TAX.equals(code)) continue;    // EX-8d — recoverable input tax, netted in the tax register
+                anyCost = true;
                 if (COGS.equals(code))
                     throw new IllegalArgumentException(
                             "An expense cannot be posted to 5000 Cost of Goods Sold — only sales move that account.");
@@ -71,7 +76,7 @@ public final class ExpensePostingRules {
                             + "bill, an employee claim or an advance — not account " + code + ".");
             }
         }
-        if (!anyDebit) throw new IllegalArgumentException("An expense needs at least one cost line.");
+        if (!anyDebit || !anyCost) throw new IllegalArgumentException("An expense needs at least one cost line.");
         if (!anyCredit) throw new IllegalArgumentException("An expense needs a line saying how it was paid.");
     }
 

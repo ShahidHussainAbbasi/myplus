@@ -354,6 +354,15 @@ public class ExpenseVoucherService {
             l.setCategoryName(c.getName());           // snapshot
             l.setDescription(limit(lr.description(), 255));
             l.setAmount(amt);
+            // EX-8d — the recoverable tax inside the amount: only while the business recovers input tax, never more than it
+            if (lr.taxAmount() != null && lr.taxAmount().signum() != 0) {
+                if (!expenseSettings.inputTaxRecoverable())
+                    throw new ValidationException("Recovering input tax is switched off for this business. An owner can switch it on in Expenses → Settings.");
+                BigDecimal tax = lr.taxAmount().setScale(2, RoundingMode.HALF_UP);
+                if (tax.signum() < 0) throw new ValidationException("The tax part cannot be negative.");
+                if (tax.compareTo(amt) >= 0) throw new ValidationException("The tax part must be less than the amount it is part of.");
+                l.setTaxAmount(tax);
+            }
             // EX-2b — confirmed by the owning module with the caller's identity; the label is the module's.
             String label = tags.confirm(lr.tagType(), lr.tagId(), tagLists);
             if (label != null) {
