@@ -2,7 +2,7 @@
          Full walk with screenshots and shared Pass/Fail marks: https://claude.ai/artifact/Bv45n9sikcS2JMZPSJgS3G -->
     <h2>29 · Pharmacy: Prescriptions, record → dispense → register <span class="tag amber">gated</span></h2>
     <p>Run on 8 Oct 2026 (<code>cypress/e2e/pharmacy/prescriptions-tab-walk.cy.js</code>), driven by the mouse
-      the way a pharmacist works. <strong>13 of 14</strong> passed on the fixed build; RX-08 needs a re-run. Step-by-step
+      the way a pharmacist works. <strong>14 of 14</strong> passed on the fixed build (9 Oct). Step-by-step
       cases, screenshots and a shared manual run sheet are on the
       <a href="https://claude.ai/artifact/Bv45n9sikcS2JMZPSJgS3G">Prescriptions Test Walk</a>.</p>
     <div class="note red">
@@ -39,7 +39,7 @@
     </ul>
     <div class="note blue">
       <span class="hd">Not yet verified</span>
-      <p>RX-08 re-run (the till once showed <em>Please wait</em> for over 30 s after Dispense; cause unknown). A tenant with
+      <p>Once (8 Oct) the till showed <em>Please wait</em> for over 30 s after Dispense; it did not recur on 9 Oct and the cause is unknown. A tenant with
         prescriptions switched off (<code>owner.pesticide@</code>) being refused, and a read-only user being refused intake and
         dispense, are not tested anywhere.</p>
     </div>

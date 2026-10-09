@@ -2362,8 +2362,16 @@ tr.row-voided .js-edit-row{display:none !important}
 			<!-- P6 (slice 43): shown when a sale is dispensing a prescription; cleared after Complete Sale records the dispense. -->
 			<div id="dispenseBanner" class="alert alert-info" style="display:none">
 				<span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.dispensing}">Dispensing</span> <b id="dispenseRxLabel"></b> <span th:text="#{ui.addThePrescribedItemsAndComplete}">—
-				add the prescribed items and complete the sale.</span>
+				the prescribed medicines are in the cart. Check each with the patient, adjust with + / −, then complete the sale.</span>
 				<a href="#" onclick="cancelDispense();return false;" style="float:right" th:text="#{ui.cancel}">cancel</a>
+				<!-- RX-FILL: per medicine, what the script still owes against what this sale hands over (pharma.js rxFillNote) -->
+				<div id="dispenseFillNote" style="display:none"></div>
+				<style>
+					#dispenseFillNote ul.rx-fill{margin:6px 0 0;padding-left:18px;font-size:13px}
+					#dispenseFillNote .rx-over{color:#9a6700;font-weight:600}
+					#dispenseFillNote .rx-under{color:#31708f}
+					#dispenseFillNote .rx-warn{color:#a94442;font-weight:600}
+				</style>
 			</div>
 			<a id="MyLink"  style="display:none"></a>
 			<input id="Button1" type="button" value="Click Me" onclick="OpenWord()" style="display: none;"/>
@@ -3027,7 +3035,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							<button type="button" id="parkSaleBtn" data-pos-field="park" class="btn btn-info" onclick="parkCurrentSale()">
 								<span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.park}">Park</span>
 							</button>
-							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart()">
+							<button type="button" id="resetSellItem" class="btn btn-warning" onclick="resetCart();if(typeof cancelDispense==='function')cancelDispense();">
 								<span class="glyphicon glyphicon-trash"></span> <span th:text="#{ui.clearCart}">Clear Cart</span>
 							</button>
 						</div>

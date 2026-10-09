@@ -180,9 +180,25 @@
         var line = global.data[idx];
 
         // A LOOSE line counts in pieces, and its shelf quantity is derived. Stepping `quantity` directly
-        // would desync soldQuantity from quantity — the defect U15-A4 fixed on the scan path. Out of scope
-        // here: the counter sells whole menu items, so a loose line can only arrive from the typed form.
-        if (String(line.soldUnit || '').toUpperCase() === 'LOOSE') return;
+        // would desync soldQuantity from quantity — the defect U15-A4 fixed on the scan path. RX-FILL-2: a
+        // pharmacy dispense is mostly loose tablets, so step the PIECES and re-quote through LooseSell, using the
+        // line's own pack rules (the same rule scanAddToCart uses to bump a loose line).
+        if (String(line.soldUnit || '').toUpperCase() === 'LOOSE') {
+            var pieces = (Number(line.soldQuantity) || 0) + delta;
+            if (pieces <= 0) { if (typeof UIT === 'function') UIT(pid, idx); return; }
+            var info = { allowLoose: true, packSize: Number(line.packSizeSnapshot) || 0,
+                packRate: line.sellRate, looseRate: line.soldRate };
+            var q = (global.LooseSell && info.packSize > 1) ? global.LooseSell.quoteFor(info, pieces) : null;
+            if (!q) return;   // no pack rules on the line — refuse rather than mis-price
+            line.soldQuantity = pieces;
+            line.quantity = q.packs;
+            line.soldRate = q.perPiece;
+            var lm = sellLineMath(q.total / q.packs, q.packs, 0, 0, '0');
+            line.totalAmount = lm.total;
+            line.netAmount = lm.profit;
+            if (typeof global.renderCart === 'function') global.renderCart();
+            return;
+        }
 
         var next = (Number(line.quantity) || 0) + delta;
         if (next <= 0) {

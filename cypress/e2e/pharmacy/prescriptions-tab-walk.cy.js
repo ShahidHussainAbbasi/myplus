@@ -13,6 +13,8 @@
  * Run headed:
  *   npx cypress run --spec cypress/e2e/pharmacy/prescriptions-tab-walk.cy.js --headed --browser chrome
  *
+ * RX-FILL (2026-10-09): Dispense fills the cart from the script; the counter adjusts with + / −.
+ *
  * Signs in as owner.pharma (PHARMA owner, no demo write cap). Cleanup (after): every script this run
  * left live is cancelled, and the clinical flags it set are switched back off — see `cleanup()`.
  */
@@ -85,36 +87,78 @@ const dispenseBody = (interception) => {
 
 
 /**
- * The sale, the way a pharmacist does it with the mouse — no barcode box, no function keys (scanning ships OFF
- * for every tenant). `prefix` names a screenshot per step, for the guide on the walk page.
+ * RX-FILL — after Dispense the till fills the cart itself, with what is still owed on the script. Wait for that,
+ * not for a request: the fill reads three things per medicine and adds the lines one at a time.
  */
-const sellByMouse = (productId, qty, rate, customer, prefix) => {
-  const snap = (n) => { if (prefix) shot(`${prefix}-${n}`) }
+const waitFilled = () => {
   cy.get('#sellDiv').should('be.visible')
+  cy.window({ timeout: 30000 }).its('dispensingFilled').should('eq', true)
   cy.waitForAppReady()
-  // 1. Item: pick the medicine; its price fills in.
-  cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 20000 }).should('exist')
-  cy.get('#sellItemDD').select(String(productId), { force: true })
-  cy.get('#sellSellRate').should('not.have.value', '')
-  // 2. Qty, then Add to Cart.
-  cy.get('#sellQuantity').clear().type(String(qty))
-  snap('a-item-and-qty')
-  cy.get('#addInviceItem').click()
-  cy.window().its('data').should('have.length', 1)
-  // the mouse path keeps the typed quantity as text ('6'); the scan box stored a number
-  cy.window().its('data.0.quantity').then((q) => expect(Number(q)).to.eq(qty))
-  snap('b-in-cart')
-  // 3. Customer: Enter Manually, type the patient's name.
+}
+
+/** The cart line for a product (window.data is the cart). */
+const cartLine = (productId) =>
+  cy.window().its('data').then((d) => {
+    const l = d.find((x) => String(x.productId) === String(productId))
+    expect(l, `cart line for product ${productId}`).to.exist
+    return l
+  })
+
+/** Pieces on a line, in the unit the script is written in — the same mapping the dispense uses. */
+const piecesOf = (l) => (String(l.soldUnit || '').toUpperCase() === 'LOOSE' ? Number(l.soldQuantity) : Number(l.quantity))
+
+/** Press + or − on a cart line `times` times — the buttons the counter uses after asking the patient. */
+const step = (productId, delta, times) => {
+  for (let k = 0; k < times; k++) {
+    cy.get(`.ctr-step[data-pid="${productId}"][data-d="${delta}"]`, { timeout: 10000 }).first().click()
+  }
+}
+
+/** Name the patient, take exactly the payable, Complete Sale, confirm. `prefix` names a screenshot per step. */
+const completeFilled = (customer, prefix) => {
+  const snap = (n) => { if (prefix) shot(`${prefix}-${n}`) }
   cy.get('#btnModeManual').click()
   cy.get('#sellCN').should('be.visible').clear().type(customer)
-  // 4. Amount Received = the total, then Complete Sale.
-  cy.get('#sellRec').clear().type(String(qty * rate))
+  cy.window().then((w) => {
+    const pay = typeof w.sellPayable === 'function'
+      ? Number(w.sellPayable())
+      : w.data.reduce((a, l) => a + (Number(l.totalAmount) || 0), 0)
+    cy.get('#sellRec').clear().type(pay.toFixed(2))
+  })
   snap('c-customer-and-cash')
   cy.get('#addSell').click()
-  // 5. "Complete this sale?" -> Complete Sale.
   cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible')
   snap('d-confirm')
   cy.get('[data-ui-confirm="ok"]').click({ force: true })
+}
+
+/** A divisible product: packs of 10, sellable by the tablet, stocked through a purchase (copied from U8's spec). */
+const loosePackProduct = (name, packs) =>
+  cy.request({
+    method: 'POST', url: '/addProduct', headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
+    body: { name, sellingPrice: 120, unit: 'pack', packSize: 10, looseUnit: 'tablet', looseUnitPlural: 'tablets',
+      allowLoose: true, defaultSellUnit: 'PACK' },
+  }).then((r) => {
+    expect(r.body.success, `product ${name}: ${JSON.stringify(r.body)}`).to.eq(true)
+    const productId = r.body.data.id
+    return cy.request({
+      method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
+      body: { productId, quantity: packs, 'stock.batchNo': `RXL${uniq()}`, 'stock.bpurchaseRate': 100,
+        'stock.bsellRate': 120, totalAmount: packs * 100, netAmount: packs * 100, purchaseInvoiceNo: `RXL-${uniq()}` },
+    }).then((p) => {
+      expect(p.body.status, `stock in: ${JSON.stringify(p.body).substring(0, 200)}`).to.eq('SUCCESS')
+      return productId
+    })
+  })
+
+/** Pharmacy → Prescriptions through the sidebar WITHOUT reloading — so a cart built before it survives. */
+const toPrescriptionsNoReload = () => {
+  cy.get('#snavPharmacy').then(($g) => {
+    if (!$g.find('a:contains("Prescriptions")').is(':visible')) cy.wrap($g).find('.snav-btn').click()
+  })
+  cy.get('#snavPharmacy').contains('a', 'Prescriptions').should('be.visible').click()
+  cy.get('#PrescriptionDiv').should('be.visible')
+  cy.waitForAppReady()
 }
 
 describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
@@ -285,23 +329,29 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
   })
 
   // ── RX-07 ────────────────────────────────────────────────────────────────────────────────────────
-  it('RX-07 Dispense hands off to the till with a banner; "cancel" un-links it', () => {
+  it('RX-07 Dispense opens the till with the script already in the cart; "cancel" drops both', () => {
     const name = `RxHand_${uniq()}`, patient = `Hand_${uniq()}`
     cy.seedProduct({ name, unit: 'tablet', stock: 10, sellingPrice: 10 }).then(({ productId }) => {
       seedScript(patient, [{ productId, medicineName: name, quantity: 4 }]).then((rx) => {
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        cy.get('#sellDiv').should('be.visible')
         cy.get('#PrescriptionDiv').should('not.be.visible')
         cy.get('#dispenseBanner').should('be.visible')
         cy.get('#dispenseRxLabel').should('have.text', `Rx #${rx.id} — ${patient}`)
         cy.window().its('dispensingPrescriptionId').should('eq', rx.id)
-        cy.waitForAppReady()
+        waitFilled()
+        // RX-FILL-1: the prescribed medicine is in the cart at what is owed, with + / − on its line.
+        cy.window().its('data').should('have.length', 1)
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(4))
+        cy.get(`.ctr-step[data-pid="${productId}"]`).should('have.length', 2)
+        cy.get('#dispenseFillNote').should('contain.text', '4 left on the script · 4 in this sale')
         shot('RX-07-1-till-with-banner')
 
+        // "cancel" on the banner drops the link AND the lines it brought.
         cy.get('#dispenseBanner').contains('a', /cancel/i).click()
         cy.get('#dispenseBanner').should('not.be.visible')
         cy.window().its('dispensingPrescriptionId').should('be.null')
+        cy.window().its('data').should('have.length', 0)
         shot('RX-07-2-banner-cleared')
         readRx(rx.id).its('status').should('eq', 'PENDING')
       })
@@ -310,23 +360,21 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
 
   // ── RX-08 ⭐ ─────────────────────────────────────────────────────────────────────────────────────
   /**
-   * ⭐ THE SEAM NO OTHER SPEC REACHES: Complete Sale at the till → the dispense recorded against the script.
-   *
-   * main.js clears the cart (resetCart → `data = []`) to close the checkout, and only THEN calls
-   * dispensePrescription(), which builds its lines from that same cart. If the order is wrong the
-   * dispense posts no lines: the sale and stock are right, the script stays PENDING, and the pharmacist
-   * is still told "Dispense recorded".
+   * ⭐ Complete Sale at the till → the dispense recorded against the script. The cart was filled by Dispense;
+   * nothing is picked by hand. (RX-DISP-1: main.js must take the lines BEFORE it clears the cart.)
    */
-  it('RX-08 ⭐ a full sale at the till marks the script FULLY_DISPENSED', () => {
-    const stamp = uniq(), name = `RxFull_${stamp}`, sku = `RXF${stamp}`, patient = `Full_${stamp}`
-    cy.seedProduct({ name, sku, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+  it('RX-08 ⭐ the filled cart, completed as it is, marks the script FULLY_DISPENSED', () => {
+    const stamp = uniq(), name = `RxFull_${stamp}`, patient = `Full_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
       seedScript(patient, [{ productId, medicineName: name, quantity: 6 }]).then((rx) => {
         cy.intercept('POST', '**/addSell').as('sale')
         cy.intercept('POST', '**/dispensePrescription').as('disp')
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        shot('RX-08-1-till-with-banner')
-        sellByMouse(productId, 6, 20, patient, 'RX-08-2')
+        waitFilled()
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(6))
+        shot('RX-08-1-till-filled')
+        completeFilled(patient, 'RX-08-2')
 
         cy.wait('@sale', { timeout: 30000 }).its('response.body.status').should('eq', 'SUCCESS')
         cy.wait('@disp', { timeout: 30000 }).then(({ request, response }) => {
@@ -355,14 +403,21 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
   })
 
   // ── RX-09 ────────────────────────────────────────────────────────────────────────────────────────
-  it('RX-09 a part sale leaves it PARTIALLY_DISPENSED and still dispensable', () => {
-    const stamp = uniq(), name = `RxPart_${stamp}`, sku = `RXP${stamp}`, patient = `Part_${stamp}`
-    cy.seedProduct({ name, sku, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+  it('RX-09 − lowers a line; the rest stays owed and the next visit fills only the remainder', () => {
+    const stamp = uniq(), name = `RxPart_${stamp}`, patient = `Part_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
       seedScript(patient, [{ productId, medicineName: name, quantity: 10 }]).then((rx) => {
         cy.intercept('POST', '**/dispensePrescription').as('disp')
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        sellByMouse(productId, 4, 20, patient)
+        waitFilled()
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(10))
+        // The patient takes 4 today.
+        step(productId, -1, 6)
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(4))
+        cy.get('#dispenseFillNote').should('contain.text', '4 in this sale — 6 left for another day')
+        shot('RX-09-1-minus-to-4')
+        completeFilled(patient)
         cy.wait('@disp', { timeout: 30000 }).then((i) => {
           expect(dispenseBody(i).items, 'the till sends the 4 it sold').to.deep.eq([{ productId, quantity: 4 }])
         })
@@ -370,30 +425,37 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
           expect(after.status).to.eq('PARTIALLY_DISPENSED')
           expect(after.items[0].dispensedQuantity).to.eq(4)
         })
+
+        // Next visit: Dispense again fills only the 6 still owed.
         openPrescriptionsTab()
-        rowOf(patient).within(() => {
-          cy.get('td').eq(3).should('have.text', 'PARTIALLY_DISPENSED')
-          cy.contains('button', 'Dispense').should('be.visible')
-        })
-        shot('RX-09-1-partial')
+        rowOf(patient).within(() => cy.get('td').eq(3).should('have.text', 'PARTIALLY_DISPENSED'))
+        rowOf(patient).contains('button', 'Dispense').click()
+        waitFilled()
+        cartLine(productId).then((l) => expect(piecesOf(l), 'only the remainder').to.eq(6))
+        shot('RX-09-2-second-visit-remainder')
+        cy.get('#dispenseBanner').contains('a', /cancel/i).click()
       })
     })
   })
 
   // ── RX-10 ────────────────────────────────────────────────────────────────────────────────────────
-  it('RX-10 selling more than outstanding records only the remainder, and says so', () => {
-    const stamp = uniq(), name = `RxOver_${stamp}`, sku = `RXO${stamp}`, patient = `Over_${stamp}`
-    cy.seedProduct({ name, sku, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+  it('RX-10 + above the script is shown before the sale, and only the prescribed amount is recorded', () => {
+    const stamp = uniq(), name = `RxOver_${stamp}`, patient = `Over_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
       seedScript(patient, [{ productId, medicineName: name, quantity: 5 }]).then((rx) => {
         cy.intercept('POST', '**/dispensePrescription').as('disp')
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        sellByMouse(productId, 8, 20, patient)
+        waitFilled()
+        step(productId, 1, 3)
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(8))
+        cy.get('#dispenseFillNote .rx-over').should('contain.text', '3 more than prescribed')
+        shot('RX-10-1-plus-above-script')
+        completeFilled(patient)
         cy.wait('@disp', { timeout: 30000 }).then((i) => {
           expect(dispenseBody(i).items, 'the till sends the 8 it sold').to.deep.eq([{ productId, quantity: 8 }])
         })
         cy.get('#globalError').should('contain.text', '8 sold but only 5 was still outstanding')
-        shot('RX-10-1-over-warning')
         readRx(rx.id).then((after) => {
           expect(after.status).to.eq('FULLY_DISPENSED')
           expect(after.items[0].dispensedQuantity, 'capped at the script').to.eq(5)
@@ -404,8 +466,8 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
 
   // ── RX-11 ────────────────────────────────────────────────────────────────────────────────────────
   it('RX-11 a prescription-only medicine is refused at a plain sale, sold through Dispense', () => {
-    const stamp = uniq(), name = `RxOnly_${stamp}`, sku = `RXR${stamp}`, patient = `RxOnly_${stamp}`
-    cy.seedProduct({ name, sku, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+    const stamp = uniq(), name = `RxOnly_${stamp}`, patient = `RxOnly_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
       flag(productId, name, true, false)
       cy.intercept('POST', '**/addSell').as('sale')
 
@@ -417,7 +479,6 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
       cy.get('#sellItemDD').select(String(productId), { force: true })
       cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click()
-      // the courtesy notice, as soon as it goes into the cart — before any money is involved
       cy.get('#globalError').should('contain.text', 'is prescription-only')
       cy.get('#btnModeManual').click()
       cy.get('#sellCN').clear().type('Walk-in ' + stamp)
@@ -430,12 +491,13 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
       })
       shot('RX-11-1-walk-in-refused')
 
-      // 2. Same medicine, started from a script.
-      seedScript(patient, [{ productId, medicineName: name, quantity: 2 }]).then((rx) => {
+      // 2. Same medicine, started from a script: the cart is filled and the sale goes through.
+      seedScript(patient, [{ productId, medicineName: name, quantity: 2 }]).then(() => {
         cy.intercept('POST', '**/addSell').as('sale2')
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        sellByMouse(productId, 2, 20, patient)
+        waitFilled()
+        completeFilled(patient)
         cy.wait('@sale2', { timeout: 30000 }).its('response.body.status').should('eq', 'SUCCESS')
         shot('RX-11-2-dispensed-sale-ok')
       })
@@ -443,7 +505,7 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
   })
 
   // ── RX-12 ────────────────────────────────────────────────────────────────────────────────────────
-  it('RX-12 a SEVERE interaction on the script must be acknowledged; declining backs out', () => {
+  it('RX-12 a SEVERE interaction must be acknowledged; declining backs out and fills nothing', () => {
     const stamp = uniq(), a = `RxIntA_${stamp}`, b = `RxIntB_${stamp}`, patient = `Inter_${stamp}`
     cy.seedProduct({ name: a, unit: 'tablet', stock: 10, sellingPrice: 10 }).then((pa) => {
       cy.seedProduct({ name: b, unit: 'tablet', stock: 10, sellingPrice: 10 }).then((pb) => {
@@ -461,14 +523,17 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
           cy.get('.uiC-cancel').click()
           cy.get('#dispenseBanner').should('not.be.visible')
           cy.window().its('dispensingPrescriptionId').should('be.null')
+          cy.window().its('data').should('have.length', 0)
           shot('RX-12-2-declined')
 
-          // Acknowledging keeps the dispense going.
+          // Acknowledging fills both medicines.
           openPrescriptionsTab()
           rowOf(patient).contains('button', 'Dispense').click()
           cy.get('[data-ui-confirm="ok"]', { timeout: 15000 }).should('contain.text', 'Dispense anyway').click()
           cy.get('#dispenseBanner').should('be.visible')
           cy.window().its('dispensingPrescriptionId').should('eq', rx.id)
+          waitFilled()
+          cy.window().its('data').should('have.length', 2)
           cy.get('#dispenseBanner').contains('a', /cancel/i).click()
         })
       })
@@ -496,8 +561,8 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
 
   // ── RX-14 ────────────────────────────────────────────────────────────────────────────────────────
   it('RX-14 a controlled dispense lands on Alerts & Register with its invoice', () => {
-    const stamp = uniq(), name = `RxCtl_${stamp}`, sku = `RXC${stamp}`, patient = `Ctl_${stamp}`
-    cy.seedProduct({ name, sku, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+    const stamp = uniq(), name = `RxCtl_${stamp}`, patient = `Ctl_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
       flag(productId, name, true, true)
       seedScript(patient, [{ productId, medicineName: name, quantity: 3 }],
         { doctorName: 'Dr. Saleem', doctorLicense: 'PMC-12345' }).then(() => {
@@ -505,7 +570,8 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
         cy.intercept('POST', '**/dispensePrescription').as('disp')
         openPrescriptionsTab()
         rowOf(patient).contains('button', 'Dispense').click()
-        sellByMouse(productId, 3, 20, patient)
+        waitFilled()
+        completeFilled(patient)
         cy.wait('@sale', { timeout: 30000 }).its('response.body.object').then((invoiceNo) => {
           cy.wait('@disp', { timeout: 30000 })
           cy.get('#snavPharmacy').then(($g) => {
@@ -519,6 +585,135 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
             cy.get('td').eq(4).should('have.text', invoiceNo)
           })
           shot('RX-14-1-controlled-register')
+        })
+      })
+    })
+  })
+
+  // ── RX-15 ────────────────────────────────────────────────────────────────────────────────────────
+  /**
+   * A medicine sold by the tablet: the script's 15 tablets fill as a LOOSE line of 15, and + / − step in TABLETS.
+   * counter.js used to skip loose lines entirely — the commonest pharmacy line had no + / − at all.
+   */
+  it('RX-15 a medicine sold loose fills in tablets, and − steps one tablet', () => {
+    const stamp = uniq(), name = `RxLoose_${stamp}`, patient = `Loose_${stamp}`
+    loosePackProduct(name, 5).then((productId) => {
+      seedScript(patient, [{ productId, medicineName: name, quantity: 15 }]).then((rx) => {
+        cy.intercept('POST', '**/dispensePrescription').as('disp')
+        openPrescriptionsTab()
+        rowOf(patient).contains('button', 'Dispense').click()
+        waitFilled()
+        cartLine(productId).then((l) => {
+          expect(String(l.soldUnit).toUpperCase(), 'a loose line').to.eq('LOOSE')
+          expect(Number(l.soldQuantity), '15 tablets, not 15 packs').to.eq(15)
+        })
+        shot('RX-15-1-loose-15-tablets')
+        step(productId, -1, 1)
+        cartLine(productId).then((l) => expect(Number(l.soldQuantity)).to.eq(14))
+        cy.get('#dispenseFillNote').should('contain.text', '14 in this sale — 1 left for another day')
+        shot('RX-15-2-minus-one-tablet')
+        completeFilled(patient)
+        cy.wait('@disp', { timeout: 30000 }).then((i) => {
+          expect(dispenseBody(i).items, 'recorded in tablets').to.deep.eq([{ productId, quantity: 14 }])
+        })
+        readRx(rx.id).then((after) => {
+          expect(after.items[0].dispensedQuantity).to.eq(14)
+          expect(after.status).to.eq('PARTIALLY_DISPENSED')
+        })
+      })
+    })
+  })
+
+  // ── RX-16 ────────────────────────────────────────────────────────────────────────────────────────
+  /**
+   * Park keeps the prescription with the basket; the till is then a plain till again. Resume brings the dispense
+   * back. Before RX-FILL-0 the link stayed on the till after Park — the NEXT customer's sale was charged to it —
+   * and the resumed basket came back as an ordinary sale.
+   */
+  it('RX-16 Park takes the dispense with it; Resume brings it back and completes it', () => {
+    const stamp = uniq(), name = `RxPark_${stamp}`, patient = `Park_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+      seedScript(patient, [{ productId, medicineName: name, quantity: 6 }]).then((rx) => {
+        cy.intercept('POST', '**/dispensePrescription').as('disp')
+        openPrescriptionsTab()
+        rowOf(patient).contains('button', 'Dispense').click()
+        waitFilled()
+        cy.get('#btnModeManual').click()
+        cy.get('#sellCN').clear().type(patient)          // the parked basket is listed by this name
+        cy.get('#parkSaleBtn').click()
+        cy.get('#saleSuccess').should('be.visible')
+        cy.get('#dispenseBanner').should('not.be.visible')
+        cy.window().its('dispensingPrescriptionId').should('be.null')
+        cy.window().its('data').should('have.length', 0)
+        shot('RX-16-1-parked-till-is-plain')
+
+        cy.window().then((w) => w.showParked())
+        cy.contains('#tableParked tr', patient, { timeout: 15000 }).contains('button', 'Resume').click()
+        cy.get('#dispenseBanner').should('be.visible')
+        cy.window().its('dispensingPrescriptionId').should('eq', rx.id)
+        cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(6))
+        cy.get('#dispenseFillNote').should('contain.text', '6 left on the script · 6 in this sale')
+        shot('RX-16-2-resumed-as-dispense')
+        completeFilled(patient)
+        cy.wait('@disp', { timeout: 30000 }).then((i) => {
+          expect(dispenseBody(i).prescriptionId).to.eq(rx.id)
+          expect(dispenseBody(i).items).to.deep.eq([{ productId, quantity: 6 }])
+        })
+        readRx(rx.id).its('status').should('eq', 'FULLY_DISPENSED')
+      })
+    })
+  })
+
+  // ── RX-17 ────────────────────────────────────────────────────────────────────────────────────────
+  it('RX-17 Clear Cart during a dispense drops the lines, the link and the banner', () => {
+    const stamp = uniq(), name = `RxClear_${stamp}`, patient = `Clear_${stamp}`
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+      seedScript(patient, [{ productId, medicineName: name, quantity: 3 }]).then((rx) => {
+        openPrescriptionsTab()
+        rowOf(patient).contains('button', 'Dispense').click()
+        waitFilled()
+        cy.get('#resetSellItem').click()
+        cy.window().its('data').should('have.length', 0)
+        cy.window().its('dispensingPrescriptionId').should('be.null')
+        cy.get('#dispenseBanner').should('not.be.visible')
+        shot('RX-17-1-cleared')
+        readRx(rx.id).its('status').should('eq', 'PENDING')
+      })
+    })
+  })
+
+  // ── RX-18 ────────────────────────────────────────────────────────────────────────────────────────
+  it('RX-18 a cart that already holds goods is never mixed into a dispense: Replace or Cancel', () => {
+    const stamp = uniq(), other = `RxOther_${stamp}`, name = `RxRepl_${stamp}`, patient = `Repl_${stamp}`
+    cy.seedProduct({ name: other, unit: 'tablet', stock: 30, sellingPrice: 15 }).then((po) => {
+      cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+        seedScript(patient, [{ productId, medicineName: name, quantity: 2 }]).then((rx) => {
+          // A basket for someone else is on the till.
+          cy.visit('/businessDashboard')
+          cy.get('#sellType').select('sellDiv', { force: true })
+          cy.waitForAppReady()
+          cy.get(`#sellItemDD option[value="${po.productId}"]`, { timeout: 20000 }).should('exist')
+          cy.get('#sellItemDD').select(String(po.productId), { force: true })
+          cy.get('#sellQuantity').clear().type('1')
+          cy.get('#addInviceItem').click()
+          cy.window().its('data').should('have.length', 1)
+
+          toPrescriptionsNoReload()
+          rowOf(patient).contains('button', 'Dispense').click()
+          cy.get('.uiC-title', { timeout: 10000 }).should('contain.text', 'Replace the cart?')
+          shot('RX-18-1-replace-prompt')
+          cy.get('.uiC-cancel').click()
+          cy.window().its('dispensingPrescriptionId').should('not.eq', rx.id)
+          cy.window().its('data').should('have.length', 1)
+          cartLine(po.productId)
+
+          rowOf(patient).contains('button', 'Dispense').click()
+          cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('contain.text', 'Replace').click()
+          waitFilled()
+          cy.window().its('data').should('have.length', 1)
+          cartLine(productId).then((l) => expect(piecesOf(l)).to.eq(2))
+          shot('RX-18-2-replaced')
+          cy.get('#dispenseBanner').contains('a', /cancel/i).click()
         })
       })
     })
@@ -539,7 +734,8 @@ function cleanup() {
   created.rxIds.forEach((id) => {
     cy.request({ url: `/getPrescription?id=${id}`, failOnStatusCode: false }).then((r) => {
       const s = r.body && r.body.data && r.body.data.status
-      if (s === 'PENDING' || s === 'PARTIALLY_DISPENSED') post('/cancelPrescription', { prescriptionId: id })
+      // EXPIRED is DERIVED from validUntil — RX-13's script is still stored PENDING, so it is cancelled too.
+      if (s === 'PENDING' || s === 'PARTIALLY_DISPENSED' || s === 'EXPIRED') post('/cancelPrescription', { prescriptionId: id })
     })
   })
   created.flagged.forEach(({ productId, name }) =>

@@ -328,7 +328,8 @@ function sellCartRow(line, idx){
 	var gross = Number(line.totalAmount) || 0;
 	var receivable = (Math.round((gross - sellLineDiscount(line)) * 100) / 100).toFixed(2);
 	var pid = line.productId;
-	var action = ((window.Counter && Counter.isEnabled())
+	// RX-FILL-2: a dispense ALWAYS gets + / − — the counter adjusts the prescribed quantity with the patient.
+	var action = ((window.Counter && (Counter.isEnabled() || window.dispensingPrescriptionId))
 			? "<span class='ctr-qty'><button type=button class='ctr-step' data-d='-1' data-pid='" + pid
 				+ "' aria-label='One fewer'>&minus;</button><button type=button class='ctr-step' data-d='1' data-pid='"
 				+ pid + "' aria-label='One more'>+</button></span> "
@@ -384,6 +385,7 @@ function renderCart(){
 	tablesi.draw(false);             // footerCallback → #sellTotal + the payable line
 	if (typeof CIT === 'function') CIT(data);
 	calculateChange();               // Change and Due follow every cart change
+	if (typeof rxFillNote === 'function') rxFillNote();   // RX-FILL: "15 left on the script · 15 in this sale"
 }
 
 /**

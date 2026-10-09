@@ -113,28 +113,196 @@
 
     // P6 (slice 43): start dispensing a prescription — it's a normal sale on the (relabeled) Sell screen; on
     // Complete Sale the post-sale hook records the dispense against this Rx (window.dispensingPrescriptionId).
+    //
+    // RX-FILL-1: the till opens with the prescribed medicines ALREADY in the cart, at what is still owed on the
+    // script; the counter asks the patient and adjusts each line with + / -. A cart that already holds an
+    // unrelated basket is never merged into a dispense — the counter chooses Replace, or nothing happens.
     global.dispenseFromPrescription = function (id) {
         var rx = lastPrescriptions.find(function (p) { return p.id === id; }) || {};
+        var cartLines = (window.data && window.data.length) ? window.data.length : 0;
+        if (cartLines > 0 && typeof uiConfirm === 'function') {
+            uiConfirm({
+                title: 'Replace the cart?',
+                message: 'The cart already has ' + cartLines + ' line(s). Dispensing this prescription replaces them '
+                    + 'with the prescribed medicines.',
+                confirmText: 'Replace',
+                tone: 'warning'
+            }).then(function (ok) {
+                if (!ok) return;
+                if (typeof resetCart === 'function') resetCart();
+                startDispense(id, rx);
+            });
+            return;
+        }
+        startDispense(id, rx);
+    };
+
+    function startDispense(id, rx) {
         window.dispensingPrescriptionId = id;
+        window.dispensingRx = rx;
+        window.dispensingFillNotes = [];
+        window.dispensingFilled = false;
         $('#dispenseRxLabel').text('Rx #' + id + (rx.patientName ? ' — ' + rx.patientName : ''));
         // reuse the Sell screen. The global .dropdown change handler loads the sell table but is brittle on some
         // pages — guard it so a failure there can't abort the screen switch, then reveal #sellDiv directly (M4a).
         try { $('#sellType').val('sellDiv').trigger('change'); } catch (e) { /* global handler failed — switch anyway */ }
         $('.formDiv').hide(); $('#sellDiv').show();
         $('#dispenseBanner').show();
-        // P7: warn the pharmacist about controlled products / interactions before they dispense.
+        rxFillNote();
+        // P7: warn the pharmacist about controlled products / interactions before they dispense. The cart is
+        // filled only once that is settled — a declined SEVERE interaction must leave nothing behind.
         var productIds = (rx.items || []).map(function (it) { return it.productId; }).filter(Boolean);
-        checkSafetyForItems(productIds);
+        checkSafetyForItems(productIds, function () { fillCartFromRx(rx); });
+    }
+
+    function owedOf(it) {
+        return Math.max(0, (Number(it.quantity) || 0) - (Number(it.dispensedQuantity) || 0));
+    }
+
+    /** A GET that always resolves — null on failure — so one missing answer cannot stop the whole fill. */
+    function getSafe(url) {
+        var d = $.Deferred();
+        $.get(serverContext + url).done(function (r) { d.resolve(r); }).fail(function () { d.resolve(null); });
+        return d.promise();
+    }
+
+    /**
+     * ⭐ RX-FILL-1 — put what is still OWED on the script into the cart, one medicine at a time.
+     *
+     * A script is written in TABLETS (pieces). How that becomes a cart line depends on how the shop sells it:
+     *   - sellable loose  -> a LOOSE line of exactly the tablets owed (15 tablets);
+     *   - packs only      -> WHOLE packs, rounded UP (15 tablets of a 10-pack = 2 packs), and said so. The dispense
+     *                        record is capped server-side at the 15 prescribed.
+     * Capped at SELLABLE stock (never a line the server will refuse), and every shortfall is listed on the banner.
+     * Lines go in through scanAddToCart — the same path as a scan — so price, unit and the rx notice are the
+     * till's own; the server still prices and allocates batches at submit.
+     */
+    function fillCartFromRx(rx) {
+        var items = (rx.items || []).filter(function (it) { return it.productId && owedOf(it) > 0; });
+        var notes = window.dispensingFillNotes = [];
+        var i = 0;
+        (function next() {
+            if (window.dispensingPrescriptionId !== rx.id) return;   // backed out while filling
+            if (i >= items.length) {
+                if (!items.length) notes.push('Nothing is left to dispense on this prescription.');
+                window.dispensingFilled = true;
+                rxFillNote();
+                return;
+            }
+            var it = items[i++], owed = owedOf(it);
+            $.when(getSafe('getCatalogProduct?id=' + it.productId),
+                   getSafe('looseInfo?productId=' + it.productId),
+                   getSafe('productSellable?productId=' + it.productId)).done(function (r1, r2, r3) {
+                if (window.dispensingPrescriptionId !== rx.id) return;
+                var p = r1 && r1.data ? r1.data : null;
+                var name = (p && p.name) || it.medicineName || ('Product #' + it.productId);
+                if (!p || p.id == null) {
+                    notes.push(name + ': could not be read from the catalogue — add it by hand.');
+                    next(); return;
+                }
+                var li = (r2 && typeof apiOk === 'function' && apiOk(r2)) ? apiData(r2) : null;
+                var sellable = (r3 && r3.sellable != null && !isNaN(Number(r3.sellable))) ? Number(r3.sellable) : null;
+                var pack = Number(p.packSize) > 1 ? Number(p.packSize) : 1;
+                var ref = { id: p.id, name: name, sellingPrice: p.sellingPrice, packSize: p.packSize,
+                    description: p.description };
+                if (li && li.allowLoose) {
+                    var pieces = owed;
+                    if (sellable != null) {
+                        var capPieces = Math.floor(sellable * pack);
+                        if (capPieces <= 0) { notes.push(name + ': out of stock — not added.'); next(); return; }
+                        if (pieces > capPieces) {
+                            notes.push(name + ': only ' + capPieces + ' in stock of ' + owed + ' left on the script.');
+                            pieces = capPieces;
+                        }
+                    }
+                    scanAddToCart(ref, pieces, 'LOOSE', li);
+                } else {
+                    var packs = Math.ceil(owed / pack);
+                    if (sellable != null) {
+                        var capPacks = Math.floor(sellable);
+                        if (capPacks <= 0) { notes.push(name + ': out of stock — not added.'); next(); return; }
+                        if (packs > capPacks) {
+                            notes.push(name + ': only ' + capPacks + (pack > 1 ? ' pack(s)' : '') + ' in stock.');
+                            packs = capPacks;
+                        }
+                    }
+                    if (pack > 1 && packs * pack !== owed) {
+                        notes.push(name + ': sold in whole packs — ' + packs + ' pack(s) = ' + (packs * pack)
+                            + ' for ' + owed + ' prescribed.');
+                    }
+                    scanAddToCart(ref, packs, 'PACK', null);
+                }
+                next();
+            });
+        })();
+    }
+    global.fillCartFromRx = fillCartFromRx;
+
+    /**
+     * The banner's per-medicine line: what the script still owes against what THIS sale hands over, so the
+     * counter sees the effect of every + / - before Complete Sale. Called from renderCart() on every change.
+     */
+    function rxFillNote() {
+        var $n = $('#dispenseFillNote');
+        if (!$n.length) return;
+        var rx = window.dispensingRx;
+        if (!window.dispensingPrescriptionId || !rx) { $n.empty().hide(); return; }
+        var inCart = {};
+        dispenseItemsFrom(window.data || []).forEach(function (l) {
+            inCart[l.productId] = (inCart[l.productId] || 0) + (Number(l.quantity) || 0);
+        });
+        var $ul = $('<ul class="rx-fill">');
+        (rx.items || []).forEach(function (it) {
+            var owed = owedOf(it);
+            if (owed <= 0) return;
+            var c = inCart[Number(it.productId)] || 0;
+            var txt = (it.medicineName || ('Product #' + it.productId)) + ': ' + owed + ' left on the script · '
+                + c + ' in this sale';
+            var $li = $('<li>').attr('data-rx-product', it.productId);
+            if (c > owed) { txt += ' — ' + (c - owed) + ' more than prescribed'; $li.addClass('rx-over'); }
+            else if (c === 0) { txt += ' — not in this sale'; $li.addClass('rx-under'); }
+            else if (c < owed) { txt += ' — ' + (owed - c) + ' left for another day'; $li.addClass('rx-under'); }
+            $ul.append($li.text(txt));
+        });
+        (window.dispensingFillNotes || []).forEach(function (t2) { $ul.append($('<li class="rx-warn">').text(t2)); });
+        $n.empty().append($ul).show();
+    }
+    global.rxFillNote = rxFillNote;
+
+    /** Park (RX-FILL-0): what a parked cart must carry so Resume picks the dispense back up. */
+    global.dispenseParkInfo = function () {
+        return window.dispensingPrescriptionId
+            ? { prescriptionId: window.dispensingPrescriptionId, prescriptionLabel: $('#dispenseRxLabel').text() }
+            : null;
     };
 
-    function checkSafetyForItems(productIds) {
-        if (!productIds || !productIds.length) return;
+    /** Resume (RX-FILL-0): a parked dispense comes back AS a dispense — link, banner and the per-medicine note. */
+    global.resumeDispense = function (cart) {
+        if (!cart || !cart.prescriptionId) return;
+        var id = Number(cart.prescriptionId);
+        window.dispensingPrescriptionId = id;
+        window.dispensingFillNotes = [];
+        window.dispensingFilled = true;
+        $('#dispenseRxLabel').text(cart.prescriptionLabel || ('Rx #' + id));
+        $('#dispenseBanner').show();
+        $.get(serverContext + 'getPrescription?id=' + id, function (resp) {
+            if (window.dispensingPrescriptionId !== id) return;
+            window.dispensingRx = (resp && resp.data) ? resp.data : null;
+            rxFillNote();
+        });
+    };
+
+    // `then` runs once the pharmacist may proceed: no SEVERE interaction, one acknowledged, or the check itself
+    // unavailable (it informs, it does not gate the sale - see the use-case doc section 8). Never after a decline.
+    function checkSafetyForItems(productIds, then) {
+        var go = function () { if (typeof then === 'function') then(); };
+        if (!productIds || !productIds.length) { go(); return; }
         $.ajax({
             type: 'POST', url: serverContext + 'checkSafety', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ productIds: productIds }),   // M5 (slice 100): productId-native
             success: function (resp) {
                 var rep = (resp && resp.data) ? resp.data : null;
-                if (!rep) return;
+                if (!rep) { go(); return; }
                 var msgs = [];
                 if (rep.controlledItems && rep.controlledItems.length) msgs.push('⚠ Controlled substance(s) on this dispense.');
                 var severe = [];
@@ -150,15 +318,19 @@
                 // the rest. Defaults to ON — an unset flag or a failed config read must not drop a safety step.
                 if (severe.length && window.pharmaBlockSevere === false) {
                     showFormError(severe.join('  '));
+                    go();
                 } else if (severe.length) {
                     uiConfirm({
                         title: t('ui.js.severeDrugInteraction'),
                         message: severe.join('\n') + '\n\nDispense anyway?',
                         confirmText: t('ui.js.dispenseAnyway'),
                         tone: 'danger'
-                    }).then(function (ok) { if (!ok) cancelDispense(); });
+                    }).then(function (ok) { if (!ok) cancelDispense(); else go(); });
+                } else {
+                    go();
                 }
-            }
+            },
+            error: function () { go(); }
         });
     }
     global.checkSafetyForItems = checkSafetyForItems;
@@ -308,9 +480,16 @@
         });
     };
 
+    // RX-FILL-0: backing out of a dispense drops the cart WITH the link. Leaving the link behind charged the next
+    // sale - possibly another customer's - to this script; leaving the lines behind sold them without it.
     global.cancelDispense = function () {
+        var wasDispensing = !!window.dispensingPrescriptionId;
         window.dispensingPrescriptionId = null;
+        window.dispensingRx = null;
+        window.dispensingFillNotes = [];
         $('#dispenseBanner').hide();
+        rxFillNote();
+        if (wasDispensing && window.data && window.data.length && typeof resetCart === 'function') resetCart();
     };
 
     /**
@@ -384,7 +563,10 @@
                 }
             },
             error: function () { showFormError(t('ui.js.couldNotRecordTheDispense')); },
-            complete: function () { window.dispensingPrescriptionId = null; $('#dispenseBanner').hide(); }
+            complete: function () {
+                window.dispensingPrescriptionId = null; window.dispensingRx = null; window.dispensingFillNotes = [];
+                $('#dispenseBanner').hide(); rxFillNote();
+            }
         });
     };
 })(window);

@@ -21,6 +21,10 @@
         // — and because the field was not cleared either, the NEXT customer got it instead.
         var td = Number($('#sellTradeDiscount').val()) || 0;
         if (td > 0) cart.tradeDiscount = td;
+        // RX-FILL-0: a parked DISPENSE keeps its prescription. Without it the resumed basket was an ordinary sale —
+        // its prescription-only lines refused, and nothing recorded against the script. Stored verbatim (JsonNode).
+        var rx = (typeof dispenseParkInfo === 'function') ? dispenseParkInfo() : null;
+        if (rx) { cart.prescriptionId = rx.prescriptionId; cart.prescriptionLabel = rx.prescriptionLabel; }
         return cart;
     }
 
@@ -42,6 +46,9 @@
                     showSaleSuccess(t('ui.js.saleParked'));
                     if (typeof resetCart === 'function') resetCart();
                     else { data.length = 0; if (typeof tablesi !== 'undefined' && tablesi) tablesi.clear().draw(); }
+                    // RX-FILL-0: the dispense left WITH the parked basket. A link left behind charged the next
+                    // sale — another customer's — to this script.
+                    if (typeof cancelDispense === 'function') cancelDispense();
                 } else { showFormError(apiMessage(resp, 'Could not park the sale.')); }
             },
             error: function () { showFormError(t('ui.js.couldNotParkTheSale')); }
@@ -123,6 +130,12 @@
         // Set BEFORE the render, so the Change/Due it computes already include it.
         $('#sellTradeDiscount').val(cart.tradeDiscount != null && Number(cart.tradeDiscount) > 0
             ? Number(cart.tradeDiscount).toFixed(2) : '');
+        // RX-FILL-0: an ordinary basket resumed while a dispense is open must not inherit it; a parked dispense
+        // comes back as one. Set BEFORE the render so the + / − and the banner note draw with it.
+        if (typeof cancelDispense === 'function' && window.dispensingPrescriptionId) {
+            window.dispensingPrescriptionId = null; window.dispensingRx = null; $('#dispenseBanner').hide();
+        }
+        if (cart.prescriptionId && typeof resumeDispense === 'function') resumeDispense(cart);
         if (typeof renderCart === 'function') renderCart();
     }
     global.rebuildCartFromResumed = rebuildCartFromResumed;

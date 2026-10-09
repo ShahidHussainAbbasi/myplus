@@ -273,12 +273,12 @@ Both are inert for a non-pharmacy tenant: no product of theirs carries the flags
 
 ## 8. What it deliberately does not do (yet)
 
-> ⚠ **DEFECT RX-DISP-1 (found and fixed 2026-10-08, deployed on dev, not committed).** From 1e47ac47
+> ⚠ **DEFECT RX-DISP-1 (found and fixed 2026-10-08, commit 7ac05ab5).** From 1e47ac47
 > (2026-09-06) until this fix, a sale started from Dispense recorded NOTHING against the prescription: `main.js`
 > cleared the cart (`resetCart()`) before `dispensePrescription()` built its lines from it, so it posted
 > `items: []`. Fix: `main.js` snapshots `dispenseItemsFrom(cart)` before the reset and passes it in; `DispenseService`
 > now warns "Nothing was recorded against this prescription" when a dispense records nothing. Gate:
-> `cypress/e2e/pharmacy/prescriptions-tab-walk.cy.js` (RX-09/10/11/14 green on the fix) + `DispenseServiceTest`.
+> `cypress/e2e/pharmacy/prescriptions-tab-walk.cy.js` (14/14 green on the fix, 2026-10-09) + `DispenseServiceTest`.
 > Dispenses lost between those dates cannot be rebuilt from sales (they do not store the prescription id).
 
 Stated plainly so nobody assumes coverage that isn't there:
