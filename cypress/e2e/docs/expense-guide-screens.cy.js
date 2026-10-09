@@ -1798,6 +1798,60 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     })
   })
 
+  caseIt('6a-5', 'Expense bills are checked too, and a bill the books refused is not owed', () => {
+    testCase('6a-5', 'fp6a', 'Expense bills are checked too, and a bill the books refused is not owed',
+      { who: ['owner.lifecycle (recorded)', 'admin@myplus.com (operator)'] })
+    setup('Expense management switched on (case 0a-3); a supplier for the bill (the recording makes one through the supplier form’s own request).')
+    const y = yesterdayIso(), payee = 'XG refused bill ' + run
+    let sup = null, id = null
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); reopenQuietly() })
+    SAFETY.push(() => { asLifecycle(); if (id) cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false }) })
+    reopenQuietly()
+    newSupplier('6A5').then((s) => { sup = s })
+    const a1 = act(`<b>Finance → Period Close</b>: lock the books through <b>${dmyOf(y)}</b> (yesterday).`, [`<b>Books are CLOSED through ${y}</b>.`])
+    openPeriodClose()
+    cy.get('#finLockDate').invoke('val', y).trigger('change')
+    cy.contains('#FinanceDiv button', 'Close period').click()
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.contains('#FinanceDiv', 'Books are CLOSED through ' + y, { timeout: 15000 }).should('be.visible')
+    const a2 = act(`<b>Till → Expenses</b>: a <b>Bill (pay later)</b> to the new supplier, <b>Repairs and maintenance 55</b>, dated <b>${dmyOf(y)}</b>, Payee <b>${payee}</b>.`,
+      ['The row shows <b>Not posted</b> with the books’ reason — and the supplier does <b>not</b> owe it in the ledger: before this release the ledger counted it while the books did not.'])
+    openDashboard(); openExpenses()
+    cy.get('#expDateTemp').clear().type(dmyOf(y)).blur()
+    cy.then(() => fillExpense({ category: 'Repairs and maintenance', amount: 55, paidFrom: 'AP', supplierId: sup.id, payee }))
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expFromTemp').clear().type(dmyOf(y)).blur(); cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+    cy.contains('#ExpenseDiv button', 'Search').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'Not posted')
+    expenseRow(payee).invoke('attr', 'data-id').then((v) => { id = v })
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'not-posted')
+    const a3 = act('As the operator, ask for the daily check now; then Platform → this business → <b>Supplier balances</b> → <b>Automatic check (daily)</b>.',
+      ['Today’s row has a line <b>Expense bills — in the books: X · in the ledger: X</b> — the same figure: the refused bill is in neither.',
+       'The ledger is <b>not</b> “aligned” for it (before, the check would have moved the books by 55 onto 2990).'])
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => expect(Number(d.financeExpense), 'ledger = books for bills').to.eq(Number(d.expenseOwed)))
+    reconPanel()
+    cy.get('[data-cy=plat-payables-recon-bills]').first().should('contain', 'in the books').and('contain', 'in the ledger')
+    snap(a3, 'bills-agree', '[data-cy=plat-payables-recon]')
+    const a4 = act('Reopen the period (Period Close → <b>Reopen</b>), and on the bill press <b>Post again</b>. Ask for the check again.',
+      ['The bill reads <b>In the books</b> and <b>Owes 55.00</b>; the panel’s bills line went up by 55 on <b>both</b> sides.'])
+    asLifecycle(true)
+    reopenQuietly()
+    openDashboard(); openExpenses()
+    cy.get('#expFromTemp').clear().type(dmyOf(y)).blur(); cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+    cy.contains('#ExpenseDiv button', 'Search').click()
+    expenseRow(payee).find('[data-cy=post-again]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', '55.00')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a4, 'in-the-books')
+    cy.loginAsOperator()
+    cy.then(() => reconRun(lifecycleOrg)).then((d) => expect(Number(d.financeExpense)).to.eq(Number(d.expenseOwed)))
+    act(`Void the ${payee} bill (reason "Test Book").`, [], { cleanup: true })
+    asLifecycle()
+    cy.then(() => cy.request({ method: 'POST', url: `/expense/vouchers/${id}/void`, body: { reason: 'Test Book' } })).its('body.success').should('eq', true)
+  })
+
   caseIt('6a-3', 'A purchase with no supplier is a cash purchase: it is paid in full', () => {
     testCase('6a-3', 'fp6a', 'A purchase with no supplier is a cash purchase: it is paid in full', { who: ['owner.lifecycle (recorded)', 'owner.business'] })
     const inv = 'XG6A3-' + run

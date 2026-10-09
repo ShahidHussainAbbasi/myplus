@@ -113,4 +113,12 @@ public interface VenderRepo extends JpaRepository<Vender, Long>,QueryByExampleEx
 //    @Query(value = "SELECT * FROM appointment a WHERE a.FK_hospital_id =:FK_hospital_id AND a.FK_doctor_id = :doctor_id AND a.date = :date"
 //    		+" ORDER BY a.patients_appointed DESC LIMIT 1",nativeQuery=true)
 //    Appointment getLastAppointment(Long FK_hospital_id, Long doctor_id, String date);
+
+   /** E11 — tenants with suppliers: an expense bill needs one, so these are every tenant that can owe a bill. */
+   @Query("select distinct v.organizationId from Vender v where v.organizationId is not null")
+   java.util.List<Long> findOrgsWithSuppliers();
+
+   /** E11 — someone the daily check can act as for a tenant that has suppliers but no purchases yet. */
+   @Query("select max(v.userId) from Vender v where v.organizationId = :org")
+   Long anyUserOfOrg(@org.springframework.data.repository.query.Param("org") Long org);
 }

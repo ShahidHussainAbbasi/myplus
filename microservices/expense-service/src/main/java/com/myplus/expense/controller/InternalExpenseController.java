@@ -26,6 +26,8 @@ public class InternalExpenseController {
 
     private final ExpenseVoucherService vouchers;
     private final com.myplus.expense.service.ExpenseBillService bills;
+    private final com.myplus.expense.repository.ExpenseVoucherRepo voucherRepo;
+    private final com.myplus.expense.service.ExpenseOutboxService outbox;
 
     /** FP-5b — the supplier's bills Pay Supplier may settle (business-service, with the caller's identity). */
     @org.springframework.web.bind.annotation.GetMapping("/internal/expense/bills/open")
@@ -39,6 +41,27 @@ public class InternalExpenseController {
     public java.util.Map<String, Object> apply(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
             @RequestBody com.myplus.commerce.contracts.dto.BillApplyRequest request) {
         return bills.applyExternal(id, request);
+    }
+
+    /**
+     * E11 — for the daily payables check (business-service, acting as a user of the tenant): what this tenant's bills
+     * owe in the books. Compared there with finance's EXPENSE_BILL documents.
+     */
+    @org.springframework.web.bind.annotation.GetMapping("/internal/expense/payables/summary")
+    public java.util.Map<String, Object> payablesSummary() {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        if (org == null) throw new IllegalStateException("No tenant identity on the request");
+        var t = voucherRepo.billsInBooks(org);
+        return java.util.Map.of("open", t == null || t.getTotal() == null ? java.math.BigDecimal.ZERO : t.getTotal(),
+                "count", t == null ? 0L : t.getCount());
+    }
+
+    /** E11 — the check's repair: every bill of the tenant re-sent to the subledger (finance's intake is idempotent). */
+    @PostMapping("/internal/expense/payables/resend")
+    public java.util.Map<String, Object> resendPayables() {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        if (org == null) throw new IllegalStateException("No tenant identity on the request");
+        return java.util.Map.of("queued", outbox.resendPayables(org));
     }
 
     @PostMapping("/internal/expense/drawer-vouchers")

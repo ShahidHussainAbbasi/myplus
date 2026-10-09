@@ -1014,6 +1014,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> Accounts Payable that disagrees with what suppliers are owed, and a repair posted twice.</div>
         </div>
       </div>
+      <div class="case" data-case="6a-5">
+        <div class="case-head"><span class="cid">6a-5</span><h3>Expense bills are checked too, and a bill the books refused is not owed</h3><span class="pill pill-info">Owner · Operator</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin@myplus.com</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Close the books through yesterday.</li><li>Record a bill dated yesterday (it is refused: Not posted).</li><li>Operator: run the check; open the Automatic check panel.</li><li>Reopen, Post again, run the check again.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Each day shows “Expense bills — in the books: X · in the ledger: X”, the same figure.</span></label></li><li><label><input type="checkbox"><span>The refused bill is owed in neither; nothing is aligned for it.</span></label></li><li><label><input type="checkbox"><span>Posted again, it is owed in both (both up by the bill).</span></label></li><li><label><input type="checkbox"><span>A ledger that disagrees with expense-service is repaired by re-sending the bills — never by moving the books onto it (gate case 3).</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> bills trusted as reported with nothing to compare them to (E11), and a refused bill counted in the ledger but not the books — which the check then “repaired” by moving the books.</div>
+        </div>
+      </div>
       <div class="case" data-case="6a-3">
         <div class="case-head"><span class="cid">6a-3</span><h3>A purchase with no supplier is a cash purchase: it is paid in full</h3><span class="pill pill-info">Owner</span></div>
         <div class="case-body">
@@ -1089,6 +1100,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td>E8</td><td>The store on an expense is not checked. Nothing reads it yet; it must be checked before reports by store.</td><td><span class="pill pill-todo">Low now</span></td></tr>
             <tr><td>E9</td><td>One line per expense on screen; a split bill needs two expenses.</td><td><span class="pill pill-todo">Low</span></td></tr>
             <tr><td>E10</td><td>A paid bill could not be voided — there was no payment reversal. <b>Fixed (FP-3b):</b> a bill’s <b>Payments</b> → <b>Reverse</b>: the books record a mirror (PV-…-R) and the opposite journal, the bill owes it again, and with nothing left paid it can be voided — case 4-7.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
+            <tr><td>E11</td><td>The daily payables check trusted expense bills as reported, and a bill refused by the books still counted in the ledger. <b>Fixed (FP-6b-parity):</b> the check compares expense-service’s bills with finance’s and re-sends them when they differ; a bill owes in the ledger only once it is in the books — case 6a-5.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
           </tbody>
         </table>
       </div>

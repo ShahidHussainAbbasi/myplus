@@ -69,4 +69,20 @@ public class PayablesReconDay {
 
     @Column(name = "ran_at")
     private LocalDateTime ranAt;
+
+    /** E11 — what expense-service says its bills owe in the books (posted, journal landed, net of payments). */
+    @Column(name = "expense_owed", precision = 19, scale = 2)
+    private BigDecimal expenseOwed;
+
+    /** E11 — finance's EXPENSE_BILL documents, net (the mirror of the line above). */
+    @Column(name = "finance_expense", precision = 19, scale = 2)
+    private BigDecimal financeExpense;
+
+    /** E11 — expenseOwed − financeExpense, BEFORE any repair. */
+    @Column(name = "expense_diff", precision = 19, scale = 2)
+    private BigDecimal expenseDiff;
+
+    /** E11 — bills re-sent to the subledger to repair an expense difference. */
+    @Column(name = "bills_resent", nullable = false)
+    private int billsResent;
 }

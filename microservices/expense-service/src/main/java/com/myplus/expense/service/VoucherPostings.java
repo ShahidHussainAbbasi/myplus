@@ -69,7 +69,10 @@ public final class VoucherPostings {
                 .docNo(v.getVoucherNo()).docDate(v.getVoucherDate())
                 .amount(v.getTotal())
                 .paid(v.getPaidAmount() == null ? BigDecimal.ZERO : v.getPaidAmount())
-                .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()))
+                // E11 — the subledger follows the BOOKS: a bill whose journal has not landed (still posting, or refused,
+                // e.g. a closed period) owes nothing in the ledger GL 2000 mirrors. Before, a refused bill stayed OPEN
+                // in the ledger with no credit in 2000, and the daily check "aligned" the books to it through 2990.
+                .voided(ExpenseVoucher.VOIDED.equals(v.getStatus()) || !ExpenseVoucher.PS_POSTED_GL.equals(v.getPostingStatus()))
                 // FP-4a — a bill is never returned against, so issued = total and the note trail is empty
                 .issuedAmount(v.getTotal())
                 .dueDate(v.getDueDate())

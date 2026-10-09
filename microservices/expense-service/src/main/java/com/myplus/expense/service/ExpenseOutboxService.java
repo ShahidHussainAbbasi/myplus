@@ -220,6 +220,18 @@ public class ExpenseOutboxService {
         } else if (posting && error != null) {
             vouchers.stampPosting(o.getVoucherId(), ExpenseVoucher.PS_PENDING, error);
         }
+        // E11 — a bill's journal landed or was refused: the subledger learns the outcome (OPEN once in the books, not
+        // owed while refused). The snapshot is read when the PAYABLE row is sent, so it carries the stamp just made.
+        if (posting && ("POSTED".equals(o.getStatus()) || "FAILED".equals(o.getStatus()))) {
+            vouchers.findById(o.getVoucherId()).filter(ExpenseVoucher::isBill).ifPresent(this::enqueuePayable);
+        }
+    }
+
+    /** E11 — re-send every bill of a tenant to the subledger (the daily check's repair). Returns how many were queued. */
+    public int resendPayables(Long org) {
+        int n = 0;
+        for (ExpenseVoucher v : vouchers.findBillsOfOrg(org)) { enqueuePayable(v); n++; }
+        return n;
     }
 
     private static String trim(String s) { return s.length() > 450 ? s.substring(0, 450) : s; }

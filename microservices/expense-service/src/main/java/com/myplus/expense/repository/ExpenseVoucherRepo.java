@@ -1,6 +1,7 @@
 package com.myplus.expense.repository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -52,6 +53,18 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
          + "ORDER BY v.voucherDate DESC, v.id DESC")
     Page<ExpenseVoucher> search(@Param("org") Long org, @Param("userId") Long userId, @Param("status") String status,
                                 @Param("from") LocalDate from, @Param("to") LocalDate to, Pageable pageable);
+
+    /**
+     * E11 — what this tenant's bills owe IN THE BOOKS: posted, journal landed, net of payments. Exactly the documents
+     * finance's subledger should hold open (EXPENSE_BILL), so the daily check can compare the two.
+     */
+    @Query("SELECT COUNT(v) AS count, COALESCE(SUM(v.total - v.paidAmount), 0) AS total FROM ExpenseVoucher v "
+         + "WHERE v.organizationId = :org AND v.paidFrom = 'AP' AND v.status = 'POSTED' AND v.postingStatus = 'POSTED_GL'")
+    Totals billsInBooks(@Param("org") Long org);
+
+    /** E11 — every numbered bill of a tenant (posted or voided), for a re-send to the subledger. */
+    @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org AND v.paidFrom = 'AP' AND v.voucherNo IS NOT NULL ORDER BY v.id")
+    List<ExpenseVoucher> findBillsOfOrg(@Param("org") Long org);
 
     /** EX-2d / E4 — what the list's filter adds up to: posted expenses only (a void or a draft spent nothing). */
     interface Totals { long getCount(); java.math.BigDecimal getTotal(); }

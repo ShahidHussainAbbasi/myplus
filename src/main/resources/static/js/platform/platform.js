@@ -988,7 +988,21 @@
 						: (r.error ? esc(t('ui.js.payablesReconError', 'could not check')) + ' — ' + esc(r.error)
 							: esc(t('ui.js.payablesReconRepaired', 'repaired')) + ': '
 								+ (r.docsResent ? r.docsResent + ' ' + esc(t('ui.js.payablesReconDocs', 'documents re-sent')) + ' ' : '')
+								+ (r.billsResent ? r.billsResent + ' ' + esc(t('ui.js.payablesReconBills', 'expense bills re-sent')) + ' ' : '')
 								+ (Number(r.ledgerAligned || 0) !== 0 ? esc(t('ui.js.payablesReconLedger', 'ledger aligned by')) + ' ' + money(r.ledgerAligned) : ''));
+					// a repaired day that names no repair (it was repaired by an earlier run that day, or before the counts were
+					// kept) says what differed instead of an empty "repaired:"
+					if (!r.clean && !r.error && !r.docsResent && !r.billsResent && Number(r.ledgerAligned || 0) === 0) {
+						var diffs = [];
+						if (Number(r.shadowDiff || 0) !== 0) diffs.push(t('ui.js.payablesReconDiffDocs', 'purchases differed by') + ' ' + money(r.shadowDiff));
+						if (Number(r.expenseDiff || 0) !== 0) diffs.push(t('ui.js.payablesReconDiffBills', 'bills differed by') + ' ' + money(r.expenseDiff));
+						if (Number(r.ledgerDiff || 0) !== 0) diffs.push(t('ui.js.payablesReconDiffLedger', 'ledger differed by') + ' ' + money(r.ledgerDiff));
+						what += esc(diffs.length ? diffs.join(', ') : t('ui.js.payablesReconDiffNone', 'a difference was found and settled'));
+					}
+					// E11 — the expense bills, checked against expense-service: what its books say they owe = what the ledger holds
+					if (r.expenseOwed != null) what += '<div class="text-muted" style="font-size:12px" data-cy="plat-payables-recon-bills">'
+						+ esc(t('ui.js.payablesReconBillsLine', 'Expense bills — in the books:')) + ' ' + money(r.expenseOwed)
+						+ ' · ' + esc(t('ui.js.payablesReconBillsLedger', 'in the ledger:')) + ' ' + money(r.financeExpense) + '</div>';
 					h += '<tr' + (r.clean ? '' : ' class="warning"') + '><td>' + esc(r.reconDay) + '</td><td data-cy="plat-payables-recon-day">' + what + '</td></tr>';
 				});
 				h += '</tbody></table>';

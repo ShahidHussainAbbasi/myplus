@@ -31,6 +31,9 @@ class PayablesReconciliationServiceTest {
     private PayablesReconDayRepo days;
     private PayableOutboxService outbox;
     private FinanceClient finance;
+    private com.myplus.commerce.contracts.client.ExpenseClient expense;
+    private ObjectProvider<com.myplus.commerce.contracts.client.ExpenseClient> expenseProvider;
+    private com.myplus.business_service.repository.VenderRepo venders;
     private PayablesReconciliationService svc;
 
     @BeforeEach
@@ -46,7 +49,72 @@ class PayablesReconciliationServiceTest {
         when(days.findByOrganizationIdAndReconDay(any(), any())).thenReturn(Optional.empty());
         when(days.save(any())).thenAnswer(i -> i.getArgument(0));
         when(purchases.anyUserOfOrg(any())).thenReturn(5L);
-        svc = new PayablesReconciliationService(purchases, days, outbox, provider);
+        expense = mock(com.myplus.commerce.contracts.client.ExpenseClient.class);
+        expenseProvider = mock(ObjectProvider.class);           // no expense-service unless a test says so
+        venders = mock(com.myplus.business_service.repository.VenderRepo.class);
+        PayablesReconciliationService.BILL_SETTLE_MS = 0;
+        svc = new PayablesReconciliationService(purchases, days, outbox, provider, expenseProvider, venders);
+    }
+
+    /** E11 — finance's reconciliation including its EXPENSE_BILL documents. */
+    private static Map<String, Object> rec(String purchaseNet, String bills, String net, String gl) {
+        return Map.of("purchaseNet", new BigDecimal(purchaseNet), "expenseBillNet", new BigDecimal(bills),
+                "subledgerOpen", new BigDecimal(net), "glAccountsPayable", new BigDecimal(gl),
+                "difference", new BigDecimal(gl).subtract(new BigDecimal(net)));
+    }
+
+    private void withExpense(String billsOwed) {
+        when(expenseProvider.getIfAvailable()).thenReturn(expense);
+        when(expense.payablesSummary()).thenReturn(Map.of("open", new BigDecimal(billsOwed), "count", 1));
+        when(expense.resendPayables()).thenReturn(Map.of("queued", 3));
+    }
+
+    @Test
+    @DisplayName("⭐ E11 bills agree with expense-service, purchases agree, ledger agrees → clean")
+    void billsAgreeClean() {
+        withExpense("55");
+        when(purchases.sumSupplierDueByOrg(9L)).thenReturn(new BigDecimal("-100"));
+        when(finance.payablesReconciliation()).thenReturn(rec("100", "55", "155", "155"));
+        PayablesReconDay d = svc.runOrg(9L);
+        assertThat(d.getClean()).isTrue();
+        assertThat(d.getExpenseDiff()).isEqualByComparingTo("0");
+        verify(expense, never()).resendPayables();
+    }
+
+    @Test
+    @DisplayName("⭐ E11 finance holds a bill the books do not (55) → bills re-sent; once they agree the ledger is aligned; NOT clean")
+    void billsResentThenAligned() {
+        withExpense("3520");
+        when(purchases.sumSupplierDueByOrg(9L)).thenReturn(new BigDecimal("0"));
+        when(finance.payablesReconciliation()).thenReturn(rec("0", "3575", "3575", "3520"), rec("0", "3520", "3520", "3520"));
+        PayablesReconDay d = svc.runOrg(9L);
+        assertThat(d.getClean()).isFalse();
+        assertThat(d.getExpenseDiff()).isEqualByComparingTo("-55");
+        assertThat(d.getBillsResent()).isEqualTo(3);
+        verify(finance, never()).alignPayablesLedger(anyString());      // after the re-send, ledger = GL: nothing to align
+    }
+
+    @Test
+    @DisplayName("⭐ E11 the bills still disagree after the re-send → the ledger is NEVER aligned onto them")
+    void neverAlignWhileBillsDisagree() {
+        withExpense("3520");
+        when(purchases.sumSupplierDueByOrg(9L)).thenReturn(new BigDecimal("0"));
+        when(finance.payablesReconciliation()).thenReturn(rec("0", "3575", "3575", "3520"));
+        PayablesReconDay d = svc.runOrg(9L);
+        assertThat(d.getClean()).isFalse();
+        verify(finance, never()).alignPayablesLedger(anyString());
+    }
+
+    @Test
+    @DisplayName("E11 a tenant with suppliers but no purchases is checked too, acting as one of its users")
+    void suppliersOnlyTenantIsChecked() {
+        when(purchases.findOrgsWithSupplierPurchases()).thenReturn(List.of(9L));
+        when(venders.findOrgsWithSuppliers()).thenReturn(List.of(9L, 12L));
+        when(purchases.anyUserOfOrg(12L)).thenReturn(null);
+        when(venders.anyUserOfOrg(12L)).thenReturn(77L);
+        when(purchases.sumSupplierDueByOrg(any())).thenReturn(BigDecimal.ZERO);
+        when(finance.payablesReconciliation()).thenReturn(rec("0", "0", "0", "0"));
+        assertThat(svc.runAll()).hasSize(2);
     }
 
     private static Map<String, Object> rec(String purchaseNet, String net, String gl) {

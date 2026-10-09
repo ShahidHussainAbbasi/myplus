@@ -72,4 +72,4 @@ demo drift. Nothing new is broken; but those three tenants can never qualify for
   aligned by exactly 11,150.50 / 18,000 / 313,200.
 - Afterwards GL 2000 = the supplier ledger for **every** tenant, and each tenant's books still balance.
 
-**Open:** expense-bill documents are trusted as reported by expense-service; there is no expense-side parity in the check yet.
+**Closed (E11, 2026-10-09):** expense bills are now checked against expense-service and re-sent on a difference; a bill owes in the ledger only once its journal has landed — see [`fp-6b-expense-bill-parity.md`](fp-6b-expense-bill-parity.md).

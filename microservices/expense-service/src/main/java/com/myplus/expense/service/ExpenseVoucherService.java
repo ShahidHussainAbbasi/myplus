@@ -235,7 +235,8 @@ public class ExpenseVoucherService {
         }
         repo.saveAndFlush(v);
         outbox.enqueue(v, VoucherPostings.post(v));
-        if (v.isBill()) outbox.enqueuePayable(v);     // FP-3: the bill joins finance's payables subledger
+        // FP-3/E11 — a bill joins finance's payables subledger when its journal LANDS (ExpenseOutboxService.stampVoucher),
+        // so the ledger never holds a bill that GL 2000 does not.
         audit.record("EXPENSE_POSTED", "EXPENSE", v.getVoucherNo(), v.getTotal(), v.getPaidFrom(), null);
     }
 
