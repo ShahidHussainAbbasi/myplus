@@ -1,6 +1,7 @@
 # EX-6 — Expense claims
 
-**Status:** DONE 2026-10-09: gate 7/7 (seen red first), unit tests 10 new (expense-service 75/75, common-settings 70/70),
+**Status:** DONE 2026-10-09: gate 8/8 (seen red first, twice), unit tests 12 new (expense-service 77/77, common-settings
+70/70), expense regression 95/95,
 Test Book cases 6-1 to 6-5. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.3 (claim),
 §6.1 `EXPENSE_CLAIMS`, §10 EX-6. Reimbursement and advances are EX-7.
 
@@ -43,10 +44,18 @@ The plan is lifted to PRO if it is FREE, and put back after the run.
 5. The claimant withdraws; approving afterwards is refused ("already decided").
 6. EMPLOYEE through `/vouchers` is refused; `/post` on a claim is refused; pay is refused.
 7. Claims switched off: the choice is gone, and the server refuses a claim in words.
+8. The same PDF on a claim still waiting is warned about ("a claim waiting for approval"); once the claim is withdrawn,
+   it is not. (Case 4 also checks that a rejected claim offers no "Add a receipt" and the server refuses one.)
 
 ## 5. As built
 - **Seen red first:** before the deploy the gate stopped in `before()`, because the running auth-service did not know
   `org.cap.expenseClaims` and refused the switch. After deploying auth, expense and the monolith it passed 7/7.
+- **Found by looking at the recorded screens, not by the first gate:** a rejected or withdrawn claim still offered
+  **Add a receipt**, and the server accepted it. Tracing the receipt code found a second, quieter gap: the duplicate
+  warning names other expenses **by number**, and a waiting claim has none, so **the same bill on a waiting claim was
+  never warned about** (it could be claimed and also recorded in cash). Both fixed in `ReceiptService` (`writable`,
+  `alsoOn`; an ordinary unposted draft is still not named, as before), the screen hides the button, and the gate gained
+  case 8 plus a check in case 4. Both were seen red on the old build, then green.
 - **Not built here (said plainly):** the amount threshold in R-8 and the USER-tier post limit `userPostLimit` (§6.2),
   which the E5 row had pointed at EX-6. It limits **direct** cash or bank expenses by a user, not claims, so it is now
   its own slice, **EX-6b**. Today a user posts any amount directly, as before this slice.

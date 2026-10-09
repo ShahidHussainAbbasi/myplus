@@ -1142,7 +1142,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     expenseRow(payee).find('[data-cy=claim-approve]').click()
     cy.get('#expMsg').should('contain', 'cannot approve your own claim')
     expenseRow(payee).find('[data-cy=claim-waiting]').should('exist')
-    snap(a1, 'own-refused', '#ExpenseDiv')
+    expenseRow(payee).scrollIntoView({ offset: { top: -260, left: 0 } }); snap(a1, 'own-refused')
     act('A user pressing Approve or Reject on anyone’s claim is refused too (they have no such buttons; the server refuses the request).', ['Refused — 403.'], { via: 'run' })
     cy.request('/expense/vouchers?claim=SUBMITTED&size=50').its('body.data.content').then((l) => {
       const id = l.find((v) => v.payeeName === payee).id

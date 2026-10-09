@@ -104,9 +104,13 @@
 	}   // set from the table header: the Actions column is rendered only for owner/admin
 
 	/** EX-5 — "Receipts (n)", or "Add receipt" on an expense that still takes one. */
+	/** A finished document takes no new receipts: voided, or (EX-6) a claim that was rejected or withdrawn. */
+	function closedForReceipts(v) {
+		return v.status === 'VOIDED' || v.claimStatus === 'REJECTED' || v.claimStatus === 'WITHDRAWN';
+	}
 	function receiptsBtn(v) {
 		var n = Number(v.receipts || 0);
-		if (!n && v.status === 'VOIDED') return '';
+		if (!n && closedForReceipts(v)) return '';
 		return ' <button type="button" class="btn btn-xs btn-default" data-cy="expense-receipts" data-id="' + esc(v.id) + '">'
 			+ '<span class="glyphicon glyphicon-paperclip"></span> '
 			+ esc(n ? tr('ui.js.expReceipts', 'Receipts') + ' (' + n + ')' : tr('ui.js.expReceiptAdd', 'Add a receipt')) + '</button>';
@@ -155,7 +159,8 @@
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'
 				: '') + claimDecideBtns(v) + '</td>';
 		}
-		return '<tr data-id="' + esc(v.id) + '" class="expense-row' + (v.status === 'VOIDED' ? ' row-voided' : '') + '">' + tds + '</tr>';
+		return '<tr data-id="' + esc(v.id) + '" class="expense-row' + (v.status === 'VOIDED' ? ' row-voided' : '')
+			+ (closedForReceipts(v) ? ' row-no-receipts' : '') + '">' + tds + '</tr>';
 	}
 
 	function msg(text, tone) {
@@ -549,7 +554,7 @@
 	}
 	function showReceipts(voucherId) {
 		var $v = $('#tableExpense tbody tr.expense-row[data-id="' + voucherId + '"]');
-		var cols = $('#tableExpense thead th').length, voided = $v.hasClass('row-voided');
+		var cols = $('#tableExpense thead th').length, voided = $v.hasClass('row-no-receipts');
 		$('#tableExpense tbody tr.exp-rcpt-detail[data-for="' + voucherId + '"]').remove();
 		var $d = $('<tr class="exp-rcpt-detail" data-cy="receipts-list">').attr('data-for', voucherId)
 			.html('<td colspan="' + cols + '" class="text-muted">' + esc(tr('ui.js.loading', 'Loading…')) + '</td>');

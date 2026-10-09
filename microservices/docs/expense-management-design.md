@@ -606,7 +606,7 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-3 drawer convergence · gate
 - [x] EX-4 expense bills (AP) — built as FP-3 · gate
 - [x] EX-5 receipts · gate 6/6 (`slices/ex-5-receipts.md`)
-- [x] EX-6 claims + approvals · gate 7/7 (`slices/ex-6-claims.md`)
+- [x] EX-6 claims + approvals · gate 8/8 (`slices/ex-6-claims.md`)
 - [ ] EX-7 reimbursement + advances · gate
 - [ ] EX-8 reports + analytics + duplicate warning + tax · gate
 - [ ] EX-9 agriculture convergence · gate

@@ -165,6 +165,16 @@ describe('EX-6 — expense claims', () => {
     openExpenses()
     row(payee).find('[data-cy=claim-reason]').should('contain', 'No receipt for the taxi')
     row(payee).find('[data-cy=claim-withdraw]').should('not.exist')
+    row(payee).find('[data-cy=expense-receipts]').should('not.exist')     // a finished claim takes no new receipts
+    cy.request(`/expense/vouchers?size=50`).its('body.data.content').then((l) => {
+      const id = l.find((x) => x.payeeName === payee).id
+      cy.fixture('receipt-invoice.pdf', 'binary').then((bin) => {
+        const fd = new FormData()
+        fd.append('file', new Blob([Uint8Array.from(bin, (c) => c.charCodeAt(0))], { type: 'application/pdf' }), 'late.pdf')
+        token(USER).then((u) => cy.request({ method: 'POST', url: `${GW}/api/expense/receipts?voucherId=${id}`, headers: { Authorization: `Bearer ${u}` },
+          body: fd, failOnStatusCode: false }).then((r) => expect(JSON.parse(new TextDecoder().decode(r.body)).message).to.contain('rejected claim takes no new receipts')))
+      })
+    })
   })
 
   it('5 — the claimant withdraws a waiting claim; it cannot then be approved', () => {
@@ -193,6 +203,25 @@ describe('EX-6 — expense claims', () => {
         })
       })
     }))
+  })
+
+  it('⭐ 8 — the same receipt on a claim still waiting is warned about; once the claim is withdrawn it is not', () => {
+    const up = (t, voucherId) => cy.fixture('receipt-invoice.pdf', 'binary').then((bin) => {
+      const fd = new FormData()
+      fd.append('file', new Blob([Uint8Array.from(bin, (c) => c.charCodeAt(0))], { type: 'application/pdf' }), 'bill.pdf')
+      return cy.request({ method: 'POST', url: `${GW}/api/expense/receipts${voucherId ? '?voucherId=' + voucherId : ''}`,
+        headers: { Authorization: `Bearer ${t}` }, body: fd }).then((r) => JSON.parse(new TextDecoder().decode(r.body)).data)
+    })
+    token(USER).then((u) => up(u).then((rc) => rentId(u).then((cat) => cy.request({ method: 'POST', url: `${GW}/api/expense/claims`,
+      headers: { ...hdr(u), 'Idempotency-Key': key() },
+      body: { voucherDate: today(), paidFrom: 'EMPLOYEE', payeeName: `EX6 dup ${run}`, receiptIds: [rc.id], lines: [{ categoryId: cat, amount: 7 }] } })
+      .its('body.data.id').then((claimId) => {
+        token(OWNER).then((o) => {
+          up(o).its('alsoOn').should('include', 'a claim waiting for approval')
+          decide(o, claimId, 'withdraw').its('body.success').should('eq', true)
+          up(o).its('alsoOn').should('not.include', 'a claim waiting for approval')
+        })
+      }))))
   })
 
   it('7 — with Expense claims switched off, the choice is gone and the server refuses a claim', () => {

@@ -200,18 +200,29 @@ public class ReceiptService {
     private ExpenseVoucher writable(Long id) {
         ExpenseVoucher v = visible(id);
         if (ExpenseVoucher.VOIDED.equals(v.getStatus())) throw new ValidationException("A voided expense takes no new receipts.");
+        // EX-6 — a claim that was turned down or taken back is finished: it never reaches the books
+        if (v.isClaim() && !ExpenseVoucher.CLAIM_SUBMITTED.equals(v.getClaimStatus()) && !ExpenseVoucher.CLAIM_APPROVED.equals(v.getClaimStatus()))
+            throw new ValidationException("A " + v.getClaimStatus().toLowerCase() + " claim takes no new receipts.");
         return v;
     }
 
-    /** The other expenses (by number) this same file is already on. */
+    /**
+     * The other expenses this same file is already on, by number. EX-6 — a claim still waiting has no number yet; it is
+     * named as such (it WILL reach the books if approved, so the same bill claimed and recorded is a real duplicate).
+     * A voided expense, and a rejected or withdrawn claim, never reached the books and is not counted.
+     */
+    static final String WAITING_CLAIM = "a claim waiting for approval";
+
     private List<String> alsoOn(List<ExpenseReceipt> same, Long exceptVoucher) {
         List<String> out = new ArrayList<>();
         for (ExpenseReceipt r : same) {
             if (r.getVoucherId() == null || r.getVoucherId().equals(exceptVoucher)) continue;
             vouchers.findById(r.getVoucherId())
                     .filter(x -> !ExpenseVoucher.VOIDED.equals(x.getStatus()))
-                    .map(ExpenseVoucher::getVoucherNo)
-                    .filter(no -> no != null && !out.contains(no))
+                    .filter(x -> !x.isClaim() || ExpenseVoucher.CLAIM_SUBMITTED.equals(x.getClaimStatus())
+                            || ExpenseVoucher.CLAIM_APPROVED.equals(x.getClaimStatus()))
+                    .map(x -> x.getVoucherNo() != null ? x.getVoucherNo() : (x.isClaim() ? WAITING_CLAIM : null))
+                    .filter(no -> no != null && !out.contains(no))           // an ordinary draft, as before: not named
                     .ifPresent(out::add);
         }
         return out;

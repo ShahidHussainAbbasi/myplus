@@ -130,6 +130,41 @@ class ReceiptServiceTest {
     }
 
     @Test
+    @DisplayName("⭐ EX-6 — the same file on a WAITING claim is warned about (it has no number yet); on a rejected one it is not")
+    void duplicatesOnClaims() {
+        ExpenseVoucher waiting = voucher(88L, null, "40");
+        waiting.setPaidFrom("EMPLOYEE");
+        waiting.setStatus(ExpenseVoucher.DRAFT);
+        waiting.setClaimStatus(ExpenseVoucher.CLAIM_SUBMITTED);
+        when(repo.findByOrganizationIdAndSha256AndRemovedAtIsNull(eq(7L), anyString())).thenReturn(List.of(receipt(9L, 88L, 3L)));
+        when(vouchers.findById(88L)).thenReturn(Optional.of(waiting));
+        assertThat(service.upload(JPEG, "bill.jpg", null).alsoOn()).containsExactly("a claim waiting for approval");
+
+        waiting.setClaimStatus(ExpenseVoucher.CLAIM_REJECTED);
+        assertThat(service.upload(JPEG, "bill.jpg", null).alsoOn()).isEmpty();
+
+        ExpenseVoucher draft = voucher(88L, null, "40");            // an ordinary unposted draft: not named, as before
+        draft.setStatus(ExpenseVoucher.DRAFT);
+        when(vouchers.findById(88L)).thenReturn(Optional.of(draft));
+        assertThat(service.upload(JPEG, "bill.jpg", null).alsoOn()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("EX-6 — a rejected or withdrawn claim takes no new receipts; a waiting one does")
+    void decidedClaimTakesNoReceipt() {
+        ExpenseVoucher c = voucher(60L, null, "18");
+        c.setPaidFrom("EMPLOYEE");
+        c.setStatus(ExpenseVoucher.DRAFT);
+        c.setClaimStatus(ExpenseVoucher.CLAIM_REJECTED);
+        when(vouchers.findByIdAndOrganizationId(60L, 7L)).thenReturn(Optional.of(c));
+        assertThatThrownBy(() -> service.upload(JPEG, "bill.jpg", 60L)).hasMessageContaining("rejected claim takes no new receipts");
+        c.setClaimStatus(ExpenseVoucher.CLAIM_WITHDRAWN);
+        assertThatThrownBy(() -> service.upload(JPEG, "bill.jpg", 60L)).hasMessageContaining("withdrawn claim");
+        c.setClaimStatus(ExpenseVoucher.CLAIM_SUBMITTED);
+        assertThat(service.upload(JPEG, "bill.jpg", 60L).name()).isEqualTo("bill.jpg");
+    }
+
+    @Test
     @DisplayName("⭐ above the owner's amount an expense cannot be saved without a receipt; at or below it can")
     void requiredAbove() {
         when(settings.receiptRequiredAbove()).thenReturn(new BigDecimal("500"));
