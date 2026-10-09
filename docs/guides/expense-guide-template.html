@@ -105,7 +105,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <p>Step-by-step manual tests for every slice of Expense Management and of the supplier payables that now live in finance, for every business type and every login tier. Each case says who to log in as, what to do, what you should see, and which real mistake it catches. Tick the results as you go; your ticks stay in this browser only.</p>
     <div class="meta">
       <span>Branch <b>feature/expense-management</b></span>
-      <span>Updated 5 Oct 2026</span>
+      <span>Updated 9 Oct 2026</span>
       <span>Password for every test login: <b class="mono" style="color:inherit">Demo@2025!</b></span>
     </div>
   </div>
@@ -1025,7 +1025,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
         <table>
           <thead><tr><th>#</th><th>Finding</th><th>Severity</th></tr></thead>
           <tbody>
-            <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) can never be retried; the row only says “Not posted”. The only way out is void and re-record, and the screen does not say so.</td><td><span class="pill pill-bad">High</span></td></tr>
+            <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) could never be retried, and the reason was hidden. <b>Fixed (EX-1b):</b> the reason is on the row within seconds, and <b>Post again</b> sends it once the cause is fixed — case 1-8.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E2</td><td>The school, welfare and farm dashboards record expenses into books they <b>cannot see</b>: no Profit &amp; Loss or Trial Balance screen there.</td><td><span class="pill pill-bad">High</span></td></tr>
             <tr><td>E3</td><td>Welfare is told “each expense is posted to your books”, but welfare has no books yet.</td><td><span class="pill pill-warn">Medium</span></td></tr>
             <tr><td>E4</td><td>The Expenses list stops at 200 rows without saying so.</td><td><span class="pill pill-warn">Medium</span></td></tr>
@@ -1095,6 +1095,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>finance/fp-4c-balance-stamp.cy.js</code> (5)</td><td>Bills stamped on the supplier; total vs Pay figure; edit keeps it; credit limit refuses on FINANCE and allows on BUSINESS; on screen</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/fp-5b-mixed-settlement.cy.js</code> (5)</td><td>One Pay settles purchases and bills oldest first; one PV; the switch back is refused after a mixed payment</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/fp-6a-reconciliation.cy.js</code> (6)</td><td>A check records today; a planted 77 in GL 2000 is aligned once against 2990, books balanced; a second run posts nothing; history and streak; operator panel; owner refused</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
+            <tr><td><code>expense/ex-1b-post-again.cy.js</code> (7)</td><td>A closed period refuses at once with its reason; Post again refused while closed, in the books once reopened, never twice; a bill paid into a closed period is refused, not left pending; scoped; on screen; a voided refusal offers nothing</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td>Re-run of all 14 specs, 5 Oct</td><td>Every gate above on one fresh stack. fp-4b case 2 red: it needs a tenant whose figures disagree and borrows old demo drift — the spec must make its own</td><td><span class="pill pill-warn">77/78</span></td></tr>
           </tbody>
         </table>

@@ -58,7 +58,10 @@
 	 * the cause is fixed (a period reopened) it lands, and it can never be booked twice.
 	 */
 	function refusal(v) {
-		var refused = (v.status === 'POSTED' && v.postingStatus === 'FAILED') || (v.status === 'VOIDED' && v.postingError);
+		// A void whose REVERSAL has not landed is POSTED_GL with an error. A voucher voided after its posting FAILED is
+		// FAILED: it never reached the books, nothing is owed to them, and the server would refuse to send it again.
+		var refused = (v.status === 'POSTED' && v.postingStatus === 'FAILED')
+			|| (v.status === 'VOIDED' && v.postingStatus === 'POSTED_GL' && v.postingError);
 		if (!refused) return '';
 		return '<div class="text-danger" data-cy="expense-posting-error" style="font-size:12px;margin-top:3px;white-space:normal">'
 			+ esc(v.postingError || tr('ui.js.expNotPostedWhy', 'The books did not take it.')) + '</div>'
