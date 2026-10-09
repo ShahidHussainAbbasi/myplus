@@ -100,6 +100,14 @@ public class DispenseService {
             }
         }
 
+        // RX-DISP-1: a dispense that names no usable line used to come back as a plain success. The till sent
+        // exactly that (`items: []`, the cart already cleared) for a month and every screen said "recorded".
+        // Nothing else above explains a zero, so say it here — the sale has already happened.
+        if (recorded == 0 && warnings.isEmpty()) {
+            warnings.add("Nothing was recorded against this prescription — the dispense carried no medicines. "
+                    + "The sale" + (invoiceNo != null ? " " + invoiceNo : "") + " stands; record the dispense again.");
+        }
+
         rx.setStatus(recomputeStatus(items));
         // Only stamp the dispenser when something was actually dispensed — a call that recorded nothing must not
         // rewrite who last dispensed this prescription.

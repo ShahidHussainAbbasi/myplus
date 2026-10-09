@@ -32,7 +32,8 @@ deliberate choice from an accident. Cover only the rows that actually apply:
 | **Microservice boundaries** | What stays in the owning service; whether a new service is justified (owns data + lifecycle + external integration) or a library is (rules shared, data local). |
 | **Design patterns** | The NAMED patterns applied, and why that one. |
 | **SOLID / DRY** | What is being shared once instead of duplicated per screen/service. |
-| **Testing standard** | Pure-logic units on `mvn test`, one headed Cypress gate, and the regression assertion each gate makes. |
+| **Testing standard** | Pure-logic units on `mvn test`, one headed Cypress gate, and the regression assertion each gate makes. | Prepare cypress test cases and then turn each into a real step-by-step test with concrete actions, expected results, a cleanup step from implementation flow if screen is not
+  available or run the cypress to record each step and update the page
 
 Worked example: `microservices/docs/slices/b2b-P3-documents-reports.md` §1b.
 
@@ -56,3 +57,5 @@ Architecture & UML → Implement → Test).
 - Keep diagrams in sync with code — update the doc in the same change that alters the design.
 - Prefer one focused diagram per concern over one sprawling diagram.
 - Names in diagrams must match real class/table/endpoint names so the doc is greppable.
+
+

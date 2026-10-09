@@ -197,6 +197,11 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
     cy.get('#addInviceItem').click()
     cy.wait('@pv')
   }
+  /** CART-3: the grouped row and its batch sub-lines. */
+  const cartGroup = () => cy.get('#tablesi tbody .pb-group')
+  const subLines = () => cy.get('#tablesi tbody .pb-sub')
+  /** The cart's visible footer cells: Name · QTY · Price · Disc · Total · Action (the id column is hidden). */
+  const footer = () => cy.get('#tablesi tfoot th:visible').then(($th) => cy.wrap([...$th].map((th) => th.innerText.trim())))
   /** Complete Sale. In Per batch the till re-checks the cart FIRST, so the confirm dialog opens only after it answers. */
   const complete = ({ expectConfirm = true } = {}) => {
     cy.get('#sellPayMethod').select('CASH', { force: true })
@@ -204,7 +209,9 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
     cy.intercept('POST', '/batchPricePreview').as('check')
     cy.get('#addSell').click({ timeout: 30000 })
     cy.wait('@check')
-    if (expectConfirm) cy.confirmSale({ optional: true })
+    // The re-check runs before the dialog, so it opens late: WAIT for it. `optional` looked once and could look too
+    // early — S8 then skipped a dialog that did open (Total 460.00 on screen) and waited for a sale never confirmed.
+    if (expectConfirm) cy.confirmSale()
   }
 
   it('S6 the till: the Batch choice, then 10 added → 7 × 200 and 3 × 250 in the cart, and that is what is recorded', () => {
@@ -217,9 +224,13 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       cy.get('#sellBatchPick option').eq(2).should('contain', neu.batchNo).and('contain', '10 @ 250.00')
       cy.get('#sellSellRate').should('have.value', '200')
       addToCart(10)
-      cy.get('#tablesi tbody tr').should('have.length', 2)
-      cy.get('#tablesi tbody tr').eq(0).should('contain', '7').and('contain', '200').and('contain', old.batchNo)
-      cy.get('#tablesi tbody tr').eq(1).should('contain', '3').and('contain', '250').and('contain', neu.batchNo)
+      // CART-3: ONE row for the product, its two batches as sub-lines (the invoice still gets two lines — below).
+      cartGroup().should('have.length', 1)
+      cy.get('#tablesi tbody tr').should('have.length', 1)
+      subLines().should('have.length', 2)
+      subLines().eq(0).should('have.attr', 'data-qty', '7').and('contain', '200.00').and('contain', old.batchNo)
+      subLines().eq(1).should('have.attr', 'data-qty', '3').and('contain', '250.00').and('contain', neu.batchNo)
+      cy.get('#tablesi tbody tr').eq(0).find('td').eq(1).should('contain', '10')   // the row's quantity: 7 + 3
       cy.get('#sellBatchNote').should('be.visible').and('contain', '7 @ 200.00').and('contain', '3 @ 250.00')
       cy.get('#sellTotal').should('contain', '2150')
       cy.intercept('POST', '/addSell').as('sale')
@@ -276,6 +287,65 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
           expect((ls[0].batches || []).map((x) => x.batchNo)).to.deep.eq([old.batchNo])
         })
       })
+    })
+  })
+
+  it('S9 Del on the grouped row removes BOTH batch lines of that Add, and nothing else', () => {
+    seedTwoBatches('S9').then(({ productId }) => {
+      openSale()
+      pickItem(productId); addToCart(1)          // an ordinary one-batch line first (1 @ 200)
+      pickItem(productId); addToCart(9)          // 6 @ 200 + 3 @ 250 → one grouped row
+      cy.get('#tablesi tbody tr').should('have.length', 2)
+      cy.window().its('data').should('have.length', 3)
+      cy.get('#tablesi tbody .pb-del').click()
+      cy.get('#tablesi tbody tr').should('have.length', 1)
+      cy.window().its('data').should('have.length', 1).then((d) => expect(Number(d[0].quantity)).to.eq(1))
+      cy.get('#sellTotal').should('contain', '200')
+    })
+  })
+
+  it('S10 every footer total is what the separate lines gave — the grouping moves no number', () => {
+    seedTwoBatches('S10').then(({ productId }) => {
+      openSale()
+      pickItem(productId); addToCart(10)
+      cartGroup().should('have.length', 1)
+      cy.window().then((w) => {
+        const d = w.data
+        const qty = d.reduce((a, l) => a + Number(l.quantity), 0)
+        const rates = d.reduce((a, l) => a + Number((l.stock && l.stock.bsellRate) != null ? l.stock.bsellRate : l.sellRate), 0)
+        const total = d.reduce((a, l) => a + Number(l.totalAmount), 0)
+        expect(d.length, 'two lines in the cart that is submitted').to.eq(2)
+        footer().then((f) => {
+          expect(Number(f[1]), 'QTY footer').to.eq(qty)
+          expect(Number(f[2]), 'Price footer (the sum of the lines’ rates, as before)').to.eq(rates)
+          expect(Number(f[4]), 'Total footer').to.eq(total)
+        })
+        cy.get('#sellTotal').invoke('text').then((t) => expect(Number(String(t).replace(/[^0-9.]/g, ''))).to.eq(total))
+      })
+    })
+  })
+
+  it('S11 a parked basket comes back as the same one row with its batches', () => {
+    seedTwoBatches('S11').then(({ productId }) => {
+      openSale()
+      pickItem(productId); addToCart(10)
+      cartGroup().should('have.length', 1)
+      cy.intercept('POST', '/parkSale').as('park')
+      cy.window().then((w) => w.parkCurrentSale())
+      cy.wait('@park').its('response.body.status').should('eq', 'SUCCESS')
+      cy.window().its('data').should('have.length', 0)
+      cy.request('/parkedSales').then((r) => {
+        const rows = r.body.collection || r.body.data || []
+        expect(rows.length, 'the parked basket is listed').to.be.greaterThan(0)
+        const mine = rows.reduce((a, p) => (Number(p.id) > Number(a.id) ? p : a), rows[0])   // the newest
+        cy.intercept('POST', '/claimParked').as('claim')
+        cy.window().then((w) => w.resumeParked(mine.id))
+        cy.wait('@claim')
+      })
+      cartGroup().should('have.length', 1)
+      subLines().should('have.length', 2)
+      cy.window().its('data').should('have.length', 2)
+      cy.get('#tablesi tbody .pb-del').click()   // leave no basket behind
     })
   })
 })

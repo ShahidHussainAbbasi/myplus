@@ -1434,6 +1434,19 @@ function jsonPost(method,data) {
 			 * business.js. Called bare it throws ReferenceError on every one of those modules. park.js
 			 * already guards it exactly this way; this is that convention, not a new one.
 			 */
+			/*
+			 * ⚠ RX-DISP-1 — TAKE THE DISPENSE LINES BEFORE THE CART IS CLEARED.
+			 *
+			 * dispensePrescription() below records what this sale handed over, and it used to read that from
+			 * the cart — which resetCart() has just emptied. It posted `items: []`: the sale was right, the
+			 * script stayed PENDING (dispensable again), a controlled dispense never reached the register, and
+			 * the pharmacist was still told "recorded". Snapshot here; nothing that can throw comes between
+			 * this line and the reset (dispenseItemsFrom is a pure mapping, and guarded).
+			 */
+			var dispenseLines = null;
+			if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispenseItemsFrom === 'function') {
+				try { dispenseLines = dispenseItemsFrom(window.data || []); } catch (e) { dispenseLines = null; }
+			}
 			if (method === 'addSell') {
 				window.saleIdempotencyKey = null;
 				if (typeof resetCart === 'function') resetCart();
@@ -1457,7 +1470,7 @@ function jsonPost(method,data) {
 				if (method === 'addSell' && window.dispensingPrescriptionId && typeof dispensePrescription === 'function') {
 					// Isolated for the same reason, but NOT silently: a dispense that fails is a controlled
 					// drug unrecorded against a sale that happened, which a pharmacist has to know about.
-					try { dispensePrescription(data.object); }
+					try { dispensePrescription(data.object, dispenseLines); }
 					catch (e) {
 						if (window.console) console.error('dispensePrescription failed for ' + data.object, e);
 						// ui.js.* — LocaleInterceptor ships only that prefix to the browser, and t() returns

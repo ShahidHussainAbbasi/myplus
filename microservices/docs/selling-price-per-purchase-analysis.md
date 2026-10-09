@@ -362,6 +362,31 @@ nothing, pins before FEFO, another tenant's batch refused); business **502/502**
 3); PR-4 (approval of held-back price changes).
 
 
+### 10.8 CART-3 — one cart row with batch sub-lines (2026-10-08)
+
+Decided 2026-10-08: when one Add to Cart is priced across two or more batch prices, the cart shows **one row** for the
+product with its batches as sub-lines (`B-0912 · 7 × 200.00 = 1400.00`). **Display only** — `data[]`, the cart that is
+submitted, parked, totalled and edited, still holds one line per batch price, and the invoice still records them as
+separate lines (decision 2).
+
+| Reader of the cart (Rule 0) | Impact |
+|---|---|
+| `renderCart` / `sellCartRow` | groups consecutive lines sharing a `batchGroup` (2+); every other line drawn by the unchanged `sellCartRow` |
+| DataTables footer (QTY, Price, Total sums of the grid's cells) | a grouped row's number cells are `{display, value}`; `value` = the sum of what the lines' own rows gave, so every footer is unchanged (gate S10) |
+| `CIT(data)`, `sellLineDiscountTotal`, `sellRefreshPayable`, Change/Due | read `data[]` — untouched |
+| `UIT(pid, idx)` (Del, counter to zero) | unchanged for ordinary rows; a grouped row's Del calls `UIG(group)`, removing that Add's lines only (S9) |
+| counter `+/-` | not drawn on a grouped row (stepping one batch of a split line would need a re-plan); ordinary rows unchanged |
+| last-rate hint (`row[3]`) | a grouped row compares its first batch's rate (`cmp`) |
+| park / resume | the cart is sent and returned as untyped JSON, so `batchGroup` survives; resumed basket draws the same row (S11) |
+| `beforeComplete` re-check | a line it splits keeps (or starts) a group; one-part lines unchanged |
+| submit (`addSell`), edit (`updateSell`) | `batchGroup` is an extra field on lines that already carry `batchNote`; Per batch is off while editing, so no groups there |
+| **shops not in Per batch** | lines never carry `batchGroup` → `renderCart` takes the old path for every line; the render rule passes plain values through; no behaviour change |
+
+Gate `pricing-per-batch-sale.cy.js`: S6 now asserts one row + two sub-lines; **S9** Del removes both lines of the Add and
+nothing else; **S10** QTY / Price / Total footers equal the sums of the submitted lines; **S11** a parked basket returns as
+the same row. Red run on the deployed (pre-CART-3) build: S1–S5, S7, S8 green; S6, S9, S10, S11 red for the expected
+reason (no grouped row). Guide step S1 a2 updated.
+
 ## 11. PR-4 — the owner approves a price before customers see it (design, 2026-10-05)
 
 Decisions already taken (§6): order PR-1 → PR-4, and **owner/admin approve price changes** (decision 3). This section

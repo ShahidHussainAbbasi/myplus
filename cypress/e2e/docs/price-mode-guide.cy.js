@@ -989,12 +989,14 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     snap(a1, 'batch-list', '#sellDiv')
 
     const a2 = act('Quantity **10**, **Add to Cart**.',
-      ['The cart shows **two lines**: **7 × 200** (' + t.old + ') and **3 × 250** (' + t.neu + ').',
+      ['The cart shows **one line** for the product, quantity **10**, with its batches underneath: **' + t.old + ' · 7 × 200.00** and **' + t.neu + ' · 3 × 250.00**. (The invoice still records them as two lines.)',
         'A green note: “**Priced by batch: 7 @ 200.00 (' + t.old + ') + 3 @ 250.00 (' + t.neu + ')**”.', 'The total is **2150.00**.'])
     addLine(10, true)
-    cartRows().should('have.length', 2)
-    cartRows().eq(0).should('contain', t.old).and('contain', '7').and('contain', '200')
-    cartRows().eq(1).should('contain', t.neu).and('contain', '3').and('contain', '250')
+    // CART-3: one row, the two batches as sub-lines
+    cartRows().should('have.length', 1)
+    cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
+    cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t.old).and('have.attr', 'data-qty', '7').and('contain', '200.00')
+    cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t.neu).and('have.attr', 'data-qty', '3').and('contain', '250.00')
     cy.get('#sellBatchNote').should('be.visible').and('contain', '7 @ 200.00').and('contain', '3 @ 250.00')
     cy.get('#sellTotal').should('contain', '2150')
     snap(a2, 'cart-split', '#sellDiv')

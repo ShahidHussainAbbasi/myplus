@@ -114,7 +114,9 @@
             // Quoting BELOW what they last paid is the one case worth flagging: it is a concession the
             // shop is making right now, and it is the number an owner asks about afterwards. Above or
             // equal is unremarkable and stays neutral - a screen that shouts at everything says nothing.
-            var now  = Number(String(row[3]).replace(/[^0-9.\-]/g, ''));
+            // CART-3: a grouped Per-batch row's price cell is {display, value, cmp}; compare its first batch's rate.
+            var now  = (row[3] && typeof row[3] === 'object') ? Number(row[3].cmp)
+                     : Number(String(row[3]).replace(/[^0-9.\-]/g, ''));
             var last = Number(hit.rate);
             var below = isFinite(now) && isFinite(last) && now < last;
 

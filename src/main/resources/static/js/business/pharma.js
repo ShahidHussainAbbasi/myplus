@@ -345,7 +345,9 @@
 
     // Called by main.js after a successful addSell when a dispense is in progress. Records the dispense (the cart
     // items that were actually sold) against the prescription, linked to the sale invoice.
-    global.dispensePrescription = function (invoiceNo) {
+    // `lines` — the sold lines, taken by main.js BEFORE it cleared the cart (RX-DISP-1). Read from the cart only
+    // when a caller passes none; after Complete Sale the cart is already empty.
+    global.dispensePrescription = function (invoiceNo, lines) {
         var id = window.dispensingPrescriptionId;
         if (!id) return;
         // M5 (slice 100): the cart line keys by productId now; dispense records against the catalog Product.
@@ -365,7 +367,7 @@
          * shop writes scripts in tablets or in packs. Changing it needs that answer, and guessing would
          * corrupt the register in the opposite direction. Raised, not silently "fixed".
          */
-        var items = dispenseItemsFrom(window.data || []);
+        var items = Array.isArray(lines) ? lines : dispenseItemsFrom(window.data || []);
         $.ajax({
             type: 'POST', url: serverContext + 'dispensePrescription', contentType: 'application/json', dataType: 'json',
             data: JSON.stringify({ prescriptionId: id, invoiceNo: invoiceNo, items: items }),
