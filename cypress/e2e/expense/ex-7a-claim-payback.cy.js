@@ -61,14 +61,16 @@ describe('EX-7a — paying a claim back', () => {
     cy.planOf(OWNER).then((p) => { planWas = p; if (p.plan === 'FREE') cy.setPlan(p.id, 'PRO') })
     signIn(OWNER)
     ;[MGMT, CLAIMS].forEach((k) => cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: k, enabled: 'true' } })
-      .its('body.success').should('eq', true))
+      .then((r) => expect(r.body.success, `switch ${k} on: ${JSON.stringify(r.body)}`).to.eq(true)))
   })
 
   after(() => {
     // the plan FIRST: it needs only the operator, so a later sign-in that fails cannot leave this school on PRO
     cy.then(() => { if (planWas && planWas.plan === 'FREE') { cy.loginAsOperator(); cy.setPlan(planWas.id, 'FREE') } })
-    signIn(OWNER)
-    ;[CLAIMS, MGMT].forEach((k) => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: k }, failOnStatusCode: false }))
+    // through auth's API with the owner's token (the call /resetModuleSwitch makes): a teardown must not depend on a
+    // browser sign-in, which has failed intermittently at this point with no refusal logged (ex-7a slice doc §5)
+    token(OWNER).then((t) => [CLAIMS, MGMT].forEach((k) => cy.request({ method: 'POST', url: `${GW}/api/auth/settings/reset?key=${k}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }).its('status').should('eq', 200)))
   })
 
   it('⭐ 1 — the owner pays a claim back in two parts: 2300 clears, cash and bank go down, Accounts Payable never moves', () => {

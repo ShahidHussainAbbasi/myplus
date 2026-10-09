@@ -68,7 +68,7 @@ class OrganizationAdminServiceTest {
         when(members.countByOrganizationIds(anyCollection()))
                 .thenReturn(List.<Object[]>of(new Object[]{ 1L, 3L }));
 
-        com.myplus.auth.config.JpaEntitlementSource source = mock(com.myplus.auth.config.JpaEntitlementSource.class);
+        com.myplus.auth.config.JpaEntitlementSource source = LAST_SOURCE = mock(com.myplus.auth.config.JpaEntitlementSource.class);
         com.myplus.auth.repository.OrgSettingRepository orgSettings =
                 mock(com.myplus.auth.repository.OrgSettingRepository.class);
         com.myplus.auth.repository.OrgShapeHistoryRepository shapeHistory =
@@ -224,6 +224,20 @@ class OrganizationAdminServiceTest {
         assertThatThrownBy(() -> svc.changePlan(1L, "PRO", "  ", 9L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("reason");
+    }
+
+    /** The cache mock of the most recent fixture, for the plan-change invalidation test. */
+    private static com.myplus.auth.config.JpaEntitlementSource LAST_SOURCE;
+
+    @Test
+    @DisplayName("⭐ a plan change clears the tenant's cached licensing at once — an upgraded owner may switch on what the plan now includes")
+    void plan_change_invalidates_the_licensing_cache() {
+        Organization o = org(1L, "Upgrading shop", "FREE", null);
+        OrganizationAdminService svc = fixture(List.of(o)).service();
+
+        svc.changePlan(1L, "PRO", "upgraded", 9L);
+
+        org.mockito.Mockito.verify(LAST_SOURCE).invalidate(1L);
     }
 
     @Test

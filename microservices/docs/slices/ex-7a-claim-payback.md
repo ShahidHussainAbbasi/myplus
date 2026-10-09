@@ -1,7 +1,7 @@
 # EX-7a — Paying a claim back
 
-**Status:** DONE 2026-10-09: gate 4/4 (seen red first), unit tests 9 new (finance 87/87, expense-service 82/82), Test
-Book cases 7-1 to 7-3. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.3, §6, §10 EX-7,
+**Status:** DONE 2026-10-09: gate 4/4 (seen red first), unit tests 10 new (finance 87/87, expense-service 82/82, auth
+73/73), Test Book cases 7-1 to 7-3 (recorded). Regression below. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.3, §6, §10 EX-7,
 finding **F6**. EX-7 is split: **7a** pays approved claims back; **7b** is advances (give one, settle claims against it,
 take back what is unused).
 
@@ -47,5 +47,22 @@ for supplier bills only, and finance's disbursement always debited **2000 Accoun
   Because the plan restore came after that sign-in, the school was left on **PRO**. Verified on the database, restored to
   FREE as the operator (the audit trail shows FREE → PRO as its last change), and the EX-6 and EX-7a gates and the Test
   Book spec now restore the plan **first**, with the operator only.
+- **A product defect the regression found (auth, fixed):** in the 27-spec regression EX-6 and EX-7a failed in `before()`
+  with **"Expense claims is not included in your current plan"**, although the audit trail shows the plan raised to
+  PRO seconds earlier. auth caches each tenant's licensing (plan + rows) for 60 s; entitlement writes invalidated it,
+  but **`changePlan` did not**. So an owner the operator had just upgraded was refused for up to a minute, and a
+  downgraded one could still switch on what the new plan excludes. It showed only when an earlier spec had read the
+  tenant's licensing within the minute. Reproduced with the smallest pair (EX-5 then EX-6), fixed (invalidate on the
+  plan write, and again after commit), unit-tested, deployed: EX-5, EX-6 and EX-7a together 18/18.
+- **An intermittent browser sign-in, not fixed, worked around:** an owner's form login in a teardown has landed back on
+  `/login` (no `?error`, nothing refused in either log; the same login from the command line moments later succeeds).
+  Cause **unexplained**. Teardowns no longer depend on it: the switches are reset through auth's own API with the
+  owner's token (the call `/resetModuleSwitch` makes), after the plan restore. Verified on the database after each run:
+  FREE and no expense switches.
+- **Regression (27 specs: expense, finance, set-off, GL, school fees): 158 passed, 4 failed.** EX-6 and EX-7a: the plan
+  cache above (fixed, then 12/12 back to back). **fp-4b case 2**: "demo.business carries the known 100", the known
+  data-dependent gate defect (§11.3 item 5), not touched here. **education/fee.cy.js case 2**: the fee report request is
+  refused 403 "Access denied" for that login (the known missing permission keys on demo accounts); an attempt to make
+  the test tolerate an empty report was **reverted**, because it would have turned a 403 into a pass.
 - **The gateway 503 after a deploy, explained:** for about 25 seconds after a service reports healthy, the gateway still
   answers 503 for it (polled: five 503s, then 200). That was EX-6's first-run failure. Wait for 200 before a gate.
