@@ -26,6 +26,28 @@
 			aria-controls="expCatPanel" aria-expanded="false" onclick="expenseCategoriesToggle()">
 			<span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.expCategories}">Categories</span>
 		</button>
+		<button type="button" class="btn btn-default btn-sm" id="expSetOpen" data-cy="expense-settings-open"
+			aria-controls="expSetPanel" aria-expanded="false" onclick="expenseSettingsToggle()">
+			<span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.expSettings}">Settings</span>
+		</button>
+		<!-- EX-2f / E5 — the expense settings (expense-service's catalog). The server validates each one. -->
+		<div id="expSetPanel" class="well well-sm" data-cy="expense-settings" style="display:none;margin-top:8px">
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+				<label for="expSetBackdate" th:text="#{ui.expSetBackdate}">How far back an expense may be dated (days)</label>
+				<input type="number" min="0" max="3650" step="1" class="form-control input-sm" id="expSetBackdate" data-cy="set-backdate" style="width:110px" inputmode="numeric">
+				<button type="button" class="btn btn-default btn-sm" data-cy="set-backdate-save" onclick="expenseSettingSaveBackdate(this)" th:text="#{ui.js.expCatSave}">Save</button>
+				<span class="help-block" style="margin:0" th:text="#{ui.expSetBackdateHelp}">A closed period still wins.</span>
+			</div>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+				<label for="expSetPaidFrom" th:text="#{ui.expSetPaidFrom}">Paid from, by default</label>
+				<select class="form-control input-sm" id="expSetPaidFrom" data-cy="set-paid-from" data-no-search="true" style="width:140px">
+					<option value="CASH" th:text="#{ui.cash}">Cash</option>
+					<option value="BANK" th:text="#{ui.bank}">Bank</option>
+				</select>
+				<button type="button" class="btn btn-default btn-sm" data-cy="set-paid-from-save" onclick="expenseSettingSavePaidFrom(this)" th:text="#{ui.js.expCatSave}">Save</button>
+			</div>
+			<span id="expSetMsg" role="status" aria-live="polite"></span>
+		</div>
 		<div id="expCatPanel" class="well well-sm" data-cy="expense-categories" style="display:none;margin-top:8px">
 			<p class="help-block" style="margin-top:0" th:text="#{ui.expCategoriesHelp}">
 				The words you choose an expense by, each posted to an expense account in your books. Past expenses keep the

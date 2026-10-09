@@ -377,6 +377,7 @@
 			msg(tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
 			$f.removeData('idemKey');
 			$('#expAmount, #expPayee, #expNote').val('');
+			applyPaidFromDefault();                          // EX-2f: the next expense starts from the owner's default
 			expenseLoad();
 		}).fail(function (xhr) {
 			// The key is KEPT: pressing Save again replays this fill rather than recording it twice.
@@ -457,6 +458,53 @@
 		});
 	}
 
+	// ── EX-2f / E5 — expense settings ─────────────────────────────────────────────────────────────────────────
+	// Read by EVERY member's form (the default Paid from must REACH the form — the "saved default tender never reached
+	// New Sale" lesson), changed by owner/admin in the Settings panel. The server validates and answers in words.
+	var KEY_BACK = 'expense.voucher.backdateDays', KEY_PAID = 'expense.voucher.defaultPaidFrom';
+	var expSettings = {};
+	function loadExpenseSettings() {
+		return $.ajax({ url: ctx() + 'expense/settings', dataType: 'json' }).done(function (res) {
+			expSettings = {};
+			((res && res.success === true && res.data) || []).forEach(function (e) { expSettings[e.key] = e.value; });
+			applyPaidFromDefault();
+			$('#expSetBackdate').val(expSettings[KEY_BACK] != null ? expSettings[KEY_BACK] : '');
+			if (expSettings[KEY_PAID]) $('#expSetPaidFrom').val(expSettings[KEY_PAID]);
+		});
+	}
+	function applyPaidFromDefault() {
+		var d = expSettings[KEY_PAID];
+		if (d !== 'CASH' && d !== 'BANK') return;
+		$('#expPaidFrom').val(d);
+		if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($('#expPaidFrom')[0]);
+		toggleBill();
+	}
+	function setMsg(text, kind) {
+		$('#expSetMsg').text(text || '').css('color', kind === 'bad' ? '#b3261e' : (kind === 'ok' ? '#1b7f3b' : ''));
+	}
+	function expenseSettingsToggle() {
+		var $p = $('#expSetPanel'), open = !$p.is(':visible');
+		$p.toggle(open);
+		$('#expSetOpen').attr('aria-expanded', String(open));
+		if (open) { setMsg(''); loadExpenseSettings(); }
+	}
+	function expenseSettingSave(btn, key, value) {
+		var $b = $(btn), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		setMsg('');
+		return $.ajax({ url: ctx() + 'expense/settings', type: 'POST', dataType: 'json', data: { key: key, value: value } })
+			.done(function (res) {
+				if (!res || res.success !== true) { setMsg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+				setMsg(tr('ui.js.expSettingSaved', 'Setting saved'), 'ok');
+				loadExpenseSettings();
+			})
+			.fail(function (xhr) {
+				setMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			})
+			.always(function () { $b.prop('disabled', false).html(label); });
+	}
+
 	function uiAlertSafe(text) {
 		if (typeof global.uiAlert === 'function') global.uiAlert({ title: tr('ui.js.expenses', 'Expenses'), message: text, tone: 'danger' });
 	}
@@ -469,7 +517,7 @@
 		if (!$('#expDate').val()) setDate('#expDate', isoOf(today));
 		if (!$('#expFrom').val()) setDate('#expFrom', isoOf(new Date(today.getFullYear(), today.getMonth(), 1)));
 		if (!$('#expTo').val()) setDate('#expTo', isoOf(today));
-		loadCategories().always(function () { loadTags(); loadSuppliers(); expenseLoad(); });
+		loadCategories().always(function () { loadTags(); loadSuppliers().always(loadExpenseSettings); expenseLoad(); });
 	}
 
 	$(document).on('change', '#expPaidFrom', toggleBill);
@@ -510,6 +558,9 @@
 	global.expenseCategoriesToggle = expenseCategoriesToggle;
 	global.expenseCategorySave = expenseCategorySave;
 	global.expenseCategoryAdd = expenseCategoryAdd;
+	global.expenseSettingsToggle = expenseSettingsToggle;
+	global.expenseSettingSaveBackdate = function (btn) { expenseSettingSave(btn, KEY_BACK, String($('#expSetBackdate').val() || '').trim()); };
+	global.expenseSettingSavePaidFrom = function (btn) { expenseSettingSave(btn, KEY_PAID, $('#expSetPaidFrom').val()); };
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
 })(window);

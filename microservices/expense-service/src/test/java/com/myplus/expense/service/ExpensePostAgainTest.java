@@ -193,7 +193,7 @@ class ExpensePostAgainTest {
         when(access.visibleUserId()).thenReturn(null);   // owner/admin: sees everyone's (Mockito would answer 0)
         when(repo.saveAndFlush(any(ExpenseVoucher.class))).thenAnswer(i -> i.getArgument(0));
         return new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), outboxMock, mock(ExpenseAuditService.class),
-                access, mock(DocumentNumberService.class), mock(ExpenseTagService.class), mock(ExpenseBillPaymentRepo.class));
+                access, mock(DocumentNumberService.class), mock(ExpenseTagService.class), mock(ExpenseBillPaymentRepo.class), settings30());
     }
 
     @Test
@@ -254,5 +254,11 @@ class ExpensePostAgainTest {
         assertThatThrownBy(() -> s.postAgain(5L)).isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> s.postAgain(6L)).isInstanceOf(ResourceNotFoundException.class);
         verify(outboxMock, never()).redrive(anyLong(), any());
+    }
+    /** EX-2f — the default window (30 days) unless a test says otherwise. */
+    private static ExpenseSettings settings30() {
+        ExpenseSettings s = org.mockito.Mockito.mock(ExpenseSettings.class);
+        org.mockito.Mockito.when(s.backdateDays()).thenReturn(30);
+        return s;
     }
 }

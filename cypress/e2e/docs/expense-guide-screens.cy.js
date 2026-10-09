@@ -745,6 +745,57 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' } }).its('body.success').should('eq', true)))
   })
 
+  caseIt('1-10', 'Settings: how far back, and what the form starts with', () => {
+    testCase('1-10', 'ex1', 'Settings: how far back, and what the form starts with', { who: ['owner.lifecycle (recorded)', 'user.business'] })
+    const BACK = 'expense.voucher.backdateDays', PAID = 'expense.voucher.defaultPaidFrom'
+    const resetBoth = () => token().then((t) => [BACK, PAID].forEach((k) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${k}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })))
+    asLifecycle(true)
+    resetBoth()
+    SAFETY.push(() => { asLifecycle(); resetBoth() })
+    const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localIsoDate(d) }
+    openDashboard(); openExpenses()
+    const a1 = act('<b>Till → Expenses</b>, press <b>Settings</b>.',
+      ['<b>How far back an expense may be dated</b>: <b>30</b> days (before this release it was a hidden 365).', '<b>Paid from, by default</b>: <b>Cash</b>.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-backdate]').should('have.value', '30')
+    cy.get('[data-cy=set-paid-from]').should('have.value', 'CASH')
+    snap(a1, 'defaults', '#expSetPanel')
+    const a2 = act('Type <b>-1</b> in the days box and press its <b>Save</b>; then <b>7</b> and <b>Save</b>.',
+      ['-1 is refused in words: “… must be between 0 and 3650 days.”', '7: “Setting saved”.'])
+    cy.get('[data-cy=set-backdate]').clear().type('-1')
+    cy.get('[data-cy=set-backdate-save]').click()
+    cy.get('#expSetMsg').should('contain', 'between 0 and 3650 days')
+    cy.get('[data-cy=set-backdate]').clear().type('7')
+    cy.get('[data-cy=set-backdate-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    snap(a2, 'seven-days', '#expSetPanel')
+    const a3 = act(`Record Rent 1 in cash dated <b>${dmyOf(ago(8))}</b> (8 days ago).`,
+      ['Refused, in words: “An expense can be dated at most 7 days back. An owner can change this in Expenses → Settings.”'])
+    cy.get('#expDateTemp').clear().type(dmyOf(ago(8))).blur()
+    fillExpense({ category: 'Rent', amount: 1, paidFrom: 'CASH', payee: 'XG back ' + run })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'at most 7 days back')
+    snap(a3, 'refused', '#ExpenseForm')
+    const a4 = act('In Settings choose <b>Bank</b> for Paid from and press its <b>Save</b>; then open Expenses again.',
+      ['The New Expense form now starts on <b>Bank</b> — for every member, cashiers included.'])
+    cy.get('[data-cy=set-paid-from]').select('BANK')
+    cy.get('[data-cy=set-paid-from-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    openDashboard(); openExpenses()
+    cy.get('#expPaidFrom').should('have.value', 'BANK')
+    snap(a4, 'bank-default', '#ExpenseForm')
+    cy.then(() => {
+      act('As <b>user.business</b>: open Expenses.', ['The form starts on the business’s default; there is no <b>Settings</b> button, and the server refuses a change.'], { via: 'run' })
+      act('Settings → reset both to their defaults (30 days, Cash). The recording does it through the same service.', [], { cleanup: true, via: 'run' })
+    })
+    cy.loginAsTier('user', 'business')
+    cy.request({ method: 'POST', url: '/expense/settings', form: true, body: { key: BACK, value: '3650' }, failOnStatusCode: false })
+      .then((r) => expect(r.status >= 400 || r.body.success === false).to.eq(true))
+    asLifecycle()
+    resetBoth()
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',

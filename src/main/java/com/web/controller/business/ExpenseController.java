@@ -60,6 +60,23 @@ public class ExpenseController {
         return call(() -> expense.get("/categories/accounts"));
     }
 
+    /** EX-2f — the expense settings (every member reads them: the form needs its default). */
+    @GetMapping(value = "/settings", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> settings() {
+        return call(() -> expense.get("/settings"));
+    }
+
+    /** EX-2f — change one (owner/admin; expense-service enforces it and validates the value). */
+    @PostMapping(value = "/settings", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> saveSetting(@RequestParam String key, @RequestParam(required = false) String value) {
+        StringBuilder q = new StringBuilder("/settings?x=1");
+        param(q, "key", key);
+        if (value != null) q.append("&value=").append(URLEncoder.encode(value, StandardCharsets.UTF_8));
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
+    }
+
     /** EX-2b — what expenses can be tagged to on this dashboard (education | agriculture). */
     @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
