@@ -56,6 +56,7 @@ EX-8e:
 - **Real data afterwards (school, today):** No branch 18,174.00 (2,517 lines, everything before EX-8e); **Branch
   #999999** 3.00 (EX-8a's red-run voucher from before E8 was fixed: shown, not dropped); CY Branch 1 0.00 (the gate's
   expenses and their voids). The total equals the report by category.
+- **Regression:** all 21 expense gates (`cypress/e2e/expense/*.cy.js`, including fp-3/3b, which read business-service's tag answer for suppliers) **124/124**.
 - **Teardown verified in the DB:** `user_location_access` again holds only user 75 → school 4, as before.
 - **Changed files:**
   - expense: `ExpenseVoucherService.build` (stamps `LocationScope.active()`; refuses another branch);
