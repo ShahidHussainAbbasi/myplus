@@ -611,7 +611,9 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-7b advances (give, settle claims against, return unused) · gate 5/5 (`slices/ex-7b-advances.md`)
 - [x] EX-8a the expense report (category, member, month, paid from; CSV; reconciles with the P&L) + E8 · gate 6/6 (`slices/ex-8a-expense-report.md`)
 - [x] EX-8b duplicate warning (same payee, date, amount) · gate 4/4 (`slices/ex-8b-duplicate-warning.md`)
-- [ ] EX-8c analytics producer (F2) · EX-8d recoverable tax · EX-8e report by branch · gates
+- [x] EX-8c analytics producer (F2) — **closed as superseded** by EX-8a (owner's ruling 2026-10-09; see E12)
+- [x] EX-8d recoverable input tax (`expense.tax.inputRecoverable`, every business type — owner's ruling 2026-10-09) · gate 4/4 (`slices/ex-8d-input-tax.md`)
+- [ ] EX-8e report by branch (a branch picker checked against the caller's branches) · gate
 - [ ] EX-9 agriculture convergence · gate
 
 ---
@@ -650,7 +652,7 @@ the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed
 | E9 | **One line per voucher on screen** (the API takes up to 50); a split bill (rent + service charge) needs two expenses | `expense.js` builds one `line` | Low |
 | E10 | Paid bill cannot be voided — no payment reversal (FP-3 known limit, still open) | FP-3 §3 | **Fixed — FP-3b** (`slices/fp-3b-payment-reversal.md`): mirror payment + opposite journal in finance, bill re-opened; gate 7/7 |
 | E11 | FP-6a's daily check trusts expense-bill documents as reported; no expense-side parity yet | FP-6 §4 "Open" | **Fixed — FP-6b-parity** (`slices/fp-6b-expense-bill-parity.md`): bills compared with expense-service and re-sent; a bill owes in the ledger only once in the books; gate 3/3 |
-| E12 | Still open from §4b: F2 analytics `finance.expenses` has no producer; F3 `agriculture_expense` hard delete, now a second farm expense screen beside Expenses (SUPER only) until EX-9; F4 `Purchase.purchaseExpense` is `Float` | grep | Low (tracked) |
+| E12 | Still open from §4b: ~~F2 analytics `finance.expenses` has no producer~~ — **closed as superseded (EX-8c, owner's ruling 2026-10-09)**: analytics-service is unwired end to end (its `saveMetric` has 0 callers, `finance.revenue` 0 producers, 0 screens read `/api/analytics`, not in the default stack), and the EX-8a report gives the monthly trend reconciled with the P&L; wiring analytics is its own programme item — **done as AN-1** ([`slices/an-1-analytics-wiring.md`](slices/an-1-analytics-wiring.md)): analytics stores finance's P&L month by month and the P&L shows the last 12 months; the sales metrics are AN-2; F3 `agriculture_expense` hard delete, now a second farm expense screen beside Expenses (SUPER only) until EX-9; F4 `Purchase.purchaseExpense` is `Float` | grep | Low (tracked) |
 | E13 | A concurrent duplicate save answers "already being saved" rather than the winning voucher the comment promises | `ExpenseVoucherService.record` catch | Low (UI retries with the same key and then gets the replay) |
 | E14 | **Seeded admin/user accounts held no permissions on a freshly built environment.** V14 placed every member that existed on a permission set; the demo-tier accounts are created by `SetupDataLoader` after the migrations, so they had none and were minted nothing (deny by default): admin.business got 403 `settings.edit` on Configuration, which failed guide case 0a-3 | `PermissionInterceptor perm.refused … needs=settings.edit`; `user_permission_set` empty for every seeded member | **Fixed** — `SetupDataLoader.placeOnDefaultSet` (same `defaultSetFor` + `assign` as the Team screen; only a member with no set; never an owner). Verified: Administrator / Standard / Principal / Teacher placed, token carries `settings.edit`; user-tier refusals still hold (EX-0a, EX-1, EX-2a 29/29). booker.marketplace stays on role privileges (no marketplace catalogue) |
 | E15 | **Trial balance and balance sheet said “Balanced âœ“”**, P&L “Period: … â†’ …” — double-encoded characters in four on-screen strings | `business.js` 1701, 5565, 5588, 5597 | **Fixed** (the comments with the same bytes are untouched) |
@@ -669,7 +671,7 @@ switched on.
 4. ~~A payment reversal~~ — done, FP-3b. ~~Expense-bill parity in the daily check (E11)~~ — done.
 5. fp-4b case 2 made self-sufficient (11.1).
 6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). ~~EX-7b advances~~ — done (`slices/ex-7b-advances.md`). EX-6b the user-tier post limit
-   (`userPostLimit`, §6.2; today a user posts any amount directly), ~~EX-8a the expense report (and E8)~~ — done (`slices/ex-8a-expense-report.md`); ~~EX-8b duplicate warning~~ — done; EX-8c–e,
+   (`userPostLimit`, §6.2; today a user posts any amount directly), ~~EX-8a the expense report (and E8)~~ — done (`slices/ex-8a-expense-report.md`); ~~EX-8b duplicate warning~~ — done; ~~EX-8c~~ closed (F2 superseded); ~~EX-8d recoverable tax~~ — done; EX-8e (by branch),
    EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).

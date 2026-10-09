@@ -95,7 +95,32 @@ function finRunPnl(){
 		var np=Number(d.netProfit||0);
 		h+='<div style="text-align:right;font-size:16px;font-weight:800;color:'+(np>=0?'#0f6e56':'#c0392b')+'">Net Profit: '+np.toFixed(2)+'</div>';
 		finSet(h);
+		finAppendPnlTrend();   // AN-1: the last 12 months beneath the period's statement
 	}, 'json').fail(finFail);
+}
+
+// AN-1 — the last 12 months from analytics-service (finance's P&L month by month). Its own call: analytics down leaves
+// the statement above untouched and says so in one line. Stale = the books could not be asked; the months shown are
+// the ones stored before, and a month never stored shows a dash, not a zero.
+function finAppendPnlTrend(){
+	var put=function(html){ if(finCurrent==='pnl') document.getElementById('FinanceResults').insertAdjacentHTML('beforeend', html); };
+	$.get(serverContext+'gl/pnlTrend', function(resp){
+		var r=(typeof resp==='string')?JSON.parse(resp):resp, d=r && r.data;
+		if(!d || !d.months){ put('<div data-cy="pnl-trend-off" style="margin-top:14px;color:#777">The 12-month trend is not available right now.</div>'); return; }
+		var f=function(x){ return x==null ? '—' : Number(x).toFixed(2); };
+		var h='<div data-cy="pnl-trend" style="margin-top:16px"><h5 style="font-weight:700;margin:0 0 4px">Last 12 months</h5>';
+		if(d.stale) h+='<div style="color:#b9770e;margin-bottom:4px">The books could not be reached: these are the figures as last worked out.</div>';
+		h+='<table class="table table-striped table-condensed" style="width:100%"><thead><tr><th>Month</th><th class="text-right">Income</th>'
+			+'<th class="text-right">Expenses</th><th class="text-right">Net</th></tr></thead><tbody>';
+		d.months.slice().reverse().forEach(function(m){
+			var n=m.net==null ? null : Number(m.net);
+			h+='<tr data-month="'+escHtml(m.month)+'"><td>'+escHtml(m.month)+'</td><td class="text-right">'+f(m.revenue)+'</td>'
+				+'<td class="text-right">'+f(m.expenses)+'</td><td class="text-right" style="color:'+(n!=null && n<0?'#c0392b':'inherit')+'">'+f(m.net)+'</td></tr>';
+		});
+		h+='</tbody><tfoot><tr><th>Total</th><th class="text-right">'+f(d.totalRevenue)+'</th><th class="text-right">'+f(d.totalExpenses)+'</th>'
+			+'<th class="text-right">'+f(d.net)+'</th></tr></tfoot></table></div>';
+		put(h);
+	}, 'json').fail(function(){ put('<div data-cy="pnl-trend-off" style="margin-top:14px;color:#777">The 12-month trend is not available right now.</div>'); });
 }
 
 function finRunBalanceSheet(){

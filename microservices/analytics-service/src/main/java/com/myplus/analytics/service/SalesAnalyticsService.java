@@ -36,7 +36,7 @@ public class SalesAnalyticsService {
             List<AggregatedMetric> revMetrics = metricRepo.findScopedByName(
                     "sales.revenue", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
             BigDecimal revenue = revMetrics.stream()
-                    .map(m -> BigDecimal.valueOf(m.getValue()))
+                    .map(AggregatedMetric::getValue)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             List<AggregatedMetric> countMetrics = metricRepo.findScopedByName(
                     "sales.count", AggregatedMetric.PeriodType.MONTHLY, start, end, CurrentUser.organizationId());
@@ -66,7 +66,7 @@ public class SalesAnalyticsService {
         for (AggregatedMetric m : metrics) {
             result.add(MetricDTO.builder()
                     .name(m.getMetricName())
-                    .value(m.getValue())
+                    .value(m.getValue().doubleValue())
                     .period(m.getPeriodStart().toString())
                     .dimension(m.getDimension())
                     .build());
@@ -77,8 +77,8 @@ public class SalesAnalyticsService {
     public List<MetricDTO> getTopMetrics() {
         List<AggregatedMetric> rev = metricRepo.findScopedByNameAllPeriods("sales.revenue", AggregatedMetric.PeriodType.MONTHLY, CurrentUser.organizationId());
         List<AggregatedMetric> cnt = metricRepo.findScopedByNameAllPeriods("sales.count", AggregatedMetric.PeriodType.MONTHLY, CurrentUser.organizationId());
-        double totalRevenue = rev.stream().mapToDouble(AggregatedMetric::getValue).sum();
-        double totalCount = cnt.stream().mapToDouble(AggregatedMetric::getValue).sum();
+        double totalRevenue = rev.stream().mapToDouble(m -> m.getValue().doubleValue()).sum();
+        double totalCount = cnt.stream().mapToDouble(m -> m.getValue().doubleValue()).sum();
         List<MetricDTO> out = new ArrayList<>();
         out.add(MetricDTO.builder().name("totalRevenue").value(totalRevenue).period("all-time").build());
         out.add(MetricDTO.builder().name("totalSalesCount").value(totalCount).period("all-time").build());

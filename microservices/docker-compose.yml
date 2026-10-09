@@ -20,10 +20,11 @@
 #   docker compose --profile pharmacy up -d --build  # POS + pharma-service (a pharmacy IS POS + clinical)
 #   docker compose --profile full up -d --build      # every module
 #
-# The eight vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
-# analytics, appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
+# The seven vertical services (education, welfare, agriculture, pharma, marketplace, campaign,
+# appointment) carry `profiles: ["full"]`, so a bare `up` starts the POS subset:
 # mysql, redis, eureka, config, gateway, auth, notification, catalog, inventory, business, finance,
-# audit, party, monolith. MEASURED 2026-08-05: 10.75 GB of mem_limit vs 16.75 GB for the full stack.
+# audit, party, analytics, monolith. (AN-1, 2026-10-09: analytics joined the subset — the P&L on every
+# dashboard shows its 12-month trend; analytics down only blanks that trend, never the P&L.) MEASURED 2026-08-05: 10.75 GB of mem_limit vs 16.75 GB for the full stack.
 # Those are CEILINGS. Measured idle RSS is far lower — the whole 21-container full stack sat at 7.5 GB —
 # but ceilings are what the OOM killer works against once anything is under load.
 #
@@ -766,7 +767,7 @@ services:
     restart: unless-stopped
     logging: *default-logging
     mem_limit: 768m
-    profiles: ["full"]
+    # AN-1: in the default set (no profile) — it serves the P&L's 12-month trend on every dashboard.
     expose:
       - "8090"
     healthcheck:

@@ -1481,6 +1481,69 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.then(() => ids.forEach(voidQuietly))
   })
 
+  caseIt('9-5', 'Recover the tax inside an expense', () => {
+    testCase('9-5', 'ex9', 'Recover the tax inside an expense', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    setup('A business registered for tax. Off by default: an expense is a cost including its tax.')
+    const ids = [], payee = 'XG9 power tax ' + run
+    const resetTax = () => token().then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=expense.tax.inputRecoverable`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+    fresh5(ids)
+    resetTax()
+    SAFETY.push(() => resetTax())
+    let tb0 = null
+    token().then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } }).its('body.rows')
+      .then((rows) => { tb0 = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)])) }))
+    const a1 = act('<b>Expenses → Settings</b>: tick <b>Recover input tax on expenses</b>.', ['“Setting saved”. The New Expense form now has <b>Tax included</b> under Amount.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-input-tax]').check()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expTaxGroup').should('be.visible')
+    cy.get('#expSetPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'switched-on')
+    const a2 = act(`Record <b>Electricity, gas and water 115</b> with <b>Tax included 15</b>, in cash, Payee <b>${payee}</b>.`, ['Saved and in the books for <b>115.00</b> (what was paid).'])
+    fillExpense({ category: 'Electricity, gas and water', amount: 115, paidFrom: 'CASH', payee })
+    cy.get('#expTax').clear().type('15')
+    snap(a2, 'form', '#ExpenseForm')
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    act('Open the trial balance and the tax register for today.', ['<b>6100</b> is 100 higher (the cost), <b>2100 Tax</b> 15 lower in credit (input tax), <b>Cash</b> 115 lower. The tax register shows <b>15 more input tax</b>, so 15 less to pay. Expenses → Report counts <b>100</b>, as the profit and loss does.'], { via: 'run' })
+    token().then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } }).its('body.rows').then((rows) => {
+      const a = Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)]))
+      const d = (c) => Math.round(((a[c] || 0) - (tb0[c] || 0)) * 100) / 100
+      expect(d('6100')).to.eq(100); expect(d('2100')).to.eq(15); expect(d('1000')).to.eq(-115)
+    }))
+    act(`Void <b>${payee}</b> (reason “Test Book”) and untick the setting.`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+    resetTax()
+  })
+
+  caseIt('9-6', 'See the last 12 months under the profit and loss', () => {
+    testCase('9-6', 'ex9', 'See the last 12 months under the profit and loss', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business (refused)'] })
+    setup('Any business with its books in finance. analytics-service running (it is in the default set since AN-1).')
+    const ids = [], payee = 'XG9 trend ' + run, month = lcToday().slice(0, 7)
+    const trendNow = () => token().then((t) => cy.request({ url: `${GW}/api/analytics/financial/monthly?from=${month}&to=${month}`,
+      headers: { Authorization: `Bearer ${t}` } }).its('body.data.months.0'))
+    let m0 = null
+    fresh5(ids)
+    trendNow().then((m) => { m0 = m })
+    const a1 = act('Open <b>Finance → Profit &amp; Loss</b>.', ['Under the statement: <b>Last 12 months</b>, this month first — Income, Expenses and Net for each month, and a Total. Each month is exactly the profit and loss for that month.'])
+    cy.window().then((w) => w.showFinance('pnl'))
+    cy.get('[data-cy=pnl-trend]', { timeout: 25000 }).should('be.visible').find('tbody tr').should('have.length', 12)
+    cy.get('[data-cy=pnl-trend]').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'trend', '#FinanceResults')
+    act(`Record <b>Rent 21.50</b> in cash (Payee <b>${payee}</b>), then open the Profit &amp; Loss again.`, ['This month’s <b>Expenses</b> in the trend is <b>21.50</b> higher: the trend is worked out from the books each time it is opened, never a copy that goes out of date.'], { via: 'run' })
+    openExpenses()
+    fillExpense({ category: 'Rent', amount: 21.5, paidFrom: 'CASH', payee })
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    rowId(payee, ids)
+    trendNow().then((m) => expect(r2x(m.expenses - m0.expenses)).to.eq(21.5))
+    act('As <b>user.business</b> (no statements): ask for the trend.', ['Refused, as the profit and loss itself is: the trend shows the same figures, so the same people may see it.'], { via: 'run' })
+    cy.request({ method: 'POST', url: `${GW}/api/auth/login`, body: { email: 'user.business@myplus.com', password: PW } }).its('body.data.accessToken')
+      .then((u) => cy.request({ url: `${GW}/api/analytics/financial/monthly`, headers: { Authorization: `Bearer ${u}` }, failOnStatusCode: false }).its('status').should('eq', 403))
+    act(`Void <b>${payee}</b> (reason “Test Book”).`, [], { cleanup: true })
+    cy.then(() => ids.forEach(voidQuietly))
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',
