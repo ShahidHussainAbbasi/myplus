@@ -379,7 +379,8 @@ waiting order's deadline exactly as it was. No migration.
 shipped by MaxTheService"; its part's deadline is its creation plus 1440 minutes; delivered, its line stays
 `NOT_ELIGIBLE` while a shop's line delivered in the same run moves to `PENDING_RETURN_WINDOW` (checked in the database:
 the one `NOT_ELIGIBLE` delivered line is the warehouse's, and 87 lines were waiting, fewer than the run's batch of 200,
-so the run reached both). No migration.
+so the run reached both). No migration. Re-run on the build merged with the base (EX-2e, EX-2f): 3a 6 / 6, and the gates that share its
+paths, 1c 11 / 11, 1g 6 / 6, 2f 8 / 8, 2-06 7 / 7.
 
 **Walk M-3-01: recorded**, 6 steps and 1 cleanup, each expected result asserted, screens captured and looked at.
 
