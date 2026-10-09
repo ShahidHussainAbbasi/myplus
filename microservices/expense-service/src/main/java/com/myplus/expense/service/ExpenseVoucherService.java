@@ -325,10 +325,14 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = new ExpenseVoucher();
         v.setOrganizationId(org);
         v.setUserId(access.userId());
-        // E8 — a branch is not taken from the request until it can be checked against the caller's own branches (EX-8e).
+        // EX-8e (E8) — the branch is the one the person is WORKING IN: the active branch in their signed token (auth sets it
+        // to the one branch they hold, or the one they switched to; never a branch they do not hold). It is never taken
+        // from the request: one sent that is not their active branch is refused. No active branch = no branch, as before.
         // The till's pay-outs keep theirs: business-service sets it from the drawer that paid (recordFromDrawer).
-        if (r.storeId() != null)
-            throw new ValidationException("Choosing a branch for an expense is not available yet. A pay-out from the till carries its branch.");
+        Long branch = com.myplus.common.security.LocationScope.active();
+        if (r.storeId() != null && !r.storeId().equals(branch))
+            throw new ValidationException("An expense is recorded for the branch you are working in. To record one for another branch, switch to it first.");
+        v.setStoreId(branch);
         v.setVoucherDate(date);
         v.setPaidFrom(from.name());
         v.setPayeeName(limit(r.payeeName(), 160));

@@ -38,7 +38,7 @@ public class ExpenseReportService {
     static final long MAX_DAYS = 731;
 
     public record Entry(LocalDate date, String voucherNo, String categoryName, String accountCode, String paidFrom,
-                        String payee, Long userId, BigDecimal amount, boolean isVoid, BigDecimal tax) { }
+                        String payee, Long userId, BigDecimal amount, boolean isVoid, BigDecimal tax, Long branchId) { }
 
     public record Group(String key, String label, BigDecimal amount, long count) { }
 
@@ -47,6 +47,7 @@ public class ExpenseReportService {
     private final ExpenseVoucherRepo vouchers;
     private final ExpenseAccess access;
     private final StaffDirectory staff;
+    private final ExpenseTagService tags;      // EX-8e — branch names, from the module that owns the branches
 
     @Transactional(readOnly = true)
     public Summary summary(LocalDate from, LocalDate to, String by) {
@@ -59,7 +60,8 @@ public class ExpenseReportService {
             case "month" -> e -> new String[]{ e.date().toString().substring(0, 7),
                     e.date().format(DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)) };
             case "paidFrom" -> e -> new String[]{ e.paidFrom(), paidFromLabel(e.paidFrom()) };
-            default -> throw new ValidationException("Group the report by category, member, month or paid from.");
+            case "branch" -> branchKey();
+            default -> throw new ValidationException("Group the report by category, member, month, paid from or branch.");
         };
         Map<String, String> labels = new LinkedHashMap<>();
         Map<String, BigDecimal> sums = new HashMap<>();
@@ -84,7 +86,8 @@ public class ExpenseReportService {
     public String csv(LocalDate from, LocalDate to) {
         LocalDate[] p = period(from, to);
         Function<Entry, String[]> member = memberKey();
-        StringBuilder out = new StringBuilder("Date,Number,Category,Account,Paid from,Payee,Member,Input tax,Amount,Kind\r\n");
+        Function<Entry, String[]> branch = branchKey();
+        StringBuilder out = new StringBuilder("Date,Number,Category,Account,Paid from,Payee,Member,Branch,Input tax,Amount,Kind\r\n");
         entries(p[0], p[1]).stream().sorted(Comparator.comparing(Entry::date).thenComparing(e -> String.valueOf(e.voucherNo())))
                 .forEach(e -> out.append(e.date()).append(',')
                         .append(cell(e.voucherNo())).append(',')
@@ -93,6 +96,7 @@ public class ExpenseReportService {
                         .append(cell(paidFromLabel(e.paidFrom()))).append(',')
                         .append(cell(e.payee())).append(',')
                         .append(cell(member.apply(e)[1])).append(',')
+                        .append(cell(branch.apply(e)[1])).append(',')
                         .append(e.tax().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()).append(',')
                         .append(e.amount().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()).append(',')
                         .append(e.isVoid() ? "Void" : "Expense").append("\r\n"));
@@ -115,7 +119,7 @@ public class ExpenseReportService {
         BigDecimal amt = l.netAmount();          // EX-8d — what the expense account carries (recoverable tax is not a cost)
         BigDecimal tax = l.getTaxAmount() == null ? BigDecimal.ZERO : l.getTaxAmount();
         return new Entry(on, v.getVoucherNo(), l.getCategoryName(), l.getAccountCode(), v.getPaidFrom(), v.getPayeeName(),
-                v.getUserId(), isVoid ? amt.negate() : amt, isVoid, isVoid ? tax.negate() : tax);
+                v.getUserId(), isVoid ? amt.negate() : amt, isVoid, isVoid ? tax.negate() : tax, v.getStoreId());
     }
 
     /** The member a line belongs to: named from auth's staff list for an owner/admin; "You" for a member's own report. */
@@ -129,6 +133,17 @@ public class ExpenseReportService {
         }
         return e -> new String[]{ String.valueOf(e.userId()),
                 e.userId() == null ? "—" : names.getOrDefault(e.userId(), "Member #" + e.userId()) };
+    }
+
+    /**
+     * EX-8e — the branch a line belongs to: its name from the owning module (as the caller sees it), "No branch" for an
+     * expense recorded outside any branch, and "Branch #id" for one no module names for this caller (a deleted branch, a
+     * module that did not answer). Shown, never dropped: the report still adds up.
+     */
+    private Function<Entry, String[]> branchKey() {
+        Map<Long, String> names = tags.branchNames();
+        return e -> e.branchId() == null ? new String[]{ "none", "No branch" }
+                : new String[]{ String.valueOf(e.branchId()), names.getOrDefault(e.branchId(), "Branch #" + e.branchId()) };
     }
 
     static String paidFromLabel(String paidFrom) {

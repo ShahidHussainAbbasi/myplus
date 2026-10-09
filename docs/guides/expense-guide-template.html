@@ -194,7 +194,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td>EX-8c</td><td>The analytics feed: closed as superseded by the report (analytics-service is not wired; its own programme item)</td><td><span class="pill pill-info">Closed</span></td><td>—</td><td>—</td></tr>
             <tr><td><b>EX-8d</b></td><td>Recoverable input tax on expenses (off by default; every business type): the tax part to 2100 and the tax register, only the rest is a cost</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">98 + 93</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4</span></td></tr>
             <tr><td><b>AN-1</b></td><td>analytics-service wired end to end: the last 12 months under the profit and loss, each month equal to the P&amp;L for that month; owner/admin only</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6 + 3</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5</span></td></tr>
-            <tr><td>EX-8e</td><td>Reporting by branch (a branch picker checked against your own branches)</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td><b>EX-8e</b></td><td>The report by branch: an expense carries the branch its recorder works in (taken automatically, never from the browser), named by the module that owns it</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">104</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5</span></td></tr>
             <tr><td>EX-9</td><td>Farm expenses move onto the shared module</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
           </tbody>
         </table>
@@ -1074,6 +1074,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> reclaimable tax booked as a cost, or input tax that never reaches the tax register.</div>
         </div>
       </div>
+      <div class="case" data-case="9-7">
+        <div class="case-head"><span class="cid">9-7</span><h3>See what each branch spent</h3><span class="pill pill-info">Owner · Member</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>user.education (one branch)</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Give a member one branch; as them, record an expense (there is no branch to choose).</li><li>As the owner: Expenses → Report, Group by <b>Branch</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>A row per branch by its name; the rest under <b>No branch</b>; the same Total as by category.</span></label></li><li><label><input type="checkbox"><span>Another branch sent with an expense is refused; the CSV has a Branch column.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> an expense booked to a branch its recorder does not work in, or a branch report that does not add up to the whole.</div>
+        </div>
+      </div>
       <div class="case" data-case="9-6">
         <div class="case-head"><span class="cid">9-6</span><h3>See the last 12 months under the profit and loss</h3><span class="pill pill-info">Owner · Admin</span></div>
         <div class="case-body">
@@ -1474,6 +1485,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>expense/fp-3b-payment-reversal.cy.js (7)</code></td><td>Reverse a payment: 2000 and cash move back exactly, PV-…-R; once only; then the bill voids; closed period refused; security; on screen</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td><code>finance/fp-6b-expense-bill-parity.cy.js (3)</code></td><td>A refused bill is not owed in the ledger; posted again it is; a stale document is found, re-sent, and the books are not moved</td><td><span class="pill pill-ok">Pass 3/3</span></td></tr>
             <tr><td><code>expense/ex-8d-input-tax.cy.js (4)</code></td><td>Off by default and refused; switched on, 115 with 15 tax is cost 100, Dr 2100 15, cash 115, input tax in the register, report and P&amp;L 100; a void undoes all three; tax ≥ amount or negative refused</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>expense/ex-8e-report-by-branch.cy.js (5)</code></td><td>A member with one branch records an expense that carries it; another branch (or a foreign id) sent by the browser refused, their own accepted, the owner's has none; the report by branch named by education, "No branch" for the rest, "Branch #id" for one nobody names, same total as by category; on screen; the CSV's Branch column</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/an-1-analytics-trend.cy.js (5)</code></td><td>Each of the last 12 months in analytics = the P&amp;L for that month to the cent, the summary their sum; an expense raises this month by exactly its amount and its void puts it back; the plain user refused (403) as finance refuses; the trend on the P&amp;L screen; more than 24 months or from after to refused</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>expense/ex-8b-duplicate-warning.cy.js (4)</code></td><td>Named before saving (payee case-blind), Cancel saves nothing, asked every time, Confirm saves; another amount, day, payee or a voided one is not a duplicate; a colleague's counts; no payee, no question</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/ex-8a-expense-report.cy.js (6)</code></td><td>The report and the P&amp;L move together (two expenses in, a void out); an expense the books refused is in neither; every grouping adds up; the CSV sums to the report with the void as a negative row; a user sees only their own; a branch from the request is refused (E8)</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
@@ -1493,7 +1505,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <!-- ───────────────────────── next ───────────────────────── -->
     <section class="card" id="next">
       <h2>Coming next</h2>
-      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff, and <b>EX-8a</b> the expense report and <b>EX-8b</b> the duplicate warning and <b>EX-8d</b> recoverable input tax, and <b>AN-1</b> the 12-month trend from analytics. Next: <b>EX-8e</b> reporting by branch, <b>AN-2</b> the sales figures in analytics, <b>EX-6b</b> a limit on what a user may post directly, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
+      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff, and <b>EX-8a</b> the expense report and <b>EX-8b</b> the duplicate warning and <b>EX-8d</b> recoverable input tax, and <b>AN-1</b> the 12-month trend from analytics, and <b>EX-8e</b> the report by branch. Next: <b>EX-6b</b> a limit on what a user may post directly, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
       <pre class="mermaid diagram">
 flowchart LR
   A[Every night, every business] --> B{Supplier figures, documents and GL 2000 agree?}

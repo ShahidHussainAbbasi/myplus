@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import com.myplus.common.docnum.DocumentNumberService;
 import com.myplus.expense.dto.ExpenseDtos.LineRequest;
 import com.myplus.expense.dto.ExpenseDtos.VoucherRequest;
+import com.myplus.expense.entity.ExpenseCategory;
 import com.myplus.expense.entity.ExpenseVoucher;
 import com.myplus.expense.entity.ExpenseVoucherLine;
 import com.myplus.expense.repository.ExpenseBillPaymentRepo;
@@ -35,6 +36,7 @@ class ExpenseReportServiceTest {
     private final ExpenseVoucherRepo repo = mock(ExpenseVoucherRepo.class);
     private final ExpenseAccess access = mock(ExpenseAccess.class);
     private final StaffDirectory staff = mock(StaffDirectory.class);
+    private final ExpenseTagService tags = mock(ExpenseTagService.class);
     private ExpenseReportService service;
 
     @BeforeEach
@@ -43,7 +45,7 @@ class ExpenseReportServiceTest {
         when(access.visibleUserId()).thenReturn(null);
         when(access.canApprove()).thenReturn(true);
         when(staff.staff()).thenReturn(List.of(new StaffDirectory.Member(3L, "User Education", "u@x", "USER")));
-        service = new ExpenseReportService(repo, access, staff);
+        service = new ExpenseReportService(repo, access, staff, tags);
     }
 
     private static ExpenseVoucher voucher(String no, LocalDate on, String paidFrom, Long userId, Object... lines) {
@@ -139,7 +141,7 @@ class ExpenseReportServiceTest {
         assertThatThrownBy(() -> ExpenseReportService.period(LocalDate.of(2023, 1, 1), D9)).hasMessageContaining("at most two years");
         when(repo.postedInRange(any(), any(), any(), any())).thenReturn(List.of());
         when(repo.voidsInRange(any(), any(), any(), any())).thenReturn(List.of());
-        assertThatThrownBy(() -> service.summary(D1, D9, "colour")).hasMessageContaining("category, member, month or paid from");
+        assertThatThrownBy(() -> service.summary(D1, D9, "colour")).hasMessageContaining("category, member, month, paid from or branch");
     }
 
     @Test
@@ -190,7 +192,73 @@ class ExpenseReportServiceTest {
     }
 
     @Test
-    @DisplayName("⭐ E8 — a branch is refused on the user path (it could not be checked); nothing is saved")
+    @DisplayName("⭐ EX-8e — by branch: named by the owning module, 'No branch' outside any, 'Branch #id' when nobody names it; the CSV says it")
+    void byBranch() {
+        when(tags.branchNames()).thenReturn(java.util.Map.of(3L, "CY Branch 2"));
+        ExpenseVoucher a = voucher("EXP-1", D1, "CASH", 3L, "Rent", "6000", "40");
+        a.setStoreId(3L);
+        ExpenseVoucher b = voucher("EXP-2", D1, "CASH", 3L, "Rent", "6000", "25");
+        ExpenseVoucher c = voucher("EXP-3", D1, "CASH", 3L, "Rent", "6000", "5");
+        c.setStoreId(999999L);
+        when(repo.postedInRange(any(), any(), any(), any())).thenReturn(List.of(a, b, c));
+        when(repo.voidsInRange(any(), any(), any(), any())).thenReturn(List.of());
+
+        var r = service.summary(D1, D9, "branch");
+
+        assertThat(r.total()).isEqualByComparingTo("70");
+        assertThat(r.groups()).extracting(ExpenseReportService.Group::key, ExpenseReportService.Group::label)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple("3", "CY Branch 2"), org.assertj.core.groups.Tuple.tuple("none", "No branch"),
+                        org.assertj.core.groups.Tuple.tuple("999999", "Branch #999999"));
+        String[] rows = service.csv(D1, D9).split("\r\n");
+        assertThat(rows[0]).contains(",Member,Branch,Input tax,Amount,Kind");
+        assertThat(rows[1]).contains(",CY Branch 2,").endsWith("40.00,Expense");
+    }
+
+    private ExpenseVoucherService voucherService() {
+        when(access.userId()).thenReturn(3L);
+        when(repo.findByOrganizationIdAndIdempotencyKey(any(), any())).thenReturn(Optional.empty());
+        ExpenseSettings settings = mock(ExpenseSettings.class);
+        when(settings.backdateDays()).thenReturn(30);
+        ExpenseCategoryService categories = mock(ExpenseCategoryService.class);
+        ExpenseCategory rent = new ExpenseCategory();
+        rent.setId(1L); rent.setName("Rent"); rent.setAccountCode("6000");
+        when(categories.activeCategory(any(), any())).thenReturn(rent);
+        return new ExpenseVoucherService(repo, categories, mock(ExpenseOutboxService.class),
+                mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
+                mock(ExpenseBillPaymentRepo.class), settings, mock(ReceiptService.class));
+    }
+
+    private static void workingIn(Long branch) {
+        com.myplus.common.security.AuthenticatedUser u = new com.myplus.common.security.AuthenticatedUser(3L, "u@x", List.of(), 7L);
+        u.setActiveLocationId(branch);
+        u.setAccessibleLocationIds(branch == null ? java.util.Set.of() : java.util.Set.of(branch));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(u, null, List.of()));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void signOut() { org.springframework.security.core.context.SecurityContextHolder.clearContext(); }
+
+    @Test
+    @DisplayName("⭐ EX-8e — the branch is the one the person is working in; another sent by the browser is refused, their own accepted")
+    void branchIsTheActiveOne() {
+        workingIn(3L);
+        ExpenseVoucherService vouchers = voucherService();
+        VoucherRequest other = new VoucherRequest(LocalDate.now(), "CASH", 4L, null, null,
+                List.of(new LineRequest(1L, new BigDecimal("3"), null, null, null)), null, null, null);
+        assertThatThrownBy(() -> vouchers.build(7L, other, false)).hasMessageContaining("branch you are working in");
+        VoucherRequest none = new VoucherRequest(LocalDate.now(), "CASH", null, null, null,
+                List.of(new LineRequest(1L, new BigDecimal("3"), null, null, null)), null, null, null);
+        VoucherRequest own = new VoucherRequest(LocalDate.now(), "CASH", 3L, null, null,
+                List.of(new LineRequest(1L, new BigDecimal("3"), null, null, null)), null, null, null);
+        assertThat(vouchers.build(7L, none, false).getStoreId()).isEqualTo(3L);
+        assertThat(vouchers.build(7L, own, false).getStoreId()).isEqualTo(3L);
+        workingIn(null);
+        assertThat(vouchers.build(7L, none, false).getStoreId()).isNull();
+    }
+
+    @Test
+    @DisplayName("⭐ E8 — with no branch to work in, a branch sent by the browser (any id, even a foreign one) is refused; nothing is saved")
     void noBranchFromTheRequest() {
         when(access.userId()).thenReturn(3L);
         when(repo.findByOrganizationIdAndIdempotencyKey(any(), any())).thenReturn(Optional.empty());
