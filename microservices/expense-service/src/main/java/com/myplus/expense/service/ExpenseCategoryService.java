@@ -85,11 +85,21 @@ public class ExpenseCategoryService {
     public CategoryView create(CategoryRequest r) {
         access.assertModuleOn();
         Long org = access.org();
-        String code = normaliseCode(r.code());
         String name = requireName(r.name());
+        if (repo.existsByOrganizationIdAndNameIgnoreCase(org, name))
+            throw new ValidationException("There is already a category called " + name + ".");
         String account = requireExpenseAccount(r.accountCode());
-        if (repo.existsByOrganizationIdAndCode(org, code))
-            throw new ValidationException("A category with the code " + code + " already exists.");
+        String code;
+        if (r.code() == null || r.code().isBlank()) {
+            // EX-2e — the screen asks only for a name; the code is derived from it, numbered if already taken
+            String base = normaliseCode(name.length() > 28 ? name.substring(0, 28) : name);
+            code = base;
+            for (int n = 2; repo.existsByOrganizationIdAndCode(org, code); n++) code = base + "_" + n;
+        } else {
+            code = normaliseCode(r.code());
+            if (repo.existsByOrganizationIdAndCode(org, code))
+                throw new ValidationException("A category with the code " + code + " already exists.");
+        }
         ExpenseCategory c = newCategory(org, code, name, account, r.sortOrder() == null ? 500 : r.sortOrder());
         if (r.active() != null) c.setActive(r.active());
         try {
@@ -107,14 +117,47 @@ public class ExpenseCategoryService {
         ExpenseCategory c = repo.findByIdAndOrganizationId(id, access.org())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
         String before = c.getAccountCode();
-        if (r.name() != null) c.setName(requireName(r.name()));
+        if (r.name() != null) {
+            String name = requireName(r.name());
+            if (repo.existsByOrganizationIdAndNameIgnoreCaseAndIdNot(c.getOrganizationId(), name, c.getId()))
+                throw new ValidationException("There is already a category called " + name + ".");
+            c.setName(name);
+        }
         if (r.accountCode() != null) c.setAccountCode(requireExpenseAccount(r.accountCode()));
+        if (Boolean.FALSE.equals(r.active()) && Boolean.TRUE.equals(c.getActive())
+                && repo.countByOrganizationIdAndActiveTrue(c.getOrganizationId()) <= 1)
+            throw new ValidationException("Keep at least one category switched on, or nobody can record an expense.");
         if (r.active() != null) c.setActive(r.active());
         if (r.sortOrder() != null) c.setSortOrder(r.sortOrder());
         c.setUpdatedAt(LocalDateTime.now());
+        // EX-2e — the trail says what changed, not only the account: a rename or a switch-off is a change too
         audit.record("CATEGORY_CHANGED", "EXPENSE_CATEGORY", c.getCode(), null,
-                before + " -> " + c.getAccountCode(), null);
+                c.getName() + ": " + before + " -> " + c.getAccountCode() + (Boolean.TRUE.equals(c.getActive()) ? "" : " (off)"), null);
         return CategoryView.of(c);
+    }
+
+    /**
+     * EX-2e — the accounts a category may point at, for the screen's list: this business's EXPENSE accounts, never
+     * 5000 (goods bought for stock are a purchase). The same rule {@link #requireExpenseAccount} enforces on save.
+     */
+    public List<com.myplus.expense.dto.ExpenseDtos.ExpenseAccountView> expenseAccounts() {
+        List<GlAccountView> chart = finance.ensureDefaultAccounts();
+        return (chart == null ? List.<GlAccountView>of() : chart).stream()
+                .filter(a -> "EXPENSE".equals(a.getType()) && !"5000".equals(a.getCode()))
+                .sorted(java.util.Comparator.comparing(GlAccountView::getCode))
+                .map(a -> new com.myplus.expense.dto.ExpenseDtos.ExpenseAccountView(a.getCode(), a.getName()))
+                .toList();
+    }
+
+    /**
+     * EX-2e — for a TILL PAY-OUT: the category the cashier chose, even if the owner has switched it off since. The
+     * cash left the drawer when it was chosen; refusing it here would leave money out of the books for good (the
+     * relay dead-letters a refusal), now that switching a category off is one click on the Categories screen.
+     */
+    ExpenseCategory categoryForDrawer(Long org, Long id) {
+        if (id == null) throw new ValidationException("Choose a category for each line.");
+        return repo.findByIdAndOrganizationId(id, org)
+                .orElseThrow(() -> new ValidationException("That category does not exist in this business."));
     }
 
     /** For a voucher line: the tenant's ACTIVE category, or a refusal naming the problem. */

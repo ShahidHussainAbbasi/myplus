@@ -46,6 +46,20 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/categories", body));
     }
 
+    /** EX-2e — rename, re-point or switch a category off/on (owner/admin; expense-service enforces it). */
+    @PatchMapping(value = "/categories/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> updateCategory(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.PATCH, "/categories/" + id, body));
+    }
+
+    /** EX-2e — the expense accounts a category may point at. */
+    @GetMapping(value = "/categories/accounts", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> categoryAccounts() {
+        return call(() -> expense.get("/categories/accounts"));
+    }
+
     /** EX-2b — what expenses can be tagged to on this dashboard (education | agriculture). */
     @GetMapping(value = "/tags", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody

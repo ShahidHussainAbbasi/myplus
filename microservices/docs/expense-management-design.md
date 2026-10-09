@@ -634,7 +634,7 @@ the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed
 | E3 | **Welfare is told "Each expense is posted to your books"** while welfare has no ledger link at all (§4b F5) and R-5's recommended notice was never shipped | `fragments/expense.html`; welfare-service has no outbox/finance client | **Fixed — EX-2c**: `ui.welfareBooksNote` on the Expenses screen and the reports until welfare fund accounting ships; the farm reports carry `ui.farmBooksNote` (its own Income/Expense records never reach the books) until EX-9 |
 | E4 | **The expense list silently stops at 200** rows (`size=200`, no paging, no total, no "showing N of M") | `expense.js expenseLoad` | **Fixed — EX-2d** (`slices/ex-2d-list-paging-and-total.md`): 50 a page, "Showing a–b of N", the period total (posted, list scope); gate 5/5. Found on the way: **E16** a typed date never reached any `data-dp-iso` field (9) — fixed in `date-picker.js` |
 | E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | Medium |
-| E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | Medium |
+| E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | **Fixed — EX-2e** (`slices/ex-2e-category-screen.md`): Till → Expenses → Categories; gate 5/5. Found on the way: a till pay-out whose category was switched off before delivery was refused for good — the drawer receiver now keeps the cashier's choice |
 | E7 | **Drafts are unreachable from the screen**: the API keeps DRAFT/post/delete; the proxy exposes none of `/post` or DELETE, and the form always posts. Harmless now, dead weight until a slice uses it | proxy mappings; `expense.js` posts `?post=true` | Low |
 | E8 | **`storeId` is accepted unvalidated** from the request (and the proxy forwards the whole body): any store id, even another tenant's, can be stamped. No reader uses it yet — **must be validated before EX-8 reports by store** | `ExpenseVoucherService.build`: `v.setStoreId(r.storeId())` | Low now, High at EX-8 |
 | E9 | **One line per voucher on screen** (the API takes up to 50); a split bill (rent + service charge) needs two expenses | `expense.js` builds one `line` | Low |
@@ -655,7 +655,7 @@ switched on.
 
 1. ~~**E1 redrive**~~ — done, EX-1b.
 2. ~~**E2** the books on the education, welfare and farm dashboards, **E3** the welfare notice~~ — done, EX-2c.
-3. ~~**E4** list paging/total~~ — done, EX-2d. **E6** a category screen for owners (EX-2e), **E5** the expense settings catalog (EX-2f).
+3. ~~**E4** list paging/total~~ — done, EX-2d. ~~**E6** a category screen~~ — done, EX-2e. **E5** the expense settings catalog (EX-2f).
 4. A payment reversal, so a paid bill can be voided; expense-bill parity in the FP-6a daily check.
 5. fp-4b case 2 made self-sufficient (11.1).
 6. Programme slices: EX-5 receipts (R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),

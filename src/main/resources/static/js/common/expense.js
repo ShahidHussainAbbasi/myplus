@@ -135,6 +135,85 @@
 		});
 	}
 
+	// ── EX-2e / E6 — Categories (owner/admin) ─────────────────────────────────────────────────────────────────
+	// The panel lists every category, switched off ones included (the form lists only those switched on). Each row
+	// saves on its own button; the server is the guard (expense accounts only, unique names, one stays on), and its
+	// words are shown as they come. After any change the form's Category list is re-read.
+	var expAccounts = [];
+	function catMsg(text, kind) {
+		$('#expCatMsg').text(text || '').css('color', kind === 'bad' ? '#b3261e' : (kind === 'ok' ? '#1b7f3b' : ''));
+	}
+	function accountOptions(selected) {
+		return expAccounts.map(function (a) {
+			return '<option value="' + esc(a.code) + '"' + (a.code === selected ? ' selected' : '') + '>'
+				+ esc(a.code + ' ' + a.name) + '</option>';
+		}).join('');
+	}
+	function catRow(c) {
+		return '<tr data-id="' + esc(c.id) + '" data-cy="cat-row">'
+			+ '<td><input type="text" class="form-control input-sm" data-cy="cat-name" maxlength="120" value="' + esc(c.name)
+			+ '" aria-label="' + esc(tr('ui.js.expCatName', 'Category name')) + '"></td>'
+			+ '<td><select class="form-control input-sm" data-cy="cat-account" data-no-search="true" aria-label="'
+			+ esc(tr('ui.js.expCatAccount', 'Account')) + '">' + accountOptions(c.accountCode) + '</select></td>'
+			+ '<td><input type="checkbox" data-cy="cat-on"' + (c.active ? ' checked' : '') + ' aria-label="'
+			+ esc(tr('ui.js.expCatOn', 'Switched on')) + '"></td>'
+			+ '<td><button type="button" class="btn btn-default btn-sm" data-cy="cat-save" onclick="expenseCategorySave(this)">'
+			+ esc(tr('ui.js.expCatSave', 'Save')) + '</button></td></tr>';
+	}
+	function loadCategoryPanel() {
+		catMsg('');
+		var accounts = $.ajax({ url: ctx() + 'expense/categories/accounts', dataType: 'json' });
+		var cats = $.ajax({ url: ctx() + 'expense/categories', dataType: 'json' });
+		return $.when(accounts, cats).done(function (a, c) {
+			expAccounts = (a[0] && a[0].data) || [];
+			$('#expCatNewAccount').html(accountOptions(''));
+			$('#expCatTable tbody').html(((c[0] && c[0].data) || []).map(catRow).join(''));
+		}).fail(function (xhr) {
+			catMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.expLoadFailed', 'Could not load expenses.'))
+				: tr('ui.js.expLoadFailed', 'Could not load expenses.'), 'bad');
+		});
+	}
+	function expenseCategoriesToggle() {
+		var $p = $('#expCatPanel'), open = !$p.is(':visible');
+		$p.toggle(open);
+		$('#expCatOpen').attr('aria-expanded', String(open));
+		if (open) loadCategoryPanel();
+	}
+	/** One request per press; only that button is busy. The answer — saved or the server's reason — is shown. */
+	function sendCategory(btn, method, url, body, done) {
+		var $b = $(btn), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		catMsg('');
+		return $.ajax({ url: url, type: method, contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!res || res.success !== true) { catMsg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+				catMsg(tr('ui.js.expCatSaved', 'Category saved'), 'ok');
+				if (done) done(res.data);
+				loadCategories();
+			})
+			.fail(function (xhr) {
+				catMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			})
+			.always(function () { $b.prop('disabled', false).html(label); });
+	}
+	function expenseCategorySave(btn) {
+		var $tr = $(btn).closest('tr');
+		var name = String($tr.find('[data-cy=cat-name]').val() || '').trim();
+		if (!name) { catMsg(tr('ui.js.expCatNameRequired', 'Give the category a name.'), 'bad'); return; }
+		sendCategory(btn, 'PATCH', ctx() + 'expense/categories/' + encodeURIComponent($tr.data('id')), {
+			name: name, accountCode: $tr.find('[data-cy=cat-account]').val(), active: $tr.find('[data-cy=cat-on]').is(':checked')
+		}, function (c) { $tr.replaceWith(catRow(c)); });
+	}
+	function expenseCategoryAdd(btn) {
+		var name = String($('#expCatNewName').val() || '').trim();
+		if (!name) { catMsg(tr('ui.js.expCatNameRequired', 'Give the category a name.'), 'bad'); $('#expCatNewName').focus(); return; }
+		sendCategory(btn, 'POST', ctx() + 'expense/categories', { name: name, accountCode: $('#expCatNewAccount').val() }, function (c) {
+			$('#expCatTable tbody').append(catRow(c));
+			$('#expCatNewName').val('');
+		});
+	}
+
 	/**
 	 * EX-2b — the "For" list, offered only when this dashboard's section declares a tag source
 	 * (fragment parameter → data-tag-source). The options come from the module that owns them, and the server
@@ -428,6 +507,9 @@
 	global.expenseSave = expenseSave;
 	global.expenseLoad = expenseLoad;
 	global.expensePage = expensePage;
+	global.expenseCategoriesToggle = expenseCategoriesToggle;
+	global.expenseCategorySave = expenseCategorySave;
+	global.expenseCategoryAdd = expenseCategoryAdd;
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
 })(window);

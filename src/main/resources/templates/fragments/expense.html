@@ -18,6 +18,43 @@
 	<div th:if="${booksNote == 'welfare'}" class="alert alert-warning" data-cy="books-note" role="note" style="max-width:900px"
 		th:text="#{ui.welfareBooksNote}">Donations are not in these books yet.</div>
 
+	<!-- EX-2e / E6 — the owner's own categories: rename, point at another expense account, switch off, add.
+	     Owner/admin only (expense-service enforces it); a category's past expenses keep the name and account they
+	     were recorded with. -->
+	<div sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="max-width:900px;margin-bottom:8px">
+		<button type="button" class="btn btn-default btn-sm" id="expCatOpen" data-cy="expense-categories-open"
+			aria-controls="expCatPanel" aria-expanded="false" onclick="expenseCategoriesToggle()">
+			<span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.expCategories}">Categories</span>
+		</button>
+		<div id="expCatPanel" class="well well-sm" data-cy="expense-categories" style="display:none;margin-top:8px">
+			<p class="help-block" style="margin-top:0" th:text="#{ui.expCategoriesHelp}">
+				The words you choose an expense by, each posted to an expense account in your books. Past expenses keep the
+				name and account they were recorded with.
+			</p>
+			<div class="table-responsive">
+				<table class="table table-condensed" id="expCatTable" style="margin-bottom:8px">
+					<thead><tr>
+						<th th:text="#{ui.name}">Name</th>
+						<th th:text="#{ui.expAccount}">Account</th>
+						<th th:text="#{ui.expCategoryOn}">On</th>
+						<th></th>
+					</tr></thead>
+					<tbody></tbody>
+					<tfoot><tr>
+						<td><input type="text" class="form-control input-sm" id="expCatNewName" data-cy="cat-new-name" maxlength="120"
+							th:placeholder="#{ui.expNewCategoryPh}" th:attr="aria-label=#{ui.expNewCategoryPh}"></td>
+						<td><select class="form-control input-sm" id="expCatNewAccount" data-cy="cat-new-account" data-no-search="true"
+							th:attr="aria-label=#{ui.expAccount}"></select></td>
+						<td></td>
+						<td><button type="button" class="btn btn-primary btn-sm" id="expCatAdd" data-cy="cat-add" onclick="expenseCategoryAdd(this)">
+							<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.add}">Add</span></button></td>
+					</tr></tfoot>
+				</table>
+			</div>
+			<span id="expCatMsg" role="status" aria-live="polite"></span>
+		</div>
+	</div>
+
 	<div style="max-width:900px">
 		<h4 style="font-weight:700;color:#1f4e8c;font-size:15px" th:text="#{ui.newExpense}">New Expense</h4>
 		<form class="form-horizontal" role="form" id="ExpenseForm" autocomplete="off" onsubmit="return false;">

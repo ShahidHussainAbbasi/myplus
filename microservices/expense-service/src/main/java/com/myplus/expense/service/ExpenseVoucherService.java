@@ -155,7 +155,7 @@ public class ExpenseVoucherService {
 
         LocalDate date = r.getDate() == null ? TenantClock.today() : r.getDate();
         if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A pay-out needs an amount.");
-        ExpenseCategory c = categories.activeCategory(org, r.getCategoryId());
+        ExpenseCategory c = categories.categoryForDrawer(org, r.getCategoryId());   // EX-2e: switched off since is fine
         ExpenseVoucher v = new ExpenseVoucher();
         v.setOrganizationId(org);
         v.setUserId(access.userId());
