@@ -1,7 +1,7 @@
 # EX-5 — Receipts
 
-**Status:** DONE 2026-10-09 — gate 6/6 (repeatable), unit 9 new (expense module 65/65 incl. Flyway V8 on MySQL), guide
-case 1-11. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.7 `ReceiptStore`, §6.2
+**Status:** DONE 2026-10-09 — gate 6/6 (repeatable), unit 9 new (expense module 65/65 incl. Flyway V8 on MySQL), Test
+Book cases 5-1…5-6 (recorded; they replaced the single case 1-11). Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.7 `ReceiptStore`, §6.2
 `receipt.requiredAbove`, §10 EX-5; ruling **R-3** (2026-10-09): kept on the server, compressed on the device.
 
 ## 1. Document

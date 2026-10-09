@@ -42,6 +42,13 @@
 
 	/** The status a person reads. Posting state decides it until the voucher is voided. */
 	function chip(v) {
+		// EX-6 — a claim is not in the books until an owner or admin approves it; until then its own state is shown
+		if (v.claimStatus === 'SUBMITTED') return '<span class="label label-warning" data-cy="claim-waiting">' + esc(tr('ui.js.claimWaiting', 'Waiting for approval')) + '</span>';
+		if (v.claimStatus === 'REJECTED') {
+			return '<span class="label label-danger" data-cy="claim-rejected">' + esc(tr('ui.js.claimRejected', 'Rejected')) + '</span>'
+				+ '<div class="text-danger" data-cy="claim-reason" style="font-size:12px;margin-top:3px;white-space:normal">' + esc(v.decisionNote || '') + '</div>';
+		}
+		if (v.claimStatus === 'WITHDRAWN') return '<span class="label label-default" data-cy="claim-withdrawn">' + esc(tr('ui.js.claimWithdrawn', 'Withdrawn')) + '</span>';
 		if (v.status === 'VOIDED') {
 			return '<span class="label label-default" title="' + esc(v.voidReason || '') + '">' + esc(tr('ui.js.expVoided', 'Void')) + '</span>';
 		}
@@ -105,6 +112,23 @@
 			+ esc(n ? tr('ui.js.expReceipts', 'Receipts') + ' (' + n + ')' : tr('ui.js.expReceiptAdd', 'Add a receipt')) + '</button>';
 	}
 
+	/**
+	 * EX-6 — a waiting claim: the claimant (or an owner/admin) may withdraw it; an owner or admin approves or rejects
+	 * it. The server is the guard — nobody decides their own claim, and it says so in words.
+	 */
+	function claimWithdrawBtn(v) {
+		if (v.claimStatus !== 'SUBMITTED') return '';
+		return ' <button type="button" class="btn btn-xs btn-default" data-cy="claim-withdraw" data-id="' + esc(v.id) + '">'
+			+ esc(tr('ui.js.claimWithdraw', 'Withdraw')) + '</button>';
+	}
+	function claimDecideBtns(v) {
+		if (v.claimStatus !== 'SUBMITTED') return '';
+		return '<button type="button" class="btn btn-xs btn-success" data-cy="claim-approve" data-id="' + esc(v.id) + '">'
+			+ esc(tr('ui.js.claimApprove', 'Approve')) + '</button> '
+			+ '<button type="button" class="btn btn-xs btn-danger" data-cy="claim-reject" data-id="' + esc(v.id) + '">'
+			+ esc(tr('ui.js.claimReject', 'Reject')) + '</button>';
+	}
+
 	function row(v) {
 		// EX-2b — a tagged line reads "Fuel and transport · Bus (LEA-123)": the category, then what it was for.
 		var cats = (v.lines || []).map(function (l) {
@@ -115,10 +139,12 @@
 			+ '<td>' + esc(cats) + '</td>'
 			+ '<td>' + esc(v.paidFrom === 'BANK' ? tr('ui.js.expBank', 'Bank')
 				: v.paidFrom === 'DRAWER' ? tr('ui.js.expTill', 'Till')
-				: v.paidFrom === 'AP' ? tr('ui.js.expBill', 'Bill') : tr('ui.js.expCash', 'Cash')) + '</td>'
+				: v.paidFrom === 'AP' ? tr('ui.js.expBill', 'Bill')
+				: v.paidFrom === 'EMPLOYEE' ? tr('ui.js.claimBy', 'Claim') + (v.claimantName ? ' · ' + v.claimantName : '')
+				: tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
-			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + receiptsBtn(v) + '</td>';
+			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + receiptsBtn(v) + claimWithdrawBtn(v) + '</td>';
 		if (canVoid) {
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
 			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
@@ -127,7 +153,7 @@
 			tds += '<td>' + (voidable
 				? '<button type="button" class="btn btn-xs btn-default" data-cy="void-expense" data-id="' + esc(v.id)
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'
-				: '') + '</td>';
+				: '') + claimDecideBtns(v) + '</td>';
 		}
 		return '<tr data-id="' + esc(v.id) + '" class="expense-row' + (v.status === 'VOIDED' ? ' row-voided' : '') + '">' + tds + '</tr>';
 	}
@@ -271,7 +297,44 @@
 			});
 	}
 
-	function toggleBill() { $('#expBillGroup').toggle($('#expPaidFrom').val() === 'AP'); }
+	function toggleBill() {
+		$('#expBillGroup').toggle($('#expPaidFrom').val() === 'AP');
+		// EX-6 — money from your own pocket is SENT FOR APPROVAL, not posted: the button says which will happen
+		var claim = $('#expPaidFrom').val() === 'EMPLOYEE';
+		var $l = $('#expSave .exp-save-label');
+		if ($l.attr('data-post') === undefined) $l.attr('data-post', $l.text());   // the page's own (translated) words
+		$l.text(claim ? tr('ui.js.claimSend', 'Send for approval') : $l.attr('data-post'));
+		$('#expClaimHint').toggle(claim);
+	}
+
+	/** EX-6 — "Me (claim it back)" is offered only while Expense claims is switched on for this business. */
+	function claimsOn() { return !!(global.CAPS && global.CAPS.expenseClaims === true); }
+	function applyClaimOption() {
+		var $s = $('#expPaidFrom'), has = $s.find('option[value="EMPLOYEE"]').length > 0;
+		if (claimsOn() && !has) $s.append($('<option>').val('EMPLOYEE').text(tr('ui.js.claimPaidFrom', 'Me — claim it back')));
+		if (!claimsOn() && has) { $s.find('option[value="EMPLOYEE"]').remove(); if (!$s.val()) $s.val('CASH'); }
+		if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($s[0]);
+		toggleBill();
+	}
+
+	/** EX-6 — owner/admin: how many claims wait for a decision, and a way to see only those. */
+	var claimFilter = '';
+	function loadClaimsWaiting() {
+		var $n = $('#expClaimsWaiting');
+		if (!canVoid || !claimsOn()) { $n.hide(); return; }
+		$.ajax({ url: ctx() + 'expense/vouchers?claim=SUBMITTED&page=0&size=1', dataType: 'json' }).done(function (res) {
+			var n = Number((res && res.data && res.data.totalElements) || 0);
+			if (!n && !claimFilter) { $n.hide(); return; }
+			$('#expClaimsWaitingText').text(n === 1 ? tr('ui.js.claimsWaitingOne', '1 claim is waiting for approval.')
+				: tr('ui.js.claimsWaitingN', '{0} claims are waiting for approval.').replace('{0}', n));
+			$('#expClaimsShow').text(claimFilter ? tr('ui.js.claimsShowAll', 'Show every expense') : tr('ui.js.claimsShow', 'Show them'));
+			$n.css('display', 'flex');
+		});
+	}
+	function expenseClaimsFilter() {
+		claimFilter = claimFilter ? '' : 'SUBMITTED';
+		expenseLoad();
+	}
 
 	/**
 	 * EX-2d / E4 — the list is read a page at a time (PAGE rows), with "Showing a–b of N", Previous/Next, and the
@@ -287,12 +350,18 @@
 		if ($('#expTo').val()) q.push('to=' + encodeURIComponent($('#expTo').val()));
 		return q;
 	}
+	function listQuery() {
+		var q = filterQuery();
+		if (claimFilter) q.push('claim=' + claimFilter);   // EX-6 — the approver's "waiting" view
+		return q;
+	}
 	function expenseLoad(page) {
 		expPage = Math.max(0, Number(page) || 0);
-		var q = filterQuery();
+		var q = listQuery();
 		q.push('page=' + expPage, 'size=' + PAGE);
 		var $tb = $('#tableExpense tbody');
 		loadTotals();
+		loadClaimsWaiting();
 		return $.ajax({ url: ctx() + 'expense/vouchers?' + q.join('&'), dataType: 'json' })
 			.done(function (res) {
 				var pg = (res && res.data) || {};
@@ -357,7 +426,7 @@
 		var categoryId = $('#expCategory').val();
 		if (!categoryId) { msg(tr('ui.js.expCategoryRequired', 'Choose a category.'), 'bad'); return; }
 		if (!(amount > 0)) { msg(tr('ui.js.expAmountRequired', 'Enter an amount greater than zero.'), 'bad'); $('#expAmount').focus(); return; }
-		var isBill = $('#expPaidFrom').val() === 'AP';
+		var isBill = $('#expPaidFrom').val() === 'AP', isClaim = $('#expPaidFrom').val() === 'EMPLOYEE';
 		if (isBill && !$('#expSupplier').val()) { msg(tr('ui.js.expSupplierRequired', 'Choose the supplier this bill is owed to.'), 'bad'); return; }
 
 		// One key per FORM FILL: a retry of the same fill replays the first save on the server.
@@ -383,7 +452,7 @@
 		formReceipt().then(function (ids) {
 			body.receiptIds = ids;
 			return $.ajax({
-				url: ctx() + 'expense/vouchers?post=true', type: 'POST', contentType: 'application/json', dataType: 'json',
+				url: ctx() + (isClaim ? 'expense/claims' : 'expense/vouchers?post=true'), type: 'POST', contentType: 'application/json', dataType: 'json',
 				headers: { 'Idempotency-Key': $f.data('idemKey') }, data: JSON.stringify(body)
 			});
 		}).done(function (res) {
@@ -391,7 +460,8 @@
 				msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
 				return;
 			}
-			msg(tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
+			msg(isClaim ? tr('ui.js.claimSent', 'Claim sent for approval. It goes to the books once an owner or admin approves it.')
+				: tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
 			$f.removeData('idemKey');
 			$f.removeData('receipt');
 			$('#expAmount, #expPayee, #expNote, #expReceipt').val('');
@@ -708,6 +778,7 @@
 		if (!$('#expDate').val()) setDate('#expDate', isoOf(today));
 		if (!$('#expFrom').val()) setDate('#expFrom', isoOf(new Date(today.getFullYear(), today.getMonth(), 1)));
 		if (!$('#expTo').val()) setDate('#expTo', isoOf(today));
+		applyClaimOption();
 		loadCategories().always(function () { loadTags(); loadSuppliers().always(loadExpenseSettings); expenseLoad(); });
 	}
 
@@ -778,6 +849,44 @@
 			});
 	});
 
+	// ── EX-6 — deciding a claim ───────────────────────────────────────────────────────────────────────────────
+	// Only the pressed button shows it is working (§0c); the row is redrawn from the server's answer, and an approved
+	// claim is then watched like any expense until the books answer.
+	function claimAction(btn, action, body) {
+		var $b = $(btn), id = $b.attr('data-id'), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		return $.ajax({ url: ctx() + 'expense/claims/' + encodeURIComponent(id) + '/' + action, type: 'POST', dataType: 'json',
+			contentType: 'application/json', data: body ? JSON.stringify(body) : null })
+			.done(function (res) {
+				if (!res || res.success !== true) {
+					$b.prop('disabled', false).html(label);
+					msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
+					return;
+				}
+				msg(res.message || '', 'ok');
+				expenseLoad(expPage);                     // an approved claim is POSTED/PENDING: the list watches it
+			})
+			.fail(function (xhr) {
+				$b.prop('disabled', false).html(label);
+				msg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			});
+	}
+	$(document).on('click', '#tableExpense [data-cy="claim-approve"]', function () { claimAction(this, 'approve'); });
+	$(document).on('click', '#tableExpense [data-cy="claim-withdraw"]', function () { claimAction(this, 'withdraw'); });
+	$(document).on('click', '#tableExpense [data-cy="claim-reject"]', function () {
+		var btn = this, ask = typeof global.uiPromptConfirm === 'function' ? global.uiPromptConfirm : null;
+		if (!ask) return;
+		ask({ title: tr('ui.js.claimRejectTitle', 'Reject this claim?'),
+			input: { label: tr('ui.js.claimRejectReason', 'Why? The person who made the claim will see this.') }, tone: 'danger' })
+			.then(function (reason) {
+				if (reason === null) return;
+				if (!String(reason).trim()) { uiAlertSafe(tr('ui.js.claimRejectReason', 'Why? The person who made the claim will see this.')); return; }
+				claimAction(btn, 'reject', { reason: String(reason).trim() });
+			});
+	});
+	$(document).on('capabilities:ready', function () { if ($('#ExpenseDiv').is(':visible')) applyClaimOption(); });
+
 	$(document).on('click', '#tableExpense [data-cy="void-expense"]', function () {
 		expenseVoid($(this).attr('data-id'), $(this).attr('data-no'));
 	});
@@ -795,4 +904,5 @@
 	global.expenseSettingSaveReceiptAbove = function (btn) { expenseSettingSave(btn, KEY_RCPT, String($('#expSetReceiptAbove').val() || '0').trim()); };
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
+	global.expenseClaimsFilter = expenseClaimsFilter;
 })(window);

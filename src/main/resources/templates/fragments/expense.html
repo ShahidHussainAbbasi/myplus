@@ -154,8 +154,11 @@
 			<div class="form-group">
 				<div class="col-sm-offset-3 col-sm-9">
 					<button type="button" class="btn btn-primary" id="expSave" data-cy="save-expense" onclick="expenseSave(this)">
-						<span class="glyphicon glyphicon-ok"></span> <span th:text="#{ui.saveAndPost}">Save and post</span>
+						<span class="glyphicon glyphicon-ok"></span> <span class="exp-save-label" th:text="#{ui.saveAndPost}">Save and post</span>
 					</button>
+					<!-- EX-6 — shown while "Me — claim it back" is chosen -->
+					<span class="help-block" id="expClaimHint" data-cy="claim-hint" style="display:none;margin-bottom:0" th:text="#{ui.claimHint}">
+						You paid this yourself. An owner or admin approves it; then the business owes it back to you.</span>
 					<span id="expMsg" class="help-inline" role="status" aria-live="polite" style="margin-left:12px"></span>
 				</div>
 			</div>
@@ -172,6 +175,12 @@
 		<button type="button" class="btn btn-default" onclick="expenseLoad()">
 			<span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span>
 		</button>
+	</div>
+	<!-- EX-6 — owner/admin: claims waiting for a decision (expense.js fills and shows it while Expense claims is on) -->
+	<div id="expClaimsWaiting" class="alert alert-info" data-cy="claims-waiting" role="status"
+		style="display:none;max-width:900px;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:8px 12px">
+		<span id="expClaimsWaitingText"></span>
+		<button type="button" class="btn btn-default btn-sm" id="expClaimsShow" data-cy="claims-show" onclick="expenseClaimsFilter()" th:text="#{ui.js.claimsShow}">Show them</button>
 	</div>
 	<!-- FP-3 — pay (part of) a bill. Opened by a row's Pay button; ONE Idempotency-Key per opening, so pressing Pay
 	     again after a lost answer is the same payment, never a second one. -->

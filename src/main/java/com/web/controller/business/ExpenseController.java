@@ -130,12 +130,13 @@ public class ExpenseController {
     @GetMapping(value = "/vouchers", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> list(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-                                       @RequestParam(required = false) String status,
+                                       @RequestParam(required = false) String status, @RequestParam(required = false) String claim,
                                        @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "50") int size) {
         StringBuilder q = new StringBuilder("/vouchers?page=").append(page).append("&size=").append(size);
         param(q, "from", from);
         param(q, "to", to);
         param(q, "status", status);
+        param(q, "claim", claim);
         return call(() -> expense.get(q.toString()));
     }
 
@@ -176,6 +177,24 @@ public class ExpenseController {
     @ResponseBody
     public ResponseEntity<String> postAgain(@PathVariable Long id) {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
+    }
+
+    // ── EX-6 — claims: money a member paid from their own pocket. Who may decide is the service's rule. ────────
+
+    @PostMapping(value = "/claims", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> submitClaim(@RequestBody Map<String, Object> body,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/claims?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
+    @PostMapping(value = "/claims/{id}/{action:approve|reject|withdraw}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> decideClaim(@PathVariable Long id, @PathVariable String action,
+                                              @RequestBody(required = false) Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/claims/" + id + "/" + action, body));
     }
 
     /** FP-3 — the suppliers a bill can be owed to (business-service's list, read through expense-service). */
