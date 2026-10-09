@@ -40,6 +40,7 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import com.myplus.commerce.contracts.dto.PostingEventRequest;
 import com.myplus.common.docnum.DocumentNumberService;
 import com.myplus.common.web.exception.ValidationException;
+import com.myplus.marketplace.multiseller.domain.BusinessDayCalendar;
 import com.myplus.marketplace.multiseller.domain.MarketplaceStatus.Settlement;
 import com.myplus.marketplace.multiseller.dto.SettlementDTOs;
 import com.myplus.marketplace.multiseller.entity.MarketplaceOrder;
@@ -80,7 +81,9 @@ class MarketplaceSettlementServiceTest {
     @Mock DocumentNumberService numbers;
     @Mock SellerAccess access;
     @Mock PlatformTransactionManager txManager;
+    @Mock SettlementCalendarService calendar;
     MarketplaceSettlementService svc;
+    final java.util.Set<LocalDate> holidays = new java.util.HashSet<>();
     CodStandingService cod;
 
     final Map<Long, MarketplaceOrderLine> lineTable = new HashMap<>();
@@ -95,7 +98,8 @@ class MarketplaceSettlementServiceTest {
     void wire() {
         cod = new CodStandingService(entries, settings);
         svc = new MarketplaceSettlementService(lines, sellerOrders, orders, returns, entries, payouts, accounts, settings, gl,
-                audit, numbers, access, txManager, cod);
+                audit, numbers, access, txManager, cod, calendar);
+        lenient().when(calendar.calendar()).thenAnswer(i -> BusinessDayCalendar.saturdaySundayWeekend(holidays));
         lenient().when(settings.codRemitDays()).thenReturn(7);
         lenient().when(txManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         lenient().when(numbers.next(anyLong(), anyString())).thenAnswer(i -> ids.incrementAndGet());
@@ -268,12 +272,35 @@ class MarketplaceSettlementServiceTest {
     @Test
     @DisplayName("[MKT-R15.1] T+N counts BUSINESS days after the window: Friday + 0 days + T+1 = Monday; T+0 on a Saturday pays Monday")
     void eligibleOnSkipsTheWeekend() {
-        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 0, 1)).isEqualTo(LocalDate.of(2026, 10, 5));
-        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 1, 0).getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
-        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 7, 1)).isEqualTo(LocalDate.of(2026, 10, 12));
-        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, null, 1)).as("no return policy = 7 days")
+        BusinessDayCalendar weekends = BusinessDayCalendar.saturdaySundayWeekend(java.util.Set.of());
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 0, 1, weekends)).isEqualTo(LocalDate.of(2026, 10, 5));
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 1, 0, weekends).getDayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 7, 1, weekends)).isEqualTo(LocalDate.of(2026, 10, 12));
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, null, 1, weekends)).as("no return policy = 7 days")
                 .isEqualTo(LocalDate.of(2026, 10, 12));
-        assertThat(MarketplaceSettlementService.eligibleOn(null, 7, 1)).isNull();
+        assertThat(MarketplaceSettlementService.eligibleOn(null, 7, 1, weekends)).isNull();
+    }
+
+    @Test
+    @DisplayName("[MKT-R15.1] MKT-2f: a bank holiday is skipped like a weekend: Friday + T+1 with Monday a holiday pays on Tuesday")
+    void holidayIsSkipped() {
+        BusinessDayCalendar mondayOff = BusinessDayCalendar.saturdaySundayWeekend(java.util.Set.of(LocalDate.of(2026, 10, 5)));
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 0, 1, mondayOff)).isEqualTo(LocalDate.of(2026, 10, 6));
+        assertThat(MarketplaceSettlementService.eligibleOn(FRIDAY, 3, 0, mondayOff)).as("T+0 ending on the holiday pays the next day")
+                .isEqualTo(LocalDate.of(2026, 10, 6));
+    }
+
+    @Test
+    @DisplayName("[MKT-R15.1] MKT-2f: the settlement run and the statement use the operator's holidays")
+    void runUsesTheHolidays() {
+        holidays.add(LocalDate.of(2026, 10, 5));                      // Monday
+        MarketplaceOrderLine l = order("CARD", "4800.00", "200.00", 0, FRIDAY);
+        svc.settleDue(LocalDate.of(2026, 10, 5));
+        assertThat(l.getSettlementStatus()).as("not on the holiday").isEqualTo(Settlement.PENDING_RETURN_WINDOW.name());
+        assertThat(ledger).isEmpty();
+        assertThat(svc.statement(null, 0, 10).getContent().get(0).eligibleOn()).isEqualTo(LocalDate.of(2026, 10, 6));
+        svc.settleDue(LocalDate.of(2026, 10, 6));
+        assertThat(l.getSettlementStatus()).as("the next business day").isEqualTo(Settlement.ELIGIBLE.name());
     }
 
     // ── the settlement run ─────────────────────────────────────────────────────────────────────────────────

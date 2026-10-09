@@ -188,6 +188,27 @@ describe('EX-1b — a refused posting says why, and can be posted again', () => 
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.' + CAP } })
   })
 
+  it('7 — a refused expense that is voided offers nothing to post again (it never reached the books)', () => {
+    let id = null
+    record(t, { voucherDate: YESTERDAY(), paidFrom: 'CASH', payeeName: `EX1B voided ${run}`, lines: [{ categoryId: rentCat.id, amount: 2 }] })
+      .then((r) => { id = r.body.data.id; return settled(t, id) })
+      .then((v) => expect(v.postingStatus).to.eq('FAILED'))
+    cy.then(() => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/void`, headers: hdr(t), body: { reason: 'EX-1b case 7' } })
+      .its('body.success').should('eq', true))
+    cy.then(() => postAgain(t, id)).then((r) => {
+      expect(r.body.success, 'the server refuses: nothing is owed to the books').to.eq(false)
+      expect(r.body.message).to.match(/nothing is waiting/i)
+    })
+    cy.loginAs(LIFECYCLE, PW, '/getBusinessDashboardStats', 'ex1b-ui7-' + Date.now())
+    cy.visit('/businessDashboard'); cy.waitForAppReady()
+    cy.get('#snavTill').then(($d) => { if (!$d.hasClass('snav-open')) cy.get('#snavTill .snav-btn').click() })
+    cy.get('#navExpenses').click()
+    cy.contains('#tableExpense tbody tr', `EX1B voided ${run}`, { timeout: 20000 }).as('vrow')
+    cy.get('@vrow').find('.exp-chip').should('contain', 'Void')
+    cy.get('@vrow').find('[data-cy=post-again]').should('not.exist')
+    cy.get('@vrow').find('[data-cy=expense-posting-error]').should('not.exist')
+  })
+
   it('6 — on screen: the reason is on the row, Post again is offered, and it lands once reopened', () => {
     let id = null
     record(t, { voucherDate: YESTERDAY(), paidFrom: 'CASH', payeeName: `EX1B screen ${run}`, lines: [{ categoryId: rentCat.id, amount: 3 }] })

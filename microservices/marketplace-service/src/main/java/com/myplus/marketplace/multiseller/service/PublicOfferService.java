@@ -56,6 +56,8 @@ public class PublicOfferService {
     private final MarketplaceOfferProjectionRepository projections;
     private final MarketplaceProductRepository products;
     private final MarketplaceSettingsService settings;
+    /** MKT-2e: the ranking's "acceptance history" (the last tie-break before the offer id). */
+    private final SellerPerformanceService performance;
 
     /** A product's offers, ranked. A missing or unknown sort applies the operator's default (MKT-1d). */
     @Transactional(readOnly = true)
@@ -120,7 +122,8 @@ public class PublicOfferService {
                 qty == null || qty.signum() <= 0 ? BigDecimal.ONE : qty, Instant.now());
         EligibilityContext ctx = new EligibilityContext(base.city(), base.quantity(), product.getPriceFloor(),
                 product.getPriceCeiling(), base.enabledPhase(), base.blockRegulated(), base.staleAfter(), base.now());
-        return OfferRanker.rank(rows.stream().map(PublicOfferService::candidate).toList(), sort, ctx);
+        return OfferRanker.rank(rows.stream().map(p -> candidate(p, performance.acceptanceRate(p.getSellerOrganizationId()))).toList(),
+                sort, ctx);
     }
 
     static boolean visible(MarketplaceProduct p) {
@@ -137,13 +140,13 @@ public class PublicOfferService {
         return "%" + t + "%";
     }
 
-    static OfferCandidate candidate(MarketplaceOfferProjection p) {
+    static OfferCandidate candidate(MarketplaceOfferProjection p, double acceptanceRate) {
         return new OfferCandidate(p.getOfferId(), p.getMktProductId(), p.getSellerOrganizationId(),
                 StockSourceType.valueOf(p.getStockSourceType()), Approval.APPROVED, true,
                 Regulated.valueOf(p.getRegulatedStatus()), areas(p.getDeliveryAreas()), p.getPrice(), null,
                 p.getAvailableQty(), p.getPromiseHours(), null,
                 p.getWarrantyMonths() == null ? 0 : p.getWarrantyMonths(),
-                p.getReturnDays() == null ? 0 : p.getReturnDays(), null, 0d,
+                p.getReturnDays() == null ? 0 : p.getReturnDays(), null, acceptanceRate,
                 p.getLastSyncAt() == null ? null : p.getLastSyncAt().atZone(ZoneId.systemDefault()).toInstant());
     }
 

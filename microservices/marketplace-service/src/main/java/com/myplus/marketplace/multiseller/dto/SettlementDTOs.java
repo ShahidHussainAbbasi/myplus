@@ -90,4 +90,26 @@ public final class SettlementDTOs {
             this(tPlusDays, useMyBooks, null, null);
         }
     }
+
+    /** MKT-2f — a bank holiday. {@code removable}: only a day after today can be removed. */
+    public record HolidayView(LocalDate date, String name, boolean removable) {
+    }
+
+    /** MKT-2f — add {date, name}; remove {date}. */
+    public record HolidayRequest(LocalDate date, String name) {
+    }
+
+    /**
+     * MKT-2f — one seller's ledger over a period, signed from the seller's side (credit = owed to the seller). The
+     * columns add up: {@code closing = opening + sales + commission + feesAndTax + reserve + refunds + corrections +
+     * collectedBySeller + remitted + paidOut}, and {@code closing} is the balance at the end of {@code to}.
+     */
+    public record ReportRow(Long organizationId, String sellerName, BigDecimal opening, BigDecimal sales,
+            BigDecimal commission, BigDecimal feesAndTax, BigDecimal reserve, BigDecimal refunds, BigDecimal corrections,
+            BigDecimal collectedBySeller, BigDecimal remitted, BigDecimal paidOut, BigDecimal closing, int lines) {
+    }
+
+    /** MKT-2f — the settlement report for {@code from}..{@code to} (both days included): one row per seller, and the totals. */
+    public record SettlementReport(LocalDate from, LocalDate to, List<ReportRow> rows, ReportRow totals) {
+    }
 }

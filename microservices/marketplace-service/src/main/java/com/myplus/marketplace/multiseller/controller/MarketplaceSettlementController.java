@@ -44,6 +44,8 @@ import lombok.RequiredArgsConstructor;
 public class MarketplaceSettlementController {
 
     private final MarketplaceSettlementService settlement;
+    private final com.myplus.marketplace.multiseller.service.SettlementReportService reports;
+    private final com.myplus.marketplace.multiseller.service.SettlementCalendarService calendar;
 
     // ── seller ──
     @GetMapping("/mkt/settlement/statement")
@@ -57,7 +59,39 @@ public class MarketplaceSettlementController {
         return ApiResponse.success(settlement.myAccount());
     }
 
+    /** MKT-2f — the seller's own settlement report for a period (default: this month to today). */
+    @GetMapping("/mkt/settlement/report")
+    public ApiResponse<SettlementDTOs.SettlementReport> myReport(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        return ApiResponse.success(reports.mine(from, to));
+    }
+
     // ── operator ──
+    /** MKT-2f — every seller's settlement report for a period, and the totals. */
+    @GetMapping("/mkt/operator/settlement/report")
+    public ApiResponse<SettlementDTOs.SettlementReport> report(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        return ApiResponse.success(reports.operator(from, to));
+    }
+
+    /** MKT-2f — bank holidays the settlement calendar skips. */
+    @GetMapping("/mkt/operator/settlement/holidays")
+    public ApiResponse<List<SettlementDTOs.HolidayView>> holidays() {
+        return ApiResponse.success(calendar.list());
+    }
+
+    @PostMapping("/mkt/operator/settlement/holidays")
+    public ApiResponse<List<SettlementDTOs.HolidayView>> addHoliday(@RequestBody(required = false) SettlementDTOs.HolidayRequest body) {
+        return ApiResponse.success(calendar.add(body), "Holiday added. Lines due that day are paid on the next business day.");
+    }
+
+    @PostMapping("/mkt/operator/settlement/holidays/remove")
+    public ApiResponse<List<SettlementDTOs.HolidayView>> removeHoliday(@RequestBody(required = false) SettlementDTOs.HolidayRequest body) {
+        return ApiResponse.success(calendar.remove(body), "Holiday removed.");
+    }
+
     @GetMapping("/mkt/operator/settlement/accounts")
     public ApiResponse<List<SettlementDTOs.AccountRow>> accounts() {
         return ApiResponse.success(settlement.accounts());

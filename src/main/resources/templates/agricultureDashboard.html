@@ -32,13 +32,17 @@
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureIncomeDiv',this)"><span class="glyphicon glyphicon-plus-sign"></span><span th:text="#{ui.addIncome}">Add Income</span></a>
 			<!-- EX-2a — Expenses (any member); hidden until the owner switches the module on. -->
 			<a class="sb-link" id="navExpenses" data-capability="expenseManagement" onclick="sbNav('registrationType','',this);showExpenses()"><span class="glyphicon glyphicon-export"></span><span th:text="#{ui.expenses}">Expenses</span></a>
+			<!-- EX-2c — the books (owner/admin; finance-service enforces it). Opens on this month's Profit & Loss. -->
+			<a class="sb-link" id="navFinance" data-cy="nav-finance" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" onclick="sbNav('registrationType','',this);showFinance('pnl')"><span class="glyphicon glyphicon-book"></span><span th:text="#{ui.finance}">Finance</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','ConfigDiv',this);showConfig();loadModuleSwitches()"><span class="glyphicon glyphicon-wrench"></span><span th:text="#{ui.configuration}">Configuration</span></a>
 		</nav>
 	</aside>
 			<!-- Owner Configuration — self-renders from the agriculture-service common-settings catalog
 			     (/getAgricultureConfig). A toggle saves immediately (/saveAgricultureConfig). -->
 			<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
-			<div th:replace="~{fragments/expense :: expenseSection('agriculture')}"></div>
+			<div th:replace="~{fragments/expense :: expenseSection('agriculture', '')}"></div>
+			<!-- EX-2c — the Finance reports (shared). No Tax Register here. -->
+			<div th:replace="~{fragments/finance :: financeSection(false, 'farm')}"></div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" style="display:none">
 				<h3 class="dash-page-title" th:text="#{ui.configuration}">Configuration</h3>
@@ -559,6 +563,7 @@ var serverContext = [[@{/}]];
 <script th:src="@{/js/common/searchable-selects.js}"></script>
 <!-- EX-2a — Expenses (shared screen) and the Modules card (switch opt-in modules on). -->
 <script th:src="@{/js/common/expense.js}"></script>
+<script th:src="@{/js/common/finance-reports.js}"></script>
 <script th:src="@{/js/common/module-switches.js}"></script>
 <!-- SESS-1: fills the "N / 5 devices" chip in the shared header fragment. The session cap is per ACCOUNT,
      not per module, so this belongs on every signed-in dashboard, not only the till's. -->

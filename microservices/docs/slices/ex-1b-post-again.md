@@ -1,6 +1,6 @@
 # EX-1b — A refused posting says why at once, and can be posted again
 
-**Status:** BUILT 2026-10-05 — gate `ex-1b-post-again.cy.js` 6/6 on the deployed build; unit expense 36/36 (9 new), finance 78/78, business/education outbox tests 21/21. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.4
+**Status:** BUILT 2026-10-05 — gate `ex-1b-post-again.cy.js` **7/7** on the deployed build; guide case 1-8 recorded; regression 15 expense/finance/period-close specs 87/88 (the 1 = fp-4b case 2, the known spec defect); unit expense 36/36 (9 new), finance 78/78, business/education outbox tests 21/21. Programme: [`../expense-management-design.md`](../expense-management-design.md) §5.4
 (FAILED → PENDING "redrive", never built) and §11 finding **E1**. Branch `feature/expense-management`.
 
 ## 1. Document
@@ -76,4 +76,7 @@ did not answer in time" and stays PENDING for the reconciler, though finance ref
 - The first gate runs were red for the spec's own reasons: `cy.its()` refuses a null lock ("open"); a failed case left
   the next one on open books (now every case sets the lock itself); the other tenant had the module off (refused before
   the lookup) — now switched on, so the 404 proves the scope.
+- **Found by the recording (screenshot of 1-8):** a voucher voided after its posting FAILED still showed **Post again**
+  and the raw 500 text — a button that could only be refused. The row offered it for any voided voucher with an error;
+  it now does so only for a void whose *reversal* has not landed (POSTED_GL + error). Gate case 7 holds it.
 

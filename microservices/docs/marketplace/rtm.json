@@ -736,15 +736,19 @@
    "phase": "2",
    "text": "Shortage responsibility by cause (merchant stale stock, supplier stale, platform sync defect, custodian count, carrier loss, customer invalid combination)",
    "unit": [
+    "SellerPerformanceTest.excusedAndDisputed",
     "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly"
    ],
    "cypress": [
     "MKT-2b-01",
-    "MKT-2b-07"
+    "MKT-2b-07",
+    "MKT-2e-03",
+    "MKT-2e-04"
    ],
    "manual": [
     "M-2b-01",
-    "M-2b-07"
+    "M-2b-07",
+    "M-2e-02"
    ]
   },
   {
@@ -782,16 +786,19 @@
    "phase": "2",
    "text": "Never auto-debit a stakeholder without evidence **and** a dispute process",
    "unit": [
+    "SellerPerformanceTest.excusedAndDisputed",
     "MarketplaceOrderFlowTest.switchOffRecordsCauseOnly",
     "MarketplaceOrderFlowTest.disputeAndRuleMoveNoMoney"
    ],
    "cypress": [
     "MKT-2b-01",
-    "MKT-2b-07"
+    "MKT-2b-07",
+    "MKT-2e-04"
    ],
    "manual": [
     "M-2b-01",
-    "M-2b-07"
+    "M-2b-07",
+    "M-2e-02"
    ]
   },
   {
@@ -920,13 +927,21 @@
     "BusinessDayCalendarTest.fridayCrossesWeekend",
     "BusinessDayCalendarTest.holiday",
     "BusinessDayCalendarTest.tPlusZero",
-    "MarketplaceSettlementServiceTest.eligibleOnSkipsTheWeekend"
+    "MarketplaceSettlementServiceTest.eligibleOnSkipsTheWeekend",
+    "MarketplaceSettlementServiceTest.holidayIsSkipped",
+    "MarketplaceSettlementServiceTest.runUsesTheHolidays",
+    "SettlementCalendarServiceTest.addAndCalendar",
+    "SettlementCalendarServiceTest.addRefused",
+    "SettlementCalendarServiceTest.remove"
    ],
    "cypress": [
-    "MKT-1g-03"
+    "MKT-1g-03",
+    "MKT-2f-07",
+    "MKT-2f-08"
    ],
    "manual": [
-    "M-1g-03"
+    "M-1g-03",
+    "M-2f-02"
    ]
   },
   {
@@ -981,7 +996,8 @@
     "MarketplaceSettlementServiceTest.fixedCommission",
     "MarketplaceSettlementServiceTest.cardLineSettlesOnce",
     "MarketplaceSettlementServiceTest.codLineOwesTheCommission",
-    "MarketplaceSettlementServiceTest.statementAddsUp"
+    "MarketplaceSettlementServiceTest.statementAddsUp",
+    "SettlementReportServiceTest.rowsAddUp"
    ],
    "cypress": [
     "MKT-1g-01",
@@ -1004,11 +1020,13 @@
    ],
    "cypress": [
     "MKT-1g-05",
-    "MKT-2d-04"
+    "MKT-2d-04",
+    "MKT-2f-02"
    ],
    "manual": [
     "M-1g-05",
-    "M-2d-02"
+    "M-2d-02",
+    "M-2f-01"
    ]
   },
   {
@@ -1348,6 +1366,11 @@
    "phase": "2",
    "text": "Phase 2 OMS maturity: parent/child orders, multi-seller cart, automatic rerouting, delivery integration, returns/refunds, merchant performance, COD reconciliation, payout approval, settlement reports",
    "unit": [
+    "SellerPerformanceTest.acceptanceRate",
+    "SellerPerformanceTest.undecidedNotCounted",
+    "SellerPerformanceTest.tooFewOrders",
+    "SellerPerformanceTest.onTime",
+    "SellerPerformanceTest.thresholds",
     "MarketplaceOrderFlowTest.codStoppedWhenOverdue",
     "MarketplaceOrderFlowTest.codStoppedNamedInBasket",
     "MarketplaceOrderFlowTest.splitsPerSeller",
@@ -1359,7 +1382,21 @@
     "MarketplaceSettlementServiceTest.newDebtNewClock",
     "MarketplaceSettlementServiceTest.remittanceRefusals",
     "MarketplaceSettlementServiceTest.codReconciliationRows",
-    "MarketplaceSettlementServiceTest.walkAcrossPages"
+    "MarketplaceSettlementServiceTest.walkAcrossPages",
+    "PublicOfferServiceTest.acceptanceBreaksTies",
+    "SellerPerformanceServiceTest.operatorScorecard",
+    "SellerPerformanceServiceTest.codFlag",
+    "SellerPerformanceServiceTest.windows",
+    "SellerPerformanceServiceTest.access",
+    "SellerPerformanceServiceTest.rankingRates",
+    "SellerPerformanceServiceTest.scorecardRefreshesRanking",
+    "SettlementReportServiceTest.everyTypeHasAColumn",
+    "SettlementReportServiceTest.rowsAddUp",
+    "SettlementReportServiceTest.openingOnly",
+    "SettlementReportServiceTest.period_",
+    "SettlementReportServiceTest.tenantDay",
+    "SettlementReportServiceTest.periodRefused",
+    "SettlementReportServiceTest.access"
    ],
    "cypress": [
     "MKT-2-06",
@@ -1373,13 +1410,31 @@
     "MKT-2d-07",
     "MKT-2d-08",
     "MKT-2d-09",
-    "MKT-2d-10"
+    "MKT-2d-10",
+    "MKT-2e-01",
+    "MKT-2e-02",
+    "MKT-2e-03",
+    "MKT-2e-05",
+    "MKT-2e-06",
+    "MKT-2e-07",
+    "MKT-2e-08",
+    "MKT-2f-01",
+    "MKT-2f-02",
+    "MKT-2f-03",
+    "MKT-2f-04",
+    "MKT-2f-05",
+    "MKT-2f-06"
    ],
    "manual": [
     "M-2a-02",
     "M-2d-01",
     "M-2d-02",
-    "M-2d-03"
+    "M-2d-03",
+    "M-2e-01",
+    "M-2e-02",
+    "M-2e-03",
+    "M-2f-01",
+    "M-2f-03"
    ]
   },
   {
@@ -1465,7 +1520,10 @@
     "MarketplaceSupportServiceTest.operatorOnly",
     "SellerAccessTest.tiers",
     "SellerAccessTest.operatorIsRoleAdmin",
-    "SellerAccessTest.orgFromToken"
+    "SellerAccessTest.orgFromToken",
+    "SellerPerformanceServiceTest.access",
+    "SettlementCalendarServiceTest.operatorOnly",
+    "SettlementReportServiceTest.access"
    ],
    "cypress": [
     "MKT-0a-04",
@@ -1482,7 +1540,10 @@
     "MKT-1f-11",
     "MKT-2a-03",
     "MKT-2c-06",
-    "MKT-2d-06"
+    "MKT-2d-06",
+    "MKT-2e-06",
+    "MKT-2f-05",
+    "MKT-2f-07"
    ],
    "manual": [
     "M-0a-02",
@@ -1496,6 +1557,8 @@
     "M-1e2-03",
     "M-1f-01",
     "M-2a-03",
+    "M-2f-02",
+    "M-2f-03",
     "M-X-02"
    ]
   },

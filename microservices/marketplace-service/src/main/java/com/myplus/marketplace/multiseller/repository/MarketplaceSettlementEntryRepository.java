@@ -42,4 +42,18 @@ public interface MarketplaceSettlementEntryRepository extends Repository<Marketp
     @Query("select e.organizationId, coalesce(sum(e.debitAmount), 0), coalesce(sum(e.creditAmount), 0) "
             + "from MarketplaceSettlementEntry e where e.entryType = :type group by e.organizationId")
     List<Object[]> totalsOfType(@Param("type") String entryType);
+
+    /**
+     * MKT-2f — the report: per seller and entry type, debits, credits and rows with {@code effectiveAt} in
+     * [from, to) (idx_mkt_entry_effective, V34). Rows: [orgId, type, debit, credit, count].
+     */
+    @Query("select e.organizationId, e.entryType, coalesce(sum(e.debitAmount), 0), coalesce(sum(e.creditAmount), 0), count(e) "
+            + "from MarketplaceSettlementEntry e where e.effectiveAt >= :from and e.effectiveAt < :to "
+            + "group by e.organizationId, e.entryType")
+    List<Object[]> periodTotals(@Param("from") java.time.LocalDateTime from, @Param("to") java.time.LocalDateTime to);
+
+    /** MKT-2f — each seller's balance before {@code before}: the report's opening. Rows: [orgId, balance]. */
+    @Query("select e.organizationId, coalesce(sum(e.creditAmount), 0) - coalesce(sum(e.debitAmount), 0) "
+            + "from MarketplaceSettlementEntry e where e.effectiveAt < :before group by e.organizationId")
+    List<Object[]> balancesBefore(@Param("before") java.time.LocalDateTime before);
 }

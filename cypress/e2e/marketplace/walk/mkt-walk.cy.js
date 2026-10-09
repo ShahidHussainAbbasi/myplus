@@ -3256,4 +3256,399 @@ on('MKT manual walk — recorded', () => {
         cy.get('#mktCodStop').should('not.be.checked')
       })
   })
+  // ──────────────────────────────── MKT-2e ────────────────────────────────
+  // Seller performance: the operator's scorecard, the seller's own, and "accepts more of its orders" breaking a tie in
+  // the catalogue. Read-only screens: every figure is checked against the service, never against a number written here,
+  // because the two shops carry the history of every earlier gate and walk.
+
+  const PF = {}
+  const pct = (part, whole) => `${Math.round((part / whole) * 100)}% (${part} of ${whole})`
+  /** Behind the scenes: the operator's 30-day figures for a shop (opening them also refreshes the ranking). */
+  const pScore = (name, days = 30) => {
+    asOperator()
+    return get(`/platform/mkt/sellerPerformance?days=${days}`).then((r) => data(r.body).sellers.find((x) => x.sellerName === name))
+  }
+  /** Behind the scenes: both shops sell one phone at Rs 52,000, 24 hours, the same policies; the shop that accepts more publishes second. */
+  const pOffers = () => (PF.product ? cy.wrap(PF) : cy.then(() => {
+    let p, first, second
+    seedPolicies(`${run}pf`).then((x) => { p = x })
+    pScore(A_NAME).then((a) => { PF.rateA = a && a.acceptanceRate !== null ? a.acceptanceRate : 1 })
+    pScore(B_NAME).then((b) => { PF.rateB = b && b.acceptanceRate !== null ? b.acceptanceRate : 1 })
+    cy.then(() => {
+      first = PF.rateA > PF.rateB ? SELLER_B : SELLER_A
+      second = first === SELLER_A ? SELLER_B : SELLER_A
+      return publishOffer(first, { run: `${run}pf1`, price: 52000, promiseHours: 24, qty: 40, warrantyPolicyId: p.warranty, returnPolicyId: p.returns })
+    }).then((o) => { PF.product = o.mktProductId; PF[first] = o.offerId })
+    cy.then(() => publishOffer(second, { run: `${run}pf2`, price: 52000, promiseHours: 24, qty: 40, mktProductId: PF.product,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns })).then((o) => { PF[second] = o.offerId })
+    return cy.wrap(PF)
+  }))
+  /** Behind the scenes: a customer's cash order for Mobile Distributor's offer. Yields the order number. */
+  const pOrder = () => pOffers().then(() => {
+    customer()
+    cy.visit(UI.publicPage)
+    return post(API.checkout, { lines: [{ offerId: PF[SELLER_B], quantity: 1, expectedPrice: 52000 }], customerName: 'Ali',
+      customerPhone: `0319${String(run).slice(-6)}1`, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wpf-${run}-${Math.random()}` })
+      .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); return data(r.body).orderNo })
+  })
+  /** Operator: Platform dashboard → "Seller performance". */
+  const perfPanel = () => {
+    asOperator()
+    cy.intercept('GET', '**/platform/mkt/sellerPerformance*').as('perf')
+    cy.visit(UI.operatorPage)
+    cy.get('#platMktPerformanceBtn').should('be.visible').click()
+    cy.wait('@perf')
+    return cy.get('#platMktPerformance').should('be.visible')
+  }
+  const perfRow = (name) => cy.contains('#mktPerfList .mkt-perf-row', name)
+
+  walk({ id: 'M-2e-01', slice: 'MKT-2e', title: 'The operator reads how each seller handles its orders, over 7, 30 or 90 days',
+    persona: 'MaxTheService operator (admin@myplus.com)', reqs: ['MKT-R20.3'],
+    pre: 'Both shops have had marketplace orders in the last 30 days (earlier cases).', auto: ['MKT-2e-01', 'MKT-2e-06'] }, (step, call, cleanup) => {
+    cy.then(() => pScore(A_NAME)).then((a) => { PF.a30 = a })
+    step('Operator: Platform dashboard → "Seller performance".',
+      '"Seller performance", with "30 days" selected. One row per shop that had an order in the last 30 days, shops that need attention first. Shahzad Mobile Shop\'s row: "Orders accepted" as "<percent>% (<accepted> of <decided>)", "Time to accept" in minutes, "Delivered on time", "Not fulfilled by the seller", "Returns the seller caused", and in red under "Needs attention" each reason, or "Nothing".', () => {
+        perfPanel()
+        cy.get('#platMktPerfDays button.is-on').should('have.attr', 'data-days', '30')
+        perfRow(A_NAME).within(() => {
+          const d = PF.a30.accepted + PF.a30.missed
+          cy.get('.mkt-perf-accept').should('have.text', PF.a30.acceptanceRate === null ? 'Not enough orders yet' : pct(PF.a30.accepted, d))
+          cy.get('.mkt-perf-missed').should('contain', String(PF.a30.missed))
+          cy.get('.mkt-perf-returns').should('have.text', String(PF.a30.sellerFaultReturns))
+          if (PF.a30.flags.length) cy.get('.mkt-perf-flag').should('have.length', PF.a30.flags.length)
+          else cy.get('.mkt-perf-flags').should('have.text', 'Nothing')
+        })
+        perfRow(B_NAME).should('be.visible')
+        cy.get('#mktPerfList .mkt-perf-row').then(($rows) => {
+          const f = [...$rows].map((r) => (r.getAttribute('data-flags') || '') !== '')
+          expect(f.indexOf(false) === -1 || f.slice(f.indexOf(false)).every((x) => !x), 'shops that need attention first').to.eq(true)
+        })
+      })
+    step('Press "7 days".', '"7 days" is selected and the figures are those of the orders placed in the last 7 days: never more orders than in 30 days.', () => {
+      cy.intercept('GET', '**/platform/mkt/sellerPerformance?days=7').as('perf7')
+      cy.get('#platMktPerfDays button[data-days="7"]').click()
+      cy.wait('@perf7').then((x) => {
+        const a7 = x.response.body.data.sellers.find((r) => r.sellerName === A_NAME)
+        expect(a7 ? a7.accepted + a7.missed : 0, 'a shorter window holds no more orders').to.be.at.most(PF.a30.accepted + PF.a30.missed)
+      })
+      cy.get('#platMktPerfDays button.is-on').should('have.attr', 'data-days', '7')
+    })
+    step('Press "90 days".', '"90 days" is selected; Shahzad Mobile Shop has at least as many orders as in 30 days.', () => {
+      cy.intercept('GET', '**/platform/mkt/sellerPerformance?days=90').as('perf90')
+      cy.get('#platMktPerfDays button[data-days="90"]').click()
+      cy.wait('@perf90').then((x) => {
+        const a90 = x.response.body.data.sellers.find((r) => r.sellerName === A_NAME)
+        expect(a90.accepted + a90.missed, 'a longer window holds no fewer orders').to.be.at.least(PF.a30.accepted + PF.a30.missed)
+      })
+      cy.get('#platMktPerfDays button.is-on').should('have.attr', 'data-days', '90')
+    })
+    cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2e-02', slice: 'MKT-2e', title: 'A missed order counts against the seller until it disputes it; overturned, it is not the seller\'s fault',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor), then the MaxTheService operator', reqs: ['MKT-R20.3', 'MKT-R11.4', 'MKT-R12.4'],
+    pre: 'A customer has just ordered Mobile Distributor\'s phone, cash on delivery. Mobile Distributor has no stock on the shelf.',
+    auto: ['MKT-2e-02', 'MKT-2e-03', 'MKT-2e-04'] }, (step, call, cleanup) => {
+    cy.then(() => pOrder()).then((no) => { PF.o2 = no })
+    cy.then(() => pScore(B_NAME)).then((b) => { PF.b0 = b })
+    step('As owner.mobile@myplus.com: Sale → Marketplace → Incoming orders → the new order → reason "none on the shelf", cause "Out of stock in my shop" → Reject.',
+      'The row reads "Rejected", "Cause: … · Recorded".', () => {
+        partRow(SELLER_B, PF.o2).find('input[placeholder*="cannot fulfil"]').type('none on the shelf')
+        cy.contains(`${UI.incoming} tr`, PF.o2).find('.mkt-reject-cause').select('MERCHANT_STALE_STOCK')
+        cy.contains(`${UI.incoming} tr`, PF.o2).find(UI.rejectBtn).click()
+        cy.contains(`${UI.incoming} tr`, PF.o2).should('contain', 'Rejected')
+        cy.wait(800)                                                  // the page's other lists have drawn
+        cy.contains(`${UI.incoming} tr`, PF.o2).scrollIntoView({ offset: { top: -200, left: 0 } })
+      })
+    step('Operator: Platform dashboard → "Seller performance".', 'Mobile Distributor\'s "Not fulfilled by the seller" is one more than before.', (snap) => {
+      perfPanel()
+      perfRow(B_NAME).find('.mkt-perf-missed').should('contain', String(PF.b0.missed + 1))
+      snap()
+      cy.then(() => pScore(B_NAME)).then((b) => expect(b.missed - PF.b0.missed, 'missed +1').to.eq(1))
+    })
+    step('As owner.mobile@myplus.com: Incoming orders → "Rejected (cause and disputes)" → the order → "Dispute this cause" → "The stock count said 3" → "Send dispute".',
+      '"Disputed: MaxTheService is reviewing it".', () => {
+        partRow(SELLER_B, PF.o2, true)
+        cy.intercept('GET', '**/mkt/incomingOrders*status=REJECTED*').as('rejectedList')
+        cy.get('#mktIncomingStatus').select('REJECTED', { force: true })
+        cy.wait('@rejectedList')
+        cy.contains(`${UI.incoming} tr`, PF.o2).find('.mkt-dispute').click()
+        cy.contains(`${UI.incoming} tr`, PF.o2).find('.mkt-dispute-note').type('The stock count said 3')
+        cy.contains(`${UI.incoming} tr`, PF.o2).find('.mkt-dispute-send').click()
+        cy.contains(`${UI.incoming} tr`, PF.o2).find('.mkt-so-shortage').should('contain', 'Disputed: MaxTheService is reviewing it')
+        cy.contains(`${UI.incoming} tr`, PF.o2).scrollIntoView({ offset: { top: -200, left: 0 } })
+      })
+    step('Operator: "Seller performance" again.', 'Mobile Distributor\'s "Not fulfilled by the seller" is back to what it was, with "1 under dispute" (or one more than before) under it: a disputed record is not used until MaxTheService decides.', (snap) => {
+      perfPanel()
+      perfRow(B_NAME).find('.mkt-perf-missed').should('contain', String(PF.b0.missed)).and('contain', `${PF.b0.disputed + 1} under dispute`)
+      snap()
+    })
+    step('Operator: "Unfulfilled parts" → the order → reason "Our count was late; not the seller\'s fault." → "Overturn it".', '"Overturned by MaxTheService".', () => {
+      console_('#platMktShortagesBtn')
+      cy.contains('#mktShortageList .mkt-shortage-row', PF.o2).find('.mkt-shortage-note').type('Our count was late; not the seller\'s fault.')
+      cy.contains('#mktShortageList .mkt-shortage-row', PF.o2).find('.mkt-shortage-overturn').click()
+      cy.contains('#mktShortageList .mkt-shortage-row', PF.o2).should('contain', 'Overturned by MaxTheService')
+    })
+    step('Operator: "Seller performance" again.', 'Mobile Distributor: "Not fulfilled by the seller" as before the order, nothing under dispute from it, and one more "not the seller\'s fault".', (snap) => {
+      perfPanel()
+      perfRow(B_NAME).find('.mkt-perf-missed').should('contain', String(PF.b0.missed)).and('contain', `${PF.b0.excused + 1} not the seller's fault`)
+      snap()
+      cy.then(() => pScore(B_NAME)).then((b) => {
+        expect(b.missed - PF.b0.missed).to.eq(0)
+        expect(b.disputed - PF.b0.disputed).to.eq(0)
+        expect(b.excused - PF.b0.excused).to.eq(1)
+      })
+    })
+    cleanup('None: the order ended when it was rejected, and the decision is the record (it moved no money).', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2e-03', slice: 'MKT-2e', title: 'The seller reads its own scorecard; of two equal offers the customer sees the seller that accepts more first',
+    persona: 'owner.mobile@myplus.com (Mobile Distributor), then a customer (incognito window)', reqs: ['MKT-R20.3'],
+    pre: 'Both shops sell the same phone at Rs 52,000, delivery in 24 hours, the same warranty and return policy, both in Karachi.',
+    auto: ['MKT-2e-07', 'MKT-2e-08'] }, (step, call, cleanup) => {
+    cy.then(() => pOffers())
+    cy.then(() => pScore(B_NAME)).then((b) => { PF.b = b })
+    step('As owner.mobile@myplus.com: Sale → Marketplace. Scroll to "Your performance".',
+      'Four figures for the last 30 days: "Orders accepted", "Time to accept", "Delivered on time", "Returns you caused", the same MaxTheService sees; under them, for each reason, "MaxTheService has noted: …".', () => {
+        as(SELLER_B)
+        cy.intercept('GET', '**/mkt/myPerformance*').as('mine')
+        openMarketplace()
+        cy.wait('@mine')
+        cy.get('#mktPerfBox').scrollIntoView().should('be.visible')
+        cy.get('#mktPerfAccept').should('have.text', PF.b.acceptanceRate === null ? 'Not enough orders yet' : pct(PF.b.accepted, PF.b.accepted + PF.b.missed))
+        cy.get('#mktPerfOnTime').should('have.text', PF.b.onTimeRate === null ? 'Not enough orders yet' : pct(PF.b.onTime, PF.b.due))
+        cy.get('#mktPerfReturns').should('have.text', String(PF.b.sellerFaultReturns))
+        cy.get('#mktPerfFlags .mkt-perf-flag').should('have.length', PF.b.flags.length)
+        cy.get('#mktOffersTable tbody tr').should('have.length.at.least', 1)
+        cy.wait(800)                                                  // the page's other lists have drawn above it
+        cy.get('#mktPerfBox').scrollIntoView({ offset: { top: -120, left: 0 } })
+        cy.window().then((w) => cy.get('#mktPerfBox').should(($b) => expect($b[0].getBoundingClientRect().top, 'on screen').to.be.within(0, w.innerHeight - 100)))
+      })
+    step('Customer: open the phone both shops sell (Karachi).',
+      'The shop that accepts more of its orders is listed first, although it published its offer later: price, delivery time and policies are the same.', (snap) => {
+        const better = PF.rateA > PF.rateB ? SELLER_A : SELLER_B
+        const other = better === SELLER_A ? SELLER_B : SELLER_A
+        expect(PF[better], 'positive control: the better shop published second').to.be.greaterThan(PF[other])
+        customer()
+        cy.visit(page(`product=${PF.product}&city=Karachi`))
+        cy.get(UI.offerRow).should('have.length.at.least', 2).then(($r) => {
+          const ids = [...$r].map((x) => Number(x.getAttribute('data-offer-id'))).filter((id) => id === PF[better] || id === PF[other])
+          expect(ids, `${better === SELLER_A ? A_NAME : B_NAME} first`).to.deep.eq([PF[better], PF[other]])
+        })
+        snap()
+      })
+    cleanup('None: both offers stay on sale, as after M-1d.', '—', () => {}, { screen: false })
+  })
+  // ──────────────────────────────── MKT-2f ────────────────────────────────
+  // Settlement reports and bank holidays. Every report figure is checked against the service (the shops carry every
+  // earlier run's money); the holiday case builds its own line with 3 return days, so its payable day is in the future.
+
+  const RP = {}
+  const iso = (d) => d.toISOString().substring(0, 10)
+  const plusDays = (s, n) => { const d = new Date(`${s}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return iso(d) }
+  const isWeekend = (s) => [0, 6].includes(new Date(`${s}T00:00:00Z`).getUTCDay())
+  const nextBusinessDay = (s) => { let d = plusDays(s, 1); while (isWeekend(d)) d = plusDays(d, 1); return d }
+  const rRs = (v) => (Number(v || 0) ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—')
+  /** Behind the scenes: the operator's report for a period ('' = this month). */
+  const rReport = (q = '') => {
+    asOperator()
+    return get(`/platform/mkt/settlementReport${q}`).then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); return data(r.body) })
+  }
+  /** Operator: Platform dashboard → "Settlement and payouts" → scroll to `box`. */
+  const payoutsPanel = (box) => {
+    asOperator()
+    cy.intercept('GET', '**/platform/mkt/settlementReport*').as('rep')
+    cy.intercept('GET', '**/platform/mkt/holidays*').as('hol')
+    cy.visit(UI.operatorPage)
+    cy.get('#platMktPayoutsBtn').should('be.visible').click()
+    cy.wait(['@rep', '@hol'])
+    cy.get('#mktAccountList tbody tr').should('have.length.at.least', 1)
+    cy.wait(600)                                                   // the panel's other lists have drawn above it
+    return cy.get(box).scrollIntoView({ offset: { top: -80, left: 0 } }).should('be.visible')
+  }
+  /** The seller's statement line for an order. */
+  const rLine = (no) => {
+    as(SELLER_A)
+    return get(`${API.statement}?size=100`).then((r) => list(r.body).find((x) => x.orderNo === no))
+  }
+
+  walk({ id: 'M-2f-01', slice: 'MKT-2f', title: 'The operator reads the settlement report for a period and downloads it',
+    persona: 'MaxTheService operator (admin@myplus.com)', reqs: ['MKT-R20.3', 'MKT-R15.6'],
+    pre: 'Both shops have settled marketplace sales (earlier cases).', auto: ['MKT-2f-01', 'MKT-2f-02', 'MKT-2f-04', 'MKT-2f-06'] }, (step, call, cleanup) => {
+    cy.then(() => rReport()).then((v) => { RP.month = v })
+    step('Operator: Platform dashboard → "Settlement and payouts". Scroll to "Settlement report".',
+      'From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; "All sellers" adds them up. For every shop, Opening plus the columns is its Closing.', (snap) => {
+        payoutsPanel('#mktReportBox')
+        cy.get('#mktRepFrom').should('have.value', RP.month.from)
+        cy.get('#mktRepTo').should('have.value', RP.month.to)
+        expect(RP.month.from.endsWith('-01'), 'from the 1st').to.eq(true)
+        cy.get('#mktReportList .mkt-rep-row').should('have.length', RP.month.rows.length)
+        RP.month.rows.forEach((r) => {
+          const cols = ['opening', 'sales', 'commission', 'feesAndTax', 'reserve', 'refunds', 'corrections', 'collectedBySeller', 'remitted', 'paidOut']
+          expect(cols.reduce((t, c) => t + Math.round(Number(r[c]) * 100), 0), `${r.sellerName} adds up`).to.eq(Math.round(Number(r.closing) * 100))
+          cy.get(`#mktReportList .mkt-rep-row[data-org="${r.organizationId}"]`).within(() => {
+            cy.get('.mkt-rep-sales').should('have.text', rRs(r.sales))
+            cy.get('.mkt-rep-commission').should('have.text', rRs(r.commission))
+            cy.get('.mkt-rep-closing').should('have.text', rRs(r.closing))
+          })
+        })
+        cy.get('#mktReportList .mkt-rep-total .mkt-rep-closing').should('have.text', rRs(RP.month.totals.closing))
+        cy.get('#mktReportList .mkt-rep-total .mkt-rep-closing').should(($c) => {
+          const box = $c.closest('.table-responsive')[0].getBoundingClientRect()
+          expect($c[0].getBoundingClientRect().right, 'Closing is on screen, not past the table\'s scroll edge').to.be.at.most(box.right)
+        })
+        cy.get('#mktReportBox').scrollIntoView({ offset: { top: -40, left: 0 } })
+        snap()
+      })
+    step('Set "From" to today and "To" to yesterday. Press "Show".',
+      '"The start of the period is after its end." The table is empty and "Download CSV" cannot be pressed.', () => {
+        cy.get('#mktRepFrom').clear().type(RP.month.to)
+        cy.get('#mktRepTo').clear().type(plusDays(RP.month.to, -1))
+        cy.get('#mktRepShow').click()
+        cy.get('#mktRepMsg').should('have.text', 'The start of the period is after its end.')
+        cy.get('#mktReportList .mkt-rep-row').should('have.length', 0)
+        cy.get('#mktRepCsv').should('be.disabled')
+      })
+    step('Set "From" to 10 days ago and "To" to today. Press "Show".',
+      'The shops with money in those days. Each shop\'s "Opening" is what it was owed at the start of the 10 days: the closing of the days before.', () => {
+        RP.from = plusDays(RP.month.to, -9)
+        cy.then(() => rReport(`?from=${plusDays(RP.month.to, -30)}&to=${plusDays(RP.month.to, -10)}`)).then((v) => { RP.before = v })
+        cy.then(() => rReport(`?from=${RP.from}&to=${RP.month.to}`)).then((v) => { RP.ten = v })
+        payoutsPanel('#mktReportBox')
+        cy.intercept('GET', `**/platform/mkt/settlementReport?from=${RP.from}*`).as('ten')
+        cy.get('#mktRepFrom').clear().type(RP.from)
+        cy.get('#mktRepTo').clear().type(RP.month.to)
+        cy.get('#mktRepShow').click()
+        cy.wait('@ten')
+        cy.then(() => {
+          RP.ten.rows.forEach((r) => {
+            const b = RP.before.rows.find((x) => x.organizationId === r.organizationId)
+            expect(Number(r.opening), `${r.sellerName}: opening = the closing of the days before`).to.eq(b ? Number(b.closing) : 0)
+            cy.get(`#mktReportList .mkt-rep-row[data-org="${r.organizationId}"] .mkt-rep-opening`).should('have.text', rRs(r.opening))
+          })
+        })
+        cy.get('#mktReportBox').scrollIntoView({ offset: { top: -40, left: 0 } })
+      })
+    step('Press "Download CSV".',
+      'A file "settlement-report-<from>-to-<to>.csv": a header line with the same columns, one line per shop, and "All sellers". It opens in Excel.', (snap) => {
+        cy.get('#mktRepCsv').should('not.be.disabled').click()
+        snap()
+        cy.then(() => cy.readFile(`cypress/downloads/settlement-report-${RP.from}-to-${RP.month.to}.csv`, 'utf8')).then((t) => {
+          const lines = t.replace(/^﻿/, '').trim().split(/\r\n/)
+          expect(lines[0]).to.eq('Seller ID,Seller,Closing,Opening,Sales,Commission,Fees and tax,Reserve,Refunds,Corrections,Cash kept by seller,Paid in by seller,Paid out,Lines')
+          expect(lines.length).to.eq(RP.ten.rows.length + 2)
+          expect(lines[lines.length - 1]).to.contain('All sellers')
+          RP.csv = lines.slice(0, 3).join('\n')
+        })
+      })
+    cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
+  })
+
+  walk({ id: 'M-2f-02', slice: 'MKT-2f', title: 'A bank holiday added ahead of time moves a line due that day to the next business day',
+    persona: 'MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R15.1', 'MKT-R22.1'],
+    pre: 'Shahzad Mobile Shop has just delivered a marketplace phone sold with a 3-day return policy, so it becomes payable a few days from now.',
+    auto: ['MKT-2f-07', 'MKT-2f-08'] }, (step, call, cleanup) => {
+    // behind the scenes: the sale and its delivery, the way the shop does it (as in M-1g)
+    let offer
+    cy.then(() => rReport()).then((v) => { RP.today = v.to })
+    seedPolicies(`${run}rp`, { returnDays: 3 }).then((p) => publishOffer(SELLER_A, { run: `${run}rp`, price: 52000, qty: 5,
+      warrantyPolicyId: p.warranty, returnPolicyId: p.returns })).then((o) => { offer = o })
+    cy.then(() => {
+      customer()
+      cy.visit(UI.publicPage)
+      post(API.checkout, { lines: [{ offerId: offer.offerId, quantity: 1, expectedPrice: 52000 }], customerName: 'Ali',
+        customerPhone: `0318${String(run).slice(-6)}2`, address: '1 Clifton', city: 'Karachi', idempotencyKey: `wrp-${run}` })
+        .then((r) => { expect(ok(r.body), JSON.stringify(r.body)).to.eq(true); RP.no = data(r.body).orderNo })
+    })
+    as(SELLER_A)
+    cy.then(() => get(`${API.incomingOrders}?status=OFFERED&size=100`)).then((r) => {
+      const so = list(r.body).find((x) => x.orderNo === RP.no)
+      return post(API.acceptOrder, { id: so.id, version: so.version })
+    }).then((r) => expect(ok(r.body), JSON.stringify(r.body)).to.eq(true))
+    cy.then(() => get(`${API.incomingOrders}?status=ACCEPTED&size=100`)).then((r) => {
+      const store = list(r.body).find((x) => x.orderNo === RP.no).storeOrderId
+      post('/updateOrderStatus', { id: store, status: 'PACKED' })
+      get(`/getOrder?id=${store}`).then((g) => {
+        const l = data(g.body).items[0]
+        post('/shipOrder', { id: store, lines: [{ orderItemId: l.id, quantity: l.quantity }], carrier: 'Own rider', trackingNumber: `WRP-${run}` })
+      })
+      post('/updateOrderStatus', { id: store, status: 'DELIVERED' }).then((u) => expect(ok(u.body), JSON.stringify(u.body)).to.eq(true))
+    })
+    cy.then(() => rLine(RP.no)).then((l) => { RP.day = l.eligibleOn; RP.next = nextBusinessDay(l.eligibleOn) })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show".',
+      'The delivered order\'s line, "Payable on" a weekday a few days from now (after its 3 return days).', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.contains(`${UI.statementTable} tr.mkt-line`, RP.no).scrollIntoView({ offset: { top: -200, left: 0 } })
+          .find('.mkt-eligible-on').should('have.text', RP.day)
+        cy.then(() => expect(isWeekend(RP.day), 'a weekday').to.eq(false))
+      })
+    step('Operator: Platform dashboard → "Settlement and payouts" → "Bank holidays". Day: today, Name "Test". Press "Add holiday".',
+      '"A holiday can be added only for a day after today: lines already payable keep their day." Nothing is added.', () => {
+        payoutsPanel('#mktHolidayBox')
+        cy.get('#mktHolDate').type(RP.today)
+        cy.get('#mktHolName').type('Test')
+        cy.get('#mktHolAdd').click()
+        cy.get('#mktHolMsg').should('have.text', 'A holiday can be added only for a day after today: lines already payable keep their day.')
+        cy.get('#mktHolidayList tbody').should('not.contain', 'Test')
+      })
+    step('Day: the line\'s payable day. Name "Walk bank holiday". Press "Add holiday".',
+      '"Holiday added. Lines due that day are paid on the next business day." The day is listed with its name and a "Remove" button.', () => {
+        cy.get('#mktHolDate').clear().type(RP.day)
+        cy.get('#mktHolName').clear().type(`Walk bank holiday ${M}`)
+        cy.get('#mktHolAdd').click()
+        cy.get('#mktHolMsg').should('have.text', 'Holiday added. Lines due that day are paid on the next business day.')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"]`).should('contain', `Walk bank holiday ${M}`)
+          .find('.mkt-holiday-remove').should('be.visible')
+      })
+    step('As owner.business@myplus.com: the statement again.',
+      'The same line is now "Payable on" the next business day after the holiday (a Monday if the holiday was a Friday).', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.contains(`${UI.statementTable} tr.mkt-line`, RP.no).scrollIntoView({ offset: { top: -200, left: 0 } })
+          .find('.mkt-eligible-on').should('have.text', RP.next)
+      })
+    cleanup('Operator: "Bank holidays" → the walk\'s holiday → "Remove". Then the shop\'s statement.',
+      '"Holiday removed." It is no longer listed, and the line is "Payable on" its own day again.', () => {
+        payoutsPanel('#mktHolidayBox')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"] .mkt-holiday-remove`).click()
+        cy.get('#mktHolMsg').should('have.text', 'Holiday removed.')
+        cy.get(`#mktHolidayList .mkt-holiday[data-date="${RP.day}"]`).should('not.exist')
+        cy.then(() => rLine(RP.no)).then((l) => expect(l.eligibleOn, 'back to its own day').to.eq(RP.day))
+      })
+  })
+
+  walk({ id: 'M-2f-03', slice: 'MKT-2f', title: 'A seller reads its own period summary: the figures MaxTheService reconciles with',
+    persona: 'owner.business@myplus.com (Shahzad Mobile Shop)', reqs: ['MKT-R20.3', 'MKT-R22.1'],
+    pre: 'The shop has settled marketplace sales (earlier cases).', auto: ['MKT-2f-05'] }, (step, call, cleanup) => {
+    cy.then(() => rReport()).then((v) => { RP.mine = v.rows.find((x) => x.sellerName === A_NAME) })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Statement" → "Show". Scroll to "Period summary".',
+      'This month to today: "Owed to you at the start", Sales, Commission, "Delivery, fees and tax", "Reserve held and released", Refunds, Corrections, "Cash your riders kept", "You paid MaxTheService", "Paid out to you", "Owed to you at the end", and "<n> sale line(s) settled in this period.": the same figures as the shop\'s row in MaxTheService\'s report. When the shop owes money at the end, the last line reads "You owe MaxTheService at the end" with the amount in red.', () => {
+        as(SELLER_A)
+        cy.intercept('GET', '**/mkt/settlementReport*').as('mine')
+        openMarketplace()
+        cy.get('#mktStatementTab').click()
+        cy.wait('@mine')
+        cy.get('#mktMyReport tbody tr').should('have.length', 11)
+        const abs = (v) => Math.abs(Number(v)).toLocaleString('en-US', { maximumFractionDigits: 2 })
+        cy.get('#mktMyReport .mkt-myrep-opening td').eq(1).should('have.text', abs(RP.mine.opening))
+        cy.get('#mktMyReport .mkt-myrep-sales td').eq(1).should('have.text', rRs(RP.mine.sales))
+        cy.get('#mktMyReport .mkt-myrep-commission td').eq(1).should('have.text', rRs(RP.mine.commission))
+        cy.get('#mktMyReport .mkt-myrep-closing td').eq(0).should('have.text', Number(RP.mine.closing) < 0 ? 'You owe MaxTheService at the end' : 'Owed to you at the end')
+        cy.get('#mktMyReport .mkt-myrep-closing td').eq(1).should('have.text', abs(RP.mine.closing))
+        cy.get('#mktMyRepMsg').should('have.text', `${RP.mine.lines} sale line(s) settled in this period.`)
+        cy.wait(600)
+        cy.get('#mktMyReport').scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+    step('In the browser\'s address bar open /platform/mkt/settlementReport (MaxTheService\'s report of every shop).',
+      'Refused: the shop sees only its own row.', () => {
+        call('GET /platform/mkt/settlementReport as the shop', get('/platform/mkt/settlementReport')).then((r) => {
+          expect(r.status).to.eq(403)
+          expect(ok(r.body)).to.eq(false)
+        })
+      })
+    cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
+  })
 })

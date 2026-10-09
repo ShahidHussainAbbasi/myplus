@@ -6532,6 +6532,315 @@
    "evidence": "recorded"
   },
   {
+   "id": "M-2e-01",
+   "slice": "MKT-2e",
+   "title": "The operator reads how each seller handles its orders, over 7, 30 or 90 days",
+   "persona": "MaxTheService operator (admin@myplus.com)",
+   "reqs": [
+    "MKT-R20.3"
+   ],
+   "pre": "Both shops have had marketplace orders in the last 30 days (earlier cases).",
+   "auto": [
+    "MKT-2e-01",
+    "MKT-2e-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Operator: Platform dashboard → \"Seller performance\".",
+     "expect": "\"Seller performance\", with \"30 days\" selected. One row per shop that had an order in the last 30 days, shops that need attention first. Shahzad Mobile Shop's row: \"Orders accepted\" as \"<percent>% (<accepted> of <decided>)\", \"Time to accept\" in minutes, \"Delivered on time\", \"Not fulfilled by the seller\", \"Returns the seller caused\", and in red under \"Needs attention\" each reason, or \"Nothing\".",
+     "shot": "shots/M-2e-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Press \"7 days\".",
+     "expect": "\"7 days\" is selected and the figures are those of the orders placed in the last 7 days: never more orders than in 30 days.",
+     "shot": "shots/M-2e-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Press \"90 days\".",
+     "expect": "\"90 days\" is selected; Shahzad Mobile Shop has at least as many orders as in 30 days.",
+     "shot": "shots/M-2e-01/03.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: reading changes nothing.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T15:54:02.948Z",
+   "startedAt": "2026-10-08T15:53:55.471Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2e-02",
+   "slice": "MKT-2e",
+   "title": "A missed order counts against the seller until it disputes it; overturned, it is not the seller's fault",
+   "persona": "owner.mobile@myplus.com (Mobile Distributor), then the MaxTheService operator",
+   "reqs": [
+    "MKT-R20.3",
+    "MKT-R11.4",
+    "MKT-R12.4"
+   ],
+   "pre": "A customer has just ordered Mobile Distributor's phone, cash on delivery. Mobile Distributor has no stock on the shelf.",
+   "auto": [
+    "MKT-2e-02",
+    "MKT-2e-03",
+    "MKT-2e-04"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace → Incoming orders → the new order → reason \"none on the shelf\", cause \"Out of stock in my shop\" → Reject.",
+     "expect": "The row reads \"Rejected\", \"Cause: … · Recorded\".",
+     "shot": "shots/M-2e-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Operator: Platform dashboard → \"Seller performance\".",
+     "expect": "Mobile Distributor's \"Not fulfilled by the seller\" is one more than before.",
+     "shot": "shots/M-2e-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "As owner.mobile@myplus.com: Incoming orders → \"Rejected (cause and disputes)\" → the order → \"Dispute this cause\" → \"The stock count said 3\" → \"Send dispute\".",
+     "expect": "\"Disputed: MaxTheService is reviewing it\".",
+     "shot": "shots/M-2e-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Operator: \"Seller performance\" again.",
+     "expect": "Mobile Distributor's \"Not fulfilled by the seller\" is back to what it was, with \"1 under dispute\" (or one more than before) under it: a disputed record is not used until MaxTheService decides.",
+     "shot": "shots/M-2e-02/04.jpg"
+    },
+    {
+     "n": 5,
+     "do": "Operator: \"Unfulfilled parts\" → the order → reason \"Our count was late; not the seller's fault.\" → \"Overturn it\".",
+     "expect": "\"Overturned by MaxTheService\".",
+     "shot": "shots/M-2e-02/05.jpg"
+    },
+    {
+     "n": 6,
+     "do": "Operator: \"Seller performance\" again.",
+     "expect": "Mobile Distributor: \"Not fulfilled by the seller\" as before the order, nothing under dispute from it, and one more \"not the seller's fault\".",
+     "shot": "shots/M-2e-02/06.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: the order ended when it was rejected, and the decision is the record (it moved no money).",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T15:55:06.390Z",
+   "startedAt": "2026-10-08T15:54:03.271Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2e-03",
+   "slice": "MKT-2e",
+   "title": "The seller reads its own scorecard; of two equal offers the customer sees the seller that accepts more first",
+   "persona": "owner.mobile@myplus.com (Mobile Distributor), then a customer (incognito window)",
+   "reqs": [
+    "MKT-R20.3"
+   ],
+   "pre": "Both shops sell the same phone at Rs 52,000, delivery in 24 hours, the same warranty and return policy, both in Karachi.",
+   "auto": [
+    "MKT-2e-07",
+    "MKT-2e-08"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.mobile@myplus.com: Sale → Marketplace. Scroll to \"Your performance\".",
+     "expect": "Four figures for the last 30 days: \"Orders accepted\", \"Time to accept\", \"Delivered on time\", \"Returns you caused\", the same MaxTheService sees; under them, for each reason, \"MaxTheService has noted: …\".",
+     "shot": "shots/M-2e-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Customer: open the phone both shops sell (Karachi).",
+     "expect": "The shop that accepts more of its orders is listed first, although it published its offer later: price, delivery time and policies are the same.",
+     "shot": "shots/M-2e-03/02.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: both offers stay on sale, as after M-1d.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T15:55:17.806Z",
+   "startedAt": "2026-10-08T15:55:06.850Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2f-01",
+   "slice": "MKT-2f",
+   "title": "The operator reads the settlement report for a period and downloads it",
+   "persona": "MaxTheService operator (admin@myplus.com)",
+   "reqs": [
+    "MKT-R20.3",
+    "MKT-R15.6"
+   ],
+   "pre": "Both shops have settled marketplace sales (earlier cases).",
+   "auto": [
+    "MKT-2f-01",
+    "MKT-2f-02",
+    "MKT-2f-04",
+    "MKT-2f-06"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "Operator: Platform dashboard → \"Settlement and payouts\". Scroll to \"Settlement report\".",
+     "expect": "From the 1st of this month to today. One row per shop: Closing (what the shop is owed at the end), then Opening, Sales, Commission, Fees and tax, Reserve, Refunds, Corrections, Cash kept by seller, Paid in by seller, Paid out, Lines; what the shop lost is in red; \"All sellers\" adds them up. For every shop, Opening plus the columns is its Closing.",
+     "shot": "shots/M-2f-01/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Set \"From\" to today and \"To\" to yesterday. Press \"Show\".",
+     "expect": "\"The start of the period is after its end.\" The table is empty and \"Download CSV\" cannot be pressed.",
+     "shot": "shots/M-2f-01/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Set \"From\" to 10 days ago and \"To\" to today. Press \"Show\".",
+     "expect": "The shops with money in those days. Each shop's \"Opening\" is what it was owed at the start of the 10 days: the closing of the days before.",
+     "shot": "shots/M-2f-01/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "Press \"Download CSV\".",
+     "expect": "A file \"settlement-report-<from>-to-<to>.csv\": a header line with the same columns, one line per shop, and \"All sellers\". It opens in Excel.",
+     "shot": "shots/M-2f-01/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: reading changes nothing.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:43:41.261Z",
+   "startedAt": "2026-10-08T16:43:24.346Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2f-02",
+   "slice": "MKT-2f",
+   "title": "A bank holiday added ahead of time moves a line due that day to the next business day",
+   "persona": "MaxTheService operator (admin@myplus.com), then owner.business@myplus.com (Shahzad Mobile Shop)",
+   "reqs": [
+    "MKT-R15.1",
+    "MKT-R22.1"
+   ],
+   "pre": "Shahzad Mobile Shop has just delivered a marketplace phone sold with a 3-day return policy, so it becomes payable a few days from now.",
+   "auto": [
+    "MKT-2f-07",
+    "MKT-2f-08"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Statement\" → \"Show\".",
+     "expect": "The delivered order's line, \"Payable on\" a weekday a few days from now (after its 3 return days).",
+     "shot": "shots/M-2f-02/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "Operator: Platform dashboard → \"Settlement and payouts\" → \"Bank holidays\". Day: today, Name \"Test\". Press \"Add holiday\".",
+     "expect": "\"A holiday can be added only for a day after today: lines already payable keep their day.\" Nothing is added.",
+     "shot": "shots/M-2f-02/02.jpg"
+    },
+    {
+     "n": 3,
+     "do": "Day: the line's payable day. Name \"Walk bank holiday\". Press \"Add holiday\".",
+     "expect": "\"Holiday added. Lines due that day are paid on the next business day.\" The day is listed with its name and a \"Remove\" button.",
+     "shot": "shots/M-2f-02/03.jpg"
+    },
+    {
+     "n": 4,
+     "do": "As owner.business@myplus.com: the statement again.",
+     "expect": "The same line is now \"Payable on\" the next business day after the holiday (a Monday if the holiday was a Friday).",
+     "shot": "shots/M-2f-02/04.jpg"
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "Operator: \"Bank holidays\" → the walk's holiday → \"Remove\". Then the shop's statement.",
+     "expect": "\"Holiday removed.\" It is no longer listed, and the line is \"Payable on\" its own day again.",
+     "shot": "shots/M-2f-02/c01.jpg"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:44:41.331Z",
+   "startedAt": "2026-10-08T16:43:41.631Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
+   "id": "M-2f-03",
+   "slice": "MKT-2f",
+   "title": "A seller reads its own period summary: the figures MaxTheService reconciles with",
+   "persona": "owner.business@myplus.com (Shahzad Mobile Shop)",
+   "reqs": [
+    "MKT-R20.3",
+    "MKT-R22.1"
+   ],
+   "pre": "The shop has settled marketplace sales (earlier cases).",
+   "auto": [
+    "MKT-2f-05"
+   ],
+   "steps": [
+    {
+     "n": 1,
+     "do": "As owner.business@myplus.com: Sale → Marketplace → \"Statement\" → \"Show\". Scroll to \"Period summary\".",
+     "expect": "This month to today: \"Owed to you at the start\", Sales, Commission, \"Delivery, fees and tax\", \"Reserve held and released\", Refunds, Corrections, \"Cash your riders kept\", \"You paid MaxTheService\", \"Paid out to you\", \"Owed to you at the end\", and \"<n> sale line(s) settled in this period.\": the same figures as the shop's row in MaxTheService's report. When the shop owes money at the end, the last line reads \"You owe MaxTheService at the end\" with the amount in red.",
+     "shot": "shots/M-2f-03/01.jpg"
+    },
+    {
+     "n": 2,
+     "do": "In the browser's address bar open /platform/mkt/settlementReport (MaxTheService's report of every shop).",
+     "expect": "Refused: the shop sees only its own row.",
+     "calls": [
+      {
+       "call": "GET /platform/mkt/settlementReport as the shop",
+       "status": 403,
+       "body": {
+        "message": "AccessDenied",
+        "error": null,
+        "status": "Unauthorized Access !!",
+        "object": null,
+        "collection": null,
+        "success": false
+       }
+      }
+     ]
+    }
+   ],
+   "cleanup": [
+    {
+     "n": 1,
+     "do": "None: reading changes nothing.",
+     "expect": "—"
+    }
+   ],
+   "recordedAt": "2026-10-08T16:44:51.517Z",
+   "startedAt": "2026-10-08T16:44:41.932Z",
+   "result": "passed",
+   "evidence": "recorded"
+  },
+  {
    "id": "M-2-06",
    "slice": "MKT-2",
    "title": "Acceptance terms differ by order value",

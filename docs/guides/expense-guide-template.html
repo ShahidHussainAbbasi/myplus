@@ -105,7 +105,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <p>Step-by-step manual tests for every slice of Expense Management and of the supplier payables that now live in finance, for every business type and every login tier. Each case says who to log in as, what to do, what you should see, and which real mistake it catches. Tick the results as you go; your ticks stay in this browser only.</p>
     <div class="meta">
       <span>Branch <b>feature/expense-management</b></span>
-      <span>Updated 5 Oct 2026</span>
+      <span>Updated 9 Oct 2026</span>
       <span>Password for every test login: <b class="mono" style="color:inherit">Demo@2025!</b></span>
     </div>
   </div>
@@ -519,7 +519,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <section class="sec" id="ex2a">
       <h2>EX-2a · Expenses on the school, welfare and farm dashboards</h2>
       <p>These dashboards now have a <b>Modules</b> card at the top of <b>Configuration</b>. Expense management is switched on there, and the same Expenses screen as the shop's appears: under <b>Fee</b> on the school dashboard, and in the sidebar on welfare and farm.</p>
-      <div class="info"><b>Deployed 2 Oct, 10:23.</b> The automated gate for these cases passes, for all three businesses.</div>
+      <div class="info"><b>Deployed 2 Oct, 10:23.</b> The automated gate for these cases passes, for all three businesses. Case 2a-5 (EX-2c, deployed 9 Oct) has its own gate, <code>ex-2c-books-everywhere</code>, which passes 6/6.</div>
       <div class="case" data-case="2a-1">
         <div class="case-head"><span class="cid">2a-1</span><h3>Each business switches the module on for itself</h3><span class="pill pill-info">Owner</span></div>
         <div class="case-body">
@@ -562,6 +562,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>There is no way for a user to switch a module on or off.</span></label></li><li><label><input type="checkbox"><span>Business features such as installments cannot be changed from this card (checked in the gate).</span></label></li></ul></div>
           </div>
           <div class="why"><b>Catches:</b> a cashier or teacher switching modules, or this card being used to flip a business feature.</div>
+        </div>
+      </div>
+      <div class="case" data-case="2a-5">
+        <div class="case-head"><span class="cid">2a-5</span><h3>The books on every dashboard</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>owner.welfare</code><code>owner.agriculture</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Record Rent 7 in cash on each dashboard.</li><li>Open Finance (school: the Finance menu → Profit &amp; Loss; welfare and farm: <b>Finance</b> in the sidebar).</li><li>Click <b>Trial Balance</b>.</li><li>As a user, look for Finance.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Finance opens on this month’s Profit &amp; Loss, with the Rent in it.</span></label></li><li><label><input type="checkbox"><span>No Tax Register tab: a school, trust or farm has no sales tax to register.</span></label></li><li><label><input type="checkbox"><span>The Trial Balance says <b>Balanced</b>.</span></label></li><li><label><input type="checkbox"><span>Welfare: the report and the Expenses screen both say donations are not in these books yet. Farm: the report says the farm’s own Income and Expense records are not in them yet. School: no notice (fees post).</span></label></li><li><label><input type="checkbox"><span>A user has no Finance menu, and asking for the report directly is refused.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> expenses posting to books nobody on that dashboard can see; welfare told its books are complete when donations are missing; a cashier reading the profit and loss (fixed in EX-2c: finance-service now refuses it).</div>
         </div>
       </div>
     </section>
@@ -1025,9 +1036,9 @@ pre.cmd code{font-size:12px;color:var(--txt)}
         <table>
           <thead><tr><th>#</th><th>Finding</th><th>Severity</th></tr></thead>
           <tbody>
-            <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) can never be retried; the row only says “Not posted”. The only way out is void and re-record, and the screen does not say so.</td><td><span class="pill pill-bad">High</span></td></tr>
-            <tr><td>E2</td><td>The school, welfare and farm dashboards record expenses into books they <b>cannot see</b>: no Profit &amp; Loss or Trial Balance screen there.</td><td><span class="pill pill-bad">High</span></td></tr>
-            <tr><td>E3</td><td>Welfare is told “each expense is posted to your books”, but welfare has no books yet.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) could never be retried, and the reason was hidden. <b>Fixed (EX-1b):</b> the reason is on the row within seconds, and <b>Post again</b> sends it once the cause is fixed — case 1-8.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
+            <tr><td>E2</td><td>The school, welfare and farm dashboards recorded expenses into books they <b>could not see</b>. <b>Fixed (EX-2c):</b> each has a Finance entry with Profit &amp; Loss, Trial Balance, Balance Sheet and Period Close — case 2a-5. Found on the way: any member could read the statements by asking for them directly; finance-service now allows owners and admins only.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
+            <tr><td>E3</td><td>Welfare was told “each expense is posted to your books”, but donations are not in the books yet. <b>Fixed (EX-2c):</b> the Expenses screen and the reports say so, until welfare’s fund accounting is built — case 2a-5.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E4</td><td>The Expenses list stops at 200 rows without saying so.</td><td><span class="pill pill-warn">Medium</span></td></tr>
             <tr><td>E5</td><td>The expense settings were never built (post limit for users, receipt rule, default “paid from”); how far back a date may go is fixed at 365 days.</td><td><span class="pill pill-warn">Medium</span></td></tr>
             <tr><td>E6</td><td>No screen to add or rename expense categories — every business has the 8 defaults.</td><td><span class="pill pill-warn">Medium</span></td></tr>
@@ -1095,6 +1106,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>finance/fp-4c-balance-stamp.cy.js</code> (5)</td><td>Bills stamped on the supplier; total vs Pay figure; edit keeps it; credit limit refuses on FINANCE and allows on BUSINESS; on screen</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/fp-5b-mixed-settlement.cy.js</code> (5)</td><td>One Pay settles purchases and bills oldest first; one PV; the switch back is refused after a mixed payment</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/fp-6a-reconciliation.cy.js</code> (6)</td><td>A check records today; a planted 77 in GL 2000 is aligned once against 2990, books balanced; a second run posts nothing; history and streak; operator panel; owner refused</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
+            <tr><td><code>expense/ex-1b-post-again.cy.js</code> (7)</td><td>A closed period refuses at once with its reason; Post again refused while closed, in the books once reopened, never twice; a bill paid into a closed period is refused, not left pending; scoped; on screen; a voided refusal offers nothing</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td>Re-run of all 14 specs, 5 Oct</td><td>Every gate above on one fresh stack. fp-4b case 2 red: it needs a tenant whose figures disagree and borrows old demo drift — the spec must make its own</td><td><span class="pill pill-warn">77/78</span></td></tr>
           </tbody>
         </table>

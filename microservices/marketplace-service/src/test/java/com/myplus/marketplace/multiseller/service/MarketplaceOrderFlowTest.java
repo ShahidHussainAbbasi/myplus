@@ -116,7 +116,7 @@ class MarketplaceOrderFlowTest {
     @BeforeEach
     void wire() {
         settings = new MarketplaceSettingsService(settingRows, access, audit);
-        PublicOfferService publicOffers = new PublicOfferService(projections, products, settings);
+        PublicOfferService publicOffers = new PublicOfferService(projections, products, settings, org.mockito.Mockito.mock(SellerPerformanceService.class));
         checkout = new MarketplaceCheckoutService(offers, projections, products, policies, accounts, orders, sellerOrders,
                 lines, publicOffers, settings, shipping, trade, numbers, access, txManager, payments, shortageRows, sellerSideProvider,
                 routing = new LiveRouting(trade, java.time.Duration.ofMillis(1000), java.time.Duration.ofMillis(2000), 3,

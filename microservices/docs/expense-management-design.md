@@ -580,9 +580,9 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 |---|---|---|---|
 | R-1 | Default OFF needs a `common-settings` change touching every service that resolves capabilities | do it as EX-0a with its own gate; behaviour identical for existing capabilities | no (follows R2) |
 | R-2 | `Plan.FREE` — is Expense Management a paid feature? | **in FREE**: without it a shop's P&L is wrong, the same test that put `MADE_TO_ORDER` in FREE | **yes** |
-| R-3 | Receipt storage before AWS is live | local-FS adapter for dev/single-host now, S3 adapter when AWS lands; EX-5 waits | **yes** |
-| R-4 | History: back-post past drawer pay-outs / agri rows? | **no automatic restatement**; offer an owner-run, previewed import dated in an open period | **yes** |
-| R-5 | Welfare has no ledger (F5); its P&L would show spending without donations | ship welfare UI in EX-2 but flag; welfare-to-GL is its own slice | **yes** |
+| R-3 | Receipt storage before AWS is live | local-FS adapter for dev/single-host now, S3 adapter when AWS lands; EX-5 waits | **decided 2026-10-09**: server-side, client compresses (§11.3) |
+| R-4 | History: back-post past drawer pay-outs / agri rows? | **no automatic restatement**; offer an owner-run, previewed import dated in an open period | **decided 2026-10-09**: yes, with consent; once per source row; matches flagged (§11.3) |
+| R-5 | Welfare has no ledger (F5); its P&L would show spending without donations | ship welfare UI in EX-2 but flag; welfare-to-GL is its own slice | **decided 2026-10-09**: NGO fund accounting (§11.3); flag shipped in EX-2c |
 | R-6 | Journal lines have no dimensions (G2) | keep dimensions in expense-service for EX-1..8 reports; adding `store_id` to `journal_line` is a finance slice of its own | no |
 | R-7 | `DocumentNumberService` would become a third copy | extract to a common library **before** EX-1 (DRY rule), or accept a third copy with a dated TODO | **yes** |
 | R-8 | Approvals need a reporting line (G8) | EX-6 uses privilege + amount threshold (SalesQuote pattern); hierarchy waits for HRM | no |
@@ -629,9 +629,9 @@ the verification sweep, `init-db.sql`). One **spec defect fixed**: ex-2b assumed
 
 | # | Finding | Evidence | Severity |
 |---|---|---|---|
-| E1 | **A failed posting can never be retried.** §5.4 promises FAILED → PENDING (redrive); nothing implements it. The list shows "Not posted" with the reason in a tooltip; the only way out is void and re-record, which the screen does not say. A closed period is the likely cause in practice | no redrive endpoint/job in expense-service; `expense.js` FAILED chip | **High** — money paid that never reaches the books |
-| E2 | **Three dashboards record expenses into books they cannot see.** School, welfare and farm have Expenses but no P&L / trial balance screen (business has `showFinance`; the other three have none) | template grep: 0 finance screens on welfare/agriculture; education only its fee ledger | **High** — the module's whole value (§1) is invisible there |
-| E3 | **Welfare is told "Each expense is posted to your books"** while welfare has no ledger link at all (§4b F5) and R-5's recommended notice was never shipped | `fragments/expense.html`; welfare-service has no outbox/finance client | Medium |
+| E1 | **A failed posting can never be retried.** §5.4 promises FAILED → PENDING (redrive); nothing implements it. The list shows "Not posted" with the reason in a tooltip; the only way out is void and re-record, which the screen does not say. A closed period is the likely cause in practice | no redrive endpoint/job in expense-service; `expense.js` FAILED chip | **Fixed — EX-1b** (`slices/ex-1b-post-again.md`): a refusal is final at once with the books’ own words; **Post again**; gate 7/7 |
+| E2 | **Three dashboards record expenses into books they cannot see.** School, welfare and farm have Expenses but no P&L / trial balance screen (business has `showFinance`; the other three have none) | template grep: 0 finance screens on welfare/agriculture; education only its fee ledger | **Fixed — EX-2c** (`slices/ex-2c-books-on-every-dashboard.md`): one shared Finance fragment + script on all four dashboards; Tax Register only for business; gate 6/6. Found on the way: **S1** — 5 finance read endpoints had no authority check (any member could read the P&L); now owner/admin/super |
+| E3 | **Welfare is told "Each expense is posted to your books"** while welfare has no ledger link at all (§4b F5) and R-5's recommended notice was never shipped | `fragments/expense.html`; welfare-service has no outbox/finance client | **Fixed — EX-2c**: `ui.welfareBooksNote` on the Expenses screen and the reports until welfare fund accounting ships; the farm reports carry `ui.farmBooksNote` (its own Income/Expense records never reach the books) until EX-9 |
 | E4 | **The expense list silently stops at 200** rows (`size=200`, no paging, no total, no "showing N of M") | `expense.js expenseLoad` | Medium |
 | E5 | **§6.2 settings were never built** — no expense settings catalog: no `userPostLimit`, `receipt.requiredAbove`, `defaultPaidFrom`; `backdateDays` is a constant **365** in code (design: setting, default 30) | no `SettingsCatalogProvider` in expense-service; `ExpenseVoucherService.BACKDATE_DAYS` | Medium |
 | E6 | **No category management screen.** Owners get the 8 seeded categories only; the API can add/edit (POST/PATCH) but the monolith proxies GET and POST only, and no screen calls POST | `ExpenseController` (monolith) mappings | Medium |
@@ -653,13 +653,21 @@ switched on.
 
 ### 11.3 What is left (in order)
 
-1. **E1 redrive** (owner-visible "Post again" on a FAILED voucher, same event key) — small, closes a money gap.
-2. **E2** a P&L / trial balance on the education, welfare and farm dashboards (the business finance screen, shared) — and
-   **E3** the welfare notice until welfare-to-books (R-5).
+1. ~~**E1 redrive**~~ — done, EX-1b.
+2. ~~**E2** the books on the education, welfare and farm dashboards, **E3** the welfare notice~~ — done, EX-2c.
 3. **E4 + E5 + E6** list paging/total, the expense settings catalog, a category screen for owners.
-4. fp-4b case 2 made self-sufficient (11.1).
-5. Programme slices: EX-5 receipts (needs R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
-   EX-9 farm convergence (R-4), FP-6b/6c after 28 clean days.
-6. Rulings still open: R-3 receipt storage, R-4 history back-posting, R-5 welfare books; FREE-plan inclusion "applied,
-   confirm".
+4. A payment reversal, so a paid bill can be voided; expense-bill parity in the FP-6a daily check.
+5. fp-4b case 2 made self-sufficient (11.1).
+6. Programme slices: EX-5 receipts (R-3), EX-6/7 claims and reimbursement, EX-8 reports (validate `storeId` first — E8),
+   EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
+7. Rulings — **decided by the owner 2026-10-09**:
+   - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).
+     The browser captures and compresses the photo or scan before upload; the server stores it behind the
+     `ReceiptStore` port on a local disk volume now, S3 when AWS lands.
+   - **R-4** past till pay-outs and farm expenses **are back-posted, with the owner's consent**: an owner-run, previewed
+     import; each source row posts once, keyed by its source id; a row that matches an expense already recorded is
+     flagged for the owner, never posted twice.
+   - **R-5** welfare's books are **NGO fund accounting**: donations post as income, restricted or unrestricted; spending
+     is tagged to a fund; welfare gets its own statements. Until then the EX-2c notice stands.
+   FREE-plan inclusion "applied, confirm" is still open.
 

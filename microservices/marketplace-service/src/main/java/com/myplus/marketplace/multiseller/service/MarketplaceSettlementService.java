@@ -103,9 +103,6 @@ public class MarketplaceSettlementService {
     static final List<String> ACCEPTED = List.of(com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerOrder.ACCEPTED.name(),
             com.myplus.marketplace.multiseller.domain.MarketplaceStatus.SellerOrder.HANDED_OVER.name());
 
-    /** Weekends only: Pakistani banks' Saturday/Sunday. A holiday list is MKT-2f (settlement reports). */
-    static final BusinessDayCalendar CALENDAR = BusinessDayCalendar.saturdaySundayWeekend(Set.of());
-
     private final MarketplaceOrderLineRepository lines;
     private final MarketplaceSellerOrderRepository sellerOrders;
     private final MarketplaceOrderRepository orders;
@@ -120,6 +117,8 @@ public class MarketplaceSettlementService {
     private final SellerAccess access;
     private final PlatformTransactionManager txManager;
     private final CodStandingService cod;
+    /** MKT-2f: weekends plus the operator's bank holidays. */
+    private final SettlementCalendarService calendar;
 
     // ── the arithmetic (pure, given the rows) ──────────────────────────────────────────────────────────────
 
@@ -172,11 +171,11 @@ public class MarketplaceSettlementService {
     }
 
     /** The day a line delivered at {@code deliveredAt}, sold with {@code returnDays}, becomes payable. */
-    static LocalDate eligibleOn(LocalDateTime deliveredAt, Integer returnDays, int tPlusDays) {
+    static LocalDate eligibleOn(LocalDateTime deliveredAt, Integer returnDays, int tPlusDays, BusinessDayCalendar cal) {
         if (deliveredAt == null) return null;
         LocalDate windowEnd = deliveredAt.toLocalDate().plusDays(returnDays == null ? DEFAULT_RETURN_DAYS : Math.max(0, returnDays));
-        LocalDate d = CALENDAR.plusBusinessDays(windowEnd, tPlusDays);
-        while (!CALENDAR.isBusinessDay(d)) d = d.plusDays(1);   // T+0 on a Saturday pays on Monday
+        LocalDate d = cal.plusBusinessDays(windowEnd, tPlusDays);
+        while (!cal.isBusinessDay(d)) d = d.plusDays(1);   // T+0 on a Saturday or a holiday pays on the next business day
         return d;
     }
 
@@ -202,11 +201,12 @@ public class MarketplaceSettlementService {
         int checked = 0, settled = 0, waiting = 0, onHold = 0, noBooks = 0;
         Optional<Books> books = settings.books();
         int tPlus = settings.tPlusDays();
+        BusinessDayCalendar cal = calendar.calendar();
         TransactionTemplate tx = new TransactionTemplate(txManager);
         for (MarketplaceOrderLine candidate : lines.findDeliveredInStatus(WAITING, PageRequest.of(0, BATCH))) {
             checked++;
             try {
-                String outcome = tx.execute(s -> settleLine(candidate.getId(), today, tPlus, books.orElse(null)));
+                String outcome = tx.execute(s -> settleLine(candidate.getId(), today, tPlus, cal, books.orElse(null)));
                 if (Settlement.ELIGIBLE.name().equals(outcome)) settled++;
                 else if (Settlement.ON_HOLD.name().equals(outcome)) onHold++;
                 else if ("NO_BOOKS".equals(outcome)) noBooks++;
@@ -219,7 +219,7 @@ public class MarketplaceSettlementService {
     }
 
     /** Move one line as far as today allows; write its ledger rows and the operator's journal when it settles. */
-    String settleLine(Long lineId, LocalDate today, int tPlus, Books books) {
+    String settleLine(Long lineId, LocalDate today, int tPlus, BusinessDayCalendar cal, Books books) {
         MarketplaceOrderLine l = lines.findById(lineId).orElse(null);
         if (l == null || !WAITING.contains(l.getSettlementStatus())) return "SKIP";
         MarketplaceSellerOrder so = sellerOrders.findById(l.getSellerOrderId()).orElse(null);
@@ -229,7 +229,7 @@ public class MarketplaceSettlementService {
             move(l, Settlement.ON_HOLD);
             return Settlement.ON_HOLD.name();
         }
-        LocalDate due = eligibleOn(so.getDeliveredAt(), l.getReturnDays(), tPlus);
+        LocalDate due = eligibleOn(so.getDeliveredAt(), l.getReturnDays(), tPlus, cal);
         if (today.isBefore(due)) {
             move(l, Settlement.PENDING_RETURN_WINDOW);
             return Settlement.PENDING_RETURN_WINDOW.name();
@@ -322,6 +322,7 @@ public class MarketplaceSettlementService {
         Map<Long, String> payoutNos = new HashMap<>();
         Map<Long, Long> firstLines = new HashMap<>();
         int tPlus = settings.tPlusDays();
+        BusinessDayCalendar cal = calendar.calendar();
         return PageResponse.of(rows, l -> {
             MarketplaceSellerOrder so = sos.computeIfAbsent(l.getSellerOrderId(), id -> sellerOrders.findById(id).orElse(null));
             MarketplaceOrder o = so == null ? null : parents.computeIfAbsent(so.getMktOrderId(), id -> orders.findById(id).orElse(null));
@@ -341,7 +342,7 @@ public class MarketplaceSettlementService {
                     id -> payouts.findById(id).map(MarketplacePayout::getPayoutNo).orElse(null));
             return new SettlementDTOs.StatementLine(l.getId(), o == null ? null : o.getOrderNo(), l.getProductName(),
                     l.getQuantity(), l.getSettlementStatus(), so == null ? null : so.getDeliveredAt(),
-                    so == null ? null : eligibleOn(so.getDeliveredAt(), l.getReturnDays(), tPlus),
+                    so == null ? null : eligibleOn(so.getDeliveredAt(), l.getReturnDays(), tPlus, cal),
                     f.sellerCollected() ? "SELLER" : "PLATFORM", customer, commission, b.deliveryFee(), b.processingFee(),
                     b.tax(), b.reserve(), b.adjustment(), customer.subtract(commission).subtract(b.deliveryFee())
                             .subtract(b.processingFee()).subtract(b.tax()).subtract(b.reserve()).subtract(b.adjustment()),

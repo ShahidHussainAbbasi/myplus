@@ -269,7 +269,35 @@
 						<tbody></tbody>
 					</table>
 				</div>
+				<!-- MKT-2f: the shop's own row of the settlement report: the same figures MaxTheService reconciles with -->
+				<h5 style="font-weight:700" th:text="#{ui.mktMyReportTitle}">Period summary</h5>
+				<p class="text-muted" style="font-size:13px" th:text="#{ui.mktMyReportHint}">Each line is what it added to, or took from, what MaxTheService owes you over the period.</p>
+				<div class="form-inline" style="margin-bottom:8px">
+					<label for="mktMyRepFrom" th:text="#{ui.mktRepFrom}">From</label>
+					<input type="date" id="mktMyRepFrom" class="form-control input-sm" style="margin:0 8px">
+					<label for="mktMyRepTo" th:text="#{ui.mktRepTo}">To</label>
+					<input type="date" id="mktMyRepTo" class="form-control input-sm" style="margin:0 8px">
+					<button type="button" class="btn btn-xs btn-default" id="mktMyRepShow" th:text="#{ui.mktRepShow}">Show</button>
+					<div id="mktMyRepMsg" role="status" style="margin-top:6px"></div>
+				</div>
+				<table class="table table-condensed" id="mktMyReport" style="max-width:460px">
+					<tbody></tbody>
+				</table>
 			</div>
+		</div>
+
+		<!-- MKT-2e: how this shop handled its marketplace orders: the same figures MaxTheService sees for it. A flag is
+		     a note, never a penalty (R12.4). Equal offers rank the shop that accepts more of its orders first. -->
+		<div id="mktPerfBox" style="display:none;margin-top:18px">
+			<h4 style="font-weight:700;font-size:15px" th:text="#{ui.mktPerfMineTitle}">Your performance</h4>
+			<p class="text-muted" style="font-size:13px" th:text="#{ui.mktPerfMineHint}">How you handled the marketplace orders placed in the last 30 days. When two offers are otherwise equal, customers see the seller that accepts more of its orders first.</p>
+			<div class="row" id="mktPerfTiles">
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColAccepted}">Orders accepted</div><div id="mktPerfAccept" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColSpeed}">Time to accept</div><div id="mktPerfSpeed" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColOnTime}">Delivered on time</div><div id="mktPerfOnTime" style="font-weight:700"></div></div>
+				<div class="col-xs-6 col-sm-3"><div class="text-muted" style="font-size:12px" th:text="#{ui.mktPerfColReturnsMine}">Returns you caused</div><div id="mktPerfReturns" style="font-weight:700"></div></div>
+			</div>
+			<div id="mktPerfFlags" role="status" style="margin-top:8px"></div>
 		</div>
 	</div>
 </div>

@@ -39,6 +39,7 @@ class PublicOfferServiceTest {
     @Mock MarketplaceProductRepository products;
     @Mock MarketplacePlatformSettingRepository settingRows;
     @Mock SellerAccess access;
+    @Mock SellerPerformanceService performance;
     PublicOfferService service;
     MarketplacePlatformSetting defaultSort;
 
@@ -48,7 +49,8 @@ class PublicOfferServiceTest {
     @BeforeEach
     void wire() {
         // the REAL settings service over a mocked table: the fallback and RECOMMENDED rules are under test too
-        service = new PublicOfferService(projections, products, new MarketplaceSettingsService(settingRows, access, org.mockito.Mockito.mock(MarketplaceAuditService.class)));
+        service = new PublicOfferService(projections, products, new MarketplaceSettingsService(settingRows, access, org.mockito.Mockito.mock(MarketplaceAuditService.class)), performance);
+        lenient().when(performance.acceptanceRate(anyLong())).thenReturn(1d);
         lenient().when(settingRows.findById(MarketplacePlatformSetting.DEFAULT_SORT))
                 .thenAnswer(i -> Optional.ofNullable(defaultSort));
         product = new MarketplaceProduct();
@@ -91,6 +93,22 @@ class PublicOfferServiceTest {
         assertThat(ids(service.offers(100L, "Karachi", "LOWEST_PRICE", null))).containsExactly(2L, 1L);
         assertThat(ids(service.offers(100L, "Karachi", "FASTEST", null))).containsExactly(1L, 2L);
         assertThat(ids(service.offers(100L, "Karachi", "<script>", null))).as("unknown sort → default chain").containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("[MKT-R20.3] MKT-2e: with everything else equal, the seller that accepts more of its orders ranks first")
+    void acceptanceBreaksTies() {
+        live.clear();
+        live.add(row(1, "Shahzad Mobile Shop", "52000", 24, 12, "Karachi", LocalDateTime.now().minusMinutes(1)));
+        live.add(row(2, "Mobile Distributor", "52000", 24, 12, "Karachi", LocalDateTime.now().minusMinutes(1)));
+        assertThat(ids(service.offers(100L, "Karachi", null, null))).as("a full tie: the offer id decides").containsExactly(1L, 2L);
+        when(performance.acceptanceRate(7L)).thenReturn(0.6);       // seller of offer 1 accepted 60%
+        assertThat(ids(service.offers(100L, "Karachi", null, null))).containsExactly(2L, 1L);
+        assertThat(ids(service.offers(100L, "Karachi", "LOWEST_PRICE", null))).as("a tie under the customer's sort too")
+                .containsExactly(2L, 1L);
+        live.get(0).setPrice(new BigDecimal("51999"));
+        assertThat(ids(service.offers(100L, "Karachi", null, null))).as("only a tie-break: one rupee cheaper still wins")
+                .containsExactly(1L, 2L);
     }
 
     @Test
