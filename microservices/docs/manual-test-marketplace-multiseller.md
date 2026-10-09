@@ -1458,17 +1458,25 @@
 
 ## MKT-2
 
-### M-2-06 Acceptance terms differ by order value
+### M-2-06 Larger orders give the seller longer to accept
 
-**Who:** admin@myplus.com (operator)  
-**Before:** Phase 2. Rule: orders above Rs 100,000 get 15 minutes.  
-**Covers:** MKT-R10.6  
-**Evidence:** written from the design — not built yet
+**Who:** admin@myplus.com (operator), a customer, then owner.business@myplus.com  
+**Before:** Shahzad Mobile Shop has a Live phone offer at Rs 52,000 in Karachi. "Minutes a seller has to accept an order" is 5. No value rules.  
+**Covers:** MKT-R10.6, MKT-R10.5, MKT-R22.1  
+**Evidence:** recorded 2026-10-09 05:11 UTC  
+**Automated by:** MKT-2-06-02, MKT-2-06-03, MKT-2-06-04, MKT-2-06-06
 
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Place a Rs 150,000 order. | The seller's countdown starts at 15:00. |
-| C1 | Reject it with "walk cleanup". | Released. |
+| 1 | As admin@myplus.com: Platform → "Marketplace policies". Find "Time to accept by order value". | The box explains the rule ("A seller's part worth more than an amount gets that rule's minutes …"), and the table reads "No rules: every order gets the minutes above." |
+| 2 | Press "Add a rule". Orders above, Rs: 100000. Minutes to accept: 75. Press "Save rules". | Refused in words: "Each rule's minutes are 1 to 60." Nothing is saved. |
+| 3 | Change the minutes to 15 and press "Save rules". | "Acceptance rules saved. They apply to orders placed from now on." The rule stays listed: above 100000, 15 minutes. |
+| 4 | Customer (incognito): open the product (Karachi), choose Shahzad Mobile Shop, "Buy", Quantity 3, name "Ali", phone 030039494961, address "1 Clifton". Press "Place order". | Total Rs. 156,000. "Waiting for Shahzad Mobile Shop to confirm" and "Shahzad Mobile Shop has 14:5x to confirm": the order is above Rs 100,000, so 15 minutes, not 5. |
+| 5 | Customer: the same, Quantity 1, phone 030039494962. | Total Rs. 52,000. "Shahzad Mobile Shop has 4:5x to confirm": under Rs 100,000, the 5 minutes as before. |
+| 6 | As owner.business@myplus.com: Sale → Marketplace → "Incoming marketplace orders". | Both orders wait for the shop: the Rs 156,000 order counts down from about 15:00, the Rs 52,000 order from about 5:00. |
+| 7 | In the browser's address bar open /platform/mkt/acceptTiers (the shop tries to read MaxTheService's rules). | Refused: the rules are MaxTheService's. |
+| C1 | As owner.business@: Incoming → Reject both orders with the reason "walk cleanup". | Both rows read "Rejected"; their units are released. |
+| C2 | As admin@: Marketplace policies → "Time to accept by order value" → "Remove" on the rule → "Save rules". | "Acceptance rules saved." and "No rules: every order gets the minutes above." |
 
 
 ## MKT-3

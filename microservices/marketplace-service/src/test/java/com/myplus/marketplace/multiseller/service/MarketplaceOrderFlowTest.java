@@ -1198,4 +1198,48 @@ class MarketplaceOrderFlowTest {
         doThrow(new org.springframework.security.access.AccessDeniedException("operators only")).when(access).assertOperator();
         assertThatThrownBy(() -> shortages.operatorList(null, 0, 10)).hasMessage("operators only");
     }
+
+    // ── MKT-2-06: the acceptance window by the part's value ──────────────────────────────────────────────
+
+    void tiers(String stored) {
+        com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting t = new com.myplus.marketplace.multiseller.entity.MarketplacePlatformSetting();
+        t.setSettingKey("checkout.acceptTiers");
+        t.setSettingValue(stored);
+        lenient().when(settingRows.findById("checkout.acceptTiers")).thenReturn(Optional.of(t));
+    }
+
+    static long minutesLeft(MarketplaceSellerOrder so) {
+        return Math.round(java.time.Duration.between(LocalDateTime.now(), so.getAcceptBy()).getSeconds() / 60.0);
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.6] each seller's window follows the value of ITS part: Rs 104,000 above the Rs 100,000 rule gets 15 minutes, Rs 51,500 the base 5")
+    void windowByPartValue() {
+        secondSeller(true);
+        tiers("100000.00:15;500000.00:30");
+        checkout.checkout(basket("v1", null, lineA(2), lineB(1)));
+        assertThat(minutesLeft(part(SELLER))).as("Rs 104,000").isEqualTo(15);
+        assertThat(minutesLeft(part(OTHER_SELLER))).as("Rs 51,500: above no rule").isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.6] no rules, or a stored value that cannot be read: every part gets the base window, as before")
+    void windowWithoutRules() {
+        tiers("garbage");
+        checkout.checkout(req("v2"));
+        assertThat(minutesLeft(soTable.values().iterator().next())).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("[MKT-R10.6] [MKT-R22.1] the rules are the operator's, refused in a sentence, and saved sorted")
+    void tiersSaved() {
+        MarketplaceSettingsService s = new MarketplaceSettingsService(settingRows, access, audit);
+        assertThatThrownBy(() -> s.setAcceptTiers(List.of(new com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier(new BigDecimal("100000"), 61))))
+                .hasMessage("Each rule's minutes are 1 to 60.");
+        var saved = s.setAcceptTiers(List.of(new com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier(new BigDecimal("500000"), 30),
+                new com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier(new BigDecimal("100000"), 15)));
+        assertThat(saved.format()).isEqualTo("100000.00:15;500000.00:30");
+        verify(settingRows).save(org.mockito.ArgumentMatchers.argThat(r -> "checkout.acceptTiers".equals(r.getSettingKey())
+                && "100000.00:15;500000.00:30".equals(r.getSettingValue())));
+    }
 }

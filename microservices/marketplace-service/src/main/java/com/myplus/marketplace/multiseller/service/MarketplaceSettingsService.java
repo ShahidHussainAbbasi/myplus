@@ -131,6 +131,48 @@ public class MarketplaceSettingsService {
         return minutes;
     }
 
+    // ── MKT-2-06: the acceptance window by the part's value ─────────────────────────────────────────────
+
+    /** The operator's rules; none (the base window for every part) when unset or unreadable. */
+    @Transactional(readOnly = true)
+    public com.myplus.marketplace.multiseller.domain.AcceptanceByValue acceptTiers() {
+        return settings.findById(MarketplacePlatformSetting.ACCEPT_TIERS)
+                .map(MarketplacePlatformSetting::getSettingValue)
+                .map(com.myplus.marketplace.multiseller.domain.AcceptanceByValue::parse)
+                .orElse(com.myplus.marketplace.multiseller.domain.AcceptanceByValue.none());
+    }
+
+    /**
+     * Minutes a MERCHANT seller has to accept a part worth {@code partValue}: the operator's rule for the highest amount
+     * it is above, else {@link #acceptMinutes()}. Read when the part is offered; the deadline is then stored on the part,
+     * so a rule changed later never moves an order already waiting.
+     */
+    @Transactional(readOnly = true)
+    public int acceptMinutesFor(java.math.BigDecimal partValue) {
+        return acceptTiers().minutesFor(partValue, acceptMinutes());
+    }
+
+    @Transactional(readOnly = true)
+    public com.myplus.marketplace.multiseller.domain.AcceptanceByValue operatorAcceptTiers() {
+        access.assertOperator();
+        return acceptTiers();
+    }
+
+    /** Replaces the rules; an empty list removes them all. */
+    @Transactional
+    public com.myplus.marketplace.multiseller.domain.AcceptanceByValue setAcceptTiers(
+            List<com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier> tiers) {
+        access.assertOperator();
+        com.myplus.marketplace.multiseller.domain.AcceptanceByValue v;
+        try {
+            v = com.myplus.marketplace.multiseller.domain.AcceptanceByValue.of(tiers);
+        } catch (com.myplus.marketplace.multiseller.domain.MarketplaceRuleException e) {
+            throw new ValidationException(e.getMessage());
+        }
+        save(MarketplacePlatformSetting.ACCEPT_TIERS, v.format());
+        return v;
+    }
+
     // ── MKT-1f: the change-of-mind pickup fee (ruling R-MKT-14: the customer bears it) ─────────────────────
 
     public static final java.math.BigDecimal DEFAULT_CHANGE_OF_MIND_FEE = new java.math.BigDecimal("250.00");

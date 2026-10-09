@@ -1,5 +1,7 @@
 package com.myplus.marketplace.multiseller.controller;
 
+import java.util.List;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -99,6 +101,27 @@ public class MarketplaceOrderController {
         boolean multi = body.multiSeller() == null ? settings.multiSeller() : settings.setMultiSeller(body.multiSeller());
         boolean reroute = body.reroute() == null ? settings.reroute() : settings.setReroute(body.reroute());
         return ApiResponse.success(new MarketplaceOrderDTOs.AcceptWindow(minutes, multi, reroute), "Order settings saved.");
+    }
+
+    // ── MKT-2-06: the acceptance window by the part's value ─────────────────────────────────────────────
+
+    @GetMapping("/mkt/operator/settings/accept-tiers")
+    public ApiResponse<MarketplaceOrderDTOs.AcceptTiers> acceptTiers() {
+        return ApiResponse.success(tiersView(settings.operatorAcceptTiers()));
+    }
+
+    /** Body {tiers: [{above, minutes}]}: replaces the rules; an empty list removes them. */
+    @PostMapping("/mkt/operator/settings/accept-tiers")
+    public ApiResponse<MarketplaceOrderDTOs.AcceptTiers> setAcceptTiers(@RequestBody(required = false) MarketplaceOrderDTOs.AcceptTiers body) {
+        List<com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier> in = body == null || body.tiers() == null ? List.of()
+                : body.tiers().stream().map(t -> t == null ? null : new com.myplus.marketplace.multiseller.domain.AcceptanceByValue.Tier(
+                        t.above(), t.minutes() == null ? 0 : t.minutes())).toList();
+        return ApiResponse.success(tiersView(settings.setAcceptTiers(in)), "Acceptance rules saved. They apply to orders placed from now on.");
+    }
+
+    private MarketplaceOrderDTOs.AcceptTiers tiersView(com.myplus.marketplace.multiseller.domain.AcceptanceByValue v) {
+        return new MarketplaceOrderDTOs.AcceptTiers(settings.acceptMinutes(),
+                v.tiers().stream().map(t -> new MarketplaceOrderDTOs.AcceptTier(t.above(), t.minutes())).toList());
     }
 
     // ── MKT-2c: live routing ─────────────────────────────────────────────────────────────────────────────

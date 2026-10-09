@@ -23,6 +23,8 @@ public class MarketplacePlatformSetting {
     public static final String DEFAULT_SORT = "public.defaultSort";
     /** MKT-1e — minutes a MERCHANT seller has to accept an order (source §10; default 5). */
     public static final String ACCEPT_MINUTES = "checkout.acceptMinutes";
+    /** MKT-2-06 — the acceptance window by the part's value: {@code "100000.00:15;500000.00:30"} (AcceptanceByValue). */
+    public static final String ACCEPT_TIERS = "checkout.acceptTiers";
     /** MKT-1f (R-MKT-14): what a change-of-mind return costs the customer — the rider's pickup — in rupees. */
     public static final String CHANGE_OF_MIND_FEE = "return.changeOfMindFee";
     /** MKT-1g — N in T+N: business days after the return window closes before a line is payable (default 1). */

@@ -648,6 +648,8 @@
    "cypress": [
     "MKT-1e-04",
     "MKT-1e2-06",
+    "MKT-2-06-01",
+    "MKT-2-06-03",
     "MKT-2a-07",
     "MKT-2b-06"
    ],
@@ -656,7 +658,8 @@
     "M-1e-04",
     "M-1e2-04",
     "M-2a-07",
-    "M-2b-06"
+    "M-2b-06",
+    "M-2-06"
    ]
   },
   {
@@ -664,10 +667,22 @@
    "phase": "2",
    "text": "Terms may vary by product type, order value, location, seller performance, delivery promise, source",
    "unit": [
-    "AcceptanceTermsTest.overridesValidated"
+    "AcceptanceByValueTest.minutesFor",
+    "AcceptanceByValueTest.shorter",
+    "AcceptanceByValueTest.refused",
+    "AcceptanceByValueTest.roundTrip",
+    "AcceptanceTermsTest.overridesValidated",
+    "MarketplaceOrderFlowTest.windowByPartValue",
+    "MarketplaceOrderFlowTest.windowWithoutRules",
+    "MarketplaceOrderFlowTest.tiersSaved"
    ],
    "cypress": [
-    "MKT-2-06"
+    "MKT-2-06-01",
+    "MKT-2-06-02",
+    "MKT-2-06-03",
+    "MKT-2-06-04",
+    "MKT-2-06-05",
+    "MKT-2-06-06"
    ],
    "manual": [
     "M-2-06"
@@ -1399,7 +1414,6 @@
     "SettlementReportServiceTest.access"
    ],
    "cypress": [
-    "MKT-2-06",
     "MKT-2a-02",
     "MKT-2d-01",
     "MKT-2d-02",
@@ -1512,6 +1526,7 @@
     "MarketplaceOrderFlowTest.tracking",
     "MarketplaceOrderFlowTest.tenancyAndActiveSeller",
     "MarketplaceOrderFlowTest.basketBounds",
+    "MarketplaceOrderFlowTest.tiersSaved",
     "MarketplacePolicyServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.operatorOnly",
     "MarketplaceSellerServiceTest.unknownSeller",
@@ -1538,6 +1553,7 @@
     "MKT-1e2-05",
     "MKT-1f-03",
     "MKT-1f-11",
+    "MKT-2-06-07",
     "MKT-2a-03",
     "MKT-2c-06",
     "MKT-2d-06",
@@ -1559,6 +1575,7 @@
     "M-2a-03",
     "M-2f-02",
     "M-2f-03",
+    "M-2-06",
     "M-X-02"
    ]
   },

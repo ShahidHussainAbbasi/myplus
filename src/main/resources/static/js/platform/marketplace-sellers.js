@@ -392,6 +392,54 @@
 		});
 	}
 
+	// ── MKT-2-06: the acceptance window by the part's value ──────────────────────────────────────────────
+
+	function tierRow(t) {
+		var $tr = $('<tr class="mkt-tier"></tr>');
+		$('<td></td>').append($('<input type="number" min="1" step="1" class="form-control input-sm mkt-tier-above" style="width:150px">')
+			.val(t && t.above != null ? Number(t.above) : '').attr('aria-label', tr('ui.js.mktTiersAboveAria', 'Orders above, Rs'))).appendTo($tr);
+		$('<td></td>').append($('<input type="number" min="1" max="60" step="1" class="form-control input-sm mkt-tier-minutes" style="width:90px">')
+			.val(t && t.minutes != null ? t.minutes : '').attr('aria-label', tr('ui.js.mktTiersMinutesAria', 'Minutes to accept'))).appendTo($tr);
+		$('<td></td>').append($('<button type="button" class="btn btn-xs btn-default mkt-tier-remove"></button>').text(tr('ui.js.mktTiersRemove', 'Remove'))
+			.on('click', function () { $tr.remove(); tierEmpty(); })).appendTo($tr);
+		return $tr;
+	}
+
+	function tierEmpty() {
+		var $tb = $('#mktTiersList tbody');
+		$tb.find('.mkt-tier-none').remove();
+		if (!$tb.find('.mkt-tier').length) $tb.append($('<tr class="mkt-tier-none"><td colspan="3" class="text-muted"></td></tr>').find('td')
+			.text(tr('ui.js.mktTiersNone', 'No rules: every order gets the minutes above.')).end());
+	}
+
+	function showTiers(v) {
+		var $tb = $('#mktTiersList tbody').empty();
+		((v || {}).tiers || []).forEach(function (t) { $tb.append(tierRow(t)); });
+		tierEmpty();
+	}
+
+	function loadAcceptTiers() {
+		$('#mktTiersMsg').text('');
+		$.ajax({ url: ctx() + 'platform/mkt/acceptTiers', dataType: 'json' }).done(function (res) {
+			if (!ok(res)) { $('#mktTiersMsg').css('color', '#b3261e').text(message(res, tr('ui.js.loadFailed', 'Could not load.'))); return; }
+			showTiers(data(res));
+		});
+	}
+
+	$(document).on('click', '#mktTiersAdd', function () {
+		$('#mktTiersList tbody .mkt-tier-none').remove();
+		$('#mktTiersList tbody').append(tierRow(null));
+		$('#mktTiersList tbody .mkt-tier:last .mkt-tier-above').focus();
+	});
+	$(document).on('click', '#mktTiersSave', function () {
+		// an empty field is sent as null, so the server says which rule is incomplete, in words
+		var tiers = $('#mktTiersList tbody .mkt-tier').map(function () {
+			var a = $(this).find('.mkt-tier-above').val(), m = $(this).find('.mkt-tier-minutes').val();
+			return { above: a === '' ? null : Number(a), minutes: m === '' ? null : Number(m) };
+		}).get();
+		opsPost('platform/mkt/acceptTiers', { tiers: tiers }, $(this), $('#mktTiersMsg'), function (res) { showTiers(data(res)); });
+	});
+
 	/** MKT-2c — how sellers are asked for stock: the limits in force, who is not being asked, and the test switch. */
 	function loadRouting() {
 		$.ajax({ url: ctx() + 'platform/mkt/routing', dataType: 'json' }).done(function (res) {
@@ -1036,7 +1084,7 @@
 	}
 
 	$(document).on('click', '#platMktOffersBtn', function () { openPanel('#platMktOffers', loadOffers); });
-	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); loadRouting(); }); });
+	$(document).on('click', '#platMktPoliciesBtn', function () { openPanel('#platMktPolicies', function () { loadPolicies(); loadDefaultSort(); loadAcceptWindow(); loadAcceptTiers(); loadRouting(); }); });
 	$(document).on('click', '#platMktOrdersBtn', function () { openPanel('#platMktOrders', loadOrders); });
 	$(document).on('click', '#platMktOrderStatus button', function () {
 		$('#platMktOrderStatus button').removeClass('is-on');

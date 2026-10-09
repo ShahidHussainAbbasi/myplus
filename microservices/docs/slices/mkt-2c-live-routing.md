@@ -7,7 +7,7 @@ Requirements: **MKT-R18.1** (a shortlist from the projection, then a live hold o
 (a timeout per seller, one deadline per checkout, a circuit breaker per seller), **MKT-R18.5** (on a deadline, never a
 silent confirm: the shopper is told and given the way forward). Depends on MKT-1e (the hold at checkout), MKT-2a (one
 part per seller) and MKT-2b (the reroute's candidate holds). Out of scope: value-based acceptance terms (MKT-2-06, R10.6),
-which stay in `mkt-2-multiseller-oms.cy.js`.
+built in [MKT-2-06](mkt-2-06-acceptance-by-value.md).
 
 ## 1. Document
 

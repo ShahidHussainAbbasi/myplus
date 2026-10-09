@@ -446,6 +446,23 @@
                 <button type="button" class="btn btn-default" id="mktAcceptWindowSave" th:text="#{ui.mktOfferSave}">Save</button>
                 <span id="mktAcceptWindowMsg" class="plat__hint" role="status"></span>
             </div>
+            <!-- MKT-2-06: more (or less) time for larger orders. The rule is read when a part is offered to its seller and the
+                 deadline is stored on the part, so a change never moves an order already waiting. -->
+            <div class="plat__form" id="mktAcceptTiersForm">
+                <strong th:text="#{ui.mktTiersTitle}">Time to accept by order value</strong>
+                <div class="plat__hint" th:text="#{ui.mktTiersHint}">A seller's part worth more than an amount gets that rule's minutes; of several rules, the highest amount it is above. A part above no rule gets the minutes above. Up to 5 rules.</div>
+                <table class="table table-condensed" id="mktTiersList" style="max-width:520px;margin:6px 0">
+                    <thead><tr>
+                        <th th:text="#{ui.mktTiersAbove}">Orders above, Rs</th>
+                        <th th:text="#{ui.mktTiersMinutes}">Minutes to accept</th>
+                        <th></th>
+                    </tr></thead>
+                    <tbody></tbody>
+                </table>
+                <button type="button" class="btn btn-default" id="mktTiersAdd" th:text="#{ui.mktTiersAdd}">Add a rule</button>
+                <button type="button" class="btn btn-default" id="mktTiersSave" th:text="#{ui.mktTiersSave}">Save rules</button>
+                <div id="mktTiersMsg" class="plat__hint" role="status" style="margin-top:6px"></div>
+            </div>
             <!-- MKT-2a: one checkout from several sellers (a parent order, one part per seller). Off until switched on. -->
             <div class="plat__form" id="mktMultiSellerForm">
                 <label for="mktMultiSeller"><input type="checkbox" id="mktMultiSeller"/>

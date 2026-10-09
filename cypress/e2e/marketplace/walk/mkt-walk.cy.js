@@ -3651,4 +3651,108 @@ on('MKT manual walk — recorded', () => {
       })
     cleanup('None: reading changes nothing.', '—', () => {}, { screen: false })
   })
+
+  // ──────────────────────────────── MKT-2-06 ────────────────────────────────
+  // The time a seller has to accept by the order's value. The case lists its own offer (stock 20), so it runs alone.
+
+  const AV = {}
+  /** Operator: Platform dashboard → "Marketplace policies" → the "Time to accept by order value" box. */
+  const tiersBox = () => {
+    asOperator()
+    cy.intercept('GET', '**/platform/mkt/acceptTiers*').as('tiers')
+    cy.visit(UI.operatorPage)
+    cy.get('#platMktPoliciesBtn').should('be.visible').click()
+    cy.wait('@tiers')
+    return cy.get('#mktAcceptTiersForm').scrollIntoView({ offset: { top: -120, left: 0 } }).should('be.visible')
+  }
+  const avOrder = (qty, ph, total) => {
+    customer()
+    cy.visit(page(`product=${AV.product}&city=Karachi`))
+    buy(AV.offer, { ph, qty })
+    cy.get('#mktCoTotal').should('have.text', total)
+    cy.get('#mktCoPlace').click()
+    cy.get(UI.checkoutStatus).should('contain', `Waiting for ${A_NAME} to confirm`)
+    return cy.get('#mktCoOrderNo').invoke('text').should('match', /^MKT-\d+/)
+  }
+
+  walk({ id: 'M-2-06', slice: 'MKT-2', title: 'Larger orders give the seller longer to accept',
+    persona: 'admin@myplus.com (operator), a customer, then owner.business@myplus.com', reqs: ['MKT-R10.6', 'MKT-R10.5', 'MKT-R22.1'],
+    pre: 'Shahzad Mobile Shop has a Live phone offer at Rs 52,000 in Karachi. "Minutes a seller has to accept an order" is 5. No value rules.',
+    auto: ['MKT-2-06-02', 'MKT-2-06-03', 'MKT-2-06-04', 'MKT-2-06-06'] }, (step, call, cleanup) => {
+    cy.then(() => {
+      asOperator()
+      post(API.acceptWindow, { minutes: 5 })
+      post('/platform/mkt/acceptTiers', { tiers: [] })
+      seedPolicies(`${run}v`).then((p) => cy.then(() => publishOffer(SELLER_A, { run: `${run}v`, price: 52000, qty: 20,
+        warrantyPolicyId: p.warranty, returnPolicyId: p.returns }))).then((o) => { AV.offer = o.offerId; AV.product = o.mktProductId })
+    })
+    step('As admin@myplus.com: Platform → "Marketplace policies". Find "Time to accept by order value".',
+      'The box explains the rule ("A seller\'s part worth more than an amount gets that rule\'s minutes …"), and the table reads "No rules: every order gets the minutes above."', () => {
+        tiersBox()
+        cy.get('#mktTiersList tbody').should('contain', 'No rules: every order gets the minutes above.')
+        cy.get('#mktAcceptWindow').should('have.value', '5')
+      })
+    step('Press "Add a rule". Orders above, Rs: 100000. Minutes to accept: 75. Press "Save rules".',
+      'Refused in words: "Each rule\'s minutes are 1 to 60." Nothing is saved.', () => {
+        cy.get('#mktTiersAdd').click()
+        cy.get('#mktTiersList .mkt-tier-above').type('100000')
+        cy.get('#mktTiersList .mkt-tier-minutes').type('75')
+        cy.get('#mktTiersSave').click()
+        cy.get('#mktTiersMsg').should('contain', 'Each rule\'s minutes are 1 to 60.')
+        cy.get('#mktAcceptTiersForm').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step('Change the minutes to 15 and press "Save rules".',
+      '"Acceptance rules saved. They apply to orders placed from now on." The rule stays listed: above 100000, 15 minutes.', () => {
+        cy.get('#mktTiersList .mkt-tier-minutes').clear().type('15')
+        cy.get('#mktTiersSave').click()
+        cy.get('#mktTiersMsg').should('contain', 'Acceptance rules saved. They apply to orders placed from now on.')
+        cy.get('#mktTiersList .mkt-tier-above').should('have.value', '100000')
+        cy.get('#mktTiersList .mkt-tier-minutes').should('have.value', '15')
+        cy.get('#mktAcceptTiersForm').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+    step(`Customer (incognito): open the product (Karachi), choose ${A_NAME}, "Buy", Quantity 3, name "Ali", phone ${phone(61)}, address "1 Clifton". Press "Place order".`,
+      `Total Rs. 156,000. "Waiting for ${A_NAME} to confirm" and "${A_NAME} has 14:5x to confirm": the order is above Rs 100,000, so 15 minutes, not 5.`, () => {
+        avOrder(3, phone(61), 'Rs. 156,000').then((no) => { AV.big = no })
+        cy.get('#mktOrderDetail').invoke('text').should('match', /has (15:00|14:[0-5]\d) to confirm/)
+      })
+    step(`Customer: the same, Quantity 1, phone ${phone(62)}.`,
+      `Total Rs. 52,000. "${A_NAME} has 4:5x to confirm": under Rs 100,000, the 5 minutes as before.`, () => {
+        avOrder(1, phone(62), 'Rs. 52,000').then((no) => { AV.small = no })
+        cy.get('#mktOrderDetail').invoke('text').should('match', /has [0-5]:[0-5]\d to confirm/)
+      })
+    step('As owner.business@myplus.com: Sale → Marketplace → "Incoming marketplace orders".',
+      'Both orders wait for the shop: the Rs 156,000 order counts down from about 15:00, the Rs 52,000 order from about 5:00.', () => {
+        as(SELLER_A)
+        openMarketplace()
+        cy.contains(`${UI.incoming} tr`, AV.big).find(UI.countdown).invoke('text').should('match', /^(15:00|14:[0-5]\d)$/)
+        cy.contains(`${UI.incoming} tr`, AV.small).find(UI.countdown).invoke('text').should('match', /^[0-5]:[0-5]\d$/)
+        cy.contains(`${UI.incoming} tr`, AV.big).scrollIntoView({ offset: { top: -160, left: 0 } })
+      })
+    step('In the browser\'s address bar open /platform/mkt/acceptTiers (the shop tries to read MaxTheService\'s rules).',
+      'Refused: the rules are MaxTheService\'s.', () => {
+        call('GET /platform/mkt/acceptTiers as the shop', get('/platform/mkt/acceptTiers')).then((r) => {
+          expect(r.status).to.eq(403)
+          expect(ok(r.body)).to.eq(false)
+        })
+      })
+    cleanup('As owner.business@: Incoming → Reject both orders with the reason "walk cleanup".', 'Both rows read "Rejected"; their units are released.', () => {
+      as(SELLER_A)
+      openMarketplace()
+      ;[AV.big, AV.small].forEach((no) => {
+        cy.contains(`${UI.incoming} tr`, no).find('input[placeholder*="cannot fulfil"]').type('walk cleanup')
+        cy.contains(`${UI.incoming} tr`, no).find(UI.rejectBtn).click()
+        cy.contains(`${UI.incoming} tr`, no).should('contain', 'Rejected')
+      })
+      cy.contains(`${UI.incoming} tr`, AV.small).scrollIntoView({ offset: { top: -160, left: 0 } })
+    })
+    cleanup('As admin@: Marketplace policies → "Time to accept by order value" → "Remove" on the rule → "Save rules".',
+      '"Acceptance rules saved." and "No rules: every order gets the minutes above."', () => {
+        tiersBox()
+        cy.get('#mktTiersList .mkt-tier-remove').click()
+        cy.get('#mktTiersSave').click()
+        cy.get('#mktTiersMsg').should('contain', 'Acceptance rules saved.')
+        cy.get('#mktTiersList tbody').should('contain', 'No rules: every order gets the minutes above.')
+        cy.get('#mktAcceptTiersForm').scrollIntoView({ offset: { top: -120, left: 0 } })
+      })
+  })
 })

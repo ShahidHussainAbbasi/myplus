@@ -139,6 +139,14 @@ public final class MarketplaceOrderDTOs {
      * GET/POST /mkt/operator/settings/accept-window. MKT-2a added {@code multiSeller} and MKT-2b {@code reroute} to the
      * same form; on a POST, a null field is left as it is.
      */
+    /** MKT-2-06 — a part worth more than {@code above} rupees gets {@code minutes} to be accepted. */
+    public record AcceptTier(java.math.BigDecimal above, Integer minutes) {
+    }
+
+    /** MKT-2-06 — the base window (every part above no rule) and the rules, by amount. */
+    public record AcceptTiers(Integer baseMinutes, List<AcceptTier> tiers) {
+    }
+
     public record AcceptWindow(Integer minutes, Boolean multiSeller, Boolean reroute) {
 
         public AcceptWindow(Integer minutes) {

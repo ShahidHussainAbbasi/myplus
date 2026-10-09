@@ -330,6 +330,23 @@ public class MarketplaceSellerController {
         return relayPost("/mkt/operator/settings/accept-window", body, "Could not save the acceptance window.");
     }
 
+    // ── MKT-2-06: the acceptance window by the part's value ─────────────────────────────────────────────
+
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/acceptTiers", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> acceptTiers(final HttpServletRequest request) {
+        return relayGet("/mkt/operator/settings/accept-tiers", request, "Could not load the acceptance rules.");
+    }
+
+    /** Body: {tiers: [{above, minutes}]}; replaces the rules, an empty list removes them. */
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    @RequestMapping(value = "/platform/mkt/acceptTiers", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> setAcceptTiers(@RequestBody final Map<String, Object> body) {
+        return relayPost("/mkt/operator/settings/accept-tiers", body, "Could not save the acceptance rules.");
+    }
+
     // ── MKT-2c: live routing — the limits, the sellers not being asked right now, the test switch ─────────
 
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")

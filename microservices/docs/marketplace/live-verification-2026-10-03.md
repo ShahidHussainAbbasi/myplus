@@ -357,3 +357,17 @@ skipped**: MKT-2c's setup, because the marketplace service had been restarted fo
   −4,160). Checked in the database: the 222,560 difference is exactly the ledger rows dated after today, written by
   earlier runs under a later faked clock. In production a row is dated when it is written.
 - The ledger screens show `effective_at` as its UTC date (pre-existing, 1g); the report uses the tenant's day.
+
+## 15. MKT-2-06 — time to accept by order value (run 2026-10-09)
+
+**Gate `mkt-2-06-acceptance-by-value.cy.js`: 7 / 7** on its first live run, and again on the final build.
+Each part's window is read from the part itself (its stored deadline minus its creation), at three values against two
+rules (Rs 156,000 → 30, Rs 104,000 → 15, Rs 52,000 → 5), then on the seller's countdown. A change of the rules leaves a
+waiting order's deadline exactly as it was. No migration.
+
+**Walk M-2-06: recorded**, 7 steps and 2 cleanups, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 60 | review of the placeholder gate | the old MKT-2-06 case asserted a field (`acceptTermsSource`) that never existed, and returned early, passing, whenever the checkout failed: it could never have tested anything | a real gate; the placeholder file is deleted (its other cases had moved to 2a–2c) | gate MKT-2-06-01..07 |
+| 61 | walk M-2-06 (screen review) | "Acceptance rules saved. They apply to orders placed from now on." wrapped beside the buttons, half under them | the sentence has its own line under the buttons | walk M-2-06 |

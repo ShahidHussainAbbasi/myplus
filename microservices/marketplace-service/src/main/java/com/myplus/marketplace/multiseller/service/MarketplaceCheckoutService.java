@@ -230,11 +230,12 @@ public class MarketplaceCheckoutService {
                 order.setStatus(Order.PAYMENT_PENDING.name());
                 fresh.forEach(so -> so.setHeld(true));
             } else {
-                LocalDateTime acceptBy = LocalDateTime.now().plusMinutes(settings.acceptMinutes());
+                LocalDateTime now = LocalDateTime.now();
                 for (MarketplaceSellerOrder so : fresh) {
                     move(so, SellerOrder.OFFERED);
                     so.setHeld(true);
-                    so.setAcceptBy(acceptBy);
+                    // MKT-2-06: each seller's window follows the value of ITS part, not the whole basket
+                    so.setAcceptBy(now.plusMinutes(settings.acceptMinutesFor(partTotal(lines.findBySellerOrderIdOrderByIdAsc(so.getId())))));
                 }
             }
             fresh.forEach(sellerOrders::save);
