@@ -1018,7 +1018,9 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     if (claimsReady) return
     claimsReady = true
     cy.loginAsOperator()
-    SAFETY.push(() => { asSchool('owner'); [CLAIMS_KEY, MGMT_KEY].forEach((k) => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: k }, failOnStatusCode: false })) })
+    // through auth's API with the owner's token: a teardown must not depend on a browser sign-in (ex-7a slice doc §5)
+    SAFETY.push(() => schoolToken('owner').then((t) => [CLAIMS_KEY, MGMT_KEY].forEach((k) => cy.request({ method: 'POST',
+      url: `${GW}/api/auth/settings/reset?key=${k}`, headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))))
     // pushed AFTER the switches so it runs BEFORE them (SAFETY runs in reverse): it needs only the operator
     cy.planOf(SCHOOL.owner).then((p) => {
       if (p.plan !== 'FREE') return
@@ -1258,7 +1260,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.get('[data-cy=expense-pay-go]').click()
     cy.get('#expPayMsg').should('contain', 'cannot pay your own claim back')
     cy.get('#expPayPanel').scrollIntoView({ offset: { top: -160, left: 0 } }); snap(a1, 'own-refused')
-    cy.get('#expPayPanel .btn-default').contains('Cancel').click()
+    cy.get('#expPayPanel button[onclick="expensePayClose()"]').click()
     const a2 = act('As <b>user.education</b>: open Expenses.', ['Their claim reads <b>Owed to the member 6.00</b> — they can see what the business owes them — with <b>no Pay back</b> button. (Asked directly, the server refuses them.)'])
     asSchool('user'); schoolExpenses()
     expenseRow(mine).find('[data-cy=expense-bill-owes]').should('contain', '6.00')

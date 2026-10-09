@@ -1,5 +1,7 @@
 package com.myplus.auth.service;
 
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.myplus.auth.entity.Organization;
 import com.myplus.auth.entity.User;
 import com.myplus.auth.repository.MembershipRepository;
@@ -255,6 +257,19 @@ public class OrganizationAdminService {
         audit.operatorAction(ControlPlaneAuditService.PLAN_CHANGE,
                 ControlPlaneAuditService.ENTITY_ORGANIZATION, String.valueOf(organizationId),
                 organizationId, before, plan.code(), reason, actorUserId, null);
+
+        // The licensing snapshot (plan + rows) is cached per tenant for up to a minute. Without this, an owner the
+        // operator has just upgraded is told "not included in your current plan" for that minute, and a downgraded
+        // one may still switch on what the new plan excludes. Found by the EX-6/EX-7a gates failing only when an
+        // earlier spec had read this tenant's licensing seconds before. Invalidated now AND after commit: a read
+        // between the two would otherwise re-cache the old plan for another minute.
+        source.invalidate(organizationId);
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override public void afterCommit() { source.invalidate(organizationId); }
+                    });
+        }
     }
 
     /**
