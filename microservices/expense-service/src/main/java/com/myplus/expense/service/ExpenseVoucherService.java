@@ -70,7 +70,7 @@ public class ExpenseVoucherService {
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, String claim, int page, int size) {
         int s = Math.max(1, Math.min(size <= 0 ? 50 : size, 200));
         String c = blankToNull(claim);
-        PageResponse<VoucherView> out = PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to,
+        PageResponse<VoucherView> out = PageResponse.of(repo.search(access.org(), access.visibleUserId(), blankToNull(status), from, to == null ? null : to.plusDays(1),
                 c == null ? null : c.toUpperCase(java.util.Locale.ROOT), PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
         // EX-5 — how many receipts each row has, in one query for the page
         if (out.getContent() != null && !out.getContent().isEmpty()) {

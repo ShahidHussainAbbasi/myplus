@@ -42,3 +42,20 @@ A business that is registered for tax can reclaim the tax it pays on many expens
 ## 5. As built
 - **Seen red first:** 4/4 failed on the EX-8b build (the tax part was ignored), then 4/4 on the first run after deploying
   expense (V12), finance and the monolith.
+- **Regression (2026-10-09):** expense/*, finance/*, tax-register, party-dual-role and gl-posting gave 186/190.
+  - `fp-4b` case 2 is the known demo-data defect.
+  - `party-dual-role` DR2-3 passed 30/30 on rerun.
+  - `ex-1b` cases 6 and 7 failed twice in the same way: **a real defect, not a flake**. MySQL 8.0.46 answers the
+    expense list's one-day range (`voucher_date >= X AND voucher_date <= X ORDER BY voucher_date DESC, id DESC LIMIT 50`)
+    with a backward index scan that returns the **oldest** 50 rows in ascending order. On a day with more than a page of
+    expenses, the newest were missing and page 2 repeated rows from page 1.
+  - Measured on 56 rows of one day: equality, a two-day range, and a half-open `[X, X+1)` range all answer correctly;
+    COUNT/SUM and unpaged reads were never affected.
+  - Of the table's 5 date-range readers, only the paged `search` was affected; `postedInRange`, `voidsInRange`,
+    `totals` and `sameExpense` were not.
+  - Fixed by making `search` half-open (`< toExclusive`). A unit test pins the bound (expense 99/99).
+  - After the fix: `ex-1b` 7/7, `ex-2d` 5/5, `ex-8b` 4/4, `ex-8d` 4/4.
+- **Environment, not code:** two reruns failed because the disk was full (Docker build cache, 19 GB; pruned). The
+  Cypress renderer crashed and pages never loaded. `notification-service` was also crash-looping because this local
+  volume predates `init-db.sql`'s `myplusdb_notification`; it was created by hand here.
+- **Test Book 9-5** recorded (2 screens).

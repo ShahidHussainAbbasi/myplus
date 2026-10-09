@@ -45,15 +45,22 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
     /** EX-3 — the voucher already made for an originating record (the idempotent receiver's replay). */
     Optional<ExpenseVoucher> findByOrganizationIdAndSourceAndSourceRef(Long organizationId, String source, String sourceRef);
 
+    /**
+     * The list, newest first. {@code toExclusive} is the day AFTER the last day shown, never "<= to": MySQL 8.0.46
+     * answers {@code voucher_date >= X AND voucher_date <= X ... ORDER BY voucher_date DESC, id DESC LIMIT n} (one day,
+     * the list's default) with a backward index scan that returns the OLDEST n rows in ascending order. A day with more
+     * than a page of expenses then hid its newest ones, and page 2 repeated page 1's. Measured 2026-10-09 on 56 rows of
+     * one day: half-open [X, X+1) returns them right; counts and sums were never affected.
+     */
     @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org "
          + "AND (:userId IS NULL OR v.userId = :userId) "
          + "AND (:status IS NULL OR v.status = :status) "
          + "AND (:from IS NULL OR v.voucherDate >= :from) "
-         + "AND (:to IS NULL OR v.voucherDate <= :to) "
+         + "AND (:toExclusive IS NULL OR v.voucherDate < :toExclusive) "
          + "AND (:claim IS NULL OR v.claimStatus = :claim) "
          + "ORDER BY v.voucherDate DESC, v.id DESC")
     Page<ExpenseVoucher> search(@Param("org") Long org, @Param("userId") Long userId, @Param("status") String status,
-                                @Param("from") LocalDate from, @Param("to") LocalDate to, @Param("claim") String claim,
+                                @Param("from") LocalDate from, @Param("toExclusive") LocalDate toExclusive, @Param("claim") String claim,
                                 Pageable pageable);
 
     /**

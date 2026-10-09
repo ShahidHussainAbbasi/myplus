@@ -1,6 +1,6 @@
 # AN-1 — Wire analytics-service end to end (finance trend)
 
-**Status:** IN PROGRESS. Programme: [`../expense-management-design.md`](../expense-management-design.md) E12 ("wiring
+**Status:** DONE 2026-10-09: gate 5/5 (seen red first), unit tests 9 new (analytics 6/6, finance 3), Test Book case 9-6. Programme: [`../expense-management-design.md`](../expense-management-design.md) E12 ("wiring
 analytics is its own programme item"). Follows EX-8c, closed as superseded by EX-8a on 2026-10-09.
 
 ## 1. Document
@@ -62,3 +62,24 @@ separate decision. AN-1 does not touch them, apart from the column type below.
    them.
 4. ⭐ On screen: the P&L shows a "Last 12 months" table whose current month matches the P&L's figures.
 5. Range: more than 24 months, or `from` after `to`, refused in words.
+
+## 5. As built
+- **Seen red first:** with analytics running (V1–V3) but finance not yet carrying `/gl/pnl/monthly`, cases 1, 2 and 4 failed
+  on `503 Service Unavailable` (finance answered 404 → "unavailable", nothing stored → 503: the stale path, not an
+  invented zero). Cases 3 and 5 passed already: analytics' own statements rule and range checks.
+- **Green:** 5/5 after deploying finance and the monolith.
+- **The store, verified in the DB after the gate:** school org 7 holds 12 `finance.revenue` and 12 `finance.expenses`
+  rows, 12 distinct months each, so there were no duplicates across three refreshing runs. V3 ran under `ddl-auto=validate`
+  (`value` is `decimal(19,2)`, `uk_aggregated_metrics_period` is present) and the service started with 0 restarts.
+- **On screen (Test Book 9-6):** the lifecycle business's P&L total for this month (7,280.00) equals the trend's
+  October row; the plain user is refused (403).
+- **Regression:** `ex-2c-books-everywhere` 6/6 and `business/finance-report-dialogs` 9/9 (both open the P&L screen).
+- **Not covered here (AN-2):** the sales metrics. `SalesAnalyticsService` reads `sales.revenue`/`sales.count`, which still
+  have no producer; only their value type changed (DECIMAL; the wire stays a double).
+- **Changed files:**
+  - finance: `GlService.monthlyProfitAndLoss`, `GlController /pnl/monthly`.
+  - analytics: V3, `AggregatedMetric.value`, `AggregatedMetricRepository.findOrgMetric/upsert`,
+    `FinanceMetricsClient`, `ClientsConfig`, `FinancialAnalyticsService`, `FinancialController`, `FinancialTrendDTO`,
+    `SalesAnalyticsService` (value type).
+  - monolith: `AnalyticsRestClient`, `GlController /gl/pnlTrend`, `finance-reports.js finAppendPnlTrend`.
+  - compose: analytics is in the default set.

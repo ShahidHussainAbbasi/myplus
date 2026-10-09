@@ -95,6 +95,18 @@ class ExpenseListTotalsTest {
         assertThat(p.getValue().getPageNumber()).isZero();
         assertThat(p.getValue().getPageSize()).isEqualTo(200);
     }
+    @Test
+    @DisplayName("the list asks for [from, the day after to): MySQL 8.0.46 misorders a one-day '>= X AND <= X' page")
+    void listRangeIsHalfOpen() {
+        when(repo.search(eq(7L), isNull(), isNull(), any(), any(), isNull(), any()))
+                .thenReturn(new PageImpl<ExpenseVoucher>(List.of()));
+        java.time.LocalDate day = java.time.LocalDate.of(2026, 10, 8);
+
+        service(null).list(day, day, null, 0, 50);
+
+        verify(repo).search(eq(7L), isNull(), isNull(), eq(day), eq(day.plusDays(1)), isNull(), any());
+    }
+
     /** EX-2f — the default window (30 days) unless a test says otherwise. */
     private static ExpenseSettings settings30() {
         ExpenseSettings s = org.mockito.Mockito.mock(ExpenseSettings.class);
