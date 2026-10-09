@@ -327,3 +327,33 @@ pending. So 0a–2e: **113 / 113** of the cases that run on this clock.
   its own cleanup.
 - No customer ratings are collected yet, so the scorecard has no rating column and the ranking's rating key stays empty.
 - A flag stops or charges nothing (R12.4). Any consequence would be a new decision with its own dispute process.
+
+## 14. MKT-2f — settlement reports and bank holidays (run 2026-10-08)
+
+**Gate `mkt-2f-settlement-reports.cy.js`: 8 / 8**, on its second live run (the first found row 55) and again after the
+screen fixes below. Report figures are checked against the ledger (each seller's closing = its balance; one period's
+closing = the next one's opening) or as differences (a correction of Rs 12.34 moves Corrections and Closing by exactly
+that, and nothing else). 2f-08 builds its own line with 3 return days, puts a holiday on its payable day, and removes it.
+Migration V34 (`mkt_holiday`, the `effective_at` index) applied on the live database; the service starts under
+`ddl-auto=validate`.
+
+**Every marketplace gate in one run: 115 / 124 passing, 3 pending (2d's later phase, as designed), 1 failing, 5
+skipped**: MKT-2c's setup, because the marketplace service had been restarted for 2f without `MKT_ROUTING_TEST_SWITCH`
+(the operator's slow-seller test switch, a stack setting). Restarted with it, 2c re-run alone: **6 / 6**. So 0a–2f:
+**121 / 121** of the cases that run on this clock.
+
+**Walk M-2f-01..03: 3 / 3 recorded**, step by step, each expected result asserted, screens captured and looked at.
+
+| # | Found by | Defect | Fix | Test now |
+|---|---|---|---|---|
+| 55 | gate MKT-2f-07 (first run) | a holiday was saved and "Holiday added." shown, but the list stayed empty: each row was built and never put in the table | the row is appended | gate MKT-2f-07, walk M-2f-02 |
+| 56 | the trace, before any test | report days were compared with the ledger's UTC times: a sale at 01:00 on the 1st in Pakistan would have been reported in the previous month | a day starts at 00:00 in the tenant's zone, converted to the ledger's UTC | unit `tenantDay` |
+| 57 | walk M-2f-01 (screen review) | 13 columns: Closing, the figure the operator reconciles, was past the table's right edge while the gate passed | Closing is the second column; the gate asserts it is inside the table's visible part | gate MKT-2f-01, walk M-2f-01 |
+| 58 | walk M-2f-02 (screen review) | a delivered line read "Not delivered yet" until the next settlement check (every 10 minutes) | it reads "Delivered" | walk M-2f-02 |
+| 59 | walk M-2f-03 (screen review) | the seller's summary read "Owed to you at the end: -226,720" | a negative start or end reads "You owe MaxTheService at the end", amount unsigned, in red | gate MKT-2f-05, walk M-2f-03 |
+
+**Open (2f):**
+- On this stack the report's closing for today and the account balance differ (Shahzad Mobile Shop −226,720 and
+  −4,160). Checked in the database: the 222,560 difference is exactly the ledger rows dated after today, written by
+  earlier runs under a later faked clock. In production a row is dated when it is written.
+- The ledger screens show `effective_at` as its UTC date (pre-existing, 1g); the report uses the tenant's day.
