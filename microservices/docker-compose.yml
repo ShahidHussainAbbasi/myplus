@@ -523,6 +523,32 @@ services:
       config-server:
         condition: service_healthy
 
+  # HMS S1 — the clinic (docs/hms-phase1-design.md). In the default set, like expense: the capability is opt-in per
+  # tenant, so running it changes nothing for a business that has not switched the clinic on.
+  clinical-service:
+    build: ./clinical-service
+    container_name: myplus-clinical
+    restart: unless-stopped
+    logging: *default-logging
+    mem_limit: 640m
+    expose:
+      - "8098"
+    healthcheck:
+      <<: *app-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8098/actuator/health/readiness"]
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0 -Xss512k"
+      <<: *db-env
+      EUREKA_URI: http://eureka-server:8761/eureka
+      CONFIG_URI: http://config-server:8888
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
+    networks: [myplus-net]
+    depends_on:
+      mysql:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+
   education-service:
     build: ./education-service
     container_name: myplus-education

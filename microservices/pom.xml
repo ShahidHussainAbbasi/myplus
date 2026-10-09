@@ -62,6 +62,7 @@
     <module>audit-service</module>
     <module>party-service</module>
     <module>expense-service</module>
+    <module>clinical-service</module>
     <module>education-service</module>
     <module>welfare-service</module>
     <module>agriculture-service</module>

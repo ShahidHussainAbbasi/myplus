@@ -42,7 +42,17 @@ class OptInCapabilityTest {
     /** The opt-in modules, listed by hand on purpose: adding one is a decision this test must be told about. */
     private static final java.util.Set<Capability> OPT_IN =
             java.util.EnumSet.of(Capability.EXPENSE_MANAGEMENT, Capability.MARKETPLACE_SELLING,
-                    Capability.EXPENSE_CLAIMS);   // EX-6
+                    Capability.EXPENSE_CLAIMS,    // EX-6
+                    Capability.CLINIC);           // HMS S1: a patient register is never switched on by a deploy
+
+    @Test
+    @DisplayName("HMS S1: the clinic is opt-in, OFF for everyone, and not in FREE")
+    void clinic_is_opt_in_and_not_free() {
+        assertThat(Capability.CLINIC.code()).isEqualTo("clinic");
+        assertThat(Capability.CLINIC.defaultOn()).isFalse();
+        assertThat(Capability.isOptInKey("org.cap.clinic")).isTrue();
+        assertThat(Plan.FREE.includes(Capability.CLINIC)).isFalse();
+    }
 
     @Test
     @DisplayName("Expense management is declared opt-in, and so is nothing else but the listed modules")

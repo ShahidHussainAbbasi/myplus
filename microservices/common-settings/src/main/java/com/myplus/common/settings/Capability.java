@@ -210,7 +210,20 @@ public enum Capability {
      */
     MARKETPLACE_SELLING("marketplaceSelling", "Sell on the MaxTheService marketplace",
             "List your products beside other sellers on the MaxTheService marketplace. MaxTheService approves "
-                    + "your seller account first. Off until you switch it on.", true);
+                    + "your seller account first. Off until you switch it on.", true),
+
+    /**
+     * HMS S1 — a clinic's front desk: patients registered by phone with a medical record number, who are also the
+     * pharmacy's customers. clinical-service refuses every write without it. See
+     * microservices/docs/hms-phase1-design.md.
+     *
+     * <h3>Opt-in</h3>
+     * A whole module holding patient data. Default ON would put a patient register in front of every shop on the
+     * deploy. Not in {@link Plan#FREE}: a shop completes a sale without it.
+     */
+    CLINIC("clinic", "Clinic reception and patients",
+            "Register patients by phone at the front desk; each gets a medical record number and is also your "
+                    + "pharmacy customer. Off until you switch it on.", true);
 
     private final String code;
     private final String label;

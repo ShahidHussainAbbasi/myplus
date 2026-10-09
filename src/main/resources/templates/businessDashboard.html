@@ -272,6 +272,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
 								<li data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
 								<li data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
+								<!-- HMS S1: the clinic's front desk (its own page), for a pharmacy that also runs a clinic. -->
+								<li data-capability="clinic"><a id="navClinic" th:href="@{/clinicDashboard}"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.clinicOpen}">Clinic reception</span></a></li>
 							</ul>
 						</div>
 						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->

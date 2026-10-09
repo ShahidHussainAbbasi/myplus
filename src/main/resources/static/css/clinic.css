@@ -1,0 +1,60 @@
+/* HMS S1 — the clinic's front desk. Uses the dashboard's own palette (navy #0D3B8C headers, blue #1565C0 actions). */
+.clin { --clin-navy: #0D3B8C; --clin-blue: #1565C0; --clin-ink: #15232b; --clin-muted: #5a6b74;
+        --clin-line: #dbe3ec; --clin-ok: #1d7a45; --clin-okbg: #e3f3e9; --clin-warn: #8a6410; --clin-warnbg: #fbf1d9;
+        --clin-bad: #b4312b; padding: 18px 16px 40px; color: var(--clin-ink); }
+.clin .formDiv { display: none; }
+.clin-reception { display: flex; flex-direction: column; gap: 18px; }
+.clin-desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 18px; align-items: start; }
+.clin-card { background: #fff; border: 1px solid var(--clin-line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
+.clin-card h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: var(--clin-navy); }
+.clin-label { display: block; font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+.clin-phone-row { display: flex; gap: 8px; }
+.clin-phone { font-size: 22px; height: 48px; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.clin-phone-row .btn { height: 48px; padding: 0 18px; font-weight: 600; }
+.clin-help { color: var(--clin-muted); font-size: 13px; margin: 8px 0 0; }
+.clin-error { color: var(--clin-bad); font-weight: 600; margin: 8px 0 0; }
+.clin-req { color: var(--clin-bad); }
+
+.clin-found-head { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--clin-muted); margin-bottom: 10px; }
+.clin-patient { border-left: 4px solid var(--clin-line); padding: 6px 0 6px 14px; margin-bottom: 12px; }
+.clin-patient--primary { border-left-color: var(--clin-blue); }
+.clin-patient-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.clin-patient-name { font-size: 20px; font-weight: 700; }
+.clin-mrn { font-family: Consolas, "Courier New", monospace; font-size: 15px; font-weight: 700; color: var(--clin-navy);
+            background: #eef3fb; padding: 2px 8px; border-radius: 4px; }
+.clin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 16px; margin: 10px 0 0; }
+.clin-facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--clin-muted); font-weight: 600; }
+.clin-facts dd { margin: 2px 0 0; font-variant-numeric: tabular-nums; }
+.clin-badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.clin-badge.ok { background: var(--clin-okbg); color: var(--clin-ok); }
+.clin-badge.warn { background: var(--clin-warnbg); color: var(--clin-warn); }
+
+.clin-form-title small { color: var(--clin-muted); font-weight: 600; font-family: Consolas, monospace; }
+.clin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; margin-top: 12px; }
+.clin-field label, .clin-flabel { display: block; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.clin-field--wide { grid-column: 1 / -1; }
+.clin-seg { display: inline-flex; border: 1px solid var(--clin-line); border-radius: 6px; overflow: hidden; }
+.clin-seg label { margin: 0; cursor: pointer; }
+.clin-seg input { position: absolute; opacity: 0; pointer-events: none; }
+.clin-seg span { display: inline-block; padding: 7px 14px; font-weight: 600; border-right: 1px solid var(--clin-line); }
+.clin-seg label:last-child span { border-right: 0; }
+.clin-seg input:checked + span { background: var(--clin-blue); color: #fff; }
+.clin-seg input:focus-visible + span { outline: 2px solid var(--clin-blue); outline-offset: -2px; }
+.clin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+
+.clin-list-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.clin-list-head .form-control { max-width: 320px; }
+.clin-table thead th { background: var(--clin-navy); color: #fff; font-weight: 600; border: none; white-space: nowrap; }
+.clin-table td { font-variant-numeric: tabular-nums; vertical-align: middle; }
+.clin-mrn-cell { font-family: Consolas, "Courier New", monospace; font-weight: 700; color: var(--clin-navy); white-space: nowrap; }
+.clin-empty { padding: 22px; text-align: center; color: var(--clin-muted); }
+
+.clin-settings { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.clin-setting { border-top: 1px solid var(--clin-line); padding-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; }
+.clin-setting label { font-weight: 700; margin: 0; }
+.clin-setting .form-control { max-width: 160px; }
+.clin-setting .clin-help { grid-column: 1 / -1; margin: 0; }
+.clin-setting .btn { grid-column: 1 / -1; justify-self: start; }
+
+@media (max-width: 991px) { .clin-desk { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .clin-grid { grid-template-columns: minmax(0, 1fr); } .clin-phone { font-size: 18px; } }

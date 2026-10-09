@@ -19,6 +19,7 @@ CREATE DATABASE IF NOT EXISTS myplusdb_finance;      -- finance-service (8094)
 CREATE DATABASE IF NOT EXISTS myplusdb_audit;        -- audit-service (8095)
 CREATE DATABASE IF NOT EXISTS myplusdb_party;        -- party-service (8096)
 CREATE DATABASE IF NOT EXISTS myplusdb_expense;      -- expense-service (8097), EX-1
+CREATE DATABASE IF NOT EXISTS myplusdb_clinical;     -- clinical-service (8098), HMS S1
 
 -- Other domain services (only used when the full stack is up)
 CREATE DATABASE IF NOT EXISTS myplusdb_education;
@@ -42,6 +43,7 @@ GRANT ALL PRIVILEGES ON myplusdb_finance.*     TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_audit.*       TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_party.*       TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_expense.*     TO 'shahid'@'%';
+GRANT ALL PRIVILEGES ON myplusdb_clinical.*    TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_education.*    TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_welfare.*      TO 'shahid'@'%';
 GRANT ALL PRIVILEGES ON myplusdb_agriculture.*  TO 'shahid'@'%';

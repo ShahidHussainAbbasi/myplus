@@ -150,6 +150,13 @@ public class AppointmentService {
         if (patient != null && patient.isBlocked()) {
             throw new IllegalArgumentException("This number is blocked from booking appointments.");
         }
+        // HMS S1 / B-07 — ONE PATIENT PER PHONE (client rule, docs/hms-phase1-design.md §1). This used to book a
+        // DIFFERENT name typed on a known phone under the earlier name, silently: a son's visit filed under his
+        // father. The phone's patient is kept, and a different name is refused with who is on that number.
+        if (patient != null && differentName(patient.getName(), req.getPatientName())) {
+            throw new IllegalArgumentException("This phone is already registered to " + patient.getName()
+                    + ". Book under that name, or use another phone number.");
+        }
 
         int capacity = capacityFor(d);
         String date = req.getDate() != null ? req.getDate() : TenantClock.today().toString();
@@ -182,6 +189,16 @@ public class AppointmentService {
         dto.setPatientName(patient.getName());
         dto.setPatientPhone(patient.getPhone());
         return dto;
+    }
+
+    /** B-07 — a name was typed and it is not the phone's patient (case and spacing ignored). Blank = same person. */
+    static boolean differentName(String onPhone, String typed) {
+        if (typed == null || typed.isBlank() || onPhone == null) return false;
+        return !norm(onPhone).equals(norm(typed));
+    }
+
+    private static String norm(String s) {
+        return s.trim().replaceAll("\\s+", " ").toLowerCase(java.util.Locale.ROOT);
     }
 
     /** Daily capacity: "count" -> fixed offerValue; time-based -> (hours*60)/offerValue; unknown -> unlimited. */

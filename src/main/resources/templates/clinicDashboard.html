@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/thymeleaf-extras-springsecurity5"
+      th:lang="${htmlLang}" th:dir="${htmlDir}">
+<head>
+<link rel="icon" type="image/png" th:href="@{/favicon.png}"/>
+<title>Clinic — MyPlus</title>
+<th:block th:replace="~{fragments/header :: header-css}"></th:block>
+<link rel="stylesheet" th:href="@{/css/dashboard.css}"/>
+<link rel="stylesheet" th:href="@{/css/sidebar.css}"/>
+<link rel="stylesheet" th:href="@{/css/clinic.css}"/>
+</head>
+<body class="has-sidebar">
+<button type="button" id="sidebar-mobile-btn" onclick="openSidebar()" aria-label="Open menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button>
+<div class="sidebar-backdrop" onclick="closeSidebar()"></div>
+  <div id="container">
+    <th:block th:replace="~{fragments/header :: header}" />
+    <div id="content">
+
+      <nav class="app-sidebar" id="app-sidebar"><div class="app-sidebar__brand"><span class="glyphicon glyphicon-th-large"></span><span class="app-sidebar__brand-text">MyPlus</span><button type="button" class="app-sidebar__toggle" onclick="toggleSidebar()" title="Collapse menu"><span class="glyphicon glyphicon-menu-hamburger"></span></button></div>
+        <div class="container-fluid">
+          <div class="snav-inner">
+            <div class="snav-left">
+              <span class="subnav-user"><span class="glyphicon glyphicon-plus-sign" style="margin-right:6px"></span><span th:text="#{ui.clinic}">Clinic</span></span>
+            </div>
+            <div class="snav-actions">
+              <div class="snav-dd">
+                <button class="snav-btn" id="clinNavReception" onclick="Clinic.show('ReceptionDiv')">
+                  <span class="glyphicon glyphicon-user"></span><span th:text="#{ui.clinicReception}">Reception</span>
+                </button>
+              </div>
+              <div class="snav-dd">
+                <button class="snav-btn" id="clinNavSettings" onclick="Clinic.show('ClinicSettingsDiv')">
+                  <span class="glyphicon glyphicon-cog"></span><span th:text="#{ui.clinicSettings}">Clinic settings</span>
+                </button>
+              </div>
+              <div class="snav-dd">
+                <a class="snav-btn" id="clinNavPharmacy" th:href="@{/businessDashboard}">
+                  <span class="glyphicon glyphicon-shopping-cart"></span><span th:text="#{ui.clinicToPharmacy}">Pharmacy</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div id="clinContent" class="clin">
+        <div id="clinMsg" class="alert text-center" role="status" style="display:none"></div>
+        <div id="clinModuleOff" class="alert alert-warning" style="display:none"></div>
+
+        <!-- ── Reception: the phone first ─────────────────────────────────────────────────────────── -->
+        <section id="ReceptionDiv" class="formDiv clin-reception">
+          <div class="clin-desk">
+            <div class="clin-card clin-phone-card">
+              <label for="clinPatPhone" class="clin-label" th:text="#{ui.clinicPhoneLabel}">Patient's mobile number</label>
+              <div class="clin-phone-row">
+                <input type="tel" id="clinPatPhone" class="form-control clin-phone" inputmode="tel" autocomplete="off"
+                       placeholder="03001234567" maxlength="16" aria-describedby="clinPatError clinPhoneHelp"/>
+                <button type="button" id="clinPatFind" class="btn btn-primary" onclick="Clinic.find()">
+                  <span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.clinicFind}">Find</span>
+                </button>
+              </div>
+              <p id="clinPhoneHelp" class="clin-help" th:text="#{ui.clinicPhoneHelp}">Type the number and press Enter. A known number opens the patient; a new one opens registration.</p>
+              <p id="clinPatError" class="clin-error" role="alert" style="display:none"></p>
+            </div>
+
+            <!-- A known number: the patient on it -->
+            <div id="clinPatFound" class="clin-card clin-found" style="display:none" aria-live="polite"></div>
+
+            <!-- A new number: register (only the phone is required) -->
+            <form id="clinPatForm" class="clin-card clin-form" style="display:none" onsubmit="Clinic.register(); return false;" autocomplete="off">
+              <h3 class="clin-form-title"><span th:text="#{ui.clinicNewPatient}">New patient</span> <small id="clinFormPhone"></small></h3>
+              <p class="clin-help" th:text="#{ui.clinicOnlyPhone}">Only the phone is required. Add what you know now; the rest can be filled in later.</p>
+              <div class="clin-grid">
+                <div class="clin-field clin-field--wide">
+                  <label for="clinPatName" th:text="#{ui.clinicName}">Name</label>
+                  <input type="text" id="clinPatName" class="form-control" maxlength="120" placeholder="Ali Khan"/>
+                </div>
+                <div class="clin-field">
+                  <label for="clinPatCnic"><span th:text="#{ui.clinicCnic}">CNIC</span> <span id="clinCnicReq" class="clin-req" style="display:none">*</span></label>
+                  <input type="text" id="clinPatCnic" class="form-control" maxlength="15" placeholder="42201-1234567-1" inputmode="numeric"/>
+                </div>
+                <div class="clin-field">
+                  <label for="clinPatDob" th:text="#{ui.clinicDob}">Date of birth</label>
+                  <input type="date" id="clinPatDob" class="form-control"/>
+                </div>
+                <div class="clin-field">
+                  <span class="clin-flabel" th:text="#{ui.clinicSex}">Sex</span>
+                  <div class="clin-seg" role="radiogroup" aria-label="Sex">
+                    <label><input type="radio" name="clinPatSex" value="M"/><span th:text="#{ui.clinicMale}">Male</span></label>
+                    <label><input type="radio" name="clinPatSex" value="F"/><span th:text="#{ui.clinicFemale}">Female</span></label>
+                    <label><input type="radio" name="clinPatSex" value="O"/><span th:text="#{ui.clinicOther}">Other</span></label>
+                  </div>
+                  <input type="hidden" id="clinPatSex"/>
+                </div>
+              </div>
+              <input type="hidden" id="clinPatFamily" value="false"/>
+              <div class="clin-actions">
+                <button type="submit" id="clinPatSave" class="btn btn-success"><span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.clinicRegister}">Register patient</span></button>
+                <button type="button" class="btn btn-default" onclick="Clinic.reset()" th:text="#{ui.cancel}">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Recent patients + search -->
+          <div class="clin-card clin-list">
+            <div class="clin-list-head">
+              <h3 th:text="#{ui.clinicPatients}">Patients</h3>
+              <input type="search" id="clinPatSearch" class="form-control" placeholder="MRN, name or phone" aria-label="Search patients"/>
+            </div>
+            <div class="table-responsive">
+              <table class="table clin-table">
+                <thead><tr>
+                  <th th:text="#{ui.clinicMrn}">MRN</th><th th:text="#{ui.clinicName}">Name</th><th th:text="#{ui.clinicPhone}">Phone</th>
+                  <th th:text="#{ui.clinicRegistered}">Registered</th><th th:text="#{ui.clinicPharmacyCustomer}">Pharmacy customer</th>
+                </tr></thead>
+                <tbody id="clinPatBody"></tbody>
+              </table>
+            </div>
+            <p id="clinPatEmpty" class="clin-empty" style="display:none" th:text="#{ui.clinicNoPatients}">No patients yet. Type a phone number above to register the first.</p>
+          </div>
+        </section>
+
+        <!-- ── Settings (owner/admin may change; everyone may read) ───────────────────────────────── -->
+        <section id="ClinicSettingsDiv" class="formDiv" style="display:none">
+          <div class="clin-card">
+            <h3 th:text="#{ui.clinicSettings}">Clinic settings</h3>
+            <p class="clin-help" th:text="#{ui.clinicSettingsHelp}">Only an owner or admin can change these.</p>
+            <div id="clinSettingsBody" class="clin-settings"></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <th:block th:replace="~{fragments/header :: header-js}"></th:block>
+  <script th:src="@{/js/business/sidebar.js}"></script>
+  <script th:src="@{/js/common/dom-safe.js}"></script>
+  <script th:src="@{/js/common/sessions.js}"></script>
+  <script th:inline="javascript">var serverContext = [[@{/}]];</script>
+  <script th:src="@{/js/clinic/clinic.js}"></script>
+</body>
+</html>

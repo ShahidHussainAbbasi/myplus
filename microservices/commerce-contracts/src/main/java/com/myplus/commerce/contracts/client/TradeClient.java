@@ -241,4 +241,13 @@ public interface TradeClient {
     @GetExchange("/internal/round-figures")
     java.util.List<com.myplus.commerce.contracts.dto.RoundFigureView> roundFigures(
             @RequestParam("invoiceNos") java.util.List<String> invoiceNos);
+
+    /**
+     * HMS S1 — the pharmacy customer for a person: the one already linked to {@code partyId} in the caller's
+     * organisation, else a new one. Idempotent by party: a second call returns the same customer with
+     * {@code created=false}. The caller (clinical-service) serialises calls per patient with a row lock.
+     */
+    @PostExchange("/internal/customers/for-party")
+    com.myplus.commerce.contracts.dto.PartyCustomerRef customerForParty(
+            @RequestBody com.myplus.commerce.contracts.dto.PartyCustomerRef request);
 }
