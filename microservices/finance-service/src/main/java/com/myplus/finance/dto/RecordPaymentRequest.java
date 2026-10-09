@@ -37,6 +37,8 @@ public class RecordPaymentRequest {
     private String clientRef;
     private String sourceModule;
     private String note;
+    /** EX-7b — ADVANCE on a payment to or from a member: an advance given or taken back (1300), not a claim (2300). */
+    private String purpose;
 
     @Builder.Default
     private List<AllocationDTO> allocations = new ArrayList<>();

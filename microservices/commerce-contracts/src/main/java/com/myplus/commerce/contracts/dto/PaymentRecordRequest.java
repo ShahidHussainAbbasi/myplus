@@ -27,5 +27,6 @@ public class PaymentRecordRequest {
     private String clientRef;
     private String sourceModule;    // BUSINESS | EDUCATION | ...
     private String note;
+    private String purpose;         // EX-7b — ADVANCE: an advance to / back from a member (1300); null otherwise
     private List<PaymentAllocationRef> allocations;
 }

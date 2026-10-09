@@ -64,10 +64,12 @@ public class ExpenseBillService {
     private final ExpenseAccess access;
     private final ObjectProvider<FinanceClient> finance;
     private final TransactionTemplate tx;
+    private final com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances;   // EX-7b
 
     public ExpenseBillService(ExpenseVoucherRepo vouchers, ExpenseBillPaymentRepo payments, ExpenseOutboxService outbox,
                               ExpenseAuditService audit, ExpenseAccess access, ObjectProvider<FinanceClient> finance,
-                              PlatformTransactionManager txm) {
+                              PlatformTransactionManager txm, com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances) {
+        this.advances = advances;
         this.vouchers = vouchers;
         this.payments = payments;
         this.outbox = outbox;
@@ -175,6 +177,7 @@ public class ExpenseBillService {
                 throw new ValidationException(e.getMessage());
             }
             v.setUpdatedAt(LocalDateTime.now());
+            giveBackAdvance(p);                         // EX-7b — a settlement reversed: the member holds it again
             p.setStatus(ExpenseBillPayment.REVERSED);
             p.setReversalReceiptNo(res == null ? null : res.getReceiptNo());
             p.setReversalReason(why);
@@ -303,7 +306,20 @@ public class ExpenseBillService {
         BigDecimal stillOwed = v.openAmount().subtract(payments.sumPending(v.getId()));
         if (amount.compareTo(stillOwed) > 0)
             throw new ValidationException("That is more than is owed on this " + (v.isClaim() ? "claim" : "bill") + " (" + stillOwed.max(BigDecimal.ZERO) + ").");
-        String method = method(r.method());
+        String method = method(r.method(), v.isClaim());
+        if (ADVANCE.equals(method)) {
+            // EX-7b — settle the claim from what the claimant holds as an advance: reserved here, under the member's
+            // balance row lock, so two pay-backs at once can never spend the same advance twice; a refusal gives it back
+            com.myplus.expense.entity.ExpenseAdvanceBalance b = advances.lock(org, v.getUserId())
+                    .orElseThrow(() -> new ValidationException("This member holds no advance to settle the claim from."));
+            try {
+                b.take(amount);
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                throw new ValidationException(e.getMessage());
+            }
+            b.setUpdatedAt(LocalDateTime.now());
+            advances.saveAndFlush(b);
+        }
         LocalDate paidOn = r.paidOn() == null ? TenantClock.today() : r.paidOn();
         if (paidOn.isAfter(TenantClock.today())) throw new ValidationException("A payment cannot be dated in the future.");
         if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A " + (v.isClaim() ? "claim" : "bill") + " cannot be paid before its own date.");
@@ -381,6 +397,7 @@ public class ExpenseBillService {
     private void release(Long rowId, String why) {
         tx.executeWithoutResult(st -> payments.findById(rowId).ifPresent(p -> {
             if (!ExpenseBillPayment.PENDING.equals(p.getStatus())) return;
+            giveBackAdvance(p);                         // EX-7b — the reservation was never spent
             p.setStatus(ExpenseBillPayment.FAILED);
             p.setLastError(why);
             p.setUpdatedAt(LocalDateTime.now());
@@ -422,10 +439,27 @@ public class ExpenseBillService {
                 .build();
     }
 
-    static String method(String raw) {
+    /** EX-7b — a claim may also be settled from the claimant's advance (no money moves: Dr 2300 / Cr 1300). */
+    static final String ADVANCE = "ADVANCE";
+
+    static String method(String raw) { return method(raw, false); }
+
+    static String method(String raw, boolean claim) {
         String m = raw == null ? "CASH" : raw.trim().toUpperCase();
-        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException("Pay by cash or bank.");
+        if (claim && m.equals(ADVANCE)) return m;
+        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException(claim ? "Pay back by cash, bank or from the member's advance." : "Pay by cash or bank.");
         return m;
+    }
+
+    /** EX-7b — a settlement from an advance that did not happen (refused) or was undone (reversed): back on the balance. */
+    private void giveBackAdvance(ExpenseBillPayment p) {
+        if (!ADVANCE.equals(p.getMethod())) return;
+        ExpenseVoucher v = vouchers.findById(p.getVoucherId()).orElseThrow();
+        advances.lock(p.getOrganizationId(), v.getUserId()).ifPresent(b -> {
+            b.add(p.getAmount());
+            b.setUpdatedAt(LocalDateTime.now());
+            advances.saveAndFlush(b);
+        });
     }
 
     private ExpenseVoucher visible(Long id) {

@@ -54,9 +54,41 @@ class EmployeePaymentLinesTest {
     }
 
     @Test
-    @DisplayName("money received FROM a member is refused until advances exist (EX-7b) — never credited to customers")
+    @DisplayName("money received FROM a member is taken only against an advance — never credited to customers")
     void employeeReceiptRefused() {
         assertThatThrownBy(() -> PostingService.paymentLines("RECEIPT", X, "CASH", PartyType.EMPLOYEE))
-                .hasMessageContaining("not supported yet");
+                .hasMessageContaining("only against an advance");
+    }
+
+    @Test
+    @DisplayName("⭐ EX-7b — an advance given: Dr 1300 / Cr cash; taken back: Dr bank / Cr 1300")
+    void advanceGivenAndTakenBack() {
+        List<JournalLineDTO> give = PostingService.paymentLines("DISBURSEMENT", X, "CASH", PartyType.EMPLOYEE, "ADVANCE");
+        assertThat(side(give, "1300")).isEqualTo("Dr 35.00");
+        assertThat(side(give, "1000")).isEqualTo("Cr 35.00");
+        assertThat(side(give, "2300")).isEqualTo("-");
+        List<JournalLineDTO> back = PostingService.paymentLines("RECEIPT", X, "BANK", PartyType.EMPLOYEE, "ADVANCE");
+        assertThat(side(back, "1010")).isEqualTo("Dr 35.00");
+        assertThat(side(back, "1300")).isEqualTo("Cr 35.00");
+    }
+
+    @Test
+    @DisplayName("⭐ EX-7b — a claim settled from an advance: Dr 2300 / Cr 1300, and no cash or bank moves")
+    void claimSettledFromAdvance() {
+        List<JournalLineDTO> l = PostingService.paymentLines("DISBURSEMENT", X, "ADVANCE", PartyType.EMPLOYEE, null);
+        assertThat(side(l, "2300")).isEqualTo("Dr 35.00");
+        assertThat(side(l, "1300")).isEqualTo("Cr 35.00");
+        assertThat(side(l, "1000")).isEqualTo("-");
+        assertThat(side(l, "1010")).isEqualTo("-");
+        assertThatThrownBy(() -> PostingService.paymentLines("DISBURSEMENT", X, "ADVANCE", PartyType.EMPLOYEE, "ADVANCE"))
+                .hasMessageContaining("not from another advance");
+    }
+
+    @Test
+    @DisplayName("ADVANCE means nothing outside the member branch: a supplier paid 'ADVANCE' is still Dr 2000 / Cr cash (cashAccount untouched)")
+    void advanceIsOnlyAMemberWord() {
+        List<JournalLineDTO> l = PostingService.paymentLines("DISBURSEMENT", X, "CASH", PartyType.VENDOR, "ADVANCE");
+        assertThat(side(l, "2000")).isEqualTo("Dr 35.00");
+        assertThat(side(l, "1300")).isEqualTo("-");
     }
 }

@@ -60,6 +60,21 @@ class PaymentReversalTest {
     }
 
     @Test
+    @DisplayName("⭐ EX-7b — a payment that kept its posted accounts is reversed as their exact mirror (an advance: Dr 1300 / Cr 1000)")
+    void reversesTheStoredAccounts() {
+        Payment advance = pv("CASH");
+        advance.setPartyType(PartyType.EMPLOYEE);
+        advance.setDebitAccount("1300");
+        advance.setCreditAccount("1000");
+        when(repo.findByIdAndOrganizationId(5L, 6L)).thenReturn(Optional.of(advance));
+
+        service.reverse(5L, "Given to the wrong person");
+
+        verify(posting).postPaymentReversalOf(eq("1300"), eq("1000"), eq(new BigDecimal("120")), any(LocalDate.class), eq("PV-000009-R"));
+        verify(posting, org.mockito.Mockito.never()).postPaymentReversal(anyString(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     @DisplayName("⭐ a reversed disbursement is a mirror (-120, PV-…-R, no allocations, REV:<id>) and Dr cash / Cr 2000")
     void mirrorAndJournal() {
         when(repo.findByIdAndOrganizationId(5L, 6L)).thenReturn(Optional.of(pv("CASH")));

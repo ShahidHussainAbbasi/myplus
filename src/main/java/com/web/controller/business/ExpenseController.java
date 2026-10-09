@@ -179,6 +179,35 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post-again", null));
     }
 
+    // ── EX-7b — advances to staff. Who may give, to whom, and how much is the service's rule. ─────────────────
+
+    @GetMapping(value = "/advances", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advances() {
+        return call(() -> expense.get("/advances"));
+    }
+
+    @GetMapping(value = "/advances/staff", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advanceStaff() {
+        return call(() -> expense.get("/advances/staff"));
+    }
+
+    @GetMapping(value = "/advances/{userId}/movements", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> advanceMovements(@PathVariable Long userId) {
+        return call(() -> expense.get("/advances/" + userId + "/movements"));
+    }
+
+    @PostMapping(value = "/advances/{action:give|take-back}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> moveAdvance(@PathVariable String action, @RequestBody Map<String, Object> body,
+                                              @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        StringBuilder q = new StringBuilder("/advances/").append(action).append("?x=1");
+        param(q, "idempotencyKey", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
+    }
+
     // ── EX-6 — claims: money a member paid from their own pocket. Who may decide is the service's rule. ────────
 
     @PostMapping(value = "/claims", produces = MediaType.APPLICATION_JSON_VALUE)

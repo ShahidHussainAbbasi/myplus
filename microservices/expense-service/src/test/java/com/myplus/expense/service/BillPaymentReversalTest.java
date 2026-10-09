@@ -42,6 +42,7 @@ class BillPaymentReversalTest {
     private final ExpenseOutboxService outbox = mock(ExpenseOutboxService.class);
     private final ExpenseAccess access = mock(ExpenseAccess.class);
     private final FinanceClient finance = mock(FinanceClient.class);
+    private final com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances = mock(com.myplus.expense.repository.ExpenseAdvanceBalanceRepo.class);
     private ExpenseBillService service;
     private ExpenseVoucher bill;
     private ExpenseBillPayment paid;
@@ -57,7 +58,7 @@ class BillPaymentReversalTest {
         when(access.seesAll()).thenReturn(true);
         when(access.visibleUserId()).thenReturn(null);
         service = new ExpenseBillService(vouchers, payments, outbox, mock(ExpenseAuditService.class), access, fp,
-                mock(PlatformTransactionManager.class));
+                mock(PlatformTransactionManager.class), advances);
 
         bill = new ExpenseVoucher();
         bill.setId(77L);

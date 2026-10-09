@@ -43,6 +43,7 @@ class ClaimPaybackTest {
     private final ExpenseOutboxService outbox = mock(ExpenseOutboxService.class);
     private final ExpenseAccess access = mock(ExpenseAccess.class);
     private final FinanceClient finance = mock(FinanceClient.class);
+    private final com.myplus.expense.repository.ExpenseAdvanceBalanceRepo advances = mock(com.myplus.expense.repository.ExpenseAdvanceBalanceRepo.class);
     private ExpenseBillService service;
     private ExpenseVoucher claim;
     private ExpenseBillPayment saved;
@@ -59,7 +60,7 @@ class ClaimPaybackTest {
         when(access.seesAll()).thenReturn(true);
         when(access.visibleUserId()).thenReturn(null);
         service = new ExpenseBillService(vouchers, payments, outbox, mock(ExpenseAuditService.class), access, fp,
-                mock(PlatformTransactionManager.class));
+                mock(PlatformTransactionManager.class), advances);
 
         claim = new ExpenseVoucher();
         claim.setId(40L);
@@ -148,6 +149,40 @@ class ClaimPaybackTest {
         claim.reversePayment(new BigDecimal("35"));
         claim.voidWith("wrong", 1L, LocalDateTime.now());
         assertThat(claim.getStatus()).isEqualTo(ExpenseVoucher.VOIDED);
+    }
+
+    @Test
+    @DisplayName("⭐ EX-7b — settled from the claimant's advance: method ADVANCE to finance, reserved off their balance")
+    void settledFromAdvance() {
+        com.myplus.expense.entity.ExpenseAdvanceBalance b = new com.myplus.expense.entity.ExpenseAdvanceBalance();
+        b.setOrganizationId(6L);
+        b.setUserId(3L);
+        b.setBalance(new BigDecimal("50"));
+        when(advances.lock(6L, 3L)).thenReturn(Optional.of(b));
+        PaymentRecordResult res = new PaymentRecordResult();
+        res.setId(501L);
+        res.setReceiptNo("PV-000501");
+        when(finance.recordPayment(any())).thenReturn(res);
+
+        service.pay(40L, new PayRequest(new BigDecimal("35"), "ADVANCE", null), "a1");
+
+        ArgumentCaptor<PaymentRecordRequest> sent = ArgumentCaptor.forClass(PaymentRecordRequest.class);
+        verify(finance).recordPayment(sent.capture());
+        assertThat(sent.getValue().getMethod()).isEqualTo("ADVANCE");
+        assertThat(b.getBalance()).isEqualByComparingTo("15");
+        assertThat(claim.openAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("EX-7b — not more than the claimant holds; and a bill can never be paid 'from an advance'")
+    void advanceLimits() {
+        com.myplus.expense.entity.ExpenseAdvanceBalance b = new com.myplus.expense.entity.ExpenseAdvanceBalance();
+        b.setBalance(new BigDecimal("10"));
+        when(advances.lock(6L, 3L)).thenReturn(Optional.of(b));
+        assertThatThrownBy(() -> service.pay(40L, new PayRequest(new BigDecimal("35"), "ADVANCE", null), "a2"))
+                .hasMessageContaining("more than this member holds");
+        assertThatThrownBy(() -> ExpenseBillService.method("ADVANCE", false)).hasMessageContaining("Pay by cash or bank");
+        verify(finance, never()).recordPayment(any());
     }
 
     @Test

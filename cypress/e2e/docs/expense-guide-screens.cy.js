@@ -1276,6 +1276,96 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
         })))
   })
 
+  // ═══ EX-7b · Advances to staff ═══════════════════════════════════════════════════════════════════════════
+  const schoolUserId = (who) => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/auth/org/users`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.data').then((l) => l.find((m) => m.email === SCHOOL[who]).userId))
+  const schoolHolds = (uid) => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/advances`, headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })
+    .then((r) => { const b = ((r.body && r.body.data) || []).find((x) => x.userId === uid); return b ? Number(b.balance) : 0 }))
+  /** Whatever user.education holds is taken back in cash, so the cases start (and end) with nothing held. */
+  const sweepAdvance = () => schoolUserId('user').then((uid) => schoolHolds(uid).then((h) => {
+    if (h > 0) schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/advances/take-back`,
+      headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': 'xg8s-' + Date.now() }, body: { userId: uid, amount: h, method: 'CASH' }, failOnStatusCode: false }))
+  }))
+
+  caseIt('8-1', 'Give a member an advance', () => {
+    testCase('8-1', 'ex8', 'Give a member an advance', { who: ['owner.education (recorded)', 'user.education (recorded)', 'admin.education'] })
+    setup('Expense claims switched on (case 6-1): advances are part of it. Nobody holds an advance yet (the recording takes back anything left from an earlier run).')
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    sweepAdvance()
+    SAFETY.push(() => sweepAdvance())
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('As the owner: press <b>Advances</b>.', ['A panel: who holds an advance (nobody yet), and <b>Give an advance to</b> with the business’s <b>staff</b> only — the school’s guardian and student are not offered.'])
+    cy.get('[data-cy=expense-advances-open]').should('be.visible').click()
+    cy.get('[data-cy=adv-member] option').should('contain', SCHOOL.user).and('not.contain', 'guardian.education').and('not.contain', 'student.education')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'panel')
+    const a2 = act('Choose <b>User Education</b>, Amount <b>50</b>, <b>Cash</b>, press <b>Give</b>.', ['“Advance given — PV-…”. The table reads <b>User Education · Holds 50.00</b>.'])
+    cy.get('[data-cy=adv-member] option').contains(SCHOOL.user).then(($o) => cy.get('[data-cy=adv-member]').select($o.val(), { force: true }))
+    cy.get('[data-cy=adv-amount]').type('50')
+    cy.get('[data-cy=adv-method]').select('CASH', { force: true })
+    cy.get('[data-cy=adv-give]').click()
+    cy.get('#expAdvMsg').should('contain', 'PV-')
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-holds]').should('contain', '50.00')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'given')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>1300 Employee Advances</b> is 50 higher (the member owes it back) and <b>1000 Cash</b> 50 lower. 2300 (claims) and 2000 (suppliers) have not moved.'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '1300')).to.eq(50); expect(tbDelta(before, a, '1000')).to.eq(-50); expect(tbDelta(before, a, '2300')).to.eq(0); expect(tbDelta(before, a, '2000')).to.eq(0) })
+    const a3 = act('As <b>user.education</b>: open Expenses.', ['Above the form: “<b>You hold an advance of 50.00.</b> Spend it on the business and claim it, or hand back what is left.” There is no Advances button for a member.'])
+    asSchool('user'); schoolExpenses()
+    cy.get('[data-cy=my-advance]').should('contain', '50.00')
+    cy.get('[data-cy=expense-advances-open]').should('not.exist')
+    cy.get('[data-cy=my-advance]').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'member-sees')
+    act('Kept for case 8-2 (it spends 30 of it) and 8-3 (it takes back the rest).', [], { cleanup: true })
+  })
+
+  caseIt('8-2', 'Settle a claim from the member’s advance', () => {
+    testCase('8-2', 'ex8', 'Settle a claim from the member’s advance', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG8 taxi ' + run
+    setup(`User Education holds an advance of 50 (case 8-1) and has an approved claim of <b>30</b> (Payee <b>${payee}</b>) — the recording makes the claim as in cases 6-2 and 6-3.`)
+    approvedSchoolClaim('user', 30, payee)
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act(`On <b>${payee}</b> press <b>Pay back</b> and open <b>Paid from</b>.`, ['Beside Cash and Bank it offers <b>From their advance (holds 50.00)</b>.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayMethod option[value=ADVANCE]').should('contain', '50.00')
+    cy.get('#expPayMethod').select('ADVANCE', { force: true })
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'from-advance')
+    const a2 = act('Choose it and press <b>Pay</b>.', ['The claim reads <b>Paid back</b>. No money moved: the member had already spent the advance on this. Advances now shows <b>Holds 20.00</b>.'])
+    cy.get('[data-cy=expense-pay-go]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    cy.get('[data-cy=expense-advances-open]').click()
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-holds]').should('contain', '20.00')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'holds-20')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>2300</b> is cleared of the claim’s 30 and <b>1300</b> is 30 lower. <b>Cash and Bank have not moved.</b>'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '2300')).to.eq(30); expect(tbDelta(before, a, '1300')).to.eq(-30); expect(tbDelta(before, a, '1000')).to.eq(0); expect(tbDelta(before, a, '1010')).to.eq(0) })
+    act('Kept for case 8-3: 20 is still held.', [], { cleanup: true })
+  })
+
+  caseIt('8-3', 'Take back what is left of an advance', () => {
+    testCase('8-3', 'ex8', 'Take back what is left of an advance', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    setup('User Education holds 20 of an advance (cases 8-1 and 8-2).')
+    let before = null
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('<b>Advances</b> → beside Give choose <b>Bank</b>, then press <b>Take back</b> on User Education’s row.', ['“Take back from User Education?” with the amount already filled in: <b>20.00</b>, all they hold.'])
+    cy.get('[data-cy=expense-advances-open]').click()
+    cy.get('[data-cy=adv-method]').select('BANK', { force: true })
+    cy.contains('[data-cy=adv-row]', 'User').find('[data-cy=adv-take-back]').click()
+    cy.get('.uiC-input').should('have.value', '20.00')
+    snap(a1, 'take-back')
+    const a2 = act('Confirm.', ['“Advance taken back — RCPT-…”. The table reads <b>Nobody holds an advance.</b>'])
+    cy.get('[data-ui-confirm="ok"]').click()
+    cy.get('#expAdvMsg').should('contain', 'RCPT-')
+    cy.get('#expAdvTable tbody').should('contain', 'Nobody holds an advance')
+    cy.get('#expAdvPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'nobody-holds')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>1010 Bank</b> is 20 higher and <b>1300</b> is back where it was before case 8-1: of the 50 given, 30 was spent on the business (the claim) and 20 came back.'], { via: 'run' })
+    schoolTb().then((a) => { expect(tbDelta(before, a, '1010')).to.eq(20); expect(tbDelta(before, a, '1300')).to.eq(-20) })
+    act('Nothing to undo — nothing is held.', [], { cleanup: true })
+  })
+
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════
   const DASH = [
     { email: 'owner.education@myplus.com', check: '/getDashboardData', dash: '/educationDashboard', tag: 'school',

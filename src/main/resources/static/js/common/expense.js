@@ -102,6 +102,7 @@
 		if (isClaim && v.postingStatus === 'POSTED_GL' && canVoid) {
 			// owner/admin only; the server also refuses paying your own claim back
 			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-claim" data-id="' + esc(v.id)
+				+ '" data-user="' + esc(v.userId == null ? '' : v.userId)
 				+ '" data-no="' + esc(v.voucherNo || '') + '" data-open="' + esc(open) + '">' + esc(tr('ui.js.claimPayBack', 'Pay back')) + '</button>';
 		} else if (!isClaim && v.postingStatus === 'POSTED_GL') {
 			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-bill" data-id="' + esc(v.id)
@@ -327,7 +328,95 @@
 		if (!claimsOn() && has) { $s.find('option[value="EMPLOYEE"]').remove(); if (!$s.val()) $s.val('CASH'); }
 		if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($s[0]);
 		toggleBill();
+		$('#expAdvOpen').toggle(claimsOn());          // EX-7b — advances belong to Expense claims
+		loadAdvances();
 	}
+
+	// ── EX-7b — advances to staff ─────────────────────────────────────────────────────────────────────────────
+	// What each member holds of the business's money (1300). An owner or admin gives and takes back from the Advances
+	// panel; a member sees their own. The server decides who is staff, who may act, and how much is held.
+	var advBalances = {};
+	function advMsg(text, kind) {
+		$('#expAdvMsg').text(text || '').css('color', kind === 'bad' ? '#b3261e' : (kind === 'ok' ? '#1b7f3b' : ''));
+	}
+	function loadAdvances() {
+		advBalances = {};
+		if (!claimsOn()) { $('#expMyAdvance').hide(); return $.Deferred().resolve().promise(); }
+		return $.ajax({ url: ctx() + 'expense/advances', dataType: 'json' }).done(function (res) {
+			var list = (res && res.success === true && res.data) || [];
+			list.forEach(function (b) { advBalances[b.userId] = Number(b.balance || 0); });
+			if (!canVoid) {
+				var mine = list[0], held = mine ? Number(mine.balance || 0) : 0;
+				$('#expMyAdvance').toggle(held > 0).text(held > 0 ? tr('ui.js.advYouHold', 'You hold an advance of {0}. Spend it on the business and claim it, or hand back what is left.').replace('{0}', money(held)) : '');
+			}
+			if ($('#expAdvPanel').is(':visible')) drawAdvances(list);
+		});
+	}
+	function drawAdvances(list) {
+		var rows = (list || []).filter(function (b) { return Number(b.balance || 0) > 0; });
+		$('#expAdvTable tbody').html(rows.length ? rows.map(function (b) {
+			return '<tr data-cy="adv-row" data-user="' + esc(b.userId) + '"><td>' + esc(b.memberName || '') + '</td>'
+				+ '<td style="text-align:right;font-variant-numeric:tabular-nums" data-cy="adv-holds">' + esc(money(b.balance)) + '</td>'
+				+ '<td><button type="button" class="btn btn-xs btn-default" data-cy="adv-take-back" data-user="' + esc(b.userId)
+				+ '" data-name="' + esc(b.memberName || '') + '" data-holds="' + esc(b.balance) + '">' + esc(tr('ui.js.advTakeBack', 'Take back')) + '</button></td></tr>';
+		}).join('') : '<tr><td colspan="3" class="text-muted">' + esc(tr('ui.js.advNone', 'Nobody holds an advance.')) + '</td></tr>');
+	}
+	function expenseAdvancesToggle() {
+		var $p = $('#expAdvPanel'), open = !$p.is(':visible');
+		$p.toggle(open);
+		$('#expAdvOpen').attr('aria-expanded', String(open));
+		if (!open) return;
+		advMsg('');
+		$p.data('idemKey', newKey());                 // ONE key per opening: a retried Give is the same advance
+		$.ajax({ url: ctx() + 'expense/advances/staff', dataType: 'json' }).done(function (res) {
+			var $s = $('#expAdvMember').empty().append($('<option>').val('').text(tr('ui.js.selectOne', 'Select one')));
+			((res && res.success === true && res.data) || []).forEach(function (m) {
+				$s.append($('<option>').val(m.userId).text(m.name + (m.email && m.email !== m.name ? ' (' + m.email + ')' : '')));
+			});
+		}).fail(function (xhr) { advMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, '') : '', 'bad'); });
+		$.ajax({ url: ctx() + 'expense/advances', dataType: 'json' }).done(function (res) { drawAdvances((res && res.data) || []); });
+	}
+	function advanceSend(btn, action, body, key) {
+		var $b = $(btn), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		advMsg('');
+		return $.ajax({ url: ctx() + 'expense/advances/' + action, type: 'POST', contentType: 'application/json', dataType: 'json',
+			headers: { 'Idempotency-Key': key }, data: JSON.stringify(body) })
+			.done(function (res) {
+				if (!res || res.success !== true) { advMsg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+				advMsg((res.message || '') + (res.data && res.data.receiptNo ? ' — ' + res.data.receiptNo : ''), 'ok');
+				$('#expAdvPanel').data('idemKey', newKey());
+				$('#expAdvAmount').val('');
+				loadAdvances().always(function () {
+					$.ajax({ url: ctx() + 'expense/advances', dataType: 'json' }).done(function (r2) { drawAdvances((r2 && r2.data) || []); });
+				});
+			})
+			.fail(function (xhr) {
+				// the key is KEPT: pressing again is the same advance, never a second one
+				advMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			})
+			.always(function () { $b.prop('disabled', false).html(label); });
+	}
+	function expenseAdvanceGive(btn) {
+		var userId = Number($('#expAdvMember').val()), amount = Number($('#expAdvAmount').val());
+		if (!userId) { advMsg(tr('ui.js.advChooseMember', 'Choose the member.'), 'bad'); return; }
+		if (!(amount > 0)) { advMsg(tr('ui.js.expAmountRequired', 'Enter an amount greater than zero.'), 'bad'); return; }
+		advanceSend(btn, 'give', { userId: userId, amount: amount, method: $('#expAdvMethod').val() }, $('#expAdvPanel').data('idemKey'));
+	}
+	$(document).on('click', '#expAdvTable [data-cy="adv-take-back"]', function () {
+		var btn = this, userId = Number($(this).attr('data-user')), holds = Number($(this).attr('data-holds'));
+		var ask = typeof global.uiPromptConfirm === 'function' ? global.uiPromptConfirm : null;
+		if (!ask) return;
+		ask({ title: tr('ui.js.advTakeBackTitle', 'Take back from {0}?').replace('{0}', $(this).attr('data-name')),
+			input: { label: tr('ui.js.advTakeBackAmount', 'Amount handed back (holds {0}); in the way chosen beside Give').replace('{0}', money(holds)), value: holds.toFixed(2) } })
+			.then(function (v) {
+				if (v === null) return;
+				var amount = Number(String(v).trim());
+				if (!(amount > 0)) { advMsg(tr('ui.js.expAmountRequired', 'Enter an amount greater than zero.'), 'bad'); return; }
+				advanceSend(btn, 'take-back', { userId: userId, amount: amount, method: $('#expAdvMethod').val() }, newKey());
+			});
+	});
 
 	/** EX-6 — owner/admin: how many claims wait for a decision, and a way to see only those. */
 	var claimFilter = '';
@@ -679,8 +768,13 @@
 
 	// ── FP-3: paying a bill ─────────────────────────────────────────────────────────────────────
 
-	function expensePayOpen(id, no, open, claim) {
+	function expensePayOpen(id, no, open, claim, userId) {
 		var $p = $('#expPayPanel');
+		// EX-7b — a claim may be settled from what its claimant holds as an advance (no money moves)
+		var $m = $('#expPayMethod'), held = claim ? Number(advBalances[userId] || 0) : 0;
+		$m.find('option[value="ADVANCE"]').remove();
+		if (held > 0) $m.append($('<option>').val('ADVANCE').text(tr('ui.js.advFrom', 'From their advance (holds {0})').replace('{0}', money(held))));
+		$m.val('CASH');
 		$p.data({ id: id, idemKey: newKey() });   // ONE key per opening of the panel
 		$('#expPayTitle').text((claim ? tr('ui.js.claimPayBackTitle', 'Pay back claim') : tr('ui.js.expPayTitle', 'Pay bill')) + ' ' + (no || '') + ' — '
 			+ (claim ? tr('ui.js.claimOwed', 'Owed to the member') : tr('ui.js.expOwes', 'Owes')) + ' ' + money(open));
@@ -714,6 +808,7 @@
 				return;
 			}
 			expensePayClose();
+			loadAdvances();                               // EX-7b — a settlement from an advance changes what is held
 			msg(tr('ui.js.expPayDone', 'Payment recorded') + (res.data && res.data.receiptNo ? ' — ' + res.data.receiptNo : ''), 'ok');
 			expenseLoad(expPage);
 		}).fail(function (xhr) {
@@ -839,7 +934,7 @@
 		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'));
 	});
 	$(document).on('click', '#tableExpense [data-cy="pay-claim"]', function () {
-		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'), true);
+		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'), true, $(this).attr('data-user'));
 	});
 	// EX-1b — only the pressed button shows it is working (§0c); the row is redrawn from the server's answer.
 	$(document).on('click', '#tableExpense [data-cy="post-again"]', function () {
@@ -920,4 +1015,6 @@
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
 	global.expenseClaimsFilter = expenseClaimsFilter;
+	global.expenseAdvancesToggle = expenseAdvancesToggle;
+	global.expenseAdvanceGive = expenseAdvanceGive;
 })(window);

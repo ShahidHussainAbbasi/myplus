@@ -453,12 +453,23 @@ public class PostingService {
     /** EX-7a — the party decides what a disbursement settles: a supplier (2000) or a member's claim (2300). */
     @Transactional
     public void postPayment(String direction, BigDecimal amount, String method, com.myplus.finance.entity.PartyType party) {
+        postPayment(direction, amount, method, party, null);
+    }
+
+    /**
+     * EX-7b — and the purpose decides, for a member, between a claim (2300) and an advance (1300). Returns the lines it
+     * posted, so the payment row can keep the accounts it moved (and its reversal mirror exactly those).
+     */
+    @Transactional
+    public List<JournalLineDTO> postPayment(String direction, BigDecimal amount, String method,
+                                            com.myplus.finance.entity.PartyType party, String purpose) {
         BigDecimal amt = nz(amount);
-        if (amt.signum() <= 0) return;
+        if (amt.signum() <= 0) return List.of();
         glService.ensureDefaults();
-        List<JournalLineDTO> lines = paymentLines(direction, amt, method, party);
+        List<JournalLineDTO> lines = paymentLines(direction, amt, method, party, purpose);
         String source = "DISBURSEMENT".equalsIgnoreCase(direction) ? "PAYMENT" : "RECEIPT";
         post(source, TenantClock.today(), null, lines);
+        return lines;
     }
 
     /** The journal a recorded payment posts — static so the posting rule is unit-tested without a ledger. */
@@ -475,10 +486,34 @@ public class PostingService {
      * refused here until then, rather than silently credited to customers' 1100.
      */
     static List<JournalLineDTO> paymentLines(String direction, BigDecimal amt, String method, com.myplus.finance.entity.PartyType party) {
+        return paymentLines(direction, amt, method, party, null);
+    }
+
+    /** EX-7b — 1300 Employee Advance: money a member holds on the business's behalf and owes back. */
+    static final String EMPLOYEE_ADVANCE = "1300", PURPOSE_ADVANCE = "ADVANCE", METHOD_ADVANCE = "ADVANCE";
+
+    /**
+     * A member's money, by direction, purpose and method:
+     * <pre>
+     *   DISBURSEMENT                     a claim paid back            Dr 2300 / Cr cash·bank
+     *   DISBURSEMENT, method ADVANCE     a claim settled from an advance  Dr 2300 / Cr 1300 (no money moves)
+     *   DISBURSEMENT, purpose ADVANCE    an advance given             Dr 1300 / Cr cash·bank
+     *   RECEIPT,      purpose ADVANCE    an unused advance taken back Dr cash·bank / Cr 1300
+     * </pre>
+     * {@code cashAccount} is never asked about ADVANCE: it is shared with the sale and purchase postings.
+     */
+    static List<JournalLineDTO> paymentLines(String direction, BigDecimal amt, String method,
+                                             com.myplus.finance.entity.PartyType party, String purpose) {
         if (party == com.myplus.finance.entity.PartyType.EMPLOYEE) {
-            if (!"DISBURSEMENT".equalsIgnoreCase(direction))
-                throw new IllegalArgumentException("Money received from a member is not supported yet.");
-            return List.of(dr(EMPLOYEE_PAYABLE, amt), cr(cashAccount(method), amt));
+            boolean out = "DISBURSEMENT".equalsIgnoreCase(direction);
+            boolean advance = PURPOSE_ADVANCE.equalsIgnoreCase(purpose == null ? null : purpose.trim());
+            boolean fromAdvance = METHOD_ADVANCE.equalsIgnoreCase(method == null ? null : method.trim());
+            if (advance && fromAdvance) throw new IllegalArgumentException("An advance is given in cash or by bank, not from another advance.");
+            if (out && advance) return List.of(dr(EMPLOYEE_ADVANCE, amt), cr(cashAccount(method), amt));
+            if (out && fromAdvance) return List.of(dr(EMPLOYEE_PAYABLE, amt), cr(EMPLOYEE_ADVANCE, amt));
+            if (out) return List.of(dr(EMPLOYEE_PAYABLE, amt), cr(cashAccount(method), amt));
+            if (advance && !fromAdvance) return List.of(dr(cashAccount(method), amt), cr(EMPLOYEE_ADVANCE, amt));
+            throw new IllegalArgumentException("Money received from a member is taken only against an advance.");
         }
         return "DISBURSEMENT".equalsIgnoreCase(direction)
                 ? List.of(dr(AP, amt), cr(cashAccount(method), amt))      // we pay a vendor
@@ -506,6 +541,18 @@ public class PostingService {
     @Transactional
     public void postPaymentReversal(String direction, BigDecimal amount, String method, LocalDate date, String ref) {
         postPaymentReversal(direction, amount, method, date, ref, null);
+    }
+
+    /**
+     * EX-7b — reverse what the payment row SAYS it posted (its stored accounts): the exact mirror, whatever the rules
+     * would compute today.
+     */
+    @Transactional
+    public void postPaymentReversalOf(String debitAccount, String creditAccount, BigDecimal amount, LocalDate date, String ref) {
+        BigDecimal amt = nz(amount);
+        if (amt.signum() <= 0) return;
+        glService.ensureDefaults();
+        post("PAYMENT_REVERSAL", date, ref, List.of(dr(creditAccount, amt), cr(debitAccount, amt)));
     }
 
     @Transactional

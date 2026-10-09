@@ -100,7 +100,16 @@ public class PaymentService {
         // needs no relay). postPayment ensureDefaults() seeds the CoA if missing and its journal balances by
         // construction, so it can only throw on a closed period (which must reject the payment too) or a real DB
         // fault (which would fail the save anyway) — either way payment + journal commit together or not at all.
-        postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod(), saved.getPartyType());
+        List<com.myplus.finance.dto.JournalLineDTO> posted = postingService.postPayment(saved.getDirection().name(),
+                saved.getAmount(), saved.getMethod(), saved.getPartyType(), req.getPurpose());
+        // EX-7b — keep on the row the accounts its journal moved (the V1 slots, unused until now), so a reversal
+        // mirrors exactly what was posted
+        if (posted != null && posted.size() == 2) {
+            for (com.myplus.finance.dto.JournalLineDTO l : posted) {
+                if (l.getDebit() != null && l.getDebit().signum() > 0) saved.setDebitAccount(l.getAccountCode());
+                else saved.setCreditAccount(l.getAccountCode());
+            }
+        }
         return toDTO(saved);
     }
 
@@ -141,7 +150,10 @@ public class PaymentService {
                 .createdAt(LocalDateTime.now()).allocations(new ArrayList<>())
                 .build();
         Payment saved = paymentRepository.saveAndFlush(mirror);
-        postingService.postPaymentReversal(p.getDirection().name(), p.getAmount(), p.getMethod(), on, saved.getReceiptNo(), p.getPartyType());
+        if (p.getDebitAccount() != null && p.getCreditAccount() != null)
+            postingService.postPaymentReversalOf(p.getDebitAccount(), p.getCreditAccount(), p.getAmount(), on, saved.getReceiptNo());
+        else
+            postingService.postPaymentReversal(p.getDirection().name(), p.getAmount(), p.getMethod(), on, saved.getReceiptNo(), p.getPartyType());
         return toDTO(saved);
     }
 

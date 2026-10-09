@@ -36,6 +36,7 @@ public class ExpenseController {
     private final com.myplus.expense.service.ExpenseTagService tagService;
     private final com.myplus.expense.service.ExpenseBillService bills;
     private final com.myplus.expense.service.ExpenseClaimService claims;
+    private final com.myplus.expense.service.ExpenseAdvanceService advances;   // EX-7b
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -129,6 +130,39 @@ public class ExpenseController {
         // and a query but no custom headers. Either way the same UNIQUE index carries the guarantee.
         String k = key != null && !key.isBlank() ? key : keyParam;
         return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
+    }
+
+    // ── EX-7b — advances to staff (owner/admin give and take back; a member sees their own balance) ─────────────
+
+    @GetMapping("/advances")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseAdvanceService.BalanceView>> advanceBalances() {
+        return ApiResponse.success(advances.balances());
+    }
+
+    @GetMapping("/advances/staff")
+    public ApiResponse<List<com.myplus.expense.service.StaffDirectory.Member>> advanceStaff() {
+        return ApiResponse.success(advances.staff());
+    }
+
+    @GetMapping("/advances/{userId}/movements")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseAdvanceService.MovementView>> advanceMovements(@PathVariable Long userId) {
+        return ApiResponse.success(advances.movements(userId));
+    }
+
+    @PostMapping("/advances/give")
+    public ApiResponse<com.myplus.expense.service.ExpenseAdvanceService.MovementView> giveAdvance(
+            @RequestBody com.myplus.expense.service.ExpenseAdvanceService.AdvanceRequest r,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        return ApiResponse.success(advances.give(r, key != null && !key.isBlank() ? key : keyParam), "Advance given");
+    }
+
+    @PostMapping("/advances/take-back")
+    public ApiResponse<com.myplus.expense.service.ExpenseAdvanceService.MovementView> takeBackAdvance(
+            @RequestBody com.myplus.expense.service.ExpenseAdvanceService.AdvanceRequest r,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestParam(value = "idempotencyKey", required = false) String keyParam) {
+        return ApiResponse.success(advances.takeBack(r, key != null && !key.isBlank() ? key : keyParam), "Advance taken back");
     }
 
     // ── EX-6 — claims ────────────────────────────────────────────────────────────────────────────────

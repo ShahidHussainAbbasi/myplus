@@ -608,7 +608,7 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-5 receipts · gate 6/6 (`slices/ex-5-receipts.md`)
 - [x] EX-6 claims + approvals · gate 8/8 (`slices/ex-6-claims.md`)
 - [x] EX-7a paying approved claims back · gate 4/4 (`slices/ex-7a-claim-payback.md`)
-- [ ] EX-7b advances (give, settle claims against, return unused) · gate
+- [x] EX-7b advances (give, settle claims against, return unused) · gate 5/5 (`slices/ex-7b-advances.md`)
 - [ ] EX-8 reports + analytics + duplicate warning + tax · gate
 - [ ] EX-9 agriculture convergence · gate
 
@@ -666,7 +666,7 @@ switched on.
 3. ~~**E4** list paging/total~~ — done, EX-2d. ~~**E6** a category screen~~ — done, EX-2e. ~~**E5** the expense settings~~ — done, EX-2f.
 4. ~~A payment reversal~~ — done, FP-3b. ~~Expense-bill parity in the daily check (E11)~~ — done.
 5. fp-4b case 2 made self-sufficient (11.1).
-6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). EX-7b advances, EX-6b the user-tier post limit
+6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). ~~EX-7b advances~~ — done (`slices/ex-7b-advances.md`). EX-6b the user-tier post limit
    (`userPostLimit`, §6.2; today a user posts any amount directly), EX-8 reports (validate `storeId` first — E8),
    EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:

@@ -69,6 +69,30 @@ public class ClientsConfig {
         return tagClient(builder, "http://business-service");
     }
 
+    /**
+     * EX-7b — auth-service, for "who is staff here". auth's member list scopes by the caller's own JWT (its active org
+     * and its owner/admin role), so the caller's Authorization header is passed on as it came, alongside the identity
+     * headers. No token, no answer: a request with no caller cannot list anyone.
+     */
+    @Bean
+    @org.springframework.beans.factory.annotation.Qualifier("authRestClient")
+    public RestClient authRestClient(@LoadBalanced RestClient.Builder builder) {
+        return builder.clone()
+                .baseUrl("http://auth-service")
+                .requestFactory(timeouts())
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .requestInterceptor((request, body, execution) -> {
+                    var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+                    if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+                        String auth = sra.getRequest().getHeader(org.springframework.http.HttpHeaders.AUTHORIZATION);
+                        if (auth != null && !request.getHeaders().containsKey(org.springframework.http.HttpHeaders.AUTHORIZATION))
+                            request.getHeaders().add(org.springframework.http.HttpHeaders.AUTHORIZATION, auth);
+                    }
+                    return execution.execute(request, body);
+                })
+                .build();
+    }
+
     private static com.myplus.commerce.contracts.client.ExpenseTagClient tagClient(RestClient.Builder builder, String base) {
         RestClient rc = builder.clone()
                 .baseUrl(base)
