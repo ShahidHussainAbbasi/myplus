@@ -1,6 +1,6 @@
 # Selling price per purchase (batch price) and the purchase-based markup rule — analysis
 
-Status: **COMPLETE — PR-1, PR-2, PR-2b, PR-3a, PR-3b, PR-3c, CART-3 (§7–§10.8) and PR-4 (§11) built, committed and verified end to end on the deployed stack (§12, 2026-10-09).** Open items: §12.3.
+Status: **COMPLETE — PR-1, PR-2, PR-2b, PR-3a, PR-3b, PR-3c, CART-3 (§7–§10.8) and PR-4 (§11) built, committed and verified end to end on the deployed stack (§12, 2026-10-09).** Open items: §12.3 (§8.1 defect and placeholder fixed §12.4).
 
 ## 1. The question
 
@@ -180,7 +180,7 @@ config before shipping).
 | Finding | Cause | Status |
 |---|---|---|
 | **Use 240.45 did nothing** when clicked straight from the P/U box (gate M9 red on the deployed build) | P/U's `onblur` re-rendered the suggestion line between mousedown and mouseup; the browser fires no `click` when the two land on different elements. Traced with a capture-phase event log: mousedown + mouseup on the button, no click. | Fixed: the line is rebuilt only when what it says changes (`data-sig`), and the button has one delegated handler. M9 passed with the fixed file evaluated on the page; **needs a monolith rebuild to ship**. |
-| Reopening the Products list while it is still reloading after a save throws `Cannot read properties of undefined (reading 'style')` inside DataTables (`catalog-products.js` `deliver`, l.1663) | A server-side page delivered into a table `showProducts()` has just rebuilt | **Pre-existing, not PR-2.** The grid still renders; console error only. Recorded, not fixed (needs consent). The guide waits for the reload. |
+| Reopening the Products list while it is still reloading after a save throws `Cannot read properties of undefined (reading 'style')` inside DataTables (`catalog-products.js` `deliver`, l.1663) | A server-side page delivered into a table `showProducts()` has just rebuilt | **Pre-existing, not PR-2.** The grid still renders; console error only. **Fixed 2026-10-09 (PG-LATE, §12.4).** |
 
 Gate `cypress/e2e/business/pricing-markup.cy.js`: M1–M11 green on the deployed build after the fix (2026-10-05); 15/15 with PR-2b's cases, re-run 2026-10-09.
 Unit: business 31/31 (MarkupCalculatorTest 5, MarkupPolicyTest 9, PurchasePriceModeTest 11, +6 neighbours), catalog 152/152.
@@ -499,10 +499,20 @@ education login probe answers 500 (cause not investigated). notification-service
 
 ### 12.3 Still open — deliberately, or for a later slice
 
-* **Test Book** §27 S1 and the section-1 till summary still describe two cart lines; the corrected §27 is built from the
-  2026-10-09 captures (`build-testbook-section.js pricemode`) and is being merged.
-* **Pre-existing, not fixed (needs consent):** reopening Products while its grid reloads throws inside DataTables (§8.1).
-* **Cosmetic:** the Markup by category box truncates its placeholder ("Blank = the busine").
+* **Test Book** §27 S1 and the section-1 till summary still describe two cart lines. The merged page (live Test Book +
+  the 2026-10-09 §27 + the corrected sentence) is built, but the Test Book artifact belongs to the other account, and a
+  publish from this one is refused — it has to be published from the owning account.
 * **Out of scope by decision:** loose (broken-pack) lines, quotes, the storefront and B2B percent rules keep the product
   price in Per batch; approval notifications beyond the menu badge, bulk approve, approving a batch price (§11.4).
 
+### 12.4 The two remaining defects, fixed (2026-10-09)
+
+| Defect | Cause | Fix | Gate |
+|---|---|---|---|
+| **PG-LATE:** rebuilding the Products grid while one of its pages was in flight threw `Cannot read properties of undefined (reading 'style')` inside DataTables (§8.1) | `loadProductTable()` destroys the grid and builds a new one on the same `<table>`; the old build's page reply was still handed to the old build's callback, i.e. into a destroyed table | `catalog-products.js`: the ajax adapter takes DataTables' `settings`; `deliver`/`onFail` drop the reply when that settings object is no longer in `$.fn.dataTable.settings` — `destroy()` removes it (checked in the served 1.10.19 build). One check covers every destroyer: the rebuild, and the shared `loadDataTable()` opening another section | `cypress/e2e/business/product-grid-late-page.cy.js` G1: holds the old build's page 2.5 s, rebuilds, asserts the held reply came after the rebuild and no uncaught error. **Red 4/4 on the deployed build with the exact message; green 3/3 with the fix (`--env EVAL_SRC=1`)** |
+| The Markup by category box cut its placeholder ("Blank = the busine") | a sentence in a ~150 px box | the placeholder shows what a blank row inherits — "14.5 (business)" once the business % is read, "Business %" until then / when none is set (`ui.js.cmInherit`, `ui.js.cmBlank` shortened, 6 languages) | `pricing-markup.cy.js` M13 asserts the placeholder — needs the monolith rebuilt (the message comes from the server) |
+
+Found while building the gate: the "already registered" panel also calls `/getProductPage` (debounced, always
+`includeInactive=true`). Holding "the next request" sometimes held the panel's, and the case then passed on the broken
+build (1 in 3); the gate holds grid requests only. Opening another section while a page is in flight did NOT throw on
+the old build (green twice), so it is not a case — the same guard covers it.

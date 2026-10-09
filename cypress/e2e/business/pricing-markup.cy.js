@@ -260,6 +260,8 @@ describe('PR-2 — the markup rule', () => {
       cy.window().then((w) => w.showCategoryMarkup())
       cy.get('#CategoryMarkupDiv').should('be.visible')
       cy.get('#cmBiz').should('contain', '14.5')
+      // A blank box shows what it inherits, short enough for the box (was "Blank = the busine", cut off).
+      cy.get(`#cmPct_${cid}`).should('have.attr', 'placeholder', '14.5 (business)')
       cy.intercept('POST', '**/setCategoryMarkup').as('cm')
       cy.get(`#cmPct_${cid}`).should('have.value', '').type('20').blur()
       cy.wait('@cm').its('response.body.success').should('eq', true)
