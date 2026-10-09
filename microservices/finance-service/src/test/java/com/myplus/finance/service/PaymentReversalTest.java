@@ -76,7 +76,7 @@ class PaymentReversalTest {
         assertThat(m.getSourceModule()).isEqualTo("EXPENSE");      // business's statement keeps excluding it
         assertThat(m.getMethod()).isEqualTo("CASH");
         assertThat(out.getReceiptNo()).isEqualTo("PV-000009-R");
-        verify(posting).postPaymentReversal(eq("DISBURSEMENT"), eq(new BigDecimal("120")), eq("CASH"), any(LocalDate.class), eq("PV-000009-R"));
+        verify(posting).postPaymentReversal(eq("DISBURSEMENT"), eq(new BigDecimal("120")), eq("CASH"), any(LocalDate.class), eq("PV-000009-R"), any());
     }
 
     @Test
@@ -105,7 +105,7 @@ class PaymentReversalTest {
 
         assertThat(service.reverse(5L, "again").getReceiptNo()).isEqualTo("PV-000009-R");
         verify(repo, never()).saveAndFlush(any());
-        verify(posting, never()).postPaymentReversal(anyString(), any(), any(), any(), any());
+        verify(posting, never()).postPaymentReversal(anyString(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -120,6 +120,6 @@ class PaymentReversalTest {
         assertThatThrownBy(() -> service.reverse(5L, "x")).isInstanceOf(ValidationException.class).hasMessageContaining("cannot itself");
         when(repo.findByIdAndOrganizationId(5L, 6L)).thenReturn(Optional.of(pv("SETOFF")));
         assertThatThrownBy(() -> service.reverse(5L, "x")).isInstanceOf(ValidationException.class).hasMessageContaining("set-off");
-        verify(posting, never()).postPaymentReversal(anyString(), any(), any(), any(), any());
+        verify(posting, never()).postPaymentReversal(anyString(), any(), any(), any(), any(), any());
     }
 }

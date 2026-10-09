@@ -1018,6 +1018,8 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     if (claimsReady) return
     claimsReady = true
     cy.loginAsOperator()
+    SAFETY.push(() => { asSchool('owner'); [CLAIMS_KEY, MGMT_KEY].forEach((k) => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: k }, failOnStatusCode: false })) })
+    // pushed AFTER the switches so it runs BEFORE them (SAFETY runs in reverse): it needs only the operator
     cy.planOf(SCHOOL.owner).then((p) => {
       if (p.plan !== 'FREE') return
       cy.setPlan(p.id, 'PRO')
@@ -1025,7 +1027,6 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     })
     asSchool('owner')
     cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
-    SAFETY.push(() => { asSchool('owner'); [CLAIMS_KEY, MGMT_KEY].forEach((k) => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: k }, failOnStatusCode: false })) })
   }
   const claimSwitchOn = () => cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: CLAIMS_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
 
@@ -1154,6 +1155,123 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     expenseRow(payee).find('[data-cy=claim-withdrawn]').should('contain', 'Withdrawn')
     expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'withdrawn')
     act('Nothing to undo.', [], { cleanup: true })
+  })
+
+  // ═══ EX-7a · Paying a claim back ═════════════════════════════════════════════════════════════════════════
+  /** A claim by `who`, approved by the owner and in the books — the screen's own requests (cases 6-2, 6-3). */
+  const approvedSchoolClaim = (who, amount, payee) => schoolToken(who).then((c) =>
+    cy.request({ url: `${GW}/api/expense/categories`, headers: { Authorization: `Bearer ${c}` } }).its('body.data').then((cats) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/claims`, headers: { Authorization: `Bearer ${c}`, 'Idempotency-Key': 'xg7-' + Date.now() + Math.random() },
+        body: { voucherDate: isoToday(), paidFrom: 'EMPLOYEE', payeeName: payee, lines: [{ categoryId: cats.find((x) => x.accountCode === '6000' && x.active).id, amount }] } })
+        .its('body.data.id')).then((id) => schoolToken('owner').then((o) => {
+      cy.request({ method: 'POST', url: `${GW}/api/expense/claims/${id}/approve`, headers: { Authorization: `Bearer ${o}` }, body: {} })
+      const settle = (n) => cy.request({ url: `${GW}/api/expense/vouchers/${id}`, headers: { Authorization: `Bearer ${o}` } }).its('body.data.postingStatus')
+        .then((ps) => { if (ps !== 'POSTED_GL' && n > 0) { cy.wait(1000); settle(n - 1) } })
+      settle(20)
+      return cy.wrap(id)
+    })))
+  const isoToday = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') }
+  const schoolTb = () => schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/finance/gl/trial-balance`, headers: { Authorization: `Bearer ${t}` } })
+    .its('body.rows').then((rows) => Object.fromEntries(rows.map((r) => [r.code, Number(r.debit || 0) - Number(r.credit || 0)]))))
+  const tbDelta = (b, a, c) => Math.round(((a[c] || 0) - (b[c] || 0)) * 100) / 100
+
+  caseIt('7-1', 'Pay a member back for an approved claim', () => {
+    testCase('7-1', 'ex7', 'Pay a member back for an approved claim', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG7 fuel ' + run
+    let before = null, id = null
+    setup(`An approved claim in the books: the recording has user.education claim Rent <b>40</b> (Payee <b>${payee}</b>) and the owner approve it (cases 6-2, 6-3).`)
+    approvedSchoolClaim('user', 40, payee).then((x) => { id = x })
+    schoolTb().then((m) => { before = m })
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('As the owner: open <b>Expenses</b> and find the claim.', ['It reads <b>In the books</b> and <b>Owed to the member 40.00</b>, with a <b>Pay back</b> button.'])
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', 'Owed to the member').and('contain', '40.00')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'owed')
+    const a2 = act('Press <b>Pay back</b>, change the amount to <b>15</b>, Paid from <b>Cash</b>, press <b>Pay</b>.',
+      ['The panel reads “Pay back claim EXP-… — Owed to the member 40.00”.', '“Payment recorded — PV-…”. The row now reads <b>Owed to the member 25.00</b>; <b>Void</b> is gone while anything is paid.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayTitle').should('contain', 'Pay back claim')
+    cy.get('#expPayAmount').clear().type('15')
+    cy.get('#expPayMethod').select('CASH', { force: true })
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'panel')
+    cy.get('[data-cy=expense-pay-go]').click()
+    cy.get('#expMsg').should('contain', 'PV-')
+    expenseRow(payee).find('[data-cy=expense-bill-owes]').should('contain', '25.00')
+    const a3 = act('Pay the remaining <b>25</b> by <b>Bank</b>.', ['The row reads <b>Paid back</b>, with a <b>Payments</b> button listing both PV- payments.'])
+    expenseRow(payee).find('[data-cy=pay-claim]').click()
+    cy.get('#expPayMethod').select('BANK', { force: true })
+    cy.get('[data-cy=expense-pay-go]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    expenseRow(payee).find('[data-cy=bill-payments]').click()
+    cy.get('#tableExpense tr.exp-pay-detail').should('contain', 'PV-')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'paid-back')
+    act('Open <b>Finance → Trial Balance</b>.', ['<b>2300 Employee Reimbursements Payable</b> is back down by 40 (nothing owed for this claim); <b>1000 Cash</b> is 15 lower and <b>1010 Bank</b> 25 lower. <b>2000 Accounts Payable has not moved</b> — a member is not a supplier.'], { via: 'run' })
+    schoolTb().then((a) => {
+      expect(tbDelta(before, a, '2300')).to.eq(40); expect(tbDelta(before, a, '1000')).to.eq(-15)
+      expect(tbDelta(before, a, '1010')).to.eq(-25); expect(tbDelta(before, a, '2000')).to.eq(0)
+    })
+    act('Nothing to undo: the claim was a real expense, paid back. To take it out entirely, follow case 7-2.', [], { cleanup: true })
+  })
+
+  caseIt('7-2', 'A paid-back claim is voided only after its payment is reversed', () => {
+    testCase('7-2', 'ex7', 'A paid-back claim is voided only after its payment is reversed', { who: ['owner.education (recorded)', 'admin.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const payee = 'XG7 wrong ' + run
+    setup(`An approved claim of <b>10</b> (Payee <b>${payee}</b>) paid back in cash — the recording makes it as in case 7-1.`)
+    approvedSchoolClaim('user', 10, payee).then((id) => schoolToken('owner').then((o) =>
+      cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/pay`, headers: { Authorization: `Bearer ${o}`, 'Idempotency-Key': 'xg7p-' + Date.now() },
+        body: { amount: 10, method: 'CASH' } }).its('body.success').should('eq', true)))
+    asSchool('owner'); schoolExpenses()
+    const a1 = act('Find the claim.', ['It reads <b>Paid back</b>, and there is <b>no Void</b> button: money went out against it. (Asked directly, the server refuses: “This claim has been paid back. Reverse the payment first, then void the claim.”)'])
+    expenseRow(payee).find('[data-cy=expense-bill-paid]').should('contain', 'Paid back')
+    expenseRow(payee).find('[data-cy=void-expense]').should('not.exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'no-void')
+    const a2 = act('Press <b>Payments</b>, then <b>Reverse</b> on the payment, give the reason <b>Paid to the wrong person</b>, confirm.',
+      ['The payment reads <b>Reversed</b>; the claim is <b>Owed to the member 10.00</b> again and <b>Void</b> is back.'])
+    expenseRow(payee).find('[data-cy=bill-payments]').click()
+    cy.get('[data-cy=reverse-payment]').first().click()
+    cy.get('.uiC-input').type('Paid to the wrong person')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('[data-cy=expense-bill-owes]', { timeout: 20000 }).should('contain', '10.00')
+    expenseRow(payee).find('[data-cy=void-expense]').should('exist')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'reversed')
+    const a3 = act('Press <b>Void</b> with the reason <b>Test Book</b>.', ['The claim reads <b>Void</b>. In the books the claim, its payment and their reversals cancel out: 2300, Rent, Cash and Bank are where they were before the claim.'])
+    expenseRow(payee).find('[data-cy=void-expense]').click()
+    cy.get('.uiC-input').type('Test Book')
+    cy.get('[data-ui-confirm="ok"]').click()
+    expenseRow(payee).find('.exp-chip').should('contain', 'Void')
+    expenseRow(payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'voided')
+    act('Nothing more to undo — the void was the clean-up.', [], { cleanup: true })
+  })
+
+  caseIt('7-3', 'Only an owner or admin pays back, never their own claim', () => {
+    testCase('7-3', 'ex7', 'Only an owner or admin pays back, never their own claim', { who: ['admin.education (recorded)', 'user.education (recorded)', 'owner.education'] })
+    claimsOn(); asSchool('owner'); claimSwitchOn()
+    const own = 'XG7 own ' + run, mine = 'XG7 mine ' + run
+    setup(`Two approved claims: admin.education’s own (12, <b>${own}</b>) and user.education’s (6, <b>${mine}</b>) — the recording makes both.`)
+    approvedSchoolClaim('admin', 12, own)
+    approvedSchoolClaim('user', 6, mine)
+    asSchool('admin'); schoolExpenses()
+    const a1 = act(`As <b>admin.education</b>: press <b>Pay back</b> on your own claim <b>${own}</b>, then <b>Pay</b>.`,
+      ['Refused in the panel: “<b>You cannot pay your own claim back. Another owner or admin pays it.</b>” Nothing is paid.'])
+    expenseRow(own).find('[data-cy=pay-claim]').click()
+    cy.get('[data-cy=expense-pay-go]').click()
+    cy.get('#expPayMsg').should('contain', 'cannot pay your own claim back')
+    cy.get('#expPayPanel').scrollIntoView({ offset: { top: -160, left: 0 } }); snap(a1, 'own-refused')
+    cy.get('#expPayPanel .btn-default').contains('Cancel').click()
+    const a2 = act('As <b>user.education</b>: open Expenses.', ['Their claim reads <b>Owed to the member 6.00</b> — they can see what the business owes them — with <b>no Pay back</b> button. (Asked directly, the server refuses them.)'])
+    asSchool('user'); schoolExpenses()
+    expenseRow(mine).find('[data-cy=expense-bill-owes]').should('contain', '6.00')
+    expenseRow(mine).find('[data-cy=pay-claim]').should('not.exist')
+    expenseRow(mine).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'member-sees')
+    act('As the owner: pay both claims back (12 and 6, cash) so nothing is left owed.', [], { cleanup: true })
+    schoolToken('owner').then((o) =>
+      cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${o}` } }).its('body.data.content').then((l) =>
+        [own, mine].forEach((p) => {
+          const v = l.find((x) => x.payeeName === p)
+          if (v) cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${v.id}/pay`, headers: { Authorization: `Bearer ${o}`, 'Idempotency-Key': 'xg7c-' + v.id + '-' + run },
+            body: { amount: Number(v.openAmount), method: 'CASH' }, failOnStatusCode: false })
+        })))
   })
 
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════

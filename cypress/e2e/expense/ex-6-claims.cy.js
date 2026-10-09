@@ -66,11 +66,12 @@ describe('EX-6 — expense claims', () => {
   })
 
   after(() => {
+    // the plan FIRST: it needs only the operator, so a later sign-in that fails cannot leave this school on PRO
+    cy.then(() => { if (planWas && planWas.plan === 'FREE') { cy.loginAsOperator(); cy.setPlan(planWas.id, 'FREE') } })
     token(OWNER).then((t) => approved.forEach((id) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/void`,
       headers: hdr(t), body: { reason: 'EX-6 gate' }, failOnStatusCode: false })))
     signIn(OWNER)
     ;[CLAIMS, MGMT].forEach((k) => cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: k }, failOnStatusCode: false }))
-    cy.then(() => { if (planWas && planWas.plan === 'FREE') { cy.loginAsOperator(); cy.setPlan(planWas.id, 'FREE') } })
   })
 
   it('⭐ 1 — a user claims what they paid themselves: sent for approval, waiting, and not money spent yet', () => {

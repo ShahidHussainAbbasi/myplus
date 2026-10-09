@@ -129,6 +129,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       <li><a href="#ex4">EX-4 · Expense bills</a></li>
       <li><a href="#ex5">EX-5 · Receipts</a></li>
       <li><a href="#ex6">EX-6 · Expense claims</a></li>
+      <li><a href="#ex7">EX-7a · Paying claims back</a></li>
       <li><a href="#fp12">FP-1/2 · Payables in finance</a></li>
       <li><a href="#fp4a">FP-4a · Supplier statement</a></li>
       <li><a href="#fp4b">FP-4b · The operator's switch</a></li>
@@ -184,7 +185,8 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>FP-6b-parity</b></td><td>The daily check confirms expense bills against expense-service; a bill the books refused is not owed in the ledger — case 6a-5</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">business 514 · expense 56</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">3/3 + 153 regression</span></td></tr>
             <tr><td><b>EX-5</b></td><td>Receipt photos and PDFs kept on the server with the expense: shrunk on the device, duplicate warning, required above an amount, read only through the expense — cases 5-1 to 5-6</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">expense 65</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6/6 + 91 regression</span></td></tr>
             <tr><td><b>EX-6</b></td><td>Staff claim what they paid from their own pocket; an owner or admin approves it (never their own), and the business then owes it back (Cr 2300)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">77 + 70</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">8/8 + 95 regression</span></td></tr>
-            <tr><td>EX-7</td><td>Paying claims back, and advances to staff</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
+            <tr><td><b>EX-7a</b></td><td>An owner or admin pays an approved claim back, in cash or by bank, in parts if need be; the books clear 2300 and never touch Accounts Payable</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">82 + 87</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4</span></td></tr>
+            <tr><td>EX-7b</td><td>Advances to staff: give one, settle claims against it, take back what is unused</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-8</td><td>Expense reports, analytics and duplicate warnings</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
             <tr><td>EX-9</td><td>Farm expenses move onto the shared module</td><td><span class="pill pill-todo">Planned</span></td><td>—</td><td>—</td></tr>
           </tbody>
@@ -928,6 +930,45 @@ pre.cmd code{font-size:12px;color:var(--txt)}
       </div>
     </section>
 
+    <!-- ───────────────────────── EX-7a ───────────────────────── -->
+    <section class="sec" id="ex7">
+      <h2>EX-7a · Paying a claim back</h2>
+      <p>An approved claim is money the business owes a member (2300). An owner or admin pays it back from the Expenses screen, in cash or by bank, in one go or in parts. In the books: Dr 2300 / Cr cash or bank. <b>Accounts Payable is never touched</b> — a member is not a supplier (before this slice every payment out was booked against suppliers). Advances to staff come next (EX-7b).</p>
+      <div class="case" data-case="7-1">
+        <div class="case-head"><span class="cid">7-1</span><h3>Pay a member back for an approved claim</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>admin.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>On an approved claim press <b>Pay back</b>; pay 15 in cash.</li><li>Pay the remaining 25 by bank.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Owed to the member 40.00, then 25.00, then <b>Paid back</b>; Payments lists both PV-.</span></label></li><li><label><input type="checkbox"><span>Trial balance: 2300 cleared by 40, cash −15, bank −25, <b>2000 unchanged</b>.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a member’s money booked against suppliers (Accounts Payable), or a claim that can never be paid.</div>
+        </div>
+      </div>
+      <div class="case" data-case="7-2">
+        <div class="case-head"><span class="cid">7-2</span><h3>A paid-back claim is voided only after its payment is reversed</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.education</code><code>admin.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>On a paid-back claim, look for Void.</li><li>Payments → Reverse the payment; then Void.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>No Void while paid; after the reversal it is owed again and Void is back.</span></label></li><li><label><input type="checkbox"><span>Voided: the books are as before the claim.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> money paid out against a claim that was then voided, leaving nothing owed behind it.</div>
+        </div>
+      </div>
+      <div class="case" data-case="7-3">
+        <div class="case-head"><span class="cid">7-3</span><h3>Only an owner or admin pays back, never their own claim</h3><span class="pill pill-info">Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>admin.education</code><code>user.education</code><code>owner.education</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>As admin: Pay back your own claim.</li><li>As the member: open Expenses.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Refused: “You cannot pay your own claim back.”</span></label></li><li><label><input type="checkbox"><span>The member sees Owed to the member, with no Pay back button.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> someone paying themselves.</div>
+        </div>
+      </div>
+    </section>
+
     <!-- ───────────────────────── FP-1/2 ───────────────────────── -->
     <section class="sec" id="fp12">
       <h2>FP-1/2 · Finance keeps the supplier ledger in step</h2>
@@ -1314,6 +1355,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>expense/ex-2f-settings.cy.js (4)</code></td><td>30 days back allowed, 31 refused; the owner narrows it; the default Paid from reaches every form; a user cannot change it</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/fp-3b-payment-reversal.cy.js (7)</code></td><td>Reverse a payment: 2000 and cash move back exactly, PV-…-R; once only; then the bill voids; closed period refused; security; on screen</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td><code>finance/fp-6b-expense-bill-parity.cy.js (3)</code></td><td>A refused bill is not owed in the ledger; posted again it is; a stale document is found, re-sent, and the books are not moved</td><td><span class="pill pill-ok">Pass 3/3</span></td></tr>
+            <tr><td><code>expense/ex-7a-claim-payback.cy.js (4)</code></td><td>Paid back in two parts (2300 cleared, cash and bank down, 2000 unchanged); void refused until the payment is reversed, then the books as before; own claim and a user refused; a waiting claim and an overpayment refused</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/ex-6-claims.cy.js (8)</code></td><td>A user claims (waiting, not money spent); the owner approves from the queue (Cr 2300, no cash moved); own claim refused; reject with a reason the claimant reads (and no new receipts on it); withdraw; no other door (record, post, pay); switched off refused; the same receipt on a waiting claim warned about</td><td><span class="pill pill-ok">Pass 8/8</span></td></tr>
             <tr><td><code>expense/ex-5-receipts.cy.js (6)</code></td><td>Photo kept and shrunk, served safely; duplicate warning with Cancel/Confirm; required above an amount; a fake file refused twice; added later; tenant/colleague/user-remove refused</td><td><span class="pill pill-ok">Pass 6/6</span></td></tr>
             <tr><td>Re-run of all 14 specs, 5 Oct</td><td>Every gate above on one fresh stack. fp-4b case 2 red: it needs a tenant whose figures disagree and borrows old demo drift — the spec must make its own</td><td><span class="pill pill-warn">77/78</span></td></tr>
@@ -1328,7 +1370,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <!-- ───────────────────────── next ───────────────────────── -->
     <section class="card" id="next">
       <h2>Coming next</h2>
-      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b>. Next: <b>EX-7</b> paying claims back and advances, <b>EX-6b</b> a limit on what a user may post directly, <b>EX-8</b> reports, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
+      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back. Next: <b>EX-7b</b> advances to staff, <b>EX-6b</b> a limit on what a user may post directly, <b>EX-8</b> reports, <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
       <pre class="mermaid diagram">
 flowchart LR
   A[Every night, every business] --> B{Supplier figures, documents and GL 2000 agree?}

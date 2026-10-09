@@ -138,7 +138,7 @@ public class ExpenseVoucherService {
         access.assertModuleOn();
         if (!access.seesAll()) throw new AccessDeniedException("Only an owner or admin can void an expense.");
         ExpenseVoucher v = visible(id);
-        if (v.isBill()) {
+        if (v.isOwed()) {
             // FP-3 — locked like a payment, so a void and a payment to the same bill cannot interleave; a payment
             // still waiting for finance's answer blocks the void exactly as a recorded one does.
             v = repo.lockForPayment(id, access.org()).orElseThrow(() -> new ResourceNotFoundException("Expense not found"));

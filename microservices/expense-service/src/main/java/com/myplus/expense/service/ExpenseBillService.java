@@ -183,8 +183,8 @@ public class ExpenseBillService {
             p.setUpdatedAt(LocalDateTime.now());
             payments.saveAndFlush(p);
             vouchers.saveAndFlush(v);
-            outbox.enqueuePayable(v);      // the subledger: the bill owes this again
-            audit.record("EXPENSE_BILL_PAYMENT_REVERSED", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getReceiptNo(), why);
+            if (v.isBill()) outbox.enqueuePayable(v);      // the subledger: the bill owes this again (a claim has none)
+            audit.record(v.isClaim() ? "EXPENSE_CLAIM_PAYMENT_REVERSED" : "EXPENSE_BILL_PAYMENT_REVERSED", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getReceiptNo(), why);
             return BillPaymentView.of(p);
         });
     }
@@ -283,24 +283,30 @@ public class ExpenseBillService {
         visible(voucherId);
         ExpenseVoucher v = vouchers.lockForPayment(voucherId, org)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
-        if (!v.isBill()) throw new ValidationException("Only a bill can be paid — this expense was paid when it was recorded.");
+        if (v.isClaim()) {
+            // EX-7a — paying a member back: an approved claim, by an owner or admin who is not the claimant
+            if (!v.isOwed()) throw new ValidationException("Only an approved claim can be paid back.");
+            if (!access.canApprove()) throw new org.springframework.security.access.AccessDeniedException("Only an owner or admin can pay a claim back.");
+            if (v.getUserId() != null && v.getUserId().equals(access.userId()))
+                throw new ValidationException("You cannot pay your own claim back. Another owner or admin pays it.");
+        } else if (!v.isBill()) throw new ValidationException("Only a bill can be paid — this expense was paid when it was recorded.");
         if (!ExpenseVoucher.POSTED.equals(v.getStatus()))
             throw new ValidationException("Only a posted bill can be paid (this one is " + v.getStatus() + ").");
         // The bill must be IN the books before money leaves against it: paying a bill whose posting failed would
         // debit Accounts Payable for a credit that was never made (STANDARDS §0b — never optimistic about money).
         if (!ExpenseVoucher.PS_POSTED_GL.equals(v.getPostingStatus()))
-            throw new ValidationException("This bill is not in the books yet. Pay it once it shows In the books.");
+            throw new ValidationException("This " + (v.isClaim() ? "claim" : "bill") + " is not in the books yet. Pay it once it shows In the books.");
 
         if (r == null || r.amount() == null || r.amount().signum() <= 0)
             throw new ValidationException("Enter the amount being paid.");
         BigDecimal amount = r.amount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal stillOwed = v.openAmount().subtract(payments.sumPending(v.getId()));
         if (amount.compareTo(stillOwed) > 0)
-            throw new ValidationException("That is more than is owed on this bill (" + stillOwed.max(BigDecimal.ZERO) + ").");
+            throw new ValidationException("That is more than is owed on this " + (v.isClaim() ? "claim" : "bill") + " (" + stillOwed.max(BigDecimal.ZERO) + ").");
         String method = method(r.method());
         LocalDate paidOn = r.paidOn() == null ? TenantClock.today() : r.paidOn();
         if (paidOn.isAfter(TenantClock.today())) throw new ValidationException("A payment cannot be dated in the future.");
-        if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A bill cannot be paid before its own date.");
+        if (paidOn.isBefore(v.getVoucherDate())) throw new ValidationException("A " + (v.isClaim() ? "claim" : "bill") + " cannot be paid before its own date.");
 
         ExpenseBillPayment p = new ExpenseBillPayment();
         p.setOrganizationId(org);
@@ -366,8 +372,8 @@ public class ExpenseBillService {
             p.setLastError(null);
             p.setUpdatedAt(LocalDateTime.now());
             vouchers.saveAndFlush(v);
-            outbox.enqueuePayable(v);
-            audit.record("EXPENSE_BILL_PAID", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getMethod(), receiptNo);
+            if (v.isBill()) outbox.enqueuePayable(v);       // a claim is not in the supplier subledger (EX-7a)
+            audit.record(v.isClaim() ? "EXPENSE_CLAIM_PAID" : "EXPENSE_BILL_PAID", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getMethod(), receiptNo);
             return p;
         });
     }
@@ -383,12 +389,26 @@ public class ExpenseBillService {
 
     private Optional<PaymentView> findInFinance(ExpenseBillPayment row) {
         ExpenseVoucher v = vouchers.findById(row.getVoucherId()).orElseThrow();
-        List<PaymentView> list = finance.getObject().listPayments("VENDOR", v.getSupplierId());
+        List<PaymentView> list = v.isClaim() ? finance.getObject().listPayments("EMPLOYEE", v.getUserId())
+                : finance.getObject().listPayments("VENDOR", v.getSupplierId());
         if (list == null) return Optional.empty();
         return list.stream().filter(pv -> row.getReference() != null && row.getReference().equals(pv.getReference())).findFirst();
     }
 
     static PaymentRecordRequest request(ExpenseBillPayment row, ExpenseVoucher v) {
+        if (v.isClaim()) {
+            // EX-7a — the member who paid, as finance's EMPLOYEE party: finance clears 2300 (not 2000) and the claim has
+            // no document in the supplier subledger, so nothing is allocated
+            return PaymentRecordRequest.builder()
+                    .direction("DISBURSEMENT")
+                    .partyType("EMPLOYEE").partyId(v.getUserId()).partyName(v.getClaimantName())
+                    .amount(row.getAmount()).method(row.getMethod()).paidOn(row.getPaidOn())
+                    .reference(row.getReference())
+                    .sourceModule(SOURCE_MODULE)
+                    .note("Claim " + v.getVoucherNo())
+                    .allocations(List.of())
+                    .build();
+        }
         return PaymentRecordRequest.builder()
                 .direction("DISBURSEMENT")
                 .partyType("VENDOR").partyId(v.getSupplierId()).partyName(v.getSupplierName())
@@ -404,7 +424,7 @@ public class ExpenseBillService {
 
     static String method(String raw) {
         String m = raw == null ? "CASH" : raw.trim().toUpperCase();
-        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException("Pay a bill by cash or bank.");
+        if (!m.equals("CASH") && !m.equals("BANK")) throw new ValidationException("Pay by cash or bank.");
         return m;
     }
 

@@ -31,7 +31,7 @@ class PaymentServiceReliabilityTest {
         when(numbers.next(any(), anyString())).thenReturn(1L);
         when(repo.save(any())).thenAnswer(inv -> inv.getArgument(0));          // echo the saved entity
         doThrow(new RuntimeException("This period is closed"))                 // e.g. a closed period
-                .when(posting).postPayment(anyString(), any(BigDecimal.class), any());
+                .when(posting).postPayment(anyString(), any(BigDecimal.class), any(), any());
 
         PaymentService svc = new PaymentService(repo, posting, numbers);
         RecordPaymentRequest req = RecordPaymentRequest.builder()
@@ -42,6 +42,6 @@ class PaymentServiceReliabilityTest {
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> svc.record(req));
         assertTrue(ex.getMessage().toLowerCase().contains("closed"), "the GL failure is surfaced, not swallowed");
-        verify(posting).postPayment(anyString(), any(BigDecimal.class), any());
+        verify(posting).postPayment(anyString(), any(BigDecimal.class), any(), any());
     }
 }

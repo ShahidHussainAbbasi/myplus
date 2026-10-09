@@ -100,7 +100,7 @@ public class PaymentService {
         // needs no relay). postPayment ensureDefaults() seeds the CoA if missing and its journal balances by
         // construction, so it can only throw on a closed period (which must reject the payment too) or a real DB
         // fault (which would fail the save anyway) — either way payment + journal commit together or not at all.
-        postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod());
+        postingService.postPayment(saved.getDirection().name(), saved.getAmount(), saved.getMethod(), saved.getPartyType());
         return toDTO(saved);
     }
 
@@ -141,7 +141,7 @@ public class PaymentService {
                 .createdAt(LocalDateTime.now()).allocations(new ArrayList<>())
                 .build();
         Payment saved = paymentRepository.saveAndFlush(mirror);
-        postingService.postPaymentReversal(p.getDirection().name(), p.getAmount(), p.getMethod(), on, saved.getReceiptNo());
+        postingService.postPaymentReversal(p.getDirection().name(), p.getAmount(), p.getMethod(), on, saved.getReceiptNo(), p.getPartyType());
         return toDTO(saved);
     }
 

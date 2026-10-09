@@ -87,16 +87,23 @@
 	 * bill whose posting failed would take money out against a debt the ledger never recorded (the server refuses it).
 	 */
 	function billState(v) {
-		if (v.paidFrom !== 'AP' || v.status !== 'POSTED') return '';
+		// EX-7a — an approved claim is owed too: to the member who paid it, and paid back (owner/admin) from here
+		var isClaim = v.paidFrom === 'EMPLOYEE' && v.claimStatus === 'APPROVED';
+		if ((v.paidFrom !== 'AP' && !isClaim) || v.status !== 'POSTED') return '';
 		var open = Number(v.openAmount || 0);
 		// FP-3b — a bill with payments lists them (owner/admin), each reversible from there
 		var paysBtn = (canVoid && Number(v.paidAmount || 0) > 0)
 			? ' <button type="button" class="btn btn-xs btn-default" data-cy="bill-payments" data-id="' + esc(v.id) + '" aria-expanded="false">'
 				+ esc(tr('ui.js.expPayments', 'Payments')) + '</button>' : '';
-		if (open <= 0) return ' <span class="label label-info" data-cy="expense-bill-paid">' + esc(tr('ui.js.expPaid', 'Paid')) + '</span>' + paysBtn;
+		if (open <= 0) return ' <span class="label label-info" data-cy="expense-bill-paid">'
+			+ esc(isClaim ? tr('ui.js.claimPaidBack', 'Paid back') : tr('ui.js.expPaid', 'Paid')) + '</span>' + paysBtn;
 		var out = ' <span class="text-warning" data-cy="expense-bill-owes" style="font-variant-numeric:tabular-nums">'
-			+ esc(tr('ui.js.expOwes', 'Owes')) + ' ' + esc(money(open)) + '</span>';
-		if (v.postingStatus === 'POSTED_GL') {
+			+ esc(isClaim ? tr('ui.js.claimOwed', 'Owed to the member') : tr('ui.js.expOwes', 'Owes')) + ' ' + esc(money(open)) + '</span>';
+		if (isClaim && v.postingStatus === 'POSTED_GL' && canVoid) {
+			// owner/admin only; the server also refuses paying your own claim back
+			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-claim" data-id="' + esc(v.id)
+				+ '" data-no="' + esc(v.voucherNo || '') + '" data-open="' + esc(open) + '">' + esc(tr('ui.js.claimPayBack', 'Pay back')) + '</button>';
+		} else if (!isClaim && v.postingStatus === 'POSTED_GL') {
 			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-bill" data-id="' + esc(v.id)
 				+ '" data-no="' + esc(v.voucherNo || '') + '" data-open="' + esc(open) + '">' + esc(tr('ui.pay', 'Pay')) + '</button>';
 		}
@@ -153,7 +160,7 @@
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
 			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
 			var voidable = v.status === 'POSTED' && v.postingStatus !== 'PENDING' && v.source !== 'DRAWER'
-				&& !(v.paidFrom === 'AP' && Number(v.paidAmount || 0) > 0);
+				&& !((v.paidFrom === 'AP' || v.paidFrom === 'EMPLOYEE') && Number(v.paidAmount || 0) > 0);
 			tds += '<td>' + (voidable
 				? '<button type="button" class="btn btn-xs btn-default" data-cy="void-expense" data-id="' + esc(v.id)
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'
@@ -672,11 +679,11 @@
 
 	// ── FP-3: paying a bill ─────────────────────────────────────────────────────────────────────
 
-	function expensePayOpen(id, no, open) {
+	function expensePayOpen(id, no, open, claim) {
 		var $p = $('#expPayPanel');
 		$p.data({ id: id, idemKey: newKey() });   // ONE key per opening of the panel
-		$('#expPayTitle').text(tr('ui.js.expPayTitle', 'Pay bill') + ' ' + (no || '') + ' — '
-			+ tr('ui.js.expOwes', 'Owes') + ' ' + money(open));
+		$('#expPayTitle').text((claim ? tr('ui.js.claimPayBackTitle', 'Pay back claim') : tr('ui.js.expPayTitle', 'Pay bill')) + ' ' + (no || '') + ' — '
+			+ (claim ? tr('ui.js.claimOwed', 'Owed to the member') : tr('ui.js.expOwes', 'Owes')) + ' ' + money(open));
 		$('#expPayAmount').val(Number(open).toFixed(2));
 		$('#expPayMsg').text('');
 		$p.show();
@@ -830,6 +837,9 @@
 	$(document).on('click', '#tableExpense [data-cy="reverse-payment"]', function () { reversePayment(this); });
 	$(document).on('click', '#tableExpense [data-cy="pay-bill"]', function () {
 		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'));
+	});
+	$(document).on('click', '#tableExpense [data-cy="pay-claim"]', function () {
+		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'), true);
 	});
 	// EX-1b — only the pressed button shows it is working (§0c); the row is redrawn from the server's answer.
 	$(document).on('click', '#tableExpense [data-cy="post-again"]', function () {
