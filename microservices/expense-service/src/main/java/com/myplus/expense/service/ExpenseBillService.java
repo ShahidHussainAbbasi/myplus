@@ -129,6 +129,74 @@ public class ExpenseBillService {
         }
     }
 
+    // ── FP-3b: reversing a payment ──────────────────────────────────────────────────────────────────
+
+    /**
+     * Reverse a payment made from the Expenses screen, so the bill owes it again (and, with nothing left paid, can be
+     * voided). finance FIRST — its mirror payment and opposite journal are idempotent per payment, so a lost answer is
+     * safe to press again — then, in one short transaction, the bill re-opened and the subledger told. A closed period
+     * (or any refusal) answers in the books' words and changes nothing here. A Pay Supplier application is not
+     * reversible here: its money is one payment for several bills, recorded by business-service.
+     */
+    public BillPaymentView reversePayment(Long voucherId, Long paymentId, String reason) {
+        access.assertModuleOn();
+        if (!access.seesAll()) throw new org.springframework.security.access.AccessDeniedException("Only an owner or admin can reverse a payment.");
+        if (reason == null || reason.isBlank()) throw new ValidationException("Say why this payment is being reversed.");
+        String why = reason.trim().length() > 255 ? reason.trim().substring(0, 255) : reason.trim();
+        ExpenseBillPayment row = tx.execute(st -> {
+            visible(voucherId);
+            return payments.findById(paymentId)
+                    .filter(p -> p.getVoucherId().equals(voucherId) && p.getOrganizationId().equals(access.org()))
+                    .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
+        });
+        if (ExpenseBillPayment.REVERSED.equals(row.getStatus())) return BillPaymentView.of(row);   // a retried reversal
+        if (!ExpenseBillPayment.RECORDED.equals(row.getStatus()))
+            throw new ValidationException("Only a recorded payment can be reversed (this one is " + row.getStatus() + ").");
+        if (row.getFinancePaymentId() == null)
+            throw new ValidationException("This was paid through Pay Supplier (" + row.getReference()
+                    + ") — one payment for several bills — so it cannot be reversed from here.");
+
+        PaymentRecordResult res;
+        try {
+            res = finance.getObject().reversePayment(row.getFinancePaymentId(), Map.of("reason", why));
+        } catch (org.springframework.web.client.HttpClientErrorException refused) {
+            throw new ValidationException("The books refused this reversal. " + messageOf(refused.getResponseBodyAsString()));
+        } catch (Exception lost) {
+            LOG.warn("reversal of bill payment {} sent, answer lost", row.getId(), lost);
+            throw new ValidationException("The books did not answer in time. Press Reverse again — it will not reverse twice.");
+        }
+        return tx.execute(st -> {
+            ExpenseBillPayment p = payments.findById(row.getId()).orElseThrow();
+            if (ExpenseBillPayment.REVERSED.equals(p.getStatus())) return BillPaymentView.of(p);
+            ExpenseVoucher v = vouchers.lockForPayment(p.getVoucherId(), p.getOrganizationId()).orElseThrow();
+            try {
+                v.reversePayment(p.getAmount());
+            } catch (IllegalStateException | IllegalArgumentException e) {
+                throw new ValidationException(e.getMessage());
+            }
+            v.setUpdatedAt(LocalDateTime.now());
+            p.setStatus(ExpenseBillPayment.REVERSED);
+            p.setReversalReceiptNo(res == null ? null : res.getReceiptNo());
+            p.setReversalReason(why);
+            p.setReversedBy(access.userId());
+            p.setReversedAt(LocalDateTime.now());
+            p.setUpdatedAt(LocalDateTime.now());
+            payments.saveAndFlush(p);
+            vouchers.saveAndFlush(v);
+            outbox.enqueuePayable(v);      // the subledger: the bill owes this again
+            audit.record("EXPENSE_BILL_PAYMENT_REVERSED", "EXPENSE", v.getVoucherNo(), p.getAmount(), p.getReceiptNo(), why);
+            return BillPaymentView.of(p);
+        });
+    }
+
+    /** The sentence of an ApiResponse error body ({"message": "..."}), else the body itself, trimmed. */
+    static String messageOf(String body) {
+        if (body == null) return "";
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\"message\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(body);
+        String out = m.find() ? m.group(1) : body.replaceAll("\\s+", " ");
+        return out.length() > 200 ? out.substring(0, 200) : out;
+    }
+
     // ── FP-5b: Pay Supplier settles bills too ───────────────────────────────────────────────────────
 
     /** The caller's supplier's bills that may still take a payment, with what each may still take. */

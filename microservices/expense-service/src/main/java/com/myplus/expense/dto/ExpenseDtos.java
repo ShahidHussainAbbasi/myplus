@@ -36,10 +36,13 @@ public final class ExpenseDtos {
     public record PayRequest(BigDecimal amount, String method, LocalDate paidOn) { }
 
     public record BillPaymentView(Long id, Long voucherId, BigDecimal amount, String method, LocalDate paidOn,
-                                  String status, String receiptNo, String lastError, LocalDateTime createdAt) {
+                                  String status, String receiptNo, String lastError, LocalDateTime createdAt,
+                                  String reference, boolean reversible, String reversalReceiptNo, String reversalReason,
+                                  LocalDateTime reversedAt) {
         public static BillPaymentView of(com.myplus.expense.entity.ExpenseBillPayment p) {
             return new BillPaymentView(p.getId(), p.getVoucherId(), p.getAmount(), p.getMethod(), p.getPaidOn(),
-                    p.getStatus(), p.getReceiptNo(), p.getLastError(), p.getCreatedAt());
+                    p.getStatus(), p.getReceiptNo(), p.getLastError(), p.getCreatedAt(),
+                    p.getReference(), p.reversible(), p.getReversalReceiptNo(), p.getReversalReason(), p.getReversedAt());
         }
     }
 

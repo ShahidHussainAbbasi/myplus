@@ -82,6 +82,17 @@ public class InternalPaymentController {
     }
 
     /**
+     * FP-3b — reverse one payment of the caller's tenant (mirror + opposite journal; idempotent per payment). A
+     * refusal (a closed period, a reversal of a reversal) answers 400 with its sentence.
+     */
+    @PostMapping("/payments/{id}/reverse")
+    public PaymentDTO reverse(@org.springframework.web.bind.annotation.PathVariable Long id,
+                              @RequestBody java.util.Map<String, String> body) {
+        if (CurrentUser.organizationId() == null) throw new IllegalStateException("No tenant identity on the request");
+        return paymentService.reverse(id, body == null ? null : body.get("reason"));
+    }
+
+    /**
      * DR-4 — both legs of a set-off, atomically (see {@link com.myplus.finance.service.SetOffService}). Same path rule
      * as {@link #record}: internal only, and refused without a tenant. A rejection answers 400 with the sentence, so
      * business-service rolls its own transaction back and nothing moves.

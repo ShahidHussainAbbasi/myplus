@@ -1244,7 +1244,51 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       })
       snap(a1, 'paid')
     })
-    act('Nothing to undo — the bill owes nothing; it stays as a paid record (a paid bill cannot be voided until payment reversal exists).', [], { cleanup: true })
+    act('Nothing to undo here — case 4-7 reverses both payments and voids the bill.', [], { cleanup: true })
+  })
+
+  caseIt('4-7', 'Reverse a payment, and a paid bill can be voided', () => {
+    testCase('4-7', S4, 'Reverse a payment, and a paid bill can be voided', { who: ['owner.lifecycle (recorded)', 'owner.business', 'admin.business', 'user.business'] })
+    setup('The bill from 4-1, paid off in 4-2 (200 cash) and 4-4 (300 bank). Recorded together with 4-1 to 4-4.')
+    asLifecycle()
+    tb().then((before) => {
+      openDashboard(); openExpenses()
+      const a1 = act('On the paid bill press <b>Payments</b>.', ['Under the bill: its two payments — <b>PV-…</b> 200 Cash and <b>PV-…</b> 300 Bank — each with a <b>Reverse</b> button.'])
+      expenseRow(bill1.payee).find('[data-cy=bill-payments]').click()
+      cy.get('[data-cy=bill-payment-row]').should('have.length', 2)
+      cy.get('[data-cy=reverse-payment]').should('have.length', 2)
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'payments')
+      const a2 = act('On the <b>300 Bank</b> payment press <b>Reverse</b>, reason <b>Paid twice by mistake</b>, confirm.',
+        ['"Payment reversed — PV-…-R". The payment reads <b>Reversed PV-…-R — Paid twice by mistake</b>.',
+         'The bill reads <b>Owes 300.00</b> again with a <b>Pay</b> button.', 'Trial balance: <b>1010 Bank</b> up 300, <b>2000</b> owes 300 more.'])
+      cy.contains('[data-cy=bill-payment-row]', '300.00').find('[data-cy=reverse-payment]').click()
+      cy.get('.uiC-input').type('Paid twice by mistake')
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.get('#expMsg', { timeout: 20000 }).should('contain', 'Payment reversed').and('contain', '-R')
+      cy.contains('[data-cy=bill-payment-row]', '300.00', { timeout: 20000 }).should('contain', 'Reversed').and('contain', 'Paid twice by mistake')
+      expenseRow(bill1.payee).find('[data-cy=expense-bill-owes]').should('contain', '300.00')
+      tb().then((mid) => {
+        expect(delta(before, mid, '1010'), 'bank back').to.eq(300)
+        expect(delta(before, mid, '2000'), 'owed again').to.eq(-300)
+      })
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a2, 'reversed')
+      const a3 = act('Reverse the <b>200 Cash</b> payment too (reason <b>Cancelled</b>). Then press the bill’s <b>Void</b>, reason <b>Job cancelled</b>.',
+        ['After the second reversal the bill owes the full 500 and a <b>Void</b> button appears.', 'Voided: the row reads <b>Void</b>; 6300, 2000, 1000 and 1010 are all back where they were before 4-1.'])
+      cy.contains('[data-cy=bill-payment-row]', '200.00').find('[data-cy=reverse-payment]').click()
+      cy.get('.uiC-input').type('Cancelled')
+      cy.get('[data-ui-confirm="ok"]').click()
+      cy.contains('[data-cy=bill-payment-row]', '200.00', { timeout: 20000 }).should('contain', 'Reversed')
+      expenseRow(bill1.payee).find('[data-cy=void-expense]', { timeout: 20000 }).click()
+      cy.get('.uiC-input').type('Job cancelled')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(bill1.payee).find('.exp-chip', { timeout: 20000 }).should('contain', 'Void')
+      expenseRow(bill1.payee).scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a3, 'voided')
+    })
+    cy.then(() => {
+      act('Lock the books through today (Finance → Period Close) and try to reverse a payment.', ['Refused in the books’ words: “This period is closed …”; nothing moves. (Checked in the automated gate, case 5.)'], { via: 'run' })
+      act('As <b>user.business</b>: open a paid bill.', ['No <b>Payments</b>/<b>Reverse</b> buttons; the server refuses a reversal (gate case 6).'], { via: 'run' })
+      act('Nothing to undo — the bill is void and both payments are reversed.', [], { cleanup: true })
+    })
   })
 
   caseIt('4-5', 'A business with no suppliers does not get the option', () => {

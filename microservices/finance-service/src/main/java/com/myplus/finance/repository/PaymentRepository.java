@@ -17,6 +17,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     /** FP-5a — the payment already recorded for this caller reference, if any (uq_payment_org_client_ref). */
     java.util.Optional<Payment> findByOrganizationIdAndClientRef(Long organizationId, String clientRef);
 
+    /** FP-3b — one payment of one tenant (a foreign id is simply not found). */
+    java.util.Optional<Payment> findByIdAndOrganizationId(Long id, Long organizationId);
+
     String SCOPE = "(p.organizationId = :orgId OR (p.organizationId IS NULL AND p.userId = :userId))";
 
     @Query("SELECT p FROM Payment p WHERE p.partyType = :partyType AND p.partyId = :partyId AND " + SCOPE

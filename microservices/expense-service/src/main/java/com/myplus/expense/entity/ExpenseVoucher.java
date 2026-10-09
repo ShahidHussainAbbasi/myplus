@@ -187,6 +187,15 @@ public class ExpenseVoucher {
      * FP-3 — a payment finance has CONFIRMED. Refuses anything that would pay more than is owed; the service
      * has already checked against the reserved (pending) payments, this is the entity's own last word.
      */
+    /** FP-3b — a payment the books have REVERSED: what it paid is owed again. Never below zero paid. */
+    public void reversePayment(BigDecimal amount) {
+        if (!isBill()) throw new IllegalStateException("Only a bill's payment can be reversed.");
+        if (amount == null || amount.signum() <= 0) throw new IllegalArgumentException("A reversal needs an amount greater than zero.");
+        BigDecimal paid = paidAmount == null ? BigDecimal.ZERO : paidAmount;
+        if (amount.compareTo(paid) > 0) throw new IllegalStateException("That is more than has been paid on this bill (" + paid + ").");
+        this.paidAmount = paid.subtract(amount);
+    }
+
     public void applyPayment(BigDecimal amount) {
         if (!isBill()) throw new IllegalStateException("Only a bill can be paid — this expense was already paid when recorded.");
         if (!POSTED.equals(status)) throw new IllegalStateException("Only a posted bill can be paid (this one is " + status + ").");

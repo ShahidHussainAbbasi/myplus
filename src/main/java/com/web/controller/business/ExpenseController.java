@@ -154,6 +154,14 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, q.toString(), body));
     }
 
+    /** FP-3b — reverse one payment of a bill (owner/admin; expense-service enforces it). */
+    @PostMapping(value = "/vouchers/{id}/payments/{paymentId}/reverse", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> reversePayment(@PathVariable Long id, @PathVariable Long paymentId,
+                                                 @RequestBody(required = false) Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/payments/" + paymentId + "/reverse", body));
+    }
+
     @GetMapping(value = "/vouchers/{id}/payments", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> payments(@PathVariable Long id) {

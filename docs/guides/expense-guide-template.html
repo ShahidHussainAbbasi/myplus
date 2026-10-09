@@ -747,6 +747,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> a bank payment taken from cash, or a settled bill still showing as owed.</div>
         </div>
       </div>
+      <div class="case" data-case="4-7">
+        <div class="case-head"><span class="cid">4-7</span><h3>Reverse a payment, and a paid bill can be voided</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>owner.business</code><code>admin.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>On a paid bill press <b>Payments</b>.</li><li>Reverse one payment with a reason.</li><li>Reverse the other; void the bill.</li><li>With the period closed, try a reversal.</li><li>As a user, open a paid bill.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Each payment with a Reverse button; a reversed one reads “Reversed PV-…-R — reason”.</span></label></li><li><label><input type="checkbox"><span>The bill owes the reversed amount again; the money is back in the cash or bank it left.</span></label></li><li><label><input type="checkbox"><span>With nothing left paid, Void appears and every account returns to where it started.</span></label></li><li><label><input type="checkbox"><span>A closed period refuses the reversal in words; nothing moves.</span></label></li><li><label><input type="checkbox"><span>A user sees no Payments/Reverse; the server refuses them.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a paid bill that could never be voided (E10) — the screen told owners to “reverse the payments first” with no way to do it.</div>
+        </div>
+      </div>
       <div class="case" data-case="4-5">
         <div class="case-head"><span class="cid">4-5</span><h3>A business with no suppliers does not get the option</h3><span class="pill pill-info">Owner</span></div>
         <div class="case-body">
@@ -1077,6 +1088,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td>E6</td><td>Owners had no screen for categories. <b>Fixed (EX-2e):</b> Till → Expenses → <b>Categories</b> — add, rename, point at another expense account, switch off — case 0b-2. A till pay-out keeps the category the cashier chose even if it is switched off before the pay-out reaches the books.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E8</td><td>The store on an expense is not checked. Nothing reads it yet; it must be checked before reports by store.</td><td><span class="pill pill-todo">Low now</span></td></tr>
             <tr><td>E9</td><td>One line per expense on screen; a split bill needs two expenses.</td><td><span class="pill pill-todo">Low</span></td></tr>
+            <tr><td>E10</td><td>A paid bill could not be voided — there was no payment reversal. <b>Fixed (FP-3b):</b> a bill’s <b>Payments</b> → <b>Reverse</b>: the books record a mirror (PV-…-R) and the opposite journal, the bill owes it again, and with nothing left paid it can be voided — case 4-7.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
           </tbody>
         </table>
       </div>

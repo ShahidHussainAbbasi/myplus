@@ -82,6 +82,14 @@ public class ExpenseController {
         return ApiResponse.success(bills.pay(id, r, k), "Payment recorded");
     }
 
+    /** FP-3b — reverse one payment of a bill (owner/admin); the bill owes it again. Body: {"reason": "..."}. */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/vouchers/{id}/payments/{paymentId}/reverse")
+    public ApiResponse<com.myplus.expense.dto.ExpenseDtos.BillPaymentView> reversePayment(@PathVariable Long id,
+            @PathVariable Long paymentId, @RequestBody(required = false) VoidRequest r) {
+        return ApiResponse.success(bills.reversePayment(id, paymentId, r == null ? null : r.reason()), "Payment reversed");
+    }
+
     @GetMapping("/vouchers/{id}/payments")
     public ApiResponse<List<com.myplus.expense.dto.ExpenseDtos.BillPaymentView>> payments(@PathVariable Long id) {
         return ApiResponse.success(bills.list(id));

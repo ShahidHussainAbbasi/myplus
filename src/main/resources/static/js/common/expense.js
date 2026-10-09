@@ -82,14 +82,18 @@
 	function billState(v) {
 		if (v.paidFrom !== 'AP' || v.status !== 'POSTED') return '';
 		var open = Number(v.openAmount || 0);
-		if (open <= 0) return ' <span class="label label-info" data-cy="expense-bill-paid">' + esc(tr('ui.js.expPaid', 'Paid')) + '</span>';
+		// FP-3b — a bill with payments lists them (owner/admin), each reversible from there
+		var paysBtn = (canVoid && Number(v.paidAmount || 0) > 0)
+			? ' <button type="button" class="btn btn-xs btn-default" data-cy="bill-payments" data-id="' + esc(v.id) + '" aria-expanded="false">'
+				+ esc(tr('ui.js.expPayments', 'Payments')) + '</button>' : '';
+		if (open <= 0) return ' <span class="label label-info" data-cy="expense-bill-paid">' + esc(tr('ui.js.expPaid', 'Paid')) + '</span>' + paysBtn;
 		var out = ' <span class="text-warning" data-cy="expense-bill-owes" style="font-variant-numeric:tabular-nums">'
 			+ esc(tr('ui.js.expOwes', 'Owes')) + ' ' + esc(money(open)) + '</span>';
 		if (v.postingStatus === 'POSTED_GL') {
 			out += ' <button type="button" class="btn btn-xs btn-primary" data-cy="pay-bill" data-id="' + esc(v.id)
 				+ '" data-no="' + esc(v.voucherNo || '') + '" data-open="' + esc(open) + '">' + esc(tr('ui.pay', 'Pay')) + '</button>';
 		}
-		return out;
+		return out + paysBtn;
 	}   // set from the table header: the Actions column is rendered only for owner/admin
 
 	function row(v) {
@@ -410,6 +414,78 @@
 			});
 	}
 
+	// ── FP-3b: a bill's payments, and reversing one ─────────────────────────────────────────────────────────
+	// The list opens under the bill's row. Reverse asks why; the server reverses it in the books first (a closed period
+	// refuses it in words) and only then re-opens the bill — so the row is redrawn from the server's answer, never
+	// assumed. Only the pressed button shows it is working (§0c).
+	function paymentRow(p) {
+		var state = p.status === 'REVERSED'
+			? '<span class="label label-default">' + esc(tr('ui.js.expReversed', 'Reversed')) + '</span> ' + esc(p.reversalReceiptNo || '')
+				+ (p.reversalReason ? ' <span class="text-muted">— ' + esc(p.reversalReason) + '</span>' : '')
+			: p.status === 'RECORDED' ? esc(tr('ui.js.expPaid', 'Paid')) : esc(p.status);
+		var btn = p.reversible
+			? '<button type="button" class="btn btn-xs btn-default" data-cy="reverse-payment" data-bill="' + esc(p.voucherId)
+				+ '" data-pid="' + esc(p.id) + '" data-no="' + esc(p.receiptNo || '') + '">' + esc(tr('ui.js.expReverse', 'Reverse')) + '</button>'
+			: (p.status === 'RECORDED' && !p.reversible
+				? '<span class="text-muted" style="font-size:11.5px">' + esc(tr('ui.js.expViaPaySupplier', 'Paid through Pay Supplier')) + '</span>' : '');
+		return '<tr data-cy="bill-payment-row" data-pid="' + esc(p.id) + '">'
+			+ '<td>' + esc(p.receiptNo || p.reference || '') + '</td><td>' + showDate(p.paidOn) + '</td>'
+			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(p.amount)) + '</td>'
+			+ '<td>' + esc(p.method === 'BANK' ? tr('ui.js.expBank', 'Bank') : tr('ui.js.expCash', 'Cash')) + '</td>'
+			+ '<td>' + state + '</td><td>' + btn + '</td></tr>';
+	}
+	function showBillPayments(billId) {
+		var $bill = $('#tableExpense tbody tr.expense-row[data-id="' + billId + '"]');
+		var cols = $('#tableExpense thead th').length;
+		$('#tableExpense tbody tr.exp-pay-detail[data-for="' + billId + '"]').remove();
+		var $d = $('<tr class="exp-pay-detail" data-cy="bill-payments-list">').attr('data-for', billId)
+			.html('<td colspan="' + cols + '" class="text-muted">' + esc(tr('ui.js.loading', 'Loading…')) + '</td>');
+		$bill.after($d);
+		$bill.find('[data-cy=bill-payments]').attr('aria-expanded', 'true');
+		return $.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(billId) + '/payments', dataType: 'json' })
+			.done(function (res) {
+				var list = (res && res.data) || [];
+				$d.html('<td colspan="' + cols + '"><table class="table table-condensed" style="margin:0;background:transparent"><tbody>'
+					+ (list.length ? list.map(paymentRow).join('') : '<tr><td class="text-muted">—</td></tr>')
+					+ '</tbody></table><span class="exp-pay-msg" role="status" aria-live="polite"></span></td>');
+			});
+	}
+	function redrawBill(billId) {
+		return $.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(billId), dataType: 'json' }).done(function (res) {
+			if (res && res.data) $('#tableExpense tbody tr.expense-row[data-id="' + billId + '"]').replaceWith(row(res.data));
+		});
+	}
+	function reversePayment(btn) {
+		var $b = $(btn), billId = $b.attr('data-bill'), pid = $b.attr('data-pid');
+		var ask = typeof global.uiPromptConfirm === 'function' ? global.uiPromptConfirm : null;
+		if (!ask) return;
+		ask({ title: tr('ui.js.expReverseTitle', 'Reverse this payment?') + ' ' + ($b.attr('data-no') || ''),
+			message: tr('ui.js.expReverseHint', 'The money goes back to the cash or bank it came from, and the bill owes it again.'),
+			input: { label: tr('ui.js.expVoidReason', 'Reason (required)') }, tone: 'danger' })
+			.then(function (reason) {
+				if (reason === null) return;
+				if (!String(reason).trim()) { uiAlertSafe(tr('ui.js.expVoidReason', 'Reason (required)')); return; }
+				var label = $b.html();
+				$b.prop('disabled', true).text(tr('ui.js.expReversing', 'Reversing…'));
+				$.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(billId) + '/payments/' + encodeURIComponent(pid) + '/reverse',
+					type: 'POST', contentType: 'application/json', dataType: 'json', data: JSON.stringify({ reason: String(reason).trim() }) })
+					.done(function (res) {
+						if (!res || res.success !== true) {
+							$b.prop('disabled', false).html(label);
+							$b.closest('.exp-pay-detail').find('.exp-pay-msg').css('color', '#b3261e').text((res && res.message) || tr('ui.js.saveFailed', 'Save failed'));
+							return;
+						}
+						msg(tr('ui.js.expReversedDone', 'Payment reversed') + (res.data && res.data.reversalReceiptNo ? ' — ' + res.data.reversalReceiptNo : ''), 'ok');
+						redrawBill(billId).always(function () { showBillPayments(billId); });
+					})
+					.fail(function (xhr) {
+						$b.prop('disabled', false).html(label);
+						$b.closest('.exp-pay-detail').find('.exp-pay-msg').css('color', '#b3261e').text(typeof global.apiFailMessage === 'function'
+							? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed')) : tr('ui.js.saveFailed', 'Save failed'));
+					});
+			});
+	}
+
 	// ── FP-3: paying a bill ─────────────────────────────────────────────────────────────────────
 
 	function expensePayOpen(id, no, open) {
@@ -521,6 +597,13 @@
 	}
 
 	$(document).on('change', '#expPaidFrom', toggleBill);
+	$(document).on('click', '#tableExpense [data-cy="bill-payments"]', function () {
+		var id = $(this).attr('data-id');
+		var $open = $('#tableExpense tbody tr.exp-pay-detail[data-for="' + id + '"]');
+		if ($open.length) { $open.remove(); $(this).attr('aria-expanded', 'false'); return; }
+		showBillPayments(id);
+	});
+	$(document).on('click', '#tableExpense [data-cy="reverse-payment"]', function () { reversePayment(this); });
 	$(document).on('click', '#tableExpense [data-cy="pay-bill"]', function () {
 		expensePayOpen($(this).attr('data-id'), $(this).attr('data-no'), $(this).attr('data-open'));
 	});

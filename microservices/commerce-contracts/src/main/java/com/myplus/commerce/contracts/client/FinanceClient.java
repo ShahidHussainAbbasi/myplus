@@ -41,6 +41,11 @@ public interface FinanceClient {
     PaymentRecordResult recordPayment(@RequestBody PaymentRecordRequest request);
 
     /** A party's ledger payments (newest first) — for F2 statements of account. Tenant-scoped in finance-service. */
+    /** FP-3b — reverse one payment (mirror + opposite journal); idempotent per payment. */
+    @PostExchange("/internal/finance/payments/{id}/reverse")
+    PaymentRecordResult reversePayment(@org.springframework.web.bind.annotation.PathVariable("id") Long id,
+                                       @RequestBody java.util.Map<String, String> body);
+
     @GetExchange("/api/finance/payments")
     List<PaymentView> listPayments(@RequestParam("partyType") String partyType, @RequestParam("partyId") Long partyId);
 

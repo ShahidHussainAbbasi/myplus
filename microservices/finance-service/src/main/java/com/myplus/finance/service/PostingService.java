@@ -462,6 +462,22 @@ public class PostingService {
                 : List.of(dr(cashAccount(method), amt), cr(AR, amt));     // a customer pays us
     }
 
+    /** FP-3b — the opposite of {@link #paymentLines}: a disbursement reversed is Dr cash·bank / Cr 2000. */
+    static List<JournalLineDTO> paymentReversalLines(String direction, BigDecimal amt, String method) {
+        return "DISBURSEMENT".equalsIgnoreCase(direction)
+                ? List.of(dr(cashAccount(method), amt), cr(AP, amt))
+                : List.of(dr(AR, amt), cr(cashAccount(method), amt));
+    }
+
+    /** FP-3b — post a payment's reversal, dated {@code date}; a closed period refuses it like any journal. */
+    @Transactional
+    public void postPaymentReversal(String direction, BigDecimal amount, String method, LocalDate date, String ref) {
+        BigDecimal amt = nz(amount);
+        if (amt.signum() <= 0) return;
+        glService.ensureDefaults();
+        post("PAYMENT_REVERSAL", date, ref, paymentReversalLines(direction, amt, method));
+    }
+
     /** DR-4 — the mirror of both set-off legs: Dr 1100 / Cr 1900 and Dr 1900 / Cr 2000. */
     static List<JournalLineDTO> setOffReversalLines(BigDecimal amt) {
         return List.of(dr(AR, amt), cr(SETOFF_CLEARING, amt), dr(SETOFF_CLEARING, amt), cr(AP, amt));
