@@ -116,6 +116,15 @@ $(document).ready(function() {
     	 "searching": false,
     	 "paging": false,
     	 "info":false,
+    	 /*
+    	  * CART-3 (PR-3c follow-up) — a Per-batch line priced across two batches is ONE row with batch sub-lines. Its
+    	  * qty/price/disc/total cells are {display, value}: the screen shows `display`, and every sum below reads `value`,
+    	  * which equals what the separate rows used to contribute — so no footer, total or payable moves by a paisa.
+    	  * An ordinary row's cells are plain values and pass straight through.
+    	  */
+    	 "columnDefs": [{ "targets": [2, 3, 4, 5], "render": function (d, type) {
+    	     return (d && typeof d === 'object') ? (type === 'display' ? d.display : d.value) : d;
+    	 } }],
  	    "footerCallback": function ( row, data, start, end, display ) {
  	        var api = this.api(), data;
  	
@@ -124,6 +133,7 @@ $(document).ready(function() {
  	        // footer the moment one such line was in the cart.
  	        var intVal = function ( i ) {
  	            if (typeof i === 'number') return i;
+ 	            if (i && typeof i === 'object') return Number(i.value) || 0;   // CART-3: a grouped row's sum
  	            if (typeof i !== 'string') return 0;
  	            var n = parseFloat(i.replace(/[\$,]/g, ''));
  	            return isNaN(n) ? 0 : n;
@@ -326,10 +336,51 @@ function sellCartRow(line, idx){
 		+ "<button id='DII' onclick='UIT(" + JSON.stringify(String(pid)) + "," + idx + ")'>Del</button>";
 	return [pid, escHtml(line.itemName || ''), looseQtyText(line), rate, discCell, receivable, action];
 }
+/**
+ * CART-3 — the lines ONE Add to Cart produced in a Per-batch shop (same `batchGroup`, PR-3c), drawn as ONE row: the
+ * product with its batches as sub-lines ("B-0912 · 7 × 200.00 = 1,400.00"). data[] is untouched — the invoice still gets
+ * one line per batch price, exactly as before; only the drawing changes.
+ *
+ * Every number cell is {display, value}. `value` is the SUM of what each line's own row (sellCartRow) put in that cell,
+ * so the footer totals, the payable and Change/Due read exactly what they read when the lines were separate rows.
+ */
+function sellCartGroupRow(lines, firstIdx){
+	var rows = lines.map(function(l, k){ return sellCartRow(l, firstIdx + k); });
+	var num = function(v){ var n = parseFloat(String(v == null ? '' : v).replace(/[\$,]/g, '')); return isNaN(n) ? 0 : n; };
+	var sum = function(col){ return Math.round(rows.reduce(function(a, r){ return a + num(r[col]); }, 0) * 100) / 100; };
+	var name = String(lines[0].itemName || '').split(' — Batch ')[0];
+	var subs = lines.map(function(l, k){
+		var r = rows[k];
+		var label = l.batchNote || (l.stock && l.stock.batchNo) || '';
+		return "<div class='pb-sub' data-qty='" + escHtml(String(l.quantity)) + "' data-rate='" + escHtml(String(r[3]))
+			+ "' style='font-size:12px;color:#5b6576;padding-left:12px'>" + escHtml(label) + (label ? ' · ' : '')
+			+ escHtml(String(l.quantity)) + ' × ' + escHtml(Number(num(r[3])).toFixed(2)) + ' = ' + escHtml(String(r[5])) + '</div>';
+	}).join('');
+	var qty = sum(2), total = sum(5);
+	var disc = rows.map(function(r){ return r[4]; }).filter(function(x){ return x; });
+	var group = String(lines[0].batchGroup);
+	var action = "<button type='button' class='pb-del' onclick='UIG(" + JSON.stringify(group) + ")'>Del</button>";
+	return [lines[0].productId,
+		"<div class='pb-group' data-batch-group='" + escHtml(group) + "'>" + escHtml(name) + subs + '</div>',
+		{ display: String(qty), value: qty },
+		// the price differs per batch, so the row names it and the sub-lines carry each one; `value` keeps the
+		// footer's sum of rates what the separate rows gave; `cmp` is the first batch's rate for the last-rate hint
+		{ display: "<span class='pb-rate'>" + escHtml(t('ui.js.batchByBatch')) + '</span>', value: sum(3), cmp: num(rows[0][3]) },
+		{ display: escHtml(disc.join(' + ')), value: 0 },
+		{ display: total.toFixed(2), value: total },
+		action];
+}
 function renderCart(){
 	if (typeof tablesi === 'undefined' || !tablesi) return;
 	tablesi.clear();
-	data.forEach(function(line, i){ tablesi.row.add(sellCartRow(line, i)); });
+	// CART-3: consecutive lines of one Add (same batchGroup, 2 or more) are one row; every other line is drawn as before.
+	for (var i = 0; i < data.length; ){
+		var g = data[i] && data[i].batchGroup, j = i + 1;
+		while (g && j < data.length && data[j] && data[j].batchGroup === g) j++;
+		if (g && j - i > 1) tablesi.row.add(sellCartGroupRow(data.slice(i, j), i));
+		else tablesi.row.add(sellCartRow(data[i], i));
+		i = (g && j - i > 1) ? j : i + 1;
+	}
 	tablesi.draw(false);             // footerCallback → #sellTotal + the payable line
 	if (typeof CIT === 'function') CIT(data);
 	calculateChange();               // Change and Due follow every cart change
@@ -349,6 +400,17 @@ function UIT(id, idx){
 	renderCart();
 	if (typeof LastRate !== 'undefined') LastRate.refresh();
 }
+
+/** CART-3 — Del on a grouped row removes every line of that Add (all its batches), and nothing else. */
+function UIG(group){
+	if (group == null) return;
+	for (var i = data.length - 1; i >= 0; i--) {
+		if (data[i] && String(data[i].batchGroup) === String(group)) data.splice(i, 1);
+	}
+	renderCart();
+	if (typeof LastRate !== 'undefined') LastRate.refresh();
+}
+window.UIG = UIG;
 
 // â”€â”€â”€ Barcode-first sell: scan a barcode/SKU â†’ resolve â†’ add a cart line â”€â”€â”€â”€â”€â”€â”€â”€
 // A wedge scanner types the code + Enter into #sellScan. We look the product up (barcode or sku), then append a

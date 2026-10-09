@@ -535,3 +535,4 @@ and mostly non-functional work. Phases 5–7 are each medium and independent.
 | Date | Entry |
 |---|---|
 | 2026-08-31 | Review + programme written. No code, no schema. Awaiting consent and the Q-1…Q-8 answers. |
+| 2026-10-08 | Client blueprint (Hms-Implementation-Blueprint) turned into tests. `cypress/e2e/hms/hms-baseline-today.cy.js` — 6/6 green on today's screens (Rx intake UI, booking numbers, daily cap, Rx→sale→dispense once, cancel, cross-tenant). `hms-phase1.cy.js` — 20 Phase 1 contract cases, gated `--env hms=1` (pending). ⚠ Defect proven (B-07, `--env hmsDefects=1`): bookings resolve the patient by PHONE alone (`AppointmentService:149`) — a son booked on his father's phone is filed under the father. Phase 1 patient matching must use CNIC / name + DOB. Test page: https://claude.ai/artifact/RTCGToYCyqJHVsR7VVnfAm |

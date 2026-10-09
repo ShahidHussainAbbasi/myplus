@@ -85,6 +85,10 @@
         });
     }
 
+    var groupSeq = 0;
+    /** CART-3 — the lines one Add produced share a group, so the cart draws them as ONE row with batch sub-lines. */
+    function newGroup() { groupSeq++; return 'pb' + Date.now().toString(36) + groupSeq; }
+
     /** One cart line per part, copied from the line it came from. */
     function partLine(from, part) {
         var line = JSON.parse(JSON.stringify(from));
@@ -149,6 +153,9 @@
             }
             if (r.status !== 'SUCCESS' || !r.perBatch || !r.parts || !r.parts.length) { done([obj]); return; }
             var lines = r.parts.map(function (p) { return partLine(obj, p); });
+            // CART-3: two or more batch prices from one Add are one cart row; a single part is an ordinary line.
+            if (lines.length > 1) { var g = newGroup(); lines.forEach(function (l) { l.batchGroup = g; }); }
+            else lines[0].batchGroup = null;
             showNote(r.parts.length > 1
                 ? t('ui.js.batchSplitNote', 'Priced by batch: {0}', [note(r.parts)])
                 : (r.parts[0].batch ? t('ui.js.batchPricedNote', 'Priced from {0}: {1}', [r.parts[0].batch, money(r.parts[0].rate)]) : null));
@@ -179,7 +186,13 @@
                 }
                 if (!mine.length) { out.push(line); continue; }
                 if (mine.length > 1 || Number(mine[0].rate) !== Number(line.sellRate)) changed = true;
-                mine.forEach(function (p) { out.push(mine.length === 1 && !changed ? line : partLine(line, p)); });
+                // CART-3: a line the re-check splits keeps its group (or starts one), so it stays ONE row in the cart.
+                var grp = mine.length > 1 ? (line.batchGroup || newGroup()) : (line.batchGroup || null);
+                mine.forEach(function (p) {
+                    var l = (mine.length === 1 && !changed) ? line : partLine(line, p);
+                    if (l !== line) l.batchGroup = grp;
+                    out.push(l);
+                });
             }
             if (!changed) { proceed(); return; }
             global.data.length = 0;

@@ -170,4 +170,35 @@ class DispenseServiceTest {
         assertThat(out.getItems().get(0).getDispensedQuantity()).isEqualTo(5);
         assertThat(out.getWarnings()).anyMatch(w -> w.contains("9999"));
     }
+
+    // ── RX-DISP-1: a dispense that records nothing says so ───────────────────────────────────────────
+    /**
+     * The till posted `items: []` for every dispense from 2026-09-06 (the cart was cleared first). This came back
+     * as a plain success, so every screen said "recorded" while the script stayed PENDING. It must be reported,
+     * and must change nothing.
+     */
+    @Test
+    void an_empty_dispense_records_nothing_and_says_so() {
+        Long id = newRx();
+        DispenseRequest empty = new DispenseRequest();
+        empty.setInvoiceNo("INV-EMPTY");
+
+        PrescriptionDTO out = dispenseService.dispense(id, empty, ORG, USER);
+
+        assertThat(out.getStatus()).isEqualTo("PENDING");
+        assertThat(out.getItems().get(0).getDispensedQuantity()).isZero();
+        assertThat(dispensingRepo.findAll()).isEmpty();
+        assertThat(out.getWarnings()).anyMatch(w -> w.contains("Nothing was recorded") && w.contains("INV-EMPTY"));
+
+        // …and it does not burn the invoice: the real lines for that sale can still be recorded.
+        PrescriptionDTO retry = dispenseService.dispense(id, req("INV-EMPTY", 5), ORG, USER);
+        assertThat(retry.getItems().get(0).getDispensedQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void a_real_dispense_carries_no_nothing_recorded_warning() {
+        Long id = newRx();
+        PrescriptionDTO out = dispenseService.dispense(id, req("INV-000001", 5), ORG, USER);
+        assertThat(out.getWarnings()).noneMatch(w -> w.contains("Nothing was recorded"));
+    }
 }
