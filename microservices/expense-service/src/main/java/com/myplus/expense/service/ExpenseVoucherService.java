@@ -66,6 +66,17 @@ public class ExpenseVoucherService {
                 PageRequest.of(Math.max(page, 0), s)), VoucherView::of);
     }
 
+    /**
+     * EX-2d / E4 — the total under the list, over the SAME rows the list can show this caller (a user: their own),
+     * not only the page on screen. Posted expenses only; a void or a draft is not money spent.
+     */
+    @Transactional(readOnly = true)
+    public com.myplus.expense.dto.ExpenseDtos.VoucherTotals totals(LocalDate from, LocalDate to) {
+        var t = repo.totals(access.org(), access.visibleUserId(), from, to);
+        return new com.myplus.expense.dto.ExpenseDtos.VoucherTotals(t == null ? 0 : t.getCount(),
+                t == null || t.getTotal() == null ? java.math.BigDecimal.ZERO : t.getTotal());
+    }
+
     @Transactional(readOnly = true)
     public VoucherView get(Long id) {
         return VoucherView.of(visible(id));

@@ -90,6 +90,14 @@ public class ExpenseController {
         return ApiResponse.success(vouchers.list(from, to, status, page, size));
     }
 
+    /** EX-2d — what the list's date filter adds up to (posted only), for the footer. */
+    @GetMapping("/vouchers/totals")
+    public ApiResponse<com.myplus.expense.dto.ExpenseDtos.VoucherTotals> totals(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return ApiResponse.success(vouchers.totals(from, to));
+    }
+
     @GetMapping("/vouchers/{id}")
     public ApiResponse<VoucherView> get(@PathVariable Long id) {
         return ApiResponse.success(vouchers.get(id));

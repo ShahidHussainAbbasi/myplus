@@ -344,11 +344,35 @@
         });
     }
 
+    /**
+     * A TYPED date reaches the data-dp-iso companion too. Before this only a calendar click wrote it, so a date typed
+     * on the keyboard (the masked entry above, P6) showed in the box and was silently ignored by every screen reading
+     * the hidden ISO field — the Expenses date and its From/To filter among them (found by the EX-2d gate).
+     * Mirrored only when the box holds a COMPLETE, REAL date (it formats back to exactly what was typed, so 31-02 is
+     * not quietly read as 3 March); emptied when the box is emptied; a half-typed value leaves the companion alone.
+     */
+    function mirrorTyped(input, mode) {
+        var iso = isoTarget(input);
+        if (!iso) return;
+        var v = (input.value || '').trim(), next;
+        if (!v) next = '';
+        else {
+            var d = parse(v, mode);
+            if (!d || format(d, mode) !== v) return;
+            next = isoOf(d, mode);
+        }
+        if (iso.value === next) return;
+        iso.value = next;
+        iso.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
     function bind(input, mode) {
         if (input._dpBound) return;
         input._dpBound = true;
         input.setAttribute('autocomplete', 'off');
         bindMask(input, mode);
+        input.addEventListener('input', function () { mirrorTyped(input, mode); });
+        input.addEventListener('change', function () { mirrorTyped(input, mode); });
         input.addEventListener('focus', function () { openFor(input, mode); });
         input.addEventListener('click', function () { openFor(input, mode); });
         // Keyboard entry moves focus WITHOUT a mousedown, so the outside-click listener never fires and

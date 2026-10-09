@@ -45,6 +45,9 @@ public final class ExpenseDtos {
 
     public record VoidRequest(String reason) { }
 
+    /** EX-2d — the list's footer: how many posted expenses the filter holds and what they add up to. */
+    public record VoucherTotals(long count, BigDecimal total) { }
+
     public record LineView(int lineNo, Long categoryId, String categoryName, String accountCode, String description,
                            BigDecimal amount, String tagType, Long tagId, String tagLabel) {
         public static LineView of(ExpenseVoucherLine l) {

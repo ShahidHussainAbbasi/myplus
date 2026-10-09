@@ -137,6 +137,15 @@
 			<tbody></tbody>
 		</table>
 	</div>
+	<!-- EX-2d / E4 — where you are in the list, and what the whole filter adds up to (the server's sum, not this page's). -->
+	<div id="expPager" data-cy="expense-pager" style="display:none;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin:4px 0 12px">
+		<strong id="expTotal" data-cy="expense-total" role="status" aria-live="polite" style="font-variant-numeric:tabular-nums"></strong>
+		<span style="display:flex;gap:8px;align-items:center">
+			<span id="expShowing" data-cy="expense-showing" class="text-muted"></span>
+			<button type="button" class="btn btn-default btn-sm" id="expPrev" data-cy="expense-prev" onclick="expensePage(-1)" th:text="#{ui.previous}">Previous</button>
+			<button type="button" class="btn btn-default btn-sm" id="expNext" data-cy="expense-next" onclick="expensePage(1)" th:text="#{ui.next}">Next</button>
+		</span>
+	</div>
 </div>
 </body>
 </html>

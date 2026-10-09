@@ -67,6 +67,16 @@ public class ExpenseController {
         return call(() -> expense.get(q.toString()));
     }
 
+    /** EX-2d — the list footer's total, over the same date filter. */
+    @GetMapping(value = "/vouchers/totals", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> totals(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+        StringBuilder q = new StringBuilder("/vouchers/totals?");
+        param(q, "from", from);
+        param(q, "to", to);
+        return call(() -> expense.get(q.toString()));
+    }
+
     @GetMapping(value = "/vouchers/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> get(@PathVariable Long id) {

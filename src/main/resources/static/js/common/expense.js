@@ -181,28 +181,69 @@
 
 	function toggleBill() { $('#expBillGroup').toggle($('#expPaidFrom').val() === 'AP'); }
 
-	function expenseLoad() {
+	/**
+	 * EX-2d / E4 — the list is read a page at a time (PAGE rows), with "Showing a–b of N", Previous/Next, and the
+	 * period's total underneath. The total is the SERVER's sum over every row the filter holds for this caller, not
+	 * the page on screen — before EX-2d the list silently stopped at 200 rows and had no total at all.
+	 * expenseLoad()      → back to the first page (Search, a new expense: it lands on top)
+	 * expenseLoad(page)  → that page (Previous/Next; a void or a payment redraws the page you are on)
+	 */
+	var PAGE = 50, expPage = 0;
+	function filterQuery() {
 		var q = [];
 		if ($('#expFrom').val()) q.push('from=' + encodeURIComponent($('#expFrom').val()));
 		if ($('#expTo').val()) q.push('to=' + encodeURIComponent($('#expTo').val()));
-		q.push('size=200');
+		return q;
+	}
+	function expenseLoad(page) {
+		expPage = Math.max(0, Number(page) || 0);
+		var q = filterQuery();
+		q.push('page=' + expPage, 'size=' + PAGE);
 		var $tb = $('#tableExpense tbody');
+		loadTotals();
 		return $.ajax({ url: ctx() + 'expense/vouchers?' + q.join('&'), dataType: 'json' })
 			.done(function (res) {
-				var rows = (res && res.data && res.data.content) || [];
+				var pg = (res && res.data) || {};
+				var rows = pg.content || [];
+				if (!rows.length && expPage > 0) { expenseLoad(expPage - 1); return; }   // the last row of a page went away
 				var cols = $('#tableExpense thead th').length;
 				$tb.html(rows.length ? rows.map(row).join('')
 					: '<tr><td colspan="' + cols + '" class="text-muted">' + esc(tr('ui.js.expNone', 'No expenses in this period.')) + '</td></tr>');
+				pager(pg, rows.length);
 				// Anything still posting is re-read until the ledger answers — bounded, never a busy loop.
 				rows.filter(function (v) { return v.status === 'POSTED' && v.postingStatus === 'PENDING'; })
 					.forEach(function (v) { watch(v.id, 15); });
 			})
 			.fail(function (xhr) {
+				$('#expPager').hide();
 				$tb.html('<tr><td colspan="8" class="text-danger">'
 					+ esc(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.expLoadFailed', 'Could not load expenses.'))
 						: tr('ui.js.expLoadFailed', 'Could not load expenses.')) + '</td></tr>');
 			});
 	}
+	function pager(pg, shown) {
+		var total = Number(pg.totalElements || 0);
+		if (!total) { $('#expPager').hide(); return; }
+		var first = expPage * PAGE + 1, last = expPage * PAGE + shown;
+		$('#expShowing').text(tr('ui.js.expShowing', 'Showing {0}–{1} of {2}')
+			.replace('{0}', first).replace('{1}', last).replace('{2}', total));
+		$('#expPrev').prop('disabled', expPage === 0);
+		$('#expNext').prop('disabled', pg.last !== false);
+		$('#expPrev, #expNext').toggle(total > PAGE);
+		$('#expPager').css('display', 'flex');
+	}
+	/** The period's total — posted expenses only; a void or a draft is not money spent. */
+	function loadTotals() {
+		var $t = $('#expTotal').text('');
+		return $.ajax({ url: ctx() + 'expense/vouchers/totals?' + filterQuery().join('&'), dataType: 'json' })
+			.done(function (res) {
+				var d = res && res.success === true && res.data;
+				if (!d) return;
+				$t.text(tr('ui.js.expPeriodTotal', 'Total spent: {0} ({1} expenses; voided ones not counted)')
+					.replace('{0}', money(d.total)).replace('{1}', d.count));
+			});
+	}
+	function expensePage(step) { expenseLoad(expPage + step); }
 
 	/** Re-read one voucher every 1.5 s until the ledger answers, then redraw its row. */
 	function watch(id, tries) {
@@ -280,7 +321,7 @@
 					.done(function (res) {
 						if (!res || res.success !== true) { uiAlertSafe((res && res.message) || tr('ui.js.saveFailed', 'Save failed')); return; }
 						msg(tr('ui.js.expVoidDone', 'Expense voided'), 'ok');
-						expenseLoad();
+						expenseLoad(expPage);
 					})
 					.fail(function (xhr) {
 						uiAlertSafe(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
@@ -327,7 +368,7 @@
 			}
 			expensePayClose();
 			msg(tr('ui.js.expPayDone', 'Payment recorded') + (res.data && res.data.receiptNo ? ' — ' + res.data.receiptNo : ''), 'ok');
-			expenseLoad();
+			expenseLoad(expPage);
 		}).fail(function (xhr) {
 			// The key is KEPT: pressing Pay again is the same payment, never a second one.
 			$('#expPayMsg').css('color', '#b3261e').text(typeof global.apiFailMessage === 'function'
@@ -386,6 +427,7 @@
 	global.showExpenses = showExpenses;
 	global.expenseSave = expenseSave;
 	global.expenseLoad = expenseLoad;
+	global.expensePage = expensePage;
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;
 })(window);

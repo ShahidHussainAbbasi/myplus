@@ -512,6 +512,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> a refusal retried for minutes and then shown as “Something went wrong”, with no way to send it again.</div>
         </div>
       </div>
+      <div class="case" data-case="1-9">
+        <div class="case-head"><span class="cid">1-9</span><h3>A long list pages, and shows what the period adds up to</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Have more than 50 expenses in one period (the recording makes 55 small ones for today).</li><li>Till → Expenses: <b>type</b> the dates in From and To, press Search.</li><li>Press <b>Next</b>, then <b>Previous</b>.</li><li>As a user, look at the total.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>50 rows and “Showing 1–50 of N”; Previous greyed out on the first page.</span></label></li><li><label><input type="checkbox"><span>“Total spent: … (N expenses; voided ones not counted)” — the whole period, unchanged by paging.</span></label></li><li><label><input type="checkbox"><span>Next shows 51 onwards; voiding a row keeps you on that page and takes it out of the total.</span></label></li><li><label><input type="checkbox"><span>The typed dates are the ones searched (the From box is not ignored).</span></label></li><li><label><input type="checkbox"><span>A user’s total counts only their own expenses.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a list that silently stopped at 200 rows with no total (E4), and a typed date that was shown in the box but never used (found while testing this).</div>
+        </div>
+      </div>
     </section>
 
 
@@ -1039,7 +1050,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td>E1</td><td>An expense whose posting <b>failed</b> (e.g. a closed period) could never be retried, and the reason was hidden. <b>Fixed (EX-1b):</b> the reason is on the row within seconds, and <b>Post again</b> sends it once the cause is fixed — case 1-8.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E2</td><td>The school, welfare and farm dashboards recorded expenses into books they <b>could not see</b>. <b>Fixed (EX-2c):</b> each has a Finance entry with Profit &amp; Loss, Trial Balance, Balance Sheet and Period Close — case 2a-5. Found on the way: any member could read the statements by asking for them directly; finance-service now allows owners and admins only.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E3</td><td>Welfare was told “each expense is posted to your books”, but donations are not in the books yet. <b>Fixed (EX-2c):</b> the Expenses screen and the reports say so, until welfare’s fund accounting is built — case 2a-5.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
-            <tr><td>E4</td><td>The Expenses list stops at 200 rows without saying so.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E4</td><td>The expense list silently stopped at 200 rows with no total. <b>Fixed (EX-2d):</b> 50 a page, “Showing a–b of N”, Previous/Next, and the period’s total from the server — case 1-9. Found on the way: a date <b>typed</b> into any calendar box that feeds a hidden date (Expenses date and filter, due dates, installments, price rules) was never used; fixed once, in the shared calendar.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E5</td><td>The expense settings were never built (post limit for users, receipt rule, default “paid from”); how far back a date may go is fixed at 365 days.</td><td><span class="pill pill-warn">Medium</span></td></tr>
             <tr><td>E6</td><td>No screen to add or rename expense categories — every business has the 8 defaults.</td><td><span class="pill pill-warn">Medium</span></td></tr>
             <tr><td>E8</td><td>The store on an expense is not checked. Nothing reads it yet; it must be checked before reports by store.</td><td><span class="pill pill-todo">Low now</span></td></tr>
