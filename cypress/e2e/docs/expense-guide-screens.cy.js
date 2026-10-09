@@ -139,8 +139,14 @@ const voidBillOnScreen = (payee, a) => {
   if (a) snap(a, 'voided')
 }
 /** Leftovers of earlier recording runs (unpaid XG test bills) — voided so the spare business stays clean. */
-const voidLeftoverTestBills = () => cy.request('/expense/vouchers?size=200').then((r) => {
-  const rows = ((r.body && r.body.data && r.body.data.content) || [])
+/** Every voucher of the signed-in business, page by page (the list is paged since EX-2d). */
+const allVouchers = (page = 0, acc = []) => cy.request(`/expense/vouchers?size=200&page=${page}`).then((r) => {
+  const d = (r.body && r.body.data) || {}
+  const rows = acc.concat(d.content || [])
+  return d.last === false ? allVouchers(page + 1, rows) : rows
+})
+const voidLeftoverTestBills = () => allVouchers().then((all) => {
+  const rows = all
     .filter((v) => v.status === 'POSTED' && v.postingStatus === 'POSTED_GL' && v.paidFrom === 'AP' && Number(v.paidAmount || 0) === 0
       && /^XG/.test(v.payeeName || v.supplierName || ''))
   rows.forEach((v) => cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book clean-up' }, failOnStatusCode: false }))
@@ -332,6 +338,72 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     })
     a2.via = 'run'
     act('Nothing to undo — this case only reads.', [], { cleanup: true })
+  })
+
+  caseIt('0b-2', 'Owners keep their own categories', () => {
+    testCase('0b-2', 'ex0b', 'Owners keep their own categories', { who: ['owner.lifecycle (recorded)', 'admin.business', 'user.business'] })
+    setup('Expense management switched on (case 0a-3).')
+    const name = 'XG Staff tea ' + run, renamed = 'XG Staff refreshments ' + run, payee = 'XG cat ' + run
+    let catId = null, vid = null
+    asLifecycle(true)
+    SAFETY.push(() => { asLifecycle(); if (vid) cy.request({ method: 'POST', url: `/expense/vouchers/${vid}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false }) })
+    SAFETY.push(() => { asLifecycle(); if (catId) cy.request({ method: 'PATCH', url: `/expense/categories/${catId}`, body: { active: false }, failOnStatusCode: false }) })
+    openDashboard(); openExpenses()
+    const a1 = act('<b>Till → Expenses</b>, press <b>Categories</b>.',
+      ['Every category is listed with its account and an <b>On</b> tick; switched-off ones are listed too.',
+       'The account list holds only expense accounts — never 5000 Cost of Goods Sold or a cash/bank account.'])
+    cy.get('[data-cy=expense-categories-open]').click()
+    cy.get('#expCatTable tbody [data-cy=cat-row]', { timeout: 20000 }).should('have.length.greaterThan', 0)
+    cy.get('#expCatNewAccount option').should(($o) => expect([...$o].map((o) => o.value)).not.to.include('5000'))
+    snap(a1, 'list', '#expCatPanel')
+    const a2 = act(`In the last row type <b>${name}</b>, account <b>6100 Utilities</b>, press <b>Add</b>.`,
+      ['“Category saved”; the new row is in the list, switched on.', 'The New Expense form’s <b>Category</b> now offers it.'])
+    cy.get('[data-cy=cat-new-name]').type(name)
+    cy.get('[data-cy=cat-new-account]').select('6100')
+    cy.get('[data-cy=cat-add]').click()
+    cy.get('#expCatMsg').should('contain', 'Category saved')
+    cy.get('#expCategory option').should('contain', name)
+    cy.request('/expense/categories').then((r) => { catId = r.body.data.find((c) => c.name === name).id })
+    snap(a2, 'added', '#expCatPanel')
+    const a3 = act(`Record <b>${name}</b>, amount <b>3</b>, cash, payee <b>${payee}</b>.`, ['The row reaches <b>In the books</b>; it is posted to <b>6100</b>.'])
+    cy.get('#expCategory option').contains(name).then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type('3')
+    cy.get('#expPayee').clear().type(payee)
+    cy.get('[data-cy=save-expense]').click()
+    expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    expenseRow(payee).invoke('attr', 'data-id').then((id) => {
+      vid = id
+      cy.request(`/expense/vouchers/${id}`).its('body.data.lines.0.accountCode').should('eq', '6100')
+    })
+    snap(a3, 'recorded', '#tableExpense')
+    const a4 = act(`In Categories, rename it to <b>${renamed}</b>, untick <b>On</b>, press its <b>Save</b>.`,
+      ['“Category saved”.', 'The form’s Category list no longer offers it.',
+       `The expense recorded before still reads <b>${name}</b> and stays in 6100 — history is not rewritten.`])
+    cy.then(() => {
+      const r = `#expCatTable tbody tr[data-id="${catId}"]`
+      cy.get(`${r} [data-cy=cat-name]`).clear().type(renamed)
+      cy.get(`${r} [data-cy=cat-on]`).uncheck()
+      cy.get(`${r} [data-cy=cat-save]`).click()
+      cy.get('#expCatMsg').should('contain', 'Category saved')
+      cy.get(`${r} [data-cy=cat-on]`).should('not.be.checked')
+    })
+    cy.get('#expCategory option').should('not.contain', renamed).and('not.contain', name)
+    expenseRow(payee).should('contain', name)
+    snap(a4, 'switched-off', '#expCatPanel')
+    const a5 = act('Add a category called <b>Rent</b> (one already exists).', ['Refused, in words: “There is already a category called Rent.”'])
+    cy.get('[data-cy=cat-new-name]').clear().type('Rent')
+    cy.get('[data-cy=cat-add]').click()
+    cy.get('#expCatMsg').should('contain', 'already a category called Rent')
+    snap(a5, 'duplicate', '#expCatPanel')
+    cy.then(() => {
+      act('As <b>user.business</b>: open Expenses.', ['There is no <b>Categories</b> button; a user cannot change categories (the server refuses it too).'], { via: 'run' })
+      act(`Void the ${payee} expense (reason "Test Book"). The category stays switched off — categories are never deleted, past expenses point at them.`, [], { cleanup: true })
+    })
+    cy.loginAsTier('user', 'business')
+    cy.then(() => cy.request({ method: 'PATCH', url: `/expense/categories/${catId}`, body: { active: true }, failOnStatusCode: false })
+      .then((r) => expect(r.status >= 400 || r.body.success === false).to.eq(true)))
+    asLifecycle()
+    cy.then(() => cy.request({ method: 'POST', url: `/expense/vouchers/${vid}/void`, body: { reason: 'Test Book' } }).its('body.success').should('eq', true))
   })
 
   // ═══ EX-0c · Document numbers ═════════════════════════════════════════════════════════════════════════════
@@ -564,10 +636,13 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       cy.get('#expDate').should('have.value', y)                 // the typed day reaches the form (EX-2d fixed this)
       fillExpense({ category: 'Rent', amount: 5, paidFrom: 'CASH', payee })
       cy.get('[data-cy=save-expense]').click()
+      cy.get('#expFromTemp').clear().type(dmyOf(y)).blur()        // the list is newest-first, 50 a page: show that day
+      cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+      cy.contains('#ExpenseDiv button', 'Search').click()
       expenseRow(payee).find('[data-cy=expense-posting-error]', { timeout: 20000 }).should('be.visible').and('contain', 'period is closed')
       expenseRow(payee).find('.exp-chip').should('contain', 'Not posted')
       expenseRow(payee).find('[data-cy=post-again]').should('be.visible')
-      cy.request('/expense/vouchers?size=50').then((r) => {
+      cy.request(`/expense/vouchers?from=${y}&to=${y}&size=200`).then((r) => {
         const v = ((r.body.data && r.body.data.content) || []).find((x) => x.payeeName === payee)
         expect(v.voucherDate).to.eq(y)
         id = v.id
@@ -595,6 +670,8 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
         ['“<b>Sent to the books again.</b>” The row reaches <b>In the books</b>; the reason and the button are gone.',
           '<b>Finance → Trial Balance</b>: <b>6000 Rent</b> up 5 and <b>1000 Cash</b> down 5 — once, however often Post again was pressed.'])
       openDashboard(); openExpenses()
+      cy.get('#expFromTemp').clear().type(dmyOf(y)).blur(); cy.get('#expToTemp').clear().type(dmyOf(y)).blur()
+      cy.contains('#ExpenseDiv button', 'Search').click()   // back to that day: the list is newest-first, 50 a page
       cy.intercept('POST', '**/post-again').as('again2')
       expenseRow(payee).find('[data-cy=post-again]').click()
       cy.wait('@again2').its('response.body.success').should('eq', true)
@@ -666,6 +743,57 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     asLifecycle()
     token().then((t) => ids.forEach((id) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/void`,
       headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' } }).its('body.success').should('eq', true)))
+  })
+
+  caseIt('1-10', 'Settings: how far back, and what the form starts with', () => {
+    testCase('1-10', 'ex1', 'Settings: how far back, and what the form starts with', { who: ['owner.lifecycle (recorded)', 'user.business'] })
+    const BACK = 'expense.voucher.backdateDays', PAID = 'expense.voucher.defaultPaidFrom'
+    const resetBoth = () => token().then((t) => [BACK, PAID].forEach((k) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${k}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })))
+    asLifecycle(true)
+    resetBoth()
+    SAFETY.push(() => { asLifecycle(); resetBoth() })
+    const ago = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return localIsoDate(d) }
+    openDashboard(); openExpenses()
+    const a1 = act('<b>Till → Expenses</b>, press <b>Settings</b>.',
+      ['<b>How far back an expense may be dated</b>: <b>30</b> days (before this release it was a hidden 365).', '<b>Paid from, by default</b>: <b>Cash</b>.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-backdate]').should('have.value', '30')
+    cy.get('[data-cy=set-paid-from]').should('have.value', 'CASH')
+    snap(a1, 'defaults', '#expSetPanel')
+    const a2 = act('Type <b>-1</b> in the days box and press its <b>Save</b>; then <b>7</b> and <b>Save</b>.',
+      ['-1 is refused in words: “… must be between 0 and 3650 days.”', '7: “Setting saved”.'])
+    cy.get('[data-cy=set-backdate]').clear().type('-1')
+    cy.get('[data-cy=set-backdate-save]').click()
+    cy.get('#expSetMsg').should('contain', 'between 0 and 3650 days')
+    cy.get('[data-cy=set-backdate]').clear().type('7')
+    cy.get('[data-cy=set-backdate-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    snap(a2, 'seven-days', '#expSetPanel')
+    const a3 = act(`Record Rent 1 in cash dated <b>${dmyOf(ago(8))}</b> (8 days ago).`,
+      ['Refused, in words: “An expense can be dated at most 7 days back. An owner can change this in Expenses → Settings.”'])
+    cy.get('#expDateTemp').clear().type(dmyOf(ago(8))).blur()
+    fillExpense({ category: 'Rent', amount: 1, paidFrom: 'CASH', payee: 'XG back ' + run })
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg').should('contain', 'at most 7 days back')
+    snap(a3, 'refused', '#ExpenseForm')
+    const a4 = act('In Settings choose <b>Bank</b> for Paid from and press its <b>Save</b>; then open Expenses again.',
+      ['The New Expense form now starts on <b>Bank</b> — for every member, cashiers included.'])
+    cy.get('[data-cy=set-paid-from]').select('BANK')
+    cy.get('[data-cy=set-paid-from-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    openDashboard(); openExpenses()
+    cy.get('#expPaidFrom').should('have.value', 'BANK')
+    snap(a4, 'bank-default', '#ExpenseForm')
+    cy.then(() => {
+      act('As <b>user.business</b>: open Expenses.', ['The form starts on the business’s default; there is no <b>Settings</b> button, and the server refuses a change.'], { via: 'run' })
+      act('Settings → reset both to their defaults (30 days, Cash). The recording does it through the same service.', [], { cleanup: true, via: 'run' })
+    })
+    cy.loginAsTier('user', 'business')
+    cy.request({ method: 'POST', url: '/expense/settings', form: true, body: { key: BACK, value: '3650' }, failOnStatusCode: false })
+      .then((r) => expect(r.status >= 400 || r.body.success === false).to.eq(true))
+    asLifecycle()
+    resetBoth()
   })
 
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════

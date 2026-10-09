@@ -34,7 +34,7 @@ class ExpenseListTotalsTest {
         when(access.visibleUserId()).thenReturn(visibleUserId);
         return new ExpenseVoucherService(repo, mock(ExpenseCategoryService.class), mock(ExpenseOutboxService.class),
                 mock(ExpenseAuditService.class), access, mock(DocumentNumberService.class), mock(ExpenseTagService.class),
-                mock(ExpenseBillPaymentRepo.class));
+                mock(ExpenseBillPaymentRepo.class), settings30());
     }
 
     private static ExpenseVoucherRepo.Totals totals(long count, BigDecimal total) {
@@ -94,5 +94,11 @@ class ExpenseListTotalsTest {
         s.list(null, null, null, -1, 10_000);
         assertThat(p.getValue().getPageNumber()).isZero();
         assertThat(p.getValue().getPageSize()).isEqualTo(200);
+    }
+    /** EX-2f — the default window (30 days) unless a test says otherwise. */
+    private static ExpenseSettings settings30() {
+        ExpenseSettings s = org.mockito.Mockito.mock(ExpenseSettings.class);
+        org.mockito.Mockito.when(s.backdateDays()).thenReturn(30);
+        return s;
     }
 }

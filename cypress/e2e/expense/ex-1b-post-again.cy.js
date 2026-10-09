@@ -31,6 +31,13 @@ const delta = (b, a, code) => Math.round(((a[code] || 0) - (b[code] || 0)) * 100
 
 const dayOffset = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return localIsoDate(d) }
 const YESTERDAY = () => dayOffset(-1)
+/** The list is newest-first, 50 a page (EX-2d): look at the day the expense is dated, as a person would. */
+const showDay = (iso) => {
+  const dmy = iso.split('-').reverse().join('-')
+  cy.get('#expFromTemp').clear().type(dmy).blur()
+  cy.get('#expToTemp').clear().type(dmy).blur()
+  cy.contains('#ExpenseDiv button', 'Search').click()
+}
 const lock = (t, through) => cy.request({ method: 'POST', url: `${GW}/api/finance/gl/period-lock${through ? '?lockedThrough=' + through : ''}`,
   headers: hdr(t) }).its('status').should('eq', 200)
 const lockNow = (t) => cy.request({ url: `${GW}/api/finance/gl/period-lock`, headers: hdr(t) }).then((r) => r.body.lockedThrough || null)   // null = open
@@ -203,6 +210,7 @@ describe('EX-1b — a refused posting says why, and can be posted again', () => 
     cy.visit('/businessDashboard'); cy.waitForAppReady()
     cy.get('#snavTill').then(($d) => { if (!$d.hasClass('snav-open')) cy.get('#snavTill .snav-btn').click() })
     cy.get('#navExpenses').click()
+    showDay(YESTERDAY())
     cy.contains('#tableExpense tbody tr', `EX1B voided ${run}`, { timeout: 20000 }).as('vrow')
     cy.get('@vrow').find('.exp-chip').should('contain', 'Void')
     cy.get('@vrow').find('[data-cy=post-again]').should('not.exist')
@@ -218,6 +226,7 @@ describe('EX-1b — a refused posting says why, and can be posted again', () => 
     cy.visit('/businessDashboard'); cy.waitForAppReady()
     cy.get('#snavTill').then(($d) => { if (!$d.hasClass('snav-open')) cy.get('#snavTill .snav-btn').click() })
     cy.get('#navExpenses').click()
+    showDay(YESTERDAY())
     cy.contains('#tableExpense tbody tr', `EX1B screen ${run}`, { timeout: 20000 }).as('row')
     cy.get('@row').find('[data-cy=expense-posting-error]').should('be.visible').and('contain', 'period is closed')
     cy.get('@row').find('[data-cy=post-again]').should('be.visible')

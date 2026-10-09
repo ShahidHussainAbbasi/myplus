@@ -17,4 +17,12 @@ public interface ExpenseCategoryRepo extends JpaRepository<ExpenseCategory, Long
     boolean existsByOrganizationIdAndCode(Long organizationId, String code);
 
     long countByOrganizationId(Long organizationId);
+
+    /** EX-2e — two categories with the same name would be one choice the owner cannot tell apart. */
+    boolean existsByOrganizationIdAndNameIgnoreCase(Long organizationId, String name);
+
+    boolean existsByOrganizationIdAndNameIgnoreCaseAndIdNot(Long organizationId, String name, Long id);
+
+    /** EX-2e — at least one category must stay on, or nobody can record an expense. */
+    long countByOrganizationIdAndActiveTrue(Long organizationId);
 }

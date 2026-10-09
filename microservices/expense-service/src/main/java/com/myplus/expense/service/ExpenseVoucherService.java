@@ -47,7 +47,6 @@ public class ExpenseVoucherService {
 
     static final String DOC_TYPE = "EXPENSE";
     static final int MAX_LINES = 50;   // keeps the outbox payload far inside its column (V1)
-    static final int BACKDATE_DAYS = 365;
     static final BigDecimal MAX_AMOUNT = new BigDecimal("999999999999.99");
 
     private final ExpenseVoucherRepo repo;
@@ -58,6 +57,7 @@ public class ExpenseVoucherService {
     private final DocumentNumberService numbers;
     private final ExpenseTagService tags;
     private final com.myplus.expense.repository.ExpenseBillPaymentRepo billPayments;
+    private final ExpenseSettings expenseSettings;   // EX-2f
 
     @Transactional(readOnly = true)
     public PageResponse<VoucherView> list(LocalDate from, LocalDate to, String status, int page, int size) {
@@ -155,7 +155,7 @@ public class ExpenseVoucherService {
 
         LocalDate date = r.getDate() == null ? TenantClock.today() : r.getDate();
         if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A pay-out needs an amount.");
-        ExpenseCategory c = categories.activeCategory(org, r.getCategoryId());
+        ExpenseCategory c = categories.categoryForDrawer(org, r.getCategoryId());   // EX-2e: switched off since is fine
         ExpenseVoucher v = new ExpenseVoucher();
         v.setOrganizationId(org);
         v.setUserId(access.userId());
@@ -253,8 +253,10 @@ public class ExpenseVoucherService {
         LocalDate today = TenantClock.today();
         LocalDate date = r.voucherDate() == null ? today : r.voucherDate();
         if (date.isAfter(today)) throw new ValidationException("An expense cannot be dated in the future.");
-        if (date.isBefore(today.minusDays(BACKDATE_DAYS)))
-            throw new ValidationException("An expense can be dated at most " + BACKDATE_DAYS + " days back.");
+        int back = expenseSettings.backdateDays();          // EX-2f: the owner's setting (default 30), was a constant 365
+        if (date.isBefore(today.minusDays(back)))
+            throw new ValidationException(back == 0 ? "An expense must be dated today."
+                    : "An expense can be dated at most " + back + " days back. An owner can change this in Expenses → Settings.");
         PaidFrom from;
         try { from = PaidFrom.of(r.paidFrom()); }
         catch (IllegalArgumentException e) { throw new ValidationException(e.getMessage()); }

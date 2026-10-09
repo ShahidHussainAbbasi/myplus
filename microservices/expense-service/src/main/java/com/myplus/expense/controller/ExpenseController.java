@@ -41,6 +41,13 @@ public class ExpenseController {
         return ApiResponse.success(categories.list());
     }
 
+    /** EX-2e — the accounts the Categories screen offers (expense accounts only). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @GetMapping("/categories/accounts")
+    public ApiResponse<List<com.myplus.expense.dto.ExpenseDtos.ExpenseAccountView>> categoryAccounts() {
+        return ApiResponse.success(categories.expenseAccounts());
+    }
+
     @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
     @PostMapping("/categories")
     public ApiResponse<CategoryView> createCategory(@RequestBody CategoryRequest r) {

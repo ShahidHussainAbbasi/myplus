@@ -1,0 +1,45 @@
+    <!-- MyPlus Test Book §29 — paste after §28 in artifact 84fdaeff… (owned by the other account; this account cannot write it).
+         Full walk with screenshots and shared Pass/Fail marks: https://claude.ai/artifact/Bv45n9sikcS2JMZPSJgS3G -->
+    <h2>29 · Pharmacy: Prescriptions, record → dispense → register <span class="tag amber">gated</span></h2>
+    <p>Run on 8 Oct 2026 (<code>cypress/e2e/pharmacy/prescriptions-tab-walk.cy.js</code>), driven by the mouse
+      the way a pharmacist works. <strong>13 of 14</strong> passed on the fixed build; RX-08 needs a re-run. Step-by-step
+      cases, screenshots and a shared manual run sheet are on the
+      <a href="https://claude.ai/artifact/Bv45n9sikcS2JMZPSJgS3G">Prescriptions Test Walk</a>.</p>
+    <div class="note red">
+      <span class="hd">⚠ Found by the walk (8 Oct), fixed in 7ac05ab5</span>
+      <p><strong>A sale started from Dispense recorded nothing against the prescription</strong> from 6 Sep to 8 Oct. The
+        till cleared the cart before recording the dispense, so it sent an empty list. The sale was right, but the script stayed
+        PENDING and could be dispensed again, a controlled medicine never reached the register, and the screen still said
+        <em>Dispense recorded</em>. Dispenses lost in that window cannot be rebuilt from sales.</p>
+    </div>
+    <div class="note amber">
+      <span class="hd">Account</span>
+      <p><code>owner.pharma@myplus.com</code>. Prescriptions cannot be deleted; cancel any script you leave open.</p>
+    </div>
+    <h3 id="rx-dispense">How to dispense and complete the sale</h3>
+    <ol class="ck">
+      <li>Pharmacy → Prescriptions → press <strong>Dispense</strong> on the patient's row.</li>
+      <li>The till opens with a blue banner <em>Dispensing Rx #… — patient</em>. A <strong>Severe drug interaction</strong> box, if shown, must be answered.</li>
+      <li><strong>Item</strong>: pick the medicine. <strong>Qty</strong>: how many now. <strong>Add to Cart</strong>. Repeat per medicine.</li>
+      <li><strong>Enter Manually</strong> → the patient's name. <strong>Amount Received</strong> → what they paid.</li>
+      <li><strong>Complete Sale</strong>, then <strong>Complete Sale</strong> in the confirm box.</li>
+      <li>Two green messages: <em>Sale recorded — Invoice INV-…</em> and <em>Dispense recorded against Rx #…</em>.</li>
+      <li>Prescriptions: the row reads <strong>PARTIALLY_DISPENSED</strong> or <strong>FULLY_DISPENSED</strong>.</li>
+    </ol>
+    <h3 id="rx-cases">What to check</h3>
+    <ul class="ck">
+      <li>RX-01–05 · Intake: patient and at least one line are required; quantity 0 refused; a past <em>Valid until</em> refused with the reason; a saved script is PENDING and moves no stock.</li>
+      <li>RX-06 · Cancel asks first; declining changes nothing; confirming makes it CANCELLED with no actions left.</li>
+      <li>RX-07 · Dispense opens the till with the banner; <em>cancel</em> on the banner un-links it.</li>
+      <li class="was">⚠ RX-08–10 · A full sale completes the script; a part sale leaves PARTIALLY_DISPENSED; selling more than is left records only the remainder and says so in red. <em>This is where nothing was being recorded.</em></li>
+      <li>RX-11 · A prescription-only medicine is refused at a walk-in sale (red notice when it enters the cart) and sells through Dispense.</li>
+      <li>RX-12 · A SEVERE interaction must be acknowledged; Cancel backs out of the dispense.</li>
+      <li>RX-13 · A lapsed script reads EXPIRED, has no Dispense button, and the server refuses it.</li>
+      <li class="was">⚠ RX-14 · A controlled dispense appears on Alerts &amp; Register with its invoice number.</li>
+    </ul>
+    <div class="note blue">
+      <span class="hd">Not yet verified</span>
+      <p>RX-08 re-run (the till once showed <em>Please wait</em> for over 30 s after Dispense; cause unknown). A tenant with
+        prescriptions switched off (<code>owner.pesticide@</code>) being refused, and a read-only user being refused intake and
+        dispense, are not tested anywhere.</p>
+    </div>

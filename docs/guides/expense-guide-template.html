@@ -389,6 +389,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> a new account being created twice or with the wrong type, or the deploy changing a balance it had no reason to touch.</div>
         </div>
       </div>
+      <div class="case" data-case="0b-2">
+        <div class="case-head"><span class="cid">0b-2</span><h3>Owners keep their own categories</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin.business</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Till → Expenses → <b>Categories</b>.</li><li>Add a category with an account; record an expense with it.</li><li>Rename it and switch it off.</li><li>Try to add a second “Rent”.</li><li>As a user, look for Categories.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Only expense accounts are offered (never 5000 or cash/bank).</span></label></li><li><label><input type="checkbox"><span>The new category is offered on the form and posts to the account chosen.</span></label></li><li><label><input type="checkbox"><span>Switched off, it leaves the form; the past expense keeps its old name and account.</span></label></li><li><label><input type="checkbox"><span>A duplicate name is refused in words; the last category switched on cannot be switched off.</span></label></li><li><label><input type="checkbox"><span>A user has no Categories button and the server refuses their change.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> owners stuck with the eight seeded categories (E6); a rename rewriting past expenses; a till pay-out lost because its category was switched off before it reached the books (the pay-out keeps the category the cashier chose).</div>
+        </div>
+      </div>
     </section>
 
 
@@ -521,6 +532,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>50 rows and “Showing 1–50 of N”; Previous greyed out on the first page.</span></label></li><li><label><input type="checkbox"><span>“Total spent: … (N expenses; voided ones not counted)” — the whole period, unchanged by paging.</span></label></li><li><label><input type="checkbox"><span>Next shows 51 onwards; voiding a row keeps you on that page and takes it out of the total.</span></label></li><li><label><input type="checkbox"><span>The typed dates are the ones searched (the From box is not ignored).</span></label></li><li><label><input type="checkbox"><span>A user’s total counts only their own expenses.</span></label></li></ul></div>
           </div>
           <div class="why"><b>Catches:</b> a list that silently stopped at 200 rows with no total (E4), and a typed date that was shown in the box but never used (found while testing this).</div>
+        </div>
+      </div>
+      <div class="case" data-case="1-10">
+        <div class="case-head"><span class="cid">1-10</span><h3>Settings: how far back, and what the form starts with</h3><span class="pill pill-info">Owner · Admin · User</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>user.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Till → Expenses → <b>Settings</b>.</li><li>Set the days to -1, then 7.</li><li>Record an expense dated 8 days ago.</li><li>Set Paid from to Bank; open Expenses again.</li><li>As a user, open Expenses.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Defaults: 30 days, Cash.</span></label></li><li><label><input type="checkbox"><span>-1 refused in words; 7 saved.</span></label></li><li><label><input type="checkbox"><span>8 days back refused: “at most 7 days back”.</span></label></li><li><label><input type="checkbox"><span>The form starts on Bank — for the user too, who has no Settings button.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a hidden 365-day window nobody could change (E5), and a saved default that never reaches the form.</div>
         </div>
       </div>
     </section>
@@ -1051,8 +1073,8 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td>E2</td><td>The school, welfare and farm dashboards recorded expenses into books they <b>could not see</b>. <b>Fixed (EX-2c):</b> each has a Finance entry with Profit &amp; Loss, Trial Balance, Balance Sheet and Period Close — case 2a-5. Found on the way: any member could read the statements by asking for them directly; finance-service now allows owners and admins only.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E3</td><td>Welfare was told “each expense is posted to your books”, but donations are not in the books yet. <b>Fixed (EX-2c):</b> the Expenses screen and the reports say so, until welfare’s fund accounting is built — case 2a-5.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E4</td><td>The expense list silently stopped at 200 rows with no total. <b>Fixed (EX-2d):</b> 50 a page, “Showing a–b of N”, Previous/Next, and the period’s total from the server — case 1-9. Found on the way: a date <b>typed</b> into any calendar box that feeds a hidden date (Expenses date and filter, due dates, installments, price rules) was never used; fixed once, in the shared calendar.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
-            <tr><td>E5</td><td>The expense settings were never built (post limit for users, receipt rule, default “paid from”); how far back a date may go is fixed at 365 days.</td><td><span class="pill pill-warn">Medium</span></td></tr>
-            <tr><td>E6</td><td>No screen to add or rename expense categories — every business has the 8 defaults.</td><td><span class="pill pill-warn">Medium</span></td></tr>
+            <tr><td>E5</td><td>The expense settings were never built; the date window was a hidden 365 days. <b>Fixed (EX-2f):</b> Till → Expenses → <b>Settings</b>: how far back (default 30) and the default Paid from — case 1-10. The user posting limit waits for claims and approval (EX-6); the receipt rule for EX-5.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
+            <tr><td>E6</td><td>Owners had no screen for categories. <b>Fixed (EX-2e):</b> Till → Expenses → <b>Categories</b> — add, rename, point at another expense account, switch off — case 0b-2. A till pay-out keeps the category the cashier chose even if it is switched off before the pay-out reaches the books.</td><td><span class="pill pill-ok">Fixed</span></td></tr>
             <tr><td>E8</td><td>The store on an expense is not checked. Nothing reads it yet; it must be checked before reports by store.</td><td><span class="pill pill-todo">Low now</span></td></tr>
             <tr><td>E9</td><td>One line per expense on screen; a split bill needs two expenses.</td><td><span class="pill pill-todo">Low</span></td></tr>
           </tbody>

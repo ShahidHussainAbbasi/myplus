@@ -45,6 +45,9 @@ public final class ExpenseDtos {
 
     public record VoidRequest(String reason) { }
 
+    /** EX-2e — a ledger account a category may point at (an EXPENSE account; never 5000 Cost of Goods Sold). */
+    public record ExpenseAccountView(String code, String name) { }
+
     /** EX-2d — the list's footer: how many posted expenses the filter holds and what they add up to. */
     public record VoucherTotals(long count, BigDecimal total) { }
 
