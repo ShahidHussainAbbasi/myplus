@@ -700,6 +700,67 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     act('Nothing to undo — both were refused.', [], { cleanup: true })
   })
 
+  caseIt('2a-5', 'The books on every dashboard', () => {
+    testCase('2a-5', 'ex2a', 'The books on every dashboard', { who: ['owner.education', 'owner.welfare', 'owner.agriculture (all recorded)', 'user.business'] })
+    setup('Expense management is on for each business (case 2a-1; the recording switches it on here and back off at the end).')
+    const openPnl = {
+      school: () => { openMenu('snavFinance'); cy.get('[data-cy=nav-finance-pnl]').should('be.visible').click() },
+      welfare: () => cy.get('[data-cy=nav-finance]').click({ force: true }),
+      farm: () => cy.get('[data-cy=nav-finance]').click({ force: true }),
+    }
+    DASH.forEach((d) => {
+      const payee = `XG ${d.tag} books ${run}`
+      signInD(d)
+      cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } })
+      SAFETY.push(() => { signInD(d); resetModule() })
+      signInD(d, true)
+      cy.visit(d.dash); cy.waitForAppReady()
+      d.openExp()
+      cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+      fillExpense({ category: 'Rent', amount: 7, paidFrom: 'CASH', payee })
+      cy.get('[data-cy=save-expense]').click()
+      expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+      if (d.tag === 'welfare') {
+        const n = act('Welfare: open <b>Expenses</b>.', ['Instead of “Each expense is posted to your books”, a notice says <b>donations are not in these books yet</b>.'])
+        cy.get('#ExpenseDiv [data-cy=books-note]').should('be.visible').and('contain', 'Donations')
+        cy.get('#ExpenseDiv').should('not.contain', 'Each expense is posted to your books')
+        snap(n, 'expenses-note', '#ExpenseDiv')
+      }
+      const a = act(`As <b>${d.email.split('@')[0]}</b>: record Rent 7 in cash (Payee <b>${payee}</b>), then open <b>${d.tag === 'school' ? 'Finance → Profit &amp; Loss' : 'Finance'}</b> ${d.tag === 'school' ? 'in the menu' : 'in the sidebar'}.`,
+        ['The Finance screen opens on <b>Profit &amp; Loss</b> for this month, and <b>Rent</b> is in it.',
+         'Its tabs are Trial Balance, P&amp;L, Balance Sheet, Audit Log and Period Close — <b>no Tax Register</b> (only a trading business has one), and the heading does not mention one.',
+         { welfare: 'A notice above the report says donations are not in these books yet.',
+           farm: 'A notice above the report says the farm’s own Income and Expense records are not in these books yet.',
+           school: 'No notice: the school’s fees post to these books.' }[d.tag]])
+      openPnl[d.tag]()
+      cy.get('#finTabs .fin-tab.active').should('have.attr', 'data-report', 'pnl')
+      cy.contains('#FinanceResults', 'Rent', { timeout: 20000 }).should('be.visible')
+      cy.get('#finTabs [data-report="taxRegister"]').should('not.exist')
+      cy.get('#FinanceDiv .fin-sub').invoke('text').should('not.match', /tax/i)
+      cy.get('#FinanceDiv [data-cy=books-note]').should(d.tag === 'school' ? 'not.exist' : 'be.visible')
+      snap(a, d.tag + '-pnl', '#FinanceDiv')
+      const b = act(`${d.tag}: click the <b>Trial Balance</b> tab.`, ['The totals line says <b>Balanced</b>.'])
+      cy.get('#finTabs [data-report="trialBalance"]').click()
+      cy.contains('#FinanceResults', 'Balanced', { timeout: 20000 }).should('be.visible')
+      snap(b, d.tag + '-tb', '#FinanceDiv')
+      act(`${d.tag}: void the Rent 7 (reason "Test Book").`, [], { cleanup: true })
+      d.openExp()
+      expenseRow(payee).find('[data-cy=void-expense]', { timeout: 25000 }).click()
+      cy.get('.uiC-input').type('Test Book')
+      cy.get('[data-ui-confirm="ok"]').click()
+      expenseRow(payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'Void')
+    })
+    const u = act('As <b>user.business</b> (a cashier): look for Finance, and ask for the Profit &amp; Loss directly.', ['There is no Finance menu.', 'Asking for the report directly is <b>refused</b> — the statements are for owners and admins only.'], { via: 'run' })
+    cy.loginAsTier('user', 'business')
+    cy.request({ url: '/gl/pnl', failOnStatusCode: false }).then((r) => {
+      const refused = r.status >= 400 || (r.body && (r.body.success === false || r.body.status === 'ERROR' || r.body.statusCode === 403))
+      expect(refused, 'refused: ' + JSON.stringify(r.body).slice(0, 160)).to.eq(true)
+    })
+    cy.visit('/businessDashboard'); cy.waitForAppReady()
+    cy.get('#snavFinance').should('not.exist')
+    act('Each business: Configuration → Modules → untick Expense management (the recording does this at the end).', [], { cleanup: true })
+  })
+
   // ═══ EX-2b · What it was for ═══════════════════════════════════════════════════════════════════════════════
   caseIt('2b-1', 'Tag fuel to a bus, and a cost to a field', () => {
     testCase('2b-1', 'ex2b', 'Tag fuel to a bus, and a cost to a field', { who: ['owner.education', 'owner.agriculture (both recorded)'] })

@@ -64,7 +64,16 @@ public class GlController {
         return Map.of("entryId", glService.postJournal(req));
     }
 
+    /**
+     * EX-2c — the financial statements are the owner's and admins' (and the platform operator's, for support). The
+     * screen only ever showed them to an owner, but nothing here checked: any member — a cashier — could read the
+     * P&L and the balance sheet by asking. No service reads these internally (traced); {@code /accounts} and the
+     * period-lock read stay open because expense- and business-service call them with the caller's identity.
+     */
+    static final String STATEMENTS = "hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')";
+
     /** Trial balance as-of a date (default today) — {rows, totalDebit, totalCredit, balanced}. */
+    @PreAuthorize(STATEMENTS)
     @GetMapping("/trial-balance")
     public Map<String, Object> trialBalance(
             @RequestParam(value = "asOf", required = false)
@@ -73,12 +82,14 @@ public class GlController {
     }
 
     /** One account's ledger detail with a running balance. */
+    @PreAuthorize(STATEMENTS)
     @GetMapping("/accounts/{id}/ledger")
     public List<Map<String, Object>> ledger(@PathVariable("id") Long accountId) {
         return glService.accountLedger(accountId);
     }
 
     /** F3c — Profit & Loss over a period (defaults: this month → today). */
+    @PreAuthorize(STATEMENTS)
     @GetMapping("/pnl")
     public Map<String, Object> pnl(
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -87,6 +98,7 @@ public class GlController {
     }
 
     /** F3c — Balance Sheet as-of a date (default today). */
+    @PreAuthorize(STATEMENTS)
     @GetMapping("/balance-sheet")
     public Map<String, Object> balanceSheet(
             @RequestParam(value = "asOf", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
@@ -94,6 +106,7 @@ public class GlController {
     }
 
     /** Tax-filing register over a period (defaults: this month → today) — output vs input tax + net payable. */
+    @PreAuthorize(STATEMENTS)
     @GetMapping("/tax-register")
     public Map<String, Object> taxRegister(
             @RequestParam(value = "from", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

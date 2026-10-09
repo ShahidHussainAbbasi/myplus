@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<!--
+  EX-2c — the Finance reports (Trial Balance, P&L, Balance Sheet, Tax Register, Audit Log, Period Close), ONE copy for
+  every dashboard. Moved here unchanged from businessDashboard.html; behaviour is /js/common/finance-reports.js.
+    withTax    show the Tax Register tab (a business that trades; not a school, trust or farm)
+    booksNote  'welfare' → donations are not in these books yet; 'farm' → the farm's own Income/Expense records are not
+               in them yet (EX-9); '' → none
+  Owner or admin only — and finance-service enforces the same rule on every statement it returns.
+-->
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+	<div th:fragment="financeSection(withTax, booksNote)" id="FinanceDiv" class="formDiv"
+	sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="display:none">
+		<style>
+			#FinanceDiv .fin-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+			#FinanceDiv .fin-title{font-size:22px;font-weight:800;color:#1f4e8c;margin:0}
+			#FinanceDiv .fin-sub{color:#7a889c;font-size:13px;margin:3px 0 0}
+			#FinanceDiv .fin-tabs{display:flex;flex-wrap:wrap;gap:6px}
+			#FinanceDiv .fin-tab{border:1px solid #d7deea;background:#fff;color:#3a4a61;border-radius:9px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;line-height:1.2}
+			#FinanceDiv .fin-tab:hover{background:#f3f6fb}
+			#FinanceDiv .fin-tab.active{background:#1e88e5;border-color:#1e88e5;color:#fff}
+			#FinanceDiv .fin-tab .glyphicon{margin-right:5px}
+			#FinanceDiv .fin-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:16px 20px;margin-bottom:16px}
+			#FinanceDiv .fin-field{display:flex;flex-direction:column;gap:4px}
+			#FinanceDiv .fin-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#7a889c;margin:0}
+			#FinanceDiv .fin-field input,#FinanceDiv .fin-field select{border:1px solid #d7deea;border-radius:8px;padding:7px 10px;font-size:13px;min-width:150px;background:#fff}
+			#FinanceDiv .fin-results{background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:18px 20px;min-height:140px;overflow-x:auto}
+		</style>
+		<div class="fin-head">
+			<div>
+				<h3 class="fin-title" th:text="#{ui.financeReports}">Finance Reports</h3>
+				<p class="fin-sub" th:text="${withTax} ? #{ui.generalLedgerStatementsTaxRegisterAnd} : #{ui.generalLedgerStatementsAuditTrail}">General Ledger statements, tax register and the audit trail — organization-wide.</p>
+			</div>
+			<div class="fin-tabs" id="finTabs">
+				<button type="button" class="fin-tab" data-report="trialBalance" onclick="showFinance('trialBalance')"><span class="glyphicon glyphicon-list"></span><span th:text="#{ui.trialBalance}">Trial Balance</span></button>
+				<button type="button" class="fin-tab" data-report="pnl" onclick="showFinance('pnl')"><span class="glyphicon glyphicon-stats"></span><span th:text="#{ui.pAndL}">P&amp;L</span></button>
+				<button type="button" class="fin-tab" data-report="balanceSheet" onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span><span th:text="#{ui.balanceSheet}">Balance Sheet</span></button>
+				<button th:if="${withTax}" type="button" class="fin-tab" data-report="taxRegister" onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span><span th:text="#{ui.taxRegister}">Tax Register</span></button>
+				<button type="button" class="fin-tab" data-report="auditLog" onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span><span th:text="#{ui.auditLog}">Audit Log</span></button>
+				<button type="button" class="fin-tab" data-report="periodClose" onclick="showFinance('periodClose')"><span class="glyphicon glyphicon-lock"></span><span th:text="#{ui.periodClose}">Period Close</span></button>
+			</div>
+			<!-- Owner/admin can change the period lock; the button visibility matches the server's ADMIN_PRIVILEGE rule. -->
+			<script sec:authorize="hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canClosePeriod = true;</script>
+		</div>
+		<!-- EX-2c / E3 — welfare: donations are not in the books yet, so its statements show spending only. Removed when
+		     welfare's books are built. -->
+		<div th:if="${booksNote == 'welfare'}" class="alert alert-warning" data-cy="books-note" role="note" style="margin:0 0 12px"
+			th:text="#{ui.welfareBooksNote}">Donations are not in these books yet.</div>
+		<!-- Farm: agriculture-service posts nothing to finance; its Income/Expense records reach the books in EX-9. -->
+		<div th:if="${booksNote == 'farm'}" class="alert alert-warning" data-cy="books-note" role="note" style="margin:0 0 12px"
+			th:text="#{ui.farmBooksNote}">The farm's Income and Expense records are not in these books yet.</div>
+		<div class="fin-toolbar">
+			<div class="fin-field" id="finAsOfWrap">
+				<label for="finAsOf" th:text="#{ui.asOf}">As of</label>
+				<input type="date" id="finAsOf">
+			</div>
+			<div class="fin-field" id="finFromWrap">
+				<label for="finFrom" th:text="#{ui.from}">From</label>
+				<input type="date" id="finFrom">
+			</div>
+			<div class="fin-field" id="finToWrap">
+				<label for="finTo" th:text="#{ui.to}">To</label>
+				<input type="date" id="finTo">
+			</div>
+			<div class="fin-field" id="finActionWrap">
+				<label for="finAction" th:text="#{ui.action}">Action</label>
+				<select id="finAction">
+					<option value="" th:text="#{ui.allActions}">All actions</option>
+					<option value="SALE" th:text="#{ui.sale}">Sale</option>
+					<option value="VOID_SALE" th:text="#{ui.voidSale}">Void sale</option>
+					<option value="PURCHASE" th:text="#{ui.purchase}">Purchase</option>
+					<option value="PURCHASE_RETURN" th:text="#{ui.purchaseReturn}">Purchase return</option>
+					<option value="PAYMENT" th:text="#{ui.payment}">Payment</option>
+				</select>
+			</div>
+			<div class="fin-field" id="finLimitWrap">
+				<label for="finLimit" th:text="#{ui.rows}">Rows</label>
+				<input type="number" id="finLimit" min="1" max="1000" value="200" style="min-width:90px">
+			</div>
+			<div class="fin-field">
+				<label>&nbsp;</label>
+				<button type="button" class="btn btn-primary" onclick="runFinanceReport()"><span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.run}">Run</span></button>
+			</div>
+		</div>
+		<div class="fin-results" id="FinanceResults">
+			<div style="padding:8px;color:#777" th:text="#{ui.pickAReportAboveAndClick}">Pick a report above and click Run.</div>
+		</div>
+	</div>
+</body>
+</html>

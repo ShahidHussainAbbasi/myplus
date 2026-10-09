@@ -291,7 +291,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						     Org-scoped reports (not customer/vendor data); open the dedicated Finance page (#FinanceDiv)
 						     with a report switcher + filter criteria. Owner-only: these expose the whole org's financial
 						     position (UI gate; enforce on the finance-service endpoints too for real access control). -->
-						<div class="snav-dd" id="snavFinance" sec:authorize="hasAuthority('ROLE_OWNER')">
+						<div class="snav-dd" id="snavFinance" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
 							<button class="snav-btn" onclick="snavToggle(event,'snavFinance')">
 								<span class="glyphicon glyphicon-usd"></span>
 								<span th:text="#{ui.finance}">Finance</span>
@@ -4144,7 +4144,7 @@ tr.row-voided .js-edit-row{display:none !important}
 			</div>
 
 			<!-- EX-1 — Expenses: one shared fragment (fragments/expense.html + /js/common/expense.js). -->
-			<div th:replace="~{fragments/expense :: expenseSection('')}"></div>
+			<div th:replace="~{fragments/expense :: expenseSection('', '')}"></div>
 
 			<!-- MKT-0a — Sell on the MaxTheService marketplace (fragments/marketplace-seller.html + /js/common/marketplace-seller.js). -->
 			<div th:replace="~{fragments/marketplace-seller :: marketplaceSellerSection}"></div>
@@ -4402,75 +4402,7 @@ tr.row-voided .js-edit-row{display:none !important}
 
 			<!-- Finance Reports — org-wide GL statements, tax register, audit trail. Owner-only (matches the
 			     sidebar Finance menu). One page with a report switcher + per-report filter criteria. -->
-			<div id="FinanceDiv" class="formDiv" sec:authorize="hasAuthority('ROLE_OWNER')" style="display:none">
-				<style>
-					#FinanceDiv .fin-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
-					#FinanceDiv .fin-title{font-size:22px;font-weight:800;color:#1f4e8c;margin:0}
-					#FinanceDiv .fin-sub{color:#7a889c;font-size:13px;margin:3px 0 0}
-					#FinanceDiv .fin-tabs{display:flex;flex-wrap:wrap;gap:6px}
-					#FinanceDiv .fin-tab{border:1px solid #d7deea;background:#fff;color:#3a4a61;border-radius:9px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer;line-height:1.2}
-					#FinanceDiv .fin-tab:hover{background:#f3f6fb}
-					#FinanceDiv .fin-tab.active{background:#1e88e5;border-color:#1e88e5;color:#fff}
-					#FinanceDiv .fin-tab .glyphicon{margin-right:5px}
-					#FinanceDiv .fin-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px;background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:16px 20px;margin-bottom:16px}
-					#FinanceDiv .fin-field{display:flex;flex-direction:column;gap:4px}
-					#FinanceDiv .fin-field label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#7a889c;margin:0}
-					#FinanceDiv .fin-field input,#FinanceDiv .fin-field select{border:1px solid #d7deea;border-radius:8px;padding:7px 10px;font-size:13px;min-width:150px;background:#fff}
-					#FinanceDiv .fin-results{background:#fff;border:1px solid #e2e7ef;border-radius:14px;padding:18px 20px;min-height:140px;overflow-x:auto}
-				</style>
-				<div class="fin-head">
-					<div>
-						<h3 class="fin-title" th:text="#{ui.financeReports}">Finance Reports</h3>
-						<p class="fin-sub" th:text="#{ui.generalLedgerStatementsTaxRegisterAnd}">General Ledger statements, tax register and the audit trail — organization-wide.</p>
-					</div>
-					<div class="fin-tabs" id="finTabs">
-						<button type="button" class="fin-tab" data-report="trialBalance" onclick="showFinance('trialBalance')"><span class="glyphicon glyphicon-list"></span><span th:text="#{ui.trialBalance}">Trial Balance</span></button>
-						<button type="button" class="fin-tab" data-report="pnl" onclick="showFinance('pnl')"><span class="glyphicon glyphicon-stats"></span><span th:text="#{ui.pAndL}">P&amp;L</span></button>
-						<button type="button" class="fin-tab" data-report="balanceSheet" onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span><span th:text="#{ui.balanceSheet}">Balance Sheet</span></button>
-						<button type="button" class="fin-tab" data-report="taxRegister" onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span><span th:text="#{ui.taxRegister}">Tax Register</span></button>
-						<button type="button" class="fin-tab" data-report="auditLog" onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span><span th:text="#{ui.auditLog}">Audit Log</span></button>
-						<button type="button" class="fin-tab" data-report="periodClose" onclick="showFinance('periodClose')"><span class="glyphicon glyphicon-lock"></span><span th:text="#{ui.periodClose}">Period Close</span></button>
-					</div>
-					<!-- Owner/admin can change the period lock; the button visibility matches the server's ADMIN_PRIVILEGE rule. -->
-					<script sec:authorize="hasAuthority('ADMIN_PRIVILEGE')" th:inline="none">window.canClosePeriod = true;</script>
-				</div>
-				<div class="fin-toolbar">
-					<div class="fin-field" id="finAsOfWrap">
-						<label for="finAsOf" th:text="#{ui.asOf}">As of</label>
-						<input type="date" id="finAsOf">
-					</div>
-					<div class="fin-field" id="finFromWrap">
-						<label for="finFrom" th:text="#{ui.from}">From</label>
-						<input type="date" id="finFrom">
-					</div>
-					<div class="fin-field" id="finToWrap">
-						<label for="finTo" th:text="#{ui.to}">To</label>
-						<input type="date" id="finTo">
-					</div>
-					<div class="fin-field" id="finActionWrap">
-						<label for="finAction" th:text="#{ui.action}">Action</label>
-						<select id="finAction">
-							<option value="" th:text="#{ui.allActions}">All actions</option>
-							<option value="SALE" th:text="#{ui.sale}">Sale</option>
-							<option value="VOID_SALE" th:text="#{ui.voidSale}">Void sale</option>
-							<option value="PURCHASE" th:text="#{ui.purchase}">Purchase</option>
-							<option value="PURCHASE_RETURN" th:text="#{ui.purchaseReturn}">Purchase return</option>
-							<option value="PAYMENT" th:text="#{ui.payment}">Payment</option>
-						</select>
-					</div>
-					<div class="fin-field" id="finLimitWrap">
-						<label for="finLimit" th:text="#{ui.rows}">Rows</label>
-						<input type="number" id="finLimit" min="1" max="1000" value="200" style="min-width:90px">
-					</div>
-					<div class="fin-field">
-						<label>&nbsp;</label>
-						<button type="button" class="btn btn-primary" onclick="runFinanceReport()"><span class="glyphicon glyphicon-refresh"></span> <span th:text="#{ui.run}">Run</span></button>
-					</div>
-				</div>
-				<div class="fin-results" id="FinanceResults">
-					<div style="padding:8px;color:#777" th:text="#{ui.pickAReportAboveAndClick}">Pick a report above and click Run.</div>
-				</div>
-			</div>
+			<div th:replace="~{fragments/finance :: financeSection(true, '')}"></div>
 
 			<div id="SRDiv" class="formDiv">
 				<style>
@@ -4689,6 +4621,7 @@ tr.row-voided .js-edit-row{display:none !important}
          concatenates importButtons(tableV) into the buttons array it already builds. The buttons are
          registry-driven: [] unless business-service has an ImportSpec for that entity. -->
     <script th:src="@{/js/common/data-import.js}"></script>
+    <script th:src="@{/js/common/finance-reports.js}"></script>
     <script th:src="@{/js/business/business.js}"></script>
     <!-- PR-3c: Per batch pricing on the till. Inert unless the shop's purchase mode is Per batch. -->
     <script th:src="@{/js/business/per-batch-till.js}"></script>

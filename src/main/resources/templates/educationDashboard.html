@@ -183,6 +183,20 @@
 									<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showConfig();loadModuleSwitches();document.getElementById('snavFee').classList.remove('snav-open');"><span class="glyphicon glyphicon-wrench"></span> <span th:text="#{ui.configuration}">Configuration</span></a></li>
 								</ul>
 							</div>
+							<!-- EX-2c — the books: the same Finance reports as every dashboard (owner/admin; finance-service enforces it). -->
+							<div class="snav-dd" id="snavFinance" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+								<button class="snav-btn" onclick="snavToggle(event,'snavFinance')">
+									<span class="glyphicon glyphicon-book"></span>
+									<span th:text="#{ui.finance}">Finance</span>
+									<span class="snav-caret">&#9660;</span>
+								</button>
+								<ul class="snav-menu">
+									<li><a data-cy="nav-finance-pnl" onclick="showFinance('pnl');document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-stats"></span> <span th:text="#{ui.profitAndLoss}">Profit &amp; Loss</span></a></li>
+									<li><a onclick="showFinance('trialBalance');document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.trialBalance}">Trial Balance</span></a></li>
+									<li><a onclick="showFinance('balanceSheet');document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-scale"></span> <span th:text="#{ui.balanceSheet}">Balance Sheet</span></a></li>
+									<li><a onclick="showFinance('periodClose');document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-lock"></span> <span th:text="#{ui.periodClose}">Period Close</span></a></li>
+								</ul>
+							</div>
 							<div class="snav-dd" id="snavReport">
 								<button class="snav-btn" onclick="snavToggle(event,'snavReport')">
 									<span class="glyphicon glyphicon-stats"></span>
@@ -3390,7 +3404,9 @@
 			</div>
 
 			<!-- EX-2a — Expenses: the shared fragment (fragments/expense.html + /js/common/expense.js). -->
-			<div th:replace="~{fragments/expense :: expenseSection('education')}"></div>
+			<div th:replace="~{fragments/expense :: expenseSection('education', '')}"></div>
+			<!-- EX-2c — the Finance reports (shared fragment + /js/common/finance-reports.js). No Tax Register: a school has no sales tax to register. -->
+			<div th:replace="~{fragments/finance :: financeSection(false, '')}"></div>
 
 			<div id="ConfigDiv" class="formDiv" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
 				<h4 th:text="#{ui.configuration}">Configuration</h4>
@@ -3445,6 +3461,7 @@ var serverContext = [[@{/}]];
 <script th:src="@{/js/common/searchable-selects.js}"></script>
 <!-- EX-2a — Expenses (shared screen) and the Modules card (switch opt-in modules on). -->
 <script th:src="@{/js/common/expense.js}"></script>
+<script th:src="@{/js/common/finance-reports.js}"></script>
 <script th:src="@{/js/common/module-switches.js}"></script>
 	<script type="text/javascript">
 		// Subnav button-dropdown behaviour — same pattern as businessDashboard for a consistent look.
