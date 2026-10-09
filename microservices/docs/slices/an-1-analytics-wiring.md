@@ -83,3 +83,14 @@ separate decision. AN-1 does not touch them, apart from the column type below.
     `SalesAnalyticsService` (value type).
   - monolith: `AnalyticsRestClient`, `GlController /gl/pnlTrend`, `finance-reports.js finAppendPnlTrend`.
   - compose: analytics is in the default set.
+
+## 6. AN-2 — closed as superseded (owner's ruling 2026-10-09)
+AN-2 was meant to feed `sales.revenue`/`sales.count` into analytics. The trace found that the business dashboard
+**already** shows the sales trend from business-service (`getDashboardChartData`: 6 months of revenue and number of
+sales, and daily revenue this month, by SQL `GROUP BY`, scoped to the business). Analytics' 3 sales endpoints
+(`/api/analytics/sales/trend`, `/daily`, `/summary`) had **0 readers** and read a metric nobody writes. A second copy of
+the same figures would be one more thing to keep in step.
+
+Removed: `SalesAnalyticsController`, `SalesAnalyticsService`, `SalesAnalyticsDTO`. 3 files; 0 other references (the
+`ReportDefinition.Type.SALES` enum value is a stored report type, unrelated, kept). Afterwards
+`/api/analytics/sales/trend` answers 404, analytics' unit tests pass 6/6, and the AN-1 gate passes 5/5.
