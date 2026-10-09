@@ -561,7 +561,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
           'A <b>Post again</b> button, and a line saying to reopen the period or void and record it again in an open period.'])
       openDashboard(); openExpenses()
       cy.get('#expDateTemp').clear().type(dmyOf(y)).blur()
-      cy.get('#expDate').then(($iso) => { if ($iso.val() !== y) cy.wrap($iso).invoke('val', y) })   // the picker mirrors the typed day
+      cy.get('#expDate').should('have.value', y)                 // the typed day reaches the form (EX-2d fixed this)
       fillExpense({ category: 'Rent', amount: 5, paidFrom: 'CASH', payee })
       cy.get('[data-cy=save-expense]').click()
       expenseRow(payee).find('[data-cy=expense-posting-error]', { timeout: 20000 }).should('be.visible').and('contain', 'period is closed')
@@ -615,6 +615,57 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
       settle().then((m) => expect(delta(before, m, '6000'), 'reversed').to.eq(0))
       snap(c1, 'voided', '#ExpenseDiv')
     })
+  })
+
+  caseIt('1-9', 'A long list pages, and shows what the period adds up to', () => {
+    testCase('1-9', 'ex1', 'A long list pages, and shows what the period adds up to', { who: ['owner.lifecycle (recorded)', 'user.business'] })
+    const today = localIsoDate(new Date()), ids = []
+    asLifecycle(true)
+    token().then((t) => categoryByName('Rent').then((c) => {
+      for (let i = 1; i <= 55; i++) {
+        cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers?post=true`,
+          headers: { Authorization: `Bearer ${t}`, 'Idempotency-Key': `xg19-${run}-${i}` },
+          body: { voucherDate: today, paidFrom: 'CASH', payeeName: `XG page ${run} #${i}`, lines: [{ categoryId: c.id, amount: i }] } })
+          .then((r) => ids.push(r.body.data.id))
+      }
+    }))
+    setup('55 small Rent expenses dated today (1 to 55), recorded through the Expenses screen’s own request — more than one page.')
+    SAFETY.push(() => token().then((t) => ids.forEach((id) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/void`,
+      headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' }, failOnStatusCode: false }))))
+    token().then((t) => cy.request({ url: `${GW}/api/expense/vouchers?from=${today}&to=${today}&size=50`, headers: { Authorization: `Bearer ${t}` } })
+      .its('body.data').then((pg) => cy.request({ url: `${GW}/api/expense/vouchers/totals?from=${today}&to=${today}`, headers: { Authorization: `Bearer ${t}` } })
+      .its('body.data').then((tot) => {
+        const n = pg.totalElements
+        const a1 = act(`<b>Till → Expenses</b>: type today (<b>${dmyOf(today)}</b>) in <b>From</b> and <b>To</b>, press <b>Search</b>.`,
+          [`50 rows, and under the list: <b>Showing 1–50 of ${n}</b> with <b>Previous</b> greyed out and <b>Next</b> available.`,
+           `On the left: <b>Total spent: ${Number(tot.total).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${tot.count} expenses; voided ones not counted)</b> — the whole day, not just this page.`,
+           'Before this release the list stopped at 200 rows without a word and had no total; a date typed (not picked) in From/To was ignored.'])
+        openDashboard(); openExpenses()
+        cy.get('#expFromTemp').clear().type(dmyOf(today)).blur()
+        cy.get('#expToTemp').clear().type(dmyOf(today)).blur()
+        cy.contains('#ExpenseDiv button', 'Search').click()
+        cy.get('#tableExpense tbody tr').should('have.length', 50)
+        cy.get('[data-cy=expense-showing]').should('have.text', `Showing 1–50 of ${n}`)
+        cy.get('[data-cy=expense-prev]').should('be.disabled')
+        cy.get('[data-cy=expense-total]').should('contain', `(${tot.count} expenses`)
+        cy.get('[data-cy=expense-pager]').scrollIntoView()
+        snap(a1, 'page-1')
+        const a2 = act('Press <b>Next</b>.', [`<b>Showing 51–${Math.min(100, n)} of ${n}</b>; the total line does not change. <b>Previous</b> takes you back.`])
+        cy.get('[data-cy=expense-next]').click()
+        cy.get('[data-cy=expense-showing]').should('have.text', `Showing 51–${Math.min(100, n)} of ${n}`)
+        cy.get('[data-cy=expense-total]').should('contain', `(${tot.count} expenses`)
+        cy.get('[data-cy=expense-pager]').scrollIntoView()
+        snap(a2, 'page-2')
+      })))
+    cy.then(() => {   // queued, so the steps are listed in the order they are done
+      act('As <b>user.business</b> (a cashier), ask for the day’s total.', ['Only the cashier’s own expenses are counted — the same ones their list shows.'], { via: 'run' })
+      act('Void the 55 test expenses (each row’s <b>Void</b>, reason “Test Book”; the recording does it through the same request).', [], { cleanup: true, via: 'run' })
+    })
+    cy.loginAsTier('user', 'business')
+    cy.request(`/expense/vouchers/totals?from=${today}&to=${today}`).its('body.success').should('eq', true)
+    asLifecycle()
+    token().then((t) => ids.forEach((id) => cy.request({ method: 'POST', url: `${GW}/api/expense/vouchers/${id}/void`,
+      headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' } }).its('body.success').should('eq', true)))
   })
 
   // ═══ EX-2a · Every dashboard ═════════════════════════════════════════════════════════════════════════════

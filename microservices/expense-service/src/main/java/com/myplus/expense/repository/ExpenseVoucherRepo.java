@@ -53,6 +53,17 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
     Page<ExpenseVoucher> search(@Param("org") Long org, @Param("userId") Long userId, @Param("status") String status,
                                 @Param("from") LocalDate from, @Param("to") LocalDate to, Pageable pageable);
 
+    /** EX-2d / E4 — what the list's filter adds up to: posted expenses only (a void or a draft spent nothing). */
+    interface Totals { long getCount(); java.math.BigDecimal getTotal(); }
+
+    @Query("SELECT COUNT(v) AS count, COALESCE(SUM(v.total), 0) AS total FROM ExpenseVoucher v "
+         + "WHERE v.organizationId = :org AND v.status = 'POSTED' "
+         + "AND (:userId IS NULL OR v.userId = :userId) "
+         + "AND (:from IS NULL OR v.voucherDate >= :from) "
+         + "AND (:to IS NULL OR v.voucherDate <= :to)")
+    Totals totals(@Param("org") Long org, @Param("userId") Long userId,
+                  @Param("from") LocalDate from, @Param("to") LocalDate to);
+
     /**
      * Stamp what the ledger answered — a targeted UPDATE, not a load-and-save, so the relay (which runs outside
      * the request) can never overwrite a void the owner made in between. Version bumped so a stale screen that
