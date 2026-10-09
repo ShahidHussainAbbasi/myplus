@@ -55,6 +55,8 @@ public final class PatientDtos {
         private boolean linkPending;
         private LocalDateTime createdAt;
         private Long version;
+        /** S2 (02c) — the doctor of the patient's latest token: the front desk preselects them. Lookup only. */
+        private Long lastProviderId;
     }
 
     /** Who is on a phone number, and whether the front desk may add another family member on it. */

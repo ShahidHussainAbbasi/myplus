@@ -16,6 +16,8 @@ public class ClinicSettings {
 
     public boolean familyOnOnePhone() { return settings.getBool(ClinicSettingsCatalog.FAMILY_ON_ONE_PHONE); }
 
+    public boolean multiDoctorPerDay() { return settings.getBool(ClinicSettingsCatalog.MULTI_DOCTOR_PER_DAY); }
+
     public boolean cnicRequired() { return settings.getBool(ClinicSettingsCatalog.CNIC_REQUIRED); }
 
     /** The code inside the MRN, upper-cased; blank when the owner has not set one. */

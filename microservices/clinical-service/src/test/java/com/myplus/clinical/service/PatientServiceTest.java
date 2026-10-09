@@ -50,7 +50,8 @@ class PatientServiceTest {
         when(settings.mrnCode()).thenReturn("ISB");
         when(tx.execute(any())).thenAnswer(inv -> ((TransactionCallback<Object>) inv.getArgument(0)).doInTransaction(null));
         when(repo.save(any(Patient.class))).thenAnswer(inv -> inv.getArgument(0));
-        service = new PatientService(repo, writer, access, settings, audit, party, trade, tx);
+        service = new PatientService(repo, writer, access, settings, audit, party, trade, tx,
+                mock(com.myplus.clinical.repository.QueueTokenRepo.class));
     }
 
     private static Patient patient(long id, String name, int seq) {

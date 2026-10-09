@@ -122,6 +122,49 @@ cross-tenant case.
 
 ---
 
+## 4b. S2 design — token & queue (2026-10-09)
+
+### D-3 revised: the token lives in clinical-service, not in appointment-service's booking
+
+D-3 (programme doc) put the queue on appointment-service's `booking`. S1 changed the ground under it: the
+patient is now clinical-service's `patient` (MRN, one per phone), while `booking` points at appointment-service's
+own phone-keyed `attendee`. A queue on `booking` would join two patient tables across two services on every
+queue read and every "call next" — the hot path of a clinic morning. The blueprint research agrees the concepts
+differ: *appointment = planned time*, *token = place in today's line*, *encounter = the consultation*.
+
+| Concept | Owner | Why |
+|---|---|---|
+| Doctor (provider), venue, daily cap | appointment-service (unchanged) | it schedules time; education uses it too |
+| **Token / queue** (today's line) | **clinical-service `queue_token`** | same database as the patient and (S3) the encounter: the atomic claim, the state machine and the board are one transaction, no cross-service join |
+| Public online booking | appointment-service `booking` (unchanged) | joins the queue in Phase 4 (patient portal); until then online bookings do **not** consume the token cap — stated, not hidden |
+
+clinical-service reads the doctor list from appointment-service (`/api/appointment/doctors`, identity forwarded) —
+once per screen load, never per token — and snapshots the doctor's name on each token.
+
+### Numbering and labels
+
+- `token_no` per **doctor per day** from `org_document_seq` (doc type `Q<yyMMdd>-<providerId>`), allocated late.
+- Label `<prefix>-<nnn>`, e.g. **A-007**. Each doctor gets a letter (`clinic_provider.token_prefix`): A for the
+  clinic's first doctor, B for the next… so a token is unique across doctors for the day — the pharmacist searches
+  "A-007" and finds one patient (S4).
+
+### Rules (each enforced by the database where it can be)
+
+| Rule | Mechanism |
+|---|---|
+| One live token per patient per doctor per day (02b) | UNIQUE `(org, provider, visit_date, live_patient_id)` — a STORED generated column that is NULL once CANCELLED / NO_SHOW, so a cancelled token can be re-issued |
+| Several doctors a day, seen one at a time (04c) | `clinic.queue.multiDoctorPerDay` (default ON); OFF = one live token per patient per day. "With Dr X now" refusal at call time (S3) |
+| Daily cap (B-03) | the doctor's own cap (appointment-service; blank/0 = **no limit**), overridden for one day by `provider_day.cap` (or `closed`) |
+| State machine (07b) | WAITING → CALLED → IN_CONSULTATION ⇄ PARKED → COMPLETED; WAITING/CALLED → CANCELLED / NO_SHOW. Every transition is ONE conditional UPDATE (`… WHERE id=? AND status IN (allowed)`): 0 rows = refused. Two doctors cannot both call one token |
+| Doctor preselected (02, 02c) | the phone lookup returns `lastProviderId` (the patient's latest token) and the screen preselects it; with one doctor it is that doctor |
+
+### S2 delivers (reception), S3 adds (doctor)
+
+S2: Doctors section (list, add with "patients per day" or **No limit**, today's limit override / closed), issue a
+token from the patient card with the doctor preselected, the token slip on screen, the **queue board** (today, every
+doctor, refreshed every 5 s), cancel and no-show. The transition API (call / start / park / resume / complete) is
+built and unit-tested in S2; the doctor's screen that drives it — and the role that limits it — is S3.
+
 ## 5. Still open
 
 | # | Question | Blocks |
@@ -138,3 +181,4 @@ cross-tenant case.
 | 2026-10-09 | Design written from the client's answers. RX-FILL-1 (fill + / −) confirmed already built; customer preset confirmed missing (`startDispense` sets no customer). |
 | 2026-10-09 | **S1 Patient desk built.** clinical-service :8098 (patient, MRN via org_document_seq, one-per-phone UNIQUE index, family seat, settings, audit outbox), business `/internal/customers/for-party`, `Capability.CLINIC` (opt-in), monolith `/clinicDashboard` + `/clinic/**` proxy, B-07 fixed in appointment-service. Unit: clinical 24, appointment 15, business 514, common-settings 71, auth 73 — all green. Gate `hms-s1-patient-desk.cy.js`: 8/9 headless; S1-08 found a real defect (a 404 surfaced as "clinic not reachable" — GatewayClient's DownstreamNotFoundException uncaught) → fixed in ClinicController, **awaiting the user's monolith redeploy**. Headed runs flaked on a hidden Chrome window (0.2 s fade never ran; login stalled) — hypothesis, supported by a clean headless run, not proven. B-07 green and now a default regression case. |
 | 2026-10-09 | **S1 gate 9/9** after the user redeployed the monolith (S1-08 fix live). Recorded headless with video; page v3 published. S1 is DONE except: not committed, and Urdu/other translations of the new screen fall back to English. NEXT: S2 Token & queue — needs consent. |
+| 2026-10-09 | **S2 Token & queue built, not yet built/tested/deployed** (awaiting the user per §0d). clinical-service V2 (`queue_token` with generated `live_patient_id` + UNIQUE, `clinic_provider` letters, `provider_day` overrides), QueueService/TokenWriter/QueueController, setting `clinic.queue.multiDoctorPerDay`; lookup returns `lastProviderId`; monolith proxy + Doctors / Queue / token panel UI; appointment-service **venue IDOR fixed** (DoctorService.create now checks the venue is the caller org). Gate `hms-s2-token-queue.cy.js` (11 cases). Design §4b records D-3 revised. |

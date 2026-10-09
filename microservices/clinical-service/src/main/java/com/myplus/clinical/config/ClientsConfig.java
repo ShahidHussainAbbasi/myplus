@@ -56,6 +56,12 @@ public class ClientsConfig {
         return client(builder, "http://business-service", 5000, TradeClient.class);
     }
 
+    /** HMS S2 — the doctors. Read once per screen load (the token snapshots the name), never per board row. */
+    @Bean
+    public AppointmentDirectoryClient appointmentDirectoryClient(@LoadBalanced RestClient.Builder builder) {
+        return client(builder, "http://appointment-service", 4000, AppointmentDirectoryClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         return client(builder, "http://audit-service/api/audit", 5000, AuditClient.class);

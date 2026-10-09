@@ -57,6 +57,7 @@ public class PatientService {
     private final PartyClient party;
     private final TradeClient trade;
     private final TransactionTemplate tx;
+    private final com.myplus.clinical.repository.QueueTokenRepo tokens;
 
     /** Who is on this number. Refuses a number that is not a mobile, so the screen can say so as it is typed. */
     public PhoneLookup lookup(String rawPhone) {
@@ -67,7 +68,13 @@ public class PatientService {
         found.forEach(p -> audit.patient("PATIENT_LOOKUP", p.getMrn(), "found by phone at the front desk"));
         return PhoneLookup.builder()
                 .phone(phone)
-                .patients(found.stream().filter(p -> Patient.ACTIVE.equals(p.getStatus())).map(PatientService::view).toList())
+                .patients(found.stream().filter(p -> Patient.ACTIVE.equals(p.getStatus())).map(p -> {
+                    PatientView v = view(p);
+                    // S2 (02c): the doctor of the latest token — the screen preselects them
+                    tokens.findFirstByOrganizationIdAndPatientIdOrderByIdDesc(org, p.getId())
+                            .ifPresent(t -> v.setLastProviderId(t.getProviderId()));
+                    return v;
+                }).toList())
                 .familyAllowed(settings.familyOnOnePhone())
                 .cnicRequired(settings.cnicRequired())
                 .build();

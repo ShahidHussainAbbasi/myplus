@@ -149,7 +149,12 @@
             if (yes !== true) return;
             $btn.prop('disabled', true);
             post('approvePriceChange', { id: $tr.attr('data-id'), expectedCurrent: now })
-                .done(function (resp) { decided($btn, resp, t('ui.js.paApprovedMsg', 'Price approved.')); })
+                .done(function (resp) {
+                    // TP-1: an approved price moves the price every product picker carries; global:false means the
+                    // picker's own ajaxComplete hook never sees this post, so the cache is dropped here.
+                    if (resp && resp.success !== false && global.ProductPicker) global.ProductPicker.invalidate();
+                    decided($btn, resp, t('ui.js.paApprovedMsg', 'Price approved.'));
+                })
                 .fail(function () { decided($btn, null); });
         });
     });

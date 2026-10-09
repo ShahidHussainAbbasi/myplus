@@ -516,3 +516,21 @@ Found while building the gate: the "already registered" panel also calls `/getPr
 `includeInactive=true`). Holding "the next request" sometimes held the panel's, and the case then passed on the broken
 build (1 in 3); the gate holds grid requests only. Opening another section while a page is in flight did NOT throw on
 the old build (green twice), so it is not a case — the same guard covers it.
+
+### 12.5 Reported on owner.pharma@ (Desora, 2026-10-09 20:15–20:23) — review, NOT fixed (awaiting consent)
+
+**What happened, from the data.** Settings: purchase mode never chosen (= Latest), markup rule **Auto 14.5%** (set
+20:16/20:27). Product 11064 registered at 260. Bill 123 twice: T25791 cost 260 → Auto 297.70; T25792 cost 270 → Auto
+309.15 (the typed S/U rates were replaced by the rule, as the form says before saving). Bill line 3106 edited at 20:22
+→ price back to 297.70. Batches carry no price of their own (`sell_price` NULL — Latest). Sale line 5823 (20:23):
+1 × **260.00**, `catalog_price` 297.70, cost 270 (FEFO took T25792, expiring today) — sold below the price AND the cost.
+
+| # | Finding | Evidence | Kind |
+|---|---|---|---|
+| TP-1 | **The till offers a stale price after a purchase moves it, until the page is reloaded.** The till fills the rate from the picker option's `data-price`; the picker is a per-page cache (`product-picker.js`) dropped only by product-write URLs (`MUTATES`: addProduct/updateProduct/…). addPurchase, updatePurchase and approvePriceChange (which is also `global:false`) all move the price and none drops it — nor are already-built `<option>`s redrawn | `cypress/e2e/business/till-price-after-purchase.cy.js` F1 on owner.business@ (Latest, no Auto): server price 250, till offers **200** — red | ⚠ MONEY (undercharge) |
+| TP-2 | **The guide's P2 step 4 claims "Without reloading" but the capture reloads** (`newPurchase()` → `cy.openPurchaseSection` → `cy.visit`), so the claim was never tested and is false today. Same text in the merged Test Book §27. No gate checks a price in the SAME page after a purchase — every case reaches the till through `cy.visit` | `price-mode-guide.cy.js:207–213` | test defect |
+| TP-3 | **A purchase edit that leaves the quantity unchanged never reaches the batch**: `updatePurchase` calls `reconcilePurchase` only when `delta != 0` (or a Per-batch re-price), and `applyStockDelta` returns on delta 0 before expiry/price. An edited expiry, batch no or cost stays old on the batch | bill 3106 expiry **2027-09-09**, its batch 9963 **2027-10-09** (`PurchaseService.java:780`, `StockService.java:311`) | expiry: proven by the data; cost → COGS: ⚠ MONEY, by code reading, not reproduced |
+| TP-4 | **Editing an OLDER bill re-prices the product over a newer bill's price** (Latest re-stamps on edit, "Option B"): the 20:22 edit of 3106 moved 309.15 (T25792, newer) back to 297.70 | price history rows 963→964 | design question |
+
+Not a defect: the typed S/U on both bills was replaced by Auto (the purchase form says so before saving); per-batch
+prices need **Per batch** mode, which this business is not in.

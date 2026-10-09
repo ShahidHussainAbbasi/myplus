@@ -3451,6 +3451,20 @@ function loadStock(label,value){
 	     */
 	    bgJson(serverContext+ "productStock?productId="+value,function(data){
     	if(data){
+	    	/*
+	    	 * TP-1 — the LIVE price wins over the picker's cached one. data-price was cached at page load; a purchase
+	    	 * (Latest / Auto) or an approved price change since then moved the price, and the till charged the old one
+	    	 * (owner.pharma@, sale 5823: 260 against 297.70). /productStock reads the catalog itself (bsellRate =
+	    	 * Product.sellingPrice), so its answer corrects the option, the cached row and the value both forms fill
+	    	 * from below — the rate box, the purchase form's "price stays" line, the Per-batch fallback, the B2B quote's
+	    	 * starting point. No extra request: this call is already made on every pick. Unreadable → cached price.
+	    	 */
+	    	if (data.bsellRate != null && data.bsellRate !== '' && !isNaN(Number(data.bsellRate))
+	    			&& Number(data.bsellRate) !== Number(catalogSellPrice)) {
+	    		catalogSellPrice = String(data.bsellRate);
+	    		$("#"+(tableV?tableV.toLowerCase():'')+"ItemDD option[value='"+value+"']").attr('data-price', catalogSellPrice);
+	    		if (window.ProductPicker && ProductPicker.notePrice) ProductPicker.notePrice(value, catalogSellPrice);
+	    	}
 	    	discountValue = data.bsellDiscount;
 	    	discountType = data.bsellDiscountType;
 	    	batchStock = data.stock;

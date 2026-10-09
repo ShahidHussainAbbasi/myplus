@@ -17,9 +17,16 @@ public class DoctorService {
 
     private final ProviderRepository repo;
     private final ModelMapper mapper;
+    private final com.myplus.appointment.repository.VenueRepository venues;
 
     @Transactional
     public DoctorDTO create(DoctorDTO dto, Long orgId) {
+        // HMS S2 — the venue must be the caller's own. This read the venue id off the wire and saved it unchecked,
+        // so a doctor could be attached to another organisation's venue (the EDU-IDOR-2 class). Another tenant's
+        // venue answers exactly like a missing one.
+        if (dto.getHospitalId() == null || venues.findByIdAndOrganizationId(dto.getHospitalId(), orgId).isEmpty()) {
+            throw new com.myplus.appointment.exception.ResourceNotFoundException("Hospital not found: " + dto.getHospitalId());
+        }
         Provider d = mapper.map(dto, Provider.class);
         d.setId(null);
         d.setOrganizationId(orgId);

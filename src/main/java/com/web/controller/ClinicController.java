@@ -85,6 +85,62 @@ public class ClinicController {
         return call(() -> clinic.send(HttpMethod.POST, "/patients/" + id + "/retire", body));
     }
 
+    // ── S2: doctors and today's line ──────────────────────────────────────────────────────────────────────
+
+    @GetMapping(value = "/clinic/doctors", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> doctors() {
+        return call(() -> clinic.get("/doctors"));
+    }
+
+    @PostMapping(value = "/clinic/doctors", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> addDoctor(@RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/doctors", body));
+    }
+
+    @PostMapping(value = "/clinic/doctors/day", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> doctorDay(@RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/doctors/day", body));
+    }
+
+    @GetMapping(value = "/clinic/queue", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> queue(@RequestParam(required = false) Long providerId) {
+        return call(() -> clinic.get(providerId == null ? "/queue" : "/queue?providerId=" + providerId));
+    }
+
+    @PostMapping(value = "/clinic/queue/next", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> callNext(@RequestParam Long providerId) {
+        return call(() -> clinic.send(HttpMethod.POST, "/queue/next?providerId=" + providerId, null));
+    }
+
+    @PostMapping(value = "/clinic/tokens", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> issueToken(@RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/tokens", body));
+    }
+
+    @GetMapping(value = "/clinic/tokens/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> token(@PathVariable Long id) {
+        return call(() -> clinic.get("/tokens/" + id));
+    }
+
+    /** call · recall · start · park · resume · complete · cancel · noShow — anything else is refused here. */
+    @PostMapping(value = "/clinic/tokens/{id}/{action}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> moveToken(@PathVariable Long id, @PathVariable String action,
+                                            @RequestBody(required = false) Map<String, Object> body) {
+        if (!action.matches("call|recall|start|park|resume|complete|cancel|noShow")) {
+            return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"success\":false,\"message\":\"Unknown action.\"}");
+        }
+        return call(() -> clinic.send(HttpMethod.POST, "/tokens/" + id + "/" + action, body));
+    }
+
     @GetMapping(value = "/clinic/settings", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> settings() {

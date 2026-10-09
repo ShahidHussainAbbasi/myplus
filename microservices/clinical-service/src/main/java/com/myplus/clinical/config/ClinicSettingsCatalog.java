@@ -19,6 +19,8 @@ public class ClinicSettingsCatalog implements SettingsCatalogProvider {
     public static final String FAMILY_ON_ONE_PHONE = "clinic.patient.familyOnOnePhone";
     /** Read by PatientService.register / update: whether a CNIC is required (KP government OPD rule). */
     public static final String CNIC_REQUIRED = "clinic.patient.cnicRequired";
+    /** Read by QueueService.issue (S2): whether one patient may hold tokens with several doctors in a day. */
+    public static final String MULTI_DOCTOR_PER_DAY = "clinic.queue.multiDoctorPerDay";
     /** Read by PatientService.mrn: the clinic code inside the MRN. Blank = the organisation number. */
     public static final String MRN_CODE = "clinic.mrn.code";
 
@@ -33,6 +35,10 @@ public class ClinicSettingsCatalog implements SettingsCatalogProvider {
                 SettingEntry.bool(CNIC_REQUIRED, "Require CNIC at registration",
                         "Off (default): only the phone is required. On: a patient cannot be registered without a CNIC.",
                         false, "Clinic"),
+                SettingEntry.bool(MULTI_DOCTOR_PER_DAY, "Allow several doctors for one patient in a day",
+                        "On (default): a patient can have a token with more than one doctor the same day, seen one after "
+                                + "the other. Off: one token per patient per day.",
+                        true, "Clinic"),
                 SettingEntry.text(MRN_CODE, "Clinic code in the MRN",
                         "Two to six letters or digits, e.g. ISB gives MRN-ISB-26-000123. Blank uses your "
                                 + "organisation number. Set it before the first patient: existing MRNs never change.",

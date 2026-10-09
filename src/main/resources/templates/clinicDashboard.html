@@ -30,6 +30,16 @@
                 </button>
               </div>
               <div class="snav-dd">
+                <button class="snav-btn" id="clinNavQueue" onclick="Clinic.show('QueueDiv')">
+                  <span class="glyphicon glyphicon-list-alt"></span><span th:text="#{ui.clinicQueue}">Today's queue</span>
+                </button>
+              </div>
+              <div class="snav-dd">
+                <button class="snav-btn" id="clinNavDoctors" onclick="Clinic.show('DoctorsDiv')">
+                  <span class="glyphicon glyphicon-briefcase"></span><span th:text="#{ui.clinicDoctors}">Doctors</span>
+                </button>
+              </div>
+              <div class="snav-dd">
                 <button class="snav-btn" id="clinNavSettings" onclick="Clinic.show('ClinicSettingsDiv')">
                   <span class="glyphicon glyphicon-cog"></span><span th:text="#{ui.clinicSettings}">Clinic settings</span>
                 </button>
@@ -66,6 +76,25 @@
 
             <!-- A known number: the patient on it -->
             <div id="clinPatFound" class="clin-card clin-found" style="display:none" aria-live="polite"></div>
+
+            <!-- S2: a token for the patient on the card -->
+            <div id="clinTokenPanel" class="clin-card clin-token-panel" style="display:none">
+              <h3 th:text="#{ui.clinicTokenFor}">Token for today</h3>
+              <div class="clin-token-row">
+                <div class="clin-field">
+                  <label for="clinDoctor" th:text="#{ui.clinicDoctor}">Doctor</label>
+                  <select id="clinDoctor" class="form-control"></select>
+                  <p id="clinDoctorHint" class="clin-help"></p>
+                </div>
+                <button type="button" id="clinIssueToken" class="btn btn-success" onclick="Clinic.issueToken()">
+                  <span class="glyphicon glyphicon-tag"></span> <span th:text="#{ui.clinicIssueToken}">Issue token</span>
+                </button>
+              </div>
+              <div id="clinTokenSlip" class="clin-slip" style="display:none" aria-live="polite">
+                <div class="clin-slip-label" id="clinTokenNo"></div>
+                <div class="clin-slip-meta" id="clinTokenMeta"></div>
+              </div>
+            </div>
 
             <!-- A new number: register (only the phone is required) -->
             <form id="clinPatForm" class="clin-card clin-form" style="display:none" onsubmit="Clinic.register(); return false;" autocomplete="off">
@@ -119,6 +148,72 @@
             </div>
             <p id="clinPatEmpty" class="clin-empty" style="display:none" th:text="#{ui.clinicNoPatients}">No patients yet. Type a phone number above to register the first.</p>
           </div>
+        </section>
+
+        <!-- ── S2: today's queue (every doctor), refreshed every 5 seconds while open ──────────────── -->
+        <section id="QueueDiv" class="formDiv" style="display:none">
+          <div class="clin-card">
+            <div class="clin-list-head">
+              <h3 th:text="#{ui.clinicQueue}">Today's queue</h3>
+              <span class="clin-help" id="clinQueueUpdated"></span>
+            </div>
+            <div id="clinQueueSummary" class="clin-queue-summary"></div>
+            <div class="table-responsive">
+              <table class="table clin-table">
+                <thead><tr>
+                  <th th:text="#{ui.clinicToken}">Token</th><th th:text="#{ui.clinicName}">Name</th><th th:text="#{ui.clinicMrn}">MRN</th>
+                  <th th:text="#{ui.clinicDoctor}">Doctor</th><th th:text="#{ui.clinicStatus}">Status</th><th></th>
+                </tr></thead>
+                <tbody id="clinQueueBoard"></tbody>
+              </table>
+            </div>
+            <p id="clinQueueEmpty" class="clin-empty" style="display:none" th:text="#{ui.clinicQueueEmpty}">No tokens yet today.</p>
+          </div>
+        </section>
+
+        <!-- ── S2: doctors and today's limits ───────────────────────────────────────────────────────── -->
+        <section id="DoctorsDiv" class="formDiv" style="display:none">
+          <div class="clin-card">
+            <h3 th:text="#{ui.clinicDoctors}">Doctors</h3>
+            <div class="table-responsive">
+              <table class="table clin-table">
+                <thead><tr>
+                  <th th:text="#{ui.clinicDoctor}">Doctor</th><th th:text="#{ui.clinicTokenLetter}">Token letter</th>
+                  <th th:text="#{ui.clinicUsualLimit}">Usual limit</th><th th:text="#{ui.clinicToday}">Today</th>
+                  <th th:text="#{ui.clinicIssued}">Issued</th><th th:text="#{ui.clinicWaiting}">Waiting</th><th></th>
+                </tr></thead>
+                <tbody id="clinDoctorBody"></tbody>
+              </table>
+            </div>
+            <p id="clinDoctorEmpty" class="clin-empty" style="display:none" th:text="#{ui.clinicNoDoctors}">No doctors yet. Add the first one below.</p>
+          </div>
+          <form id="clinDoctorForm" class="clin-card clin-form" onsubmit="Clinic.addDoctor(); return false;" autocomplete="off">
+            <h3 th:text="#{ui.clinicAddDoctor}">Add a doctor</h3>
+            <div class="clin-grid">
+              <div class="clin-field clin-field--wide">
+                <label for="clinDocName" th:text="#{ui.clinicName}">Name</label>
+                <input type="text" id="clinDocName" class="form-control" maxlength="120" placeholder="Dr Ahmed"/>
+              </div>
+              <div class="clin-field">
+                <label for="clinDocSpeciality" th:text="#{ui.clinicSpeciality}">Speciality</label>
+                <input type="text" id="clinDocSpeciality" class="form-control" maxlength="80" placeholder="General medicine"/>
+              </div>
+              <div class="clin-field">
+                <label for="clinDocFee" th:text="#{ui.clinicFee}">Consultation fee</label>
+                <input type="text" id="clinDocFee" class="form-control" maxlength="12" inputmode="decimal" placeholder="1000"/>
+              </div>
+              <div class="clin-field">
+                <label for="clinDocLimit" th:text="#{ui.clinicPatientsPerDay}">Patients a day</label>
+                <input type="number" id="clinDocLimit" class="form-control" min="1" placeholder="20"/>
+              </div>
+              <div class="clin-field">
+                <label class="clin-check"><input type="checkbox" id="clinDocNoLimit"/> <span th:text="#{ui.clinicNoLimit}">No limit</span></label>
+              </div>
+            </div>
+            <div class="clin-actions">
+              <button type="submit" id="clinDocSave" class="btn btn-success"><span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.clinicAddDoctor}">Add a doctor</span></button>
+            </div>
+          </form>
         </section>
 
         <!-- ── Settings (owner/admin may change; everyone may read) ───────────────────────────────── -->
