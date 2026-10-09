@@ -1,26 +1,23 @@
 /**
- * HMS Phase 1 — reception → token queue → doctor → park/resume → pharmacy by token.
+ * HMS Phase 1 — reception → token queue → doctor → park/resume → pharmacy sale by token.
  *
- * ⚠ THE SCREENS THIS SPEC DRIVES DO NOT EXIST YET. It is the executable ACCEPTANCE CONTRACT for Phase 1 of
- * microservices/docs/hms-clinic-programme.md, written from the client blueprint's 8 Cypress stubs and its
- * manual cases M-01..M-15. It is gated so a normal run reports it PENDING, never green:
+ * ⚠ MOST SCREENS THIS SPEC DRIVES DO NOT EXIST YET. It is the executable ACCEPTANCE CONTRACT for Phase 1:
+ *   design   microservices/docs/hms-phase1-design.md (client decisions of 2026-10-09 in §1)
+ *   plan     microservices/docs/hms-clinic-programme.md
+ *   page     https://claude.ai/artifact/RTCGToYCyqJHVsR7VVnfAm
+ * Gated so a normal run reports it PENDING, never green:
  *
  *   npx cypress run --headed --browser chrome --spec "cypress/e2e/hms/hms-phase1.cy.js" --env hms=1
  *
- * What runs green today is hms-baseline-today.cy.js. When the Phase 1 slice lands, the implementer makes
- * the SEL / API / USERS maps below true (one place), drops the gate, and this file becomes the slice gate.
+ * Each slice (S1…S5) makes its part of the SEL / API / USERS maps true and its cases pass. The pharmacy half
+ * reuses TODAY's screens on purpose: Prescriptions list → Dispense → the sale form, already filled with what is
+ * owed and carrying + / − per line (RX-FILL-1/2, pharma.js). Phase 1 adds the patient as the sale's customer,
+ * search by token, and the doctor as the prescription's author.
  *
- * Corrections to the blueprint, applied here deliberately (each traced to the codebase, see the Test Book):
- *   - Route: one /clinicDashboard (D-5), not /patients/new, /doctor/queue, /pharmacy/queue as separate pages.
- *   - Selectors: the platform's id convention (#clin…), not data-cy — the blueprint's data-cy exist nowhere.
- *   - Tenant: the org comes from the JWT (activeOrgId → X-Org-Id). The blueprint's `cy.login(role, tenant)`
- *     and X-Tenant-Id header would let a client CHOOSE its tenant — the cross-tenant write this repo has paid
- *     for before. Isolation is tested by logging in as another org's user, never by passing an org id.
- *   - Token: per doctor per day from the database (org_document_seq-style, allocated late), not Redis INCR.
- *   - Status: WAITING → CALLED → IN_CONSULTATION → PARKED → IN_CONSULTATION → COMPLETED (+ CANCELLED,
- *     NO_SHOW). The blueprint's "DONE" is COMPLETED; CALLED is added so two doctors cannot claim one patient.
- *   - Identity: name + MRN + date of birth shown before any clinical act; the token alone is never enough.
- *   - Pharmacist never edits the doctor's signed Rx; a changed line records original, dispensed, reason.
+ * Client decisions encoded here (design §1): phone is the ONLY mandatory field and identifies the patient (one
+ * patient per phone unless the clinic turns on "family on one phone"); the doctor is preselected (only doctor, else
+ * the patient's last doctor); one patient may hold tokens with several doctors a day, seen in sequence; "submitted"
+ * ≠ "dispensed" — the doctor's prescription is locked at submit, the pharmacist's + / − changes only the sale.
  *
  * Every case = numbered actions → EXPECTED (asserted) → CLEANUP (after()).
  */
@@ -29,8 +26,8 @@ const ENABLED = !!Cypress.env('hms')
 // ── The contract: make these true when building Phase 1 ─────────────────────────────────────────────────
 const USERS = {
   reception: Cypress.env('hmsReception') || 'reception.clinic@myplus.com',
-  doctor: Cypress.env('hmsDoctor') || 'doctor.clinic@myplus.com',
-  doctor2: Cypress.env('hmsDoctor2') || 'doctor2.clinic@myplus.com',
+  doctor: Cypress.env('hmsDoctor') || 'doctor.clinic@myplus.com',      // "Dr Ahmed"
+  doctor2: Cypress.env('hmsDoctor2') || 'doctor2.clinic@myplus.com',   // "Dr Sana"
   pharmacist: Cypress.env('hmsPharmacist') || 'pharmacist.clinic@myplus.com',
   admin: Cypress.env('hmsAdmin') || 'owner.clinic@myplus.com',
   otherClinic: Cypress.env('hmsOtherClinic') || 'owner.appointment@myplus.com',
@@ -38,116 +35,126 @@ const USERS = {
 const PW = Cypress.env('hmsPassword') || 'Demo@2025!'
 
 const SEL = {
-  // reception
-  tabReception: '#clinNavReception', patSearch: '#clinPatSearch', patNew: '#clinPatNew',
-  patName: '#clinPatName', patCnic: '#clinPatCnic', patPhone: '#clinPatPhone', patDob: '#clinPatDob',
-  patSex: '#clinPatSex', patPhoto: '#clinPatPhoto', patSave: '#clinPatSave', patMrn: '#clinPatMrn',
-  dupWarning: '#clinPatDuplicate', doctorSelect: '#clinDoctor', issueToken: '#clinIssueToken',
-  tokenNo: '#clinTokenNo', queueBoard: '#clinQueueBoard',
-  // doctor
+  // S1/S2 reception (clinicDashboard)
+  tabReception: '#clinNavReception', patPhone: '#clinPatPhone', patFound: '#clinPatFound',
+  patName: '#clinPatName', patCnic: '#clinPatCnic', patDob: '#clinPatDob', patSex: '#clinPatSex',
+  patSave: '#clinPatSave', patMrn: '#clinPatMrn', patFamilyAdd: '#clinPatFamilyAdd',
+  doctorSelect: '#clinDoctor', issueToken: '#clinIssueToken', tokenNo: '#clinTokenNo', queueBoard: '#clinQueueBoard',
+  // S3 doctor
   tabMyQueue: '#clinNavMyQueue', queueRow: '#clinQueueBody tr', tokenSearch: '#clinTokenSearch',
   callNext: '#clinCallNext', startConsult: '#clinStartConsult', idBanner: '#clinIdBanner',
   history: '#clinHistory', vitalBp: '#clinVitalBp', vitalTemp: '#clinVitalTemp', vitalPulse: '#clinVitalPulse',
   complaint: '#clinComplaint', note: '#clinNote', templateSearch: '#clinTemplateSearch',
   rxLines: '#clinRxBody tr', park: '#clinPark', parkTests: '#clinParkTests', parkReason: '#clinParkReason',
   confirmPark: '#clinConfirmPark', parkedTab: '#clinParkedTab', resume: '#clinResume',
-  signRx: '#clinSignRx', complete: '#clinComplete', status: '#clinStatus',
-  // pharmacy
-  rxQueue: '#clinRxQueue', rxTokenSearch: '#clinRxTokenSearch', createOrder: '#clinRxCreateOrder',
-  orderLine: '#clinRxOrderBody tr', patientConfirmed: '#clinRxPatientConfirmed', confirmBill: '#clinRxConfirmBill',
-  invoiceNo: '#clinRxInvoiceNo', print: '#clinRxPrint', expiryWarn: '.clin-expiry-warn',
+  submitRx: '#clinSubmitRx', complete: '#clinComplete', status: '#clinStatus',
+  // S4 pharmacy — TODAY's screens plus a search box
+  pharmacyNav: '#snavPharmacy > .snav-btn', prescriptionsLink: '#snavPharmacy a[onclick^="showPrescriptions"]',
+  rxSearch: '#rxSearch', rxRows: '#prescriptionBody tr', sellDiv: '#sellDiv', dispenseBanner: '#dispenseBanner',
+  sellCustomer: '#sellCustomerDD', stepUp: '.ctr-step[data-d="1"]', stepDown: '.ctr-step[data-d="-1"]',
+  // S5 access log
+  accessLogNav: '#clinNavAccessLog', accessLogRows: '#clinAccessLogBody tr', accessLogPatient: '#clinAccessLogPatient',
 }
 
 const API = {
-  patients: '/clinic/patients',                         // POST register, GET ?q=
+  patients: '/clinic/patients',                         // POST register, GET ?phone=
   patient: (id) => `/clinic/patients/${id}`,
   history: (id) => `/clinic/patients/${id}/history`,
   tokens: '/clinic/tokens',                             // POST {patientId, providerId}
   queue: (providerId) => `/clinic/queue?providerId=${providerId}`,
-  token: (id) => `/clinic/tokens/${id}`,                // GET; POST …/cancel in cleanup
+  token: (id) => `/clinic/tokens/${id}`,                // GET; POST …/call, …/cancel
   encounter: (id) => `/clinic/encounters/${id}`,
-  pharmacyQueue: '/clinic/pharmacy/queue',
+  settings: '/clinic/settings',
   audit: (patientId) => `/clinic/patients/${patientId}/access-log`,
 }
 
-;(ENABLED ? describe : describe.skip)('HMS Phase 1 — OPD to pharmacy (contract)', () => {
+;(ENABLED ? describe : describe.skip)('HMS Phase 1 — OPD to pharmacy sale (contract)', () => {
   const s = `${Date.now()}`.slice(-7)
-  const cnic = `42201-${s}-1`
+  const phone = '0300' + s                              // 11 digits, unique per run
+  const phone2 = '0301' + s
   const patientName = 'Ali Khan ' + s
   const created = { patientIds: [], tokenIds: [] }
-  const state = {}                                      // carried case → case, like the blueprint's @mrn
+  const state = {}                                      // carried case → case
 
   const login = (email) => cy.loginAs(email, PW, '/clinicDashboard')
   const post = (url, body) =>
     cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   after(() => {
-    // CLEANUP — cancel every token this run opened (frees the doctor's queue), then retire the test patients.
-    // Clinical records are append-only: a patient is RETIRED (merged-away/inactive), never hard-deleted.
+    // CLEANUP — cancel every token this run opened (frees the queue), then retire the test patients.
+    // Clinical records are append-only: a patient is RETIRED, never hard-deleted.
     login(USERS.reception)
     created.tokenIds.forEach((id) => post(`${API.token(id)}/cancel`, { reason: 'cypress cleanup' }))
     created.patientIds.forEach((id) => post(`${API.patient(id)}/retire`, { reason: 'cypress cleanup' }))
   })
 
-  // ── 01 / M-01 / M-02 — registration, MRN, duplicate ─────────────────────────────────────────────────
-  it('01 reception registers a new patient and an MRN is issued (M-01)', () => {
+  // ── S1 — patient desk ───────────────────────────────────────────────────────────────────────────────
+  it('M-01 reception registers a patient with ONLY a phone; an MRN is issued', () => {
     login(USERS.reception)
     cy.intercept('POST', `**${API.patients}`).as('register')
-    // 1. Reception tab → search the CNIC first (the blueprint's "search before register").
+    // 1. Reception tab → type the phone (the first and only required field).
     cy.get(SEL.tabReception).click()
-    cy.get(SEL.patSearch).should('be.visible').type(cnic + '{enter}')
-    // 2. Nothing found → New patient.
-    cy.get(SEL.patNew).should('be.visible').click()
-    // 3. Fill the identity.
+    cy.get(SEL.patPhone).should('be.visible').type(phone).blur()
+    // 2. Unknown number → the form stays open for a new patient. Type a name (optional) and save.
+    cy.get(SEL.patFound).should('not.be.visible')
     cy.get(SEL.patName).type(patientName)
-    cy.get(SEL.patCnic).type(cnic)
-    cy.get(SEL.patPhone).type('03001234567')
-    cy.get(SEL.patDob).type('1990-05-14')
-    cy.get(SEL.patSex).select('M', { force: true })
-    cy.get(SEL.patPhoto).selectFile('cypress/fixtures/patient-photo.png', { force: true })
-    // 4. Save.
     cy.get(SEL.patSave).click()
-    // EXPECTED: 200, an MRN in the per-org format, shown on screen, photo stored.
+    // EXPECTED: saved with nothing else filled; MRN shown in the per-clinic format.
     cy.wait('@register').then(({ response }) => {
       expect(response.body.success, JSON.stringify(response.body)).to.eq(true)
       state.patientId = response.body.data.id
       state.mrn = response.body.data.mrn
       created.patientIds.push(state.patientId)
       expect(state.mrn).to.match(/^MRN-[A-Z0-9]+-\d{2}-\d{6}$/)
-      expect(response.body.data.photoUrl, 'photo stored, private path').to.be.a('string')
+      expect(response.body.data.phone, 'stored normalised').to.eq('92' + phone.slice(1))
+      // One person, two roles: the same Save made the pharmacy's customer, linked by party id (design §1 B-01(2)).
+      state.partyId = response.body.data.partyId
+      state.customerId = response.body.data.customerId
+      expect(state.partyId, 'one party').to.be.a('number')
+      expect(state.customerId, 'customer created at reception').to.be.a('number')
     })
     cy.get(SEL.patMrn).should('be.visible').invoke('text').should('match', /MRN-/)
   })
 
-  it('M-02 the same CNIC again is refused and points at the existing MRN', () => {
+  it('M-01b an invalid phone is refused with a reason', () => {
     login(USERS.reception)
-    post(API.patients, { name: 'Ali Khan duplicate', cnic, phone: '03001234567', dob: '1990-05-14', sex: 'M' })
-      .then((r) => {
+    ;['12345', '0300123', '04235761234', 'abcdefghijk'].forEach((bad) =>
+      post(API.patients, { phone: bad, name: 'Bad Phone' }).then((r) => {
+        expect(r.body.success, bad).to.eq(false)
+        expect(r.body.message, bad).to.match(/phone/i)
+      }))
+  })
+
+  it('M-02 the same phone again is refused and points at the existing MRN', () => {
+    login(USERS.reception)
+    // API: a second registration on the number — even with another name — is refused, never merged (B-07).
+    ;[patientName, 'Someone Else ' + s].forEach((name) =>
+      post(API.patients, { phone: '+92' + phone.slice(1), name }).then((r) => {
         expect(r.body.success).to.eq(false)
         expect(r.body.message).to.match(/already registered/i)
         expect(r.body.message, 'names the existing MRN').to.contain(state.mrn)
-      })
-    // Also on screen: typing the CNIC surfaces the warning before Save.
+      }))
+    // Screen: typing the number opens the existing patient instead of a blank form.
     cy.get(SEL.tabReception).click()
-    cy.get(SEL.patNew).click()
-    cy.get(SEL.patCnic).type(cnic).blur()
-    cy.get(SEL.dupWarning).should('be.visible').and('contain', state.mrn)
+    cy.get(SEL.patPhone).clear().type(phone).blur()
+    cy.get(SEL.patFound).should('be.visible').and('contain', patientName).and('contain', state.mrn)
+    // "Add family member" is offered only when the clinic turned it on (default OFF).
+    cy.get(SEL.patFamilyAdd).should('not.exist')
   })
 
-  it('M-01b an invalid CNIC is refused with a reason (PAT-006)', () => {
-    login(USERS.reception)
-    post(API.patients, { name: 'Bad Cnic', cnic: '12345', phone: '03001234567' })
-      .its('body.success').should('eq', false)
-  })
-
-  // ── 02 / M-03 — token ───────────────────────────────────────────────────────────────────────────────
-  it('02 reception issues a token for Dr Ahmed today; queue position shown (M-03)', () => {
+  // ── S2 — token & queue ──────────────────────────────────────────────────────────────────────────────
+  it('02 a token for today: the doctor is preselected, WAITING, with a queue position', () => {
     login(USERS.reception)
     cy.intercept('POST', `**${API.tokens}`).as('token')
     cy.get(SEL.tabReception).click()
-    cy.get(SEL.patSearch).clear().type(state.mrn + '{enter}')
-    cy.contains(SEL.queueBoard + ', body', patientName)
-    cy.get(SEL.doctorSelect).select('Dr Ahmed', { force: true })
+    cy.get(SEL.patPhone).clear().type(phone).blur()
+    cy.get(SEL.patFound).should('contain', state.mrn)
+    // First visit, so no "last doctor": with one doctor on duty it is that one; with several, pick Dr Ahmed.
+    cy.get(SEL.doctorSelect).then(($d) => {
+      const opts = $d.find('option[value!=""]')
+      if (opts.length === 1) expect($d.val(), 'the only doctor is preselected').to.eq(opts.val())
+      else cy.get(SEL.doctorSelect).select('Dr Ahmed', { force: true })
+    })
     cy.get(SEL.issueToken).click()
     cy.wait('@token').then(({ response }) => {
       expect(response.body.success, JSON.stringify(response.body)).to.eq(true)
@@ -162,7 +169,7 @@ const API = {
     cy.get(SEL.tokenNo).should('be.visible').and('contain', 'A-')
   })
 
-  it('02b a second token for the same patient + doctor + day is refused (APT-003, idempotent)', () => {
+  it('02b a second token with the SAME doctor the same day is refused, naming the first', () => {
     login(USERS.reception)
     post(API.tokens, { patientId: state.patientId, providerId: state.providerId }).then((r) => {
       expect(r.body.success).to.eq(false)
@@ -170,8 +177,14 @@ const API = {
     })
   })
 
-  // ── 03 / M-05 / M-15 — doctor's queue and privileges ───────────────────────────────────────────────
-  it('03 the doctor sees the queue WAITING, sorted by position (M-05)', () => {
+  it('02c on the next visit the patient\'s last doctor is preselected', () => {
+    login(USERS.reception)
+    cy.get(SEL.tabReception).click()
+    cy.get(SEL.patPhone).clear().type(phone).blur()
+    cy.get(SEL.doctorSelect).find('option:selected').should('contain', 'Dr Ahmed')
+  })
+
+  it('03 the doctor\'s queue lists WAITING patients in order', () => {
     login(USERS.doctor)
     cy.get(SEL.tabMyQueue).click()
     cy.get(SEL.queueRow).should('have.length.at.least', 1)
@@ -182,6 +195,22 @@ const API = {
     })
   })
 
+  it('M-04 a token issued at reception reaches the doctor\'s open screen without a reload', () => {
+    login(USERS.doctor)
+    cy.get(SEL.tabMyQueue).click()
+    cy.get(SEL.queueRow).its('length').then((before) => {
+      post(API.patients, { phone: phone2, name: 'Live Queue ' + s }).then((p) => {
+        created.patientIds.push(p.body.data.id)
+        state.patient2Id = p.body.data.id
+        post(API.tokens, { patientId: p.body.data.id, providerId: state.providerId })
+          .then((t) => created.tokenIds.push(t.body.data.id))
+      })
+      // 5 s poll today (design §4 S2); SSE later tightens this to the blueprint's 3 s.
+      cy.get(SEL.queueRow, { timeout: 7000 }).should('have.length', before + 1)
+    })
+  })
+
+  // ── S3 — doctor workspace ───────────────────────────────────────────────────────────────────────────
   it('M-15 reception cannot open the doctor\'s workspace or a clinical note', () => {
     login(USERS.reception)
     cy.request({ url: API.history(state.patientId), failOnStatusCode: false })
@@ -190,14 +219,13 @@ const API = {
     cy.get(SEL.tabMyQueue).should('not.exist')
   })
 
-  // ── 04 / M-06 / M-07 — call, identify, history, vitals ─────────────────────────────────────────────
-  it('04 the doctor searches the token, starts the consult, sees identity + history, records vitals (M-06, M-07)', () => {
+  it('04 search the token, start, check identity, record vitals and a note', () => {
     login(USERS.doctor)
     cy.get(SEL.tabMyQueue).click()
     cy.get(SEL.tokenSearch).type(state.token + '{enter}')
     cy.get(SEL.startConsult).click()
-    // Two identifiers before any clinical act.
-    cy.get(SEL.idBanner).should('contain', patientName).and('contain', state.mrn).and('contain', '1990')
+    // Two identifiers before any clinical act: name + MRN (+ DOB when recorded).
+    cy.get(SEL.idBanner).should('contain', patientName).and('contain', state.mrn)
     cy.get(SEL.history).should('be.visible')
     cy.get(SEL.status).should('contain', 'IN_CONSULTATION')
     cy.get(SEL.vitalBp).type('120/80')
@@ -209,8 +237,7 @@ const API = {
       state.encounterId = r.body.data.encounterId
       expect(r.body.data.status).to.eq('IN_CONSULTATION')
     })
-    cy.then(() => cy.request(API.encounter(state.encounterId)))
-      .its('body.data.vitals.bp').should('eq', '120/80')
+    cy.then(() => cy.request(API.encounter(state.encounterId))).its('body.data.vitals.bp').should('eq', '120/80')
   })
 
   it('04b a nonsense vital is refused (temperature 986)', () => {
@@ -219,13 +246,26 @@ const API = {
       .its('body.success').should('eq', false)
   })
 
-  it('04c a second doctor cannot claim the same patient (APT-007)', () => {
+  it('04c two doctors never share a token; one patient is seen by one doctor at a time', () => {
+    // (a) Dr Sana cannot claim Dr Ahmed's token.
     login(USERS.doctor2)
     post(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
+    // (b) multi-doctor setting ON (default): the same patient may get a token with Dr Sana today…
+    login(USERS.reception)
+    post(API.tokens, { patientId: state.patientId, providerId: Cypress.env('hmsDoctor2ProviderId') }).then((r) => {
+      expect(r.body.success, 'second doctor, same day').to.eq(true)
+      state.token2Id = r.body.data.id
+      created.tokenIds.push(state.token2Id)
+    })
+    // …but Dr Sana cannot call it while the patient is still with Dr Ahmed.
+    login(USERS.doctor2)
+    cy.then(() => post(`${API.token(state.token2Id)}/call`, {})).then((r) => {
+      expect(r.body.success).to.eq(false)
+      expect(r.body.message).to.match(/with Dr Ahmed/i)
+    })
   })
 
-  // ── 05 / M-08 — template ───────────────────────────────────────────────────────────────────────────
-  it('05 the Fever + Flu template fills the prescription, every line editable (M-08)', () => {
+  it('05 the Fever + Flu template fills the prescription; every line stays editable', () => {
     login(USERS.doctor)
     cy.get(SEL.templateSearch).type('Fever')
     cy.contains('Fever + Flu').click()
@@ -234,8 +274,7 @@ const API = {
     cy.get(SEL.rxLines).first().find('input[name=dosage]').should('have.value', '1+0+1')
   })
 
-  // ── 06 / M-09 — park for tests ─────────────────────────────────────────────────────────────────────
-  it('06 the doctor parks the patient for CBC + LFT; the token is kept (M-09)', () => {
+  it('06 park for CBC + LFT: PARKED, token kept, reason saved', () => {
     login(USERS.doctor)
     cy.get(SEL.park).click()
     cy.get(SEL.parkTests).select(['CBC', 'LFT'], { force: true })
@@ -249,60 +288,72 @@ const API = {
     })
   })
 
-  it('06b a parked prescription is not visible to the pharmacy yet', () => {
+  it('06b while parked, the draft prescription is NOT in the pharmacy list', () => {
     login(USERS.pharmacist)
-    cy.request(API.pharmacyQueue).its('body.data').then((rows) =>
-      expect(rows.map((r) => r.tokenNo)).not.to.include(state.token))
+    cy.request('/getPrescriptions?q=' + state.token).its('body.data').then((rows) =>
+      expect((rows || []).map((r) => r.tokenNo)).not.to.include(state.token))
   })
 
-  // ── 07 / M-10 / M-11 — resume, sign, complete ──────────────────────────────────────────────────────
-  it('07 the doctor resumes from Parked, signs the Rx, completes; the Rx reaches the pharmacy (M-10, M-11)', () => {
+  it('07 resume, submit, complete — the prescription appears in the pharmacy list', () => {
     login(USERS.doctor)
     cy.get(SEL.parkedTab).click()
     cy.contains(SEL.queueRow, state.token).click()
     cy.get(SEL.resume).click()
     cy.get(SEL.status).should('contain', 'IN_CONSULTATION')
-    cy.get(SEL.signRx).click()
+    cy.intercept('POST', '**/addPrescription').as('submit')
+    cy.get(SEL.submitRx).click()
     cy.get('[data-ui-confirm="ok"]').click()
+    cy.wait('@submit').then(({ response }) => {
+      expect(response.body.success, JSON.stringify(response.body)).to.eq(true)
+      state.rxId = response.body.data.id
+      expect(response.body.data.source).to.eq('DOCTOR')
+      expect(response.body.data.tokenNo).to.eq(state.token)
+      expect(response.body.data.status).to.eq('PENDING')
+    })
     cy.get(SEL.complete).click()
     cy.get(SEL.status).should('contain', 'COMPLETED')
-    cy.request(API.token(state.tokenId)).its('body.data.status').should('eq', 'COMPLETED')
   })
 
-  it('07b a COMPLETED token cannot be called again (illegal transition)', () => {
+  it('07b a COMPLETED token cannot be called again', () => {
     login(USERS.doctor)
     post(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
   })
 
-  it('07c a signed prescription cannot be edited in place', () => {
+  it('07c a SUBMITTED prescription cannot be edited in place (submitted ≠ dispensed)', () => {
     login(USERS.doctor)
-    cy.request(API.encounter(state.encounterId)).then((r) => {
-      const rxId = r.body.data.prescriptionId
-      cy.request({ method: 'PUT', url: `/clinic/prescriptions/${rxId}`, body: { items: [] }, failOnStatusCode: false })
-        .its('body.success').should('eq', false)
+    cy.request({ method: 'PUT', url: `/clinic/prescriptions/${state.rxId}`, body: { items: [] }, failOnStatusCode: false })
+      .its('body.success').should('eq', false)
+  })
+
+  // ── S4 — pharmacy: search by token → Dispense → the sale form, filled ──────────────────────────────────
+  it('08 the pharmacist finds the token, Dispense fills the sale with the patient as customer, adjusts, completes', () => {
+    login(USERS.pharmacist)
+    cy.visit('/businessDashboard')
+    cy.get(SEL.pharmacyNav).click()
+    cy.get(SEL.prescriptionsLink).click()
+    // 1. Search by token (MRN and phone work the same way).
+    cy.get(SEL.rxSearch).should('be.visible').type(state.token + '{enter}')
+    cy.get(SEL.rxRows).should('have.length', 1).and('contain', patientName).and('contain', 'Dr Ahmed')
+    // 2. Dispense → the sale form, nothing typed by the pharmacist.
+    cy.get(SEL.rxRows).first().contains('button', 'Dispense').click()
+    cy.get(SEL.sellDiv).should('be.visible')
+    cy.get(SEL.dispenseBanner).should('be.visible').and('contain', patientName)
+    cy.get(SEL.sellCustomer).find('option:selected').should('contain', patientName)
+    cy.get(SEL.stepUp).should('have.length.at.least', 2)
+    // 3. The patient wants one less of the first medicine: −.
+    cy.get(SEL.stepDown).first().click()
+    cy.get('#dispenseFillNote').should('contain', 'left for another day')
+    // 4. Complete Sale → receipt.
+    cy.intercept('POST', '**/addSell').as('sell')
+    cy.get('#sellDiv').contains('button', /complete sale/i).click()
+    cy.wait('@sell').then(({ response }) => {
+      expect(response.body.status).to.eq('SUCCESS')
+      // EXPECTED: the sale names the patient as its customer; the script keeps what is still owed.
+      cy.request(`/getPrescription?id=${state.rxId}`).its('body.data.status').should('eq', 'PARTIALLY_DISPENSED')
     })
   })
 
-  // ── 08 / M-12 / M-13 — pharmacy by token, bill, print ──────────────────────────────────────────────
-  it('08 the pharmacist finds the token, confirms with the patient, bills and prints (M-12, M-13)', () => {
-    login(USERS.pharmacist)
-    cy.intercept('POST', '**/addSell').as('sell')
-    cy.get(SEL.rxQueue).should('contain', state.token)
-    cy.get(SEL.rxTokenSearch).type(state.token + '{enter}')
-    cy.get(SEL.createOrder).click()
-    cy.get(SEL.orderLine).should('have.length.at.least', 2)
-    // FEFO picks a batch; one inside 30 days of expiry is flagged, not hidden.
-    cy.get(SEL.expiryWarn).should('exist')
-    cy.get(SEL.patientConfirmed).check()
-    cy.get(SEL.confirmBill).click()
-    cy.wait('@sell').its('response.body.status').should('eq', 'SUCCESS')
-    cy.get(SEL.invoiceNo).invoke('text').should('match', /\S+/)
-    cy.window().then((w) => cy.stub(w, 'print').as('print'))
-    cy.get(SEL.print).click()
-    cy.get('@print').should('have.been.called')
-  })
-
-  // ── M-14 — isolation; M-04 — live queue ────────────────────────────────────────────────────────────
+  // ── S5 — isolation and the access log ────────────────────────────────────────────────────────────────
   it('M-14 another clinic cannot read this patient, token or encounter', () => {
     login(USERS.otherClinic)
     ;[API.patient(state.patientId), API.token(state.tokenId), API.encounter(state.encounterId)].forEach((url) =>
@@ -312,25 +363,11 @@ const API = {
       }))
   })
 
-  it('M-04 a token issued at reception reaches the doctor\'s open screen within 3s', () => {
-    login(USERS.doctor)
-    cy.get(SEL.tabMyQueue).click()
-    cy.get(SEL.queueRow).its('length').then((before) => {
-      // Reception action from the same test via the API (a second browser is not possible in Cypress).
-      post(API.patients, { name: 'Live Queue ' + s, cnic: `42201-${s}-2`, phone: '03009990000', dob: '1985-01-01', sex: 'F' })
-        .then((p) => {
-          created.patientIds.push(p.body.data.id)
-          post(API.tokens, { patientId: p.body.data.id, providerId: state.providerId })
-            .then((t) => created.tokenIds.push(t.body.data.id))
-        })
-      cy.get(SEL.queueRow, { timeout: 3000 }).should('have.length', before + 1)
-    })
-  })
-
-  it('SEC-007 reading the patient left an access-log entry naming the doctor', () => {
-    login(USERS.admin)       // the PHI access log is owner/admin-only, like the audit trail
-    cy.request(API.audit(state.patientId)).its('body.data').then((rows) => {
-      expect(rows.some((r) => r.actor === USERS.doctor && r.action === 'READ')).to.eq(true)
-    })
+  it('SEC-007 the owner reads who opened the patient on the Access log screen', () => {
+    login(USERS.admin)
+    cy.get(SEL.accessLogNav).click()
+    cy.get(SEL.accessLogPatient).type(state.mrn + '{enter}')
+    cy.contains(SEL.accessLogRows, 'Dr Ahmed').should('contain', 'Viewed')
+    cy.get(SEL.accessLogRows).first().invoke('text').should('match', /\d{2}:\d{2}/)
   })
 })

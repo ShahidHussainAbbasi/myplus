@@ -96,7 +96,9 @@
      */
     function annotate() {
         var table = global.tablesi;
-        if (!table || !enabled()) return;
+        // Not `|| !enabled()`: switched OFF, the loop below still has to REMOVE the hints already drawn (it skips
+        // drawing new ones itself). Returning here left them on screen after the setting went off (LR-1 case 5).
+        if (!table) return;
 
         table.rows().every(function () {
             var $tr = $(this.node());

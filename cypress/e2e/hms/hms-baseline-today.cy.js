@@ -278,9 +278,12 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
   // ── B-07 — ⚠ KNOWN DEFECT, found by this file on 2026-10-08 ─────────────────────────────────────────────
   // appointment-service resolves the patient by PHONE ALONE (findFirstByPhoneAndOrganizationId) and ignores
   // the name typed. Two people on one family phone become ONE patient under the first name — a wrong-patient
-  // record the moment a clinical history hangs off it. Red today; opt in with --env hmsDefects=1. It turns
-  // green when Phase 1's patient registry (CNIC / name + DOB matching, never phone alone) replaces Attendee.
-  ;(Cypress.env('hmsDefects') ? it : it.skip)('B-07 ⚠ two people sharing one phone stay two patients', () => {
+  // record the moment a clinical history hangs off it. Red today; opt in with --env hmsDefects=1.
+  //
+  // EXPECTED (client decision 2026-10-09, design §1): ONE patient per phone. A different name on a known phone
+  // is REFUSED and the refusal names the patient already on that number — never silently filed under them.
+  // (With the clinic setting "family on one phone" ON, reception adds the son deliberately instead — S1.)
+  ;(Cypress.env('hmsDefects') ? it : it.skip)('B-07 ⚠ a different name on a known phone is refused, never merged', () => {
     cy.task('clearDemoCaps')
     cy.loginAsAppointmentOwner()
     const phone = uniquePhone()
@@ -288,11 +291,13 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
     const son = 'Usman Rashid ' + stamp()
     clinicWithDoctor(20).then(({ hospitalId, doctorId }) => {
       book(hospitalId, doctorId, father, phone).its('body.status').should('eq', 'SUCCESS')
-      book(hospitalId, doctorId, son, phone).its('body.status').should('eq', 'SUCCESS')
+      book(hospitalId, doctorId, son, phone).then((r) => {
+        expect(r.body.status, 'refused, not merged: ' + JSON.stringify(r.body)).to.eq('FAILURE')
+        expect(r.body.error, 'names who is on that number').to.contain(father)
+      })
       cy.request('/loadAppointments').then((list) => {
         const mine = list.body.filter((a) => a.patientPhone === phone)
-        expect(mine.map((a) => a.patientName), 'each booking keeps the name that was typed')
-          .to.include.members([father, son])
+        expect(mine, 'only the father\'s booking exists').to.have.length(1)
       })
     })
   })

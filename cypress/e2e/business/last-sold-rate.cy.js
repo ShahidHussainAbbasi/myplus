@@ -181,14 +181,16 @@ describe('LR-1 — the last price this customer paid', () => {
 
           cy.get('#btnModeSelect').click({ force: true })
           cy.get('#sellCustomerDD', { timeout: 20000 }).select(String(cid), { force: true })
-          cy.get('#sellItemDD', { timeout: 20000 }).select(String(productId), { force: true })
-          cy.settled('#sellQuantity')
-          cy.get('#sellQuantity').clear().type('1')
-
           // Watch the lookup, so a failure says WHICH step broke: no request at all (the till never
           // asked), an empty answer (scoping or exclusions), or a request that answered and did not
           // render (the annotate path). Without this the case can only report "element never found".
+          // Armed BEFORE the pick: since case 7 the till asks when the product is PICKED, and Add asks again
+          // only if the customer or product set changed — so waiting for a request AFTER Add waited for one
+          // that rightly never comes (the hint was on screen; the case still timed out).
           cy.intercept('GET', '**/lastSoldRates*').as('lr')
+          cy.get('#sellItemDD', { timeout: 20000 }).select(String(productId), { force: true })
+          cy.settled('#sellQuantity')
+          cy.get('#sellQuantity').clear().type('1')
           cy.get('#addInviceItem').click({ force: true })
 
           cy.wait('@lr', { timeout: 20000 }).then((i) => {
