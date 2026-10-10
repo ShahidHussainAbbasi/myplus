@@ -743,3 +743,12 @@ PurchasePerBatch 6, SaleBatchByLine 3; repositories boot on MySQL (`SellInvoiceM
 sets the owner's markup rule aside and restores it — Auto 14.5% re-priced its batches). Guide case **S4** added (the Desora
 flow on owner.lifecycle) — captured after the deploy. Needs business-service deployed; then owner.pharma switched to Per
 batch (the owner's decision).
+
+**Deployed and verified (2026-10-10, business-service 09:03 UTC, deployed by this session with the owner's consent):**
+`pricing-per-batch-sale.cy.js` 12/12 (S12 red → green); regression pricing-per-batch, pricing-approval,
+sale-batches-by-line, purchase-edit-keeps-issued, header-stock-alerts — 26/26. **owner.pharma switched to Per batch**
+(the owner's decision): Desora's batches list T25791 @ 297.70 and T25792 @ 309.15; a preview of 10 = 9 × 297.70 + 1 ×
+309.15 = 2,988.45 (no sale recorded). Guide case S4 captured — the page is 23/23, 100 pictures. The original page
+(XxkS1wMiBXsrgFbZ72YPTQ) belongs to the other account and refuses this one, so v6 is a NEW artifact:
+https://claude.ai/artifact/PiS5HQrZwLu3wucogyjFYK (private until shared). Test Book section rebuilt 23/23 — publish
+from the owning account.
