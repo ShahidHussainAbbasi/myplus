@@ -58,6 +58,7 @@ to"** in Expenses → Settings:
 - **Found while writing the tests:** `SettingWriteGuard.checkReset` judges a RESET as a write of the default. The
   limit's default is blank, so the new guard's `new BigDecimal("")` would have **refused "back to no limit"**. The guard
   lets blank pass; `ExpenseSettingsTest.postLimitGuard` pins it.
+- **Regression:** all 22 expense gates (`cypress/e2e/expense/*.cy.js`) **129/129**. Every spec that posts as a member is unchanged under the default (no limit).
 - **Teardown verified:** `org_setting` holds 0 `userPostLimit` rows for the school afterwards (no limit, the default).
 - **Changed files:**
   - expense: `ExpenseSettingsCatalog` (key, blank default, guard); `ExpenseSettings.userPostLimit`;
