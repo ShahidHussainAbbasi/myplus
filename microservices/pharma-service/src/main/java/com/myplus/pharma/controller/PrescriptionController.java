@@ -23,6 +23,7 @@ public class PrescriptionController {
 
     private final PrescriptionService prescriptionService;
     private final DispenseService dispenseService;
+    private final com.myplus.pharma.service.PrescribedProductCheck prescribedProducts;
 
     /**
      * C3b — whether this tenant dispenses on prescription at all.
@@ -47,6 +48,12 @@ public class PrescriptionController {
     @PostMapping
     public ApiResponse<PrescriptionDTO> create(@RequestBody PrescriptionDTO dto) {
         capabilityService.assertEnabled(com.myplus.common.settings.Capability.RX_REQUIRED);
+        PrescriptionService.assertMayClaimVisit(dto, CurrentUser.get().map(u -> u.getAuthorities() != null
+                && u.getAuthorities().stream().anyMatch(a -> PrescriptionService.CLINIC_CONSULT.equals(a.getAuthority())))
+                .orElse(false));
+        // H1 (L-1): a doctor's Submit names only medicines this pharmacy has (live catalogue read, before anything is
+        // written). Counter prescriptions keep today's behaviour: their screen picks from the same list.
+        if (dto.getExternalRef() != null && !dto.getExternalRef().isBlank()) prescribedProducts.assertInCatalogue(dto);
         return ApiResponse.success(prescriptionService.create(dto, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription recorded");
     }
 

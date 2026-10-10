@@ -93,7 +93,13 @@
         var tr = $('<tr>').attr('data-rx-id', p.id);
         // Contact-360 rides in the patient cell: a pharmacy patient is often also a POS customer.
         tr.append($('<td>').text(p.patientName || '').append(contact360Button(p.partyId)));
-        tr.append($('<td>').text(p.doctorName || ''));
+        // HMS S3b-1: a prescription the clinic's doctor submitted says so, with the token the patient holds
+        var doc = $('<td>').text(p.doctorName || '');
+        if (p.source === 'DOCTOR') {
+            doc.append(' ').append($('<span class="label label-info rx-from-doctor">')
+                .text('From the doctor' + (p.tokenLabel ? ' · ' + p.tokenLabel : '')));
+        }
+        tr.append(doc);
         tr.append($('<td>').text((p.items || []).length));
         tr.append($('<td>').text(p.status || ''));
         tr.append($('<td>').text(at));
@@ -490,21 +496,47 @@
         loadControlledRegister();
     };
 
+    /*
+     * ALERT-RETIRE (2026-10-10) — the SAME live, per-tenant answer as the header badge (STK-ALERT /stockAlertSummary):
+     * expired batches still in stock, batches expiring within the business's window, low stock against the product's
+     * own minimum or the business cap. It used to read inventory's stored stock_alerts, which carried no organization
+     * (every tenant's rows to every caller), was written hourly as duplicates, and never held a near-expiry row at all.
+     * Owner/admin only, as decided for the badge: anyone else sees why the list is empty, and still gets the register.
+     */
     function loadStockAlerts() {
-        // REUSE inventory-service StockAlert system (near-expiry / low stock).
-        $.get(serverContext + 'getStockAlerts', function (resp) {
-            var list = (resp && resp.data) ? resp.data : [];
-            var $b = $('#stockAlertsBody').empty();
-            $('#stockAlertsEmpty').toggle(list.length === 0);
-            list.forEach(function (a) {
-                var tr = $('<tr>');
-                tr.append($('<td>').text(a.alertType || a.type || ''));
-                tr.append($('<td>').text(a.productId != null ? a.productId : ''));
-                tr.append($('<td>').text(a.message || ''));
-                tr.append($('<td>').text(String(a.createdAt || '').replace('T', ' ').substring(0, 16)));
-                $b.append(tr);
+        var tr = function (k, f) {
+            var a = Array.prototype.slice.call(arguments, 2);
+            if (typeof t === 'function' && typeof tHas === 'function' && tHas(k)) return t.apply(null, [k].concat(a));
+            return String(f).replace(/\{(\d+)\}/g, function (m, n) { return a[n] == null ? m : String(a[n]); });
+        };
+        var qty = function (v) { var n = Number(v); return isFinite(n) ? String(Math.round(n * 100) / 100) : ''; };
+        var $b = $('#stockAlertsBody').empty();
+        var empty = function (msg) { $('#stockAlertsEmpty').text(msg || tr('ui.js.saNone', 'Nothing needs attention.')).show(); };
+        $('#stockAlertsEmpty').hide();
+        $.ajax({ url: serverContext + 'stockAlertSummary', dataType: 'json', global: false }).done(function (d) {
+            if (!d || d.success === false) { empty(tr('ui.js.saOwnerOnly', 'Stock alerts are shown to owners and admins.')); return; }
+            var rows = [];
+            (d.expiredItems || []).forEach(function (it) {
+                rows.push([tr('ui.js.saTypeExpired', 'Expired'), it.name, tr('ui.js.saBatchLine', '{0} · expired {1}', qty(it.quantity), it.expiryDate || '') + (it.batchNo ? ' · ' + it.batchNo : '')]);
             });
-        }).fail(function () { $('#stockAlertsEmpty').show(); });
+            (d.expiringItems || []).forEach(function (it) {
+                rows.push([tr('ui.js.saTypeExpiring', 'Expiring soon'), it.name, tr('ui.js.saExpiresLine', '{0} · expires {1}', qty(it.quantity), it.expiryDate || '') + (it.batchNo ? ' · ' + it.batchNo : '')]);
+            });
+            (d.lowItems || []).forEach(function (it) {
+                rows.push([tr('ui.js.saLowHd', 'Low stock'), it.name, tr('ui.js.saLowLine', '{0} left (min {1})', qty(it.onHand), qty(it.min))]);
+            });
+            if (!rows.length) { empty(); return; }
+            rows.forEach(function (r) {
+                var $tr = $('<tr>');
+                r.forEach(function (c) { $tr.append($('<td>').text(c == null ? '' : c)); });
+                $b.append($tr);
+            });
+            // The summary lists the first few of each kind; say so when there are more.
+            var more = Math.max(0, Number(d.expired || 0) - (d.expiredItems || []).length)
+                + Math.max(0, Number(d.expiring || 0) - (d.expiringItems || []).length)
+                + Math.max(0, Number(d.low || 0) - (d.lowItems || []).length);
+            if (more > 0) $b.append($('<tr>').append($('<td colspan="3" class="text-muted">').text(tr('ui.js.saMore', '…and {0} more', more))));
+        }).fail(function () { empty(tr('ui.js.saOwnerOnly', 'Stock alerts are shown to owners and admins.')); });
     }
     global.loadStockAlerts = loadStockAlerts;
 

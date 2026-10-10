@@ -139,7 +139,6 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
   // ── L-04 — dispense: the patient is the customer ──────────────────────────────────────────────────
   it('L-04 [07] Dispense fills the sale AND names the patient as the customer — by id, so no duplicate is made', () => {
     relogin(PHARMACIST)
-    cy.intercept('POST', '**/addSell').as('sale')
     cy.intercept('POST', '**/dispensePrescription').as('dispense')
     cy.visit('/businessDashboard')
     cy.get('#snavPharmacy > .snav-btn').click()
@@ -156,8 +155,7 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
     // 2. Cash, complete.
     cy.get('#sellPayMethod').select('CASH', { force: true })
     cy.get('#sellRec').clear().type('1000')
-    cy.get('#addSell').click({ timeout: 30000 })
-    cy.confirmSale({ optional: true })
+    cy.clickAndConfirmSale('#addSell')   // waits for the dialog OR the sale: never races it
     cy.wait('@sale', { timeout: 30000 }).then(({ request, response }) => {
       // EXPECTED: the sale carried the PATIENT'S customer id — the one made at reception — and succeeded.
       expect(request.body.customer.customerId, 'the patient\'s customer, by id').to.eq(S.patient.customerId)

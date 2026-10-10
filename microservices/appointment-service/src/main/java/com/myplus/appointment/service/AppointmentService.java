@@ -143,7 +143,11 @@ public class AppointmentService {
         Venue h = hospitalRepo.findById(req.getHospitalId())
                 .orElseThrow(() -> new ResourceNotFoundException("Hospital not found: " + req.getHospitalId()));
         Long orgId = h.getOrganizationId();
-        Provider d = doctorRepo.findById(req.getDoctorId())
+        // H1 (the S2 gap): the doctor must belong to THIS venue's organisation and sit at THIS venue. It was loaded by
+        // id alone, so a crafted public request could book another organisation's doctor into this venue — reading
+        // its name and limits and filling its day. Refused exactly like an id that does not exist (no oracle).
+        Provider d = doctorRepo.findByIdAndOrganizationId(req.getDoctorId(), orgId)
+                .filter(p -> p.getVenueId() == null || p.getVenueId().equals(h.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found: " + req.getDoctorId()));
 
         Attendee patient = patientRepo.findFirstByPhoneAndOrganizationId(req.getPatientPhone(), orgId).orElse(null);

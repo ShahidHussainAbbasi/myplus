@@ -34,6 +34,16 @@ public class ClinicProvider {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    /** H2 (V7): the login this doctor IS — set by the owner / an admin, never by the doctor; NULL = not linked. */
+    @Column(name = "user_id")
+    private Long userId;
+
+    @Column(name = "linked_at")
+    private LocalDateTime linkedAt;
+
+    @Column(name = "linked_by")
+    private Long linkedBy;
+
     public static class Key implements Serializable {
         private static final long serialVersionUID = 1L;
         private Long organizationId;

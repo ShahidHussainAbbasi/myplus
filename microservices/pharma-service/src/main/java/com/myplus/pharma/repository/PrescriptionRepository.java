@@ -37,6 +37,9 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     List<Prescription> findByPartyScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                          @Param("partyId") Long partyId, Pageable pageable);
 
+    /** HMS S3b-1 — the prescription a doctor's Submit already made (uq_rx_external_ref). */
+    java.util.Optional<Prescription> findByOrganizationIdAndExternalRef(Long organizationId, String externalRef);
+
     /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
     @org.springframework.data.jpa.repository.Modifying
     @Query(value = "update prescriptions set party_id = :partyId where id = :id", nativeQuery = true)

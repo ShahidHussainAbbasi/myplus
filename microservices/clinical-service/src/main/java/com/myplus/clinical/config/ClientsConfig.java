@@ -63,6 +63,12 @@ public class ClientsConfig {
         return client(builder, "http://appointment-service", 8000, AppointmentDirectoryClient.class);
     }
 
+    /** HMS S3b-1 — the doctor's Submit. Idempotent on the far side (externalRef), so a timeout is safe to retry. */
+    @Bean
+    public PharmaRxClient pharmaRxClient(@LoadBalanced RestClient.Builder builder) {
+        return client(builder, "http://pharma-service", 6000, PharmaRxClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         return client(builder, "http://audit-service/api/audit", 5000, AuditClient.class);

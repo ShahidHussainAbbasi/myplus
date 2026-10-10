@@ -165,6 +165,144 @@ token from the patient card with the doctor preselected, the token slip on scree
 doctor, refreshed every 5 s), cancel and no-show. The transition API (call / start / park / resume / complete) is
 built and unit-tested in S2; the doctor's screen that drives it — and the role that limits it — is S3.
 
+## 4c. S3a design — the doctor's workspace, part 1 (2026-10-10)
+
+**What a person can do after it:** the doctor opens **My Queue**, calls the next patient, sees **name + MRN + date
+of birth** before anything clinical, records the complaint and vitals (range-checked), writes notes (append-only),
+and completes the visit — and sees the patient's earlier visits. Reception can no longer read any of it (M-15).
+S3b adds templates, the prescription writer, park/resume on screen and Submit to the pharmacy.
+
+### Who may consult — a permission, granted by the owner, placed on nobody
+
+| Piece | Where | Rule |
+|---|---|---|
+| `clinic.consult` ("See and write clinical records") | auth-service V20, module BUSINESS (a pharmacy's catalogue) | rides the existing `privileges` claim; the OWNER holds it (every code of the module); Administrator does NOT (its items were fixed in V12) |
+| Built-in set **Doctor** | V20, `organization_id NULL`, `is_builtin` | items: `clinic.consult` only — a doctor does not sell; **assigned to nobody** (V12/V16 lesson: place by what someone does, never by organisation) |
+| clinical-service | `@PreAuthorize("hasAuthority('clinic.consult')")` | on every encounter read/write AND on the doctor's token moves (call, recall, start, park, resume, complete); reception keeps issue, cancel, not-here |
+
+### Data (clinical-service V3) — typed, range-checked, append-only
+
+| Table | Columns that matter | Rule |
+|---|---|---|
+| `encounter` | `token_id` UNIQUE, patient, provider, doctor user, status OPEN/COMPLETED, chief_complaint, `bp_systolic`, `bp_diastolic`, `pulse`, `temperature_f`, `spo2`, `weight_kg`, `height_cm`, started/completed | one consultation per token (UNIQUE — a double "Start" is the same encounter); vitals refused outside human ranges (a temperature of 986 is a typo); edits while OPEN only, with `version` |
+| `clinical_note` | encounter, patient, author, `body VARCHAR(4000)`, `amends_note_id` | **never updated or deleted**; a correction is a new row pointing at the one it corrects |
+
+Temperature is in °F, as Pakistani clinics record it (90–110 accepted).
+
+### Known limits (stated)
+- Any user with `clinic.consult` may work any doctor's queue in the clinic (the screen remembers which doctor you are
+  on this device). Linking a login to one doctor is a later slice.
+- The code and the "Doctor" set sit in the BUSINESS catalogue, so a plain shop's Team screen also lists them. Harmless
+  (without the clinic switched on, clinical-service refuses everything), but visible; hiding them per capability is
+  its own change.
+
+## 4d. S3b-1 design — the doctor's prescription reaches the pharmacy (2026-10-10)
+
+**What a person can do after it:** in the consultation the doctor adds medicines from the pharmacy's own catalogue
+(quantity, dose, frequency, days), and presses **Submit**. The prescription then appears in the pharmacy's
+Prescriptions list — findable by the token — marked as written by the doctor, with the doctor's name and the
+complaint; Dispense works on it exactly as on a counter prescription. Park / Resume for tests are on screen.
+
+| Piece | Where | Rule |
+|---|---|---|
+| Draft lines | clinical-service V5 `encounter_rx_item` | the doctor's working list; replaced as a whole on Save; **frozen once submitted** (07c: a submitted prescription is never edited in place) |
+| Submit | clinical → pharma-service `POST /api/pharma/prescriptions` (doctor's identity forwarded) | one prescription per visit: `external_ref = "enc-<id>"` is UNIQUE per organisation (pharma V9), so a retried Submit returns the SAME prescription |
+| What the pharmacy sees | pharma V9: `source` (DOCTOR / COUNTER), `token_label`, `encounter_id` | `party_id` is set at once from the patient (not left to the best-effort bridge), so the token / MRN / phone search finds it immediately |
+| Parked = invisible (06b) | by construction | nothing exists in pharma-service until Submit |
+
+Not in S3b-1: templates (S3b-2), drug-interaction checks at submit (the pharmacy's existing safety check still runs
+at Dispense).
+
+## 4e. S3b-2 design — prescription templates (2026-10-10)
+
+**What a person can do after it:** the doctor saves the prescription on screen as a template ("Fever + Flu"); on
+the next patient they choose it, press **Use**, and the lines fill in. Each line stays editable (quantity, dose,
+frequency, duration) before Save / Submit, e.g. dose "1+0+1". The same idea as OpenMRS *order sets* and the
+"favourite prescriptions" of clinic software: a starting point, never a prescription by itself.
+
+| Piece | Where | Rule |
+|---|---|---|
+| Template | clinical V6 `rx_template` + `rx_template_item` | per clinic (shared by its doctors); name unique per clinic, case-insensitive (`name_key`); at most 200 active; retired, never deleted |
+| Use | the screen | merges into the lines on screen: a medicine already there is skipped; a medicine no longer in the pharmacy's list is skipped **and named**; nothing is saved until Save / Submit |
+| Who | `clinic.consult` | the front desk cannot read or write templates (M-15) |
+
+```mermaid
+flowchart LR
+  W[Doctor writes lines] -->|Save as template + name| T[(rx_template)]
+  T -->|Use| L[Lines on screen, editable]
+  L -->|Save / Submit| E[encounter_rx_item → pharmacy]
+```
+
+## 4f. Phase 1b — the client's rulings of 2026-10-10 and the build order
+
+| # | Client's ruling | How mature systems do it | Design here |
+|---|---|---|---|
+| L-1 | **Product check: yes** | e-prescribing (NHS EPS, Surescripts) prescribes from a coded catalogue; an unknown item is refused at source | pharma refuses a doctor's line whose product is not an active product of that pharmacy, at Submit, in words naming the line |
+| L-2 | **Doctor registration by the clinic owner / admin, linked to a login** | OpenMRS *Provider* ↔ *User*; Epic provider (SER) ↔ user (EMP); Odoo `hr.employee.user_id`: the clinical identity is its own record, linked 1:1 to the login, both created by the admin with an invite email | one **Register doctor** form (name, speciality, mobile, email, daily limit): creates the login through auth's existing `createOrgUser` (set-password email), puts it on the **Doctor** set, creates the doctor, and links `clinic_provider.user_id`. An existing member can be linked instead. A linked doctor's My Queue opens on **their own** queue; the doctor picker is gone for them |
+| L-3 | **The doctor is attached to the prescription automatically; only the pharmacist modifies / dispenses / cancels it** | NHS EPS: the prescription is immutable once signed; the pharmacy records what it dispensed and why (partial, substituted, not dispensed) | the doctor (name + registration) is stamped from the **linked login** at Submit, never typed; after Submit the doctor and reception cannot change or cancel it; the pharmacist adjusts the SALE (RX-FILL) and cancels with a **reason the doctor sees**. The "Doctor" set is shown only where the clinic is switched on |
+| L-4 | **The owner / admin links doctors to a pharmacy; a doctor's prescription lands there automatically** | nominated / preferred pharmacy (NHS EPS nomination; eClinicalWorks / Practo preferred pharmacy) | a doctor ↔ pharmacy link set by the owner/admin; Submit routes to it; the pharmacy's list shows only prescriptions routed to it *(scope of "pharmacy" — see the question below)* |
+| L-5 | **Translations: all languages** | — | every clinic key in en / fr / es / hi / ar / ur (ar and ur right-to-left, already supported by the platform) |
+| L-6 | **Times: the client's / browser's zone** — already documented and partly built | Shopify / Xero: business documents in the shop's zone; Gmail / Slack: activity in the viewer's zone | finish and switch on **TZ-1 P1** (edge translation in the monolith, written but OFF). Clinic times then convert with every other screen; nothing clinic-only |
+
+### Build order (each a vertical slice with its gate; tests and deploys asked for each time)
+
+| Slice | What | Size |
+|---|---|---|
+| **H1** | L-1 product check + the S2 gap `bookPublicAttempt` (doctor not checked against venue / org) | small |
+| **H2** | L-2 Register doctor + login link; My Queue on the doctor's own queue | medium |
+| **H3** | L-3 doctor stamped from the login; post-Submit lock; pharmacist-only cancel with reason; Doctor set only where the clinic is on | medium |
+| **H4** | L-4 doctor ↔ pharmacy routing | medium (depends on the answer below) |
+| **H5** | L-5 translations of every clinic key | small |
+| **H6** | L-6 TZ-1 P1 switched on (platform; every screen) | large — own gate across modules |
+| then | S3c (03, M-04, 04c) and S5 (access log, SEC-007, M-14) | as planned |
+
+**Answers (2026-10-10):** L-4 — the pharmacy is **a branch (store) of this business**; routing is doctor → store.
+L-3 — the pharmacist may edit **the prescription itself** (not only the sale). Departure from NHS EPS immutability,
+so the doctor's ORIGINAL lines are never overwritten: every pharmacist change is an **amendment** row (who, when, why,
+before → after), the current lines are derived from original + amendments, and the doctor sees both.
+
+```mermaid
+flowchart LR
+  A[Owner / admin: Register doctor] -->|createOrgUser + Doctor set| L[Login]
+  A --> P[Doctor provider]
+  L ---|linked 1:1| P
+  A -->|link| PH[Pharmacy]
+  P -->|Submit: doctor stamped from login| RX[Prescription]
+  RX -->|routed| PH
+  PH -->|only the pharmacist: dispense, adjust the sale, cancel with reason| S[Sale]
+```
+
+## 4g. H2 design — Register doctor, linked to a login (2026-10-10)
+
+**What a person can do after it:** the owner or an admin opens Clinic → Doctors → **Register doctor**, enters the
+doctor's name, speciality, mobile, **email** and daily limit, and saves. The doctor gets a set-password email; when they
+sign in, **My queue** opens on their own queue with no doctor to choose. An existing team member can be linked to an
+existing doctor instead (**Link login**).
+
+| Decision | Why |
+|---|---|
+| **The link grants clinical access** (a login linked to a doctor of this clinic may consult), in addition to the Doctor set | the ruling says owner OR admin registers; permission sets are OWNER-only (PERM-1 ruling) — so the clinical identity itself carries the access, as OpenMRS (Provider ↔ User) and Epic (SER ↔ EMP) do |
+| A **linked** doctor works only **their own** queue and visits; the owner and Doctor-set members without a link work all (cover) | ruling L-2 "linking will be to that login"; closes the S3a known limit |
+| Register / Link / Add doctor: **owner or admin only** (`ROLE_OWNER` or `ADMIN_ROLE`, the team-management rule) | RULE 0 found `POST /api/clinic/doctors` open to every clinic user (front desk could add doctors) — closed |
+| One login ↔ one doctor per clinic (`uq_provider_user`); **no self-link**; every link/unlink audited | an admin must not make themselves a doctor; the trail says who credentialed whom |
+| Orchestration in the monolith BFF: auth `createOrgUser` (it needs the caller's bearer) → clinical `register` | the login is auth's; if linking fails after the login exists, the screen says so and **Link login** finishes it (never a second login) |
+
+```mermaid
+sequenceDiagram
+  participant O as Owner / admin
+  participant M as Monolith (BFF)
+  participant A as auth-service
+  participant C as clinical-service
+  participant AP as appointment-service
+  O->>M: Register doctor (name, speciality, email, limit)
+  M->>A: createOrgUser(email, USER) → userId + set-password email
+  M->>C: POST /doctors/register {doctor…, userId}
+  C->>AP: create doctor at the clinic venue
+  C->>C: clinic_provider.user_id = userId (unique, not the caller)
+  C-->>M: doctor + linked login
+  Note over M,C: if the clinical step fails: the login exists → "Link login" completes it
+```
+
 ## 5. Still open
 
 | # | Question | Blocks |
@@ -188,3 +326,20 @@ built and unit-tested in S2; the doctor's screen that drives it — and the role
 | 2026-10-10 | **S4-lite built (awaiting tests + deploy).** Pharmacy search: `/searchPrescriptions` (monolith) → clinic `/patients/resolve` (token of today / MRN / phone → person) → pharma `/prescriptions/search` (by party, else text; paged, hasMore) + pharma V8 index (org, party_id, created_at); text fallback when the person search is empty. Dispense presets the PATIENT as customer: business `/customerForParty` (org-wide), selected in the list or sent by id (`window.dispensingCustomerId`) so a pharmacist who cannot see reception's customer never creates a duplicate. ⚠ SECURITY FIX: `CustomerService.saveUpdateCustomer` loaded a sale's customerId tenant-blind and stamped the caller's org on it (cross-tenant customer move) → now `findByIdScoped`, refusal "Customer not found". Gate `hms-s4lite-pharmacy.cy.js` (5 cases). |
 | 2026-10-10 | **S4-lite gate 5/5** after the user rebuilt business+clinical (deploy.ps1). Fixed during the gate: (1) clinical — appointment-service doctor list timed out (4 s, cold) → bare 500; now one retry + 8 s timeout + every transport failure said in words (unit 40/40). (2) business — SagaSaleWriter wrapped the "Customer not found" refusal → "An unexpected error occurred"; now passes through (stock hold still released by the saga). (3) UI — "Load more"/"Clear" could not be hidden: **theme.css forces `.btn { display:inline-flex !important }`**, so `.hide()`/`.toggle()`/inline display:none never hide a button (computed inline-flex, proven by probe). S4-lite now hides WRAPPERS; the global rule is a FINDING, not changed (other screens may depend on it). Needs a monolith rebuild for (3). |
 | 2026-10-10 | **S4-lite ✅ 5/5 (twice) + S2 11/11** after the monolith rebuild (Load more / Clear now hide via wrappers). Screenshots + video saved locally (scratchpad shots-s4l). Test page NOT updated: it belongs to the other account (this one is not a writer). Nothing committed. NEXT: publish page from the owning account → S3 doctor workspace. |
+| 2026-10-10 | **S3a built (awaiting tests + deploy).** auth-service V20: permission `clinic.consult` (BUSINESS) + built-in set "Doctor" (only that code), placed on NOBODY. clinical-service V3 `encounter` (one per token, typed vitals) + `clinical_note` (append-only, `amends_note_id`); ConsultService/ConsultController `/api/clinic/consult`; doctor token moves (call/recall/start/park/resume/complete) now need clinic.consult, reception keeps issue/cancel/not-here; 403 keeps its sentence (ClinicalAccessAdvice). Monolith: proxy + My Queue (sec:authorize clinic.consult) + consultation panel. Gate `hms-s3a-doctor.cy.js` (5 cases; admin.pharma → Doctor set in before, restored in after). |
+| 2026-10-10 | **S3a gate run 1: 3/5** (D-01 real screen, D-04 M-15, D-05 tenancy green; S2 11/11). Two real defects: (1) `ConsultService.open` was `readOnly` but writes the PHI-view audit → "Connection is read-only" 500 on GET a visit → read-write now; (2) V2 `live_patient_id` counted COMPLETED as live while QueueService.LIVE does not → a same-day second visit with the same doctor hit uq_token_live as a raw 500 → **V4** makes COMPLETED free the day; the race fallback now answers in words. Awaiting clinical-service redeploy. |
+| 2026-10-10 | **S3a ✅ 5/5** after the clinical-service redeploy (V4 live). Page (account B) v2 published with S3a. Polish noted for the next monolith deploy: the consultation banner shows the raw status code (IN_CONSULTATION) instead of the board's words ("With doctor"). NEXT: S3b — templates, prescription writer, park/resume on screen, Submit to the pharmacy (doctor-authored Rx with the token). Nothing committed (user: not yet). |
+| 2026-10-10 | **S3b-1 built (awaiting tests + deploy).** pharma V9 (`source`, `token_label`, `encounter_id`, `external_ref` UNIQUE per org) + idempotent create (same `enc-<id>` → same prescription); a visit reference needs `clinic.consult` (the counter form relays its body as is — it could otherwise post a script as the doctor's). clinical V5 `encounter_rx_item` + `encounter.rx_id`; PUT `/encounters/{id}/rx` (whole list, frozen once sent), POST `/rx/submit`; Start on a PARKED token resumes it. Monolith: prescription card (datalist over ProductPicker's cached list), Park with a reason, status words in the banner, "From the doctor · A-040" in the pharmacy list. Gate `hms-s3b1-prescription.cy.js` (7 cases). Both HMS specs now COMPLETE the visits they leave with the doctor (cancel only applies to waiting/called). Known limit: a doctor-submitted script with a party id set skips the pharma party bridge, so Contact-360 lacks its pharma PATIENT role link. |
+| 2026-10-10 | **S3b-1 ✅ 7/7** (S3a 5/5 again). R-07 first checked only "not accepted"; pharma answers EVERY 403 with "Access denied", so a pharmacist who may not record prescriptions at all would have passed it — a control case (same body without the claim → accepted, COUNTER) now proves the refusal is the visit-reference rule. ⚠ OPEN defect seen in the screenshots: the "Sent to the pharmacy" time and the pharmacy list Date show the server UTC clock (08:07 for 13:07 PKT) — `LocalDateTime.now()` in clinical `submitRx` and pharma `prePersist`; belongs to TZ-2 (TenantClock / X-Client-Tz). Page v3 published. NEXT: S3b-2 templates. |
+| 2026-10-10 | **S3b-2 built (awaiting tests + deploy).** clinical V6 `rx_template` (+ `name_key` unique per clinic, NULL when retired) + `rx_template_item`; RxTemplateService (doctor-only; same line rules as a visit; max 200; retire frees the name); `/api/clinic/consult/templates` GET/POST + `/{id}/retire`. Screen: template bar (Use / Remove / Save as template) and EDITABLE lines (qty, dose, frequency, duration) until sent. Use skips a medicine already on screen and NAMES one the pharmacy no longer has. Gate `hms-s3b2-templates.cy.js` (6 cases). Known limit (S3b-1 too): the server checks a line has a product id, not that the product exists in the pharmacy — the screen only offers the pharmacy list; Dispense would fail on an unknown id. |
+| 2026-10-10 | **S3b-2 gate run 1: 1/6** — ONE real defect: `itemsOf` (returns RxTemplateItem) was declared on RxTemplateRepo; Spring Data read the foreign return type as a DTO projection and rewrote it to `SELECT new RxTemplateItem(*)` → every template list read was a 500 (T-01/T-04/T-06; T-02/T-03 cascaded from T-01). Mocked unit tests could not see it. Moved to RxTemplateItemRepo; scanned every clinical repo for a foreign return type — none. Cleanup hooks ran clean. Awaiting clinical-service redeploy. S3b-1 7/7 in the same run. |
+| 2026-10-10 | **S3b-2 ✅ 6/6** after the clinical-service redeploy (itemsOf on RxTemplateItemRepo). Page v4 published. ⚠ UX finding (open): `#clinMsg` sits at the top of the clinic page — a message from the prescription area (e.g. "Not in the pharmacy's list any more") shows out of view while the doctor works lower down; T-03's screenshot does not show it. Open defects now: (1) times shown in UTC, (2) messages out of view. NEXT per plan: S4 (dispense adjustments, case 08) / S5 (access log, SEC-007, M-14). |
+| 2026-10-10 | **S4 designed + gated (no dispense code).** Case 08 is already built by RX-FILL (another session, 2026-10-09, deployed, NOT committed): fill on Dispense, +/− while dispensing, "N left for another day", PARTIALLY_DISPENSED, Park keeps the link. S4 adds the gate `hms-s4-dispense-adjust.cy.js` (3 cases: the DOCTOR's script → − → partial; another day fills only what is owed → full; the doctor's lines never change). Open defect 2 FIXED in the monolith: `#clinMsg` is a fixed, dismissable notice (S3b-2 T-03 now asserts it is INSIDE the viewport). Open defect 1 (UTC times) handed to TZ-1 P1/P3 with the clinic sites listed — not patched clinic-only. ⚠ S4 depends on RX-FILL, which is uncommitted: committing HMS without it would ship a gate that cannot pass. |
+| 2026-10-10 | **S4 ✅ 3/3** (no dispense code; RX-FILL proven on the DOCTOR's script over two days). Two SPEC defects found by the run, not product: (1) `confirmSale({optional:true})` looks once and races "Complete this sale?" — new shared command `cy.clickAndConfirmSale()` waits for the dialog OR the sale request (S3b-1 7/7, S4-lite 5/5, S4 on it); (2) the Rx list redraws between the recent list and the search result — wait for each `@search` before touching a row. Screenshots go to a private folder (`CYPRESS_screenshotsFolder`): another session wiped the shared one mid-run again. S3b-2 6/6 with the in-viewport message check (fix live). Page v5. Pending: 03, M-04, 04c (doctor queue behaviours) + S5 (M-14 access log, SEC-007). |
+| 2026-10-10 | **Client rulings L-1..L-6 recorded (§4f) + answers** (pharmacy = a branch of this business; the pharmacist may edit the prescription itself → amendment history). **H1 built (awaiting tests + deploy):** (1) pharma `PrescribedProductCheck` — a doctor's Submit names only products of THIS pharmacy's catalogue (`CatalogClient.getProductsFresh`, live, scoped by headers; refusal names the line; unreachable catalogue → "Press Submit again"); counter prescriptions unchanged. (2) appointment `bookPublicAttempt` loads the doctor with `findByIdAndOrganizationId(venue org)` + same venue — refused like a missing id. RULE 0: 1 remaining unscoped `findById` in appointment-service = the venue of a PUBLIC booking (the org is derived from it) — deliberate. Inactive products are still accepted (ProductRef carries no active flag; changing the shared contract is its own step). Gate `hms-h1-hardening.cy.js` (3 cases, H1-02 with a control). |
+| 2026-10-10 | **H1 ✅ 3/3** (pharma + appointment redeployed by the user). ⚠ **NEW DEFECT, pre-existing, NOT fixed (needs consent): online booking is unusable for the public on the Docker deploy.** `/appointment` lists NO hospital to an anonymous visitor: `AppointmentRestClient.getMap` → GatewayClient falls back to the DIRECT url `appointment.service.url` (default `http://localhost:8091`) when there is no login token; inside the monolith container that is not appointment-service → `ResourceAccessException ... localhost:8091/hospitals` (log-proven), swallowed → empty list. `/loadDoctorsByHospital` (anonymous) is the same path. Signed in, both go through the gateway and work — which is why S2-11 never saw it. Booking SUBMIT (`postPublic`) uses the gateway open route and works. Fix direction: public read routes on appointment-service under the already-open `/api/appointment/public/**` (venues; a venue's doctors — public fields only) and the monolith calling them through the gateway like postPublic. |
+| 2026-10-10 | **P-BOOK-1 built (awaiting tests + deploy).** appointment `PublicDirectoryService` + 3 open GETs under `/api/appointment/public/` (venues; a venue's doctors — its own org only; a doctor) with PUBLIC fields only (venue: id,name,city; doctor: id,name,speciality,days,times — never email/phone/mobile/fee/org). Monolith `AppointmentRestClient.getPublic` (gateway open route, like postPublic); `/appointment`, `/loadDoctorsByHospital`, `/loadDoctorDetails` use it; DoctorController ESCAPES every tenant-typed value it puts into the public HTML (was raw concatenation = stored XSS on a public page). RULE 0 — 5 monolith readers of venues/doctors: 3 public (fixed), 2 signed-in own-org (`/addDoctor`, `/loadHospitals`, unaffected). Finding, NOT changed: `/registerHospital*` is permitAll and anonymous would hit the same direct-URL fallback — but an anonymous venue belongs to no business. Gate `cypress/e2e/appointment/public-booking-page.cy.js` (3 cases, no login). |
+| 2026-10-10 | **P-BOOK-1 ✅ 3/3** (appointment + monolith redeployed by the user). The anonymous page now renders the venues (60 options vs 4 before); a visitor books and gets a number. First run 0/3 was the SPEC (`[...$opts]` — a jQuery collection is not spreadable; `.toArray()`). Page (new link GUajsFnxz68…) updated. Observation for later (product decision, not changed): the public list shows EVERY business's venues including test venues ("S2 Venue …"); a per-venue "accept online bookings" opt-in is the SaaS norm. NEXT: H2 Register doctor. |
+| 2026-10-10 | **H2 built (awaiting tests + deploy).** clinical V7 `clinic_provider.user_id` (+ linked_at/by, `uq_provider_user`). ClinicAccess: consult = Doctor permission OR a LINKED login (admins can register doctors; sets stay owner-only); `assertMayWorkProvider` — a linked doctor works only their own queue/visits (QueueService doctor moves + Call next; ConsultService `scoped` + Start); `assertClinicAdmin` (ROLE_OWNER / ADMIN_ROLE) on add/register/link/unlink. **RULE 0 fix:** `POST /api/clinic/doctors` was open to every clinic user. Rules: no self-link for an admin (the owner may: the one doctor of a small clinic); one login = one doctor; link checked BEFORE the doctor is created; audit CLINIC_DOCTOR_LINK/UNLINK. Monolith BFF `POST /clinic/doctors/register` = auth createOrgUser (bearer) → clinical register; failure after the login exists says "Link login". Screen: Register a doctor (email + "Create their login", default on), Login column with Link/Unlink (owner/admin), My queue revealed by `/clinic/doctors/me` and opening on the linked doctor without a picker. S2 + S3a specs adjusted. Gate `hms-h2-register-doctor.cy.js` (6 cases). ⚠ GAP (not built, product decision): **there is no way to remove or disable a team member** (auth has no route; the monolith has none) — each H2 run leaves one login (`h2.<run>@test.myplus.com`); staff who leave cannot be switched off. Dev mail does not reach Mailpit (0 messages) — a new login cannot be signed in by a gate. |
+| 2026-10-10 | **H2 gate ✅ 6/6** (S3a 5/5, S3b-1 7/7 in the same run). **S2-09 red = a real rule flaw:** owner.pharma (user 82) had linked THEIR OWN login to Dr Ahmed (gate) at 17:16 (not a gate — by hand, before this run; allowed: only an owner may self-link), and the own-queue rule then limited the OWNER → "This is Dr Sana (gate)'s patient". Fixed: `assertMayWorkProvider` returns at once for ROLE_OWNER — for an owner the link only chooses which doctor My queue opens on (unit 71/71, new case). That self-link is the user's data and is LEFT in place. The other linked row (user 283 → provider 69) is H2-01's registered login — expected residue; admin.pharma was unlinked by after() as designed. Awaiting clinical-service redeploy, then S2 + H2 again. |
+| 2026-10-10 | **H2 ✅ 6/6 + S2 11/11** after the clinical redeploy (owner never limited). Page v3 at GUajsFnxz68… (14.9 MB — near the 16 MB cap: compress screenshots before the next publish). UX finding for the next monolith deploy: the Doctors table (new Login column) is wider than 1280 px; day tools cut off. Open gaps: no remove/disable team member; dev mail not in Mailpit. NEXT: H3 (doctor stamped from the login; pharmacist-only edit/cancel with amendment history; Doctor set only where the clinic is on). |

@@ -13,4 +13,7 @@ public interface ClinicProviderRepo extends JpaRepository<ClinicProvider, Clinic
     Optional<ClinicProvider> findByOrganizationIdAndProviderId(Long organizationId, Long providerId);
 
     List<ClinicProvider> findByOrganizationId(Long organizationId);
+
+    /** H2 — the doctor a login IS in this clinic (uq_provider_user: at most one). */
+    Optional<ClinicProvider> findByOrganizationIdAndUserId(Long organizationId, Long userId);
 }

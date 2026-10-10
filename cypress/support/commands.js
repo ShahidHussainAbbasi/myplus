@@ -1327,6 +1327,26 @@ Cypress.Commands.add('confirmSale', (opts) => {
   })
 })
 
+/**
+ * Press the sale button and confirm IF the till asks — deterministically. Registers `@sale` (POST addSell).
+ *
+ * WHY: `confirmSale({ optional: true })` looks ONCE, at once; when "Complete this sale?" renders a moment later the
+ * probe has already moved on, the dialog waits forever and no sale is sent (HMS S4 gate D4-01, 2026-10-10 — the video
+ * shows the dialog up while `cy.wait('@sale')` timed out). Here we wait up to 15 s for EITHER the dialog OR the sale
+ * request itself, and click OK only when the dialog is what came.
+ */
+Cypress.Commands.add('clickAndConfirmSale', (selector) => {
+  let sent = false
+  cy.intercept('POST', '**/addSell', () => { sent = true }).as('sale')
+  cy.get(selector || '#addSell').click({ timeout: 30000 })
+  cy.get('body', { timeout: 15000 }).should(($b) => {
+    expect(sent || $b.find('[data-ui-confirm="ok"]:visible').length > 0,
+      'the till asked "Complete this sale?" or has already sent the sale').to.eq(true)
+  }).then(($b) => {
+    if (!sent && $b.find('[data-ui-confirm="ok"]:visible').length) cy.get('[data-ui-confirm="ok"]').click({ force: true })
+  })
+})
+
 // ── the barcode scan box ───────────────────────────────────────────────────────────
 /**
  * Make the sale screen's scan box (#sellScan) usable for a spec that needs to scan.

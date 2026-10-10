@@ -90,7 +90,8 @@ public class AppointmentController {
     public ModelAndView appointment(final Locale locale, final Model model) {
         java.util.List<Map<String, Object>> hospitalList = new java.util.ArrayList<>();
         try {
-            Map<String, Object> resp = appointment.getMap("/hospitals");
+            // P-BOOK-1: the PUBLIC venue list (public fields), read anonymously through the gateway's open route
+            Map<String, Object> resp = appointment.getPublic("/public/venues");
             List<Map<String, Object>> hospitals = (List<Map<String, Object>>) resp.get("data");
             if (hospitals != null) {
                 for (Map<String, Object> h : hospitals) {

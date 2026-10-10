@@ -18,7 +18,10 @@ import com.myplus.clinical.config.AppointmentDirectoryClient.Doctor;
 import com.myplus.clinical.dto.QueueDtos.DayRequest;
 import com.myplus.clinical.dto.QueueDtos.DoctorView;
 import com.myplus.clinical.dto.QueueDtos.IssueRequest;
+import com.myplus.clinical.dto.QueueDtos.LinkRequest;
+import com.myplus.clinical.dto.QueueDtos.MeView;
 import com.myplus.clinical.dto.QueueDtos.NewDoctorRequest;
+import com.myplus.clinical.dto.QueueDtos.RegisterDoctorRequest;
 import com.myplus.clinical.dto.QueueDtos.TokenView;
 import com.myplus.clinical.entity.ClinicProvider;
 import com.myplus.clinical.entity.Patient;
@@ -61,6 +64,9 @@ public class QueueService {
     private final ClinicSettings settings;
     private final ClinicAuditService audit;
 
+    /** S3a — the moves only a doctor makes (clinic.consult). Reception: issue, cancel, noShow. */
+    static final java.util.Set<String> DOCTOR_MOVES = java.util.Set.of("call", "recall", "start", "park", "resume", "complete");
+
     // ── doctors ─────────────────────────────────────────────────────────────────────────────────────────
 
     /** The clinic's doctors with today's numbers: one call to appointment-service, one board read. */
@@ -69,8 +75,11 @@ public class QueueService {
         Long org = access.org();
         LocalDate today = TenantClock.today();
         List<Doctor> ds = directoryDoctors();
-        Map<Long, String> letters = prefixes.findByOrganizationId(org).stream()
+        List<ClinicProvider> rows = prefixes.findByOrganizationId(org);
+        Map<Long, String> letters = rows.stream()
                 .collect(Collectors.toMap(ClinicProvider::getProviderId, ClinicProvider::getTokenPrefix));
+        Map<Long, Long> linked = rows.stream().filter(r -> r.getUserId() != null)
+                .collect(Collectors.toMap(ClinicProvider::getProviderId, ClinicProvider::getUserId));
         Map<Long, ProviderDay> changes = days.findByOrganizationIdAndVisitDate(org, today).stream()
                 .collect(Collectors.toMap(ProviderDay::getProviderId, Function.identity()));
         Map<Long, List<QueueToken>> byDoctor = tokens.board(org, today).stream()
@@ -87,6 +96,7 @@ public class QueueService {
                     .issuedToday(mine.stream().filter(t -> !QueueStatus.CANCELLED.equals(t.getStatus())).count())
                     .waitingNow(mine.stream().filter(t -> QueueStatus.WAITING.equals(t.getStatus())).count())
                     .withDoctorNow(mine.stream().filter(t -> QueueStatus.WITH_DOCTOR.contains(t.getStatus())).count())
+                    .linkedUserId(linked.get(d.getId()))
                     .build();
         }).sorted(Comparator.comparing(DoctorView::getName, String.CASE_INSENSITIVE_ORDER)).toList();
     }
@@ -94,6 +104,7 @@ public class QueueService {
     /** Add a doctor to the clinic: appointment-service owns the doctor; the clinic's first venue is made if needed. */
     public DoctorView addDoctor(NewDoctorRequest req) {
         access.assertModuleOn();
+        access.assertClinicAdmin();   // H2: was open to every clinic user (the front desk could add doctors)
         Long org = access.org();
         String name = req.getName() == null ? "" : req.getName().trim().replaceAll("\\s+", " ");
         if (name.isEmpty()) throw new ValidationException("Enter the doctor's name.");
@@ -117,6 +128,93 @@ public class QueueService {
         audit.record(AuditRecord.builder().action("CLINIC_DOCTOR_ADD").entityType("PROVIDER")
                 .entityRef(String.valueOf(d.getId())).details(limit == null ? "no daily limit" : "limit " + limit).build());
         return doctors().stream().filter(v -> v.getId().equals(d.getId())).findFirst().orElseThrow();
+    }
+
+    // ── H2: a doctor IS a login (registered or linked by the owner / an admin) ─────────────────────────────
+
+    /**
+     * Register doctor: the doctor at the clinic venue AND the link to the login auth-service just made for them.
+     * The link's preconditions are checked BEFORE the doctor is created, so a refused link never leaves a stray doctor.
+     */
+    public DoctorView registerDoctor(RegisterDoctorRequest req) {
+        access.assertModuleOn();
+        access.assertClinicAdmin();
+        Long org = access.org();
+        if (req == null || req.getUserId() == null) throw new ValidationException("The doctor's login is missing. Register again.");
+        assertLinkable(org, req.getUserId(), null);
+        DoctorView d = addDoctor(NewDoctorRequest.builder().name(req.getName()).speciality(req.getSpeciality())
+                .fee(req.getFee()).mobile(req.getMobile()).dailyLimit(req.getDailyLimit()).build());
+        return link(d.getId(), req.getUserId());
+    }
+
+    /** Link an existing login to an existing doctor (also how a registration whose last step failed is completed). */
+    public DoctorView link(Long providerId, Long userId) {
+        access.assertModuleOn();
+        access.assertClinicAdmin();
+        Long org = access.org();
+        Doctor d = doctorOf(providerId);
+        if (userId == null) throw new ValidationException("Choose the login to link.");
+        assertLinkable(org, userId, d.getId());
+        prefixFor(org, d.getId());   // the clinic's row for this doctor exists from here on
+        ClinicProvider row = prefixes.findByOrganizationIdAndProviderId(org, d.getId()).orElseThrow();
+        if (row.getUserId() != null && !row.getUserId().equals(userId)) {
+            throw new ValidationException(d.getName() + " is linked to another login. Unlink it first.");
+        }
+        row.setUserId(userId);
+        row.setLinkedAt(java.time.LocalDateTime.now());
+        row.setLinkedBy(access.userId());
+        try {
+            prefixes.saveAndFlush(row);
+        } catch (DataIntegrityViolationException raced) {
+            throw new ValidationException("That login was just linked to another doctor. Refresh the Doctors list.");
+        }
+        audit.record(AuditRecord.builder().action("CLINIC_DOCTOR_LINK").entityType("PROVIDER")
+                .entityRef(String.valueOf(d.getId())).details("login " + userId + " linked to " + d.getName()).build());
+        return doctors().stream().filter(v -> v.getId().equals(d.getId())).findFirst().orElseThrow();
+    }
+
+    public DoctorView unlink(Long providerId) {
+        access.assertModuleOn();
+        access.assertClinicAdmin();
+        Long org = access.org();
+        Doctor d = doctorOf(providerId);
+        prefixes.findByOrganizationIdAndProviderId(org, d.getId()).filter(r -> r.getUserId() != null).ifPresent(r -> {
+            Long was = r.getUserId();
+            r.setUserId(null);
+            r.setLinkedAt(null);
+            r.setLinkedBy(null);
+            prefixes.saveAndFlush(r);
+            audit.record(AuditRecord.builder().action("CLINIC_DOCTOR_UNLINK").entityType("PROVIDER")
+                    .entityRef(String.valueOf(d.getId())).details("login " + was + " unlinked from " + d.getName()).build());
+        });
+        return doctors().stream().filter(v -> v.getId().equals(d.getId())).findFirst().orElseThrow();
+    }
+
+    /** "Which doctor am I" — My Queue opens on it and hides the doctor picker. */
+    public MeView me() {
+        access.assertModuleOn();
+        Long org = access.org();
+        Optional<ClinicProvider> mine = prefixes.findByOrganizationIdAndUserId(org, access.userId());
+        boolean canConsult;
+        try { access.assertCanConsult(); canConsult = true; } catch (org.springframework.security.access.AccessDeniedException no) { canConsult = false; }
+        if (mine.isEmpty()) return MeView.builder().canConsult(canConsult).build();
+        String name = directoryDoctors().stream().filter(x -> x.getId().equals(mine.get().getProviderId()))
+                .map(Doctor::getName).findFirst().orElse(null);
+        return MeView.builder().providerId(mine.get().getProviderId()).name(name)
+                .tokenPrefix(mine.get().getTokenPrefix()).canConsult(true).build();
+    }
+
+    /**
+     * A login may be linked when: it is not the caller (an admin never makes THEMSELVES a doctor — only the owner may,
+     * e.g. the one doctor of a small clinic), and it is not already another doctor of this clinic.
+     */
+    private void assertLinkable(Long org, Long userId, Long providerId) {
+        if (userId.equals(access.userId()) && !access.isOwner()) {
+            throw new ValidationException("You cannot link your own login as a doctor. The owner can.");
+        }
+        prefixes.findByOrganizationIdAndUserId(org, userId)
+                .filter(r -> providerId == null || !r.getProviderId().equals(providerId))
+                .ifPresent(r -> { throw new ValidationException("That login is already linked to another doctor of this clinic."); });
     }
 
     /** One day's change: another limit, closed, or back to the usual. */
@@ -195,7 +293,10 @@ public class QueueService {
         } catch (DataIntegrityViolationException raced) {
             // another desk gave this patient a token with this doctor a moment ago
             QueueToken other = tokens.patientTokens(org, p.getId(), today, QueueStatus.LIVE).stream()
-                    .filter(x -> x.getProviderId().equals(d.getId())).findFirst().orElseThrow(() -> raced);
+                    .filter(x -> x.getProviderId().equals(d.getId())).findFirst()
+                    // never a raw 500: if the winner cannot be read back, still say it in words
+                    .orElseThrow(() -> new ValidationException(p.getName() + " already has a token with " + d.getName()
+                            + " today. Refresh the queue."));
             throw new ValidationException(p.getName() + " already has token " + other.getTokenLabel() + " with " + d.getName() + " today.");
         }
         audit.record(AuditRecord.builder().action("TOKEN_ISSUE").entityType("TOKEN").entityRef(saved.getTokenLabel())
@@ -234,7 +335,10 @@ public class QueueService {
         Long org = access.org();
         QueueStatus.Move m = QueueStatus.MOVES.get(action);
         if (m == null) throw new ValidationException("Unknown action: " + action);
+        // S3a (M-15): the consultation's moves are the doctor's; reception keeps cancel and not-here.
+        if (DOCTOR_MOVES.contains(action)) access.assertCanConsult();
         QueueToken t = scoped(id, org);
+        if (DOCTOR_MOVES.contains(action)) access.assertMayWorkProvider(t.getProviderId(), t.getProviderName());
         if ("park".equals(action) && (reason == null || reason.isBlank())) {
             throw new ValidationException("Say why the patient is parked, e.g. CBC pending.");
         }
@@ -260,6 +364,8 @@ public class QueueService {
     /** "Call next": the lowest WAITING token of the doctor's day, claimed atomically; retried if another desk won. */
     public Optional<TokenView> callNext(Long providerId) {
         access.assertModuleOn();
+        access.assertCanConsult();
+        access.assertMayWorkProvider(providerId, null);
         Long org = access.org();
         LocalDate today = TenantClock.today();
         for (int attempt = 0; attempt < 5; attempt++) {

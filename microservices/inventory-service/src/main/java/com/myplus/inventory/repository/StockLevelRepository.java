@@ -80,7 +80,6 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
     List<StockLevel> findLowAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId,
                                      @Param("userId") Long userId, org.springframework.data.domain.Pageable page);
 
-    // SYSTEM/SCHEDULED (cross-tenant): the hourly AlertService job runs with no security context.
-    @Query("SELECT sl FROM StockLevel sl WHERE sl.minStockLevel IS NOT NULL AND sl.currentStock <= sl.minStockLevel")
-    List<StockLevel> findLowStock();
+    // ALERT-RETIRE (2026-10-10): findLowStock() — the cross-tenant scan of the retired hourly AlertService — is gone.
+    // Low stock is answered live and per tenant by countLowAtScoped / findLowAtScoped (STK-ALERT).
 }

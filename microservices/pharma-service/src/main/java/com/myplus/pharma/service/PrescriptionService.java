@@ -56,6 +56,16 @@ public class PrescriptionService {
                 throw new ValidationException(which + " needs a quantity greater than zero");
         }
 
+        // HMS S3b-1: a doctor's Submit carries "enc-<id>". The same key again (a retry, a double click, a lost reply)
+        // is the SAME prescription — returned, never a second one for the pharmacy to dispense twice.
+        String externalRef = dto.getExternalRef() == null || dto.getExternalRef().isBlank() ? null : dto.getExternalRef().trim();
+        if (externalRef != null) {
+            if (externalRef.length() > 64) throw new ValidationException("The prescription reference is too long");
+            java.util.Optional<Prescription> already = prescriptionRepo.findByOrganizationIdAndExternalRef(orgId, externalRef);
+            if (already.isPresent()) return toDTO(already.get());
+        }
+        boolean fromDoctor = externalRef != null;
+
         LocalDate prescribed = dto.getPrescribedDate() != null ? dto.getPrescribedDate() : TenantClock.today();
         if (dto.getValidUntil() != null && dto.getValidUntil().isBefore(prescribed))
             throw new ValidationException("'Valid until' cannot be before the prescribed date");
@@ -70,6 +80,13 @@ public class PrescriptionService {
                 .diagnosis(dto.getDiagnosis())
                 .notes(dto.getNotes())
                 .status(Prescription.Status.PENDING)
+                // the source is DERIVED (a doctor's Submit is the one that carries an external reference), never read
+                // from the form; the clinic's person id is taken only from that path, so the token search finds it now
+                .source(fromDoctor ? Prescription.SOURCE_DOCTOR : Prescription.SOURCE_COUNTER)
+                .externalRef(externalRef)
+                .tokenLabel(fromDoctor ? trimTo(dto.getTokenLabel(), 16) : null)
+                .encounterId(fromDoctor ? dto.getEncounterId() : null)
+                .partyId(fromDoctor ? dto.getPartyId() : null)
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
@@ -89,6 +106,27 @@ public class PrescriptionService {
         }
         partyBridgeService.bridgePrescription(p);   // P3: link the patient to the shared party master (best-effort, once)
         return toDTO(p);
+    }
+
+    /** HMS S3b-1 — the permission that lets a caller submit a doctor's prescription (clinical-service's CONSULT). */
+    public static final String CLINIC_CONSULT = "clinic.consult";
+
+    /**
+     * Only the doctor's Submit may carry a visit reference: without this, the counter form (which relays its body as
+     * is) could post an {@code externalRef} and have a script shown as "From the doctor", tied to any person id.
+     */
+    public static void assertMayClaimVisit(PrescriptionDTO dto, boolean callerCanConsult) {
+        boolean claims = dto != null && dto.getExternalRef() != null && !dto.getExternalRef().isBlank();
+        if (claims && !callerCanConsult) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Only a doctor's Submit from the clinic can record a prescription for a visit.");
+        }
+    }
+
+    private static String trimTo(String s, int max) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.trim();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 
     /** Default page size for the prescriptions list — the screen shows recent scripts, not the whole history. */
@@ -208,6 +246,10 @@ public class PrescriptionService {
         d.setNotes(p.getNotes());
         d.setStatus(displayStatus(p));
         d.setPartyId(p.getPartyId());   // P3: shared party master id
+        d.setSource(p.getSource());
+        d.setTokenLabel(p.getTokenLabel());
+        d.setEncounterId(p.getEncounterId());
+        d.setExternalRef(p.getExternalRef());
         d.setCreatedAt(p.getCreatedAt());
         d.setItems(items.stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();

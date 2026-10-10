@@ -63,6 +63,33 @@ public final class QueueDtos {
         private long issuedToday;
         private long waitingNow;
         private long withDoctorNow;
+        /** H2: the login this doctor IS (null = not linked). */
+        private Long linkedUserId;
+    }
+
+    /** H2 — Register doctor: the doctor AND the login it is (the login was just made by auth's createOrgUser). */
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class RegisterDoctorRequest {
+        private String name;
+        private String speciality;
+        private String fee;
+        private String mobile;
+        private Integer dailyLimit;
+        private Long userId;
+    }
+
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class LinkRequest {
+        private Long userId;
+    }
+
+    /** H2 — "which doctor am I": empty when this login is not linked to a doctor of the clinic. */
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class MeView {
+        private Long providerId;
+        private String name;
+        private String tokenPrefix;
+        private boolean canConsult;
     }
 
     @Data @NoArgsConstructor @AllArgsConstructor @Builder

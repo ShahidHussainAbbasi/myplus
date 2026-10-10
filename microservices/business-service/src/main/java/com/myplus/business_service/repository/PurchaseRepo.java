@@ -122,6 +122,16 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    List<java.math.BigDecimal> findRecentCosts(@Param("productId") Long productId, @Param("orgId") Long orgId,
         @Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
 
+   // TP-4: how many of this product's bills in the tenant are NEWER than the one being edited — later date, or the same
+   // date and a higher id. A voided bill is not a purchase any more and does not count. Zero = the edited bill is the
+   // product's latest, so its rates may stand as the product's price and last rates.
+   @Query("select count(p) from purchase p where p.productId = :productId and p.purchaseId <> :id "
+        + "and (p.status is null or p.status <> 'VOID') "
+        + "and (p.organizationId = :orgId or (p.organizationId is null and p.userId = :userId)) "
+        + "and (p.dated > :dated or (p.dated = :dated and p.purchaseId > :id))")
+   long countNewerPurchases(@Param("productId") Long productId, @Param("id") Long id,
+        @Param("dated") java.time.LocalDateTime dated, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
    // M3c.4f (slice 88): the product_id backfill-from-stock queries were retired with the local Stock table.
    // The historical backfill ran at Flyway time (V5/V6) before the drop; nothing references local Stock anymore.
 

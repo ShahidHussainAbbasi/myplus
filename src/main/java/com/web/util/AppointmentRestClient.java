@@ -48,6 +48,20 @@ public class AppointmentRestClient {
         return gateway.forMap(PREFIX, directBaseUrl, path, HttpMethod.POST, body, MediaType.APPLICATION_JSON);
     }
 
+    /**
+     * P-BOOK-1 — anonymous public GET through the gateway's OPEN route ({@code /api/appointment/public/**}), for the
+     * public booking page. NOT {@link #getMap}: without a login that one falls back to {@code directBaseUrl}
+     * ({@code http://localhost:8091}), which inside the monolith's Docker container is not appointment-service — the
+     * public page listed no venue at all (log-proven, 2026-10-10).
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getPublic(String path) {
+        HttpHeaders headers = ClientZone.forward(new HttpHeaders());
+        ResponseEntity<Map> resp = publicRest.exchange(gatewayUrl + PREFIX + path, HttpMethod.GET,
+                new HttpEntity<>(headers), Map.class);
+        return resp.getBody();
+    }
+
     /** Anonymous public POST (e.g. patient booking) straight to the gateway open route; parsed ApiResponse. */
     @SuppressWarnings("unchecked")
     public Map<String, Object> postPublic(String path, Object body) {

@@ -141,6 +141,193 @@ public class ClinicController {
         return call(() -> clinic.send(HttpMethod.POST, "/tokens/" + id + "/" + action, body));
     }
 
+    // ── S3a: the doctor's consultation (every call needs clinic.consult; clinical-service checks it) ──────────
+
+    @PostMapping(value = "/clinic/consult/next", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultNext(@RequestParam Long providerId) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/next?providerId=" + providerId, null));
+    }
+
+    @PostMapping(value = "/clinic/consult/tokens/{tokenId}/start", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultStart(@PathVariable Long tokenId) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/tokens/" + tokenId + "/start", null));
+    }
+
+    @GetMapping(value = "/clinic/consult/tokens/{tokenId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultByToken(@PathVariable Long tokenId) {
+        return call(() -> clinic.get("/consult/tokens/" + tokenId));
+    }
+
+    @GetMapping(value = "/clinic/consult/encounters/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultOpen(@PathVariable Long id) {
+        return call(() -> clinic.get("/consult/encounters/" + id));
+    }
+
+    @PutMapping(value = "/clinic/consult/encounters/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultUpdate(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.PUT, "/consult/encounters/" + id, body));
+    }
+
+    @PostMapping(value = "/clinic/consult/encounters/{id}/notes", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultNote(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/encounters/" + id + "/notes", body));
+    }
+
+    @PostMapping(value = "/clinic/consult/encounters/{id}/complete", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultComplete(@PathVariable Long id) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/encounters/" + id + "/complete", null));
+    }
+
+    // ── S3b-1: the doctor's prescription ──────────────────────────────────────────────────────────────────────
+
+    @PutMapping(value = "/clinic/consult/encounters/{id}/rx", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultSaveRx(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.PUT, "/consult/encounters/" + id + "/rx", body));
+    }
+
+    @PostMapping(value = "/clinic/consult/encounters/{id}/rx/submit", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultSubmitRx(@PathVariable Long id) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/encounters/" + id + "/rx/submit", null));
+    }
+
+    // ── H2: Register doctor (the login + the doctor + the link), link / unlink a login, which doctor am I ─────────
+
+    @Autowired
+    private com.security.TokenStore tokenStore;
+
+    @org.springframework.beans.factory.annotation.Value("${gateway.url:http://localhost:8765}")
+    private String gatewayUrl;
+
+    private final org.springframework.web.client.RestTemplate authRest = new org.springframework.web.client.RestTemplate();
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    /**
+     * Register doctor — orchestrated HERE because the login is auth-service's and its create needs the caller's bearer
+     * (owner / admin), which clinical-service never holds. Two steps, in this order:
+     * <ol>
+     *   <li>auth {@code POST /api/auth/org/users} (role USER): the login, with a set-password email;</li>
+     *   <li>clinical {@code POST /doctors/register} with that userId: the doctor and the link (clinical checks the link
+     *       can be made BEFORE it creates the doctor).</li>
+     * </ol>
+     * If step 2 fails the login already exists: the reply says so, and <b>Link login</b> on the Doctors screen finishes
+     * it — never a second login (auth refuses the same email twice).
+     */
+    @PostMapping(value = "/clinic/doctors/register", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    @SuppressWarnings("unchecked")
+    public ResponseEntity<String> registerDoctor(@RequestBody Map<String, Object> body) {
+        String email = body.get("email") == null ? "" : String.valueOf(body.get("email")).trim();
+        String name = body.get("name") == null ? "" : String.valueOf(body.get("name")).trim();
+        if (name.isEmpty()) return refusal(HttpStatus.BAD_REQUEST, "Enter the doctor's name.");
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            return refusal(HttpStatus.BAD_REQUEST, "Enter the doctor's email: their login and set-password email go there.");
+        }
+        Long userId;
+        try {
+            org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
+            h.setBearerAuth(tokenStore.getAccessToken());
+            h.setContentType(MediaType.APPLICATION_JSON);
+            Map<String, Object> login = new java.util.LinkedHashMap<>();
+            login.put("firstName", name);
+            login.put("lastName", "");
+            login.put("email", email);
+            login.put("role", "USER");
+            Map<String, Object> made = authRest.exchange(gatewayUrl + "/api/auth/org/users", HttpMethod.POST,
+                    new org.springframework.http.HttpEntity<>(login, h), Map.class).getBody();
+            Object data = made == null ? null : made.get("data");
+            Object id = data instanceof Map ? ((Map<String, Object>) data).get("userId") : null;
+            if (id == null) return refusal(HttpStatus.BAD_GATEWAY, "The login could not be created. Nothing was saved; try again.");
+            userId = Long.valueOf(String.valueOf(id));
+        } catch (HttpStatusCodeException e) {
+            String m = messageOf(e.getResponseBodyAsString());
+            if (m != null && m.toLowerCase(java.util.Locale.ROOT).contains("already registered")) {
+                m = email + " already has a login. Add the doctor without a login, then use Link login.";
+            }
+            return refusal(e.getStatusCode().value() == 403 ? HttpStatus.FORBIDDEN : HttpStatus.BAD_REQUEST,
+                    m != null ? m : "The login could not be created.");
+        } catch (Exception e) {
+            LOGGER.error("register doctor: login step", e);
+            return refusal(HttpStatus.SERVICE_UNAVAILABLE, "The login could not be created right now. Nothing was saved; try again.");
+        }
+        Map<String, Object> doctor = new java.util.LinkedHashMap<>(body);
+        doctor.remove("email");
+        doctor.put("userId", userId);
+        ResponseEntity<String> r = call(() -> clinic.send(HttpMethod.POST, "/doctors/register", doctor));
+        if (!r.getStatusCode().is2xxSuccessful() || !String.valueOf(r.getBody()).contains("\"success\":true")) {
+            String why = messageOf(r.getBody());
+            return refusal(HttpStatus.CONFLICT, "The login " + email + " was created, but the doctor was not saved"
+                    + (why == null ? "." : ": " + why) + " Add the doctor without a login, then use Link login.");
+        }
+        return r;
+    }
+
+    @PostMapping(value = "/clinic/doctors/{id}/link", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> linkDoctor(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/doctors/" + id + "/link", body));
+    }
+
+    @PostMapping(value = "/clinic/doctors/{id}/unlink", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> unlinkDoctor(@PathVariable Long id) {
+        return call(() -> clinic.send(HttpMethod.POST, "/doctors/" + id + "/unlink", null));
+    }
+
+    @GetMapping(value = "/clinic/doctors/me", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> me() {
+        return call(() -> clinic.get("/doctors/me"));
+    }
+
+    private static ResponseEntity<String> refusal(HttpStatus status, String message) {
+        Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("success", false);
+        m.put("message", message);
+        try {
+            return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body(JSON.writeValueAsString(m));
+        } catch (Exception e) {
+            return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON).body("{\"success\":false}");
+        }
+    }
+
+    private static String messageOf(String json) {
+        try {
+            Object m = JSON.readValue(json, Map.class).get("message");
+            return m == null ? null : String.valueOf(m);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── S3b-2: prescription templates ─────────────────────────────────────────────────────────────────────────
+
+    @GetMapping(value = "/clinic/consult/templates", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultTemplates() {
+        return call(() -> clinic.get("/consult/templates"));
+    }
+
+    @PostMapping(value = "/clinic/consult/templates", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultSaveTemplate(@RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/templates", body));
+    }
+
+    @PostMapping(value = "/clinic/consult/templates/{id}/retire", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultRetireTemplate(@PathVariable Long id) {
+        return call(() -> clinic.send(HttpMethod.POST, "/consult/templates/" + id + "/retire", null));
+    }
+
     @GetMapping(value = "/clinic/settings", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> settings() {

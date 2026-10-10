@@ -97,3 +97,65 @@ Architecture & UML → Implement → Test).
 Artifact management is the practice of storing, organizing, versioning, securing, and distributing the outputs produced by your software build process—such as JAR files, Docker images, npm packages, Helm charts, and documentation. It provides a central, controlled source of truth for everything your CI/CD pipeline builds and deploys.
 ## infrastructure validation
 Infrastructure validation is the process of proving that your servers, cloud resources, networks, databases, security controls, and deployment configurations are correctly set up and capable of supporting an application reliably before or after deployment. It checks that the environment meets defined requirements for availability, performance, security, connectivity, and configuration.
+
+## system performance
+inspect p50, p95 and p99 latency, error rate, throughput and saturation,tracing to separate frontend, API gateway, application, database, messaging and external dependency time, slow queries, missing indexes, large result sets, N+1 queries, connection-pool exhaustion, cache misses, thread-pool saturation, unnecessary synchronous calls, message backlog, CPU or memory pressure, or external-service latency.
+
+## manage a critical production incident
+confirm severity, create a clear incident channel, assign roles, stabilize the service through rollback, failover, feature disabling or traffic control, and communicate accurate updates to stakeholders.
+
+## Architecture principles
+# Modular by bounded context
+  Each business capability owns its data and logic
+# API-first
+  Capabilities are exposed through versioned, documented APIs
+# Single source of truth
+	Each core data entity has one owning service
+# Secure by default
+	Authentication, authorization, encryption, and audit are baseline requirements
+# Design for operability
+  Services must be observable, recoverable, and deployable independently
+# Buy before build, where sensible
+	Use managed services or vendors when differentiation is low
+# Vendor independence
+	External platforms must not dictate internal domain design
+
+## Transition roadmap
+# Business capability target:
+  Every module is available as a tenant-scoped, independently deployable capability.
+# Application target:
+ Domain-aligned microservices own their data; modules communicate through APIs and events.
+
+# Data target:
+ Each core entity has one system of record; reporting uses replicated or event-derived data.
+
+# Technology target:
+ Standardized containerized deployment on a managed cloud platform, with infrastructure as code and centralized observability.
+
+# Integration target:
+ All third-party and legacy integrations pass through controlled APIs and anti-corruption layers.
+
+# Security target:
+ Central identity, least-privilege access, secrets management, audit logging, and tenant isolation.
+
+ ## Practical governance mechanisms:
+
+# Architecture Review Board (ARB):
+ Reviews significant designs, new vendor integrations, cross-service contracts, and security-sensitive changes.
+
+# Architecture decision records:
+ Document why a decision was made and what alternatives were rejected.
+
+# Standards and guardrails:
+ API style guide, logging standard, tenant-isolation rules, cloud tagging, backup policy.
+
+# Automated compliance:
+ Policy-as-code checks for security groups, resource limits, required labels, and prohibited public exposure.
+
+# Exception process:
+ A time-bound, documented waiver when a team cannot comply immediately.
+
+# Fitness functions:
+ Automated checks that measure architectural qualities such as coupling, API versioning, test coverage, latency SLOs, and cost.
+
+ 8

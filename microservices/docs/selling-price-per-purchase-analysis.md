@@ -530,7 +530,7 @@ the old build (green twice), so it is not a case — the same guard covers it.
 | TP-1 | **The till offers a stale price after a purchase moves it, until the page is reloaded.** The till fills the rate from the picker option's `data-price`; the picker is a per-page cache (`product-picker.js`) dropped only by product-write URLs (`MUTATES`: addProduct/updateProduct/…). addPurchase, updatePurchase and approvePriceChange (which is also `global:false`) all move the price and none drops it — nor are already-built `<option>`s redrawn | `cypress/e2e/business/till-price-after-purchase.cy.js` F1 on owner.business@ (Latest, no Auto): server price 250, till offers **200** — red | ⚠ MONEY (undercharge) |
 | TP-2 | **The guide's P2 step 4 claims "Without reloading" but the capture reloads** (`newPurchase()` → `cy.openPurchaseSection` → `cy.visit`), so the claim was never tested and is false today. Same text in the merged Test Book §27. No gate checks a price in the SAME page after a purchase — every case reaches the till through `cy.visit` | `price-mode-guide.cy.js:207–213` | test defect |
 | TP-3 | **A purchase edit that leaves the quantity unchanged never reaches the batch**: `updatePurchase` calls `reconcilePurchase` only when `delta != 0` (or a Per-batch re-price), and `applyStockDelta` returns on delta 0 before expiry/price. An edited expiry, batch no or cost stays old on the batch | bill 3106 expiry **2027-09-09**, its batch 9963 **2027-10-09** (`PurchaseService.java:780`, `StockService.java:311`) | expiry: proven by the data; cost → COGS: ⚠ MONEY, by code reading, not reproduced |
-| TP-4 | **Editing an OLDER bill re-prices the product over a newer bill's price** (Latest re-stamps on edit, "Option B"): the 20:22 edit of 3106 moved 309.15 (T25792, newer) back to 297.70 | price history rows 963→964 | design question |
+| TP-4 | **Editing an OLDER bill re-prices the product over a newer bill's price** (Latest re-stamps on edit, "Option B"): the 20:22 edit of 3106 moved 309.15 (T25792, newer) back to 297.70 | price history rows 963→964 | ✅ fixed + verified §12.17 |
 
 Not a defect: the typed S/U on both bills was replaced by Auto (the purchase form says so before saving); per-batch
 prices need **Per batch** mode, which this business is not in.
@@ -809,3 +809,43 @@ pos-sale-endtoend, installment-down-payment; pos-keyboard, pos-checkout-chain, s
 X1 step 4 corrected: with no invented expiry (EXP-ENTRY) the stock received first goes first — the old "new batch first
 because it carries an expiry" described the bug's own today-date. Published:
 https://claude.ai/artifact/PiS5HQrZwLu3wucogyjFYK (v2). Test Book section rebuilt 23/23.
+
+### 12.17 ALERT-RETIRE and TP-4 — reviewed and fixed (owner: "review and fix as per best practices", 2026-10-10)
+
+**ALERT-RETIRE — inventory's stored alerts.** The trace, every reader and writer:
+* 1 writer: `AlertService.checkAndCreateAlerts()` ran hourly over `findLowStock()` — a scan of **every tenant** — and
+  saved a NEW row for every low item each hour (no dedupe). It never wrote a near-expiry row, though the screen said so.
+* 4 endpoints on `/api/inventory/alerts` (list, unread, mark one read, mark all read) — all unscoped: `findByIsReadFalse()`
+  returned every tenant's rows to any caller, and `read-all` marked every tenant's alerts read (a cross-tenant WRITE).
+* 1 reader of those: monolith `StockAlertController /getStockAlerts` → pharmacy *Alerts & Register* (`loadStockAlerts`),
+  which printed the product **id**, not its name. 1 spec (`pharmacy/alerts.cy.js`) checked only that the proxy answered.
+* 0 other callers (grep: services, monolith, JS, specs).
+
+**Fixed:** the screen now shows the same live, per-tenant answer as the header badge (STK-ALERT `/stockAlertSummary`):
+expired, expiring within the business window, low against the product's minimum or the business cap — by name, with
+quantity, date and batch, "…and N more" when the summary is capped. Owner/admin only, as decided for the badge; anyone
+else is told so, and still has the controlled register. Removed: `AlertService`, `AlertController`, `StockAlert`,
+`StockAlertRepository`, `findLowStock()`, the monolith `StockAlertController`. `@EnableScheduling` stays (the
+reservation sweeper uses it).
+
+**The table is NOT dropped** (STANDARDS D5): `stock_alerts` holds 0 rows in the dev container (`myplusdb_inventory`,
+counted 2026-10-10); other environments are **not counted** — unverified. Under `ddl-auto=validate` an unmapped table is
+harmless; a drop migration (idempotent, D7) waits until it is counted empty everywhere.
+
+**TP-4 — an edit re-prices only from the product's LATEST bill.** Before: `updatePurchase` re-stamped the product on
+every edit (Option B), so correcting an older bill put its price back over a newer one (§12.5: 309.15 → 297.70). Now
+`stampRatesOnEdit` asks `PurchaseRepo.countNewerPurchases` (same product, same tenant, not VOID, later `dated` or same
+`dated` and higher id); any newer bill → the product's price and both last rates are left alone. The edited bill, its
+batch price (PR-3b, before the stamp) and the books still take the correction. `dated` never moves on an edit, so
+"latest" is the bill's place in history. A receipt is unchanged (always the newest).
+
+**Tests:** unit `PurchaseEditLatestBillTest` 4/4 + PerBatch/PriceMode/Approval 24/24; inventory StockAlertSummary,
+StockLevelRepoScoping, SweeperSelection 17/17. Gates written and **red on the deployed build for the right reason**:
+`product-last-rates` TP-4 (older edit moved the price to 62, expected 70; 6 others green); `pharmacy/alerts` A2 (old
+proxy still 200), A3 (screen never calls the summary), A4 (no owner/admin notice). **Deploy pending:** business-service,
+inventory-service, monolith. Not done: bill 3106 (Desora) keeps the price its old edit set — the fix stops it
+recurring, it does not restore 309.15; re-saving the latest bill (T25792) does.
+
+**Deployed and verified (2026-10-10 17:41):** business-service + inventory-service via `deploy.ps1` (both healthy; monolith
+of 17:26 already carried the screen). `product-last-rates` **7/7** (TP-4 green); `pharmacy/alerts` **5/5** (A2–A4 green);
+regression `purchase-edit-keeps-issued` 2/2 + `pricing-per-batch` 6/6. No ALR- bill left standing (counted: 0).

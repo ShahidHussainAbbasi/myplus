@@ -135,6 +135,7 @@ describe('HMS S2 — token & queue', () => {
     cy.get('#clinDocFee').type('1500')
     cy.get('#clinDocLimit').type('12')
     cy.intercept('POST', '**/clinic/doctors').as('add')
+    cy.get('#clinDocMakeLogin').uncheck()   // H2: a plain doctor here; registering with a login is hms-h2
     cy.get('#clinDocSave').click()
     cy.wait('@add').then(({ response }) => {
       expect(response.body.success, JSON.stringify(response.body)).to.eq(true)
@@ -153,6 +154,7 @@ describe('HMS S2 — token & queue', () => {
     cy.get('#clinDocName').type(name + ' NL')
     cy.get('#clinDocNoLimit').check()
     cy.get('#clinDocLimit').should('be.disabled')
+    cy.get('#clinDocMakeLogin').uncheck()   // H2: a plain doctor here; registering with a login is hms-h2
     cy.get('#clinDocSave').click()
     cy.wait('@add').its('response.body.data.usualLimit').should('eq', null)
     cy.contains('#clinDoctorBody tr', name + ' NL').find('td').eq(2).should('have.text', 'No limit')

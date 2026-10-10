@@ -14,7 +14,10 @@ import com.myplus.clinical.dto.QueueDtos.DayRequest;
 import com.myplus.clinical.dto.QueueDtos.DoctorView;
 import com.myplus.clinical.dto.QueueDtos.IssueRequest;
 import com.myplus.clinical.dto.QueueDtos.MoveRequest;
+import com.myplus.clinical.dto.QueueDtos.LinkRequest;
+import com.myplus.clinical.dto.QueueDtos.MeView;
 import com.myplus.clinical.dto.QueueDtos.NewDoctorRequest;
+import com.myplus.clinical.dto.QueueDtos.RegisterDoctorRequest;
 import com.myplus.clinical.dto.QueueDtos.TokenView;
 import com.myplus.clinical.service.QueueService;
 import com.myplus.common.web.ApiResponse;
@@ -44,6 +47,31 @@ public class QueueController {
     public ApiResponse<DoctorView> addDoctor(@RequestBody NewDoctorRequest req) {
         DoctorView d = queue.addDoctor(req);
         return ApiResponse.success(d, d.getName() + " added" + (d.getUsualLimit() == null ? ", no daily limit." : ", " + d.getUsualLimit() + " patients a day."));
+    }
+
+    // ── H2: Register doctor / link a login / which doctor am I ────────────────────────────────────
+
+    @PostMapping("/doctors/register")
+    public ApiResponse<DoctorView> registerDoctor(@RequestBody RegisterDoctorRequest req) {
+        DoctorView d = queue.registerDoctor(req);
+        return ApiResponse.success(d, d.getName() + " registered. A set-password email was sent to their login.");
+    }
+
+    @PostMapping("/doctors/{id}/link")
+    public ApiResponse<DoctorView> link(@PathVariable Long id, @RequestBody LinkRequest req) {
+        DoctorView d = queue.link(id, req == null ? null : req.getUserId());
+        return ApiResponse.success(d, "Login linked to " + d.getName() + ".");
+    }
+
+    @PostMapping("/doctors/{id}/unlink")
+    public ApiResponse<DoctorView> unlink(@PathVariable Long id) {
+        DoctorView d = queue.unlink(id);
+        return ApiResponse.success(d, "Login unlinked from " + d.getName() + ".");
+    }
+
+    @GetMapping("/doctors/me")
+    public ApiResponse<MeView> me() {
+        return ApiResponse.success(queue.me());
     }
 
     @PostMapping("/doctors/day")

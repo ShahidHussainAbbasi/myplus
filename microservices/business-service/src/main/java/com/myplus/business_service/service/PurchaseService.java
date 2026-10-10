@@ -597,6 +597,32 @@ public class PurchaseService implements IPurchaseService{
 		}
 	}
 
+	/**
+	 * TP-4 — an edit re-prices the product only when the edited bill is the product's LATEST purchase in the tenant.
+	 *
+	 * <p>The product's selling price and its last purchase / sale rates mean "what the newest bill said" — that is what
+	 * a receipt stamps (Option B). Before TP-4 every edit re-stamped too, so correcting an OLDER bill put that older
+	 * bill's price back on the product over a newer one (seen live: an edit to an older Desora bill moved the price
+	 * 309.15 → 297.70). An edit of an older bill still corrects that bill, its batch (PR-3b, before this call) and the
+	 * books; only the product-level stamp is skipped.
+	 *
+	 * <p>Newer = a later {@code dated}, or the same {@code dated} and a higher id; voided bills do not count. An edit
+	 * never changes {@code dated}, so the answer is the bill's place in history, not the moment of the edit.
+	 */
+	void stampRatesOnEdit(Purchase saved) {
+		if (saved == null || saved.getProductId() == null) return;
+		if (saved.getPurchaseId() != null && saved.getDated() != null) {
+			long newer = purchaseRepo.countNewerPurchases(saved.getProductId(), saved.getPurchaseId(), saved.getDated(),
+					saved.getOrganizationId(), saved.getUserId());
+			if (newer > 0) {
+				LOG.info("TP-4: edit of bill {} (purchase {}) leaves product {}'s price and last rates alone — {} newer bill(s)",
+						saved.getPurchaseInvoiceNo(), saved.getPurchaseId(), saved.getProductId(), newer);
+				return;
+			}
+		}
+		stampRatesOnProduct(saved, "edit");
+	}
+
 	void stampRatesOnProduct(Purchase saved, String phase) {
 		if (saved == null || saved.getProductId() == null) return;
 		// Read the SAVED BILL, not the incoming DTO: these are the very fields tablePurchase renders, so the
@@ -785,9 +811,9 @@ public class PurchaseService implements IPurchaseService{
 			inventoryClient.reconcilePurchase(adjust);
 		}
 
-		// Option B — an edited purchase re-prices the catalog master and re-stamps both last rates, exactly as a new
-		// purchase does: correcting a mistyped rate on the bill must correct what the Product screen shows.
-		stampRatesOnProduct(saved, "edit");
+		// Option B — an edited purchase re-stamps the catalog master exactly as a new purchase does — TP-4: but only when
+		// it is the product's LATEST bill. Correcting an older bill must not undo a newer bill's price.
+		stampRatesOnEdit(saved);
 
 		// GL edit adjustment: reverse the OLD bill + repost the NEW (net = the edit's delta) so the books never
 		// drift on a purchase edit. Best-effort — never fail the edit.

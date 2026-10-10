@@ -79,3 +79,49 @@
 .clin-day-tools { white-space: nowrap; }
 .clin-day-tools .clin-day-limit { display: inline-block; width: 80px; margin-right: 6px; vertical-align: middle; }
 .clin-check { display: flex; align-items: center; gap: 6px; margin-top: 26px; font-weight: 600; }
+
+/* HMS S3a — the doctor's queue and consultation */
+.clin-myq-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.clin-myq-tools .form-control { width: auto; min-width: 200px; }
+.clin-id-banner { border-left: 5px solid var(--clin-blue); background: #f4f8fd; border-radius: 8px; padding: 12px 16px; margin-bottom: 14px; }
+.clin-id-name { font-size: 22px; font-weight: 800; }
+.clin-id-facts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.clin-consult-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+.clin-vital-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin-top: 10px; }
+.clin-vital-row .form-control { font-variant-numeric: tabular-nums; }
+.clin-notes label { font-weight: 600; font-size: 13px; }
+.clin-note-list { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.clin-note-list li { border: 1px solid var(--clin-line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+.clin-note-at { font-size: 11px; color: var(--clin-muted); text-transform: uppercase; letter-spacing: .04em; }
+.clin-note-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.clin-consult-actions { justify-content: space-between; border-top: 1px solid var(--clin-line); padding-top: 12px; }
+.clin-history-head { margin: 18px 0 8px; font-size: 14px; font-weight: 700; color: var(--clin-navy); }
+.clin-history { display: flex; flex-direction: column; gap: 10px; }
+.clin-visit { border: 1px solid var(--clin-line); border-radius: 8px; padding: 10px 12px; }
+.clin-visit-head { font-size: 14px; }
+@media (max-width: 991px) { .clin-consult-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .clin-vital-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* HMS S3b-1 — the prescription and Park */
+.clin-rx { border-top: 1px solid var(--clin-line); margin-top: 16px; padding-top: 12px; }
+.clin-rx h4 { margin: 0; font-size: 15px; font-weight: 700; }
+.clin-rx-add { display: grid; grid-template-columns: minmax(0, 2.2fr) repeat(4, minmax(0, 1fr)) auto; gap: 10px; align-items: end; margin: 10px 0; }
+.clin-rx-add .clin-field--wide { min-width: 0; }
+.clin-rx-sent { font-size: 13px; font-weight: 600; color: #1b6e3a; background: #e8f6ee; border-radius: 999px; padding: 3px 10px; }
+.clin-num { font-variant-numeric: tabular-nums; text-align: right; }
+.clin-park { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.clin-park .form-control { width: auto; min-width: 200px; }
+@media (max-width: 991px) { .clin-rx-add { grid-template-columns: repeat(2, minmax(0, 1fr)); } .clin-rx-add .clin-field--wide { grid-column: 1 / -1; } }
+
+/* HMS S3b-2 — templates and editable lines */
+.clin-rx-templates { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin: 10px 0; padding: 10px; background: #f6f8fb; border-radius: 8px; }
+.clin-rx-tpl-use, .clin-rx-tpl-save { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; }
+.clin-rx-tpl-use .form-control, .clin-rx-tpl-save .form-control { width: auto; min-width: 200px; }
+.clin-rx-table .clin-rx-edit { min-width: 64px; }
+.clin-rx-table .clin-rx-edit.clin-num { max-width: 90px; text-align: right; }
+
+/* HMS S4 — the clinic's message follows the screen: it used to sit at the top of the page, out of view while the
+   doctor worked lower down (S3b-2 T-03: "Not in the pharmacy's list any more" was shown but not SEEN). */
+#clinMsg { position: fixed; top: calc(64px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
+           z-index: 1050; width: min(640px, calc(100% - 32px)); margin: 0; box-shadow: 0 6px 24px rgba(15, 30, 60, .18);
+           cursor: pointer; }

@@ -183,3 +183,7 @@ only services whose config changed — here, all 20). The user controls restarts
 - Container check after deploy: `docker exec <svc> java -XshowSettings:properties -version | grep user.timezone`
   = `Asia/Karachi` on all 20.
 - Read-only: count GL entries whose `entry_date` is one day before their sale's PKT date (the §3.5 residue).
+
+### Clinic (HMS) instants — add to P1/P3 (2026-10-10)
+
+Seen in the HMS gates: every clinic time is shown in the server's UTC (a note written at 12:02 PKT reads 07:02; "Sent to the pharmacy" at 13:07 reads 08:07; the pharmacy list Date likewise — the last predates HMS). Sites: clinical-service `LocalDateTime.now()` in ConsultService (startedAt, completedAt, updatedAt, rxSubmittedAt), ClinicalNote.createdAt, QueueService/TokenWriter (called/parked/completed/cancelled), PatientService, RxTemplateService; pharma `Prescription.prePersist` createdAt. Deliberately NOT patched inside HMS: a clinic-only conversion would be a second way to show time; it follows the platform rule chosen for P1/P3.

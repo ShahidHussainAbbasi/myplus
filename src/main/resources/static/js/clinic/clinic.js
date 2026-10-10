@@ -55,7 +55,9 @@
         $('#clinContent .formDiv').hide();
         $('#' + id).show();
         stopBoard();
+        stopMyQueue();
         if (id === 'ClinicSettingsDiv') loadSettings();
+        if (id === 'MyQueueDiv') startMyQueue();
         if (id === 'QueueDiv') startBoard();
         if (id === 'DoctorsDiv') loadDoctorTable();
         if (id === 'ReceptionDiv') { loadPatients(); $('#clinPatPhone').trigger('focus'); }
@@ -360,21 +362,78 @@
         } else { go(); }
     }
 
+    // ── H2: logins of the doctors (owner / admin) ──────────────────────────────────────────────────────
+    var team = { loaded: false, byId: {}, list: [] };
+    function isClinicAdmin() { return $('#clinIsAdmin').length > 0; }
+    function withTeam(done) {
+        if (!isClinicAdmin()) { done(); return; }
+        if (team.loaded) { done(); return; }
+        $.getJSON(url('team/users')).done(function (r) {
+            team.list = (r && (r.data || r.object)) || [];
+            team.byId = {};
+            team.list.forEach(function (u) { team.byId[String(u.userId || u.id)] = u; });
+            team.loaded = true;
+        }).always(done);
+    }
+    function loginCell(d) {
+        if (!d.linkedUserId) {
+            return isClinicAdmin() ? '<button type="button" class="btn btn-xs btn-default clin-link" data-id="' + escHtml(d.id) + '">Link login</button>'
+                                   : '<span class="clin-help">—</span>';
+        }
+        var u = team.byId[String(d.linkedUserId)];
+        var who = u ? (u.email || ((u.firstName || '') + ' ' + (u.lastName || ''))) : 'Linked';
+        return '<span class="clin-linked">' + escHtml(who) + '</span>'
+            + (isClinicAdmin() ? ' <button type="button" class="btn btn-xs btn-link clin-unlink" data-id="' + escHtml(d.id) + '">Unlink</button>' : '');
+    }
+    function startLink($btn) {
+        var id = $btn.data('id');
+        var taken = {};
+        $('#clinDoctorBody tr').each(function () { var l = $(this).attr('data-linked'); if (l) taken[l] = true; });
+        var opts = team.list.filter(function (u) { return !taken[String(u.userId || u.id)]; }).map(function (u) {
+            var uid = u.userId || u.id;
+            return '<option value="' + escHtml(uid) + '">' + escHtml(u.email || uid) + '</option>';
+        }).join('');
+        if (!opts) { msg('Every team member is linked already. Register the doctor to make a new login.', false); return; }
+        $btn.closest('td').html('<span class="clin-link-pick"><select class="form-control input-sm clin-link-user" aria-label="Login to link">'
+            + '<option value="">Choose a login</option>' + opts + '</select> '
+            + '<button type="button" class="btn btn-xs btn-primary clin-link-save" data-id="' + escHtml(id) + '">Link</button></span>');
+    }
+    function saveLink($btn) {
+        var userId = $btn.siblings('.clin-link-user').val();
+        if (!userId) { msg('Choose the login to link.', false); return; }
+        $.ajax({ type: 'POST', url: url('clinic/doctors/' + encodeURIComponent($btn.data('id')) + '/link'), contentType: 'application/json',
+                 dataType: 'json', data: JSON.stringify({ userId: Number(userId) }) })
+            .done(function (r) { msg((r && r.message) || 'Linked.', !!(r && r.success)); loadDoctorTable(); })
+            .fail(function (xhr) { msg(reason(xhr, 'Could not link the login.'), false); loadDoctorTable(); });
+    }
+    function unlink($btn) {
+        var go = function () {
+            $.ajax({ type: 'POST', url: url('clinic/doctors/' + encodeURIComponent($btn.data('id')) + '/unlink'), dataType: 'json' })
+                .done(function (r) { msg((r && r.message) || 'Unlinked.', !!(r && r.success)); loadDoctorTable(); })
+                .fail(function (xhr) { msg(reason(xhr, 'Could not unlink.'), false); });
+        };
+        if (typeof uiConfirm === 'function') {
+            uiConfirm({ title: 'Unlink this login?', message: 'They can no longer open this doctor\'s patients unless the owner put them on the Doctor set.',
+                        confirmText: 'Unlink', tone: 'danger' }).then(function (ok) { if (ok) go(); });
+        } else { go(); }
+    }
+
     // ── S2: doctors and today's limits ──────────────────────────────────────────────────────────────────
     function loadDoctorTable() {
-        withDoctors(function (doctors) {
+        withTeam(function () { withDoctors(function (doctors) {
             var $b = $('#clinDoctorBody').empty();
             $('#clinDoctorEmpty').toggle(doctors.length === 0);
             doctors.forEach(function (d) {
                 var today = d.closedToday ? '<span class="clin-badge warn">Not today</span>'
                     : (d.todayLimit == null ? 'No limit' : escHtml(d.todayLimit))
                       + (d.todayChanged ? ' <small class="clin-help">(today only)</small>' : '');
-                $b.append('<tr data-doctor-id="' + escHtml(d.id) + '">'
+                $b.append('<tr data-doctor-id="' + escHtml(d.id) + '"' + (d.linkedUserId ? ' data-linked="' + escHtml(d.linkedUserId) + '"' : '') + '>'
                     + '<td><b>' + escHtml(d.name) + '</b>' + (d.speciality ? '<br><small class="clin-help">' + escHtml(d.speciality) + '</small>' : '') + '</td>'
                     + '<td class="clin-token-cell">' + escHtml(d.tokenPrefix || '—') + '</td>'
                     + '<td>' + (d.usualLimit == null ? 'No limit' : escHtml(d.usualLimit)) + '</td>'
                     + '<td>' + today + '</td>'
                     + '<td>' + escHtml(d.issuedToday) + '</td><td>' + escHtml(d.waitingNow) + '</td>'
+                    + '<td class="clin-login-cell">' + loginCell(d) + '</td>'
                     + '<td class="clin-day-tools">'
                     + '<input type="number" min="0" class="form-control input-sm clin-day-limit" placeholder="Limit" aria-label="Today\'s limit for ' + escHtml(d.name) + '"/>'
                     + '<button type="button" class="btn btn-xs btn-primary clin-day" data-kind="limit">Set today</button> '
@@ -384,7 +443,7 @@
                           + (d.todayChanged ? ' <button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">Usual</button>' : ''))
                     + '</td></tr>');
             });
-        }, true);
+        }, true); });
     }
 
     function setDay($row, kind) {
@@ -405,18 +464,377 @@
         if (!noLimit && limit === '') { msg('Type the patients a day, or tick No limit.', false); return; }
         var body = { name: $.trim($('#clinDocName').val()), speciality: $.trim($('#clinDocSpeciality').val()),
                      fee: $.trim($('#clinDocFee').val()), dailyLimit: noLimit ? null : Number(limit) };
+        // H2: with "Create their login" the doctor IS a login (set-password email; My queue opens on their patients)
+        var withLogin = $('#clinDocMakeLogin').is(':checked');
+        if (withLogin) {
+            body.email = $.trim($('#clinDocEmail').val());
+            if (!body.email) { msg("Enter the doctor's email, or untick Create their login.", false); $('#clinDocEmail').focus(); return; }
+        }
         var $btn = $('#clinDocSave').prop('disabled', true);
-        $.ajax({ type: 'POST', url: url('clinic/doctors'), contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+        $.ajax({ type: 'POST', url: url(withLogin ? 'clinic/doctors/register' : 'clinic/doctors'), contentType: 'application/json',
+                 dataType: 'json', data: JSON.stringify(body) })
             .done(function (r) {
                 if (r && r.success) {
                     msg(r.message, true);
                     $('#clinDoctorForm')[0].reset();
                     $('#clinDocLimit').prop('disabled', false);
+                    team.loaded = false;   // a new login exists
                     loadDoctorTable();
                 } else { msg((r && r.message) || 'Could not add the doctor.', false); }
             })
             .fail(function (xhr) { msg(reason(xhr, 'Could not add the doctor.'), false); })
             .always(function () { $btn.prop('disabled', false); });
+    }
+
+    // ── H2: which doctor am I ───────────────────────────────────────────────────────────────────────────
+    var me = null;
+    function loadMe() {
+        $.getJSON(url('clinic/doctors/me')).done(function (r) {
+            me = (r && r.success && r.data) || null;
+            $('#clinNavMyQueueWrap').toggle(!!(me && me.canConsult));
+        });
+    }
+
+    // ── S3a: the doctor's queue and the consultation ─────────────────────────────────────────────────────
+    var DOCTOR_KEY = 'clinic.myDoctor';
+    var consultState = { timer: null, encounter: null };
+
+    function rememberedDoctor() { try { return localStorage.getItem(DOCTOR_KEY); } catch (e) { return null; } }
+    function rememberDoctor(id) { try { localStorage.setItem(DOCTOR_KEY, String(id)); } catch (e) { /* private window */ } }
+
+    function startMyQueue() {
+        withDoctors(function (doctors) {
+            var $s = $('#clinMyDoctor').empty();
+            doctors.forEach(function (d) { $s.append('<option value="' + escHtml(d.id) + '">' + escHtml(d.name) + '</option>'); });
+            var mine = me && me.providerId;
+            if (mine) {
+                // H2: this login IS a doctor — their own queue, no doctor to choose
+                $s.val(String(mine));
+                $('#clinMyDoctorWrap').hide();
+                $('#clinMeName').text(me.name || '').show();
+            } else {
+                $('#clinMyDoctorWrap').show();
+                $('#clinMeName').hide();
+                var keep = rememberedDoctor();
+                if (keep && doctors.some(function (d) { return String(d.id) === keep; })) $s.val(keep);
+            }
+            loadMyQueue();
+        }, true);
+        stopMyQueue();
+        consultState.timer = setInterval(function () { if (!$('#clinConsult').is(':visible')) loadMyQueue(); }, 5000);
+    }
+    function stopMyQueue() { if (consultState.timer) { clearInterval(consultState.timer); consultState.timer = null; } }
+
+    function myDoctor() { return $('#clinMyDoctor').val(); }
+
+    function loadMyQueue() {
+        var id = myDoctor();
+        if (!id) return;
+        $.getJSON(url('clinic/queue'), { providerId: id }).done(function (r) {
+            if (!r || !r.success) { moduleOff(r && r.message); return; }
+            var rows = (r.data || []).filter(function (t) { return ['WAITING', 'CALLED', 'IN_CONSULTATION', 'PARKED'].indexOf(t.status) >= 0; });
+            var $b = $('#clinQueueBody').empty();
+            rows.forEach(function (t) {
+                var act = t.status === 'WAITING' ? '<button type="button" class="btn btn-xs btn-default clin-q-call" data-id="' + escHtml(t.id) + '">Call</button>'
+                    : t.status === 'CALLED' ? '<button type="button" class="btn btn-xs btn-success clin-q-start" data-id="' + escHtml(t.id) + '">Start</button>'
+                    : '<button type="button" class="btn btn-xs btn-primary clin-q-start" data-id="' + escHtml(t.id) + '">Open</button>';
+                $b.append('<tr data-token-id="' + escHtml(t.id) + '"><td class="clin-token-cell">' + escHtml(t.tokenLabel) + '</td>'
+                    + '<td>' + escHtml(t.patientName || '') + (t.status === 'PARKED' && t.parkReason ? ' <span class="clin-help">· ' + escHtml(t.parkReason) + '</span>' : '')
+                    + '</td><td class="clin-mrn-cell">' + escHtml(t.mrn || '') + '</td>'
+                    + '<td><span class="clin-status s-' + escHtml(String(t.status).toLowerCase()) + '">' + escHtml(STATUS_WORDS[t.status] || t.status) + '</span></td>'
+                    + '<td class="clin-row-actions">' + act + '</td></tr>');
+            });
+            $('#clinMyQueueEmpty').toggle(rows.length === 0);
+        }).fail(function (xhr) { msg(reason(xhr, 'Could not load the queue.'), false); });
+    }
+
+    function callNext() {
+        var id = myDoctor();
+        if (!id) { msg('Choose which doctor you are.', false); return; }
+        $.ajax({ type: 'POST', url: url('clinic/consult/next') + '?providerId=' + encodeURIComponent(id), dataType: 'json' })
+            .done(function (r) { msg((r && r.message) || 'Done.', !!(r && r.success)); loadMyQueue(); })
+            .fail(function (xhr) { msg(reason(xhr, 'Could not call the next patient.'), false); });
+    }
+
+    function callToken(tokenId) {
+        $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(tokenId) + '/call'), contentType: 'application/json', dataType: 'json', data: '{}' })
+            .done(function (r) { msg((r && r.message) || 'Called.', !!(r && r.success)); loadMyQueue(); })
+            .fail(function (xhr) { msg(reason(xhr, 'Could not call the patient.'), false); loadMyQueue(); });
+    }
+
+    /** Start (CALLED) or reopen (with the doctor / parked) — the server makes or returns the one visit of the token. */
+    function startToken(tokenId) {
+        $.ajax({ type: 'POST', url: url('clinic/consult/tokens/' + encodeURIComponent(tokenId) + '/start'), dataType: 'json' })
+            .done(function (r) { if (r && r.success) showEncounter(r.data); else msg((r && r.message) || 'Could not start.', false); })
+            .fail(function (xhr) { msg(reason(xhr, 'Could not start the consultation.'), false); });
+    }
+
+    function vitalsLine(e) {
+        var parts = [];
+        if (e.bloodPressure) parts.push('BP ' + e.bloodPressure);
+        if (e.pulse != null) parts.push('Pulse ' + e.pulse);
+        if (e.temperatureF != null) parts.push(e.temperatureF + ' °F');
+        if (e.spo2 != null) parts.push('SpO2 ' + e.spo2 + '%');
+        if (e.weightKg != null) parts.push(e.weightKg + ' kg');
+        return parts.join(' · ');
+    }
+
+    function noteItems(notes) {
+        return (notes || []).map(function (n) {
+            var at = String(n.createdAt || '').replace('T', ' ').substring(0, 16);
+            return '<li><span class="clin-note-at">' + escHtml(at) + (n.amendsNoteId ? ' · correction' : '') + '</span>'
+                + '<span class="clin-note-body">' + escHtml(n.body) + '</span></li>';
+        }).join('');
+    }
+
+    function showEncounter(e) {
+        consultState.encounter = e;
+        var p = e.patient || {};
+        // Two identifiers before anything clinical: the name with the MRN, and the date of birth.
+        $('#clinIdBanner').html('<div class="clin-id-name">' + escHtml(p.name || '') + '</div>'
+            + '<div class="clin-id-facts"><span class="clin-mrn">' + escHtml(p.mrn || '') + '</span>'
+            + (p.dateOfBirth ? '<span>' + escHtml(p.dateOfBirth) + (p.ageYears != null ? ' · ' + escHtml(p.ageYears) + ' y' : '') + '</span>' : '<span class="clin-help">no date of birth recorded</span>')
+            + (p.sex ? '<span>' + escHtml(sexLabel(p.sex)) + '</span>' : '')
+            + '<span class="clin-token-cell">' + escHtml(e.tokenLabel || '') + '</span>'
+            + '<span class="clin-status s-' + escHtml(String(e.tokenStatus || '').toLowerCase()) + '" id="clinStatus" data-status="' + escHtml(String(e.tokenStatus || '')) + '">' + escHtml(STATUS_WORDS[e.tokenStatus] || String(e.tokenStatus || '')) + '</span></div>');
+        $('#clinComplaint').val(e.chiefComplaint || '');
+        $('#clinVitalBp').val(e.bloodPressure || '');
+        $('#clinVitalPulse').val(e.pulse != null ? e.pulse : '');
+        $('#clinVitalTemp').val(e.temperatureF != null ? e.temperatureF : '');
+        $('#clinVitalSpo2').val(e.spo2 != null ? e.spo2 : '');
+        $('#clinVitalWeight').val(e.weightKg != null ? e.weightKg : '');
+        $('#clinVitalHeight').val(e.heightCm != null ? e.heightCm : '');
+        var done = e.status === 'COMPLETED';
+        $('#clinVitalsForm :input').prop('disabled', done);
+        $('#clinComplete').prop('disabled', done);
+        $('#clinNotes').html(noteItems(e.notes));
+        var hist = (e.history || []).map(function (h) {
+            var at = String(h.startedAt || '').substring(0, 10);
+            return '<div class="clin-visit"><div class="clin-visit-head"><b>' + escHtml(at) + '</b> · ' + escHtml(h.providerName || '')
+                + (h.chiefComplaint ? ' · ' + escHtml(h.chiefComplaint) : '') + '</div>'
+                + (vitalsLine(h) ? '<div class="clin-help">' + escHtml(vitalsLine(h)) + '</div>' : '')
+                + ((h.notes || []).length ? '<ol class="clin-note-list">' + noteItems(h.notes) + '</ol>' : '') + '</div>';
+        }).join('');
+        $('#clinHistory').html(hist || '<p class="clin-empty">First visit.</p>');
+        rx.lines = (e.rxLines || []).map(function (l) { return $.extend({}, l); });
+        renderRx();
+        loadMedicines();
+        if (!e.rxId) loadTemplates();
+        $('#clinParkWrap').toggle(!done && e.tokenStatus === 'IN_CONSULTATION');
+        $('#clinMyQueueCard').hide();
+        $('#clinConsult').show();
+    }
+
+    function saveVitals() {
+        var e = consultState.encounter; if (!e) return;
+        var body = { chiefComplaint: $('#clinComplaint').val(), bloodPressure: $('#clinVitalBp').val(), pulse: $('#clinVitalPulse').val(),
+                     temperatureF: $('#clinVitalTemp').val(), spo2: $('#clinVitalSpo2').val(), weightKg: $('#clinVitalWeight').val(),
+                     heightCm: $('#clinVitalHeight').val(), version: e.version };
+        $.ajax({ type: 'PUT', url: url('clinic/consult/encounters/' + e.id), contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
+            .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not saved.', false); })
+            .fail(function (xhr) { msg(reason(xhr, 'Not saved.'), false); });
+    }
+
+    function addNote() {
+        var e = consultState.encounter; if (!e) return;
+        $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + e.id + '/notes'), contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ body: $('#clinNote').val() }) })
+            .done(function (r) { if (r && r.success) { $('#clinNote').val(''); msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not added.', false); })
+            .fail(function (xhr) { msg(reason(xhr, 'The note was not added.'), false); });
+    }
+
+    function completeVisit() {
+        var e = consultState.encounter; if (!e) return;
+        var go = function () {
+            $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + e.id + '/complete'), dataType: 'json' })
+                .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not completed.', false); })
+                .fail(function (xhr) { msg(reason(xhr, 'The visit was not completed.'), false); });
+        };
+        if (typeof uiConfirm === 'function') {
+            uiConfirm({ title: 'Complete this visit?', message: 'The patient leaves your queue. Notes can still be added to correct the record.',
+                        confirmText: 'Complete visit', tone: 'primary' }).then(function (ok) { if (ok) go(); });
+        } else { go(); }
+    }
+
+    function backToQueue() { consultState.encounter = null; $('#clinConsult').hide(); $('#clinMyQueueCard').show(); loadMyQueue(); }
+
+    // ── S3b-1: the prescription (the doctor's working list; nothing reaches the pharmacy until Submit) ─────────
+    var rx = { lines: [], medicines: null, byName: {} };
+
+    function loadMedicines() {
+        if (rx.medicines || typeof ProductPicker === 'undefined') return;
+        ProductPicker.load(function (list) {
+            rx.medicines = list || [];
+            rx.byName = {};
+            var html = rx.medicines.map(function (p) {
+                var name = String(p.name || ('Product #' + p.id));
+                if (!rx.byName[name.toLowerCase()]) rx.byName[name.toLowerCase()] = p;
+                return '<option value="' + escHtml(name) + '">' + (p.formula ? escHtml(p.formula) : '') + '</option>';
+            }).join('');
+            $('#clinRxMedicines').html(html);
+        });
+    }
+
+    function rxLocked() { var e = consultState.encounter; return !!(e && e.rxId); }
+
+    function renderRx() {
+        var locked = rxLocked();
+        var $b = $('#clinRxBody').empty();
+        var cell = function (l, i, f, cls, mode) {
+            if (locked) return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + escHtml(l[f] == null ? '' : l[f]) + '</td>';
+            return '<td><input type="text" class="form-control input-sm clin-rx-edit' + (cls ? ' ' + cls : '') + '" data-i="' + i + '" data-f="' + f + '"'
+                + (mode ? ' inputmode="' + mode + '"' : '') + ' maxlength="100" value="' + escHtml(l[f] == null ? '' : l[f])
+                + '" aria-label="' + escHtml(f + ' of ' + l.medicineName) + '"/></td>';
+        };
+        rx.lines.forEach(function (l, i) {
+            $b.append('<tr><td>' + escHtml(l.medicineName) + '</td>' + cell(l, i, 'quantity', 'clin-num', 'numeric')
+                + cell(l, i, 'dosage') + cell(l, i, 'frequency') + cell(l, i, 'duration')
+                + '<td class="clin-row-actions">' + (locked ? '' : '<button type="button" class="btn btn-xs btn-default clin-rx-remove" data-i="' + i
+                    + '" aria-label="Remove ' + escHtml(l.medicineName) + '">Remove</button>') + '</td></tr>');
+        });
+        $('#clinRxEmpty').toggle(rx.lines.length === 0);
+        // whole blocks are hidden, never .btn (theme.css forces .btn to display:inline-flex !important)
+        $('#clinRxAdd').toggle(!locked);
+        $('#clinRxTemplates').toggle(!locked);
+        $('#clinRxActions').toggle(!locked);
+        var e = consultState.encounter;
+        if (locked) {
+            var at = String(e.rxSubmittedAt || '').replace('T', ' ').substring(0, 16);
+            $('#clinRxSent').text('Sent to the pharmacy · ' + (e.tokenLabel || '') + ' · ' + at).show();
+        } else {
+            $('#clinRxSent').hide();
+        }
+    }
+
+    function addRxLine() {
+        var typed = $.trim($('#clinRxMedicine').val());
+        var p = rx.byName[typed.toLowerCase()];
+        if (!p) { msg(typed ? '"' + typed + '" is not in the pharmacy\'s list. Choose it from the suggestions.' : 'Choose a medicine.', false); $('#clinRxMedicine').focus(); return; }
+        if (rx.lines.some(function (l) { return String(l.productId) === String(p.id); })) {
+            msg(p.name + ' is on the prescription already. Remove it to change it.', false); return;
+        }
+        var q = $.trim($('#clinRxQty').val());
+        if (!/^\d+$/.test(q) || +q < 1 || +q > 10000) { msg('Quantity: a whole number from 1 to 10000.', false); $('#clinRxQty').focus(); return; }
+        rx.lines.push({ productId: p.id, medicineName: p.name, quantity: q, dosage: $.trim($('#clinRxDose').val()),
+                        frequency: $.trim($('#clinRxFreq').val()), duration: $.trim($('#clinRxDays').val()) });
+        $('#clinRxMedicine, #clinRxQty, #clinRxDose, #clinRxFreq, #clinRxDays').val('');
+        renderRx();
+        $('#clinRxMedicine').focus();
+    }
+
+    /** Saves the list as a whole; resolves with the fresh visit (or rejects after saying why). */
+    function saveRx(quiet) {
+        var e = consultState.encounter; var d = $.Deferred();
+        if (!e) return d.reject().promise();
+        $.ajax({ type: 'PUT', url: url('clinic/consult/encounters/' + e.id + '/rx'), contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ lines: rx.lines }) })
+            .done(function (r) {
+                if (r && r.success) { if (!quiet) msg(r.message, true); showEncounter(r.data); d.resolve(r.data); }
+                else { msg((r && r.message) || 'Not saved.', false); d.reject(); }
+            })
+            .fail(function (xhr) { msg(reason(xhr, 'The prescription was not saved.'), false); d.reject(); });
+        return d.promise();
+    }
+
+    function submitRx() {
+        var e = consultState.encounter; if (!e) return;
+        if (!rx.lines.length) { msg('Add at least one medicine, then Submit.', false); return; }
+        var go = function () {
+            $('#clinRxSubmit').prop('disabled', true);
+            saveRx(true).then(function (fresh) {
+                return $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + fresh.id + '/rx/submit'), dataType: 'json' });
+            }).done(function (r) {
+                if (r && r.success) { msg(r.message, true); showEncounter(r.data); }
+                else if (r) msg(r.message || 'Not sent.', false);
+            }).fail(function (xhr) { if (xhr && xhr.status !== undefined) msg(reason(xhr, 'Not sent. Press Submit again — it will not be sent twice.'), false); })
+              .always(function () { $('#clinRxSubmit').prop('disabled', false); });
+        };
+        if (typeof uiConfirm === 'function') {
+            uiConfirm({ title: 'Send to the pharmacy?', message: rx.lines.length + ' medicine(s) for ' + ((e.patient || {}).name || 'the patient')
+                        + '. After this the prescription cannot be changed here.', confirmText: 'Submit', tone: 'primary' })
+                .then(function (ok) { if (ok) go(); });
+        } else { go(); }
+    }
+
+    function parkVisit() {
+        var e = consultState.encounter; if (!e) return;
+        var why = $.trim($('#clinParkReason').val());
+        if (!why) { msg('Say why the patient is parked, e.g. CBC pending.', false); $('#clinParkReason').focus(); return; }
+        var go = function () {
+            $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(e.tokenId) + '/park'), contentType: 'application/json',
+                     dataType: 'json', data: JSON.stringify({ reason: why }) })
+                .done(function (r) { msg((r && r.message) || 'Parked.', !!(r && r.success)); if (r && r.success) { $('#clinParkReason').val(''); backToQueue(); } })
+                .fail(function (xhr) { msg(reason(xhr, 'Not parked.'), false); });
+        };
+        // unsaved medicines would be lost on the way out: save them first (the pharmacy sees nothing until Submit)
+        if (rx.lines.length && !rxLocked()) saveRx(true).then(go); else go();
+    }
+
+    // ── S3b-2: templates (a starting point; nothing is saved to the visit until Save / Submit) ────────────────
+    var tpl = { list: [] };
+
+    function loadTemplates(selectId) {
+        $.getJSON(url('clinic/consult/templates')).done(function (r) {
+            tpl.list = (r && r.success && r.data) || [];
+            var $s = $('#clinRxTemplate').empty().append('<option value="">' + (tpl.list.length ? 'Choose a template' : 'No templates yet') + '</option>');
+            tpl.list.forEach(function (t) {
+                $s.append('<option value="' + escHtml(t.id) + '">' + escHtml(t.name) + ' (' + (t.lines || []).length + ')</option>');
+            });
+            if (selectId) $s.val(String(selectId));
+        });
+    }
+
+    function chosenTemplate() {
+        var id = $('#clinRxTemplate').val();
+        return tpl.list.filter(function (t) { return String(t.id) === String(id); })[0];
+    }
+
+    function useTemplate() {
+        var t = chosenTemplate();
+        if (!t) { msg('Choose a template.', false); return; }
+        if (!rx.medicines) { msg("The pharmacy's list is still loading. Try again in a moment.", false); return; }
+        var inList = {};
+        rx.medicines.forEach(function (p) { inList[String(p.id)] = true; });
+        var added = 0, already = [], gone = [];
+        (t.lines || []).forEach(function (l) {
+            if (!inList[String(l.productId)]) { gone.push(l.medicineName); return; }
+            if (rx.lines.some(function (x) { return String(x.productId) === String(l.productId); })) { already.push(l.medicineName); return; }
+            rx.lines.push($.extend({}, l));
+            added++;
+        });
+        renderRx();
+        var words = added + ' medicine(s) from "' + t.name + '". Check them, then Save or Submit.';
+        if (already.length) words += ' Already on the list: ' + already.join(', ') + '.';
+        // a medicine the pharmacy no longer has is NAMED, never silently dropped
+        if (gone.length) words += ' Not in the pharmacy\'s list any more: ' + gone.join(', ') + '.';
+        msg(words, gone.length === 0);
+    }
+
+    function saveTemplate() {
+        var name = $.trim($('#clinRxTemplateName').val());
+        if (!name) { msg('Give the template a name, e.g. Fever + Flu.', false); $('#clinRxTemplateName').focus(); return; }
+        if (!rx.lines.length) { msg('Add the medicines first, then save them as a template.', false); return; }
+        $.ajax({ type: 'POST', url: url('clinic/consult/templates'), contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ name: name, lines: rx.lines }) })
+            .done(function (r) {
+                if (r && r.success) { msg(r.message, true); $('#clinRxTemplateName').val(''); loadTemplates(r.data.id); }
+                else msg((r && r.message) || 'Not saved.', false);
+            })
+            .fail(function (xhr) { msg(reason(xhr, 'The template was not saved.'), false); });
+    }
+
+    function retireTemplate() {
+        var t = chosenTemplate();
+        if (!t) { msg('Choose the template to remove.', false); return; }
+        var go = function () {
+            $.ajax({ type: 'POST', url: url('clinic/consult/templates/' + encodeURIComponent(t.id) + '/retire'), dataType: 'json' })
+                .done(function (r) { msg((r && r.message) || 'Removed.', !!(r && r.success)); loadTemplates(); })
+                .fail(function (xhr) { msg(reason(xhr, 'Not removed.'), false); });
+        };
+        if (typeof uiConfirm === 'function') {
+            uiConfirm({ title: 'Remove "' + t.name + '"?', message: 'Prescriptions already written from it are not changed.',
+                        confirmText: 'Remove', tone: 'danger' }).then(function (ok) { if (ok) go(); });
+        } else { go(); }
     }
 
     // ── wiring ──────────────────────────────────────────────────────────────────────────────────────────
@@ -436,6 +854,19 @@
             if (p) selectPatient(p);
         });
         $(document).on('click', '.clin-move', function () { moveToken($(this).data('id'), $(this).data('action')); });
+        $(document).on('click', '.clin-q-call', function () { callToken($(this).data('id')); });
+        $(document).on('click', '.clin-link', function () { startLink($(this)); });
+        $(document).on('click', '.clin-link-save', function () { saveLink($(this)); });
+        $(document).on('click', '.clin-unlink', function () { unlink($(this)); });
+        loadMe();
+        $(document).on('click', '.clin-q-start', function () { startToken($(this).data('id')); });
+        $('#clinCallNext').on('click', callNext);
+        $('#clinMyDoctor').on('change', function () { rememberDoctor(this.value); loadMyQueue(); });
+        // the message is a fixed notice now: a click dismisses it (an error stays until read)
+        $('#clinMsg').on('click', function () { $(this).stop(true, true).hide(); });
+        $(document).on('click', '.clin-rx-remove', function () { rx.lines.splice(+$(this).data('i'), 1); renderRx(); });
+        $(document).on('input', '.clin-rx-edit', function () { var l = rx.lines[+$(this).data('i')]; if (l) l[$(this).data('f')] = this.value; });
+        $('#clinRxDays').on('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); addRxLine(); } });
         $(document).on('click', '.clin-day', function () { setDay($(this).closest('tr'), $(this).data('kind')); });
         $('#clinDocNoLimit').on('change', function () { $('#clinDocLimit').prop('disabled', this.checked).val(''); });
         $(document).on('visibilitychange', function () {
@@ -446,5 +877,8 @@
     });
 
     global.Clinic = { show: show, find: find, register: register, reset: reset, addFamily: addFamily,
-                      issueToken: issueToken, addDoctor: addDoctor };
+                      issueToken: issueToken, addDoctor: addDoctor,
+                      saveVitals: saveVitals, addNote: addNote, completeVisit: completeVisit, backToQueue: backToQueue,
+                      addRxLine: addRxLine, saveRx: function () { saveRx(false); }, submitRx: submitRx, parkVisit: parkVisit,
+                      useTemplate: useTemplate, saveTemplate: saveTemplate, retireTemplate: retireTemplate };
 })(window);
