@@ -824,7 +824,9 @@ $(document).ready(function() {
 									confirmText: t('ui.js.expiryPastSave'),
 									tone: 'warning'
 								}).then(function (yes) {
-									if (yes !== true) { $exp.focus(); return; }
+									// After the dialog's own focus return (confirm-dialog.js gives focus back to its opener
+									// 160 ms after closing), or that would put the operator back on Save, not on the date.
+									if (yes !== true) { setTimeout(function () { $exp.focus(); }, 200); return; }
 									window._purchaseExpiryAck = ackKey;
 									$('#addPurchase').click();   // programmatic: keeps any "add another" intent
 								});
