@@ -195,6 +195,20 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.DELETE, "/vouchers/" + id, null));
     }
 
+    /** EX-9a — past till pay-outs not yet in the books (owner/admin; expense-service enforces it). */
+    @GetMapping(value = "/history/till", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> tillHistory() {
+        return call(() -> expense.get("/history/till"));
+    }
+
+    /** EX-9a — import the ticked ones under one category; the server re-reads the list and books each once. */
+    @PostMapping(value = "/history/till/import", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> importTill(@RequestBody Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/history/till/import", body));
+    }
+
     /** EX-1b — send again what the books refused (after a period is reopened, say). */
     @PostMapping(value = "/vouchers/{id}/post-again", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody

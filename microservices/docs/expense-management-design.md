@@ -614,7 +614,8 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-8c analytics producer (F2) — **closed as superseded** by EX-8a (owner's ruling 2026-10-09; see E12)
 - [x] EX-8d recoverable input tax (`expense.tax.inputRecoverable`, every business type — owner's ruling 2026-10-09) · gate 4/4 (`slices/ex-8d-input-tax.md`)
 - [x] EX-8e report by branch — the branch is taken automatically from the recorder's active branch (owner's ruling 2026-10-09), never from the browser · gate 5/5 (`slices/ex-8e-report-by-branch.md`)
-- [ ] EX-9 agriculture convergence · gate
+- [x] EX-9a past till pay-outs into the books (R-4: owner-run, previewed, once each) · gate 4/4 (`slices/ex-9a-till-history-import.md`)
+- [ ] EX-9b agriculture convergence (farm screen onto Expenses, F3; farm history through the same import) · gate
 
 ---
 
@@ -672,7 +673,7 @@ switched on.
 5. fp-4b case 2 made self-sufficient (11.1).
 6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). ~~EX-7b advances~~ — done (`slices/ex-7b-advances.md`). ~~EX-6b the user-tier post limit~~ — done (`slices/ex-6b-user-post-limit.md`: none by default, above it the expense waits),
    ~~EX-8a the expense report (and E8)~~ — done (`slices/ex-8a-expense-report.md`); ~~EX-8b duplicate warning~~ — done; ~~EX-8c~~ closed (F2 superseded); ~~EX-8d recoverable tax~~ — done; ~~EX-8e (by branch)~~ — done;
-   EX-9 farm convergence + back-posting (R-4), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
+   ~~EX-9a till back-posting (R-4)~~ — done (`slices/ex-9a-till-history-import.md`); EX-9b farm convergence + its back-posting, welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).
      The browser captures and compresses the photo or scan before upload; the server stores it behind the

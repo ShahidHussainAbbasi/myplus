@@ -103,6 +103,18 @@ public class ClientsConfig {
                 .createClient(com.myplus.commerce.contracts.client.ExpenseTagClient.class);
     }
 
+    /** EX-9a — business-service's till pay-outs that never reached the books (read as the caller; internal route). */
+    @Bean
+    public com.myplus.commerce.contracts.client.DrawerHistoryClient drawerHistoryClient(@LoadBalanced RestClient.Builder builder) {
+        RestClient rc = builder.clone()
+                .baseUrl("http://business-service")
+                .requestFactory(timeouts())
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(rc)).build()
+                .createClient(com.myplus.commerce.contracts.client.DrawerHistoryClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         RestClient rc = builder.clone()

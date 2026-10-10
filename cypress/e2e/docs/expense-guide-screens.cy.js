@@ -1945,6 +1945,41 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     closeShiftQuietly()
   })
 
+  caseIt('3-4', 'Bring past till pay-outs into the books', () => {
+    testCase('3-4', 'ex3', 'Bring past till pay-outs into the books', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    setup('Pay-outs made at the till before Expense management was switched on never reached the books. The recording makes one that way (the module off for a moment), then brings it in.')
+    const reason = 'XG3 tea for guests ' + run, amount = 45 + Number(run.slice(-2)) / 100
+    asLifecycle(true)
+    act('Before switching Expense management on: <b>Till → Cash Drawer</b>, Pay Out <b>' + amount.toFixed(2) + '</b>, reason "' + reason + '".', ['The drawer moves; the books do not (there is no category: the module was off).'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: KEY }, failOnStatusCode: false })
+    SAFETY.push(() => { asLifecycle(); closeShiftQuietly(); cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY, enabled: 'true' } }) })
+    asLifecycle(true)
+    ensureShiftOpen()
+    cy.request({ method: 'POST', url: '/cashMovement', form: true, body: { type: 'PAY_OUT', amount, reason, idempotencyKey: 'xg34-' + run } }).its('body.status').should('eq', 'SUCCESS')
+    closeShiftQuietly()
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    asLifecycle(true)
+    openDashboard(); openExpenses()
+    const a2 = act('Switch Expense management on, then <b>Till → Expenses</b> → <b>Past till pay-outs</b>.',
+      ['Every pay-out that never reached the books, with its date, amount and reason. One that looks like an expense already recorded (same day, same amount) says which, and is left unticked.'])
+    cy.get('[data-cy=till-history-open]').click()
+    cy.contains('[data-cy=till-history-row]', reason, { timeout: 20000 }).scrollIntoView().should('be.visible')
+    snap(a2, 'preview', '#expHistPanel')
+    let tb0 = null
+    tb().then((b) => { tb0 = b })
+    const a3 = act('Tick only that pay-out, Category <b>Rent</b>, press <b>Import</b>.', ['“1 imported”. It leaves the list and appears in Expenses as a <b>Till</b> expense on its own date, <b>In the books</b>.'])
+    cy.get('[data-cy=till-history-row] [data-cy=till-history-pick]').uncheck({ force: true })
+    cy.contains('[data-cy=till-history-row]', reason).find('[data-cy=till-history-pick]').check({ force: true })
+    cy.get('[data-cy=till-history-category] option').contains('Rent').then(($o) => cy.get('[data-cy=till-history-category]').select($o.val(), { force: true }))
+    cy.get('[data-cy=till-history-import]').click()
+    cy.get('#expHistMsg', { timeout: 20000 }).should('contain', '1 imported')
+    cy.contains('#tableExpense tbody tr', reason, { timeout: 25000 }).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a3, 'imported')
+    act('Open the trial balance; press Import again with the same pay-out.', ['<b>6000</b> up and <b>1000 Cash</b> down by exactly ' + amount.toFixed(2) + '. A pay-out goes in once: it is no longer offered, and nothing more is booked.'], { via: 'run' })
+    tb().then((tb1) => { expect(delta(tb0, tb1, '6000')).to.eq(amount); expect(delta(tb0, tb1, '1000')).to.eq(-amount) })
+    act('Nothing to undo: a till expense is corrected at the till, and this pay-out really happened.', [], { cleanup: true })
+  })
+
   // ═══ EX-4 · Expense bills ════════════════════════════════════════════════════════════════════════════════
   const S4 = 'ex4'
   let bill1 = null   // { supplier, payee }

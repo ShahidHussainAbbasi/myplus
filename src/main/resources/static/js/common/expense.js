@@ -1044,6 +1044,64 @@
 			});
 	});
 
+	// ── EX-9a — past till pay-outs into the books (R-4): listed, ticked by the owner, imported once each ──────────────
+	function histMsg(text, kind) {
+		$('#expHistMsg').text(text || '').css('color', kind === 'bad' ? '#b3261e' : (kind === 'ok' ? '#1b7f3b' : ''));
+	}
+	function loadTillHistory() {
+		// the categories this business uses, as the New Expense form offers them
+		var $c = $('#expHistCategory').empty().append($('<option>').val('').text(tr('ui.js.expTillHistoryChooseCat', 'Choose a category')));
+		$('#expCategory option').each(function () { if (this.value) $c.append($('<option>').val(this.value).text($(this).text())); });
+		var $b = $('#tableExpHist tbody').empty();
+		return $.ajax({ url: ctx() + 'expense/history/till', dataType: 'json' }).done(function (res) {
+			if (!res || res.success !== true) { histMsg((res && res.message) || tr('ui.js.loadFailed', 'Could not load'), 'bad'); return; }
+			var rows = res.data || [];
+			if (!rows.length) {
+				$b.append('<tr><td colspan="5" class="text-muted">' + esc(tr('ui.js.expTillHistoryNone', 'Every till pay-out is already in the books.')) + '</td></tr>');
+				return;
+			}
+			rows.forEach(function (r) {
+				var flagged = (r.matches || []).length > 0;
+				// a likely duplicate is left UNTICKED: the owner ticks it only on purpose
+				$b.append('<tr data-cy="till-history-row" data-ref="' + esc(r.ref) + '">'
+					+ '<td><input type="checkbox" data-cy="till-history-pick" aria-label="' + esc(tr('ui.js.expTillHistoryPick', 'Bring into the books')) + '"' + (flagged ? '' : ' checked') + '></td>'
+					+ '<td>' + showDate(r.date) + '</td>'
+					+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(r.amount)) + '</td>'
+					+ '<td>' + esc(r.reason || '') + '</td>'
+					+ '<td>' + (flagged ? '<span class="text-warning" data-cy="till-history-match">'
+						+ esc(tr('ui.js.expTillHistoryLooksLike', 'Looks like {0}').replace('{0}', r.matches.join(', '))) + '</span>' : '') + '</td></tr>');
+			});
+		}).fail(function () { histMsg(tr('ui.js.loadFailed', 'Could not load'), 'bad'); });
+	}
+	global.expenseTillHistoryToggle = function () {
+		var $p = $('#expHistPanel'), open = !$p.is(':visible');
+		$p.toggle(open);
+		if (open) { histMsg(''); loadTillHistory(); }
+	};
+	global.expenseTillHistoryImport = function (btn) {
+		var refs = $('#tableExpHist [data-cy="till-history-pick"]:checked').map(function () {
+			return Number($(this).closest('tr').attr('data-ref'));
+		}).get();
+		var cat = $('#expHistCategory').val();
+		if (!cat) { histMsg(tr('ui.js.expTillHistoryChooseCat', 'Choose a category'), 'bad'); return; }
+		if (!refs.length) { histMsg(tr('ui.js.expTillHistoryTickSome', 'Tick the pay-outs to bring into the books.'), 'bad'); return; }
+		var $b = $(btn), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		$.ajax({ url: ctx() + 'expense/history/till/import', type: 'POST', contentType: 'application/json', dataType: 'json',
+			data: JSON.stringify({ categoryId: Number(cat), refs: refs }) })
+			.done(function (res) {
+				if (!res || res.success !== true) { histMsg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+				histMsg(res.message || '', 'ok');      // "2 imported" — the server's count, in its words
+				loadTillHistory();
+				expenseLoad();
+			})
+			.fail(function (xhr) {
+				histMsg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			})
+			.always(function () { $b.prop('disabled', false).html(label); });
+	};
+
 	// ── EX-6b — a waiting expense: an owner or admin posts it; its recorder (or an owner/admin) may discard it ──────
 	$(document).on('click', '#tableExpense [data-cy="post-draft"]', function () {
 		var $b = $(this), id = $b.attr('data-id'), label = $b.html();

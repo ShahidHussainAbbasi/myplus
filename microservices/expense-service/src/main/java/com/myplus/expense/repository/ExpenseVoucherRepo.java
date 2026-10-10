@@ -102,6 +102,14 @@ public interface ExpenseVoucherRepo extends JpaRepository<ExpenseVoucher, Long> 
     List<ExpenseVoucher> sameExpense(@Param("org") Long org, @Param("date") LocalDate date,
                                      @Param("total") java.math.BigDecimal total, @Param("payee") String payee);
 
+    /**
+     * EX-9a — an expense this business already has on the same day for the same amount (any payee): a past pay-out that
+     * matches one is flagged before it is imported. Not voided, not a claim that was turned down or taken back.
+     */
+    @Query("SELECT v FROM ExpenseVoucher v WHERE v.organizationId = :org AND v.voucherDate = :date AND v.total = :total "
+         + "AND v.status <> 'VOIDED' AND (v.claimStatus IS NULL OR v.claimStatus IN ('SUBMITTED','APPROVED')) ORDER BY v.id")
+    List<ExpenseVoucher> sameDayAmount(@Param("org") Long org, @Param("date") LocalDate date, @Param("total") java.math.BigDecimal total);
+
     /** EX-2d / E4 — what the list's filter adds up to: posted expenses only (a void or a draft spent nothing). */
     interface Totals { long getCount(); java.math.BigDecimal getTotal(); }
 
