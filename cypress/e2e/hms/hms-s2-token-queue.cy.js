@@ -299,6 +299,11 @@ describe('HMS S2 — token & queue', () => {
     move(t.id, 'resume').its('body.data.status').should('eq', 'IN_CONSULTATION')
     move(t.id, 'complete').its('body.data.status').should('eq', 'COMPLETED')
     move(t.id, 'call').then((r) => expect(r.body.message).to.eq(t.tokenLabel + ' is completed — it cannot be called.'))
+    // On the board a finished token says Done — and NOT its old park reason ("Done · CBC, LFT pending" read as if
+    // the tests were still out; found on the S2 screenshot, 2026-10-10).
+    cy.visit('/clinicDashboard')
+    cy.get('#clinNavQueue').click()
+    cy.contains('#clinQueueBoard tr', t.tokenLabel).should('contain', 'Done').and('not.contain', 'CBC, LFT pending')
   })
 
   it('S2-09 [04c] a patient may see two doctors a day, one at a time; the setting can forbid the second', () => {
@@ -362,7 +367,11 @@ describe('HMS S2 — token & queue', () => {
                    body: { hospitalId: venueId, name: 'Intruder ' + run, speciality: 'X', email: `i${run}@test.com`, mobile: '03000000000',
                            address: 'x', availabe: 'All', dayFrom: 'Monday', dayTo: 'Friday', timeIn: '09:00', timeOut: '17:00',
                            appointmentOfferType: 'count', appointmentOfferValue: '5' } })
-        .its('body.error').should('eq', 'RegisterFailed')
+        .then((r) => {
+          // the refusal: "RegisterFailed" in `message`, never the success sentence (`error` is always null)
+          expect(r.body.message, JSON.stringify(r.body)).to.eq('RegisterFailed')
+          expect(String(r.body.status)).to.not.match(/registered successfully/)
+        })
       cy.loginAsAppointmentOwner()
       cy.request(`/loadDoctorsByHospital?hospitalId=${venueId}`).its('body').should('not.contain', 'Intruder ' + run)
     })

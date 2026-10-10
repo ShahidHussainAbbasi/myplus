@@ -38,7 +38,10 @@ describe('P3 — appointment proxies to appointment-service', () => {
       },
     }).then((res) => {
       expect(res.status).to.eq(200)
-      expect(res.body.error, 'no RegisterFailed error').to.not.eq('RegisterFailed')
+      // /registerHospital and /registerDoctor answer a GenericResponse whose SUCCESS sentence sits in `status` and whose
+      // failure puts "RegisterFailed" in `message` — `error` is ALWAYS null, so `error !== 'RegisterFailed'` passed for
+      // every outcome (found by HMS S2-11, 2026-10-10). Assert the success sentence itself.
+      expect(res.body.status, JSON.stringify(res.body)).to.match(/Hospital registered successfully/)
     })
   })
 
@@ -59,7 +62,7 @@ describe('P3 — appointment proxies to appointment-service', () => {
         },
       }).then((dres) => {
         expect(dres.status).to.eq(200)
-        expect(dres.body.error).to.not.eq('RegisterFailed')
+        expect(dres.body.status, JSON.stringify(dres.body)).to.match(/Doctor registered successfully/)
       })
 
       // 3) resolve the doctor id via the proxy, then book a public appointment

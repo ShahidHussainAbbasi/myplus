@@ -57,7 +57,10 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
       countryCode: 'PK', state: 'Sindh', geoId: 'Karachi', hours: '24',
     }).then((r) => {
       expect(r.status).to.eq(200)
-      expect(r.body.error, 'hospital registered').to.not.eq('RegisterFailed')
+      // /registerHospital and /registerDoctor answer a GenericResponse whose SUCCESS sentence sits in `status` and whose
+      // failure puts "RegisterFailed" in `message` — `error` is ALWAYS null, so `error !== 'RegisterFailed'` passed for
+      // every outcome (found by HMS S2-11, 2026-10-10). Assert the success sentence itself.
+      expect(r.body.status, 'hospital registered: ' + JSON.stringify(r.body)).to.match(/Hospital registered successfully/)
     })
     return cy.request('/appointment').then((page) => {
       const hospitalId = idFromOptions(page.body, hospitalName)
@@ -69,7 +72,7 @@ describe('HMS baseline — the clinic flow on today\'s screens', () => {
         appointmentOfferType: 'count', appointmentOfferValue: String(cap),
       }).then((r) => {
         expect(r.status).to.eq(200)
-        expect(r.body.error, 'doctor registered').to.not.eq('RegisterFailed')
+        expect(r.body.status, 'doctor registered: ' + JSON.stringify(r.body)).to.match(/Doctor registered successfully/)
       })
       return cy.request(`/loadDoctorsByHospital?hospitalId=${hospitalId}`).then((d) => {
         const doctorId = idFromOptions(d.body, doctorName)

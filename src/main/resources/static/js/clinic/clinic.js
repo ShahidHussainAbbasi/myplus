@@ -329,7 +329,8 @@
                     + '<td>' + escHtml(t.providerName || '') + '</td>'
                     + '<td><span class="clin-status s-' + escHtml(s.toLowerCase()) + '">' + escHtml(STATUS_WORDS[s] || s) + '</span>'
                     + (s === 'WAITING' && t.ahead != null ? ' <small class="clin-help">' + (t.ahead === 0 ? 'next' : escHtml(t.ahead) + ' ahead') + '</small>' : '')
-                    + (t.parkReason ? ' <small class="clin-help">' + escHtml(t.parkReason) + '</small>' : '') + '</td>'
+                    // the park reason only while PARKED: "Done · CBC, LFT pending" read as if the tests were still out
+                    + (s === 'PARKED' && t.parkReason ? ' <small class="clin-help">' + escHtml(t.parkReason) + '</small>' : '') + '</td>'
                     + '<td class="clin-row-actions">' + (live
                         ? '<button type="button" class="btn btn-xs btn-default clin-move" data-action="noShow" data-id="' + escHtml(t.id) + '">Not here</button> '
                           + '<button type="button" class="btn btn-xs btn-danger clin-move" data-action="cancel" data-id="' + escHtml(t.id) + '">Cancel</button>'
