@@ -33,7 +33,7 @@ describe('STK-ALERT — the header stock badge', () => {
   it('H1 owner with a cap: the Low badge appears, pulses, names the products; reset → gone', () => {
     cy.loginAsOwner()
     resetCfg(CAP)
-    cy.seedProduct({ name: 'SAL_' + uniq(), sellingPrice: 10, stock: 2, purchasePrice: 5 }).then(({ name }) => {
+    cy.seedProduct({ name: 'SAL_' + uniq(), sellingPrice: 10, stock: 2, purchasePrice: 5 }).then(() => {
       setCfg(CAP, 999999)                                  // everything with stock rows is "low" — deterministic
       summary().then((s) => expect(Number(s.low), 'the server counts low stock under the cap').to.be.greaterThan(0))
       openDashboard()
@@ -42,7 +42,13 @@ describe('STK-ALERT — the header stock badge', () => {
       cy.get('#stockAlertBtn').should('have.class', 'sa-pulse')
       cy.get('#stockAlertBtn').click()
       cy.get('#stockAlertPanel').should('be.visible').find('li').should('have.length.greaterThan', 0)
-      cy.get('#stockAlertPanel').should('contain', name.slice(0, 4))   // names, not ids
+      // The panel lists the 10 EMPTIEST products, so the one seeded here (2 left) is not necessarily among them on a
+      // shared tenant — check the panel names exactly what the server lists first, by name and not by id.
+      summary().then((s) => {
+        const first = (s.lowItems || [])[0]
+        expect(first && first.name, 'the server names its first low item').to.be.a('string').and.not.match(/^#\d+$/)
+        cy.get('#stockAlertPanel li').first().should('contain', first.name)
+      })
 
       resetCfg(CAP)
       summary().then((s) => expect(Number(s.lowAt), 'cap back to off').to.eq(0))

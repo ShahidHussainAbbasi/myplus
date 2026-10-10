@@ -713,3 +713,10 @@ expired batch not counted, expiry not tracked, the other tenant never counted). 
 owner + cap, H2 user refused, H3 pharmacy expired batch) — needs commerce-contracts INSTALLED, then inventory, business
 and monolith deployed. Not changed: the unscoped `AlertService` / `stock_alerts` (empty; nothing reads it but the
 pharmacy Alerts screen) — retire or scope it separately.
+
+**Deployed and verified (2026-10-10, 07:45):** `header-stock-alerts.cy.js` 3/3 (H1's first check was the spec's: the
+panel lists the 10 EMPTIEST products — owner.business has 293 low at a 999999 cap, the seeded one is not among the first
+10; it now checks the panel names what the server lists first). `purchase-expiry-entry.cy.js` 3/3 after `3c8d830e`
+(Cancel returns focus to the date: confirm-dialog gives focus back to its opener 160 ms after closing). Regression:
+non-blocking-ui, dashboard-kpi-drill 9/9, sell 31/31, purchase, purchase-batch-expiry — green (the first run's hook
+failures were a monolith restart mid-batch). No `pos.stock.lowStockAt` / `nearExpiryDays` row left behind.
