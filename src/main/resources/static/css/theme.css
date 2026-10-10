@@ -1371,3 +1371,13 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
   .brand-tagline { font-size: 26px; }
   .login-card .card-header h2 { font-size: 22px; }
 }
+
+/* CART-TOP — the sale's lines sit above the item entry (businessDashboard #sellCartTop). Capped at about six lines and
+   scrolling INSIDE, so the entry row below stays put however long the bill gets; the header and the Totals row are
+   pinned so the cashier always sees the columns and the running total (their opaque backgrounds come from the
+   dashboard's own #tablesi rules — sticky cells must cover the rows scrolling beneath them). */
+.sell-cart-top { margin: 10px 0 12px; }
+#sellCartTop #sellCartScroll { max-height: 330px; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+/* the header is already sticky with its own background (businessDashboard's #tablesi rules); pin the Totals the same way */
+#sellCartTop #tablesi tfoot th { position: sticky; bottom: 0; z-index: 2; }
+@media (max-width: 767px) { #sellCartTop #sellCartScroll { max-height: 240px; } }

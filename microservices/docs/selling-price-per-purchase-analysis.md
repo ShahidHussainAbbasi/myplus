@@ -752,3 +752,15 @@ sale-batches-by-line, purchase-edit-keeps-issued, header-stock-alerts — 26/26.
 (XxkS1wMiBXsrgFbZ72YPTQ) belongs to the other account and refuses this one, so v6 is a NEW artifact:
 https://claude.ai/artifact/PiS5HQrZwLu3wucogyjFYK (private until shared). Test Book section rebuilt 23/23 — publish
 from the owning account.
+
+### 12.13 CART-TOP — the cart above the item entry (owner's request, 2026-10-10)
+
+The sale's lines (`#sellCartScroll` → `#tablesi` with its Totals) moved from the checkout panel (`#iDiv`) to a new
+`#sellCartTop`, after the customer and before the item form; payable, installment and payment stay in `#iDiv` below the
+entry row. Decided: capped height (about six lines; 330 px, 240 px on phones), scrolling inside, header and Totals pinned,
+the newest line scrolled into view (business.js, by the last `data` line's product — rows sort by item id).
+Traced: the keyboard chain is `FocusFlow.fields(#Sell)` — the cart is outside the form, no Enter step changes; the edit
+banner was anchored to `#iDiv` → now before `#sellCartTop`; no JS selects the cart through its old parent; the dashboard's
+own `#tablesi` rules (sticky header, backgrounds) are kept. The stray literal "Add to Cart" text in the old panel body is
+removed. Gate `sale-cart-top.cy.js` (C1 order on screen, C2 eight lines: entry row fixed, cart scrolls, newest line and
+Totals visible) — red on the deployed build; green needs the monolith rebuilt.

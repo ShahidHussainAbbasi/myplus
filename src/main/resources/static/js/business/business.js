@@ -183,8 +183,35 @@ $(document).ready(function() {
             $(this).addClass('selected');
         }
     } );
- 
-    
+
+    /*
+     * CART-TOP — the cart sits above the entry row with a capped height (theme.css #sellCartTop). After a line is ADDED,
+     * bring it into view inside the cart box. Rows are sorted by item id, so the newest line is not always the last
+     * row: it is the last entry of `data` (the cart's lines), found by its product id. Only the cart box scrolls —
+     * never the page — and the pinned header/Totals are allowed for, so the line is never hidden under them.
+     */
+    var cartLineCount = 0;
+    $('#tablesi').on('draw.dt', function () {
+        var lines = window.data || [];
+        var grew = lines.length > cartLineCount;
+        cartLineCount = lines.length;
+        var box = document.getElementById('sellCartScroll');
+        if (!grew || !box || !lines.length || box.scrollHeight <= box.clientHeight) return;
+        var last = lines[lines.length - 1];
+        var pid = String(last && last.productId != null ? last.productId : (last && last.itemId));
+        var target = null;
+        tablesi.rows().every(function () {
+            var d = this.data() || [];
+            if (String(d[0]).replace(/<[^>]*>/g, '').trim() === pid) target = this.node();
+        });
+        if (!target) return;
+        var b = box.getBoundingClientRect(), r = target.getBoundingClientRect();
+        var head = (box.querySelector('thead') || { offsetHeight: 0 }).offsetHeight;
+        var foot = (box.querySelector('tfoot') || { offsetHeight: 0 }).offsetHeight;
+        if (r.bottom > b.bottom - foot) box.scrollTop += r.bottom - (b.bottom - foot);
+        else if (r.top < b.top + head) box.scrollTop -= (b.top + head) - r.top;
+    });
+
   //All button get initialized when user switch form
     // Show dashboard on page load
     $('#DashboardDiv').show();
@@ -825,7 +852,7 @@ function showSellEditBanner(invoiceNo){
 		+ "<span><b>Editing invoice " + escHtml(invoiceNo || '') + "</b> — change items / amounts, then click <b>Add Sell</b> to update.</span>"
 		+ "<button type='button' id='cancelSellEdit' class='btn btn-xs btn-default' style='margin-left:auto'>Cancel edit</button>"
 		+ "</div>");
-	$('#iDiv').before(banner);
+	$('#sellCartTop').before(banner);   // CART-TOP: above the lines being edited (was #iDiv, now the checkout below)
 	$('#cancelSellEdit').off().on('click', cancelSellEdit);
 }
 

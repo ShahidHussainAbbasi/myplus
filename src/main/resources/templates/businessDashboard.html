@@ -2452,6 +2452,42 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 
+				<!--
+					CART-TOP (2026-10-10, owner's request) — the lines of the sale sit ABOVE the item entry, after the customer: the
+					bill reads top to bottom (who, what, then how they pay) as on the desktop billing tools shops know (Marg, Busy).
+					Capped height, scrolling inside itself, header and Totals pinned (theme.css), so the entry row below never moves however long
+					the bill gets (the newest line is scrolled into view by business.js). Only the TABLE moved: the
+					payable line and payment stay in #iDiv below the entry row. The keyboard chain is built from #Sell only, so no
+					Enter step changes.
+				-->
+				<div id="sellCartTop" class="cart-panel sell-cart-top">
+					<div id="sellCartScroll">
+						<table id="tablesi" class="display" style="width:100%;">
+							<thead>
+								<tr>
+									<th th:text="#{ui.itemId}">Item id</th>
+									<th th:text="#{ui.nameCode}">Name/Code</th>
+									<th th:text="#{ui.qty2}">QTY</th>
+									<th th:text="#{ui.price}">Price</th>
+									<th th:text="#{ui.disc}">Disc</th>
+									<th th:text="#{ui.total}">Total</th>
+									<th th:text="#{ui.action}">Action</th>
+								</tr>
+							</thead>
+							<tfoot>
+					            <tr>
+					                <th></th>
+					                <th  th:text="#{ui.totals}">Totals:</th>
+					                <th ></th>
+					                <th ></th>
+					                <th ></th>
+					                <th id="sellTotal" ></th>
+					                <th></th>
+					            </tr>
+					        </tfoot>
+						</table>
+						</div><!-- /sellCartScroll -->
+				</div>
 				<form action="/" method="POST" onsubmit="return false" class="form-horizontal" role="form"
 					id="Sell" autocomplete="off">
 					<div class="form-group" style="display: none">
@@ -2778,33 +2814,8 @@ tr.row-voided .js-edit-row{display:none !important}
 							<span class="glyphicon glyphicon-shopping-cart"></span> <span th:text="#{ui.currentSale}">Current Sale</span>
 							<span class="cart-hint" th:text="#{ui.reviewItemsChooseCustomerAndPayment}">Review items, choose customer &amp; payment, then complete the sale</span>
 						</div>
-						<div class="cart-panel__body"> Add to Cart
-						<div id="sellCartScroll">
-						<table id="tablesi" class="display" style="width:100%;">
-							<thead>
-								<tr>
-									<th th:text="#{ui.itemId}">Item id</th>
-									<th th:text="#{ui.nameCode}">Name/Code</th>
-									<th th:text="#{ui.qty2}">QTY</th>
-									<th th:text="#{ui.price}">Price</th>
-									<th th:text="#{ui.disc}">Disc</th>
-									<th th:text="#{ui.total}">Total</th>
-									<th th:text="#{ui.action}">Action</th>
-								</tr>
-							</thead>
-							<tfoot>
-					            <tr>
-					                <th></th>
-					                <th  th:text="#{ui.totals}">Totals:</th>
-					                <th ></th>
-					                <th ></th>
-					                <th ></th>
-					                <th id="sellTotal" ></th>
-					                <th></th>
-					            </tr>
-					        </tfoot>
-						</table>
-						</div><!-- /sellCartScroll -->
+						<div class="cart-panel__body">
+						
 						<!-- TRADE-DISC-1: what the customer actually pays once the invoice-level trade discount is
 						     taken off. The cart footer above stays "sum of the Total column"; this line adds the
 						     discount and the payable, and only when there IS a discount, so every other sale looks
