@@ -598,7 +598,7 @@ new code (`batchAdjustForEdit`, `applyBillFacts`, `newBatchNo`, `notePrice`).
 | Guide `price-mode-guide.cy.js` | 22/22 (P6 new; P2 step 4 now really without a reload), 93 pictures → page https://claude.ai/artifact/XxkS1wMiBXsrgFbZ72YPTQ v5 |
 | Server left as found | no `pos.pricing.*` row on the guide/spec tenants, no category markup (org 15's own Auto 14.5% untouched) |
 
-Found while gating — NOT fixed (consent needed):
+Found while gating (fixed 2026-10-10 with consent — §12.8):
 * **GRID-LATE (shared grid loader):** `loadDataTable()`'s success handler reads the GLOBAL `getAll` / `datatable` when the
   reply arrives. Switch section while a grid is loading and the reply is drawn by the NEW section's branch: a
   `getUserSell` answered after a switch to Purchase threw `Cannot read properties of null (reading 'bpurchaseRate')` on
@@ -608,3 +608,17 @@ Found while gating — NOT fixed (consent needed):
   the bar said "1 SELECTED" — Delete then did nothing. Cause not traced (the fill only writes cells). The guide's P4
   cleanup now ticks after the fill.
 * Spec order: Q6 assumed Suggest but ran after Q5's Auto in one run — Q6 now sets Suggest itself.
+
+### 12.8 GRID-LATE and PG-TICK — fixed (consent 2026-10-10)
+
+| Defect | Cause (reproduced) | Fix | Gate |
+|---|---|---|---|
+| **GRID-LATE** — leave a section while its list loads: the late reply is drawn by the next section's branch (sale rows as purchases threw `reading 'bpurchaseRate'`) | `loadDataTable()`'s success handler reads the globals `getAll`/`datatable` when the reply ARRIVES | a load counter `window.gridLoadGen`: every `loadDataTable()` (bumped BEFORE the Product fork) and `loadProductTable()` takes a number; a reply (success or error) whose number is no longer the latest is dropped. One rule covers a section switch, reopening the same section, a page-length change | `grid-late-section-switch.cy.js` L1 (sale reply held 2.5 s, switch to Purchase): **red on the deployed build with the exact message; green 2/2 with the source loaded.** The other modules' own `loadDataTable` (education, welfare, agriculture) are on other dashboards — not changed, same pattern not checked |
+| **PG-TICK** — on Products, a tick was lost when its row was redrawn, while the bar still said "1 selected" (Delete then did nothing) | server-paged grid: a later search page REPLACES the rows (probe: tick at +0 ms, full-term page requested +350 ms, tbody replaced +700 ms); the bar was never recounted on draw | `loadProductTable`: `preDraw` notes what is ticked, `draw` re-ticks the same products if drawn again and recounts the bar. A product no longer shown is not carried — Delete reads the page, so it can never act on a row the operator cannot see | `products-tick-redraw.cy.js` K1 (redraw keeps the tick, bar 1), K2 (search it away → nothing ticked, no bar): **red 2/2 on the deployed build; green 2/2 ×2 with the source loaded**; `product-grid-late-page.cy.js` still green |
+
+**On the rebuilt monolith (2026-10-10):** `grid-late-section-switch` 1/1, `products-tick-redraw` 2/2 (no source loaded).
+Regression — `loadDataTable` serves every business section — 28 specs, **331/331**: grid-loading, non-blocking-ui,
+save-without-reload, row-actions, company, customer, vender, vendor-multi-company, purchase, purchase-rapid-entry,
+purchase-inline-product, busy-controls, sell, sell-edit, sale-duplicate-guard, sale-picker-chain, product-crud,
+product-existing-panel, product-picker, product-grid-late-page, product-import, customer-import, business-modal-keyboard,
+stock-adjust-guard, dashboard-kpi-drill, dashboard-breakdown-cards, return-documents, till-price-after-purchase.

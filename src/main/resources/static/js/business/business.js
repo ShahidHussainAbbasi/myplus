@@ -2247,6 +2247,14 @@ window.applySavedRow = applySavedRow;
 function loadDataTable(){
 	tableSellReport.clear().draw();
 	edit = false;
+	/*
+	 * GRID-LATE — this load's number. The reply below is drawn with the GLOBALS (getAll picks the row builder,
+	 * datatable is the table it fills), read when the reply ARRIVES. Open another section, or this one again, while a
+	 * load is in flight and the old reply was drawn by the new section's branch into the new section's table: a sale
+	 * reply drawn as purchases threw "Cannot read properties of null (reading 'bpurchaseRate')" (doc
+	 * selling-price-per-purchase §12.7). Taken BEFORE the Product fork below: that grid replaces `datatable` too.
+	 */
+	var gen = window.gridLoadGen = (window.gridLoadGen || 0) + 1;
 
 	/*
 	 * The Product grid is SERVER-PAGED and has its own initialiser.
@@ -2358,6 +2366,7 @@ function loadDataTable(){
 			 */
 			"global": false,
 			"success": function(data) {
+				if (gen !== window.gridLoadGen) return false;   // GRID-LATE: a later load owns the grid now
 				if(reload != tableV) reload = tableV;
 
 				// (The dropdown preload that used to sit here now runs from loadDataTable() — see
@@ -2619,6 +2628,7 @@ function loadDataTable(){
 				if (getAll === "Purchase") applyPurchaseColumnCapabilities(datatable);
 			},
 			error: function(jqXHR, textStatus, errorThrown) {
+				if (gen !== window.gridLoadGen) return;   // GRID-LATE: superseded — not this screen's failure to report
 				console.log(jqXHR, textStatus, errorThrown);
 				handleAjaxFailure(jqXHR, errorThrown, "loadDataTable");   // was: unconditional redirect to /login
 			}

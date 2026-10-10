@@ -1602,6 +1602,9 @@
      * Build (or rebuild) #tableProduct as a server-paged grid. Entered only through `loadDataTable()`.
      */
     global.loadProductTable = function () {
+        // GRID-LATE — this grid takes over the shared `datatable`, so a shared-loader reply still in flight must not
+        // draw into it. Bumped here as well as in loadDataTable(): some callers build this grid directly.
+        global.gridLoadGen = (global.gridLoadGen || 0) + 1;
         if (datatable != null) { datatable.destroy(); datatable = null; }
 
         // The section's dropdowns belong to the SECTION, not to a grid refresh — start them in parallel with
@@ -1737,6 +1740,26 @@
                         .fail(onFail);
                 }
             }
+        });
+
+        /*
+         * PG-TICK — a tick survives a redraw of the row it was on. This grid is server-paged: every search keystroke,
+         * page change or reload REPLACES the rows, and the replacement checkbox came back unticked while the bar still
+         * said "1 selected" — Delete then had nothing to confirm (seen: tick a product while its search is still
+         * settling). The page is the truth at redraw time: what is ticked just before (preDraw) is re-ticked where the
+         * same product is drawn again; a product no longer shown is not carried, so Delete never acts on a row the
+         * operator cannot see. Then the bar is recounted from the page.
+         */
+        var tickedBeforeDraw = {};
+        datatable.on('preDraw.pgTick', function () {
+            tickedBeforeDraw = {};
+            $("#tableProduct input[type='checkbox']:checked").each(function () { tickedBeforeDraw[this.value] = true; });
+        }).on('draw.pgTick', function () {
+            $("#tableProduct tbody input[type='checkbox']").each(function () {
+                if (tickedBeforeDraw[this.value]) this.checked = true;
+            });
+            tickedBeforeDraw = {};
+            if (typeof refreshBulkBar === 'function') refreshBulkBar('Product');
         });
 
         // Enable the fields for editing the data in the table (parity with the shared path).
