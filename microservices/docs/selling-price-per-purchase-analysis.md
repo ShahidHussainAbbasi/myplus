@@ -651,7 +651,7 @@ Tests: `PurchaseEditBatchFactsTest` 8/8 (incl. edit-after-return), `StockImportS
 `PurchaseEditBatchTest` 15/15; with the other purchase/stock classes 51/51. **Needs inventory-service + business-service
 deployed together.**
 
-### 12.10 Expiry on the purchase form — finding (2026-10-10), not changed
+### 12.10 Expiry on the purchase form — EXP-ENTRY (2026-10-10, fixed with consent)
 
 Asked by the owner. The field already shows/hides per business (`data-capability="expiryTracking"`). The defect:
 `main.js initDates()` fills EVERY empty `.datePicker` with today, the purchase expiry included — **565 of 579** live
@@ -659,3 +659,22 @@ bills with an expiry have expiry = bill date (owner.pharma's T25792 too). With F
 as expired from the next day. Recommended (awaiting consent): never pre-fill the expiry; refuse-or-confirm a date today
 or earlier; optional near-expiry warning window per business; judge "today" by TenantClock (TZ-2); decide what to do
 with the 565 existing same-day expiries.
+
+**Cause, traced (probe):** New Purchase opens with the box empty; it is filled when the PRODUCT is picked — every
+`.onChangeSelect` (the product picker is one) runs `initDates()`, which fills every empty `.datePicker` with today.
+**Fix:** `initDates()` skips `[data-no-default]`, and `#purchaseExpiry` carries it. On save (main.js purchase validation)
+an expiry of today or earlier asks first (`uiConfirm`, warning tone, 6 languages: `ui.js.expiryPast*`) — Cancel sends
+nothing and returns to the box; "Save anyway" saves (stock can arrive expired, e.g. to return it). The answer covers that
+date on that product once. "Today" = the browser's day (the shop's, as TZ-2 sends). Not changed: the 565 existing bills,
+and a near-expiry warning window (that belongs to the header-alerts settings, §12.11).
+Gate `purchase-expiry-entry.cy.js` X1 (still empty after the product pick), X2/X3 (asks; Cancel sends nothing; Save
+anyway saves), X4 (future date, no question): **X1 and X2 red on the deployed build for the stated reasons**; green needs
+the monolith rebuilt (template + messages + main.js). An `after()` voids any bill a failed case left.
+
+### 12.11 Header stock alerts (asked 2026-10-10) — review, awaiting decisions
+
+* Low stock today = per-product `stock_levels.min_stock_level` only — **0 of 5,221** rows have one; no business-wide cap
+  setting exists. Expired: **619** batches past expiry still hold stock.
+* ⚠ The existing inventory alerts (`AlertService`, `stock_alerts`, `/api/inventory/alerts`, the pharmacy Alerts screen)
+  have **no organization column**: the read is not tenant-scoped (cross-tenant if it ever had rows; empty today), and the
+  hourly job would insert a duplicate row per low product every hour.

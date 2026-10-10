@@ -354,7 +354,9 @@ var initDates = function(){
 	for(var i=0; i<dateTimeInputs.length;i++){
 		if(!dateTimeInputs[i].value) dateTimeInputs[i].value= moment().format('DD-MM-YYYY HH:mm:ss');
 	}
-	var dateInputs = $('.datePicker');
+	// EXP-ENTRY — a date box marked data-no-default is never filled with today. The purchase EXPIRY was: 565 of 579 bills
+	// with an expiry carried the bill's own date, so the batch sold first and counted as expired the next day.
+	var dateInputs = $('.datePicker').not('[data-no-default]');
 	for(var i=0; i<dateInputs.length;i++){
 		if(!dateInputs[i].value) dateInputs[i].value= moment().format('DD-MM-YYYY');
 	}
@@ -802,6 +804,35 @@ $(document).ready(function() {
 						return false;
 					}
 					$("#purchasePurchaseRate").css('border-color','');
+
+					/*
+					 * EXP-ENTRY — an expiry of TODAY OR EARLIER is asked about before it is saved. Such a batch counts as
+					 * expired (not sellable) and, sold first-expiry-first, it is the first one taken. Asked, not refused:
+					 * stock can arrive already expired (to return to the supplier). "Today" is the shop's own day — this
+					 * browser's clock, the same day TZ-2 sends the server. The answer covers THIS date on THIS product,
+					 * once: it is consumed by the save it allowed.
+					 */
+					var $exp = $('#purchaseExpiry'), expV = $.trim($exp.val() || '');
+					if (expV && $exp.is(':visible') && typeof uiConfirm === 'function') {
+						var expM = moment(expV, ['DD-MM-YYYY', 'YYYY-MM-DD'], true);
+						var ackKey = expV + '|' + pItem;
+						if (expM.isValid() && !expM.isAfter(moment(), 'day')) {
+							if (window._purchaseExpiryAck !== ackKey) {
+								uiConfirm({
+									title: t('ui.js.expiryPastTitle'),
+									message: t('ui.js.expiryPastMsg', expV),
+									confirmText: t('ui.js.expiryPastSave'),
+									tone: 'warning'
+								}).then(function (yes) {
+									if (yes !== true) { $exp.focus(); return; }
+									window._purchaseExpiryAck = ackKey;
+									$('#addPurchase').click();   // programmatic: keeps any "add another" intent
+								});
+								return false;
+							}
+							window._purchaseExpiryAck = null;   // consumed by this save
+						}
+					}
 				}
 				validateForm();
 			    if(formValidated){
