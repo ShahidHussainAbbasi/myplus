@@ -63,6 +63,23 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
     @Query("SELECT sl FROM StockLevel sl WHERE sl.currentStock <= 0 AND " + SCOPE)
     List<StockLevel> findOutOfStockScoped(@Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /*
+     * STK-ALERT — low stock against the product's OWN minimum, or (no minimum) the business's cap. lowAt 0 = no cap:
+     * only products with a minimum of their own count. Out of stock (<= 0) is included; the caller counts it apart.
+     */
+    String LOW_AT = "((sl.minStockLevel IS NOT NULL AND sl.currentStock <= sl.minStockLevel) "
+            + "OR (sl.minStockLevel IS NULL AND :lowAt > 0 AND sl.currentStock <= :lowAt))";
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE " + LOW_AT + " AND " + SCOPE)
+    long countLowAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE " + LOW_AT + " AND sl.currentStock <= 0 AND " + SCOPE)
+    long countOutAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
+    @Query("SELECT sl FROM StockLevel sl WHERE " + LOW_AT + " AND " + SCOPE + " ORDER BY sl.currentStock ASC, sl.productId ASC")
+    List<StockLevel> findLowAtScoped(@Param("lowAt") java.math.BigDecimal lowAt, @Param("orgId") Long orgId,
+                                     @Param("userId") Long userId, org.springframework.data.domain.Pageable page);
+
     // SYSTEM/SCHEDULED (cross-tenant): the hourly AlertService job runs with no security context.
     @Query("SELECT sl FROM StockLevel sl WHERE sl.minStockLevel IS NOT NULL AND sl.currentStock <= sl.minStockLevel")
     List<StockLevel> findLowStock();

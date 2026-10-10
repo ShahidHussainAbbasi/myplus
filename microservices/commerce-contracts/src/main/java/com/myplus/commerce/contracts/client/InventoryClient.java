@@ -147,4 +147,9 @@ public interface InventoryClient {
     /** FEFO batches (batch/expiry + sellable qty) a sale/dispense would draw from next (slice 54, P10). */
     @GetExchange("/stock/batches/{productId}")
     List<StockBatch> getBatches(@PathVariable Long productId);
+
+    /** STK-ALERT — low / out / expired / expiring counts + the first few of each, tenant-scoped. lowAt 0 = no business
+     *  cap (own minimums only); nearDays 0 = expiring not asked, negative = expiry not tracked. */
+    @GetExchange("/stock/alert-summary")
+    java.util.Map<String, Object> getAlertSummary(@RequestParam("lowAt") int lowAt, @RequestParam("nearDays") int nearDays);
 }

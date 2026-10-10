@@ -242,6 +242,23 @@
                     </li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
+                    <!--
+                      STK-ALERT — what an owner should act on: expired batches, batches expiring soon, low stock (against the
+                      business cap in Configuration → Stock alerts, or the product's own minimum). Owner/admin only; filled
+                      by /js/common/stock-alerts.js, which only the business dashboard loads, and kept hidden while every
+                      count is zero — so every other page, and every other role, shows nothing.
+                    -->
+                    <li id="stockAlertNav" style="display:none;position:relative;align-items:center;padding:9px 4px"
+                        sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')">
+                        <button type="button" id="stockAlertBtn" class="sa-btn" aria-haspopup="true" aria-expanded="false"
+                                aria-controls="stockAlertPanel">
+                            <span class="glyphicon glyphicon-alert" aria-hidden="true"></span>
+                            <span class="sa-badge sa-red" data-sa="expired" hidden></span>
+                            <span class="sa-badge sa-amber" data-sa="expiring" hidden></span>
+                            <span class="sa-badge sa-red" data-sa="low" hidden></span>
+                        </button>
+                        <div id="stockAlertPanel" class="sa-panel" role="region" hidden></div>
+                    </li>
                     <li style="display:flex;align-items:center;padding:9px 4px">
                         <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
                     </li>

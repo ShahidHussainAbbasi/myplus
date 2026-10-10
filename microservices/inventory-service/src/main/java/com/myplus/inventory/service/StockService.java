@@ -485,6 +485,57 @@ public class StockService {
         return stockEntryRepository.findByProductScoped(productId, CurrentUser.organizationId(), CurrentUser.userId(), pageable);
     }
 
+    /**
+     * STK-ALERT — what an owner should act on, for the header badge: low stock (own minimum, else the business cap
+     * {@code lowAt}; 0 = no cap), out of stock, expired batches still holding stock, and batches expiring within
+     * {@code nearDays} (0 = not asked; negative = expiry not tracked, both expiry figures skipped). Counts plus the
+     * first {@code ALERT_LIST} of each, most urgent first. Tenant-scoped like every read here.
+     */
+    public java.util.Map<String, Object> alertSummary(int lowAt, int nearDays) {
+        Long orgId = CurrentUser.organizationId();
+        Long userId = CurrentUser.userId();
+        BigDecimal cap = BigDecimal.valueOf(Math.max(0, lowAt));
+        var top = org.springframework.data.domain.PageRequest.of(0, ALERT_LIST);
+        java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("low", stockLevelRepository.countLowAtScoped(cap, orgId, userId));
+        out.put("out", stockLevelRepository.countOutAtScoped(cap, orgId, userId));
+        java.util.List<java.util.Map<String, Object>> low = new java.util.ArrayList<>();
+        for (StockLevel sl : stockLevelRepository.findLowAtScoped(cap, orgId, userId, top)) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("productId", sl.getProductId());
+            m.put("onHand", sl.getCurrentStock());
+            m.put("min", sl.getMinStockLevel() != null ? sl.getMinStockLevel() : cap);
+            low.add(m);
+        }
+        out.put("lowItems", low);
+        if (nearDays >= 0) {
+            LocalDate today = TenantClock.today();
+            out.put("expired", stockEntryRepository.countExpiryWindowScoped(LocalDate.of(1900, 1, 1), today, orgId, userId));
+            out.put("expiredItems", batchItems(stockEntryRepository.findExpiryWindowScoped(LocalDate.of(1900, 1, 1), today, orgId, userId, top)));
+            if (nearDays > 0) {
+                LocalDate before = today.plusDays(nearDays);
+                out.put("expiring", stockEntryRepository.countExpiryWindowScoped(today, before, orgId, userId));
+                out.put("expiringItems", batchItems(stockEntryRepository.findExpiryWindowScoped(today, before, orgId, userId, top)));
+            }
+        }
+        return out;
+    }
+
+    static final int ALERT_LIST = 10;
+
+    private static java.util.List<java.util.Map<String, Object>> batchItems(List<StockEntry> entries) {
+        java.util.List<java.util.Map<String, Object>> out = new java.util.ArrayList<>();
+        for (StockEntry e : entries) {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("productId", e.getProductId());
+            m.put("batchNo", e.getBatchNo());
+            m.put("expiryDate", e.getExpiryDate() != null ? e.getExpiryDate().toString() : null);
+            m.put("quantity", e.getQuantity());
+            out.add(m);
+        }
+        return out;
+    }
+
     public StockSummaryDTO getSummary() {
         Long orgId = CurrentUser.organizationId();
         Long userId = CurrentUser.userId();

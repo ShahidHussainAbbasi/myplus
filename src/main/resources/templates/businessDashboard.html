@@ -4691,6 +4691,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/price-history.js}"></script>
     <!-- PR-4: the Price approvals screen and its menu badge (owner/admin). -->
     <script th:src="@{/js/business/price-approvals.js}"></script>
+    <script th:src="@{/js/common/stock-alerts.js}"></script>   <!-- STK-ALERT: header badge (owner/admin) -->
     <!--
          SER-5 dashboard cards. Loads AFTER catalog-products.js because the category card's click handler
          calls openProductsForCategory(), which that file defines. The handler is delegated on `document`, so

@@ -1343,6 +1343,22 @@ public class CatalogController {
         }
     }
 
+    /** STK-ALERT — the header badge's counts (owner/admin; business-service refuses anyone else). */
+    @GetMapping("/stockAlertSummary")
+    @ResponseBody
+    public Map<String, Object> stockAlertSummary() {
+        try {
+            Map<String, Object> dto = business.get("/stockAlertSummary");
+            Map<String, Object> out = new java.util.HashMap<>();
+            if (dto != null) out.putAll(dto);
+            out.put("success", true);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("stockAlertSummary proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     @GetMapping("/productStock")
     @ResponseBody
     public Map<String, Object> productStock(final HttpServletRequest request) {

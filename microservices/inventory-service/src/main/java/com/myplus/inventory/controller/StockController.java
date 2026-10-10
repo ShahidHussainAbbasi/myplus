@@ -44,6 +44,13 @@ public class StockController {
     }
 
     /** BLK-5 — a product's corrections, newest first (at most 50), within the caller's tenant only. */
+    /** STK-ALERT — counts + the first few of each for the header badge (tenant-scoped). See StockService#alertSummary. */
+    @GetMapping("/alert-summary")
+    public java.util.Map<String, Object> alertSummary(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int lowAt,
+                                                      @org.springframework.web.bind.annotation.RequestParam(defaultValue = "-1") int nearDays) {
+        return stockService.alertSummary(lowAt, nearDays);
+    }
+
     @GetMapping("/adjustments")
     public ResponseEntity<ApiResponse<List<StockAdjustmentView>>> adjustments(@RequestParam Long productId) {
         return ResponseEntity.ok(ApiResponse.success(

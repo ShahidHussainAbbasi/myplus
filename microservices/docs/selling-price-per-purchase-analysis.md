@@ -671,10 +671,45 @@ Gate `purchase-expiry-entry.cy.js` X1 (still empty after the product pick), X2/X
 anyway saves), X4 (future date, no question): **X1 and X2 red on the deployed build for the stated reasons**; green needs
 the monolith rebuilt (template + messages + main.js). An `after()` voids any bill a failed case left.
 
-### 12.11 Header stock alerts (asked 2026-10-10) — review, awaiting decisions
+### 12.11 Header stock alerts — STK-ALERT (asked 2026-10-10; decisions taken the same day)
 
 * Low stock today = per-product `stock_levels.min_stock_level` only — **0 of 5,221** rows have one; no business-wide cap
   setting exists. Expired: **619** batches past expiry still hold stock.
 * ⚠ The existing inventory alerts (`AlertService`, `stock_alerts`, `/api/inventory/alerts`, the pharmacy Alerts screen)
   have **no organization column**: the read is not tenant-scoped (cross-tenant if it ever had rows; empty today), and the
   hourly job would insert a duplicate row per low product every hour.
+
+**Decisions (owner, 2026-10-10, all as recommended):** pulse then steady (no motion under "reduce motion"); low-stock cap
+= a business default in Configuration, a product's own minimum level overriding it; expiry = expired AND expiring within N
+days; owner and admin only.
+
+```mermaid
+flowchart LR
+  H[header badge<br/>stock-alerts.js] -->|GET /stockAlertSummary| M[monolith proxy]
+  M --> B[business-service<br/>owner/admin only · reads pos.stock.lowStockAt / nearExpiryDays · EXPIRY_TRACKING]
+  B -->|GET /stock/alert-summary?lowAt&nearDays| I[inventory-service<br/>scoped counts + top 10 lists]
+  B -->|getProducts ids| C[catalog: names]
+  S[sale · purchase · return · void · stock correction] -.ajaxComplete.-> H
+```
+
+* **Settings** (business, group "Stock alerts"): `pos.stock.lowStockAt` (default **0 = off**, so no business sees a
+  badge it never asked for) and `pos.stock.nearExpiryDays` (default 30; 0 = off).
+* **Low** = a product whose on-hand ≤ its own minimum level, or — with no minimum — ≤ the business cap (out of stock
+  included, counted separately as "out"). **Expired** = a batch with stock whose expiry is before today; **expiring** =
+  today ≤ expiry < today + N. Expiry counts only where the business tracks expiry. "Today" = `TenantClock.today()`.
+* **Inventory** answers from tenant-scoped queries (the `SCOPE` org/user fallback every inventory read uses) — never
+  from `stock_alerts`, which has no organization column.
+* **Header** (`fragments/header.html`, rendered only for owner/admin/super; the script loads only on the business
+  dashboard): one red count badge per kind, hidden while all are zero; it pulses 3 times when it first appears or a
+  count rises, then stays solid. Click → a panel with the top 10 of each (name, on-hand / batch + expiry). Refreshed on
+  page load, after any stock-moving request, and every 5 minutes while the tab is visible.
+
+**Built (2026-10-10):** inventory `StockService.alertSummary` + `GET /api/inventory/stock/alert-summary` (scoped queries
+`countLowAtScoped`/`findLowAtScoped`, `countExpiryWindowScoped`/`findExpiryWindowScoped`); contract
+`InventoryClient.getAlertSummary`; business `GET /stockAlertSummary` (owner/admin/super, settings + EXPIRY_TRACKING +
+names in one catalog call); monolith proxy; header `<li id="stockAlertNav">` + `js/common/stock-alerts.js`; 12 messages ×
+6 languages. Tests: `StockAlertSummaryTest` 4/4 on MySQL (cap and own minimum, cap 0, today = expiring not expired, empty
+expired batch not counted, expiry not tracked, the other tenant never counted). Gate `header-stock-alerts.cy.js` (H1
+owner + cap, H2 user refused, H3 pharmacy expired batch) — needs commerce-contracts INSTALLED, then inventory, business
+and monolith deployed. Not changed: the unscoped `AlertService` / `stock_alerts` (empty; nothing reads it but the
+pharmacy Alerts screen) — retire or scope it separately.
