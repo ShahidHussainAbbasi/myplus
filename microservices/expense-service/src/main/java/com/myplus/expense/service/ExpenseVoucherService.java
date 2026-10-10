@@ -119,7 +119,8 @@ public class ExpenseVoucherService {
         }
         audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), v.getPaidFrom(), null);
         receipts.attachOnSave(v, r.receiptIds());           // EX-5: the receipts, and "required above X", in this save
-        if (post) postInTx(v);
+        // EX-6b — a member's expense above what they may post is kept as a draft that waits for an owner or admin
+        if (post && !aboveMemberLimit(v)) postInTx(v);
         return VoucherView.of(v).withReceipts(r.receiptIds() == null ? 0 : (int) r.receiptIds().stream().distinct().count());
     }
 
@@ -129,6 +130,9 @@ public class ExpenseVoucherService {
         ExpenseVoucher v = visible(id);
         // EX-6 — a claim is posted by APPROVING it (owner/admin, not the claimant); this command would skip that.
         if (v.isClaim()) throw new ValidationException("A claim goes to the books when an owner or admin approves it.");
+        if (aboveMemberLimit(v))
+            throw new ValidationException("This expense is above the " + expenseSettings.userPostLimit().toPlainString()
+                    + " a member may post. An owner or admin posts it.");
         postInTx(v);
         return VoucherView.of(v);
     }
@@ -242,7 +246,8 @@ public class ExpenseVoucherService {
         access.assertModuleOn();
         if (date == null || amount == null || amount.signum() <= 0 || payee == null || payee.isBlank()) return List.of();
         return repo.sameExpense(access.org(), date, amount.setScale(2, java.math.RoundingMode.HALF_UP), payee.trim().toLowerCase())
-                .stream().map(v -> v.getVoucherNo() != null ? v.getVoucherNo() : "a claim waiting for approval")
+                .stream().map(v -> v.getVoucherNo() != null ? v.getVoucherNo()
+                        : v.isClaim() ? "a claim waiting for approval" : "an expense waiting to be posted")   // EX-6b
                 .distinct().toList();
     }
 
@@ -258,6 +263,16 @@ public class ExpenseVoucherService {
     }
 
     // ── internals ───────────────────────────────────────────────────────────────────────────────────
+
+    /**
+     * EX-6b — is this above what the caller may post themselves? Only a member (not an owner or admin) is limited, and
+     * only when the owner set a limit (blank = none, the default). Compared on the total paid.
+     */
+    boolean aboveMemberLimit(ExpenseVoucher v) {
+        if (access.canApprove()) return false;
+        java.math.BigDecimal limit = expenseSettings.userPostLimit();
+        return limit != null && v.getTotal() != null && v.getTotal().compareTo(limit) > 0;
+    }
 
     void postInTx(ExpenseVoucher v) {   // EX-6: also the claim's approval
         // the number is taken LAST before the outbox: the counter row stays locked until this commits

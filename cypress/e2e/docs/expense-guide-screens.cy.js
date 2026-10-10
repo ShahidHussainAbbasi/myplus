@@ -1163,6 +1163,50 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     act('Nothing to undo.', [], { cleanup: true })
   })
 
+  caseIt('6-6', 'A limit on what a member posts directly', () => {
+    testCase('6-6', 'ex6', 'A limit on what a member posts directly', { who: ['owner.education (recorded)', 'user.education (recorded)', 'admin.education (recorded)'] })
+    setup('No limit by default: a member posts any amount, as before. The owner sets one in Expenses → Settings.')
+    const LIMIT = 'expense.voucher.userPostLimit', payee = 'XG6 big ' + run
+    const resetLimit = () => schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/expense/settings/reset?key=${LIMIT}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false }))
+    asSchool('owner')
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: MGMT_KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    resetLimit()
+    SAFETY.push(() => { resetLimit(); schoolToken('owner').then((t) => cy.request({ method: 'POST', url: `${GW}/api/auth/settings/reset?key=${MGMT_KEY}`,
+      headers: { Authorization: `Bearer ${t}` }, failOnStatusCode: false })) })
+    schoolExpenses()
+    const a1 = act('As the owner: <b>Expenses → Settings</b>, <b>A member may post up to</b> = <b>50</b>, Save.', ['“Setting saved”. Blank means no limit; 0 means every member expense waits.'])
+    cy.get('[data-cy=expense-settings-open]').click()
+    cy.get('[data-cy=set-post-limit]').clear().type('50')
+    cy.get('[data-cy=set-post-limit-save]').click()
+    cy.get('#expSetMsg').should('contain', 'Setting saved')
+    cy.get('#expSetPanel').scrollIntoView({ offset: { top: -120, left: 0 } }); snap(a1, 'limit', '#expSetPanel')
+    const a2 = act(`As <b>user.education</b>: record <b>Rent 80</b> in cash, Payee <b>${payee}</b>.`,
+      ['“Saved. It is above the 50 a member may post, so it waits for an owner or admin to post it.” The row shows <b>Waiting to be posted</b>, with no number and a <b>Discard</b> button; it is not in the books, the report or Total spent.'])
+    asSchool('user')
+    schoolExpenses()
+    cy.get('#expCategory option').contains('Rent').then(($o) => cy.get('#expCategory').select($o.val(), { force: true }))
+    cy.get('#expAmount').clear().type('80')
+    cy.get('#expPaidFrom').select('CASH', { force: true })
+    cy.get('#expPayee').clear().type(payee)
+    cy.get('[data-cy=save-expense]').click()
+    cy.get('#expMsg', { timeout: 20000 }).should('contain', 'waits for an owner or admin')
+    cy.contains('#tableExpense tbody tr.expense-row', payee, { timeout: 25000 }).find('[data-cy=expense-waiting]').should('be.visible')
+    snap(a2, 'waiting')
+    act('As user.education, try to post it anyway (only possible outside the screen).', ['Refused: “This expense is above the 50 a member may post. An owner or admin posts it.” An expense of 50 or less posts as before.'], { via: 'run' })
+    const a4 = act('As <b>admin.education</b>: open Expenses and press <b>Post</b> on that row.', ['It gets its EXP- number and reaches <b>In the books</b>, dated as the member dated it.'])
+    asSchool('admin')
+    schoolExpenses()
+    cy.contains('#tableExpense tbody tr.expense-row', payee, { timeout: 25000 }).find('[data-cy=post-draft]').click()
+    cy.contains('#tableExpense tbody tr.expense-row', payee).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a4, 'posted')
+    act(`Void <b>${payee}</b> (reason “Test Book”) and clear the limit (blank, Save).`, [], { cleanup: true })
+    schoolToken('owner').then((t) => cy.request({ url: `${GW}/api/expense/vouchers?size=100`, headers: { Authorization: `Bearer ${t}` } }).its('body.data.content')
+      .then((l) => l.filter((v) => v.payeeName === payee && v.status === 'POSTED').forEach((v) => cy.request({ method: 'POST',
+        url: `${GW}/api/expense/vouchers/${v.id}/void`, headers: { Authorization: `Bearer ${t}` }, body: { reason: 'Test Book' }, failOnStatusCode: false }))))
+    resetLimit()
+  })
+
   // ═══ EX-7a · Paying a claim back ═════════════════════════════════════════════════════════════════════════
   /** A claim by `who`, approved by the owner and in the books — the screen's own requests (cases 6-2, 6-3). */
   const approvedSchoolClaim = (who, amount, payee) => schoolToken(who).then((c) =>

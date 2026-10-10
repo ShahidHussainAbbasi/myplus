@@ -27,11 +27,25 @@ class ExpenseSettingsTest {
         assertThat(catalog.entries()).extracting(SettingEntry::key)
                 .containsExactly(ExpenseSettingsCatalog.BACKDATE_DAYS, ExpenseSettingsCatalog.DEFAULT_PAID_FROM,
                         ExpenseSettingsCatalog.RECEIPT_REQUIRED_ABOVE,           // EX-5: read by ReceiptService.attachOnSave
-                        ExpenseSettingsCatalog.INPUT_TAX_RECOVERABLE);           // EX-8d: read by ExpenseVoucherService.build
+                        ExpenseSettingsCatalog.INPUT_TAX_RECOVERABLE,            // EX-8d: read by ExpenseVoucherService.build
+                        ExpenseSettingsCatalog.USER_POST_LIMIT);                 // EX-6b: read by ExpenseVoucherService.record/post
         assertThat(catalog.entries().get(0).defaultValue()).isEqualTo("30");
         assertThat(catalog.entries().get(1).defaultValue()).isEqualTo("CASH");
         assertThat(catalog.entries().get(2).defaultValue()).isEqualTo("0");
         assertThat(catalog.entries().get(3).defaultValue()).as("input tax is recovered only when switched on").isEqualTo("false");
+        assertThat(catalog.entries().get(4).defaultValue()).as("EX-6b: blank = no limit, nothing changes on deploy").isEmpty();
+    }
+
+    @Test
+    @DisplayName("EX-6b — a member's limit cannot be negative; 0 (every member expense waits) and an amount are fine")
+    void postLimitGuard() {
+        SettingWriteGuard g = catalog.expenseBackdateGuard();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> g.check(7L, ExpenseSettingsCatalog.USER_POST_LIMIT, "-5"))
+                .hasMessageContaining("cannot be negative");
+        g.check(7L, ExpenseSettingsCatalog.USER_POST_LIMIT, "0");
+        g.check(7L, ExpenseSettingsCatalog.USER_POST_LIMIT, "50.00");
+        // a reset is judged as a write of the default, which is blank: "back to no limit" must not be refused
+        g.checkReset(7L, ExpenseSettingsCatalog.USER_POST_LIMIT, "");
     }
 
     @Test

@@ -56,6 +56,12 @@
 				<input type="number" min="0" step="0.01" class="form-control input-sm" id="expSetReceiptAbove" data-cy="set-receipt-above" style="width:130px" inputmode="decimal">
 				<button type="button" class="btn btn-default btn-sm" data-cy="set-receipt-above-save" onclick="expenseSettingSaveReceiptAbove(this)" th:text="#{ui.js.expCatSave}">Save</button>
 			</div>
+			<!-- EX-6b — what a member may post directly (blank = no limit, the default) -->
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
+				<label for="expSetPostLimit" th:text="#{ui.expSetPostLimit}">A member may post up to (blank = no limit)</label>
+				<input type="number" min="0" step="0.01" class="form-control input-sm" id="expSetPostLimit" data-cy="set-post-limit" style="width:130px" inputmode="decimal">
+				<button type="button" class="btn btn-default btn-sm" data-cy="set-post-limit-save" onclick="expenseSettingSavePostLimit(this)" th:text="#{ui.js.expCatSave}">Save</button>
+			</div>
 			<!-- EX-8d — recover input tax on expenses (off by default) -->
 			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px">
 				<label style="font-weight:normal;margin:0"><input type="checkbox" id="expSetInputTax" data-cy="set-input-tax" onchange="expenseSettingSaveInputTax(this)">

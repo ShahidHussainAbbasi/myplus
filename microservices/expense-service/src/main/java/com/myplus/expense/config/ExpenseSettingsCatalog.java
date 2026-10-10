@@ -15,9 +15,10 @@ import com.myplus.common.settings.SettingsCatalogProvider;
  *   <li>{@value #BACKDATE_DAYS} — read by {@code ExpenseVoucherService.build}; replaces the constant 365.</li>
  *   <li>{@value #DEFAULT_PAID_FROM} — read by the Expenses form ({@code expense.js}) when it opens and after a save.</li>
  * </ul>
- * Not yet: {@code userPostLimit} (its design default "users record drafts only" would take posting away from users
- * while drafts are unreachable on screen — E7; it lands with claims/approval, EX-6), {@code receipt.requiredAbove}
- * (EX-5), {@code tax.inputRecoverable} (EX-8).
+ *   <li>{@value #USER_POST_LIMIT} (EX-6b) — read by {@code ExpenseVoucherService.record/post}. Default BLANK = no limit
+ *       (owner's ruling: the design's "0 = drafts only" would have taken posting away from every member on deploy);
+ *       above it a member's expense waits as a draft, which E7 made reachable on screen in the same slice.</li>
+ * Also {@code receipt.requiredAbove} (EX-5) and {@code tax.inputRecoverable} (EX-8d).
  */
 @Component
 public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
@@ -26,6 +27,7 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
     public static final String DEFAULT_PAID_FROM = "expense.voucher.defaultPaidFrom";
     public static final String RECEIPT_REQUIRED_ABOVE = "expense.receipt.requiredAbove";
     public static final String INPUT_TAX_RECOVERABLE = "expense.tax.inputRecoverable";   // EX-8d
+    public static final String USER_POST_LIMIT = "expense.voucher.userPostLimit";          // EX-6b
     public static final int BACKDATE_DEFAULT = 30, BACKDATE_MAX = 3650;
 
     @Override
@@ -49,7 +51,13 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
                         "Off (default): an expense is a cost including its tax. On: the form asks how much of each "
                                 + "amount is tax you can reclaim; that part goes to the tax account and is netted in the "
                                 + "tax register, and only the rest is an expense.",
-                        false, "Expenses"));
+                        false, "Expenses"),
+                // EX-6b — read by ExpenseVoucherService.record and post (blank = no limit, the default)
+                SettingEntry.money(USER_POST_LIMIT, "A member may post up to",
+                        "Blank (default): no limit. With an amount, a member's expense above it is saved and waits for an "
+                                + "owner or admin to post it; 0 means every member expense waits. Owners and admins are "
+                                + "never limited.",
+                        "", "Expenses"));
     }
 
     /** 0 (today only) to ten years: a negative window or a typo of 100000 days is refused in words. */
@@ -58,6 +66,9 @@ public class ExpenseSettingsCatalog implements SettingsCatalogProvider {
         return (org, key, value) -> {
             if (RECEIPT_REQUIRED_ABOVE.equals(key) && new java.math.BigDecimal(value).signum() < 0)
                 throw new IllegalArgumentException("The amount above which a receipt is required cannot be negative.");
+            // a RESET is judged as a write of the default, and this default is blank (no limit): blank must pass
+            if (USER_POST_LIMIT.equals(key) && value != null && !value.isBlank() && new java.math.BigDecimal(value.trim()).signum() < 0)
+                throw new IllegalArgumentException("What a member may post cannot be negative. Leave it blank for no limit.");
             if (!BACKDATE_DAYS.equals(key)) return;
             int days = Integer.parseInt(value);
             if (days < 0 || days > BACKDATE_MAX)

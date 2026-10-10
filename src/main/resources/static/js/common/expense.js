@@ -49,6 +49,8 @@
 				+ '<div class="text-danger" data-cy="claim-reason" style="font-size:12px;margin-top:3px;white-space:normal">' + esc(v.decisionNote || '') + '</div>';
 		}
 		if (v.claimStatus === 'WITHDRAWN') return '<span class="label label-default" data-cy="claim-withdrawn">' + esc(tr('ui.js.claimWithdrawn', 'Withdrawn')) + '</span>';
+		// EX-6b — a member's expense above what they may post: saved, not in the books until an owner or admin posts it
+		if (isWaiting(v)) return '<span class="label label-warning" data-cy="expense-waiting">' + esc(tr('ui.js.expWaiting', 'Waiting to be posted')) + '</span>';
 		if (v.status === 'VOIDED') {
 			return '<span class="label label-default" title="' + esc(v.voidReason || '') + '">' + esc(tr('ui.js.expVoided', 'Void')) + '</span>';
 		}
@@ -141,6 +143,22 @@
 			+ esc(tr('ui.js.claimReject', 'Reject')) + '</button>';
 	}
 
+	/** EX-6b — a saved expense that is not a claim and not yet posted: it waits for an owner or admin. */
+	function isWaiting(v) {
+		return v.status === 'DRAFT' && v.paidFrom !== 'EMPLOYEE' && !v.claimStatus;
+	}
+	/** Discard: its recorder or an owner/admin (the server is the guard). Post: owner/admin only. */
+	function draftDiscardBtn(v) {
+		if (!isWaiting(v)) return '';
+		return ' <button type="button" class="btn btn-xs btn-default" data-cy="discard-draft" data-id="' + esc(v.id) + '">'
+			+ esc(tr('ui.js.expDiscard', 'Discard')) + '</button>';
+	}
+	function draftPostBtn(v) {
+		if (!isWaiting(v)) return '';
+		return '<button type="button" class="btn btn-xs btn-primary" data-cy="post-draft" data-id="' + esc(v.id) + '">'
+			+ esc(tr('ui.js.expPostDraft', 'Post')) + '</button> ';
+	}
+
 	function row(v) {
 		// EX-2b — a tagged line reads "Fuel and transport · Bus (LEA-123)": the category, then what it was for.
 		var cats = (v.lines || []).map(function (l) {
@@ -156,7 +174,7 @@
 				: tr('ui.js.expCash', 'Cash')) + '</td>'
 			+ '<td>' + esc(v.payeeName || '') + '</td>'
 			+ '<td style="text-align:right;font-variant-numeric:tabular-nums">' + esc(money(v.total)) + '</td>'
-			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + receiptsBtn(v) + claimWithdrawBtn(v) + '</td>';
+			+ '<td class="exp-chip">' + chip(v) + billState(v) + refusal(v) + receiptsBtn(v) + claimWithdrawBtn(v) + draftDiscardBtn(v) + '</td>';
 		if (canVoid) {
 			// EX-3 — a till pay-out is corrected at the till (the server refuses its void), so no button here.
 			// FP-3 — a bill with payments is voided only after its payments are reversed (the server refuses it too).
@@ -165,7 +183,7 @@
 			tds += '<td>' + (voidable
 				? '<button type="button" class="btn btn-xs btn-default" data-cy="void-expense" data-id="' + esc(v.id)
 					+ '" data-no="' + esc(v.voucherNo || '') + '">' + esc(tr('ui.js.expVoid', 'Void')) + '</button>'
-				: '') + claimDecideBtns(v) + '</td>';
+				: '') + claimDecideBtns(v) + draftPostBtn(v) + '</td>';
 		}
 		return '<tr data-id="' + esc(v.id) + '" class="expense-row' + (v.status === 'VOIDED' ? ' row-voided' : '')
 			+ (closedForReceipts(v) ? ' row-no-receipts' : '') + '">' + tds + '</tr>';
@@ -601,7 +619,9 @@
 				msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
 				return;
 			}
+			// EX-6b — kept back above the member's limit: the server's sentence says why and who posts it
 			msg(isClaim ? tr('ui.js.claimSent', 'Claim sent for approval. It goes to the books once an owner or admin approves it.')
+				: (res.data && res.data.status === 'DRAFT') ? res.message
 				: tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
 			$f.removeData('idemKey');
 			$f.removeData('receipt');
@@ -882,6 +902,7 @@
 	// New Sale" lesson), changed by owner/admin in the Settings panel. The server validates and answers in words.
 	var KEY_BACK = 'expense.voucher.backdateDays', KEY_PAID = 'expense.voucher.defaultPaidFrom', KEY_RCPT = 'expense.receipt.requiredAbove';
 	var KEY_TAX = 'expense.tax.inputRecoverable';   // EX-8d
+	var KEY_LIMIT = 'expense.voucher.userPostLimit';  // EX-6b — blank = no limit
 	var expSettings = {};
 	function loadExpenseSettings() {
 		return $.ajax({ url: ctx() + 'expense/settings', dataType: 'json' }).done(function (res) {
@@ -891,6 +912,7 @@
 			$('#expSetBackdate').val(expSettings[KEY_BACK] != null ? expSettings[KEY_BACK] : '');
 			if (expSettings[KEY_PAID]) $('#expSetPaidFrom').val(expSettings[KEY_PAID]);
 			$('#expSetReceiptAbove').val(expSettings[KEY_RCPT] != null ? expSettings[KEY_RCPT] : '');
+			$('#expSetPostLimit').val(expSettings[KEY_LIMIT] != null ? expSettings[KEY_LIMIT] : '');
 			// EX-8d — the tax field is offered only while the business recovers input tax
 			var taxOn = String(expSettings[KEY_TAX]) === 'true';
 			$('#expSetInputTax').prop('checked', taxOn);
@@ -1022,6 +1044,45 @@
 			});
 	});
 
+	// ── EX-6b — a waiting expense: an owner or admin posts it; its recorder (or an owner/admin) may discard it ──────
+	$(document).on('click', '#tableExpense [data-cy="post-draft"]', function () {
+		var $b = $(this), id = $b.attr('data-id'), label = $b.html();
+		$b.prop('disabled', true).text(tr('ui.js.expSaving', 'Saving…'));
+		$.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(id) + '/post', type: 'POST', dataType: 'json' })
+			.done(function (res) {
+				if (!res || res.success !== true) {
+					$b.prop('disabled', false).html(label);
+					msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad');
+					return;
+				}
+				if (res.data) $b.closest('tr').replaceWith(row(res.data));
+				msg(tr('ui.js.expSaved', 'Expense saved. Posting to the books.'), 'ok');
+				watch(id, 15);
+			})
+			.fail(function (xhr) {
+				$b.prop('disabled', false).html(label);
+				msg(typeof global.apiFailMessage === 'function' ? global.apiFailMessage(xhr, tr('ui.js.saveFailed', 'Save failed'))
+					: tr('ui.js.saveFailed', 'Save failed'), 'bad');
+			});
+	});
+	$(document).on('click', '#tableExpense [data-cy="discard-draft"]', function () {
+		var $b = $(this), id = $b.attr('data-id');
+		var go = function () {
+			$b.prop('disabled', true);
+			$.ajax({ url: ctx() + 'expense/vouchers/' + encodeURIComponent(id), type: 'DELETE', dataType: 'json' })
+				.done(function (res) {
+					if (!res || res.success !== true) { $b.prop('disabled', false); msg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+					$b.closest('tr').remove();
+					msg(tr('ui.js.expDiscarded', 'Discarded. It never reached the books.'), 'ok');
+				})
+				.fail(function () { $b.prop('disabled', false); msg(tr('ui.js.saveFailed', 'Save failed'), 'bad'); });
+		};
+		if (typeof global.uiConfirm === 'function') global.uiConfirm({ title: tr('ui.js.expDiscardTitle', 'Discard this expense?'),
+			message: tr('ui.js.expDiscardMsg', 'It is waiting to be posted and is not in the books. Discarding removes it.'),
+			tone: 'warning' }).then(function (ok) { if (ok) go(); });
+		else go();
+	});
+
 	// ── EX-6 — deciding a claim ───────────────────────────────────────────────────────────────────────────────
 	// Only the pressed button shows it is working (§0c); the row is redrawn from the server's answer, and an approved
 	// claim is then watched like any expense until the books answer.
@@ -1075,6 +1136,18 @@
 	global.expenseSettingSaveBackdate = function (btn) { expenseSettingSave(btn, KEY_BACK, String($('#expSetBackdate').val() || '').trim()); };
 	global.expenseSettingSavePaidFrom = function (btn) { expenseSettingSave(btn, KEY_PAID, $('#expSetPaidFrom').val()); };
 	global.expenseSettingSaveInputTax = function (box) { expenseSettingSave(box, KEY_TAX, box.checked ? 'true' : 'false'); };
+	// EX-6b — a blank box is "no limit": a save must carry a value, so going back to blank is the setting's reset
+	global.expenseSettingSavePostLimit = function (btn) {
+		var v = String($('#expSetPostLimit').val() || '').trim();
+		if (v !== '') { expenseSettingSave(btn, KEY_LIMIT, v); return; }
+		$.ajax({ url: ctx() + 'expense/settings/reset?key=' + encodeURIComponent(KEY_LIMIT), type: 'POST', dataType: 'json' })
+			.done(function (res) {
+				if (!res || res.success !== true) { setMsg((res && res.message) || tr('ui.js.saveFailed', 'Save failed'), 'bad'); return; }
+				setMsg(tr('ui.js.expSettingSaved', 'Setting saved'), 'ok');
+				loadExpenseSettings();
+			})
+			.fail(function () { setMsg(tr('ui.js.saveFailed', 'Save failed'), 'bad'); });
+	};
 	global.expenseSettingSaveReceiptAbove = function (btn) { expenseSettingSave(btn, KEY_RCPT, String($('#expSetReceiptAbove').val() || '0').trim()); };
 	global.expensePay = expensePay;
 	global.expensePayClose = expensePayClose;

@@ -77,6 +77,15 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
     }
 
+    /** EX-6b — back to the default (a blank limit = no limit; a save must carry a value, so blank is a reset). */
+    @PostMapping(value = "/settings/reset", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> resetSetting(@RequestParam String key) {
+        StringBuilder q = new StringBuilder("/settings/reset?x=1");
+        param(q, "key", key);
+        return call(() -> expense.send(HttpMethod.POST, q.toString(), null));
+    }
+
     // ── EX-5 — receipts ──────────────────────────────────────────────────────────────────────────────
 
     @PostMapping(value = "/receipts", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -170,6 +179,20 @@ public class ExpenseController {
     @ResponseBody
     public ResponseEntity<String> voidVoucher(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
         return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/void", body));
+    }
+
+    /** EX-6b (E7) — post a waiting draft: an owner or admin (expense-service refuses a member above their limit). */
+    @PostMapping(value = "/vouchers/{id}/post", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> post(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.POST, "/vouchers/" + id + "/post", null));
+    }
+
+    /** EX-6b (E7) — discard a waiting draft (its recorder, or an owner/admin). A posted expense is voided instead. */
+    @DeleteMapping(value = "/vouchers/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> discard(@PathVariable Long id) {
+        return call(() -> expense.send(HttpMethod.DELETE, "/vouchers/" + id, null));
     }
 
     /** EX-1b — send again what the books refused (after a period is reopened, say). */

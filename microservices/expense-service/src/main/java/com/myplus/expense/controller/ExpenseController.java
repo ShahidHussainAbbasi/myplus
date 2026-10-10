@@ -38,6 +38,7 @@ public class ExpenseController {
     private final com.myplus.expense.service.ExpenseClaimService claims;
     private final com.myplus.expense.service.ExpenseAdvanceService advances;   // EX-7b
     private final com.myplus.expense.service.ExpenseReportService reports;     // EX-8a
+    private final com.myplus.expense.service.ExpenseSettings expenseSettings; // EX-6b — the limit, to say it
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -130,7 +131,14 @@ public class ExpenseController {
         // The header is the standard; the parameter exists because the monolith's GatewayClient forwards a body
         // and a query but no custom headers. Either way the same UNIQUE index carries the guarantee.
         String k = key != null && !key.isBlank() ? key : keyParam;
-        return ApiResponse.success(vouchers.record(r, post, k), post ? "Expense saved — posting to the books" : "Draft saved");
+        VoucherView v = vouchers.record(r, post, k);
+        if (post && "DRAFT".equals(v.status())) {
+            // EX-6b — kept back: above what a member may post (the screen shows this sentence as it is)
+            java.math.BigDecimal limit = expenseSettings.userPostLimit();
+            return ApiResponse.success(v, "Saved. It is above the " + (limit == null ? "amount" : limit.toPlainString())
+                    + " a member may post, so it waits for an owner or admin to post it.");
+        }
+        return ApiResponse.success(v, post ? "Expense saved — posting to the books" : "Draft saved");
     }
 
     /** EX-8b — the same payee, date and amount already recorded (numbers only): the screen asks before saving. */
