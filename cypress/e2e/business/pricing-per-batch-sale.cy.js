@@ -11,9 +11,10 @@
  *   S3  the cashier chooses the NEW batch: 3 @ 250 from NEW, although FEFO would have taken OLD
  *   S4  the preview says 7 @ 200 + 3 @ 250 and holds nothing
  *   S5  Latest (any other mode) is unchanged: one line at the product's price
- *   S6  the till: Batch choice shows both batches with their prices; the rate box starts at OLD's 200; adding 10
- *       puts two lines in the cart (7 × 200, 3 × 250); Complete Sale records exactly that
- *   S7  the till: 7 then 3 added separately — Complete re-checks the whole cart, shows the 3 @ 250 and posts nothing;
+ *   S6  the till: NO Batch choice and no notice row (SALE-SLIM, owner 2026-10-10); the rate box starts at OLD's 200;
+ *       adding 10 puts one row with two batch sub-lines in the cart (7 × 200, 3 × 250); Complete Sale records exactly that
+ *   S7  the till: 7 then 3 added separately — Complete re-checks the whole cart, shows the 3 @ 250 (the form's error line
+ *       says why) and posts nothing;
  *       Complete again records it
  *
  *   S12 PB-OLD — stock bought in LATEST (no batch price) sells, once the shop is in Per batch, at ITS OWN BILL's rate:
@@ -236,7 +237,8 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
     cy.get(`#sellItemDD option[value="${productId}"]`, { timeout: 15000 }).should('exist')
     cy.get('#sellItemDD').select(String(productId), { force: true })
     cy.wait('@stock', { timeout: 15000 })
-    cy.get('#sellBatchPickRow').should('be.visible')
+    // SALE-SLIM (owner, 2026-10-10): no Batch choice on the till — the sale takes earliest expiry first
+    cy.get('#sellBatchPickRow').should('not.be.visible')
   }
   const addToCart = (qty) => {
     cy.get('#sellQuantity', { timeout: 20000 }).should('not.be.disabled').clear().type(String(qty))
@@ -248,7 +250,10 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
   const cartGroup = () => cy.get('#tablesi tbody .pb-group')
   const subLines = () => cy.get('#tablesi tbody .pb-sub')
   /** The cart's visible footer cells: Name · QTY · Price · Disc · Total · Action (the id column is hidden). */
-  const footer = () => cy.get('#tablesi tfoot th:visible').then(($th) => cy.wrap([...$th].map((th) => th.innerText.trim())))
+  // Laid-out cells, not Cypress's :visible — CART-TOP pins the Totals (sticky) inside a scrolling box, and :visible judges a
+  // sticky cell by its unpinned place, which the box clips. The id column is display:none, so it has no client rects.
+  const footer = () => cy.get('#tablesi tfoot th').then(($th) =>
+    cy.wrap([...$th].filter((th) => th.getClientRects().length > 0).map((th) => th.innerText.trim())))
   /** Complete Sale. In Per batch the till re-checks the cart FIRST, so the confirm dialog opens only after it answers. */
   const complete = ({ expectConfirm = true } = {}) => {
     cy.get('#sellPayMethod').select('CASH', { force: true })
@@ -261,14 +266,12 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
     if (expectConfirm) cy.confirmSale()
   }
 
-  it('S6 the till: the Batch choice, then 10 added → 7 × 200 and 3 × 250 in the cart, and that is what is recorded', () => {
+  it('S6 the till: no Batch choice or notice row; 10 added → 7 × 200 and 3 × 250 in the cart, and that is what is recorded', () => {
     seedTwoBatches('S6').then(({ productId, name, old, neu }) => {
       openSale()
       pickItem(productId)
-      cy.get('#sellBatchPickRow').should('be.visible')
-      cy.get('#sellBatchPick option').should('have.length', 3)
-      cy.get('#sellBatchPick option').eq(1).should('contain', old.batchNo).and('contain', '7 @ 200.00')
-      cy.get('#sellBatchPick option').eq(2).should('contain', neu.batchNo).and('contain', '10 @ 250.00')
+      // SALE-SLIM: the Batch choice and the notice row are not shown; the rate box still starts at the first batch's price
+      cy.get('#sellNoticeRow').should('not.be.visible')
       cy.get('#sellSellRate').should('have.value', '200')
       addToCart(10)
       // CART-3: ONE row for the product, its two batches as sub-lines (the invoice still gets two lines — below).
@@ -278,7 +281,7 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       subLines().eq(0).should('have.attr', 'data-qty', '7').and('contain', '200.00').and('contain', old.batchNo)
       subLines().eq(1).should('have.attr', 'data-qty', '3').and('contain', '250.00').and('contain', neu.batchNo)
       cy.get('#tablesi tbody tr').eq(0).find('td').eq(1).should('contain', '10')   // the row's quantity: 7 + 3
-      cy.get('#sellBatchNote').should('be.visible').and('contain', '7 @ 200.00').and('contain', '3 @ 250.00')
+      cy.get('#sellBatchNote').should('not.be.visible')   // SALE-SLIM: the cart's sub-lines say it
       cy.get('#sellTotal').should('contain', '2150')
       cy.intercept('POST', '/addSell').as('sale')
       complete()
@@ -303,7 +306,8 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       let posted = 0
       cy.intercept('POST', '/addSell', () => { posted++ }).as('sale')
       complete({ expectConfirm: false })   // the re-check changes the cart, so no dialog: nothing is posted
-      cy.get('#sellBatchNote').should('be.visible').and('contain', 'changed its prices')
+      // SALE-SLIM: the note row is hidden — the form's error line is what tells the cashier why nothing was posted
+      cy.get('#globalError').should('be.visible').and('contain', 'changed its prices')
       cy.get('#tablesi tbody tr').eq(1).should('contain', '250').and('contain', neu.batchNo)
       cy.then(() => expect(posted, 'nothing posted on the first Complete').to.eq(0))
       complete()

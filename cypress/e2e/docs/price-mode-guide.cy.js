@@ -990,16 +990,12 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     snap(a3, 'history', '#PriceHistoryDialog > div')
     closeHistory(); closeProduct()
 
-    const a4 = act(`**Sale**: pick **${pname}** and open the **Batch** list.`,
-      [`The new stock: **${batch} · 4 @ 250.00 · exp …** — listed first, because it carries an expiry date and the list is earliest-expiry-first.`,
-        'The stock already on the shelf: **no batch no. · 3 @ 200.00** — the product’s price.'])
+    const a4 = act(`**Sale**: pick **${pname}**.`,
+      ['S/U Price shows **250** — the price of the new batch, which the sale takes first (it carries an expiry date; earliest expiry first). The stock already on the shelf has no price of its own and sells at the product’s **200** once the new batch runs out.'])
     openSale()
     cy.then(() => pickItem(pid))
-    cy.get('#sellBatchPickRow').should('be.visible')
-    cy.get('#sellBatchPick option').should('have.length', 3)
-    cy.contains('#sellBatchPick option', batch).should('contain', '4 @ 250.00')
-    cy.contains('#sellBatchPick option', '3 @ 200.00').should('exist')
-    cy.get('#sellBatchPickRow').as('bp')
+    cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM: no Batch choice on the till (owner, 2026-10-10)
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(250))
     snap(a4, 'batches-on-till', '#sellDiv')
 
     const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
@@ -1060,27 +1056,22 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     SAFETY.push(() => voidSaleIfStanding(sale))
 
     const a1 = act(`**Sale** (reload first). Pick **${t.pname}**.`,
-      ['A **Batch** list appears: **Earliest expiry first (FEFO)**, then **' + t.old + ' · 7 @ 200.00** and **' + t.neu + ' · 10 @ 250.00**.',
-        'S/U Price shows **200** — the price of the batch the sale will take first, not the product’s 240.'])
+      ['S/U Price shows **200** — the price of the batch the sale will take first (' + t.old + '), not the product’s 240.'])
     openSale()
     cy.then(() => pickItem(t.pid))
-    cy.get('#sellBatchPickRow').should('be.visible')
-    cy.get('#sellBatchPick option').should('have.length', 3)
-    cy.get('#sellBatchPick option').eq(1).should('contain', t.old).and('contain', '7 @ 200.00')
-    cy.get('#sellBatchPick option').eq(2).should('contain', t.neu).and('contain', '10 @ 250.00')
+    cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM: no Batch choice on the till
     cy.get('#sellSellRate').should('have.value', '200')
     snap(a1, 'batch-list', '#sellDiv')
 
     const a2 = act('Quantity **10**, **Add to Cart**.',
       ['The cart shows **one line** for the product, quantity **10**, with its batches underneath: **' + t.old + ' · 7 × 200.00** and **' + t.neu + ' · 3 × 250.00**. (The invoice still records them as two lines.)',
-        'A green note: “**Priced by batch: 7 @ 200.00 (' + t.old + ') + 3 @ 250.00 (' + t.neu + ')**”.', 'The total is **2150.00**.'])
+        'The total is **2150.00**.'])
     addLine(10, true)
     // CART-3: one row, the two batches as sub-lines
     cartRows().should('have.length', 1)
     cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
     cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t.old).and('have.attr', 'data-qty', '7').and('contain', '200.00')
     cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t.neu).and('have.attr', 'data-qty', '3').and('contain', '250.00')
-    cy.get('#sellBatchNote').should('be.visible').and('contain', '7 @ 200.00').and('contain', '3 @ 250.00')
     cy.get('#sellTotal').should('contain', '2150')
     snap(a2, 'cart-split', '#sellDiv')
 
@@ -1111,49 +1102,38 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     resetModeOnScreen(c3)
   })
 
-  caseIt('S2', 'The cashier may choose the batch, or type a price — both are respected', () => {
+  caseIt('S2', 'A price the cashier types is respected — never re-priced from the batches', () => {
     asLifecycle(); guardMode()
     const sale = { value: null }
     const t = twoBatches('S2')
-    testCase('S2', 'The cashier may choose the batch, or type a price — both are respected', {
-      covers: ['PR3c-4', 'PR3c-5'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner (any cashier)',
-      purpose: 'The pick rule is only the default. A customer may ask for the fresh stock, so the cashier can choose a batch; and a price the cashier types (a bargain, a correction) is theirs — it is never re-priced from the batches.',
+    testCase('S2', 'A price the cashier types is respected — never re-priced from the batches', {
+      covers: ['PR3c-5'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner (any cashier)',
+      purpose: 'The batch price is only what the till offers. A price the cashier types (a bargain, a correction) is theirs — it is never re-priced from the batches. (The till offers no Batch choice: the sale always takes earliest expiry first — owner, 10 Oct 2026.)',
       prereq: ['As S1: Per batch, the product with OLD (7 at 200) and NEW (10 at 250).'],
-      data: ['Line 1: batch **NEW**, quantity **3**', 'Line 2: S/U typed **230**, quantity **2**'],
+      data: ['S/U typed **230**, quantity **2**'],
       rollback: 'The invoice and both bills are voided on screen; the setting is put back to Latest on screen.',
     })
     SAFETY.push(() => voidSaleIfStanding(sale))
 
-    const a1 = act(`**Sale**: pick **${t.pname}**, choose **${t.neu} · 10 @ 250.00** in **Batch**, quantity **3**, **Add to Cart**.`,
-      ['S/U changes to **250** when the batch is chosen.', 'The cart shows **3 × 250** (' + t.neu + ').'])
+    const a1 = act(`**Sale**: pick **${t.pname}**, type **230** in **S/U Price**, quantity **2**, **Add to Cart**.`,
+      ['S/U first shows **200** (the batch the sale takes first); after typing it is **230**.', 'The cart shows **2 × 230** — the typed price stands; no batch re-prices it.'])
     openSale()
-    cy.then(() => pickItem(t.pid))
-    cy.get('#sellBatchPick option').eq(2).then(($o) => cy.get('#sellBatchPick').select($o.val(), { force: true }))
-    cy.get('#sellSellRate').should('have.value', '250.00')
-    snap(a1, 'batch-chosen', '#sellDiv')
-    addLine(3, true)
-    cartRows().should('have.length', 1)
-    cartRows().eq(0).should('contain', t.neu).and('contain', '250')
-
-    const a2 = act(`Pick **${t.pname}** again, type **230** in **S/U Price**, quantity **2**, **Add to Cart**.`,
-      ['The cart adds **2 × 230** — the typed price stands; no batch re-prices it.'])
     cy.then(() => pickItem(t.pid))
     cy.get('#sellSellRate').should('have.value', '200')
     cy.get('#sellSellRate').clear().type('230')
     addLine(2, true)
-    cartRows().should('have.length', 2)
-    cartRows().eq(1).should('contain', '230')
-    snap(a2, 'typed-price', '#sellDiv')
+    cartRows().should('have.length', 1)
+    cartRows().eq(0).should('contain', '230')
+    snap(a1, 'typed-price', '#sellDiv')
 
-    const a3 = act('**Cash**, **Complete Sale**, confirm. Then open the receipt data (the Print button’s own request).',
-      ['Recorded: **3 at 250.00** from **' + t.neu + '**, and **2 at 230.00** from **' + t.old + '** (the pick rule’s first batch).'])
+    const a2 = act('**Cash**, **Complete Sale**, confirm. Then open the receipt data (the Print button’s own request).',
+      ['Recorded: **2 at 230.00** from **' + t.old + '** (the batch taken first).'])
     cashAndComplete(true)
     confirmAndRecord(sale)
     cy.then(() => receiptLines(sale.value, t.pid)).then((ls) => {
-      expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)]))
-        .to.deep.eq([[3, 250, `${t.neu}×3`], [2, 230, `${t.old}×2`]])
+      expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)])).to.deep.eq([[2, 230, `${t.old}×2`]])
     })
-    snap(a3, 'recorded')
+    snap(a2, 'recorded')
 
     const c1 = act('Cleanup: void the invoice, both bills, and **Reset** the purchase mode — as in S1.', ['The invoice leaves the sale list; with **Show voided** both bills are marked **VOID**; the setting is **Latest (default)**.'], { cleanup: true })
     voidInvoice(sale)
@@ -1188,7 +1168,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     let posted = 0
     cy.intercept('POST', '/addSell', () => { posted++ })
     cashAndComplete(true)
-    cy.get('#sellBatchNote').should('be.visible').and('contain', 'changed its prices')
+    cy.get('#globalError').should('be.visible').and('contain', 'changed its prices')   // the form's error line (SALE-SLIM)
     cartRows().eq(1).should('contain', t.neu).and('contain', '250')
     cy.then(() => expect(posted, 'nothing posted').to.eq(0))
     snap(a2, 'corrected', '#sellDiv')
@@ -1247,13 +1227,10 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
       snap(a1, 'per-batch-saved', '@grpS4')
 
       const a2 = act(`**Sale** (reload first). Pick **${pname}**.`,
-        [`The **Batch** list shows **${t1} · 9 @ 297.70** and **${t2} · 9 @ 309.15** — each batch at its OWN bill’s rate, although both were bought before the switch.`,
-          'S/U Price shows **297.70** — the batch the sale takes first (the oldest delivery, their expiry being the same).'])
+        ['S/U Price shows **297.70** — ' + t1 + '’s own bill rate, the batch the sale takes first (the oldest delivery, their expiry being the same), although it was bought before the switch.'])
       openSale()
       cy.then(() => pickItem(pid))
-      cy.get('#sellBatchPickRow').should('be.visible')
-      cy.contains('#sellBatchPick option', t1).should('contain', '9 @ 297.70')
-      cy.contains('#sellBatchPick option', t2).should('contain', '9 @ 309.15')
+      cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM
       cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(297.7))
       snap(a2, 'batch-list', '#sellDiv')
 

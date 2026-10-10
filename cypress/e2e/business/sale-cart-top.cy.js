@@ -77,7 +77,17 @@ describe('CART-TOP — the cart above the item entry', () => {
       expect(r.bottom, 'newest line above the pinned Totals').to.be.at.most(foot.top + 1)
       expect(foot.bottom, 'Totals pinned inside the box').to.be.at.most(box.bottom + 1)
     })
-    cy.get('#sellTotal').should('be.visible')
+    // Cypress's be.visible misjudges a STICKY cell inside a scrolling box (its natural place is below the scroll area),
+    // so the check is explicit: with the cart on screen, the Totals cell is within the viewport and inside the box.
+    cy.get('#sellCartTop').scrollIntoView()
+    cy.window().then((w) => {
+      const t = w.document.getElementById('sellTotal').getBoundingClientRect()
+      const box = w.document.getElementById('sellCartScroll').getBoundingClientRect()
+      expect(t.top, 'Totals on screen').to.be.at.least(0)
+      expect(t.bottom, 'Totals on screen').to.be.at.most(w.innerHeight)
+      expect(t.bottom, 'Totals inside the cart box').to.be.at.most(box.bottom + 1)
+      expect(w.document.getElementById('sellTotal').textContent.trim(), 'the running total').to.match(/\d/)
+    })
     clearCart()
     cy.window().its('data').should('have.length', 0)
   })

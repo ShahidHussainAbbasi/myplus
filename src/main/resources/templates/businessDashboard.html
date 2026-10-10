@@ -82,6 +82,10 @@ tr.row-voided .js-edit-row{display:none !important}
 .cart-panel__body .form-group::after{content:"";display:table;clear:both}
 #sellCartScroll{max-height:300px;overflow:auto;border:1px solid #e7ebf2;border-radius:10px;background:#fff}
 #tablesi{margin:0!important;border:none}
+/* SALE-SLIM (owner, 2026-10-10): the notice row (In stock / FEFO batch / Priced by batch) and the Batch choice are not
+   shown on the till — they repeated the Stock/Expiry boxes and the cart's batch sub-lines, and took space. The sale keeps
+   its default (earliest expiry first); a price change at Complete is still said on the form's error line. */
+#sellNoticeRow,#sellBatchPickRow{display:none!important}
 #tablesi thead th{position:sticky;top:0;z-index:2;background:#f3f6fb;color:#3a4a61;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e7ef;padding:10px 8px}
 #tablesi tbody td{padding:9px 8px;border-bottom:1px solid #eef1f6;font-size:13px;vertical-align:middle}
 #tablesi tbody tr:hover td{background:#f7faff}
@@ -2666,8 +2670,10 @@ tr.row-voided .js-edit-row{display:none !important}
 							</div>
 						</div>
 					</div>
-					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock). -->
-					<div class="form-group pos-fullrow">
+					<!-- P10 (slice 54): the FEFO batch/expiry the next sale/dispense draws from (populated by loadStock).
+					     HIDDEN (owner, 2026-10-10) with #sellBatchPickRow below — see the style rule SALE-SLIM: the entry line's Stock and
+					     Expiry boxes and the cart's batch sub-lines already say it, and the row took space. Still filled, never shown. -->
+					<div class="form-group pos-fullrow" id="sellNoticeRow">
 						<div class="col-sm-offset-2 col-sm-10">
 							<div id="sellSellableInfo" class="alert alert-warning" style="display:none;padding:6px 10px;margin:0 0 6px 0"></div>
 							<div id="sellBatchInfo" class="alert alert-info" style="display:none;padding:6px 10px;margin:0"></div>

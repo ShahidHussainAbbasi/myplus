@@ -764,3 +764,17 @@ banner was anchored to `#iDiv` → now before `#sellCartTop`; no JS selects the 
 own `#tablesi` rules (sticky header, backgrounds) are kept. The stray literal "Add to Cart" text in the old panel body is
 removed. Gate `sale-cart-top.cy.js` (C1 order on screen, C2 eight lines: entry row fixed, cart scrolls, newest line and
 Totals visible) — red on the deployed build; green needs the monolith rebuilt.
+
+### 12.14 SALE-SLIM — the notice row and the Batch choice hidden on the till (owner, 2026-10-10)
+
+**Asked:** "div with class col-sm-offset-2 col-sm-10 taking more space and it is not the requirement … hide this and the
+other div sellBatchPickRow". **Where they came from:** the row's "In stock" (`#sellSellableInfo`) and "FEFO: Batch" (`#sellBatchInfo`) are slice 54 (Jul–Aug); its "Priced by batch" note (`#sellBatchNote`) and `#sellBatchPickRow` are PR-3c (5 Oct) — the Batch choice was the decision "the cashier may choose the batch", built as a list for guide S2.
+**Done:** `#sellNoticeRow` (new id) and `#sellBatchPickRow` are `display:none !important` (businessDashboard style
+SALE-SLIM); the JS still fills them (harmless, reversible). Sale behaviour unchanged: earliest expiry first; the rate box
+still starts at the first batch's price; the cart's batch sub-lines show the split; the price-change message at Complete
+is still on the form's error line (`showFormError`).
+**Lost, said to the owner:** the "In stock: 2 + 5 tablets" sellable/expired note (pack/loose words) is no longer shown —
+the Stock box shows on-hand only. **Gone from the UI:** choosing a batch (the server still accepts one).
+**Tests updated:** `pricing-per-batch-sale` S6 (no Batch choice / notice row; rate 200; sub-lines), S7 (the error line);
+guide X1 a4, S1 a1/a2, S2 (now the typed-price case only), S3, S4 a2. Unaffected (read text, not visibility):
+`dispense-batch`, `pos-cell-layout`, `pack-loose-ux-labels`. Needs the monolith rebuilt, then the guide re-captured.
