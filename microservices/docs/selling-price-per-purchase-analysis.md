@@ -622,3 +622,40 @@ save-without-reload, row-actions, company, customer, vender, vendor-multi-compan
 purchase-inline-product, busy-controls, sell, sell-edit, sale-duplicate-guard, sale-picker-chain, product-crud,
 product-existing-panel, product-picker, product-grid-late-page, product-import, customer-import, business-modal-keyboard,
 stock-adjust-guard, dashboard-kpi-drill, dashboard-breakdown-cards, return-documents, till-price-after-purchase.
+
+### 12.9 TP-5 — a bill edit keeps what only the server writes (2026-10-10)
+
+Traced from §12.6's open note. `PurchaseInputMapper` ignores `issuedTotal` and `docType`, and `updatePurchase` rebuilds the
+entity from the form (the X4 class):
+
+| Field | Writers | Readers | What an edit did | Reachable? |
+|---|---|---|---|---|
+| `issuedTotal` (the bill as issued) | the first purchase return (`PurchaseService:914`, if null); V34 back-fill | supplier statement (`FinanceReportService:288`), payables feed (`PayableOutboxService:224`) — both fall back to the current total when null | saved NULL → statement/feed show the REDUCED bill; the next return re-stamps it from the reduced bill | yes — 112 bills with returns are editable from the grid. **Data: 0 lost** (none edited after a return yet) |
+| `docType` | OpeningBalanceService (OPENING); entity default SALE | cutover lock anchor (`PurchaseRepo` docType='OPENING'), opening reports | an OPENING bill would be rebuilt as SALE — moving the cutover anchor and the opening AP | not from the screen (the 90 OPENING bills have no product; the grid skips them), only by a direct POST |
+
+Fix (`PurchaseService`): `assertEditable` — VOID refused as before, **OPENING refused** ("correct it under Opening balances");
+`carryServerOwned` keeps `issuedTotal` and `docType` from the saved bill, beside `stockEntryId`. Tests
+`PurchaseEditBatchTest` +4 (15/15); purchase unit classes 48/48. Not deployed yet (business-service).
+Open question, not changed: whether editing a bill that already has returns should be allowed at all.
+
+**⚠ Found by TP-5's own check — a money flaw in TP-3 (§12.6), fixed the same day.** TP-3 sent the BILL's rate × quantity
+as the batch's `paidTotal`. A purchase return shrinks the bill (10 → 8) but leaves the batch's `paidTotal` (1000) and
+`receivedQuantity` (10) alone, so an edit after a return sent 800 and inventory costed 800 ÷ 10 = **80 a unit for goods
+that cost 100** — COGS understated. Gate `purchase-edit-keeps-issued.cy.js` E2 (owner.pharma@: 10 @100 → return 2 → edit
+the expiry) is **red on the TP-3 deploy: 800 instead of 1000.** Damage check: every bill edited since the TP-3 deploy
+(01:51 UTC) — none mis-costed; the 3 E2 test bills were voided.
+Fix: inventory `applyBillFacts` re-derives the cost from the batch's OWN figures — billed units = paidTotal ÷
+purchasePrice (untouched by a return; bonus units are in received, not billed); after the edit paidTotal = (billed +
+delta) × new rate, received + delta. Business no longer sends `paidTotal` (the contract field is kept, unread).
+Tests: `PurchaseEditBatchFactsTest` 8/8 (incl. edit-after-return), `StockImportServiceTest` 4/4 (MySQL),
+`PurchaseEditBatchTest` 15/15; with the other purchase/stock classes 51/51. **Needs inventory-service + business-service
+deployed together.**
+
+### 12.10 Expiry on the purchase form — finding (2026-10-10), not changed
+
+Asked by the owner. The field already shows/hides per business (`data-capability="expiryTracking"`). The defect:
+`main.js initDates()` fills EVERY empty `.datePicker` with today, the purchase expiry included — **565 of 579** live
+bills with an expiry have expiry = bill date (owner.pharma's T25792 too). With FEFO those batches sell first and count
+as expired from the next day. Recommended (awaiting consent): never pre-fill the expiry; refuse-or-confirm a date today
+or earlier; optional near-expiry warning window per business; judge "today" by TenantClock (TZ-2); decide what to do
+with the 565 existing same-day expiries.

@@ -53,12 +53,12 @@ class PurchaseEditBatchTest {
     }
 
     @Test
-    @DisplayName("only the cost corrected (250 → 260): the batch gets the new cost AND the bill's new paid total, 10 × 260")
+    @DisplayName("only the cost corrected (250 → 260): the batch gets the new cost; its paid total is re-derived by inventory, not sent")
     void cost_only_reaches_the_batch_with_paid_total() {
         StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", EXP, new BigDecimal("250.00"), null);
         assertThat(a).isNotNull();
         assertThat(a.getPurchasePrice()).isEqualByComparingTo("260.00");
-        assertThat(a.getPaidTotal()).isEqualByComparingTo("2600.00");
+        assertThat(a.getPaidTotal()).as("TP-5: a bill-side figure is wrong after a return").isNull();
     }
 
     @Test
@@ -100,14 +100,14 @@ class PurchaseEditBatchTest {
     }
 
     @Test
-    @DisplayName("a bill that knows its batch, quantity changed: its id and the new paid total go with the delta")
+    @DisplayName("a bill that knows its batch, quantity changed: its id goes with the delta (inventory re-derives the cost)")
     void own_bill_quantity_change_restamps_cost() {
         Purchase p = saved(9963L);
         p.setQuantity(12f);
         PurchaseService.stampPaidTotal(p);
         StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(p, 2f, "T25791", EXP, RATE, null);
         assertThat(a.getStockEntryId()).isEqualTo(9963L);
-        assertThat(a.getPaidTotal()).isEqualByComparingTo("3120.00");
+        assertThat(a.getPaidTotal()).isNull();
     }
 
     @Test
@@ -127,5 +127,43 @@ class PurchaseEditBatchTest {
         p.setBpurchaseRate(new BigDecimal("270.00"));
         PurchaseService.stampPaidTotal(p);
         assertThat(p.getPaidTotal()).isEqualByComparingTo("2700.00");
+    }
+
+    @Test
+    @DisplayName("TP-5: an edit keeps the bill's issued total (stamped by its first return) — the mapper leaves it null")
+    void edit_keeps_issued_total() {
+        Purchase existing = saved(9963L);
+        existing.setIssuedTotal(new BigDecimal("2600.00"));
+        Purchase rebuilt = new Purchase();   // what the mapper produced from the form
+        PurchaseService.carryServerOwned(existing, rebuilt);
+        assertThat(rebuilt.getIssuedTotal()).isEqualByComparingTo("2600.00");
+        assertThat(rebuilt.getDocType()).isEqualTo(OpeningBalanceService.DOC_SALE);
+    }
+
+    @Test
+    @DisplayName("TP-5: a bill with no return keeps no issued total (null stays null, never invented)")
+    void edit_without_return_issued_stays_null() {
+        Purchase rebuilt = new Purchase();
+        PurchaseService.carryServerOwned(saved(9963L), rebuilt);
+        assertThat(rebuilt.getIssuedTotal()).isNull();
+    }
+
+    @Test
+    @DisplayName("TP-5: an OPENING bill is refused — the form would rebuild it as a SALE purchase")
+    void opening_bill_is_not_editable() {
+        Purchase opening = new Purchase();
+        opening.setDocType(OpeningBalanceService.DOC_OPENING);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> PurchaseService.assertEditable(opening))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("Opening balances");
+    }
+
+    @Test
+    @DisplayName("a voided bill is still refused; an ordinary bill is editable")
+    void void_refused_ordinary_allowed() {
+        Purchase v = saved(1L);
+        v.setStatus("VOID");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> PurchaseService.assertEditable(v))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("voided");
+        PurchaseService.assertEditable(saved(1L));   // no throw
     }
 }

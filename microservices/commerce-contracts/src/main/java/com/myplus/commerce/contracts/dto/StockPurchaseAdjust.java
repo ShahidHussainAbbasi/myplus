@@ -33,10 +33,9 @@ public class StockPurchaseAdjust {
      * quantity never reached the batch: a corrected expiry, batch number or cost stayed old on it (owner.pharma@,
      * bill 3106: expiry 2027-09-09 on the bill, 2027-10-09 on its batch).
      *
-     * <p>{@code paidTotal} = what the edited bill paid for its goods (rate × billed quantity). Consumption costs a unit at
-     * paidTotal ÷ receivedQuantity (COGS-1), so inventory moves the batch's receivedQuantity by the same {@code delta}
-     * it moves the quantity by — the two are restamped together, and the bonus (which the delta never carried) stays
-     * in the divisor as received.
+     * <p>{@code paidTotal}: NOT read by inventory and no longer sent (TP-5) — inventory re-derives the batch's cost from its
+     * own billed units (paidTotal ÷ purchasePrice), because the bill's rate × quantity is wrong after a return. Kept so a
+     * caller built against 2026-10-10's contract still deserialises.
      */
     private String newBatchNo;
     private BigDecimal paidTotal;

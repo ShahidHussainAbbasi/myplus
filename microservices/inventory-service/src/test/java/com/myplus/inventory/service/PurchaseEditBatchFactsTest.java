@@ -36,32 +36,49 @@ class PurchaseEditBatchFactsTest {
     }
 
     @Test
-    @DisplayName("a cost correction 260 → 250 with the quantity kept: unit cost becomes 2500 ÷ 10 = 250")
-    void cost_only_restamps_paid_total() {
+    @DisplayName("a cost correction 260 → 250 with the quantity kept: 10 billed units at 250 = 2500, unit cost 250")
+    void cost_only_rederives_paid_total() {
         StockEntry e = batch();
-        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f)
-                .purchasePrice(new BigDecimal("250.00")).paidTotal(new BigDecimal("2500.00")).build());
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).purchasePrice(new BigDecimal("250.00")).build());
         assertThat(e.getPurchasePrice()).isEqualByComparingTo("250.00");
+        assertThat(e.getPaidTotal()).isEqualByComparingTo("2500.00");
         assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("250");
     }
 
     @Test
-    @DisplayName("quantity 10 → 12 at 260: received moves by the SAME delta, so the unit cost stays 3120 ÷ 12 = 260")
+    @DisplayName("quantity 10 → 12 at 260: billed and received both move by 2, unit cost stays 3120 ÷ 12 = 260")
     void quantity_change_moves_received_with_paid() {
         StockEntry e = batch();
-        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(2f).paidTotal(new BigDecimal("3120.00")).build());
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(2f).purchasePrice(new BigDecimal("260.00")).build());
         assertThat(e.getReceivedQuantity()).isEqualByComparingTo("12");
+        assertThat(e.getPaidTotal()).isEqualByComparingTo("3120.00");
         assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("260");
     }
 
     @Test
-    @DisplayName("a bonus batch (10 billed + 2 free = 12 received, 2600 paid): a cost edit keeps the bonus in the divisor")
+    @DisplayName("TP-5: AFTER A RETURN (bill now 8, batch still paid 1000 for 10) an edit keeps 100 a unit — never 800 ÷ 10")
+    void edit_after_a_return_keeps_the_unit_cost() {
+        StockEntry e = StockEntry.builder().productId(1L).quantity(new BigDecimal("8")).receivedQuantity(new BigDecimal("10"))
+                .paidTotal(new BigDecimal("1000.00")).purchasePrice(new BigDecimal("100.00")).build();
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).expiryDate(LocalDate.of(2028, 1, 1))
+                .purchasePrice(new BigDecimal("100.00")).paidTotal(new BigDecimal("800.00")).build());   // a bill-side 800 is ignored
+        assertThat(e.getPaidTotal()).isEqualByComparingTo("1000.00");
+        assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("100");
+        // and a cost correction after the return: 10 billed at 90
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).purchasePrice(new BigDecimal("90.00")).build());
+        assertThat(e.getPaidTotal()).isEqualByComparingTo("900.00");
+        assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("90");
+    }
+
+    @Test
+    @DisplayName("a bonus batch (10 billed + 2 free = 12 received, 2600 paid): a cost edit to 200 → 10 × 200 over 12 units")
     void bonus_stays_in_the_divisor() {
         StockEntry e = batch();
         e.setReceivedQuantity(new BigDecimal("12"));
-        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).paidTotal(new BigDecimal("2400.00")).build());
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).purchasePrice(new BigDecimal("200.00")).build());
         assertThat(e.getReceivedQuantity()).isEqualByComparingTo("12");
-        assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("200");
+        assertThat(e.getPaidTotal()).isEqualByComparingTo("2000.00");
+        assertThat(ReservationService.unitCostOf(e)).isEqualByComparingTo("166.666667");
     }
 
     @Test
@@ -91,7 +108,7 @@ class PurchaseEditBatchFactsTest {
         StockEntry e = batch();
         e.setReceivedQuantity(null);
         e.setPaidTotal(null);
-        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).paidTotal(new BigDecimal("2500.00")).build());
+        StockService.applyBillFacts(e, StockPurchaseAdjust.builder().delta(0f).purchasePrice(new BigDecimal("250.00")).build());
         assertThat(e.getPaidTotal()).isNull();
         assertThat(e.getReceivedQuantity()).isNull();
     }

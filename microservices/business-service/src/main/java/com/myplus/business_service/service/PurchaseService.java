@@ -677,8 +677,7 @@ public class PurchaseService implements IPurchaseService{
 		Purchase existing = purchaseRepo.findById(dto.getPurchaseId())
 				.filter(p -> scopeMatches(p, user))
 				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + dto.getPurchaseId()));
-		if ("VOID".equals(existing.getStatus()))   // Audit #3: a voided bill is read-only
-			throw new BusinessRuleException("This bill is voided and cannot be edited.");
+		assertEditable(existing);
 		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
 		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : TenantClock.today());
 
@@ -706,6 +705,7 @@ public class PurchaseService implements IPurchaseService{
 		// lost the batch it should re-price (found by gate X4). Inventory re-checks the product, so a changed product
 		// cannot re-price the old product's batch.
 		obj.setStockEntryId(existing.getStockEntryId());
+		carryServerOwned(existing, obj);
 		obj.setProductId(dto.getProductId() != null ? dto.getProductId() : oldProductId);
 		StockDTO snap = dto.getStock();
 		if (snap != null) {
@@ -1078,8 +1078,8 @@ public class PurchaseService implements IPurchaseService{
 	 *
 	 * <p>Always: a quantity change (delta), and in Per batch the batch's own price (PR-3b, even with delta 0).
 	 * TP-3 — also when the quantity is kept but what the bill says ABOUT its batch changed: expiry, batch number or cost
-	 * (owner.pharma@, bill 3106: expiry corrected on the bill, still old on its batch). Those facts, and the bill's new
-	 * paidTotal, go only to a bill that knows its own batch (stockEntryId, since PR-3b): found by number, the batch can
+	 * (owner.pharma@, bill 3106: expiry corrected on the bill, still old on its batch). Those facts go only to a bill
+	 * that knows its own batch (stockEntryId, since PR-3b): found by number, the batch can
 	 * be another bill's. An older bill sends what it always sent.
 	 *
 	 * @param oldBatchNo/oldExpiry/oldRate read BEFORE the save — it merges into the instance they came from.
@@ -1102,8 +1102,33 @@ public class PurchaseService implements IPurchaseService{
 				.stockEntryId(own ? saved.getStockEntryId() : null)
 				.sellPrice(reprice ? batchPrice : null)
 				.newBatchNo(own && renamed ? newBatchNo : null)
-				.paidTotal(own ? saved.getPaidTotal() : null)
+				// No paidTotal: inventory re-derives the batch's cost from its OWN billed units (TP-5). The bill's
+				// rate × quantity is wrong after a return, which shrinks the bill but not what the batch paid for.
 				.build();
+	}
+
+	/**
+	 * Which bills the purchase form may rewrite. Audit #3: a voided bill is read-only. TP-5: an OPENING bill (a supplier's
+	 * balance at cutover, written by OpeningBalanceService) is not a purchase — the form would rebuild it as one (the
+	 * entity defaults docType to SALE), moving the cutover anchor and the opening AP. The grid never offers one (it has
+	 * no product); this refuses a direct post too. Opening balances are corrected on their own screen.
+	 */
+	static void assertEditable(Purchase existing) {
+		if ("VOID".equals(existing.getStatus()))
+			throw new BusinessRuleException("This bill is voided and cannot be edited.");
+		if (OpeningBalanceService.DOC_OPENING.equals(existing.getDocType()))
+			throw new BusinessRuleException("This is an opening balance, not a purchase - correct it under Opening balances.");
+	}
+
+	/**
+	 * TP-5 — server-owned fields the form never carries, kept on edit (the X4 class: the mapper ignores them, so a rebuilt
+	 * entity saved them NULL or at their default). {@code issuedTotal} = the bill as issued, stamped by its first
+	 * return; the supplier statement and the payables feed read it, and a later return would re-stamp it from the
+	 * already-reduced bill. {@code docType} defaults to SALE on a new entity. Both are written only by the server.
+	 */
+	static void carryServerOwned(Purchase existing, Purchase obj) {
+		obj.setIssuedTotal(existing.getIssuedTotal());
+		obj.setDocType(existing.getDocType() != null ? existing.getDocType() : OpeningBalanceService.DOC_SALE);
 	}
 
 	/** #17 P2 / TP-3 — what the supplier billed for the goods: rate × billed quantity (bonus units add nothing). One rule

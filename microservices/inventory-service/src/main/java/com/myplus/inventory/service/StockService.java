@@ -305,12 +305,15 @@ public class StockService {
     }
 
     /**
-     * TP-3 — what the edited bill now says about its OWN batch: expiry, batch number, cost, and what the delivery cost.
-     * Only ever on the batch found by id: by number, another bill's batch can match. Absent fields leave it as it is.
+     * TP-3 — what the edited bill now says about its OWN batch: expiry, batch number, cost. Only ever on the batch found by
+     * id: by number, another bill's batch can match. Absent fields leave it as it is.
      *
-     * <p>Consumption costs a unit at paidTotal ÷ receivedQuantity (COGS-1), so the two move TOGETHER: paidTotal is the
-     * bill's new figure, receivedQuantity moves by the same delta the quantity does. A batch with no receivedQuantity
-     * (none after V12's backfill) costs from its unit price, so neither is touched there.
+     * <p>Consumption costs a unit at paidTotal ÷ receivedQuantity (COGS-1), so both are re-derived HERE from the batch's
+     * own figures, never taken from the bill: the units this delivery BILLED are paidTotal ÷ purchasePrice (a return
+     * takes units off the batch and leaves both untouched; bonus units are in receivedQuantity, not billed). After the
+     * edit: billed + delta units at the new rate, received + delta. A bill-side figure (rate × the bill's quantity) was
+     * wrong after a return — 100 × 8 over 10 received = 80 a unit for goods that cost 100 (TP-5, 2026-10-10).
+     * A batch missing any of the figures (none after V12's backfill) keeps costing from its unit price: untouched.
      *
      * <p>Units already sold keep the cost they were sold at (recorded on the sale); the remaining units cost the
      * corrected figure from now on. Package-private and static so the rule is tested without a database.
@@ -318,14 +321,19 @@ public class StockService {
     static void applyBillFacts(StockEntry e, com.myplus.commerce.contracts.dto.StockPurchaseAdjust adj) {
         if (adj.getExpiryDate() != null) e.setExpiryDate(adj.getExpiryDate());
         if (adj.getNewBatchNo() != null && !adj.getNewBatchNo().isBlank()) e.setBatchNo(adj.getNewBatchNo().trim());
-        if (adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0) e.setPurchasePrice(adj.getPurchasePrice());
-        if (e.getReceivedQuantity() != null) {
-            BigDecimal received = e.getReceivedQuantity().add(in(adj.getDelta()));
-            if (adj.getPaidTotal() != null && adj.getPaidTotal().signum() > 0 && received.signum() > 0) {
-                e.setPaidTotal(adj.getPaidTotal());
+        BigDecimal oldRate = e.getPurchasePrice();
+        BigDecimal newRate = adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0 ? adj.getPurchasePrice() : oldRate;
+        BigDecimal delta = in(adj.getDelta());
+        if (e.getPaidTotal() != null && e.getReceivedQuantity() != null && oldRate != null && oldRate.signum() > 0
+                && newRate != null && (delta.signum() != 0 || newRate.compareTo(oldRate) != 0)) {
+            BigDecimal billed = e.getPaidTotal().divide(oldRate, 6, java.math.RoundingMode.HALF_UP).add(delta);
+            BigDecimal received = e.getReceivedQuantity().add(delta);
+            if (billed.signum() >= 0 && received.signum() > 0) {
+                e.setPaidTotal(billed.multiply(newRate).setScale(2, java.math.RoundingMode.HALF_UP));
                 e.setReceivedQuantity(received);
             }
         }
+        if (adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0) e.setPurchasePrice(adj.getPurchasePrice());
     }
 
     /** Single source of truth for a signed stock correction: apply {@code delta} to a product's BATCHES and its
