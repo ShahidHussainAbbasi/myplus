@@ -4114,7 +4114,14 @@ function calculateSRP(){
  * discount larger than the bill.
  */
 function sellGoodsTotal() {
-	var el = $("#sellTotal")[0];
+	/*
+	 * TOTAL-READ (2026-10-10) — the bill is read from the cart table's OWN Total footer cell (column 5, the one
+	 * footerCallback writes), not looked up by id. The id was removed from the template once (an uncommitted edit that
+	 * reached a deployed build): #sellTotal vanished, this returned 0, and the live till showed Payable/Due/Change 0.00 on
+	 * a 246.90 bill. The id stays as a fallback for a table not yet built.
+	 */
+	var el = (window.tablesi && typeof tablesi.column === 'function') ? tablesi.column(5).footer() : null;
+	if (!el) el = $("#sellTotal")[0];
 	return el ? (Number(String(el.innerHTML).replace(/[^0-9.\-]/g, '')) || 0) : 0;
 }
 function sellTradeDiscountApplied() {
