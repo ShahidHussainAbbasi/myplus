@@ -14,8 +14,10 @@
  * "remove doctor" yet, so those accumulate (named "Dr Gate <run>"); stated, not hidden.
  *
  * Server state changed and put back in after(): clinic switch (owner.pharma, owner.business) → reset; setting
- * multiDoctorPerDay → reset; today's limit overrides → reset; live tokens → cancelled; patients → retired; their
- * test customers → deleted.
+ * multiDoctorPerDay → reset; today's limit overrides → reset; live tokens of every gate patient (this run's and any
+ * interrupted run's) → cancelled or completed; patients → retired; their test customers → deleted. No manual SQL:
+ * a doctor S2-11 could create while the venue defect was live is removed by appointment-service's
+ * ProviderIntegrityRepair on its next start (moved to provider_quarantine).
  *
  * Run (headless records reliably; a hidden headed window pauses animations):
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-s2-token-queue.cy.js"
@@ -83,8 +85,22 @@ describe('HMS S2 — token & queue', () => {
   beforeEach(() => relogin(OWNER))
 
   after(() => {
-    relogin(OWNER, 'cleanup')
+    // The CACHED owner session, not a fresh sign-in: three runs (S1 ×2, S2 ×1) saw a fresh sign-in in after() stall on
+    // /login right after a failed case, cause not found. The owner's clinic switch does not change in this spec, so
+    // the cached token is still the right one.
+    relogin(OWNER)
     created.tokens.forEach((id) => move(id, 'cancel', 'cypress cleanup'))
+    // Today's live tokens of ANY gate patient — including an interrupted run's — leave the board through moves the
+    // state machine allows: waiting/called → cancel; parked → resume → complete; with the doctor → complete.
+    cy.request({ url: '/clinic/queue', failOnStatusCode: false }).then((r) => {
+      ;((r.body && r.body.data) || [])
+        .filter((t) => /^S2 Patient \S+ \d{7}$/.test(t.patientName || ''))
+        .forEach((t) => {
+          if (t.status === 'WAITING' || t.status === 'CALLED') move(t.id, 'cancel', 'cypress cleanup')
+          else if (t.status === 'PARKED') { move(t.id, 'resume'); move(t.id, 'complete') }
+          else if (t.status === 'IN_CONSULTATION') move(t.id, 'complete')
+        })
+    })
     created.dayResets.forEach((id) => post('/clinic/doctors/day', { providerId: id, reset: true }))
     cy.request({ method: 'POST', url: '/clinic/settings/reset?key=clinic.queue.multiDoctorPerDay', failOnStatusCode: false })
     // this run's patients, and any an interrupted run left (same names, 7-digit suffix)
@@ -228,7 +244,11 @@ describe('HMS S2 — token & queue', () => {
       cy.contains('Not today')
       cy.contains('button', 'Open again').click()
     })
-    cy.contains('#clinDoctorBody tr', 'Dr Ahmed (gate)').should('not.contain', 'Not today')
+    // Reopened: the "Not today" BADGE is gone and "Open again" with it (the row's "Not today" BUTTON is back, by design).
+    cy.contains('#clinDoctorBody tr', 'Dr Ahmed (gate)').within(() => {
+      cy.get('.clin-badge').should('not.exist')
+      cy.contains('button', 'Open again').should('not.exist')
+    })
   })
 
   // ── S2-07 — the board ──────────────────────────────────────────────────────────────────────────────

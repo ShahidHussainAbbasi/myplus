@@ -125,4 +125,43 @@ class StockImportServiceTest {
         assertThat(e.getSellPrice()).isEqualByComparingTo("260.00");
         assertThat(e.getQuantity()).as("quantity untouched by a price-only edit").isEqualByComparingTo("5");
     }
+
+    @Test
+    void tp3_an_edit_that_keeps_the_quantity_still_reaches_its_own_batch_and_only_that_one() {
+        as(ORG);
+        // Two bills, ONE batch number: by number either could match; by id only the edited bill's batch may change.
+        var result = service.importStock(List.of(
+                StockImportLine.builder().productId(10L).quantity(10f).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
+                        .purchasePrice(new BigDecimal("260.00")).paidTotal(new BigDecimal("2600.00")).build(),
+                StockImportLine.builder().productId(10L).quantity(4f).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
+                        .purchasePrice(new BigDecimal("300.00")).paidTotal(new BigDecimal("1200.00")).build()), ORG, USER);
+        Long mine = result.getEntryIds().get(0), other = result.getEntryIds().get(1);
+
+        as(2L);   // another tenant: not found, never written
+        stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+                .productId(10L).batchNo("T25791").delta(0f).stockEntryId(mine).expiryDate(LocalDate.of(2000, 1, 1)).build());
+        assertThat(stockEntryRepository.findById(mine).orElseThrow().getExpiryDate()).isEqualTo(LocalDate.of(2027, 10, 9));
+
+        as(ORG);  // bill 3106: expiry and cost corrected, quantity kept (delta 0)
+        stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+                .productId(10L).batchNo("T25791").delta(0f).stockEntryId(mine).expiryDate(LocalDate.of(2027, 9, 9))
+                .purchasePrice(new BigDecimal("250.00")).paidTotal(new BigDecimal("2500.00")).build());
+        var e = stockEntryRepository.findById(mine).orElseThrow();
+        assertThat(e.getExpiryDate()).isEqualTo(LocalDate.of(2027, 9, 9));
+        assertThat(e.getPurchasePrice()).isEqualByComparingTo("250.00");
+        assertThat(ReservationService.unitCostOf(e)).as("2500 / 10").isEqualByComparingTo("250");
+        assertThat(e.getQuantity()).isEqualByComparingTo("10");
+
+        // quantity 10 -> 12 by id: this batch grows and its divisor with it; the other bill's batch is untouched
+        stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+                .productId(10L).batchNo("T25791").delta(2f).stockEntryId(mine)
+                .purchasePrice(new BigDecimal("250.00")).paidTotal(new BigDecimal("3000.00")).build());
+        e = stockEntryRepository.findById(mine).orElseThrow();
+        assertThat(e.getQuantity()).isEqualByComparingTo("12");
+        assertThat(ReservationService.unitCostOf(e)).as("3000 / 12").isEqualByComparingTo("250");
+        var o = stockEntryRepository.findById(other).orElseThrow();
+        assertThat(o.getQuantity()).isEqualByComparingTo("4");
+        assertThat(o.getExpiryDate()).isEqualTo(LocalDate.of(2027, 10, 9));
+        assertThat(ReservationService.unitCostOf(o)).isEqualByComparingTo("300");
+    }
 }

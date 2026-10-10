@@ -28,7 +28,7 @@ build({
     'PR-4': 'Approval: the owner approves a price before customers pay it',
   },
   beforeYouStart: [
-    'Cases that save a purchase (<strong>P2, P3, Q2, Q4, Q5</strong>) move money, so they run on <code>owner.lifecycle@myplus.com</code>, the sacrificial business, and <strong>void</strong> their bill as cleanup.',
+    'Cases that save a purchase (<strong>P2, P3, P6, Q2, Q4, Q5</strong>) move money, so they run on <code>owner.lifecycle@myplus.com</code>, the sacrificial business, and <strong>void</strong> their bill as cleanup.',
     'The <strong>Q</strong> cases (the markup rule) put every pricing setting they touch back as it was. The worked figure throughout: <strong>14.5% on a cost of 210 = 240.45</strong>.',
     '<strong>P5</strong> runs on <code>owner.business@myplus.com</code> with its members <code>admin.business@</code> and <code>user.business@</code>, and saves nothing.',
     'The products and the supplier each case buys are made beforehand through the same requests the Product and Supplier forms send — make your own with any name.',

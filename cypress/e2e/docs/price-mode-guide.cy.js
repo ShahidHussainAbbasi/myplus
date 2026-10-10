@@ -69,6 +69,14 @@ const modeRow = () => cy.get(`#businessConfigBody [data-key="${KEY}"]`).closest(
 
 const newPurchase = () => {
   cy.openPurchaseSection('purchaseDiv')
+  newPurchaseHere()
+}
+/**
+ * TP-2 — New Purchase on the page as it is, NO reload. cy.openPurchaseSection VISITS (a reload), so a step that says
+ * "without reloading" and used newPurchase() photographed a claim it never tested — and the claim was false: the
+ * pickers kept the old price until a reload (TP-1).
+ */
+const newPurchaseHere = () => {
   cy.get('#newPurchase').click()
   cy.get('#PurchaseModal').should('have.class', 'open')
   cy.settled('#purchaseInvoiceNo')
@@ -188,6 +196,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     const a1 = act(`**Purchase → New Purchase**. Choose supplier **${vname}**, bill number **${inv}**, product **${pname}**, quantity **2**, P/U price **210**.`,
       ['S/U price fills with the product’s current price, **200**.', 'Under the rates: “**The selling price stays 200.00.**”'])
     openDashboard(); newPurchase()
+    cy.window().then((w) => { w.__noReload = 'P2-a4' })   // the page that cached 200; a reload wipes it — asserted at step 4
     cy.then(() => fillLine(vname, inv, pid, 210))
     cy.get('#purchaseSellRate').should('have.value', '200')
     cy.get('#purchasePriceEffect').should('be.visible').and('have.attr', 'data-effect', 'same').and('contain', '200.00')
@@ -206,13 +215,14 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
 
     const a4 = act(`Without reloading, open **New Purchase** again and pick **${pname}**.`,
       ['S/U price now fills with **250** — the price the last bill set — and the line says “**The selling price stays 250.00.**”'])
-    newPurchase()
+    newPurchaseHere()
     cy.intercept('GET', '/productStock*').as('prefill2')
     cy.then(() => cy.get('#purchaseItemDD').select(String(pid), { force: true }))
     cy.wait('@prefill2', { timeout: 15000 })
     cy.get('#purchaseSellRate').should('have.value', '250')
     cy.get('#purchasePriceEffect').should('have.attr', 'data-effect', 'same').and('contain', '250.00')
     snap(a4, 'next-bill', '#PurchaseModal .crud-box')
+    cy.window().its('__noReload').should('eq', 'P2-a4')   // steps 1-4 ran on ONE page: never reloaded
     cy.get('#PurchaseModal .crud-x').first().click({ force: true })
 
     const a5 = act(`**Register → Products**, search **${pname}**, click **Edit**, then the **Price history** link under Sell Price.`,
@@ -352,6 +362,67 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     cy.get('[data-ui-confirm="ok"]').click()
     cy.contains('#tableProduct tr', pname, { timeout: 15000 }).should('not.exist')
     snap(c1, 'deleted', '#ProductDiv')
+  })
+
+  // ── P6 · the till, same page ─────────────────────────────────────────────────────────────────────────
+  // TP-1 (reported 2026-10-09 on owner.pharma@, sale 5823): the till kept the price it loaded with, and charged it.
+  caseIt('P6', 'The till offers the price a purchase just set — without reloading the page', () => {
+    asLifecycle()
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: KEY }, failOnStatusCode: false })
+    const pname = `PRG Till ${run}`, vname = `PRG Supplier ${run}`, inv = `PRG-T-${run}`
+    testCase('P6', 'The till offers the price a purchase just set — without reloading the page', {
+      covers: ['TP-1'], slice: 'PR-1', tenant: `${LIFECYCLE} (sacrificial — a purchase posts to the ledger)`, role: 'Owner',
+      purpose: 'A shop buys stock between two sales without reloading the page. The purchase moves the selling price (Latest), and the very next sale must be offered the NEW price — before this fix the till kept the price it had loaded with, and charged it.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', '**How a purchase affects the selling price** is **Latest** (P1).',
+        `A product **${pname}** selling at **200** and a supplier **${vname}** — made through the same requests the Product and Supplier forms send.`],
+      data: [`Bill **${inv}**, quantity **2**, P/U price **210**, S/U price **250**`],
+      rollback: 'Nothing is sold. The bill is voided on screen (stock and payment reversed); the product keeps 250 and is deactivated after the run.',
+    })
+    let pid
+    supplier(vname); product(pname, 200, asLifecycle).then((id) => { pid = id }); SAFETY.push(() => voidIfStanding(inv))
+    const section = (sel, val, div) => {
+      cy.window().then((w) => w.$(sel).val(val).trigger('change'))   // as the menu does it
+      cy.get('#' + div).should('be.visible')
+    }
+    const pickOnTill = () => {
+      cy.intercept('GET', '/productStock*').as('tillStock')
+      cy.then(() => cy.get(`#sellItemDD option[value="${pid}"]`, { timeout: 20000 }).should('exist'))
+      cy.get('#sellItemDD').select('', { force: true })
+      cy.then(() => cy.get('#sellItemDD').select(String(pid), { force: true }))
+      cy.wait('@tillStock', { timeout: 15000 })
+    }
+
+    const a1 = act(`**Sale → New Sale**, pick **${pname}**. Do not add it to the cart.`,
+      ['The rate shows **200** — the product’s price now.'])
+    openDashboard()
+    cy.window().then((w) => { w.__noReload = 'P6' })   // a reload wipes it — asserted at the last step
+    section('#sellType', 'sellDiv', 'sellDiv')
+    pickOnTill()
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(200))
+    snap(a1, 'till-before', '#sellDiv')
+
+    const a2 = act(`Without reloading: **Purchase → New Purchase**. Supplier **${vname}**, bill **${inv}**, product **${pname}**, quantity **2**, P/U **210**, S/U **250**, then **Save & Close**.`,
+      ['The bill is saved and the form closes. (The selling price is now **250** — P2.)'])
+    section('#purchaseType', 'purchaseDiv', 'purchaseDiv')
+    newPurchaseHere()
+    cy.then(() => fillLine(vname, inv, pid, 210))
+    cy.get('#purchaseSellRate').clear().type('250')
+    savePurchase()
+    cy.then(() => catalogProduct(pid)).then((p) => expect(Number(p.sellingPrice)).to.eq(250))
+    snap(a2, 'bought', '#purchaseDiv')
+
+    const a3 = act(`Without reloading: **Sale → New Sale**, pick **${pname}** again.`,
+      ['The rate shows **250** — the price the purchase just set, not the 200 the page loaded with.'])
+    section('#sellType', 'sellDiv', 'sellDiv')
+    pickOnTill()
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(250))
+    cy.window().its('__noReload').should('eq', 'P6')   // steps 1-3 ran on ONE page: never reloaded
+    snap(a3, 'till-after', '#sellDiv')
+
+    const c1 = act(`Cleanup: **Purchase**, search **${inv}**, click **Void**, reason **guide test bill**, confirm.`,
+      ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
+    voidBill(inv, pname)
+    snap(c1, 'voided', '#purchaseDiv')
   })
 
   // ── P5 · who sees it ─────────────────────────────────────────────────────────────────────────────────

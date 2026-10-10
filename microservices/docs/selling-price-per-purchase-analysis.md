@@ -517,7 +517,7 @@ Found while building the gate: the "already registered" panel also calls `/getPr
 build (1 in 3); the gate holds grid requests only. Opening another section while a page is in flight did NOT throw on
 the old build (green twice), so it is not a case — the same guard covers it.
 
-### 12.5 Reported on owner.pharma@ (Desora, 2026-10-09 20:15–20:23) — review, NOT fixed (awaiting consent)
+### 12.5 Reported on owner.pharma@ (Desora, 2026-10-09 20:15–20:23) — review (fixes: §12.6)
 
 **What happened, from the data.** Settings: purchase mode never chosen (= Latest), markup rule **Auto 14.5%** (set
 20:16/20:27). Product 11064 registered at 260. Bill 123 twice: T25791 cost 260 → Auto 297.70; T25792 cost 270 → Auto
@@ -534,3 +534,53 @@ the old build (green twice), so it is not a case — the same guard covers it.
 
 Not a defect: the typed S/U on both bills was replaced by Auto (the purchase form says so before saving); per-batch
 prices need **Per batch** mode, which this business is not in.
+
+### 12.6 TP-1 / TP-2 / TP-3 — fixed (consent 2026-10-09)
+
+**TP-1 — the screens offer the live price.** Writers of a product's price, traced: product create/edit/activate/import
+(already dropped the picker cache), **addPurchase, updatePurchase** (Latest / Auto, `stampRatesOnProduct`) and
+**approvePriceChange** (PR-4) — 3 missing. Readers of the picker's `data-price`: 4 — the till's rate box and the purchase
+form's S/U (`business.js loadStock`), the purchase form's "price stays/changes" line (`price-history.js`, reads the
+picked option), order booking (`bkProductChanged`).
+
+```mermaid
+flowchart LR
+  P[purchase save / edit] -->|ajaxComplete MUTATES| X[ProductPicker.invalidate]
+  A[Approve price<br/>global:false] -->|explicit| X
+  X --> R[section reopen → picker rebuilt from server]
+  K[pick a product] --> S[/productStock<br/>bsellRate = live catalog price/]
+  S -->|differs from data-price| C[correct the option + cached row → rate box, S/U, price line, Per-batch fallback, B2B quote start]
+```
+
+* **Layer A** (`product-picker.js`): `MUTATES` += `addPurchase|updatePurchase|approvePriceChange`; `price-approvals.js`
+  calls `ProductPicker.invalidate()` on a successful approve (its post is `global:false`, the hook never sees it).
+* **Layer B** (`business.js loadStock`): the pick's `/productStock` answer — already made on every pick, a live
+  `catalogClient.getProduct` (`/products/{id}`, not the refs cache) — wins over the cached `data-price`: the option, the
+  cached row (`ProductPicker.notePrice`) and the value both forms fill from are corrected. Covers a till left open in
+  another tab and a section never reopened, at no extra request. Unreadable → the cached price, as before.
+  The July preference for the cached price (d193bddc) dates from when `bsellRate` was the old local stock row's rate.
+* Known limit: order booking has no per-pick read (by design — a rep on shop wifi); it is current from the next
+  screen open (layer A), not within one already open across a price change.
+* Gate `till-price-after-purchase.cy.js` F1 (layer B), F2 (layer A, purchase), F3 (layer A, approval):
+  **red 3/3 on the deployed build for the stated reason; green 3/3 with the source loaded (`--env EVAL_SRC=1`).**
+
+**TP-2 — the guide's P2 step 4 now really runs without a reload** (`newPurchaseHere()`), and asserts it: a marker set on
+the page in step 1 must still be there after step 4.
+
+**TP-3 — a purchase edit reaches its own batch.** Contract `StockPurchaseAdjust` += `newBatchNo`, `paidTotal`.
+`PurchaseService.batchAdjustForEdit` (static, unit-tested) decides what an edit sends: as before a quantity delta or a
+Per-batch re-price; now also an expiry, batch-number or cost change — **only for a bill that knows its own batch**
+(`stockEntryId`, since PR-3b); an older bill sends exactly what it sent before (found by number, the batch can be another
+bill's). Old expiry/rate/batch are read BEFORE `save()` (it merges into the instance they came from). The edit also
+restamps the bill's own `paid_total` (mapper-ignored → was saved NULL, bill 3106) via `stampPaidTotal`, shared with add.
+Inventory `reconcilePurchase` writes the facts to the batch found **by id** (`applyBillFacts`, static, unit-tested) and
+applies the quantity delta to that same batch instead of searching by number. Cost: consumption is
+`paidTotal ÷ receivedQuantity` (COGS-1), so `paidTotal` is the bill's new figure and `receivedQuantity` moves by the
+same delta as the quantity — the bonus stays in the divisor whether or not the edit form re-sent it. Units already sold
+keep the cost they sold at; past journals are not restated.
+Tests: `PurchaseEditBatchTest` (business, 11), `PurchaseEditBatchFactsTest` (inventory, 7), `StockImportServiceTest`
++1 DB case (two bills, one batch number: only the edited bill's batch changes).
+
+Found while tracing, NOT fixed (no consent asked yet): the edit also nulls `issuedTotal` and `docType` (mapper-ignored,
+not carried over — the X4 class); impact not traced. The existing bill 3106 / batch 9963 mismatch is not repaired by
+this change (a fix applies from the next edit).

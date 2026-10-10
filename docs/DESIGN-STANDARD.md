@@ -32,10 +32,44 @@ deliberate choice from an accident. Cover only the rows that actually apply:
 | **Microservice boundaries** | What stays in the owning service; whether a new service is justified (owns data + lifecycle + external integration) or a library is (rules shared, data local). |
 | **Design patterns** | The NAMED patterns applied, and why that one. |
 | **SOLID / DRY** | What is being shared once instead of duplicated per screen/service. |
+| **Data repair / clean-up** | Any existing row the slice must correct, back-fill or remove, and the automatic job that does it (see "Data repairs run themselves" below). "None" is a valid answer; "the operator runs this SQL" is not. |
 | **Testing standard** | Pure-logic units on `mvn test`, one headed Cypress gate, and the regression assertion each gate makes. | Prepare cypress test cases and then turn each into a real step-by-step test with concrete actions, expected results, a cleanup step from implementation flow if screen is not
-  available or run the cypress to record each step and update the page
+  available or run the cypress to record each step and update the pa
+
 
 Worked example: `microservices/docs/slices/b2b-P3-documents-reports.md` §1b.
+
+## Data repairs run themselves (never a manual step)
+
+**A repair is an idempotent job that runs automatically on deploy.** Production has no one to run a script, so no
+design may end with "run this SQL", "click this button once" or "ask the operator". If existing data is wrong, the
+design names the job that fixes it, and the job runs on every deploy and changes nothing the second time.
+
+| Situation | The automatic shape |
+|---|---|
+| A defect let bad rows in (e.g. a doctor attached to another organisation's venue) | Fix the write path **and** add a start-up repair in the owning service that finds the bad rows and moves them to a `*_quarantine` table. Example: appointment-service `ProviderIntegrityRepair` + `V6__provider_quarantine.sql`. |
+| A new column must be filled for old rows (back-fill) | Flyway migration for what SQL alone can prove; a start-up job for what needs the service's rules or another service's data. Both re-runnable. |
+| A derived value drifted (a balance, a count, a cached total) | A scheduled or start-up reconciliation that recomputes from the source and fixes only the rows that differ, logging each. Example: payables auto-reconciliation (FP-6a). |
+| Duplicates or orphans exist | Merge or detach by the documented match rule; anything the rule cannot prove is quarantined and reported, never guessed. |
+| Messages failed to deliver (outbox, audit) | The relay retries on a schedule; a dead letter is redriven by the job, not by hand. |
+| Tests leave data behind | The Cypress gate's `after()` removes its own rows and sweeps any an interrupted run left (match the gate's naming pattern). A gate never asks a person to clean the database. |
+
+**Every repair job:**
+1. **Is idempotent:** running it twice changes nothing the second time, so it is safe on every deploy.
+2. **Proves before it acts:** it touches only rows it can show are wrong. A row with dependants (bookings, sales,
+   journals) is reported at WARN with its ids and left alone. Unprovable means reported, never guessed.
+3. **Moves rather than deletes:** it copies to a `*_quarantine` table (created by Flyway) before removing, so
+   nothing is lost and a row can be put back after review.
+4. **Uses one transaction:** copy and remove together, so a failure half-way leaves nothing changed.
+5. **Names its columns:** the column list is read from `information_schema`, never `SELECT *`, so a later column
+   change cannot break it silently.
+6. **Never stops the service:** a failure is logged at ERROR and the service starts anyway.
+7. **Logs what it did:** counts and ids at WARN when it changed anything, one INFO line when all was well.
+8. **Has a unit test:** clean data changes nothing; bad data is moved; data with dependants is only reported;
+   a failure does not throw.
+
+In the design doc, the repair appears in **Design** (what it fixes and why), in **Implement** (the job and its
+migration) and in **Test** (its unit test and the gate case that proves the write path is closed).
 
 ## The three diagrams (always)
 

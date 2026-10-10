@@ -463,10 +463,7 @@ public class PurchaseService implements IPurchaseService{
 		 * Recorded rather than derived later because a scheme can be edited or expire tomorrow, and what this
 		 * delivery cost must not change when it does.
 		 */
-		if (obj.getBpurchaseRate() != null && obj.getQuantity() != null) {
-			obj.setPaidTotal(obj.getBpurchaseRate()
-					.multiply(java.math.BigDecimal.valueOf(obj.getQuantity())));
-		}
+		stampPaidTotal(obj);
 		// F1 (AP): the bill's payment position. The vendor bill = totalAmount (qty × purchase rate = what we owe);
 		// NOTE netAmount here is the sell-vs-cost PROFIT, not the payable. paidAmount defaults to the full bill
 		// (a cash purchase); dueAmount = paid − bill (negative while we still owe). venderId + paidAmount via the mapper.
@@ -688,6 +685,10 @@ public class PurchaseService implements IPurchaseService{
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
 		String oldBatchNo = existing.getBatchNo();   // reconcile against the batch that was originally imported
+		// TP-3 — read BEFORE save(): obj carries existing's id, so the save MERGES into this managed instance and these
+		// would then read the new values — every "did it change?" below would answer no.
+		java.time.LocalDate oldExpiry = existing.getBexpDate();
+		java.math.BigDecimal oldRate = existing.getBpurchaseRate();
 		java.math.BigDecimal oldBillTotal = nz(existing.getTotalAmount());   // GL: reverse the OLD posting on edit (net)
 		java.math.BigDecimal oldTax = nz(existing.getTaxAmount());          // old input tax (reversed on edit)
 		java.math.BigDecimal oldBillPaid = nz(existing.getPaidAmount());
@@ -717,6 +718,9 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
+		// TP-3 — server-owned like stockEntryId: the mapper ignores it, so a rebuilt entity saved it NULL (bill 3106).
+		// Restamped by the add path's rule, from what the edited bill now says.
+		stampPaidTotal(obj);
 		// F1 (AP): recompute the bill's payment position on edit — bill = totalAmount (what we owe; netAmount is
 		// profit). Keep the prior paid unless the edit supplies a new one; dueAmount = paid − bill. venderId may
 		// change on edit, so refresh BOTH the old and new vendor payables.
@@ -775,18 +779,10 @@ public class PurchaseService implements IPurchaseService{
 		float newQty = saved.getQuantity() != null ? saved.getQuantity() : 0f;
 		float delta = newQty - oldQty;
 		// PR-3b — in PER_BATCH an edit that only corrects the S/U rate must still re-price its batch (delta 0).
-		java.math.BigDecimal batchPrice = batchSellPrice(saved);
-		boolean reprice = batchPrice != null && saved.getStockEntryId() != null;
-		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && (delta != 0f || reprice)) {
-			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-					.productId(saved.getProductId())
-					.batchNo(oldBatchNo)
-					.delta(delta)
-					.expiryDate(saved.getBexpDate())
-					.purchasePrice(saved.getBpurchaseRate())
-					.stockEntryId(reprice ? saved.getStockEntryId() : null)
-					.sellPrice(reprice ? batchPrice : null)
-					.build());
+		com.myplus.commerce.contracts.dto.StockPurchaseAdjust adjust =
+				batchAdjustForEdit(saved, delta, oldBatchNo, oldExpiry, oldRate, batchSellPrice(saved));
+		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && adjust != null) {
+			inventoryClient.reconcilePurchase(adjust);
 		}
 
 		// Option B — an edited purchase re-prices the catalog master and re-stamps both last rates, exactly as a new
@@ -1075,6 +1071,53 @@ public class PurchaseService implements IPurchaseService{
 			LOG.warn("M3b: inventory stock-in failed for product {} (purchase recorded locally; reconcile later)",
 					dto.getProductId(), ex);
 		}
+	}
+
+	/**
+	 * What an EDITED bill must tell inventory about its batch, or null when nothing it says about the batch changed.
+	 *
+	 * <p>Always: a quantity change (delta), and in Per batch the batch's own price (PR-3b, even with delta 0).
+	 * TP-3 — also when the quantity is kept but what the bill says ABOUT its batch changed: expiry, batch number or cost
+	 * (owner.pharma@, bill 3106: expiry corrected on the bill, still old on its batch). Those facts, and the bill's new
+	 * paidTotal, go only to a bill that knows its own batch (stockEntryId, since PR-3b): found by number, the batch can
+	 * be another bill's. An older bill sends what it always sent.
+	 *
+	 * @param oldBatchNo/oldExpiry/oldRate read BEFORE the save — it merges into the instance they came from.
+	 */
+	static com.myplus.commerce.contracts.dto.StockPurchaseAdjust batchAdjustForEdit(Purchase saved, float delta,
+			String oldBatchNo, java.time.LocalDate oldExpiry, java.math.BigDecimal oldRate, java.math.BigDecimal batchPrice) {
+		boolean own = saved.getStockEntryId() != null;
+		boolean reprice = own && batchPrice != null;
+		String newBatchNo = blankToNull(saved.getBatchNo());
+		boolean renamed = newBatchNo != null && !newBatchNo.equals(blankToNull(oldBatchNo));
+		boolean facts = own && (!java.util.Objects.equals(oldExpiry, saved.getBexpDate()) || renamed
+				|| !sameAmount(oldRate, saved.getBpurchaseRate()));
+		if (delta == 0f && !reprice && !facts) return null;
+		return com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
+				.productId(saved.getProductId())
+				.batchNo(oldBatchNo)
+				.delta(delta)
+				.expiryDate(saved.getBexpDate())
+				.purchasePrice(saved.getBpurchaseRate())
+				.stockEntryId(own ? saved.getStockEntryId() : null)
+				.sellPrice(reprice ? batchPrice : null)
+				.newBatchNo(own && renamed ? newBatchNo : null)
+				.paidTotal(own ? saved.getPaidTotal() : null)
+				.build();
+	}
+
+	/** #17 P2 / TP-3 — what the supplier billed for the goods: rate × billed quantity (bonus units add nothing). One rule
+	 *  for add and edit: on edit the mapper leaves it null, and a bill saved without it gives its batch nothing to cost from. */
+	static void stampPaidTotal(Purchase obj) {
+		if (obj.getBpurchaseRate() != null && obj.getQuantity() != null) {
+			obj.setPaidTotal(obj.getBpurchaseRate().multiply(java.math.BigDecimal.valueOf(obj.getQuantity())));
+		}
+	}
+
+	private static String blankToNull(String v) { return v == null || v.isBlank() ? null : v.trim(); }
+
+	private static boolean sameAmount(java.math.BigDecimal a, java.math.BigDecimal b) {
+		return a == null ? b == null : b != null && a.compareTo(b) == 0;
 	}
 
 	/**

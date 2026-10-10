@@ -291,14 +291,41 @@ public class StockService {
          * Before the delta, and whatever the delta: an edit that only corrects the S/U rate has a delta of 0, which
          * applyStockDelta returns on at once. Scoped: another tenant's id is not found, never written.
          */
-        if (adj.getStockEntryId() != null && adj.getSellPrice() != null && adj.getSellPrice().signum() > 0) {
-            stockEntryRepository.findById(adj.getStockEntryId())
-                    .filter(e -> java.util.Objects.equals(e.getOrganizationId(), CurrentUser.organizationId())
-                            && java.util.Objects.equals(e.getProductId(), adj.getProductId()))
-                    .ifPresent(e -> { e.setSellPrice(adj.getSellPrice()); stockEntryRepository.save(e); });
+        StockEntry own = adj.getStockEntryId() == null ? null : stockEntryRepository.findById(adj.getStockEntryId())
+                .filter(e -> java.util.Objects.equals(e.getOrganizationId(), CurrentUser.organizationId())
+                        && java.util.Objects.equals(e.getProductId(), adj.getProductId()))
+                .orElse(null);
+        if (own != null) {
+            if (adj.getSellPrice() != null && adj.getSellPrice().signum() > 0) own.setSellPrice(adj.getSellPrice());
+            applyBillFacts(own, adj);
+            stockEntryRepository.save(own);
         }
         return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
-                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId()));
+                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId(), own));
+    }
+
+    /**
+     * TP-3 — what the edited bill now says about its OWN batch: expiry, batch number, cost, and what the delivery cost.
+     * Only ever on the batch found by id: by number, another bill's batch can match. Absent fields leave it as it is.
+     *
+     * <p>Consumption costs a unit at paidTotal ÷ receivedQuantity (COGS-1), so the two move TOGETHER: paidTotal is the
+     * bill's new figure, receivedQuantity moves by the same delta the quantity does. A batch with no receivedQuantity
+     * (none after V12's backfill) costs from its unit price, so neither is touched there.
+     *
+     * <p>Units already sold keep the cost they were sold at (recorded on the sale); the remaining units cost the
+     * corrected figure from now on. Package-private and static so the rule is tested without a database.
+     */
+    static void applyBillFacts(StockEntry e, com.myplus.commerce.contracts.dto.StockPurchaseAdjust adj) {
+        if (adj.getExpiryDate() != null) e.setExpiryDate(adj.getExpiryDate());
+        if (adj.getNewBatchNo() != null && !adj.getNewBatchNo().isBlank()) e.setBatchNo(adj.getNewBatchNo().trim());
+        if (adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0) e.setPurchasePrice(adj.getPurchasePrice());
+        if (e.getReceivedQuantity() != null) {
+            BigDecimal received = e.getReceivedQuantity().add(in(adj.getDelta()));
+            if (adj.getPaidTotal() != null && adj.getPaidTotal().signum() > 0 && received.signum() > 0) {
+                e.setPaidTotal(adj.getPaidTotal());
+                e.setReceivedQuantity(received);
+            }
+        }
     }
 
     /** Single source of truth for a signed stock correction: apply {@code delta} to a product's BATCHES and its
@@ -308,13 +335,19 @@ public class StockService {
      *  by unreserved availability so sold/held stock is never removed. Returns the new on-hand. */
     private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
                                   java.math.BigDecimal price, Long orgId, Long userId) {
+        return applyStockDelta(productId, delta, batchNo, expiry, price, orgId, userId, null);
+    }
+
+    /** As above; {@code known} = the caller's own batch, found by id (TP-3) — used instead of a search by number. */
+    private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
+                                  java.math.BigDecimal price, Long orgId, Long userId, StockEntry known) {
         StockLevel level = levelFor(productId, orgId, userId);
         BigDecimal curLevel = nz(level.getCurrentStock());
         if (delta.signum() == 0) return curLevel;
 
-        // Find the caller's OWN batch when a batchNo is given (so its exact lot is adjusted).
-        StockEntry exact = null;
-        if (batchNo != null && !batchNo.isBlank()) {
+        // Find the caller's OWN batch: by id when the caller knows it, else by batchNo (so its exact lot is adjusted).
+        StockEntry exact = known;
+        if (exact == null && batchNo != null && !batchNo.isBlank()) {
             List<StockEntry> matches = stockEntryRepository.findByProductAndBatchScoped(productId, batchNo, orgId, userId);
             if (!matches.isEmpty()) exact = matches.get(0);
         }
