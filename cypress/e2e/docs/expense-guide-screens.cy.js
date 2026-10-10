@@ -1745,7 +1745,7 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
         ['The Finance screen opens on <b>Profit &amp; Loss</b> for this month, and <b>Rent</b> is in it.',
          'Its tabs are Trial Balance, P&amp;L, Balance Sheet, Audit Log and Period Close — <b>no Tax Register</b> (only a trading business has one), and the heading does not mention one.',
          { welfare: 'A notice above the report says donations are not in these books yet.',
-           farm: 'A notice above the report says the farm’s own Income and Expense records are not in these books yet.',
+           farm: 'A notice above the report says the farm’s own Income records are not in these books yet (its expenses are, since EX-9b).',
            school: 'No notice: the school’s fees post to these books.' }[d.tag]])
       openPnl[d.tag]()
       cy.get('#finTabs .fin-tab.active').should('have.attr', 'data-report', 'pnl')
@@ -1774,6 +1774,49 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     cy.visit('/businessDashboard'); cy.waitForAppReady()
     cy.get('#snavFinance').should('not.exist')
     act('Each business: Configuration → Modules → untick Expense management (the recording does this at the end).', [], { cleanup: true })
+  })
+
+  caseIt('2a-6', 'A farm records its expenses in one place, and brings the old ones in', () => {
+    testCase('2a-6', 'ex2a', 'A farm records its expenses in one place, and brings the old ones in', { who: ['owner.agriculture (recorded)', 'admin.agriculture'] })
+    setup('A farm that used the old Add Expense screen before switching Expense management on. Its rows never reached the books.')
+    const d = DASH[2], name = 'XG farm diesel ' + run, amount = 64 + Number(run.slice(-2)) / 100
+    signInD(d); resetModule()
+    SAFETY.push(() => { signInD(d); resetModule() })
+    signInD(d, true)
+    act('With Expense management off: <b>Add Expense</b> (the old farm screen), Diesel ' + amount.toFixed(2) + ' on a land, crop Wheat.', ['Saved on the old screen, as before. It is not in the books.'], { via: 'run' })
+    cy.request('/getUserLand').then((r) => {
+      const b = typeof r.body === 'string' ? JSON.parse(r.body) : r.body
+      const land = (b.object || [])[0]
+      cy.request({ method: 'POST', url: '/addAgricultureExpense', form: true, body: { expenseName: name, amount, landId: land.id, cropName: 'Wheat', expenseType: 'Fuel' } })
+        .its('body.status').should('eq', 'SUCCESS')
+    })
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    signInD(d, true)
+    cy.visit(d.dash); cy.waitForAppReady()
+    const a2 = act('Switch Expense management on (Configuration → Modules) and look at the sidebar.',
+      ['<b>Add Expense</b> (the old screen) is gone: the farm records expenses in <b>Expenses</b>, where they reach the books. The old screen refuses a save too, in words.'])
+    cy.get('a.sb-link[onclick*="agricultureExpenseDiv"]', { timeout: 20000 }).should('have.class', 'cap-off')
+    snap(a2, 'sidebar', '.app-sidebar')
+    const a3 = act('<b>Expenses</b> → <b>Past farm expenses</b>.', ['The old rows not yet in the books, with their date, amount, expense · land · crop. One that looks like an expense already recorded is flagged and unticked.'])
+    d.openExp()
+    cy.get('#expCategory option', { timeout: 20000 }).should('have.length.greaterThan', 1)
+    cy.get('[data-cy=farm-history-open]').click()
+    cy.contains('[data-cy=farm-history-row]', name, { timeout: 20000 }).scrollIntoView().should('be.visible')
+    snap(a3, 'preview', '#expHistPanel-farm')
+    const a4 = act('Tick only that row, Category <b>Fuel and transport</b> (or Rent), <b>Import</b>.',
+      ['“1 imported”. It is an expense on its own date, paid in Cash, <b>tagged to its land</b>, In the books. On the old screen it can no longer be deleted: “void it in Expenses instead”.'])
+    cy.get('[data-cy=farm-history-row] [data-cy=farm-history-pick]').uncheck({ force: true })
+    cy.contains('[data-cy=farm-history-row]', name).find('[data-cy=farm-history-pick]').check({ force: true })
+    cy.get('[data-cy=farm-history-category] option').contains('Rent').then(($o) => cy.get('[data-cy=farm-history-category]').select($o.val(), { force: true }))
+    cy.get('[data-cy=farm-history-import]').click()
+    cy.get('#expHistMsg-farm', { timeout: 20000 }).should('contain', '1 imported')
+    expenseRow(name).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a4, 'imported')
+    act(`Void <b>${name}</b> in Expenses (reason “Test Book”) and switch Expense management off again.`, [], { cleanup: true })
+    cy.request('/expense/vouchers?size=100').its('body.data.content').then((l) => {
+      const v = l.find((x) => x.payeeName === name && x.status === 'POSTED')
+      if (v) cy.request({ method: 'POST', url: `/expense/vouchers/${v.id}/void`, body: { reason: 'Test Book' }, failOnStatusCode: false })
+    })
   })
 
   // ═══ EX-2b · What it was for ═══════════════════════════════════════════════════════════════════════════════
@@ -1943,6 +1986,41 @@ describe('Expense Management & Supplier Payables Test Book — recorded step by 
     snap(a1, 'no-void')
     const c1 = act('Close the shift: <b>Till → Cash Drawer</b>, Counted cash, <b>Close Shift</b>.', ['The shift closes.'], { cleanup: true, via: 'run' })
     closeShiftQuietly()
+  })
+
+  caseIt('3-4', 'Bring past till pay-outs into the books', () => {
+    testCase('3-4', 'ex3', 'Bring past till pay-outs into the books', { who: ['owner.lifecycle (recorded)', 'admin.business'] })
+    setup('Pay-outs made at the till before Expense management was switched on never reached the books. The recording makes one that way (the module off for a moment), then brings it in.')
+    const reason = 'XG3 tea for guests ' + run, amount = 45 + Number(run.slice(-2)) / 100
+    asLifecycle(true)
+    act('Before switching Expense management on: <b>Till → Cash Drawer</b>, Pay Out <b>' + amount.toFixed(2) + '</b>, reason "' + reason + '".', ['The drawer moves; the books do not (there is no category: the module was off).'], { via: 'run' })
+    cy.request({ method: 'POST', url: '/resetModuleSwitch', form: true, body: { key: KEY }, failOnStatusCode: false })
+    SAFETY.push(() => { asLifecycle(); closeShiftQuietly(); cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, failOnStatusCode: false, body: { key: KEY, enabled: 'true' } }) })
+    asLifecycle(true)
+    ensureShiftOpen()
+    cy.request({ method: 'POST', url: '/cashMovement', form: true, body: { type: 'PAY_OUT', amount, reason, idempotencyKey: 'xg34-' + run } }).its('body.status').should('eq', 'SUCCESS')
+    closeShiftQuietly()
+    cy.request({ method: 'POST', url: '/saveModuleSwitch', form: true, body: { key: KEY, enabled: 'true' } }).its('body.success').should('eq', true)
+    asLifecycle(true)
+    openDashboard(); openExpenses()
+    const a2 = act('Switch Expense management on, then <b>Till → Expenses</b> → <b>Past till pay-outs</b>.',
+      ['Every pay-out that never reached the books, with its date, amount and reason. One that looks like an expense already recorded (same day, same amount) says which, and is left unticked.'])
+    cy.get('[data-cy=till-history-open]').click()
+    cy.contains('[data-cy=till-history-row]', reason, { timeout: 20000 }).scrollIntoView().should('be.visible')
+    snap(a2, 'preview', '#expHistPanel')
+    let tb0 = null
+    tb().then((b) => { tb0 = b })
+    const a3 = act('Tick only that pay-out, Category <b>Rent</b>, press <b>Import</b>.', ['“1 imported”. It leaves the list and appears in Expenses as a <b>Till</b> expense on its own date, <b>In the books</b>.'])
+    cy.get('[data-cy=till-history-row] [data-cy=till-history-pick]').uncheck({ force: true })
+    cy.contains('[data-cy=till-history-row]', reason).find('[data-cy=till-history-pick]').check({ force: true })
+    cy.get('[data-cy=till-history-category] option').contains('Rent').then(($o) => cy.get('[data-cy=till-history-category]').select($o.val(), { force: true }))
+    cy.get('[data-cy=till-history-import]').click()
+    cy.get('#expHistMsg', { timeout: 20000 }).should('contain', '1 imported')
+    cy.contains('#tableExpense tbody tr', reason, { timeout: 25000 }).find('.exp-chip', { timeout: 25000 }).should('contain', 'In the books')
+    snap(a3, 'imported')
+    act('Open the trial balance; press Import again with the same pay-out.', ['<b>6000</b> up and <b>1000 Cash</b> down by exactly ' + amount.toFixed(2) + '. A pay-out goes in once: it is no longer offered, and nothing more is booked.'], { via: 'run' })
+    tb().then((tb1) => { expect(delta(tb0, tb1, '6000')).to.eq(amount); expect(delta(tb0, tb1, '1000')).to.eq(-amount) })
+    act('Nothing to undo: a till expense is corrected at the till, and this pay-out really happened.', [], { cleanup: true })
   })
 
   // ═══ EX-4 · Expense bills ════════════════════════════════════════════════════════════════════════════════

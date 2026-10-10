@@ -76,6 +76,15 @@
             el.classList.toggle(OFF_CLASS, !allowed);
             if (!allowed) hidden++;
         });
+        // EX-9b — the inverse: `data-capability-off="expenseManagement"` hides an element while the tenant HAS that
+        // capability (an old screen a module replaces). Same fail-open rule: an unknown code leaves it visible.
+        scope.querySelectorAll('[data-capability-off]').forEach(function (el) {
+            var replacedBy = (el.getAttribute('data-capability-off') || '').split(',')
+                .map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 0; });
+            var off = replacedBy.some(function (code) { return caps[code] === true; });
+            el.classList.toggle(OFF_CLASS, off);
+            if (off) hidden++;
+        });
 
         collapseEmptyGroups(scope);
         return hidden;

@@ -210,6 +210,61 @@ public class ExpenseVoucherService {
     }
 
     /**
+     * EX-9b — an old farm expense row brought into the books by the owner (R-4). Idempotent on {@code (FARM, row id)}: the
+     * same row imported again returns the first voucher. Paid from Cash (an old farm row has none), on the row's own
+     * date, the line tagged to its LAND when agriculture still lists that land for the caller (untagged otherwise), the
+     * crop and type kept in the line's description.
+     */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ExpenseVoucherRef recordFromFarm(com.myplus.commerce.contracts.dto.FarmExpenseView r, Long categoryId) {
+        Long org = access.org();
+        if (r == null || r.getId() == null) throw new ValidationException("A farm expense needs its row id.");
+        String ref = String.valueOf(r.getId());
+        Optional<ExpenseVoucher> replay = repo.findByOrganizationIdAndSourceAndSourceRef(org, ExpenseVoucher.SOURCE_FARM, ref);
+        if (replay.isPresent()) return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(replay.get().getId(), replay.get().getVoucherNo());
+        if (r.getAmount() == null || r.getAmount().signum() <= 0) throw new ValidationException("A farm expense needs an amount.");
+        ExpenseCategory c = categories.activeCategory(org, categoryId);
+        ExpenseVoucher v = new ExpenseVoucher();
+        v.setOrganizationId(org);
+        v.setUserId(access.userId());
+        v.setVoucherDate(r.getDate() == null ? TenantClock.today() : r.getDate());
+        v.setPaidFrom(PaidFrom.CASH.name());
+        v.setPayeeName(limit(r.getExpenseName(), 160));
+        v.setNote("Farm expense, brought into the books");
+        v.setSource(ExpenseVoucher.SOURCE_FARM);
+        v.setSourceRef(ref);
+        v.setCreatedAt(LocalDateTime.now());
+        v.setUpdatedAt(LocalDateTime.now());
+        ExpenseVoucherLine l = new ExpenseVoucherLine();
+        l.setCategoryId(c.getId());
+        l.setAccountCode(c.getAccountCode());
+        l.setCategoryName(c.getName());
+        String what = java.util.stream.Stream.of(r.getCropName(), r.getExpenseType(), r.getDescription())
+                .filter(x -> x != null && !x.isBlank()).collect(java.util.stream.Collectors.joining(" · "));
+        l.setDescription(limit(what.isEmpty() ? r.getExpenseName() : what, 255));
+        l.setAmount(r.getAmount().setScale(2, RoundingMode.HALF_UP));
+        if (r.getLandId() != null) {
+            try {
+                String label = tags.confirm("LAND", r.getLandId());       // agriculture's own list, as the caller
+                l.setTagType("LAND");
+                l.setTagId(r.getLandId());
+                l.setTagLabel(label);
+            } catch (ValidationException gone) {
+                // the land was removed, or is not the caller's: the expense still comes in, untagged
+            }
+        }
+        v.addLine(l);
+        try {
+            v = repo.saveAndFlush(v);
+        } catch (DataIntegrityViolationException raced) {
+            throw new ValidationException("This farm expense is already being brought in.");
+        }
+        audit.record("EXPENSE_RECORDED", "EXPENSE", String.valueOf(v.getId()), v.getTotal(), "FARM " + ref, null);
+        postInTx(v);
+        return new com.myplus.commerce.contracts.dto.ExpenseVoucherRef(v.getId(), v.getVoucherNo());
+    }
+
+    /**
      * EX-1b — send again what the books refused or never took: the posting of a POSTED voucher, the reversal of a
      * VOIDED one, and a bill's subledger snapshot. Same event keys, so finance books each once however often it is
      * sent. Never the posting of a voided voucher (it voided with no reversal). Anyone who may see the expense may ask —

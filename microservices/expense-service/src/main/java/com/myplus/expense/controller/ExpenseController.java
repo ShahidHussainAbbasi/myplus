@@ -39,6 +39,7 @@ public class ExpenseController {
     private final com.myplus.expense.service.ExpenseAdvanceService advances;   // EX-7b
     private final com.myplus.expense.service.ExpenseReportService reports;     // EX-8a
     private final com.myplus.expense.service.ExpenseSettings expenseSettings; // EX-6b — the limit, to say it
+    private final com.myplus.expense.service.ExpenseHistoryService history;   // EX-9a
 
     @GetMapping("/categories")
     public ApiResponse<List<CategoryView>> categories() {
@@ -150,6 +151,38 @@ public class ExpenseController {
     }
 
     // ── EX-8a — the expense report (reconciles with the P&L) and its CSV ───────────────────────────────────────
+
+    /** EX-9a — past till pay-outs not yet in the books (owner/admin), each with the expenses it may duplicate. */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @GetMapping("/history/till")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseHistoryService.TillRow>> tillHistory() {
+        return ApiResponse.success(history.tillPreview());
+    }
+
+    public record TillImportRequest(Long categoryId, List<Long> refs) { }
+
+    /** EX-9a — bring the ticked pay-outs into the books, once each (R-4: with the owner's consent). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/history/till/import")
+    public ApiResponse<com.myplus.expense.service.ExpenseHistoryService.ImportResult> importTill(@RequestBody TillImportRequest r) {
+        var res = history.importTill(r == null ? null : r.categoryId(), r == null ? null : r.refs());
+        return ApiResponse.success(res, res.imported() + " imported" + (res.skipped() > 0 ? ", " + res.skipped() + " already in the books or not found" : ""));
+    }
+
+    /** EX-9b — the farm's old expense rows not yet in the books (owner/admin). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @GetMapping("/history/farm")
+    public ApiResponse<List<com.myplus.expense.service.ExpenseHistoryService.FarmRow>> farmHistory() {
+        return ApiResponse.success(history.farmPreview());
+    }
+
+    /** EX-9b — bring the ticked farm rows into the books, once each (R-4). */
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PostMapping("/history/farm/import")
+    public ApiResponse<com.myplus.expense.service.ExpenseHistoryService.ImportResult> importFarm(@RequestBody TillImportRequest r) {
+        var res = history.importFarm(r == null ? null : r.categoryId(), r == null ? null : r.refs());
+        return ApiResponse.success(res, res.imported() + " imported" + (res.skipped() > 0 ? ", " + res.skipped() + " already in the books or not found" : ""));
+    }
 
     @GetMapping("/reports/summary")
     public ApiResponse<com.myplus.expense.service.ExpenseReportService.Summary> reportSummary(

@@ -193,6 +193,8 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><b>EX-8b</b></td><td>The same payee, day and amount already recorded in the business is questioned before saving (never refused); a colleague's counts</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">95</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4</span></td></tr>
             <tr><td>EX-8c</td><td>The analytics feed: closed as superseded by the report (analytics-service is not wired; its own programme item)</td><td><span class="pill pill-info">Closed</span></td><td>—</td><td>—</td></tr>
             <tr><td><b>EX-8d</b></td><td>Recoverable input tax on expenses (off by default; every business type): the tax part to 2100 and the tax register, only the rest is a cost</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">98 + 93</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4</span></td></tr>
+            <tr><td><b>EX-9b</b></td><td>The farm's expenses converge onto Expenses: the old screen hidden and refused while the module is on, unchanged while off; past farm rows into the books with consent, tagged to their land; no hard delete of a row in the books (F3); a farm entry names only its own land</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">119 + 3</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5 + 3/3</span></td></tr>
+            <tr><td><b>EX-9a</b></td><td>Past till pay-outs into the books, with the owner's consent: previewed, ticked, each once on its own date; a likely duplicate flagged and left unticked</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">114</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">4/4</span></td></tr>
             <tr><td><b>EX-6b</b></td><td>A limit on what a member posts directly (none by default); above it the expense is saved and waits for an owner or admin to post it; waiting drafts reachable on screen (E7)</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">110</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5</span></td></tr>
             <tr><td><b>AN-1</b></td><td>analytics-service wired end to end: the last 12 months under the profit and loss, each month equal to the P&amp;L for that month; owner/admin only</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">6 + 3</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5</span></td></tr>
             <tr><td><b>EX-8e</b></td><td>The report by branch: an expense carries the branch its recorder works in (taken automatically, never from the browser), named by the module that owns it</td><td><span class="pill pill-ok">Yes</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">104</span></td><td><span class="pill pill-ok">Pass</span> <span class="num">5/5</span></td></tr>
@@ -627,6 +629,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
           <div class="why"><b>Catches:</b> expenses posting to books nobody on that dashboard can see; welfare told its books are complete when donations are missing; a cashier reading the profit and loss (fixed in EX-2c: finance-service now refuses it).</div>
         </div>
       </div>
+      <div class="case" data-case="2a-6">
+        <div class="case-head"><span class="cid">2a-6</span><h3>A farm records its expenses in one place, and brings the old ones in</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.agriculture</code><code>admin.agriculture</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Switch Expense management on; look for the old <b>Add Expense</b>.</li><li>Expenses → <b>Past farm expenses</b>: tick, choose a category, <b>Import</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>The old Add Expense is gone while the module is on (and refuses a save); with it off, nothing changed.</span></label></li><li><label><input type="checkbox"><span>Each old row comes in once, on its own date, tagged to its land; it can no longer be hard-deleted.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> two farm expense screens where only one reaches the books, a farm expense booked twice, or one deleted with no trail.</div>
+        </div>
+      </div>
     </section>
 
 
@@ -712,6 +725,17 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             </ul></div>
           </div>
           <div class="why"><b>Catches:</b> voiding an expense whose cash really left the drawer, which would make the books disagree with the till.</div>
+        </div>
+      </div>
+      <div class="case" data-case="3-4">
+        <div class="case-head"><span class="cid">3-4</span><h3>Bring past till pay-outs into the books</h3><span class="pill pill-info">Owner · Admin</span></div>
+        <div class="case-body">
+          <div class="who"><code>owner.lifecycle</code><code>admin.business</code></div>
+          <div class="cols">
+            <div><h4>Do</h4><ol><li>Expenses → <b>Past till pay-outs</b>.</li><li>Tick the ones to bring in, choose a category, <b>Import</b>.</li></ol></div>
+            <div><h4>You should see</h4><ul class="expect"><li><label><input type="checkbox"><span>Each pay-out that never reached the books, once; one matching an expense already recorded is flagged and unticked.</span></label></li><li><label><input type="checkbox"><span>Imported ones are Till expenses on their own date, in the books once; importing again books nothing.</span></label></li></ul></div>
+          </div>
+          <div class="why"><b>Catches:</b> a profit and loss missing the money paid out before the module was on, or the same pay-out booked twice.</div>
         </div>
       </div>
     </section>
@@ -1497,6 +1521,9 @@ pre.cmd code{font-size:12px;color:var(--txt)}
             <tr><td><code>expense/fp-3b-payment-reversal.cy.js (7)</code></td><td>Reverse a payment: 2000 and cash move back exactly, PV-…-R; once only; then the bill voids; closed period refused; security; on screen</td><td><span class="pill pill-ok">Pass 7/7</span></td></tr>
             <tr><td><code>finance/fp-6b-expense-bill-parity.cy.js (3)</code></td><td>A refused bill is not owed in the ledger; posted again it is; a stale document is found, re-sent, and the books are not moved</td><td><span class="pill pill-ok">Pass 3/3</span></td></tr>
             <tr><td><code>expense/ex-8d-input-tax.cy.js (4)</code></td><td>Off by default and refused; switched on, 115 with 15 tax is cost 100, Dr 2100 15, cash 115, input tax in the register, report and P&amp;L 100; a void undoes all three; tax ≥ amount or negative refused</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
+            <tr><td><code>expense/ex-9b-farm-convergence.cy.js (5)</code></td><td>Module off: the old Add Expense unchanged; on: hidden and refused in words; past farm rows previewed, imported on screen once each, tagged to their land, stamped on the farm, a second import books nothing; F3 no hard delete of an imported row; owner/admin only</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
+            <tr><td><code>agriculture/land-scope.cy.js (3)</code></td><td>Another farm business's land refused on an expense and on an income, nothing saved; an id that is no land refused (it had been stored raw)</td><td><span class="pill pill-ok">Pass 3/3</span></td></tr>
+            <tr><td><code>expense/ex-9a-till-history-import.cy.js (4)</code></td><td>Pay-outs made with the module off are listed (date, amount, reason); ticked with Rent on screen they book once on their own date (6000 up, the till down), leave the list, and a second import books nothing; one matching an expense already recorded is flagged by its number and unticked; a member refused, an unknown id skipped</td><td><span class="pill pill-ok">Pass 4/4</span></td></tr>
             <tr><td><code>expense/ex-6b-user-post-limit.cy.js (5)</code></td><td>No limit by default; the owner sets 50 on screen, a member's 80 is saved and waits (not in the P&amp;L), their 30 posts; the member cannot post the waiting one, the admin posts it on screen (P&amp;L +80); the member discards their own; a waiting one named in the duplicate warning; 0, negative and reset</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>expense/ex-8e-report-by-branch.cy.js (5)</code></td><td>A member with one branch records an expense that carries it; another branch (or a foreign id) sent by the browser refused, their own accepted, the owner's has none; the report by branch named by education, "No branch" for the rest, "Branch #id" for one nobody names, same total as by category; on screen; the CSV's Branch column</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
             <tr><td><code>finance/an-1-analytics-trend.cy.js (5)</code></td><td>Each of the last 12 months in analytics = the P&amp;L for that month to the cent, the summary their sum; an expense raises this month by exactly its amount and its void puts it back; the plain user refused (403) as finance refuses; the trend on the P&amp;L screen; more than 24 months or from after to refused</td><td><span class="pill pill-ok">Pass 5/5</span></td></tr>
@@ -1518,7 +1545,7 @@ pre.cmd code{font-size:12px;color:var(--txt)}
     <!-- ───────────────────────── next ───────────────────────── -->
     <section class="card" id="next">
       <h2>Coming next</h2>
-      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff, and <b>EX-8a</b> the expense report and <b>EX-8b</b> the duplicate warning and <b>EX-8d</b> recoverable input tax, and <b>AN-1</b> the 12-month trend from analytics, and <b>EX-8e</b> the report by branch, and <b>EX-6b</b> a limit on what a member posts directly. Next: <b>EX-9</b> farm expenses onto this module and the consented import of past till pay-outs and farm expenses, welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
+      <p>Done since the review: E1 post again, the books on every dashboard, list paging and total, categories, expense settings, payment reversal, expense bills in the daily check, <b>EX-5 receipts</b> and <b>EX-6 expense claims</b> and <b>EX-7a</b> paying claims back and <b>EX-7b</b> advances to staff, and <b>EX-8a</b> the expense report and <b>EX-8b</b> the duplicate warning and <b>EX-8d</b> recoverable input tax, and <b>AN-1</b> the 12-month trend from analytics, and <b>EX-8e</b> the report by branch, and <b>EX-6b</b> a limit on what a member posts directly, and <b>EX-9a/9b</b> past till pay-outs and farm expenses into the books, with the farm on one expense screen. Next: welfare fund accounting, and <b>FP-6b/6c</b> once a business has 28 clean days in a row.</p>
       <pre class="mermaid diagram">
 flowchart LR
   A[Every night, every business] --> B{Supplier figures, documents and GL 2000 agree?}

@@ -89,4 +89,9 @@ public class AgricultureExpense implements Serializable {
     @Column(name = "updated")
     @Setter @Getter
     private LocalDate updated;
+
+    /** EX-9b — the EXP- number once this row is imported into the books; null = never imported (V6). */
+    @Column(name = "expense_voucher_no", length = 20)
+    @Setter @Getter
+    private String expenseVoucherNo;
 }

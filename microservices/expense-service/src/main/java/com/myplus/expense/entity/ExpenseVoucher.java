@@ -29,7 +29,7 @@ import lombok.Setter;
 public class ExpenseVoucher {
 
     public static final String DRAFT = "DRAFT", POSTED = "POSTED", VOIDED = "VOIDED";
-    public static final String SOURCE_MANUAL = "MANUAL", SOURCE_DRAWER = "DRAWER";
+    public static final String SOURCE_MANUAL = "MANUAL", SOURCE_DRAWER = "DRAWER", SOURCE_FARM = "FARM";   // EX-9b: an imported farm row
     /** EX-6 — a claim's own state (the voucher stays DRAFT until it is approved and posted). */
     public static final String CLAIM_SUBMITTED = "SUBMITTED", CLAIM_APPROVED = "APPROVED", CLAIM_REJECTED = "REJECTED",
             CLAIM_WITHDRAWN = "WITHDRAWN";

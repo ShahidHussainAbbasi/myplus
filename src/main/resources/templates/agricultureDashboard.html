@@ -16,7 +16,7 @@
 		<select name="registrationType" id="registrationType" class="dropdown show panel-heading" tabindex="-1">
 			<option class="dropdown-item" value="" th:text="#{ui.nothingSelected}">Nothing Selected</option>
 			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="landDiv" th:text="#{ui.registerLand}">Register Land</option>
-			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureExpenseDiv" th:text="#{ui.addExpense}">Add Expense</option>
+			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureExpenseDiv" data-capability-off="expenseManagement" th:text="#{ui.addExpense}">Add Expense</option>
 			<option sec:authorize="hasAuthority('SUPER_PRIVILEGE')" class="dropdown-item" value="agricultureIncomeDiv" th:text="#{ui.addIncome}">Add Income</option>
 		</select>
 	</div>
@@ -28,7 +28,8 @@
 		</div>
 		<nav class="app-sidebar__nav">
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','landDiv',this)"><span class="glyphicon glyphicon-map-marker"></span><span th:text="#{ui.registerLand}">Register Land</span></a>
-			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureExpenseDiv',this)"><span class="glyphicon glyphicon-minus-sign"></span><span th:text="#{ui.addExpense}">Add Expense</span></a>
+			<!-- EX-9b — replaced by Expenses while Expense management is on (the endpoint refuses then too) -->
+			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" data-capability-off="expenseManagement" onclick="sbNav('registrationType','agricultureExpenseDiv',this)"><span class="glyphicon glyphicon-minus-sign"></span><span th:text="#{ui.addExpense}">Add Expense</span></a>
 			<a class="sb-link" sec:authorize="hasAuthority('SUPER_PRIVILEGE')" onclick="sbNav('registrationType','agricultureIncomeDiv',this)"><span class="glyphicon glyphicon-plus-sign"></span><span th:text="#{ui.addIncome}">Add Income</span></a>
 			<!-- EX-2a — Expenses (any member); hidden until the owner switches the module on. -->
 			<a class="sb-link" id="navExpenses" data-capability="expenseManagement" onclick="sbNav('registrationType','',this);showExpenses()"><span class="glyphicon glyphicon-export"></span><span th:text="#{ui.expenses}">Expenses</span></a>
