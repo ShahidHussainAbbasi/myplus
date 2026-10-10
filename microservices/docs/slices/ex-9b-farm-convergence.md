@@ -54,6 +54,7 @@ EX-9b makes Expenses the farm's one expense screen, on the same terms as the til
   changes, and this case proves it.
 - **Green:** 5/5 on the first run after deploying agriculture-service (V6, validated and applied: "now at version v6"),
   expense-service and the monolith.
+- **Regression:** every expense and agriculture gate (`cypress/e2e/expense/*.cy.js`, `cypress/e2e/agriculture/*.cy.js`) **153/153**, including EX-2c with the new farm notice and EX-9a with the shared history panel.
 - **Verified in the DB:** the clean run's two farm rows carry `EXP-000080` / `EXP-000081` in
   `agriculture_expense.expense_voucher_no`.
 - **Test data left on the demo farm (org 10):** the red run left 2 rows unimported: a seed, and a row the old endpoint
