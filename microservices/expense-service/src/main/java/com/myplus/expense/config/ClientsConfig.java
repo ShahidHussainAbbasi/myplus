@@ -115,6 +115,18 @@ public class ClientsConfig {
                 .createClient(com.myplus.commerce.contracts.client.DrawerHistoryClient.class);
     }
 
+    /** EX-9b — agriculture-service's old farm expense rows not yet in the books (read as the caller; internal route). */
+    @Bean
+    public com.myplus.commerce.contracts.client.FarmHistoryClient farmHistoryClient(@LoadBalanced RestClient.Builder builder) {
+        RestClient rc = builder.clone()
+                .baseUrl("http://agriculture-service")
+                .requestFactory(timeouts())
+                .requestInterceptor(GatewayIdentityForwarding.interceptor())
+                .build();
+        return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(rc)).build()
+                .createClient(com.myplus.commerce.contracts.client.FarmHistoryClient.class);
+    }
+
     @Bean
     public AuditClient auditClient(@LoadBalanced RestClient.Builder builder) {
         RestClient rc = builder.clone()

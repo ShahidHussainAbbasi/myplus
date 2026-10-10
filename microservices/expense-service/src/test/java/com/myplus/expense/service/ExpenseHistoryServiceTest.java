@@ -40,7 +40,8 @@ class ExpenseHistoryServiceTest {
     private final ExpenseAccess access = mock(ExpenseAccess.class);
     private final ExpenseVoucherService vouchers = mock(ExpenseVoucherService.class);
     private final DrawerHistoryClient business = mock(DrawerHistoryClient.class);
-    private final ExpenseHistoryService svc = new ExpenseHistoryService(repo, access, vouchers, business);
+    private final com.myplus.commerce.contracts.client.FarmHistoryClient farm = mock(com.myplus.commerce.contracts.client.FarmHistoryClient.class);
+    private final ExpenseHistoryService svc = new ExpenseHistoryService(repo, access, vouchers, business, farm);
 
     @BeforeEach
     void setUp() {
@@ -104,5 +105,40 @@ class ExpenseHistoryServiceTest {
         assertThatThrownBy(() -> svc.importTill(null, List.of(11L))).hasMessageContaining("category");
         assertThatThrownBy(() -> svc.importTill(5L, List.of())).hasMessageContaining("Tick");
         verify(vouchers, never()).recordFromDrawer(any());
+    }
+
+    // ── EX-9b — the farm ──────────────────────────────────────────────────────────────────────────────────────
+
+    private static com.myplus.commerce.contracts.dto.FarmExpenseView farmRow(long id, String amount) {
+        return new com.myplus.commerce.contracts.dto.FarmExpenseView(id, D, new BigDecimal(amount), "diesel", "Fuel", 4L, "North field", "Wheat", null);
+    }
+
+    @Test
+    @DisplayName("⭐ EX-9b — farm preview: an imported row is not listed; a same-day same-amount expense is named")
+    void farmPreview() {
+        when(farm.notInBooks()).thenReturn(List.of(farmRow(21L, "40.00"), farmRow(22L, "33.50")));
+        ExpenseVoucher imported = new ExpenseVoucher();
+        imported.setVoucherNo("EXP-000070");
+        when(repo.findByOrganizationIdAndSourceAndSourceRef(6L, "FARM", "21")).thenReturn(Optional.of(imported));
+        var rows = svc.farmPreview();
+        assertThat(rows).extracting(ExpenseHistoryService.FarmRow::ref).containsExactly(22L);
+        assertThat(rows.get(0).matches()).containsExactly("EXP-000099");
+        assertThat(rows.get(0).landName()).isEqualTo("North field");
+    }
+
+    @Test
+    @DisplayName("⭐ EX-9b — farm import: only agriculture's own rows, once each, stamped back; a row already in is re-stamped")
+    void farmImport() {
+        when(farm.notInBooks()).thenReturn(List.of(farmRow(21L, "40.00"), farmRow(22L, "33.50")));
+        ExpenseVoucher imported = new ExpenseVoucher();
+        imported.setVoucherNo("EXP-000070");
+        when(repo.findByOrganizationIdAndSourceAndSourceRef(6L, "FARM", "21")).thenReturn(Optional.of(imported));
+        when(vouchers.recordFromFarm(any(), eq(5L))).thenReturn(new ExpenseVoucherRef(2L, "EXP-000222"));
+        var res = svc.importFarm(5L, List.of(21L, 22L, 22L, 777L));
+        assertThat(res.imported()).isEqualTo(1);
+        assertThat(res.skipped()).isEqualTo(3);
+        verify(vouchers, times(1)).recordFromFarm(any(), eq(5L));
+        verify(farm).stampExpenseVoucher(22L, "EXP-000222");
+        verify(farm).stampExpenseVoucher(21L, "EXP-000070");
     }
 }

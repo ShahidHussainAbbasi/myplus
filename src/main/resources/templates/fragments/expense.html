@@ -258,6 +258,26 @@
 			</div>
 		</div>
 	</div>
+	<!-- EX-9b — the farm's old expense rows into the books: the same consent flow as the till (R-4), on the farm dashboard. -->
+	<div th:if="${tagSource == 'agriculture'}" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')" style="margin:6px 0">
+		<button type="button" class="btn btn-default btn-sm" data-cy="farm-history-open" onclick="expenseHistoryToggle('farm')">
+			<span class="glyphicon glyphicon-import"></span> <span th:text="#{ui.expFarmHistory}">Past farm expenses</span></button>
+		<div id="expHistPanel-farm" style="display:none;margin-top:8px;border:1px solid #dde3ea;border-radius:6px;padding:10px;max-width:1000px">
+			<p class="help-block" style="margin-top:0" th:text="#{ui.expFarmHistoryHelp}">Expenses recorded on the old farm screen never reached your books. Tick the ones to bring in, choose what they were for, and import: each goes in once, on its own date, tagged to its land. One that looks like an expense you already recorded is flagged and left unticked.</p>
+			<div class="form-inline" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px">
+				<label for="expHistCategory-farm" th:text="#{ui.category}">Category</label>
+				<select class="form-control input-sm" id="expHistCategory-farm" data-cy="farm-history-category" data-no-search="true" style="min-width:200px"></select>
+				<button type="button" class="btn btn-primary btn-sm" data-cy="farm-history-import" onclick="expenseHistoryImport(this, 'farm')" th:text="#{ui.expTillHistoryImport}">Import</button>
+				<span id="expHistMsg-farm" role="status" aria-live="polite"></span>
+			</div>
+			<div style="max-height:360px;overflow:auto">
+				<table class="table table-condensed" id="tableExpHist-farm" style="margin:0"><thead><tr>
+					<th></th><th th:text="#{ui.date}">Date</th><th class="text-right" th:text="#{ui.amount}">Amount</th>
+					<th th:text="#{ui.expFarmHistoryWhat}">Expense · land</th><th th:text="#{ui.expTillHistoryMatch}">Already recorded?</th>
+				</tr></thead><tbody></tbody></table>
+			</div>
+		</div>
+	</div>
 	<div id="expReportPanel" class="well well-sm" data-cy="expense-report" style="display:none;max-width:900px">
 		<p class="help-block" style="margin-top:0" th:text="#{ui.expReportHelp}">
 			What reached the books in this period, as the profit and loss counts it: an expense on its own date, a void as a minus on the day it was voided.</p>

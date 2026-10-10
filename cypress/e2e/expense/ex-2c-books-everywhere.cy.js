@@ -58,7 +58,7 @@ describe('EX-2c — the books on every dashboard', () => {
       cy.contains('#FinanceResults', 'Balanced', { timeout: 20000 }).should('be.visible')
       // What the books do not hold yet is said, not left out: welfare's donations (R-5), the farm's own Income/Expense
       // records (agriculture-service posts nothing to finance until EX-9). A school's fees do post — no notice.
-      const note = { welfare: 'Donations', farm: 'Income and Expense records' }[d.name]
+      const note = { welfare: 'Donations', farm: 'Income records' }[d.name]   // EX-9b: the farm's expenses now reach the books
       if (note) cy.get('#FinanceDiv [data-cy=books-note]').should('be.visible').and('contain', note)
       else cy.get('#FinanceDiv [data-cy=books-note]').should('not.exist')
     })

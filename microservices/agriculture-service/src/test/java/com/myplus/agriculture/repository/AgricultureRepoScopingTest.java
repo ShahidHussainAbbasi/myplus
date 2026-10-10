@@ -86,4 +86,16 @@ class AgricultureRepoScopingTest {
 
         assertThat(scoped).extracting(Land::getId).contains(mine.getId()).doesNotContain(other.getId());
     }
+
+    @Test
+    void land_findScopedById_only_the_callers_land() {
+        Land mine = land("North field", 1L, 1L);
+        Land legacyMine = land("Old plot", null, 1L);
+        Land other = land("Their field", 2L, 3L);
+
+        assertThat(landRepo.findScopedById(mine.getId(), 1L, 1L)).isPresent();
+        assertThat(landRepo.findScopedById(legacyMine.getId(), 1L, 1L)).as("own pre-migration row").isPresent();
+        assertThat(landRepo.findScopedById(other.getId(), 1L, 1L)).as("another tenant's land is not found").isEmpty();
+        assertThat(landRepo.findScopedById(legacyMine.getId(), 1L, 9L)).as("someone else's pre-migration row").isEmpty();
+    }
 }

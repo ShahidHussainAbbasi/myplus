@@ -64,6 +64,7 @@ if it had gone through EX-3 that day. Running it again finds nothing new.
   and newer history could never be reached. expense-service now stamps each import back
   (`POST /internal/business/drawer/payouts/{id}/expense-voucher`: only a PAY_OUT of the caller's business with no number
   yet). Best effort: the expense side's key already keeps it single, and a later import re-tries a missing stamp.
+- **Regression:** all 23 expense gates **133/133** (run before EX-9b existed).
 - **Verified in the DB:** each clean run's two pay-outs carry their EXP- numbers in `cash_movement`. The flagged
   "paid twice" pay-out stays unbooked, by design. The shop's own 16 older pay-outs are untouched.
 - **Test data left on the demo shop (org 6):** each gate run leaves one flagged "EX9A paid twice" pay-out unbooked, and

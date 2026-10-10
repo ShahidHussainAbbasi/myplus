@@ -122,7 +122,7 @@ Legend: ✅ exists and is usable · 🟡 exists, needs change · ⬜ does not ex
 |---|---|---|---|
 | ⚠ F1 | **Drawer pay-outs never reach the ledger.** `ShiftService` has no finance/outbox call. Cash paid out of a till still sits in GL `1000 Cash` | code read | the size of the drift in any tenant |
 | ⚠ F2 | **Analytics "total expenses" reads a metric nobody writes.** `FinancialAnalyticsService:29` reads `finance.expenses`; it is the only reference in the repo | grep, 1 hit | what the screen shows |
-| ⚠ F3 | `agriculture_expense` is **hard-deleted** (`service.deleteById`, controller `:153`), no `@Version`, no ledger | code read | — |
+| ~~F3~~ **fixed, EX-9b** | `agriculture_expense` is **hard-deleted** (`service.deleteById`, controller `:153`), no `@Version`, no ledger | code read | — |
 | ⚠ F4 | `Purchase.purchaseExpense` is a **`Float`** (money standard) and no service-layer code writes it | grep | whether the DTO mapping fills it |
 | F5 | welfare-service has **no ledger link at all** — no outbox, no finance client. Donations never reach the books | grep | — |
 | F6 | = §4a "disbursement" row | code read | **Fixed — EX-7a** (`slices/ex-7a-claim-payback.md`): `PartyType.EMPLOYEE`; a disbursement to a member is Dr 2300, not 2000. A receipt FROM a member is refused until EX-7b |
@@ -615,7 +615,7 @@ education/welfare/agriculture dashboards — if not, those owners cannot turn th
 - [x] EX-8d recoverable input tax (`expense.tax.inputRecoverable`, every business type — owner's ruling 2026-10-09) · gate 4/4 (`slices/ex-8d-input-tax.md`)
 - [x] EX-8e report by branch — the branch is taken automatically from the recorder's active branch (owner's ruling 2026-10-09), never from the browser · gate 5/5 (`slices/ex-8e-report-by-branch.md`)
 - [x] EX-9a past till pay-outs into the books (R-4: owner-run, previewed, once each) · gate 4/4 (`slices/ex-9a-till-history-import.md`)
-- [ ] EX-9b agriculture convergence (farm screen onto Expenses, F3; farm history through the same import) · gate
+- [x] EX-9b agriculture convergence (farm screen onto Expenses, F3; farm history through the same import) · gate 5/5 (`slices/ex-9b-farm-convergence.md`); plus the farm land lookup scoped (gate 3/3)
 
 ---
 
@@ -673,7 +673,7 @@ switched on.
 5. fp-4b case 2 made self-sufficient (11.1).
 6. Programme slices: ~~EX-5 receipts~~ — done (`slices/ex-5-receipts.md`). ~~EX-6 claims~~ — done (`slices/ex-6-claims.md`). ~~EX-7a paying claims back~~ — done (`slices/ex-7a-claim-payback.md`). ~~EX-7b advances~~ — done (`slices/ex-7b-advances.md`). ~~EX-6b the user-tier post limit~~ — done (`slices/ex-6b-user-post-limit.md`: none by default, above it the expense waits),
    ~~EX-8a the expense report (and E8)~~ — done (`slices/ex-8a-expense-report.md`); ~~EX-8b duplicate warning~~ — done; ~~EX-8c~~ closed (F2 superseded); ~~EX-8d recoverable tax~~ — done; ~~EX-8e (by branch)~~ — done;
-   ~~EX-9a till back-posting (R-4)~~ — done (`slices/ex-9a-till-history-import.md`); EX-9b farm convergence + its back-posting, welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
+   ~~EX-9a till back-posting (R-4)~~ — done (`slices/ex-9a-till-history-import.md`); ~~EX-9b farm convergence + its back-posting~~ — done (`slices/ex-9b-farm-convergence.md`), welfare fund accounting (R-5), FP-6b/6c after 28 clean days.
 7. Rulings — **decided by the owner 2026-10-09**:
    - **R-3** receipts are kept **on the server**, not only on the client machine (audit, several devices, a lost laptop).
      The browser captures and compresses the photo or scan before upload; the server stores it behind the

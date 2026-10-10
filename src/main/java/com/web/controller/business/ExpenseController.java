@@ -209,6 +209,20 @@ public class ExpenseController {
         return call(() -> expense.send(HttpMethod.POST, "/history/till/import", body));
     }
 
+    /** EX-9b — the farm's old expense rows not yet in the books (owner/admin; expense-service enforces it). */
+    @GetMapping(value = "/history/farm", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> farmHistory() {
+        return call(() -> expense.get("/history/farm"));
+    }
+
+    /** EX-9b — import the ticked farm rows under one category; each once. */
+    @PostMapping(value = "/history/farm/import", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> importFarm(@RequestBody Map<String, Object> body) {
+        return call(() -> expense.send(HttpMethod.POST, "/history/farm/import", body));
+    }
+
     /** EX-1b — send again what the books refused (after a period is reopened, say). */
     @PostMapping(value = "/vouchers/{id}/post-again", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
