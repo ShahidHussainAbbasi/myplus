@@ -115,11 +115,11 @@ describe('CART-1 — grid drawn from data[]; Received follows the bill', () => {
       cy.get('#sellTradeDiscount').clear({ force: true }).type('5', { force: true })
       cy.get('#sellPayable').should('have.text', '95.00')
       cy.get('#sellRec').clear().type('200')
-      cy.get('#sellCh').should('have.value', '105')
+      cy.get('#sellCh').should('have.value', '105.00')
       addLine(b, 1)
       assertGridMatchesData(130)
       cy.get('#sellPayable').should('have.text', '125.00')
-      cy.get('#sellCh').should('have.value', '75')
+      cy.get('#sellCh').should('have.value', '75.00')
     }))
   })
 
@@ -132,7 +132,7 @@ describe('CART-1 — grid drawn from data[]; Received follows the bill', () => {
       cy.get('#sellRec').clear().type('100')
       cy.get('#sellTradeDiscount').clear({ force: true }).type('10', { force: true })
       cy.get('#sellRec').should('have.value', '90.00')
-      cy.get('#sellCh').should('have.value', '0')
+      cy.get('#sellCh').should('have.value', '0.00')
 
       // Via F8 → still exactly the bill → follows a further change.
       cy.window().then((w) => w.posExactCash())
@@ -143,7 +143,7 @@ describe('CART-1 — grid drawn from data[]; Received follows the bill', () => {
       cy.get('#sellRec').clear().type('150')
       cy.get('#sellTradeDiscount').clear({ force: true }).type('30', { force: true })
       cy.get('#sellRec').should('have.value', '150')
-      cy.get('#sellCh').should('have.value', '80')
+      cy.get('#sellCh').should('have.value', '80.00')
 
       // Empty → stays empty: the till must not claim money it was not told about.
       cy.get('#sellRec').clear()
@@ -208,7 +208,7 @@ describe('CART-1 — grid drawn from data[]; Received follows the bill', () => {
 
       addLine(b, 1, 10, '1')                    // 50, 10% = 5.00 off
       discFooter('15.00')   // money, not "NaN", not "20"
-      cy.get('#sellTotal').should('have.text', '135')
+      cy.get('#sellTotal').should('have.text', '135.00')
       cy.get('#sellDiscountShown').should('have.text', '−15.00')
       cy.get('#sellPayable').should('have.text', '135.00')
 

@@ -269,7 +269,7 @@ describe('P2 — ON', () => {
         //   #sellDueThis <- val(dueThis.toFixed(2))  a display string, so "0.00"
         // Asserting both in the same format is what failed the first run. Read the source, don't
         // assume two adjacent money fields agree.
-        cy.get('#sellCh').should('have.value', '0')
+        cy.get('#sellCh').should('have.value', '0.00')
         cy.get('#sellDueThis').should('have.value', '0.00')
       })
   })

@@ -99,6 +99,21 @@ function resetGlobalError(){
     $(".error-list").html("");
 }
 
+/**
+ * MONEY-2 — a money figure for the screen: always two decimals ("100" → "100.00"; float noise from adding
+ * "2988.4500000000003" → "2988.45"). A value WRITTEN with more than two decimals (a rate the cashier typed as 33.333)
+ * is shown as written: rounding it on screen would show a price the line was not charged at. Blank stays blank; a
+ * value that is not a number passes through unchanged. Display only — never feed its result back into arithmetic.
+ */
+function money2(v) {
+    if (v === null || v === undefined || v === '') return '';
+    if (typeof v === 'number') return isFinite(v) ? (Math.round(v * 100) / 100).toFixed(2) : '';
+    var s = String(v).trim(), n = Number(s.replace(/,/g, ''));
+    if (s === '' || !isFinite(n)) return s;
+    var dot = s.indexOf('.');
+    return (dot >= 0 && s.length - dot - 1 > 2) ? s : n.toFixed(2);
+}
+
 function showFormError(msg) {
     var el = document.getElementById('globalError');
     if (el) {

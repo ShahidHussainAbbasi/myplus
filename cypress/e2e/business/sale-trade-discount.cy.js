@@ -127,14 +127,14 @@ describe('TRADE-DISC-1 — the till charges what the invoice charges', () => {
   it('⭐ 1 — the payable, Due, Change and F8 all take the trade discount off', () => {
     cy.seedProduct({ name: `TD1_${uniq()}`, sellingPrice: 100, stock: 5 }).then(({ productId }) => {
       ringUp(productId)
-      cy.get('#sellTotal').should('have.text', '100')      // the column footer keeps meaning "sum of lines"
+      cy.get('#sellTotal').should('have.text', '100.00')      // the column footer keeps meaning "sum of lines"
       typeDiscount(10)
       cy.get('#sellPayableRow').should('be.visible')
       cy.get('#sellPayable').should('have.text', '90.00')
 
       // Received = the gross 100 → 10.00 of CHANGE is owed back (the defect showed 0 here).
       cy.get('#sellRec').clear().type('100')
-      cy.get('#sellCh').should('have.value', '10')
+      cy.get('#sellCh').should('have.value', '10.00')
 
       // Received below the payable → Due is measured against 90, not 100.
       cy.get('#sellRec').clear().type('50')

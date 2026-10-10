@@ -778,3 +778,18 @@ the Stock box shows on-hand only. **Gone from the UI:** choosing a batch (the se
 **Tests updated:** `pricing-per-batch-sale` S6 (no Batch choice / notice row; rate 200; sub-lines), S7 (the error line);
 guide X1 a4, S1 a1/a2, S2 (now the typed-price case only), S3, S4 a2. Unaffected (read text, not visibility):
 `dispense-batch`, `pos-cell-layout`, `pack-loose-ux-labels`. Needs the monolith rebuilt, then the guide re-captured.
+
+### 12.15 MONEY-2 — money on the till always shows two decimals (owner, 2026-10-10)
+
+**Reported:** "sellTotal value is not rounded with 2 decimal places and also check rest of". **Cause:** the cart's
+`footerCallback` wrote the Price (col 3) and Total (col 5, `#sellTotal`) sums raw — float addition shows
+"2988.4500000000003"; the QTY sum likewise. **Audit of the till's money figures:** raw → cart footer Price/Total/QTY,
+cart row Price (`sellCartRow`: the rate as stored, "297.7"), Change (`#sellCh`, rounded but "-108"), the sale list's
+Unit Price / Tax / Line Total (server values, "100"); already two decimals → row Total, Disc footer, Payable, Due (this
+sale), Due today/On plan, Prev/New total due, credit limit/available, Paid so far, the entry line's Total/Profit/
+Receivable (`sellLineMath`), the batch sub-lines.
+**Fix:** one shared `money2()` in main.js (two decimals; a value written with MORE decimals — a rate typed 33.333 —
+shown as written, never re-rounded on screen; display only). Applied to the five raw figures; QTY footer rounded to 3
+places, whole numbers stay whole. Readers of `#sellTotal` and `#sellCh` parse them as numbers (traced: sellPayable,
+calculateChange, main.js submit `*ONE`, park.js, server BigDecimal for `dueAmount`) — no figure changes. Specs with
+exact strings updated: cart-grid-sync (5), pos-shortcuts (1), sale-trade-discount (2). Needs the monolith rebuilt.

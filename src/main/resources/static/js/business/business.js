@@ -143,15 +143,16 @@ $(document).ready(function() {
  	        total = api.column(2).data().reduce( function (a, b) {
  	                	return intVal(a) + intVal(b);
  	            	}, 0 );
- 	        // Update footer
- 	        $( api.column(2).footer() ).html(total);
+ 	        // Update footer — MONEY-2: a quantity sum of loose lines (0.25 + 0.5) carries float noise too; three places
+ 	        // are enough for any unit this till sells, and whole numbers stay whole ("10", not "10.000").
+ 	        $( api.column(2).footer() ).html(String(Math.round(total * 1000) / 1000));
 
  	        // sell Total over all pages
  	       total = api.column(3).data().reduce( function (a, b) {
  	                	return intVal(a) + intVal(b);
  	            	}, 0 );
- 	        // Update footer
- 	        $( api.column(3).footer() ).html(total);
+ 	        // Update footer — MONEY-2: two decimals, never "606.8499999999999"
+ 	        $( api.column(3).footer() ).html(money2(total));
 
  	        // CART-2: the Disc column's footer is the MONEY taken off the lines. Its cells are labels ("10%",
  	        // "10 (Amt)") and a percent is not an amount, so summing the cell text was never money — it was NaN.
@@ -162,8 +163,9 @@ $(document).ready(function() {
    	       total = api.column(5).data().reduce( function (a, b) {
    	                	return intVal(a) + intVal(b);
    	            	}, 0 );
-   	        // Update footer
-   	        $( api.column(5).footer() ).html(total);
+   	        // Update footer — MONEY-2: #sellTotal is money ("2988.45", never "2988.4500000000003"). Its readers parse it
+   	        // as a number (sellPayable, calculateChange, the confirm dialog), so two decimals change no figure.
+   	        $( api.column(5).footer() ).html(money2(total));
    	        // TRADE-DISC-1: the payable line under the cart follows every redraw, including a deleted line.
    	        if (typeof sellRefreshPayable === 'function') sellRefreshPayable();
 
@@ -345,8 +347,9 @@ function sellCartRow(line, idx){
 	var st = line.stock || {};
 	// Rate: the per-piece rate on a loose line (U15-A2); the RAW value otherwise, so "311.60" stays "311.60".
 	var ld = (typeof looseDisplay === 'function') ? looseDisplay(line) : null;
+	// MONEY-2: shown with two decimals ("297.7" → "297.70"); a rate typed with MORE decimals is shown as typed.
 	var rate = (ld && ld.isLoose) ? Number(ld.rate).toFixed(2)
-		: (st.bsellRate != null && st.bsellRate !== '' ? st.bsellRate : (line.sellRate != null ? line.sellRate : ''));
+		: money2(st.bsellRate != null && st.bsellRate !== '' ? st.bsellRate : (line.sellRate != null ? line.sellRate : ''));
 	// SF-9: a discount carries its type — "10%" vs "10 (Amt)".
 	var dv = Number(st.bsellDiscount) || 0;
 	var pct = (st.bsellDiscountType === '1' || st.bsellDiscountType === '%');
@@ -2590,11 +2593,11 @@ function loadDataTable(){
 							"<div id=sellItems>"+escHtml(looseQtyText(obj))+bonusSuffix(obj)+"</div>",
 							// The rate the line SOLD at. Read obj.sellRate FIRST: it is the server's authoritative
 							// value; stock.bsellRate is the form's echo and is not what was persisted.
-							"<div id=sellSellRate>"+(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",
+							"<div id=sellSellRate>"+money2(obj.sellRate!=null?obj.sellRate:(obj.stock&&obj.stock.bsellRate!=null?obj.stock.bsellRate:''))+"</div>",   // MONEY-2
 							"<div id=sellDiscount>"+escHtml(String(discCell))+"</div>",
-							"<div id=sellTaxAmount>"+(obj.taxAmount!=null?obj.taxAmount:'')+"</div>",
+							"<div id=sellTaxAmount>"+money2(obj.taxAmount)+"</div>",   // MONEY-2
 							// Line Total = what this line was charged (discounted base + tax) — the server derives it.
-							"<div id=sellNetAmount>"+(obj.netAmount!=null?obj.netAmount:'')+"</div>",
+							"<div id=sellNetAmount>"+money2(obj.netAmount)+"</div>",   // MONEY-2
 							// COGS-2. Numbers only, so no escaping is needed — and a blank says "not known",
 							// which is the honest answer for a product that was never purchased here.
 							"<div id=sellCostAmount>"+(lineCost!=null?lineCost.toFixed(2):'')+"</div>",
@@ -4184,7 +4187,7 @@ function calculateChange() {
 
     // sellCh keeps the SIGNED change/due (received − bill) — addSell submits this as customer.dueAmount.
     // Do not change its meaning; the display fields below are derived from it.
-    $("#sellCh").val(change);
+    $("#sellCh").val(change.toFixed(2));   // MONEY-2: already rounded above; shown as "-108.00", not "-108"
 
     // Due (this sale) = positive amount still owed on the current cart (0 when fully paid/overpaid).
     var dueThis = change < 0 ? -change : 0;
