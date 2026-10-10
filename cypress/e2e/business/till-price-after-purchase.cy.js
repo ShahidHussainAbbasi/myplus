@@ -9,8 +9,8 @@
  * (product-picker.js) that only product-write URLs dropped. Two layers, one case each:
  *   F1  layer B — the till, SAME section, no reopen: the pick's /productStock answer (the live catalog price) corrects
  *       the option and the rate box
- *   F2  layer A — Sale → Purchase → save → Sale: the reopened section's picker already carries the new price, before any
- *       pick (the cache was dropped by the purchase save)
+ *   F2  layer A — Purchase → save → Sale: the Sale picker already carries the new price, before any pick (the shared
+ *       cache, filled on the Purchase screen at 200, was dropped by the purchase save)
  *   F3  layer A — an APPROVED price (Approval mode, approved on Purchase → Price approvals; that post is global:false,
  *       so the approval screen drops the cache itself): the Sale picker carries the approved price before any pick
  *
@@ -134,18 +134,25 @@ describe('TP-1 — the screens offer the price a purchase or an approval just se
     })
   })
 
-  it('F2 Sale → Purchase → save → Sale: the reopened picker carries the new price before any pick', () => {
+  it('F2 Purchase → save → Sale: the Sale picker carries the new price before any pick', () => {
     cy.seedProduct({ name: 'PRMTP_' + uniq(), sellingPrice: 200 }).then(({ productId }) => {
       ensureVendor().then((venderId) => {
-        cy.visitSaleScreen()
+        /*
+         * Starts on Purchase, not Sale: a getUserSell answered after a switch away from Sale is drawn by the other
+         * section's branch (the shared loader reads the global getAll at response time) and throws — a separate,
+         * pre-existing race (doc §12.7) that made this case flaky. Layer A is about the SHARED picker cache, which the
+         * Purchase screen fills exactly as the Sale screen does.
+         */
+        cy.intercept('GET', '**/getUserPurchase*').as('purchaseGrid')
+        cy.openPurchaseSection('purchaseDiv')
         loadFix()
-        optionPrice(productId, 200, 'before: the registration price')
-        cy.get('#purchaseType').select('purchaseDiv', { force: true })
-        cy.get('#purchaseDiv').should('be.visible')
+        cy.wait('@purchaseGrid', { timeout: 30000 })
+        cy.get(`#purchaseItemDD option[value="${productId}"]`, { timeout: 20000 }).should(($o) =>
+          expect(Number($o.attr('data-price')), 'before: the cache holds the registration price').to.eq(200))
         purchaseFromPage(productId, venderId)
         priceOf(productId).then((p) => expect(p, 'the purchase moved the product price').to.eq(250))
         reopenSale()
-        optionPrice(productId, 250, 'the reopened Sale picker was rebuilt from the server, not the stale cache')
+        optionPrice(productId, 250, 'the Sale picker was rebuilt from the server, not the stale cache')
       })
     })
   })

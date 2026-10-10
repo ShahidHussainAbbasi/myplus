@@ -584,3 +584,27 @@ Tests: `PurchaseEditBatchTest` (business, 11), `PurchaseEditBatchFactsTest` (inv
 Found while tracing, NOT fixed (no consent asked yet): the edit also nulls `issuedTotal` and `docType` (mapper-ignored,
 not carried over — the X4 class); impact not traced. The existing bill 3106 / batch 9963 mismatch is not repaired by
 this change (a fix applies from the next edit).
+
+### 12.7 Deployed and verified (2026-10-10)
+
+Deployed: commerce-contracts, inventory-service, business-service, monolith — the jars and the served JS checked for the
+new code (`batchAdjustForEdit`, `applyBillFacts`, `newBatchNo`, `notePrice`).
+
+| Check | Result |
+|---|---|
+| Unit — business-service | 525/525 (4 Testcontainers classes first failed to START a MySQL container under memory pressure; re-run alone: 21/21) |
+| Unit — inventory-service | 84/84, incl. the TP-3 MySQL case |
+| `till-price-after-purchase.cy.js` (no source loaded) | 3/3, three runs in a row. F2 proven red with the PRE-FIX `product-picker.js` loaded into the page (offers 200 against 250) |
+| Guide `price-mode-guide.cy.js` | 22/22 (P6 new; P2 step 4 now really without a reload), 93 pictures → page https://claude.ai/artifact/XxkS1wMiBXsrgFbZ72YPTQ v5 |
+| Server left as found | no `pos.pricing.*` row on the guide/spec tenants, no category markup (org 15's own Auto 14.5% untouched) |
+
+Found while gating — NOT fixed (consent needed):
+* **GRID-LATE (shared grid loader):** `loadDataTable()`'s success handler reads the GLOBAL `getAll` / `datatable` when the
+  reply arrives. Switch section while a grid is loading and the reply is drawn by the NEW section's branch: a
+  `getUserSell` answered after a switch to Purchase threw `Cannot read properties of null (reading 'bpurchaseRate')` on
+  the sale rows (reproduced, order recorded: switch → purchase grid → late sale reply → throw). Same family as PG-LATE
+  (§12.4), which fixed only the Products grid. F2 now starts on Purchase so the case tests TP-1, not this race.
+* **Products tick lost:** ticking a product while its on-hand fill is still in flight was seen unticked afterwards while
+  the bar said "1 SELECTED" — Delete then did nothing. Cause not traced (the fill only writes cells). The guide's P4
+  cleanup now ticks after the fill.
+* Spec order: Q6 assumed Suggest but ran after Q5's Auto in one run — Q6 now sets Suggest itself.

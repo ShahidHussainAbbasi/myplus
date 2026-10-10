@@ -356,8 +356,18 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     closeHistory(); closeProduct()
 
     const c1 = act(`Cleanup: in **Register → Products**, tick **${pname}**, click **Delete**, confirm.`, ['It leaves the list (it is deactivated; its history is kept).'], { cleanup: true })
+    // The Products grid is server-paged with a 400 ms search debounce: tick only after the FULL term's page has drawn,
+    // or that page redraws the rows and drops the tick (Delete then has nothing to confirm).
+    // And after that page's on-hand fill: a tick made while it was in flight was seen lost (2026-10-10, "1 SELECTED"
+    // over an unticked box) — recorded in the design doc §12.7, not chased here.
+    cy.intercept({ method: 'GET', url: '**/getProductPage*', query: { q: pname } }).as('fullTerm')
+    cy.intercept('GET', '**/productStockLevels*').as('onHand')
     gridSearch('ProductDiv', pname)
+    cy.wait('@fullTerm', { timeout: 15000 })
+    cy.wait('@onHand', { timeout: 15000 })
+    cy.wait(500)
     cy.contains('#tableProduct tr', pname).find('input[type="checkbox"]').first().check({ force: true })
+    cy.contains('#tableProduct tr', pname).find('input[type="checkbox"]').first().should('be.checked')
     cy.get('#ProductDiv button[onclick="confirmBulkDelete(\'Product\')"]').click({ force: true })
     cy.get('[data-ui-confirm="ok"]').click()
     cy.contains('#tableProduct tr', pname, { timeout: 15000 }).should('not.exist')
@@ -710,11 +720,13 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     testCase('Q6', 'Markup by category: a whole category gets its own percentage', {
       covers: ['PR2b-1', 'PR2b-2'], slice: 'PR-2', tenant: `${LIFECYCLE} (sacrificial)`, role: 'Owner or admin',
       purpose: 'Shops price by department: medicines at one margin, accessories at another. A category’s markup applies to every product in it that has no markup of its own; a blank category uses the business’s.',
-      prereq: ['Markup % **14.5** for the business (Q1).', `A product **${pname}** at **200** in a category **${cat}**, and the supplier **${vname}** — made through the forms’ own requests.`],
+      prereq: ['Markup % **14.5** for the business, rule **Suggest** (Q1).', `A product **${pname}** at **200** in a category **${cat}**, and the supplier **${vname}** — made through the forms’ own requests.`],
       data: [`Category **${cat}**: Markup % **20**; P/U price **210** (the bill is not saved)`],
       rollback: 'The category’s markup is cleared on screen at the end. The product is deactivated after the run; the category stays (categories are not deleted).',
     })
-    saveCfg('pos.pricing.markupPct', '14.5')
+    // Suggest, set HERE: Q5 leaves Auto on until the run's cleanup, and in Auto the suggestion line is (rightly) hidden —
+    // run after Q5 in one go this case failed on inherited state, not on the product (2026-10-10).
+    saveCfg('pos.pricing.markupPct', '14.5'); saveCfg('pos.pricing.markupMode', 'suggest')
     let pid
     supplier(vname)
     cy.seedProduct({ name: pname, sellingPrice: 200, category: cat }).then((p) => {
