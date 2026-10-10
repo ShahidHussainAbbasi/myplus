@@ -326,7 +326,8 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       pickItem(productId)
       cy.get('#sellSellRate').should('have.value', '200').clear().type('230')
       addToCart(2)
-      cy.get('#tablesi tbody tr').should('have.length', 1).eq(0).should('contain', '230')
+      // one retrying assertion: the cart can redraw twice after an Add, and an .eq() chain then holds a detached row
+      cy.get('#tablesi tbody tr').should(($tr) => { expect($tr).to.have.length(1); expect($tr.eq(0).text()).to.contain('230') })
       cy.window().then((w) => expect(Number(w.data[0].autoRate), 'still marked as typed').to.not.eq(230))
       cy.intercept('POST', '/addSell').as('sale')
       complete()

@@ -793,3 +793,19 @@ shown as written, never re-rounded on screen; display only). Applied to the five
 places, whole numbers stay whole. Readers of `#sellTotal` and `#sellCh` parse them as numbers (traced: sellPayable,
 calculateChange, main.js submit `*ONE`, park.js, server BigDecimal for `dueAmount`) — no figure changes. Specs with
 exact strings updated: cart-grid-sync (5), pos-shortcuts (1), sale-trade-discount (2). Needs the monolith rebuilt.
+
+### 12.16 TOTAL-READ, and everything verified on the monolith of 2026-10-10 10:50 / 11:41
+
+**Found:** the owner removed `id="sellTotal"` from the template on purpose; the build carrying it made the till read the
+bill as 0 (live probe: footer 246.90, payable/Due/Change 0.00). **Fixed:** `sellGoodsTotal()` reads
+`tablesi.column(5).footer()` — the cell `footerCallback` writes — with the id only as a fallback; every other reader
+(installment plan, F8, the confirm dialog) goes through `sellPayable()`. Specs read it the same way (`cy.cartTotal()`).
+**Live probe after the rebuild:** 2 × 123.45 → footer 246.90, payable 246.90, Received 300 → Change 53.10, Due 0.00;
+row Price and Price footer 123.45.
+**Regression (all green):** cart-grid-sync, sale-trade-discount, pos-shortcuts, pack-loose-ux-till (40/40);
+pricing-per-batch-sale 12/12 (S8: one retrying assertion — the cart can redraw twice after an Add), sale-cart-top,
+pos-sale-endtoend, installment-down-payment; pos-keyboard, pos-checkout-chain, sell, pharmacy dispense-batch (70/70).
+**Guide:** all 23 cases re-captured on today's till (cart above entry, no notice row / Batch choice, two-decimal money).
+X1 step 4 corrected: with no invented expiry (EXP-ENTRY) the stock received first goes first — the old "new batch first
+because it carries an expiry" described the bug's own today-date. Published:
+https://claude.ai/artifact/PiS5HQrZwLu3wucogyjFYK (v2). Test Book section rebuilt 23/23.

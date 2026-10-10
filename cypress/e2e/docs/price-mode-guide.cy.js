@@ -991,11 +991,12 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     closeHistory(); closeProduct()
 
     const a4 = act(`**Sale**: pick **${pname}**.`,
-      ['S/U Price shows **250** — the price of the new batch, which the sale takes first (it carries an expiry date; earliest expiry first). The stock already on the shelf has no price of its own and sells at the product’s **200** once the new batch runs out.'])
+      ['S/U Price shows **200** — the stock already on the shelf is taken first (it was received first, and neither carries an expiry date); it has no price of its own, so it sells at the product’s **200**. The new batch sells at its own **250** once the old stock runs out.'])
     openSale()
     cy.then(() => pickItem(pid))
     cy.get('#sellBatchPickRow').should('not.be.visible')   // SALE-SLIM: no Batch choice on the till (owner, 2026-10-10)
-    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(250))
+    // EXP-ENTRY: the purchase no longer gets today's date as an invented expiry, so the oldest receipt goes first
+    cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(200))
     snap(a4, 'batches-on-till', '#sellDiv')
 
     const c1 = act(`Cleanup: **Purchase**, search **${inv}**, **Void**, reason **guide test bill**.`, ['The bill leaves the list; with **Show voided** it is listed, marked **VOID**.'], { cleanup: true })
