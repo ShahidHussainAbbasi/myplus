@@ -57,18 +57,36 @@ const purchaseRow = (inv) => cy.request('/getUserPurchase').then((r) => cy.wrap(
 const seed = (price, stock) => cy.seedProduct({ name: 'PRB_' + uniq(), sellingPrice: price, ...(stock ? { stock, purchasePrice: 150 } : {}) })
   .then((p) => cy.wrap(p.productId))
 
+/*
+ * The markup rule is NOT this spec's subject, and the pharmacy is a real tenant whose owner may have set it (2026-10-10:
+ * Auto 14.5% — every case then saw 210 × 1.145 = 240.45 where it expected the bill's 250). So it is put at its
+ * default for the run and back EXACTLY as found afterwards, beside the purchase mode.
+ */
+const MARKUP = ['pos.pricing.markupMode', 'pos.pricing.markupPct']
+const cfg = (k) => cy.request('/getBusinessConfig').then((r) => cy.wrap(list(r.body).find((e) => e.key === k) || null))
+
 describe('PR-3b — Per batch: the purchase prices its own batch', () => {
   let before0 = null
+  const markup0 = {}
 
   before(() => {
     asPharma()
     entry().then((e) => { before0 = e ? { chosen: e.isDefault === false, value: e.value } : { chosen: false } })
+    MARKUP.forEach((k) => cfg(k).then((e) => { markup0[k] = e && e.isDefault === false ? e.value : null }))
   })
-  beforeEach(() => { asPharma() })
+  beforeEach(() => {
+    asPharma()
+    MARKUP.forEach((k) => cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: k }, failOnStatusCode: false }))
+  })
   after(() => {
     asPharma()
     cy.then(() => (before0 && before0.chosen ? setMode(before0.value) : resetMode()))
     entry().then((e) => (before0 && before0.chosen ? expect(e.value).to.eq(before0.value) : expect(e.isDefault, 'never-chosen again').to.eq(true)))
+    cy.then(() => MARKUP.forEach((k) => (markup0[k] != null
+      ? cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: k, value: markup0[k] } })
+      : cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: k }, failOnStatusCode: false }))))
+    MARKUP.forEach((k) => cfg(k).then((e) => (markup0[k] != null
+      ? expect(e.value, k + ' restored').to.eq(markup0[k]) : expect(e.isDefault, k + ' never-chosen again').to.eq(true))))
   })
 
   it('X1 the purchase mode offers Per batch', () => {
