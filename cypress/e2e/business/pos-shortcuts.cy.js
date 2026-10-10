@@ -249,7 +249,7 @@ describe('P2 — ON', () => {
         cy.window().its('data.0.quantity').should('eq', 4)
         cy.window().its('data.0.totalAmount').should('not.be.oneOf', [undefined, null, ''])
         // The footer the whole checkout reads. NO customer is selected — that is the case that broke.
-        cy.get('#sellTotal').should('contain', '100')
+        cy.cartTotal().should('contain', '100')
       })
   })
 

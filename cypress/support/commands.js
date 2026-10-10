@@ -1640,3 +1640,12 @@ Cypress.Commands.add('revealSetting', (key) => {
   })
   cy.get(`[data-key="${key}"]`).should('be.visible')
 })
+
+/**
+ * TOTAL-READ — the cart's Total footer cell (the bill before any trade discount), found through the cart table itself:
+ * the cell footerCallback writes (column 5). Not by id — the owner removed id="sellTotal" from the template
+ * (2026-10-10), and the till reads the cell the same way (business.js sellGoodsTotal). Yields the jQuery-wrapped cell,
+ * so .should('contain', …) / .invoke('text') retry on it as before.
+ */
+Cypress.Commands.add('cartTotal', () =>
+  cy.window().its('tablesi').then((t) => cy.wrap(Cypress.$(t.column(5).footer()))))

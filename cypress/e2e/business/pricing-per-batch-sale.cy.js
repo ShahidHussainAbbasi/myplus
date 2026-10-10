@@ -282,7 +282,7 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       subLines().eq(1).should('have.attr', 'data-qty', '3').and('contain', '250.00').and('contain', neu.batchNo)
       cy.get('#tablesi tbody tr').eq(0).find('td').eq(1).should('contain', '10')   // the row's quantity: 7 + 3
       cy.get('#sellBatchNote').should('not.be.visible')   // SALE-SLIM: the cart's sub-lines say it
-      cy.get('#sellTotal').should('contain', '2150')
+      cy.cartTotal().should('contain', '2150')
       cy.intercept('POST', '/addSell').as('sale')
       complete()
       cy.wait('@sale').its('response.body').then((b) => {
@@ -351,7 +351,7 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       cy.get('#tablesi tbody .pb-del').click()
       cy.get('#tablesi tbody tr').should('have.length', 1)
       cy.window().its('data').should('have.length', 1).then((d) => expect(Number(d[0].quantity)).to.eq(1))
-      cy.get('#sellTotal').should('contain', '200')
+      cy.cartTotal().should('contain', '200')
     })
   })
 
@@ -371,7 +371,7 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
           expect(Number(f[2]), 'Price footer (the sum of the lines’ rates, as before)').to.eq(rates)
           expect(Number(f[4]), 'Total footer').to.eq(total)
         })
-        cy.get('#sellTotal').invoke('text').then((t) => expect(Number(String(t).replace(/[^0-9.]/g, ''))).to.eq(total))
+        cy.cartTotal().invoke('text').then((t) => expect(Number(String(t).replace(/[^0-9.]/g, ''))).to.eq(total))
       })
     })
   })

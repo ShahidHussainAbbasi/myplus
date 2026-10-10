@@ -1072,7 +1072,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
     cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t.old).and('have.attr', 'data-qty', '7').and('contain', '200.00')
     cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t.neu).and('have.attr', 'data-qty', '3').and('contain', '250.00')
-    cy.get('#sellTotal').should('contain', '2150')
+    cy.cartTotal().should('contain', '2150')
     snap(a2, 'cart-split', '#sellDiv')
 
     const a3 = act('Payment **Cash**, received **99999**, **Complete Sale**, confirm.',
@@ -1241,7 +1241,7 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
       cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
       cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t1).and('have.attr', 'data-qty', '9').and('contain', '297.70')
       cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t2).and('have.attr', 'data-qty', '1').and('contain', '309.15')
-      cy.get('#sellTotal').should('contain', '2988.45')
+      cy.cartTotal().should('contain', '2988.45')
       snap(a3, 'cart-split', '#sellDiv')
 
       const a4 = act('Payment **Cash**, received **99999**, **Complete Sale**, confirm. Then open the receipt data (the **Print** button’s own request).',

@@ -49,7 +49,7 @@ const assertGridMatchesData = (expectedTotal) => {
     const rows = w.tablesi.rows().count()
     expect(rows, 'grid rows = data[] lines').to.eq(w.data.length)
   })
-  cy.get('#sellTotal').should(($t) => expect(Number($t.text()), 'footer = the bill in data[]').to.eq(expectedTotal))
+  cy.cartTotal().should(($t) => expect(Number($t.text()), 'footer = the bill in data[]').to.eq(expectedTotal))
 }
 
 /** The Disc column's footer, read through DataTables' own API (column 4) — never a DOM index that the hidden
@@ -208,7 +208,7 @@ describe('CART-1 — grid drawn from data[]; Received follows the bill', () => {
 
       addLine(b, 1, 10, '1')                    // 50, 10% = 5.00 off
       discFooter('15.00')   // money, not "NaN", not "20"
-      cy.get('#sellTotal').should('have.text', '135.00')
+      cy.cartTotal().should('have.text', '135.00')
       cy.get('#sellDiscountShown').should('have.text', '−15.00')
       cy.get('#sellPayable').should('have.text', '135.00')
 
