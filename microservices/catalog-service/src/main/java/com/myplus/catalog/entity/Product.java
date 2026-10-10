@@ -255,6 +255,17 @@ public class Product {
     @Column(name = "tracks_batch", nullable = false)
     private Boolean tracksBatch = false;
 
+    /**
+     * EXP-REQ — an EXEMPTION: this product has no expiry date (a BP monitor in a pharmacy).
+     *
+     * <p>Where the business tracks expiry, a purchase must carry an expiry date unless this is TRUE. An exemption
+     * rather than a "has expiry" flag so that, on the day it ships, every product of an expiry-tracking business
+     * requires a date — the owner's rule — and nothing has to guess which products expire. Defaults FALSE.
+     */
+    @Builder.Default
+    @Column(name = "no_expiry", nullable = false)
+    private Boolean noExpiry = false;
+
     private String imageUrl;
     private Long createdBy;
 

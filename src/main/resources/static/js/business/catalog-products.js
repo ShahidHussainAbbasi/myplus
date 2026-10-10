@@ -590,8 +590,12 @@
         if (global.hasCapability('batchTracking')) {
             body.tracksBatch = $('#prodTracksBatch').is(':checked');
         }
+        // EXP-REQ — the exemption from the purchase expiry requirement; only where expiry is tracked.
+        if (global.hasCapability('expiryTracking')) {
+            body.noExpiry = $('#prodNoExpiry').is(':checked');
+        }
         // Nothing this tenant may set — no call worth making.
-        if (body.requiresSerial === undefined && body.tracksBatch === undefined) return;
+        if (body.requiresSerial === undefined && body.tracksBatch === undefined && body.noExpiry === undefined) return;
 
         $.ajax({
             type: 'POST', url: serverContext + 'setProductTracking', dataType: 'json', data: body,
@@ -977,6 +981,7 @@
             // enforce, not a separate copy that could disagree with it.
             $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
             $('#prodTracksBatch').prop('checked', p.tracksBatch === true);
+            $('#prodNoExpiry').prop('checked', p.noExpiry === true);   // EXP-REQ
             prodPackSizeChanged();
             loadProductStickers(p.id);   // U7: a sticker needs a product to point at
             // Select by category id (dropdown). Reload the list first so the product's category option is present.

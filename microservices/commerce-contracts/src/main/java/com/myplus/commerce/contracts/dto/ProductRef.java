@@ -73,6 +73,8 @@ public class ProductRef {
      */
     private Boolean requiresSerial;
     private Boolean tracksBatch;
+    /** EXP-REQ — TRUE: this product has no expiry, so a purchase may leave it blank even where expiry is tracked. */
+    private Boolean noExpiry;
 
     /** PR-2 — the product's own markup %, or null for "use the business's". Read by the purchase path's markup rule. */
     private BigDecimal markupPct;

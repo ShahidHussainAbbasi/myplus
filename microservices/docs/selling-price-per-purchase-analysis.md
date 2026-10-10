@@ -849,3 +849,62 @@ recurring, it does not restore 309.15; re-saving the latest bill (T25792) does.
 **Deployed and verified (2026-10-10 17:41):** business-service + inventory-service via `deploy.ps1` (both healthy; monolith
 of 17:26 already carried the screen). `product-last-rates` **7/7** (TP-4 green); `pharmacy/alerts` **5/5** (A2–A4 green);
 regression `purchase-edit-keeps-issued` 2/2 + `pricing-per-batch` 6/6. No ALR- bill left standing (counted: 0).
+
+### 12.18 EXP-REQ — expiry is mandatory where the business tracks it, unless the product has none (owner, 2026-10-10)
+
+**Asked:** "purchaseExpiry should be mandatory if Track expiry dates (`expiryTracking`) is on, else it can be blank",
+plus — the owner chose it — a **per-product exemption** for the pharmacy's items that never expire (BP monitor,
+thermometer, crutches, accessories). Without it the form forces an invented date, and invented dates are how 565 bills
+came to carry expiry = bill date (§12.10): good stock counted expired and sold first.
+
+| Business `expiryTracking` | Product | Expiry on a purchase |
+|---|---|---|
+| OFF (POS, Mobile Shop) | any | hidden, blank allowed (unchanged) |
+| ON (Pharmacy) | normal (default) | **required** — refused blank, on the form AND the server |
+| ON | **No expiry** ticked | optional |
+
+Same two-level rule as C6 (`requires_serial`, `tracks_batch`): tenant capability AND product policy. The flag is an
+EXEMPTION (`products.no_expiry`, default 0), so on deploy every product in an expiry-tracking business requires a date —
+exactly the owner's rule — and no data migration guesses which products expire. Market: Odoo ("Expiration Date" per
+product) and Tally ("Use expiry dates" per stock item) also decide it per item, beneath a company switch.
+
+**Trace (Rule 0):** places a person enters an expiry for NEW stock: **2** — `PurchaseService.addPurchase`,
+`updatePurchase` (both enforced, before anything is written). Not receipts, so not enforced: inventory `/stock/import`
+(also returns / void / repossession re-stock EXISTING batches with their own expiry), stock correction (`addStock`,
+an adjustment), product CSV (no stock columns), opening balances (supplier AP, no stock) — **4 paths, 0 enforce**.
+Readers of the new flag: picker JPQL + `ProductPickerDTO` + `product-picker.js` (`data-no-expiry`), `ProductRef`
+(`toRef` ×2), `ProductDTO`; writer: `/tracking-flags` (+ monolith proxy, product form checkbox), capability-gated.
+
+```mermaid
+flowchart TD
+  A[Save purchase] --> B{expiry entered?}
+  B -- yes --> OK[saved; today-or-earlier still asks first, EXP-ENTRY]
+  B -- no --> C{business tracks expiry?}
+  C -- no --> OK
+  C -- yes --> D{product marked No expiry?}
+  D -- yes --> OK
+  D -- no --> R[refused: enter the expiry date, or mark the product No expiry]
+  D -- catalog unreadable --> R
+```
+
+**Catalog unreadable → refused** (only when the date is blank): a batch with no expiry is never counted expired and
+keeps selling, so the safe failure is to ask for the date. Opposite of SER-2's fail-open, deliberately. An EDIT of an
+older bill with no expiry is held to the same rule (enter the date to save it).
+
+**EXP-REQ built (2026-10-10).** Catalog: `V25__product_no_expiry.sql` (idempotent, applied: `tinyint(1)` default 0),
+`Product.noExpiry`, on `ProductRef` (both builders), `ProductDTO`, the picker projection (sent only when TRUE),
+`/tracking-flags?noExpiry=` gated on `expiryTracking` + ADMIN. Business: `PurchaseService.requireExpiryUnlessExempt` on
+add and edit; `addPurchase` now answers any `BusinessRuleException` as FAILED with its own message (it fell to
+"An unexpected error occurred" — found by R1; `updatePurchase` already did). Monolith: product-form checkbox
+"No expiry date" (`data-capability="expiryTracking"`), `/setProductTracking` carries it, picker `data-no-expiry`,
+the Expiry label marked required on pick, Save stops on a blank box. 6 languages.
+**Fixture decision (owner: "as per plan"):** `cy.seedProduct` marks a spec-made product "No expiry" by default
+(`noExpiry: false` opts out) — `demo.business` (org 6) has had `expiryTracking` ON since 2026-09-24, so ~27 specs buying
+without a date would otherwise be refused. Real products untouched.
+**Tests:** unit `PurchaseExpiryRequiredTest` 6/6 (+ ProductPickerCache 7, purchase neighbours 21). Gate
+`purchase-expiry-required.cy.js` R1–R7: **6/7 on the 18:28 build; R1 red only on the message** (refused, nothing
+recorded — the catch fix is not yet deployed). Regression 69/69: product-last-rates, purchase-paid-autofill,
+pricing-per-batch, purchase-edit-keeps-issued, purchase-expiry-entry, pharmacy/alerts, purchase-batch-expiry,
+pricing-per-batch-sale, purchase (22). No EXQ- bill left standing.
+**Verified on business-service of 19:39 (owner-deployed):** `purchase-expiry-required` **7/7** — R1 now shows the
+server's own "Enter the expiry date for …". No EXQ- bill left standing.

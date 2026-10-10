@@ -499,13 +499,23 @@ public class ProductService {
     @Transactional
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
                                                                            Boolean tracksBatch) {
+        return updateTrackingFlags(id, requiresSerial, tracksBatch, null);
+    }
+
+    /** EXP-REQ — as above, plus the "No expiry" exemption, which only a business tracking expiry may set. */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
+                                                                           Boolean tracksBatch, Boolean noExpiry) {
         Product p = getEntity(id);
         requireCapability(requiresSerial, "serialTracking",
                 "Serial / IMEI tracking is not switched on for your business.");
         requireCapability(tracksBatch, "batchTracking",
                 "Batch tracking is not switched on for your business.");
+        requireCapability(noExpiry, "expiryTracking",
+                "Expiry tracking is not switched on for your business.");
         if (requiresSerial != null) p.setRequiresSerial(requiresSerial);
         if (tracksBatch != null) p.setTracksBatch(tracksBatch);
+        if (noExpiry != null) p.setNoExpiry(noExpiry);
         productRepository.save(p);
         changed(p);   // CACHE-1 — the cached picker row carries requiresSerial (the till asks for serials from it)
         return toRef(p, orgCodeRates());
@@ -612,6 +622,7 @@ public class ProductService {
                 // sell and purchase paths already hold this ref and must not call catalog again to decide.
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
+                .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
                 // U1: carried on the ref the sale already fetches, so no extra call at checkout.
                 .packSize(p.getPackSize())
                 .looseUnit(p.getLooseUnit())
@@ -668,6 +679,7 @@ public class ProductService {
                 // reads a ref that happens to come from the wrong path.
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
+                .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
                 // DUP-1 — the caller's own key, echoed so a replay is distinguishable from a fresh insert.

@@ -3966,6 +3966,13 @@ tr.row-voided .js-edit-row{display:none !important}
 									<span th:text="#{ui.js.tracksBatch}">Arrives in batches</span>
 								</label>
 							</div>
+							<!-- EXP-REQ: where expiry is tracked a purchase needs a date, unless the product has none -->
+							<div class="checkbox" data-capability="expiryTracking">
+								<label>
+									<input type="checkbox" id="prodNoExpiry">
+									<span th:text="#{ui.js.noExpiry}">No expiry date (e.g. a device)</span>
+								</label>
+							</div>
 						</div>
 					</div>
 

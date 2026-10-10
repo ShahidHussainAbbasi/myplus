@@ -3470,6 +3470,7 @@ function loadStock(label,value){
     if (tableV === 'Purchase' && typeof loadPurchaseUnitInfo === 'function') {
         loadPurchaseUnitInfo(Number($('#purchaseItemDD').val()) || null);
     }
+    if (tableV === 'Purchase') purchaseExpiryRequired();   // EXP-REQ — mark the expiry required, or not, for THIS product
     // SER-6: show the serial box only for a product that has one. Synchronous and local — the flag rides
     // on the option (data-requires-serial), so picking an item costs no extra call to learn this.
     if (typeof applySerialFieldVisibility === 'function') applySerialFieldVisibility();
@@ -6146,6 +6147,20 @@ function applySerialQuantityLock() {
  * <p>Nothing selected leaves the box SHOWN: a scanner-first cashier types the IMEI before choosing anything,
  * and hiding it then would break the flow this screen was built around.
  */
+/*
+ * EXP-REQ (§12.18) — is an expiry date required on THIS purchase? Where the business tracks expiry, yes, unless the
+ * picked product is marked "No expiry" (data-no-expiry on its option, so no extra call). Marks the label required to
+ * say so up front; the save check in main.js and the server enforce it. Returns the answer for the save check.
+ */
+function purchaseExpiryRequired() {
+	var tracked = typeof hasCapability === 'function' && hasCapability('expiryTracking');
+	var $opt = $('#purchaseItemDD :selected');
+	var required = tracked && !!$('#purchaseItemDD').val() && $opt.attr('data-no-expiry') !== '1';
+	$('label[for="purchaseExpiry"]').toggleClass('req', required);
+	return required;
+}
+window.purchaseExpiryRequired = purchaseExpiryRequired;
+
 function applySerialFieldVisibility() {
 	var $cell = $('#sellDiv [data-pos-field="serial"]');
 	if (!$cell.length) return;

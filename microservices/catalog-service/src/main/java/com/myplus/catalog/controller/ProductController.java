@@ -217,8 +217,9 @@ public class ProductController {
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(
             @PathVariable Long id,
             @RequestParam(required = false) Boolean requiresSerial,
-            @RequestParam(required = false) Boolean tracksBatch) {
-        return productService.updateTrackingFlags(id, requiresSerial, tracksBatch);
+            @RequestParam(required = false) Boolean tracksBatch,
+            @RequestParam(required = false) Boolean noExpiry) {
+        return productService.updateTrackingFlags(id, requiresSerial, tracksBatch, noExpiry);
     }
 
     /** M4e.c (slice 103): tenant-scoped product count for the dashboard KPI — GET /products/count. */

@@ -447,6 +447,7 @@ public class CatalogController {
             StringBuilder qs = new StringBuilder();
             appendFlag(qs, "requiresSerial", request.getParameter("requiresSerial"));
             appendFlag(qs, "tracksBatch", request.getParameter("tracksBatch"));
+            appendFlag(qs, "noExpiry", request.getParameter("noExpiry"));   // EXP-REQ
             // Flags are @RequestParam upstream, and an OMITTED one means "leave this policy alone" — so a
             // blank must not be sent as an empty string, which would bind as null and read the same but
             // relies on Spring's coercion rather than saying it.

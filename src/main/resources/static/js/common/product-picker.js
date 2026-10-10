@@ -156,6 +156,8 @@
              // Emitted only when TRUE: absent is the common case and the safe reading. A product
              // nobody has flagged is not a tracked one.
              + (p.requiresSerial === true ? " data-requires-serial='1'" : "")
+             // EXP-REQ — sent only for the few products exempt from the purchase expiry requirement.
+             + (p.noExpiry === true ? " data-no-expiry='1'" : "")
              /*
               * PH-FORMULA — the formula as grey sub-text, which is ALSO what makes it searchable: bootstrap-select
               * 1.6.2's live search matches the rendered option text, sub-text included, and has no hidden

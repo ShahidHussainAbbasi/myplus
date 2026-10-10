@@ -112,6 +112,9 @@ public class PurchaseService implements IPurchaseService{
     @Autowired
     com.myplus.commerce.contracts.client.CatalogClient catalogClient;   // Option B: re-price the product on receive
 
+    @Autowired(required = false)
+    com.myplus.common.settings.CapabilityService capabilityService;     // EXP-REQ: does this business track expiry?
+
     @Autowired
     IVenderService venderService;                                       // F1 (AP): refresh vendor payable on purchase
 
@@ -448,6 +451,7 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
+		requireExpiryUnlessExempt(obj);   // EXP-REQ — before anything is written
 
 		/*
 		 * #17 P2 — stamp what was PAID, once, at the moment of receipt.
@@ -576,6 +580,33 @@ public class PurchaseService implements IPurchaseService{
 					productId, catalogUnavailable);
 			return false;
 		}
+	}
+
+	/**
+	 * EXP-REQ — where the business tracks expiry, a purchase must carry an expiry date unless the product is marked
+	 * "No expiry" (§12.18). Checked on add and edit, before anything is written, so a refusal changes nothing.
+	 *
+	 * <h3>Fails CLOSED — the opposite of {@link #productRequiresSerial}, deliberately</h3>
+	 * The product is read only when the date is blank. If catalog cannot answer then, the purchase is refused: a batch
+	 * stored without an expiry is never counted expired and keeps selling, which is the harm this rule exists to stop.
+	 * Entering the date always gets the purchase through, outage or not.
+	 */
+	void requireExpiryUnlessExempt(Purchase obj) {
+		if (obj == null || obj.getBexpDate() != null || obj.getProductId() == null) return;
+		if (capabilityService == null
+				|| !capabilityService.isEnabled(com.myplus.common.settings.Capability.EXPIRY_TRACKING)) return;
+		com.myplus.commerce.contracts.dto.ProductRef ref;
+		try {
+			ref = catalogClient.getProduct(obj.getProductId());
+		} catch (RuntimeException catalogUnavailable) {
+			LOG.warn("EXP-REQ: product {} unreadable - a purchase with no expiry is refused", obj.getProductId(),
+					catalogUnavailable);
+			throw new BusinessRuleException("Enter the expiry date - the product could not be checked just now.");
+		}
+		if (ref != null && Boolean.TRUE.equals(ref.getNoExpiry())) return;
+		String name = ref != null && ref.getName() != null ? ref.getName() : "this product";
+		throw new BusinessRuleException("Enter the expiry date for " + name
+				+ ". If it has no expiry, tick \"No expiry\" on the product.");
 	}
 
 	/** PR-1 — the setting that decides whether a purchase moves the selling price. Values LOWER-case: getChoice
@@ -744,6 +775,7 @@ public class PurchaseService implements IPurchaseService{
 			obj.setBsellDiscountType(snap.getBsellDiscountType());
 			obj.setBexpDate(appUtil.toLocalDateOrNull(snap.getBexpDate()));
 		}
+		requireExpiryUnlessExempt(obj);   // EXP-REQ — the same rule on an edit, before anything is written
 		// TP-3 — server-owned like stockEntryId: the mapper ignores it, so a rebuilt entity saved it NULL (bill 3106).
 		// Restamped by the add path's rule, from what the edited bill now says.
 		stampPaidTotal(obj);

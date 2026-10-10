@@ -265,6 +265,11 @@ public class PurchaseController {
 			// policy=block — surface the reason verbatim instead of the generic handler's "unexpected error".
 			LOGGER.warn("addPurchase rejected (credit limit): {}", blocked.getMessage());
 			return new GenericResponse("ERROR", blocked.getMessage());
+		} catch (com.myplus.business_service.service.BusinessRuleException rule) {
+			// EXP-REQ (and every other business rule on a new bill, e.g. SER-2's serials): a refusal written for the
+			// shopkeeper, nothing written. It used to fall to the generic handler below and read "unexpected error".
+			LOGGER.warn("addPurchase rejected: {}", rule.getMessage());
+			return new GenericResponse("FAILED", rule.getMessage());
 		} catch (Exception e) {
 			LOGGER.error(this.getClass().getName()+" > addPurchase "+e.getCause(), e);
 			return new GenericResponse("ERROR", "An unexpected error occurred. Please contact support.");

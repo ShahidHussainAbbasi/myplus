@@ -513,7 +513,25 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
     const productId = r.body.data.id
     const result = { productId, name, sku }
 
-    if (!overrides.stock) return result
+    /*
+     * EXP-REQ (doc §12.18) — where the tenant tracks expiry, a purchase needs an expiry date unless the product is
+     * marked "No expiry". A spec-made product is a fixture for whatever the spec tests, so it is exempt by DEFAULT;
+     * a spec about expiry passes `noExpiry: false` to get an ordinary, date-requiring product. Real products are
+     * untouched (the column defaults to 0). A tenant that does not track expiry refuses the flag ("not switched
+     * on") — nothing to exempt there. A non-admin seeding is refused by the ADMIN gate; its purchases then fail
+     * with the server's own "Enter the expiry date for …", which names the cause.
+     */
+    const exempt = overrides.noExpiry !== false
+      ? cy.request({ method: 'POST', url: '/setProductTracking', form: true, failOnStatusCode: false,
+          body: { id: productId, noExpiry: true } }).then((t) => {
+          const msg = String((t.body && t.body.message) || '')
+          if (t.body && t.body.success === false && !/not switched on|denied|forbidden|privilege/i.test(msg)) {
+            throw new Error(`seedProduct: could not mark ${name} "No expiry": ${JSON.stringify(t.body).slice(0, 200)}`)
+          }
+        })
+      : cy.wrap(null)
+
+    if (!overrides.stock) return exempt.then(() => result)
     // opening inventory (local Stock is gone — stock lives in inventory-service)
     const stockBody = { productId, quantity: overrides.stock }
     stockBody.batchNo = overrides.batchNo || `B${stamp}`
@@ -534,10 +552,10 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
       ? overrides.purchasePrice
       : Math.round(Number(overrides.sellingPrice || 100) * 0.6 * 100) / 100
     stockBody.purchasePrice = cost
-    return cy.request({
+    return exempt.then(() => cy.request({
       method: 'POST', url: '/addProductStock', body: stockBody,
       headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false,
-    }).then(() => result)
+    })).then(() => result)
   })
 })
 

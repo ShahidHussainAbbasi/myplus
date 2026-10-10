@@ -90,7 +90,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      */
     // PH-FORMULA: formula rides on every option so the till's picker can find a medicine by it.
     @Query("SELECT new com.myplus.catalog.dto.ProductPickerDTO("
-         + "p.id, p.name, p.sellingPrice, p.requiresSerial, p.formula) "
+         + "p.id, p.name, p.sellingPrice, p.requiresSerial, p.formula, p.noExpiry) "
          + "FROM Product p WHERE p.isActive = TRUE AND " + SCOPE + " ORDER BY p.name ASC")
     Page<com.myplus.catalog.dto.ProductPickerDTO> findPickerScoped(@Param("orgId") Long orgId,
                                                                    @Param("userId") Long userId,

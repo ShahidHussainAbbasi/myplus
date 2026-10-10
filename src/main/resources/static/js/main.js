@@ -828,6 +828,14 @@ $(document).ready(function() {
 					 * once: it is consumed by the save it allowed.
 					 */
 					var $exp = $('#purchaseExpiry'), expV = $.trim($exp.val() || '');
+					// EXP-REQ — where expiry is tracked, blank is refused unless the product is marked "No expiry".
+					if (!expV && typeof purchaseExpiryRequired === 'function' && purchaseExpiryRequired()) {
+						$exp.css('border-color', 'red');
+						showFormError(t('ui.js.expiryRequired'));
+						if (typeof focusInvalid === 'function') focusInvalid($exp[0]); else $exp.focus();
+						return false;
+					}
+					$exp.css('border-color', '');
 					if (expV && $exp.is(':visible') && typeof uiConfirm === 'function') {
 						var expM = moment(expV, ['DD-MM-YYYY', 'YYYY-MM-DD'], true);
 						var ackKey = expV + '|' + pItem;
