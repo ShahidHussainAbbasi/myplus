@@ -24,6 +24,19 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " ORDER BY p.createdAt DESC")
     List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, Pageable pageable);
 
+    /** HMS S4-lite — the pharmacist's search box, by text: patient name, phone or doctor. Newest first, paged. */
+    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " AND ("
+            + " LOWER(p.patientName) LIKE LOWER(CONCAT('%', :q, '%'))"
+            + " OR p.patientPhone LIKE CONCAT('%', :q, '%')"
+            + " OR LOWER(p.doctorName) LIKE LOWER(CONCAT('%', :q, '%'))) ORDER BY p.createdAt DESC")
+    List<Prescription> searchScoped(@Param("orgId") Long orgId, @Param("userId") Long userId, @Param("q") String q,
+                                    Pageable pageable);
+
+    /** HMS S4-lite — one person's prescriptions (a clinic token / MRN / phone resolved to its party). V8 indexes it. */
+    @Query("SELECT p FROM Prescription p WHERE " + SCOPE + " AND p.partyId = :partyId ORDER BY p.createdAt DESC")
+    List<Prescription> findByPartyScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                                         @Param("partyId") Long partyId, Pageable pageable);
+
     /** Party bridge: stamp ONLY party_id (targeted — never a full-entity save, which could clobber other columns). */
     @org.springframework.data.jpa.repository.Modifying
     @Query(value = "update prescriptions set party_id = :partyId where id = :id", nativeQuery = true)

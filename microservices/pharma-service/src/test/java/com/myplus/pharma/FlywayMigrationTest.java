@@ -74,7 +74,14 @@ class FlywayMigrationTest {
                 "SELECT version FROM flyway_schema_history WHERE success = 1 AND version IS NOT NULL "
                         + "ORDER BY installed_rank", String.class);
         // If a later migration is added without being listed here, this is the reminder to prove it too.
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6");
+        // V7 (org_setting) was never listed here — this test was already red before HMS S4-lite added V8.
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+    }
+
+    @Test
+    void v8_indexes_a_persons_prescriptions_for_the_pharmacy_search() {
+        // HMS S4-lite: "this person's prescriptions, newest first" inside one tenant (findByPartyScoped).
+        assertThat(hasIndex("prescriptions", "idx_rx_org_party")).isTrue();
     }
 
     @Test

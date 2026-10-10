@@ -604,6 +604,11 @@ $(document).ready(function() {
 					var customer = {"name":$("#sellCN").val(), "contact":$("#sellCC").val(), "paidAmount":$("#sellRec").val(),"dueAmount":$("#sellCh").val(), "dueDate":$('#dueDate').val()};
 					// SF-5 Model B: redeeming store credit needs an identified (existing) customer — send the selected id.
 					if (isSelectMode && $("#sellCustomerDD").val()) customer.customerId = Number($("#sellCustomerDD").val());
+					// HMS S4-lite: a dispense names the PATIENT'S customer by id even when this user cannot see it in the
+					// list (reception made it) — the name alone would make a duplicate. The server checks the organisation.
+					if (!customer.customerId && window.dispensingPrescriptionId && window.dispensingCustomerId) {
+						customer.customerId = window.dispensingCustomerId;
+					}
 					var customerHistory = {"customer":customer, "sales":data};
 					/*
 					 * RST-R2a — how this sale is served. Sent ONLY when the chooser is on screen and a type

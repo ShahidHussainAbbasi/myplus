@@ -147,6 +147,25 @@ class PatientServiceTest {
     }
 
     @Test
+    void the_pharmacy_resolves_a_token_typed_loosely_an_mrn_and_a_phone_to_the_patient() {
+        com.myplus.clinical.repository.QueueTokenRepo tokens = mock(com.myplus.clinical.repository.QueueTokenRepo.class);
+        service = new PatientService(repo, writer, access, settings, audit, party, trade, tx, tokens);
+        Patient ali = patient(1, "Ali Khan", 0);
+        ali.setStatus(Patient.ACTIVE);
+        com.myplus.clinical.entity.QueueToken tok = new com.myplus.clinical.entity.QueueToken();
+        tok.setPatientId(1L);
+        when(tokens.findFirstByOrganizationIdAndVisitDateAndTokenLabel(eq(7L), any(), eq("A-007"))).thenReturn(Optional.of(tok));
+        when(repo.findByIdAndOrganizationId(1L, 7L)).thenReturn(Optional.of(ali));
+        when(repo.search(eq(7L), eq("MRN-ISB-26-000001"), anyString(), any())).thenReturn(List.of(ali));
+        when(repo.findByOrganizationIdAndPhoneKeyOrderByFamilySeqAsc(7L, "3001234567")).thenReturn(List.of(ali));
+
+        assertThat(service.resolve("a-7")).extracting(PatientView::getName).containsExactly("Ali Khan");      // → A-007
+        assertThat(service.resolve("mrn-isb-26-000001")).extracting(PatientView::getName).containsExactly("Ali Khan");
+        assertThat(service.resolve("+92 300 1234567")).extracting(PatientView::getName).containsExactly("Ali Khan");
+        assertThat(service.resolve("Ali")).isEmpty();   // a name is the pharmacy's own text search, not the clinic's
+    }
+
+    @Test
     void the_module_switched_off_refuses_before_anything_is_read() {
         org.mockito.Mockito.doThrow(new ValidationException("The clinic is not switched on")).when(access).assertModuleOn();
         assertThatThrownBy(() -> service.lookup("03001234567")).hasMessageContaining("not switched on");

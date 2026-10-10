@@ -100,9 +100,15 @@ public class QueueService {
         if (req.getDailyLimit() != null && req.getDailyLimit() < 0) throw new ValidationException("The daily limit cannot be negative.");
         Long venueId = clinicVenue();
         Integer limit = req.getDailyLimit() == null || req.getDailyLimit() == 0 ? null : req.getDailyLimit();
-        var made = directory.createDoctor(Doctor.builder()
+        AppointmentDirectoryClient.Envelope<Doctor> made;
+        try {
+            made = directory.createDoctor(Doctor.builder()
                 .hospitalId(venueId).name(name).speciality(trim(req.getSpeciality())).fee(trim(req.getFee()))
                 .mobile(trim(req.getMobile())).appointmentOfferType("count").appointmentOfferValue(limit).build());
+        } catch (org.springframework.web.client.RestClientException down) {
+            // a WRITE: never retried blind (it may have landed) — said in words, and the list shows whether it did
+            throw new ValidationException("The doctor could not be saved right now. Check the Doctors list, then try again.");
+        }
         if (made == null || !made.isSuccess() || made.getData() == null) {
             throw new ValidationException(made != null && made.getMessage() != null ? made.getMessage() : "The doctor could not be saved.");
         }
@@ -287,8 +293,22 @@ public class QueueService {
                 .orElseThrow(() -> new ValidationException("Could not give this doctor a token letter. Try again."));
     }
 
+    /**
+     * The clinic's doctors from appointment-service. A READ, so a transport failure is retried ONCE — the first call
+     * after a quiet spell can be slow (S4-lite gate, 2026-10-10: "Read timed out", which reached the screen as a bare
+     * 500). If it still fails, the refusal says so in words; it is never a 500.
+     */
     private List<Doctor> directoryDoctors() {
-        var r = directory.doctors();
+        AppointmentDirectoryClient.Envelope<List<Doctor>> r;
+        try {
+            r = directory.doctors();
+        } catch (org.springframework.web.client.RestClientException slowOrDown) {
+            try {
+                r = directory.doctors();
+            } catch (org.springframework.web.client.RestClientException again) {
+                throw new ValidationException("The doctor list is not reachable right now. Try again in a moment.");
+            }
+        }
         if (r == null || !r.isSuccess() || r.getData() == null) {
             throw new ValidationException("The doctor list is not reachable right now. Try again in a moment.");
         }
@@ -304,9 +324,19 @@ public class QueueService {
 
     /** The clinic's venue (appointment-service needs one per doctor): the first one, else one is made. */
     private Long clinicVenue() {
-        var vs = directory.venues();
+        AppointmentDirectoryClient.Envelope<List<AppointmentDirectoryClient.Venue>> vs;
+        try {
+            vs = directory.venues();
+        } catch (org.springframework.web.client.RestClientException down) {
+            throw new ValidationException("The clinic could not be set up for doctors right now. Try again in a moment.");
+        }
         if (vs != null && vs.isSuccess() && vs.getData() != null && !vs.getData().isEmpty()) return vs.getData().get(0).getId();
-        var made = directory.createVenue(AppointmentDirectoryClient.Venue.builder().name("Clinic").build());
+        AppointmentDirectoryClient.Envelope<AppointmentDirectoryClient.Venue> made;
+        try {
+            made = directory.createVenue(AppointmentDirectoryClient.Venue.builder().name("Clinic").build());
+        } catch (org.springframework.web.client.RestClientException down) {
+            throw new ValidationException("The clinic could not be set up for doctors right now. Try again in a moment.");
+        }
         if (made == null || !made.isSuccess() || made.getData() == null) {
             throw new ValidationException("The clinic could not be set up for doctors. Try again in a moment.");
         }

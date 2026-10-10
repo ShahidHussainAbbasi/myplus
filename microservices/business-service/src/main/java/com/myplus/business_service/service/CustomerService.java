@@ -268,9 +268,21 @@ return customerRepo.exists(example);
 
 	public Customer saveUpdateCustomer(CustomerHistoryDTO dto) throws Exception {
 
-		Customer customerObj = dto.getCustomer().getCustomerId() != null ? this.getReferenceById(dto.getCustomer().getCustomerId()) : new Customer();
-
 		AuthenticatedUser actor = requestUtil.getCurrentUser();
+
+		// HMS S4-lite — a customerId from the request is resolved INSIDE the caller's organisation. This used
+		// getReferenceById, which ignores the tenant, and then stamped the caller's organisation onto whatever row it
+		// got: a sale naming another tenant's customer id would have MOVED that customer into the caller's business.
+		// Another tenant's customer now reads as absent, the platform's anti-IDOR shape (same scope as /creditStanding).
+		Customer customerObj;
+		if (dto.getCustomer().getCustomerId() != null) {
+			Long cid = dto.getCustomer().getCustomerId();
+			customerObj = (actor == null ? java.util.Optional.<Customer>empty()
+					: customerRepo.findByIdScoped(cid, actor.getOrganizationId(), actor.getUserId()))
+					.orElseThrow(() -> new com.myplus.common.web.exception.ValidationException("Customer not found: " + cid));
+		} else {
+			customerObj = new Customer();
+		}
 
 		if(appUtil.isEmptyOrNull(customerObj.getCustomerId())){
 

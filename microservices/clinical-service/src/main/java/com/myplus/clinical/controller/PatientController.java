@@ -47,6 +47,12 @@ public class PatientController {
         return ApiResponse.success(rows);
     }
 
+    /** HMS S4-lite — a token of today, an MRN or a phone → the patient(s) it means (empty list = nobody). */
+    @GetMapping("/resolve")
+    public ApiResponse<List<PatientView>> resolve(@RequestParam String q) {
+        return ApiResponse.success(patients.resolve(q));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<PatientView> get(@PathVariable Long id) {
         return ApiResponse.success(patients.get(id));

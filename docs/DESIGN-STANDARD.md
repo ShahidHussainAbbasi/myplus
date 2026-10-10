@@ -92,4 +92,8 @@ Architecture & UML → Implement → Test).
 - Prefer one focused diagram per concern over one sprawling diagram.
 - Names in diagrams must match real class/table/endpoint names so the doc is greppable.
 
-
+### Below are to review e2e 100% with current implementation and documnets to create udpate document for review again.
+## Artifact management 
+Artifact management is the practice of storing, organizing, versioning, securing, and distributing the outputs produced by your software build process—such as JAR files, Docker images, npm packages, Helm charts, and documentation. It provides a central, controlled source of truth for everything your CI/CD pipeline builds and deploys.
+## infrastructure validation
+Infrastructure validation is the process of proving that your servers, cloud resources, networks, databases, security controls, and deployment configurations are correctly set up and capable of supporting an application reliably before or after deployment. It checks that the environment meets defined requirements for availability, performance, security, connectivity, and configuration.

@@ -43,6 +43,11 @@ public class SagaSaleWriter {
         Customer customer;
         try {
             customer = customerService.saveUpdateCustomer(dto);   // declares checked Exception
+        } catch (com.myplus.common.web.exception.ValidationException refused) {
+            // HMS S4-lite — a REFUSAL (e.g. "Customer not found": another organisation's customer id) passes through
+            // as itself, so the till says why. SagaSellService still releases the stock hold on it, exactly as for
+            // any write failure; wrapping it made the cashier read "An unexpected error occurred".
+            throw refused;
         } catch (Exception e) {
             throw new RuntimeException("Failed to save customer for sale", e);
         }

@@ -55,6 +55,15 @@ public class PrescriptionController {
         return ApiResponse.success(prescriptionService.list(CurrentUser.organizationId(), CurrentUser.userId()));
     }
 
+    /** HMS S4-lite — paged search: {@code ?partyId=} one person, else {@code ?q=} text, else the newest. */
+    @GetMapping("/search")
+    public ApiResponse<java.util.Map<String, Object>> search(@org.springframework.web.bind.annotation.RequestParam(required = false) String q,
+                                                             @org.springframework.web.bind.annotation.RequestParam(required = false) Long partyId,
+                                                             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+                                                             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "25") int size) {
+        return ApiResponse.success(prescriptionService.search(CurrentUser.organizationId(), CurrentUser.userId(), q, partyId, page, size));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<PrescriptionDTO> get(@PathVariable Long id) {
         return ApiResponse.success(prescriptionService.get(id, CurrentUser.organizationId(), CurrentUser.userId()));

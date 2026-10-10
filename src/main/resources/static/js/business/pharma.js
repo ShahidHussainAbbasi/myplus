@@ -83,32 +83,64 @@
     };
 
     var lastPrescriptions = [];
-    function loadPrescriptions() {
-        $.get(serverContext + 'getPrescriptions', function (resp) {
-            lastPrescriptions = (resp && resp.data) ? resp.data : [];
-            var $b = $('#prescriptionBody').empty();
-            lastPrescriptions.forEach(function (p) {
-                var at = String(p.createdAt || '').replace('T', ' ').substring(0, 16);
-                var tr = $('<tr>');
-                // Contact-360 rides in the patient cell: a pharmacy patient is often also a POS customer.
-                tr.append($('<td>').text(p.patientName || '').append(contact360Button(p.partyId)));
-                tr.append($('<td>').text(p.doctorName || ''));
-                tr.append($('<td>').text((p.items || []).length));
-                tr.append($('<td>').text(p.status || ''));
-                tr.append($('<td>').text(at));
-                // Dispense is a normal sale that fulfils this Rx — only offer it while the script is still live.
-                // EXPIRED is derived server-side from validUntil, so it appears here without any nightly job.
-                var action;
-                if (p.status === 'FULLY_DISPENSED') action = '<span class="text-muted">dispensed</span>';
-                else if (p.status === 'CANCELLED') action = '<span class="text-muted">cancelled</span>';
-                else if (p.status === 'EXPIRED') action = '<span class="text-muted">expired</span>';
-                else action = "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>Dispense</button>"
-                           + " <button class='btn btn-xs btn-default' onclick='cancelPrescription(" + p.id + ")'>Cancel</button>";
-                tr.append($('<td>').html(action));
-                $b.append(tr);
-            });
+    // HMS S4-lite: the list is SEARCHED and PAGED (it used to draw every recent prescription at once). The search box
+    // takes a clinic token of today (A-007), an MRN, a phone or a name; the server resolves token / MRN / phone to the
+    // person through the clinic when it is on. lastPrescriptions keeps every row loaded so far — Dispense reads it.
+    var rxQuery = { q: '', page: 0 };
+
+    function rxRow(p) {
+        var at = String(p.createdAt || '').replace('T', ' ').substring(0, 16);
+        var tr = $('<tr>').attr('data-rx-id', p.id);
+        // Contact-360 rides in the patient cell: a pharmacy patient is often also a POS customer.
+        tr.append($('<td>').text(p.patientName || '').append(contact360Button(p.partyId)));
+        tr.append($('<td>').text(p.doctorName || ''));
+        tr.append($('<td>').text((p.items || []).length));
+        tr.append($('<td>').text(p.status || ''));
+        tr.append($('<td>').text(at));
+        // Dispense is a normal sale that fulfils this Rx — only offer it while the script is still live.
+        // EXPIRED is derived server-side from validUntil, so it appears here without any nightly job.
+        var action;
+        if (p.status === 'FULLY_DISPENSED') action = '<span class="text-muted">dispensed</span>';
+        else if (p.status === 'CANCELLED') action = '<span class="text-muted">cancelled</span>';
+        else if (p.status === 'EXPIRED') action = '<span class="text-muted">expired</span>';
+        else action = "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>Dispense</button>"
+                   + " <button class='btn btn-xs btn-default' onclick='cancelPrescription(" + p.id + ")'>Cancel</button>";
+        tr.append($('<td>').html(action));
+        return tr;
+    }
+
+    function loadPrescriptions(append) {
+        if (!append) { rxQuery.page = 0; }
+        $.get(serverContext + 'searchPrescriptions', { q: rxQuery.q, page: rxQuery.page }, function (resp) {
+            var data = (resp && resp.data) ? resp.data : { items: [], hasMore: false };
+            var items = data.items || [];
+            var $b = $('#prescriptionBody');
+            if (!append) { $b.empty(); lastPrescriptions = []; }
+            items.forEach(function (p) { lastPrescriptions.push(p); $b.append(rxRow(p)); });
+            $('#rxLoadMoreWrap').toggle(!!data.hasMore);   // the wrapper: a .btn cannot be hidden (theme.css)
+            $('#rxSearchEmpty').toggle(!append && items.length === 0 && !!rxQuery.q);
+            var who = resp && resp.resolved;
+            $('#rxSearchFound').toggle(!!who).text(who
+                ? 'Showing ' + (who.name || '') + (who.mrn ? ' · ' + who.mrn : '') + (who.phone ? ' · ' + who.phone : '') : '');
+            $('#rxSearchClearWrap').toggle(!!rxQuery.q);
         }).fail(function () { showFormError(t('ui.js.couldNotLoadPrescriptions')); });
     }
+    global.searchPrescriptions = function () {
+        rxQuery.q = $.trim($('#rxSearch').val() || '');
+        loadPrescriptions(false);
+    };
+    global.clearPrescriptionSearch = function () {
+        $('#rxSearch').val('');
+        rxQuery.q = '';
+        loadPrescriptions(false);
+    };
+    global.loadMorePrescriptions = function () {
+        rxQuery.page += 1;
+        loadPrescriptions(true);
+    };
+    $(document).on('keydown', '#rxSearch', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); global.searchPrescriptions(); }
+    });
     global.loadPrescriptions = loadPrescriptions;
 
     // P6 (slice 43): start dispensing a prescription — it's a normal sale on the (relabeled) Sell screen; on
@@ -149,10 +181,46 @@
         $('.formDiv').hide(); $('#sellDiv').show();
         $('#dispenseBanner').show();
         rxFillNote();
+        presetDispenseCustomer(rx);   // HMS S4-lite: the patient is the customer
         // P7: warn the pharmacist about controlled products / interactions before they dispense. The cart is
         // filled only once that is settled — a declined SEVERE interaction must leave nothing behind.
         var productIds = (rx.items || []).map(function (it) { return it.productId; }).filter(Boolean);
         checkSafetyForItems(productIds, function () { fillCartFromRx(rx); });
+    }
+
+    /**
+     * HMS S4-lite — the sale's customer is the PATIENT, never typed by the pharmacist. The prescription carries the
+     * person (partyId); the pharmacy customer for that person was made when reception registered them. Found → that
+     * customer: picked in the list when the cashier can see it there, else named on the sale and sent by id
+     * (window.dispensingCustomerId, read by main.js) — a pharmacist often cannot see a customer reception created,
+     * and a sale that only carried the name would create a DUPLICATE customer. No customer yet → the patient's name
+     * and phone, as before.
+     */
+    function presetDispenseCustomer(rx) {
+        window.dispensingCustomerId = null;
+        var byName = function () {
+            if (typeof onCustomerModeChange === 'function') onCustomerModeChange('manual');
+            $('#sellCN').val(rx.patientName || '');
+            $('#sellCC').val(rx.patientPhone || '');
+        };
+        if (!rx.partyId) { byName(); return; }
+        $.get(serverContext + 'customerForParty', { partyId: rx.partyId }).done(function (r) {
+            if (window.dispensingRx !== rx) return;   // backed out meanwhile
+            var c = r && String(r.status).toUpperCase() === 'SUCCESS' ? r.object : null;
+            if (!c || c.customerId == null) { byName(); return; }
+            var $dd = $('#sellCustomerDD');
+            if ($dd.find('option[value="' + c.customerId + '"]').length) {
+                if (typeof onCustomerModeChange === 'function') onCustomerModeChange('select');
+                $dd.val(String(c.customerId));
+                if (typeof refreshSearchableSelect === 'function') refreshSearchableSelect($dd);
+                if (typeof onSellCustomerSelect === 'function') onSellCustomerSelect($dd[0]);
+            } else {
+                if (typeof onCustomerModeChange === 'function') onCustomerModeChange('manual');
+                $('#sellCN').val(c.name || rx.patientName || '');
+                $('#sellCC').val(c.contact || rx.patientPhone || '');
+                window.dispensingCustomerId = Number(c.customerId);
+            }
+        }).fail(byName);
     }
 
     function owedOf(it) {
@@ -485,6 +553,7 @@
     global.cancelDispense = function () {
         var wasDispensing = !!window.dispensingPrescriptionId;
         window.dispensingPrescriptionId = null;
+        window.dispensingCustomerId = null;
         window.dispensingRx = null;
         window.dispensingFillNotes = [];
         $('#dispenseBanner').hide();
@@ -565,6 +634,7 @@
             error: function () { showFormError(t('ui.js.couldNotRecordTheDispense')); },
             complete: function () {
                 window.dispensingPrescriptionId = null; window.dispensingRx = null; window.dispensingFillNotes = [];
+                window.dispensingCustomerId = null;
                 $('#dispenseBanner').hide(); rxFillNote();
             }
         });

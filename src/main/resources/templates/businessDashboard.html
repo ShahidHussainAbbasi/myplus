@@ -4136,10 +4136,22 @@ tr.row-voided .js-edit-row{display:none !important}
 					</div>
 				</form>
 				<h5 th:text="#{ui.recentPrescriptions}">Recent prescriptions</h5>
+				<!-- HMS S4-lite: find by clinic token (A-007), MRN, phone or name; paged -->
+				<div class="rx-search-row">
+					<input type="search" id="rxSearch" class="form-control" autocomplete="off"
+					       th:placeholder="#{ui.rxSearchPlaceholder}" placeholder="Token (A-007), MRN, phone or name"
+					       aria-label="Search prescriptions"/>
+					<button type="button" id="rxSearchBtn" class="btn btn-primary" onclick="searchPrescriptions()"><span class="glyphicon glyphicon-search"></span> <span th:text="#{ui.search}">Search</span></button>
+					<!-- the WRAPPER is hidden, never the .btn: theme.css forces every .btn to display:inline-flex !important -->
+					<span id="rxSearchClearWrap" style="display:none"><button type="button" id="rxSearchClear" class="btn btn-default" onclick="clearPrescriptionSearch()" th:text="#{ui.clear}">Clear</button></span>
+				</div>
+				<p id="rxSearchFound" class="rx-search-found" style="display:none"></p>
 				<table id="tablePrescription" class="table table-bordered table-striped">
 					<thead><tr><th th:text="#{ui.patient}">Patient</th><th th:text="#{ui.doctor}">Doctor</th><th th:text="#{ui.products}">Products</th><th th:text="#{ui.status}">Status</th><th th:text="#{ui.date2}">Date</th><th th:text="#{ui.action}">Action</th></tr></thead>
 					<tbody id="prescriptionBody"></tbody>
 				</table>
+				<p id="rxSearchEmpty" class="text-muted" style="display:none" th:text="#{ui.rxSearchNone}">No prescriptions match.</p>
+				<div class="text-center" id="rxLoadMoreWrap" style="display:none"><button type="button" id="rxLoadMore" class="btn btn-default" onclick="loadMorePrescriptions()" th:text="#{ui.loadMore}">Load more</button></div>
 			</div>
 
 			<!-- POS R10 (slice 40): parked / held sales. -->

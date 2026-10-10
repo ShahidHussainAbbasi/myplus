@@ -154,6 +154,21 @@ class QueueServiceTest {
     }
 
     @Test
+    void a_slow_doctor_list_is_retried_once_and_then_said_in_words_never_a_500() {
+        org.springframework.web.client.ResourceAccessException timeout =
+                new org.springframework.web.client.ResourceAccessException("Read timed out");
+        // first call times out, the retry answers: the token is issued
+        when(directory.doctors()).thenThrow(timeout).thenReturn(new Envelope<>(true, null, List.of(
+                Doctor.builder().id(11L).name("Dr Ahmed").build())));
+        assertThat(service.issue(IssueRequest.builder().patientId(1L).providerId(11L).build()).getTokenLabel()).isEqualTo("A-001");
+
+        // both time out: a sentence, as a refusal (ValidationException → 400 / success:false), not an unhandled error
+        when(directory.doctors()).thenThrow(timeout);
+        assertThatThrownBy(() -> service.issue(IssueRequest.builder().patientId(1L).providerId(11L).build()))
+                .isInstanceOf(ValidationException.class).hasMessage("The doctor list is not reachable right now. Try again in a moment.");
+    }
+
+    @Test
     void parking_needs_a_reason() {
         when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.IN_CONSULTATION)));
         assertThatThrownBy(() -> service.move(100L, "park", " ")).hasMessageContaining("Say why");

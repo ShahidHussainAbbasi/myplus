@@ -59,7 +59,8 @@ public class ClientsConfig {
     /** HMS S2 — the doctors. Read once per screen load (the token snapshots the name), never per board row. */
     @Bean
     public AppointmentDirectoryClient appointmentDirectoryClient(@LoadBalanced RestClient.Builder builder) {
-        return client(builder, "http://appointment-service", 4000, AppointmentDirectoryClient.class);
+        // 8 s: appointment-service's first answer after a quiet spell has exceeded 4 s (S4-lite gate, 2026-10-10)
+        return client(builder, "http://appointment-service", 8000, AppointmentDirectoryClient.class);
     }
 
     @Bean

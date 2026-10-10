@@ -117,6 +117,32 @@ public class PrescriptionService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * HMS S4-lite — the pharmacist's search: by person ({@code partyId}, resolved upstream from a clinic token, MRN or
+     * phone) or by text (name, phone, doctor); neither = the newest. One page; {@code hasMore} comes from reading one
+     * row past the page, so there is no count query.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> search(Long orgId, Long userId, String q, Long partyId, int page, int size) {
+        int s = size <= 0 ? 25 : Math.min(size, 100);
+        int pg = Math.max(page, 0);
+        PageRequest pr = PageRequest.of(pg, s + 1);
+        String text = q == null ? "" : q.trim();
+        List<Prescription> rows = partyId != null ? prescriptionRepo.findByPartyScoped(orgId, userId, partyId, pr)
+                : text.isEmpty() ? prescriptionRepo.findScoped(orgId, userId, PageRequest.of(pg, s + 1))
+                : prescriptionRepo.searchScoped(orgId, userId, text, pr);
+        boolean more = rows.size() > s;
+        List<Prescription> pageRows = more ? rows.subList(0, s) : rows;
+        Map<Long, List<PrescriptionItem>> itemsByRx = pageRows.isEmpty() ? Map.of()
+                : itemsFor(pageRows.stream().map(Prescription::getId).toList());
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("items", pageRows.stream().map(p -> toDTO(p, itemsByRx.getOrDefault(p.getId(), List.of()))).toList());
+        out.put("page", pg);
+        out.put("size", s);
+        out.put("hasMore", more);
+        return out;
+    }
+
     /** One query for the whole page's items, grouped by prescription id. */
     private Map<Long, List<PrescriptionItem>> itemsFor(List<Long> prescriptionIds) {
         Map<Long, List<PrescriptionItem>> byRx = new HashMap<>();

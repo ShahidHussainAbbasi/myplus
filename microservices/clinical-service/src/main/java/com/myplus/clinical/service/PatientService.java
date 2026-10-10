@@ -171,6 +171,32 @@ public class PatientService {
         return view(saved);
     }
 
+    /**
+     * HMS S4-lite — who did the pharmacist mean? A token of TODAY ("A-007", any case), an MRN, or a phone, resolved
+     * to the patient (and so the person / party the pharmacy's prescriptions are linked to). Empty when it matches
+     * nobody — the caller then searches the text as a name. Audited like a lookup.
+     */
+    public List<PatientView> resolve(String q) {
+        access.assertModuleOn();
+        Long org = access.org();
+        String t = q == null ? "" : q.trim().toUpperCase(java.util.Locale.ROOT);
+        List<Patient> hits = new java.util.ArrayList<>();
+        if (t.matches("[A-Z]{1,2}-\\d{1,4}")) {
+            String[] parts = t.split("-");
+            String label = parts[0] + "-" + String.format(java.util.Locale.ROOT, "%03d", Integer.parseInt(parts[1]));
+            tokens.findFirstByOrganizationIdAndVisitDateAndTokenLabel(org, TenantClock.today(), label)
+                    .flatMap(tok -> repo.findByIdAndOrganizationId(tok.getPatientId(), org)).ifPresent(hits::add);
+        } else if (t.startsWith("MRN-")) {
+            repo.search(org, t, "\u0000", PageRequest.of(0, 1)).stream()
+                    .filter(p -> p.getMrn().equalsIgnoreCase(t)).findFirst().ifPresent(hits::add);
+        } else {
+            String phone = PhoneNumbers.normalise(q);
+            if (phone != null) hits.addAll(repo.findByOrganizationIdAndPhoneKeyOrderByFamilySeqAsc(org, PhoneNumbers.key(phone)));
+        }
+        hits.forEach(p -> audit.patient("PATIENT_LOOKUP", p.getMrn(), "resolved at the pharmacy"));
+        return hits.stream().filter(p -> Patient.ACTIVE.equals(p.getStatus())).map(PatientService::view).toList();
+    }
+
     /** Owner/admin (controller gate): a duplicate or a test record leaves the register; the row is kept. */
     public PatientView retire(Long id, String reason) {
         access.assertModuleOn();

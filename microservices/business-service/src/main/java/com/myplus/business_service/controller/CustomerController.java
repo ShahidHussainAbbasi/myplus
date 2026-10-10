@@ -428,6 +428,33 @@ public class CustomerController {
 		}
 	}
 
+	/**
+	 * HMS S4-lite — the pharmacy customer for a person (party): what Dispense puts on the sale, so the patient registered
+	 * at reception is the customer the pharmacist sells to — never a second record typed at the counter.
+	 *
+	 * <p>Organisation-wide on purpose, NOT the caller's own customers: reception registers the patient and the
+	 * pharmacist sells; a user-scoped read would miss them and the sale would create a duplicate. Another tenant's
+	 * party resolves to nothing (findByPartyIdsScoped is org-scoped). Oldest customer of the party wins, like the
+	 * reception link (/internal/customers/for-party).
+	 */
+	@RequestMapping(value = "/customerForParty", method = RequestMethod.GET)
+	@ResponseBody
+	public GenericResponse customerForParty(@RequestParam("partyId") Long partyId) {
+		try {
+			java.util.Optional<Customer> c = customerRepo.findByPartyIdsScoped(java.util.List.of(partyId), orgId(), userId())
+					.stream().min(java.util.Comparator.comparing(Customer::getCustomerId));
+			if (c.isEmpty()) return new GenericResponse("NOT_FOUND", "No customer for this person yet.");
+			java.util.Map<String, Object> v = new java.util.LinkedHashMap<>();
+			v.put("customerId", c.get().getCustomerId());
+			v.put("name", c.get().getName());
+			v.put("contact", c.get().getContact());
+			return new GenericResponse("SUCCESS", "Customer for the person", (Object) v);
+		} catch (Exception e) {
+			LOGGER.error(this.getClass().getName() + " > customerForParty " + e.getMessage(), e);
+			return new GenericResponse("ERROR", "Could not look up the customer.");
+		}
+	}
+
 	/** SF-5 Model B: the customer's redeemable store-credit balance (for the checkout "apply store credit" UI). */
 	@RequestMapping(value = "/customerCredit", method = RequestMethod.GET)
 	@ResponseBody

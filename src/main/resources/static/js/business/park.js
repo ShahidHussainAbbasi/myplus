@@ -133,7 +133,7 @@
         // RX-FILL-0: an ordinary basket resumed while a dispense is open must not inherit it; a parked dispense
         // comes back as one. Set BEFORE the render so the + / − and the banner note draw with it.
         if (typeof cancelDispense === 'function' && window.dispensingPrescriptionId) {
-            window.dispensingPrescriptionId = null; window.dispensingRx = null; $('#dispenseBanner').hide();
+            window.dispensingPrescriptionId = null; window.dispensingRx = null; window.dispensingCustomerId = null; $('#dispenseBanner').hide();
         }
         if (cart.prescriptionId && typeof resumeDispense === 'function') resumeDispense(cart);
         if (typeof renderCart === 'function') renderCart();
