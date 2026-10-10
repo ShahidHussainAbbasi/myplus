@@ -16,7 +16,11 @@
  *   S7  the till: 7 then 3 added separately — Complete re-checks the whole cart, shows the 3 @ 250 and posts nothing;
  *       Complete again records it
  *
- * Tenant: owner.pharma@. Server state: the purchase mode is put back EXACTLY in after().
+ *   S12 PB-OLD — stock bought in LATEST (no batch price) sells, once the shop is in Per batch, at ITS OWN BILL's rate:
+ *       9 @ 297.70 (T1) + 9 @ 309.15 (T2), a sale of 10 = 9 × 297.70 + 1 × 309.15 = 2,988.45 (owner.pharma's Desora,
+ *       2026-10-10; FEFO with no expiry takes the oldest delivery first)
+ * Tenant: owner.pharma@. Server state: the purchase mode AND the markup rule (the owner may have set Auto — it re-prices
+ * batches) are put back EXACTLY in after().
  *
  * Run:  npx cypress run --spec cypress/e2e/business/pricing-per-batch-sale.cy.js
  */
@@ -89,18 +93,61 @@ const seedTwoBatches = (tag) => {
 }
 const tillLine = (productId, qty, rate, extra) => ({ productId, quantity: qty, sellRate: rate, autoRate: rate, ...(extra || {}) })
 
+const MARKUP = ['pos.pricing.markupMode', 'pos.pricing.markupPct']
+const cfg = (k) => cy.request('/getBusinessConfig').then((r) => cy.wrap(list(r.body).find((e) => e.key === k) || null))
+
 describe('PR-3c — Per batch: the sale is priced from its batches', () => {
   let before0 = null
+  const markup0 = {}
 
   before(() => {
     asPharma()
     entry().then((e) => { before0 = e ? { chosen: e.isDefault === false, value: e.value } : { chosen: false } })
+    MARKUP.forEach((k) => cfg(k).then((e) => { markup0[k] = e && e.isDefault === false ? e.value : null }))
   })
-  beforeEach(() => { asPharma(); setMode('per_batch') })
+  beforeEach(() => {
+    asPharma(); setMode('per_batch')
+    MARKUP.forEach((k) => cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: k }, failOnStatusCode: false }))
+  })
   after(() => {
     asPharma()
     cy.then(() => (before0 && before0.chosen ? setMode(before0.value) : resetMode()))
     entry().then((e) => (before0 && before0.chosen ? expect(e.value).to.eq(before0.value) : expect(e.isDefault, 'never-chosen again').to.eq(true)))
+    cy.then(() => MARKUP.forEach((k) => (markup0[k] != null
+      ? cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, body: { key: k, value: markup0[k] } })
+      : cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: k }, failOnStatusCode: false }))))
+    MARKUP.forEach((k) => cfg(k).then((e) => (markup0[k] != null
+      ? expect(e.value, k + ' restored').to.eq(markup0[k]) : expect(e.isDefault, k + ' never-chosen again').to.eq(true))))
+  })
+
+  it('S12 PB-OLD: stock bought in Latest sells at its own bill rate once in Per batch — 9 @ 297.70 + 1 @ 309.15', () => {
+    resetMode()                                             // Latest: these batches get NO price of their own
+    cy.seedProduct({ name: 'PRS_OLD_' + uniq(), sellingPrice: 260 }).then(({ productId }) => {
+      const t1 = 'T1-' + STAMP, t2 = 'T2-' + STAMP
+      purchase(productId, 9, 260, 297.70, 'PRS-OLD1-' + STAMP, t1)
+      purchase(productId, 9, 270, 309.15, 'PRS-OLD2-' + STAMP, t2)
+      batches(productId).then((bs) => {
+        expect(bs.map((b) => b.sellPrice), 'Latest: no batch has a price of its own').to.deep.eq([null, null])
+      })
+      setMode('per_batch')
+      batches(productId).then((bs) => {
+        const p = Object.fromEntries(bs.map((b) => [b.batchNo, Number(b.sellPrice)]))
+        expect(p, 'the till shows each batch at its OWN bill rate: ' + JSON.stringify(bs)).to.deep.eq({ [t1]: 297.7, [t2]: 309.15 })
+      })
+      preview([tillLine(productId, 10, 297.70)]).then((r) => {
+        expect(r.body.perBatch, 'the preview: ' + JSON.stringify(r.body).slice(0, 300)).to.eq(true)
+        expect(r.body.parts.map((p) => [Number(p.quantity), Number(p.rate)]), 'the preview the till shows').to.deep.eq([[9, 297.7], [1, 309.15]])
+      })
+      sell([tillLine(productId, 10, 297.70)]).then((s) => {
+        expect(s.body.status, JSON.stringify(s.body).slice(0, 400)).to.eq('SUCCESS')
+        receipt(s.body.object).then((inv) => {
+          const ls = linesOf(inv, productId).map((l) => ({ q: Number(l.quantity), r: Number(l.sellRate), n: (l.batches || []).map((x) => x.batchNo).join() }))
+          expect(ls, JSON.stringify(ls)).to.deep.eq([{ q: 9, r: 297.7, n: t1 }, { q: 1, r: 309.15, n: t2 }])
+          const total = linesOf(inv, productId).reduce((t, l) => t + Number(l.totalAmount || 0), 0)
+          expect(Math.round(total * 100) / 100, 'the bill').to.eq(2988.45)
+        })
+      })
+    })
   })
 
   it('S1 10 units across two batches are invoiced 7 @ 200 + 3 @ 250, each line with its own batch', () => {

@@ -1131,7 +1131,31 @@ public class PurchaseService implements IPurchaseService{
 		obj.setDocType(existing.getDocType() != null ? existing.getDocType() : OpeningBalanceService.DOC_SALE);
 	}
 
-	/** #17 P2 / TP-3 — what the supplier billed for the goods: rate × billed quantity (bonus units add nothing). One rule
+	/**
+	 * PB-OLD — the price a batch with no price of its own sells at in Per batch: ITS OWN BILL's sale rate (decided with
+	 * the owner, 2026-10-10). Stock received before the shop switched to Per batch was booked with no batch price, so it
+	 * sold at the product's single price — owner.pharma's Desora: T25791 (bill rate 297.70) and T25792 (309.15) both at
+	 * 309.15. Read, never written: no data changes, and switching back to Latest restores one price. A batch with no
+	 * bill (opening stock, a bill before PR-3b, a void) is not in the map — it keeps the product's price.
+	 */
+	public java.util.Map<Long, java.math.BigDecimal> billSellRates(java.util.Collection<Long> stockEntryIds) {
+		java.util.Map<Long, java.math.BigDecimal> out = new java.util.HashMap<>();
+		if (stockEntryIds == null || stockEntryIds.isEmpty()) return out;
+		Long org = requestUtil.getCurrentUser().getOrganizationId();
+		if (org == null) return out;
+		return rateMap(purchaseRepo.billSellRates(org, stockEntryIds));
+	}
+
+	/** PB-OLD — the repository's (batch id, bill rate) rows as a map; ONE rule for every caller. */
+	public static java.util.Map<Long, java.math.BigDecimal> rateMap(List<Object[]> rows) {
+		java.util.Map<Long, java.math.BigDecimal> out = new java.util.HashMap<>();
+		if (rows != null) for (Object[] r : rows) {
+			if (r[0] instanceof Number id && r[1] instanceof java.math.BigDecimal rate) out.putIfAbsent(id.longValue(), rate);
+		}
+		return out;
+	}
+
+	/** #17 P2 / TP-3 — what the supplier billed	/** #17 P2 / TP-3 — what the supplier billed for the goods: rate × billed quantity (bonus units add nothing). One rule
 	 *  for add and edit: on edit the mapper leaves it null, and a bill saved without it gives its batch nothing to cost from. */
 	static void stampPaidTotal(Purchase obj) {
 		if (obj.getBpurchaseRate() != null && obj.getQuantity() != null) {

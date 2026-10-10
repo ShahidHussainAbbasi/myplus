@@ -1211,6 +1211,84 @@ describe('Selling price — what a purchase does to it, step by step (captured)'
     resetModeOnScreen(c1)
   })
 
+  // ── S4 · PB-OLD: stock bought BEFORE the switch to Per batch (owner.pharma's Desora, 2026-10-10) ──
+  caseIt('S4', 'Stock bought before switching to Per batch sells at its own bill’s rate: 9 × 297.70 + 1 × 309.15', () => {
+    asLifecycle(); guardMode(); guardPricing()
+    cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: KEY }, failOnStatusCode: false })
+    const sale = { value: null }
+    const pname = `PRG Desora ${run}`, vname = `PRG Supplier ${run}`
+    const t1 = `T1-${run}`, t2 = `T2-${run}`, bills = [`PRG-D1-${run}`, `PRG-D2-${run}`]
+    testCase('S4', 'Stock bought before switching to Per batch sells at its own bill’s rate: 9 × 297.70 + 1 × 309.15', {
+      covers: ['PB-OLD'], slice: 'PR-3c', tenant: `${LIFECYCLE} (sacrificial — sales and purchases post to the ledger)`, role: 'Owner (any cashier)',
+      purpose: 'A pharmacy bought two batches while on Latest (one price for all stock), then switched to Per batch. Those batches were booked with no price of their own; each now sells at the sale rate on ITS OWN bill — not at the product’s single price. Decided with the owner on 10 Oct 2026 (Desora: T25791 at 297.70, T25792 at 309.15). The oldest delivery is taken first when the expiry dates are the same.',
+      prereq: ['Signed in as the owner of owner.lifecycle@.', '**How a purchase affects the selling price** is **Latest** (the run resets it).',
+        `A product **${pname}** and two bills through the Purchase form’s own request, in Latest: **${t1}** — 9 at cost 260, S/U **297.70**; then **${t2}** — 9 at cost 270, S/U **309.15** (Latest makes the product’s price **309.15**).`],
+      data: ['Quantity **10**, the price the till offers (not typed)'],
+      rollback: 'The invoice and both bills are voided on screen and the setting is put back to Latest on screen. The product is deactivated after the run.',
+    })
+    supplier(vname)
+    cy.seedProduct({ name: pname, sellingPrice: 260 }).then((p) => {
+      const pid = p.productId
+      SAFETY.push(() => { asLifecycle(); cy.request({ method: 'POST', url: '/deactivateProduct', headers: { 'Content-Type': 'application/json' }, body: { checked: String(pid) }, failOnStatusCode: false }) })
+      bills.forEach((b) => SAFETY.push(() => voidIfStanding(b)))
+      SAFETY.push(() => voidSaleIfStanding(sale))
+      billByRequest(vname, pid, 9, 260, 297.70, bills[0], t1)
+      billByRequest(vname, pid, 9, 270, 309.15, bills[1], t2)
+      cy.then(() => catalogProduct(pid)).then((pr) => expect(Number(pr.sellingPrice), 'Latest: the last bill set the price').to.eq(309.15))
+
+      const a1 = act('**Settings → Configuration → Purchasing**: set **How a purchase affects the selling price** to **Per batch**.',
+        ['The message at the top says **Saved**.'])
+      openDashboard(); openConfiguration()
+      cy.intercept('POST', '**/saveBusinessConfig').as('saveMode')
+      cy.get(`#businessConfigBody [data-key="${KEY}"]`).select('per_batch', { force: true })
+      cy.wait('@saveMode').its('response.body.success').should('eq', true)
+      cy.get('#businessConfigMsg').should('contain', 'Saved')
+      modeRow().closest('.cfg-group').as('grpS4')
+      snap(a1, 'per-batch-saved', '@grpS4')
+
+      const a2 = act(`**Sale** (reload first). Pick **${pname}**.`,
+        [`The **Batch** list shows **${t1} · 9 @ 297.70** and **${t2} · 9 @ 309.15** — each batch at its OWN bill’s rate, although both were bought before the switch.`,
+          'S/U Price shows **297.70** — the batch the sale takes first (the oldest delivery, their expiry being the same).'])
+      openSale()
+      cy.then(() => pickItem(pid))
+      cy.get('#sellBatchPickRow').should('be.visible')
+      cy.contains('#sellBatchPick option', t1).should('contain', '9 @ 297.70')
+      cy.contains('#sellBatchPick option', t2).should('contain', '9 @ 309.15')
+      cy.get('#sellSellRate').should(($i) => expect(Number($i.val())).to.eq(297.7))
+      snap(a2, 'batch-list', '#sellDiv')
+
+      const a3 = act('Quantity **10**, **Add to Cart**.',
+        [`One line, quantity **10**, with its batches underneath: **${t1} · 9 × 297.70** and **${t2} · 1 × 309.15**.`, 'The total is **2988.45** (= 2679.30 + 309.15) — not 10 × 309.15 = 3091.50.'])
+      addLine(10, true)
+      cartRows().should('have.length', 1)
+      cy.get('#tablesi tbody .pb-sub').should('have.length', 2)
+      cy.get('#tablesi tbody .pb-sub').eq(0).should('contain', t1).and('have.attr', 'data-qty', '9').and('contain', '297.70')
+      cy.get('#tablesi tbody .pb-sub').eq(1).should('contain', t2).and('have.attr', 'data-qty', '1').and('contain', '309.15')
+      cy.get('#sellTotal').should('contain', '2988.45')
+      snap(a3, 'cart-split', '#sellDiv')
+
+      const a4 = act('Payment **Cash**, received **99999**, **Complete Sale**, confirm. Then open the receipt data (the **Print** button’s own request).',
+        ['The dialog asks to complete **Total 2988.45**.', `The invoice records **9 at 297.70** from **${t1}** and **1 at 309.15** from **${t2}**.`], { via: 'run' })
+      cashAndComplete(true)
+      cy.get('.uiC-card').should('be.visible').and('contain', '2988.45')
+      snap(a4, 'confirm', '.uiC-card')
+      confirmAndRecord(sale)
+      cy.then(() => receiptLines(sale.value, pid)).then((ls) => {
+        expect(ls.map((l) => [Number(l.quantity), Number(l.sellRate), lineBatches(l)]))
+          .to.deep.eq([[9, 297.7, `${t1}×9`], [1, 309.15, `${t2}×1`]])
+      })
+
+      const c1 = act('Cleanup: void the invoice (Sale screen list → search → **Void**, reason **guide test sale**).', ['The sale is reversed and leaves the list.'], { cleanup: true })
+      voidInvoice(sale)
+      snap(c1, 'voided', '#tableSell')
+      const c2 = act(`Cleanup: void both bills **${bills[0]}** and **${bills[1]}**.`, ['Both are marked **VOID** under **Show voided**.'], { cleanup: true })
+      voidBills({ bills, pname })
+      snap(c2, 'bills-voided', '#purchaseDiv')
+      const c3 = act('Cleanup: **Settings → Configuration → Purchasing**, **Reset** the purchase mode.', ['It shows **Latest (default)** again.'], { cleanup: true })
+      resetModeOnScreen(c3)
+    })
+  })
+
   // ══ PR-4 · the owner approves a price before customers see it ═══════════════════════════════════════
 
   const MODE = 'pos.pricing.markupMode'

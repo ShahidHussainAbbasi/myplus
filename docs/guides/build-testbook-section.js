@@ -60,7 +60,7 @@ const SECTIONS = {
   },
   pricemode: {
     dir: 'price-mode', anchor: 'pricemode', number: Number(process.env.TB_NUMBER || 27), prefix: 'prm',
-    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3', 'T1', 'T2', 'T3', 'T4', 'T5'],
+    order: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'Q1', 'Q2', 'Q3', 'Q4', 'Q5', 'Q6', 'R1', 'X1', 'S1', 'S2', 'S3', 'S4', 'T1', 'T2', 'T3', 'T4', 'T5'],
     title: 'Selling price from purchases: Latest, Keep, markup, Per batch and Approval (PR-1 to PR-4)',
     spec: 'cypress/e2e/docs/price-mode-guide.cy.js',
     notes: [

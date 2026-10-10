@@ -130,6 +130,19 @@ public class StockController {
 					|| com.myplus.business_service.service.PurchaseService.PRICE_MODE_PER_BATCH.equals(purchaseService.purchasePriceMode());
 			if (tracksBatches) {
 				java.util.List<com.myplus.commerce.contracts.dto.StockBatch> batches = inventoryClient.getBatches(productId);
+				// PB-OLD — in Per batch, a batch with no price of its own shows (and the till fills) its OWN bill's sale
+				// rate: the same rule the sale prices it by (SagaSellService#fillBillPrices), so screen and charge agree.
+				if (batches != null && !batches.isEmpty()
+						&& com.myplus.business_service.service.PurchaseService.PRICE_MODE_PER_BATCH.equals(purchaseService.purchasePriceMode())) {
+					java.util.Set<Long> ids = new java.util.HashSet<>();
+					for (var b : batches) if (b.getSellPrice() == null && b.getStockEntryId() != null) ids.add(b.getStockEntryId());
+					if (!ids.isEmpty()) {
+						java.util.Map<Long, java.math.BigDecimal> rates = purchaseService.billSellRates(ids);
+						for (var b : batches)
+							if (b.getSellPrice() == null && b.getStockEntryId() != null && rates.containsKey(b.getStockEntryId()))
+								b.setSellPrice(rates.get(b.getStockEntryId()));
+					}
+				}
 				dto.setBatches(batches);
 				if (batches != null && !batches.isEmpty()) {
 					com.myplus.commerce.contracts.dto.StockBatch first = batches.get(0);

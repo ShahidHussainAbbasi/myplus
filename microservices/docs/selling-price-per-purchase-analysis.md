@@ -720,3 +720,26 @@ panel lists the 10 EMPTIEST products — owner.business has 293 low at a 999999 
 (Cancel returns focus to the date: confirm-dialog gives focus back to its opener 160 ms after closing). Regression:
 non-blocking-ui, dashboard-kpi-drill 9/9, sell 31/31, purchase, purchase-batch-expiry — green (the first run's hook
 failures were a monolith restart mid-batch). No `pos.stock.lowStockAt` / `nearExpiryDays` row left behind.
+
+### 12.12 PB-OLD — stock bought before the switch to Per batch sells at its own bill's rate (2026-10-10)
+
+**Reported:** owner.pharma sold 10 Desora for 3,091.50 and expected 9 × 309.15 + 1 × 297.70 = 3,080.05.
+**Findings (data):** the business was in **Latest** (never chosen) — one price for all stock: 309.15, set by bill 3107's
+save today (Auto 14.5% on 270). Both batches had no price of their own (`sell_price` NULL), booked in Latest. So 3,091.50
+was right for its settings. And FEFO takes T25791 first (same expiry 2027-10-09, then the oldest receipt), so batch
+pricing gives 9 × 297.70 + 1 × 309.15 = **2,988.45**, not 3,080.05 (that would need T25792 to expire first).
+**Decisions (owner):** Per batch, and stock with no price of its own sells at ITS OWN BILL's sale rate (read, never
+written — switching back to Latest restores one price); ties on expiry: oldest delivery first (unchanged).
+
+| Reader of a batch's price | Change |
+|---|---|
+| Sale pricing — `SagaSellService.priceByBatch` (the sale AND `/batchPricePreview` both go through it) | `fillBillPrices(picks)` before `BatchPriceSplit.split`: a pick with no price gets its bill's `bsell_rate` (`PurchaseRepo.billSellRates`: same org, by `stock_entry_id`, not VOID, rate > 0) |
+| The till's Batch list + rate box — `/productStock` (business `StockController`) | the same fill, in Per batch only (`PurchaseService.billSellRates` → one shared `rateMap`) |
+| A batch with neither (opening stock, a bill before PR-3b, a void) | the product's price, as before (gate X3 still asserts it) |
+
+Tests: `PerBatchSaleTest` +2 (the Desora sale = 2,988.45; a batch's own price beats its bill's) 14/14, BatchPriceSplit 7,
+PurchasePerBatch 6, SaleBatchByLine 3; repositories boot on MySQL (`SellInvoiceMoneyRepoTest` 5/5). Gate
+`pricing-per-batch-sale.cy.js` S12 — **red on the deployed build** (`sellPrice: null` on both); S1–S11 11/11 (the spec now
+sets the owner's markup rule aside and restores it — Auto 14.5% re-priced its batches). Guide case **S4** added (the Desora
+flow on owner.lifecycle) — captured after the deploy. Needs business-service deployed; then owner.pharma switched to Per
+batch (the owner's decision).

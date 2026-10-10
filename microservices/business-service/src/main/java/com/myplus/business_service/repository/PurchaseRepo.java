@@ -159,4 +159,10 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    /** FP-6a — someone the background job can act as for this tenant (service calls need a user identity). */
    @Query("select max(p.userId) from purchase p where p.organizationId = :org")
    Long anyUserOfOrg(@Param("org") Long org);
+
+   /** PB-OLD — each batch's own bill sale rate, for Per batch stock received before the switch (no price of its own).
+    *  One bill per batch (PR-3b stores the batch id on its bill); a VOID bill and a missing rate give nothing. */
+   @Query("select p.stockEntryId, p.bsellRate from purchase p where p.organizationId = :orgId "
+         + "and p.stockEntryId in :ids and (p.status is null or p.status <> 'VOID') and p.bsellRate > 0")
+   List<Object[]> billSellRates(@Param("orgId") Long orgId, @Param("ids") java.util.Collection<Long> ids);
 }

@@ -1234,7 +1234,33 @@ public class SagaSellService {
     public record PerBatch(List<SagaLine> lines, List<StockReservationLine> reservationLines, boolean bonusWithheld,
                            List<Boolean> batchPriced) {}
 
-    /** PR-3c — is this shop in Per batch mode? An unreadable setting is not (today's behaviour). */
+    /**
+     * PB-OLD — give each pick whose batch has no price of its own its BILL's sale rate (the rule of PurchaseService#billSellRates),
+     * so stock received before the switch to Per batch sells at what it was bought to sell at. Before the split: the
+     * split, the preview the till shows and the sale it records all read the same picks. A pick the map does not know
+     * keeps no price, and the split gives it the product's.
+     */
+    void fillBillPrices(List<StockPick> picks) {
+        if (picks == null || picks.isEmpty() || purchaseRepo == null) return;
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        for (StockPick p : picks) if (p.getSellPrice() == null && p.getStockEntryId() != null) ids.add(p.getStockEntryId());
+        if (ids.isEmpty()) return;
+        java.util.Map<Long, BigDecimal> rates;
+        try {
+            Long org = requestUtil.getCurrentUser().getOrganizationId();
+            if (org == null) return;
+            rates = PurchaseService.rateMap(purchaseRepo.billSellRates(org, ids));
+        } catch (RuntimeException unreadable) {
+            LOG.warn("PB-OLD: bill rates unreadable — batches without a price sell at the product's", unreadable);
+            return;
+        }
+        for (StockPick p : picks) {
+            if (p.getSellPrice() == null && p.getStockEntryId() != null && rates.containsKey(p.getStockEntryId()))
+                p.setSellPrice(rates.get(p.getStockEntryId()));
+        }
+    }
+
+    /** PR-3c — is this shop in Per batch mode? An unreadable setting is not (today's behaviour). */    /** PR-3c — is this shop in Per batch mode? An unreadable setting is not (today's behaviour). */
     boolean isPerBatch() {
         try {
             return PurchaseService.PRICE_MODE_PER_BATCH.equals(settingsService.getChoice(PurchaseService.PRICE_MODE_KEY,
@@ -1293,6 +1319,7 @@ public class SagaSellService {
         for (StockPick p : plan.getPicks() == null ? List.<StockPick>of() : plan.getPicks()) {
             if (p.getLineRef() != null) picksByLine.computeIfAbsent(p.getLineRef(), k -> new ArrayList<>()).add(p);
         }
+        fillBillPrices(plan.getPicks());   // PB-OLD: a batch with no price of its own sells at its own bill's rate
         List<List<BatchPriceSplit.Part>> partsByLine = new ArrayList<>();
         boolean rebuild = false;
         for (int i = 0; i < lines.size(); i++) {

@@ -184,6 +184,41 @@ class PerBatchSaleTest {
     }
 
     @Test
+    @DisplayName("⭐⭐ PB-OLD (owner.pharma Desora): stock received BEFORE Per batch sells at its OWN bill's rate — 9 @ 297.70 + 1 @ 309.15 = 2,988.45")
+    void olderBatchesSellAtTheirBillRate() {
+        // Both batches were booked in Latest mode: no price of their own. Their bills say 297.70 (T25791) and 309.15 (T25792).
+        plan(pick(OLD, "T25791", "9", null, "260", 0), pick(NEW, "T25792", "1", null, "270", 0));
+        when(purchaseRepo.billSellRates(anyLong(), any())).thenReturn(List.<Object[]>of(
+                new Object[] { OLD, new BigDecimal("297.70") }, new Object[] { NEW, new BigDecimal("309.15") }));
+
+        service.addSell(sale(line(10f, "250", "250")));
+
+        List<SagaLine> lines = writtenLines();
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(0).quantity()).isEqualTo(9f);
+        assertThat(lines.get(0).sellRate()).isEqualByComparingTo("297.70");
+        assertThat(lines.get(0).totalAmount()).isEqualByComparingTo("2679.30");
+        assertThat(lines.get(1).quantity()).isEqualTo(1f);
+        assertThat(lines.get(1).sellRate()).isEqualByComparingTo("309.15");
+        assertThat(lines.get(0).totalAmount().add(lines.get(1).totalAmount())).isEqualByComparingTo("2988.45");
+        assertThat(reserved()).extracting(StockReservationLine::getStockEntryId).containsExactly(OLD, NEW);
+    }
+
+    @Test
+    @DisplayName("PB-OLD: a batch's OWN price wins over its bill's rate; only a batch with neither takes the product's")
+    void ownPriceWinsOverTheBillRate() {
+        plan(pick(OLD, "B-OWN", "2", "220", "150", 0), pick(NEW, "B-NONE", "1", null, "150", 0));
+        when(purchaseRepo.billSellRates(anyLong(), any())).thenReturn(List.<Object[]>of(new Object[] { OLD, new BigDecimal("999.00") }));
+
+        service.addSell(sale(line(3f, "250", "250")));
+
+        List<SagaLine> lines = writtenLines();
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(0).sellRate()).as("its own price, not the bill's 999").isEqualByComparingTo("220");
+        assertThat(lines.get(1).sellRate()).as("no own price, no bill: the product's").isEqualByComparingTo("250");
+    }
+
+    @Test
     @DisplayName("a batch with no price of its own sells at the product's price")
     void unpricedBatchUsesTheProductPrice() {
         plan(pick(OLD, "B-OLD", "4", null, "150", 0));
