@@ -211,7 +211,8 @@ public class BusinessDashboardController {
         try {
             AuthenticatedUser user = requestUtil.getCurrentUser();
             Long userId = user.getUserId();
-            LocalDateTime now = LocalDateTime.now();
+            // H6 C3: the BUSINESS's clock — the SQL groups by the stored business wall time, so the month keys must too
+            LocalDateTime now = LocalDateTime.now(com.myplus.common.security.time.TenantClock.businessZone());
 
             // --- 6-month revenue & sales trend ---
             DateTimeFormatter monthKey = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -226,8 +227,7 @@ public class BusinessDashboardController {
                 revenueByMonth.put(key, 0.0);
                 salesByMonth.put(key, 0);
             }
-            LocalDateTime sixMonthsAgoStart = now.minusMonths(5)
-                .withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+            LocalDateTime sixMonthsAgoStart = com.myplus.common.security.time.BusinessDay.start(now.minusMonths(5).toLocalDate().withDayOfMonth(1));   // H6 C3
             // GROUP BY in SQL instead of six months of Sell entities bucketed by a merge loop. The zeroed
             // map above still governs which months appear, so a month with no sales stays 0 rather than
             // vanishing from the chart.

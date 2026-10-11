@@ -47,6 +47,8 @@ class ClientZoneTest {
         browser("Asia%2FKarachi");
         assertEquals(ZoneId.of("Asia/Karachi"), ClientZone.zone());
         assertEquals("Asia/Karachi", ClientZone.forward(new HttpHeaders()).getFirst(ClientZone.HEADER));
+        // H6 C2: the render zone travels with it — the services write "Dated" text and read typed times in it
+        assertEquals("Asia/Karachi", ClientZone.forward(new HttpHeaders()).getFirst(ClientZone.RENDER_HEADER));
         browser("America/New_York");
         assertEquals("America/New_York", ClientZone.forward(new HttpHeaders()).getFirst(ClientZone.HEADER));
     }
@@ -57,6 +59,7 @@ class ClientZoneTest {
         for (String bad : new String[] { null, "", "Mars%2FOlympus", "<script>", "x".repeat(80) }) {
             browser(bad);
             assertNull(ClientZone.forward(new HttpHeaders()).getFirst(ClientZone.HEADER), "forwarded " + bad);
+            assertNull(ClientZone.forward(new HttpHeaders()).getFirst(ClientZone.RENDER_HEADER), "render zone forwarded " + bad);
             assertEquals(ZoneId.of("Asia/Karachi"), ClientZone.zone());
         }
         RequestContextHolder.resetRequestAttributes();

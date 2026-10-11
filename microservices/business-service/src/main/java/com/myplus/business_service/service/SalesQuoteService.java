@@ -404,7 +404,7 @@ public class SalesQuoteService {
 
         return QuoteDocumentDTO.builder()
                 .quoteNo(q.getQuoteNo())
-                .dated(q.getDated() == null ? null : q.getDated().toLocalDate().toString())
+                .dated(q.getDated() == null ? null : com.myplus.common.security.time.BusinessDay.of(q.getDated()).toString())
                 .validUntil(q.getValidUntil() == null ? null : q.getValidUntil().toString())
                 .effectiveStatus(q.getEffectiveStatus() == null ? null : q.getEffectiveStatus().name())
                 .customerName(q.getCustomerName())

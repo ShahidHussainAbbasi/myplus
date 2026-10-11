@@ -122,7 +122,7 @@ public class RoundSheetService {
                     .orderId(o.getId())
                     .orderNo(o.getOrderNo())
                     .invoiceNo(f.getInvoiceNo())
-                    .date(o.getCreatedAt() == null ? null : o.getCreatedAt().toLocalDate())
+                    .date(o.getCreatedAt() == null ? null : com.myplus.common.security.time.BusinessDay.of(o.getCreatedAt()))
                     .customerId(f.getCustomerId())
                     // The BOOKS' account name, not the order's customerName: a branch of a trade group owes
                     // against the group, and the sheet must name whoever the debt actually sits on.

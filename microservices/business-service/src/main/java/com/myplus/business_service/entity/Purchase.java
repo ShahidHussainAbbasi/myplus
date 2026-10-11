@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -209,6 +210,16 @@ public class Purchase implements Serializable {
 	@Column(updatable=false)
 	private LocalDateTime dated;
 
+	/**
+	 * H6 C3b — the BILL's date: a calendar day, never shifted by any zone (client ruling 2026-10-11; Salesforce Date /
+	 * Odoo fields.Date). {@code dated} stays the recorded instant (UTC). Every accounting reader of a purchase — the
+	 * payables document date sent to finance, aging, statements, the period lock, payment allocation — reads THIS.
+	 * Stamped once, on first save, by {@link #stampBillDate()}: the business day of {@code dated} (a typed bill date is
+	 * held as that day's UTC midnight, so it keeps its typed day). Back-filled for existing rows by V81.
+	 */
+	@Column(name = "bill_date")
+	private LocalDate billDate;
+
 	private LocalDateTime updated;
 
 	@Column(name = "purchase_invoice_no")
@@ -231,4 +242,20 @@ public class Purchase implements Serializable {
 		return serialVersionUID;
 	}
 
+
+	/**
+	 * H6 C3b — the bill's ACCOUNTING day: bill_date, or (a row saved before V81 ran, or with no date) the business day
+	 * of {@code dated}. Every accounting reader uses this. Deliberately not named getX — not a mapped/serialised property.
+	 */
+	public LocalDate billDay() {
+		return billDate != null ? billDate : com.myplus.common.security.time.BusinessDay.of(dated);
+	}
+
+	/** H6 C3b — every save path (11 of them) gets a bill date without having to remember it: stamp at write. */
+	@PrePersist
+	void stampBillDate() {
+		if (billDate == null) {
+			billDate = com.myplus.common.security.time.BusinessDay.of(dated != null ? dated : LocalDateTime.now());
+		}
+	}
 }

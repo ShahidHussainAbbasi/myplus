@@ -824,7 +824,7 @@ public class SellController {
 			if (settingsService.getBool("pos.document.qrEnabled")) {
 				java.util.Map<String, String> qrValues = new java.util.HashMap<>();
 				qrValues.put("invoiceNo", nzs(ch.getInvoiceNo()));
-				qrValues.put("date", ch.getDated() != null ? ch.getDated().toLocalDate().toString() : "");
+				qrValues.put("date", ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()).toString() : "");
 				qrValues.put("time", ch.getDated() != null ? ch.getDated().toLocalTime().withNano(0).toString() : "");
 				qrValues.put("total", ch.getGrandTotal() != null ? ch.getGrandTotal().toPlainString() : "");
 				qrValues.put("tax", ch.getTaxTotal() != null ? ch.getTaxTotal().toPlainString() : "");
@@ -935,15 +935,16 @@ public class SellController {
 
 	        if(period != com.myplus.business_service.dto.SaleReportPeriod.CUSTOM) {
 	        	java.time.LocalDateTime[] range = period.range(TenantClock.today());
-	        	objs = sellService.findSellByDates(range[0], range[1], user.getOrganizationId(), user.getUserId());
+	        	// H6 C3: the period is the BUSINESS's days; the data is UTC
+	        	objs = sellService.findSellByDates(com.myplus.common.security.time.BusinessDay.fromBusinessTime(range[0]), com.myplus.common.security.time.BusinessDay.fromBusinessTime(range[1]), user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd && hasEd) {
 	        	// The end date is INCLUSIVE of its day — see AppUtil.endOfDay. Without this, picking the same day
 	        	// for both ends returned nothing at all.
-	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
+	        	objs = sellService.findSellByDates(appUtil.getDateTime(dto.getSd()), appUtil.getEndOfDayUtc(dto.getEd()), user.getOrganizationId(), user.getUserId());
 	        }else if(hasSd) {
 	        	objs = sellService.findSellByStartDate(appUtil.getDateTime(dto.getSd()), user.getOrganizationId(), user.getUserId());
 	        }else if(hasEd) {
-	        	objs = sellService.findSellByEndDate(appUtil.endOfDay(appUtil.getDateTime(dto.getEd())), user.getOrganizationId(), user.getUserId());
+	        	objs = sellService.findSellByEndDate(appUtil.getEndOfDayUtc(dto.getEd()), user.getOrganizationId(), user.getUserId());
 	        }
 
 	        if(objs == null) {
@@ -951,7 +952,7 @@ public class SellController {
 	            // reporting an empty shop — the same period an operator gets when they ask for nothing.
 	            java.time.LocalDateTime[] fallback =
 	                    com.myplus.business_service.dto.SaleReportPeriod.DEFAULT.range(TenantClock.today());
-	            objs = sellService.findSellByDates(fallback[0], fallback[1],
+	            objs = sellService.findSellByDates(com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[0]), com.myplus.common.security.time.BusinessDay.fromBusinessTime(fallback[1]),   // H6 C3
 	                    user.getOrganizationId(), user.getUserId());
 	        }
 	        
@@ -1436,7 +1437,7 @@ public class SellController {
 					.anyMatch(p -> p.getMethod() == com.myplus.business_service.entity.PaymentMethod.STORE_CREDIT))
 				return new GenericResponse("FAILED", "This sale was paid with store credit — void it and re-enter to change it.");
 			// Period close: an edit rewrites the ORIGINAL invoice in place, so it must fall in an open period.
-			periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
+			periodLockGuard.assertOpen(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : TenantClock.today());
 
 			// 1) Net stock change per stock_id = (old sold qty given back) − (new sold qty taken).
 			List<Sell> oldLines = sellService.findByInvoiceScoped(chId, orgId(), userId());
@@ -2267,8 +2268,9 @@ public class SellController {
 			 */
 			java.time.LocalDate fromD = appUtil.toLocalDateOrNull(fromStr);
 			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
-			java.time.LocalDateTime from = fromD == null ? null : fromD.atStartOfDay();
-			java.time.LocalDateTime to = toD == null ? null : appUtil.endOfDay(toD.atStartOfDay());
+			// H6 C3: the BUSINESS's days as UTC bounds (end of day taken in the business zone, then converted)
+			java.time.LocalDateTime from = com.myplus.common.security.time.BusinessDay.start(fromD);
+			java.time.LocalDateTime to = com.myplus.common.security.time.BusinessDay.end(toD);
 
 			java.util.List<com.myplus.business_service.entity.SaleReturn> rows =
 					saleReturnRepo.findScopedFiltered(orgId(), userId(), fProduct, from, to);
@@ -2373,7 +2375,7 @@ public class SellController {
 				.documentType("CREDIT_NOTE")
 				.documentNo(r.getCreditNoteNo())
 				.referenceNo(r.getInvoiceNo())
-				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.dated(r.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(r.getDated()).toString() : null)
 				.partyName(customerName)
 				.reason(r.getReason())
 				.totalAmount(r.getCreditAmount())

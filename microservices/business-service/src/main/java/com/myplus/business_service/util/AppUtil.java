@@ -151,7 +151,7 @@ public class AppUtil {
     	if(StringUtils.isEmpty(dateTimeStr))
     		return LocalDateTime.now();
     	LocalDateTime dateTime = LocalDateTime.parse(dateTimeStr, dateTimeFormatter);
-    	return com.myplus.common.security.time.RenderZone.fromDisplay(dateTime);   // TZ-1: typed in business time → UTC
+    	return com.myplus.common.security.time.BusinessDay.fromBusinessTime(dateTime);   // H6 C3: a report bound is the business's wall time → UTC
     }
    	//Get current date
     public LocalDate getLocalDate(String dateStr) throws ParseException {
@@ -407,7 +407,7 @@ public class AppUtil {
      * and sales count silently under-reported for the same reason.
      */
     public LocalDateTime firstDateTimeOfMonth() {
-    	return TenantClock.today().withDayOfMonth(1).atStartOfDay();
+    	return com.myplus.common.security.time.BusinessDay.start(TenantClock.today().withDayOfMonth(1));   // H6 C3: the business's month start, in UTC
     }
     
     /**
@@ -421,6 +421,16 @@ public class AppUtil {
      * A caller that genuinely supplied a time keeps it — only a midnight value (a date-only pick) is rolled,
      * so "up to 09:00" still means 09:00.
      */
+    /**
+     * H6 C3 — the END bound of a report typed as "dd-MM-yyyy HH:mm:ss": the end of the BUSINESS's day, in UTC.
+     * ⚠ Ends the day BEFORE converting. endOfDay(getDateTime(ed)) converted first: 11-10 00:00 Karachi became
+     * 10-10 19:00 UTC, not midnight, so endOfDay left it there and a same-day report returned nothing.
+     */
+    public LocalDateTime getEndOfDayUtc(String dateTimeStr) throws ParseException {
+        if (StringUtils.isEmpty(dateTimeStr)) return LocalDateTime.now();
+        return com.myplus.common.security.time.BusinessDay.fromBusinessTime(endOfDay(LocalDateTime.parse(dateTimeStr, dateTimeFormatter)));
+    }
+
     public LocalDateTime endOfDay(LocalDateTime dt) {
         if (dt == null) return null;
         return dt.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)
@@ -436,7 +446,7 @@ public class AppUtil {
      */
     public LocalDateTime lastDateTimeOfMonth() {
     	LocalDate today = TenantClock.today();
-    	return today.withDayOfMonth(today.lengthOfMonth()).atTime(java.time.LocalTime.MAX);
+    	return com.myplus.common.security.time.BusinessDay.end(today.withDayOfMonth(today.lengthOfMonth()));   // H6 C3: the business's month end, in UTC
     }
 
     public LocalDate firstDateOfMonth() {

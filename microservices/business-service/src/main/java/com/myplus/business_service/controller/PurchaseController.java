@@ -352,7 +352,7 @@ public class PurchaseController {
 				.documentType("DEBIT_NOTE")
 				.documentNo(r.getDebitNoteNo())
 				.referenceNo(r.getPurchaseInvoiceNo())
-				.dated(r.getDated() != null ? r.getDated().toLocalDate().toString() : null)
+				.dated(r.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(r.getDated()).toString() : null)
 				.partyName(venderName)
 				.reason(r.getReason())
 				.totalAmount(r.getAmount())
@@ -416,8 +416,8 @@ public class PurchaseController {
 			java.time.LocalDate toD = appUtil.toLocalDateOrNull(toStr);
 			List<com.myplus.business_service.entity.PurchaseReturn> rows =
 					purchaseReturnRepo.findDebitNotesFiltered(orgId(), userId(), venderId, productId,
-							fromD == null ? null : fromD.atStartOfDay(),
-							toD == null ? null : appUtil.endOfDay(toD.atStartOfDay()));
+							com.myplus.common.security.time.BusinessDay.start(fromD),   // H6 C3: the business's days
+							com.myplus.common.security.time.BusinessDay.end(toD));
 
 			java.util.Map<Long, com.myplus.commerce.contracts.dto.ProductRef> productById = productRefs(
 					rows.stream().map(com.myplus.business_service.entity.PurchaseReturn::getProductId)

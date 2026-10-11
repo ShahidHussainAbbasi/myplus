@@ -260,7 +260,7 @@ public class OpeningBalanceService {
         // The document is changed IN PLACE (zeroed and stamped), so the period it is dated in — the cutover —
         // must still be open. Same rule, same guard as a voided sale (SaleVoidService).
         if (periodLockGuard != null)
-            periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
+            periodLockGuard.assertOpen(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : TenantClock.today());
 
         BigDecimal reversed = applyReversal(ch, userId, reason, LocalDateTime.now());
         customerHistoryRepo.save(ch);

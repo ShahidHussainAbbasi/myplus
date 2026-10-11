@@ -58,16 +58,26 @@ public class CommonSecurityAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    // TZ-1: OFF until P1 lands with its gate — until then the web layer's JSON converter is exactly Spring's.
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.tz.render-zone.enabled", havingValue = "true")
+    /*
+     * H6 C2 (docs/hms-phase1-design.md §4k) — ON by default, its own switch. It only holds the viewer's zone for the
+     * request; what USES it is the server-formatted text (displayDateTime / getDateTimeStr) and typed input. JSON
+     * stays UTC: the browser converts it (datetime.js). Kill switch: app.tz.render-text.enabled=false.
+     */
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.tz.render-text.enabled", havingValue = "true", matchIfMissing = true)
     public com.myplus.common.security.time.RenderZoneFilter renderZoneFilter() {
         return new com.myplus.common.security.time.RenderZoneFilter();
     }
 
-    /** TZ-1 — UTC ⇄ render zone for LocalDateTime, in the WEB LAYER's JSON converter only. */
+    /**
+     * TZ-1 — UTC ⇄ render zone for LocalDateTime, in the WEB LAYER's JSON converter only.
+     *
+     * <p>⚠ MUST STAY OFF (H6, client ruling 2026-10-11). Since H6 the browser converts every JSON instant itself
+     * (datetime.js reads zone-less as UTC); converting here as well sends viewer-local time zone-less and the
+     * browser shifts it AGAIN — 10:36 Karachi shown as 15:36. Kept only so the property cannot silently mean
+     * something else; do not enable it.
+     */
     @Bean
     @ConditionalOnMissingBean
-    // TZ-1: OFF until P1 lands with its gate — until then the web layer's JSON converter is exactly Spring's.
     @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "app.tz.render-zone.enabled", havingValue = "true")
     public com.myplus.common.security.time.RenderZoneWebConfig renderZoneWebConfig() {
         return new com.myplus.common.security.time.RenderZoneWebConfig();

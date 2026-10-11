@@ -36,7 +36,7 @@ public class InternalDrawerHistoryController {
         Long org = CurrentUser.organizationId();
         if (org == null) return List.of();
         return movements.payoutsWithoutExpense(org, PageRequest.of(0, MAX_ROWS)).stream()
-                .map(m -> new DrawerPayoutView(m.getId(), m.getDated() == null ? null : m.getDated().toLocalDate(),
+                .map(m -> new DrawerPayoutView(m.getId(), m.getDated() == null ? null : com.myplus.common.security.time.BusinessDay.of(m.getDated()),
                         m.getAmount(), m.getReason(), m.getStoreId()))
                 .toList();
     }

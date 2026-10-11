@@ -38,8 +38,9 @@ public class TaxBreakdownService {
         Long user = u != null ? u.getUserId() : null;
         LocalDate fromD = from != null ? from : TenantClock.today().withDayOfMonth(1);
         LocalDate toD = to != null ? to : TenantClock.today();
-        LocalDateTime f = fromD.atStartOfDay();
-        LocalDateTime t = toD.atTime(23, 59, 59);
+        // H6 C3: the BUSINESS's days as UTC bounds
+        LocalDateTime f = com.myplus.common.security.time.BusinessDay.start(fromD);
+        LocalDateTime t = com.myplus.common.security.time.BusinessDay.end(toD);
 
         // rate -> [outputTaxable, outputTax, inputTaxable, inputTax]. TreeMap → rows sorted by rate ascending.
         Map<BigDecimal, BigDecimal[]> byRate = new TreeMap<>();

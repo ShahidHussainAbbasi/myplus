@@ -736,7 +736,7 @@ public class PurchaseService implements IPurchaseService{
 				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + dto.getPurchaseId()));
 		assertEditable(existing);
 		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
-		periodLockGuard.assertOpen(existing.getDated() != null ? existing.getDated().toLocalDate() : TenantClock.today());
+		periodLockGuard.assertOpen(existing.billDay() != null ? existing.billDay() : TenantClock.today());   // H6 C3b
 
 		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
 		Long oldProductId = existing.getProductId();
@@ -1053,7 +1053,7 @@ public class PurchaseService implements IPurchaseService{
 		if ("VOID".equals(p.getStatus()))
 			throw new BusinessRuleException("This bill is already voided.");
 		// Period close: a void reverses the ORIGINAL bill in place, so its period must still be open.
-		periodLockGuard.assertOpen(p.getDated() != null ? p.getDated().toLocalDate() : TenantClock.today());
+		periodLockGuard.assertOpen(p.billDay() != null ? p.billDay() : TenantClock.today());   // H6 C3b
 		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
 		if (qty <= 0f)
 			throw new BusinessRuleException("Nothing to void on this bill.");

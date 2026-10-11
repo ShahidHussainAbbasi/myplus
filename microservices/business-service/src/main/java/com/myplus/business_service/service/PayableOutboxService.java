@@ -61,8 +61,14 @@ public class PayableOutboxService {
     private static final Logger LOG = LoggerFactory.getLogger(PayableOutboxService.class);
     private static final String TX_KEY = PayableOutboxService.class.getName() + ".changed";
     static final int BACKFILL_BATCH = 200;
-    /** FP-4a — the snapshot generation the backfill replays: 2 = with the statement trail (issued amount, debit notes). */
-    static final int GENERATION = 2;
+    /**
+     * FP-4a — the snapshot generation the backfill replays: 2 = with the statement trail (issued amount, debit notes).
+     * 3 = H6 C3c (client ruling 2026-10-11, "correct automatically"): every bill and debit note re-sent with its
+     * BUSINESS-day date. Before, docDate / noteDate were the UTC day, so a bill recorded 00:00–05:00 Karachi was held in
+     * finance one day early (DEV: 41 bills). Raising the generation makes the deploy replay each tenant once —
+     * idempotent (finance upserts by source ref under its version guard), amounts unchanged, logged per tenant.
+     */
+    static final int GENERATION = 3;
     /** payable_outbox.payload is VARCHAR(8000) (V73). */
     static final int MAX_PAYLOAD = 8000;
 
@@ -216,7 +222,7 @@ public class PayableOutboxService {
                 .sourceVersion(System.currentTimeMillis())
                 .partyType("VENDOR").partyId(p.getVenderId())
                 .docNo(p.getPurchaseInvoiceNo())
-                .docDate(p.getDated() == null ? null : p.getDated().toLocalDate())
+                .docDate(p.billDay())   // H6 C3b: the bill's date, not the UTC day it was recorded
                 .amount(paid.subtract(due).abs())
                 .paid(paid)
                 .voided("VOID".equalsIgnoreCase(p.getStatus()))
@@ -327,7 +333,7 @@ public class PayableOutboxService {
     static PayableNote note(String noteNo, String invoiceNo, LocalDateTime dated, java.math.BigDecimal amount) {
         return PayableNote.builder()
                 .noteNo(noteNo != null ? noteNo : invoiceNo)
-                .noteDate(dated == null ? null : dated.toLocalDate())
+                .noteDate(dated == null ? null : com.myplus.common.security.time.BusinessDay.of(dated))
                 .amount(amount == null ? java.math.BigDecimal.ZERO : amount)
                 .build();
     }

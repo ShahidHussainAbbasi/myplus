@@ -143,7 +143,7 @@ public class SaleVoidService {
             }
         }
 
-        periodLockGuard.assertOpen(ch.getDated() != null ? ch.getDated().toLocalDate() : TenantClock.today());
+        periodLockGuard.assertOpen(ch.getDated() != null ? com.myplus.common.security.time.BusinessDay.of(ch.getDated()) : TenantClock.today());
 
         Long chId = ch.getCustomer_history_id();
         List<Sell> lines = sellService.findByInvoiceScoped(chId, orgId, userId);
