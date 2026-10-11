@@ -28,14 +28,6 @@ public class CouponService {
 
     private final CouponRepository repo;
 
-    /**
-     * H6-C — the zone the SHOP typed its coupon window in. Until a per-business time-zone setting exists this is the
-     * platform's business zone ({@code app.tz.default-zone}, Asia/Karachi). Not the viewer's zone: a storefront
-     * customer abroad must not move when the shop's coupon starts or ends.
-     */
-    @org.springframework.beans.factory.annotation.Value("${app.tz.default-zone:Asia/Karachi}")
-    String businessZone = "Asia/Karachi";
-
     /** The clock (UTC instant source); a test fixes it. */
     java.time.Clock clock = java.time.Clock.systemUTC();
 
@@ -61,7 +53,10 @@ public class CouponService {
                 .organizationId(orgId).code(code).type(type).value(dto.getValue())
                 .minSpend(dto.getMinSpend())
                 .active(dto.getActive() == null ? Boolean.TRUE : dto.getActive())
-                .startsAt(dto.getStartsAt()).endsAt(dto.getEndsAt())
+                // H6 C4: the window is TYPED in the business's zone (Shopify: discount dates are in the store's zone)
+                // and stored as the UTC instant, like every other time. V35 moved the windows typed before this.
+                .startsAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getStartsAt()))
+                .endsAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getEndsAt()))
                 .usageLimit(dto.getUsageLimit()).usedCount(0)
                 .build();
         return toDTO(repo.save(c));
@@ -81,11 +76,10 @@ public class CouponService {
         if (c == null) return CouponResult.invalid(norm, "Invalid coupon code");
         if (!Boolean.TRUE.equals(c.getActive())) return CouponResult.invalid(norm, "This coupon is not active");
 
-        // H6-C ⚠ MONEY: the window is the shop's LOCAL wall time (typed in a datetime field, stored as typed). It was
-        // compared with LocalDateTime.now() — UTC in the container — so in Pakistan a coupon started 5 h late and kept
-        // discounting 5 h after it ended. Compared in the shop's zone. When H6 stores typed times as true UTC (and
-        // repairs these rows), this comparison moves to UTC with it — see docs/hms-phase1-design.md §4i.
-        LocalDateTime now = LocalDateTime.now(clock.withZone(java.time.ZoneId.of(businessZone)));
+        // H6-C ⚠ MONEY → H6 C4: the window is stored as UTC (typed in the business's zone, converted on save), so it is
+        // compared with the UTC clock. Before H6-C it was a local wall time compared with UTC — a Pakistan coupon
+        // started 5 h late and kept discounting 5 h after its end.
+        LocalDateTime now = LocalDateTime.now(clock);
         if (c.getStartsAt() != null && now.isBefore(c.getStartsAt())) return CouponResult.invalid(norm, "This coupon is not yet valid");
         if (c.getEndsAt() != null && now.isAfter(c.getEndsAt())) return CouponResult.invalid(norm, "This coupon has expired");
         if (c.getUsageLimit() != null && c.getUsedCount() != null && c.getUsedCount() >= c.getUsageLimit())

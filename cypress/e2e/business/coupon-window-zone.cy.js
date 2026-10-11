@@ -7,7 +7,7 @@
  * "ended an hour ago" still discounted. The shop's "now" is computed here from the real clock in Asia/Karachi
  * (Intl), independently of the server.
  *
- * Server state: two coupons per run (unique codes) on the marketplace demo; no order is placed (quotes only). There is no
+ * Server state: three coupons per run (unique codes) on the marketplace demo; no order is placed (quotes only). There is no
  * delete for a coupon, so each one cleans up by itself: C-01's ends an hour after it starts, C-02's has already ended.
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/business/coupon-window-zone.cy.js"
@@ -52,6 +52,24 @@ describe('H6-C — a coupon window is the shop\'s local time', () => {
     quote(code).then((q) => {
       expect(q.couponMessage || q.message || null, JSON.stringify(q)).to.not.match(/not yet valid/i)
       expect(Number(q.discount), 'old code: "not yet valid" for 5 more hours').to.eq(2)   // 10% of 20
+    })
+  })
+
+  it('C-03 [H6 C4] the window typed in shop time is held as the UTC instant', () => {
+    // C4: typed in the business's zone, stored as UTC like every other time — 10:30 Karachi is held as 05:30.
+    // RED on the code before C4: the window came back exactly as typed.
+    const code = 'TZUTC' + tag
+    const typed = karachi(2)                                    // "yyyy-MM-ddTHH:mm", shop wall time
+    cy.request({ method: 'POST', url: '/addCoupon', headers: { 'Content-Type': 'application/json' },
+      body: { code, type: 'PERCENT', value: 10, startsAt: typed, endsAt: karachi(3) } }).its('body.success').should('eq', true)
+    cy.request('/getCoupons').its('body').then((b) => {
+      const list = b.data || b.collection || b
+      const c = (Array.isArray(list) ? list : []).find((x) => x.code === code)
+      expect(c, 'the new coupon in the list').to.exist
+      // expected: the typed wall time read in Asia/Karachi (UTC+5, no DST), as UTC — computed here
+      const [d, hm] = typed.split('T'); const [y, mo, da] = d.split('-').map(Number); const [h, mi] = hm.split(':').map(Number)
+      const utc = new Date(Date.UTC(y, mo - 1, da, h - 5, mi)).toISOString().slice(0, 16)
+      expect(String(c.startsAt).slice(0, 16), `typed ${typed} Karachi`).to.eq(utc)
     })
   })
 

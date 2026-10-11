@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import com.myplus.marketplace.dto.CouponDTO;
 import com.myplus.marketplace.entity.Coupon;
 import com.myplus.marketplace.repository.CouponRepository;
 
@@ -95,12 +96,12 @@ class CouponServiceTest {
         assertThat(r.code()).isNull();
         assertThat(r.message()).isNull();
     }
-    // ── H6-C ⚠ MONEY: the window is the shop's local time, compared in the shop's zone (not UTC) ─────────────
+    // ── H6-C ⚠ MONEY / H6 C4: the window is typed in the shop's zone, STORED as UTC, compared with the UTC clock ──
 
     /** 06:00 UTC = 11:00 in Karachi. */
     private void at0600Utc() {
         service.clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-11T06:00:00Z"), java.time.ZoneOffset.UTC);
-        service.businessZone = "Asia/Karachi";
+        com.myplus.common.security.time.TenantClock.configureDefaultZone("Asia/Karachi");
     }
 
     @Test
@@ -108,7 +109,7 @@ class CouponServiceTest {
         // before H6-C: compared with UTC 06:00 — "not ended yet" — and it kept discounting until 15:30 Karachi
         at0600Utc();
         Coupon c = coupon("PERCENT", "10");
-        c.setEndsAt(java.time.LocalDateTime.parse("2026-10-11T10:30:00"));
+        c.setEndsAt(java.time.LocalDateTime.parse("2026-10-11T05:30:00"));   // stored UTC = 10:30 Karachi
         when(repo.findByOrganizationIdAndCode(ORG, "SAVE")).thenReturn(Optional.of(c));
         var r = service.validateAndCompute(ORG, "SAVE", new BigDecimal("100.00"));
         assertThat(r.discount()).isEqualByComparingTo("0");
@@ -120,10 +121,29 @@ class CouponServiceTest {
         // before H6-C: compared with UTC 06:00 — "not yet valid" until 15:30 Karachi
         at0600Utc();
         Coupon c = coupon("PERCENT", "10");
-        c.setStartsAt(java.time.LocalDateTime.parse("2026-10-11T10:30:00"));
+        c.setStartsAt(java.time.LocalDateTime.parse("2026-10-11T05:30:00"));   // stored UTC = 10:30 Karachi
         when(repo.findByOrganizationIdAndCode(ORG, "SAVE")).thenReturn(Optional.of(c));
         var r = service.validateAndCompute(ORG, "SAVE", new BigDecimal("100.00"));
         assertThat(r.discount()).isEqualByComparingTo("10.00");
         assertThat(r.message()).isNull();
+    }
+
+    @Test
+    void a_window_typed_in_the_shops_zone_is_stored_as_the_utc_instant() {
+        // H6 C4: the form sends the shop's wall time (10:30 Karachi); the coupon holds 05:30 UTC
+        com.myplus.common.security.time.TenantClock.configureDefaultZone("Asia/Karachi");
+        when(repo.findByOrganizationIdAndCode(ORG, "WIN")).thenReturn(Optional.empty());
+        when(repo.save(org.mockito.ArgumentMatchers.any(Coupon.class))).thenAnswer(inv -> inv.getArgument(0));
+        CouponDTO dto = new CouponDTO();
+        dto.setCode("win");
+        dto.setType("PERCENT");
+        dto.setValue(new BigDecimal("10"));
+        dto.setStartsAt(java.time.LocalDateTime.parse("2026-10-11T10:30:00"));
+        dto.setEndsAt(java.time.LocalDateTime.parse("2026-10-11T12:00:00"));
+        org.mockito.ArgumentCaptor<Coupon> saved = org.mockito.ArgumentCaptor.forClass(Coupon.class);
+        service.create(dto, ORG);
+        org.mockito.Mockito.verify(repo).save(saved.capture());
+        assertThat(saved.getValue().getStartsAt()).isEqualTo(java.time.LocalDateTime.parse("2026-10-11T05:30:00"));
+        assertThat(saved.getValue().getEndsAt()).isEqualTo(java.time.LocalDateTime.parse("2026-10-11T07:00:00"));
     }
 }

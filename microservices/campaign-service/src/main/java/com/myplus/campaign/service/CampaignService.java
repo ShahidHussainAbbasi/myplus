@@ -28,6 +28,7 @@ public class CampaignService {
         c.setId(null);
         c.setCreatedBy(userId);
         c.setOrganizationId(CurrentUser.organizationId());   // tenant scope — from the caller's JWT
+        c.setScheduledAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getScheduledAt()));   // H6 C4: typed in the business's zone → UTC
         if (c.getStatus() == null) c.setStatus(Campaign.Status.DRAFT);
         return toDto(campaignRepository.save(c));
     }
@@ -40,7 +41,11 @@ public class CampaignService {
         existing.setSubject(dto.getSubject());
         existing.setContent(dto.getContent());
         existing.setTemplateId(dto.getTemplateId());
-        existing.setScheduledAt(dto.getScheduledAt());
+        // H6 C4: a schedule TYPED in the business's zone is stored as UTC. A client that sends back the value it read
+        // (already UTC) must not shift it again on every save — only a changed value is a typed one.
+        if (dto.getScheduledAt() == null || !dto.getScheduledAt().equals(existing.getScheduledAt())) {
+            existing.setScheduledAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(dto.getScheduledAt()));
+        }
         existing.setBudget(dto.getBudget());
         return toDto(campaignRepository.save(existing));
     }
@@ -85,7 +90,7 @@ public class CampaignService {
     public CampaignDTO scheduleCampaign(Long id, LocalDateTime scheduledAt) {
         Campaign c = findOrThrow(id);
         c.setStatus(Campaign.Status.SCHEDULED);
-        c.setScheduledAt(scheduledAt);
+        c.setScheduledAt(com.myplus.common.security.time.BusinessDay.fromBusinessTime(scheduledAt));   // H6 C4: typed in the business's zone → UTC
         return toDto(campaignRepository.save(c));
     }
 
