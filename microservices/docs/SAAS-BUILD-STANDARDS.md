@@ -107,6 +107,23 @@ it does not run it.
 Broken on 2026-10-09 (HMS S1): Maven tests and installs were run unasked, then a one-word "continue" was taken as
 permission to run `deploy.ps1` for six services after the user had said they would deploy themselves.
 
+**Restated 2026-10-11 — "always ask me for build and deploy".** Every change that needs a build or a deploy ends
+with an explicit ASK, never with the assistant doing it and never with silence:
+
+1. **Ask, every time, as a question** — name each service (and the monolith) that must be rebuilt, in the order it
+   must go live (e.g. auth-service → wait 15 min → pharma-service), with the exact command for each.
+2. **Do not assume the deploy happened** because the user answered "deployed". Before running anything against it,
+   **verify the live artefact**: the container's start time (`docker ps`) is AFTER the change, and the live file or
+   endpoint shows the change (e.g. `curl -s localhost:8080/js/<file>.js | grep -c <new symbol>`).
+3. **If it is not live, say so and ask again** with the likely cause (other stack on the port; stale `target/classes`)
+   — do not run the gate, and never "help" by building or restarting it yourself.
+4. A **red run** that must fail on the OLD code is run only after confirming the old code is still live (the same
+   check), and the deploy is requested only AFTER the red run is captured.
+
+Why: on 2026-10-11 two planned red runs were voided because the stack had already been redeployed, and a "deployed,
+run it" arrived while the container was still the 2-hour-old one — running the gate then would have reported the
+old code as the new.
+
 ---
 
 ### 0. NEVER ASSUME. REVIEW 100% END TO END.
