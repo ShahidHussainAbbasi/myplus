@@ -75,7 +75,7 @@ class FlywayMigrationTest {
                         + "ORDER BY installed_rank", String.class);
         // If a later migration is added without being listed here, this is the reminder to prove it too.
         // V7 (org_setting) was never listed here — this test was already red before HMS S4-lite added V8.
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
     }
 
     @Test
@@ -91,6 +91,22 @@ class FlywayMigrationTest {
             assertThat(hasColumn("prescriptions", c)).as("column %s", c).isTrue();
         }
         assertThat(hasIndex("prescriptions", "uq_rx_external_ref")).isTrue();
+    }
+
+    @Test
+    void v10_keeps_every_change_the_pharmacy_makes() {
+        // HMS H3b: who, when, why and the lines before -> after (the doctor's original is never lost)
+        for (String c : List.of("kind", "reason", "changes", "amended_by", "amended_at")) {
+            assertThat(hasColumn("prescription_amendment", c)).as("column %s", c).isTrue();
+        }
+        assertThat(hasIndex("prescription_amendment", "idx_rx_amendment")).isTrue();
+    }
+
+    @Test
+    void v11_routes_a_prescription_to_a_branch() {
+        // HMS H4: the pharmacy branch (business store); NULL = every branch
+        assertThat(hasColumn("prescriptions", "store_id")).isTrue();
+        assertThat(hasIndex("prescriptions", "idx_rx_org_store")).isTrue();
     }
 
     @Test

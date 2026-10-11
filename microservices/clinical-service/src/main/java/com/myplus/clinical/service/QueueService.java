@@ -63,6 +63,7 @@ public class QueueService {
     private final ClinicAccess access;
     private final ClinicSettings settings;
     private final ClinicAuditService audit;
+    private final com.myplus.clinical.config.BranchClient branches;   // H4
 
     /** S3a — the moves only a doctor makes (clinic.consult). Reception: issue, cancel, noShow. */
     static final java.util.Set<String> DOCTOR_MOVES = java.util.Set.of("call", "recall", "start", "park", "resume", "complete");
@@ -80,6 +81,8 @@ public class QueueService {
                 .collect(Collectors.toMap(ClinicProvider::getProviderId, ClinicProvider::getTokenPrefix));
         Map<Long, Long> linked = rows.stream().filter(r -> r.getUserId() != null)
                 .collect(Collectors.toMap(ClinicProvider::getProviderId, ClinicProvider::getUserId));
+        Map<Long, Long> branch = rows.stream().filter(r -> r.getStoreId() != null)
+                .collect(Collectors.toMap(ClinicProvider::getProviderId, ClinicProvider::getStoreId));
         Map<Long, ProviderDay> changes = days.findByOrganizationIdAndVisitDate(org, today).stream()
                 .collect(Collectors.toMap(ProviderDay::getProviderId, Function.identity()));
         Map<Long, List<QueueToken>> byDoctor = tokens.board(org, today).stream()
@@ -97,6 +100,7 @@ public class QueueService {
                     .waitingNow(mine.stream().filter(t -> QueueStatus.WAITING.equals(t.getStatus())).count())
                     .withDoctorNow(mine.stream().filter(t -> QueueStatus.WITH_DOCTOR.contains(t.getStatus())).count())
                     .linkedUserId(linked.get(d.getId()))
+                    .pharmacyStoreId(branch.get(d.getId()))
                     .build();
         }).sorted(Comparator.comparing(DoctorView::getName, String.CASE_INSENSITIVE_ORDER)).toList();
     }
@@ -190,6 +194,55 @@ public class QueueService {
         return doctors().stream().filter(v -> v.getId().equals(d.getId())).findFirst().orElseThrow();
     }
 
+    /**
+     * H4 (ruling L-4) — the owner / an admin links a doctor to a pharmacy branch: the doctor's prescriptions are
+     * routed there. The branch must be one of THIS business's stores (business-service, read with the caller's
+     * identity — another business's store id is refused, never stored). null = not routed.
+     */
+    public DoctorView setPharmacy(Long providerId, Long storeId) {
+        access.assertModuleOn();
+        access.assertClinicAdmin();
+        Long org = access.org();
+        Doctor d = doctorOf(providerId);
+        if (storeId != null && !branchIds().contains(storeId)) {
+            throw new ValidationException("That pharmacy branch is not one of this business's stores.");
+        }
+        prefixFor(org, d.getId());
+        ClinicProvider row = prefixes.findByOrganizationIdAndProviderId(org, d.getId()).orElseThrow();
+        row.setStoreId(storeId);
+        prefixes.saveAndFlush(row);
+        audit.record(AuditRecord.builder().action("CLINIC_DOCTOR_PHARMACY").entityType("PROVIDER")
+                .entityRef(String.valueOf(d.getId())).details(storeId == null ? "not routed" : "routed to store " + storeId).build());
+        return doctors().stream().filter(v -> v.getId().equals(d.getId())).findFirst().orElseThrow();
+    }
+
+    /** H4 — the branch a doctor's prescriptions go to (null = every branch). */
+    public Long pharmacyOf(Long providerId) {
+        if (providerId == null) return null;
+        return prefixes.findByOrganizationIdAndProviderId(access.org(), providerId).map(ClinicProvider::getStoreId).orElse(null);
+    }
+
+    @SuppressWarnings("unchecked")
+    private java.util.Set<Long> branchIds() {
+        Map<String, Object> r;
+        try {
+            r = branches.stores();
+        } catch (org.springframework.web.client.RestClientException down) {
+            throw new ValidationException("The pharmacy branches could not be checked right now. Try again in a moment.");
+        }
+        Object list = r == null ? null : (r.get("object") instanceof List ? r.get("object")
+                : r.get("collection") instanceof List ? r.get("collection") : r.get("data"));
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        if (list instanceof List<?> l) {
+            for (Object o : l) {
+                if (o instanceof Map<?, ?> m && m.get("id") != null) {
+                    try { ids.add(Long.valueOf(String.valueOf(m.get("id")))); } catch (NumberFormatException ignored) { }
+                }
+            }
+        }
+        return ids;
+    }
+
     /** "Which doctor am I" — My Queue opens on it and hides the doctor picker. */
     public MeView me() {
         access.assertModuleOn();
@@ -215,6 +268,12 @@ public class QueueService {
         prefixes.findByOrganizationIdAndUserId(org, userId)
                 .filter(r -> providerId == null || !r.getProviderId().equals(providerId))
                 .ifPresent(r -> { throw new ValidationException("That login is already linked to another doctor of this clinic."); });
+    }
+
+    /** H3c — the name of a doctor of this clinic (the directory read the Doctors screen uses); null when unknown. */
+    public String doctorName(Long providerId) {
+        if (providerId == null) return null;
+        return directoryDoctors().stream().filter(d -> providerId.equals(d.getId())).map(Doctor::getName).findFirst().orElse(null);
     }
 
     /** One day's change: another limit, closed, or back to the usual. */

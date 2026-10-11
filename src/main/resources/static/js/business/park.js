@@ -68,7 +68,7 @@
             var $b = $('#parkedBody').empty();
             $('#parkedEmpty').toggle(list.length === 0);
             list.forEach(function (p) {
-                var at = String(p.parkedAt || '').replace('T', ' ').substring(0, 16);
+                var at = fmtDateTime(p.parkedAt);   // H6: the viewer's zone
                 var tr = $('<tr>');
                 tr.append($('<td>').text(p.label || ''));
                 tr.append($('<td>').text(p.itemCount != null ? p.itemCount : ''));

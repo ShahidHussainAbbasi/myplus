@@ -185,6 +185,13 @@ public class ClinicController {
         return call(() -> clinic.send(HttpMethod.POST, "/consult/encounters/" + id + "/complete", null));
     }
 
+    /** H3c — the pharmacy's copy of the visit's prescription and every change it made. */
+    @GetMapping(value = "/clinic/consult/encounters/{id}/rx/pharmacy", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> consultRxPharmacy(@PathVariable Long id) {
+        return call(() -> clinic.get("/consult/encounters/" + id + "/rx/pharmacy"));
+    }
+
     // ── S3b-1: the doctor's prescription ──────────────────────────────────────────────────────────────────────
 
     @PutMapping(value = "/clinic/consult/encounters/{id}/rx", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -241,6 +248,7 @@ public class ClinicController {
             login.put("lastName", "");
             login.put("email", email);
             login.put("role", "USER");
+            login.put("permissionSet", "Doctor");   // H3a: a registered doctor holds clinical access only — never selling or dispensing
             Map<String, Object> made = authRest.exchange(gatewayUrl + "/api/auth/org/users", HttpMethod.POST,
                     new org.springframework.http.HttpEntity<>(login, h), Map.class).getBody();
             Object data = made == null ? null : made.get("data");
@@ -280,6 +288,13 @@ public class ClinicController {
     @ResponseBody
     public ResponseEntity<String> unlinkDoctor(@PathVariable Long id) {
         return call(() -> clinic.send(HttpMethod.POST, "/doctors/" + id + "/unlink", null));
+    }
+
+    /** H4 — the pharmacy branch (business store) a doctor's prescriptions go to; {storeId: null} = every branch. */
+    @PostMapping(value = "/clinic/doctors/{id}/pharmacy", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<String> doctorPharmacy(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return call(() -> clinic.send(HttpMethod.POST, "/doctors/" + id + "/pharmacy", body));
     }
 
     @GetMapping(value = "/clinic/doctors/me", produces = MediaType.APPLICATION_JSON_VALUE)

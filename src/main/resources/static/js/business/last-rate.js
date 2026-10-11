@@ -75,7 +75,8 @@
     /** dd MMM — short enough for a cart cell, unambiguous unlike a bare number. */
     function shortDate(iso) {
         if (!iso) return '';
-        var d = new Date(String(iso).replace(' ', 'T'));
+        // H6: a server instant (lastRateAt) in the viewer's zone; anything else read as before
+        var d = serverInstant(iso) || new Date(String(iso).replace(' ', 'T'));
         if (isNaN(d.getTime())) return '';
         var M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         return d.getDate() + ' ' + M[d.getMonth()];

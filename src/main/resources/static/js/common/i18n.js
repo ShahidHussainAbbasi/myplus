@@ -39,4 +39,19 @@
 	global.tHas = function (key) {
 		return Object.prototype.hasOwnProperty.call(DICT, key);
 	};
+
+	/**
+	 * HMS H5 — the translation of `key` when the page has one, else the `english` given at the call site; {0}, {1} …
+	 * filled from the remaining arguments either way. For screens whose words live in the script: the English stays
+	 * readable in place, and a key with no translation yet can never show itself raw (t() returns the key).
+	 * Shared by the clinic and pharmacy scripts (one helper, not one per module).
+	 */
+	global.tOr = function (key, english) {
+		var s = Object.prototype.hasOwnProperty.call(DICT, key) ? DICT[key] : english;
+		var args = Array.prototype.slice.call(arguments, 2);
+		return String(s).replace(/\{(\d+)\}/g, function (match, i) {
+			var v = args[Number(i)];
+			return (v === undefined || v === null) ? match : String(v);
+		});
+	};
 })(window);

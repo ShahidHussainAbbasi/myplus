@@ -69,6 +69,16 @@ public class QueueController {
         return ApiResponse.success(d, "Login unlinked from " + d.getName() + ".");
     }
 
+    /** H4 — the pharmacy branch this doctor's prescriptions go to (owner / admin). */
+    @PostMapping("/doctors/{id}/pharmacy")
+    public ApiResponse<DoctorView> pharmacy(@PathVariable Long id,
+                                            @RequestBody com.myplus.clinical.dto.QueueDtos.PharmacyRequest req) {
+        DoctorView d = queue.setPharmacy(id, req == null ? null : req.getStoreId());
+        return ApiResponse.success(d, d.getPharmacyStoreId() == null
+                ? d.getName() + " is not routed: the prescriptions go to every pharmacy branch."
+                : d.getName() + "'s prescriptions now go to the chosen pharmacy branch.");
+    }
+
     @GetMapping("/doctors/me")
     public ApiResponse<MeView> me() {
         return ApiResponse.success(queue.me());

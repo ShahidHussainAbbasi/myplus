@@ -43,7 +43,7 @@ class DoctorLinkTest {
 
     ClinicProviderRepo providers; QueueTokenRepo tokens; ProviderDayRepo days; TokenWriter writer;
     AppointmentDirectoryClient directory; ClinicAuditService audit;
-    ClinicAccess access; QueueService queue;
+    ClinicAccess access; QueueService queue; com.myplus.clinical.config.BranchClient branches;
 
     private static void signIn(long userId, String... authorities) {
         List<SimpleGrantedAuthority> auths = Arrays.stream(authorities).map(SimpleGrantedAuthority::new).toList();
@@ -63,8 +63,9 @@ class DoctorLinkTest {
         providers = mock(ClinicProviderRepo.class); tokens = mock(QueueTokenRepo.class); days = mock(ProviderDayRepo.class);
         writer = mock(TokenWriter.class); directory = mock(AppointmentDirectoryClient.class); audit = mock(ClinicAuditService.class);
         access = new ClinicAccess(providers);
+        branches = mock(com.myplus.clinical.config.BranchClient.class);
         queue = new QueueService(tokens, mock(PatientRepo.class), providers, days, writer, directory, access,
-                mock(ClinicSettings.class), audit);
+                mock(ClinicSettings.class), audit, branches);
         when(directory.doctors()).thenReturn(new Envelope<>(true, null, List.of(
                 Doctor.builder().id(11L).name("Dr Ahmed").build(), Doctor.builder().id(12L).name("Dr Sana").build())));
         when(providers.findByOrganizationIdAndProviderId(7L, 11L)).thenReturn(Optional.of(row(11L, "A", null)));
@@ -136,6 +137,33 @@ class DoctorLinkTest {
         signIn(300L, "ADMIN_ROLE");
         assertThatThrownBy(() -> queue.link(11L, 501L)).hasMessage("That login is already linked to another doctor of this clinic.");
         assertThatThrownBy(() -> queue.link(12L, 700L)).hasMessage("Dr Sana is linked to another login. Unlink it first.");
+    }
+
+    // ── H4: the doctor's pharmacy branch ─────────────────────────────────────────────────────────────
+
+    @Test
+    void the_owner_routes_a_doctor_to_one_of_this_businesss_branches_and_it_is_audited() {
+        signIn(1L, "ROLE_OWNER", "clinic.consult");
+        when(branches.stores()).thenReturn(java.util.Map.of("status", "SUCCESS",
+                "object", List.of(java.util.Map.of("id", 20, "name", "Main"), java.util.Map.of("id", 21, "name", "Gulshan"))));
+        queue.setPharmacy(11L, 21L);
+        verify(providers).saveAndFlush(org.mockito.ArgumentMatchers.argThat(r -> Long.valueOf(21L).equals(r.getStoreId())));
+        verify(audit).record(org.mockito.ArgumentMatchers.argThat(a -> "CLINIC_DOCTOR_PHARMACY".equals(a.getAction())));
+    }
+
+    @Test
+    void another_businesss_store_is_refused_and_nothing_is_stored() {
+        signIn(1L, "ROLE_OWNER", "clinic.consult");
+        when(branches.stores()).thenReturn(java.util.Map.of("status", "SUCCESS", "object", List.of(java.util.Map.of("id", 20))));
+        assertThatThrownBy(() -> queue.setPharmacy(11L, 999L)).hasMessage("That pharmacy branch is not one of this business's stores.");
+        verify(providers, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void only_the_owner_or_an_admin_routes_a_doctor() {
+        signIn(600L, "ROLE_BUSINESS_USER");
+        assertThatThrownBy(() -> queue.setPharmacy(11L, 20L)).isInstanceOf(AccessDeniedException.class);
+        verify(branches, never()).stores();
     }
 
     @Test

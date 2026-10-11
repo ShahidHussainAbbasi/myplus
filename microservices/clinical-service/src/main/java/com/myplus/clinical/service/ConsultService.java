@@ -259,12 +259,13 @@ public class ConsultService {
 
         PharmaRxClient.Rx rx = PharmaRxClient.Rx.builder()
                 .patientName(p.getName()).patientPhone(p.getPhone()).partyId(p.getPartyId())
-                .doctorName(t == null ? null : t.getProviderName())
+                .doctorName(prescriber(t))
                 .diagnosis(e.getChiefComplaint())
                 .notes(p.getMrn())
                 .tokenLabel(t == null ? null : t.getTokenLabel())
                 .encounterId(e.getId())
                 .externalRef("enc-" + e.getId())
+                .storeId(routeOf(t))   // H4: the prescribing doctor's pharmacy branch (null = every branch)
                 .items(lines.stream().map(l -> PharmaRxClient.Item.builder().productId(l.getProductId())
                         .medicineName(l.getMedicineName()).quantity(l.getQuantity()).dosage(l.getDosage())
                         .frequency(l.getFrequency()).duration(l.getDuration()).build()).toList())
@@ -288,6 +289,49 @@ public class ConsultService {
         encounters.saveAndFlush(e);
         audit.patient("RX_SUBMIT", p.getMrn(), "prescription " + e.getRxId() + " sent to the pharmacy, " + lines.size() + " medicine(s)");
         return open(encounterId);
+    }
+
+    /**
+     * H3c (ruling L-3) — the doctor named on the prescription is the one who SUBMITS it: the doctor this login is
+     * linked to (e.g. the owner-doctor covering another doctor's patient), else the doctor of the token.
+     */
+    private String prescriber(QueueToken t) {
+        java.util.Optional<Long> mine = access.linkedProviderId();
+        if (mine.isPresent()) {
+            String name = queue.doctorName(mine.get());
+            if (name != null) return name;
+        }
+        return t == null ? null : t.getProviderName();
+    }
+
+    /** H4 — the branch of the doctor who prescribes (the linked doctor of the login, else the token's doctor). */
+    private Long routeOf(QueueToken t) {
+        Long doctor = access.linkedProviderId().orElse(t == null ? null : t.getProviderId());
+        return queue.pharmacyOf(doctor);
+    }
+
+    /**
+     * H3c — what the pharmacy did with this visit's prescription: its status, the lines as they stand (with what was
+     * dispensed) and every change (who, when, why, before → after). Read ON DEMAND (only when the doctor looks), never
+     * on every save; if the pharmacy cannot be asked the screen says so and the visit is unaffected.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> pharmacyCopy(Long encounterId) {
+        Long org = guard();
+        Encounter e = scoped(encounterId, org);
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("rxId", e.getRxId());
+        if (e.getRxId() == null) { out.put("status", null); return out; }
+        try {
+            PharmaRxClient.Envelope rx = pharma.get(e.getRxId());
+            PharmaRxClient.Amendments ch = pharma.amendments(e.getRxId());
+            out.put("status", rx == null || rx.getData() == null ? null : rx.getData().getStatus());
+            out.put("items", rx == null || rx.getData() == null ? List.of() : rx.getData().getItems());
+            out.put("amendments", ch == null || ch.getData() == null ? List.of() : ch.getData());
+        } catch (RestClientException down) {
+            out.put("unavailable", "The pharmacy's copy could not be read just now. Try again in a moment.");
+        }
+        return out;
     }
 
     /** The far side's own sentence when it has one ("Prescriptions are not switched on…"), never a stack trace. */

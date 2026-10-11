@@ -133,6 +133,28 @@ public class PharmaPrescriptionController {
         }
     }
 
+    /**
+     * HMS H3b — the pharmacist changes the prescription itself (lines + a reason); pharma keeps the change, who and why.
+     * Body: {prescriptionId, reason, amendmentsSeen, items:[{id?, productId, medicineName, quantity, dosage, frequency, duration}]}.
+     */
+    @RequestMapping(value = "/amendPrescription", method = RequestMethod.POST)
+    @ResponseBody
+    public Map<String, Object> amendPrescription(@RequestBody final Map<String, Object> body) {
+        try { return client.putJson("/prescriptions/" + body.get("prescriptionId") + "/items", body); }
+        catch (Exception e) {
+            LOGGER.error("amendPrescription proxy error", e);
+            return GatewayClient.errorMap(e, "Could not change the prescription.");
+        }
+    }
+
+    /** HMS H3b — every change the pharmacy made to a prescription, oldest first. */
+    @RequestMapping(value = "/prescriptionAmendments", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> prescriptionAmendments(final HttpServletRequest request) {
+        try { return client.get("/prescriptions/" + request.getParameter("id") + "/amendments"); }
+        catch (Exception e) { LOGGER.error("prescriptionAmendments proxy error", e); return ProxyErrors.failure(e); }
+    }
+
     /** Withdraw a prescription (no further dispensing); already-dispensed quantities stay on the record. */
     @RequestMapping(value = "/cancelPrescription", method = RequestMethod.POST)
     @ResponseBody

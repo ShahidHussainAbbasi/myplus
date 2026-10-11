@@ -95,4 +95,35 @@ class CouponServiceTest {
         assertThat(r.code()).isNull();
         assertThat(r.message()).isNull();
     }
+    // ── H6-C ⚠ MONEY: the window is the shop's local time, compared in the shop's zone (not UTC) ─────────────
+
+    /** 06:00 UTC = 11:00 in Karachi. */
+    private void at0600Utc() {
+        service.clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-11T06:00:00Z"), java.time.ZoneOffset.UTC);
+        service.businessZone = "Asia/Karachi";
+    }
+
+    @Test
+    void a_coupon_that_ended_at_10_30_shop_time_is_expired_at_11_00_shop_time() {
+        // before H6-C: compared with UTC 06:00 — "not ended yet" — and it kept discounting until 15:30 Karachi
+        at0600Utc();
+        Coupon c = coupon("PERCENT", "10");
+        c.setEndsAt(java.time.LocalDateTime.parse("2026-10-11T10:30:00"));
+        when(repo.findByOrganizationIdAndCode(ORG, "SAVE")).thenReturn(Optional.of(c));
+        var r = service.validateAndCompute(ORG, "SAVE", new BigDecimal("100.00"));
+        assertThat(r.discount()).isEqualByComparingTo("0");
+        assertThat(r.message()).isEqualTo("This coupon has expired");
+    }
+
+    @Test
+    void a_coupon_that_started_at_10_30_shop_time_is_valid_at_11_00_shop_time() {
+        // before H6-C: compared with UTC 06:00 — "not yet valid" until 15:30 Karachi
+        at0600Utc();
+        Coupon c = coupon("PERCENT", "10");
+        c.setStartsAt(java.time.LocalDateTime.parse("2026-10-11T10:30:00"));
+        when(repo.findByOrganizationIdAndCode(ORG, "SAVE")).thenReturn(Optional.of(c));
+        var r = service.validateAndCompute(ORG, "SAVE", new BigDecimal("100.00"));
+        assertThat(r.discount()).isEqualByComparingTo("10.00");
+        assertThat(r.message()).isNull();
+    }
 }

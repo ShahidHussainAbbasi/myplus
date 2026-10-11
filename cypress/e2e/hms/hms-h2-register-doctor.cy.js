@@ -136,7 +136,7 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
     cy.get('#clinDocNoLimit').check()
     cy.get('#clinDocMakeLogin').uncheck()
     cy.get('#clinDocSave').click()
-    cy.contains('#clinDoctorBody tr', LINKED_DOC).find('.clin-link').click()
+    cy.contains('#clinDoctorBody tr', LINKED_DOC).find('.clin-login-link').click()   // H5: the doctor's own class (.clin-link is the patient's Link now)
     cy.contains('#clinDoctorBody tr', LINKED_DOC).find('.clin-link-user').select(ADMIN)
     cy.intercept('POST', '**/clinic/doctors/*/link').as('link')
     cy.contains('#clinDoctorBody tr', LINKED_DOC).find('.clin-link-save').click()

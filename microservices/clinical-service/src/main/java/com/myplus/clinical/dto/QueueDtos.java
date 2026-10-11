@@ -65,6 +65,8 @@ public final class QueueDtos {
         private long withDoctorNow;
         /** H2: the login this doctor IS (null = not linked). */
         private Long linkedUserId;
+        /** H4: the pharmacy branch this doctor's prescriptions go to (null = every branch). */
+        private Long pharmacyStoreId;
     }
 
     /** H2 — Register doctor: the doctor AND the login it is (the login was just made by auth's createOrgUser). */
@@ -81,6 +83,12 @@ public final class QueueDtos {
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class LinkRequest {
         private Long userId;
+    }
+
+    /** H4 — the pharmacy branch for a doctor; null = not routed. */
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class PharmacyRequest {
+        private Long storeId;
     }
 
     /** H2 — "which doctor am I": empty when this login is not linked to a doctor of the clinic. */

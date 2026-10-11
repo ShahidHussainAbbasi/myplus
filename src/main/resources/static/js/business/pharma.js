@@ -89,7 +89,7 @@
     var rxQuery = { q: '', page: 0 };
 
     function rxRow(p) {
-        var at = String(p.createdAt || '').replace('T', ' ').substring(0, 16);
+        var at = fmtDateTime(p.createdAt);   // H6: the viewer's zone
         var tr = $('<tr>').attr('data-rx-id', p.id);
         // Contact-360 rides in the patient cell: a pharmacy patient is often also a POS customer.
         tr.append($('<td>').text(p.patientName || '').append(contact360Button(p.partyId)));
@@ -97,7 +97,7 @@
         var doc = $('<td>').text(p.doctorName || '');
         if (p.source === 'DOCTOR') {
             doc.append(' ').append($('<span class="label label-info rx-from-doctor">')
-                .text('From the doctor' + (p.tokenLabel ? ' · ' + p.tokenLabel : '')));
+                .text(tOr('ui.js.rx.fromDoctor', 'From the doctor') + (p.tokenLabel ? ' · ' + p.tokenLabel : '')));
         }
         tr.append(doc);
         tr.append($('<td>').text((p.items || []).length));
@@ -106,11 +106,15 @@
         // Dispense is a normal sale that fulfils this Rx — only offer it while the script is still live.
         // EXPIRED is derived server-side from validUntil, so it appears here without any nightly job.
         var action;
-        if (p.status === 'FULLY_DISPENSED') action = '<span class="text-muted">dispensed</span>';
+        if (p.status === 'FULLY_DISPENSED') action = '<span class="text-muted">' + escHtml(tOr('ui.js.rx.stDispensed', 'dispensed')) + '</span>';
         else if (p.status === 'CANCELLED') action = '<span class="text-muted">cancelled</span>';
         else if (p.status === 'EXPIRED') action = '<span class="text-muted">expired</span>';
-        else action = "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>Dispense</button>"
-                   + " <button class='btn btn-xs btn-default' onclick='cancelPrescription(" + p.id + ")'>Cancel</button>";
+        else if (!canDispense()) action = '<span class="text-muted">' + escHtml(tOr('ui.js.rx.withPharmacist', 'with the pharmacist')) + '</span>';   // H3b: the pharmacist's
+        else action = "<button class='btn btn-xs btn-success' onclick='dispenseFromPrescription(" + p.id + ")'>" + escHtml(tOr('ui.js.rx.dispense', 'Dispense')) + "</button>"
+                   + " <button class='btn btn-xs btn-default rx-change' onclick='openRxAmend(" + p.id + ")'>" + escHtml(tOr('ui.js.rx.change', 'Change')) + "</button>"
+                   + " <button class='btn btn-xs btn-default' onclick='cancelPrescription(" + p.id + ")'>" + escHtml(tOr('ui.js.rx.cancel', 'Cancel')) + "</button>";
+        // every change the pharmacy made is on the record, for everyone who can see the list
+        action += " <button class='btn btn-xs btn-link rx-history-link' onclick='openRxHistory(" + p.id + ")'>" + escHtml(tOr('ui.js.rx.history', 'History')) + "</button>";
         tr.append($('<td>').html(action));
         return tr;
     }
@@ -547,7 +551,7 @@
             $('#controlledEmpty').toggle(list.length === 0);
             list.forEach(function (d) {
                 var tr = $('<tr>');
-                tr.append($('<td>').text(String(d.dispensedAt || '').replace('T', ' ').substring(0, 16)));
+                tr.append($('<td>').text(fmtDateTime(d.dispensedAt)));   // H6
                 tr.append($('<td>').text(d.medicineName || ''));
                 tr.append($('<td>').text(d.quantity));
                 tr.append($('<td>').text(d.patientName || ''));
@@ -560,7 +564,140 @@
 
     // Withdraw a prescription (script cancelled / entered in error). Uses the shared confirm dialog — never
     // window.confirm — per the project standard.
+    // ── HMS H3b: the pharmacist changes or cancels the prescription; the change is kept ───────────────────
+    function canDispense() { return $('#rxCanDispense').length > 0; }
+    var rxEdit = { id: null, lines: [], seen: 0, mode: null, medicines: null, byName: {} };
+
+    function rxOf(id) { return lastPrescriptions.filter(function (x) { return String(x.id) === String(id); })[0]; }
+
+    function loadAmendMedicines() {
+        if (rxEdit.medicines || typeof ProductPicker === 'undefined') return;
+        ProductPicker.load(function (list) {
+            rxEdit.medicines = list || [];
+            rxEdit.byName = {};
+            $('#rxAmendMedicines').html(rxEdit.medicines.map(function (p) {
+                var n = String(p.name || tOr('ui.js.rx.productN', 'Product #{0}', p.id));
+                if (!rxEdit.byName[n.toLowerCase()]) rxEdit.byName[n.toLowerCase()] = p;
+                return '<option value="' + escHtml(n) + '"></option>';
+            }).join(''));
+        });
+    }
+
+    function renderRxAmend() {
+        var $b = $('#rxAmendBody').empty();
+        rxEdit.lines.forEach(function (l, i) {
+            var given = Number(l.dispensedQuantity || 0);
+            var cell = function (f, mode) {
+                return '<td><input type="text" class="form-control input-sm rx-amend-edit" data-i="' + i + '" data-f="' + f + '"'
+                    + (mode ? ' inputmode="' + mode + '"' : '') + ' value="' + escHtml(l[f] == null ? '' : l[f]) + '" aria-label="' + escHtml(f + ' of ' + (l.medicineName || '')) + '"/></td>';
+            };
+            $b.append('<tr><td>' + escHtml(l.medicineName || '') + '</td>' + cell('quantity', 'numeric') + cell('dosage') + cell('frequency') + cell('duration')
+                + '<td class="text-right">' + escHtml(given) + '</td><td>'
+                + (given > 0 ? '<span class="text-muted">' + escHtml(tOr('ui.js.rx.stDispensed', 'dispensed')) + '</span>'
+                             : '<button type="button" class="btn btn-xs btn-default rx-amend-remove" data-i="' + i + '">' + escHtml(tOr('ui.js.rx.remove', 'Remove')) + '</button>') + '</td></tr>');
+        });
+    }
+
+    function openRxPanel(id, mode) {
+        var p = rxOf(id); if (!p) return;
+        rxEdit.id = id; rxEdit.mode = mode;
+        rxEdit.lines = (p.items || []).map(function (it) { return $.extend({}, it); });
+        $('#rxPanelReason').val('');
+        $('#rxPanelTitle').text((mode === 'cancel' ? tOr('ui.js.rx.cancelOf', 'Cancel the prescription of {0}', p.patientName || '')
+                                                   : tOr('ui.js.rx.changeOf', 'Change the prescription of {0}', p.patientName || ''))
+            + (p.tokenLabel ? ' · ' + p.tokenLabel : ''));
+        $('#rxAmendBox').toggle(mode === 'amend');
+        $('#rxAmendSaveWrap').toggle(mode === 'amend');
+        $('#rxCancelConfirmWrap').toggle(mode === 'cancel');
+        $('#rxHistoryPanel').hide();
+        // the screen sends how many changes it has seen: a change made meanwhile on another screen is refused
+        rxEdit.seen = null;   // known once the history answers; Save waits for it
+        $.getJSON(serverContext + 'prescriptionAmendments', { id: id }).done(function (r) {
+            rxEdit.seen = (r && r.data && r.data.length) || 0;
+        });
+        if (mode === 'amend') { renderRxAmend(); loadAmendMedicines(); }
+        $('#rxPanel').show();
+        $('html, body').animate({ scrollTop: $('#rxPanel').offset().top - 80 }, 200);
+    }
+    global.openRxAmend = function (id) { openRxPanel(id, 'amend'); };
+    global.closeRxPanel = function () { $('#rxPanel').hide(); rxEdit.id = null; };
+
+    global.addRxAmendLine = function () {
+        var typed = $.trim($('#rxAmendMedicine').val());
+        var p = rxEdit.byName[typed.toLowerCase()];
+        if (!p) { showFormError(typed ? tOr('ui.js.rx.notInList', '"{0}" is not in the pharmacy\'s list. Choose it from the suggestions.', typed) : tOr('ui.js.rx.chooseMedicine', 'Choose a medicine.')); return; }
+        if (rxEdit.lines.some(function (l) { return String(l.productId) === String(p.id); })) { showFormError(tOr('ui.js.rx.alreadyOn', '{0} is on the prescription already.', p.name)); return; }
+        var q = $.trim($('#rxAmendQty').val());
+        if (!/^\d+$/.test(q) || +q < 1) { showFormError(tOr('ui.js.rx.qtyWhole', 'Quantity: a whole number from 1.')); return; }
+        rxEdit.lines.push({ productId: p.id, medicineName: p.name, quantity: Number(q), dispensedQuantity: 0 });
+        $('#rxAmendMedicine, #rxAmendQty').val('');
+        renderRxAmend();
+    };
+
+    global.saveRxAmend = function () {
+        if (rxEdit.seen === null) { showFormError(tOr('ui.js.rx.stillLoading', 'Still loading the changes of this prescription. Try again in a moment.')); return; }
+        var reason = $.trim($('#rxPanelReason').val());
+        if (!reason) { showFormError(tOr('ui.js.rx.whyChanged', 'Say why the prescription is changed — the doctor sees it.')); $('#rxPanelReason').focus(); return; }
+        var items = rxEdit.lines.map(function (l) {
+            return { id: l.id || null, productId: l.productId, medicineName: l.medicineName, quantity: Number(l.quantity),
+                     dosage: l.dosage, frequency: l.frequency, duration: l.duration };
+        });
+        var $b = $('#rxAmendSave').prop('disabled', true);
+        $.ajax({ type: 'POST', url: serverContext + 'amendPrescription', contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ prescriptionId: rxEdit.id, reason: reason, amendmentsSeen: rxEdit.seen, items: items }) })
+            .done(function (resp) {
+                if (resp && resp.success) { showSaleSuccess(tOr('ui.js.rx.changedDot', 'Prescription changed.')); closeRxPanel(); loadPrescriptions(); }
+                else showFormError(apiMessage(resp, tOr('ui.js.rx.changeFailed', 'Could not change the prescription.')));
+            })
+            .fail(function () { showFormError(tOr('ui.js.rx.changeFailed', 'Could not change the prescription.')); })
+            .always(function () { $b.prop('disabled', false); });
+    };
+
+    global.confirmRxCancel = function () {
+        var reason = $.trim($('#rxPanelReason').val());
+        var p = rxOf(rxEdit.id);
+        if (!reason && p && p.source === 'DOCTOR') { showFormError(tOr('ui.js.rx.whyCancelled', "Say why the doctor's prescription is cancelled — the doctor sees it.")); $('#rxPanelReason').focus(); return; }
+        $.ajax({ type: 'POST', url: serverContext + 'cancelPrescription', contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ prescriptionId: rxEdit.id, reason: reason }) })
+            .done(function (resp) {
+                if (resp && resp.success) { showSaleSuccess(t('ui.js.prescriptionCancelled')); closeRxPanel(); loadPrescriptions(); }
+                else showFormError(apiMessage(resp, 'Could not cancel the prescription.'));
+            })
+            .fail(function () { showFormError(t('ui.js.couldNotCancelThePrescription')); });
+    };
+
+    global.openRxHistory = function (id) {
+        var p = rxOf(id);
+        $('#rxHistoryTitle').text(tOr('ui.js.rx.changesOf', 'Changes to the prescription of {0}', (p && p.patientName) || ''));
+        $.getJSON(serverContext + 'prescriptionAmendments', { id: id }).done(function (r) {
+            var list = (r && r.data) || [];
+            var fmt = function (s) {
+                if (!s) return '—';
+                return [s.qty != null ? s.qty : '', s.dose, s.freq, s.days].filter(function (x) { return x !== null && x !== undefined && x !== ''; }).join(' · ');
+            };
+            $('#rxHistoryList').html(list.length ? list.map(function (a) {
+                var at = fmtDateTime(a.amendedAt);
+                var lines = (a.changes || []).map(function (c) {
+                    var what = !c.before ? tOr('ui.js.rx.added', 'added') : !c.after ? tOr('ui.js.rx.removed', 'removed') : tOr('ui.js.rx.changed', 'changed');
+                    return '<li><b>' + escHtml(c.medicine || '') + '</b> ' + what + ': ' + escHtml(fmt(c.before)) + ' → ' + escHtml(fmt(c.after)) + '</li>';
+                }).join('');
+                return '<li class="rx-history-item"><div><b>' + escHtml(a.kind === 'CANCEL' ? tOr('ui.js.rx.cancelledCap', 'Cancelled') : tOr('ui.js.rx.changedCap', 'Changed')) + '</b> · ' + escHtml(at)
+                    + '</div><div class="rx-history-reason">' + escHtml(a.reason || '') + '</div>' + (lines ? '<ul>' + lines + '</ul>' : '') + '</li>';
+            }).join('') : '<li class="text-muted">' + escHtml(tOr('ui.js.rx.noChanges', 'No changes. This is the prescription as written.')) + '</li>');
+            $('#rxPanel').hide();
+            $('#rxHistoryPanel').show();
+        }).fail(function () { showFormError(tOr('ui.js.rx.historyFailed', 'Could not load the changes.')); });
+    };
+
+    $(document).on('input', '.rx-amend-edit', function () {
+        var l = rxEdit.lines[+$(this).data('i')]; if (l) l[$(this).data('f')] = this.value;
+    });
+    $(document).on('click', '.rx-amend-remove', function () { rxEdit.lines.splice(+$(this).data('i'), 1); renderRxAmend(); });
+
     global.cancelPrescription = function (id) {
+        // H3b: a doctor's prescription is cancelled with a reason the doctor sees — the panel asks for it
+        var p = rxOf(id);
+        if (p && p.source === 'DOCTOR') { openRxPanel(id, 'cancel'); return; }
         uiConfirm({
             title: t('ui.js.cancelThisPrescription'),
             message: t('ui.js.itCanNoLongerBeDispensedAnything'),

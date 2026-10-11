@@ -97,6 +97,12 @@ public class ConsultController {
         return ApiResponse.success(null, "Template removed.");
     }
 
+    /** H3c — the pharmacy's copy of this visit's prescription and every change it made (read when the doctor looks). */
+    @GetMapping("/encounters/{id}/rx/pharmacy")
+    public ApiResponse<java.util.Map<String, Object>> pharmacyCopy(@PathVariable Long id) {
+        return ApiResponse.success(consult.pharmacyCopy(id));
+    }
+
     /** S3b-1 — the doctor's prescription, saved as a whole; refused once it is with the pharmacy. */
     @PutMapping("/encounters/{id}/rx")
     public ApiResponse<EncounterView> saveRx(@PathVariable Long id, @RequestBody RxRequest req) {

@@ -24,6 +24,21 @@ public interface PharmaRxClient {
     @PostExchange("/prescriptions")
     Envelope create(@RequestBody Rx rx);
 
+    /** H3c — the pharmacy's copy as it stands now (status, current lines with what was dispensed). */
+    @org.springframework.web.service.annotation.GetExchange("/prescriptions/{id}")
+    Envelope get(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    /** H3c — every change the pharmacy made, oldest first (who, when, why, before → after). */
+    @org.springframework.web.service.annotation.GetExchange("/prescriptions/{id}/amendments")
+    Amendments amendments(@org.springframework.web.bind.annotation.PathVariable("id") Long id);
+
+    @Data @NoArgsConstructor @AllArgsConstructor
+    class Amendments {
+        private boolean success;
+        private String message;
+        private java.util.List<java.util.Map<String, Object>> data;
+    }
+
     /** pharma-service's ApiResponse, with the one field of the answer the clinic keeps. */
     @Data @NoArgsConstructor @AllArgsConstructor
     class Envelope {
@@ -46,6 +61,8 @@ public interface PharmaRxClient {
         private Long encounterId;
         private String externalRef;
         private String source;
+        private String status;        // H3c: read back for the doctor (PENDING, PARTIALLY_DISPENSED, …)
+        private Long storeId;         // H4: the pharmacy branch it is routed to
         @Builder.Default
         private List<Item> items = new ArrayList<>();
     }
@@ -58,5 +75,6 @@ public interface PharmaRxClient {
         private String dosage;
         private String frequency;
         private String duration;
+        private Integer dispensedQuantity;   // H3c: read back for the doctor
     }
 }

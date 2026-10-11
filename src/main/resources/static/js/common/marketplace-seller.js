@@ -641,7 +641,7 @@
 			var $lt = $('#mktLedgerTable tbody').empty();
 			(v.entries || []).forEach(function (e) {
 				$('<tr class="mkt-entry"></tr>').attr('data-entry-type', e.entryType)
-					.append($('<td></td>').text((e.effectiveAt || '').substring(0, 10)))
+					.append($('<td></td>').text(fmtDate(e.effectiveAt)   /* H6: the viewer's day */))
 					.append($('<td></td>').text(e.entryType).append(e.memo ? $('<div class="text-muted" style="font-size:12px"></div>').text(e.memo) : null))
 					.append($('<td></td>').text(e.ref || ''))
 					.append($('<td class="text-right"></td>').text(Number(e.credit) ? money(e.credit) : ''))

@@ -287,6 +287,49 @@ INSERT INTO preflight (scope, check_id, what, at_risk, verdict, act_on_it) VALUE
   'Only DEMO_ROLE and DEMO_RESET_ROLE grant it, and both are seeded only when app.seed-demo=true. Any holder in production is a seeded test account with a known password — remove the role, then the account.');
 
 -- ============================================================================================================
+-- R1 / R2 — RELEASE READINESS 2026-10-11 (docs/deploy/RELEASE-READINESS-2026-10-11.md)
+-- Both are FIXED AUTOMATICALLY by this release; these rows say how many people / rows the fix will touch here.
+-- ============================================================================================================
+
+-- R1 (B3) analytics V3 adds a UNIQUE index per tenant/metric/period. Duplicates would stop analytics-service from
+-- starting; the beforeMigrate callback keeps the newest row of each group and removes the older copies first.
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='myplusdb_analytics'
+     AND TABLE_NAME='aggregated_metrics' AND COLUMN_NAME='organization_id') = 1
+  AND (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='myplusdb_analytics'
+     AND TABLE_NAME='aggregated_metrics' AND INDEX_NAME='uk_aggregated_metrics_period') = 0,
+  'SELECT COALESCE(SUM(c - 1), 0) INTO @n FROM (
+     SELECT COUNT(*) c FROM myplusdb_analytics.aggregated_metrics
+      WHERE organization_id IS NOT NULL AND period_start IS NOT NULL
+      GROUP BY organization_id, metric_name, period_type, period_start HAVING COUNT(*) > 1) d',
+  'SELECT NULL INTO @n');
+PREPARE st FROM @sql; EXECUTE st; DEALLOCATE PREPARE st;
+INSERT INTO preflight (scope, check_id, what, at_risk, verdict, act_on_it) VALUES
+ ('analytics','R1','older duplicate metric rows the deploy will remove before V3''s unique index', @n,
+  IF(@n IS NULL,'N/A',IF(@n=0,'PASS','INFO')),
+  'Removed automatically (analytics beforeMigrate.sql), newest row of each tenant/metric/period kept. These rows are derived from the books and are recomputed on read; nothing to do.');
+
+-- R2 (B2) pharma now requires rx.dispense. People who could dispense yesterday and keep it automatically:
+-- members on a business CUSTOM set made before V21 (V22 grants it) or on NO set with the write privilege
+-- (AuthService.buildClaims keeps it). Counted only in organisations that have prescriptions.
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='myplusdb_pharma' AND TABLE_NAME='prescriptions') = 1
+  AND (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='myplusdb_auth' AND TABLE_NAME='user_permission_set') = 1,
+  'SELECT COUNT(DISTINCT m.user_id) INTO @n
+     FROM myplusdb_auth.memberships m
+     LEFT JOIN myplusdb_auth.user_permission_set u ON u.user_id = m.user_id
+     LEFT JOIN myplusdb_auth.permission_set s ON s.id = u.set_id
+    WHERE m.role IN (''ADMIN'', ''USER'')
+      AND (u.user_id IS NULL OR (s.organization_id IS NOT NULL AND s.is_builtin = 0 AND s.module = ''BUSINESS''))
+      AND EXISTS (SELECT 1 FROM myplusdb_pharma.prescriptions p WHERE p.organization_id = m.organization_id)',
+  'SELECT NULL INTO @n');
+PREPARE st FROM @sql; EXECUTE st; DEALLOCATE PREPARE st;
+INSERT INTO preflight (scope, check_id, what, at_risk, verdict, act_on_it) VALUES
+ ('auth','R2','pharmacy staff on a custom set or on no set — they keep dispensing automatically', @n,
+  IF(@n IS NULL,'N/A',IF(@n=0,'PASS','INFO')),
+  'Kept by auth V22 (custom sets) and AuthService (no set). Deploy auth-service FIRST and wait 15 minutes before pharma-service, so every signed-in token has been refreshed with rx.dispense.');
+
+-- ============================================================================================================
 -- VERDICT
 -- ============================================================================================================
 SELECT scope, check_id, what, at_risk, verdict, act_on_it FROM preflight ORDER BY seq;

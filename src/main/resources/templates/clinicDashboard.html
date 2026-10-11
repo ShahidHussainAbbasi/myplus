@@ -241,6 +241,8 @@
                 </table>
               </div>
               <p id="clinRxEmpty" class="clin-empty" th:text="#{ui.clinicNoMedicines}">No medicines yet.</p>
+              <!-- H3c: what the pharmacy did with it (read when a sent prescription is shown) -->
+              <div id="clinRxPharmacy" class="clin-rx-pharmacy" style="display:none" aria-live="polite"></div>
               <div class="clin-actions" id="clinRxActions">
                 <button type="button" id="clinRxSave" class="btn btn-default" onclick="Clinic.saveRx()"><span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.clinicSaveRx}">Save prescription</span></button>
                 <button type="button" id="clinRxSubmit" class="btn btn-primary" onclick="Clinic.submitRx()"><span class="glyphicon glyphicon-send"></span> <span th:text="#{ui.clinicSubmitRx}">Submit to pharmacy</span></button>

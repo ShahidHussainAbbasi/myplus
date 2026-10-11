@@ -44,6 +44,10 @@ public class ClinicProvider {
     @Column(name = "linked_by")
     private Long linkedBy;
 
+    /** H4 (V8): the pharmacy branch (business store) this doctor's prescriptions go to; NULL = every branch. */
+    @Column(name = "store_id")
+    private Long storeId;
+
     public static class Key implements Serializable {
         private static final long serialVersionUID = 1L;
         private Long organizationId;

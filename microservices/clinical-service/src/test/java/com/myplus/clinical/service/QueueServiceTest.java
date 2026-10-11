@@ -55,7 +55,8 @@ class QueueServiceTest {
         tokens = mock(QueueTokenRepo.class); patients = mock(PatientRepo.class); prefixes = mock(ClinicProviderRepo.class);
         days = mock(ProviderDayRepo.class); writer = mock(TokenWriter.class); directory = mock(AppointmentDirectoryClient.class);
         access = mock(ClinicAccess.class); settings = mock(ClinicSettings.class); audit = mock(ClinicAuditService.class);
-        service = new QueueService(tokens, patients, prefixes, days, writer, directory, access, settings, audit);
+        service = new QueueService(tokens, patients, prefixes, days, writer, directory, access, settings, audit,
+                mock(com.myplus.clinical.config.BranchClient.class));
         when(access.org()).thenReturn(7L);
         when(settings.multiDoctorPerDay()).thenReturn(true);
         ali = new Patient(); ali.setId(1L); ali.setOrganizationId(7L); ali.setName("Ali Khan"); ali.setMrn("MRN-7-26-000001");

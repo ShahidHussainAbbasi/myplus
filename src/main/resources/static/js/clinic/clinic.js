@@ -13,6 +13,14 @@
 
     function url(p) { return serverContext + p.replace(/^\//, ''); }
 
+    /** H5b — the clinic's own words: i18n.js tOr() under the ui.js.clinic. prefix (English given in place). */
+    function L(key, english) {
+        var args = Array.prototype.slice.call(arguments);
+        args[0] = 'ui.js.clinic.' + key;
+        return typeof global.tOr === 'function' ? global.tOr.apply(null, args)
+            : String(english).replace(/\{(\d+)\}/g, function (m, i) { var v = args[Number(i) + 2]; return v == null ? m : String(v); });
+    }
+
     function msg(text, ok) {
         $('#clinMsg').stop(true, true).removeClass('alert-success alert-danger')
             .addClass(ok ? 'alert-success' : 'alert-danger').text(text).show();
@@ -39,15 +47,15 @@
         var d = new Date(dob), n = new Date();
         var a = n.getFullYear() - d.getFullYear();
         if (n.getMonth() < d.getMonth() || (n.getMonth() === d.getMonth() && n.getDate() < d.getDate())) a--;
-        return a >= 0 ? a + ' y' : '';
+        return a >= 0 ? L('ageYears', '{0} y', a) : '';
     }
 
-    function sexLabel(s) { return s === 'M' ? 'Male' : s === 'F' ? 'Female' : s === 'O' ? 'Other' : ''; }
+    function sexLabel(s) { return s === 'M' ? L('male', 'Male') : s === 'F' ? L('female', 'Female') : s === 'O' ? L('other', 'Other') : ''; }
 
     function linkBadge(p) {
         return p.customerId
-            ? '<span class="clin-badge ok" title="Pharmacy customer #' + escHtml(p.customerId) + '">✓ Linked</span>'
-            : '<span class="clin-badge warn">Pending</span>';
+            ? '<span class="clin-badge ok" title="' + escHtml(L('customerNo', 'Pharmacy customer #{0}', p.customerId)) + '">✓ ' + escHtml(L('linked', 'Linked')) + '</span>'
+            : '<span class="clin-badge warn">' + escHtml(L('pending', 'Pending')) + '</span>';
     }
 
     // ── sections ────────────────────────────────────────────────────────────────────────────────────────
@@ -80,10 +88,10 @@
         $('#clinPatFound').hide().empty();
         hideTokenPanel();
         $('#clinPatForm').hide();
-        if (!raw) { $('#clinPatError').text('Enter the patient\'s mobile number.').show(); return; }
+        if (!raw) { $('#clinPatError').text(L('enterMobile', "Enter the patient's mobile number.")).show(); return; }
         $.getJSON(url('clinic/patients'), { phone: raw })
             .done(function (r) {
-                if (!r || !r.success) { if (!moduleOff(r && r.message)) $('#clinPatError').text((r && r.message) || 'Could not look up the number.').show(); return; }
+                if (!r || !r.success) { if (!moduleOff(r && r.message)) $('#clinPatError').text((r && r.message) || L('lookupFailed', 'Could not look up the number.')).show(); return; }
                 var d = r.data;
                 state.phone = d.phone; state.lookup = d;
                 $('#clinPatPhone').val(d.phone);
@@ -92,7 +100,7 @@
                 else openForm(false);
             })
             .fail(function (xhr) {
-                var t = reason(xhr, 'Could not look up the number.');
+                var t = reason(xhr, L('lookupFailed', 'Could not look up the number.'));
                 if (!moduleOff(t)) $('#clinPatError').text(t).show();
             });
     }
@@ -104,25 +112,25 @@
             + '<div class="clin-mrn" id="' + (primary ? 'clinPatMrn' : '') + '">' + escHtml(p.mrn) + '</div>'
             + '</div>'
             + '<dl class="clin-facts">'
-            + '<div><dt>Phone</dt><dd>' + escHtml(p.phone) + '</dd></div>'
-            + (p.cnic ? '<div><dt>CNIC</dt><dd>' + escHtml(p.cnic) + '</dd></div>' : '')
-            + (p.dateOfBirth ? '<div><dt>Age</dt><dd>' + escHtml(ageOf(p.dateOfBirth)) + ' <small>(' + escHtml(p.dateOfBirth) + ')</small></dd></div>' : '')
-            + (p.sex ? '<div><dt>Sex</dt><dd>' + escHtml(sexLabel(p.sex)) + '</dd></div>' : '')
-            + '<div><dt>Pharmacy customer</dt><dd>' + linkBadge(p)
-            + (p.customerId ? '' : ' <button type="button" class="btn btn-xs btn-default clin-link" data-id="' + escHtml(p.id) + '">Link now</button>')
+            + '<div><dt>' + escHtml(L('phone', 'Phone')) + '</dt><dd>' + escHtml(p.phone) + '</dd></div>'
+            + (p.cnic ? '<div><dt>' + escHtml(L('cnic', 'CNIC')) + '</dt><dd>' + escHtml(p.cnic) + '</dd></div>' : '')
+            + (p.dateOfBirth ? '<div><dt>' + escHtml(L('age', 'Age')) + '</dt><dd>' + escHtml(ageOf(p.dateOfBirth)) + ' <small>(' + escHtml(p.dateOfBirth) + ')</small></dd></div>' : '')
+            + (p.sex ? '<div><dt>' + escHtml(L('sex', 'Sex')) + '</dt><dd>' + escHtml(sexLabel(p.sex)) + '</dd></div>' : '')
+            + '<div><dt>' + escHtml(L('pharmacyCustomer', 'Pharmacy customer')) + '</dt><dd>' + linkBadge(p)
+            + (p.customerId ? '' : ' <button type="button" class="btn btn-xs btn-default clin-link" data-id="' + escHtml(p.id) + '">' + escHtml(L('linkNow', 'Link now')) + '</button>')
             + '</dd></div>'
             + '</dl></div>';
         return h;
     }
 
     function renderFound(d) {
-        var html = '<div class="clin-found-head">' + (d.patients.length > 1 ? 'Patients on this number' : 'Registered patient') + '</div>';
+        var html = '<div class="clin-found-head">' + escHtml(d.patients.length > 1 ? L('patientsOnNumber', 'Patients on this number') : L('registeredPatient', 'Registered patient')) + '</div>';
         d.patients.forEach(function (p, i) { html += patientCard(p, i === 0); });
         html += '<div class="clin-actions">'
-            + '<button type="button" class="btn btn-default" onclick="Clinic.reset()">New search</button>';
+            + '<button type="button" class="btn btn-default" onclick="Clinic.reset()">' + escHtml(L('newSearch', 'New search')) + '</button>';
         if (d.familyAllowed) {
             html += ' <button type="button" id="clinPatFamilyAdd" class="btn btn-primary" onclick="Clinic.addFamily()">'
-                + '<span class="glyphicon glyphicon-plus"></span> Add family member on this number</button>';
+                + '<span class="glyphicon glyphicon-plus"></span> ' + escHtml(L('addFamily', 'Add family member on this number')) + '</button>';
         }
         html += '</div>';
         $('#clinPatFound').html(html).show();
@@ -132,7 +140,7 @@
     function openForm(family) {
         $('#clinPatForm')[0].reset();
         $('#clinPatFamily').val(family ? 'true' : 'false');
-        $('#clinFormPhone').text(state.phone + (family ? ' · family member' : ''));
+        $('#clinFormPhone').text(state.phone + (family ? ' · ' + L('familyMember', 'family member') : ''));
         $('#clinPatForm').show();
         $('#clinPatName').trigger('focus');
     }
@@ -163,10 +171,10 @@
                     $('#clinPatForm').hide();
                     renderFound({ phone: r.data.existing.phone, patients: [r.data.existing], familyAllowed: state.lookup && state.lookup.familyAllowed });
                 } else if (!moduleOff(r && r.message)) {
-                    msg((r && r.message) || 'Could not register the patient.', false);
+                    msg((r && r.message) || L('registerFailed', 'Could not register the patient.'), false);
                 }
             })
-            .fail(function (xhr) { var t = reason(xhr, 'Could not register the patient.'); if (!moduleOff(t)) msg(t, false); })
+            .fail(function (xhr) { var t = reason(xhr, L('registerFailed', 'Could not register the patient.')); if (!moduleOff(t)) msg(t, false); })
             .always(function () { $btn.prop('disabled', false); });
     }
 
@@ -174,11 +182,11 @@
         $btn.prop('disabled', true);
         $.ajax({ type: 'POST', url: url('clinic/patients/' + encodeURIComponent(id) + '/link'), dataType: 'json' })
             .done(function (r) {
-                msg((r && r.message) || 'Done.', !!(r && r.success && r.data && r.data.customerId));
+                msg((r && r.message) || L('done', 'Done.'), !!(r && r.success && r.data && r.data.customerId));
                 if (state.phone) find();
                 loadPatients();
             })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not link the customer.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('linkCustomerFailed', 'Could not link the customer.')), false); })
             .always(function () { $btn.prop('disabled', false); });
     }
 
@@ -192,7 +200,7 @@
                 var rows = r.data || [];
                 $('#clinPatEmpty').toggle(rows.length === 0 && !q);
                 rows.forEach(function (p) {
-                    var at = String(p.createdAt || '').replace('T', ' ').substring(0, 16);
+                    var at = fmtDateTime(p.createdAt);   // H6: the viewer's zone
                     $b.append('<tr data-patient-id="' + escHtml(p.id) + '">'
                         + '<td class="clin-mrn-cell">' + escHtml(p.mrn) + '</td>'
                         + '<td>' + escHtml(p.name) + '</td>'
@@ -217,7 +225,7 @@
                 $s.append('<div class="clin-setting" data-key="' + escHtml(e.key) + '">'
                     + '<label for="' + id + '">' + escHtml(e.label) + '</label>' + input
                     + '<p class="clin-help">' + escHtml(e.help || '') + '</p>'
-                    + '<button type="button" class="btn btn-sm btn-primary clin-setting-save">Save</button></div>');
+                    + '<button type="button" class="btn btn-sm btn-primary clin-setting-save">' + escHtml(L('save', 'Save')) + '</button></div>');
             });
         }).fail(function (xhr) { moduleOff(reason(xhr, '')); });
     }
@@ -226,9 +234,9 @@
         var key = $row.data('key'), $in = $row.find('input');
         var value = $in.is(':checkbox') ? String($in.is(':checked')) : $.trim($in.val());
         $.ajax({ type: 'POST', url: url('clinic/settings') + '?key=' + encodeURIComponent(key) + '&value=' + encodeURIComponent(value), dataType: 'json' })
-            .done(function (r) { msg((r && r.message) || 'Saved.', !!(r && r.success)); })
+            .done(function (r) { msg((r && r.message) || L('saved', 'Saved.'), !!(r && r.success)); })
             .fail(function (xhr) {
-                msg(xhr.status === 403 ? 'Only an owner or admin can change clinic settings.' : reason(xhr, 'Could not save the setting.'), false);
+                msg(xhr.status === 403 ? L('settingsOwnerOnly', 'Only an owner or admin can change clinic settings.') : reason(xhr, L('settingFailed', 'Could not save the setting.')), false);
             });
     }
 
@@ -242,23 +250,23 @@
             if (!r || !r.success) { moduleOff(r && r.message); return; }
             state.doctors = r.data || [];
             then(state.doctors);
-        }).fail(function (xhr) { msg(reason(xhr, 'The doctor list is not reachable right now.'), false); });
+        }).fail(function (xhr) { msg(reason(xhr, L('doctorsUnreachable', 'The doctor list is not reachable right now.')), false); });
     }
 
     /** Client decision 02 / 02c: the patient's last doctor; else the only doctor seeing patients today; else choose. */
     function preselect(doctors, p) {
         var open = doctors.filter(function (d) { return !d.closedToday; });
         if (p && p.lastProviderId && open.some(function (d) { return d.id === p.lastProviderId; })) {
-            return { id: p.lastProviderId, why: 'Last visit was with this doctor.' };
+            return { id: p.lastProviderId, why: L('lastDoctor', 'Last visit was with this doctor.') };
         }
-        if (open.length === 1) return { id: open[0].id, why: 'The only doctor seeing patients today.' };
+        if (open.length === 1) return { id: open[0].id, why: L('onlyDoctor', 'The only doctor seeing patients today.') };
         return { id: null, why: '' };
     }
 
     function doctorOption(d) {
-        var left = d.todayLimit == null ? '' : ' · ' + Math.max(0, d.todayLimit - d.issuedToday) + ' left';
-        var label = d.name + (d.speciality ? ' — ' + d.speciality : '') + (d.closedToday ? ' · not today' : left)
-            + (d.waitingNow ? ' · ' + d.waitingNow + ' waiting' : '');
+        var left = d.todayLimit == null ? '' : ' · ' + L('left', '{0} left', Math.max(0, d.todayLimit - d.issuedToday));
+        var label = d.name + (d.speciality ? ' — ' + d.speciality : '') + (d.closedToday ? ' · ' + L('notTodayLower', 'not today') : left)
+            + (d.waitingNow ? ' · ' + L('waitingCount', '{0} waiting', d.waitingNow) : '');
         return '<option value="' + escHtml(d.id) + '"' + (d.closedToday ? ' disabled' : '') + '>' + escHtml(label) + '</option>';
     }
 
@@ -270,11 +278,12 @@
         withDoctors(function (doctors) {
             var $s = $('#clinDoctor').empty();
             if (!doctors.length) {
-                $s.append('<option value="">No doctors yet</option>');
-                $('#clinDoctorHint').html('Add a doctor first in <a href="#" onclick="Clinic.show(\'DoctorsDiv\');return false;">Doctors</a>.');
+                $s.append('<option value="">' + escHtml(L('noDoctorsYet', 'No doctors yet')) + '</option>');
+                $('#clinDoctorHint').html(escHtml(L('addDoctorFirst', 'Add a doctor first in')) + ' <a href="#" onclick="Clinic.show(\'DoctorsDiv\');return false;">'
+                    + escHtml(L('doctors', 'Doctors')) + '</a>.');
                 $('#clinIssueToken').prop('disabled', true);
             } else {
-                $s.append('<option value="">Choose the doctor</option>');
+                $s.append('<option value="">' + escHtml(L('chooseDoctorOption', 'Choose the doctor')) + '</option>');
                 doctors.forEach(function (d) { $s.append(doctorOption(d)); });
                 var pick = preselect(doctors, p);
                 $s.val(pick.id ? String(pick.id) : '');
@@ -288,7 +297,7 @@
     function issueToken() {
         if (!state.patient) return;
         var providerId = $('#clinDoctor').val();
-        if (!providerId) { msg('Choose the doctor.', false); return; }
+        if (!providerId) { msg(L('chooseDoctor', 'Choose the doctor.'), false); return; }
         var $btn = $('#clinIssueToken').prop('disabled', true);
         $.ajax({ type: 'POST', url: url('clinic/tokens'), contentType: 'application/json', dataType: 'json',
                  data: JSON.stringify({ patientId: state.patient.id, providerId: Number(providerId) }) })
@@ -296,19 +305,20 @@
                 if (r && r.success) {
                     var t = r.data;
                     $('#clinTokenNo').text(t.tokenLabel);
-                    $('#clinTokenMeta').text(t.providerName + ' · ' + (t.ahead === 0 ? 'next in line' : t.ahead + ' ahead'));
+                    $('#clinTokenMeta').text(t.providerName + ' · ' + (t.ahead === 0 ? L('nextInLine', 'next in line') : L('ahead', '{0} ahead', t.ahead)));
                     $('#clinTokenSlip').show();
                     msg(r.message, true);
                     state.doctors = null;   // today's numbers changed
-                } else { msg((r && r.message) || 'Could not issue the token.', false); }
+                } else { msg((r && r.message) || L('issueFailed', 'Could not issue the token.'), false); }
             })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not issue the token.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('issueFailed', 'Could not issue the token.')), false); })
             .always(function () { $btn.prop('disabled', false); });
     }
 
     // ── S2: today's queue ───────────────────────────────────────────────────────────────────────────────
-    var STATUS_WORDS = { WAITING: 'Waiting', CALLED: 'Called', IN_CONSULTATION: 'With doctor', PARKED: 'Parked',
-                         COMPLETED: 'Done', CANCELLED: 'Cancelled', NO_SHOW: 'Not here' };
+    var STATUS_WORDS = { WAITING: L('stWaiting', 'Waiting'), CALLED: L('stCalled', 'Called'), IN_CONSULTATION: L('stWithDoctor', 'With doctor'),
+                         PARKED: L('stParked', 'Parked'), COMPLETED: L('stDone', 'Done'), CANCELLED: L('stCancelled', 'Cancelled'),
+                         NO_SHOW: L('stNotHere', 'Not here') };
 
     function startBoard() { loadBoard(); state.boardTimer = setInterval(loadBoard, 5000); }
     function stopBoard() { if (state.boardTimer) { clearInterval(state.boardTimer); state.boardTimer = null; } }
@@ -330,34 +340,35 @@
                     + '<td class="clin-mrn-cell">' + escHtml(t.mrn || '') + '</td>'
                     + '<td>' + escHtml(t.providerName || '') + '</td>'
                     + '<td><span class="clin-status s-' + escHtml(s.toLowerCase()) + '">' + escHtml(STATUS_WORDS[s] || s) + '</span>'
-                    + (s === 'WAITING' && t.ahead != null ? ' <small class="clin-help">' + (t.ahead === 0 ? 'next' : escHtml(t.ahead) + ' ahead') + '</small>' : '')
+                    + (s === 'WAITING' && t.ahead != null ? ' <small class="clin-help">' + escHtml(t.ahead === 0 ? L('next', 'next') : L('ahead', '{0} ahead', t.ahead)) + '</small>' : '')
                     // the park reason only while PARKED: "Done · CBC, LFT pending" read as if the tests were still out
                     + (s === 'PARKED' && t.parkReason ? ' <small class="clin-help">' + escHtml(t.parkReason) + '</small>' : '') + '</td>'
                     + '<td class="clin-row-actions">' + (live
-                        ? '<button type="button" class="btn btn-xs btn-default clin-move" data-action="noShow" data-id="' + escHtml(t.id) + '">Not here</button> '
-                          + '<button type="button" class="btn btn-xs btn-danger clin-move" data-action="cancel" data-id="' + escHtml(t.id) + '">Cancel</button>'
+                        ? '<button type="button" class="btn btn-xs btn-default clin-move" data-action="noShow" data-id="' + escHtml(t.id) + '">' + escHtml(L('stNotHere', 'Not here')) + '</button> '
+                          + '<button type="button" class="btn btn-xs btn-danger clin-move" data-action="cancel" data-id="' + escHtml(t.id) + '">' + escHtml(L('cancel', 'Cancel')) + '</button>'
                         : '') + '</td></tr>');
             });
             $('#clinQueueEmpty').toggle(rows.length === 0);
             $('#clinQueueSummary').html(rows.length
-                ? '<span><b>' + waiting + '</b> waiting</span><span><b>' + withDoctor + '</b> with a doctor</span><span><b>' + done + '</b> done</span>'
+                ? '<span><b>' + waiting + '</b> ' + escHtml(L('sumWaiting', 'waiting')) + '</span><span><b>' + withDoctor + '</b> '
+                  + escHtml(L('sumWithDoctor', 'with a doctor')) + '</span><span><b>' + done + '</b> ' + escHtml(L('sumDone', 'done')) + '</span>'
                 : '');
-            $('#clinQueueUpdated').text('Updated ' + new Date().toLocaleTimeString());
+            $('#clinQueueUpdated').text(L('updated', 'Updated {0}', new Date().toLocaleTimeString()));
         }).fail(function (xhr) { moduleOff(reason(xhr, '')); });
     }
 
     function moveToken(id, action) {
-        var title = action === 'cancel' ? 'Cancel this token?' : 'Mark the patient as not here?';
+        var title = action === 'cancel' ? L('cancelTokenQ', 'Cancel this token?') : L('notHereQ', 'Mark the patient as not here?');
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(id) + '/' + action),
                      contentType: 'application/json', dataType: 'json',
                      data: JSON.stringify({ reason: action === 'cancel' ? 'cancelled at reception' : 'not here when called' }) })
-                .done(function (r) { msg((r && r.message) || 'Done.', !!(r && r.success)); loadBoard(); })
-                .fail(function (xhr) { msg(reason(xhr, 'Could not change the token.'), false); loadBoard(); });
+                .done(function (r) { msg((r && r.message) || L('done', 'Done.'), !!(r && r.success)); loadBoard(); })
+                .fail(function (xhr) { msg(reason(xhr, L('tokenChangeFailed', 'Could not change the token.')), false); loadBoard(); });
         };
         if (typeof uiConfirm === 'function') {
-            uiConfirm({ title: title, message: 'The patient leaves today\'s line. A new token can be issued later.',
-                        confirmText: action === 'cancel' ? 'Cancel token' : 'Not here', tone: 'warning' })
+            uiConfirm({ title: title, message: L('leavesLine', "The patient leaves today's line. A new token can be issued later."),
+                        confirmText: action === 'cancel' ? L('cancelToken', 'Cancel token') : L('stNotHere', 'Not here'), tone: 'warning' })
                 .then(function (ok) { if (ok) go(); });
         } else { go(); }
     }
@@ -375,15 +386,52 @@
             team.loaded = true;
         }).always(done);
     }
+    // H4: the pharmacy branches (business stores) — the owner / an admin routes each doctor to one
+    var branches = { loaded: false, list: [] };
+    function withBranches(done) {
+        if (branches.loaded) { done(); return; }
+        $.getJSON(url('getStores')).done(function (r) {
+            var l = (r && (r.object || r.collection || r.data)) || [];
+            branches.list = Array.isArray(l) ? l : [];
+            branches.loaded = true;
+        }).always(done);
+    }
+    function branchName(id) {
+        var b = branches.list.filter(function (s) { return String(s.id) === String(id); })[0];
+        return b ? (b.name || L('branchN', 'Branch {0}', b.id)) : null;
+    }
+    function pharmacyPicker(d) {
+        if (!isClinicAdmin()) {
+            return d.pharmacyStoreId ? '<div class="clin-help">' + escHtml(L('pharmacyIs', 'Pharmacy: {0}', branchName(d.pharmacyStoreId) || L('aBranch', 'a branch'))) + '</div>' : '';
+        }
+        if (branches.list.length < 2 && !d.pharmacyStoreId) return '';   // one branch: nothing to route
+        return '<div class="clin-pharmacy"><label class="sr-only" for="clinPh' + escHtml(d.id) + '">' + escHtml(L('pharmacyBranch', 'Pharmacy branch')) + '</label>'
+            + '<select id="clinPh' + escHtml(d.id) + '" class="form-control input-sm clin-pharmacy-pick" data-id="' + escHtml(d.id) + '">'
+            + '<option value="">' + escHtml(L('pharmacyEvery', 'Pharmacy: every branch')) + '</option>'
+            + branches.list.map(function (s) {
+                return '<option value="' + escHtml(s.id) + '"' + (String(s.id) === String(d.pharmacyStoreId) ? ' selected' : '') + '>'
+                    + escHtml(L('pharmacyIs', 'Pharmacy: {0}', s.name || L('branchN', 'Branch {0}', s.id))) + '</option>';
+            }).join('') + '</select></div>';
+    }
+    function savePharmacy($sel) {
+        var v = $sel.val();
+        $.ajax({ type: 'POST', url: url('clinic/doctors/' + encodeURIComponent($sel.data('id')) + '/pharmacy'), contentType: 'application/json',
+                 dataType: 'json', data: JSON.stringify({ storeId: v ? Number(v) : null }) })
+            .done(function (r) { msg((r && r.message) || L('saved', 'Saved.'), !!(r && r.success)); loadDoctorTable(); })
+            .fail(function (xhr) { msg(reason(xhr, L('branchFailed', 'Could not save the pharmacy branch.')), false); loadDoctorTable(); });
+    }
+
     function loginCell(d) {
         if (!d.linkedUserId) {
-            return isClinicAdmin() ? '<button type="button" class="btn btn-xs btn-default clin-link" data-id="' + escHtml(d.id) + '">Link login</button>'
+            // .clin-login-link, never .clin-link: that class is the reception's patient → customer "Link now", and both
+            // handlers fired on either button (a doctor id was posted as a PATIENT id) — found in the H5b review
+            return isClinicAdmin() ? '<button type="button" class="btn btn-xs btn-default clin-login-link" data-id="' + escHtml(d.id) + '">' + escHtml(L('linkLogin', 'Link login')) + '</button>'
                                    : '<span class="clin-help">—</span>';
         }
         var u = team.byId[String(d.linkedUserId)];
-        var who = u ? (u.email || ((u.firstName || '') + ' ' + (u.lastName || ''))) : 'Linked';
+        var who = u ? (u.email || ((u.firstName || '') + ' ' + (u.lastName || ''))) : L('linked', 'Linked');
         return '<span class="clin-linked">' + escHtml(who) + '</span>'
-            + (isClinicAdmin() ? ' <button type="button" class="btn btn-xs btn-link clin-unlink" data-id="' + escHtml(d.id) + '">Unlink</button>' : '');
+            + (isClinicAdmin() ? ' <button type="button" class="btn btn-xs btn-link clin-unlink" data-id="' + escHtml(d.id) + '">' + escHtml(L('unlink', 'Unlink')) + '</button>' : '');
     }
     function startLink($btn) {
         var id = $btn.data('id');
@@ -393,82 +441,82 @@
             var uid = u.userId || u.id;
             return '<option value="' + escHtml(uid) + '">' + escHtml(u.email || uid) + '</option>';
         }).join('');
-        if (!opts) { msg('Every team member is linked already. Register the doctor to make a new login.', false); return; }
-        $btn.closest('td').html('<span class="clin-link-pick"><select class="form-control input-sm clin-link-user" aria-label="Login to link">'
-            + '<option value="">Choose a login</option>' + opts + '</select> '
-            + '<button type="button" class="btn btn-xs btn-primary clin-link-save" data-id="' + escHtml(id) + '">Link</button></span>');
+        if (!opts) { msg(L('allLinked', 'Every team member is linked already. Register the doctor to make a new login.'), false); return; }
+        $btn.closest('td').html('<span class="clin-link-pick"><select class="form-control input-sm clin-link-user" aria-label="' + escHtml(L('loginToLink', 'Login to link')) + '">'
+            + '<option value="">' + escHtml(L('chooseLogin', 'Choose a login')) + '</option>' + opts + '</select> '
+            + '<button type="button" class="btn btn-xs btn-primary clin-link-save" data-id="' + escHtml(id) + '">' + escHtml(L('link', 'Link')) + '</button></span>');
     }
     function saveLink($btn) {
         var userId = $btn.siblings('.clin-link-user').val();
-        if (!userId) { msg('Choose the login to link.', false); return; }
+        if (!userId) { msg(L('chooseLoginToLink', 'Choose the login to link.'), false); return; }
         $.ajax({ type: 'POST', url: url('clinic/doctors/' + encodeURIComponent($btn.data('id')) + '/link'), contentType: 'application/json',
                  dataType: 'json', data: JSON.stringify({ userId: Number(userId) }) })
-            .done(function (r) { msg((r && r.message) || 'Linked.', !!(r && r.success)); loadDoctorTable(); })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not link the login.'), false); loadDoctorTable(); });
+            .done(function (r) { msg((r && r.message) || L('linkedDot', 'Linked.'), !!(r && r.success)); loadDoctorTable(); })
+            .fail(function (xhr) { msg(reason(xhr, L('linkLoginFailed', 'Could not link the login.')), false); loadDoctorTable(); });
     }
     function unlink($btn) {
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/doctors/' + encodeURIComponent($btn.data('id')) + '/unlink'), dataType: 'json' })
-                .done(function (r) { msg((r && r.message) || 'Unlinked.', !!(r && r.success)); loadDoctorTable(); })
-                .fail(function (xhr) { msg(reason(xhr, 'Could not unlink.'), false); });
+                .done(function (r) { msg((r && r.message) || L('unlinked', 'Unlinked.'), !!(r && r.success)); loadDoctorTable(); })
+                .fail(function (xhr) { msg(reason(xhr, L('unlinkFailed', 'Could not unlink.')), false); });
         };
         if (typeof uiConfirm === 'function') {
-            uiConfirm({ title: 'Unlink this login?', message: 'They can no longer open this doctor\'s patients unless the owner put them on the Doctor set.',
-                        confirmText: 'Unlink', tone: 'danger' }).then(function (ok) { if (ok) go(); });
+            uiConfirm({ title: L('unlinkQ', 'Unlink this login?'), message: L('unlinkMsg', "They can no longer open this doctor's patients unless the owner put them on the Doctor set."),
+                        confirmText: L('unlink', 'Unlink'), tone: 'danger' }).then(function (ok) { if (ok) go(); });
         } else { go(); }
     }
 
     // ── S2: doctors and today's limits ──────────────────────────────────────────────────────────────────
     function loadDoctorTable() {
-        withTeam(function () { withDoctors(function (doctors) {
+        withTeam(function () { withBranches(function () { withDoctors(function (doctors) {
             var $b = $('#clinDoctorBody').empty();
             $('#clinDoctorEmpty').toggle(doctors.length === 0);
             doctors.forEach(function (d) {
-                var today = d.closedToday ? '<span class="clin-badge warn">Not today</span>'
-                    : (d.todayLimit == null ? 'No limit' : escHtml(d.todayLimit))
-                      + (d.todayChanged ? ' <small class="clin-help">(today only)</small>' : '');
+                var today = d.closedToday ? '<span class="clin-badge warn">' + escHtml(L('notToday', 'Not today')) + '</span>'
+                    : (d.todayLimit == null ? escHtml(L('noLimit', 'No limit')) : escHtml(d.todayLimit))
+                      + (d.todayChanged ? ' <small class="clin-help">' + escHtml(L('todayOnly', '(today only)')) + '</small>' : '');
                 $b.append('<tr data-doctor-id="' + escHtml(d.id) + '"' + (d.linkedUserId ? ' data-linked="' + escHtml(d.linkedUserId) + '"' : '') + '>'
                     + '<td><b>' + escHtml(d.name) + '</b>' + (d.speciality ? '<br><small class="clin-help">' + escHtml(d.speciality) + '</small>' : '') + '</td>'
                     + '<td class="clin-token-cell">' + escHtml(d.tokenPrefix || '—') + '</td>'
-                    + '<td>' + (d.usualLimit == null ? 'No limit' : escHtml(d.usualLimit)) + '</td>'
+                    + '<td>' + (d.usualLimit == null ? escHtml(L('noLimit', 'No limit')) : escHtml(d.usualLimit)) + '</td>'
                     + '<td>' + today + '</td>'
                     + '<td>' + escHtml(d.issuedToday) + '</td><td>' + escHtml(d.waitingNow) + '</td>'
-                    + '<td class="clin-login-cell">' + loginCell(d) + '</td>'
+                    + '<td class="clin-login-cell">' + loginCell(d) + pharmacyPicker(d) + '</td>'
                     + '<td class="clin-day-tools">'
-                    + '<input type="number" min="0" class="form-control input-sm clin-day-limit" placeholder="Limit" aria-label="Today\'s limit for ' + escHtml(d.name) + '"/>'
-                    + '<button type="button" class="btn btn-xs btn-primary clin-day" data-kind="limit">Set today</button> '
+                    + '<input type="number" min="0" class="form-control input-sm clin-day-limit" placeholder="' + escHtml(L('limit', 'Limit')) + '" aria-label="' + escHtml(L('todayLimitFor', "Today's limit for {0}", d.name)) + '"/>'
+                    + '<button type="button" class="btn btn-xs btn-primary clin-day" data-kind="limit">' + escHtml(L('setToday', 'Set today')) + '</button> '
                     + (d.closedToday
-                        ? '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">Open again</button>'
-                        : '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="closed">Not today</button>'
-                          + (d.todayChanged ? ' <button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">Usual</button>' : ''))
+                        ? '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('openAgain', 'Open again')) + '</button>'
+                        : '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="closed">' + escHtml(L('notToday', 'Not today')) + '</button>'
+                          + (d.todayChanged ? ' <button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('usual', 'Usual')) + '</button>' : ''))
                     + '</td></tr>');
             });
-        }, true); });
+        }, true); }); });
     }
 
     function setDay($row, kind) {
         var body = { providerId: Number($row.data('doctor-id')), reset: kind === 'reset', closed: kind === 'closed' };
         if (kind === 'limit') {
             var v = $.trim($row.find('.clin-day-limit').val());
-            if (v === '') { msg('Type today\'s limit (0 = no limit today).', false); return; }
+            if (v === '') { msg(L('typeTodayLimit', "Type today's limit (0 = no limit today)."), false); return; }
             body.limit = Number(v);
         }
         $.ajax({ type: 'POST', url: url('clinic/doctors/day'), contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
-            .done(function (r) { msg((r && r.message) || 'Saved.', !!(r && r.success)); loadDoctorTable(); })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not save the day.'), false); });
+            .done(function (r) { msg((r && r.message) || L('saved', 'Saved.'), !!(r && r.success)); loadDoctorTable(); })
+            .fail(function (xhr) { msg(reason(xhr, L('dayFailed', 'Could not save the day.')), false); });
     }
 
     function addDoctor() {
         var noLimit = $('#clinDocNoLimit').is(':checked');
         var limit = $.trim($('#clinDocLimit').val());
-        if (!noLimit && limit === '') { msg('Type the patients a day, or tick No limit.', false); return; }
+        if (!noLimit && limit === '') { msg(L('typePerDay', 'Type the patients a day, or tick No limit.'), false); return; }
         var body = { name: $.trim($('#clinDocName').val()), speciality: $.trim($('#clinDocSpeciality').val()),
                      fee: $.trim($('#clinDocFee').val()), dailyLimit: noLimit ? null : Number(limit) };
         // H2: with "Create their login" the doctor IS a login (set-password email; My queue opens on their patients)
         var withLogin = $('#clinDocMakeLogin').is(':checked');
         if (withLogin) {
             body.email = $.trim($('#clinDocEmail').val());
-            if (!body.email) { msg("Enter the doctor's email, or untick Create their login.", false); $('#clinDocEmail').focus(); return; }
+            if (!body.email) { msg(L('enterDoctorEmail', "Enter the doctor's email, or untick Create their login."), false); $('#clinDocEmail').focus(); return; }
         }
         var $btn = $('#clinDocSave').prop('disabled', true);
         $.ajax({ type: 'POST', url: url(withLogin ? 'clinic/doctors/register' : 'clinic/doctors'), contentType: 'application/json',
@@ -480,9 +528,9 @@
                     $('#clinDocLimit').prop('disabled', false);
                     team.loaded = false;   // a new login exists
                     loadDoctorTable();
-                } else { msg((r && r.message) || 'Could not add the doctor.', false); }
+                } else { msg((r && r.message) || L('addDoctorFailed', 'Could not add the doctor.'), false); }
             })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not add the doctor.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('addDoctorFailed', 'Could not add the doctor.')), false); })
             .always(function () { $btn.prop('disabled', false); });
     }
 
@@ -535,9 +583,9 @@
             var rows = (r.data || []).filter(function (t) { return ['WAITING', 'CALLED', 'IN_CONSULTATION', 'PARKED'].indexOf(t.status) >= 0; });
             var $b = $('#clinQueueBody').empty();
             rows.forEach(function (t) {
-                var act = t.status === 'WAITING' ? '<button type="button" class="btn btn-xs btn-default clin-q-call" data-id="' + escHtml(t.id) + '">Call</button>'
-                    : t.status === 'CALLED' ? '<button type="button" class="btn btn-xs btn-success clin-q-start" data-id="' + escHtml(t.id) + '">Start</button>'
-                    : '<button type="button" class="btn btn-xs btn-primary clin-q-start" data-id="' + escHtml(t.id) + '">Open</button>';
+                var act = t.status === 'WAITING' ? '<button type="button" class="btn btn-xs btn-default clin-q-call" data-id="' + escHtml(t.id) + '">' + escHtml(L('call', 'Call')) + '</button>'
+                    : t.status === 'CALLED' ? '<button type="button" class="btn btn-xs btn-success clin-q-start" data-id="' + escHtml(t.id) + '">' + escHtml(L('start', 'Start')) + '</button>'
+                    : '<button type="button" class="btn btn-xs btn-primary clin-q-start" data-id="' + escHtml(t.id) + '">' + escHtml(L('open', 'Open')) + '</button>';
                 $b.append('<tr data-token-id="' + escHtml(t.id) + '"><td class="clin-token-cell">' + escHtml(t.tokenLabel) + '</td>'
                     + '<td>' + escHtml(t.patientName || '') + (t.status === 'PARKED' && t.parkReason ? ' <span class="clin-help">· ' + escHtml(t.parkReason) + '</span>' : '')
                     + '</td><td class="clin-mrn-cell">' + escHtml(t.mrn || '') + '</td>'
@@ -545,34 +593,34 @@
                     + '<td class="clin-row-actions">' + act + '</td></tr>');
             });
             $('#clinMyQueueEmpty').toggle(rows.length === 0);
-        }).fail(function (xhr) { msg(reason(xhr, 'Could not load the queue.'), false); });
+        }).fail(function (xhr) { msg(reason(xhr, L('queueFailed', 'Could not load the queue.')), false); });
     }
 
     function callNext() {
         var id = myDoctor();
-        if (!id) { msg('Choose which doctor you are.', false); return; }
+        if (!id) { msg(L('whichDoctor', 'Choose which doctor you are.'), false); return; }
         $.ajax({ type: 'POST', url: url('clinic/consult/next') + '?providerId=' + encodeURIComponent(id), dataType: 'json' })
-            .done(function (r) { msg((r && r.message) || 'Done.', !!(r && r.success)); loadMyQueue(); })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not call the next patient.'), false); });
+            .done(function (r) { msg((r && r.message) || L('done', 'Done.'), !!(r && r.success)); loadMyQueue(); })
+            .fail(function (xhr) { msg(reason(xhr, L('callNextFailed', 'Could not call the next patient.')), false); });
     }
 
     function callToken(tokenId) {
         $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(tokenId) + '/call'), contentType: 'application/json', dataType: 'json', data: '{}' })
-            .done(function (r) { msg((r && r.message) || 'Called.', !!(r && r.success)); loadMyQueue(); })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not call the patient.'), false); loadMyQueue(); });
+            .done(function (r) { msg((r && r.message) || L('called', 'Called.'), !!(r && r.success)); loadMyQueue(); })
+            .fail(function (xhr) { msg(reason(xhr, L('callFailed', 'Could not call the patient.')), false); loadMyQueue(); });
     }
 
     /** Start (CALLED) or reopen (with the doctor / parked) — the server makes or returns the one visit of the token. */
     function startToken(tokenId) {
         $.ajax({ type: 'POST', url: url('clinic/consult/tokens/' + encodeURIComponent(tokenId) + '/start'), dataType: 'json' })
-            .done(function (r) { if (r && r.success) showEncounter(r.data); else msg((r && r.message) || 'Could not start.', false); })
-            .fail(function (xhr) { msg(reason(xhr, 'Could not start the consultation.'), false); });
+            .done(function (r) { if (r && r.success) showEncounter(r.data); else msg((r && r.message) || L('startFailed', 'Could not start.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('startConsultFailed', 'Could not start the consultation.')), false); });
     }
 
     function vitalsLine(e) {
         var parts = [];
         if (e.bloodPressure) parts.push('BP ' + e.bloodPressure);
-        if (e.pulse != null) parts.push('Pulse ' + e.pulse);
+        if (e.pulse != null) parts.push(L('pulseN', 'Pulse {0}', e.pulse));
         if (e.temperatureF != null) parts.push(e.temperatureF + ' °F');
         if (e.spo2 != null) parts.push('SpO2 ' + e.spo2 + '%');
         if (e.weightKg != null) parts.push(e.weightKg + ' kg');
@@ -581,8 +629,8 @@
 
     function noteItems(notes) {
         return (notes || []).map(function (n) {
-            var at = String(n.createdAt || '').replace('T', ' ').substring(0, 16);
-            return '<li><span class="clin-note-at">' + escHtml(at) + (n.amendsNoteId ? ' · correction' : '') + '</span>'
+            var at = fmtDateTime(n.createdAt);
+            return '<li><span class="clin-note-at">' + escHtml(at) + (n.amendsNoteId ? ' · ' + escHtml(L('correction', 'correction')) : '') + '</span>'
                 + '<span class="clin-note-body">' + escHtml(n.body) + '</span></li>';
         }).join('');
     }
@@ -593,7 +641,7 @@
         // Two identifiers before anything clinical: the name with the MRN, and the date of birth.
         $('#clinIdBanner').html('<div class="clin-id-name">' + escHtml(p.name || '') + '</div>'
             + '<div class="clin-id-facts"><span class="clin-mrn">' + escHtml(p.mrn || '') + '</span>'
-            + (p.dateOfBirth ? '<span>' + escHtml(p.dateOfBirth) + (p.ageYears != null ? ' · ' + escHtml(p.ageYears) + ' y' : '') + '</span>' : '<span class="clin-help">no date of birth recorded</span>')
+            + (p.dateOfBirth ? '<span>' + escHtml(p.dateOfBirth) + (p.ageYears != null ? ' · ' + escHtml(L('ageYears', '{0} y', p.ageYears)) : '') + '</span>' : '<span class="clin-help">' + escHtml(L('noDob', 'no date of birth recorded')) + '</span>')
             + (p.sex ? '<span>' + escHtml(sexLabel(p.sex)) + '</span>' : '')
             + '<span class="clin-token-cell">' + escHtml(e.tokenLabel || '') + '</span>'
             + '<span class="clin-status s-' + escHtml(String(e.tokenStatus || '').toLowerCase()) + '" id="clinStatus" data-status="' + escHtml(String(e.tokenStatus || '')) + '">' + escHtml(STATUS_WORDS[e.tokenStatus] || String(e.tokenStatus || '')) + '</span></div>');
@@ -609,13 +657,13 @@
         $('#clinComplete').prop('disabled', done);
         $('#clinNotes').html(noteItems(e.notes));
         var hist = (e.history || []).map(function (h) {
-            var at = String(h.startedAt || '').substring(0, 10);
+            var at = fmtDate(h.startedAt);   // the viewer's DAY of the visit
             return '<div class="clin-visit"><div class="clin-visit-head"><b>' + escHtml(at) + '</b> · ' + escHtml(h.providerName || '')
                 + (h.chiefComplaint ? ' · ' + escHtml(h.chiefComplaint) : '') + '</div>'
                 + (vitalsLine(h) ? '<div class="clin-help">' + escHtml(vitalsLine(h)) + '</div>' : '')
                 + ((h.notes || []).length ? '<ol class="clin-note-list">' + noteItems(h.notes) + '</ol>' : '') + '</div>';
         }).join('');
-        $('#clinHistory').html(hist || '<p class="clin-empty">First visit.</p>');
+        $('#clinHistory').html(hist || '<p class="clin-empty">' + escHtml(L('firstVisit', 'First visit.')) + '</p>');
         rx.lines = (e.rxLines || []).map(function (l) { return $.extend({}, l); });
         renderRx();
         loadMedicines();
@@ -631,28 +679,28 @@
                      temperatureF: $('#clinVitalTemp').val(), spo2: $('#clinVitalSpo2').val(), weightKg: $('#clinVitalWeight').val(),
                      heightCm: $('#clinVitalHeight').val(), version: e.version };
         $.ajax({ type: 'PUT', url: url('clinic/consult/encounters/' + e.id), contentType: 'application/json', dataType: 'json', data: JSON.stringify(body) })
-            .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not saved.', false); })
-            .fail(function (xhr) { msg(reason(xhr, 'Not saved.'), false); });
+            .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || L('notSaved', 'Not saved.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('notSaved', 'Not saved.')), false); });
     }
 
     function addNote() {
         var e = consultState.encounter; if (!e) return;
         $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + e.id + '/notes'), contentType: 'application/json', dataType: 'json',
                  data: JSON.stringify({ body: $('#clinNote').val() }) })
-            .done(function (r) { if (r && r.success) { $('#clinNote').val(''); msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not added.', false); })
-            .fail(function (xhr) { msg(reason(xhr, 'The note was not added.'), false); });
+            .done(function (r) { if (r && r.success) { $('#clinNote').val(''); msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || L('notAdded', 'Not added.'), false); })
+            .fail(function (xhr) { msg(reason(xhr, L('noteFailed', 'The note was not added.')), false); });
     }
 
     function completeVisit() {
         var e = consultState.encounter; if (!e) return;
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + e.id + '/complete'), dataType: 'json' })
-                .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || 'Not completed.', false); })
-                .fail(function (xhr) { msg(reason(xhr, 'The visit was not completed.'), false); });
+                .done(function (r) { if (r && r.success) { msg(r.message, true); showEncounter(r.data); } else msg((r && r.message) || L('notCompleted', 'Not completed.'), false); })
+                .fail(function (xhr) { msg(reason(xhr, L('completeFailed', 'The visit was not completed.')), false); });
         };
         if (typeof uiConfirm === 'function') {
-            uiConfirm({ title: 'Complete this visit?', message: 'The patient leaves your queue. Notes can still be added to correct the record.',
-                        confirmText: 'Complete visit', tone: 'primary' }).then(function (ok) { if (ok) go(); });
+            uiConfirm({ title: L('completeQ', 'Complete this visit?'), message: L('completeMsg', 'The patient leaves your queue. Notes can still be added to correct the record.'),
+                        confirmText: L('completeVisit', 'Complete visit'), tone: 'primary' }).then(function (ok) { if (ok) go(); });
         } else { go(); }
     }
 
@@ -667,7 +715,7 @@
             rx.medicines = list || [];
             rx.byName = {};
             var html = rx.medicines.map(function (p) {
-                var name = String(p.name || ('Product #' + p.id));
+                var name = String(p.name || L('productN', 'Product #{0}', p.id));
                 if (!rx.byName[name.toLowerCase()]) rx.byName[name.toLowerCase()] = p;
                 return '<option value="' + escHtml(name) + '">' + (p.formula ? escHtml(p.formula) : '') + '</option>';
             }).join('');
@@ -690,7 +738,7 @@
             $b.append('<tr><td>' + escHtml(l.medicineName) + '</td>' + cell(l, i, 'quantity', 'clin-num', 'numeric')
                 + cell(l, i, 'dosage') + cell(l, i, 'frequency') + cell(l, i, 'duration')
                 + '<td class="clin-row-actions">' + (locked ? '' : '<button type="button" class="btn btn-xs btn-default clin-rx-remove" data-i="' + i
-                    + '" aria-label="Remove ' + escHtml(l.medicineName) + '">Remove</button>') + '</td></tr>');
+                    + '" aria-label="' + escHtml(L('removeX', 'Remove {0}', l.medicineName)) + '">' + escHtml(L('remove', 'Remove')) + '</button>') + '</td></tr>');
         });
         $('#clinRxEmpty').toggle(rx.lines.length === 0);
         // whole blocks are hidden, never .btn (theme.css forces .btn to display:inline-flex !important)
@@ -699,22 +747,65 @@
         $('#clinRxActions').toggle(!locked);
         var e = consultState.encounter;
         if (locked) {
-            var at = String(e.rxSubmittedAt || '').replace('T', ' ').substring(0, 16);
-            $('#clinRxSent').text('Sent to the pharmacy · ' + (e.tokenLabel || '') + ' · ' + at).show();
+            var at = fmtDateTime(e.rxSubmittedAt);
+            $('#clinRxSent').text(L('sentToPharmacy', 'Sent to the pharmacy · {0} · {1}', e.tokenLabel || '', at)).show();
+            loadPharmacyCopy(e.id);
         } else {
             $('#clinRxSent').hide();
+            $('#clinRxPharmacy').hide().empty();
         }
+    }
+
+    // ── H3c: what the pharmacy did with the prescription (read when a sent prescription is shown) ──────────
+    var RX_WORDS = { PENDING: L('rxPending', 'Waiting at the pharmacy'), PARTIALLY_DISPENSED: L('rxPartly', 'Partly dispensed'),
+                     FULLY_DISPENSED: L('rxDispensed', 'Dispensed'), CANCELLED: L('rxCancelled', 'Cancelled by the pharmacy'),
+                     EXPIRED: L('rxExpired', 'Expired') };
+    function loadPharmacyCopy(encounterId) {
+        $.getJSON(url('clinic/consult/encounters/' + encodeURIComponent(encounterId) + '/rx/pharmacy')).done(function (r) {
+            var d = (r && r.success && r.data) || {};
+            var $p = $('#clinRxPharmacy').empty();
+            if (d.unavailable) { $p.html('<p class="clin-help">' + escHtml(d.unavailable) + '</p>').show(); return; }
+            if (!d.status) { $p.hide(); return; }
+            var fmt = function (s) {
+                if (!s) return '—';
+                return [s.qty, s.dose, s.freq, s.days].filter(function (x) { return x !== null && x !== undefined && x !== ''; }).join(' · ');
+            };
+            var html = '<div class="clin-rx-status s-' + escHtml(String(d.status).toLowerCase()) + '"><b>' + escHtml(L('atPharmacy', 'At the pharmacy:')) + '</b> '
+                + escHtml(RX_WORDS[d.status] || d.status) + '</div>';
+            var changes = d.amendments || [];
+            if (changes.length) {
+                html += '<div class="clin-rx-changed"><b>' + escHtml(L('changedByPharmacy', 'Changed by the pharmacy')) + '</b><ol>' + changes.map(function (a) {
+                    var when = fmtDateTime(a.amendedAt);
+                    var lines = (a.changes || []).map(function (c) {
+                        var what = !c.before ? L('added', 'added') : !c.after ? L('removed', 'removed') : L('changed', 'changed');
+                        return '<li>' + escHtml(c.medicine || '') + ' ' + what + ': ' + escHtml(fmt(c.before)) + ' → ' + escHtml(fmt(c.after)) + '</li>';
+                    }).join('');
+                    return '<li><span class="clin-note-at">' + escHtml(when) + ' · ' + escHtml(a.kind === 'CANCEL' ? L('cancelledLower', 'cancelled') : L('changed', 'changed')) + '</span>'
+                        + '<div class="clin-rx-reason">' + escHtml(a.reason || '') + '</div>' + (lines ? '<ul>' + lines + '</ul>' : '') + '</li>';
+                }).join('') + '</ol></div>';
+            }
+            var items = d.items || [];
+            if (items.length && (changes.length || d.status !== 'PENDING')) {
+                html += '<table class="table clin-table clin-rx-now"><thead><tr><th>' + escHtml(L('now', 'Now')) + '</th><th>' + escHtml(L('qty', 'Qty'))
+                    + '</th><th>' + escHtml(L('dose', 'Dose')) + '</th><th>' + escHtml(L('given', 'Given')) + '</th></tr></thead><tbody>'
+                    + items.map(function (i) {
+                        return '<tr><td>' + escHtml(i.medicineName || '') + '</td><td class="clin-num">' + escHtml(i.quantity) + '</td><td>'
+                            + escHtml(i.dosage || '') + '</td><td class="clin-num">' + escHtml(i.dispensedQuantity == null ? 0 : i.dispensedQuantity) + '</td></tr>';
+                    }).join('') + '</tbody></table>';
+            }
+            $p.html(html).show();
+        });
     }
 
     function addRxLine() {
         var typed = $.trim($('#clinRxMedicine').val());
         var p = rx.byName[typed.toLowerCase()];
-        if (!p) { msg(typed ? '"' + typed + '" is not in the pharmacy\'s list. Choose it from the suggestions.' : 'Choose a medicine.', false); $('#clinRxMedicine').focus(); return; }
+        if (!p) { msg(typed ? L('notInList', '"{0}" is not in the pharmacy\'s list. Choose it from the suggestions.', typed) : L('chooseMedicine', 'Choose a medicine.'), false); $('#clinRxMedicine').focus(); return; }
         if (rx.lines.some(function (l) { return String(l.productId) === String(p.id); })) {
-            msg(p.name + ' is on the prescription already. Remove it to change it.', false); return;
+            msg(L('alreadyOnRx', '{0} is on the prescription already. Remove it to change it.', p.name), false); return;
         }
         var q = $.trim($('#clinRxQty').val());
-        if (!/^\d+$/.test(q) || +q < 1 || +q > 10000) { msg('Quantity: a whole number from 1 to 10000.', false); $('#clinRxQty').focus(); return; }
+        if (!/^\d+$/.test(q) || +q < 1 || +q > 10000) { msg(L('qtyRange', 'Quantity: a whole number from 1 to 10000.'), false); $('#clinRxQty').focus(); return; }
         rx.lines.push({ productId: p.id, medicineName: p.name, quantity: q, dosage: $.trim($('#clinRxDose').val()),
                         frequency: $.trim($('#clinRxFreq').val()), duration: $.trim($('#clinRxDays').val()) });
         $('#clinRxMedicine, #clinRxQty, #clinRxDose, #clinRxFreq, #clinRxDays').val('');
@@ -730,28 +821,29 @@
                  data: JSON.stringify({ lines: rx.lines }) })
             .done(function (r) {
                 if (r && r.success) { if (!quiet) msg(r.message, true); showEncounter(r.data); d.resolve(r.data); }
-                else { msg((r && r.message) || 'Not saved.', false); d.reject(); }
+                else { msg((r && r.message) || L('notSaved', 'Not saved.'), false); d.reject(); }
             })
-            .fail(function (xhr) { msg(reason(xhr, 'The prescription was not saved.'), false); d.reject(); });
+            .fail(function (xhr) { msg(reason(xhr, L('rxNotSaved', 'The prescription was not saved.')), false); d.reject(); });
         return d.promise();
     }
 
     function submitRx() {
         var e = consultState.encounter; if (!e) return;
-        if (!rx.lines.length) { msg('Add at least one medicine, then Submit.', false); return; }
+        if (!rx.lines.length) { msg(L('addOneMedicine', 'Add at least one medicine, then Submit.'), false); return; }
         var go = function () {
             $('#clinRxSubmit').prop('disabled', true);
             saveRx(true).then(function (fresh) {
                 return $.ajax({ type: 'POST', url: url('clinic/consult/encounters/' + fresh.id + '/rx/submit'), dataType: 'json' });
             }).done(function (r) {
                 if (r && r.success) { msg(r.message, true); showEncounter(r.data); }
-                else if (r) msg(r.message || 'Not sent.', false);
-            }).fail(function (xhr) { if (xhr && xhr.status !== undefined) msg(reason(xhr, 'Not sent. Press Submit again — it will not be sent twice.'), false); })
+                else if (r) msg(r.message || L('notSent', 'Not sent.'), false);
+            }).fail(function (xhr) { if (xhr && xhr.status !== undefined) msg(reason(xhr, L('notSentRetry', 'Not sent. Press Submit again — it will not be sent twice.')), false); })
               .always(function () { $('#clinRxSubmit').prop('disabled', false); });
         };
         if (typeof uiConfirm === 'function') {
-            uiConfirm({ title: 'Send to the pharmacy?', message: rx.lines.length + ' medicine(s) for ' + ((e.patient || {}).name || 'the patient')
-                        + '. After this the prescription cannot be changed here.', confirmText: 'Submit', tone: 'primary' })
+            uiConfirm({ title: L('sendQ', 'Send to the pharmacy?'),
+                        message: L('sendMsg', '{0} medicine(s) for {1}. After this the prescription cannot be changed here.', rx.lines.length, (e.patient || {}).name || L('thePatient', 'the patient')),
+                        confirmText: L('submit', 'Submit'), tone: 'primary' })
                 .then(function (ok) { if (ok) go(); });
         } else { go(); }
     }
@@ -759,12 +851,12 @@
     function parkVisit() {
         var e = consultState.encounter; if (!e) return;
         var why = $.trim($('#clinParkReason').val());
-        if (!why) { msg('Say why the patient is parked, e.g. CBC pending.', false); $('#clinParkReason').focus(); return; }
+        if (!why) { msg(L('parkWhy', 'Say why the patient is parked, e.g. CBC pending.'), false); $('#clinParkReason').focus(); return; }
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(e.tokenId) + '/park'), contentType: 'application/json',
                      dataType: 'json', data: JSON.stringify({ reason: why }) })
-                .done(function (r) { msg((r && r.message) || 'Parked.', !!(r && r.success)); if (r && r.success) { $('#clinParkReason').val(''); backToQueue(); } })
-                .fail(function (xhr) { msg(reason(xhr, 'Not parked.'), false); });
+                .done(function (r) { msg((r && r.message) || L('parked', 'Parked.'), !!(r && r.success)); if (r && r.success) { $('#clinParkReason').val(''); backToQueue(); } })
+                .fail(function (xhr) { msg(reason(xhr, L('notParked', 'Not parked.')), false); });
         };
         // unsaved medicines would be lost on the way out: save them first (the pharmacy sees nothing until Submit)
         if (rx.lines.length && !rxLocked()) saveRx(true).then(go); else go();
@@ -776,7 +868,7 @@
     function loadTemplates(selectId) {
         $.getJSON(url('clinic/consult/templates')).done(function (r) {
             tpl.list = (r && r.success && r.data) || [];
-            var $s = $('#clinRxTemplate').empty().append('<option value="">' + (tpl.list.length ? 'Choose a template' : 'No templates yet') + '</option>');
+            var $s = $('#clinRxTemplate').empty().append('<option value="">' + escHtml(tpl.list.length ? L('chooseTemplate', 'Choose a template') : L('noTemplates', 'No templates yet')) + '</option>');
             tpl.list.forEach(function (t) {
                 $s.append('<option value="' + escHtml(t.id) + '">' + escHtml(t.name) + ' (' + (t.lines || []).length + ')</option>');
             });
@@ -791,8 +883,8 @@
 
     function useTemplate() {
         var t = chosenTemplate();
-        if (!t) { msg('Choose a template.', false); return; }
-        if (!rx.medicines) { msg("The pharmacy's list is still loading. Try again in a moment.", false); return; }
+        if (!t) { msg(L('chooseTemplateDot', 'Choose a template.'), false); return; }
+        if (!rx.medicines) { msg(L('listLoading', "The pharmacy's list is still loading. Try again in a moment."), false); return; }
         var inList = {};
         rx.medicines.forEach(function (p) { inList[String(p.id)] = true; });
         var added = 0, already = [], gone = [];
@@ -803,37 +895,37 @@
             added++;
         });
         renderRx();
-        var words = added + ' medicine(s) from "' + t.name + '". Check them, then Save or Submit.';
-        if (already.length) words += ' Already on the list: ' + already.join(', ') + '.';
+        var words = L('usedTemplate', '{0} medicine(s) from "{1}". Check them, then Save or Submit.', added, t.name);
+        if (already.length) words += ' ' + L('alreadyListed', 'Already on the list: {0}.', already.join(', '));
         // a medicine the pharmacy no longer has is NAMED, never silently dropped
-        if (gone.length) words += ' Not in the pharmacy\'s list any more: ' + gone.join(', ') + '.';
+        if (gone.length) words += ' ' + L('noLongerInList', "Not in the pharmacy's list any more: {0}.", gone.join(', '));
         msg(words, gone.length === 0);
     }
 
     function saveTemplate() {
         var name = $.trim($('#clinRxTemplateName').val());
-        if (!name) { msg('Give the template a name, e.g. Fever + Flu.', false); $('#clinRxTemplateName').focus(); return; }
-        if (!rx.lines.length) { msg('Add the medicines first, then save them as a template.', false); return; }
+        if (!name) { msg(L('templateName', 'Give the template a name, e.g. Fever + Flu.'), false); $('#clinRxTemplateName').focus(); return; }
+        if (!rx.lines.length) { msg(L('medicinesFirst', 'Add the medicines first, then save them as a template.'), false); return; }
         $.ajax({ type: 'POST', url: url('clinic/consult/templates'), contentType: 'application/json', dataType: 'json',
                  data: JSON.stringify({ name: name, lines: rx.lines }) })
             .done(function (r) {
                 if (r && r.success) { msg(r.message, true); $('#clinRxTemplateName').val(''); loadTemplates(r.data.id); }
-                else msg((r && r.message) || 'Not saved.', false);
+                else msg((r && r.message) || L('notSaved', 'Not saved.'), false);
             })
-            .fail(function (xhr) { msg(reason(xhr, 'The template was not saved.'), false); });
+            .fail(function (xhr) { msg(reason(xhr, L('templateNotSaved', 'The template was not saved.')), false); });
     }
 
     function retireTemplate() {
         var t = chosenTemplate();
-        if (!t) { msg('Choose the template to remove.', false); return; }
+        if (!t) { msg(L('chooseTemplateToRemove', 'Choose the template to remove.'), false); return; }
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/consult/templates/' + encodeURIComponent(t.id) + '/retire'), dataType: 'json' })
-                .done(function (r) { msg((r && r.message) || 'Removed.', !!(r && r.success)); loadTemplates(); })
-                .fail(function (xhr) { msg(reason(xhr, 'Not removed.'), false); });
+                .done(function (r) { msg((r && r.message) || L('removedDot', 'Removed.'), !!(r && r.success)); loadTemplates(); })
+                .fail(function (xhr) { msg(reason(xhr, L('notRemoved', 'Not removed.')), false); });
         };
         if (typeof uiConfirm === 'function') {
-            uiConfirm({ title: 'Remove "' + t.name + '"?', message: 'Prescriptions already written from it are not changed.',
-                        confirmText: 'Remove', tone: 'danger' }).then(function (ok) { if (ok) go(); });
+            uiConfirm({ title: L('removeTemplateQ', 'Remove "{0}"?', t.name), message: L('removeTemplateMsg', 'Prescriptions already written from it are not changed.'),
+                        confirmText: L('remove', 'Remove'), tone: 'danger' }).then(function (ok) { if (ok) go(); });
         } else { go(); }
     }
 
@@ -855,9 +947,10 @@
         });
         $(document).on('click', '.clin-move', function () { moveToken($(this).data('id'), $(this).data('action')); });
         $(document).on('click', '.clin-q-call', function () { callToken($(this).data('id')); });
-        $(document).on('click', '.clin-link', function () { startLink($(this)); });
+        $(document).on('click', '.clin-login-link', function () { startLink($(this)); });   // H5b: its own class (see loginCell)
         $(document).on('click', '.clin-link-save', function () { saveLink($(this)); });
         $(document).on('click', '.clin-unlink', function () { unlink($(this)); });
+        $(document).on('change', '.clin-pharmacy-pick', function () { savePharmacy($(this)); });
         loadMe();
         $(document).on('click', '.clin-q-start', function () { startToken($(this).data('id')); });
         $('#clinCallNext').on('click', callNext);

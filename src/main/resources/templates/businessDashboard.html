@@ -4176,6 +4176,53 @@ tr.row-voided .js-edit-row{display:none !important}
 				</table>
 				<p id="rxSearchEmpty" class="text-muted" style="display:none" th:text="#{ui.rxSearchNone}">No prescriptions match.</p>
 				<div class="text-center" id="rxLoadMoreWrap" style="display:none"><button type="button" id="rxLoadMore" class="btn btn-default" onclick="loadMorePrescriptions()" th:text="#{ui.loadMore}">Load more</button></div>
+
+				<!-- HMS H3b: only the PHARMACIST (rx.dispense) dispenses, changes or cancels; everyone else sees the list -->
+				<style>
+					.rx-panel{border:1px solid #d6dde8;border-radius:8px;padding:12px 14px;margin:14px 0;background:#fbfcfe}
+					.rx-panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+					.rx-panel-head h5{margin:0;font-weight:700}
+					.rx-amend-table .form-control{min-width:64px}
+					.rx-amend-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 12px}
+					.rx-amend-add #rxAmendMedicine{flex:1 1 260px;min-width:0}
+					.rx-amend-add #rxAmendQty{flex:0 0 90px}
+					.rx-panel-actions{display:flex;gap:8px;margin-top:10px}
+					.rx-history{padding-left:18px;margin:8px 0 0}
+					.rx-history-item{margin-bottom:10px}
+					.rx-history-reason{color:#4a5568;font-style:italic}
+				</style>
+				<span id="rxCanDispense" hidden="hidden" sec:authorize="hasAuthority('rx.dispense') or hasAuthority('ROLE_OWNER')"></span>
+				<div id="rxPanel" class="rx-panel" style="display:none" aria-live="polite">
+					<div class="rx-panel-head">
+						<h5 id="rxPanelTitle"></h5>
+						<span id="rxPanelCloseWrap"><button type="button" class="btn btn-link" onclick="closeRxPanel()" th:text="#{ui.close}">Close</button></span>
+					</div>
+					<div id="rxAmendBox">
+						<div class="table-responsive">
+							<table class="table table-bordered rx-amend-table">
+								<thead><tr><th th:text="#{ui.medicine}">Medicine</th><th th:text="#{ui.qty}">Qty</th><th th:text="#{ui.rxDose}">Dose</th><th th:text="#{ui.rxFrequency}">Frequency</th><th th:text="#{ui.rxDuration}">Duration</th><th th:text="#{ui.rxDispensed}">Dispensed</th><th></th></tr></thead>
+								<tbody id="rxAmendBody"></tbody>
+							</table>
+						</div>
+						<div class="rx-amend-add">
+							<input type="text" id="rxAmendMedicine" class="form-control" list="rxAmendMedicines" autocomplete="off" placeholder="Add a medicine from the list" aria-label="Add a medicine"/>
+							<datalist id="rxAmendMedicines"></datalist>
+							<input type="text" id="rxAmendQty" class="form-control" inputmode="numeric" placeholder="Qty" aria-label="Quantity"/>
+							<span><button type="button" id="rxAmendAdd" class="btn btn-default" onclick="addRxAmendLine()"><span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.add}">Add</span></button></span>
+						</div>
+					</div>
+					<label for="rxPanelReason" th:text="#{ui.rxReason}">Reason (the doctor sees it)</label>
+					<input type="text" id="rxPanelReason" class="form-control" maxlength="500" placeholder="e.g. 500mg not in stock — 250mg given"/>
+					<div class="rx-panel-actions">
+						<span id="rxAmendSaveWrap"><button type="button" id="rxAmendSave" class="btn btn-success" onclick="saveRxAmend()"><span class="glyphicon glyphicon-floppy-disk"></span> <span th:text="#{ui.rxSaveChange}">Save change</span></button></span>
+						<span id="rxCancelConfirmWrap"><button type="button" id="rxCancelConfirm" class="btn btn-danger" onclick="confirmRxCancel()" th:text="#{ui.cancelPrescription}">Cancel prescription</button></span>
+					</div>
+				</div>
+				<div id="rxHistoryPanel" class="rx-panel" style="display:none">
+					<div class="rx-panel-head"><h5 id="rxHistoryTitle"></h5>
+						<span><button type="button" class="btn btn-link" onclick="$('#rxHistoryPanel').hide()" th:text="#{ui.close}">Close</button></span></div>
+					<ol id="rxHistoryList" class="rx-history"></ol>
+				</div>
 			</div>
 
 			<!-- POS R10 (slice 40): parked / held sales. -->

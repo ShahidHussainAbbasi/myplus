@@ -25,6 +25,7 @@ public class PrescriptionDTO {
     private String tokenLabel;    // the clinic token, for a doctor's prescription
     private Long encounterId;
     private String externalRef;   // "enc-<id>": the idempotency key of a doctor's Submit
+    private Long storeId;         // H4: the branch a doctor's prescription is routed to (null = every branch)
     private LocalDateTime createdAt;
     private List<PrescriptionItemDTO> items = new ArrayList<>();
 

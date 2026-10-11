@@ -30,6 +30,7 @@ import java.util.List;
 public class DispenseService {
 
     private final PrescriptionRepository prescriptionRepo;
+    private final StoreScope branches;   // H4: another branch's prescription is "not found"
     private final PrescriptionItemRepository itemRepo;
     private final DispensingRepository dispensingRepo;
     private final PrescriptionService prescriptionService;
@@ -37,7 +38,7 @@ public class DispenseService {
 
     @Transactional
     public PrescriptionDTO dispense(Long prescriptionId, DispenseRequest req, Long orgId, Long userId) {
-        Prescription rx = prescriptionRepo.findByIdScoped(prescriptionId, orgId, userId)
+        Prescription rx = prescriptionRepo.findByIdScoped(prescriptionId, orgId, userId).filter(x -> branches.canAccess(x.getStoreId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
         assertDispensable(rx);
 
@@ -142,7 +143,7 @@ public class DispenseService {
     }
 
     /** FULLY when every line is fully dispensed; PARTIALLY when some qty dispensed; else PENDING. */
-    private Prescription.Status recomputeStatus(List<PrescriptionItem> items) {
+    static Prescription.Status recomputeStatus(List<PrescriptionItem> items) {   // H3b: shared with amendments
         boolean allFull = !items.isEmpty(), anyDispensed = false;
         for (PrescriptionItem i : items) {
             if (i.getDispensedQuantity() < i.getQuantity()) allFull = false;

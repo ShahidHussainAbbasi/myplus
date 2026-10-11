@@ -23,7 +23,7 @@
                 $('#tillOpenPanel').hide();
                 $('#tillOpsPanel').show();
                 $('#tillStatus').show().removeClass('alert-warning').addClass('alert-info')
-                    .text('Shift OPEN — opened ' + String(s.openedAt || '').replace('T', ' ').substring(0, 16)
+                    .text('Shift OPEN — opened ' + fmtDateTime(s.openedAt)   /* H6 */
                         + ' · float ' + money(s.openingFloat));
             } else {
                 $('#tillOpsPanel').hide();

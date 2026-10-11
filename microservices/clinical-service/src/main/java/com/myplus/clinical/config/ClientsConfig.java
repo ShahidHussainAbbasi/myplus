@@ -63,6 +63,12 @@ public class ClientsConfig {
         return client(builder, "http://appointment-service", 8000, AppointmentDirectoryClient.class);
     }
 
+    /** HMS H4 — the business's stores (pharmacy branches), to check a doctor's linked branch. */
+    @Bean
+    public BranchClient branchClient(@LoadBalanced RestClient.Builder builder) {
+        return client(builder, "http://business-service", 5000, BranchClient.class);
+    }
+
     /** HMS S3b-1 — the doctor's Submit. Idempotent on the far side (externalRef), so a timeout is safe to retry. */
     @Bean
     public PharmaRxClient pharmaRxClient(@LoadBalanced RestClient.Builder builder) {

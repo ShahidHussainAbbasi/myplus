@@ -217,8 +217,8 @@ function finRunAuditLog(){
 		 */
 		function auditWhen(v) {
 			if (!v) return '';
-			var d = new Date(String(v));
-			if (isNaN(d.getTime())) return String(v);
+			var d = serverInstant(v);   // H6: audit occurredAt is server UTC with no offset
+			if (!d) return String(v);
 			return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
 				+ ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 		}

@@ -125,3 +125,20 @@
 #clinMsg { position: fixed; top: calc(64px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%);
            z-index: 1050; width: min(640px, calc(100% - 32px)); margin: 0; box-shadow: 0 6px 24px rgba(15, 30, 60, .18);
            cursor: pointer; }
+
+/* HMS H3c — what the pharmacy did with the doctor's prescription */
+.clin-rx-pharmacy { margin-top: 12px; border: 1px solid var(--clin-line); border-radius: 8px; padding: 10px 12px; background: #fbfcfe; }
+.clin-rx-status { margin-bottom: 6px; }
+.clin-rx-status.s-cancelled { color: #a3261b; }
+.clin-rx-changed ol { padding-left: 18px; margin: 6px 0 8px; }
+.clin-rx-reason { font-style: italic; color: var(--clin-muted); }
+.clin-rx-now { margin-top: 6px; }
+
+/* HMS H5 — the Doctors table fits a 1280 px screen (H2 finding: the day tools were cut off once the Login column came).
+   The day tools were one unbreakable line (limit box + up to four buttons); they now wrap onto two lines, and a long
+   login email breaks instead of widening the table. */
+#DoctorsDiv .clin-day-tools { white-space: normal; min-width: 170px; max-width: 250px; }
+#DoctorsDiv .clin-day-tools .clin-day-limit { width: 72px; margin: 0 6px 6px 0; }
+#DoctorsDiv .clin-day-tools .btn { margin: 0 4px 4px 0; }
+#DoctorsDiv .clin-login-cell { max-width: 230px; overflow-wrap: anywhere; }
+#DoctorsDiv .clin-pharmacy .form-control { margin-top: 6px; max-width: 210px; }

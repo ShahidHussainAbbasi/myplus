@@ -113,7 +113,7 @@
             html += '<tr data-row="' + Number(r.id) + '">'
                 + '<td style="width:36px"><input type="checkbox" class="ds-pick" data-id="' + Number(r.id) + '"'
                 + (r.checked ? ' checked' : '') + '></td>'
-                + '<td>' + esc(String(r.recordedAt || '').replace('T', ' ').substring(0, 16)) + '</td>'
+                + '<td>' + esc(fmtDateTime(r.recordedAt))   /* H6 */ + '</td>'
                 + '<td>' + esc(r.customerName || '—') + '</td>'
                 + '<td>' + esc(r.invoiceNo || '—') + '</td>'
                 + '<td>' + esc(r.driver || '—') + '</td>'

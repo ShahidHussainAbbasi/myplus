@@ -875,7 +875,7 @@
 			+     '<button type="button" class="btn btn-primary" id="platPlanSave">'
 			+       esc(t('ui.js.changePlan', 'Change plan')) + '</button>'
 			+     (d.trialEndsAt ? '<span class="plat-plan__trial">'
-					+ esc(t('ui.js.trialEnds', 'Trial ends')) + ' ' + esc(String(d.trialEndsAt).substring(0, 10))
+					+ esc(t('ui.js.trialEnds', 'Trial ends')) + ' ' + esc(fmtDate(d.trialEndsAt))   /* H6: the viewer's day */
 					+ '</span>' : '')
 			+   '</div>'
 			/*

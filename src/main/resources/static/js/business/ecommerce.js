@@ -38,7 +38,7 @@
     }
 
     function when(v) {
-        return String(v || '').replace('T', ' ').substring(0, 16);
+        return fmtDateTime(v);   // H6: the viewer's zone (createdAt / shippedAt are server UTC)
     }
 
     /**

@@ -25,6 +25,21 @@ import java.util.*;
 @lombok.extern.slf4j.Slf4j
 public class AuthService {
 
+    /** H3a — the only set that may be named when a login is created (a registered doctor). */
+    static final String DOCTOR_SET = "Doctor";
+
+    /** H3a — the first set a creator may name: none (the default), or the Doctor set for a member login. */
+    static String firstSetChecked(String firstSet, String roleChoice) {
+        String wanted = firstSet == null || firstSet.isBlank() ? null : firstSet.trim();
+        if (wanted != null && !DOCTOR_SET.equals(wanted)) {
+            throw new ValidationException("Only the Doctor set can be chosen when a login is created. The owner assigns other sets.");
+        }
+        if (wanted != null && "ADMIN".equalsIgnoreCase(roleChoice == null ? "" : roleChoice.trim())) {
+            throw new ValidationException("A doctor's login is a member login, not an admin.");
+        }
+        return wanted;
+    }
+
     /**
      * C3c — resolves the tenant's capabilities while minting a token.
      *
@@ -224,6 +239,20 @@ public class AuthService {
     public Map<String, Object> createOrgUser(String firstName, String lastName, String email,
                                              String roleChoice, Long callerOrgId, Long callerUserId,
                                              boolean callerIsOwner, java.util.List<Long> storeIds) {
+        return createOrgUser(firstName, lastName, email, roleChoice, callerOrgId, callerUserId, callerIsOwner, storeIds, null);
+    }
+
+    /**
+     * H3a — the same, optionally naming the member's FIRST set. Only the built-in {@code Doctor} set may be named
+     * (client ruling: a registered doctor holds only clinical access — never selling or dispensing). It is NARROWER
+     * than the default Standard set, so an admin naming it gains no power; every other set stays the owner's to
+     * assign (PERM-1 ruling), and naming one is refused.
+     */
+    @Transactional
+    public Map<String, Object> createOrgUser(String firstName, String lastName, String email,
+                                             String roleChoice, Long callerOrgId, Long callerUserId,
+                                             boolean callerIsOwner, java.util.List<Long> storeIds, String firstSet) {
+        String wanted = firstSetChecked(firstSet, roleChoice);
         if (email == null || email.isBlank())
             throw new ValidationException("Email is required");
         if (userRepository.existsByEmail(email))
@@ -295,8 +324,10 @@ public class AuthService {
              * state. defaultSetFor picks the right built-in for the tenant's own vocabulary.
              */
             PermissionService perms = permissionServiceProvider.getObject();
-            perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
-                    .ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
+            java.util.Optional<com.myplus.auth.entity.PermissionSet> first = wanted == null
+                    ? perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
+                    : perms.builtinSet(callerOrgId, DOCTOR_SET);
+            first.ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
         } catch (Exception e) {
             log.warn("Could not place new member {} on a permission set", user.getEmail(), e);
         }
@@ -1047,6 +1078,11 @@ public class AuthService {
             if (permModule != null) {
                 authorities.addAll(isOwner ? permissionService.everything(permModule)
                                            : permissionService.effectiveFor(user.getId()));
+            }
+            // B2: a business member on NO set keeps dispensing as before H3 — see keepsDispensingWithoutASet.
+            if (PermissionService.keepsDispensingWithoutASet(permModule, isOwner, authorities,
+                    permissionService.setIdFor(user.getId()))) {
+                authorities.add(PermissionVisibility.RX_DISPENSE);
             }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).

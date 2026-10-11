@@ -33,7 +33,8 @@ public class PrescriptionService {
 
     private final PrescriptionRepository prescriptionRepo;
     private final PrescriptionItemRepository itemRepo;
-    private final PartyBridgeService partyBridgeService;   // P3: link the patient to the shared party master
+    private final PartyBridgeService partyBridgeService;
+    private final StoreScope branches;   // H4: the caller's pharmacy branches   // P3: link the patient to the shared party master
 
     @Transactional
     public PrescriptionDTO create(PrescriptionDTO dto, Long orgId, Long userId) {
@@ -87,6 +88,7 @@ public class PrescriptionService {
                 .tokenLabel(fromDoctor ? trimTo(dto.getTokenLabel(), 16) : null)
                 .encounterId(fromDoctor ? dto.getEncounterId() : null)
                 .partyId(fromDoctor ? dto.getPartyId() : null)
+                .storeId(fromDoctor ? dto.getStoreId() : null)   // H4: routed to the doctor's linked branch
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
@@ -146,7 +148,7 @@ public class PrescriptionService {
     @Transactional(readOnly = true)
     public List<PrescriptionDTO> list(Long orgId, Long userId, int limit) {
         int size = limit <= 0 ? DEFAULT_LIMIT : Math.min(limit, 1000);
-        List<Prescription> page = prescriptionRepo.findScoped(orgId, userId, PageRequest.of(0, size));
+        List<Prescription> page = prescriptionRepo.findScoped(orgId, userId, branches.seesAll(), branches.stores(), PageRequest.of(0, size));
         if (page.isEmpty()) return List.of();
 
         Map<Long, List<PrescriptionItem>> itemsByRx = itemsFor(page.stream().map(Prescription::getId).toList());
@@ -166,9 +168,9 @@ public class PrescriptionService {
         int pg = Math.max(page, 0);
         PageRequest pr = PageRequest.of(pg, s + 1);
         String text = q == null ? "" : q.trim();
-        List<Prescription> rows = partyId != null ? prescriptionRepo.findByPartyScoped(orgId, userId, partyId, pr)
-                : text.isEmpty() ? prescriptionRepo.findScoped(orgId, userId, PageRequest.of(pg, s + 1))
-                : prescriptionRepo.searchScoped(orgId, userId, text, pr);
+        List<Prescription> rows = partyId != null ? prescriptionRepo.findByPartyScoped(orgId, userId, branches.seesAll(), branches.stores(), partyId, pr)
+                : text.isEmpty() ? prescriptionRepo.findScoped(orgId, userId, branches.seesAll(), branches.stores(), PageRequest.of(pg, s + 1))
+                : prescriptionRepo.searchScoped(orgId, userId, branches.seesAll(), branches.stores(), text, pr);
         boolean more = rows.size() > s;
         List<Prescription> pageRows = more ? rows.subList(0, s) : rows;
         Map<Long, List<PrescriptionItem>> itemsByRx = pageRows.isEmpty() ? Map.of()
@@ -191,7 +193,7 @@ public class PrescriptionService {
 
     @Transactional(readOnly = true)
     public PrescriptionDTO get(Long id, Long orgId, Long userId) {
-        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId)
+        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId).filter(x -> branches.canAccess(x.getStoreId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
         return toDTO(p);
     }
@@ -203,7 +205,7 @@ public class PrescriptionService {
      */
     @Transactional
     public PrescriptionDTO cancel(Long id, Long orgId, Long userId) {
-        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId)
+        Prescription p = prescriptionRepo.findByIdScoped(id, orgId, userId).filter(x -> branches.canAccess(x.getStoreId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Prescription not found"));
         if (p.getStatus() == Prescription.Status.FULLY_DISPENSED)
             throw new ValidationException("A fully dispensed prescription cannot be cancelled");
@@ -250,6 +252,7 @@ public class PrescriptionService {
         d.setTokenLabel(p.getTokenLabel());
         d.setEncounterId(p.getEncounterId());
         d.setExternalRef(p.getExternalRef());
+        d.setStoreId(p.getStoreId());
         d.setCreatedAt(p.getCreatedAt());
         d.setItems(items.stream().map(i -> {
             PrescriptionItemDTO id = new PrescriptionItemDTO();

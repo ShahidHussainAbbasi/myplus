@@ -34,8 +34,8 @@
 	/** "4 Sept, 09:12" — enough to recognise, short enough to scan a list of them. */
 	function when(iso) {
 		if (!iso) return '';
-		var d = new Date(String(iso));
-		if (isNaN(d.getTime())) return '';
+		var d = serverInstant(iso);   // H6: openedAt / closedAt / expiresAt are server UTC with no offset
+		if (!d) return '';
 		return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 			+ ', ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 	}

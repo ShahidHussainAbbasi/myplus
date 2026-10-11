@@ -28,6 +28,17 @@ public class CouponService {
 
     private final CouponRepository repo;
 
+    /**
+     * H6-C — the zone the SHOP typed its coupon window in. Until a per-business time-zone setting exists this is the
+     * platform's business zone ({@code app.tz.default-zone}, Asia/Karachi). Not the viewer's zone: a storefront
+     * customer abroad must not move when the shop's coupon starts or ends.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.tz.default-zone:Asia/Karachi}")
+    String businessZone = "Asia/Karachi";
+
+    /** The clock (UTC instant source); a test fixes it. */
+    java.time.Clock clock = java.time.Clock.systemUTC();
+
     /** Result of applying a code to a subtotal. {@code discount} is 0 when there is no/invalid code; {@code message}
      *  explains an invalid code (null when fine); {@code couponId} lets the caller record usage on a real order. */
     public record CouponResult(BigDecimal discount, String code, String message, Long couponId) {
@@ -70,7 +81,11 @@ public class CouponService {
         if (c == null) return CouponResult.invalid(norm, "Invalid coupon code");
         if (!Boolean.TRUE.equals(c.getActive())) return CouponResult.invalid(norm, "This coupon is not active");
 
-        LocalDateTime now = LocalDateTime.now();
+        // H6-C ⚠ MONEY: the window is the shop's LOCAL wall time (typed in a datetime field, stored as typed). It was
+        // compared with LocalDateTime.now() — UTC in the container — so in Pakistan a coupon started 5 h late and kept
+        // discounting 5 h after it ended. Compared in the shop's zone. When H6 stores typed times as true UTC (and
+        // repairs these rows), this comparison moves to UTC with it — see docs/hms-phase1-design.md §4i.
+        LocalDateTime now = LocalDateTime.now(clock.withZone(java.time.ZoneId.of(businessZone)));
         if (c.getStartsAt() != null && now.isBefore(c.getStartsAt())) return CouponResult.invalid(norm, "This coupon is not yet valid");
         if (c.getEndsAt() != null && now.isAfter(c.getEndsAt())) return CouponResult.invalid(norm, "This coupon has expired");
         if (c.getUsageLimit() != null && c.getUsedCount() != null && c.getUsedCount() >= c.getUsageLimit())

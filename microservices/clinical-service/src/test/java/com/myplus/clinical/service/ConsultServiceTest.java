@@ -189,6 +189,60 @@ class ConsultServiceTest {
         assertThat(enc.getRxId()).isNull();
     }
 
+    // ── H3c: the prescriber, and the pharmacy's copy ───────────────────────────────────────────────────
+
+    @Test
+    void the_prescriber_is_the_linked_doctor_of_the_login_that_submits_else_the_tokens_doctor() {
+        QueueToken t = new QueueToken(); t.setId(100L); t.setOrganizationId(7L); t.setTokenLabel("B-004"); t.setProviderName("Dr Sana");
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(t));
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        when(pharma.create(any())).thenReturn(new PharmaRxClient.Envelope(true, "ok", PharmaRxClient.Rx.builder().id(900L).build()));
+        // the owner-doctor (linked to Dr Ahmed) covers Dr Sana's patient: Dr Ahmed prescribes
+        when(access.linkedProviderId()).thenReturn(Optional.of(11L));
+        when(queue.doctorName(11L)).thenReturn("Dr Ahmed");
+        service.submitRx(5L);
+        org.mockito.ArgumentCaptor<PharmaRxClient.Rx> sent = org.mockito.ArgumentCaptor.forClass(PharmaRxClient.Rx.class);
+        verify(pharma).create(sent.capture());
+        assertThat(sent.getValue().getDoctorName()).isEqualTo("Dr Ahmed");
+    }
+
+    @Test
+    void the_prescription_goes_to_the_prescribing_doctors_pharmacy_branch() {
+        QueueToken t = new QueueToken(); t.setId(100L); t.setOrganizationId(7L); t.setTokenLabel("A-004"); t.setProviderId(11L); t.setProviderName("Dr Ahmed");
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(t));
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        when(pharma.create(any())).thenReturn(new PharmaRxClient.Envelope(true, "ok", PharmaRxClient.Rx.builder().id(900L).build()));
+        when(access.linkedProviderId()).thenReturn(Optional.empty());
+        when(queue.pharmacyOf(11L)).thenReturn(21L);
+        service.submitRx(5L);
+        org.mockito.ArgumentCaptor<PharmaRxClient.Rx> sent = org.mockito.ArgumentCaptor.forClass(PharmaRxClient.Rx.class);
+        verify(pharma).create(sent.capture());
+        assertThat(sent.getValue().getStoreId()).isEqualTo(21L);
+    }
+
+    @Test
+    void an_unlinked_doctor_set_member_prescribes_as_the_tokens_doctor() {
+        QueueToken t = new QueueToken(); t.setId(100L); t.setOrganizationId(7L); t.setTokenLabel("B-004"); t.setProviderName("Dr Sana");
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(t));
+        when(rxItems.findByOrganizationIdAndEncounterIdOrderByLineNo(7L, 5L)).thenReturn(List.of(saved(31L, "Panadol 500mg", 10)));
+        when(pharma.create(any())).thenReturn(new PharmaRxClient.Envelope(true, "ok", PharmaRxClient.Rx.builder().id(900L).build()));
+        when(access.linkedProviderId()).thenReturn(Optional.empty());
+        service.submitRx(5L);
+        org.mockito.ArgumentCaptor<PharmaRxClient.Rx> sent = org.mockito.ArgumentCaptor.forClass(PharmaRxClient.Rx.class);
+        verify(pharma).create(sent.capture());
+        assertThat(sent.getValue().getDoctorName()).isEqualTo("Dr Sana");
+    }
+
+    @Test
+    void the_pharmacys_copy_is_read_on_demand_and_its_absence_never_breaks_the_visit() {
+        assertThat(service.pharmacyCopy(5L).get("status")).isNull();          // nothing sent yet: nothing asked
+        verify(pharma, never()).get(any());
+        enc.setRxId(900L);
+        when(pharma.get(900L)).thenThrow(new org.springframework.web.client.ResourceAccessException("down"));
+        var out = service.pharmacyCopy(5L);
+        assertThat(out.get("unavailable")).asString().contains("could not be read just now");
+    }
+
     @Test
     void opening_a_parked_visit_resumes_it() {
         QueueToken t = new QueueToken(); t.setId(100L); t.setOrganizationId(7L); t.setStatus(QueueStatus.PARKED); t.setTokenLabel("A-001");

@@ -57,6 +57,10 @@ public class Prescription {
     @Column(name = "encounter_id")
     private Long encounterId;
 
+    /** H4 (V11): the pharmacy branch (business store) this prescription was routed to; NULL = every branch. */
+    @Column(name = "store_id")
+    private Long storeId;
+
     /** "enc-<encounter id>", UNIQUE per organisation: a retried Submit returns the same prescription. */
     @Column(name = "external_ref", length = 64)
     private String externalRef;

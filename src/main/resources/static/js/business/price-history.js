@@ -201,8 +201,8 @@
     /** The server sends an instant with its offset; show it in THIS browser's time, to the minute. */
     function when(v) {
         if (!v) return '';
-        var d = new Date(v);
-        if (isNaN(d.getTime())) return String(v);
+        var d = serverInstant(v);   // H6: changedAt is server UTC with no offset
+        if (!d) return String(v);
         var p = function (n) { return (n < 10 ? '0' : '') + n; };
         return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
     }

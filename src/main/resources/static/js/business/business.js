@@ -1408,7 +1408,7 @@ function renderReturns(mode, rows){
 			: '';
 		$tb.append('<tr>'
 			+ '<td>' + escHtml(noteNo || '—') + '</td>'
-			+ '<td>' + escHtml(r.dated ? String(r.dated).substring(0, 10) : '') + '</td>'
+			+ '<td>' + escHtml(!r.dated ? '' : serverInstant(r.dated) ? fmtDate(r.dated) : String(r.dated).substring(0, 10)) + '</td>'   // H6
 			// Resolved server-side in batch — the return row itself holds only ids.
 			+ '<td>' + escHtml(r.partyName || '—') + '</td>'
 			+ '<td>' + escHtml(r.referenceNo || '') + '</td>'

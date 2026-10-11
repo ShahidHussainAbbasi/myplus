@@ -22,7 +22,8 @@
     function money(v) { return v == null || v === '' ? '—' : (Math.round(Number(v) * 100) / 100).toFixed(2); }
     function when(iso) {
         if (!iso) return '';
-        var d = new Date(iso);   // sent with its offset, so this is the viewer's own time
+        var d = serverInstant(iso);   // H6: zone-less = server UTC (proposedAt is a LocalDateTime, no offset)
+        if (!d) return String(iso);
         return isNaN(d.getTime()) ? iso : d.toLocaleString();
     }
     function post(path, data) {
