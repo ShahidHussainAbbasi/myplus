@@ -27,10 +27,6 @@
 		var p = String(iso).split('-');
 		return p.length === 3 ? p[2] + '-' + p[1] + '-' + p[0] : esc(iso);
 	}
-	function money(v) {
-		var n = Number(v || 0);
-		return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-	}
 	function newKey() {
 		return 'exp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 	}

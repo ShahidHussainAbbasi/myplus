@@ -181,10 +181,6 @@
 	};
 	var matchedProducts = {};
 
-	function money(v) {
-		var n = Number(v || 0);
-		return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-	}
 
 	function mktOffersLoad() {
 		return $.ajax({ url: ctx() + 'mkt/myOffers?size=100', dataType: 'json' }).done(function (res) {

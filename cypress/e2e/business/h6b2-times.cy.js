@@ -16,27 +16,17 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/business/h6b2-times.cy.js"
  */
+import { localText } from '../../support/time'
 describe('H6 B2 — POS, e-commerce and price screens in the viewer\'s zone', () => {
-  const emulateZone = (timezoneId) => cy.wrap(Cypress.automation('remote:debugger:protocol',
-    { command: 'Emulation.setTimezoneOverride', params: { timezoneId } }))
-  /** "yyyy-MM-dd HH:mm" in `zone` for a server value (zone-less = UTC), computed here with Intl. */
-  const expected = (raw, zone) => {
-    let iso = String(raw).replace(' ', 'T')
-    if (!/([zZ]|[+-]\d{2}:?\d{2})$/.test(iso)) iso = iso.replace(/(\.\d+)?$/, '') + 'Z'
-    const p = {}
-    new Intl.DateTimeFormat('en-GB', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-      .formatToParts(new Date(iso)).forEach((x) => { p[x.type] = x.value })
-    return `${p.year}-${p.month}-${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`
-  }
   const shot = (name) => cy.screenshot(`h6b2/${name}`, { capture: 'viewport' })
   const mark = ($td) => { $td.css('outline', '3px solid #d97706'); $td[0].scrollIntoView({ block: 'center' }) }
 
-  afterEach(() => { emulateZone('') })
+  afterEach(() => { cy.emulateZone('') })
 
   ;['Asia/Karachi', 'Pacific/Kiritimati'].forEach((zone, i) => {
     it(`B2-0${i + 1} parked sales show when each was parked, in ${zone}`, () => {
       cy.loginAsBusiness()
-      emulateZone(zone)
+      cy.emulateZone(zone)
       cy.intercept('GET', '**/parkedSales*').as('parked')
       cy.visit('/businessDashboard')
       cy.window().its('viewerZone').then((vz) => expect(vz()).to.eq(zone))
@@ -45,7 +35,7 @@ describe('H6 B2 — POS, e-commerce and price screens in the viewer\'s zone', ()
       cy.wait('@parked').then(({ response }) => {
         const first = (response.body.collection || [])[0]
         expect(first, 'a parked sale to read').to.exist
-        const want = expected(first.parkedAt, zone)
+        const want = localText(first.parkedAt, zone)
         expect(want, 'converted differs from the raw UTC slice')
           .to.not.eq(String(first.parkedAt).replace('T', ' ').substring(0, 16))
         cy.get('#parkedBody tr').first().find('td').eq(3).should('have.text', want).then(mark)
@@ -57,7 +47,7 @@ describe('H6 B2 — POS, e-commerce and price screens in the viewer\'s zone', ()
   ;['Asia/Karachi', 'Pacific/Kiritimati'].forEach((zone, i) => {
     it(`B2-0${i + 3} e-commerce orders show when each was placed, in ${zone}`, () => {
       cy.loginAsMarketplaceOwner()
-      emulateZone(zone)
+      cy.emulateZone(zone)
       cy.intercept('GET', '**/getOrders*').as('orders')
       cy.visit('/businessDashboard')
       cy.get('#snavStore > .snav-btn').click()
@@ -67,7 +57,7 @@ describe('H6 B2 — POS, e-commerce and price screens in the viewer\'s zone', ()
         const list = (b.data && (b.data.content || b.data.items)) || b.content || b.collection || b.data || []
         const first = list[0]
         expect(first, 'an order to read').to.exist
-        cy.get('#ordersBody tr').first().find('td').eq(-2).should('have.text', expected(first.createdAt, zone)).then(mark)
+        cy.get('#ordersBody tr').first().find('td').eq(-2).should('have.text', localText(first.createdAt, zone)).then(mark)
       })
       shot(`B2-0${i + 3}-orders-${zone.replace('/', '-')}`)
     })
@@ -75,7 +65,7 @@ describe('H6 B2 — POS, e-commerce and price screens in the viewer\'s zone', ()
 
   it('B2-05 price approvals (already sent with Z) still read in the viewer\'s zone', () => {
     cy.loginAsPharmaOwner()
-    emulateZone('Pacific/Kiritimati')
+    cy.emulateZone('Pacific/Kiritimati')
     cy.intercept('GET', '**/priceApprovals*').as('pa')
     cy.visit('/businessDashboard')
     cy.get('#snavPurchase > .snav-btn').click()

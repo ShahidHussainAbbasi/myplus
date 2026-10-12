@@ -654,9 +654,6 @@
 		return null;
 	}
 
-	function money(v) {
-		return v == null ? '' : Number(v).toFixed(2);
-	}
 
 	/** The chosen plan's schedule, under the list. Text only — no editing: this screen does not move money. */
 	function showSchedule(plan) {

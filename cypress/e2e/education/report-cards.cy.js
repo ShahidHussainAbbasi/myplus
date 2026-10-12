@@ -22,8 +22,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -90,7 +88,7 @@ describe('Education — report cards (slice 1.5)', () => {
         expect(b.object.weightWarning, 'the shortfall is NAMED, not merely flagged').to.be.a('string')
         expect(b.object.weightWarning, 'the message states the total').to.match(/\d+%/)
         // …and publishing must refuse with the same explanation.
-        post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((p) => {
+        cy.postForm('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((p) => {
           const pb = parse(p.body)
           expect(pb.status, 'publish is refused while weights are short').to.eq('FAILED')
           expect(pb.message).to.match(/100%/)
@@ -103,7 +101,7 @@ describe('Education — report cards (slice 1.5)', () => {
 
   it('a published card is a SNAPSHOT: re-banding the scale does not change its letters', () => {
     // The whole point of the slice. 1.4 made the live grade derived; an ISSUED grade must not be.
-    post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((p) => {
+    cy.postForm('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((p) => {
       const pb = parse(p.body)
       if (pb.status !== 'SUCCESS') {
         // Weights are not 100 in this org; that path is asserted above. Do not fake a pass here.
@@ -121,7 +119,7 @@ describe('Education — report cards (slice 1.5)', () => {
           const bands = (parse(g.body).object || {}).bands || []
           if (!bands.length) { cy.log('no bands configured; letters are blank either way'); return }
           const top = bands[bands.length - 1]
-          post('/saveGradeBand', {
+          cy.postForm('/saveGradeBand', {
             id: top.id, name: top.name + 'X', minPercent: top.minPercent, maxPercent: top.maxPercent })
             .then((s) => expect(parse(s.body).status).to.eq('SUCCESS'))
 
@@ -131,7 +129,7 @@ describe('Education — report cards (slice 1.5)', () => {
               'the ISSUED letters are unchanged — this is the snapshot doing its job').to.eq(lettersBefore)
           })
           // Put the band name back so the org is left as found.
-          post('/saveGradeBand', {
+          cy.postForm('/saveGradeBand', {
             id: top.id, name: top.name, minPercent: top.minPercent, maxPercent: top.maxPercent })
         })
       })
@@ -139,13 +137,13 @@ describe('Education — report cards (slice 1.5)', () => {
   })
 
   it('republishing issues version 2 and leaves version 1 readable', () => {
-    post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((first) => {
+    cy.postForm('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((first) => {
       if (parse(first.body).status !== 'SUCCESS') {
         cy.log('SKIPPED-BY-DESIGN: weights must total 100 to publish')
         return
       }
       const v1 = parse(first.body).object.version
-      post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((second) => {
+      cy.postForm('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((second) => {
         const b = ok(second, 'republish')
         expect(b.object.version, 'a correction issues the NEXT version, never an edit').to.eq(v1 + 1)
       })
@@ -206,7 +204,7 @@ describe('Education — report cards (slice 1.5)', () => {
       // Preview is a read of marks the teacher can already see on the marksheet.
       expect([200, 403]).to.include(r.status)
     })
-    post('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((r) => {
+    cy.postForm('/publishReportCard', { enrollNo: fixture.enrollNo, termId: fixture.termId }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
       expect(refused, 'issuing a result to a guardian requires ADMIN_PRIVILEGE').to.eq(true)

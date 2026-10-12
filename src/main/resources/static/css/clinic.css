@@ -142,3 +142,11 @@
 #DoctorsDiv .clin-day-tools .btn { margin: 0 4px 4px 0; }
 #DoctorsDiv .clin-login-cell { max-width: 230px; overflow-wrap: anywhere; }
 #DoctorsDiv .clin-pharmacy .form-control { margin-top: 6px; max-width: 210px; }
+
+/* RELINK (2026-10-12): the note while a patient is being moved to another doctor */
+.clin-relink-note { margin: 0 0 10px; padding: 8px 12px; border-left: 4px solid var(--clin-navy, #0b2a5b); background: #eef4ff; color: #0b2a5b; }
+.clin-cancel-reason { display: block; }
+/* inline patient edit: fields wrap on narrow screens, never push the table wider */
+.clin-pat-edit { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.clin-pat-edit label { display: flex; flex-direction: column; gap: 2px; margin: 0; font-weight: 600; min-width: 0; }
+.clin-pat-edit .clin-help { flex-basis: 100%; }

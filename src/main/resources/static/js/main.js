@@ -105,13 +105,38 @@ function resetGlobalError(){
  * is shown as written: rounding it on screen would show a price the line was not charged at. Blank stays blank; a
  * value that is not a number passes through unchanged. Display only — never feed its result back into arithmetic.
  */
-function money2(v) {
+/**
+ * DRY D2 — THE money formatter for every screen (client rulings 2026-10-11): DISPLAY ONLY.
+ *   - a blank / missing / non-numeric amount shows BLANK ('') — "not set" is not "zero" (0 shows 0.00);
+ *   - thousand separators always: 1,234.50 (Latin digits, like every other number on the screens);
+ *   - two decimals; a value written with 3–4 decimals (a loose-unit price, 33.333) is shown as written, grouped —
+ *     rounding it on screen would show a price the line was not charged at. More than 4 is float noise
+ *     ("2988.4500000000003") and is rounded; -0 shows 0.00.
+ * Never feed its result back into an input or arithmetic — that is round2(). Exceptions with their own documented
+ * style: printed documents (receipt.js number system), the public storefront's "Rs." label, whole-number education fees.
+ */
+var MONEY_FMT = (typeof Intl !== 'undefined')
+    ? new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+function groupDigits(intPart) { return String(intPart).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function money(v) {
     if (v === null || v === undefined || v === '') return '';
-    if (typeof v === 'number') return isFinite(v) ? (Math.round(v * 100) / 100).toFixed(2) : '';
     var s = String(v).trim(), n = Number(s.replace(/,/g, ''));
-    if (s === '' || !isFinite(n)) return s;
+    if (s === '' || !isFinite(n)) return '';
     var dot = s.indexOf('.');
-    return (dot >= 0 && s.length - dot - 1 > 2) ? s : n.toFixed(2);
+    var decimals = dot >= 0 ? s.length - dot - 1 : 0;
+    if (typeof v !== 'number' && decimals > 2 && decimals <= 4) {
+        var neg = s.charAt(0) === '-', body = neg ? s.slice(1) : s, d = body.indexOf('.');
+        return (neg ? '-' : '') + groupDigits(body.slice(0, d).replace(/,/g, '')) + body.slice(d);
+    }
+    var r = (Math.round(n * 100) / 100) || 0;   // || 0: never show -0.00
+    return MONEY_FMT ? MONEY_FMT.format(r) : groupDigits(Math.trunc(r)) + (r.toFixed(2).slice(-3));
+}
+/** Kept for its 6 callers: the same formatter. */
+function money2(v) { return money(v); }
+/** DRY D2 — an amount rounded to 2 decimals as a NUMBER: for inputs and arithmetic, never grouped. NaN/blank → 0. */
+function round2(v) {
+    var n = Number(String(v == null ? '' : v).replace(/,/g, ''));
+    return isFinite(n) ? Math.round(n * 100) / 100 : 0;
 }
 
 function showFormError(msg) {

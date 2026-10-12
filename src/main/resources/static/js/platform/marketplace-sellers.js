@@ -214,9 +214,6 @@
 		SUSPEND: ['ui.js.mktSuspend', 'Suspend'], REINSTATE: ['ui.js.mktReinstate', 'Reinstate']
 	};
 
-	function money(v) {
-		return Number(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-	}
 
 	function loadOffers() {
 		var $tb = $('#mktOfferQueue tbody').empty();

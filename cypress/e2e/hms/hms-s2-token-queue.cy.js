@@ -37,8 +37,6 @@ describe('HMS S2 — token & queue', () => {
   const pt = {}           // patients by key
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s2-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const doctors = () => cy.request('/clinic/doctors').then((r) => {
     expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
     return r.body.data
@@ -46,29 +44,29 @@ describe('HMS S2 — token & queue', () => {
   const findOrAddDoctor = (name) => doctors().then((list) => {
     const found = list.find((d) => d.name === name)
     if (found) return found
-    return post('/clinic/doctors', { name, speciality: 'General medicine', dailyLimit: null }).then((r) => {
+    return cy.postJson('/clinic/doctors', { name, speciality: 'General medicine', dailyLimit: null }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       return r.body.data
     })
   })
   const doctorNow = (id) => doctors().then((list) => list.find((d) => d.id === id))
-  const setDay = (providerId, body) => post('/clinic/doctors/day', Object.assign({ providerId }, body)).then((r) => {
+  const setDay = (providerId, body) => cy.postJson('/clinic/doctors/day', Object.assign({ providerId }, body)).then((r) => {
     expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
     if (!created.dayResets.includes(providerId)) created.dayResets.push(providerId)
     return r.body.data
   })
-  const newPatient = (key) => post('/clinic/patients', { phone: newPhone(), name: 'S2 Patient ' + key + ' ' + run }).then((r) => {
+  const newPatient = (key) => cy.postJson('/clinic/patients', { phone: newPhone(), name: 'S2 Patient ' + key + ' ' + run }).then((r) => {
     expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
     created.patients.push(r.body.data.id)
     if (r.body.data.customerId) created.customers.push(r.body.data.customerId)
     pt[key] = r.body.data
     return r.body.data
   })
-  const issue = (patientId, providerId) => post('/clinic/tokens', { patientId, providerId }).then((r) => {
+  const issue = (patientId, providerId) => cy.postJson('/clinic/tokens', { patientId, providerId }).then((r) => {
     if (r.body && r.body.success) created.tokens.push(r.body.data.id)
     return r
   })
-  const move = (id, action, reason) => post(`/clinic/tokens/${id}/${action}`, reason ? { reason } : {})
+  const move = (id, action, reason) => cy.postJson(`/clinic/tokens/${id}/${action}`, reason ? { reason } : {})
 
   before(() => {
     cy.task('clearDemoCaps')
@@ -101,7 +99,7 @@ describe('HMS S2 — token & queue', () => {
           else if (t.status === 'IN_CONSULTATION') move(t.id, 'complete')
         })
     })
-    created.dayResets.forEach((id) => post('/clinic/doctors/day', { providerId: id, reset: true }))
+    created.dayResets.forEach((id) => cy.postJson('/clinic/doctors/day', { providerId: id, reset: true }))
     cy.request({ method: 'POST', url: '/clinic/settings/reset?key=clinic.queue.multiDoctorPerDay', failOnStatusCode: false })
     // this run's patients, and any an interrupted run left (same names, 7-digit suffix)
     const sweep = new Set(created.patients)
@@ -115,7 +113,7 @@ describe('HMS S2 — token & queue', () => {
       })
     })
     cy.then(() => {
-      sweep.forEach((id) => post(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
+      sweep.forEach((id) => cy.postJson(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
       customers.forEach((id) =>
         cy.request({ method: 'POST', url: '/deleteCustomer', form: true, body: { checked: String(id) }, failOnStatusCode: false }))
     })
@@ -272,8 +270,9 @@ describe('HMS S2 — token & queue', () => {
       cy.contains('#clinQueueBoard tr', r.body.data.tokenLabel, { timeout: 8000 }).should('contain', p.name)
     }))
 
-    // Cancel Ali's token through the confirm dialog.
+    // Cancel Ali's token through the confirm dialog — since RELINK (2026-10-12) it asks WHY, and the reason is required.
     cy.contains('#clinQueueBoard tr', pt.aliToken.tokenLabel).find('button[data-action="cancel"]').click()
+    cy.get('.uiC-input').type('Patient asked to cancel')
     cy.get('[data-ui-confirm="ok"]').click()
     cy.contains('#clinQueueBoard tr', pt.aliToken.tokenLabel).should('contain', 'Cancelled')
     cy.screenshot('hms-s2/S2-07-2-cancelled', { capture: 'viewport' })
@@ -347,7 +346,7 @@ describe('HMS S2 — token & queue', () => {
     })
     cy.request('/clinic/queue').its('body.data').then((rows) =>
       expect(rows.map((x) => x.tokenLabel), 'another clinic\'s board').to.not.include(pt.aliToken.tokenLabel))
-    post('/clinic/tokens', { patientId: pt.Ali.id, providerId: doc.ahmed.id }).then((r) => {
+    cy.postJson('/clinic/tokens', { patientId: pt.Ali.id, providerId: doc.ahmed.id }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.match(/not found/)
     })

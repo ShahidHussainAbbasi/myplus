@@ -12,22 +12,13 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h6b-times.cy.js"
  */
+import { localText } from '../../support/time'
 describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', () => {
   const OWNER = 'owner.pharma@myplus.com'
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const relogin = () => cy.loginAs(OWNER, PW, '/getBusinessDashboardStats', `hms-h6b-${run}`)
 
-  const emulateZone = (timezoneId) => cy.wrap(Cypress.automation('remote:debugger:protocol',
-    { command: 'Emulation.setTimezoneOverride', params: { timezoneId } }))
-  /** The expected screen text for a zone-less UTC value, computed here (not by the page). */
-  const expected = (utcText, zone) => {
-    const iso = String(utcText).replace(' ', 'T').replace(/(\.\d+)?$/, '') + 'Z'
-    const p = {}
-    new Intl.DateTimeFormat('en-GB', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-      .formatToParts(new Date(iso)).forEach((x) => { p[x.type] = x.value })
-    return `${p.year}-${p.month}-${p.day} ${p.hour === '24' ? '00' : p.hour}:${p.minute}`
-  }
 
   before(() => {
     cy.task('clearDemoCaps')
@@ -36,7 +27,7 @@ describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', (
     relogin()
     cy.setCapability('clinic', true)
   })
-  afterEach(() => { emulateZone('') })   // back to the machine's zone
+  afterEach(() => { cy.emulateZone('') })   // back to the machine's zone
   after(() => {
     relogin()
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
@@ -45,7 +36,7 @@ describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', (
   ;['Asia/Karachi', 'Pacific/Kiritimati'].forEach((zone, i) => {
     it(`T-0${i + 1} the pharmacy's prescription times read in ${zone}`, () => {
       relogin()
-      emulateZone(zone)
+      cy.emulateZone(zone)
       cy.intercept('GET', '**/searchPrescriptions*').as('search')
       cy.visit('/businessDashboard')
       cy.window().its('viewerZone').then((vz) => expect(vz(), 'the page sees the emulated zone').to.eq(zone))
@@ -54,7 +45,7 @@ describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', (
       cy.wait('@search').then(({ response }) => {
         const first = (response.body.data.items || [])[0]
         expect(first, 'at least one prescription to read').to.exist
-        const want = expected(first.createdAt, zone)
+        const want = localText(first.createdAt, zone)
         const raw = String(first.createdAt).replace('T', ' ').substring(0, 16)
         cy.screenshot(`hms-h6b/T-0${i + 1}-1-prescriptions-open-${zone.replace('/', '-')}`, { capture: 'viewport' })
         cy.get(`#prescriptionBody tr[data-rx-id="${first.id}"] td`).eq(4).should('have.text', want)
@@ -69,13 +60,13 @@ describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', (
   ;['Asia/Karachi', 'Pacific/Kiritimati'].forEach((zone, i) => {
     it(`T-0${i + 3} the clinic's patient registration times read in ${zone}`, () => {
       relogin()
-      emulateZone(zone)
+      cy.emulateZone(zone)
       cy.intercept('GET', '**/clinic/patients*').as('patients')
       cy.visit('/clinicDashboard')
       cy.wait('@patients').then(({ response }) => {
         const first = (response.body.data || [])[0]
         expect(first, 'at least one patient to read').to.exist
-        cy.get(`#clinPatBody tr[data-patient-id="${first.id}"] td`).eq(3).should('have.text', expected(first.createdAt, zone))
+        cy.get(`#clinPatBody tr[data-patient-id="${first.id}"] td`).eq(3).should('have.text', localText(first.createdAt, zone))
           .then(($td) => { $td.css('outline', '3px solid #d97706'); $td[0].scrollIntoView({ block: 'center' }) })
       })
       cy.screenshot(`hms-h6b/T-0${i + 3}-1-reception-${zone.replace('/', '-')}`, { capture: 'viewport' })
@@ -84,7 +75,7 @@ describe('HMS H6 phase B — clinic and pharmacy times in the viewer\'s zone', (
 
   it('T-05 a date (birthday, due date) is never shifted, in any zone', () => {
     relogin()
-    emulateZone('Pacific/Kiritimati')
+    cy.emulateZone('Pacific/Kiritimati')
     cy.visit('/clinicDashboard')
     cy.window().then((w) => {
       expect(w.fmtDate('2026-10-11')).to.eq('2026-10-11')

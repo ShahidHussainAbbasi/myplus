@@ -9,7 +9,8 @@
 (function (global) {
     'use strict';
 
-    var state = { phone: null, lookup: null, searchTimer: null, settings: [], doctors: null, patient: null, boardTimer: null };
+    var state = { phone: null, lookup: null, searchTimer: null, settings: [], doctors: null, patient: null, boardTimer: null,
+                  relink: null };   // RELINK: { tokenId, label, patientId, providerId, providerName } while moving a patient
 
     function url(p) { return serverContext + p.replace(/^\//, ''); }
 
@@ -73,6 +74,7 @@
 
     // ── the phone first ─────────────────────────────────────────────────────────────────────────────────
     function reset() {
+        endRelink();
         state.phone = null; state.lookup = null;
         $('#clinPatFound').hide().empty();
         hideTokenPanel();
@@ -82,7 +84,8 @@
         $('#clinPatPhone').val('').trigger('focus');
     }
 
-    function find() {
+    function find(keepRelink) {
+        if (!keepRelink) endRelink();
         var raw = $.trim($('#clinPatPhone').val());
         $('#clinPatError').hide().text('');
         $('#clinPatFound').hide().empty();
@@ -96,8 +99,12 @@
                 state.phone = d.phone; state.lookup = d;
                 $('#clinPatPhone').val(d.phone);
                 $('#clinCnicReq').toggle(!!d.cnicRequired);
-                if (d.patients && d.patients.length) renderFound(d);
-                else openForm(false);
+                if (d.patients && d.patients.length) {
+                    renderFound(d);
+                    // RELINK: the patient being moved opens straight away, as if the desk had clicked their card
+                    var rp = state.relink && d.patients.find(function (x) { return x.id === state.relink.patientId; });
+                    if (rp) selectPatient(rp);
+                } else openForm(false);
             })
             .fail(function (xhr) {
                 var t = reason(xhr, L('lookupFailed', 'Could not look up the number.'));
@@ -206,7 +213,9 @@
                         + '<td>' + escHtml(p.name) + '</td>'
                         + '<td>' + escHtml(p.phone) + '</td>'
                         + '<td>' + escHtml(at) + '</td>'
-                        + '<td>' + linkBadge(p) + '</td></tr>');
+                        + '<td>' + linkBadge(p) + '</td>'
+                        + '<td class="clin-row-actions"><button type="button" class="btn btn-xs btn-default clin-pat-edit-btn" data-id="' + escHtml(p.id) + '">'
+                        + escHtml(L('edit', 'Edit')) + '</button></td></tr>');
                 });
             })
             .fail(function (xhr) { moduleOff(reason(xhr, '')); });
@@ -285,9 +294,16 @@
             } else {
                 $s.append('<option value="">' + escHtml(L('chooseDoctorOption', 'Choose the doctor')) + '</option>');
                 doctors.forEach(function (d) { $s.append(doctorOption(d)); });
-                var pick = preselect(doctors, p);
-                $s.val(pick.id ? String(pick.id) : '');
-                $('#clinDoctorHint').text(pick.why);
+                if (state.relink) {
+                    var $cur = $s.find('option[value="' + state.relink.providerId + '"]');
+                    $cur.prop('disabled', true).text($cur.text() + ' — ' + L('currentDoctor', 'current'));
+                    $s.val('');
+                    $('#clinDoctorHint').text(L('relinkChoose', 'Choose the doctor {0} goes to.', state.relink.label));
+                } else {
+                    var pick = preselect(doctors, p);
+                    $s.val(pick.id ? String(pick.id) : '');
+                    $('#clinDoctorHint').text(pick.why);
+                }
                 $('#clinIssueToken').prop('disabled', false);
             }
             $('#clinTokenPanel').show();
@@ -299,8 +315,11 @@
         var providerId = $('#clinDoctor').val();
         if (!providerId) { msg(L('chooseDoctor', 'Choose the doctor.'), false); return; }
         var $btn = $('#clinIssueToken').prop('disabled', true);
-        $.ajax({ type: 'POST', url: url('clinic/tokens'), contentType: 'application/json', dataType: 'json',
-                 data: JSON.stringify({ patientId: state.patient.id, providerId: Number(providerId) }) })
+        var moving = state.relink;
+        $.ajax({ type: 'POST', contentType: 'application/json', dataType: 'json',
+                 url: moving ? url('clinic/tokens/' + encodeURIComponent(moving.tokenId) + '/relink') : url('clinic/tokens'),
+                 data: JSON.stringify(moving ? { providerId: Number(providerId) }
+                                             : { patientId: state.patient.id, providerId: Number(providerId) }) })
             .done(function (r) {
                 if (r && r.success) {
                     var t = r.data;
@@ -309,6 +328,7 @@
                     $('#clinTokenSlip').show();
                     msg(r.message, true);
                     state.doctors = null;   // today's numbers changed
+                    if (moving) endRelink();
                 } else { msg((r && r.message) || L('issueFailed', 'Could not issue the token.'), false); }
             })
             .fail(function (xhr) { msg(reason(xhr, L('issueFailed', 'Could not issue the token.')), false); })
@@ -342,11 +362,20 @@
                     + '<td><span class="clin-status s-' + escHtml(s.toLowerCase()) + '">' + escHtml(STATUS_WORDS[s] || s) + '</span>'
                     + (s === 'WAITING' && t.ahead != null ? ' <small class="clin-help">' + escHtml(t.ahead === 0 ? L('next', 'next') : L('ahead', '{0} ahead', t.ahead)) + '</small>' : '')
                     // the park reason only while PARKED: "Done · CBC, LFT pending" read as if the tests were still out
-                    + (s === 'PARKED' && t.parkReason ? ' <small class="clin-help">' + escHtml(t.parkReason) + '</small>' : '') + '</td>'
+                    + (s === 'PARKED' && t.parkReason ? ' <small class="clin-help">' + escHtml(t.parkReason) + '</small>' : '')
+                    // RELINK: why a token left the line ("Moved to Dr B as B-004", "patient asked to cancel")
+                    + ((s === 'CANCELLED' || s === 'NO_SHOW') && t.cancelReason ? ' <small class="clin-help clin-cancel-reason">' + escHtml(t.cancelReason) + '</small>' : '') + '</td>'
                     + '<td class="clin-row-actions">' + (live
-                        ? '<button type="button" class="btn btn-xs btn-default clin-move" data-action="noShow" data-id="' + escHtml(t.id) + '">' + escHtml(L('stNotHere', 'Not here')) + '</button> '
+                        ? '<button type="button" class="btn btn-xs btn-primary clin-relink" data-id="' + escHtml(t.id) + '" data-patient="' + escHtml(t.patientId)
+                          + '" data-provider="' + escHtml(t.providerId) + '" data-label="' + escHtml(t.tokenLabel) + '" data-provider-name="' + escHtml(t.providerName || '')
+                          + '" title="' + escHtml(L('relinkTip', 'Send this patient to another doctor')) + '">' + escHtml(L('relink', 'Relink')) + '</button> '
+                          + '<button type="button" class="btn btn-xs btn-default clin-move" data-action="noShow" data-id="' + escHtml(t.id) + '">' + escHtml(L('stNotHere', 'Not here')) + '</button> '
                           + '<button type="button" class="btn btn-xs btn-danger clin-move" data-action="cancel" data-id="' + escHtml(t.id) + '">' + escHtml(L('cancel', 'Cancel')) + '</button>'
-                        : '') + '</td></tr>');
+                        // the visit has begun: cancelling is no longer the desk's — shown, not offered
+                        : (s === 'IN_CONSULTATION' || s === 'PARKED')
+                            ? '<button type="button" class="btn btn-xs btn-danger" disabled title="' + escHtml(L('cantCancelStarted', 'The visit has started — it cannot be cancelled.')) + '">'
+                              + escHtml(L('cancel', 'Cancel')) + '</button>'
+                            : '') + '</td></tr>');
             });
             $('#clinQueueEmpty').toggle(rows.length === 0);
             $('#clinQueueSummary').html(rows.length
@@ -358,6 +387,21 @@
     }
 
     function moveToken(id, action) {
+        if (action === 'cancel' && typeof uiPromptConfirm === 'function') {
+            uiPromptConfirm({ title: L('cancelTokenQ', 'Cancel this token?'),
+                              message: L('leavesLine', "The patient leaves today's line. A new token can be issued later."),
+                              input: { label: L('cancelReason', 'Reason'), required: true,
+                                       requiredMessage: L('cancelReasonNeeded', 'Say why, e.g. the patient asked to cancel.') },
+                              confirmText: L('cancelToken', 'Cancel token'), tone: 'warning' })
+                .then(function (why) {
+                    if (why === null) return;
+                    $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(id) + '/cancel'),
+                             contentType: 'application/json', dataType: 'json', data: JSON.stringify({ reason: why }) })
+                        .done(function (r) { msg((r && r.message) || L('done', 'Done.'), !!(r && r.success)); loadBoard(); })
+                        .fail(function (xhr) { msg(reason(xhr, L('tokenChangeFailed', 'Could not change the token.')), false); loadBoard(); });
+                });
+            return;
+        }
         var title = action === 'cancel' ? L('cancelTokenQ', 'Cancel this token?') : L('notHereQ', 'Mark the patient as not here?');
         var go = function () {
             $.ajax({ type: 'POST', url: url('clinic/tokens/' + encodeURIComponent(id) + '/' + action),
@@ -375,6 +419,67 @@
 
     // ── H2: logins of the doctors (owner / admin) ──────────────────────────────────────────────────────
     var team = { loaded: false, byId: {}, list: [] };
+    // ── RELINK (2026-10-12): a not-yet-seen patient goes to another doctor — the desk's own search, prefilled ──────
+    function startRelink($b) {
+        var token = { tokenId: $b.data('id'), label: String($b.data('label')), patientId: Number($b.data('patient')),
+                      providerId: Number($b.data('provider')), providerName: String($b.data('provider-name') || '') };
+        $.getJSON(url('clinic/patients/' + encodeURIComponent(token.patientId))).done(function (r) {
+            if (!r || !r.success || !r.data) { msg((r && r.message) || L('lookupFailed', 'Could not look up the number.'), false); return; }
+            state.relink = token;
+            show('ReceptionDiv');
+            $('#clinPatPhone').val(r.data.phone);
+            $('#clinRelinkNote').text(L('relinkNote', 'Moving {0} from {1} — choose the new doctor and press Move.', token.label, token.providerName)).show();
+            $('#clinIssueTokenText').text(L('moveHere', 'Move to this doctor'));
+            find(true);
+        }).fail(function (xhr) { msg(reason(xhr, L('lookupFailed', 'Could not look up the number.')), false); });
+    }
+
+    function endRelink() {
+        if (!state.relink) return;
+        state.relink = null;
+        $('#clinRelinkNote').hide().text('');
+        $('#clinIssueTokenText').text(L('issueToken', 'Issue token'));
+    }
+
+    // ── inline patient edit (2026-10-12): name, CNIC, date of birth, sex — the phone is the patient's identity ──
+    function editPatient($b) {
+        var id = $b.data('id'), $row = $b.closest('tr');
+        if ($row.next().hasClass('clin-pat-edit-row')) { $row.next().remove(); return; }
+        $('#clinPatBody .clin-pat-edit-row').remove();
+        $.getJSON(url('clinic/patients/' + encodeURIComponent(id))).done(function (r) {
+            if (!r || !r.success || !r.data) { msg((r && r.message) || L('patientLoadFailed', 'Could not load the patient.'), false); return; }
+            var p = r.data;
+            var sexOpt = function (v, label) { return '<option value="' + v + '"' + (p.sex === v ? ' selected' : '') + '>' + escHtml(label) + '</option>'; };
+            $row.after('<tr class="clin-pat-edit-row" data-id="' + escHtml(p.id) + '" data-version="' + escHtml(p.version) + '"><td colspan="6">'
+                + '<div class="clin-pat-edit">'
+                + '<label>' + escHtml(L('name', 'Name')) + ' <input class="form-control input-sm clin-ed-name" value="' + escHtml(p.name || '') + '"></label>'
+                + '<label>' + escHtml(L('cnic', 'CNIC')) + ' <input class="form-control input-sm clin-ed-cnic" value="' + escHtml(p.cnic || '') + '"></label>'
+                + '<label>' + escHtml(L('dob', 'Date of birth')) + ' <input type="date" class="form-control input-sm clin-ed-dob" value="' + escHtml(p.dateOfBirth || '') + '"></label>'
+                + '<label>' + escHtml(L('sex', 'Sex')) + ' <select class="form-control input-sm clin-ed-sex">' + sexOpt('', '—') + sexOpt('M', L('male', 'Male'))
+                + sexOpt('F', L('female', 'Female')) + sexOpt('O', L('other', 'Other')) + '</select></label>'
+                + '<span class="clin-help">' + escHtml(L('phoneFixed', 'The phone is the patient\'s identity — to change it, register them again.')) + '</span>'
+                + '<button type="button" class="btn btn-xs btn-success clin-ed-save">' + escHtml(L('save', 'Save')) + '</button> '
+                + '<button type="button" class="btn btn-xs btn-default clin-ed-cancel">' + escHtml(L('close', 'Close')) + '</button>'
+                + '</div></td></tr>');
+            $row.next().find('.clin-ed-name').trigger('focus');
+        }).fail(function (xhr) { msg(reason(xhr, L('patientLoadFailed', 'Could not load the patient.')), false); });
+    }
+
+    function savePatient($b) {
+        var $r = $b.closest('tr'), id = $r.data('id');
+        $b.prop('disabled', true);
+        $.ajax({ type: 'PUT', url: url('clinic/patients/' + encodeURIComponent(id)), contentType: 'application/json', dataType: 'json',
+                 data: JSON.stringify({ name: $.trim($r.find('.clin-ed-name').val()), cnic: $.trim($r.find('.clin-ed-cnic').val()) || null,
+                                        dateOfBirth: $r.find('.clin-ed-dob').val() || null, sex: $r.find('.clin-ed-sex').val() || null,
+                                        version: $r.data('version') }) })
+            .done(function (r) {
+                msg((r && r.message) || L('saved', 'Saved.'), !!(r && r.success));
+                if (r && r.success) loadPatients();
+            })
+            .fail(function (xhr) { msg(reason(xhr, L('patientSaveFailed', 'Could not save the patient.')), false); })
+            .always(function () { $b.prop('disabled', false); });
+    }
+
     function isClinicAdmin() { return $('#clinIsAdmin').length > 0; }
     function withTeam(done) {
         if (!isClinicAdmin()) { done(); return; }
@@ -946,6 +1051,10 @@
             if (p) selectPatient(p);
         });
         $(document).on('click', '.clin-move', function () { moveToken($(this).data('id'), $(this).data('action')); });
+        $(document).on('click', '.clin-relink', function () { startRelink($(this)); });
+        $(document).on('click', '.clin-pat-edit-btn', function () { editPatient($(this)); });
+        $(document).on('click', '.clin-ed-save', function () { savePatient($(this)); });
+        $(document).on('click', '.clin-ed-cancel', function () { $(this).closest('tr').remove(); });
         $(document).on('click', '.clin-q-call', function () { callToken($(this).data('id')); });
         $(document).on('click', '.clin-login-link', function () { startLink($(this)); });   // H5b: its own class (see loginCell)
         $(document).on('click', '.clin-link-save', function () { saveLink($(this)); });

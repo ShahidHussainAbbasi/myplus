@@ -107,6 +107,14 @@ public class QueueController {
     }
 
     /** call · recall · start · park · resume · complete · cancel · noShow */
+    /** RELINK (2026-10-12) — the not-yet-seen patient goes to another doctor; the new token comes back. */
+    @PostMapping("/tokens/{id}/relink")
+    public ApiResponse<com.myplus.clinical.dto.QueueDtos.TokenView> relink(@PathVariable Long id,
+            @RequestBody com.myplus.clinical.dto.QueueDtos.RelinkRequest req) {
+        var v = queue.relink(id, req.getProviderId(), req.getReason());
+        return ApiResponse.success(v, "Moved to " + v.getProviderName() + " — new token " + v.getTokenLabel() + ".");
+    }
+
     @PostMapping("/tokens/{id}/{action}")
     public ApiResponse<TokenView> move(@PathVariable Long id, @PathVariable String action,
                                        @RequestBody(required = false) MoveRequest req) {

@@ -7,7 +7,6 @@
 (function (global) {
     'use strict';
 
-    function money(v) { var n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
 
     global.showTill = function () {
         $('.formDiv').hide();

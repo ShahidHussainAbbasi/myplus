@@ -30,49 +30,35 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
   const S = { visits: [], rxIds: [], tokens: [] }
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-h4-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const put = (url, body) =>
-    cy.request({ method: 'PUT', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const listOf = (b) => (b && (b.object || b.collection || b.data)) || []
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = (listOf(u.body)).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
   const branch = (name) => cy.request('/getStores').then((r) => {
     const found = listOf(r.body).find((s) => s.name === name)
     if (found) return found.id
-    return post('/addStore', { name }).then((c) => {   // JSON body (StoreController takes @RequestBody)
+    return cy.postJson('/addStore', { name }).then((c) => {   // JSON body (StoreController takes @RequestBody)
       const id = c.body && c.body.object && c.body.object.id
       expect(id, 'branch "' + name + '" created: ' + JSON.stringify(c.body)).to.be.a('number')
       return id
     })
   })
-  const grant = (storeIds) => post('/assignStores', { userId: S.pharmacistId, storeIds, replace: true })
+  const grant = (storeIds) => cy.postJson('/assignStores', { userId: S.pharmacistId, storeIds, replace: true })
     .its('body').then((b) => expect(JSON.stringify(b)).to.not.match(/"success":false|ERROR/))
   const submitFor = (doctor) => {
     relogin(OWNER)
-    return post('/clinic/tokens', { patientId: S.patient.id, providerId: doctor.id }).then((t) => {
+    return cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: doctor.id }).then((t) => {
       expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
       S.tokens.push(t.body.data)
       relogin(DOCTOR, 'doctor')
-      post(`/clinic/tokens/${t.body.data.id}/call`).its('body.success').should('eq', true)
-      return post(`/clinic/consult/tokens/${t.body.data.id}/start`).then((s) => {
+      cy.postJson(`/clinic/tokens/${t.body.data.id}/call`).its('body.success').should('eq', true)
+      return cy.postJson(`/clinic/consult/tokens/${t.body.data.id}/start`).then((s) => {
         const v = s.body.data.id
         S.visits.push(v)
-        put(`/clinic/consult/encounters/${v}/rx`, { lines: [{ productId: S.med, medicineName: MED, quantity: '2', dosage: '1 tab' }] })
+        cy.putJson(`/clinic/consult/encounters/${v}/rx`, { lines: [{ productId: S.med, medicineName: MED, quantity: '2', dosage: '1 tab' }] })
           .its('body.success').should('eq', true)
-        return post(`/clinic/consult/encounters/${v}/rx/submit`).then((r) => {
+        return cy.postJson(`/clinic/consult/encounters/${v}/rx/submit`).then((r) => {
           expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
           S.rxIds.push(r.body.data.rxId)
           // the doctor completes the visit, as a doctor does — the patient is then free for another doctor (04c)
-          post(`/clinic/consult/encounters/${v}/complete`).its('body.success').should('eq', true)
+          cy.postJson(`/clinic/consult/encounters/${v}/complete`).its('body.success').should('eq', true)
           return cy.wrap({ rxId: r.body.data.rxId, token: t.body.data, visitId: v })
         })
       })
@@ -92,7 +78,7 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms h4 gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
     relogin(OWNER)
     cy.request('/team/users').then((u) => {
       const m = listOf(u.body).find((x) => x.email === PHARMACIST)
@@ -101,7 +87,7 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
     })
     branch('H4 Branch A').then((id) => { S.branchA = id })
     branch('H4 Branch B').then((id) => { S.branchB = id })
-    post('/clinic/patients', { phone, name: 'H4 Patient ' + run }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'H4 Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
@@ -116,13 +102,13 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
 
   after(() => {
     relogin(DOCTOR, 'doctor')
-    cy.then(() => S.visits.forEach((v) => post(`/clinic/consult/encounters/${v}/complete`)))
+    cy.then(() => S.visits.forEach((v) => cy.postJson(`/clinic/consult/encounters/${v}/complete`)))
     relogin(OWNER)
-    cy.then(() => { if (S.ahmed) post(`/clinic/doctors/${S.ahmed.id}/pharmacy`, { storeId: null }) })   // back to every branch
-    cy.then(() => S.rxIds.forEach((id) => post('/cancelPrescription', { prescriptionId: id, reason: 'cypress cleanup' })))
-    cy.then(() => { if (S.pharmacistId) post('/assignStores', { userId: S.pharmacistId, storeIds: S.pharmacistOriginal, replace: true }) })
-    cy.then(() => { if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' }) })
-    setOf(DOCTOR, 'Administrator')
+    cy.then(() => { if (S.ahmed) cy.postJson(`/clinic/doctors/${S.ahmed.id}/pharmacy`, { storeId: null }) })   // back to every branch
+    cy.then(() => S.rxIds.forEach((id) => cy.postJson('/cancelPrescription', { prescriptionId: id, reason: 'cypress cleanup' })))
+    cy.then(() => { if (S.pharmacistId) cy.postJson('/assignStores', { userId: S.pharmacistId, storeIds: S.pharmacistOriginal, replace: true }) })
+    cy.then(() => { if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' }) })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -164,7 +150,7 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
 
   it("H4-04 [L-4] a doctor with no branch: the prescription is every branch's", () => {
     relogin(OWNER)
-    post(`/clinic/doctors/${S.sana.id}/pharmacy`, { storeId: null }).its('body.success').should('eq', true)
+    cy.postJson(`/clinic/doctors/${S.sana.id}/pharmacy`, { storeId: null }).its('body.success').should('eq', true)
     submitFor(S.sana).then((x) => {
       relogin(OWNER)
       cy.request(`/getPrescription?id=${x.rxId}`).its('body.data.storeId').should('eq', null)

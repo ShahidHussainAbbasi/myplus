@@ -158,4 +158,11 @@ confirm severity, create a clear incident channel, assign roles, stabilize the s
 # Fitness functions:
  Automated checks that measure architectural qualities such as coupling, API versioning, test coverage, latency SLOs, and cost.
 
- 8
+ ## API Gateway
+ review e2e 100%. Identify and share the gaps regarding the below features support by API Gateway
+ 1. Central security.
+ 2. rate limiting per tenant.
+ 3. audit.
+ 4. discoverability.
+
+ ## 

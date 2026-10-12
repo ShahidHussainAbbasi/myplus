@@ -174,4 +174,61 @@ class QueueServiceTest {
         when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.IN_CONSULTATION)));
         assertThatThrownBy(() -> service.move(100L, "park", " ")).hasMessageContaining("Say why");
     }
+    // ── RELINK (2026-10-12): a not-yet-seen patient goes to another doctor; cancel needs a reason ───────────────
+
+    private void sanaIssuesB004() {
+        ClinicProvider b = new ClinicProvider(); b.setProviderId(12L); b.setTokenPrefix("B");
+        when(prefixes.findByOrganizationIdAndProviderId(7L, 12L)).thenReturn(Optional.of(b));
+        when(writer.insert(any(QueueToken.class), eq("B"))).thenAnswer(inv -> {
+            QueueToken nt = inv.getArgument(0); nt.setId(200L); nt.setTokenNo(4); nt.setTokenLabel("B-004"); return nt;
+        });
+    }
+
+    @Test
+    void a_waiting_patient_is_relinked_cancelling_the_old_token_with_the_new_number() {
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.WAITING)));
+        when(writer.transition(eq(100L), eq(7L), anyCollection(), eq(QueueStatus.CANCELLED), any(), any())).thenReturn(1);
+        sanaIssuesB004();
+        TokenView v = service.relink(100L, 12L, "patient prefers a lady doctor");
+        assertThat(v.getTokenLabel()).isEqualTo("B-004");
+        assertThat(v.getProviderName()).isEqualTo("Dr Sana");
+        verify(writer).transition(eq(100L), eq(7L), anyCollection(), eq(QueueStatus.CANCELLED), any(),
+                eq("Moved to Dr Sana as B-004 — patient prefers a lady doctor"));
+    }
+
+    @Test
+    void a_patient_already_with_the_doctor_cannot_be_relinked() {
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.IN_CONSULTATION)));
+        assertThatThrownBy(() -> service.relink(100L, 12L, null)).hasMessageContaining("only a patient who has not been seen yet");
+        verify(writer, never()).transition(anyLong(), anyLong(), anyCollection(), anyString(), any(), any());
+    }
+
+    @Test
+    void relinking_to_the_same_doctor_is_refused_in_words() {
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.CALLED)));
+        assertThatThrownBy(() -> service.relink(100L, 11L, null)).hasMessage("A-001 is already with Dr Ahmed.");
+    }
+
+    @Test
+    void a_new_doctor_who_refuses_stops_the_relink_so_the_transaction_rolls_the_cancel_back() {
+        // the refusal propagates out of relink(); @Transactional on relink rolls the cancel back with it
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.WAITING)));
+        when(writer.transition(eq(100L), eq(7L), anyCollection(), eq(QueueStatus.CANCELLED), any(), any())).thenReturn(1);
+        com.myplus.clinical.entity.ProviderDay closed = new com.myplus.clinical.entity.ProviderDay();
+        closed.setClosed(true);
+        when(days.findById(any())).thenReturn(Optional.of(closed));
+        assertThatThrownBy(() -> service.relink(100L, 12L, null)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Dr Sana is not seeing patients today");
+    }
+
+    @Test
+    void cancelling_a_waiting_token_needs_a_reason_but_a_parked_one_still_gets_the_state_answer() {
+        when(tokens.findByIdAndOrganizationId(100L, 7L)).thenReturn(Optional.of(token(100, 11, "Dr Ahmed", "A-001", QueueStatus.WAITING)));
+        assertThatThrownBy(() -> service.move(100L, "cancel", " ")).hasMessageContaining("Say why the token is cancelled");
+        verify(writer, never()).transition(anyLong(), anyLong(), anyCollection(), anyString(), any(), any());
+
+        when(tokens.findByIdAndOrganizationId(101L, 7L)).thenReturn(Optional.of(token(101, 11, "Dr Ahmed", "A-002", QueueStatus.PARKED)));
+        when(writer.transition(eq(101L), eq(7L), anyCollection(), eq(QueueStatus.CANCELLED), any(), any())).thenReturn(0);
+        assertThatThrownBy(() -> service.move(101L, "cancel", null)).hasMessage("A-002 is parked — it cannot be cancelled.");
+    }
 }

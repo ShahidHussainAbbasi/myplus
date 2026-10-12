@@ -38,14 +38,12 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
   // One session per (account, phase). A FRESH token is needed only when the clinic switch changes, because the
   // capability travels in the token; any other case reuses the phase's session.
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s1-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const lookup = (phone) =>
     cy.request({ url: '/clinic/patients?phone=' + encodeURIComponent(phone), failOnStatusCode: false })
   const setClinicSetting = (key, value) =>
     cy.request({ method: 'POST', url: `/clinic/settings?key=${key}&value=${value}`, failOnStatusCode: false })
       .then((r) => expect(r.body && r.body.success, `${key}=${value}: ${JSON.stringify(r.body)}`).to.eq(true))
-  const register = (body) => post('/clinic/patients', body).then((r) => {
+  const register = (body) => cy.postJson('/clinic/patients', body).then((r) => {
     if (r.body && r.body.success) {
       created.patients.push(r.body.data.id)
       if (r.body.data.customerId) created.customers.push(r.body.data.customerId)
@@ -77,7 +75,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
         })
       }))
     cy.then(() => {
-      sweep.forEach((id) => post(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
+      sweep.forEach((id) => cy.postJson(`/clinic/patients/${id}/retire`, { reason: 'cypress cleanup' }))
       customers.forEach((id) =>
         cy.request({ method: 'POST', url: '/deleteCustomer', form: true, body: { checked: String(id) }, failOnStatusCode: false }))
     })
@@ -148,7 +146,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
         expect(Number(c.partyId), 'the same person as the patient').to.eq(Number(ali.partyId))
       })
       // Linking again is idempotent: still the same customer, never a second.
-      post(`/clinic/patients/${ali.id}/link`, {}).its('body.data.customerId').should('eq', ali.customerId)
+      cy.postJson(`/clinic/patients/${ali.id}/link`, {}).its('body.data.customerId').should('eq', ali.customerId)
     })
   })
 
@@ -167,7 +165,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
 
       // 2. Through the API, the same number under ANOTHER name (the B-07 shape) is refused, naming who is on it.
       ;['Usman Rashid ' + run, ali.name].forEach((name) =>
-        post('/clinic/patients', { phone: ali.phone, name }).then((r) => {
+        cy.postJson('/clinic/patients', { phone: ali.phone, name }).then((r) => {
           expect(r.body.success, JSON.stringify(r.body)).to.eq(false)
           expect(r.body.message).to.contain('already registered to ' + ali.name).and.contain(ali.mrn)
           expect(r.body.data.existing.id, 'the refusal carries the patient').to.eq(ali.id)
@@ -183,7 +181,7 @@ describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', ()
     cy.get('#clinPatForm').should('not.be.visible')
     cy.screenshot('hms-s1/S1-04-invalid-phone', { capture: 'viewport' })
     ;['12345', '04235761234', 'abcdefghijk', '0300123456789'].forEach((bad) =>
-      post('/clinic/patients', { phone: bad, name: 'Bad ' + bad }).then((r) => {
+      cy.postJson('/clinic/patients', { phone: bad, name: 'Bad ' + bad }).then((r) => {
         expect(r.body.success, bad).to.eq(false)
         expect(r.body.message, bad).to.match(/mobile number/i)
       }))

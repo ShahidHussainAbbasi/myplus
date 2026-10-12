@@ -119,6 +119,8 @@
                                onkeypress="handleEnterKey(event,'enter','loginSubmit')"
                                placeholder="Enter your password"/>
                     </div>
+                    <a id="loginForgot" class="forgot-link" th:href="@{/forgetPassword.html}"
+                       th:text="#{ui.forgotPassword}">Forgot password?</a>
                 </div>
 
                 <div class="field-group" style="margin-bottom:24px" th:if="${twoFaEnabled}">

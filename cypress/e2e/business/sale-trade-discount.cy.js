@@ -54,7 +54,7 @@ const ringUp = (productId, qty = 1, price = 100) => {
   cy.get('#addInviceItem').click({ force: true })   // sic: the app's id carries the typo
   overlayGone()
   cy.window().its('data').should('have.length', 1)
-  cy.cartTotal().should(($t) => expect(Number($t.text()), 'cart total').to.eq(price * qty))
+  cy.cartTotal().should(($t) => expect(Number($t.text().replace(/,/g, '')), 'cart total').to.eq(price * qty))
   cy.get('#sellPayMethod').select('CASH', { force: true })
 }
 

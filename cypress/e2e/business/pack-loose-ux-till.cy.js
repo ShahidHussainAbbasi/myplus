@@ -53,12 +53,12 @@ const packProduct = (name, defaultSellUnit = 'PACK') =>
 
 /** ⚠ A purchase RESTAMPS the selling price from bsellRate — pass the intended price (U2 §13.4c). */
 const stockIn = (productId, qty) =>
-  cy.request({
+  cy.markNoExpiry(productId).then(() => cy.request({   // EXP-REQ: a fixture product has no expiry
     method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
     body: { productId, quantity: qty, 'stock.batchNo': `U15B${uniq()}`,
       'stock.bpurchaseRate': 100, 'stock.bsellRate': PRICE,
       totalAmount: qty * 100, netAmount: qty * 100, purchaseInvoiceNo: `U15-${uniq()}` },
-  }).then((r) => expect(r.body.status, `stock in: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq('SUCCESS'))
+  })).then((r) => expect(r.body.status, `stock in: ${JSON.stringify(r.body).slice(0, 200)}`).to.eq('SUCCESS'))
 
 const openSale = () => {
   cy.openSellSection('sellDiv')
@@ -220,7 +220,7 @@ describe('U15 Slice A — the till tells the truth about a broken pack', () => {
        * derives Change and Due from it — then addSell submits #sellCh as customer.dueAmount. At 600.00 the
        * cashier handed back 540.00 too little and the customer's balance was wrong by the same amount.
        */
-      cy.cartTotal().invoke('text').then((t) => expect(Number(t)).to.eq(60))
+      cy.cartTotal().invoke('text').then((t) => expect(Number(String(t).replace(/,/g, ''))).to.eq(60))
       cy.get('#sellRec').clear().type('100')
       cy.get('#sellCh').invoke('val').then((v) => {
         expect(Number(v), 'change from a 100 note: 40.00, not −500.00').to.eq(40)

@@ -521,15 +521,7 @@ Cypress.Commands.add('seedProduct', (overrides = {}) => {
      * on") — nothing to exempt there. A non-admin seeding is refused by the ADMIN gate; its purchases then fail
      * with the server's own "Enter the expiry date for …", which names the cause.
      */
-    const exempt = overrides.noExpiry !== false
-      ? cy.request({ method: 'POST', url: '/setProductTracking', form: true, failOnStatusCode: false,
-          body: { id: productId, noExpiry: true } }).then((t) => {
-          const msg = String((t.body && t.body.message) || '')
-          if (t.body && t.body.success === false && !/not switched on|denied|forbidden|privilege/i.test(msg)) {
-            throw new Error(`seedProduct: could not mark ${name} "No expiry": ${JSON.stringify(t.body).slice(0, 200)}`)
-          }
-        })
-      : cy.wrap(null)
+    const exempt = overrides.noExpiry !== false ? cy.markNoExpiry(productId, name) : cy.wrap(null)
 
     if (!overrides.stock) return exempt.then(() => result)
     // opening inventory (local Stock is gone — stock lives in inventory-service)
@@ -1687,3 +1679,54 @@ Cypress.Commands.add('revealSetting', (key) => {
  */
 Cypress.Commands.add('cartTotal', () =>
   cy.window().its('tablesi').then((t) => cy.wrap(Cypress.$(t.column(5).footer()))))
+
+// ── DRY D3 (docs/DRY-REVIEW-2026-10-11.md) — helpers the specs each defined for themselves ───────────────────────
+// `post` was written out in 53 specs, `setOf` in 9, `emulateZone` in 3. One definition each, here. They never fail on
+// the HTTP status (failOnStatusCode: false), exactly like the copies they replace: a refusal is asserted by the spec.
+
+/** A form POST through the monolith (the copies' `post` with form: true). */
+Cypress.Commands.add('postForm', (url, body) =>
+  cy.request({ method: 'POST', url, form: true, body: body || {}, failOnStatusCode: false }))
+
+/** A JSON POST through the monolith. */
+Cypress.Commands.add('postJson', (url, body) =>
+  cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }))
+
+/** A JSON PUT through the monolith. */
+Cypress.Commands.add('putJson', (url, body) =>
+  cy.request({ method: 'PUT', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false }))
+
+/**
+ * Put a team member on a permission set, by e-mail and set name, as the signed-in owner (Team → Permissions).
+ * Fails loudly if the member or the set is not there, or the assignment is refused.
+ */
+Cypress.Commands.add('setPermissionSet', (email, setName) =>
+  cy.request('/team/users').then((u) => {
+    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
+    expect(member, email + ' is a member').to.exist
+    return cy.request('/team/permissions').then((p) => {
+      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
+      expect(set, 'the "' + setName + '" set exists').to.exist
+      // JSON, like every copy it replaced (their local post was JSON); the endpoint answers 415 to a form
+      return cy.postJson('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
+        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
+    })
+  }))
+
+/** Chrome's time zone for the page under test (DevTools emulation); '' puts the machine's zone back. */
+Cypress.Commands.add('emulateZone', (timezoneId) =>
+  cy.wrap(Cypress.automation('remote:debugger:protocol', { command: 'Emulation.setTimezoneOverride', params: { timezoneId } })))
+
+/**
+ * EXP-REQ (doc §12.18) / DRY D3 — mark a spec-made product "No expiry", so a purchase without an expiry date is
+ * accepted where the tenant tracks expiry. Was inline in seedProduct; specs that create a product themselves need it too.
+ * A tenant that does not track expiry answers "not switched on" — nothing to exempt there.
+ */
+Cypress.Commands.add('markNoExpiry', (productId, name) =>
+  cy.request({ method: 'POST', url: '/setProductTracking', form: true, failOnStatusCode: false,
+    body: { id: productId, noExpiry: true } }).then((t) => {
+    const msg = String((t.body && t.body.message) || '')
+    if (t.body && t.body.success === false && !/not switched on|denied|forbidden|privilege/i.test(msg)) {
+      throw new Error(`markNoExpiry: could not mark ${name || productId} "No expiry": ${JSON.stringify(t.body).slice(0, 200)}`)
+    }
+  }))

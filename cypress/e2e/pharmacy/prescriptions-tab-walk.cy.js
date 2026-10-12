@@ -22,8 +22,6 @@ const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
 const iso = (d) => d.toISOString().slice(0, 10)
 const daysFromToday = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d) }
 
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
 const shot = (name) => cy.screenshot(name, { capture: 'viewport', overwrite: true })
 
@@ -38,14 +36,14 @@ const readRx = (rxId) =>
 
 /** Script seeded through the API — for cases whose subject is NOT intake. */
 const seedScript = (patient, items, extra = {}) =>
-  post('/addPrescription', Object.assign({ patientName: patient, items }, extra)).then((r) => {
+  cy.postJson('/addPrescription', Object.assign({ patientName: patient, items }, extra)).then((r) => {
     expect(r.body.success, `seed script: ${JSON.stringify(r.body).slice(0, 220)}`).to.eq(true)
     created.rxIds.push(r.body.data.id)
     return r.body.data
   })
 
 const flag = (productId, name, rxRequired, controlledSubstance) =>
-  post('/saveClinical', { productId, medicineName: name, rxRequired, controlledSubstance }).then((r) => {
+  cy.postJson('/saveClinical', { productId, medicineName: name, rxRequired, controlledSubstance }).then((r) => {
     expect(r.body.success, `flag ${name}: ${JSON.stringify(r.body)}`).to.eq(true)
     created.flagged.push({ productId, name })
   })
@@ -126,10 +124,9 @@ const completeFilled = (customer, prefix) => {
     cy.get('#sellRec').clear().type(pay.toFixed(2))
   })
   snap('c-customer-and-cash')
-  cy.get('#addSell').click()
-  cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).should('be.visible')
-  snap('d-confirm')
-  cy.get('[data-ui-confirm="ok"]').click({ force: true })
+  // the "Complete this sale?" dialog is a tenant setting (posConfirmOnComplete): the shared command takes either path.
+  // The dialog's own screenshot ('d-confirm') is dropped — it cannot be required when the setting may be off.
+  cy.clickAndConfirmSale('#addSell')
 }
 
 /** A divisible product: packs of 10, sellable by the tablet, stocked through a purchase (copied from U8's spec). */
@@ -141,14 +138,14 @@ const loosePackProduct = (name, packs) =>
   }).then((r) => {
     expect(r.body.success, `product ${name}: ${JSON.stringify(r.body)}`).to.eq(true)
     const productId = r.body.data.id
-    return cy.request({
+    return cy.markNoExpiry(productId, name).then(() => cy.request({   // EXP-REQ: a fixture product has no expiry
       method: 'POST', url: '/addPurchase', form: true, failOnStatusCode: false,
       body: { productId, quantity: packs, 'stock.batchNo': `RXL${uniq()}`, 'stock.bpurchaseRate': 100,
         'stock.bsellRate': 120, totalAmount: packs * 100, netAmount: packs * 100, purchaseInvoiceNo: `RXL-${uniq()}` },
     }).then((p) => {
       expect(p.body.status, `stock in: ${JSON.stringify(p.body).substring(0, 200)}`).to.eq('SUCCESS')
       return productId
-    })
+    }))
   })
 
 /** Pharmacy → Prescriptions through the sidebar WITHOUT reloading — so a cart built before it survives. */
@@ -316,13 +313,14 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
         rowOf(patient).within(() => {
           cy.get('td').eq(3).should('have.text', 'CANCELLED')
           // the ACTION cell — the patient cell keeps its Contact-360 button
-          cy.get('td').eq(5).should('have.text', 'cancelled').find('button').should('not.exist')
+          cy.get('td').eq(5).find('.text-muted').first().should('have.text', 'cancelled')   // H3b added a History button to every row: the status word is the label, and History is the only button
+          cy.get('td').eq(5).find('button:not(.rx-history-link)').should('not.exist')
         })
         shot('RX-06-2-cancelled')
         readRx(rx.id).its('status').should('eq', 'CANCELLED')
 
         // the server holds the line too: a cancelled script cannot be dispensed
-        post('/dispensePrescription', { prescriptionId: rx.id, invoiceNo: 'INV-X', items: [{ productId, quantity: 1 }] })
+        cy.postJson('/dispensePrescription', { prescriptionId: rx.id, invoiceNo: 'INV-X', items: [{ productId, quantity: 1 }] })
           .its('body.message').should('match', /cancel/i)
       })
     })
@@ -395,7 +393,7 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
         openPrescriptionsTab()
         rowOf(patient).within(() => {
           cy.get('td').eq(3).should('have.text', 'FULLY_DISPENSED')
-          cy.get('td').eq(5).should('have.text', 'dispensed')
+          cy.get('td').eq(5).find('.text-muted').first().should('have.text', 'dispensed')   // H3b added a History button to every row: the status word is the label, and History is the only button
         })
         shot('RX-08-4-list-dispensed')
       })
@@ -480,14 +478,27 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
       cy.get('#sellQuantity').clear().type('1')
       cy.get('#addInviceItem').click()
       cy.get('#globalError').should('contain.text', 'is prescription-only')
-      cy.get('#btnModeManual').click()
-      cy.get('#sellCN').clear().type('Walk-in ' + stamp)
-      cy.get('#sellRec').clear().type('20')
-      cy.get('#addSell').click()
-      cy.get('[data-ui-confirm="ok"]', { timeout: 10000 }).click({ force: true })
-      cy.wait('@sale', { timeout: 30000 }).its('response.body').then((b) => {
-        expect(b.status, 'the server refuses it').to.not.eq('SUCCESS')
-        expect(String(b.message)).to.match(/prescription-only/i)
+      // Refused wherever the till meets it — never sold, the reason shown. In "latest" pricing the line enters the cart
+      // with this notice and the SERVER refuses the sale. In Per batch pricing the till asks the server how to price the
+      // line at Add (same rule) and the line never enters the cart.
+      cy.window().then((w) => {
+        const inCart = (w.data || []).some((l) => String(l.productId) === String(productId))
+        if (!inCart) return   // refused at Add (Per batch): nothing to complete — the notice above is the refusal
+        let posted = null
+        cy.intercept('POST', '**/addSell', (req) => { req.continue((res) => { posted = res.body }) })
+        cy.get('#btnModeManual').click()
+        cy.get('#sellCN').clear().type('Walk-in ' + stamp)
+        cy.get('#sellRec').clear().type('20')
+        cy.get('#globalError').invoke('text', '')   // the refusal below must come from COMPLETE
+        cy.get('#addSell').click()
+        cy.get('body').then(($b) => { if ($b.find('[data-ui-confirm="ok"]:visible').length) cy.get('[data-ui-confirm="ok"]').click({ force: true }) })
+        cy.get('#globalError', { timeout: 20000 }).should('contain.text', 'is prescription-only')
+        cy.wait(1500).then(() => {
+          if (posted) {
+            expect(posted.status, 'the server refuses it').to.not.eq('SUCCESS')
+            expect(String(posted.message)).to.match(/prescription-only/i)
+          }
+        })
       })
       shot('RX-11-1-walk-in-refused')
 
@@ -509,7 +520,7 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
     const stamp = uniq(), a = `RxIntA_${stamp}`, b = `RxIntB_${stamp}`, patient = `Inter_${stamp}`
     cy.seedProduct({ name: a, unit: 'tablet', stock: 10, sellingPrice: 10 }).then((pa) => {
       cy.seedProduct({ name: b, unit: 'tablet', stock: 10, sellingPrice: 10 }).then((pb) => {
-        post('/addInteraction', { productId1: pa.productId, productId2: pb.productId, severity: 'SEVERE',
+        cy.postJson('/addInteraction', { productId1: pa.productId, productId2: pb.productId, severity: 'SEVERE',
           description: 'Bleeding risk' }).its('body.success').should('eq', true)
         seedScript(patient, [
           { productId: pa.productId, medicineName: a, quantity: 2 },
@@ -550,10 +561,11 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
         openPrescriptionsTab()
         rowOf(patient).within(() => {
           cy.get('td').eq(3).should('have.text', 'EXPIRED')
-          cy.get('td').eq(5).should('have.text', 'expired').find('button').should('not.exist')
+          cy.get('td').eq(5).find('.text-muted').first().should('have.text', 'expired')   // H3b added a History button to every row: the status word is the label, and History is the only button
+          cy.get('td').eq(5).find('button:not(.rx-history-link)').should('not.exist')
         })
         shot('RX-13-1-expired-row')
-        post('/dispensePrescription', { prescriptionId: rx.id, invoiceNo: 'INV-EXP', items: [{ productId, quantity: 1 }] })
+        cy.postJson('/dispensePrescription', { prescriptionId: rx.id, invoiceNo: 'INV-EXP', items: [{ productId, quantity: 1 }] })
           .its('body.message').should('match', /expired/i)
       })
     })
@@ -718,6 +730,38 @@ describe('RX-WALK — the Prescriptions tab, end to end on the screen', () => {
       })
     })
   })
+
+  // RX-PB (2026-10-11) — found by the DRY regression: in Per batch pricing mode the till re-checks prices with the
+  // server at Add to Cart and at Complete. That preview dropped the prescription id, so the server refused the
+  // prescription-only medicine and NOTHING was posted. RED on the code before the fix; the mode is set HERE, so the
+  // case does not depend on what another spec left behind, and put back in cleanup().
+  it('RX-19 with Per batch pricing on, a dispense still completes', () => {
+    const stamp = uniq(), name = `RxPb_${stamp}`, patient = `Pb_${stamp}`
+    cy.request('/getBusinessConfig').then((r) => {
+      const e = ((r.body && (r.body.collection || r.body.data)) || []).find((x) => x.key === 'pos.pricing.purchaseMode')
+      created.priceMode0 = e && !e.isDefault ? e.value : null
+    })
+    cy.postForm('/saveBusinessConfig', { key: 'pos.pricing.purchaseMode', value: 'per_batch' })
+      .its('body.success').should('eq', true)
+    cy.seedProduct({ name, unit: 'tablet', stock: 30, sellingPrice: 20 }).then(({ productId }) => {
+      flag(productId, name, true, false)
+      seedScript(patient, [{ productId, medicineName: name, quantity: 3 }]).then(() => {
+        cy.intercept('POST', '**/batchPricePreview').as('preview')
+        cy.intercept('POST', '**/addSell').as('sale')
+        openPrescriptionsTab()
+        cy.window().its('posPurchasePriceMode').should('eq', 'per_batch')
+        rowOf(patient).contains('button', 'Dispense').click()
+        waitFilled()
+        completeFilled(patient)
+        cy.wait('@preview').its('request.body.prescriptionId').should('be.a', 'number')
+        cy.wait('@sale', { timeout: 30000 }).then(({ request, response }) => {
+          expect(response.body.status, JSON.stringify(response.body).slice(0, 200)).to.eq('SUCCESS')
+          expect(request.body.prescriptionId, 'the sale names the prescription it dispenses').to.be.a('number')
+        })
+        shot('RX-19-1-per-batch-dispense-completed')
+      })
+    })
+  })
 })
 
 /**
@@ -735,9 +779,14 @@ function cleanup() {
     cy.request({ url: `/getPrescription?id=${id}`, failOnStatusCode: false }).then((r) => {
       const s = r.body && r.body.data && r.body.data.status
       // EXPIRED is DERIVED from validUntil — RX-13's script is still stored PENDING, so it is cancelled too.
-      if (s === 'PENDING' || s === 'PARTIALLY_DISPENSED' || s === 'EXPIRED') post('/cancelPrescription', { prescriptionId: id })
+      if (s === 'PENDING' || s === 'PARTIALLY_DISPENSED' || s === 'EXPIRED') cy.postJson('/cancelPrescription', { prescriptionId: id })
     })
   })
   created.flagged.forEach(({ productId, name }) =>
-    post('/saveClinical', { productId, medicineName: name, rxRequired: false, controlledSubstance: false }))
+    cy.postJson('/saveClinical', { productId, medicineName: name, rxRequired: false, controlledSubstance: false }))
+  // RX-19 switched the shop to Per batch pricing: put back what the owner had (or the default)
+  if (created.priceMode0 !== undefined) {
+    if (created.priceMode0) cy.postForm('/saveBusinessConfig', { key: 'pos.pricing.purchaseMode', value: created.priceMode0 })
+    else cy.postForm('/resetBusinessConfig', { key: 'pos.pricing.purchaseMode' })
+  }
 }

@@ -69,7 +69,8 @@ public class RegistrationController {
     @ResponseBody
     public GenericResponse resetPassword(final HttpServletRequest request, @RequestParam("email") final String userEmail) {
         passwordResetFacade.requestReset(userEmail, request.getParameter("g-recaptcha-response"));
-        return new GenericResponse(messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
+        // (status, message): the 1-arg constructor sets STATUS - the page read data.message and showed "null"
+        return new GenericResponse("SUCCESS", messages.getMessage("message.resetPasswordEmail", null, request.getLocale()));
     }
 
     // Landing page from the reset email: render the new-password form carrying the token. The token
@@ -84,7 +85,7 @@ public class RegistrationController {
     @ResponseBody
     public GenericResponse savePassword(final Locale locale, @RequestParam("token") final String token, @Valid PasswordDto passwordDto) {
         passwordResetFacade.completeReset(token, passwordDto.getNewPassword());
-        return new GenericResponse(messages.getMessage("message.resetPasswordSuc", null, locale));
+        return new GenericResponse("SUCCESS", messages.getMessage("message.resetPasswordSuc", null, locale));
     }
 
     // change user password (logged in) — delegated to the auth-service (it owns the identity store).

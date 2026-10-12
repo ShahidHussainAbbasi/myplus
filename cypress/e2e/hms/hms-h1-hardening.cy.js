@@ -29,20 +29,6 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
   const S = {}
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-h1-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const put = (url, body) =>
-    cy.request({ method: 'PUT', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
   const line = (productId, medicineName, quantity) => ({ productId, medicineName, quantity: String(quantity), dosage: '1 tab', frequency: 'BD', duration: '3 days' })
 
   before(() => {
@@ -61,9 +47,9 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms h1 gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
     relogin(OWNER)
-    post('/clinic/patients', { phone, name: 'H1 Patient ' + run }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'H1 Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
@@ -73,13 +59,13 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
       S.doctor = d
     })
     cy.seedProduct({ name: MED, unit: 'tablet', stock: 20, sellingPrice: 9 }).then(({ productId }) => { S.med = productId })
-    cy.then(() => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id })).then((t) => {
+    cy.then(() => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id })).then((t) => {
       expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
       S.token = t.body.data
     })
     relogin(DOCTOR, 'doctor')
-    cy.then(() => post(`/clinic/tokens/${S.token.id}/call`)).its('body.success').should('eq', true)
-    cy.then(() => post(`/clinic/consult/tokens/${S.token.id}/start`)).then((r) => { S.visitId = r.body.data.id })
+    cy.then(() => cy.postJson(`/clinic/tokens/${S.token.id}/call`)).its('body.success').should('eq', true)
+    cy.then(() => cy.postJson(`/clinic/consult/tokens/${S.token.id}/start`)).then((r) => { S.visitId = r.body.data.id })
   })
 
   after(() => {
@@ -89,20 +75,20 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
         const v = r.body && r.body.data
         if (v && v.rxId) S.rxId = v.rxId
       })
-      post(`/clinic/consult/encounters/${S.visitId}/complete`)
+      cy.postJson(`/clinic/consult/encounters/${S.visitId}/complete`)
     }
     relogin(OWNER)
-    cy.then(() => { if (S.rxId) post('/cancelPrescription', { prescriptionId: S.rxId }) })
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    setOf(DOCTOR, 'Administrator')
+    cy.then(() => { if (S.rxId) cy.postJson('/cancelPrescription', { prescriptionId: S.rxId }) })
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
   it('H1-01 [L-1] a medicine no product has is refused at Submit, naming it; nothing reaches the pharmacy', () => {
     relogin(DOCTOR, 'doctor')
     const url = `/clinic/consult/encounters/${S.visitId}`
-    put(url + '/rx', { lines: [line(S.med, MED, 6), line(987654321, 'Discontinued Syrup', 1)] }).its('body.success').should('eq', true)
-    post(url + '/rx/submit').then((r) => {
+    cy.putJson(url + '/rx', { lines: [line(S.med, MED, 6), line(987654321, 'Discontinued Syrup', 1)] }).its('body.success').should('eq', true)
+    cy.postJson(url + '/rx/submit').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(false)
       expect(r.body.message).to.eq("The pharmacy did not accept the prescription: 'Discontinued Syrup' is not in this pharmacy's list. Choose it again from the list.")
     })
@@ -112,14 +98,14 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
   it("H1-02 [L-1] another business's real product is refused the same way; with the pharmacy's own medicine alone, Submit goes through", () => {
     relogin(DOCTOR, 'doctor')
     const url = `/clinic/consult/encounters/${S.visitId}`
-    put(url + '/rx', { lines: [line(S.med, MED, 6), line(S.foreign.id, S.foreign.name, 1)] }).its('body.success').should('eq', true)
-    post(url + '/rx/submit').then((r) => {
+    cy.putJson(url + '/rx', { lines: [line(S.med, MED, 6), line(S.foreign.id, S.foreign.name, 1)] }).its('body.success').should('eq', true)
+    cy.postJson(url + '/rx/submit').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(false)
       expect(r.body.message).to.contain(`'${S.foreign.name}' is not in this pharmacy's list`)
     })
     // CONTROL: the same visit with the pharmacy's own medicine only — accepted, so the refusals above were the check
-    put(url + '/rx', { lines: [line(S.med, MED, 6)] }).its('body.success').should('eq', true)
-    post(url + '/rx/submit').then((r) => {
+    cy.putJson(url + '/rx', { lines: [line(S.med, MED, 6)] }).its('body.success').should('eq', true)
+    cy.postJson(url + '/rx/submit').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.rxId).to.be.a('number')
       S.rxId = r.body.data.rxId

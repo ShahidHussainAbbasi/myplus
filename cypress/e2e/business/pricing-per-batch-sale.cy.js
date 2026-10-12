@@ -282,7 +282,7 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
       subLines().eq(1).should('have.attr', 'data-qty', '3').and('contain', '250.00').and('contain', neu.batchNo)
       cy.get('#tablesi tbody tr').eq(0).find('td').eq(1).should('contain', '10')   // the row's quantity: 7 + 3
       cy.get('#sellBatchNote').should('not.be.visible')   // SALE-SLIM: the cart's sub-lines say it
-      cy.cartTotal().should('contain', '2150')
+      cy.cartTotal().should('contain', '2,150')   // DRY D2: amounts are grouped
       cy.intercept('POST', '/addSell').as('sale')
       complete()
       cy.wait('@sale').its('response.body').then((b) => {
@@ -367,10 +367,10 @@ describe('PR-3c — Per batch: the sale is priced from its batches', () => {
         const rates = d.reduce((a, l) => a + Number((l.stock && l.stock.bsellRate) != null ? l.stock.bsellRate : l.sellRate), 0)
         const total = d.reduce((a, l) => a + Number(l.totalAmount), 0)
         expect(d.length, 'two lines in the cart that is submitted').to.eq(2)
-        footer().then((f) => {
-          expect(Number(f[1]), 'QTY footer').to.eq(qty)
-          expect(Number(f[2]), 'Price footer (the sum of the lines’ rates, as before)').to.eq(rates)
-          expect(Number(f[4]), 'Total footer').to.eq(total)
+        footer().then((f) => {   // DRY D2: amounts are grouped (1,234.50) — separators stripped before Number()
+          expect(Number(String(f[1]).replace(/,/g, '')), 'QTY footer').to.eq(qty)
+          expect(Number(String(f[2]).replace(/,/g, '')), 'Price footer (the sum of the lines’ rates, as before)').to.eq(rates)
+          expect(Number(String(f[4]).replace(/,/g, '')), 'Total footer').to.eq(total)
         })
         cy.cartTotal().invoke('text').then((t) => expect(Number(String(t).replace(/[^0-9.]/g, ''))).to.eq(total))
       })

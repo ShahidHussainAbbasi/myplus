@@ -27,21 +27,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
   const S = { tokens: [], rxIds: [] }
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s3b1-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const put = (url, body) =>
-    cy.request({ method: 'PUT', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
-  const issueToken = () => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
+  const issueToken = () => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
     expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
     S.tokens.push(t.body.data.id)
     return t.body.data
@@ -51,8 +37,8 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     relogin(OWNER)
     return issueToken().then((t) => {
       relogin(DOCTOR, 'doctor')
-      post(`/clinic/tokens/${t.id}/call`).its('body.success').should('eq', true)
-      return post(`/clinic/consult/tokens/${t.id}/start`).then((r) => {
+      cy.postJson(`/clinic/tokens/${t.id}/call`).its('body.success').should('eq', true)
+      return cy.postJson(`/clinic/consult/tokens/${t.id}/start`).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         return r.body.data
       })
@@ -66,9 +52,9 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms s3b-1 gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
     relogin(OWNER)
-    post('/clinic/patients', { phone, name: 'S3b Patient ' + run, dateOfBirth: '1979-11-02', sex: 'F' }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'S3b Patient ' + run, dateOfBirth: '1979-11-02', sex: 'F' }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.customerId, 'customer made at reception').to.be.a('number')
       S.patient = r.body.data
@@ -76,7 +62,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     cy.request('/clinic/doctors').then((r) => {
       const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
       if (d) { S.doctor = d; return }
-      return post('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
+      return cy.postJson('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
         .then((c) => { S.doctor = c.body.data })
     })
     // Two medicines in stock — the doctor chooses them from the pharmacy's own list.
@@ -88,14 +74,14 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
   after(() => {
     // a visit with the doctor cannot be cancelled (only waiting / called can): the doctor completes the ones started
     relogin(DOCTOR, 'doctor')
-    if (S.parked) post(`/clinic/consult/encounters/${S.parked.id}/complete`)
+    if (S.parked) cy.postJson(`/clinic/consult/encounters/${S.parked.id}/complete`)
     relogin(OWNER)
     S.rxIds.forEach((id) => cy.request({ url: `/getPrescription?id=${id}`, failOnStatusCode: false }).then((r) => {
-      if (r.body && r.body.data && r.body.data.status !== 'FULLY_DISPENSED') post('/cancelPrescription', { prescriptionId: id })
+      if (r.body && r.body.data && r.body.data.status !== 'FULLY_DISPENSED') cy.postJson('/cancelPrescription', { prescriptionId: id })
     }))
-    S.tokens.forEach((id) => post(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    setOf(DOCTOR, 'Administrator')
+    S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -193,11 +179,11 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
   it('R-03 [07c] a second Submit returns the same prescription; the lines cannot change once sent', () => {
     relogin(DOCTOR, 'doctor')
     const url = `/clinic/consult/encounters/${S.encounterId}`
-    post(url + '/rx/submit').then((r) => {
+    cy.postJson(url + '/rx/submit').then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.rxId, 'the same prescription').to.eq(S.rxId)
     })
-    put(url + '/rx', { lines: [line(S.medA, MED_A, 99)] }).then((r) => {
+    cy.putJson(url + '/rx', { lines: [line(S.medA, MED_A, 99)] }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.contain('with the pharmacy already')
     })
@@ -212,7 +198,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
   it('R-04 [06b] the doctor parks the visit for a test; the pharmacy sees nothing; Open brings the patient back', () => {
     startedVisit().then((v) => {
       S.parked = v
-      put(`/clinic/consult/encounters/${v.id}/rx`, { lines: [line(S.medB, MED_B, 4)] }).its('body.success').should('eq', true)
+      cy.putJson(`/clinic/consult/encounters/${v.id}/rx`, { lines: [line(S.medB, MED_B, 4)] }).its('body.success').should('eq', true)
     })
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
@@ -245,10 +231,10 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
   it('R-05 each line is checked on the server: a medicine outside the list, a zero quantity, the same medicine twice', () => {
     relogin(DOCTOR, 'doctor')
     const url = `/clinic/consult/encounters/${S.parked.id}/rx`
-    put(url, { lines: [line(null, 'Typed by hand', 5)] }).its('body.message').should('contain', 'not from the pharmacy')
-    put(url, { lines: [line(S.medA, MED_A, 0)] }).its('body.message').should('contain', 'between 1 and 10000')
-    put(url, { lines: [line(S.medA, MED_A, 1), line(S.medA, MED_A, 2)] }).its('body.message').should('contain', 'twice')
-    post(`/clinic/consult/encounters/${S.parked.id}/rx/submit`).then((r) => {
+    cy.putJson(url, { lines: [line(null, 'Typed by hand', 5)] }).its('body.message').should('contain', 'not from the pharmacy')
+    cy.putJson(url, { lines: [line(S.medA, MED_A, 0)] }).its('body.message').should('contain', 'between 1 and 10000')
+    cy.putJson(url, { lines: [line(S.medA, MED_A, 1), line(S.medA, MED_A, 2)] }).its('body.message').should('contain', 'twice')
+    cy.postJson(`/clinic/consult/encounters/${S.parked.id}/rx/submit`).then((r) => {
       // the parked visit's one valid saved line (R-04) is still what Submit would send — nothing above replaced it
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.rxLines.map((l) => l.medicineName)).to.deep.eq([MED_B])
@@ -258,11 +244,11 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
 
   it('R-06 [M-15] the front desk cannot write or submit a prescription', () => {
     relogin(PHARMACIST)
-    put(`/clinic/consult/encounters/${S.parked.id}/rx`, { lines: [line(S.medA, MED_A, 1)] }).then((r) => {
+    cy.putJson(`/clinic/consult/encounters/${S.parked.id}/rx`, { lines: [line(S.medA, MED_A, 1)] }).then((r) => {
       expect(r.status).to.eq(403)
       expect(r.body.message).to.contain('Only a doctor')
     })
-    post(`/clinic/consult/encounters/${S.parked.id}/rx/submit`).then((r) => {
+    cy.postJson(`/clinic/consult/encounters/${S.parked.id}/rx/submit`).then((r) => {
       expect(r.status).to.eq(403)
       expect(r.body.message).to.contain('Only a doctor')
     })
@@ -276,13 +262,13 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     // 1. CONTROL: the pharmacist records an ordinary counter prescription — accepted, marked COUNTER.
     //    Without this, a refusal below could be "the pharmacist may not record prescriptions at all" (pharma
     //    answers every 403 with the same "Access denied"), and the case would prove nothing.
-    post('/addPrescription', counter).then((r) => {
+    cy.postJson('/addPrescription', counter).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.source).to.eq('COUNTER')
       S.rxIds.push(r.body.data.id)
     })
     // 2. The SAME prescription claiming a visit (reference, token, person) — refused; the only difference is the claim.
-    post('/addPrescription', { ...counter, externalRef: 'enc-999999', tokenLabel: S.first.tokenLabel, partyId: S.patient.partyId }).then((r) => {
+    cy.postJson('/addPrescription', { ...counter, externalRef: 'enc-999999', tokenLabel: S.first.tokenLabel, partyId: S.patient.partyId }).then((r) => {
       if (r.body.data && r.body.data.id) S.rxIds.push(r.body.data.id)   // cleanup if it ever got through
       expect(r.body.success, JSON.stringify(r.body)).to.not.eq(true)
       expect(r.body.message).to.eq('Access denied')

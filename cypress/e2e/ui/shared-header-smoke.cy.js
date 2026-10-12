@@ -48,6 +48,9 @@ describe('Shared header — every page still opens, with the time formatter', ()
         ;['fmtDateTime', 'fmtDate', 'fmtTime', 'typedToServer'].forEach((fn) =>
           expect(typeof w[fn], `${fn} on ${pg.path}`).to.eq('function'))
         expect(w.fmtDate('2026-10-11'), 'a date is never shifted').to.eq('2026-10-11')
+        // DRY D1: the ONE escaper is loaded by the header on every page, apostrophe included
+        expect(typeof w.escHtml, `escHtml on ${pg.path}`).to.eq('function')
+        expect(w.escHtml(`<b class="x">it's</b>`)).to.not.match(/[<>"']/)
       })
       cy.wait(1500)   // let the page's own first requests settle, so their errors are recorded
       cy.then(() => results.push({ case: `SH-${String(i + 1).padStart(2, '0')}`, page: pg.name, path: pg.path, consoleErrors: errors }))

@@ -49,7 +49,7 @@ const assertGridMatchesData = (expectedTotal) => {
     const rows = w.tablesi.rows().count()
     expect(rows, 'grid rows = data[] lines').to.eq(w.data.length)
   })
-  cy.cartTotal().should(($t) => expect(Number($t.text()), 'footer = the bill in data[]').to.eq(expectedTotal))
+  cy.cartTotal().should(($t) => expect(Number($t.text().replace(/,/g, '')), 'footer = the bill in data[]').to.eq(expectedTotal))
 }
 
 /** The Disc column's footer, read through DataTables' own API (column 4) — never a DOM index that the hidden

@@ -26,20 +26,6 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
   const S = {}
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-h3c-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const put = (url, body) =>
-    cy.request({ method: 'PUT', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
   const line = (productId, medicineName, quantity) => ({ productId, medicineName, quantity: String(quantity), dosage: '1 tab', frequency: 'TDS', duration: '3 days' })
   // The doctor opens their visit on the real screen (My queue → the token → Open).
   const doctorOpensVisit = () => {
@@ -59,10 +45,10 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms h3c gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
-    setOf(PHARMACIST, 'Standard')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
+    cy.setPermissionSet(PHARMACIST, 'Standard')
     relogin(OWNER)
-    post('/clinic/patients', { phone, name: 'H3c Patient ' + run }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'H3c Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
@@ -72,16 +58,16 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
     })
     cy.seedProduct({ name: MED_A, unit: 'tablet', stock: 50, sellingPrice: 20 }).then(({ productId }) => { S.medA = productId })
     cy.seedProduct({ name: MED_B, unit: 'tablet', stock: 50, sellingPrice: 4 }).then(({ productId }) => { S.medB = productId })
-    cy.then(() => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id })).then((t) => {
+    cy.then(() => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id })).then((t) => {
       expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
       S.token = t.body.data
     })
     relogin(DOCTOR, 'doctor')
-    cy.then(() => post(`/clinic/tokens/${S.token.id}/call`)).its('body.success').should('eq', true)
-    cy.then(() => post(`/clinic/consult/tokens/${S.token.id}/start`)).then((r) => { S.visitId = r.body.data.id })
-    cy.then(() => put(`/clinic/consult/encounters/${S.visitId}/rx`, { lines: [line(S.medA, MED_A, 6), line(S.medB, MED_B, 4)] }))
+    cy.then(() => cy.postJson(`/clinic/tokens/${S.token.id}/call`)).its('body.success').should('eq', true)
+    cy.then(() => cy.postJson(`/clinic/consult/tokens/${S.token.id}/start`)).then((r) => { S.visitId = r.body.data.id })
+    cy.then(() => cy.putJson(`/clinic/consult/encounters/${S.visitId}/rx`, { lines: [line(S.medA, MED_A, 6), line(S.medB, MED_B, 4)] }))
       .its('body.success').should('eq', true)
-    cy.then(() => post(`/clinic/consult/encounters/${S.visitId}/rx/submit`)).then((r) => {
+    cy.then(() => cy.postJson(`/clinic/consult/encounters/${S.visitId}/rx/submit`)).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.rxId = r.body.data.rxId
     })
@@ -89,17 +75,17 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
 
   after(() => {
     relogin(DOCTOR, 'doctor')
-    if (S.visitId) post(`/clinic/consult/encounters/${S.visitId}/complete`)
+    if (S.visitId) cy.postJson(`/clinic/consult/encounters/${S.visitId}/complete`)
     relogin(OWNER)
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    setOf(DOCTOR, 'Administrator')
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
   it('C-01 [L-3] the pharmacist changes it with a reason; the doctor sees the change, the reason and before → after', () => {
     relogin(PHARMACIST)
     cy.request(`/getPrescription?id=${S.rxId}`).its('body.data').then((p) => {
-      post('/amendPrescription', {
+      cy.postJson('/amendPrescription', {
         prescriptionId: S.rxId, reason: '500mg out of stock; dose split', amendmentsSeen: 0,
         items: p.items.map((i) => ({ id: i.id, productId: i.productId, medicineName: i.medicineName, quantity: i.quantity,
                                      dosage: i.medicineName === MED_A ? '1+0+1' : i.dosage, frequency: i.frequency, duration: i.duration })),
@@ -115,7 +101,7 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
 
   it('C-02 [L-3] the pharmacist cancels it with a reason; the doctor sees "Cancelled by the pharmacy" and why', () => {
     relogin(PHARMACIST)
-    post('/cancelPrescription', { prescriptionId: S.rxId, reason: 'Patient will buy it elsewhere' }).its('body.success').should('eq', true)
+    cy.postJson('/cancelPrescription', { prescriptionId: S.rxId, reason: 'Patient will buy it elsewhere' }).its('body.success').should('eq', true)
     doctorOpensVisit()
     cy.get('#clinRxPharmacy').should('contain', 'Cancelled by the pharmacy').and('contain', 'Patient will buy it elsewhere')
     cy.get('#clinRxPharmacy').scrollIntoView()

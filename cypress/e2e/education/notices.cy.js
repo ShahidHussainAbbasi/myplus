@@ -22,8 +22,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -41,9 +39,9 @@ const probe = (url) => cy.request({ url, failOnStatusCode: false })
 const publish = (title, audience, gradeId) => {
   const body = { title, body: title + ' — body text', audience }
   if (gradeId) body.gradeId = gradeId
-  return post('/saveNotice', body).then((r) => {
+  return cy.postForm('/saveNotice', body).then((r) => {
     const b = ok(r, `save ${audience} notice`)
-    return post('/publishNotice', { id: b.object.id }).then((p) => {
+    return cy.postForm('/publishNotice', { id: b.object.id }).then((p) => {
       ok(p, `publish ${audience} notice`)
       return title
     })
@@ -82,7 +80,7 @@ describe('Education — notices & circulars (slice 3.5)', () => {
 
       if (!me.gradeId) {
         // Put the fixture student in a class, once. addStudent doubles as the edit path when an id is sent.
-        post('/addStudent', {
+        cy.postForm('/addStudent', {
           id: me.id, name: me.name, enrollNo: me.enrollNo, status: 'ACTIVE',
           email: me.email, gradeId: fx.myGrade,
         }).then((res) => ok(res, 'place the fixture student in a class'))
@@ -112,9 +110,9 @@ describe('Education — notices & circulars (slice 3.5)', () => {
       expect(b.status).to.eq('SUCCESS')
       expect(b.object.recipients, 'the school is told how many addresses this reaches').to.be.a('number')
     })
-    post('/saveNotice', { title: TAG + ' Reach', body: 'body', audience: 'WHOLE_SCHOOL' }).then((r) => {
+    cy.postForm('/saveNotice', { title: TAG + ' Reach', body: 'body', audience: 'WHOLE_SCHOOL' }).then((r) => {
       const saved = ok(r, 'save')
-      post('/publishNotice', { id: saved.object.id }).then((p) => {
+      cy.postForm('/publishNotice', { id: saved.object.id }).then((p) => {
         const b = ok(p, 'publish')
         expect(b.object).to.have.property('queued')
         expect(b.object).to.have.property('recipients')
@@ -150,7 +148,7 @@ describe('Education — notices & circulars (slice 3.5)', () => {
   it('a DRAFT reaches NEITHER portal — the one boundary this entity has', () => {
     cy.loginAsEduOwner()
     const title = TAG + ' Draft'
-    post('/saveNotice', { title, body: 'not published', audience: 'WHOLE_SCHOOL' })
+    cy.postForm('/saveNotice', { title, body: 'not published', audience: 'WHOLE_SCHOOL' })
       .then((r) => ok(r, 'save a draft'))   // saved, deliberately NOT published
     cy.then(() => {
       cy.loginAsPortalGuardian()
@@ -209,10 +207,10 @@ describe('Education — notices & circulars (slice 3.5)', () => {
 
   it('a published notice cannot be edited — families have already been told', () => {
     cy.loginAsEduOwner()
-    post('/saveNotice', { title: TAG + ' Frozen', body: 'v1', audience: 'WHOLE_SCHOOL' }).then((r) => {
+    cy.postForm('/saveNotice', { title: TAG + ' Frozen', body: 'v1', audience: 'WHOLE_SCHOOL' }).then((r) => {
       const id = ok(r, 'save').object.id
-      post('/publishNotice', { id }).then((p) => ok(p, 'publish'))
-      post('/saveNotice', { id, title: TAG + ' Frozen EDITED', body: 'v2', audience: 'WHOLE_SCHOOL' })
+      cy.postForm('/publishNotice', { id }).then((p) => ok(p, 'publish'))
+      cy.postForm('/saveNotice', { id, title: TAG + ' Frozen EDITED', body: 'v2', audience: 'WHOLE_SCHOOL' })
         .then((e) => {
           const b = parse(e.body)
           expect(b.status, 'editing a published notice is refused').to.not.eq('SUCCESS')
@@ -230,9 +228,9 @@ describe('Education — notices & circulars (slice 3.5)', () => {
     cy.loginAsEduOwner()
     setConfig('edu.notify.notices', 'false')
     const title = TAG + ' Silent'
-    post('/saveNotice', { title, body: 'no email', audience: 'WHOLE_SCHOOL' }).then((r) => {
+    cy.postForm('/saveNotice', { title, body: 'no email', audience: 'WHOLE_SCHOOL' }).then((r) => {
       const id = ok(r, 'save').object.id
-      post('/publishNotice', { id }).then((p) => {
+      cy.postForm('/publishNotice', { id }).then((p) => {
         const b = ok(p, 'publish with delivery off')
         // Only meaningful because the ON case above now proves a non-zero count. Before that, this
         // "switch off => 0" case passed against a system that queued 0 unconditionally — a control
@@ -255,10 +253,10 @@ describe('Education — notices & circulars (slice 3.5)', () => {
 
   it('a teacher cannot publish — ADMIN tier', () => {
     cy.loginAsEduOwner()
-    post('/saveNotice', { title: TAG + ' TeacherTry', body: 'x', audience: 'WHOLE_SCHOOL' }).then((r) => {
+    cy.postForm('/saveNotice', { title: TAG + ' TeacherTry', body: 'x', audience: 'WHOLE_SCHOOL' }).then((r) => {
       const id = ok(r, 'save as owner').object.id
       cy.loginAsTeacherA()
-      post('/publishNotice', { id }).then((p) => {
+      cy.postForm('/publishNotice', { id }).then((p) => {
         const b = parse(p.body)
         const refused = p.status === 403 || !(b && ['SUCCESS', 'PARTIAL'].includes(b.status))
         expect(refused, 'addressing the whole school is a policy act, not teacher work').to.eq(true)
@@ -280,7 +278,7 @@ describe('Education — notices & circulars (slice 3.5)', () => {
     // change is deliberate: it reports QUEUED, not SENT. This asserts both that it still works and that
     // it no longer claims to have sent anything.
     cy.loginAsEduOwner()
-    post('/sendAlerts', { ah: TAG + ' Alert', am: 'body', c: 'Guardians' }).then((r) => {
+    cy.postForm('/sendAlerts', { ah: TAG + ' Alert', am: 'body', c: 'Guardians' }).then((r) => {
       const b = ok(r, 'send an alert')
       expect(b.message, 'the alert screen now reports queued').to.match(/queued/i)
       expect(b.object, 'and returns the counts').to.have.property('queued')

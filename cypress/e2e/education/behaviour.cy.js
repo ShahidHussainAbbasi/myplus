@@ -22,8 +22,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -80,7 +78,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('records a CONCERN with the author distinct from the typist', () => {
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo,
       type: 'CONCERN',
       category: 'Conduct',
@@ -106,7 +104,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   it('records a POSITIVE note — the log is not concern-only', () => {
     // D2: one enum value, and it changes what the feature is for. A punishment ledger is one teachers
     // stop opening, which also makes the concerns less credible when they appear.
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo,
       type: 'POSITIVE',
       category: 'Helpfulness',
@@ -124,11 +122,11 @@ describe('Education — behaviour log (slice 2.5)', () => {
     // Every other Phase 2 table has a uniqueness guarantee. Two genuine incidents in a day is ordinary,
     // so uniqueness would be a bug rather than a protection.
     const today = localIsoDate()
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'NEUTRAL', occurredOn: today,
       description: TAG + ' first incident'
     }).then((r) => ok(r, 'first'))
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'NEUTRAL', occurredOn: today,
       description: TAG + ' second incident'
     }).then((r) => ok(r, 'second'))
@@ -141,7 +139,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('correcting a note writes a NEW one and keeps the original, linked', () => {
-    post('/supersedeBehaviourNote', {
+    cy.postForm('/supersedeBehaviourNote', {
       id: fx.concernId,
       description: TAG + ' disrupted the lesson ONCE, not twice'
     }).then((r) => {
@@ -169,7 +167,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('a superseded note cannot be corrected again — that would fork the trail', () => {
-    post('/supersedeBehaviourNote', {
+    cy.postForm('/supersedeBehaviourNote', {
       id: fx.concernId, description: TAG + ' a second correction'
     }).then((r) => {
       const b = parse(r.body)
@@ -189,13 +187,13 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('a blank description is refused, and so is a future date', () => {
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'CONCERN', description: '   '
     }).then((r) => {
       // A blank account leaves a mark on a child's record saying nothing.
       expect(parse(r.body).status).to.be.oneOf(['FAILED', 'ERROR'])
     })
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'CONCERN',
       description: TAG + ' future', occurredOn: '2099-01-01'
     }).then((r) => {
@@ -207,7 +205,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
 
   it('guardian-informed is RECORDED, and nothing is sent', () => {
     const today = localIsoDate()
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'CONCERN',
       description: TAG + ' guardian contacted', guardianInformed: 'true', guardianInformedOn: today
     }).then((r) => ok(r, 'record with guardian informed'))
@@ -228,7 +226,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
     // strips tags from incoming request values as defence-in-depth, and its javadoc names this exact
     // payload. So the note saves, and the markup does not survive the write.
     const marker = TAG + ' xss'
-    post('/saveBehaviourNote', {
+    cy.postForm('/saveBehaviourNote', {
       enrollNo: fx.student.enrollNo, type: 'NEUTRAL',
       description: marker + ' <img src=x onerror=alert(1)>'
     }).then((r) => ok(r, 'record with HTML in the description'))
@@ -245,7 +243,7 @@ describe('Education — behaviour log (slice 2.5)', () => {
   })
 
   it('another tenant’s note is invisible by id', () => {
-    post('/supersedeBehaviourNote', { id: 999999, description: 'nope' }).then((r) => {
+    cy.postForm('/supersedeBehaviourNote', { id: 999999, description: 'nope' }).then((r) => {
       expect(parse(r.body).status, 'an id outside the tenant never silently succeeds').to.not.eq('SUCCESS')
     })
   })

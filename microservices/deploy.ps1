@@ -88,6 +88,14 @@ Start-Log
 
 $composeArgs = if ($Profile -eq 'pos') { @() } else { @('--profile', $Profile) }
 
+# DEV vs PROD (2026-10-12): `.env` holds the PRODUCTION values; `.env.local` (git-ignored - it never reaches the
+# production server) overrides them for THIS machine, e.g. the localhost links inside e-mails that local Mailpit
+# catches. Compose reads only `.env` by itself, so both are passed explicitly: the LATER file wins. On production
+# there is no .env.local and compose runs on .env exactly as before.
+$envArgs = @('--env-file', (Join-Path $micro '.env'))
+if (Test-Path (Join-Path $micro '.env.local')) { $envArgs += @('--env-file', (Join-Path $micro '.env.local')) }
+$composeArgs = $envArgs + $composeArgs
+
 # Print something IMMEDIATELY. If this banner does not appear, the script never started (execution
 # policy, wrong directory, a typo in the name) - that is a different problem from a slow step.
 Write-Host ""
@@ -136,17 +144,17 @@ for ($i = 0; $i -lt $sorted.Count; $i += 5) {
     Info (($row | ForEach-Object { '{0,-22}' -f $_ }) -join '')
 }
 
-# WHICH .env - there are five env-ish files in this repo and only ONE reaches compose.
+# WHICH .env - five env-ish files; compose gets TWO of them, passed by --env-file above (later wins).
 #
-#   microservices/.env         <- THE ONE. Compose auto-loads `.env` from the project directory.
-#   microservices/.env.local   <- read by start-all.ps1 (bare JAR runs). Compose IGNORES it.
+#   microservices/.env         <- PRODUCTION values. Passed to compose first.
+#   microservices/.env.local   <- THIS machine's overrides (local addresses). Passed to compose after .env, and
+#                                 read by start-all.ps1 (bare JAR runs). Never on the production server.
 #   microservices/.env.example    template, not read
 #   <repo-root>/.env.local     <- the MONOLITH's persistence.properties / mail / recaptcha
 #   <repo-root>/.env.example      template, not read
 #
-# Verified empirically (probe var in both files; compose resolved the one from .env). Compose has NO
-# .env.local convention - that is a Spring/Vite habit, and assuming it here means editing a file that
-# nothing reads and wondering why the change did nothing.
+# Compose has NO .env.local convention of its own - it reads .env.local ONLY because this script passes it
+# (2026-10-12). Run compose by hand and you get .env alone: use this script, or pass both --env-file flags.
 $envFile = Join-Path $micro '.env'
 if (-not (Test-Path $envFile)) {
     Die "microservices/.env not found - compose has no values to interpolate. Copy .env.example and fill it in."
@@ -168,9 +176,9 @@ if (Test-Path $envLocal) {
     $b = Read-EnvPairs $envLocal
     $diff = @($b.Keys | Where-Object { $a.ContainsKey($_) -and $a[$_] -ne $b[$_] })
     if ($diff.Count -gt 0) {
-        Warn "these keys DIFFER between .env (used by compose) and .env.local (used by start-all.ps1):"
+        Warn "these keys DIFFER between .env (production) and .env.local (this machine) - .env.local WINS here:"
         $diff | ForEach-Object { Warn "    $_" }
-        Warn "compose will use the .env value. Reconcile them or the two ways of running disagree."
+        Warn "expected for addresses (APP_BASE_URL, RESET_PASSWORD_URL); for a SECRET it is a mistake - reconcile it."
     } else {
         Ok ".env and .env.local agree on every shared key"
     }

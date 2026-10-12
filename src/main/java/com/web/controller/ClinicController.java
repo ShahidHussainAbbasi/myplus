@@ -129,12 +129,12 @@ public class ClinicController {
         return call(() -> clinic.get("/tokens/" + id));
     }
 
-    /** call · recall · start · park · resume · complete · cancel · noShow — anything else is refused here. */
+    /** call · recall · start · park · resume · complete · cancel · noShow · relink (to another doctor) — anything else is refused here. */
     @PostMapping(value = "/clinic/tokens/{id}/{action}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<String> moveToken(@PathVariable Long id, @PathVariable String action,
                                             @RequestBody(required = false) Map<String, Object> body) {
-        if (!action.matches("call|recall|start|park|resume|complete|cancel|noShow")) {
+        if (!action.matches("call|recall|start|park|resume|complete|cancel|noShow|relink")) {
             return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON)
                     .body("{\"success\":false,\"message\":\"Unknown action.\"}");
         }

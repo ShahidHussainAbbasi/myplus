@@ -15,21 +15,11 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/business/h6c3-business-day.cy.js"
  */
+import { rowsOf, localDay } from '../../support/time'
 describe('H6 C3 — a recorded bill belongs to the business\'s day', () => {
   const INVOICE = 'PVINV-1791063442854'
-  const rowsOf = (b) => {
-    for (const c of [b && b.collection, b && b.data, b && b.object, b && b.data && b.data.content]) if (Array.isArray(c)) return c
-    return []
-  }
   let bill   // { venderId, vendorName, utcText, expectedDay }
 
-  /** "dd-MM-yyyy HH:mm:ss" (UTC) → the Karachi calendar day "yyyy-MM-dd", computed with Intl. */
-  const karachiDay = (utcText) => {
-    const m = /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(utcText || ''))
-    expect(m, `a server-formatted date-time: ${utcText}`).to.exist
-    const d = new Date(Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6]))
-    return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Karachi' })   // sv-SE = yyyy-MM-dd
-  }
 
   it('C3-01 the supplier statement dates a bill recorded at 02:37 Karachi on that Karachi day', () => {
     cy.loginAsBusiness()
@@ -38,7 +28,7 @@ describe('H6 C3 — a recorded bill belongs to the business\'s day', () => {
       const p = rowsOf(b).find((r) => r.purchaseInvoiceNo === INVOICE)
       expect(p, `purchase ${INVOICE} in the list (fixture)`).to.exist
       bill = { venderId: p.venderId, vendorName: p.venderName || p.vendorName, utcText: p.dated }
-      bill.expectedDay = karachiDay(p.dated)
+      bill.expectedDay = localDay(p.dated, 'Asia/Karachi')
       expect(bill.expectedDay, 'fixture is a night bill: its Karachi day is after its UTC day')
         .to.not.eq(String(p.dated).replace(/^(\d{2})-(\d{2})-(\d{4}).*$/, '$3-$2-$1'))
     })

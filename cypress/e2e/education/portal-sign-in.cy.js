@@ -29,8 +29,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -111,7 +109,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
     cy.request('/getUserGuardian').then((r) => {
       fx.guardian = rows(r.body).find((g) => (g.email || '').toLowerCase() === GUARDIAN_EMAIL)
       if (fx.guardian) return
-      post('/addGuardian', { name: TAG + ' Portal', email: GUARDIAN_EMAIL, cnic: 'CN' + Date.now(), status: 'ACTIVE' })
+      cy.postForm('/addGuardian', { name: TAG + ' Portal', email: GUARDIAN_EMAIL, cnic: 'CN' + Date.now(), status: 'ACTIVE' })
         .then((res) => ok(res, 'seed the guardian record'))
     })
     cy.then(() => {
@@ -128,7 +126,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
         fx.child = rows(r.body).find((s) => s.guardianId === fx.guardian.id && s.enrollNo)
         if (fx.child) return
         const enrollNo = 'EN' + Date.now()
-        post('/addStudent', { name: TAG + ' Child', enrollNo, status: 'ACTIVE', guardianId: fx.guardian.id })
+        cy.postForm('/addStudent', { name: TAG + ' Child', enrollNo, status: 'ACTIVE', guardianId: fx.guardian.id })
           .then((res) => ok(res, 'seed a child for the portal guardian'))
         fx.child = { enrollNo }
       })
@@ -137,13 +135,13 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
       cy.request('/getUserStudent').then((r) => {
         fx.otherChild = rows(r.body).find((s) => s.enrollNo && s.guardianId && s.guardianId !== fx.guardian.id)
         if (fx.otherChild) return
-        post('/addGuardian', { name: TAG + ' Other', cnic: 'CO' + Date.now(), status: 'ACTIVE' })
+        cy.postForm('/addGuardian', { name: TAG + ' Other', cnic: 'CO' + Date.now(), status: 'ACTIVE' })
           .then((res) => ok(res, 'seed a second guardian'))
         cy.request('/getUserGuardian').then((g) => {
           const other = rows(g.body).find((x) => x.name === TAG + ' Other')
           expect(other, 'the second guardian was seeded').to.exist
           const enrollNo = 'EO' + Date.now()
-          post('/addStudent', { name: TAG + ' OtherChild', enrollNo, status: 'ACTIVE', guardianId: other.id })
+          cy.postForm('/addStudent', { name: TAG + ' OtherChild', enrollNo, status: 'ACTIVE', guardianId: other.id })
             .then((res) => ok(res, "seed another guardian's child"))
           fx.otherChild = { enrollNo }
         })
@@ -164,11 +162,11 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
     cy.then(() => {
       cy.request('/getPortalAccess').then((r) => {
         const existing = rows(r.body).find((a) => a.guardianId === fx.guardian.id)
-        if (existing) post('/revokePortalAccess', { id: existing.id })
+        if (existing) cy.postForm('/revokePortalAccess', { id: existing.id })
       })
     })
     cy.then(() => {
-      post('/invitePortalAccess', { guardianId: fx.guardian.id }).then((r) => {
+      cy.postForm('/invitePortalAccess', { guardianId: fx.guardian.id }).then((r) => {
         const b = ok(r, 'invite the portal guardian')
         fx.inviteAccount = b.object && b.object.account
       })
@@ -186,7 +184,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
     setConfig('edu.portal.enabled', 'true')
     // Guarded on the GUARDIAN, not the access row: if `before` failed before resolving one, reading
     // `fx.guardian.id` throws a TypeError in the after-hook that buries the real failure underneath it.
-    if (fx.guardian) post('/invitePortalAccess', { guardianId: fx.guardian.id })  // leave it usable for re-runs
+    if (fx.guardian) cy.postForm('/invitePortalAccess', { guardianId: fx.guardian.id })  // leave it usable for re-runs
   })
 
   // ── provisioning: INVITATION IS THE ONLY PATH (decision D-6 / slice §11) ────────────────────────
@@ -224,7 +222,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
     const NAME = 'CyNoMail Portal'
     cy.request('/getUserGuardian').then((r) => {
       if (rows(r.body).find((x) => x.name === NAME)) return
-      post('/addGuardian', { name: NAME, cnic: 'CNNOMAIL', status: 'ACTIVE' })
+      cy.postForm('/addGuardian', { name: NAME, cnic: 'CNNOMAIL', status: 'ACTIVE' })
         .then((res) => ok(res, 'seed a guardian with no email'))
     })
     cy.request('/getUserGuardian').then((r) => {
@@ -233,7 +231,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
       // Eligibility, not existence: if this row ever acquires an address the case below would pass for
       // the wrong reason — it would be asserting a refusal that never happened.
       expect(g.email || '', 'and it genuinely has no address').to.eq('')
-      post('/invitePortalAccess', { guardianId: g.id }).then((res) => {
+      cy.postForm('/invitePortalAccess', { guardianId: g.id }).then((res) => {
         const b = parse(res.body)
         expect(b.status, 'inviting without an address is refused, not half-done').to.not.eq('SUCCESS')
         expect(b.message, 'and the refusal names the fix').to.match(/email/i)
@@ -245,7 +243,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
     // Invitation-only makes "resend" the school's normal recovery when a family never received or acted
     // on the first message. It must therefore be idempotent rather than refusing as a duplicate.
     cy.loginAsEduOwner()
-    post('/invitePortalAccess', { guardianId: fx.guardian.id }).then((r) => {
+    cy.postForm('/invitePortalAccess', { guardianId: fx.guardian.id }).then((r) => {
       const b = parse(r.body)
       expect(b.status, 'a second invite is accepted').to.be.oneOf(['SUCCESS', 'PARTIAL'])
       // A STATUS ALONE CANNOT TELL A RESEND FROM A NO-OP: the "already has portal access" early return is
@@ -343,7 +341,7 @@ describe('Education — portal sign-in (slice 3.1b)', () => {
   it('a guardian cannot write, either', () => {
     cy.loginAsPortalGuardian()
     const doomed = 'CY_NEVER_' + Date.now()
-    post('/addStudent', { name: doomed, enrollNo: 'EN' + Date.now(), status: 'ACTIVE' })
+    cy.postForm('/addStudent', { name: doomed, enrollNo: 'EN' + Date.now(), status: 'ACTIVE' })
       .then((r) => {
         // REPORT before asserting. Three theories about this status died because I reasoned about it
         // instead of measuring it; the body names which handler produced the response:

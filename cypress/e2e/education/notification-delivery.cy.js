@@ -36,8 +36,6 @@ const rows = (body) => {
   return k ? b[k] : []
 }
 
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -76,14 +74,14 @@ const RECIPIENT = `${TAG}@example.test`.toLowerCase()
 const HEADING = `${TAG} closure notice`
 
 const sendAlert = (heading, message) =>
-  post('/sendAlerts', { ah: heading, am: message, c: 'staff' })
+  cy.postForm('/sendAlerts', { ah: heading, am: message, c: 'staff' })
 
 describe('Education — notification delivery record (slice 105)', () => {
   before(() => {
     cy.loginAsEduOwner()
     // Our own staff member IS the fixture: the record is keyed by recipient, so the spec needs an address
     // it owns outright rather than one the demo org may or may not still have.
-    post('/addStaff', { name: `${TAG} Staff`, email: RECIPIENT, status: 'ACTIVE' })
+    cy.postForm('/addStaff', { name: `${TAG} Staff`, email: RECIPIENT, status: 'ACTIVE' })
       .then((r) => ok(r, 'seed the staff member who will be alerted'))
 
     cy.request('/getUserStaff').then((r) => {

@@ -392,7 +392,7 @@ describe('OMS O7 D5 — the driver hands over the cash', () => {
 
     // Read the declared total the screen computed, then count 100 less than it.
     cy.get('#dsDeclared').invoke('text').then((txt) => {
-      const declared = Number(txt)
+      const declared = Number(String(txt).replace(/,/g, ''))   // DRY D2: amounts are grouped (1,234.50)
       expect(declared, 'the screen adds up the ticked collections').to.be.greaterThan(0)
       cy.get('#dsCounted').clear().type(String(declared - 100))
       cy.get('#dsVariance').should('contain', '-100.00').and('contain', 'short')

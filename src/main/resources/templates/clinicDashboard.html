@@ -85,6 +85,8 @@
             <!-- S2: a token for the patient on the card -->
             <div id="clinTokenPanel" class="clin-card clin-token-panel" style="display:none">
               <h3 th:text="#{ui.clinicTokenFor}">Token for today</h3>
+              <!-- RELINK: shown while a not-yet-seen patient is being moved to another doctor (Today's queue → Relink) -->
+              <p id="clinRelinkNote" class="clin-relink-note" style="display:none" role="status"></p>
               <div class="clin-token-row">
                 <div class="clin-field">
                   <label for="clinDoctor" th:text="#{ui.clinicDoctor}">Doctor</label>
@@ -92,7 +94,7 @@
                   <p id="clinDoctorHint" class="clin-help"></p>
                 </div>
                 <button type="button" id="clinIssueToken" class="btn btn-success" onclick="Clinic.issueToken()">
-                  <span class="glyphicon glyphicon-tag"></span> <span th:text="#{ui.clinicIssueToken}">Issue token</span>
+                  <span class="glyphicon glyphicon-tag"></span> <span id="clinIssueTokenText" th:text="#{ui.clinicIssueToken}">Issue token</span>
                 </button>
               </div>
               <div id="clinTokenSlip" class="clin-slip" style="display:none" aria-live="polite">
@@ -147,6 +149,7 @@
                 <thead><tr>
                   <th th:text="#{ui.clinicMrn}">MRN</th><th th:text="#{ui.clinicName}">Name</th><th th:text="#{ui.clinicPhone}">Phone</th>
                   <th th:text="#{ui.clinicRegistered}">Registered</th><th th:text="#{ui.clinicPharmacyCustomer}">Pharmacy customer</th>
+                  <th></th>
                 </tr></thead>
                 <tbody id="clinPatBody"></tbody>
               </table>
@@ -354,7 +357,6 @@
 
   <th:block th:replace="~{fragments/header :: header-js}"></th:block>
   <script th:src="@{/js/business/sidebar.js}"></script>
-  <script th:src="@{/js/common/dom-safe.js}"></script>
   <script th:src="@{/js/common/sessions.js}"></script>
   <script th:inline="javascript">var serverContext = [[@{/}]];</script>
   <script th:src="@{/js/clinic/clinic.js}"></script>

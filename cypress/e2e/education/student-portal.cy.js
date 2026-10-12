@@ -29,8 +29,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const ok = (r, what) => {
   const b = parse(r.body)
@@ -112,7 +110,7 @@ describe('Education — student portal (slice 3.3)', () => {
     cy.request('/getUserStudent').then((r) => {
       fx.student = rows(r.body).find((s) => (s.email || '').toLowerCase() === STUDENT_EMAIL)
       if (fx.student) return
-      post('/addStudent', {
+      cy.postForm('/addStudent', {
         name: TAG + ' Portal', enrollNo: 'SP' + Date.now(), status: 'ACTIVE', email: STUDENT_EMAIL,
       }).then((res) => ok(res, 'seed the student record'))
     })
@@ -130,7 +128,7 @@ describe('Education — student portal (slice 3.3)', () => {
         fx.other = rows(r.body).find((s) => s.enrollNo && s.enrollNo !== fx.student.enrollNo)
         if (fx.other) return
         const enrollNo = 'SO' + Date.now()
-        post('/addStudent', { name: TAG + ' Other', enrollNo, status: 'ACTIVE' })
+        cy.postForm('/addStudent', { name: TAG + ' Other', enrollNo, status: 'ACTIVE' })
           .then((res) => ok(res, 'seed another student'))
         fx.other = { enrollNo }
       })
@@ -143,11 +141,11 @@ describe('Education — student portal (slice 3.3)', () => {
       cy.request('/getPortalAccess').then((r) => {
         const existing = rows(r.body).find(
           (a) => a.subjectType === 'STUDENT' && a.subjectId === fx.student.id)
-        if (existing) post('/revokePortalAccess', { id: existing.id })
+        if (existing) cy.postForm('/revokePortalAccess', { id: existing.id })
       })
     })
     cy.then(() => {
-      post('/invitePortalAccess', { subjectType: 'STUDENT', studentId: fx.student.id })
+      cy.postForm('/invitePortalAccess', { subjectType: 'STUDENT', studentId: fx.student.id })
         .then((r) => {
           const b = ok(r, 'invite the portal student')
           fx.inviteAccount = b.object && b.object.account
@@ -165,7 +163,7 @@ describe('Education — student portal (slice 3.3)', () => {
     cy.loginAsEduOwner()
     setConfig('edu.portal.enabled', 'true')
     setConfig('edu.portal.students.enabled', 'true')
-    if (fx.student) post('/invitePortalAccess', { subjectType: 'STUDENT', studentId: fx.student.id })
+    if (fx.student) cy.postForm('/invitePortalAccess', { subjectType: 'STUDENT', studentId: fx.student.id })
   })
 
   // ── the precondition, FIRST ─────────────────────────────────────────────────────────────────────
@@ -281,7 +279,7 @@ describe('Education — student portal (slice 3.3)', () => {
   it('a student cannot write, and the row is never created', () => {
     cy.loginAsPortalStudent()
     const doomed = 'CY_SP_NEVER_' + Date.now()
-    post('/addStudent', { name: doomed, enrollNo: 'EN' + Date.now(), status: 'ACTIVE' }).then((r) => {
+    cy.postForm('/addStudent', { name: doomed, enrollNo: 'EN' + Date.now(), status: 'ACTIVE' }).then((r) => {
       cy.log(`write → ${r.status} :: ${JSON.stringify(r.body).slice(0, 200)}`)
       expect(r.status, 'a write by a student is never a success').to.not.be.oneOf([200, 201])
     })
@@ -395,14 +393,14 @@ describe('Education — student portal (slice 3.3)', () => {
     const NAME = 'CySPNoMail Portal'
     cy.request('/getUserStudent').then((r) => {
       if (rows(r.body).find((s) => s.name === NAME)) return
-      post('/addStudent', { name: NAME, enrollNo: 'SPNOMAIL', status: 'ACTIVE' })
+      cy.postForm('/addStudent', { name: NAME, enrollNo: 'SPNOMAIL', status: 'ACTIVE' })
         .then((res) => ok(res, 'seed a student with no address'))
     })
     cy.request('/getUserStudent').then((r) => {
       const s = rows(r.body).find((x) => x.name === NAME)
       expect(s, 'the address-less student was seeded').to.exist
       expect(s.email || '', 'and genuinely has no address').to.eq('')
-      post('/invitePortalAccess', { subjectType: 'STUDENT', studentId: s.id }).then((res) => {
+      cy.postForm('/invitePortalAccess', { subjectType: 'STUDENT', studentId: s.id }).then((res) => {
         const b = parse(res.body)
         expect(b.status, 'inviting without an address is refused, not half-done').to.not.eq('SUCCESS')
         expect(b.message, 'and the refusal names the fix').to.match(/email|address/i)
@@ -419,14 +417,14 @@ describe('Education — student portal (slice 3.3)', () => {
     const shared = 'cyshared' + Date.now() + '@myplus.com'
     const gTag = 'CySPGuard' + Date.now()
     const sTag = 'CySPKid' + Date.now()
-    post('/addGuardian', { name: gTag, email: shared, cnic: 'CG' + Date.now(), status: 'ACTIVE' })
+    cy.postForm('/addGuardian', { name: gTag, email: shared, cnic: 'CG' + Date.now(), status: 'ACTIVE' })
       .then((r) => ok(r, 'seed a guardian holding the address'))
-    post('/addStudent', { name: sTag, enrollNo: 'SS' + Date.now(), status: 'ACTIVE', email: shared })
+    cy.postForm('/addStudent', { name: sTag, enrollNo: 'SS' + Date.now(), status: 'ACTIVE', email: shared })
       .then((r) => ok(r, 'seed a student carrying the SAME address'))
     cy.request('/getUserStudent').then((r) => {
       const s = rows(r.body).find((x) => x.name === sTag)
       expect(s, 'the colliding student was seeded').to.exist
-      post('/invitePortalAccess', { subjectType: 'STUDENT', studentId: s.id }).then((res) => {
+      cy.postForm('/invitePortalAccess', { subjectType: 'STUDENT', studentId: s.id }).then((res) => {
         const b = parse(res.body)
         expect(b.status, 'a shared address is refused outright').to.not.be.oneOf(['SUCCESS', 'PARTIAL'])
         expect(b.message, 'and the refusal explains WHY, because the school must fix the data')

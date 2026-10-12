@@ -25,21 +25,7 @@ describe('HMS S3a — the doctor\'s workspace', () => {
   const S = { tokens: [] }
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s3a-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const put = (url, body) =>
-    cy.request({ method: 'PUT', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists (auth-service V20 for Doctor)').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
-  const issueToken = () => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
+  const issueToken = () => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
     expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
     S.tokens.push(t.body.data.id)
     return t.body.data
@@ -51,16 +37,16 @@ describe('HMS S3a — the doctor\'s workspace', () => {
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms s3a gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
     relogin(OWNER)
-    post('/clinic/patients', { phone, name: 'S3 Patient ' + run, dateOfBirth: '1988-03-14', sex: 'M' }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'S3 Patient ' + run, dateOfBirth: '1988-03-14', sex: 'M' }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
     cy.request('/clinic/doctors').then((r) => {
       const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
       if (d) { S.doctor = d; return }
-      return post('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
+      return cy.postJson('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
         .then((c) => { S.doctor = c.body.data })
     })
     cy.then(() => issueToken()).then((t) => { S.first = t })
@@ -69,11 +55,11 @@ describe('HMS S3a — the doctor\'s workspace', () => {
   after(() => {
     // a visit with the doctor cannot be cancelled (only waiting / called can): the doctor completes D-03's
     relogin(DOCTOR, 'doctor')
-    if (S.secondVisit) post(`/clinic/consult/encounters/${S.secondVisit}/complete`)
+    if (S.secondVisit) cy.postJson(`/clinic/consult/encounters/${S.secondVisit}/complete`)
     relogin(OWNER)
-    S.tokens.forEach((id) => post(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    setOf(DOCTOR, 'Administrator')
+    S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -124,16 +110,16 @@ describe('HMS S3a — the doctor\'s workspace', () => {
   it('D-02 vitals are range-checked; a stale or completed visit is not edited; a note can still correct it', () => {
     relogin(DOCTOR, 'doctor')
     const url = `/clinic/consult/encounters/${S.encounterId}`
-    put(url, { temperatureF: '986', version: 0 }).then((r) => {
+    cy.putJson(url, { temperatureF: '986', version: 0 }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.match(/between 90 and 110|completed/)
     })
-    put(url, { pulse: '80' }).then((r) => {
+    cy.putJson(url, { pulse: '80' }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.contain('Add a note to correct it')   // completed in D-01
     })
     cy.request(url).its('body.data.notes').then((notes) => {
-      post(url + '/notes', { body: 'Correction: temperature was 100.2 °F.', amendsNoteId: notes[0].id }).then((r) => {
+      cy.postJson(url + '/notes', { body: 'Correction: temperature was 100.2 °F.', amendsNoteId: notes[0].id }).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         const ns = r.body.data.notes
         expect(ns, 'the original note is still there').to.have.length(2)
@@ -147,8 +133,8 @@ describe('HMS S3a — the doctor\'s workspace', () => {
     relogin(OWNER)
     issueToken().then((t) => {
       relogin(DOCTOR, 'doctor')
-      post(`/clinic/tokens/${t.id}/call`).its('body.success').should('eq', true)
-      post(`/clinic/consult/tokens/${t.id}/start`).then((r) => {
+      cy.postJson(`/clinic/tokens/${t.id}/call`).its('body.success').should('eq', true)
+      cy.postJson(`/clinic/consult/tokens/${t.id}/start`).then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         S.secondVisit = r.body.data.id
         const h = r.body.data.history
@@ -157,7 +143,7 @@ describe('HMS S3a — the doctor\'s workspace', () => {
         expect(h[0].bloodPressure).to.eq('120/80')
         expect(h[0].notes.map((n) => n.body).join(' ')).to.contain('Throat congested')
         // a second Start of the same token is the same visit, never a second one
-        post(`/clinic/consult/tokens/${t.id}/start`).its('body.data.id').should('eq', r.body.data.id)
+        cy.postJson(`/clinic/consult/tokens/${t.id}/start`).its('body.data.id').should('eq', r.body.data.id)
       })
     })
   })
@@ -176,7 +162,7 @@ describe('HMS S3a — the doctor\'s workspace', () => {
       expect(r.body.message).to.contain('Only a doctor')
       expect(JSON.stringify(r.body)).to.not.contain('Throat congested')
     })
-    post(`/clinic/tokens/${S.tokens[S.tokens.length - 1]}/call`).then((r) => {
+    cy.postJson(`/clinic/tokens/${S.tokens[S.tokens.length - 1]}/call`).then((r) => {
       expect(r.status).to.eq(403)
       expect(r.body.message).to.contain('Only a doctor')
     })

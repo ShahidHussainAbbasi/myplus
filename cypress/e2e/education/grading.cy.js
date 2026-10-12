@@ -19,8 +19,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 const scale = () =>
   cy.request('/getGradingScale').then((r) => {
@@ -34,22 +32,22 @@ const clearScale = () =>
   scale().then((s) => {
     const ids = (s.bands || []).map((b) => b.id)
     if (!ids.length) return
-    return post('/deleteGradeBand', { checked: ids.join(',') })
+    return cy.postForm('/deleteGradeBand', { checked: ids.join(',') })
       .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
   })
 
 const addBand = (name, min, max, gpa) =>
-  post('/saveGradeBand', { name, minPercent: min, maxPercent: max, ...(gpa == null ? {} : { gpaPoints: gpa }) })
+  cy.postForm('/saveGradeBand', { name, minPercent: min, maxPercent: max, ...(gpa == null ? {} : { gpaPoints: gpa }) })
 
 /** F 0-32, C 33-59, B 60-79, A 80-100 — built low-to-high so each save leaves a valid scale. */
 const buildScale = () =>
   addBand('F', 0, 100).then(() => {
     // Widen-then-split: the validator requires 0–100 coverage at every step, so the scale is grown by
     // shrinking the top band and appending — the same order a real owner would be forced into.
-    post('/saveGradeBand', { name: 'F', minPercent: 0, maxPercent: 32 })
+    cy.postForm('/saveGradeBand', { name: 'F', minPercent: 0, maxPercent: 32 })
     return scale().then((s) => {
       const f = s.bands.find((b) => b.name === 'F')
-      post('/saveGradeBand', { id: f.id, name: 'F', minPercent: 0, maxPercent: 32 })
+      cy.postForm('/saveGradeBand', { id: f.id, name: 'F', minPercent: 0, maxPercent: 32 })
       addBand('C', 33, 59)
       addBand('B', 60, 79)
       return addBand('A', 80, 100, 4)
@@ -63,7 +61,7 @@ describe('Education — grading scales (slice 1.4)', () => {
   })
 
   it('the preset creates a complete scale in one click, and refuses to overwrite one', () => {
-    post('/applyGradingPreset', {})
+    cy.postForm('/applyGradingPreset', {})
       .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
     scale().then((s) => {
       expect(s.bands.length, 'a full scale was created').to.be.greaterThan(1)
@@ -72,17 +70,17 @@ describe('Education — grading scales (slice 1.4)', () => {
       expect(s.bands[s.bands.length - 1].maxPercent, 'ends at 100').to.eq(100)
     })
     // Applying it again must not silently replace a school's own bands.
-    post('/applyGradingPreset', {}).then((r) => {
+    cy.postForm('/applyGradingPreset', {}).then((r) => {
       expect(parse(r.body).status, JSON.stringify(r.body)).to.not.eq('SUCCESS')
     })
   })
 
   it('an overlapping band is refused, and the message names the pair', () => {
-    post('/applyGradingPreset', {})
+    cy.postForm('/applyGradingPreset', {})
     scale().then((s) => {
       const top = s.bands[s.bands.length - 1]
       // Reach down into the band below — an unambiguous overlap.
-      post('/saveGradeBand', { id: top.id, name: top.name, minPercent: 10, maxPercent: 100 })
+      cy.postForm('/saveGradeBand', { id: top.id, name: top.name, minPercent: 10, maxPercent: 100 })
         .then((r) => {
           const b = parse(r.body)
           expect(b.status, `overlap: ${JSON.stringify(b)}`).to.not.eq('SUCCESS')
@@ -97,11 +95,11 @@ describe('Education — grading scales (slice 1.4)', () => {
       // the gap message appears when the top is present but the middle is missing.
       expect(parse(r.body).status, 'a scale must cover 0-100').to.not.eq('SUCCESS')
     })
-    post('/applyGradingPreset', {})
+    cy.postForm('/applyGradingPreset', {})
     scale().then((s) => {
       const second = s.bands[1]
       // Push the second band up, leaving a hole under it.
-      post('/saveGradeBand', {
+      cy.postForm('/saveGradeBand', {
         id: second.id, name: second.name,
         minPercent: second.maxPercent, maxPercent: second.maxPercent,
       }).then((r) => {
@@ -113,31 +111,31 @@ describe('Education — grading scales (slice 1.4)', () => {
   })
 
   it('marks come back with a percentage and a DERIVED grade, and re-banding changes it (D4)', () => {
-    post('/applyGradingPreset', {})
+    cy.postForm('/applyGradingPreset', {})
     // Reuse the marks fixture shape: seed a class, subject, student, term, exam, paper, then a mark.
     const stamp = Date.now()
     const gradeName = 'GRC' + stamp
     const en = 'GRE' + stamp
-    post('/addGrade', { name: gradeName, fee: 0, status: 'Active' })
+    cy.postForm('/addGrade', { name: gradeName, fee: 0, status: 'Active' })
     cy.request('/getUserGrade').then((gr) => {
       const g = rows(gr.body).find((x) => x.name === gradeName)
       expect(g, 'seeded class').to.exist
-      post('/addSubject', { name: 'GRS' + stamp, gradeId: g.id, status: 'Active' })
-      post('/addStudent', { name: 'Grading Kid', enrollNo: en, gradeId: g.id, status: 'ACTIVE' })
+      cy.postForm('/addSubject', { name: 'GRS' + stamp, gradeId: g.id, status: 'Active' })
+      cy.postForm('/addStudent', { name: 'Grading Kid', enrollNo: en, gradeId: g.id, status: 'ACTIVE' })
 
-      post('/addAcademicYear', { name: 'GRY' + stamp, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
+      cy.postForm('/addAcademicYear', { name: 'GRY' + stamp, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
       cy.request('/getAcademicYears').then((yr) => {
         const y = rows(yr.body).find((x) => x.name === 'GRY' + stamp)
-        post('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1 })
+        cy.postForm('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1 })
         cy.request('/getAcademicYears').then((yr2) => {
           const termId = rows(yr2.body).find((x) => x.name === 'GRY' + stamp).terms[0].id
-          post('/addExam', { name: 'GRX' + stamp, termId, weightPercent: 100 })
+          cy.postForm('/addExam', { name: 'GRX' + stamp, termId, weightPercent: 100 })
           cy.request('/getUserSubject').then((sr) => {
             const subj = rows(sr.body).find((x) => x.name === 'GRS' + stamp)
             cy.request('/getExams').then((er) => {
               const exam = rows(er.body).find((x) => x.name === 'GRX' + stamp)
-              post('/addExamPaper', { examId: exam.id, subjectId: subj.id, maxMarks: 50, passMarks: 17 })
-              post('/setExamStatus', { id: exam.id, status: 'PUBLISHED' })
+              cy.postForm('/addExamPaper', { examId: exam.id, subjectId: subj.id, maxMarks: 50, passMarks: 17 })
+              cy.postForm('/setExamStatus', { id: exam.id, status: 'PUBLISHED' })
               cy.request('/getExams').then((er2) => {
                 const paperId = rows(er2.body).find((x) => x.name === 'GRX' + stamp).papers[0].id
                 // 37/50 = 74% → B under the preset.
@@ -157,8 +155,8 @@ describe('Education — grading scales (slice 1.4)', () => {
                 scale().then((s) => {
                   const b = s.bands.find((x) => x.name === 'B')
                   const a = s.bands.find((x) => x.name === 'A')
-                  post('/saveGradeBand', { id: a.id, name: 'A', minPercent: 70, maxPercent: 100, gpaPoints: 4 })
-                  post('/saveGradeBand', { id: b.id, name: 'B', minPercent: b.minPercent, maxPercent: 69 })
+                  cy.postForm('/saveGradeBand', { id: a.id, name: 'A', minPercent: 70, maxPercent: 100, gpaPoints: 4 })
+                  cy.postForm('/saveGradeBand', { id: b.id, name: 'B', minPercent: b.minPercent, maxPercent: 69 })
                   cy.request(`/getMarksSheet?examPaperId=${paperId}`).then((ms2) => {
                     const row = parse(ms2.body).object.rows.find((x) => x.enrollNo === en)
                     expect(row.grade, 'the same mark now reads A — grading is DERIVED').to.eq('A')
@@ -181,7 +179,7 @@ describe('Education — grading scales (slice 1.4)', () => {
   })
 
   it("another tenant's scale is invisible", () => {
-    post('/applyGradingPreset', {})
+    cy.postForm('/applyGradingPreset', {})
     cy.asOtherTenant((auth) => {
       cy.request({ url: `${GW}/api/education/getGradingScale`, headers: auth, failOnStatusCode: false })
         .then((r) => {

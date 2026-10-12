@@ -19,7 +19,6 @@
         if (args) for (var i = 0; i < args.length; i++) s = s.replace('{' + i + '}', args[i]);
         return s;
     }
-    function money(v) { return v == null || v === '' ? '—' : (Math.round(Number(v) * 100) / 100).toFixed(2); }
     function when(iso) {
         if (!iso) return '';
         var d = serverInstant(iso);   // H6: zone-less = server UTC (proposedAt is a LocalDateTime, no offset)

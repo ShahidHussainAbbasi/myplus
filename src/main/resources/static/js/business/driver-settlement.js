@@ -29,7 +29,6 @@
         return (v && v !== key) ? v : fallback;
     }
 
-    function money(v) { var n = Number(v); return isNaN(n) ? '0.00' : n.toFixed(2); }
 
     /**
      * yyyy-MM-dd from LOCAL components.

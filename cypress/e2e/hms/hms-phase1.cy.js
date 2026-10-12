@@ -77,15 +77,13 @@ const API = {
   const state = {}                                      // carried case → case
 
   const login = (email) => cy.loginAs(email, PW, '/clinicDashboard')
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   after(() => {
     // CLEANUP — cancel every token this run opened (frees the queue), then retire the test patients.
     // Clinical records are append-only: a patient is RETIRED, never hard-deleted.
     login(USERS.reception)
-    created.tokenIds.forEach((id) => post(`${API.token(id)}/cancel`, { reason: 'cypress cleanup' }))
-    created.patientIds.forEach((id) => post(`${API.patient(id)}/retire`, { reason: 'cypress cleanup' }))
+    created.tokenIds.forEach((id) => cy.postJson(`${API.token(id)}/cancel`, { reason: 'cypress cleanup' }))
+    created.patientIds.forEach((id) => cy.postJson(`${API.patient(id)}/retire`, { reason: 'cypress cleanup' }))
   })
 
   // ── S1 — patient desk ───────────────────────────────────────────────────────────────────────────────
@@ -119,7 +117,7 @@ const API = {
   it('M-01b an invalid phone is refused with a reason', () => {
     login(USERS.reception)
     ;['12345', '0300123', '04235761234', 'abcdefghijk'].forEach((bad) =>
-      post(API.patients, { phone: bad, name: 'Bad Phone' }).then((r) => {
+      cy.postJson(API.patients, { phone: bad, name: 'Bad Phone' }).then((r) => {
         expect(r.body.success, bad).to.eq(false)
         expect(r.body.message, bad).to.match(/phone/i)
       }))
@@ -129,7 +127,7 @@ const API = {
     login(USERS.reception)
     // API: a second registration on the number — even with another name — is refused, never merged (B-07).
     ;[patientName, 'Someone Else ' + s].forEach((name) =>
-      post(API.patients, { phone: '+92' + phone.slice(1), name }).then((r) => {
+      cy.postJson(API.patients, { phone: '+92' + phone.slice(1), name }).then((r) => {
         expect(r.body.success).to.eq(false)
         expect(r.body.message).to.match(/already registered/i)
         expect(r.body.message, 'names the existing MRN').to.contain(state.mrn)
@@ -171,7 +169,7 @@ const API = {
 
   it('02b a second token with the SAME doctor the same day is refused, naming the first', () => {
     login(USERS.reception)
-    post(API.tokens, { patientId: state.patientId, providerId: state.providerId }).then((r) => {
+    cy.postJson(API.tokens, { patientId: state.patientId, providerId: state.providerId }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(JSON.stringify(r.body)).to.contain(state.token)
     })
@@ -199,10 +197,10 @@ const API = {
     login(USERS.doctor)
     cy.get(SEL.tabMyQueue).click()
     cy.get(SEL.queueRow).its('length').then((before) => {
-      post(API.patients, { phone: phone2, name: 'Live Queue ' + s }).then((p) => {
+      cy.postJson(API.patients, { phone: phone2, name: 'Live Queue ' + s }).then((p) => {
         created.patientIds.push(p.body.data.id)
         state.patient2Id = p.body.data.id
-        post(API.tokens, { patientId: p.body.data.id, providerId: state.providerId })
+        cy.postJson(API.tokens, { patientId: p.body.data.id, providerId: state.providerId })
           .then((t) => created.tokenIds.push(t.body.data.id))
       })
       // 5 s poll today (design §4 S2); SSE later tightens this to the blueprint's 3 s.
@@ -249,17 +247,17 @@ const API = {
   it('04c two doctors never share a token; one patient is seen by one doctor at a time', () => {
     // (a) Dr Sana cannot claim Dr Ahmed's token.
     login(USERS.doctor2)
-    post(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
+    cy.postJson(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
     // (b) multi-doctor setting ON (default): the same patient may get a token with Dr Sana today…
     login(USERS.reception)
-    post(API.tokens, { patientId: state.patientId, providerId: Cypress.env('hmsDoctor2ProviderId') }).then((r) => {
+    cy.postJson(API.tokens, { patientId: state.patientId, providerId: Cypress.env('hmsDoctor2ProviderId') }).then((r) => {
       expect(r.body.success, 'second doctor, same day').to.eq(true)
       state.token2Id = r.body.data.id
       created.tokenIds.push(state.token2Id)
     })
     // …but Dr Sana cannot call it while the patient is still with Dr Ahmed.
     login(USERS.doctor2)
-    cy.then(() => post(`${API.token(state.token2Id)}/call`, {})).then((r) => {
+    cy.then(() => cy.postJson(`${API.token(state.token2Id)}/call`, {})).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.match(/with Dr Ahmed/i)
     })
@@ -316,7 +314,7 @@ const API = {
 
   it('07b a COMPLETED token cannot be called again', () => {
     login(USERS.doctor)
-    post(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
+    cy.postJson(`${API.token(state.tokenId)}/call`, {}).its('body.success').should('eq', false)
   })
 
   it('07c a SUBMITTED prescription cannot be edited in place (submitted ≠ dispensed)', () => {

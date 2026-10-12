@@ -47,6 +47,10 @@
     </th:block>
 
     <th:block th:fragment="header-js">
+        <!-- DRY D1: the ONE HTML escaper (escHtml), loaded first and once for every page. Dependency-free by design.
+             It used to be included page by page at the bottom (8 pages), so a header script such as grid-loading.js
+             could not rely on it and carried an escaper of its own; two header pages had none at all. -->
+        <script th:src="@{/js/common/dom-safe.js}"></script>
         <!-- Translated strings for the module scripts, from the SAME bundle Thymeleaf renders the
              markup with (see JsMessageSource + LocaleInterceptor). th:inline="javascript" escapes
              the values, so translated copy cannot inject script. Must precede i18n.js. -->

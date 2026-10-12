@@ -25,8 +25,6 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
   const S = {}   // patient, token, rx, product
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s4l-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
 
   /** The prescription's person link is stamped after commit (best-effort bridge): wait for it, loudly. */
   const waitForParty = (rxId, tries = 15) =>
@@ -45,7 +43,7 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
     cy.setCapability('clinic', true)
     relogin(OWNER)
     // Reception: the patient (→ person + customer) and a token with the gate doctor.
-    post('/clinic/patients', { phone, name: 'S4 Patient ' + run }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'S4 Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       expect(r.body.data.customerId, 'customer made at reception').to.be.a('number')
       S.patient = r.body.data
@@ -53,7 +51,7 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
     cy.request('/clinic/doctors').then((r) => {
       const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)') || (r.body.data || [])[0]
       expect(d, 'a doctor (the S2 gate creates "Dr Ahmed (gate)")').to.exist
-      cy.then(() => post('/clinic/tokens', { patientId: S.patient.id, providerId: d.id })).then((t) => {
+      cy.then(() => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: d.id })).then((t) => {
         expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
         S.token = t.body.data
       })
@@ -61,7 +59,7 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
     // A medicine in stock, and the doctor's slip recorded at the pharmacy (today's path; S4 makes the doctor author it).
     cy.seedProduct({ name: 'S4 Paracetamol ' + run, unit: 'tablet', stock: 50, sellingPrice: 10 }).then(({ productId }) => {
       S.productId = productId
-      cy.then(() => post('/addPrescription', {
+      cy.then(() => cy.postJson('/addPrescription', {
         patientName: S.patient.name, patientPhone: phone, doctorName: 'Dr Ahmed (gate)',
         items: [{ productId, medicineName: 'S4 Paracetamol ' + run, quantity: 6, dosage: '1 tab', frequency: 'TDS', duration: '2d' }],
       })).then((rx) => {
@@ -77,10 +75,10 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
   after(() => {
     relogin(OWNER)
     cy.request({ url: `/getPrescription?id=${S.rxId}`, failOnStatusCode: false }).then((r) => {
-      if (r.body && r.body.data && r.body.data.status !== 'FULLY_DISPENSED') post('/cancelPrescription', { prescriptionId: S.rxId })
+      if (r.body && r.body.data && r.body.data.status !== 'FULLY_DISPENSED') cy.postJson('/cancelPrescription', { prescriptionId: S.rxId })
     })
-    if (S.token) post(`/clinic/tokens/${S.token.id}/cancel`, { reason: 'cypress cleanup' })
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    if (S.token) cy.postJson(`/clinic/tokens/${S.token.id}/cancel`, { reason: 'cypress cleanup' })
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -178,7 +176,7 @@ describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
   it('L-05 a sale naming another organisation\'s customer id is refused, and that customer is untouched', () => {
     relogin(OTHER, 'other')
     cy.seedProduct({ name: 'S4 Other ' + run, unit: 'pcs', stock: 5, sellingPrice: 10 }).then(({ productId }) => {
-      post('/addSell', {
+      cy.postJson('/addSell', {
         customer: { customerId: S.patient.customerId, name: 'Hijack', contact: '0300', paidAmount: 10, dueAmount: 0 },
         sales: [{ productId, quantity: 1, sellRate: 10, totalAmount: 10, netAmount: 10 }],
         tenders: [{ method: 'CASH', amount: 10, reference: '' }],

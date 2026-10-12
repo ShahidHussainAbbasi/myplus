@@ -22,19 +22,17 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 
 /** A term to hang exams off. Returns its id. */
 const seedTerm = () => {
   const yearName = 'EXY' + Date.now()
-  return post('/addAcademicYear', { name: yearName, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
+  return cy.postForm('/addAcademicYear', { name: yearName, startDateStr: '01-08-2026', endDateStr: '30-06-2027' })
     .then((r) => expect(parse(r.body).status, `addAcademicYear: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
     .then(() => cy.request('/getAcademicYears'))
     .then((r) => {
       const y = rows(r.body).find((x) => x.name === yearName)
       expect(y, 'the seeded year exists').to.exist
-      return post('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
+      return cy.postForm('/addTerm', { academicYearId: y.id, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-10-2026' })
         .then(() => cy.request('/getAcademicYears'))
         .then((r2) => {
           const y2 = rows(r2.body).find((x) => x.name === yearName)
@@ -57,7 +55,7 @@ describe('Education — examinations (slice 1.2)', () => {
   it('an exam is created against a term and starts in DRAFT', () => {
     const name = 'EX' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, type: 'Mid-Term', termId, weightPercent: 100 })
+      cy.postForm('/addExam', { name, type: 'Mid-Term', termId, weightPercent: 100 })
         .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
       findExam(name).then((e) => {
         expect(e.status, 'a new exam is a DRAFT').to.eq('DRAFT')
@@ -68,7 +66,7 @@ describe('Education — examinations (slice 1.2)', () => {
   })
 
   it('an exam CANNOT be created without a term, and the refusal names the fix (D3)', () => {
-    post('/addExam', { name: 'EXNOTERM' + Date.now(), type: 'Final' }).then((r) => {
+    cy.postForm('/addExam', { name: 'EXNOTERM' + Date.now(), type: 'Final' }).then((r) => {
       const b = parse(r.body)
       expect(b.status, JSON.stringify(b)).to.not.eq('SUCCESS')
       expect(b.message, 'the message tells the admin what to do').to.match(/term/i)
@@ -78,7 +76,7 @@ describe('Education — examinations (slice 1.2)', () => {
   it('a paper carries its subject, and the CLASS comes back derived from it (D2)', () => {
     const name = 'EXP' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId, weightPercent: 100 })
+      cy.postForm('/addExam', { name, termId, weightPercent: 100 })
       cy.request('/getUserSubject').then((sr) => {
         const subjects = rows(sr.body)
         if (!subjects.length) {
@@ -86,7 +84,7 @@ describe('Education — examinations (slice 1.2)', () => {
           return
         }
         findExam(name).then((e) => {
-          post('/addExamPaper', {
+          cy.postForm('/addExamPaper', {
             examId: e.id, subjectId: subjects[0].id, maxMarks: 50, passMarks: 17, examDateStr: '14-11-2026',
           }).then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
 
@@ -106,12 +104,12 @@ describe('Education — examinations (slice 1.2)', () => {
   it('pass marks above maximum marks are refused', () => {
     const name = 'EXPM' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId })
+      cy.postForm('/addExam', { name, termId })
       cy.request('/getUserSubject').then((sr) => {
         const subjects = rows(sr.body)
         if (!subjects.length) return
         findExam(name).then((e) => {
-          post('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50, passMarks: 80 })
+          cy.postForm('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50, passMarks: 80 })
             .then((r) => {
               const b = parse(r.body)
               expect(b.status, JSON.stringify(b)).to.not.eq('SUCCESS')
@@ -125,13 +123,13 @@ describe('Education — examinations (slice 1.2)', () => {
   it('a LOCKED exam refuses a marks-restating change but still allows rescheduling (D5)', () => {
     const name = 'EXL' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId })
+      cy.postForm('/addExam', { name, termId })
       cy.request('/getUserSubject').then((sr) => {
         const subjects = rows(sr.body)
         if (!subjects.length) return
         findExam(name).then((e) => {
-          post('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50, passMarks: 17, examDateStr: '14-11-2026' })
-          post('/setExamStatus', { id: e.id, status: 'LOCKED' })
+          cy.postForm('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50, passMarks: 17, examDateStr: '14-11-2026' })
+          cy.postForm('/setExamStatus', { id: e.id, status: 'LOCKED' })
             .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
 
           findExam(name).then((e2) => {
@@ -139,7 +137,7 @@ describe('Education — examinations (slice 1.2)', () => {
             const p = e2.papers[0]
 
             // Blocked: changing what a score MEANS.
-            post('/addExamPaper', { id: p.id, examId: e2.id, subjectId: p.subjectId, maxMarks: 100, passMarks: 33 })
+            cy.postForm('/addExamPaper', { id: p.id, examId: e2.id, subjectId: p.subjectId, maxMarks: 100, passMarks: 33 })
               .then((r) => {
                 const b = parse(r.body)
                 expect(b.status, `maxMarks change on a LOCKED exam: ${JSON.stringify(b)}`).to.not.eq('SUCCESS')
@@ -147,7 +145,7 @@ describe('Education — examinations (slice 1.2)', () => {
               })
 
             // Allowed: moving the paper harms nothing.
-            post('/addExamPaper', {
+            cy.postForm('/addExamPaper', {
               id: p.id, examId: e2.id, subjectId: p.subjectId,
               maxMarks: p.maxMarks, passMarks: p.passMarks, examDateStr: '20-11-2026',
             }).then((r) => expect(parse(r.body).status, `reschedule: ${JSON.stringify(r.body)}`).to.eq('SUCCESS'))
@@ -163,7 +161,7 @@ describe('Education — examinations (slice 1.2)', () => {
   it('weights that do not total 100 are a WARNING, not a block (D4)', () => {
     const name = 'EXW' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId, weightPercent: 30 }).then((r) => {
+      cy.postForm('/addExam', { name, termId, weightPercent: 30 }).then((r) => {
         const b = parse(r.body)
         expect(b.status, 'saved despite an incomplete total').to.eq('SUCCESS')
         expect(b.message, 'and the response says so').to.match(/total|30%/i)
@@ -174,14 +172,14 @@ describe('Education — examinations (slice 1.2)', () => {
   it('deleting an exam takes its papers with it — no orphans', () => {
     const name = 'EXD' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId })
+      cy.postForm('/addExam', { name, termId })
       cy.request('/getUserSubject').then((sr) => {
         const subjects = rows(sr.body)
         findExam(name).then((e) => {
           if (subjects.length) {
-            post('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50 })
+            cy.postForm('/addExamPaper', { examId: e.id, subjectId: subjects[0].id, maxMarks: 50 })
           }
-          post('/deleteExam', { checked: String(e.id) })
+          cy.postForm('/deleteExam', { checked: String(e.id) })
             .then((r) => expect(parse(r.body).status, JSON.stringify(r.body)).to.eq('SUCCESS'))
           cy.request('/getExams').then((r) => {
             expect(rows(r.body).map((x) => x.name), 'exam gone').to.not.include(name)
@@ -197,7 +195,7 @@ describe('Education — examinations (slice 1.2)', () => {
   it("another tenant's exam is invisible and cannot be taken over", () => {
     const name = 'EXISO' + Date.now()
     seedTerm().then((termId) => {
-      post('/addExam', { name, termId })
+      cy.postForm('/addExam', { name, termId })
       findExam(name).then((e) => {
         // Bearer token, not a session switch: the monolith runs maximumSessions(1), so logging a second
         // identity in here would expire this test's own session (see cy.asOtherTenant).

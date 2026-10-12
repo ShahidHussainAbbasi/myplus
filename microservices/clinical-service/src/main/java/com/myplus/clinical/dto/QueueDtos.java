@@ -24,6 +24,13 @@ public final class QueueDtos {
         private String reason;
     }
 
+    /** RELINK (2026-10-12) — move a not-yet-seen patient to another doctor: the doctor, and why (optional). */
+    @Data @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class RelinkRequest {
+        private Long providerId;
+        private String reason;
+    }
+
     @Data @NoArgsConstructor @AllArgsConstructor @Builder
     public static class TokenView {
         private Long id;
@@ -39,6 +46,8 @@ public final class QueueDtos {
         /** WAITING tokens ahead of this one in the same doctor's line (0 = next). Null once not waiting. */
         private Integer ahead;
         private String parkReason;
+        /** Why a CANCELLED / NOT HERE token left the line ("Moved to Dr B as B-012", "patient asked to cancel"). */
+        private String cancelReason;
         private LocalDateTime createdAt;
         private LocalDateTime calledAt;
         private LocalDateTime startedAt;

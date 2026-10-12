@@ -35,22 +35,10 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
   const S = { tokens: [] }
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-h2-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const doctorByName = (name) => cy.request('/clinic/doctors').then((r) => {
     const d = (r.body.data || []).find((x) => x.name === name)
     expect(d, name + ' is on the Doctors list').to.exist
     return d
-  })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
   })
   const openDoctors = () => {
     cy.visit('/clinicDashboard')
@@ -66,13 +54,13 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
     cy.setCapability('clinic', true)
     relogin(OWNER)
     // admin.pharma on Administrator — no clinic.consult — so only a LINK can let it consult (H2-03)
-    setOf(ADMIN, 'Administrator')
+    cy.setPermissionSet(ADMIN, 'Administrator')
     cy.request('/team/users').then((u) => {
       const list = (u.body && (u.body.data || u.body.object)) || []
       S.adminId = (list.find((x) => x.email === ADMIN) || {}).userId
       expect(S.adminId, 'admin.pharma user id').to.be.a('number')
     })
-    post('/clinic/patients', { phone, name: 'H2 Patient ' + run }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'H2 Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
@@ -85,15 +73,15 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
   after(() => {
     relogin(OWNER)
     // unlink admin.pharma FIRST: every other gate uses it as an unlinked Doctor-set member
-    cy.then(() => { if (S.linkedDoc) post(`/clinic/doctors/${S.linkedDoc.id}/unlink`) })
+    cy.then(() => { if (S.linkedDoc) cy.postJson(`/clinic/doctors/${S.linkedDoc.id}/unlink`) })
     relogin(ADMIN, 'admin')
     cy.then(() => S.tokens.forEach((id) => cy.request({ url: `/clinic/consult/tokens/${id}`, failOnStatusCode: false }).then((r) => {
       const v = r.body && r.body.data
-      if (v && v.id && v.status !== 'COMPLETED') post(`/clinic/consult/encounters/${v.id}/complete`)
+      if (v && v.id && v.status !== 'COMPLETED') cy.postJson(`/clinic/consult/encounters/${v.id}/complete`)
     })))
     relogin(OWNER)
-    cy.then(() => S.tokens.forEach((id) => post(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' })))
-    cy.then(() => { if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' }) })
+    cy.then(() => S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' })))
+    cy.then(() => { if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' }) })
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -123,7 +111,7 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
       expect(m.userId).to.eq(S.newUserId)
     })
     // the same email again is refused in words, and no second login is made
-    post('/clinic/doctors/register', { name: NEW_DOC + ' again', email: NEW_EMAIL, dailyLimit: 5 }).then((r) => {
+    cy.postJson('/clinic/doctors/register', { name: NEW_DOC + ' again', email: NEW_EMAIL, dailyLimit: 5 }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.contain('already has a login')
     })
@@ -148,7 +136,7 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
 
   it('H2-03 [L-2] the linked login — not on the Doctor set — opens My queue on its own doctor and consults', () => {
     relogin(OWNER)
-    cy.then(() => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.linkedDoc.id })).then((t) => {
+    cy.then(() => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.linkedDoc.id })).then((t) => {
       expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
       S.tokens.push(t.body.data.id)
       S.myToken = t.body.data
@@ -174,21 +162,21 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
   it("H2-04 [L-2] a linked doctor cannot work another doctor's patient", () => {
     relogin(OWNER)
     // the same patient is with H2b (H2-03): Dr Ahmed's token is for another patient-free check — use a fresh patient
-    post('/clinic/patients', { phone: '030' + run.slice(-6) + '77', name: 'H2 Other ' + run }).then((p) => {
+    cy.postJson('/clinic/patients', { phone: '030' + run.slice(-6) + '77', name: 'H2 Other ' + run }).then((p) => {
       S.other = p.body.data
-      return post('/clinic/tokens', { patientId: S.other.id, providerId: S.ahmed.id })
+      return cy.postJson('/clinic/tokens', { patientId: S.other.id, providerId: S.ahmed.id })
     }).then((t) => {
       expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
       S.tokens.push(t.body.data.id)
       S.ahmedToken = t.body.data
     })
     relogin(ADMIN, 'admin')
-    cy.then(() => post(`/clinic/tokens/${S.ahmedToken.id}/call`)).then((r) => {
+    cy.then(() => cy.postJson(`/clinic/tokens/${S.ahmedToken.id}/call`)).then((r) => {
       expect(r.status).to.eq(403)
       expect(r.body.message).to.eq("This is Dr Ahmed (gate)'s patient. You see your own queue.")
     })
-    cy.then(() => post(`/clinic/consult/next?providerId=${S.ahmed.id}`)).its('status').should('eq', 403)
-    cy.then(() => { if (S.other) { relogin(OWNER); post(`/clinic/patients/${S.other.id}/retire`, { reason: 'cypress cleanup' }) } })
+    cy.then(() => cy.postJson(`/clinic/consult/next?providerId=${S.ahmed.id}`)).its('status').should('eq', 403)
+    cy.then(() => { if (S.other) { relogin(OWNER); cy.postJson(`/clinic/patients/${S.other.id}/retire`, { reason: 'cypress cleanup' }) } })
   })
 
   it('H2-05 the front desk can no longer add or register doctors', () => {
@@ -196,11 +184,11 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
     cy.visit('/clinicDashboard')
     cy.get('#clinNavDoctors').click()
     cy.get('#clinDoctorForm').should('not.exist')
-    post('/clinic/doctors', { name: 'Desk Doctor ' + run }).then((r) => {
+    cy.postJson('/clinic/doctors', { name: 'Desk Doctor ' + run }).then((r) => {
       expect(r.status).to.eq(403)
       expect(r.body.message).to.eq('Only the owner or an admin can register doctors.')
     })
-    post('/clinic/doctors/register', { name: 'Desk Doctor ' + run, email: `desk.${run}@test.myplus.com` }).then((r) => {
+    cy.postJson('/clinic/doctors/register', { name: 'Desk Doctor ' + run, email: `desk.${run}@test.myplus.com` }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.status, 'refused at the login step: auth lets only the owner or an admin create members').to.eq(403)
     })
@@ -213,12 +201,12 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
 
   it('H2-06 an admin cannot link their own login; one login is one doctor', () => {
     relogin(ADMIN, 'admin')
-    cy.then(() => post(`/clinic/doctors/${S.ahmed.id}/link`, { userId: S.adminId })).then((r) => {
+    cy.then(() => cy.postJson(`/clinic/doctors/${S.ahmed.id}/link`, { userId: S.adminId })).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.eq('You cannot link your own login as a doctor. The owner can.')
     })
     relogin(OWNER)
-    cy.then(() => post(`/clinic/doctors/${S.ahmed.id}/link`, { userId: S.adminId })).then((r) => {
+    cy.then(() => cy.postJson(`/clinic/doctors/${S.ahmed.id}/link`, { userId: S.adminId })).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.eq('That login is already linked to another doctor of this clinic.')
     })

@@ -82,11 +82,6 @@
         return d.getDate() + ' ' + M[d.getMonth()];
     }
 
-    function money(n) {
-        var v = Number(n);
-        if (!isFinite(v)) return '';
-        return v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    }
 
     /**
      * Draw the hint into every cart row whose product has history.

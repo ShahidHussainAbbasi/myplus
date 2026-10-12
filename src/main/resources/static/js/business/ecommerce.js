@@ -33,9 +33,6 @@
         return (global.escHtml ? global.escHtml(String(s == null ? '' : s)) : String(s == null ? '' : s));
     }
 
-    function money(v) {
-        return v == null ? '' : Number(v).toFixed(2);
-    }
 
     function when(v) {
         return fmtDateTime(v);   // H6: the viewer's zone (createdAt / shippedAt are server UTC)

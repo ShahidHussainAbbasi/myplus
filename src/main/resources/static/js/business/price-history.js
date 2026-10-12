@@ -17,10 +17,6 @@
 (function (global) {
     'use strict';
 
-    function money(v) {
-        var n = Number(v);
-        return (v === null || v === undefined || v === '' || isNaN(n)) ? '' : n.toFixed(2);
-    }
 
     function currentPurchasePrice() {
         // The picker option carries the catalog price (data-price) — the same value the form prefilled from.

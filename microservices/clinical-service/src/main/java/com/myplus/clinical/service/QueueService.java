@@ -401,6 +401,11 @@ public class QueueService {
         if ("park".equals(action) && (reason == null || reason.isBlank())) {
             throw new ValidationException("Say why the patient is parked, e.g. CBC pending.");
         }
+        // RELINK (2026-10-12): a cancellation is the patient's or the clinic's decision — it is recorded with its reason.
+        // Asked only when the cancel can happen; a token that cannot be cancelled still gets the state's own answer.
+        if ("cancel".equals(action) && m.from().contains(t.getStatus()) && (reason == null || reason.isBlank())) {
+            throw new ValidationException("Say why the token is cancelled, e.g. the patient asked to cancel.");
+        }
         if ("call".equals(action)) {
             // 04c: a patient is with one doctor at a time
             tokens.patientTokens(org, t.getPatientId(), t.getVisitDate(), QueueStatus.WITH_DOCTOR).stream()
@@ -421,6 +426,46 @@ public class QueueService {
     }
 
     /** "Call next": the lowest WAITING token of the doctor's day, claimed atomically; retried if another desk won. */
+    /**
+     * RELINK (client, 2026-10-12) — a patient who has not been seen yet goes to ANOTHER doctor: the token they hold is
+     * cancelled ("Moved to Dr B as B-012") and the new doctor issues one in their own series, exactly as the front desk
+     * would after searching the phone (every issue rule applies: closed day, daily limit, one live token per doctor).
+     *
+     * <p>ONE transaction: the cancel and the new token commit together or not at all. TokenWriter's steps are each
+     * {@code @Transactional} (REQUIRED) and join this one — a refusal from the new doctor rolls the cancel back, so the
+     * patient never ends up with no token at all.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public TokenView relink(Long id, Long providerId, String reason) {
+        access.assertModuleOn();
+        Long org = access.org();
+        QueueToken t = scoped(id, org);
+        if (!QueueStatus.WAITING.equals(t.getStatus()) && !QueueStatus.CALLED.equals(t.getStatus())) {
+            throw new ValidationException(t.getTokenLabel() + " is " + QueueStatus.words(t.getStatus())
+                    + " — only a patient who has not been seen yet can go to another doctor.");
+        }
+        if (providerId == null) throw new ValidationException("Choose the doctor.");
+        if (providerId.equals(t.getProviderId())) {
+            throw new ValidationException(t.getTokenLabel() + " is already with " + t.getProviderName() + ".");
+        }
+        Doctor to = doctorOf(providerId);
+        String why = reason == null || reason.isBlank() ? null : reason.trim();
+        int changed = writer.transition(id, org, java.util.List.of(QueueStatus.WAITING, QueueStatus.CALLED),
+                QueueStatus.CANCELLED, access.userId(), "Moved to " + to.getName() + (why == null ? "" : " — " + why));
+        if (changed == 0) {
+            QueueToken now = scoped(id, org);
+            throw new ValidationException(now.getTokenLabel() + " is " + QueueStatus.words(now.getStatus())
+                    + " — it cannot be moved.");
+        }
+        TokenView fresh = issue(IssueRequest.builder().patientId(t.getPatientId()).providerId(to.getId()).build());
+        // the old token's reason names the new number now that it exists
+        writer.transition(id, org, java.util.List.of(QueueStatus.CANCELLED), QueueStatus.CANCELLED, access.userId(),
+                "Moved to " + to.getName() + " as " + fresh.getTokenLabel() + (why == null ? "" : " — " + why));
+        audit.record(AuditRecord.builder().action("TOKEN_RELINK").entityType("TOKEN").entityRef(t.getTokenLabel())
+                .details(t.getProviderName() + " → " + to.getName() + " as " + fresh.getTokenLabel()).reason(why).build());
+        return fresh;
+    }
+
     public Optional<TokenView> callNext(Long providerId) {
         access.assertModuleOn();
         access.assertCanConsult();
@@ -530,7 +575,7 @@ public class QueueService {
                 .id(t.getId()).tokenLabel(t.getTokenLabel()).tokenNo(t.getTokenNo()).status(t.getStatus())
                 .patientId(t.getPatientId()).patientName(p == null ? null : p.getName()).mrn(p == null ? null : p.getMrn())
                 .providerId(t.getProviderId()).providerName(t.getProviderName()).visitDate(t.getVisitDate())
-                .ahead(ahead).parkReason(t.getParkReason()).createdAt(t.getCreatedAt()).calledAt(t.getCalledAt())
+                .ahead(ahead).parkReason(t.getParkReason()).cancelReason(t.getCancelReason()).createdAt(t.getCreatedAt()).calledAt(t.getCalledAt())
                 .startedAt(t.getStartedAt()).completedAt(t.getCompletedAt()).version(t.getVersion())
                 .build();
     }

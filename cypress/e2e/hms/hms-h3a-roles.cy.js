@@ -21,8 +21,6 @@ describe('HMS H3a — the pharmacist permission and the clinic sets', () => {
   const S = {}
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-h3a-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
   const permissions = () => cy.request('/team/permissions').its('body').then((b) => (b.data || b.object))
   const setNamed = (perms, name) => (perms.sets || []).find((s) => s.name === name)
 
@@ -89,7 +87,7 @@ describe('HMS H3a — the pharmacist permission and the clinic sets', () => {
   it('A-03 [L-3] a doctor registered by the owner lands on the Doctor set — no selling, no dispensing', () => {
     relogin(OWNER)
     const email = `h3a.${run}@test.myplus.com`
-    post('/clinic/doctors/register', { name: 'Dr H3a ' + run, email, dailyLimit: 5 }).then((r) => {
+    cy.postJson('/clinic/doctors/register', { name: 'Dr H3a ' + run, email, dailyLimit: 5 }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
     })
     cy.request('/team/users').its('body').then((b) => {

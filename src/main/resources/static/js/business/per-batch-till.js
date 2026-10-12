@@ -28,7 +28,6 @@
         return s;
     }
     function esc(v) { return global.escHtml ? global.escHtml(v) : String(v == null ? '' : v); }
-    function money(v) { return (Math.round(Number(v || 0) * 100) / 100).toFixed(2); }
 
     function enabled() {
         return global.posPurchasePriceMode === 'per_batch' && !(global.editingInvoice && global.editingInvoice.chId);
@@ -66,8 +65,9 @@
         batches.forEach(function (x) { if (String(x.stockEntryId) === String(id)) b = x; });
         var price = b ? priceOf(b) : (batches.length ? priceOf(batches[0]) : null);
         if (price == null || isNaN(price)) return;
-        $('#sellSellRate').val(money(price));
-        global._sellAutoRate = Number(money(price));
+        // DRY D2: an INPUT value and arithmetic — round2 (a plain number), never the grouped display money()
+        $('#sellSellRate').val(round2(price).toFixed(2));
+        global._sellAutoRate = round2(price);
         if (typeof global.calculateNetSell === 'function') global.calculateNetSell();
     }
 
@@ -79,7 +79,12 @@
     function preview(sales, customer) {
         return $.ajax({
             url: global.serverContext + 'batchPricePreview', type: 'POST', contentType: 'application/json',
-            data: JSON.stringify({ sales: sales, customer: customer || {} }), dataType: 'json',
+            // RX-PB (2026-10-11): the prescription being DISPENSED travels with the preview, exactly as it does with the
+            // sale (main.js sets customerHistory.prescriptionId). The server prices the preview through the same line
+            // building as a sale, whose B1 rule refuses a prescription-only medicine on a sale with no prescription —
+            // without it, a dispense in Per batch mode was refused at Add and at Complete, and nothing was posted.
+            data: JSON.stringify({ sales: sales, customer: customer || {},
+                prescriptionId: global.dispensingPrescriptionId || null }), dataType: 'json',
             global: false,                                                     // no overlay on the till
             headers: (typeof global.xsrfHeaders === 'function') ? global.xsrfHeaders() : {}   // L16: global:false skips ajaxSend
         });

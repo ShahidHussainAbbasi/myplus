@@ -26,7 +26,6 @@ const rows = (body) => {
   return k ? b[k] : []
 }
 const okBody = (b) => { const x = parse(b); return !!x && (x.success === true || x.status === 'SUCCESS' || x.status === 'PARTIAL') }
-const post = (url, body) => cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 const postJson = (url, body) => cy.request({ method: 'POST', url, body, failOnStatusCode: false })
 const must = (r, what) => { expect(okBody(r.body), `${what}: ${JSON.stringify(parse(r.body)).slice(0, 240)}`).to.eq(true); return parse(r.body) }
 
@@ -42,8 +41,8 @@ const entry = (sc, key) => cy.request(sc.get).then((r) => {
   expect(e, `${key} is on ${sc.name}`).to.exist
   return e
 })
-const setCfg = (sc, key, value) => post(sc.save, { key, value: String(value) }).then((r) => must(r, `save ${key}=${value}`))
-const resetCfg = (sc, key) => post(sc.reset, { key }).then((r) => must(r, `reset ${key}`))
+const setCfg = (sc, key, value) => cy.postForm(sc.save, { key, value: String(value) }).then((r) => must(r, `save ${key}=${value}`))
+const resetCfg = (sc, key) => cy.postForm(sc.reset, { key }).then((r) => must(r, `reset ${key}`))
 
 /** Snapshot → restore, per screen+key. Untouched settings go back by RESET, so nothing is pinned. */
 const ORIG = {}
@@ -136,7 +135,7 @@ addCase({
   run: () => {
     const sc = SCREENS.education
     sc.login()
-    const submit = (reason, from, to) => post('/saveLeaveRequest', { staffId: fx.staffId, leaveTypeId: fx.leaveTypeId, fromDate: from, toDate: to, reason })
+    const submit = (reason, from, to) => cy.postForm('/saveLeaveRequest', { staffId: fx.staffId, leaveTypeId: fx.leaveTypeId, fromDate: from, toDate: to, reason })
       .then((r) => must(r, 'submit leave'))
       .then(() => cy.request('/getLeaveRequests?year=2026'))
       .then((r) => { const q = rows(r.body).find((x) => x.reason === reason); expect(q, 'the request exists').to.exist; fx.leaveIds.push(q.id); return q.status })
@@ -270,31 +269,31 @@ describe('SET-GUIDE — module settings certification (orders · education · we
     cy.loginAsEduOwner()
     const g = `CertC${RUN}`
     fx.enrollA = `CRA${RUN}`; fx.enrollB = `CRB${RUN}`; fx.leaveIds = []
-    post('/addGrade', { name: g, fee: 1000, status: 'Active' }).then((r) => must(r, 'addGrade'))
+    cy.postForm('/addGrade', { name: g, fee: 1000, status: 'Active' }).then((r) => must(r, 'addGrade'))
     cy.request('/getUserGrade').then((r) => { fx.gradeId = rows(r.body).find((x) => x.name === g).id })
-    cy.then(() => post('/addSubject', { name: `CertS${RUN}`, gradeId: fx.gradeId, status: 'Active' }).then((r) => must(r, 'addSubject')))
+    cy.then(() => cy.postForm('/addSubject', { name: `CertS${RUN}`, gradeId: fx.gradeId, status: 'Active' }).then((r) => must(r, 'addSubject')))
     cy.request('/getUserSubject').then((r) => { fx.subjectId = rows(r.body).find((x) => x.name === `CertS${RUN}`).id })
-    cy.then(() => post('/addStudent', { name: 'Cert A', enrollNo: fx.enrollA, gradeId: fx.gradeId, status: 'ACTIVE' }).then((r) => must(r, 'addStudent A')))
-    cy.then(() => post('/addStudent', { name: 'Cert B', enrollNo: fx.enrollB, gradeId: fx.gradeId, status: 'ACTIVE' }).then((r) => must(r, 'addStudent B')))
-    cy.then(() => post('/addAcademicYear', { name: `CertY${RUN}`, startDateStr: '01-08-2026', endDateStr: '30-06-2027' }).then((r) => must(r, 'addAcademicYear')))
+    cy.then(() => cy.postForm('/addStudent', { name: 'Cert A', enrollNo: fx.enrollA, gradeId: fx.gradeId, status: 'ACTIVE' }).then((r) => must(r, 'addStudent A')))
+    cy.then(() => cy.postForm('/addStudent', { name: 'Cert B', enrollNo: fx.enrollB, gradeId: fx.gradeId, status: 'ACTIVE' }).then((r) => must(r, 'addStudent B')))
+    cy.then(() => cy.postForm('/addAcademicYear', { name: `CertY${RUN}`, startDateStr: '01-08-2026', endDateStr: '30-06-2027' }).then((r) => must(r, 'addAcademicYear')))
     cy.request('/getAcademicYears').then((r) => { fx.yearId = rows(r.body).find((y) => y.name === `CertY${RUN}`).id })
-    cy.then(() => post('/addTerm', { academicYearId: fx.yearId, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-12-2026' }).then((r) => must(r, 'addTerm')))
+    cy.then(() => cy.postForm('/addTerm', { academicYearId: fx.yearId, name: 'T1', sequence: 1, startDateStr: '01-08-2026', endDateStr: '31-12-2026' }).then((r) => must(r, 'addTerm')))
     cy.request('/getAcademicYears').then((r) => { const y = rows(r.body).find((x) => x.id === fx.yearId); fx.termId = y.terms[0].id })
-    cy.then(() => post('/addExam', { name: `CertX${RUN}`, termId: fx.termId, weightPercent: 100 }).then((r) => must(r, 'addExam')))
+    cy.then(() => cy.postForm('/addExam', { name: `CertX${RUN}`, termId: fx.termId, weightPercent: 100 }).then((r) => must(r, 'addExam')))
     cy.request('/getExams').then((r) => { fx.examId = rows(r.body).find((x) => x.name === `CertX${RUN}`).id })
-    cy.then(() => post('/addExamPaper', { examId: fx.examId, subjectId: fx.subjectId, maxMarks: 50, passMarks: 1, examDateStr: '14-11-2026' }).then((r) => must(r, 'addExamPaper')))
-    cy.then(() => post('/setExamStatus', { id: fx.examId, status: 'PUBLISHED' }).then((r) => must(r, 'publish exam')))
+    cy.then(() => cy.postForm('/addExamPaper', { examId: fx.examId, subjectId: fx.subjectId, maxMarks: 50, passMarks: 1, examDateStr: '14-11-2026' }).then((r) => must(r, 'addExamPaper')))
+    cy.then(() => cy.postForm('/setExamStatus', { id: fx.examId, status: 'PUBLISHED' }).then((r) => must(r, 'publish exam')))
     cy.request('/getExams').then((r) => { fx.paperId = rows(r.body).find((x) => x.id === fx.examId).papers[0].id })
     cy.then(() => postJson('/saveMarksBulk', { examPaperId: fx.paperId, rows: [
       { enrollNo: fx.enrollA, marksObtained: null, absent: true }, { enrollNo: fx.enrollB, marksObtained: 40, absent: false }] })
       .then((r) => must(r, 'marks: A absent, B 40')))
     // Homework out of 16; A scores 13 (81.25% — the rounding boundary).
-    cy.then(() => post('/saveHomework', { subjectId: fx.subjectId, title: `CertHW${RUN}`, dueOn: '2026-10-20', maxMarks: 16 }).then((r) => must(r, 'saveHomework')))
+    cy.then(() => cy.postForm('/saveHomework', { subjectId: fx.subjectId, title: `CertHW${RUN}`, dueOn: '2026-10-20', maxMarks: 16 }).then((r) => must(r, 'saveHomework')))
     cy.request('/getHomework').then((r) => { fx.homeworkId = rows(r.body).find((h) => h.title === `CertHW${RUN}`).id })
     cy.then(() => postJson('/saveSubmissionBulk', { homeworkId: fx.homeworkId, rows: [{ enrollNo: fx.enrollA, state: 'MARKED', marksObtained: 13 }] })
       .then((r) => must(r, 'grade A 13/16')))
     // A staff member of our own starting at 08:00, and a leave type of our own.
-    cy.then(() => post('/addStaff', { name: `CertStaff${RUN}`, designation: 'Teacher', status: 'Active', timeInStr: '08:00' }).then((r) => must(r, 'addStaff')))
+    cy.then(() => cy.postForm('/addStaff', { name: `CertStaff${RUN}`, designation: 'Teacher', status: 'Active', timeInStr: '08:00' }).then((r) => must(r, 'addStaff')))
     cy.request('/getUserStaff').then((r) => { fx.staffId = rows(r.body).find((s) => s.name === `CertStaff${RUN}`).id })
     // ONE leave type reused across runs: once it has requests the server refuses to delete it (by design), so a
     // per-run type would pile up. Found or created by its fixed name.
@@ -302,15 +301,15 @@ describe('SET-GUIDE — module settings certification (orders · education · we
     cy.request('/getLeaveTypes').then((r) => {
       const t = rows(r.body).find((x) => x.name === LEAVE)
       if (t) { fx.leaveTypeId = t.id; return }
-      post('/saveLeaveType', { name: LEAVE, annualQuota: 100, paid: 'true' }).then((rr) => must(rr, 'saveLeaveType'))
+      cy.postForm('/saveLeaveType', { name: LEAVE, annualQuota: 100, paid: 'true' }).then((rr) => must(rr, 'saveLeaveType'))
       cy.request('/getLeaveTypes').then((rr) => { fx.leaveTypeId = rows(rr.body).find((x) => x.name === LEAVE).id })
     })
     // A discount no student uses; teacher.a works at one branch only (same grants as branch-scope-settings.cy.js).
     fx.discountName = `CertDisc${RUN}`
-    cy.then(() => post('/addDiscount', { name: fx.discountName, di: 5, status: 'Active' }).then((r) => must(r, 'addDiscount')))
+    cy.then(() => cy.postForm('/addDiscount', { name: fx.discountName, di: 5, status: 'Active' }).then((r) => must(r, 'addDiscount')))
     cy.request('/getUserSchool').then((r) => {
       const b1 = rows(r.body).find((s) => s.branchName === 'CY Branch 1')
-      const ensure = b1 ? cy.wrap(b1.id) : post('/addSchool', { name: 'CY Branch 1', branchName: 'CY Branch 1', status: 'Active' })
+      const ensure = b1 ? cy.wrap(b1.id) : cy.postForm('/addSchool', { name: 'CY Branch 1', branchName: 'CY Branch 1', status: 'Active' })
         .then(() => cy.request('/getUserSchool')).then((rr) => rows(rr.body).find((s) => s.branchName === 'CY Branch 1').id)
       ensure.then((branchId) => cy.request('/team/users').then((t) => {
         const a = rows(t.body).find((u) => u.email === 'teacher.a@myplus.com')
@@ -332,7 +331,7 @@ describe('SET-GUIDE — module settings certification (orders · education · we
     Object.keys(ORIG).forEach((k) => { const [scId, key] = k.split('|'); restore(scId, key) })
     // Fixtures, in reverse dependency order; a refusal is RECORDED, never hidden.
     // Some delete routes answer a bare `true` on success — that is not a refusal.
-    const del = (url, body, what) => post(url, body).then((r) => {
+    const del = (url, body, what) => cy.postForm(url, body).then((r) => {
       const b = parse(r.body)
       if (b !== true && !okBody(b)) fx.leftovers.push(`${what}: ${JSON.stringify(b).slice(0, 120)}`)
     })

@@ -28,19 +28,7 @@ describe('HMS S3b-2 — prescription templates', () => {
   const S = { tokens: [], visits: [], templates: [], rxIds: [] }
 
   const relogin = (email, phase = 'on') => cy.loginAs(email, PW, '/getBusinessDashboardStats', `hms-s3b2-${run}-${phase}`)
-  const post = (url, body) =>
-    cy.request({ method: 'POST', url, body: body || {}, headers: { 'Content-Type': 'application/json' }, failOnStatusCode: false })
-  const setOf = (email, setName) => cy.request('/team/users').then((u) => {
-    const member = ((u.body && (u.body.data || u.body.object)) || []).find((x) => String(x.email || '') === email)
-    expect(member, email + ' is a member').to.exist
-    return cy.request('/team/permissions').then((p) => {
-      const set = (((p.body && (p.body.data || p.body.object)) || {}).sets || []).find((s) => s.name === setName)
-      expect(set, 'the "' + setName + '" set exists').to.exist
-      return post('/team/permissions/assign', { userId: member.userId || member.id, setId: set.id })
-        .its('body').then((b) => expect(b && (b.success === true || b.status === 'SUCCESS'), JSON.stringify(b)).to.eq(true))
-    })
-  })
-  const issueToken = () => post('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
+  const issueToken = () => cy.postJson('/clinic/tokens', { patientId: S.patient.id, providerId: S.doctor.id }).then((t) => {
     expect(t.body.success, JSON.stringify(t.body)).to.eq(true)
     S.tokens.push(t.body.data.id)
     return t.body.data
@@ -70,16 +58,16 @@ describe('HMS S3b-2 — prescription templates', () => {
     cy.setEntitlement(OWNER, 'clinic', 'ACTIVE', 'hms s3b-2 gate')
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
-    setOf(DOCTOR, 'Doctor')
+    cy.setPermissionSet(DOCTOR, 'Doctor')
     relogin(OWNER)
-    post('/clinic/patients', { phone, name: 'S3t Patient ' + run, dateOfBirth: '1990-05-20', sex: 'M' }).then((r) => {
+    cy.postJson('/clinic/patients', { phone, name: 'S3t Patient ' + run, dateOfBirth: '1990-05-20', sex: 'M' }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
     cy.request('/clinic/doctors').then((r) => {
       const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
       if (d) { S.doctor = d; return }
-      return post('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
+      return cy.postJson('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
         .then((c) => { S.doctor = c.body.data })
     })
     cy.seedProduct({ name: MED_A, unit: 'tablet', stock: 50, sellingPrice: 5 }).then(({ productId }) => { S.medA = productId })
@@ -91,15 +79,15 @@ describe('HMS S3b-2 — prescription templates', () => {
     // the encounter of every token this spec started — complete it (a visit with the doctor cannot be cancelled)
     S.tokens.forEach((id) => cy.request({ url: `/clinic/consult/tokens/${id}`, failOnStatusCode: false }).then((r) => {
       const v = r.body && r.body.data
-      if (v && v.id && v.status !== 'COMPLETED') post(`/clinic/consult/encounters/${v.id}/complete`)
+      if (v && v.id && v.status !== 'COMPLETED') cy.postJson(`/clinic/consult/encounters/${v.id}/complete`)
       if (v && v.rxId) S.rxIds.push(v.rxId)
     }))
-    cy.then(() => S.templates.forEach((id) => post(`/clinic/consult/templates/${id}/retire`)))
+    cy.then(() => S.templates.forEach((id) => cy.postJson(`/clinic/consult/templates/${id}/retire`)))
     relogin(OWNER)
-    cy.then(() => S.rxIds.forEach((id) => post('/cancelPrescription', { prescriptionId: id })))
-    S.tokens.forEach((id) => post(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
-    if (S.patient) post(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    setOf(DOCTOR, 'Administrator')
+    cy.then(() => S.rxIds.forEach((id) => cy.postJson('/cancelPrescription', { prescriptionId: id })))
+    S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
+    if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
+    cy.setPermissionSet(DOCTOR, 'Administrator')
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -174,7 +162,7 @@ describe('HMS S3b-2 — prescription templates', () => {
   it('T-03 a medicine the pharmacy no longer has is named, not silently dropped', () => {
     relogin(DOCTOR, 'doctor')
     // A template whose second medicine is not in this pharmacy's list (an id no product has).
-    post('/clinic/consult/templates', { name: 'Old stock ' + run, lines: [line(S.medA, MED_A, 5, '1 tab'), line(987654321, 'Discontinued Syrup', 1, '5 ml')] })
+    cy.postJson('/clinic/consult/templates', { name: 'Old stock ' + run, lines: [line(S.medA, MED_A, 5, '1 tab'), line(987654321, 'Discontinued Syrup', 1, '5 ml')] })
       .then((r) => {
         expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
         S.templates.push(r.body.data.id)
@@ -202,7 +190,7 @@ describe('HMS S3b-2 — prescription templates', () => {
 
   it('T-04 a template name is unique in the clinic, in any letter case; Remove frees it', () => {
     relogin(DOCTOR, 'doctor')
-    post('/clinic/consult/templates', { name: TPL.toUpperCase(), lines: [line(S.medB, MED_B, 1, '1 tab')] }).then((r) => {
+    cy.postJson('/clinic/consult/templates', { name: TPL.toUpperCase(), lines: [line(S.medB, MED_B, 1, '1 tab')] }).then((r) => {
       expect(r.body.success).to.eq(false)
       expect(r.body.message).to.contain('exists already')
     })
@@ -214,7 +202,7 @@ describe('HMS S3b-2 — prescription templates', () => {
     cy.get('[data-ui-confirm="ok"]').click()
     cy.get('#clinMsg').should('contain', 'Template removed')
     cy.then(() => cy.get(`#clinRxTemplate option[value="${S.tplId}"]`).should('not.exist'))
-    post('/clinic/consult/templates', { name: TPL, lines: [line(S.medB, MED_B, 1, '1 tab')] }).then((r) => {
+    cy.postJson('/clinic/consult/templates', { name: TPL, lines: [line(S.medB, MED_B, 1, '1 tab')] }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.templates.push(r.body.data.id)
     })
@@ -227,8 +215,8 @@ describe('HMS S3b-2 — prescription templates', () => {
       expect(r.status).to.eq(403)
       expect(JSON.stringify(r.body)).to.contain('Only a doctor').and.not.contain(TPL)
     })
-    post('/clinic/consult/templates', { name: 'Desk ' + run, lines: [line(S.medA, MED_A, 1, '1 tab')] }).its('status').should('eq', 403)
-    post(`/clinic/consult/templates/${S.oldTpl}/retire`).its('status').should('eq', 403)
+    cy.postJson('/clinic/consult/templates', { name: 'Desk ' + run, lines: [line(S.medA, MED_A, 1, '1 tab')] }).its('status').should('eq', 403)
+    cy.postJson(`/clinic/consult/templates/${S.oldTpl}/retire`).its('status').should('eq', 403)
   })
 
   it('T-06 [M-14] another clinic — its owner, clinic switched on — neither sees nor removes this clinic\'s templates', () => {
@@ -241,7 +229,7 @@ describe('HMS S3b-2 — prescription templates', () => {
       expect(r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true)   // the owner holds clinic.consult: a real read
       expect(JSON.stringify(r.body.data)).to.not.contain(run)
     })
-    post(`/clinic/consult/templates/${S.oldTpl}/retire`).then((r) => {
+    cy.postJson(`/clinic/consult/templates/${S.oldTpl}/retire`).then((r) => {
       expect(r.body.success).to.not.eq(true)
       expect(r.body.message).to.match(/Template not found/)
     })

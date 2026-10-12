@@ -15,30 +15,14 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/business/h6c2-dated-text.cy.js"
  */
+import { rowsOf, serverTextToMs, msToServerText } from '../../support/time'
 describe('H6 C2 — server-formatted Dated text and report days in the viewer\'s zone', () => {
-  const rowsOf = (b) => {
-    for (const c of [b && b.collection, b && b.data, b && b.object, b && b.rows, b && b.data && b.data.content]) if (Array.isArray(c)) return c
-    return []
-  }
-  /** "dd-MM-yyyy HH:mm:ss" → epoch ms as if UTC (only DIFFERENCES between readings are compared). */
-  const asMs = (s) => {
-    const m = /^(\d{2})-(\d{2})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(s || ''))
-    expect(m, `a server-formatted date-time: ${s}`).to.exist
-    return Date.UTC(+m[3], +m[2] - 1, +m[1], +m[4], +m[5], +m[6])
-  }
-  /** epoch ms (as-if-UTC) → "dd-MM-yyyy HH:mm:ss" — to compute an expected text independently of the server. */
-  const fmt = (ms) => {
-    const d = new Date(ms), p = (n) => String(n).padStart(2, '0')
-    return `${p(d.getUTCDate())}-${p(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`
-  }
   const customersIn = (zone) => cy.setCookie('myplus_tz', encodeURIComponent(zone))
     .then(() => cy.request('/getUserCustomer')).its('body').then(rowsOf)
-  const emulateZone = (timezoneId) => cy.wrap(Cypress.automation('remote:debugger:protocol',
-    { command: 'Emulation.setTimezoneOverride', params: { timezoneId } }))
 
   let sample   // { id, name, utc, karachi, kiritimati }
 
-  afterEach(() => { emulateZone('') })
+  afterEach(() => { cy.emulateZone('') })
 
   it('C2-01 the same customer\'s Dated text moves by exactly +5 h (Karachi) and +14 h (Kiritimati)', () => {
     cy.loginAsBusiness()
@@ -54,7 +38,7 @@ describe('H6 C2 — server-formatted Dated text and report days in the viewer\'s
     })
     customersIn('Pacific/Kiritimati').then((rows) => {
       sample.kiritimati = rows.find((r) => (r.customerId || r.id) === sample.id).dated
-      const h = (a, b) => (asMs(a) - asMs(b)) / 3600000
+      const h = (a, b) => (serverTextToMs(a) - serverTextToMs(b)) / 3600000
       expect(h(sample.karachi, sample.utc), `Karachi ${sample.karachi} vs UTC ${sample.utc}`).to.eq(5)
       expect(h(sample.kiritimati, sample.utc), `Kiritimati ${sample.kiritimati} vs UTC ${sample.utc}`).to.eq(14)
     })
@@ -64,9 +48,9 @@ describe('H6 C2 — server-formatted Dated text and report days in the viewer\'s
     expect(sample, 'C2-01 found a customer').to.exist
     // expected = the UTC reading + 14 h, computed HERE — not the server's own Kiritimati reading, which on a
     // server that ignores the zone is the same UTC text and would make this case pass on the defect
-    const want = fmt(asMs(sample.utc) + 14 * 3600000)
+    const want = msToServerText(serverTextToMs(sample.utc) + 14 * 3600000)
     cy.loginAsBusiness()
-    emulateZone('Pacific/Kiritimati')
+    cy.emulateZone('Pacific/Kiritimati')
     cy.visit('/businessDashboard')   // main.js sets myplus_tz from the (emulated) browser zone
     cy.getCookie('myplus_tz').its('value').then((v) => expect(decodeURIComponent(v)).to.eq('Pacific/Kiritimati'))
     cy.get('#snavRegister > .snav-btn').click()

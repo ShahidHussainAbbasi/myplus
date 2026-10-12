@@ -24,8 +24,6 @@ const rows = (body) => {
   const k = Object.keys(b).find((x) => Array.isArray(b[x]))
   return k ? b[k] : []
 }
-const post = (url, body) =>
-  cy.request({ method: 'POST', url, form: true, body, failOnStatusCode: false })
 const postJson = (url, body) =>
   cy.request({ method: 'POST', url, body, failOnStatusCode: false })
 
@@ -56,9 +54,9 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
       fx.teacher = staff[0]
     })
     // A leave type of our own with a small quota, so the overage case is reachable.
-    post('/saveLeaveType', { name: TAG + ' Casual', annualQuota: 3, paid: 'true' })
+    cy.postForm('/saveLeaveType', { name: TAG + ' Casual', annualQuota: 3, paid: 'true' })
       .then((r) => ok(r, 'seed a capped leave type'))
-    post('/saveLeaveType', { name: TAG + ' Unpaid', paid: 'false' })
+    cy.postForm('/saveLeaveType', { name: TAG + ' Unpaid', paid: 'false' })
       .then((r) => ok(r, 'seed an uncapped leave type'))
     cy.request('/getLeaveTypes').then((r) => {
       const types = rows(r.body)
@@ -81,17 +79,17 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
     cy.request('/getLeaveRequests?year=2026').then((r) => {
       rows(r.body)
         .filter((q) => q.leaveTypeName && q.leaveTypeName.indexOf(TAG) === 0 && q.status === 'APPROVED')
-        .forEach((q) => post('/decideLeaveRequest', { id: q.id, decision: 'CANCELLED' }))
+        .forEach((q) => cy.postForm('/decideLeaveRequest', { id: q.id, decision: 'CANCELLED' }))
     })
     subsDay().then((r) => {
       const o = (parse(r.body).object) || {}
-      ;(o.absences || []).forEach((a) => post('/clearStaffAbsence', { id: a.id }))
+      ;(o.absences || []).forEach((a) => cy.postForm('/clearStaffAbsence', { id: a.id }))
     })
     // Types refuse to delete while requests reference them — that is by design, so this may leave the two
     // TAG types behind. They are inert and namespaced by timestamp.
     cy.then(() => {
-      if (fx.capped) post('/deleteLeaveType', { id: fx.capped.id })
-      if (fx.uncapped) post('/deleteLeaveType', { id: fx.uncapped.id })
+      if (fx.capped) cy.postForm('/deleteLeaveType', { id: fx.capped.id })
+      if (fx.uncapped) cy.postForm('/deleteLeaveType', { id: fx.uncapped.id })
     })
   })
 
@@ -150,7 +148,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
 
   it('approving leave writes one absence per day, and 2.2 sees them', () => {
     // 2026-09-15 to 09-17 — three days.
-    post('/saveLeaveRequest', {
+    cy.postForm('/saveLeaveRequest', {
       staffId: fx.teacher.id, leaveTypeId: fx.capped.id,
       fromDate: DATE, toDate: '2026-09-17', reason: TAG
     }).then((r) => {
@@ -164,7 +162,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
       expect(req, 'the request exists').to.exist
       fx.requestId = req.id
       if (req.status === 'PENDING') {
-        post('/decideLeaveRequest', { id: req.id, decision: 'APPROVED' })
+        cy.postForm('/decideLeaveRequest', { id: req.id, decision: 'APPROVED' })
           .then((d) => ok(d, 'approve'))
       }
     })
@@ -186,7 +184,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
 
   it('a request over the balance is RECORDED with the overage named, not refused', () => {
     // The quota is 3 and some is already taken; ask for 5 more.
-    post('/saveLeaveRequest', {
+    cy.postForm('/saveLeaveRequest', {
       staffId: fx.teacher.id, leaveTypeId: fx.capped.id,
       fromDate: '2026-10-05', toDate: '2026-10-09', reason: TAG + ' over'
     }).then((r) => {
@@ -199,7 +197,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
   })
 
   it('cancelling approved leave withdraws its absences and cancels the cover', () => {
-    post('/decideLeaveRequest', { id: fx.requestId, decision: 'CANCELLED' })
+    cy.postForm('/decideLeaveRequest', { id: fx.requestId, decision: 'CANCELLED' })
       .then((r) => ok(r, 'cancel the approved leave'))
     subsDay().then((r) => {
       const o = parse(r.body).object
@@ -214,13 +212,13 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
   })
 
   it('a rejected request is kept and writes no absence', () => {
-    post('/saveLeaveRequest', {
+    cy.postForm('/saveLeaveRequest', {
       staffId: fx.teacher.id, leaveTypeId: fx.capped.id,
       fromDate: '2026-11-02', toDate: '2026-11-02', reason: TAG + ' reject'
     }).then((r) => ok(r, 'submit'))
     cy.request('/getLeaveRequests?year=2026').then((r) => {
       const req = rows(r.body).find((q) => q.reason === TAG + ' reject')
-      post('/decideLeaveRequest', { id: req.id, decision: 'REJECTED' }).then((d) => ok(d, 'reject'))
+      cy.postForm('/decideLeaveRequest', { id: req.id, decision: 'REJECTED' }).then((d) => ok(d, 'reject'))
       cy.request('/getLeaveRequests?year=2026').then((r2) => {
         const after = rows(r2.body).find((q) => q.id === req.id)
         // "I asked and was refused" is exactly what gets disputed later.
@@ -236,7 +234,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
   })
 
   it('a leave type with requests against it cannot be deleted', () => {
-    post('/deleteLeaveType', { id: fx.capped.id }).then((r) => {
+    cy.postForm('/deleteLeaveType', { id: fx.capped.id }).then((r) => {
       const b = parse(r.body)
       expect(b.status, 'deleting it would orphan decisions people acted on').to.eq('FAILED')
     })
@@ -245,14 +243,14 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
   it('a teacher may REQUEST leave but not decide it, and not mark the register', () => {
     cy.loginAsTeacherA()
     // WRITE tier: asking for your own leave.
-    post('/saveLeaveRequest', {
+    cy.postForm('/saveLeaveRequest', {
       staffId: fx.teacher.id, leaveTypeId: fx.capped.id,
       fromDate: '2026-12-01', toDate: '2026-12-01', reason: TAG + ' byteacher'
     }).then((r) => {
       expect([200, 403]).to.include(r.status)
     })
     // ADMIN tier: an approval writes absences that pull other teachers into cover.
-    post('/decideLeaveRequest', { id: fx.requestId, decision: 'APPROVED' }).then((r) => {
+    cy.postForm('/decideLeaveRequest', { id: fx.requestId, decision: 'APPROVED' }).then((r) => {
       const b = parse(r.body)
       const refused = r.status === 403 || (b && b.status && b.status !== 'SUCCESS')
       expect(refused, 'deciding leave is ADMIN').to.eq(true)
@@ -267,7 +265,7 @@ describe('Education — staff attendance & leave (slice 2.3)', () => {
   })
 
   it('another tenant’s leave type is invisible by id', () => {
-    post('/deleteLeaveType', { id: 999999 }).then((r) => {
+    cy.postForm('/deleteLeaveType', { id: 999999 }).then((r) => {
       expect(parse(r.body).status, 'an id outside the tenant never silently succeeds').to.not.eq('SUCCESS')
     })
   })

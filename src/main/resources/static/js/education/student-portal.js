@@ -24,7 +24,11 @@
 	var PANELS = ['spTimetable', 'spNotices', 'spResults', 'spHomework', 'spAttendance'];
 	var DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
-	function esc(s) { return s == null ? '' : String(s); }
+	/*
+	 * DRY D1: was named esc() but escapes NOTHING — a null guard. Every use ends in jQuery .text(), which escapes, so
+	 * it was safe; the name invited a future .html(esc(x)) XSS. Named for what it does. Never pass it to .html().
+	 */
+	function str(s) { return s == null ? '' : String(s); }
 
 	function get(path) {
 		// No params argument, deliberately — see the header. There is nothing this page may ask FOR.
@@ -50,7 +54,7 @@
 	$(function () {
 		get('portal/my/me').done(function (res) {
 			if (!res || res.status !== 'SUCCESS' || !res.object) { noAccess(); return; }
-			$('#spWho').text(esc(res.object.name));
+			$('#spWho').text(str(res.object.name));
 			$('#spMain').show();
 			loadTab('timetable');          // the week is the landing tab — the ten-second visit's answer
 		}).fail(noAccess);
@@ -92,7 +96,7 @@
 			var today = todayName();
 			var byDay = {};
 			rows.forEach(function (r) {
-				var d = esc(r.dayOfWeek) || '—';
+				var d = str(r.dayOfWeek) || '—';
 				(byDay[d] = byDay[d] || []).push(r);
 			});
 
@@ -102,10 +106,10 @@
 				if (day === today) { $card.addClass('pp-today'); }
 				$card.append($('<div>').addClass('pp-day').text(day.charAt(0) + day.slice(1).toLowerCase()));
 				byDay[day].forEach(function (r) {
-					var when = esc(r.periodName);
-					if (r.startTime) { when += ' · ' + esc(r.startTime); }
-					var what = esc(r.subjectName);
-					if (r.room) { what += ' · ' + esc(r.room); }
+					var when = str(r.periodName);
+					if (r.startTime) { when += ' · ' + str(r.startTime); }
+					var what = str(r.subjectName);
+					if (r.room) { what += ' · ' + str(r.room); }
 					$card.append($('<div>').addClass('pp-row')
 						.append($('<span>').text(when))
 						.append($('<span>').addClass('pp-muted').text(what)));
@@ -126,12 +130,12 @@
 				// The server has already ordered these: pinned first, then newest. The client does not
 				// re-sort — a rule duplicated in the browser drifts from the server that owns it.
 				var $card = $('<div>').addClass('pp-card');
-				var $h = $('<h5>').text(esc(n.title));
+				var $h = $('<h5>').text(str(n.title));
 				if (n.pinned) { $h.prepend($('<span>').addClass('pp-muted').text('📌 ')); }
 				$card.append($h);
-				$card.append($('<div>').addClass('pp-muted').text(esc(n.publishedOn)));
+				$card.append($('<div>').addClass('pp-muted').text(str(n.publishedOn)));
 				// .text(), not .html(): a notice body is staff-authored free text and reaches every family.
-				$card.append($('<div>').css('white-space', 'pre-wrap').text(esc(n.body)));
+				$card.append($('<div>').css('white-space', 'pre-wrap').text(str(n.body)));
 				$out.append($card);
 			});
 		}).fail(noAccess);
@@ -146,15 +150,15 @@
 			if (!cards.length) { $out.append(emptyLine(t('ui.js.ppNoResults'))); return; }
 			cards.forEach(function (c) {
 				var $card = $('<div>').addClass('pp-card');
-				$card.append($('<h5>').text(esc(c.termName)));
+				$card.append($('<h5>').text(str(c.termName)));
 				$card.append($('<div>').addClass('pp-big')
-					.text(esc(c.termPercent) + '%' + (c.termGradeName ? ' · ' + esc(c.termGradeName) : '')));
+					.text(str(c.termPercent) + '%' + (c.termGradeName ? ' · ' + str(c.termGradeName) : '')));
 				(c.rows || []).forEach(function (r) {
 					$card.append($('<div>').addClass('pp-row')
-						.append($('<span>').text(esc(r.subjectName)))
+						.append($('<span>').text(str(r.subjectName)))
 						.append($('<span>').addClass('pp-muted')
-							.text(esc(r.marksObtained) + '/' + esc(r.maxMarks)
-								+ (r.grade ? ' · ' + esc(r.grade) : ''))));
+							.text(str(r.marksObtained) + '/' + str(r.maxMarks)
+								+ (r.grade ? ' · ' + str(r.grade) : ''))));
 				});
 				$out.append($card);
 			});
@@ -170,11 +174,11 @@
 			if (!tasks.length) { $out.append(emptyLine(t('ui.js.ppNoHomework'))); return; }
 			var $card = $('<div>').addClass('pp-card');
 			tasks.forEach(function (h) {
-				var right = esc(h.dueOn);
-				if (h.state) { right += ' · ' + esc(h.state); }
-				if (h.marksObtained != null) { right += ' · ' + esc(h.marksObtained) + '/' + esc(h.maxMarks); }
+				var right = str(h.dueOn);
+				if (h.state) { right += ' · ' + str(h.state); }
+				if (h.marksObtained != null) { right += ' · ' + str(h.marksObtained) + '/' + str(h.maxMarks); }
 				$card.append($('<div>').addClass('pp-row')
-					.append($('<span>').text(esc(h.title) + (h.subjectName ? ' · ' + esc(h.subjectName) : '')))
+					.append($('<span>').text(str(h.title) + (h.subjectName ? ' · ' + str(h.subjectName) : '')))
 					.append($('<span>').addClass('pp-muted').text(right)));
 			});
 			$out.append($card);
@@ -189,13 +193,13 @@
 			var a = (res && res.object) || null;
 			if (!a) { $out.append(emptyLine(t('ui.js.spNoAttendance'))); return; }
 			var $card = $('<div>').addClass('pp-card');
-			$card.append($('<div>').addClass('pp-big').text(esc(a.rate) + '%'));
+			$card.append($('<div>').addClass('pp-big').text(str(a.rate) + '%'));
 			$card.append($('<div>').addClass('pp-muted')
-				.text(esc(a.present) + ' / ' + esc(a.total)));
+				.text(str(a.present) + ' / ' + str(a.total)));
 			(a.recent || []).forEach(function (d) {
 				$card.append($('<div>').addClass('pp-row')
-					.append($('<span>').text(esc(d.date)))
-					.append($('<span>').addClass('pp-muted').text(esc(d.status))));
+					.append($('<span>').text(str(d.date)))
+					.append($('<span>').addClass('pp-muted').text(str(d.status))));
 			});
 			$out.append($card);
 		}).fail(noAccess);

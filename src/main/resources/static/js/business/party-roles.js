@@ -196,10 +196,6 @@
 
     // ── Position (DR-3) — read-only ──────────────────────────────────────────────────────────────────────────────
 
-    function money(v) {
-        var n = Number(v) || 0;
-        return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
 
     /** One labelled figure. data-dr-pos / data-amount let a test read the exact value rather than formatted text. */
     function figure(table, key, label, amount, strong) {
