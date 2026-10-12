@@ -13,8 +13,9 @@ import org.springframework.stereotype.Component;
  * codes use, so an auto code never collides with a scanned EAN/UPC. The shop may still type its own SKU or change it.
  *
  * <p>The number comes from {@link DocumentNumberService} (counter {@value #DOC_TYPE}), the same lock-serialised per-org
- * counter invoices use, so two people saving at once never draw the same one. A number a user has already TYPED as a
- * SKU is skipped. Must run inside the caller's transaction ({@code next} is MANDATORY) and immediately before the
+ * counter invoices use, so two people saving at once never draw the same one. A number that is already a code in this
+ * business — a typed SKU, a manufacturer barcode, or a U7 sticker — is skipped: the till's scan resolves all three, and
+ * a sticker WINS, so an automatic SKU equal to one would sell the sticker's product (SKU-AUTO-3 review). Must run inside the caller's transaction ({@code next} is MANDATORY) and immediately before the
  * insert — the counter row stays locked until commit (allocate LATE).
  */
 @Component
@@ -27,6 +28,7 @@ public class SkuAllocator {
 
     private final DocumentNumberService documentNumbers;
     private final ProductRepository productRepository;
+    private final com.myplus.catalog.repository.ProductBarcodeRepository stickers;
 
     /** The 12-digit form of counter value {@code n}. */
     public static String format(long n) {
@@ -38,7 +40,8 @@ public class SkuAllocator {
         if (orgId == null) return null;
         for (int i = 0; i < MAX_SKIPS; i++) {
             String code = format(documentNumbers.next(orgId, DOC_TYPE));
-            if (!productRepository.existsBySkuScoped(code, orgId, userId)) return code;
+            if (!productRepository.existsCodeScoped(code, orgId, userId)
+                    && stickers.findByOrganizationIdAndBarcode(orgId, code).isEmpty()) return code;
         }
         throw new IllegalStateException("SKU-AUTO: " + MAX_SKIPS + " consecutive automatic SKUs are already in use for org "
                 + orgId + " - check the products' SKUs");

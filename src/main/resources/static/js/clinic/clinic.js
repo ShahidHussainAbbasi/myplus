@@ -481,6 +481,18 @@
     }
 
     function isClinicAdmin() { return $('#clinIsAdmin').length > 0; }
+    /** RW-2: patients-a-day and "not today" are the front desk's and the administration's (RW-1 D2). */
+    function canSetDay() { return $('#clinCanDay').length > 0; }
+    /** RW-2: a doctor's day tools (today's limit, not today, usual) — only for canSetDay(). */
+    function dayTools(d) {
+        return ''
+            + '<input type="number" min="0" class="form-control input-sm clin-day-limit" placeholder="' + escHtml(L('limit', 'Limit')) + '" aria-label="' + escHtml(L('todayLimitFor', "Today's limit for {0}", d.name)) + '"/>'
+            + '<button type="button" class="btn btn-xs btn-primary clin-day" data-kind="limit">' + escHtml(L('setToday', 'Set today')) + '</button> '
+            + (d.closedToday
+                ? '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('openAgain', 'Open again')) + '</button>'
+                : '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="closed">' + escHtml(L('notToday', 'Not today')) + '</button>'
+                  + (d.todayChanged ? ' <button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('usual', 'Usual')) + '</button>' : ''));
+    }
     function withTeam(done) {
         if (!isClinicAdmin()) { done(); return; }
         if (team.loaded) { done(); return; }
@@ -587,13 +599,7 @@
                     + '<td>' + today + '</td>'
                     + '<td>' + escHtml(d.issuedToday) + '</td><td>' + escHtml(d.waitingNow) + '</td>'
                     + '<td class="clin-login-cell">' + loginCell(d) + pharmacyPicker(d) + '</td>'
-                    + '<td class="clin-day-tools">'
-                    + '<input type="number" min="0" class="form-control input-sm clin-day-limit" placeholder="' + escHtml(L('limit', 'Limit')) + '" aria-label="' + escHtml(L('todayLimitFor', "Today's limit for {0}", d.name)) + '"/>'
-                    + '<button type="button" class="btn btn-xs btn-primary clin-day" data-kind="limit">' + escHtml(L('setToday', 'Set today')) + '</button> '
-                    + (d.closedToday
-                        ? '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('openAgain', 'Open again')) + '</button>'
-                        : '<button type="button" class="btn btn-xs btn-default clin-day" data-kind="closed">' + escHtml(L('notToday', 'Not today')) + '</button>'
-                          + (d.todayChanged ? ' <button type="button" class="btn btn-xs btn-default clin-day" data-kind="reset">' + escHtml(L('usual', 'Usual')) + '</button>' : ''))
+                    + '<td class="clin-day-tools">' + (canSetDay() ? dayTools(d) : '')
                     + '</td></tr>');
             });
         }, true); }); });
@@ -639,12 +645,22 @@
             .always(function () { $btn.prop('disabled', false); });
     }
 
+    // RW-2: the page opens on the first screen this person may use — the desk on Reception, the doctor on My queue
+    var openMyQueueWhenKnown = false;
+    function openFirst() {
+        if ($('#clinNavReception').length) { show('ReceptionDiv'); return; }
+        if ($('#clinNavQueue').length) { show('QueueDiv'); return; }
+        openMyQueueWhenKnown = true;                       // loadMe() opens My queue for a doctor
+        if ($('#clinNavDoctors').length) show('DoctorsDiv');
+    }
+
     // ── H2: which doctor am I ───────────────────────────────────────────────────────────────────────────
     var me = null;
     function loadMe() {
         $.getJSON(url('clinic/doctors/me')).done(function (r) {
             me = (r && r.success && r.data) || null;
             $('#clinNavMyQueueWrap').toggle(!!(me && me.canConsult));
+            if (openMyQueueWhenKnown && me && me.canConsult) { openMyQueueWhenKnown = false; show('MyQueueDiv'); }
         });
     }
 
@@ -1075,7 +1091,7 @@
             if (document.hidden) stopBoard();
             else if ($('#QueueDiv').is(':visible') && !state.boardTimer) startBoard();
         });
-        show('ReceptionDiv');
+        openFirst();
     });
 
     global.Clinic = { show: show, find: find, register: register, reset: reset, addFamily: addFamily,

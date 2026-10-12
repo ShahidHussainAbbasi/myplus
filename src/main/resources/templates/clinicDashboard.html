@@ -24,7 +24,9 @@
               <span class="subnav-user"><span class="glyphicon glyphicon-plus-sign" style="margin-right:6px"></span><span th:text="#{ui.clinic}">Clinic</span></span>
             </div>
             <div class="snav-actions">
-              <div class="snav-dd">
+              <!-- RW-2 on RW-0b (2026-10-12): each screen names its menu KEY; the codes that unlock it are ui_menu rows (auth V25), the same rules clinical-service enforces (ClinicAccess);
+                   a doctor sees My queue, the front desk Reception and Today's queue, the owner everything. -->
+              <div class="snav-dd" th:if="${@perm.menu('clinic.reception')}">
                 <button class="snav-btn" id="clinNavReception" onclick="Clinic.show('ReceptionDiv')">
                   <span class="glyphicon glyphicon-user"></span><span th:text="#{ui.clinicReception}">Reception</span>
                 </button>
@@ -34,22 +36,22 @@
                   <span class="glyphicon glyphicon-heart"></span><span th:text="#{ui.clinicMyQueue}">My queue</span>
                 </button>
               </div>
-              <div class="snav-dd">
+              <div class="snav-dd" th:if="${@perm.menu('clinic.queue')}">
                 <button class="snav-btn" id="clinNavQueue" onclick="Clinic.show('QueueDiv')">
                   <span class="glyphicon glyphicon-list-alt"></span><span th:text="#{ui.clinicQueue}">Today's queue</span>
                 </button>
               </div>
-              <div class="snav-dd">
+              <div class="snav-dd" th:if="${@perm.menu('clinic.doctors')}">
                 <button class="snav-btn" id="clinNavDoctors" onclick="Clinic.show('DoctorsDiv')">
                   <span class="glyphicon glyphicon-briefcase"></span><span th:text="#{ui.clinicDoctors}">Doctors</span>
                 </button>
               </div>
-              <div class="snav-dd">
+              <div class="snav-dd" th:if="${@perm.menu('clinic.settings')}">
                 <button class="snav-btn" id="clinNavSettings" onclick="Clinic.show('ClinicSettingsDiv')">
                   <span class="glyphicon glyphicon-cog"></span><span th:text="#{ui.clinicSettings}">Clinic settings</span>
                 </button>
               </div>
-              <div class="snav-dd">
+              <div class="snav-dd" th:if="${@perm.menu('clinic.pharmacy')}">
                 <a class="snav-btn" id="clinNavPharmacy" th:href="@{/businessDashboard}">
                   <span class="glyphicon glyphicon-shopping-cart"></span><span th:text="#{ui.clinicToPharmacy}">Pharmacy</span>
                 </a>
@@ -304,9 +306,10 @@
             </div>
             <p id="clinDoctorEmpty" class="clin-empty" style="display:none" th:text="#{ui.clinicNoDoctors}">No doctors yet. Add the first one below.</p>
           </div>
-          <span id="clinIsAdmin" hidden="hidden" sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')"></span>
+          <span id="clinIsAdmin" hidden="hidden" th:if="${@perm.menu('clinic.doctors.manage')}"></span>
+          <span id="clinCanDay" hidden="hidden" th:if="${@perm.menu('clinic.doctors.day')}"></span>
           <form id="clinDoctorForm" class="clin-card clin-form" onsubmit="Clinic.addDoctor(); return false;" autocomplete="off"
-                sec:authorize="hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')">
+                th:if="${@perm.menu('clinic.doctors.manage')}">
             <h3 th:text="#{ui.clinicRegisterDoctor}">Register a doctor</h3>
             <div class="clin-grid">
               <div class="clin-field clin-field--wide">

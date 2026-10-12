@@ -137,3 +137,33 @@ total=0") — harness noise, not a test failure, not from this slice. Gate K8–
   duplicate-submit-guard 10, product-policies 7, purchase-expiry-required 7, product-last-rates 7, purchase 22,
   pricing-per-batch-sale 12.
 * Next: SKU-AUTO-3 — print the SKU as a barcode on shelf labels for products with no manufacturer barcode.
+
+## 11. SKU-AUTO-3 — the SKU printed as a shelf-label barcode (design, 2026-10-12)
+
+**Review:** Labels (U12, `labels.js`) list only U7 **stickers** (`allProductBarcodes` — extra codes meaning a unit). A
+product's own SKU never reaches the label screen, so a shop whose goods carry no manufacturer barcode (97.6% of products
+had none at the I2 count) cannot print one. The till's scan lookup already resolves **barcode OR sku**
+(`ProductRepository` lookup, barcode preferred), so a printed SKU sells the product with no till change. Lightspeed
+prints its System ID as the item's barcode for exactly this case.
+
+**Design:**
+* The label list shows two kinds of row: **product** rows (code = SKU) for every active product with **no
+  manufacturer barcode**, and the existing **sticker** rows. Keys `p:<id>` / `s:<id>` (the two id spaces collide).
+* A product row reads "1 <unit>" and the selling price — what one scan sells.
+* A product WITH a manufacturer barcode is not listed (its pack already carries a scannable code).
+* **Search box** (name or code) and at most **200 rows rendered**, with "type to narrow" when more match — thousands
+  of rows in a table is PERF-1's lesson. Select-all applies to the rows shown.
+* CSV export carries both kinds (a `kind` column: product / sticker).
+* No server change: `/getUserProduct` already returns `sku`, `barcode`, `unit`, `sellingPrice`.
+
+**Gate:** `label-print.cy.js` unchanged and green; new cases in `product-sku-auto.cy.js`: a product with no barcode is
+listed with its SKU and prints a DRAWN barcode encoding that SKU; a product WITH a barcode is not listed; the search
+narrows; the till's `/lookupProduct?code=<sku>` resolves the printed code to the product.
+
+**SKU-AUTO-3 built + verified (owner-deployed catalog 22:05, monolith 22:04):** labels list products with no
+manufacturer barcode (code = SKU, keys p:/s:, search, 200-row cap, CSV `kind` column); `SkuAllocator` also skips a code
+that is a product barcode or a U7 sticker (a sticker WINS at scan — found in review). Gate `product-sku-auto.cy.js`
+**14/14** (K11 drawn barcode of the SKU, K12 barcoded product not listed, K13 search, K14 till scan resolves the SKU);
+`label-print.cy.js` **8/8**. Before: owner.business's label screen was EMPTY (0 stickers, SKUs never listed).
+**Found, not fixed:** product save never checks a typed SKU against U7 stickers — `ProductBarcodeService`'s "checked in
+both directions" is false for the product side.

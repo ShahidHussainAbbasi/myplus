@@ -248,7 +248,7 @@ public class ClinicController {
             login.put("lastName", "");
             login.put("email", email);
             login.put("role", "USER");
-            login.put("permissionSet", "Doctor");   // H3a: a registered doctor holds clinical access only — never selling or dispensing
+            login.put("permissionSet", "DOCTOR");   // RW-0a: the doctor's JOB — auth picks the set whose default_for is DOCTOR (data), clinical access only
             Map<String, Object> made = authRest.exchange(gatewayUrl + "/api/auth/org/users", HttpMethod.POST,
                     new org.springframework.http.HttpEntity<>(login, h), Map.class).getBody();
             Object data = made == null ? null : made.get("data");

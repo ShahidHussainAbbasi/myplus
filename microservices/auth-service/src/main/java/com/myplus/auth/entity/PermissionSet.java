@@ -62,4 +62,15 @@ public class PermissionSet {
     /** The module this set belongs to — a school never offers a shop's set, or the reverse. */
     @Column(name = "module", nullable = false, length = 16)
     private String module;
+
+    /** RW-0a (V24) — the setting(s) that must be ON for this set to be offered (as {@link Permission#getCapability}). */
+    @Column(name = "capability", length = 64)
+    private String capability;
+
+    /**
+     * RW-0a (V24) — the job this set is the starting point for: MEMBER (a new member), ADMIN (a new admin), DOCTOR (a
+     * registered doctor's login); null = none. Which set serves a job is this row's choice, never a name in code.
+     */
+    @Column(name = "default_for", length = 16)
+    private String defaultFor;
 }

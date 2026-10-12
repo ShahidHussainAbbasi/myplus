@@ -55,7 +55,7 @@ describe('HMS H3a — the pharmacist permission and the clinic sets', () => {
       expect(reception.codes, 'the front desk gives tokens').to.include('clinic.token.issue')
       // RW-1 (D3): the pharmacist dispenses and sells but does not receive stock; the store keeper does
       expect(setNamed(p, 'Pharmacist').codes).to.include('rx.dispense').and.not.include('purchase.create')
-      expect(setNamed(p, 'Store keeper').codes).to.include('purchase.create').and.not.include('rx.dispense')
+      expect(setNamed(p, 'Storekeeper').codes).to.include('purchase.create').and.not.include('rx.dispense')
       // RW-1: the Doctor set also reads the queue and finds a patient — it still never dispenses or sells
       expect(doctor.codes, 'a doctor consults').to.include('clinic.consult')
       ;['rx.dispense', 'sale.create', 'purchase.create', 'clinic.token.issue', 'clinic.patient.edit'].forEach((c) =>

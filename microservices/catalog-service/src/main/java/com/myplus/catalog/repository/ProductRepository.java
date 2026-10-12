@@ -109,6 +109,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.id IN :ids AND " + SCOPE)
     List<Product> findAllByIdScoped(@Param("ids") List<Long> ids, @Param("orgId") Long orgId, @Param("userId") Long userId);
 
+    /** SKU-AUTO-3 — is this code already a product's SKU OR its manufacturer barcode in this business? (The scan
+     *  lookup resolves both, so an automatic SKU must avoid both.) */
+    @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE (p.sku = :code OR p.barcode = :code) AND " + SCOPE)
+    boolean existsCodeScoped(@Param("code") String code, @Param("orgId") Long orgId, @Param("userId") Long userId);
+
     @Query("SELECT (COUNT(p) > 0) FROM Product p WHERE p.sku = :sku AND " + SCOPE)
     boolean existsBySkuScoped(@Param("sku") String sku, @Param("orgId") Long orgId, @Param("userId") Long userId);
 

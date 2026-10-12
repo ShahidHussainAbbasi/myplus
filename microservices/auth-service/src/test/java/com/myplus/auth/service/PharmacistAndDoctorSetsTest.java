@@ -3,52 +3,61 @@ package com.myplus.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
 
 /**
- * HMS H3a (ruling L-3) — the pharmacist permission and the clinic sets are offered only where they mean something,
- * and a login being created may be put on the Doctor set — and on no other named set.
+ * RW-0a (2026-10-12) — what the Team screen offers is decided by the ROWS' capability columns (V24), not by names in
+ * code; and a login being created may ask only for a JOB (the doctor's), never a set by name.
+ * (Replaces the H3a name-based checks of this class.)
  */
 class PharmacistAndDoctorSetsTest {
 
-    @Test
-    void a_shop_without_clinic_or_prescriptions_sees_neither_clinic_codes_nor_the_pharmacist_code() {
-        assertThat(PermissionVisibility.codeVisible("clinic.consult", false, false)).isFalse();
-        assertThat(PermissionVisibility.codeVisible("rx.dispense", false, false)).isFalse();
-        assertThat(PermissionVisibility.codeVisible("sale.create", false, false)).isTrue();
-        assertThat(PermissionVisibility.setVisible("Doctor", true, false)).isFalse();
-        assertThat(PermissionVisibility.setVisible("Clinic reception", true, false)).isFalse();
-        assertThat(PermissionVisibility.setVisible("Standard", true, false)).isTrue();
-        // RW-1: the new pharmacy and stock sets
-        assertThat(PermissionVisibility.setVisible("Pharmacist", true, false, false)).isFalse();
-        assertThat(PermissionVisibility.setVisible("Pharmacist", true, false, true)).isTrue();
-        assertThat(PermissionVisibility.setVisible("Pharmacist", true, true, false)).isTrue();
-        assertThat(PermissionVisibility.setVisible("Store keeper", true, false, false)).isTrue();
-        assertThat(PermissionVisibility.codeVisible("clinic.token.issue", false, true)).isFalse();
-        assertThat(PermissionVisibility.codeVisible("clinic.token.issue", true, false)).isTrue();
+    private static Set<String> on(String... codes) {
+        Map<String, Boolean> m = new LinkedHashMap<>();
+        m.put("clinic", false); m.put("rxRequired", false); m.put("batchTracking", true);
+        for (String c : codes) m.put(c, true);
+        return PermissionVisibility.enabled(m);
     }
 
     @Test
-    void a_pharmacy_sees_the_pharmacist_code_and_a_clinic_sees_everything() {
-        assertThat(PermissionVisibility.codeVisible("rx.dispense", false, true)).isTrue();
-        assertThat(PermissionVisibility.codeVisible("clinic.consult", false, true)).isFalse();
-        assertThat(PermissionVisibility.codeVisible("clinic.consult", true, false)).isTrue();
-        assertThat(PermissionVisibility.codeVisible("rx.dispense", true, false)).isTrue();
-        assertThat(PermissionVisibility.setVisible("Doctor", true, true)).isTrue();
+    void a_row_with_no_capability_is_always_offered() {
+        assertThat(PermissionVisibility.visible(null, on())).isTrue();
+        assertThat(PermissionVisibility.visible(" ", on())).isTrue();
     }
 
     @Test
-    void a_tenants_own_set_named_doctor_is_never_hidden() {
-        assertThat(PermissionVisibility.setVisible("Doctor", false, false)).isTrue();
+    void a_row_needing_the_clinic_is_offered_only_with_the_clinic_on() {
+        assertThat(PermissionVisibility.visible("clinic", on())).isFalse();
+        assertThat(PermissionVisibility.visible("clinic", on("clinic"))).isTrue();
     }
 
     @Test
-    void only_the_doctor_set_may_be_named_when_a_login_is_created() {
+    void a_row_listing_several_settings_is_offered_when_any_one_is_on() {
+        // e.g. rx.dispense / the Pharmacist set: 'clinic,rxRequired'
+        assertThat(PermissionVisibility.visible("clinic,rxRequired", on())).isFalse();
+        assertThat(PermissionVisibility.visible("clinic,rxRequired", on("rxRequired"))).isTrue();
+        assertThat(PermissionVisibility.visible("clinic, rxRequired", on("rxRequired"))).isTrue();
+    }
+
+    @Test
+    void only_the_settings_switched_on_count() {
+        assertThat(PermissionVisibility.enabled(null)).isEmpty();
+        assertThat(on()).containsExactly("batchTracking");
+    }
+
+    @Test
+    void a_login_being_created_may_ask_only_for_the_doctors_job() {
         assertThat(AuthService.firstSetChecked(null, "USER")).isNull();
         assertThat(AuthService.firstSetChecked("  ", "USER")).isNull();
-        assertThat(AuthService.firstSetChecked("Doctor", "USER")).isEqualTo("Doctor");
+        assertThat(AuthService.firstSetChecked("DOCTOR", "USER")).isEqualTo(PermissionService.JOB_DOCTOR);
+        // an older monolith sends "Doctor" — the same job
+        assertThat(AuthService.firstSetChecked("Doctor", "USER")).isEqualTo(PermissionService.JOB_DOCTOR);
         assertThatThrownBy(() -> AuthService.firstSetChecked("Administrator", "USER"))
-                .hasMessageContaining("Only the Doctor set can be chosen");
+                .hasMessageContaining("Only the doctor's job can be chosen");
         assertThatThrownBy(() -> AuthService.firstSetChecked("Doctor", "ADMIN"))
                 .hasMessageContaining("member login, not an admin");
     }

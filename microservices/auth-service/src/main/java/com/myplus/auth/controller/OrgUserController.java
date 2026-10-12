@@ -50,6 +50,7 @@ public class OrgUserController {
     private final com.myplus.auth.service.OrganizationAdminService organizationAdminService;
     /** H3a — what this business has switched on decides which clinic / pharmacist sets the Team screen offers. */
     private final com.myplus.common.settings.CapabilityService capabilityService;
+    private final com.myplus.auth.repository.UiMenuRepository uiMenuRepository;
 
     /**
      * ONB-1 — the tenant changes its OWN business type, from its Configuration screen.
@@ -110,17 +111,39 @@ public class OrgUserController {
     // Only the owner grants, and the owner already holds everything, so there is nothing to escalate to.
 
     /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    /**
+     * RW-0b — the menu catalogue (V25): each menu's key and the permission codes that unlock it. The monolith reads it
+     * to decide which menus a person sees; the pages name only the KEY. Any signed-in member may read it — it says
+     * which codes open which menu, nothing about any person — and the rows are the same for every business.
+     */
+    @GetMapping("/menus")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> menus() {
+        List<Map<String, Object>> out = uiMenuRepository.findAllByOrderBySortOrderAsc().stream().map(m -> {
+            Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("key", m.getMenuKey());
+            row.put("parent", m.getParentKey());
+            row.put("codes", m.getCodes() == null || m.getCodes().isBlank() ? List.of()
+                    : java.util.Arrays.stream(m.getCodes().split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+            row.put("capability", m.getCapability());
+            return row;
+        }).toList();
+        return ResponseEntity.ok(ApiResponse.success(out, "Menus"));
+    }
+
     @GetMapping("/permissions")
     @PreAuthorize("hasAuthority('ROLE_OWNER')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> permissions() {
         Long org = com.myplus.common.security.CurrentUser.organizationId();
         Map<String, Object> out = new java.util.LinkedHashMap<>();
         String module = callerModule(org);
-        // H3a: clinic sets and codes only with the clinic on; the pharmacist code only where prescriptions are dispensed
-        boolean clinicOn = capabilityService.isEnabledFor(org, com.myplus.common.settings.Capability.CLINIC);
-        boolean rxOn = capabilityService.isEnabledFor(org, com.myplus.common.settings.Capability.RX_REQUIRED);
-        out.put("catalog", permissionService.catalog(module).stream()
-                .filter(p -> com.myplus.auth.service.PermissionVisibility.codeVisible(p.getCode(), clinicOn, rxOn)).map(p -> {
+        // RW-0a: a code or set is offered when the setting its row names is on (V24 capability columns) — no names here
+        java.util.Set<String> on = com.myplus.auth.service.PermissionVisibility.enabled(capabilityService.enabledMapFor(org));
+        java.util.List<com.myplus.auth.entity.Permission> catalog = permissionService.catalog(module);
+        java.util.Map<String, String> capabilityOf = new java.util.HashMap<>();
+        catalog.forEach(p -> capabilityOf.put(p.getCode(), p.getCapability()));
+        out.put("catalog", catalog.stream()
+                .filter(p -> com.myplus.auth.service.PermissionVisibility.visible(p.getCapability(), on)).map(p -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("code", p.getCode());
             m.put("area", p.getArea());
@@ -130,7 +153,7 @@ public class OrgUserController {
             return m;
         }).toList());
         out.put("sets", permissionService.setsFor(org, module).stream()
-                .filter(ps -> com.myplus.auth.service.PermissionVisibility.setVisible(ps.getName(), ps.isBuiltin(), clinicOn, rxOn)).map(ps -> {
+                .filter(ps -> com.myplus.auth.service.PermissionVisibility.visible(ps.getCapability(), on)).map(ps -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id", ps.getId());
             m.put("name", ps.getName());
@@ -138,7 +161,7 @@ public class OrgUserController {
             m.put("scope", ps.getScope());
             m.put("builtin", ps.isBuiltin());
             m.put("codes", permissionService.codesOf(ps.getId()).stream()
-                    .filter(c -> com.myplus.auth.service.PermissionVisibility.codeVisible(c, clinicOn, rxOn)).toList());
+                    .filter(c -> com.myplus.auth.service.PermissionVisibility.visible(capabilityOf.get(c), on)).toList());
             return m;
         }).toList());
         return ResponseEntity.ok(ApiResponse.success(out, "Permissions"));

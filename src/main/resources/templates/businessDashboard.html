@@ -175,27 +175,27 @@ tr.row-voided .js-edit-row{display:none !important}
 							<span class="glyphicon glyphicon-dashboard"></span>
 							<span>Dashboard</span>
 						</button> -->
-						<!-- RW-2 (2026-10-12): each menu shows when the person's set lets them do its work — MenuAccess (${@perm.any}). The server still refuses on its own. -->
-						<div th:if="${@perm.any('supplier.view','supplier.create','customer.view','customer.create','product.view','product.create','product.edit','stock.edit','stock.create','settings.edit')}" class="snav-dd" id="snavRegister">
+						<!-- RW-2 on RW-0b (2026-10-12): each menu names its KEY; the permission codes that unlock it are the ui_menu row in auth-service (V25), never written here. The server still refuses on its own. -->
+						<div th:if="${@perm.menu('register')}" class="snav-dd" id="snavRegister">
 							<button class="snav-btn" onclick="snavToggle(event,'snavRegister')">
 								<span class="glyphicon glyphicon-pencil"></span>
 								<span th:text="#{ui.register}">Register</span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li th:if="${@perm.any('settings.edit')}"><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.company}">Company</span></a></li>
-								<li th:if="${@perm.any('supplier.view','supplier.create')}"><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.venderSupplier2}">Vender / Supplier</span></a></li>
-								<li th:if="${@perm.any('customer.view','customer.create')}"><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.customer}">Customer</span></a></li>
+								<li th:if="${@perm.menu('register.company')}"><a onclick="snavGo('registrationType','CompanyDiv','snavRegister')"><span class="glyphicon glyphicon-briefcase"></span> <span th:text="#{ui.company}">Company</span></a></li>
+								<li th:if="${@perm.menu('register.supplier')}"><a onclick="snavGo('registrationType','VenderDiv','snavRegister')"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.venderSupplier2}">Vender / Supplier</span></a></li>
+								<li th:if="${@perm.menu('register.customer')}"><a onclick="snavGo('registrationType','CustomerDiv','snavRegister')"><span class="glyphicon glyphicon-user"></span> <span th:text="#{ui.customer}">Customer</span></a></li>
 								<!-- Slice 74: the Product master is the single creation path; the legacy Item screen is edit-only. -->
 								<!-- <li><a onclick="snavGo('registrationType','productDiv','snavRegister')"><span class="glyphicon glyphicon-barcode"></span> Product</a></li>								 -->
-								<li th:if="${@perm.any('product.view','product.create','product.edit')}"><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.product}">Product</span></a></li>
-								<li th:if="${@perm.any('stock.edit','stock.create')}"><a onclick="showStockCount();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.stockCount}">Stock count</span></a></li>
-								<li th:if="${@perm.any('product.edit','product.create')}"><a onclick="showLabels();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.labels}">Labels</span></a></li>
+								<li th:if="${@perm.menu('register.products')}"><a onclick="showProducts();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-barcode"></span> <span th:text="#{ui.product}">Product</span></a></li>
+								<li th:if="${@perm.menu('register.stockCount')}"><a onclick="showStockCount();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.stockCount}">Stock count</span></a></li>
+								<li th:if="${@perm.menu('register.labels')}"><a onclick="showLabels();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-tags"></span> <span th:text="#{ui.labels}">Labels</span></a></li>
 								<!-- M4e.b (slice 102): legacy Item form retired — use the Product (catalog) master form -->
-								<li th:if="${@perm.any('stock.edit')}" data-capability="batchTracking,expiryTracking"><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
+								<li th:if="${@perm.menu('register.quarantine')}" data-capability="batchTracking,expiryTracking"><a onclick="showQuarantine();document.getElementById('snavRegister').classList.remove('snav-open');"><span class="glyphicon glyphicon-ban-circle"></span> <span th:text="#{ui.quarantine}">Quarantine</span></a></li>
 							</ul>
 						</div>
-						<div th:if="${@perm.any('purchase.view','purchase.create','purchase.edit')}" class="snav-dd" id="snavPurchase">
+						<div th:if="${@perm.menu('purchase')}" class="snav-dd" id="snavPurchase">
 							<button class="snav-btn" onclick="snavToggle(event,'snavPurchase')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.purchase}">Purchase</span>
@@ -204,41 +204,41 @@ tr.row-voided .js-edit-row{display:none !important}
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li th:if="${@perm.any('purchase.create')}"><a onclick="snavGo('purchaseType','purchaseDiv','snavPurchase')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newPurchase}">New Purchase</span></a></li>
+								<li th:if="${@perm.menu('purchase.new')}"><a onclick="snavGo('purchaseType','purchaseDiv','snavPurchase')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newPurchase}">New Purchase</span></a></li>
 								<!-- Task #21: a purchase return is a DEBIT NOTE, and it belongs with the purchases it
 								     reverses rather than in a combined "returns" screen away from either flow. -->
-								<li th:if="${@perm.any('purchase.view','purchase.create')}"><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
+								<li th:if="${@perm.menu('purchase.debitNotes')}"><a id="navDebitNotes" onclick="showReturns('debit');document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.debitNotes}">Purchase Returns</span></a></li>
 								<!-- PR-4: prices purchases would set, waiting for the owner. Owner/admin (catalog enforces it too). -->
 								<li sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a id="navPriceApprovals" onclick="showPriceApprovals();document.getElementById('snavPurchase').classList.remove('snav-open');"><span class="glyphicon glyphicon-check"></span> <span th:text="#{ui.priceApprovals}">Price approvals</span> <span id="paCount" class="badge" style="display:none;background:#b42318"></span></a></li>
 							</ul>
 						</div>
-						<div th:if="${@perm.any('sale.view','sale.create')}" class="snav-dd" id="snavSell">
+						<div th:if="${@perm.menu('sale')}" class="snav-dd" id="snavSell">
 							<button class="snav-btn" onclick="snavToggle(event,'snavSell')">
 								<span class="glyphicon glyphicon-tag"></span>
 								<span th:text="#{ui.sale}">Sale</span>
 								<span class="snav-caret">&#9660;</span>
 							</button>
 							<ul class="snav-menu">
-								<li th:if="${@perm.any('sale.create')}"><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSale}">New Sale</span></a></li>
-								<li th:if="${@perm.any('sale.create')}"><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.parkedSales}">Parked Sales</span></a></li>
-								<li th:if="${@perm.any('sale.view')}"><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.saleDetailReport}">Sale Detail Report</span></a></li>
+								<li th:if="${@perm.menu('sale.new')}"><a onclick="snavGo('sellType','sellDiv','snavSell')"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.newSale}">New Sale</span></a></li>
+								<li th:if="${@perm.menu('sale.parked')}"><a onclick="showParked();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-pause"></span> <span th:text="#{ui.parkedSales}">Parked Sales</span></a></li>
+								<li th:if="${@perm.menu('sale.detailReport')}"><a onclick="snavGo('sellType','SRDiv','snavSell')"><span class="glyphicon glyphicon-list"></span> <span th:text="#{ui.saleDetailReport}">Sale Detail Report</span></a></li>
 								<!-- Task #21: a sale return is a CREDIT NOTE. Before this screen a note could only be
 								     printed at the counter, in the seconds after the return was taken. -->
-								<li th:if="${@perm.any('sale.view')}"><a id="navCreditNotes" onclick="showReturns('credit');document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.creditNotes}">Sale Returns</span></a></li>
+								<li th:if="${@perm.menu('sale.creditNotes')}"><a id="navCreditNotes" onclick="showReturns('credit');document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-share-alt"></span> <span th:text="#{ui.creditNotes}">Sale Returns</span></a></li>
 								<!-- B2B-P4b: quotes live under Sale because a quote IS a pre-sale document — it converts
 								     into an invoice through the same path a counter sale uses. -->
-								<li th:if="${@perm.any('sale.create')}" data-capability="dealerPricing"><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
+								<li th:if="${@perm.menu('sale.quotes')}" data-capability="dealerPricing"><a onclick="showQuotes();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-file"></span> <span th:text="#{ui.quotes}">Quotes</span></a></li>
 								<!-- INST-2: installments sit under Sale because a plan IS a sale document — it structures
 								     the receivable one created. Shown to every commerce tenant; a shop that never
 								     finances anything simply has an empty list. -->
-								<li th:if="${@perm.any('sale.view')}" data-capability="installments"><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
+								<li th:if="${@perm.menu('sale.installments')}" data-capability="installments"><a onclick="showInstallments();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-calendar"></span> <span th:text="#{ui.js.instScreenTitle}">Installment plans</span></a></li>
 								<!-- MKT-0a: selling on the MaxTheService marketplace is a sales CHANNEL, so it lives under Sale —
 								     for any kind of shop, not only the storefront vertical (#snavStore). Opt-in module. -->
-								<li th:if="${@perm.any('sale.create')}" data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
+								<li th:if="${@perm.menu('sale.marketplace')}" data-capability="marketplaceSelling"><a id="navMarketplaceSeller" onclick="showMarketplaceSeller();document.getElementById('snavSell').classList.remove('snav-open');"><span class="glyphicon glyphicon-globe"></span> <span th:text="#{ui.mktSellMenu}">Marketplace</span></a></li>
 							</ul>
 						</div>
 						<!-- Store / e-commerce (slice 46) — shown ONLY for MARKETPLACE users (vertical-profile feature). -->
-						<div th:if="${@perm.any('sale.view','sale.create')}" class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
+						<div th:if="${@perm.menu('store')}" class="snav-dd" id="snavStore" data-vertical-only="MARKETPLACE">
 							<button class="snav-btn" onclick="snavToggle(event,'snavStore')">
 								<span class="glyphicon glyphicon-shopping-cart"></span>
 								<span th:text="#{ui.store}">Store</span>
@@ -266,7 +266,7 @@ tr.row-voided .js-edit-row{display:none !important}
 							</ul>
 						</div>
 						<!-- Pharmacy (slice 41) — clinical screens, shown ONLY for PHARMA users (vertical-profile feature). -->
-						<div th:if="${@perm.any('rx.dispense','sale.view','stock.edit','product.edit','clinic.patient.view','clinic.patient.edit','clinic.queue.view','clinic.token.issue','clinic.consult','clinic.doctor.day','clinic.doctor.manage','clinic.settings')}" class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
+						<div th:if="${@perm.menu('pharmacy')}" class="snav-dd" id="snavPharmacy" data-vertical-only="PHARMA">
 							<button class="snav-btn" onclick="snavToggle(event,'snavPharmacy')">
 								<span class="glyphicon glyphicon-plus"></span>
 								<span th:text="#{ui.pharmacy}">Pharmacy</span>
@@ -274,15 +274,15 @@ tr.row-voided .js-edit-row{display:none !important}
 							</button>
 							<ul class="snav-menu">
 								<!-- Medicine registration REUSES the existing Item screen (relabeled "Medicine"); no separate screen. -->
-								<li th:if="${@perm.any('rx.dispense','sale.view')}" data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
-								<li th:if="${@perm.any('rx.dispense','product.edit')}" data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
-								<li th:if="${@perm.any('rx.dispense','stock.edit')}" data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.prescriptions')}" data-capability="rxRequired"><a onclick="showPrescriptions();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-edit"></span> <span th:text="#{ui.prescriptions}">Prescriptions</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.clinical')}" data-capability="rxRequired"><a onclick="showClinical();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-alert"></span> <span th:text="#{ui.clinicalAndSafety}">Clinical &amp; Safety</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.alerts')}" data-capability="expiryTracking,rxRequired"><a onclick="showPharmAlerts();document.getElementById('snavPharmacy').classList.remove('snav-open');"><span class="glyphicon glyphicon-bell"></span> <span th:text="#{ui.alertsAndRegister}">Alerts &amp; Register</span></a></li>
 								<!-- HMS S1: the clinic's front desk (its own page), for a pharmacy that also runs a clinic. -->
-								<li th:if="${@perm.any('clinic.patient.view','clinic.patient.edit','clinic.queue.view','clinic.token.issue','clinic.consult','clinic.doctor.day','clinic.doctor.manage','clinic.settings')}" data-capability="clinic"><a id="navClinic" th:href="@{/clinicDashboard}"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.clinicOpen}">Clinic reception</span></a></li>
+								<li th:if="${@perm.menu('pharmacy.clinic')}" data-capability="clinic"><a id="navClinic" th:href="@{/clinicDashboard}"><span class="glyphicon glyphicon-plus-sign"></span> <span th:text="#{ui.clinicOpen}">Clinic reception</span></a></li>
 							</ul>
 						</div>
 						<!-- Till / cash drawer — cashier day-close (slice 39). Available to any commerce user. -->
-						<div th:if="${@perm.any('till.view','till.create')}" class="snav-dd" id="snavTill">
+						<div th:if="${@perm.menu('till')}" class="snav-dd" id="snavTill">
 							<button class="snav-btn" onclick="snavToggle(event,'snavTill')">
 								<span class="glyphicon glyphicon-usd"></span>
 								<span th:text="#{ui.till}">Till</span>
@@ -2112,7 +2112,7 @@ tr.row-voided .js-edit-row{display:none !important}
 								     the Enter walk never lands on "register a product" in the middle of typing a line. -->
 								<button type="button" id="newProductFromPurchase" class="btn btn-link btn-sm"
 										style="padding-left:0" data-kbd-skip
-										sec:authorize="hasAuthority('product.create')"
+										th:if="${@perm.menu('action.product.add')}"
 										onclick="newProductForPurchase()"
 										th:title="#{ui.newProduct}" title="Register a new product">
 									<span class="glyphicon glyphicon-plus"></span>
@@ -3619,6 +3619,11 @@ tr.row-voided .js-edit-row{display:none !important}
 						        th:text="#{ui.exportCsv}">Export CSV</button>
 					</div>
 					<div class="panel-body table-scroll">
+						<!-- SKU-AUTO-3: products with no manufacturer barcode are listed too (their SKU is the code) — search narrows -->
+						<input type="search" id="lblSearch" class="form-control input-sm" style="max-width:320px;margin-bottom:8px"
+						       oninput="filterLabels()" autocomplete="off"
+						       placeholder="Search name or code" th:placeholder="#{ui.lblSearch}">
+						<div id="lblMore" class="text-muted small" style="display:none;margin-bottom:6px"></div>
 						<table class="table table-condensed" id="tableLabels">
 							<thead><tr>
 								<th><input type="checkbox" id="lblAll" onchange="selectAllLabels(this.checked)"></th>
@@ -4193,7 +4198,7 @@ tr.row-voided .js-edit-row{display:none !important}
 					.rx-history-item{margin-bottom:10px}
 					.rx-history-reason{color:#4a5568;font-style:italic}
 				</style>
-				<span id="rxCanDispense" hidden="hidden" sec:authorize="hasAuthority('rx.dispense') or hasAuthority('ROLE_OWNER')"></span>
+				<span id="rxCanDispense" hidden="hidden" th:if="${@perm.menu('action.rx.dispense')}"></span>
 				<div id="rxPanel" class="rx-panel" style="display:none" aria-live="polite">
 					<div class="rx-panel-head">
 						<h5 id="rxPanelTitle"></h5>
@@ -4657,7 +4662,7 @@ tr.row-voided .js-edit-row{display:none !important}
          for a holder. PermissionInterceptor refuses POST /updateProduct without product.edit, so drawing them
          for anyone else would be offering a button that always refuses. The owner holds everything. The
          server remains the control. -->
-    <script sec:authorize="hasAuthority('product.edit')" th:inline="none">window.canEditProduct = true;</script>
+    <script th:if="${@perm.menu('action.product.edit')}" th:inline="none">window.canEditProduct = true;</script>
     <!-- PROD-DEL: permanently deleting a deactivated product is the OWNER's alone (the user's ruling). This flag only
          decides whether the "cannot be undone" confirm is shown; catalog enforces ROLE_OWNER itself. -->
     <script sec:authorize="hasAuthority('ROLE_OWNER')" th:inline="none">window.canPermanentlyDeleteProduct = true;</script>

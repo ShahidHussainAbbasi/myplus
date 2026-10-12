@@ -140,6 +140,54 @@ change clinic settings.
 
 Kept: the name "Clinic reception" (not renamed to "Front desk") — the client's accounts and the Test Book use it.
 
+## 8. RW-0 — roles and permissions are data (client, 2026-10-12)
+
+> "Nothing should be hard coded … these configuration should be assigned by role and permissions matrix provided
+> under Team → user management … saved and populated from the databases." — the client, while reviewing RW-2.
+
+**Market pattern (Odoo):** menus (`ir.ui.menu.groups_id`), access rules (`ir.model.access`) and groups are database
+records; code asks only "does this user hold X". Followed here.
+
+```mermaid
+flowchart LR
+  subgraph DB[auth-service database]
+    P[permission
+code · area · capability]
+    S[permission_set
+name · capability · default_for]
+    I[permission_set_item]
+    M[ui_menu  RW-0b
+key · parent · codes · capability]
+    E[endpoint_permission  RW-0c
+method · path · code]
+  end
+  T[Team → permission matrix] -->|edits| S & I
+  S --> I --> P
+  A[sign-in: codes of the member's set] --> J[token]
+  J --> MON[monolith menus: @perm.menu key]
+  M --> MON
+  J --> SRV[services: action needs code X]
+  E --> INT[monolith endpoint check]
+```
+
+| Was in code | Now |
+|---|---|
+| set names: new member → "Standard"/"Administrator"/"Teacher"/"Principal"; registered doctor → "Doctor" | `permission_set.default_for` = MEMBER / ADMIN / DOCTOR (V24); the business's own set wins over the built-in |
+| which sets/codes the Team screen offers ("Doctor", "Clinic reception", "Pharmacist", "clinic.*", "rx.dispense") | `capability` column on `permission` and `permission_set` (V24); one rule `PermissionVisibility.visible` |
+| members on NO set got rx.dispense + the desk codes in code; a NO_PERMISSION_SET marker | V24 puts every business member on their business's default set (client: yes); the fallback is deleted |
+| menu → codes in the templates (RW-2 draft, never built) | RW-0b: `ui_menu` table; templates name a menu KEY |
+| the monolith's 40 endpoint rules | RW-0c: `endpoint_permission` table, loaded and cached by the monolith |
+| a service's action → its code (e.g. giving a token needs clinic.token.issue) | stays in the service (the action must say what it needs — Odoo does the same); RW-0c adds a start-up check that every code a service names exists in the catalog |
+
+Found on the way: V23 had added "Store keeper", a duplicate of the V12 built-in **"Storekeeper"** — V24 removes it
+(nobody was on it); decision D3 is served by Storekeeper.
+
+| Slice | Delivers | Gate |
+|---|---|---|
+| RW-0a | V24 columns + data; PermissionVisibility/PermissionService/AuthService read the rows; no-set fallback removed | unit tests (visibility rule, job check); Cypress H3a, H2, RW-1, four-accounts, TI-08 |
+| RW-0b | `ui_menu` (auth) + `/api/auth/menus` + monolith `@perm.menu(key)`; RW-2 menus rebuilt on it | Cypress RW-2 per role (red first) |
+| RW-0c | `endpoint_permission` + monolith interceptor reads it; services' start-up catalog check | unit + Cypress refusal gates |
+
 ## 7. Progress
 
 | Date | Slice | State |
@@ -147,3 +195,6 @@ Kept: the name "Clinic reception" (not renamed to "Front desk") — the client's
 | 2026-10-12 | RW-1 | auth V23 (8 codes, sets, custom sets + no-set members keep the desk), PermissionVisibility (Pharmacist where rx/clinic on, Store keeper always), clinical ClinicAccess 6 checks + doctor.manage + clinic.settings, 13 service methods guarded; tests ClinicRolesTest (7), PharmacistAndDoctorSetsTest (+6 asserts); Cypress hms-rw1-roles (4) + H3a/H3b/H3c/four-accounts updated. NOT built, NOT deployed, no red run yet. |
 | 2026-10-12 | RW-1 RED (old code, auth V22 live): 4/4 fail at the first ROLE check — desk posted a purchase (stopped only by validation), the DOCTOR registered a patient, the pharmacist read the queue, no Pharmacist set. First red run had 2 coincidental "refusals" (invalid phone; existing token) → refusals now must be the PERMISSION refusal; owner cleanup reuses one session (device cap 5). |
 | 2026-10-12 | **RW-1 DEPLOYED + GREEN** (auth V23 + clinical 20:41; jars 20:39). RW-1 gate 4/4 (red on old code first, permission reasons). Full run after RW-1: 28 specs / 169: 148 pass, 0 fail, 21 pending. Test fixes on the way: (a) one test doctor carries every spec → completed visits hit his 20/day → `cy.hmsDoctorDay({limit:0})` in before, `{reset:true}` in after (9 specs); (b) Team list re-draws mid-select → choose on the freshly found row (FA-01, TI-08); (c) S3b-2 waits on the start-visit request (cold service > 5 s); (d) H3a: Doctor set = consult + 2 read codes. UNEXPLAINED: hms.doctor sign-in in after() landed on /login in 4 specs whose before() had failed (account not locked, no auth log) — did not recur once before() passed. Page v3 https://claude.ai/artifact/TwnC8frs53HcKspGM3GAvt. NEXT: RW-2 (menus by role). |
+| 2026-10-12 | RW-0a | BUILT, not deployed: auth V24 (capability + default_for columns, data, no-set members → default set, Store keeper duplicate removed); PermissionVisibility = one data rule; PermissionService.setForJob; AuthService no-set fallback + DOCTOR_SET removed; KeepsDispensingTest removed (its rule is gone), PharmacistAndDoctorSetsTest rewritten (5); monolith sends job DOCTOR (auth also accepts the old 'Doctor'). RW-2 draft (codes in templates + MenuAccess) NOT built — to be rebuilt on RW-0b. |
+| 2026-10-12 | **RW-0a DEPLOYED + GREEN** (auth jar 22:00, V24 22:01): sets carry capability/default_for; Store keeper gone; multi.module@ → Administrator. Gate 31/31: four-accounts 8, H3a 3, H2 6, RW-1 4, team sign-in 10. NEXT RW-0b. |
+| 2026-10-12 | RW-0b BUILT, not deployed: auth V25 ui_menu (33 menus + 3 in-page actions) + GET /api/auth/org/menus; monolith MenuCatalog (5-min cache, last copy kept on outage, unknown key shown) + MenuAccess.menu(key); businessDashboard 26 + clinicDashboard 8 + 3 action checks name KEYS only — no permission code left in any template; clinic page opens on the first screen the person may use; doctor day tools only for clinic.doctors.day. MenuAccessTest rewritten (4). RW-2 gate hms-rw2-menus (4) red on old code earlier. |

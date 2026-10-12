@@ -36,7 +36,10 @@ public class PermissionService {
     private final com.myplus.auth.repository.MembershipRepository membershipRepository;
     private final OrganizationRepository organizationRepo;
 
-    public static final String SET_STANDARD = "Standard";
+    /** RW-0a — the jobs a set can be the starting point for (permission_set.default_for, V24). */
+    public static final String JOB_MEMBER = "MEMBER";
+    public static final String JOB_ADMIN = "ADMIN";
+    public static final String JOB_DOCTOR = "DOCTOR";
 
     // ── the catalog ────────────────────────────────────────────────────────────────────────────
 
@@ -55,21 +58,6 @@ public class PermissionService {
      * described: "its members hold NO set, and AuthService then mints exactly the role privileges it
      * minted before PERM-1 existed."
      */
-    /**
-     * B2 (release readiness 2026-10-11) — does a member on NO set keep rx.dispense?
-     *
-     * <p>Pharma requires rx.dispense (H3). Before it, the role's WRITE_PRIVILEGE was enough to dispense, and a member
-     * on no set holds role privileges only — so a shop's ADMIN or USER who dispensed yesterday would be refused
-     * today. They keep exactly what they had: the write privilege still decides. Owners hold everything anyway; a
-     * member ON a set gets what the set says (V21 built-ins, V22 custom sets made before V21). Putting no-set members
-     * on a set instead would also change their row scope, which is a different decision.
-     */
-    public static boolean keepsDispensingWithoutASet(String permModule, boolean isOwner,
-                                                     java.util.Collection<String> authorities, Long setId) {
-        return "BUSINESS".equals(permModule) && !isOwner && setId == null
-                && authorities != null && authorities.contains("WRITE_PRIVILEGE");
-    }
-
     public static String moduleOf(String orgType) {
         if (orgType == null) return null;
         if ("BUSINESS".equalsIgnoreCase(orgType) || "PHARMA".equalsIgnoreCase(orgType)) return "BUSINESS";
@@ -313,10 +301,6 @@ public class PermissionService {
         return userSetRepo.findByUserId(userId).map(UserPermissionSet::getSetId).orElse(null);
     }
 
-    /** The set a brand-new member lands on when nobody chose one. */
-    public Optional<PermissionSet> standardSet() {
-        return setRepo.findByOrganizationIdIsNullAndName(SET_STANDARD);
-    }
 
     /** Which permission vocabulary the tenant owning this organisation speaks. */
     public String moduleForOrg(Long orgId) {
@@ -337,20 +321,20 @@ public class PermissionService {
      * <p>Returns empty when the tenant has no catalogue, and the caller leaves them on no set — which is
      * V14's fail-back: they are minted exactly the role privileges they had before PERM-1 existed.
      */
-    /** H3a — a built-in set of this tenant's module, by name (e.g. "Doctor" for a registered doctor's first set). */
-    public Optional<PermissionSet> builtinSet(Long orgId, String name) {
+    /**
+     * RW-0a — the set that is the starting point for a JOB in this tenant's module: the row whose
+     * {@code default_for} says so (V24). The business's OWN set wins over the built-in, so an owner can point a job at
+     * a set they made. Never a name in code.
+     */
+    public Optional<PermissionSet> setForJob(Long orgId, String job) {
         String module = moduleForOrg(orgId);
-        if (module == null) return Optional.empty();
-        return setsFor(orgId, module).stream().filter(ps -> ps.isBuiltin() && name.equals(ps.getName())).findFirst();
+        if (module == null || job == null) return Optional.empty();
+        return setsFor(orgId, module).stream()
+                .filter(ps -> job.equalsIgnoreCase(ps.getDefaultFor()))
+                .min(java.util.Comparator.comparing(ps -> ps.getOrganizationId() == null ? 1 : 0));
     }
 
     public Optional<PermissionSet> defaultSetFor(Long orgId, boolean admin) {
-        String module = moduleForOrg(orgId);
-        if (module == null) return Optional.empty();
-        String name = "EDUCATION".equals(module) ? (admin ? "Principal" : "Teacher")
-                                                 : (admin ? "Administrator" : SET_STANDARD);
-        return setsFor(orgId, module).stream()
-                .filter(ps -> ps.isBuiltin() && name.equals(ps.getName()))
-                .findFirst();
+        return setForJob(orgId, admin ? JOB_ADMIN : JOB_MEMBER);
     }
 }

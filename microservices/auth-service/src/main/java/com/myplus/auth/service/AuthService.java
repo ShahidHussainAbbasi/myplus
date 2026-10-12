@@ -25,14 +25,15 @@ import java.util.*;
 @lombok.extern.slf4j.Slf4j
 public class AuthService {
 
-    /** H3a — the only set that may be named when a login is created (a registered doctor). */
-    static final String DOCTOR_SET = "Doctor";
-
-    /** H3a — the first set a creator may name: none (the default), or the Doctor set for a member login. */
+    /**
+     * H3a / RW-0a — the first set a creator may ask for: none (the job's default), or the DOCTOR job for a member login.
+     * It names a JOB (permission_set.default_for), never a set: which set serves the doctor's job is the rows' choice.
+     * ("Doctor", the name an older monolith sends, is the same job.)
+     */
     static String firstSetChecked(String firstSet, String roleChoice) {
-        String wanted = firstSet == null || firstSet.isBlank() ? null : firstSet.trim();
-        if (wanted != null && !DOCTOR_SET.equals(wanted)) {
-            throw new ValidationException("Only the Doctor set can be chosen when a login is created. The owner assigns other sets.");
+        String wanted = firstSet == null || firstSet.isBlank() ? null : firstSet.trim().toUpperCase(java.util.Locale.ROOT);
+        if (wanted != null && !PermissionService.JOB_DOCTOR.equals(wanted)) {
+            throw new ValidationException("Only the doctor's job can be chosen when a login is created. The owner assigns other sets.");
         }
         if (wanted != null && "ADMIN".equalsIgnoreCase(roleChoice == null ? "" : roleChoice.trim())) {
             throw new ValidationException("A doctor's login is a member login, not an admin.");
@@ -326,7 +327,7 @@ public class AuthService {
             PermissionService perms = permissionServiceProvider.getObject();
             java.util.Optional<com.myplus.auth.entity.PermissionSet> first = wanted == null
                     ? perms.defaultSetFor(callerOrgId, "ADMIN".equals(rc))
-                    : perms.builtinSet(callerOrgId, DOCTOR_SET);
+                    : perms.setForJob(callerOrgId, PermissionService.JOB_DOCTOR);
             first.ifPresent(ps -> perms.assign(newUserId, ps.getId(), callerOrgId));
         } catch (Exception e) {
             log.warn("Could not place new member {} on a permission set", user.getEmail(), e);
@@ -1079,20 +1080,8 @@ public class AuthService {
                 authorities.addAll(isOwner ? permissionService.everything(permModule)
                                            : permissionService.effectiveFor(user.getId()));
             }
-            // B2: a business member on NO set keeps dispensing as before H3 — see keepsDispensingWithoutASet.
-            // RW-1: the same member keeps the clinic's front desk, which every member had before V23.
-            Long memberSetId = (permModule == null || isOwner) ? null : permissionService.setIdFor(user.getId());
-            if (PermissionService.keepsDispensingWithoutASet(permModule, isOwner, authorities, memberSetId)) {
-                authorities.add(PermissionVisibility.RX_DISPENSE);
-                authorities.addAll(PermissionVisibility.CLINIC_DESK);
-            }
-            // RW-2: say so EXPLICITLY when a business member is on no set. The menus show such a member what they
-            // saw before permission sets existed (the server still lets them read it); without the marker the
-            // menus would have to guess "no set" from which codes are present — and since RW-1 a no-set member
-            // carries the desk codes, while the Doctor set carries ONLY clinic codes: the two look alike.
-            if ("BUSINESS".equals(permModule) && !isOwner && memberSetId == null) {
-                authorities.add(PermissionVisibility.NO_PERMISSION_SET);
-            }
+            // RW-0a: what a member holds is what their set says — nothing added here. (B2/RW-1 used to add codes in
+            // code for a business member on NO set; V24 placed every such member on their business's default set.)
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).
             /*

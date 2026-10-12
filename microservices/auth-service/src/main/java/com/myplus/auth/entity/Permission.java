@@ -58,4 +58,11 @@ public class Permission {
      */
     @Column(name = "module", nullable = false, length = 16)
     private String module;
+
+    /**
+     * RW-0a (V24) — the business setting(s) that must be ON for this code to be offered, as Capability codes,
+     * comma-separated = any of them (e.g. "clinic,rxRequired"); null = always. Data, not code: see PermissionVisibility.
+     */
+    @Column(name = "capability", length = 64)
+    private String capability;
 }

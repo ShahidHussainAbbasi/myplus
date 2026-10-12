@@ -14,6 +14,11 @@
  *   K8  SKU-AUTO-2: a CSV row with no SKU is imported with a 12-digit code
  *   K9  SKU-AUTO-2: a CSV row claiming a SKU another product holds refuses the file, naming it; nothing is written
  *   K10 SKU-AUTO-2: after the deploy fill, no product of the business is left without a SKU
+ *   K11 SKU-AUTO-3: a product with no manufacturer barcode is on the label screen with its SKU, and prints a DRAWN
+ *       barcode whose text is that SKU
+ *   K12 SKU-AUTO-3: a product WITH a manufacturer barcode is not listed (its pack already scans)
+ *   K13 SKU-AUTO-3: the search box narrows the list by name or code
+ *   K14 SKU-AUTO-3: the till's scan resolves the printed SKU to the product
  *
  * Tenants: owner.business@ (org 13), owner.pharma@ (org 15), admin.business@. Products are spec-made (named SKA_…).
  *
@@ -134,6 +139,66 @@ describe('SKU-AUTO-1 — a blank SKU becomes a 12-digit code; the shop can chang
       const blank = ps.filter((x) => x.sku == null || String(x.sku).trim() === '')
       expect(ps.length, 'the business has products').to.be.greaterThan(0)
       expect(blank.map((x) => x.id + ':' + x.name).slice(0, 10), 'products still without a SKU').to.deep.eq([])
+    })
+  })
+
+  // ── SKU-AUTO-3 — the SKU printed as a shelf-label barcode ────────────────────────────────────────────────
+  const openLabels = () => {
+    cy.visit('/businessDashboard')
+    cy.waitForAppReady()
+    cy.window().should('have.property', 'showLabels')
+    cy.window().then((w) => w.showLabels())
+    cy.get('#LabelsDiv', { timeout: 15000 }).should('be.visible')
+    cy.get('#lblBody .lbl-pick', { timeout: 15000 }).should('have.length.at.least', 1)   // a real row, not "loading"
+  }
+
+  it('K11 a product with no barcode is listed with its SKU and prints a drawn barcode of it', () => {
+    const name = 'SKA_K11_' + RUN
+    create(name).then((b) => {
+      const sku = b.data.sku
+      expect(sku).to.match(AUTO)
+      openLabels()
+      cy.get('#lblSearch').clear().type(sku)
+      cy.contains('#lblBody tr[data-kind="product"]', sku).should('contain', name).find('.lbl-pick').check()
+      cy.window().then((w) => cy.stub(w, 'print').as('printed'))
+      cy.get('#lblPrint').should('not.be.disabled').click()
+      cy.get('@printed').should('have.been.calledOnce')
+      cy.get('#lblSheet .lbl').should('have.length', 1).within(() => {
+        cy.get('svg.lbl-code').should('have.attr', 'data-code', sku).find('rect, path').should('have.length.greaterThan', 0)
+        cy.contains('.lbl-text', sku).should('exist')
+        cy.contains('.lbl-name', name).should('exist')
+      })
+    })
+  })
+
+  it('K12 a product WITH a manufacturer barcode is not listed', () => {
+    const name = 'SKA_K12_' + RUN
+    cy.request({ method: 'POST', url: '/addProduct', headers: { 'Content-Type': 'application/json' },
+      body: { name, sellingPrice: 10, taxRate: 0, unit: 'pcs', categoryName: 'General', barcode: '8964' + RUN } })
+      .its('body.success').should('eq', true)
+    openLabels()
+    cy.get('#lblSearch').clear().type(name)
+    cy.get('#lblBody').should('not.contain', name)
+  })
+
+  it('K13 the search box narrows the list by name or code', () => {
+    const name = 'SKA_K13_' + RUN
+    create(name).then((b) => {
+      openLabels()
+      cy.get('#lblSearch').clear().type(name)
+      cy.get('#lblBody tr').should('have.length', 1).and('contain', b.data.sku)
+      cy.get('#lblSearch').clear().type(b.data.sku)
+      cy.get('#lblBody tr').should('have.length', 1).and('contain', name)
+    })
+  })
+
+  it('K14 the till scan resolves the printed SKU to the product', () => {
+    create('SKA_K14_' + RUN).then((b) => {
+      cy.request('/scanProduct?code=' + b.data.sku).then((r) => {
+        const body = typeof r.body === 'string' ? JSON.parse(r.body) : r.body
+        const ref = body.product || body
+        expect(ref && ref.id, JSON.stringify(body).slice(0, 200)).to.eq(b.data.id)
+      })
     })
   })
 })
