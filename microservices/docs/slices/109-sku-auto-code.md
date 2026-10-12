@@ -127,3 +127,13 @@ oldest-first, typed and legacy untouched, 2nd run = 0, hand-typed code skipped).
 skipped. ⚠ The suite log shows "Unexpected error occurred in scheduled task" ×21: `CatalogAuditService.pending`
 (audit-outbox poller) in a CACHED test context whose MySQL container has stopped ("Connection is not available,
 total=0") — harness noise, not a test failure, not from this slice. Gate K8–K10 added to `product-sku-auto.cy.js`.
+
+## 10. Deployed and verified (owner-deployed: catalog 21:35, monolith 21:29, 2026-10-12)
+
+* V26 applied (`flyway_schema_history` v26 success); `uq_products_org_sku` UNIQUE, `idx_products_org_sku` dropped.
+* Deploy fill log: "SKU-AUTO-2: gave **823** product(s) an automatic SKU across **9** business(es)" — the 823 blanks
+  counted before deploy; products without a SKU now **0** of 7,731.
+* Gate `product-sku-auto.cy.js` **10/10**. Regression **99/99**: product-crud 14, product-import 20,
+  duplicate-submit-guard 10, product-policies 7, purchase-expiry-required 7, product-last-rates 7, purchase 22,
+  pricing-per-batch-sale 12.
+* Next: SKU-AUTO-3 — print the SKU as a barcode on shelf labels for products with no manufacturer barcode.
