@@ -48,9 +48,18 @@ describe('HMS H3a — the pharmacist permission and the clinic sets', () => {
       expect(standard.codes, 'Standard keeps dispensing (nobody loses access)').to.include('rx.dispense')
       expect(admin.codes, 'Administrator keeps dispensing').to.include('rx.dispense')
       expect(reception.codes, 'the front desk does not dispense').to.not.include('rx.dispense')
-      expect(reception.codes, '…but takes payment like Standard').to.include('sale.create')
-      expect(reception.codes.length, 'Clinic reception = Standard minus the pharmacist code').to.eq(standard.codes.length - 1)
-      expect(doctor.codes, 'a doctor never dispenses or sells').to.deep.eq(['clinic.consult'])
+      expect(reception.codes, '…but takes the consultation fee at the till (RW-1 D1)').to.include('sale.create')
+      // RW-1 (D5): the front desk is not the pharmacy's back office — no stock, purchases, prices or reports
+      ;['purchase.create', 'product.edit', 'stock.edit', 'supplier.create', 'report.view'].forEach((c) =>
+        expect(reception.codes, `the front desk has no ${c}`).to.not.include(c))
+      expect(reception.codes, 'the front desk gives tokens').to.include('clinic.token.issue')
+      // RW-1 (D3): the pharmacist dispenses and sells but does not receive stock; the store keeper does
+      expect(setNamed(p, 'Pharmacist').codes).to.include('rx.dispense').and.not.include('purchase.create')
+      expect(setNamed(p, 'Store keeper').codes).to.include('purchase.create').and.not.include('rx.dispense')
+      // RW-1: the Doctor set also reads the queue and finds a patient — it still never dispenses or sells
+      expect(doctor.codes, 'a doctor consults').to.include('clinic.consult')
+      ;['rx.dispense', 'sale.create', 'purchase.create', 'clinic.token.issue', 'clinic.patient.edit'].forEach((c) =>
+        expect(doctor.codes, `a doctor has no ${c}`).to.not.include(c))
       S.doctorSetId = doctor.id
     })
     // on the screen: the owner's set picker lists them

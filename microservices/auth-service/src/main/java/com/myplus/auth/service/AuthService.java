@@ -1080,9 +1080,18 @@ public class AuthService {
                                            : permissionService.effectiveFor(user.getId()));
             }
             // B2: a business member on NO set keeps dispensing as before H3 — see keepsDispensingWithoutASet.
-            if (PermissionService.keepsDispensingWithoutASet(permModule, isOwner, authorities,
-                    permissionService.setIdFor(user.getId()))) {
+            // RW-1: the same member keeps the clinic's front desk, which every member had before V23.
+            Long memberSetId = (permModule == null || isOwner) ? null : permissionService.setIdFor(user.getId());
+            if (PermissionService.keepsDispensingWithoutASet(permModule, isOwner, authorities, memberSetId)) {
                 authorities.add(PermissionVisibility.RX_DISPENSE);
+                authorities.addAll(PermissionVisibility.CLINIC_DESK);
+            }
+            // RW-2: say so EXPLICITLY when a business member is on no set. The menus show such a member what they
+            // saw before permission sets existed (the server still lets them read it); without the marker the
+            // menus would have to guess "no set" from which codes are present — and since RW-1 a no-set member
+            // carries the desk codes, while the Doctor set carries ONLY clinic codes: the two look alike.
+            if ("BUSINESS".equals(permModule) && !isOwner && memberSetId == null) {
+                authorities.add(PermissionVisibility.NO_PERMISSION_SET);
             }
             // Row-level scope travels too: OWN = only their own records, ALL = the whole shop. A
             // different question from which actions, and the readers need both (design G-3).

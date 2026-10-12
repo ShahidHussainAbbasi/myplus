@@ -59,7 +59,8 @@ class ProductPriceHistoryTest {
     void setUp() {
         TestTenant.authenticate(ORG, USER);
         service = new ProductService(productRepository, categoryRepository, taxCodeRepository, pickerCache, events,
-                refsCache, history);
+                refsCache, history,
+                org.mockito.Mockito.mock(SkuAllocator.class));
     }
 
     @AfterEach
@@ -161,6 +162,10 @@ class ProductPriceHistoryTest {
         ProductImportSpec spec = new ProductImportSpec();
         ReflectionTestUtils.setField(spec, "productRepository", productRepository);
         ReflectionTestUtils.setField(spec, "events", events);
+        // SKU-AUTO-2 — persist() fills blank SKUs from the counter inside a transaction
+        ReflectionTestUtils.setField(spec, "skuAllocator", org.mockito.Mockito.mock(SkuAllocator.class));
+        ReflectionTestUtils.setField(spec, "transactionManager",
+                org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
         ReflectionTestUtils.setField(spec, "priceHistory", history);
         Product priced = product("99.00");
         Product unpriced = product(null);

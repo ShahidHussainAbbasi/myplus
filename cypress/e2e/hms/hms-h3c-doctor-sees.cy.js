@@ -14,10 +14,12 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h3c-doctor-sees.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS H3c — the doctor sees what the pharmacy did', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
-  const PHARMACIST = 'user.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
+  const PHARMACIST = HMS.PHARMACIST
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const phone = '038' + run.slice(-6) + String(Math.floor(Math.random() * 90) + 10).slice(-2)
@@ -33,7 +35,7 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
     cy.intercept('GET', '**/clinic/consult/encounters/*/rx/pharmacy').as('pharmacyCopy')
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
-    cy.get('#clinMyDoctor').select(String(S.doctor.id))
+    cy.myQueueOn(S.doctor)
     cy.then(() => cy.contains('#clinQueueBody tr', S.token.tokenLabel).find('.clin-q-start').click())
     cy.wait('@pharmacyCopy')
     cy.get('#clinRxPharmacy').should('be.visible')
@@ -46,15 +48,16 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
     cy.setPermissionSet(DOCTOR, 'Doctor')
-    cy.setPermissionSet(PHARMACIST, 'Standard')
+    cy.setPermissionSet(PHARMACIST, OWN_SET[PHARMACIST])
     relogin(OWNER)
     cy.postJson('/clinic/patients', { phone, name: 'H3c Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      S.doctor = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
-      expect(S.doctor, 'Dr Ahmed (gate)').to.exist
+      S.doctor = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
+      expect(S.doctor, HMS.DOCTOR_NAME + ' (run hms-four-accounts first)').to.exist
     })
     cy.seedProduct({ name: MED_A, unit: 'tablet', stock: 50, sellingPrice: 20 }).then(({ productId }) => { S.medA = productId })
     cy.seedProduct({ name: MED_B, unit: 'tablet', stock: 50, sellingPrice: 4 }).then(({ productId }) => { S.medB = productId })
@@ -78,7 +81,8 @@ describe('HMS H3c — the doctor sees what the pharmacy did', () => {
     if (S.visitId) cy.postJson(`/clinic/consult/encounters/${S.visitId}/complete`)
     relogin(OWNER)
     if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 

@@ -56,6 +56,24 @@ public interface ImportSpec<T> {
      */
     Set<String> existingKeys(Long orgId, Long userId, Set<String> keys);
 
+    /**
+     * Columns that must be UNIQUE within the tenant besides the duplicate key — e.g. a product's SKU (SKU-AUTO-2).
+     *
+     * <p>Unlike the duplicate key (whose clash means "this row is already here" → SKIP), a clash here means the row is
+     * a DIFFERENT record claiming a value another record owns, so the row is an ERROR and the file is refused until
+     * the operator fixes it. A blank value is never checked. Values compare case-insensitively, as MySQL's default
+     * collation (and so the unique index) does.
+     *
+     * <p>Default: none, so every existing spec is unaffected.
+     */
+    default List<String> uniqueColumns() { return List.of(); }
+
+    /**
+     * Which of these values this tenant already holds in {@code column} — called ONCE per column per file, with every
+     * value, never once per row (same rule as {@link #existingKeys}).
+     */
+    default Set<String> existingValues(String column, Long orgId, Long userId, Set<String> values) { return Set.of(); }
+
     /** Build the entity from a validated row. Never called for a row the engine classified ERROR or SKIP. */
     T build(CsvReader.Row row, Long orgId, Long userId);
 

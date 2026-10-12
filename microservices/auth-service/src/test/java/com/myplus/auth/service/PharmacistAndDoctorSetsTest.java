@@ -19,6 +19,13 @@ class PharmacistAndDoctorSetsTest {
         assertThat(PermissionVisibility.setVisible("Doctor", true, false)).isFalse();
         assertThat(PermissionVisibility.setVisible("Clinic reception", true, false)).isFalse();
         assertThat(PermissionVisibility.setVisible("Standard", true, false)).isTrue();
+        // RW-1: the new pharmacy and stock sets
+        assertThat(PermissionVisibility.setVisible("Pharmacist", true, false, false)).isFalse();
+        assertThat(PermissionVisibility.setVisible("Pharmacist", true, false, true)).isTrue();
+        assertThat(PermissionVisibility.setVisible("Pharmacist", true, true, false)).isTrue();
+        assertThat(PermissionVisibility.setVisible("Store keeper", true, false, false)).isTrue();
+        assertThat(PermissionVisibility.codeVisible("clinic.token.issue", false, true)).isFalse();
+        assertThat(PermissionVisibility.codeVisible("clinic.token.issue", true, false)).isTrue();
     }
 
     @Test

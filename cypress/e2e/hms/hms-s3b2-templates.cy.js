@@ -14,10 +14,12 @@
  * Run (headless records reliably):
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-s3b2-templates.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS S3b-2 — prescription templates', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
-  const FRONT_DESK = 'user.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
+  const FRONT_DESK = HMS.RECEPTION
   const OTHER = 'owner.business@myplus.com'
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
@@ -37,7 +39,7 @@ describe('HMS S3b-2 — prescription templates', () => {
   const openMyQueue = () => {
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
-    cy.get('#clinMyDoctor').select(String(S.doctor.id))
+    cy.myQueueOn(S.doctor)
   }
   // Reception issues a token; the doctor calls and starts it ON SCREEN (leaves the consultation open).
   const startOnScreen = () => {
@@ -47,9 +49,11 @@ describe('HMS S3b-2 — prescription templates', () => {
     openMyQueue()
     cy.then(() => {
       cy.contains('#clinQueueBody tr', S.current.tokenLabel).find('.clin-q-call').click()
+      cy.intercept('POST', '**/clinic/consult/tokens/*/start').as('startVisit')
       cy.contains('#clinQueueBody tr', S.current.tokenLabel).find('.clin-q-start').click()
     })
-    cy.get('#clinIdBanner').should('contain', S.patient.name)
+    cy.wait('@startVisit', { timeout: 30000 })   // the visit opens when THIS answers (a cold service takes > 5 s)
+    cy.get('#clinIdBanner', { timeout: 15000 }).should('contain', S.patient.name)
   }
 
   before(() => {
@@ -64,11 +68,11 @@ describe('HMS S3b-2 — prescription templates', () => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
+      const d = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
       if (d) { S.doctor = d; return }
-      return cy.postJson('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
-        .then((c) => { S.doctor = c.body.data })
+      throw new Error(HMS.DOCTOR_NAME + ' is missing — run cypress/e2e/hms/hms-four-accounts.cy.js first')
     })
     cy.seedProduct({ name: MED_A, unit: 'tablet', stock: 50, sellingPrice: 5 }).then(({ productId }) => { S.medA = productId })
     cy.seedProduct({ name: MED_B, unit: 'tablet', stock: 50, sellingPrice: 8 }).then(({ productId }) => { S.medB = productId })
@@ -87,7 +91,8 @@ describe('HMS S3b-2 — prescription templates', () => {
     cy.then(() => S.rxIds.forEach((id) => cy.postJson('/cancelPrescription', { prescriptionId: id })))
     S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
     if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 

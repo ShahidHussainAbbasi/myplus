@@ -11,7 +11,10 @@ import java.time.LocalDateTime;
  * (currentStock, min/max level, reorderPoint, costPrice) lives in inventory-service's StockLevel.
  */
 @Entity
-@Table(name = "products", indexes = {@Index(columnList = "sku")})
+// SKU-AUTO: the SKU is unique per business (V26). Declared here too so a Hibernate-built schema (tests) carries it.
+@Table(name = "products", indexes = {@Index(columnList = "sku")},
+       uniqueConstraints = {@jakarta.persistence.UniqueConstraint(name = "uq_products_org_sku",
+                                                                  columnNames = {"organization_id", "sku"})})
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Product {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

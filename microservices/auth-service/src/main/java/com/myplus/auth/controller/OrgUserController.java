@@ -130,7 +130,7 @@ public class OrgUserController {
             return m;
         }).toList());
         out.put("sets", permissionService.setsFor(org, module).stream()
-                .filter(ps -> com.myplus.auth.service.PermissionVisibility.setVisible(ps.getName(), ps.isBuiltin(), clinicOn)).map(ps -> {
+                .filter(ps -> com.myplus.auth.service.PermissionVisibility.setVisible(ps.getName(), ps.isBuiltin(), clinicOn, rxOn)).map(ps -> {
             Map<String, Object> m = new java.util.LinkedHashMap<>();
             m.put("id", ps.getId());
             m.put("name", ps.getName());

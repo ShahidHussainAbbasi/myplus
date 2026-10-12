@@ -46,6 +46,8 @@ class ProductImportSpecTest {
     private CategoryRepository categoryRepository;
     private ProductImportSpec spec;
     private ImportEngine engine;
+    private SkuAllocator skuAllocator;
+    private int codes;
 
     @BeforeEach
     void setUp() {
@@ -59,6 +61,14 @@ class ProductImportSpecTest {
         // unnoticed from CACHE-1 until CACHE-2's full-suite run). What they publish is pinned in ProductPickerWritersTest
         // and CatalogRefsWritersTest.
         ReflectionTestUtils.setField(spec, "events", mock(org.springframework.context.ApplicationEventPublisher.class));
+        // SKU-AUTO-2 — a blank SKU takes the next code inside a transaction; both mocked (the counter is pinned in
+        // SkuAllocatorTest, the transaction is the template's own business).
+        skuAllocator = mock(SkuAllocator.class);
+        when(skuAllocator.next(any(), any())).thenAnswer(inv -> "2000000000" + String.format("%02d", ++codes));
+        ReflectionTestUtils.setField(spec, "skuAllocator", skuAllocator);
+        ReflectionTestUtils.setField(spec, "transactionManager",
+                mock(org.springframework.transaction.PlatformTransactionManager.class));
+        when(productRepository.existingSkusScoped(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
         engine = new ImportEngine();
 
         when(productRepository.existingNamesScoped(any(), anyLong(), anyLong())).thenReturn(new ArrayList<>());
@@ -83,6 +93,46 @@ class ProductImportSpecTest {
         ArgumentCaptor<List<Product>> captor = ArgumentCaptor.forClass(List.class);
         verify(productRepository).saveAll(captor.capture());
         return captor.getValue();
+    }
+
+    // ── SKU-AUTO-2 — every imported product gets a SKU; a SKU is unique per business ─────────────────────────
+
+    @Test
+    void a_blank_sku_takes_the_next_automatic_code_and_a_typed_one_is_kept() {
+        ImportReport r = engine.commit(spec, HEADERS + minimal("", "Widget") + minimal("MY-1", "Gadget"), ORG, USER);
+
+        assertThat(r.isCommitted()).isTrue();
+        List<Product> saved = captureSaved();
+        assertThat(saved).extracting(Product::getSku).containsExactly("200000000001", "MY-1");
+    }
+
+    @Test
+    void a_sku_another_product_already_holds_refuses_the_file() {
+        when(productRepository.existingSkusScoped(any(), anyLong(), anyLong())).thenReturn(List.of("TAKEN-1"));
+        ImportReport r = engine.commit(spec, HEADERS + minimal("taken-1", "New thing") + minimal("", "Other"), ORG, USER);
+
+        assertThat(r.isCommitted()).as("one clash refuses the whole file").isFalse();
+        assertThat(r.getRefused()).isEqualTo(1);
+        assertThat(r.getRows().get(0).getMessage()).contains("taken-1").contains("already used");
+        verify(productRepository, never()).saveAll(any());
+    }
+
+    @Test
+    void the_same_sku_twice_in_one_file_is_refused() {
+        ImportReport r = engine.dryRun(spec, HEADERS + minimal("DUP", "One") + minimal("dup", "Two"), ORG, USER);
+
+        assertThat(r.getRefused()).isEqualTo(1);
+        assertThat(r.getRows().get(1).getMessage()).contains("appears earlier");
+    }
+
+    @Test
+    void a_re_uploaded_row_stays_a_skip_not_a_clash_with_itself() {
+        when(productRepository.existingNamesScoped(any(), anyLong(), anyLong())).thenReturn(List.of("Widget"));
+        when(productRepository.existingSkusScoped(any(), anyLong(), anyLong())).thenReturn(List.of("W-1"));
+        ImportReport r = engine.dryRun(spec, HEADERS + minimal("W-1", "Widget"), ORG, USER);
+
+        assertThat(r.getRefused()).as("the product is already here - that is a skip").isZero();
+        assertThat(r.getSkipped()).isEqualTo(1);
     }
 
     // ── the template ────────────────────────────────────────────────────────────────────────────────────────

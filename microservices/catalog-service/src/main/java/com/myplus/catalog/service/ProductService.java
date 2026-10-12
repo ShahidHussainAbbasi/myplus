@@ -39,6 +39,7 @@ public class ProductService {
     private final CatalogRefsCache refsCache;
     // PR-1 — every selling-price change, written in the change's own transaction.
     private final com.myplus.catalog.repository.ProductPriceHistoryRepository priceHistory;
+    private final SkuAllocator skuAllocator;   // SKU-AUTO — a blank SKU is filled with the next 12-digit code
 
     /** This org's tax-code rates by id (one query) — so building refs never does a per-product lookup. */
     private java.util.Map<Long, BigDecimal> orgCodeRates() {
@@ -185,6 +186,9 @@ public class ProductService {
         p.setUserId(userId);
         p.setIdempotencyKey(key);     // stamped HERE, not in fromDto: an update must never move the key
         if (p.getCreatedBy() == null) p.setCreatedBy(userId);
+        // SKU-AUTO — every product gets a SKU: a blank one takes the next 12-digit code. Last, right before the insert:
+        // the counter row stays locked until commit (allocate LATE).
+        if (p.getSku() == null) p.setSku(skuAllocator.next(orgId, userId));
         /*
          * saveAndFlush, deliberately: the INSERT must hit the database while we are still inside this method so
          * the unique-index violation surfaces as a DataIntegrityViolationException the controller can replay.
@@ -288,15 +292,20 @@ public class ProductService {
         if (dto.getVersion() != null && !dto.getVersion().equals(p.getVersion())) {
             throw new org.springframework.orm.ObjectOptimisticLockingFailureException(Product.class, id);
         }
-        // Same rule as create: a blank sku is "cleared", not a duplicate. Clearing the code on an
-        // existing product must be allowed, so only a real, CHANGED value is checked.
+        // Same rule as create: only a real, CHANGED value can be a duplicate. SKU-AUTO: a blank one is not a
+        // clear any more — every product keeps a SKU (below).
         String sku = normalize(dto.getSku());
+        String skuBefore = p.getSku();
         if (sku != null && !sku.equals(p.getSku())
                 && productRepository.existsBySkuScoped(sku, CurrentUser.organizationId(), CurrentUser.userId())) {
             throw new DuplicateResourceException("Product SKU already exists: " + sku);
         }
         java.math.BigDecimal priceBefore = p.getSellingPrice();   // PR-1 — read before the form overwrites it
         fromDto(dto, p);
+        // SKU-AUTO — a box left blank keeps the code the product had; a product that never had one gets the next code.
+        if (p.getSku() == null) {
+            p.setSku(skuBefore != null ? skuBefore : skuAllocator.next(p.getOrganizationId(), p.getUserId()));
+        }
         /*
          * saveAndFlush, not save: Hibernate increments the version when it FLUSHES, and a plain save() on a managed
          * entity defers that to commit — after toDto has already run. The response would then carry the OLD

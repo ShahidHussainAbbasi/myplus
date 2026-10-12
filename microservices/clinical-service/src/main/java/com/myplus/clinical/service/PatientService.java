@@ -62,6 +62,7 @@ public class PatientService {
     /** Who is on this number. Refuses a number that is not a mobile, so the screen can say so as it is typed. */
     public PhoneLookup lookup(String rawPhone) {
         access.assertModuleOn();
+        access.assertMayViewPatients();   // RW-1
         Long org = access.org();
         String phone = PatientRules.phone(rawPhone);
         List<Patient> found = repo.findByOrganizationIdAndPhoneKeyOrderByFamilySeqAsc(org, PhoneNumbers.key(phone));
@@ -82,6 +83,7 @@ public class PatientService {
 
     public PatientView register(RegisterRequest req) {
         access.assertModuleOn();
+        access.assertMayEditPatients();   // RW-1
         Long org = access.org();
         String phone = PatientRules.phone(req.getPhone());
         String key = PhoneNumbers.key(phone);
@@ -129,6 +131,7 @@ public class PatientService {
 
     public PatientView get(Long id) {
         access.assertModuleOn();
+        access.assertMayViewPatients();   // RW-1
         Patient p = scoped(id);
         audit.patient("PATIENT_VIEW", p.getMrn(), "opened");
         return view(p);
@@ -137,6 +140,7 @@ public class PatientService {
     /** Most recent first, at most a page: the front desk's list and search box. */
     public List<PatientView> search(String q) {
         access.assertModuleOn();
+        access.assertMayViewPatients();   // RW-1
         Long org = access.org();
         List<Patient> rows;
         if (q == null || q.isBlank()) {
@@ -155,6 +159,7 @@ public class PatientService {
 
     public PatientView update(Long id, UpdateRequest req) {
         access.assertModuleOn();
+        access.assertMayEditPatients();   // RW-1
         Patient p = scoped(id);
         if (req.getVersion() != null && !Objects.equals(req.getVersion(), p.getVersion())) {
             throw new ValidationException("Someone else changed this patient since you opened it. Reopen and try again.");
@@ -178,6 +183,7 @@ public class PatientService {
      */
     public List<PatientView> resolve(String q) {
         access.assertModuleOn();
+        access.assertMayViewPatients();   // RW-1
         Long org = access.org();
         String t = q == null ? "" : q.trim().toUpperCase(java.util.Locale.ROOT);
         List<Patient> hits = new java.util.ArrayList<>();
@@ -213,6 +219,7 @@ public class PatientService {
     /** Complete a pending link (the screen's "Link customer" and, in S4, Dispense). Idempotent. */
     public PatientView link(Long id) {
         access.assertModuleOn();
+        access.assertMayEditPatients();   // RW-1
         Long org = access.org();
         scoped(id);
         return linkNow(id, org);

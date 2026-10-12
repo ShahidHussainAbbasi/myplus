@@ -19,9 +19,11 @@
  * Run headed:
  *   npx cypress run --headed --browser chrome --spec "cypress/e2e/hms/hms-s1-patient-desk.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS S1 — patient desk (reception → MRN → pharmacy customer)', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const FRONT_DESK = 'user.pharma@myplus.com'
+  const FRONT_DESK = HMS.RECEPTION
   const OTHER_CLINIC = 'owner.business@myplus.com'
   const PW = 'Demo@2025!'
 

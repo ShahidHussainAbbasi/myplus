@@ -15,9 +15,11 @@
  * Run (headless records reliably):
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-s4lite-pharmacy.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS S4-lite — pharmacy search and the patient as customer', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const PHARMACIST = 'user.pharma@myplus.com'
+  const PHARMACIST = HMS.PHARMACIST
   const OTHER = 'owner.business@myplus.com'
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)

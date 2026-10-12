@@ -1713,6 +1713,34 @@ Cypress.Commands.add('setPermissionSet', (email, setName) =>
     })
   }))
 
+/**
+ * HMS-4 — My queue on `doctor` ({id, name}), as the person sees it. An unlinked doctor (the owner, a Doctor-set member
+ * covering) picks from "Which doctor you are"; a LINKED doctor has no picker — the queue is already theirs and their
+ * name is shown (clinic.js startMyQueue). Fails loudly if the queue is on anyone else.
+ */
+Cypress.Commands.add('myQueueOn', (doctor) => {
+  cy.get(`#clinMyDoctor option[value="${doctor.id}"]`, { timeout: 15000 }).should('exist')
+  return cy.get('#clinMyDoctorWrap').then(($w) => {
+    if ($w.is(':visible')) return cy.get('#clinMyDoctor').select(String(doctor.id))
+    cy.get('#clinMyDoctor').should('have.value', String(doctor.id))
+    return cy.get('#clinMeName').should('be.visible').and('contain', doctor.name)
+  })
+})
+
+/**
+ * HMS-4 / RW-1 — Dr HMS Test's day, as the OWNER (the current session must be the owner's). Every doctor spec now
+ * sends its patients to the one test doctor, and completed visits count toward his patients-a-day (20) — the full run
+ * reached it on 2026-10-12. So each spec sets "no limit today" in before() and RESETS the day in after() (no server
+ * state left). {limit: 0} = no limit that day; {reset: true} = back to the doctor's usual day.
+ */
+Cypress.Commands.add('hmsDoctorDay', (day) =>
+  cy.request('/clinic/doctors').then((r) => {
+    const d = ((r.body && r.body.data) || []).find((x) => x.name === 'Dr HMS Test')
+    expect(d, 'Dr HMS Test (run hms-four-accounts first)').to.exist
+    return cy.postJson('/clinic/doctors/day', Object.assign({ providerId: d.id }, day))
+      .its('body').then((b) => expect(b && b.success, JSON.stringify(b)).to.eq(true))
+  }))
+
 /** Chrome's time zone for the page under test (DevTools emulation); '' puts the machine's zone back. */
 Cypress.Commands.add('emulateZone', (timezoneId) =>
   cy.wrap(Cypress.automation('remote:debugger:protocol', { command: 'Emulation.setTimezoneOverride', params: { timezoneId } })))

@@ -20,10 +20,12 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h3b-pharmacist.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS H3b — the pharmacist changes or cancels the prescription, and it is kept', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
-  const PHARMACIST = 'user.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
+  const PHARMACIST = HMS.PHARMACIST
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const phone = '030' + run.slice(-6) + String(Math.floor(Math.random() * 90) + 10).slice(-2)
@@ -53,15 +55,16 @@ describe('HMS H3b — the pharmacist changes or cancels the prescription, and it
     relogin(OWNER, 'pre')
     cy.setCapability('clinic', true)
     cy.setPermissionSet(DOCTOR, 'Doctor')
-    cy.setPermissionSet(PHARMACIST, 'Standard')
+    cy.setPermissionSet(PHARMACIST, OWN_SET[PHARMACIST])
     relogin(OWNER)
     cy.postJson('/clinic/patients', { phone, name: 'H3b Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      S.doctor = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
-      expect(S.doctor, 'Dr Ahmed (gate)').to.exist
+      S.doctor = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
+      expect(S.doctor, HMS.DOCTOR_NAME + ' (run hms-four-accounts first)').to.exist
     })
     cy.seedProduct({ name: MED_A, unit: 'tablet', stock: 50, sellingPrice: 20 }).then(({ productId }) => { S.medA = productId })
     cy.seedProduct({ name: MED_B, unit: 'tablet', stock: 50, sellingPrice: 4 }).then(({ productId }) => { S.medB = productId })
@@ -87,8 +90,9 @@ describe('HMS H3b — the pharmacist changes or cancels the prescription, and it
     relogin(OWNER)
     cy.then(() => { if (S.rxId) cy.postJson('/cancelPrescription', { prescriptionId: S.rxId, reason: 'cypress cleanup' }) })
     if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    cy.setPermissionSet(PHARMACIST, 'Standard')
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(PHARMACIST, OWN_SET[PHARMACIST])
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -153,8 +157,7 @@ describe('HMS H3b — the pharmacist changes or cancels the prescription, and it
 
   it('B-04 [L-3] the front desk on Clinic reception sees the list but cannot dispense, change or cancel', () => {
     relogin(OWNER)
-    cy.setPermissionSet(PHARMACIST, 'Clinic reception')
-    relogin(PHARMACIST, 'desk')   // a fresh token: the set's codes (no rx.dispense) ride in it
+    relogin(HMS.RECEPTION, 'desk')   // HMS-4: the reception account itself (Clinic reception: no rx.dispense)
     openPrescriptions()
     cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`).should('contain', 'with the pharmacist').and('not.contain', 'Dispense')
       .find('.rx-change').should('not.exist')
@@ -174,7 +177,6 @@ describe('HMS H3b — the pharmacist changes or cancels the prescription, and it
 
   it("B-03 [L-3] cancelling the doctor's prescription needs a reason; History shows it", () => {
     relogin(OWNER)
-    cy.setPermissionSet(PHARMACIST, 'Standard')   // back to the pharmacist (B-04 moved them)
     relogin(PHARMACIST, 'pharmacist-again')
     cy.postJson('/cancelPrescription', { prescriptionId: S.rxId }).its('body.message').should('contain', 'the doctor sees it')
     openPrescriptions()

@@ -18,9 +18,11 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h1-hardening.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booking names this venue\'s doctor', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
   const OTHER = 'owner.business@myplus.com'
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
@@ -53,9 +55,10 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
-      expect(d, 'the gate doctor (made by the S2 gate)').to.exist
+      const d = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
+      expect(d, HMS.DOCTOR_NAME + ' (run hms-four-accounts first)').to.exist
       S.doctor = d
     })
     cy.seedProduct({ name: MED, unit: 'tablet', stock: 20, sellingPrice: 9 }).then(({ productId }) => { S.med = productId })
@@ -80,7 +83,8 @@ describe('HMS H1 — the doctor\'s medicines are the pharmacy\'s; a public booki
     relogin(OWNER)
     cy.then(() => { if (S.rxId) cy.postJson('/cancelPrescription', { prescriptionId: S.rxId }) })
     if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 

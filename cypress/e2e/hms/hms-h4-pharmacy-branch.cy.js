@@ -19,10 +19,12 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h4-pharmacy-branch.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy branch', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
-  const PHARMACIST = 'user.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
+  const PHARMACIST = HMS.PHARMACIST
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const phone = '039' + run.slice(-6) + String(Math.floor(Math.random() * 90) + 10).slice(-2)
@@ -91,11 +93,10 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      S.ahmed = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
-      S.sana = (r.body.data || []).find((x) => x.name === 'Dr Sana (gate)')
-      expect(S.ahmed, 'Dr Ahmed (gate)').to.exist
-      expect(S.sana, 'Dr Sana (gate)').to.exist
+      S.ahmed = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
+      expect(S.ahmed, HMS.DOCTOR_NAME + ' (run hms-four-accounts first)').to.exist
     })
     cy.seedProduct({ name: MED, unit: 'tablet', stock: 50, sellingPrice: 3 }).then(({ productId }) => { S.med = productId })
   })
@@ -108,7 +109,8 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
     cy.then(() => S.rxIds.forEach((id) => cy.postJson('/cancelPrescription', { prescriptionId: id, reason: 'cypress cleanup' })))
     cy.then(() => { if (S.pharmacistId) cy.postJson('/assignStores', { userId: S.pharmacistId, storeIds: S.pharmacistOriginal, replace: true }) })
     cy.then(() => { if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' }) })
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -150,8 +152,8 @@ describe('HMS H4 — the doctor\'s prescriptions land in the linked pharmacy bra
 
   it("H4-04 [L-4] a doctor with no branch: the prescription is every branch's", () => {
     relogin(OWNER)
-    cy.postJson(`/clinic/doctors/${S.sana.id}/pharmacy`, { storeId: null }).its('body.success').should('eq', true)
-    submitFor(S.sana).then((x) => {
+    cy.postJson(`/clinic/doctors/${S.ahmed.id}/pharmacy`, { storeId: null }).its('body.success').should('eq', true)
+    submitFor(S.ahmed).then((x) => {
       relogin(OWNER)
       cy.request(`/getPrescription?id=${x.rxId}`).its('body.data.storeId').should('eq', null)
       grant([S.branchB])

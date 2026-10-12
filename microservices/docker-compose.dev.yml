@@ -1,5 +1,18 @@
 # =========================================================================================================
-# DEV ONLY — every outgoing email goes to a local catcher (Mailpit), never to Gmail.     EDU-NOTIFY-2
+# DEV ONLY — THE one switch between this machine and production.      EDU-NOTIFY-2 · DEV-ENV-1 (2026-10-12)
+#
+# Loaded only where the host's .env says  COMPOSE_FILE=docker-compose.yml;docker-compose.dev.yml  (this PC).
+# Production's .env has no such line, so production runs docker-compose.yml alone. Compose reads COMPOSE_FILE from
+# .env by itself, so EVERY way of running it — deploy.ps1, `docker compose up` by hand, an IDE — gets the same result.
+# Put every dev-only VALUE here, never in .env (production's values) and not in .env.local (bare-JAR runs only).
+#
+#   1. mail     — every outgoing e-mail goes to a local catcher (Mailpit), never to Gmail
+#   2. links    — the links INSIDE those e-mails open this machine, not https://maxtheservice.com
+#
+# (Until 2026-10-12 this file was docker-compose.mailpit.yml and carried the mail only; the links came from
+# .env.local through deploy.ps1, so a deploy by hand silently sent production links to Mailpit.)
+#
+# ── 1. mail ──────────────────────────────────────────────────────────────────────────────────────────────
 #
 # Why: the test suites send hundreds of emails to throwaway addresses (cyn…@example.test, stmt…@t.com).
 # Through Gmail each one is a real SMTP login, and on 2026-10-03 Gmail started refusing them
@@ -7,7 +20,7 @@
 # lockout going — and maxtheservice@gmail.com is the PRODUCTION sender too.
 #
 # HOW IT IS SWITCHED ON — per host, never by default. Add this line to THIS host's .env (git-ignored):
-#     COMPOSE_FILE=docker-compose.yml;docker-compose.mailpit.yml
+#     COMPOSE_FILE=docker-compose.yml;docker-compose.dev.yml
 # `docker compose` (and deploy.ps1, which calls it) then reads both files. Production's .env has no such
 # line, so production reads docker-compose.yml alone and is unchanged.
 #
@@ -53,7 +66,11 @@ services:
     environment: *dev-mail
 
   auth-service:
-    environment: *dev-mail
+    environment:
+      <<: *dev-mail
+      # 2. links — the set-password / reset link (the monolith page) and the verify-e-mail link (the gateway)
+      RESET_PASSWORD_URL: http://localhost:8080/user/changePassword
+      APP_BASE_URL: http://localhost:8765
 
   education-service:
     environment: *dev-mail

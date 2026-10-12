@@ -34,7 +34,7 @@ public class ClinicSettingsController {
                 .filter(e -> String.valueOf(e.get("key")).startsWith("clinic.")).toList());
     }
 
-    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','clinic.settings')")
     @PostMapping
     public ApiResponse<Void> save(@RequestParam String key, @RequestParam(required = false) String value) {
         if (!key.startsWith("clinic.")) return ApiResponse.error("Unknown setting.", 400);
@@ -46,7 +46,7 @@ public class ClinicSettingsController {
         }
     }
 
-    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')")
+    @PreAuthorize("hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','clinic.settings')")
     @PostMapping("/reset")
     public ApiResponse<Void> reset(@RequestParam String key) {
         if (!key.startsWith("clinic.")) return ApiResponse.error("Unknown setting.", 400);

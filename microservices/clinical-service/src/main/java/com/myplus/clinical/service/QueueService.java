@@ -279,6 +279,7 @@ public class QueueService {
     /** One day's change: another limit, closed, or back to the usual. */
     public DoctorView setDay(DayRequest req) {
         access.assertModuleOn();
+        access.assertMaySetDoctorDay();   // RW-1 (D2)
         Long org = access.org();
         Doctor d = doctorOf(req.getProviderId());
         LocalDate day = req.getDate() == null || req.getDate().isBlank() ? TenantClock.today() : LocalDate.parse(req.getDate().trim());
@@ -308,6 +309,7 @@ public class QueueService {
 
     public TokenView issue(IssueRequest req) {
         access.assertModuleOn();
+        access.assertMayIssueTokens();   // RW-1
         Long org = access.org();
         LocalDate today = TenantClock.today();
         if (req.getPatientId() == null) throw new ValidationException("Choose the patient first.");
@@ -366,6 +368,7 @@ public class QueueService {
     /** The reception board: every doctor's line for today. */
     public List<TokenView> board() {
         access.assertModuleOn();
+        access.assertMayViewQueue();   // RW-1
         Long org = access.org();
         List<QueueToken> all = tokens.board(org, TenantClock.today());
         return views(org, all);
@@ -374,12 +377,14 @@ public class QueueService {
     /** One doctor's line for today (the doctor's screen in S3). */
     public List<TokenView> line(Long providerId) {
         access.assertModuleOn();
+        access.assertMayViewQueue();   // RW-1
         Long org = access.org();
         return views(org, tokens.line(org, providerId, TenantClock.today()));
     }
 
     public TokenView get(Long id) {
         access.assertModuleOn();
+        access.assertMayViewQueue();   // RW-1
         Long org = access.org();
         QueueToken t = scoped(id, org);
         return views(org, List.of(t)).get(0);
@@ -396,6 +401,7 @@ public class QueueService {
         if (m == null) throw new ValidationException("Unknown action: " + action);
         // S3a (M-15): the consultation's moves are the doctor's; reception keeps cancel and not-here.
         if (DOCTOR_MOVES.contains(action)) access.assertCanConsult();
+        else access.assertMayCancelTokens();   // RW-1: cancel and not-here are the front desk's
         QueueToken t = scoped(id, org);
         if (DOCTOR_MOVES.contains(action)) access.assertMayWorkProvider(t.getProviderId(), t.getProviderName());
         if ("park".equals(action) && (reason == null || reason.isBlank())) {
@@ -438,6 +444,7 @@ public class QueueService {
     @org.springframework.transaction.annotation.Transactional
     public TokenView relink(Long id, Long providerId, String reason) {
         access.assertModuleOn();
+        access.assertMayIssueTokens();   // RW-1
         Long org = access.org();
         QueueToken t = scoped(id, org);
         if (!QueueStatus.WAITING.equals(t.getStatus()) && !QueueStatus.CALLED.equals(t.getStatus())) {

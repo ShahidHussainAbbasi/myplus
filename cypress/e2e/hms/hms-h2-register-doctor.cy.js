@@ -22,10 +22,12 @@
  *
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-h2-register-doctor.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS H2 — Register doctor, linked to a login', () => {
   const OWNER = 'owner.pharma@myplus.com'
   const ADMIN = 'admin.pharma@myplus.com'
-  const FRONT_DESK = 'user.pharma@myplus.com'
+  const FRONT_DESK = HMS.RECEPTION
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const phone = '031' + run.slice(-6) + String(Math.floor(Math.random() * 90) + 10).slice(-2)
@@ -59,6 +61,12 @@ describe('HMS H2 — Register doctor, linked to a login', () => {
       const list = (u.body && (u.body.data || u.body.object)) || []
       S.adminId = (list.find((x) => x.email === ADMIN) || {}).userId
       expect(S.adminId, 'admin.pharma user id').to.be.a('number')
+    })
+    // HMS-4: an interrupted run can leave admin.pharma LINKED (found 2026-10-12: to Dr Sana (gate) since 10-11 21:41),
+    // and then Link login no longer offers it — start from the state this spec's own after() leaves
+    cy.request('/clinic/doctors').then((r) => {
+      ;(r.body.data || []).filter((d) => String(d.linkedUserId) === String(S.adminId))
+        .forEach((d) => cy.postJson(`/clinic/doctors/${d.id}/unlink`).its('body.success').should('eq', true))
     })
     cy.postJson('/clinic/patients', { phone, name: 'H2 Patient ' + run }).then((r) => {
       expect(r.body.success, JSON.stringify(r.body)).to.eq(true)

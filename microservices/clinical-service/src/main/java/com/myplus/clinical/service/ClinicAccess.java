@@ -88,9 +88,65 @@ public class ClinicAccess {
 
     public boolean isOwner() { return holds("ROLE_OWNER"); }
 
-    /** H2 — registering and linking doctors is the owner's or an admin's (the team-management rule in auth-service). */
+    // ── RW-1 (2026-10-12): the clinic's own permissions (auth-service V23; docs/hms-role-workspaces-design.md §3.2) ──
+    public static final String PATIENT_VIEW = "clinic.patient.view";
+    public static final String PATIENT_EDIT = "clinic.patient.edit";
+    public static final String QUEUE_VIEW = "clinic.queue.view";
+    public static final String TOKEN_ISSUE = "clinic.token.issue";
+    public static final String TOKEN_CANCEL = "clinic.token.cancel";
+    public static final String DOCTOR_DAY = "clinic.doctor.day";
+    public static final String DOCTOR_MANAGE = "clinic.doctor.manage";
+
+    /** The owner and an administrator keep the whole clinic, whatever set they are on (they did before RW-1). */
+    private static boolean wholeClinic() { return holds("ROLE_OWNER") || holds("ADMIN_ROLE"); }
+
+    private static void refuse(String what) {
+        throw new org.springframework.security.access.AccessDeniedException(
+                "Your role does not include " + what + ". The owner can change your permission set on Team.");
+    }
+
+    /** RW-1 — find a patient: the front desk, the pharmacist, and whoever may consult (a doctor reads their patient). */
+    public void assertMayViewPatients() {
+        if (wholeClinic() || holds(PATIENT_VIEW) || holds(CONSULT) || linkedProviderId().isPresent()) return;
+        refuse("finding patients");
+    }
+
+    /** RW-1 — register or correct a patient: the front desk. */
+    public void assertMayEditPatients() {
+        if (wholeClinic() || holds(PATIENT_EDIT)) return;
+        refuse("registering or correcting patients");
+    }
+
+    /** RW-1 — today's queue: the front desk, and a doctor for their own line (My queue). */
+    public void assertMayViewQueue() {
+        if (wholeClinic() || holds(QUEUE_VIEW) || holds(CONSULT) || linkedProviderId().isPresent()) return;
+        refuse("today's queue");
+    }
+
+    /** RW-1 — give a token, or move it to another doctor: the front desk. */
+    public void assertMayIssueTokens() {
+        if (wholeClinic() || holds(TOKEN_ISSUE)) return;
+        refuse("giving tokens");
+    }
+
+    /** RW-1 — cancel a token or mark the patient not here: the front desk. */
+    public void assertMayCancelTokens() {
+        if (wholeClinic() || holds(TOKEN_CANCEL)) return;
+        refuse("cancelling tokens");
+    }
+
+    /** RW-1 (D2) — a doctor's day (patients a day, not today): the front desk and the administration. */
+    public void assertMaySetDoctorDay() {
+        if (wholeClinic() || holds(DOCTOR_DAY)) return;
+        refuse("setting a doctor's day");
+    }
+
+    /**
+     * H2 — registering and linking doctors is the owner's or an admin's (the team-management rule in auth-service).
+     * RW-1: also a member whose set holds {@code clinic.doctor.manage}.
+     */
     public void assertClinicAdmin() {
-        if (!(holds("ROLE_OWNER") || holds("ADMIN_ROLE"))) {
+        if (!(wholeClinic() || holds(DOCTOR_MANAGE))) {
             throw new org.springframework.security.access.AccessDeniedException(
                     "Only the owner or an admin can register doctors.");
         }

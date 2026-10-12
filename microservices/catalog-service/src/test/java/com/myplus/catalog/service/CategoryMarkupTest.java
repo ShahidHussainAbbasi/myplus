@@ -111,7 +111,8 @@ class CategoryMarkupTest {
     @DisplayName("the product ref carries its category's markup next to its own")
     void ref_carries_category_markup() {
         ProductService products = new ProductService(productRepository, categoryRepository, taxCodeRepository,
-                pickerCache, events, refsCache, history);
+                pickerCache, events, refsCache, history,
+                org.mockito.Mockito.mock(SkuAllocator.class));
         Category c = Category.builder().id(5L).name("Medicines").organizationId(ORG).markupPct(new BigDecimal("20.00")).build();
         Product p = new Product();
         p.setId(42L); p.setName("Panadol"); p.setOrganizationId(ORG); p.setCategory(c);

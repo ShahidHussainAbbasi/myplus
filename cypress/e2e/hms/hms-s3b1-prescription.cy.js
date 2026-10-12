@@ -15,10 +15,12 @@
  * Run (headless records reliably):
  *   npx cypress run --browser chrome --spec "cypress/e2e/hms/hms-s3b1-prescription.cy.js"
  */
+import { HMS, OWN_SET } from '../../support/hms-accounts'
+
 describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => {
   const OWNER = 'owner.pharma@myplus.com'
-  const DOCTOR = 'admin.pharma@myplus.com'
-  const PHARMACIST = 'user.pharma@myplus.com'
+  const DOCTOR = HMS.DOCTOR   // HMS-4: linked to Dr HMS Test — works only that doctor's queue
+  const PHARMACIST = HMS.PHARMACIST
   const PW = 'Demo@2025!'
   const run = String(Date.now()).slice(-7)
   const phone = '036' + run.slice(-6) + String(Math.floor(Math.random() * 90) + 10).slice(-2)
@@ -59,11 +61,11 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
       expect(r.body.data.customerId, 'customer made at reception').to.be.a('number')
       S.patient = r.body.data
     })
+    cy.hmsDoctorDay({ limit: 0 })   // RW-1: no patients-a-day limit for the test doctor while this runs
     cy.request('/clinic/doctors').then((r) => {
-      const d = (r.body.data || []).find((x) => x.name === 'Dr Ahmed (gate)')
+      const d = (r.body.data || []).find((x) => x.name === HMS.DOCTOR_NAME)
       if (d) { S.doctor = d; return }
-      return cy.postJson('/clinic/doctors', { name: 'Dr Ahmed (gate)', speciality: 'General medicine', dailyLimit: null })
-        .then((c) => { S.doctor = c.body.data })
+      throw new Error(HMS.DOCTOR_NAME + ' is missing — run cypress/e2e/hms/hms-four-accounts.cy.js first')
     })
     // Two medicines in stock — the doctor chooses them from the pharmacy's own list.
     cy.seedProduct({ name: MED_A, unit: 'capsule', stock: 50, sellingPrice: 12 }).then(({ productId }) => { S.medA = productId })
@@ -81,7 +83,8 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     }))
     S.tokens.forEach((id) => cy.postJson(`/clinic/tokens/${id}/cancel`, { reason: 'cypress cleanup' }))
     if (S.patient) cy.postJson(`/clinic/patients/${S.patient.id}/retire`, { reason: 'cypress cleanup' })
-    cy.setPermissionSet(DOCTOR, 'Administrator')
+    cy.setPermissionSet(DOCTOR, OWN_SET[DOCTOR])   // HMS-4: back on its own set
+    cy.hmsDoctorDay({ reset: true })   // RW-1: the test doctor's usual day again
     cy.request({ method: 'POST', url: '/resetBusinessConfig', form: true, body: { key: 'org.cap.clinic' }, failOnStatusCode: false })
   })
 
@@ -90,7 +93,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     relogin(DOCTOR, 'doctor')
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
-    cy.get('#clinMyDoctor').select(String(S.doctor.id))
+    cy.myQueueOn(S.doctor)
     cy.contains('#clinQueueBody tr', S.first.tokenLabel).find('.clin-q-call').click()
     cy.contains('#clinQueueBody tr', S.first.tokenLabel).find('.clin-q-start').click()
     cy.get('#clinIdBanner').should('contain', S.patient.name)
@@ -155,7 +158,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     // EXPECTED: found AT ONCE (the person id was set by the Submit, not left to the background bridge), marked.
     cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`).should('contain', 'PENDING')
       .find('.rx-from-doctor').should('contain', 'From the doctor').and('contain', S.first.tokenLabel)
-    cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`).should('contain', 'Dr Ahmed (gate)')
+    cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`).should('contain', HMS.DOCTOR_NAME)
     cy.screenshot('hms-s3b1/R-02-1-pharmacy-finds-it-by-token', { capture: 'viewport' })
     // Dispense: both medicines in the cart and the patient as the customer — nothing re-typed.
     cy.get(`#prescriptionBody tr[data-rx-id="${S.rxId}"]`).contains('button', 'Dispense').click()
@@ -202,7 +205,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     })
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
-    cy.get('#clinMyDoctor').select(String(S.doctor.id))
+    cy.myQueueOn(S.doctor)
     cy.then(() => cy.contains('#clinQueueBody tr', S.parked.tokenLabel).find('.clin-q-start').click())
     cy.get('#clinRxBody tr').should('have.length', 1).and('contain', MED_B)
     // 1. Park needs a reason.
@@ -221,7 +224,7 @@ describe('HMS S3b-1 — the doctor\'s prescription reaches the pharmacy', () => 
     relogin(DOCTOR, 'doctor')
     cy.visit('/clinicDashboard')
     cy.get('#clinNavMyQueue').click()
-    cy.get('#clinMyDoctor').select(String(S.doctor.id))
+    cy.myQueueOn(S.doctor)
     cy.then(() => cy.contains('#clinQueueBody tr', S.parked.tokenLabel).find('.clin-q-start').click())
     cy.get('#clinStatus').should('have.attr', 'data-status', 'IN_CONSULTATION')
     cy.get('#clinRxBody tr').should('have.length', 1).and('contain', MED_B)

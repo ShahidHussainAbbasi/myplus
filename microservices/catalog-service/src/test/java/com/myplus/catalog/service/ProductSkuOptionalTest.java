@@ -1,5 +1,7 @@
 package com.myplus.catalog.service;
 
+import com.myplus.catalog.entity.Product;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,11 +61,13 @@ class ProductSkuOptionalTest {
     @Autowired private ProductService service;
     @Autowired private ProductRepository productRepository;
     @Autowired private CategoryRepository categoryRepository;
+    @Autowired private com.myplus.catalog.repository.OrgDocumentSeqRepo documentCounters;   // SKU-AUTO
 
     @BeforeEach
     void setUp() {
         productRepository.deleteAll();
         categoryRepository.deleteAll();
+        documentCounters.deleteAll();   // SKU-AUTO: each case starts the automatic codes at 200000000001
 
         // ProductService reads the tenant from the security context (CurrentUser), and every read it makes
         // is org-scoped — so the fixture must be a REAL caller, not a placeholder. See TestTenant.
@@ -92,15 +96,42 @@ class ProductSkuOptionalTest {
     }
 
     @Test
-    void blankAndWhitespaceOnlySkuAreStoredAsNull() {
+    void blankAndWhitespaceOnlySkuTakeTheNextAutomaticCode() {
+        // SKU-AUTO: a blank SKU is never stored (not '' and not NULL) — it is filled with the next 12-digit code.
         Long id1 = service.create(product("Aspirin", "")).getId();
         Long id2 = service.create(product("Bandage", "   ")).getId();
         Long id3 = service.create(product("Syrup", null)).getId();
 
-        // NULL, never '' — '' is what made two uncoded products look identical.
-        assertThat(productRepository.findById(id1)).get().extracting("sku").isNull();
-        assertThat(productRepository.findById(id2)).get().extracting("sku").isNull();
-        assertThat(productRepository.findById(id3)).get().extracting("sku").isNull();
+        assertThat(productRepository.findById(id1)).get().extracting("sku").isEqualTo("200000000001");
+        assertThat(productRepository.findById(id2)).get().extracting("sku").isEqualTo("200000000002");
+        assertThat(productRepository.findById(id3)).get().extracting("sku").isEqualTo("200000000003");
+    }
+
+    @Test
+    void aCodeTheShopAlreadyTypedIsSkipped() {
+        service.create(product("Typed", "200000000001"));
+        Long id = service.create(product("Auto", "")).getId();
+        assertThat(productRepository.findById(id)).get().extracting("sku")
+                .as("the counter's first number was taken by hand, so the next free one is used")
+                .isEqualTo("200000000002");
+    }
+
+    @Test
+    void theDatabaseRefusesASecondProductWithTheSameSkuEvenPastThePreCheck() {
+        // Two saves at the same moment both pass existsBySkuScoped; the UNIQUE index is what decides.
+        productRepository.saveAndFlush(Product.builder().name("A").sku("X1").organizationId(ORG).userId(USER).build());
+        assertThatThrownBy(() -> productRepository.saveAndFlush(
+                Product.builder().name("B").sku("X1").organizationId(ORG).userId(USER).build()))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class)
+                .hasMessageContaining("uq_products_org_sku");
+    }
+
+    @Test
+    void anotherBusinessMayUseTheSameSku() {
+        productRepository.saveAndFlush(Product.builder().name("A").sku("X1").organizationId(ORG).userId(USER).build());
+        assertThatCode(() -> productRepository.saveAndFlush(
+                Product.builder().name("A").sku("X1").organizationId(ORG + 1000).userId(USER + 1000).build()))
+                .as("unique per business, not across businesses").doesNotThrowAnyException();
     }
 
     @Test
@@ -121,14 +152,22 @@ class ProductSkuOptionalTest {
     }
 
     @Test
-    void anExistingSkuCanBeClearedOnEdit() {
+    void aBlankSkuOnEditKeepsTheCodeTheProductHad() {
         Long id = service.create(product("Aspirin", "A1")).getId();
 
         assertThatCode(() -> service.update(id, product("Aspirin", "")))
-                .as("removing a code must be allowed, not read as a duplicate")
+                .as("a blank box is not a duplicate")
                 .doesNotThrowAnyException();
 
-        assertThat(productRepository.findById(id)).get().extracting("sku").isNull();
+        assertThat(productRepository.findById(id)).get().extracting("sku")
+                .as("SKU-AUTO: every product keeps a SKU").isEqualTo("A1");
+    }
+
+    @Test
+    void theShopCanChangeAnAutomaticCode() {
+        Long id = service.create(product("Aspirin", "")).getId();
+        service.update(id, product("Aspirin", "ASP-500"));
+        assertThat(productRepository.findById(id)).get().extracting("sku").isEqualTo("ASP-500");
     }
 
     @Test
