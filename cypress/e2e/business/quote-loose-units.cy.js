@@ -32,7 +32,7 @@ const packProduct = (name, allowLoose = true) =>
     },
   }).then((r) => {
     expect(r.body && r.body.success, JSON.stringify(r.body).slice(0, 200)).to.eq(true)
-    return r.body.data.id
+    return cy.markNoExpiry(r.body.data.id).then(() => r.body.data.id)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
   })
 
 const stockIn = (productId, boxes) =>

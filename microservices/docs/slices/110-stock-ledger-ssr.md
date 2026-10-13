@@ -193,3 +193,12 @@ catalog, business and the monolith.
 * Step-by-step test page: https://claude.ai/artifact/9Pm3pwn7FzL4gCbmRF8MMd (cases SETUP, S1–S5, R2, R4–R6, L1; four
   screenshots from the passing run). Styling for the report table (theme.css) added after the capture — needs the
   monolith redeployed.
+
+**EXP-REQ fixture gap closed (2026-10-13):** 8 specs that create products with `/addProduct` on demo.business now call
+the shared `cy.markNoExpiry` (already in commands.js, used by `seedProduct`): sale-return-loose-units,
+quote-loose-units, restaurant-menu-setup, sale-report-profit, e2e-pack-purchase-sell-finance, purchase-batch-prefill,
+purchase-self-describing, pack-loose-ux-labels (pack-loose-ux-till and prescriptions-tab-walk already did; product-crud
+and negative never buy their own products). Also fixed: restaurant-menu-setup built every menu item's SKU in the same
+millisecond with a 1-in-1000 suffix → "Product SKU already exists" (a counter now). Results: 6 of 8 green; the other
+two fail ONLY on loose prices ×1.10 — demo.business has `pos.sale.looseMarkupPct = 10`, saved by its owner account
+at 2026-10-13 07:25:48 (default 0); left for the owner to confirm before it is reset.

@@ -20,7 +20,10 @@
  *   npx cypress run --headed --browser chrome --spec cypress/e2e/business/restaurant-menu-setup.cy.js
  */
 
-const uniq = () => `${Date.now()}${Math.floor(Math.random() * 1000)}`
+// A counter, not chance: the menu items are queued in a loop, so every body is built in the SAME millisecond and a
+// 1-in-1000 random suffix collides across dozens of items ("Product SKU already exists"). SKUs are unique per business.
+let seq = 0
+const uniq = () => `${Date.now()}${++seq}${Math.floor(Math.random() * 1000)}`
 const list = (body) => body.collection || body.data || []
 
 /** Page 1 of the printed menu — the six categories the onboarding brief described. */
@@ -115,7 +118,7 @@ const addMenuItem = (category, name, price) =>
       categoryName: category },
   }).then((r) => {
     expect(r.body.success, `${name}: ${JSON.stringify(r.body).slice(0, 160)}`).to.eq(true)
-    return r.body.data.id
+    return cy.markNoExpiry(r.body.data.id).then(() => r.body.data.id)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
   })
 
 describe('RST-R1 — a restaurant trades on day one, with no new capability', () => {

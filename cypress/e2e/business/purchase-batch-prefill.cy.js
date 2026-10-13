@@ -18,6 +18,7 @@ describe('M3a — purchase batch pre-fill from inventory + master', () => {
       body: { name, sku: 'M3A' + tag, sellingPrice: 15, taxRate: 0, unit: 'pcs' } })
       .then((r) => {
         productId = r.body && r.body.data && r.body.data.id
+        if (productId) cy.markNoExpiry(productId)   // EXP-REQ (4818b0bd): a fixture product has no expiry, or demo.business refuses its purchase
         expect(productId, 'catalog product created').to.exist
       })
 
