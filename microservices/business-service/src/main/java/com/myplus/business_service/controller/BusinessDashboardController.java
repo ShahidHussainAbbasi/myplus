@@ -83,6 +83,25 @@ public class BusinessDashboardController {
     @Autowired
     private com.myplus.commerce.contracts.client.InventoryClient inventoryClient;   // #20: stock value KPI
 
+    /**
+     * RW-4a (2026-10-12) — the permission that shows the business's MONEY on the dashboard: this month's revenue and
+     * sales, and the stock value. The client found the front desk looking at the shop's revenue. The action names
+     * its permission (the one thing about permissions that lives in code); who holds it is the sets, in the
+     * database. Checked against auth's catalogue at start-up (PermissionCodesCheck).
+     */
+    public static final String REPORT_VIEW = "report.view";
+    public static final java.util.List<String> CODES_NAMED = java.util.List.of(REPORT_VIEW);
+
+    /** The owner, an administrator and the platform see every figure; anyone else needs report.view. */
+    static boolean seesMoney(java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> held) {
+        if (held == null) return false;
+        for (org.springframework.security.core.GrantedAuthority a : held) {
+            String s = a.getAuthority();
+            if (REPORT_VIEW.equals(s) || "ROLE_OWNER".equals(s) || "ADMIN_PRIVILEGE".equals(s) || "SUPER_PRIVILEGE".equals(s)) return true;
+        }
+        return false;
+    }
+
     @GetMapping("/getBusinessDashboardStats")
     @ResponseBody
     public GenericResponse getBusinessDashboardStats(HttpServletRequest request) {
@@ -114,11 +133,14 @@ public class BusinessDashboardController {
             try { itemCount = catalogClient.countProducts(); }
             catch (Exception ex) { LOGGER.warn("M4e.c: catalog product count failed; items KPI shows 0", ex); }
 
+            // RW-4a: the money figures are not even COMPUTED for someone who may not see them — the keys are
+            // absent (as for the capability-gated widgets below), so no payload carries them to the desk
+            final boolean money = seesMoney(user.getAuthorities());
             LocalDateTime startOfMonth = appUtil.firstDateTimeOfMonth();
             LocalDateTime endOfMonth = appUtil.lastDateTimeOfMonth();
             // Same again for the period figures: one aggregate row instead of every Sell in the month
             // hydrated, counted and summed in a Java stream.
-            Object[] agg = sellRepo.sumSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId);
+            Object[] agg = money ? sellRepo.sumSellByDates(startOfMonth, endOfMonth, user.getOrganizationId(), userId) : null;
             // A single-row aggregate arrives as Object[] or as Object[]{Object[]} depending on the provider;
             // normalise it the way ShiftService already does rather than inventing a second idiom.
             Object[] row = (agg != null && agg.length == 1 && agg[0] instanceof Object[]) ? (Object[]) agg[0] : agg;
@@ -133,8 +155,10 @@ public class BusinessDashboardController {
             stats.put("venders", venderCount);
             stats.put("customers", customerCount);
             stats.put("items", itemCount);
-            stats.put("monthlySales", sellCount);
-            stats.put("monthlyRevenue", String.format("%.0f", monthlyRevenue));
+            if (money) {
+                stats.put("monthlySales", sellCount);
+                stats.put("monthlyRevenue", String.format("%.0f", monthlyRevenue));
+            }
 
             /*
              * Task #20 — the value of stock in hand, beside the item COUNT.
@@ -150,7 +174,7 @@ public class BusinessDashboardController {
              * fail the whole stats call. A tenant whose inventory-service is unreachable sees every other KPI
              * and simply no value, rather than an empty dashboard.
              */
-            try {
+            if (money) try {
                 java.util.Map<String, Object> summary = inventoryClient.stockSummary();
                 Object data = (summary != null) ? summary.get("data") : null;
                 if (data instanceof java.util.Map) {

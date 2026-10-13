@@ -74,6 +74,9 @@ public class SecurityConfig {
                                 // enforces X-Internal-Secret itself and FAILS CLOSED when none is
                                 // configured, so this is not an unauthenticated surface.
                                 "/api/auth/portal/**",
+                                // RW-0c — the list of permission CODES (the product's vocabulary, nobody's data): a
+                                // service checks at start-up, before anyone signs in, that the codes it names exist
+                                "/api/auth/catalog/permission-codes",
                                 "/actuator/**"
                         ).permitAll()
                         .anyRequest().authenticated()

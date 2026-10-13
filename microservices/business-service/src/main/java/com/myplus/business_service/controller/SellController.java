@@ -1544,7 +1544,8 @@ public class SellController {
 			for (java.util.Map.Entry<Long, Float> e : delta.entrySet()) {
 				float d = e.getValue();
 				if (d < 0f) takeLines.add(new com.myplus.commerce.contracts.dto.StockReservationLine(e.getKey(), java.math.BigDecimal.valueOf(-d)));
-				else if (d > 0f) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d).build());
+				else if (d > 0f) returnLines.add(com.myplus.commerce.contracts.dto.StockImportLine.builder().productId(e.getKey()).quantity(d)
+						.movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_EDIT).build());   // SSR-0a - an edit reduced the line
 			}
 			/*
 			 * U10 ⭐ — RETURN TO THE BATCH THE SALE TOOK FROM.
@@ -1578,8 +1579,10 @@ public class SellController {
 				try {
 					// The 1-arg form is a plain restock (quarantine=false) — an edit that reduces a line is a
 					// customer changing their mind, not a clinical return, so the goods go back on the shelf.
-					inventoryClient.returnStock(ch.getReservationId(),
-							new com.myplus.commerce.contracts.dto.StockReturnRequest(byBatch));
+					com.myplus.commerce.contracts.dto.StockReturnRequest editReturn =
+							new com.myplus.commerce.contracts.dto.StockReturnRequest(byBatch);
+					editReturn.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_EDIT);   // SSR-0a
+					inventoryClient.returnStock(ch.getReservationId(), editReturn);
 					returnLines.clear();   // handled by the reservation; do not import a second, batchless copy
 				} catch (Exception batchReturnFailed) {
 					// Fall through to the flat import below rather than lose the stock. A returned unit in the
@@ -1876,13 +1879,15 @@ public class SellController {
 								java.util.List.of(new com.myplus.commerce.contracts.dto.StockReturnLine(
 										existingSell.getProductId(), dto.getQuantity())));
 				returnReq.setQuarantine(quarantine);
+				returnReq.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_RETURN);   // SSR-0a
 				inventoryClient.returnStock(reservationId, returnReq);
 			} else if (existingSell.getProductId() != null) {
 				// M3c.3 (slice 79): a non-saga sell has a productId (backfill complete) but no reservation — restock
 				// INVENTORY by product (a fresh entry) so inventory stays authoritative; no local Stock write.
 				inventoryClient.importStock(java.util.List.of(
 						com.myplus.commerce.contracts.dto.StockImportLine.builder()
-								.productId(existingSell.getProductId()).quantity(dto.getQuantity()).build()));
+								.productId(existingSell.getProductId()).quantity(dto.getQuantity())
+								.movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_RETURN).build()));   // SSR-0a
 			}
 
 			// SF-5: the money owed back to the customer is settled in the header re-settle below, from the actual

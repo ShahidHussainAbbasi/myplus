@@ -41,76 +41,32 @@ public class PermissionInterceptor implements HandlerInterceptor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PermissionInterceptor.class);
 
-    /** One rule: a method, a path prefix, and the permission it demands. */
-    private record Rule(String method, String path, String permission) {
+    /** One rule: a method, a path prefix, the permission it demands, and that permission's catalogue label. */
+    public record Rule(String method, String path, String permission, String label) {
         boolean matches(String m, String p) {
             return ("*".equals(method) || method.equalsIgnoreCase(m)) && p.startsWith(path);
         }
     }
 
     /**
-     * The map, MOST SPECIFIC FIRST — the first match wins.
-     *
-     * <p>Order is load-bearing: {@code /voidSell} must be tested before {@code /sell}, or voiding an
-     * invoice would be allowed by whoever may merely see one. Keeping the specific rules above the
-     * general ones is the whole discipline of this list.
-     *
-     * <p>Reads are separated from writes deliberately. A member who may see the sale screen is not
-     * thereby a member who may ring one up, and collapsing GET and POST onto one permission would make
-     * "view" mean "do" for every area at once.
+     * RW-0c (2026-10-12) — where the rules come from: auth-service's {@code endpoint_permission} rows (V26), most
+     * specific first, via {@link EndpointRuleCatalog}. Null = not loaded yet. Never a list in this class.
      */
-    private static final List<Rule> RULES = List.of(
-            // ── the destructive and the sensitive, first ────────────────────────────────────────
-            new Rule("POST", "/voidSell",              "sale.void"),
-            new Rule("POST", "/deleteSell",            "sale.delete"),
-            new Rule("POST", "/deletePurchase",        "purchase.delete"),
-            new Rule("POST", "/deleteCustomer",        "customer.delete"),
-            new Rule("POST", "/deleteProduct",         "product.delete"),
-            new Rule("POST", "/deleteVender",          "supplier.delete"),
+    public interface RuleSource {
+        java.util.List<Rule> rules();
+    }
 
-            // ── team: the owner's own example, "you are not authorized to create a user" ────────
-            new Rule("POST",   "/team/permissions",    "team.edit"),
-            new Rule("DELETE", "/team/permissions",    "team.edit"),
-            new Rule("POST",   "/team/users",          "team.create"),
-            new Rule("GET",    "/team/",               "team.view"),
+    private final RuleSource source;
 
-            // ── opening balances: writes the general ledger ────────────────────────────────────
-            new Rule("POST", "/reverseOpeningBalance", "opening.reverse"),
-            new Rule("POST", "/postOpeningBalance",    "opening.create"),
-            new Rule("GET",  "/openingBalanceSummary", "opening.view"),
+    public PermissionInterceptor(RuleSource source) { this.source = source; }
 
-            // ── settings ───────────────────────────────────────────────────────────────────────
-            // ⚠ ONLY THE WRITE. Reading the config is in ALWAYS below — see the note there.
-            new Rule("POST", "/saveBusinessConfig",    "settings.edit"),
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 
-            // ── the two the owner asked for by name ────────────────────────────────────────────
-            new Rule("POST", "/updateSell",            "sale.edit"),
-            new Rule("POST", "/addSell",               "sale.create"),
-            new Rule("POST", "/batchPricePreview",     "sale.create"),   // PR-3c: the till's Per-batch preview
-            new Rule("POST", "/updatePurchase",        "purchase.edit"),
-            new Rule("POST", "/addPurchase",           "purchase.create"),
-
-            // ⚠ "Edit a product" (product.edit) is NOT mapped yet, and that is a HOLD, not an oversight
-            // (2026-09-14). /updateProduct is unmapped, so every member may edit products. Mapping it was coded
-            // and pulled before build: pharmacy tenants are org type PHARMA, AuthService mints PERM-1 codes for
-            // BUSINESS tenants only, so every non-owner pharmacy member holds no codes and the rule would take
-            // product editing away from them all (they are already refused /addProduct today, verified live).
-            // Map it once PHARMA members carry codes. See slices/blk-4-product-optimistic-lock.md §6.
-
-            // ── stock in: the per-row "Add to on-hand" on the Product grid ──────────────────────────
-            // It used to fall to the "/addProduct" prefix rule below and demand product.create, "Add a product",
-            // which is the wrong permission for putting units on a shelf. ABOVE /addProduct for the same prefix
-            // reason as the sticker rules. Counted before changing (auth DB, 2026-09-14): no member on a set
-            // holds one of product.create / stock.create without the other, so nobody gains or loses it today.
-            // /adjustProductStock is deliberately NOT mapped here: it is unmapped (allowed) now, and gating it
-            // would take stock correction away from members who have it.
-            new Rule("POST", "/addProductStock",       "stock.create"),
-
-            // ── the register ───────────────────────────────────────────────────────────────────
-            new Rule("POST", "/addCustomer",           "customer.create"),
-            new Rule("POST", "/addProduct",            "product.create"),
-            new Rule("POST", "/addVender",             "supplier.create")
-    );
+    /*
+     * RW-0c: the 23 rules that lived here (MOST SPECIFIC FIRST — the first match wins; /addProductStock before
+     * /addProduct) are now the endpoint_permission rows (auth V26), in the same order. Reads stay separated from
+     * writes there: a member who may see the sale screen is not thereby a member who may ring one up.
+     */
 
     /**
      * Paths every signed-in member reaches whatever their set says.
@@ -150,8 +106,21 @@ public class PermissionInterceptor implements HandlerInterceptor {
 
         for (String open : ALWAYS) if (path.startsWith(open)) return true;
 
+        java.util.List<Rule> rules = source.rules();
+        if (rules == null) {
+            /*
+             * RW-0c option (a), the client's choice: the rules are not loaded yet (auth-service unreachable and no
+             * copy). A READ passes — opening a screen changes nothing. A WRITE waits: a sale, a purchase or a stock
+             * change must never go through unchecked (STANDARDS: never optimistic about money). It says so plainly
+             * and saves nothing; the next attempt loads the rules.
+             */
+            if (isRead(req.getMethod())) return true;
+            LOGGER.warn("perm.rulesNotLoaded {} {} — write held until the endpoint rules load", req.getMethod(), path);
+            write(res, 503, "Permissions are still loading — please try again in a moment. Nothing was saved.");
+            return false;
+        }
         Rule rule = null;
-        for (Rule r : RULES) {
+        for (Rule r : rules) {
             if (r.matches(req.getMethod(), path)) { rule = r; break; }
         }
         if (rule == null) {
@@ -171,11 +140,24 @@ public class PermissionInterceptor implements HandlerInterceptor {
          */
         LOGGER.info("perm.refused user={} {} {} needs={}", username(), req.getMethod(), path,
                 rule.permission());
-        res.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        res.setContentType("application/json;charset=UTF-8");
-        res.getWriter().write("{\"status\":\"FAILED\",\"success\":false,\"message\":"
-                + "\"You are not allowed to " + describe(rule.permission()) + ". Ask the shop owner.\"}");
+        // RW-0c: the action's name is the catalogue's label (permission.label), never a sentence written here
+        write(res, HttpServletResponse.SC_FORBIDDEN, "Your role does not include \u201c" + rule.label()
+                + "\u201d. Ask the shop owner to change your permission set on Team.");
         return false;
+    }
+
+    private static boolean isRead(String method) {
+        return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method) || "OPTIONS".equalsIgnoreCase(method);
+    }
+
+    private static void write(HttpServletResponse res, int status, String message) throws java.io.IOException {
+        res.setStatus(status);
+        res.setContentType("application/json;charset=UTF-8");
+        java.util.Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("status", "FAILED");
+        body.put("success", false);
+        body.put("message", message);
+        res.getWriter().write(JSON.writeValueAsString(body));
     }
 
     /** Does the signed-in member hold this permission? Read straight off the token's authorities. */
@@ -195,35 +177,5 @@ public class PermissionInterceptor implements HandlerInterceptor {
     private String username() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         return auth == null ? "?" : auth.getName();
-    }
-
-    /** The permission code as a sentence a cashier can read. */
-    private static String describe(String permission) {
-        return switch (permission) {
-            case "sale.create"       -> "ring up sales";
-            case "sale.edit"         -> "edit sales";
-            case "sale.void"         -> "void an invoice";
-            case "sale.delete"       -> "delete sales";
-            case "purchase.create"   -> "record purchases";
-            case "purchase.edit"     -> "edit purchases";
-            case "purchase.delete"   -> "delete purchases";
-            case "customer.create"   -> "add customers";
-            case "customer.delete"   -> "delete customers";
-            case "product.create"    -> "add products";
-            case "product.edit"      -> "edit products";
-            case "product.delete"    -> "delete products";
-            case "supplier.create"   -> "add suppliers";
-            case "stock.create"      -> "add stock";
-            case "supplier.delete"   -> "delete suppliers";
-            case "team.create"       -> "create users";
-            case "team.edit"         -> "change permissions";
-            case "team.view"         -> "see the team";
-            case "settings.edit"     -> "change settings";
-            case "settings.view"     -> "see settings";
-            case "opening.create"    -> "record opening balances";
-            case "opening.reverse"   -> "reverse opening balances";
-            case "opening.view"      -> "see opening balances";
-            default                  -> "do that";
-        };
     }
 }

@@ -310,6 +310,8 @@ tr.row-voided .js-edit-row{display:none !important}
 								<li><a onclick="showFinance('balanceSheet')"><span class="glyphicon glyphicon-scale"></span> <span th:text="#{ui.balanceSheet}">Balance Sheet</span></a></li>
 								<li><a onclick="showFinance('taxRegister')"><span class="glyphicon glyphicon-th-list"></span> <span th:text="#{ui.taxRegister}">Tax Register</span></a></li>
 								<li><a onclick="showFinance('auditLog')"><span class="glyphicon glyphicon-eye-open"></span> <span th:text="#{ui.auditLog}">Audit Log</span></a></li>
+								<!-- SSR-1: the Stock & Sales Report (doc slices/110) — owner/admin, like this whole menu -->
+								<li><a id="navSSR" onclick="showSSR();document.getElementById('snavFinance').classList.remove('snav-open');"><span class="glyphicon glyphicon-transfer"></span> <span th:text="#{ui.ssr.menu}">Stock &amp; Sales (SSR)</span></a></li>
 							</ul>
 						</div>
 						<!-- Settings — the MENU opens for an owner or an admin, but each entry carries its own
@@ -418,7 +420,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						checking, and it would disagree with the books the moment a buying price moves.
 					-->
 					<div data-widget="stockValue" data-drill="fn:showProducts">
-						<div class="kpi-card kpi-amber">
+						<div th:if="${@perm.menu('kpi.stockValue')}" class="kpi-card kpi-amber">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-scale"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashStockValue">-</div>
@@ -427,7 +429,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div data-widget="monthlySales" data-drill="sellType:SRDiv">
-						<div class="kpi-card kpi-purple">
+						<div th:if="${@perm.menu('kpi.sales')}" class="kpi-card kpi-purple">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-shopping-cart"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashMonthlySales">-</div>
@@ -436,7 +438,7 @@ tr.row-voided .js-edit-row{display:none !important}
 						</div>
 					</div>
 					<div data-widget="monthlyRevenue" data-drill="sellType:SRDiv">
-						<div class="kpi-card kpi-red">
+						<div th:if="${@perm.menu('kpi.revenue')}" class="kpi-card kpi-red">
 							<div class="kpi-icon"><span class="glyphicon glyphicon-usd"></span></div>
 							<div class="kpi-body">
 								<div class="kpi-value" id="dashMonthlyRevenue">-</div>
@@ -3973,6 +3975,14 @@ tr.row-voided .js-edit-row{display:none !important}
 									<span th:text="#{ui.js.tracksBatch}">Arrives in batches</span>
 								</label>
 							</div>
+							<!-- SSR-0c: the product's main supplier (its Stock & Sales Report group). Owner/admin only;
+							     blank = named by its first purchase. Saved through its own endpoint. -->
+							<div class="form-group" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE')">
+								<label for="prodMainSupplier" th:text="#{ui.mainSupplier}">Main supplier</label>
+								<select id="prodMainSupplier" class="form-control input-sm">
+									<option value="">&#8212;</option>
+								</select>
+							</div>
 							<!-- EXP-REQ: where expiry is tracked a purchase needs a date, unless the product has none -->
 							<div class="checkbox" data-capability="expiryTracking">
 								<label>
@@ -4504,6 +4514,41 @@ tr.row-voided .js-edit-row{display:none !important}
 			     sidebar Finance menu). One page with a report switcher + per-report filter criteria. -->
 			<div th:replace="~{fragments/finance :: financeSection(true, '')}"></div>
 
+			<!-- SSR-1 (doc slices/110-stock-ledger-ssr.md): per product for a period, grouped by main supplier. ssr.js -->
+			<div id="SSRDiv" class="formDiv" style="display:none">
+				<div class="panel panel-default">
+					<div class="panel-heading">
+						<span th:text="#{ui.ssr.title}">Stock With Sales Report</span>
+						<button type="button" class="btn btn-sm btn-default pull-right" id="ssrCsv" style="margin-left:6px"
+						        onclick="exportSSRCsv()" disabled="disabled" th:text="#{ui.exportCsv}">Export CSV</button>
+						<button type="button" class="btn btn-sm btn-default pull-right" id="ssrPdf"
+						        onclick="printSSR()" disabled="disabled" th:text="#{ui.ssr.pdf}">Download PDF</button>
+					</div>
+					<div class="panel-body">
+						<div class="form-inline" style="margin-bottom:8px">
+							<label for="ssrFrom" th:text="#{ui.from}">From</label>
+							<input type="date" id="ssrFrom" class="form-control input-sm">
+							<label for="ssrTo" th:text="#{ui.to}">To</label>
+							<input type="date" id="ssrTo" class="form-control input-sm">
+							<select id="ssrSupplier" class="form-control input-sm">
+								<option value="" th:text="#{ui.js.allSuppliers}">All suppliers</option>
+							</select>
+							<select id="ssrCompany" class="form-control input-sm">
+								<option value="" th:text="#{ui.ssr.allCompanies}">All companies</option>
+							</select>
+							<button type="button" class="btn btn-sm btn-primary" id="ssrLoad" onclick="loadSSR()"
+							        th:text="#{ui.ssr.show}">Show</button>
+						</div>
+						<div id="ssrNotice" class="alert alert-warning" style="display:none"></div>
+						<div class="table-scroll">
+							<table class="table table-condensed table-bordered ssr-table" id="ssrTable">
+								<thead id="ssrHead"></thead>
+								<tbody id="ssrBody"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
 			<div id="SRDiv" class="formDiv">
 				<style>
 					/* Sale Detail Report — scoped presentation */
@@ -4785,6 +4830,7 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/sidebar.js}"></script>
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>
+    <script th:src="@{/js/business/ssr.js}"></script>   <!-- SSR-1 -->
     <script th:src="@{/js/business/ecommerce.js}"></script>
     <!-- O7 D2b: the field rep's booking screen. Separate from ecommerce.js, which is the WAREHOUSE's surface. -->
     <script th:src="@{/js/business/order-booking.js}"></script>

@@ -26,6 +26,9 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
 
     @Autowired
     ActiveUserStore activeUserStore;
+
+    @Autowired
+    com.web.security.WorkspaceService workspaces;
     
     @Override
     public void onAuthenticationSuccess(final HttpServletRequest request, final HttpServletResponse response, final Authentication authentication) throws IOException {
@@ -48,7 +51,8 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
     }
 
     protected void handle(final HttpServletRequest request, final HttpServletResponse response, final Authentication authentication) throws IOException {
-        final String targetUrl = determineTargetUrl(authentication);
+        String ws = workspaceTarget(request, authentication);
+        final String targetUrl = ws != null ? ws : determineTargetUrl(authentication);
 
         if (response.isCommitted()) {
             logger.debug("Response has already been committed. Unable to redirect to " + targetUrl);
@@ -96,6 +100,20 @@ public class MySimpleUrlAuthenticationSuccessHandler implements AuthenticationSu
      * copies and had already drifted (APPOINTMENT routed here but not there). Routing also now prefers the
      * ACTIVE ORG's module over the user's own type, so one login reaches every module it belongs to.
      */
+    /**
+     * RW-3 (2026-10-12) — the person's own workspace(s), from auth-service rows (V27): ONE → land there; SEVERAL → the
+     * tile home ({@code /workspaces}); NONE → null, and the landing below decides exactly as before (a plain shop has
+     * no workspace rows that apply). A portal session (guardian, student) is never routed here.
+     */
+    private String workspaceTarget(final HttpServletRequest request, final Authentication authentication) {
+        if (!(authentication.getPrincipal() instanceof User)) return null;
+        if (com.web.util.ModuleRouter.portalDashboardFor(authentication.getAuthorities()) != null) return null;
+        java.util.List<java.util.Map<String, Object>> mine = workspaces.load(request.getSession(true));
+        if (mine.size() == 1 && mine.get(0).get("url") != null) return String.valueOf(mine.get(0).get("url"));
+        if (mine.size() > 1) return "/workspaces";
+        return null;
+    }
+
     protected String determineTargetUrl(final Authentication authentication) {
         if (authentication.getPrincipal() instanceof User) {
             // Slice 3.3 — a PORTAL session is routed by its role, and that check comes first because the

@@ -51,6 +51,7 @@ public class OrgUserController {
     /** H3a — what this business has switched on decides which clinic / pharmacist sets the Team screen offers. */
     private final com.myplus.common.settings.CapabilityService capabilityService;
     private final com.myplus.auth.repository.UiMenuRepository uiMenuRepository;
+    private final com.myplus.auth.repository.UiWorkspaceRepository uiWorkspaceRepository;
 
     /**
      * ONB-1 — the tenant changes its OWN business type, from its Configuration screen.
@@ -111,6 +112,37 @@ public class OrgUserController {
     // Only the owner grants, and the owner already holds everything, so there is nothing to escalate to.
 
     /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    /**
+     * RW-3 — THIS person's workspaces (V27 rows): those whose setting is on for their business and whose codes they
+     * hold (the owner and an administrator hold all), in order. One → sign-in lands there; several → the tile home;
+     * none → the landing they always had (a plain shop: every row needs the clinic). Nothing about a workspace is
+     * decided in code — only "does the row's setting hold" and "does the person hold a row's code".
+     */
+    @GetMapping("/workspaces")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> workspaces(@RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        Long org = orgId(token);
+        java.util.Set<String> on = com.myplus.auth.service.PermissionVisibility.enabled(
+                org == null ? null : capabilityService.enabledMapFor(org));
+        Object claim = jwtService.extractClaim(token, c -> c.get("privileges"));
+        java.util.Set<String> held = new java.util.HashSet<>();
+        if (claim instanceof java.util.Collection<?> col) col.forEach(x -> held.add(String.valueOf(x)));
+        boolean everything = isOwner(token) || held.contains("ADMIN_PRIVILEGE") || held.contains("SUPER_PRIVILEGE");
+        List<Map<String, Object>> out = uiWorkspaceRepository.findAllByOrderBySortOrderAsc().stream()
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.visible(w.getCapability(), on))
+                .filter(w -> com.myplus.auth.service.PermissionVisibility.opens(w.getCodes(), held, everything))
+                .map(w -> {
+                    Map<String, Object> row = new java.util.LinkedHashMap<>();
+                    row.put("key", w.getWsKey());
+                    row.put("label", w.getLabelKey());
+                    row.put("icon", w.getIcon());
+                    row.put("url", w.getUrl());
+                    return row;
+                }).toList();
+        return ResponseEntity.ok(ApiResponse.success(out, "Workspaces"));
+    }
+
     /**
      * RW-0b — the menu catalogue (V25): each menu's key and the permission codes that unlock it. The monolith reads it
      * to decide which menus a person sees; the pages name only the KEY. Any signed-in member may read it — it says

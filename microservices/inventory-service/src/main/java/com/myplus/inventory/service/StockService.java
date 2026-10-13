@@ -46,6 +46,7 @@ public class StockService {
     private final StockAdjustmentRepository stockAdjustmentRepository;
     private final StockTransferRepository stockTransferRepository;
     private final CatalogClient catalogClient;
+    private final StockLedger ledger;   // SSR-0a - every change of on-hand is recorded, in the same transaction
 
     /** Confirm the product exists in catalog before stock first enters inventory for it (anti-orphan).
      *  A 404 means "no such product"; other failures (catalog down) propagate — we don't mask them.
@@ -92,7 +93,11 @@ public class StockService {
                 .organizationId(orgId)
                 .userId(userId)
                 .build();
-        return stockEntryRepository.save(entry);
+        StockEntry saved = stockEntryRepository.save(entry);
+        // SSR-0a - stock entered with no bill (opening stock on the product screen, seeding)
+        ledger.record(orgId, userId, dto.getProductId(), saved.getId(), com.myplus.commerce.contracts.dto.StockMovementType.MANUAL_RECEIPT,
+                in(dto.getQuantity()), dto.getPurchasePrice(), null);
+        return saved;
     }
 
     /**
@@ -134,7 +139,8 @@ public class StockService {
         // Route through applyStockDelta so a product-screen +/− adjust moves the BATCHES too (not just the scalar
         // on-hand) — keeping master data consistent no matter which side edited it.
         BigDecimal delta = dto.getAdjustmentType() == StockAdjustment.AdjustmentType.INCREASE ? qty : qty.negate();
-        BigDecimal newOnHand = applyStockDelta(dto.getProductId(), delta, null, null, null, orgId, userId);
+        BigDecimal newOnHand = applyStockDelta(dto.getProductId(), delta, null, null, null, orgId, userId, null,
+                com.myplus.commerce.contracts.dto.StockMovementType.ADJUSTMENT, saved.getId() == null ? null : "ADJ-" + saved.getId());
 
         // ⭐ PERF-9 — the write answers with the on-hand it produced, so the screen does not read it back.
         return StockAdjustmentView.of(saved, out(newOnHand), false);
@@ -301,7 +307,8 @@ public class StockService {
             stockEntryRepository.save(own);
         }
         return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
-                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId(), own));
+                adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId(), own,
+                StockLedger.typeOr(adj.getMovementType(), com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_EDIT), adj.getSourceRef()));
     }
 
     /**
@@ -341,14 +348,12 @@ public class StockService {
      *  it (a purchase/sale edit, or a product-screen +/− adjust). INCREASE grows the named lot or adds a fresh
      *  batch; DECREASE draws down the named lot first, then newest-first across the product's other lots, guarded
      *  by unreserved availability so sold/held stock is never removed. Returns the new on-hand. */
+    /** As above; {@code known} = the caller's own batch, found by id (TP-3) — used instead of a search by number.
+     * SSR-0a: {@code movementType}/{@code sourceRef} say why. The ledger row records the change ACTUALLY applied to
+     * on-hand (the level is clamped at zero), so SUM(ledger) stays equal to stock_levels.current_stock. */
     private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
-                                  java.math.BigDecimal price, Long orgId, Long userId) {
-        return applyStockDelta(productId, delta, batchNo, expiry, price, orgId, userId, null);
-    }
-
-    /** As above; {@code known} = the caller's own batch, found by id (TP-3) — used instead of a search by number. */
-    private BigDecimal applyStockDelta(Long productId, BigDecimal delta, String batchNo, java.time.LocalDate expiry,
-                                  java.math.BigDecimal price, Long orgId, Long userId, StockEntry known) {
+                                  java.math.BigDecimal price, Long orgId, Long userId, StockEntry known,
+                                  String movementType, String sourceRef) {
         StockLevel level = levelFor(productId, orgId, userId);
         BigDecimal curLevel = nz(level.getCurrentStock());
         if (delta.signum() == 0) return curLevel;
@@ -403,6 +408,9 @@ public class StockService {
         BigDecimal newLevel = curLevel.add(delta).max(BigDecimal.ZERO);
         level.setCurrentStock(newLevel);
         stockLevelRepository.save(level);
+        ledger.record(orgId, userId, productId, exact == null ? null : exact.getId(), movementType,
+                newLevel.subtract(curLevel), price != null ? price : (exact == null ? null : exact.getPurchasePrice()),
+                sourceRef);
         return newLevel;
     }
 

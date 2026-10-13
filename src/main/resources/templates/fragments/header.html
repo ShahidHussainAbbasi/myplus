@@ -266,6 +266,27 @@
                         </button>
                         <div id="stockAlertPanel" class="sa-panel" role="region" hidden></div>
                     </li>
+                    <!-- RW-3 (2026-10-12): the workspace switcher, only for someone with more than one job (decision D4). The
+                         list is the session copy taken at sign-in (WorkspaceService) — no service call per page. It reuses
+                         the language switcher's dropdown (lang-switch CSS + JS) rather than a second dropdown component. -->
+                    <li th:if="${#authorization.expression('isAuthenticated()') and #lists.size(@workspaces.mine()) > 1}"
+                        style="display:flex;align-items:center;padding:9px 4px">
+                        <div class="lang-switch ws-switch" id="wsSwitch">
+                            <button type="button" class="lang-switch__btn" onclick="langSwitchToggle(event)"
+                                    aria-haspopup="true" aria-expanded="false" th:attr="aria-label=#{ui.ws.switch}">
+                                <span class="glyphicon glyphicon-th-large" aria-hidden="true"></span>
+                                <span class="lang-switch__current" th:text="#{ui.ws.switch}">Workspace</span>
+                                <span class="lang-switch__caret glyphicon glyphicon-chevron-down" aria-hidden="true"></span>
+                            </button>
+                            <ul class="lang-switch__menu" role="menu">
+                                <li th:each="w : ${@workspaces.mine()}">
+                                    <a role="menuitem" th:href="@{${w.url}}" th:attr="data-ws=${w.key}"
+                                       th:text="${#messages.msgOrNull(w.label) != null ? #messages.msg(w.label) : w.key}">Workspace</a>
+                                </li>
+                                <li><a role="menuitem" th:href="@{/workspaces}" th:text="#{ui.ws.all}">All workspaces</a></li>
+                            </ul>
+                        </div>
+                    </li>
                     <li style="display:flex;align-items:center;padding:9px 4px">
                         <th:block th:replace="~{fragments/lang-switcher :: lang-switcher}"></th:block>
                     </li>

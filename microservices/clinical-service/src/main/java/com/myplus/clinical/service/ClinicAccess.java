@@ -96,6 +96,12 @@ public class ClinicAccess {
     public static final String TOKEN_CANCEL = "clinic.token.cancel";
     public static final String DOCTOR_DAY = "clinic.doctor.day";
     public static final String DOCTOR_MANAGE = "clinic.doctor.manage";
+    /** RW-0c: clinic settings (ClinicSettingsController's @PreAuthorize names it too). */
+    public static final String SETTINGS = "clinic.settings";
+
+    /** RW-0c — every permission code this service names; checked against auth's catalogue at start-up. */
+    public static final java.util.List<String> CODES_NAMED = java.util.List.of(CONSULT, PATIENT_VIEW, PATIENT_EDIT,
+            QUEUE_VIEW, TOKEN_ISSUE, TOKEN_CANCEL, DOCTOR_DAY, DOCTOR_MANAGE, SETTINGS);
 
     /** The owner and an administrator keep the whole clinic, whatever set they are on (they did before RW-1). */
     private static boolean wholeClinic() { return holds("ROLE_OWNER") || holds("ADMIN_ROLE"); }

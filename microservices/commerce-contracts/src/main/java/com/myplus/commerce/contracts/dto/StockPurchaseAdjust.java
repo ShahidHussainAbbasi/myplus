@@ -19,6 +19,9 @@ import java.time.LocalDate;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class StockPurchaseAdjust {
     private Long productId;
+    /** SSR-0a — PURCHASE_EDIT (absent) or PURCHASE_RETURN ({@link StockMovementType}), and the bill number. */
+    private String movementType;
+    private String sourceRef;
     private String batchNo;
     private Float delta;              // newQty − oldQty (may be negative)
     private LocalDate expiryDate;     // optional — update the batch's expiry too

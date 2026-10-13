@@ -67,7 +67,8 @@ public class ProductDTO {
      *  {@code rxRequired}: one writer, and it is the endpoint that checks the capability. */
     private Boolean requiresSerial;
     private Boolean tracksBatch;
-    private Boolean noExpiry;   // EXP-REQ — read-only here, like its neighbours; written by /tracking-flags
+    private Boolean noExpiry;   // EXP-REQ
+    private Long mainSupplierId;   // SSR-0c - read-only here; written by /main-supplier — read-only here, like its neighbours; written by /tracking-flags
     private String imageUrl;
     private Long createdBy;
     /** U1 — who is making this change, for the pack-rule audit stamp. */

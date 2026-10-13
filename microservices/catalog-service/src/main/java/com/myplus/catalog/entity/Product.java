@@ -200,6 +200,15 @@ public class Product {
     @Column(name = "last_purchase_rate", precision = 19, scale = 2)
     private BigDecimal lastPurchaseRate;
 
+    /**
+     * SSR-0c — the product's MAIN SUPPLIER (a business-service {@code vender} id): the group it sits under on the Stock
+     * & Sales Report. Stamped by the product's FIRST purchase when blank (business → {@code /main-supplier/stamp}),
+     * changed only by an admin on the product form (SAP's regular vendor). Never moved by a later purchase from
+     * another supplier. Its own endpoints, never the product save, so a partial save cannot clear it.
+     */
+    @Column(name = "main_supplier_id")
+    private Long mainSupplierId;
+
     @Column(name = "last_sale_rate", precision = 19, scale = 2)
     private BigDecimal lastSaleRate;
 

@@ -320,14 +320,17 @@ public class RepossessionService {
                 if (s.getProductId() == null) continue;
                 if (reservationId != null) {
                     // The inverse saga, exactly as the ordinary return uses it.
-                    inventoryClient.returnStock(reservationId,
+                    com.myplus.commerce.contracts.dto.StockReturnRequest back =
                             new com.myplus.commerce.contracts.dto.StockReturnRequest(List.of(
                                     new com.myplus.commerce.contracts.dto.StockReturnLine(
-                                            s.getProductId(), s.getQuantity()))));
+                                            s.getProductId(), s.getQuantity())));
+                    back.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.REPOSSESSION);   // SSR-0a
+                    inventoryClient.returnStock(reservationId, back);
                 } else {
                     inventoryClient.importStock(List.of(
                             com.myplus.commerce.contracts.dto.StockImportLine.builder()
-                                    .productId(s.getProductId()).quantity(s.getQuantity()).build()));
+                                    .productId(s.getProductId()).quantity(s.getQuantity())
+                                    .movementType(com.myplus.commerce.contracts.dto.StockMovementType.REPOSSESSION).build()));   // SSR-0a
                 }
             }
         } catch (Exception e) {

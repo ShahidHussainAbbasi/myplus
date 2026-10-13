@@ -1381,3 +1381,17 @@ div.dataTables_wrapper div.dataTables_paginate .paginate_button.current:hover {
 /* the header is already sticky with its own background (businessDashboard's #tablesi rules); pin the Totals the same way */
 #sellCartTop #tablesi tfoot th { position: sticky; bottom: 0; z-index: 2; }
 @media (max-width: 767px) { #sellCartTop #sellCartScroll { max-height: 240px; } }
+
+/* SSR-1 — Stock & Sales Report (ssr.js): 19 columns, so compact and unwrapped (the box scrolls sideways); the supplier
+   heading, subtotals and Net Total stand out; a row whose columns do not reach its closing is highlighted. */
+.ssr-table th, .ssr-table td { white-space: nowrap; font-size: 12px; padding: 4px 6px; }
+.ssr-table tr.ssr-group td { font-weight: 700; text-align: center; background: var(--ssr-group-bg, #eef2ff); }
+.ssr-table tr.ssr-subtotal td, .ssr-table tr.ssr-nettotal td { font-weight: 700; }
+.ssr-table tr.ssr-nettotal td { border-top: 2px solid currentColor; }
+.ssr-table tr.ssr-warn td { background: var(--ssr-warn-bg, #fff3cd); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .ssr-table tr.ssr-group td { --ssr-group-bg: rgba(99, 102, 241, .18); }
+  :root:not([data-theme="light"]) .ssr-table tr.ssr-warn td { --ssr-warn-bg: rgba(234, 179, 8, .18); }
+}
+:root[data-theme="dark"] .ssr-table tr.ssr-group td { --ssr-group-bg: rgba(99, 102, 241, .18); }
+:root[data-theme="dark"] .ssr-table tr.ssr-warn td { --ssr-warn-bg: rgba(234, 179, 8, .18); }

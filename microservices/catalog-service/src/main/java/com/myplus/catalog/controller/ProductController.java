@@ -226,6 +226,20 @@ public class ProductController {
      * whether this TENANT has the capability at all. A mobile shop's admin has every write privilege and still
      * cannot mark a product batch-tracked if the business does not do batch trade.
      */
+    /** SSR-0c — a purchase's supplier becomes the product's main supplier only if it has none (any purchaser). */
+    @PutMapping("/{id}/main-supplier/stamp")
+    public boolean stampMainSupplier(@PathVariable Long id, @RequestParam("supplierId") Long supplierId) {
+        return productService.stampMainSupplier(id, supplierId);
+    }
+
+    /** SSR-0c — the owner sets (or clears, with no supplierId) the main supplier on the product form. */
+    @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
+    @PutMapping("/{id}/main-supplier")
+    public com.myplus.commerce.contracts.dto.ProductRef setMainSupplier(
+            @PathVariable Long id, @RequestParam(name = "supplierId", required = false) Long supplierId) {
+        return productService.setMainSupplier(id, supplierId);
+    }
+
     @PreAuthorize("hasAuthority('ADMIN_PRIVILEGE')")
     @PutMapping("/{id}/tracking-flags")
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(

@@ -75,6 +75,10 @@ public class ProductRef {
     private Boolean tracksBatch;
     /** EXP-REQ — TRUE: this product has no expiry, so a purchase may leave it blank even where expiry is tracked. */
     private Boolean noExpiry;
+    /** SSR-0c - the product's main supplier (a business-service vender id), or null. */
+    private Long mainSupplierId;
+    /** SSR-1 - the product's trade price (TP): its last purchase rate per pack, stamped by purchases (slice 107). */
+    private java.math.BigDecimal lastPurchaseRate;
 
     /** PR-2 — the product's own markup %, or null for "use the business's". Read by the purchase path's markup rule. */
     private BigDecimal markupPct;

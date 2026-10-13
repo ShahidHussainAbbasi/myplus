@@ -15,6 +15,9 @@ import java.time.LocalDate;
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class StockImportLine {
     private Long productId;
+    /** SSR-0a — why this stock arrives ({@link StockMovementType}); absent = RECEIPT. And the document it came from. */
+    private String movementType;
+    private String sourceRef;
     private Float quantity;
     private String batchNo;
     private LocalDate expiryDate;

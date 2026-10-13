@@ -16,6 +16,9 @@ public class StockReturnRequest {
     private List<StockReturnLine> lines;
     /** P11 (slice 55): when true, returned stock is quarantined (restockable=false), not put back on the shelf. */
     private boolean quarantine;
+    /** SSR-0a — why the stock comes back ({@link StockMovementType}); absent = SALE_RETURN. And the document. */
+    private String movementType;
+    private String sourceRef;
 
     /** Back-compat 1-arg: a plain restock return (quarantine=false) — used by retail/e-commerce callers. */
     public StockReturnRequest(List<StockReturnLine> lines) {

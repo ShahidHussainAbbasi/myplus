@@ -578,6 +578,45 @@
      * <p>Failures surface rather than being swallowed: the product HAS been saved by this point, so silence
      * would leave the operator believing a policy was applied when it was not.
      */
+    /*
+     * SSR-0c — the product's MAIN SUPPLIER (its group on the Stock & Sales Report). Its own endpoint, admin-gated in
+     * catalog, and sent ONLY when the user changed the picker: a purchase stamps it when blank, so an untouched form
+     * must never overwrite (or clear) what the first purchase recorded.
+     */
+    function loadMainSupplierOptions(selected) {
+        var $dd = $('#prodMainSupplier');
+        if (!$dd.length) return;
+        var apply = function () {
+            $dd.val(selected == null ? '' : String(selected)).data('loadedValue', $dd.val());
+            if (typeof global.refreshSearchableSelect === 'function') global.refreshSearchableSelect($dd);
+        };
+        if ($dd.data('loaded')) return apply();
+        $.get(serverContext + 'getUserVenders', function (html) {
+            $dd.find('option:not(:first)').remove();
+            $(String(html)).filter('option').each(function () { if (this.value) $dd.append($(this).clone()); });
+            $dd.data('loaded', true);
+            apply();
+        });
+    }
+    global.loadMainSupplierOptions = loadMainSupplierOptions;
+
+    function saveMainSupplier(productId) {
+        var $dd = $('#prodMainSupplier');
+        if (!productId || !$dd.length || !$dd.is(':visible')) return;
+        var now = $dd.val() || '';
+        if (now === ($dd.data('loadedValue') || '')) return;   // untouched: leave it to the purchases
+        $.ajax({
+            type: 'POST', url: serverContext + 'setProductMainSupplier', dataType: 'json',
+            data: { id: productId, supplierId: now },
+            success: function (resp) {
+                if (resp && resp.success === false && global.showFormError) {
+                    global.showFormError(resp.message || 'The main supplier could not be saved.');
+                }
+            },
+            error: function () { if (global.showFormError) global.showFormError('The main supplier could not be saved.'); }
+        });
+    }
+
     function saveProductTracking(productId) {
         if (!productId) return;
         var body = { id: productId };
@@ -647,6 +686,7 @@
         $('#prodManufacturer').val('');
         $('#prodManufacturerNew').val('');
         $('#prodFormula').val('');   // PH-FORMULA: a new product starts with none
+        loadMainSupplierOptions(null);   // SSR-0c: a new product's supplier comes from its first purchase
         refreshPicker('#prodManufacturer');   // else the button keeps showing the cleared brand
         $('#prodSku').removeClass('alert-danger');
         $('#prodName').removeClass('alert-danger');
@@ -982,6 +1022,7 @@
             $('#prodRequiresSerial').prop('checked', p.requiresSerial === true);
             $('#prodTracksBatch').prop('checked', p.tracksBatch === true);
             $('#prodNoExpiry').prop('checked', p.noExpiry === true);   // EXP-REQ
+            loadMainSupplierOptions(p.mainSupplierId);   // SSR-0c
             prodPackSizeChanged();
             loadProductStickers(p.id);   // U7: a sticker needs a product to point at
             // Select by category id (dropdown). Reload the list first so the product's category option is present.
@@ -1183,6 +1224,7 @@
                     // because it is policy rather than product data. Fired after the product exists so a
                     // newly created product has an id to attach it to.
                     saveProductTracking(id || (resp.data && resp.data.id));
+                    saveMainSupplier(id || (resp.data && resp.data.id));   // SSR-0c
                     showSaleSuccess(id ? 'Product updated.' : 'Product saved.');
                     // Consume the intent exactly once, whatever we decide below, so it can never leak
                     // into a later save (the same rule afterSavePurchase follows).

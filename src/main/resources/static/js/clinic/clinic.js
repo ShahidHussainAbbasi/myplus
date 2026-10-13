@@ -647,11 +647,23 @@
 
     // RW-2: the page opens on the first screen this person may use — the desk on Reception, the doctor on My queue
     var openMyQueueWhenKnown = false;
+    // RW-3: a workspace tile asks for its screen (?open=MyQueueDiv); honoured only when this person has that screen
+    var OPENABLE = { ReceptionDiv: '#clinNavReception', QueueDiv: '#clinNavQueue', DoctorsDiv: '#clinNavDoctors',
+                     ClinicSettingsDiv: '#clinNavSettings' };
     function openFirst() {
-        if ($('#clinNavReception').length) { show('ReceptionDiv'); return; }
-        if ($('#clinNavQueue').length) { show('QueueDiv'); return; }
+        var wanted = null;
+        try { wanted = new URLSearchParams(global.location.search).get('open'); } catch (e) { /* old browser */ }
+        if (wanted === 'MyQueueDiv') { openMyQueueWhenKnown = true; return; }   // shown once "which doctor am I" answers
+        if (wanted && OPENABLE[wanted] && $(OPENABLE[wanted]).length) { show(wanted); return; }
+        if (openOwnScreen()) return;
         openMyQueueWhenKnown = true;                       // loadMe() opens My queue for a doctor
-        if ($('#clinNavDoctors').length) show('DoctorsDiv');
+    }
+    /** The first screen this person has, in order; false when they have none of them (a doctor). */
+    function openOwnScreen() {
+        if ($('#clinNavReception').length) { show('ReceptionDiv'); return true; }
+        if ($('#clinNavQueue').length) { show('QueueDiv'); return true; }
+        if ($('#clinNavDoctors').length) { show('DoctorsDiv'); return true; }
+        return false;
     }
 
     // ── H2: which doctor am I ───────────────────────────────────────────────────────────────────────────
@@ -660,7 +672,11 @@
         $.getJSON(url('clinic/doctors/me')).done(function (r) {
             me = (r && r.success && r.data) || null;
             $('#clinNavMyQueueWrap').toggle(!!(me && me.canConsult));
-            if (openMyQueueWhenKnown && me && me.canConsult) { openMyQueueWhenKnown = false; show('MyQueueDiv'); }
+            if (openMyQueueWhenKnown) {
+                openMyQueueWhenKnown = false;
+                if (me && me.canConsult) show('MyQueueDiv');
+                else openOwnScreen();   // asked for My queue but not a doctor: their own first screen instead
+            }
         });
     }
 

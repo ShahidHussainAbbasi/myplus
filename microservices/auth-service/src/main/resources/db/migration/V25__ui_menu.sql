@@ -1,6 +1,6 @@
 -- HMS RW-0b — menus are DATA (client, 2026-10-12: "nothing should be hard coded … populated from the databases";
 -- hms-role-workspaces-design.md §8). Which permission codes unlock a menu used to be written into the templates; it
--- is now a row here, and a page names only the menu's KEY (${@perm.menu('purchase')}).
+-- is now a row here, and a page names only the menu's KEY (the page asks perm.menu with the key 'purchase'; never write a dollar-brace in a migration — Flyway reads it as a placeholder, even in a comment).
 --
 --   menu_key     the name the page uses — unique
 --   parent_key   the menu this item sits in (NULL = a top-level menu)

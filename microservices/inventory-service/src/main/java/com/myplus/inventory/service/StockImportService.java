@@ -27,6 +27,7 @@ public class StockImportService {
 
     private final StockLevelRepository stockLevelRepository;
     private final StockEntryRepository stockEntryRepository;
+    private final StockLedger ledger;   // SSR-0a
 
     /**
      * ⭐ PERF-9 — returns the resulting ON-HAND, not just a count.
@@ -74,6 +75,10 @@ public class StockImportService {
                     .organizationId(orgId).userId(userId).build();
             stockEntryRepository.save(entry);
             entryIds.add(entry.getId());   // PR-3b: the caller keeps the id of the batch it booked in
+            // SSR-0a - a purchase receipt, or a restock (sale edit/return/void, repossession) the caller names
+            ledger.record(orgId, userId, l.getProductId(), entry.getId(),
+                    StockLedger.typeOr(l.getMovementType(), com.myplus.commerce.contracts.dto.StockMovementType.RECEIPT),
+                    add, l.getPurchasePrice(), l.getSourceRef());
             created++;
         }
         return StockImportResult.builder().created(created).onHand(onHand).entryIds(entryIds).build();

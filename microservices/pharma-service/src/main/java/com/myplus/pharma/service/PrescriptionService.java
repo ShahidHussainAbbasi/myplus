@@ -112,6 +112,10 @@ public class PrescriptionService {
 
     /** HMS S3b-1 — the permission that lets a caller submit a doctor's prescription (clinical-service's CONSULT). */
     public static final String CLINIC_CONSULT = "clinic.consult";
+    /** H3b — dispensing, changing and cancelling a prescription (PrescriptionController's @PreAuthorize names it too). */
+    public static final String RX_DISPENSE = "rx.dispense";
+    /** RW-0c — every permission code this service names; checked against auth's catalogue at start-up. */
+    public static final java.util.List<String> CODES_NAMED = java.util.List.of(CLINIC_CONSULT, RX_DISPENSE);
 
     /**
      * Only the doctor's Submit may carry a visit reference: without this, the counter form (which relays its body as

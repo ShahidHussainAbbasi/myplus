@@ -27,8 +27,10 @@
 describe('Team invite → first login', () => {
   const run = String(Date.now()).slice(-7)
   const EMAIL = `ti.${run}@myplus.test`
-  const PASSWORD_1 = `Clinic@${run}a`
-  const PASSWORD_2 = `Clinic@${run}b`
+  // fixed, with no runs like 123/abc: the password rules refuse a sequence (ILLEGAL_SEQUENCE) — a password built from
+  // the clock's digits failed whenever they happened to contain one (2026-10-12 run: 789)
+  const PASSWORD_1 = 'Kiwi#Lamp81'
+  const PASSWORD_2 = 'Kiwi#Lamp92'
   const MAILPIT = 'http://localhost:8025'
   let token1 = null
   let link1 = null
@@ -177,7 +179,7 @@ describe('Team invite → first login', () => {
   ].forEach(({ set, tag, dispenses }) => {
     it(`TI-08-${tag} a member on "${set}": owner sets it on the Team row → password from the e-mail → signs in with ${set}'s rights`, () => {
       const email = `ti.${run}.${tag}@myplus.test`
-      const pw = `Clinic@${run}${tag}`
+      const pw = 'Kiwi#Lamp7' + tag   // no sequences (see PASSWORD_1)
       const since = new Date().toISOString()
       // 1. owner adds the member on Team
       cy.loginAsPharmaOwner()

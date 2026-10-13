@@ -85,4 +85,25 @@ public interface SaleReturnRepo extends JpaRepository<SaleReturn, Long> {
 		+ "and (r.organizationId = :orgId or (r.organizationId is null and r.userId = :userId))")
 	List<SaleReturn> findCreditNotesForInvoices(@Param("invoiceNos") java.util.Collection<String> invoiceNos,
 			@Param("orgId") Long orgId, @Param("userId") Long userId);
+
+   /** SSR-1 - per product, credit-note lines dated in the period: [product_id, value]. Value = packs x the pack rate
+    *  at the sale (V65 unit_rate); rows from before V65 fall back to refund + credit. */
+   @org.springframework.data.jpa.repository.Query(value = "SELECT r.product_id, COALESCE(SUM(COALESCE(r.quantity * r.unit_rate, "
+        + "COALESCE(r.refund_amount, 0) + COALESCE(r.credit_amount, 0))), 0) FROM sale_return r "
+        + "WHERE r.organization_id = :org AND r.product_id IS NOT NULL AND r.dated >= :from AND r.dated < :toExcl "
+        + "GROUP BY r.product_id", nativeQuery = true)
+   java.util.List<Object[]> ssrReturnValueByProduct(@org.springframework.data.repository.query.Param("org") Long org,
+        @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+        @org.springframework.data.repository.query.Param("toExcl") java.time.LocalDateTime toExcl);
+
+   /** SSR-1 - the value of returns (whenever made) of sales made in the period, by the original invoice's date:
+    *  added back onto the reduced sale lines to give GROSS sales value. */
+   @org.springframework.data.jpa.repository.Query(value = "SELECT r.product_id, COALESCE(SUM(COALESCE(r.quantity * r.unit_rate, "
+        + "COALESCE(r.refund_amount, 0) + COALESCE(r.credit_amount, 0))), 0) FROM sale_return r "
+        + "JOIN customer_history ch ON ch.organization_id = r.organization_id AND ch.invoice_no = r.invoice_no "
+        + "WHERE r.organization_id = :org AND r.product_id IS NOT NULL AND ch.dated >= :from AND ch.dated < :toExcl "
+        + "GROUP BY r.product_id", nativeQuery = true)
+   java.util.List<Object[]> ssrReturnValueOfSalesInPeriod(@org.springframework.data.repository.query.Param("org") Long org,
+        @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+        @org.springframework.data.repository.query.Param("toExcl") java.time.LocalDateTime toExcl);
 }

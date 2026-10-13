@@ -526,6 +526,7 @@ public class PurchaseService implements IPurchaseService{
 		// derives them from purchase history. GUARD: only a positive rate is applied; a blank/0 leaves that field
 		// untouched. Best-effort — a catalog hiccup never fails the purchase (stock is already in).
 		stampRatesOnProduct(saved, "receive");
+		stampMainSupplier(saved);   // SSR-0c — the first purchase names the product's supplier
 
 		// F3b: auto-post the purchase to the GL (Dr Inventory + Dr TAX(input), Cr Cash(paid)/AP(rest)). Best-effort.
 		try {
@@ -652,6 +653,21 @@ public class PurchaseService implements IPurchaseService{
 			}
 		}
 		stampRatesOnProduct(saved, "edit");
+	}
+
+	/**
+	 * SSR-0c — the bill's supplier becomes the product's MAIN SUPPLIER (its group on the Stock & Sales Report), but only
+	 * when the product has none yet: catalog keeps the first one, so a later buy from another supplier moves nothing.
+	 * Best-effort like the rate stamp: the goods are in and the bill recorded either way; a cash purchase (no supplier)
+	 * names nobody.
+	 */
+	void stampMainSupplier(Purchase saved) {
+		if (saved == null || saved.getProductId() == null || saved.getVenderId() == null) return;
+		try {
+			catalogClient.stampMainSupplier(saved.getProductId(), saved.getVenderId());
+		} catch (Exception ex) {
+			LOG.warn("SSR-0c: main-supplier stamp failed for product {} (purchase recorded)", saved.getProductId(), ex);
+		}
 	}
 
 	void stampRatesOnProduct(Purchase saved, String phase) {
@@ -840,6 +856,8 @@ public class PurchaseService implements IPurchaseService{
 		com.myplus.commerce.contracts.dto.StockPurchaseAdjust adjust =
 				batchAdjustForEdit(saved, delta, oldBatchNo, oldExpiry, oldRate, batchSellPrice(saved));
 		if (tradeSagaProperties.isEnabled() && saved.getProductId() != null && adjust != null) {
+			adjust.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_EDIT);   // SSR-0a - the stock ledger's why
+			adjust.setSourceRef(saved.getPurchaseInvoiceNo());
 			inventoryClient.reconcilePurchase(adjust);
 		}
 
@@ -955,7 +973,9 @@ public class PurchaseService implements IPurchaseService{
 		if (tradeSagaProperties.isEnabled() && p.getProductId() != null) {
 			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
 					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(-(rq + bonusClawback))
-					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate()).build());
+					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate())
+					.movementType(com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_RETURN).sourceRef(p.getPurchaseInvoiceNo())   // SSR-0a
+					.build());
 		}
 		if (bonusClawback > 0f) p.setBonusQuantity(bonusStillEarned);
 
@@ -1119,6 +1139,8 @@ public class PurchaseService implements IPurchaseService{
 							.costPrice(effectiveCost)                // what the goods actually cost us
 							.paidTotal(paidTotal)                    // the exact figure, for allocation
 							.sellPrice(batchSellPrice(obj))          // PR-3b: null unless the business sells per batch
+							.movementType(com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE)       // SSR-0a - the stock ledger's why
+							.sourceRef(obj.getPurchaseInvoiceNo())
 							.build()));
 			// PR-3b — keep the batch this line booked in, so an edit can re-price exactly it.
 			if (booked != null && booked.getEntryIds() != null && !booked.getEntryIds().isEmpty()) {

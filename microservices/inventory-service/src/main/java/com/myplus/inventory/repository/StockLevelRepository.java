@@ -82,4 +82,19 @@ public interface StockLevelRepository extends JpaRepository<StockLevel, Long> {
 
     // ALERT-RETIRE (2026-10-10): findLowStock() — the cross-tenant scan of the retired hourly AlertService — is gone.
     // Low stock is answered live and per tenant by countLowAtScoped / findLowAtScoped (STK-ALERT).
+
+    // ── SSR-0b ledger cut-over (StockLedgerCutover) — SYSTEM, cross-tenant by design: runs with no user ──
+    /** Stock levels not yet cut over to the ledger (no OPENING row), oldest first. */
+    @Query("SELECT sl.id FROM StockLevel sl WHERE sl.organizationId IS NOT NULL AND NOT EXISTS ("
+         + "SELECT 1 FROM StockMovement m WHERE m.organizationId = sl.organizationId AND m.productId = sl.productId "
+         + "AND m.movementType = 'OPENING') ORDER BY sl.id")
+    java.util.List<Long> findIdsWithoutOpening(org.springframework.data.domain.Pageable page);
+
+    /** The level row LOCKED for the rest of the transaction: every stock change updates it, so they wait. */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT sl FROM StockLevel sl WHERE sl.id = :id")
+    java.util.Optional<StockLevel> lockById(@Param("id") Long id);
+
+    @Query("SELECT COUNT(sl) FROM StockLevel sl WHERE sl.organizationId IS NULL")
+    long countWithoutOrganization();
 }

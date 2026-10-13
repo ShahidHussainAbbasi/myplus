@@ -511,6 +511,29 @@ public class ProductService {
         return updateTrackingFlags(id, requiresSerial, tracksBatch, null);
     }
 
+    /**
+     * SSR-0c — a purchase names the product's supplier: kept only when the product has none yet (its FIRST purchase).
+     * A later purchase from another supplier changes nothing. Returns whether it was set.
+     */
+    @Transactional
+    public boolean stampMainSupplier(Long id, Long supplierId) {
+        if (supplierId == null) return false;
+        Product p = getEntity(id);
+        if (p.getMainSupplierId() != null) return false;
+        p.setMainSupplierId(supplierId);
+        productRepository.save(p);
+        return true;
+    }
+
+    /** SSR-0c — the owner's choice on the product form; {@code null} clears it. */
+    @Transactional
+    public com.myplus.commerce.contracts.dto.ProductRef setMainSupplier(Long id, Long supplierId) {
+        Product p = getEntity(id);
+        p.setMainSupplierId(supplierId);
+        productRepository.save(p);
+        return toRef(p, orgCodeRates());
+    }
+
     /** EXP-REQ — as above, plus the "No expiry" exemption, which only a business tracking expiry may set. */
     @Transactional
     public com.myplus.commerce.contracts.dto.ProductRef updateTrackingFlags(Long id, Boolean requiresSerial,
@@ -632,6 +655,8 @@ public class ProductService {
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
                 .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
+                .mainSupplierId(p.getMainSupplierId())   // SSR-0c
+                .lastPurchaseRate(p.getLastPurchaseRate())   // SSR-1 - the TP
                 // U1: carried on the ref the sale already fetches, so no extra call at checkout.
                 .packSize(p.getPackSize())
                 .looseUnit(p.getLooseUnit())
@@ -689,6 +714,7 @@ public class ProductService {
                 .requiresSerial(Boolean.TRUE.equals(p.getRequiresSerial()))
                 .tracksBatch(Boolean.TRUE.equals(p.getTracksBatch()))
                 .noExpiry(Boolean.TRUE.equals(p.getNoExpiry()))   // EXP-REQ
+                .mainSupplierId(p.getMainSupplierId())   // SSR-0c
                 .imageUrl(p.getImageUrl())
                 .createdBy(p.getCreatedBy())
                 // DUP-1 — the caller's own key, echoed so a replay is distinguishable from a fresh insert.

@@ -175,4 +175,11 @@ public interface PurchaseRepo extends JpaRepository<Purchase, Long>,QueryByExamp
    @Query("select p.stockEntryId, p.bsellRate from purchase p where p.organizationId = :orgId "
          + "and p.stockEntryId in :ids and (p.status is null or p.status <> 'VOID') and p.bsellRate > 0")
    List<Object[]> billSellRates(@Param("orgId") Long orgId, @Param("ids") java.util.Collection<Long> ids);
+
+   /** SSR-0c fallback - each product's FIRST non-void purchase's supplier: [product_id, vender_id]. For products bought
+    *  before catalog stamped a main supplier. */
+   @Query(value = "SELECT p.product_id, p.vender_id FROM purchase p JOIN (SELECT product_id, MIN(purchase_id) AS mid "
+        + "FROM purchase WHERE organization_id = :org AND vender_id IS NOT NULL AND (status IS NULL OR status <> 'VOID') "
+        + "AND product_id IN :ids GROUP BY product_id) f ON f.mid = p.purchase_id", nativeQuery = true)
+   List<Object[]> firstSupplierByProduct(@Param("org") Long org, @Param("ids") java.util.Collection<Long> ids);
 }

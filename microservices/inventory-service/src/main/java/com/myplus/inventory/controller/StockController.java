@@ -24,6 +24,8 @@ public class StockController {
     private final StockService stockService;
     private final StockImportService stockImportService;
     private final StockAdjustmentService stockAdjustmentService;
+    private final com.myplus.inventory.service.StockLedgerCutover ledgerCutover;   // SSR-0b
+    private final com.myplus.inventory.service.StockLedgerReport ledgerReport;   // SSR-1
 
     @PostMapping("/add")
     public ResponseEntity<ApiResponse<StockEntry>> addStock(@RequestBody StockEntryDTO dto) {
@@ -45,6 +47,23 @@ public class StockController {
 
     /** BLK-5 — a product's corrections, newest first (at most 50), within the caller's tenant only. */
     /** STK-ALERT — counts + the first few of each for the header badge (tenant-scoped). See StockService#alertSummary. */
+    /** SSR-1 — this business's stock ledger summed per product for a period (opening, per-type movements, closing). */
+    @GetMapping("/ledger/summary")
+    public java.util.Map<String, Object> ledgerSummary(
+            @org.springframework.web.bind.annotation.RequestParam("from") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @org.springframework.web.bind.annotation.RequestParam("to") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        if (org == null) return java.util.Map.of("products", java.util.List.of());
+        return ledgerReport.periodSummary(org, from, to);
+    }
+
+    /** SSR-0b — this business's products whose stock ledger does not add up to on-hand (read-only; never fixed). */
+    @GetMapping("/ledger/differences")
+    public java.util.List<java.util.Map<String, Object>> ledgerDifferences() {
+        Long org = com.myplus.common.security.CurrentUser.organizationId();
+        return org == null ? java.util.List.of() : ledgerCutover.differences(org);
+    }
+
     @GetMapping("/alert-summary")
     public java.util.Map<String, Object> alertSummary(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int lowAt,
                                                       @org.springframework.web.bind.annotation.RequestParam(defaultValue = "-1") int nearDays) {

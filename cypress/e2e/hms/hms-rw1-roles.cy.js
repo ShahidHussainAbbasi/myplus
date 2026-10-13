@@ -78,6 +78,9 @@ describe('HMS RW-1 — each role does its own work', () => {
     refusedForm('/clinic/settings', { key: 'clinic.patient.cnicRequired', value: 'true' })
     refusedJson('POST', '/clinic/doctors', { name: 'RW1 Not A Doctor ' + run })
     refusedForm('/addPurchase', { billNo: 'RW1-' + run })
+    // RW-0c: the refusal names the action in the CATALOGUE's words (permission.label) and says who can fix it
+    cy.request({ method: 'POST', url: '/addPurchase', form: true, body: { billNo: 'RW1-msg-' + run }, failOnStatusCode: false })
+      .its('body.message').should('contain', '“Receive stock”').and('contain', 'Ask the shop owner to change your permission set on Team')
     refusedForm('/addProduct', { name: 'RW1 Product ' + run })
     // nothing was written by the refusals: no such doctor
     relogin(HMS.OWNER)

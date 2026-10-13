@@ -50,6 +50,15 @@ class PharmacistAndDoctorSetsTest {
     }
 
     @Test
+    void a_workspace_opens_for_any_code_it_lists_and_always_for_the_owner() {
+        // RW-3: the front desk's row lists 'clinic.patient.edit,clinic.token.issue'
+        assertThat(PermissionVisibility.opens("clinic.patient.edit,clinic.token.issue", Set.of("clinic.token.issue"), false)).isTrue();
+        assertThat(PermissionVisibility.opens("clinic.consult", Set.of("sale.create"), false)).isFalse();
+        assertThat(PermissionVisibility.opens("clinic.consult", Set.of(), true)).isTrue();
+        assertThat(PermissionVisibility.opens(null, Set.of(), false)).isTrue();
+    }
+
+    @Test
     void a_login_being_created_may_ask_only_for_the_doctors_job() {
         assertThat(AuthService.firstSetChecked(null, "USER")).isNull();
         assertThat(AuthService.firstSetChecked("  ", "USER")).isNull();

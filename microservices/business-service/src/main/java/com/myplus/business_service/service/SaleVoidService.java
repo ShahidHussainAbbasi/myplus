@@ -157,10 +157,12 @@ public class SaleVoidService {
             if (s.getProductId() != null && reservationId != null) {
                 StockReturnRequest rr = new StockReturnRequest(List.of(new StockReturnLine(s.getProductId(), qty)));
                 rr.setQuarantine(quarantine);
+                rr.setMovementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_VOID);   // SSR-0a
                 inventoryClient.returnStock(reservationId, rr);
             } else if (s.getProductId() != null) {
                 inventoryClient.importStock(List.of(
-                        StockImportLine.builder().productId(s.getProductId()).quantity(qty).build()));
+                        StockImportLine.builder().productId(s.getProductId()).quantity(qty)
+                                .movementType(com.myplus.commerce.contracts.dto.StockMovementType.SALE_VOID).build()));   // SSR-0a
             }
             retCost = retCost.add(nzbd(s.getCostPrice()).multiply(BigDecimal.valueOf(qty)));
             sellService.deleteById(s.getSellId());

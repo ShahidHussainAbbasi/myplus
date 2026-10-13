@@ -26,6 +26,18 @@ public final class PermissionVisibility {
                 .map(Map.Entry::getKey).collect(Collectors.toUnmodifiableSet());
     }
 
+    /**
+     * RW-3 — does a row whose {@code codes} column lists permissions (comma-separated = any) open for this person?
+     * Empty = everyone; {@code everything} (the owner, an administrator) = always.
+     */
+    public static boolean opens(String codes, Set<String> held, boolean everything) {
+        if (everything || codes == null || codes.isBlank()) return true;
+        for (String c : codes.split(",")) {
+            if (held != null && held.contains(c.trim())) return true;
+        }
+        return false;
+    }
+
     /** Offered when its {@code capability} column is empty, or when ANY capability it lists is on. */
     public static boolean visible(String capability, Set<String> enabled) {
         if (capability == null || capability.isBlank()) return true;

@@ -36,7 +36,36 @@ public class StockController {
 	private com.myplus.common.settings.CapabilityService capabilityService;   // #22: skip the FEFO call off-vertical
 
 	@Autowired
-	private com.myplus.common.settings.SettingsService settingsService;   // STK-ALERT: the business's cap and window
+	private com.myplus.common.settings.SettingsService settingsService;
+
+	@Autowired
+	private com.myplus.business_service.service.StockSalesReportService stockSalesReport;   // SSR-1
+
+	/**
+	 * SSR-1 — the Stock & Sales Report (doc slices/110): per product for a period, grouped by main supplier. Owner and
+	 * admin only, like every other report of the business's position. Dates ISO (yyyy-MM-dd); supplierId or companyId
+	 * narrows it. A refusal (bad period) answers success:false with the reason.
+	 */
+	@org.springframework.security.access.prepost.PreAuthorize(
+			"hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_PRIVILEGE') or hasAuthority('SUPER_PRIVILEGE')")
+	@RequestMapping(value = "/stockSalesReport", method = RequestMethod.GET)
+	@ResponseBody
+	public java.util.Map<String, Object> stockSalesReport(
+			@org.springframework.web.bind.annotation.RequestParam("from") String from,
+			@org.springframework.web.bind.annotation.RequestParam("to") String to,
+			@org.springframework.web.bind.annotation.RequestParam(value = "supplierId", required = false) Long supplierId,
+			@org.springframework.web.bind.annotation.RequestParam(value = "companyId", required = false) Long companyId) {
+		java.util.Map<String, Object> out = new java.util.LinkedHashMap<>();
+		try {
+			out.putAll(stockSalesReport.report(java.time.LocalDate.parse(from), java.time.LocalDate.parse(to), supplierId, companyId));
+			out.put("success", true);
+		} catch (com.myplus.business_service.service.BusinessRuleException | java.time.format.DateTimeParseException bad) {
+			out.put("success", false);
+			out.put("message", bad instanceof com.myplus.business_service.service.BusinessRuleException ? bad.getMessage()
+					: "Choose a valid period.");
+		}
+		return out;
+	}   // STK-ALERT: the business's cap and window
 
 	/**
 	 * STK-ALERT — the header badge: what an owner should act on (low / out of stock against the business cap or the

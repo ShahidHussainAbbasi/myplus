@@ -1344,6 +1344,47 @@ public class CatalogController {
         }
     }
 
+    /**
+     * SSR-1 — the Stock & Sales Report (owner/admin; business-service refuses anyone else). Dates ISO; supplierId or
+     * companyId narrows it. Passed through as received: business-service validates the period.
+     */
+    @GetMapping("/stockSalesReport")
+    @ResponseBody
+    public Map<String, Object> stockSalesReport(final HttpServletRequest request) {
+        try {
+            StringBuilder qs = new StringBuilder();
+            for (String k : new String[]{"from", "to", "supplierId", "companyId"}) {
+                String v = request.getParameter(k);
+                if (v == null || v.isBlank()) continue;
+                if (qs.length() > 0) qs.append('&');
+                qs.append(k).append('=').append(java.net.URLEncoder.encode(v.trim(), java.nio.charset.StandardCharsets.UTF_8));
+            }
+            Map<String, Object> dto = business.get("/stockSalesReport", qs.toString());
+            Map<String, Object> out = new java.util.HashMap<>();
+            if (dto != null) out.putAll(dto);
+            out.putIfAbsent("success", true);
+            return out;
+        } catch (Exception e) {
+            LOGGER.error("stockSalesReport proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
+    /** SSR-0c — the owner sets (or, with no supplierId, clears) a product's main supplier. Admin-gated in catalog. */
+    @PostMapping("/setProductMainSupplier")
+    @ResponseBody
+    public Map<String, Object> setProductMainSupplier(final HttpServletRequest request) {
+        try {
+            String id = request.getParameter("id");
+            String sup = request.getParameter("supplierId");
+            return catalog.putJson("/products/" + Long.parseLong(id) + "/main-supplier"
+                    + (sup == null || sup.isBlank() ? "" : "?supplierId=" + Long.parseLong(sup.trim())), Map.of());
+        } catch (Exception e) {
+            LOGGER.error("setProductMainSupplier proxy error", e);
+            return ProxyErrors.failure(e);
+        }
+    }
+
     /** STK-ALERT — the header badge's counts (owner/admin; business-service refuses anyone else). */
     @GetMapping("/stockAlertSummary")
     @ResponseBody

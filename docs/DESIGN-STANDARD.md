@@ -165,4 +165,17 @@ confirm severity, create a clear incident channel, assign roles, stabilize the s
  3. audit.
  4. discoverability.
 
- ## 
+ ## Chache
+ # HTTP caching
+
+ ## Read replicas
+ A read replica is a copy of a database used for read-heavy workloads.Trade-off: cached data can become stale. Use TTLs, cache invalidation, or event-driven refresh.
+
+ ## DLQ
+ A DLQ stores messages that repeatedly fail processing.
+
+## Event sourcing
+Event sourcing stores the sequence of events that changed state, rather than only the current state.
+
+## CQRS
+CQRS separates the write model from the read model.
