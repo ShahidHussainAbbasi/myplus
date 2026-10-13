@@ -78,7 +78,8 @@
                     // profile, and an unlabelled row in a picker is worse than a long one.
                     var label = (u.name && String(u.name).trim()) ? (u.name + ' (' + (u.email || '') + ')')
                                                                   : (u.email || ('#' + id));
-                    state.repName[String(id)] = label;
+                    state.repName[String(id)] = label;   // kept for a REMOVED rep too: their existing territories still name them
+                    if (String(u.status || '').toUpperCase() === 'INACTIVE') return;   // TEAM-1: not offered as a new choice
                     opts.push('<option value="' + esc(id) + '">' + esc(label) + '</option>');
                 });
                 $('#terrRep').html(opts.join(''));

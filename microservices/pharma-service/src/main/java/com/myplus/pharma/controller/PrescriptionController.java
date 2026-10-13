@@ -64,6 +64,12 @@ public class PrescriptionController {
         return ApiResponse.success(prescriptionService.create(dto, CurrentUser.organizationId(), CurrentUser.userId()), "Prescription recorded");
     }
 
+    /** RW-4b — the overview's "prescriptions waiting" card: pending + partly dispensed, the caller's own scope. */
+    @GetMapping("/waiting-count")
+    public ApiResponse<Long> waitingCount() {
+        return ApiResponse.success(prescriptionService.countWaiting(CurrentUser.organizationId(), CurrentUser.userId()));
+    }
+
     @GetMapping
     public ApiResponse<List<PrescriptionDTO>> list() {
         return ApiResponse.success(prescriptionService.list(CurrentUser.organizationId(), CurrentUser.userId()));

@@ -19,6 +19,12 @@ public class WorkspaceController {
     @Autowired
     private WorkspaceService workspaces;
 
+    /** RW-4b — the owner's overview (the Administration workspace lands here): number cards, each a ui_menu row. */
+    @GetMapping("/overview")
+    public ModelAndView overview() {
+        return new ModelAndView("overview");
+    }
+
     @GetMapping("/workspaces")
     public ModelAndView workspaces(HttpServletRequest request) {
         ModelAndView mv = new ModelAndView("workspaces");

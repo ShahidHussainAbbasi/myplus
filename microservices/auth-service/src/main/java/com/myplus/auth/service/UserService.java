@@ -59,6 +59,7 @@ public class UserService {
             throw new ValidationException("Current password is incorrect");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setInvitedAt(null);   // TEAM-1: they chose their own password — no longer "invited"
         userRepository.save(user);
         /*
          * AUTH-SESS-1 — the point of changing a password is that the old one stops working. A session opened with

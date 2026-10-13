@@ -132,7 +132,7 @@
             html.push('<tr><td colspan="' + cols.length + '" class="text-muted">' + esc(tr('ui.js.ssrEmpty', 'No stock moved in this period.')) + '</td></tr>');
         }
         groups.forEach(function (g) {
-            html.push('<tr class="ssr-group"><td colspan="' + cols.length + '">' + esc(g.supplier) + '</td></tr>');
+            html.push('<tr class="ssr-group"><td colspan="' + cols.length + '"><span class="ssr-group-name">' + esc(g.supplier) + '</span></td></tr>');
             (g.rows || []).forEach(function (r) {
                 html.push('<tr class="ssr-row' + (r.adds === false ? ' ssr-warn' : '') + '" data-product="' + esc(r.productId)
                     + '"' + (r.adds === false ? ' title="' + esc(tr('ui.js.ssrNotAdding', 'The sale lines\' bonus does not match the goods that left; check this product.')) + '"' : '') + '>'

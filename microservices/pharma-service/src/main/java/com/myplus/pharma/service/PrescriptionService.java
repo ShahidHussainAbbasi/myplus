@@ -140,6 +140,14 @@ public class PrescriptionService {
 
     // Annotated on BOTH entry points: this delegates by self-invocation, which bypasses the proxy, so the
     // annotation on the 3-arg overload alone would never apply to a call that arrives here.
+    /** RW-4b — prescriptions still to fill: PENDING and PARTIALLY_DISPENSED, in the caller's branches (one COUNT). */
+    @Transactional(readOnly = true)
+    public long countWaiting(Long orgId, Long userId) {
+        return prescriptionRepo.countScopedByStatus(orgId, userId, branches.seesAll(), branches.stores(),
+                java.util.List.of(com.myplus.pharma.entity.Prescription.Status.PENDING,
+                        com.myplus.pharma.entity.Prescription.Status.PARTIALLY_DISPENSED));
+    }
+
     @Transactional(readOnly = true)
     public List<PrescriptionDTO> list(Long orgId, Long userId) {
         return list(orgId, userId, DEFAULT_LIMIT);

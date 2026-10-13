@@ -52,6 +52,7 @@ public class OrgUserController {
     private final com.myplus.common.settings.CapabilityService capabilityService;
     private final com.myplus.auth.repository.UiMenuRepository uiMenuRepository;
     private final com.myplus.auth.repository.UiWorkspaceRepository uiWorkspaceRepository;
+    private final com.myplus.auth.service.TeamMemberService teamMembers;
 
     /**
      * ONB-1 — the tenant changes its OWN business type, from its Configuration screen.
@@ -112,6 +113,39 @@ public class OrgUserController {
     // Only the owner grants, and the owner already holds everything, so there is nothing to escalate to.
 
     /** The catalog and this tenant's sets — everything the matrix screen draws itself from. */
+    // ── TEAM-1 (2026-10-13): after adding a member — resend the invitation, remove (reversible), reactivate ──────────
+    // Same guard as adding a member; the who-may rules (owner / admin for ordinary members, never the owner or
+    // oneself, only this business) are TeamMemberService's.
+
+    @PostMapping("/users/{userId}/resend-invite")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> resendInvite(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                          @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.resendInvite(jwtService.extractUserId(token), orgId(token), isOwner(token), userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "A new set-password e-mail was sent. Older links no longer work."));
+    }
+
+    @PostMapping("/users/{userId}/remove")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> removeMember(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                          @RequestBody(required = false) Map<String, Object> body,
+                                                          @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.remove(jwtService.extractUserId(token), orgId(token), isOwner(token), userId,
+                body == null ? null : str(body.get("reason")));
+        return ResponseEntity.ok(ApiResponse.success(null, "Removed. They are signed out and cannot sign in to this business. You can reactivate them."));
+    }
+
+    @PostMapping("/users/{userId}/reactivate")
+    @PreAuthorize("hasAuthority('ROLE_OWNER') or hasAuthority('ADMIN_ROLE')")
+    public ResponseEntity<ApiResponse<Void>> reactivateMember(@org.springframework.web.bind.annotation.PathVariable Long userId,
+                                                              @RequestHeader("Authorization") String auth) {
+        String token = bearer(auth);
+        teamMembers.reactivate(jwtService.extractUserId(token), orgId(token), isOwner(token), userId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Reactivated. They can sign in again with their own password."));
+    }
+
     /**
      * RW-3 — THIS person's workspaces (V27 rows): those whose setting is on for their business and whose codes they
      * hold (the owner and an administrator hold all), in order. One → sign-in lands there; several → the tile home;

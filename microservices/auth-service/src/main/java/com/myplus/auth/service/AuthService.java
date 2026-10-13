@@ -291,6 +291,7 @@ public class AuthService {
                 .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(UUID.randomUUID().toString())) // throwaway; set via reset email
+                .invitedAt(LocalDateTime.now())   // TEAM-1: "Invited" on Team until they choose their password
                 .firstName(firstName)
                 .lastName(lastName)
                 .userType(userType)
@@ -644,6 +645,9 @@ public class AuthService {
                 row.put("email", u.getEmail());
                 row.put("role", m.getRole());
                 row.put("enabled", u.isEnabled());
+                // TEAM-1: ACTIVE / INACTIVE (removed — reversible), and "invited" = added, no password chosen yet
+                row.put("status", m.getStatus() == null ? "ACTIVE" : m.getStatus());
+                row.put("invited", u.getInvitedAt() != null);
                 /*
                  * PERM-1 — which set this member is on, so the team table can SHOW it and change it.
                  *
@@ -871,6 +875,9 @@ public class AuthService {
     public void sendPasswordResetEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        // TEAM-1: only the NEWEST link works — every older one for this person is cancelled (they piled up: one test
+        // account held 56 live links). Shopify does the same when an invitation is sent again.
+        passwordResetTokenRepository.deleteAllForUser(user.getId());
         PasswordResetToken prt = PasswordResetToken.builder()
                 .user(user)
                 .token(UUID.randomUUID().toString())
@@ -890,6 +897,7 @@ public class AuthService {
         }
         User user = prt.getUser();
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setInvitedAt(null);   // TEAM-1: they chose their own password — no longer "invited"
         userRepository.save(user);
         passwordResetTokenRepository.delete(prt);
         /*
@@ -922,6 +930,13 @@ public class AuthService {
     }
 
     private Map<String, Object> buildClaims(User user) {
+        // TEAM-1: a member whose access was removed everywhere is refused — getOrCreatePrimaryOrg would otherwise
+        // create them a brand-new empty business. Here (sign-in and refresh), never in getOrCreatePrimaryOrg itself,
+        // which start-up seeding also calls.
+        if (organizationService.accessRemoved(user.getId())) {
+            throw new org.springframework.security.authentication.DisabledException(
+                    "Your access to this business was removed. Ask the owner if this is a mistake.");
+        }
         // Default active tenant: the user's primary org ("tenant #1"), auto-created on first login so
         // domain data has a home (legacy safety net — new signups create the tenant at registration).
         return buildClaims(user, organizationService.getOrCreatePrimaryOrg(user));

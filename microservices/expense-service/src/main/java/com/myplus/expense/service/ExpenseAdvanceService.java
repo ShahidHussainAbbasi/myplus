@@ -107,7 +107,7 @@ public class ExpenseAdvanceService {
     public List<StaffDirectory.Member> staff() {
         access.assertClaimsOn();
         decider();
-        return staff.staff();
+        return staff.activeStaff();   // TEAM-1: a removed member is not offered for a new advance
     }
 
     public MovementView give(AdvanceRequest r, String key) {

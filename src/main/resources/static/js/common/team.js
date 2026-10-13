@@ -63,7 +63,14 @@ function loadTeamUsers() {
 			$tr.append($('<td>').text(u.name || ''));
 			$tr.append($('<td>').text(u.email || ''));
 			$tr.append($('<td>').text(u.role || ''));
-			$tr.append($('<td>').text(u.enabled ? 'Active' : 'Pending'));
+			// TEAM-1: Active / Invited (added, no password chosen yet) / Removed (reversible)
+			var removed = String(u.status || '').toUpperCase() === 'INACTIVE';
+			var $status = $('<span class="label">');
+			if (removed) $status.addClass('label-default').text(tMsg('ui.js.teamStatusRemoved', 'Removed'));
+			else if (u.invited) $status.addClass('label-warning').text(tMsg('ui.js.teamStatusInvited', 'Invited — no password yet'));
+			else $status.addClass('label-success').text(tMsg('ui.js.teamStatusActive', 'Active'));
+			$tr.append($('<td>').append($status));
+			if (removed) $tr.addClass('text-muted');
 			// Where this member works, and a way to CHANGE it — assignment used to be a one-way door: you could
 			// grant on creation and never move or revoke afterwards.
 			$tr.append($('<td>').text(teamLocationNames(u.locationIds)));
@@ -104,11 +111,30 @@ function loadTeamUsers() {
 				$tr.append($('<td>').html('<span class="text-muted">'
 					+ tMsg('ui.js.permOwnerAll', 'Owner · full access') + '</span>'));
 			}
-			$tr.append($('<td>').append(
-				$('<button type="button" class="btn btn-xs btn-default">')
+			var $acts = $('<td class="team-actions">');
+			if (!removed) {
+				$acts.append($('<button type="button" class="btn btn-xs btn-default">')
 					.text(tMsg('ui.js.teamEditAccess', 'Edit access'))
-					.on('click', function () { editTeamAccess(u); })
-			));
+					.on('click', function () { editTeamAccess(u); }));
+			}
+			// TEAM-1: the owner's row has none of these (the server refuses them too)
+			if (!isOwnerRow) {
+				if (!removed && u.invited) {
+					$acts.append(' ', $('<button type="button" class="btn btn-xs btn-default js-team-resend">')
+						.text(tMsg('ui.js.teamResend', 'Resend invitation'))
+						.on('click', function () { teamAction(u, 'resend-invite', this); }));
+				}
+				if (removed) {
+					$acts.append(' ', $('<button type="button" class="btn btn-xs btn-primary js-team-reactivate">')
+						.text(tMsg('ui.js.teamReactivate', 'Reactivate'))
+						.on('click', function () { teamReactivate(u, this); }));
+				} else {
+					$acts.append(' ', $('<button type="button" class="btn btn-xs btn-link text-danger js-team-remove">')
+						.text(tMsg('ui.js.teamRemove', 'Remove'))
+						.on('click', function () { teamRemove(u, this); }));
+				}
+			}
+			$tr.append($acts);
 			$tb.append($tr);
 		});
 	}).fail(function () {
@@ -332,6 +358,46 @@ function addTeamUser() {
 			teamMsg(m, true);
 		}
 	});
+}
+
+/*
+ * TEAM-1 (2026-10-13) — resend an invitation, remove a member (reversible), reactivate. The server decides who may
+ * (owner; an admin for ordinary members; never the owner or oneself) and words every refusal — shown as-is.
+ */
+function teamName(u) { return u.name || u.email || ''; }
+function teamAction(u, action, btn, body) {
+	var $b = $(btn).prop('disabled', true);
+	$.ajax({ type: 'POST', url: serverContext + 'team/users/' + encodeURIComponent(u.userId || u.id) + '/' + action,
+		contentType: 'application/json', dataType: 'json', data: JSON.stringify(body || {}) })
+		.done(function (r) {
+			var ok = r && (r.success === true || r.status === 'SUCCESS');
+			teamMsg((r && r.message) || '', !ok);
+			if (ok) loadTeamUsers();
+		})
+		.fail(function (xhr) {
+			var m = xhr && xhr.responseJSON && xhr.responseJSON.message;
+			teamMsg(m || tMsg('ui.js.teamActionFailed', 'Could not do that. Please try again.'), true);
+		})
+		.always(function () { $b.prop('disabled', false); });
+}
+function teamRemove(u, btn) {
+	uiPromptConfirm({
+		title: tMsg('ui.js.teamRemoveQ', 'Remove {0}?').replace('{0}', teamName(u)),
+		message: tMsg('ui.js.teamRemoveMsg', 'They are signed out at once and cannot sign in to this business. Nothing is deleted — you can reactivate them.'),
+		input: { label: tMsg('ui.js.teamRemoveReason', 'Reason'), required: true,
+				 requiredMessage: tMsg('ui.js.teamRemoveReasonNeeded', 'Say why, e.g. left the clinic.') },
+		confirmText: tMsg('ui.js.teamRemove', 'Remove'), tone: 'danger'
+	}).then(function (why) {
+		if (why === null) return;
+		teamAction(u, 'remove', btn, { reason: why });
+	});
+}
+function teamReactivate(u, btn) {
+	uiConfirm({
+		title: tMsg('ui.js.teamReactivateQ', 'Reactivate {0}?').replace('{0}', teamName(u)),
+		message: tMsg('ui.js.teamReactivateMsg', 'They can sign in again with their own password, on the same permission set as before.'),
+		confirmText: tMsg('ui.js.teamReactivate', 'Reactivate')
+	}).then(function (ok) { if (ok) teamAction(u, 'reactivate', btn); });
 }
 
 function teamMsg(msg, isErr) {

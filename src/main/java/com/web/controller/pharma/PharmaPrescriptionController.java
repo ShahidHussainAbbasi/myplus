@@ -26,6 +26,14 @@ public class PharmaPrescriptionController {
     @Autowired
     private PharmaRestClient client;
 
+    /** RW-4b — the overview's "prescriptions waiting" card (pharma counts in the caller's own branch scope). */
+    @RequestMapping(value = "/prescriptionsWaitingCount", method = RequestMethod.GET)
+    @ResponseBody
+    public Map<String, Object> prescriptionsWaitingCount() {
+        try { return client.get("/prescriptions/waiting-count"); }
+        catch (Exception e) { LOGGER.error("prescriptionsWaitingCount proxy error", e); return ProxyErrors.failure(e); }
+    }
+
     @RequestMapping(value = "/getPrescriptions", method = RequestMethod.GET)
     @ResponseBody
     public Map<String, Object> getPrescriptions(final HttpServletRequest request) {

@@ -24,6 +24,12 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     /** H4: the caller's branches (StoreScope) — a row with no branch is everyone's. */
     String BRANCH = " AND (:allStores = true OR p.storeId IS NULL OR p.storeId IN :stores)";
 
+    /** RW-4b — how many prescriptions are WAITING for the pharmacy, with exactly the list's scope (tenant + branches). */
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE " + SCOPE + BRANCH + " AND p.status IN :statuses")
+    long countScopedByStatus(@Param("orgId") Long orgId, @Param("userId") Long userId,
+                             @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,
+                             @Param("statuses") java.util.Collection<Prescription.Status> statuses);
+
     @Query("SELECT p FROM Prescription p WHERE " + SCOPE + BRANCH + " ORDER BY p.createdAt DESC")
     List<Prescription> findScoped(@Param("orgId") Long orgId, @Param("userId") Long userId,
                                   @Param("allStores") boolean allStores, @Param("stores") java.util.Collection<Long> stores,

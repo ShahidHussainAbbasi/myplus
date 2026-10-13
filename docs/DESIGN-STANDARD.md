@@ -179,3 +179,7 @@ Event sourcing stores the sequence of events that changed state, rather than onl
 
 ## CQRS
 CQRS separates the write model from the read model.
+
+## Tools and Technologies for Secure, reliable, observable communication for Network traffic.
+
+## Graph QL

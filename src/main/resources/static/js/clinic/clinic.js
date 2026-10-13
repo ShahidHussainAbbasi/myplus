@@ -554,7 +554,8 @@
         var id = $btn.data('id');
         var taken = {};
         $('#clinDoctorBody tr').each(function () { var l = $(this).attr('data-linked'); if (l) taken[l] = true; });
-        var opts = team.list.filter(function (u) { return !taken[String(u.userId || u.id)]; }).map(function (u) {
+        // TEAM-1: a REMOVED member (status INACTIVE) is never offered as a doctor's login
+        var opts = team.list.filter(function (u) { return !taken[String(u.userId || u.id)] && String(u.status || '').toUpperCase() !== 'INACTIVE'; }).map(function (u) {
             var uid = u.userId || u.id;
             return '<option value="' + escHtml(uid) + '">' + escHtml(u.email || uid) + '</option>';
         }).join('');

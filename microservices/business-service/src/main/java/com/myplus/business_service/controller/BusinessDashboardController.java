@@ -158,6 +158,17 @@ public class BusinessDashboardController {
             if (money) {
                 stats.put("monthlySales", sellCount);
                 stats.put("monthlyRevenue", String.format("%.0f", monthlyRevenue));
+                /*
+                 * RW-4b — TODAY's takings, for the owner's overview: the same aggregate as the month's, over the
+                 * business's day (H6: TenantClock.today() and BusinessDay bounds, exactly as the month above).
+                 */
+                java.time.LocalDate today = com.myplus.common.security.time.TenantClock.today();
+                Object[] dayAgg = sellRepo.sumSellByDates(com.myplus.common.security.time.BusinessDay.start(today),
+                        com.myplus.common.security.time.BusinessDay.end(today), user.getOrganizationId(), userId);
+                Object[] dayRow = (dayAgg != null && dayAgg.length == 1 && dayAgg[0] instanceof Object[]) ? (Object[]) dayAgg[0] : dayAgg;
+                stats.put("todaySales", (dayRow != null && dayRow.length > 0 && dayRow[0] != null) ? ((Number) dayRow[0]).longValue() : 0L);
+                stats.put("todayRevenue", String.format("%.0f", (dayRow != null && dayRow.length > 1 && dayRow[1] != null)
+                        ? ((Number) dayRow[1]).doubleValue() : 0.0));
             }
 
             /*

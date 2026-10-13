@@ -81,6 +81,7 @@ const setMarkup = (value) =>
 
 describe('U14 — loose units in a sales quote', () => {
   let markupBefore = null
+  let taxBefore = null
 
   before(() => {
     cy.loginAsBusiness()
@@ -90,11 +91,21 @@ describe('U14 — loose units in a sales quote', () => {
       const row = rows.find((x) => x.key === 'pos.sale.looseMarkupPct')
       markupBefore = row ? row.value : null
     })
+    /*
+     * PIN THE TAX POLICY. Every figure here is a pre-tax line (77.90 = 10 tablets at 7.79). demo.business's tax is
+     * ORG-WIDE state other specs and people switch: on 2026-10-13 it was left at 10% exclusive, so the converted
+     * invoice read 85.69 and case 3 went red for a reason unrelated to quotes. Snapshot, off for the run, restore after.
+     */
+    cy.snapshotTaxSetting().then((s) => {
+      taxBefore = s
+      cy.setTaxSetting({ ...s, enabled: false })
+    })
   })
 
   after(() => {
     cy.loginAsBusiness()
     setMarkup(markupBefore == null ? '0' : String(markupBefore))
+    if (taxBefore) cy.setTaxSetting(taxBefore)
   })
 
   beforeEach(() => cy.loginAsBusiness())

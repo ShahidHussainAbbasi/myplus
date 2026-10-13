@@ -22,7 +22,13 @@ public class StaffDirectory {
     /** Roles that work for the business. Everything else (GUARDIAN, STUDENT, …) is not staff. */
     static final Set<String> STAFF = Set.of("OWNER", "ADMIN", "USER");
 
-    public record Member(Long userId, String name, String email, String role) { }
+    /**
+     * {@code active} = false for a member the owner REMOVED (TEAM-1, membership INACTIVE): still named on their past
+     * expenses, never offered for a new advance.
+     */
+    public record Member(Long userId, String name, String email, String role, boolean active) {
+        public Member(Long userId, String name, String email, String role) { this(userId, name, email, role, true); }
+    }
 
     private final RestClient auth;
 
@@ -49,14 +55,20 @@ public class StaffDirectory {
             if (!STAFF.contains(role) || id == null) continue;
             if (Boolean.FALSE.equals(m.get("enabled"))) continue;
             String name = m.get("name") == null || String.valueOf(m.get("name")).isBlank() ? String.valueOf(m.get("email")) : String.valueOf(m.get("name"));
-            out.add(new Member(Long.valueOf(String.valueOf(id)), name, m.get("email") == null ? null : String.valueOf(m.get("email")), role));
+            boolean active = !"INACTIVE".equalsIgnoreCase(String.valueOf(m.get("status")));   // TEAM-1: removed = inactive
+            out.add(new Member(Long.valueOf(String.valueOf(id)), name, m.get("email") == null ? null : String.valueOf(m.get("email")), role, active));
         }
         return out;
     }
 
-    /** This member, if they are staff of the caller's business. */
+    /** TEAM-1 — the staff who may be CHOSEN now (a removed member is not offered). Past rows use {@link #staff()}. */
+    public List<Member> activeStaff() {
+        return staff().stream().filter(Member::active).toList();
+    }
+
+    /** This member, if they are ACTIVE staff of the caller's business (an advance is never given to someone removed). */
     public Optional<Member> staffMember(Long userId) {
         if (userId == null) return Optional.empty();
-        return staff().stream().filter(m -> m.userId().equals(userId)).findFirst();
+        return activeStaff().stream().filter(m -> m.userId().equals(userId)).findFirst();
     }
 }

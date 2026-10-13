@@ -154,7 +154,20 @@ public class OrganizationService {
 
     /** Whether the user belongs to the given organization (gate for org switching). */
     public boolean isMember(Long userId, Long orgId) {
-        return membershipRepository.findByUserIdAndOrganizationId(userId, orgId).isPresent();
+        // TEAM-1: a REMOVED member (status INACTIVE) is not a member — they cannot switch back into the business
+        return membershipRepository.findByUserIdAndOrganizationId(userId, orgId)
+                .filter(m -> m.getStatus() == null || "ACTIVE".equalsIgnoreCase(m.getStatus())).isPresent();
+    }
+
+    /**
+     * TEAM-1 — was this person's access REMOVED everywhere? True when they own no business, hold at least one
+     * membership, and every membership is inactive. Sign-in must then be refused: getOrCreatePrimaryOrg would
+     * otherwise fall through and create them a brand-new empty business of their own.
+     */
+    public boolean accessRemoved(Long userId) {
+        if (!organizationRepository.findByOwnerUserId(userId).isEmpty()) return false;
+        List<Membership> ms = membershipRepository.findByUserId(userId);
+        return !ms.isEmpty() && ms.stream().noneMatch(m -> m.getStatus() == null || "ACTIVE".equalsIgnoreCase(m.getStatus()));
     }
 
     /** The organizations the user belongs to, with role + which one is currently active. */
@@ -162,6 +175,7 @@ public class OrganizationService {
     public List<OrgView> listForUser(Long userId, Long activeOrgId) {
         List<OrgView> views = new ArrayList<>();
         for (Membership m : membershipRepository.findByUserId(userId)) {
+            if (m.getStatus() != null && !"ACTIVE".equalsIgnoreCase(m.getStatus())) continue;   // TEAM-1: removed
             Organization org = organizationRepository.findById(m.getOrganizationId()).orElse(null);
             if (org == null) {
                 continue;
