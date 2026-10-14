@@ -1595,7 +1595,29 @@ tr.row-voided .js-edit-row{display:none !important}
 						<label class="control-label col-sm-2" for="address" th:text="#{ui.address}">Address:</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="venderAddress"
-								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}"> 
+								name="address" placeholder="Complete Address" th:placeholder="#{ui.completeAddress}">
+						</div>
+					</div>
+					<!-- SRA-1: the same inline City / Area as the customer form (static/js/business/address.js). A supplier
+					     has no printed city column, so only the area is stored; the city comes with it. -->
+					<div class="form-group" data-sra-address="vender">
+						<label class="control-label col-sm-2" for="venderCityId" th:text="#{ui.docCity}">City</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="venderCityId" name="cityId" data-sra-city></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="city"
+									th:title="#{ui.sraNewCity}" title="New city">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewCity}">New city</span>
+							</button>
+						</div>
+						<label class="control-label col-sm-2" for="venderAreaId" th:text="#{ui.sraArea}">Area</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="venderAreaId" name="areaId" data-sra-area></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="area"
+									th:title="#{ui.sraNewArea}" title="New area">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewArea}">New area</span>
+							</button>
 						</div>
 					</div>
 					<!-- DR-1 (D5): optional. The strongest key for recognising this supplier as a business already
@@ -1817,12 +1839,36 @@ tr.row-voided .js-edit-row{display:none !important}
 					     afterwards. The licence is the BUYER's — a distributor may only supply a licensed
 					     reseller and the invoice carries it as evidence. (The SELLER's own licence is the
 					     pos.document.licenseNo setting: one per business, not one per customer.) -->
-					<div class="form-group">
-						<label class="control-label col-sm-2" for="customerCity" th:text="#{ui.docCity}">City</label>
+					<!-- SRA-1: City and Area from the business's OWN address list. "+ New city" / "+ New area" open a small
+					     form OVER this one (the purchase form's "+ New product" pattern) and come back with it selected —
+					     the customer form is never left (static/js/business/address.js). Shown only to members whose set
+					     allows area.create (ui_menu action.area.add, auth V32). The printed city is still the
+					     free-text `city` column: it rides in the hidden #customerCity and the server writes it from the
+					     picked area's city, so invoices read exactly what they always did. The Area select holds EVERY
+					     area (those of other cities hidden), so an edit can select the stored one before the city is set. -->
+					<div class="form-group" data-sra-address="customer">
+						<label class="control-label col-sm-2" for="customerCityId" th:text="#{ui.docCity}">City</label>
 						<div class="col-sm-4">
-							<input type="text" class="form-control" id="customerCity" name="city"
-							       placeholder="City" th:placeholder="#{ui.docCity}">
+							<select class="form-control" id="customerCityId" name="cityId" data-sra-city></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="city"
+									th:title="#{ui.sraNewCity}" title="New city">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewCity}">New city</span>
+							</button>
+							<input type="hidden" id="customerCity" name="city">
+							<div class="sra-legacy" data-sra-legacy hidden></div>
 						</div>
+						<label class="control-label col-sm-2" for="customerAreaId" th:text="#{ui.sraArea}">Area</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="customerAreaId" name="areaId" data-sra-area></select>
+							<button type="button" class="btn btn-link btn-sm" style="padding-left:0" data-kbd-skip
+									th:if="${@perm.menu('action.area.add')}" data-sra-new-for="area"
+									th:title="#{ui.sraNewArea}" title="New area">
+								<span class="glyphicon glyphicon-plus"></span> <span th:text="#{ui.sraNewArea}">New area</span>
+							</button>
+						</div>
+					</div>
+					<div class="form-group">
 						<label class="control-label col-sm-2" for="customerCnic" th:text="#{ui.docCnic}">CNIC No</label>
 						<div class="col-sm-4">
 							<input type="text" class="form-control" id="customerCnic" name="cnic"
@@ -4827,6 +4873,8 @@ tr.row-voided .js-edit-row{display:none !important}
     <script th:src="@{/js/business/JsBarcode.all.min.js}"></script>
     <script th:src="@{/js/business/labels.js}"></script>
     <script th:src="@{/js/business/crud-modal.js}"></script>
+    <!-- SRA-1: inline City / Area on the customer and supplier forms. AFTER crud-modal.js: it wraps openCrudModal. -->
+    <script th:src="@{/js/business/address.js}"></script>
     <script th:src="@{/js/business/sidebar.js}"></script>
     <script th:src="@{/js/business/quarantine.js}"></script>
     <script th:src="@{/js/business/pharma.js}"></script>

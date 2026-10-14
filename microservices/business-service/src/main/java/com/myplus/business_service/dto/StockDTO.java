@@ -21,7 +21,7 @@ public class StockDTO implements Serializable {
 
 	private String userType;	
 
-	private Float stock=0.0F;
+	private java.math.BigDecimal stock = java.math.BigDecimal.ZERO;   // a quantity (D14 / NUM-1; was Float)
 
 	private BigDecimal bpurchaseRate = BigDecimal.ZERO;
 	

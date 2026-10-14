@@ -46,14 +46,12 @@ public class StockImportService {
         Map<Long, BigDecimal> onHand = new LinkedHashMap<>();
         for (StockImportLine l : lines) {
             if (l.getProductId() == null) continue;
-            float qty = l.getQuantity() != null ? l.getQuantity() : 0f;
+            BigDecimal add = l.getQuantity() != null ? l.getQuantity() : BigDecimal.ZERO;   // NUM-1: exact on the wire now
 
             StockLevel level = stockLevelRepository.findByProductScoped(l.getProductId(), orgId, userId)
                     .orElseGet(() -> StockLevel.builder()
                             .productId(l.getProductId()).currentStock(BigDecimal.ZERO)
                             .organizationId(orgId).userId(userId).build());
-            // U0 boundary — see ReservationService: the import contract is still Float, inventory stores exact.
-            BigDecimal add = BigDecimal.valueOf(qty);
             level.setCurrentStock((level.getCurrentStock() != null ? level.getCurrentStock() : BigDecimal.ZERO).add(add));
             if (l.getCostPrice() != null) level.setCostPrice(l.getCostPrice());
             stockLevelRepository.save(level);

@@ -277,8 +277,9 @@ public class SagaSellService {
              * the path COGS-2 made safe per product instead of per invoice.
              */
             if (madeToOrder.contains(l.productId())) continue;
-            BigDecimal issued = BigDecimal.valueOf(l.quantity())
-                    .add(BigDecimal.valueOf(l.bonusQuantity() != null ? l.bonusQuantity() : 0f));
+            // NUM-1: exact. This was BigDecimal.valueOf(Float): 0.075f went to inventory as 0.07500000298…, and its
+            // DECIMAL(38,2) pick stored 0.08 — 3.2 tablets off the shelf for every 3 sold (gate num-1 N1).
+            BigDecimal issued = com.myplus.business_service.util.Quantities.nz(l.quantity()).add(com.myplus.business_service.util.Quantities.nz(l.bonusQuantity()));
             reservationLines.add(new StockReservationLine(l.productId(), issued, lineRef));
         }
 
@@ -318,11 +319,11 @@ public class SagaSellService {
          */
         boolean bonusWithheld = perBatch != null && perBatch.bonusWithheld();   // PR-3c: decided at the plan
         if (perBatch == null && (reservation == null || reservation.getStatus() != ReservationStatus.RESERVED)
-                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
+                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity().signum() > 0)) {
             List<StockReservationLine> paidOnly = new ArrayList<>();
             for (int i = 0; i < lines.size(); i++) {   // PR-3a: the same line references as the first attempt
                 SagaLine l = lines.get(i);
-                paidOnly.add(new StockReservationLine(l.productId(), BigDecimal.valueOf(l.quantity()), i));
+                paidOnly.add(new StockReservationLine(l.productId(), com.myplus.business_service.util.Quantities.nz(l.quantity()), i));
             }
 
             StockReservationResponse retry =
@@ -550,7 +551,7 @@ public class SagaSellService {
             if (l.costPrice() == null) continue;
             anyCostKnown = true;
             costedNet = costedNet.add(lineNet);
-            cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+            cost = cost.add(l.costPrice().multiply(com.myplus.business_service.util.Quantities.nz(l.quantity())));
         }
 
         int before = dto.getWarnings().size();
@@ -629,7 +630,7 @@ public class SagaSellService {
             if (l.costPrice() == null) continue;          // unknown cost — excluded from BOTH sides
             anyCostKnown = true;
             net = net.add(l.netAmount() == null ? BigDecimal.ZERO : l.netAmount());
-            cost = cost.add(l.costPrice().multiply(BigDecimal.valueOf(l.quantity())));
+            cost = cost.add(l.costPrice().multiply(com.myplus.business_service.util.Quantities.nz(l.quantity())));
         }
         if (!anyCostKnown) return;                        // nothing to judge
 
@@ -788,7 +789,7 @@ public class SagaSellService {
                 if (sd != null && sd.getProductId() != null) {
                     reqLines.add(com.myplus.commerce.contracts.dto.PriceQuoteLine.of(
                             sd.getProductId(),
-                            sd.getQuantity() == null ? BigDecimal.ONE : BigDecimal.valueOf(sd.getQuantity())));
+                            sd.getQuantity() == null ? BigDecimal.ONE : sd.getQuantity()));   // NUM-1: exact
                 }
             }
             if (reqLines.isEmpty()) return byProduct;
@@ -925,7 +926,7 @@ public class SagaSellService {
             java.util.List<String> lineSerials = serialUnitService.validateForSale(
                     s.getSerials(),
                     product != null && Boolean.TRUE.equals(product.getRequiresSerial()),
-                    s.getQuantity() != null ? s.getQuantity() : 1f,
+                    s.getQuantity() != null ? s.getQuantity() : BigDecimal.ONE,
                     productId,
                     orgId);
             if (!lineSerials.isEmpty()) dto.getSerialsClaimed().addAll(lineSerials);
@@ -935,7 +936,7 @@ public class SagaSellService {
             // Trusting the submitted totalAmount is how a line came to be stored as rate=1000 (catalog fallback)
             // with total=850 (the cashier's real price): two numbers from different sources, contradicting each
             // other, and no way for the row to be right. Derive it and the contradiction cannot be persisted.
-            BigDecimal qty = s.getQuantity() != null ? BigDecimal.valueOf(s.getQuantity()) : BigDecimal.ONE;
+            BigDecimal qty = s.getQuantity() != null ? s.getQuantity() : BigDecimal.ONE;   // NUM-1: exact
             BigDecimal lineTotal = lineRate.multiply(qty).setScale(2, java.math.RoundingMode.HALF_UP);
 
             // ── U2 · a broken pack ────────────────────────────────────────────────────────────────────────
@@ -943,7 +944,7 @@ public class SagaSellService {
             // line; a LOOSE line recomputes qty, lineTotal and lineRate, and records what the customer asked
             // for. `loose` is false on every line until a shop switches the feature on for a product.
             String soldUnitOut = normaliseSoldUnit(s.getSoldUnit());
-            Float soldQtyOut = null;
+            BigDecimal soldQtyOut = null;
             BigDecimal soldRateOut = null;
             Integer packSnapOut = null;
             if ("LOOSE".equals(soldUnitOut)) {
@@ -995,7 +996,7 @@ public class SagaSellService {
             // posts its "Net Amount" box, which actually holds PROFIT (total − cost×qty − discount); persisting
             // that made Sell.netAmount mean three different things and made the margin report — which computes
             // netAmount − cost×qty — subtract the cost twice whenever a purchase rate was present.
-            lines.add(new SagaLine(productId, qty.floatValue(), lineRate, discount,
+            lines.add(new SagaLine(productId, com.myplus.business_service.util.Quantities.stored(qty), lineRate, discount,
                     lineTotal, tax.gross(), s.getSrp(),
                     tax.rate(), tax.tax(), tax.gross(), catalogPrice, discountType, costPrice,
                     (q != null && q.getRuleId() != null) ? q.getReason() : null,
@@ -1039,7 +1040,7 @@ public class SagaSellService {
     record LooseLine(BigDecimal quantity,   // SELLING units for stock + the money identity (0.5)
                              BigDecimal lineTotal,  // what the customer pays for this line
                              BigDecimal lineRate,   // per selling unit, so lineTotal == quantity x lineRate
-                             Float pieces,          // what the customer asked for (5)
+                             BigDecimal pieces,     // what the customer asked for (5) — NUM-1: exact, was Float
                              BigDecimal perPiece,   // effective rate per piece, for the receipt
                              Integer packSize) {}   // frozen at the sale
 
@@ -1101,12 +1102,11 @@ public class SagaSellService {
             throw new com.myplus.common.web.exception.ValidationException(
                     pName + " has a pack size of " + packSize + ", which is too large to sell by the piece.");
         }
-        Float piecesF = s.getSoldQuantity();
-        if (piecesF == null || piecesF <= 0f) {
+        BigDecimal pieces = s.getSoldQuantity();   // NUM-1: exact — was a Float widened through BigDecimal.valueOf
+        if (pieces == null || pieces.signum() <= 0) {
             throw new com.myplus.common.web.exception.ValidationException(
                     "How many " + looseNoun(product) + " of " + pName + "? Enter a quantity above zero.");
         }
-        BigDecimal pieces = BigDecimal.valueOf(piecesF);
         if (pieces.stripTrailingZeros().scale() > 0) {
             // Half a tablet is not a thing this feature sells. Silently rounding it would be worse: the
             // customer would be charged for a piece they did not get, or the shop would give one away.
@@ -1132,7 +1132,7 @@ public class SagaSellService {
         BigDecimal lineRate = lineTotal.divide(quantity, 2, java.math.RoundingMode.HALF_UP);
         BigDecimal perPiece = lineTotal.divide(pieces, 2, java.math.RoundingMode.HALF_UP);
 
-        return new LooseLine(quantity, lineTotal, lineRate, piecesF, perPiece, packSize);
+        return new LooseLine(quantity, lineTotal, lineRate, pieces, perPiece, packSize);
     }
 
     /**
@@ -1300,7 +1300,7 @@ public class SagaSellService {
 
         StockReservationResponse plan = planFor(lines, sales, madeToOrder, true);
         if (plan != null && plan.getStatus() != ReservationStatus.PLANNED
-                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity() > 0f)) {
+                && lines.stream().anyMatch(l -> l.bonusQuantity() != null && l.bonusQuantity().signum() > 0)) {
             StockReservationResponse paidOnly = planFor(lines, sales, madeToOrder, false);
             if (paidOnly != null && paidOnly.getStatus() == ReservationStatus.PLANNED) {
                 plan = paidOnly;
@@ -1326,7 +1326,7 @@ public class SagaSellService {
             SagaLine l = lines.get(i);
             boolean mto = madeToOrder.contains(l.productId());
             boolean eligible = batchPriced(sales.get(i), l, mto);
-            List<BatchPriceSplit.Part> parts = BatchPriceSplit.split(exact(l.quantity()), exact(l.bonusQuantity()),
+            List<BatchPriceSplit.Part> parts = BatchPriceSplit.split(com.myplus.business_service.util.Quantities.nz(l.quantity()), com.myplus.business_service.util.Quantities.nz(l.bonusQuantity()),
                     eligible, picksByLine.get(i), l.catalogPrice());
             partsByLine.add(parts);
             if (parts.size() > 1 || (parts.get(0).rate() != null && parts.get(0).rate().compareTo(l.sellRate()) != 0))
@@ -1352,10 +1352,10 @@ public class SagaSellService {
                 if (looseLocks != null && looseLocks.containsKey(i)) partLocks.put(partSales.size(), looseLocks.get(i));
                 SellDTO copy = repriced ? copyOf(s) : s;
                 if (repriced) {
-                    copy.setQuantity(pt.paidQuantity().floatValue());
+                    copy.setQuantity(pt.paidQuantity());
                     copy.setSellRate(pt.rate());
                     copy.setAutoRate(pt.rate());
-                    copy.setBonusQuantity(pt.bonus() == null ? null : pt.bonus().floatValue());
+                    copy.setBonusQuantity(pt.bonus());
                     if (discountShares != null) copy.getStock().setBsellDiscount(discountShares.get(k));
                 }
                 partSales.add(copy);
@@ -1410,8 +1410,8 @@ public class SagaSellService {
         for (int i = 0; i < lines.size(); i++) {
             SagaLine l = lines.get(i);
             if (madeToOrder.contains(l.productId())) continue;
-            BigDecimal qty = exact(l.quantity());
-            if (withBonus && l.bonusQuantity() != null) qty = qty.add(exact(l.bonusQuantity()));
+            BigDecimal qty = com.myplus.business_service.util.Quantities.nz(l.quantity());
+            if (withBonus && l.bonusQuantity() != null) qty = qty.add(l.bonusQuantity());
             req.add(new StockReservationLine(l.productId(), qty, i, sales.get(i).getStockEntryId()));
         }
         if (req.isEmpty()) return new StockReservationResponse(null, ReservationStatus.PLANNED, List.of(), null, null);
@@ -1450,10 +1450,7 @@ public class SagaSellService {
         return c;
     }
 
-    /** Float quantities (the line record's type) to an exact decimal: 0.1f is 0.1, not 0.100000001490116. */
-    private static BigDecimal exact(Float f) {
-        return f == null ? BigDecimal.ZERO : new BigDecimal(Float.toString(f));
-    }
+    // NUM-1: exact(Float) is gone — SagaLine's quantities are BigDecimal, so there is no float left to undo.
 
     private String friendlyBatchChanged(String reason, java.util.Map<Long, String> names) {
         for (java.util.Map.Entry<Long, String> e : names.entrySet()) {

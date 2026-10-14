@@ -306,7 +306,7 @@ public class StockService {
             applyBillFacts(own, adj);
             stockEntryRepository.save(own);
         }
-        return out(applyStockDelta(adj.getProductId(), in(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),
+        return out(applyStockDelta(adj.getProductId(), nz(adj.getDelta()), adj.getBatchNo(), adj.getExpiryDate(),   // NUM-1: delta is BigDecimal
                 adj.getPurchasePrice(), CurrentUser.organizationId(), CurrentUser.userId(), own,
                 StockLedger.typeOr(adj.getMovementType(), com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_EDIT), adj.getSourceRef()));
     }
@@ -330,7 +330,7 @@ public class StockService {
         if (adj.getNewBatchNo() != null && !adj.getNewBatchNo().isBlank()) e.setBatchNo(adj.getNewBatchNo().trim());
         BigDecimal oldRate = e.getPurchasePrice();
         BigDecimal newRate = adj.getPurchasePrice() != null && adj.getPurchasePrice().signum() > 0 ? adj.getPurchasePrice() : oldRate;
-        BigDecimal delta = in(adj.getDelta());
+        BigDecimal delta = nz(adj.getDelta());
         if (e.getPaidTotal() != null && e.getReceivedQuantity() != null && oldRate != null && oldRate.signum() > 0
                 && newRate != null && (delta.signum() != 0 || newRate.compareTo(oldRate) != 0)) {
             BigDecimal billed = e.getPaidTotal().divide(oldRate, 6, java.math.RoundingMode.HALF_UP).add(delta);
@@ -424,17 +424,19 @@ public class StockService {
     /**
      * U0 BOUNDARY — exact storage in, Float out.
      *
-     * <p>{@code StockDTOs} and {@code InventoryClient} still speak {@code Float}, and U0 deliberately leaves
-     * that alone: converging the contract is a six-service change with its own regression surface, and this
-     * slice is already the one that can break working code. What inventory STORES is exact; what it publishes
-     * is unchanged, so no caller sees a different number today.
+     * <p>NUM-1 (2026-10-14) converged the WRITE contracts (import, return, purchase adjust) to {@code BigDecimal}.
+     * The READ side ({@code StockDTOs}, the stock-level reads of {@code InventoryClient}) still speaks {@code Float}
+     * — NUM-1b. Note the old claim here, "what inventory STORES is exact", was not true: the in() edge widened a
+     * Float through double, and the DECIMAL(38,2) columns then rounded (0.075 of a box stored as 0.08).
      */
     private static Float out(BigDecimal v) { return v == null ? 0f : v.floatValue(); }
 
     /** The other direction: a Float arriving from the wire becomes exact before it touches stock.
      *  Package-visible for BLK-5: StockAdjustmentService validates and replays with the SAME conversion the write
      *  uses, so the two can never disagree about what quantity a request asked for. */
-    static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : BigDecimal.valueOf(f); }
+    // NUM-1: through the float's shortest decimal string — BigDecimal.valueOf(Float) widens via double and is NOT exact
+    // (0.075f -> 0.07500000298). Still needed for inventory's own Float DTOs until NUM-1b converts them.
+    static BigDecimal in(Float f) { return f == null ? BigDecimal.ZERO : new BigDecimal(Float.toString(f)); }
 
     /** Quarantine register (slice 58): the org's non-sellable returned lots. */
     public java.util.Map<String, Object> listQuarantine() {

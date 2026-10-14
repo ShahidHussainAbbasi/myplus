@@ -33,7 +33,7 @@ public class SellDTO implements Serializable {
 
 	// private String customerName;
 
-	private Float quantity=1F;
+	private java.math.BigDecimal quantity = java.math.BigDecimal.ONE;
 
 	/*
 	 * U2 — how a caller asks for a BROKEN PACK. Design: docs/slices/u2-loose-sale-arithmetic.md §3, §5.
@@ -50,7 +50,7 @@ public class SellDTO implements Serializable {
 	private String soldUnit;
 
 	/** PIECES the customer asked for (LOOSE lines only). When set, {@link #quantity} is derived, not read. */
-	private Float soldQuantity;
+	private java.math.BigDecimal soldQuantity;
 
 	/**
 	 * SER-3 — the serial / IMEI of each unit being sold on this line.
@@ -129,7 +129,7 @@ public class SellDTO implements Serializable {
 	 * doc and materially more than a column. Until that is settled, a shop issuing bonus goods must record
 	 * them as a normal line if it needs stock to move.
 	 */
-	private Float bonusQuantity;
+	private java.math.BigDecimal bonusQuantity;
 
 	private BigDecimal totalAmount = BigDecimal.ZERO;
 
@@ -175,7 +175,7 @@ public class SellDTO implements Serializable {
 
 	private BigDecimal taxAmount;
 
-	private Float itemStock=0.0F;
+	private java.math.BigDecimal itemStock = java.math.BigDecimal.ZERO;
 
 	private String dated;
 

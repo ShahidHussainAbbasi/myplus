@@ -16,7 +16,7 @@ public interface IPurchaseService extends org.springframework.data.jpa.repositor
 	Purchase updatePurchase(PurchaseDTO dto) throws Exception;
 
 	/** Purchase Return (debit note): reverse stock-in + reconcile the vendor bill/payable + post a GL reversal. */
-	java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason);
+	java.util.Map<String, Object> purchaseReturn(Long purchaseId, java.math.BigDecimal returnQty, String reason);
 
 	/** Audit #3: VOID a bill — full reversal of the remaining quantity + soft VOID stamp (books-safe cancel). */
 	java.util.Map<String, Object> voidBill(Long purchaseId, String reason);

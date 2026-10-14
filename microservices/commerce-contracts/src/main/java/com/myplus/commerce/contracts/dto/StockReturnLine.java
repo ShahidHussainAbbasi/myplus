@@ -1,5 +1,6 @@
 package com.myplus.commerce.contracts.dto;
 
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,5 +12,5 @@ import lombok.NoArgsConstructor;
 @Data @NoArgsConstructor @AllArgsConstructor
 public class StockReturnLine {
     private Long productId;
-    private Float qty;
+    private BigDecimal qty;   // NUM-1 / D14: exact (was Float — JSON-compatible both ways)
 }

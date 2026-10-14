@@ -2196,13 +2196,28 @@ function buildCustomerRow(obj){
 		 * conflict check silently does nothing.
 		 */
 		"<div id=customerId>"+obj.customerId+"</div>"
-			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>",
+			+"<span id=customerVersion style='display:none'>"+(obj.version!=null?obj.version:'')+"</span>"
+			+"<span id=customerCity style='display:none'>"+escHtml(obj.city||'')+"</span>"
+			+"<span id=customerCnic style='display:none'>"+escHtml(obj.cnic||'')+"</span>"
+			+"<span id=customerLicenseNo style='display:none'>"+escHtml(obj.licenseNo||'')+"</span>"
+			+"<span id=customerLicenseExpiry style='display:none'>"+escHtml(obj.licenseExpiry||'')+"</span>"
+			+"<span id=customerAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>",
 		"<input type='checkbox' value="+ obj.customerId+ ">",
 		// DR-2: the badge sits OUTSIDE #customerName, so editing the row never copies it into the name field.
 		"<div id=customerName>"+escHtml(obj.name)+"</div>"
 			+(obj.alsoSupplier ? "<span class='label label-info dr-badge' data-dr-badge='supplier'>"+escHtml(tOr('ui.js.drAlsoSupplier','Also a supplier'))+"</span>" : ""),
 		"<div id=contact>"+escHtml(obj.contact)+"</div>",
-		"<div id=email>"+escHtml(obj.email)+"</div>","<div id=address>"+escHtml(obj.address)+"</div>",
+		"<div id=email>"+escHtml(obj.email)+"</div>",
+		/*
+		 * ⚠ SRA-1 (owner-approved fix) — the fields the edit form has but the grid has no column for ride HIDDEN in the
+		 * id cell (with the version, below the id), never in a visible cell: a visible cell's text goes into the Excel /
+		 * PDF export and the column search, and would put a CNIC under "Address". editRecord() fills each form field from the row element
+		 * with the same id; with no element it LEFT THE FIELD AS IT WAS — empty, or the previously edited customer's
+		 * value — and the save wrote that back. Every edit wiped City, CNIC and the licence, or copied another
+		 * customer's onto this one. customerAreaId is the new area (0 = none), read back by the Area select.
+		 */
+		"<div id=address>"+escHtml(obj.address)+"</div>"
+			+"<div class='text-muted small' data-sra-label data-area-id='"+(obj.areaId!=null?obj.areaId:'')+"'>"+escHtml(window.SraAddress ? SraAddress.label(obj.areaId) : '')+"</div>",
 		"<div id=customerType>"+escHtml(obj.customerType||'WALK_IN')+"</div>",
 		"<div id=creditLimit>"+(obj.creditLimit!=null?obj.creditLimit:'')+"</div>",
 		"<div id=paymentTermsDays>"+(obj.paymentTermsDays!=null?obj.paymentTermsDays:'')+"</div>",
@@ -2432,7 +2447,7 @@ function loadDataTable(){
 				} else if (getAll === "Vender") {
 					$.each(collections, function(ind, obj) {
 						allRows.push([
-							"<div id=venderId>"+obj.id+"</div>","<input type='checkbox' value="+ obj.id+ ">",
+							"<div id=venderId>"+obj.id+"</div><span id=venderAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>","<input type='checkbox' value="+ obj.id+ ">",
 							// DR-1: the CNIC / NTN rides hidden in the name cell — editRecord() fills #venderCnicNtn from it,
 							// and it needs no column of its own.
 							"<div id=venderName>"+escHtml(obj.name)+"</div><div id=venderCnicNtn hidden>"+escHtml(obj.cnicNtn||'')+"</div>"
@@ -2441,7 +2456,10 @@ function loadDataTable(){
 							// into the multi-select, matching each comma-separated label against the options.
 							"<div id=venderCompanyDD>"+escHtml(obj.companyNames || "")+"</div>",
 							"<div id=venderPhone>"+escHtml(obj.phone)+"</div>","<div id=venderMobile>"+escHtml(obj.mobile)+"</div>",
-							"<div id=venderEmail>"+escHtml(obj.email)+"</div>","<div id=venderAddress>"+escHtml(obj.address)+"</div>",
+							"<div id=venderEmail>"+escHtml(obj.email)+"</div>",
+							// SRA-1 — the area, hidden for editRecord() (0 = none) and as a label under the address.
+							"<div id=venderAddress>"+escHtml(obj.address)+"</div>"
+								+"<div class='text-muted small' data-sra-label data-area-id='"+(obj.areaId!=null?obj.areaId:'')+"'>"+escHtml(window.SraAddress ? SraAddress.label(obj.areaId) : '')+"</div>",
 							// FP-4c — on FINANCE the Due cell is everything owed (purchases + expense bills), with what part is
 							// bills and any advance shown beside it. The Pay button below still carries dueAmount (purchases):
 							// Pay Supplier settles purchases only until FP-5, so a bill-inclusive figure there would overpay.

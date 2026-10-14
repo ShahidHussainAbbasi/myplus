@@ -71,8 +71,8 @@ public final class DuplicateBillLine {
         return m.append(". Save this line again?").toString();
     }
 
-    /** 10.0 → "10", 2.5 → "2.5". Through Float.toString so 0.1f reads as 0.1, not its binary expansion. */
-    private static String qty(Float q) {
-        return new BigDecimal(Float.toString(q)).stripTrailingZeros().toPlainString();
+    /** 10.0000 → "10", 2.5000 → "2.5" (NUM-1: the quantity is exact now; one helper formats every quantity). */
+    private static String qty(BigDecimal q) {
+        return com.myplus.business_service.util.Quantities.plain(q);
     }
 }

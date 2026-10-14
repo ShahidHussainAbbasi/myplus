@@ -86,6 +86,33 @@ const returnPieces = (sellId, pieces) =>
   })
 
 describe('U13 — a sale return is taken in the unit the customer bought', () => {
+  let taxBefore = null
+  let markupBefore = null
+
+  /*
+   * PIN demo.business's ORG-WIDE state (2026-10-14). Every figure here is pre-tax at the plain per-tablet price:
+   * sellLoose pays exactly 10 × 7.79 and case 3 asserts soldRate 7.79 = 311.60 / 40. Tax (on, 10% exclusive, on
+   * 2026-10-13) or a loose markup left by another spec or a person would fail these for reasons unrelated to returns.
+   * Snapshot, pin for the run, restore after — as quote-loose-units does.
+   */
+  before(() => {
+    cy.loginAsBusiness()
+    cy.snapshotTaxSetting().then((s) => {
+      taxBefore = s
+      cy.setTaxSetting({ ...s, enabled: false })
+    })
+    cy.snapshotBusinessConfig('pos.sale.looseMarkupPct').then((v) => {
+      markupBefore = v
+      cy.setBusinessConfig('pos.sale.looseMarkupPct', 0)
+    })
+  })
+
+  after(() => {
+    cy.loginAsBusiness()
+    if (markupBefore != null) cy.setBusinessConfig('pos.sale.looseMarkupPct', markupBefore)
+    cy.restoreTaxSetting(taxBefore)
+  })
+
   beforeEach(() => cy.loginAsBusiness())
 
   it('⭐⭐ 1 — SERVER: 10 tablets of a 40-box are returned as 10, and the line closes exactly', () => {

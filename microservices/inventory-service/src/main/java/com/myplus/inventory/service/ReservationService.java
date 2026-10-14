@@ -400,10 +400,9 @@ public class ReservationService {
 
         for (StockReturnLine line : lines) {
             if (line == null || line.getProductId() == null) continue;
-            // U0 boundary: the CONTRACT still carries Float (StockReturnLine.qty) and U0 deliberately does
-            // not change it — that is a six-service change with its own regression surface. Inventory converts
-            // at its own edge, so what it STORES is exact even while what it is TOLD is not yet.
-            BigDecimal qty = line.getQty() == null ? BigDecimal.ZERO : BigDecimal.valueOf(line.getQty());
+            // NUM-1: the contract carries BigDecimal now. (Until then it was Float, converted here with
+            // BigDecimal.valueOf — which is NOT exact: 0.075f became 0.07500000298.)
+            BigDecimal qty = line.getQty() == null ? BigDecimal.ZERO : line.getQty();
             if (qty.signum() <= 0) continue;
             BigDecimal remaining = qty;
 

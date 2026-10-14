@@ -357,8 +357,8 @@ public class PurchaseService implements IPurchaseService{
 					packsPerBox + " packs in a box looks like a typo - it would create "
 							+ "far more stock than any delivery contains.");
 		}
-		Float boxes = dto.getQuantity();
-		if (boxes == null || boxes <= 0f) {
+		java.math.BigDecimal boxes = dto.getQuantity();   // NUM-1: exact
+		if (boxes == null || boxes.signum() <= 0) {
 			throw new com.myplus.common.web.exception.ValidationException(
 					"Enter how many boxes were delivered.");
 		}
@@ -370,7 +370,7 @@ public class PurchaseService implements IPurchaseService{
 					"Enter the cost of one box.");
 		}
 
-		dto.setQuantity(boxes * packsPerBox);
+		dto.setQuantity(boxes.multiply(java.math.BigDecimal.valueOf(packsPerBox)));
 		dto.getStock().setBpurchaseRate(
 				boxCost.divide(java.math.BigDecimal.valueOf(packsPerBox), 2, java.math.RoundingMode.CEILING));
 		// Converted. Nothing downstream hears "box" - see the class note on why that keeps this an input aid.
@@ -509,7 +509,7 @@ public class PurchaseService implements IPurchaseService{
 		java.util.List<String> serials = serialUnitService.validateForPurchase(
 				dto.getSerials(),
 				productRequiresSerial(dto.getProductId()),
-				dto.getQuantity() == null ? 0f : dto.getQuantity(),
+				com.myplus.business_service.util.Quantities.nz(dto.getQuantity()),
 				org);
 
 		Purchase saved = this.save(obj);
@@ -754,7 +754,7 @@ public class PurchaseService implements IPurchaseService{
 		// Period close: an edit rewrites the ORIGINAL bill in place, so its period must still be open.
 		periodLockGuard.assertOpen(existing.billDay() != null ? existing.billDay() : TenantClock.today());   // H6 C3b
 
-		float oldQty = existing.getQuantity() != null ? existing.getQuantity() : 0f;
+		java.math.BigDecimal oldQty = com.myplus.business_service.util.Quantities.nz(existing.getQuantity());   // NUM-1: exact
 		Long oldProductId = existing.getProductId();
 		String oldBatchNo = existing.getBatchNo();   // reconcile against the batch that was originally imported
 		// TP-3 — read BEFORE save(): obj carries existing's id, so the save MERGES into this managed instance and these
@@ -836,7 +836,7 @@ public class PurchaseService implements IPurchaseService{
 					obj.getProductId(),
 					dto.getSerials(),
 					productRequiresSerial(obj.getProductId()),
-					obj.getQuantity() == null ? 0f : obj.getQuantity(),
+					com.myplus.business_service.util.Quantities.nz(obj.getQuantity()),
 					dto.getConditionGrade(),
 					user);
 		}
@@ -850,8 +850,8 @@ public class PurchaseService implements IPurchaseService{
 		// Reconcile inventory by the quantity DELTA (new − old) against the purchase's own batch — NOT a re-import.
 		// Runs inside this @Transactional: a guard rejection (e.g. reducing below stock already sold) throws and
 		// rolls the record edit back too, so the record and inventory never diverge.
-		float newQty = saved.getQuantity() != null ? saved.getQuantity() : 0f;
-		float delta = newQty - oldQty;
+		java.math.BigDecimal newQty = com.myplus.business_service.util.Quantities.nz(saved.getQuantity());
+		java.math.BigDecimal delta = newQty.subtract(oldQty);   // NUM-1: exact — was float, sent to inventory as-is
 		// PR-3b — in PER_BATCH an edit that only corrects the S/U rate must still re-price its batch (delta 0).
 		com.myplus.commerce.contracts.dto.StockPurchaseAdjust adjust =
 				batchAdjustForEdit(saved, delta, oldBatchNo, oldExpiry, oldRate, batchSellPrice(saved));
@@ -905,14 +905,14 @@ public class PurchaseService implements IPurchaseService{
 	 * describes, and it degrades correctly for a one-time offer: retaining the full paid quantity keeps the
 	 * whole bonus, and dropping below the threshold loses all of it, which is the ONE_TIME answer too.
 	 */
-	private float bonusEntitlement(Purchase p, float retainedPaid, float bonusHeld) {
-		float paidOriginal = p.getQuantity() != null ? p.getQuantity() : 0f;
-		if (bonusHeld <= 0f || paidOriginal <= 0f) return 0f;
-		if (retainedPaid <= 0f) return 0f;
-		// Blocks of (paidOriginal / bonusHeld) paid units each earned one free unit.
-		float perBonus = paidOriginal / bonusHeld;
-		if (perBonus <= 0f) return 0f;
-		return (float) Math.floor(retainedPaid / perBonus);
+	static java.math.BigDecimal bonusEntitlement(Purchase p, java.math.BigDecimal retainedPaid, java.math.BigDecimal bonusHeld) {
+		java.math.BigDecimal paidOriginal = com.myplus.business_service.util.Quantities.nz(p.getQuantity());
+		if (bonusHeld == null || bonusHeld.signum() <= 0 || paidOriginal.signum() <= 0) return java.math.BigDecimal.ZERO;
+		if (retainedPaid == null || retainedPaid.signum() <= 0) return java.math.BigDecimal.ZERO;
+		// Blocks of (paidOriginal / bonusHeld) paid units each earned one free unit: retained / that block size,
+		// floored. NUM-1: multiplied BEFORE dividing, so nothing rounds ahead of the floor (the float version
+		// divided twice and could land one unit short when its quotient came out at 2.9999999).
+		return retainedPaid.multiply(bonusHeld).divide(paidOriginal, 0, java.math.RoundingMode.FLOOR);
 	}
 
 	private static java.math.BigDecimal nz(java.math.BigDecimal v) { return v != null ? v : java.math.BigDecimal.ZERO; }
@@ -926,25 +926,25 @@ public class PurchaseService implements IPurchaseService{
 	 */
 	@Override
 	@Transactional
-	public java.util.Map<String, Object> purchaseReturn(Long purchaseId, Float returnQty, String reason) {
+	public java.util.Map<String, Object> purchaseReturn(Long purchaseId, java.math.BigDecimal returnQty, String reason) {
 		AuthenticatedUser user = requestUtil.getCurrentUser();
 		Purchase p = purchaseRepo.findById(purchaseId).filter(x -> scopeMatches(x, user))
 				.orElseThrow(() -> new BusinessRuleException("Purchase not found: " + purchaseId));
 		if ("VOID".equals(p.getStatus()))   // Audit #3: no returns against a voided bill
 			throw new BusinessRuleException("This bill is voided.");
-		float soldQty = p.getQuantity() != null ? p.getQuantity() : 0f;
-		float rq = returnQty != null ? returnQty : 0f;
-		if (rq <= 0f) throw new BusinessRuleException("Return quantity must be greater than 0.");
-		if (rq > soldQty) throw new BusinessRuleException("Cannot return more than was purchased (" + soldQty + ").");
+		java.math.BigDecimal soldQty = com.myplus.business_service.util.Quantities.nz(p.getQuantity());   // NUM-1: exact
+		java.math.BigDecimal rq = com.myplus.business_service.util.Quantities.nz(returnQty);
+		if (rq.signum() <= 0) throw new BusinessRuleException("Return quantity must be greater than 0.");
+		if (rq.compareTo(soldQty) > 0) throw new BusinessRuleException("Cannot return more than was purchased (" + com.myplus.business_service.util.Quantities.plain(soldQty) + ").");
 		// Period close: a purchase return posts a new debit note dated today, so the CURRENT period must be open.
 		periodLockGuard.assertOpen(TenantClock.today());
-		boolean partial = rq < soldQty;
+		boolean partial = rq.compareTo(soldQty) < 0;
 
 		// Phase B: reverse on the GROSS bill (goods + input tax). Both are returned proportionally on a partial return.
 		java.math.BigDecimal net = nz(p.getTotalAmount());   // goods value
 		java.math.BigDecimal tax = nz(p.getTaxAmount());     // input tax on the bill (0 unless the org captures it)
 		java.math.BigDecimal frac = partial
-				? java.math.BigDecimal.valueOf(rq).divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP)
+				? rq.divide(soldQty, 6, java.math.RoundingMode.HALF_UP)
 				: java.math.BigDecimal.ONE;
 		java.math.BigDecimal returnedNet = partial ? net.multiply(frac).setScale(2, java.math.RoundingMode.HALF_UP) : net;
 		java.math.BigDecimal returnedTax = partial ? tax.multiply(frac).setScale(2, java.math.RoundingMode.HALF_UP) : tax;
@@ -964,20 +964,20 @@ public class PurchaseService implements IPurchaseService{
 		 * The clawback is stock-only. The bonus unit never had a supplier payable — money follows the invoice —
 		 * so the bill reconciliation below is untouched by it.
 		 */
-		float bonusHeld = p.getBonusQuantity() != null ? p.getBonusQuantity() : 0f;
-		float retainedPaid = soldQty - rq;
-		float bonusStillEarned = bonusEntitlement(p, retainedPaid, bonusHeld);
-		float bonusClawback = Math.max(0f, bonusHeld - bonusStillEarned);
+		java.math.BigDecimal bonusHeld = com.myplus.business_service.util.Quantities.nz(p.getBonusQuantity());
+		java.math.BigDecimal retainedPaid = soldQty.subtract(rq);
+		java.math.BigDecimal bonusStillEarned = bonusEntitlement(p, retainedPaid, bonusHeld);
+		java.math.BigDecimal bonusClawback = bonusHeld.subtract(bonusStillEarned).max(java.math.BigDecimal.ZERO);
 
 		// 1) reverse the stock-in for this batch (negative delta). A guard rejection rolls the whole return back.
 		if (tradeSagaProperties.isEnabled() && p.getProductId() != null) {
 			inventoryClient.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(-(rq + bonusClawback))
+					.productId(p.getProductId()).batchNo(p.getBatchNo()).delta(rq.add(bonusClawback).negate())
 					.expiryDate(p.getBexpDate()).purchasePrice(p.getBpurchaseRate())
 					.movementType(com.myplus.commerce.contracts.dto.StockMovementType.PURCHASE_RETURN).sourceRef(p.getPurchaseInvoiceNo())   // SSR-0a
 					.build());
 		}
-		if (bonusClawback > 0f) p.setBonusQuantity(bonusStillEarned);
+		if (bonusClawback.signum() > 0) p.setBonusQuantity(bonusStillEarned);
 
 		// 2) reconcile the bill (mirror SF-5 for AP) on the GROSS bill: reduce it by the returned gross; the vendor
 		//    refunds any resulting overpayment; dueAmount = paid − remaining gross.
@@ -993,14 +993,13 @@ public class PurchaseService implements IPurchaseService{
 			p.setIssuedTotal(net.add(tax));
 
 		if (partial) {
-			java.math.BigDecimal keepFrac = java.math.BigDecimal.valueOf(soldQty - rq)
-					.divide(java.math.BigDecimal.valueOf(soldQty), 6, java.math.RoundingMode.HALF_UP);
-			p.setQuantity(soldQty - rq);
+			java.math.BigDecimal keepFrac = soldQty.subtract(rq).divide(soldQty, 6, java.math.RoundingMode.HALF_UP);
+			p.setQuantity(soldQty.subtract(rq));
 			p.setTotalAmount(net.subtract(returnedNet));
 			p.setTaxAmount(tax.subtract(returnedTax));
 			p.setNetAmount(nz(p.getNetAmount()).multiply(keepFrac).setScale(2, java.math.RoundingMode.HALF_UP));
 		} else {
-			p.setQuantity(0f);
+			p.setQuantity(java.math.BigDecimal.ZERO);
 			p.setTotalAmount(java.math.BigDecimal.ZERO);
 			p.setTaxAmount(java.math.BigDecimal.ZERO);
 			p.setNetAmount(java.math.BigDecimal.ZERO);
@@ -1026,7 +1025,7 @@ public class PurchaseService implements IPurchaseService{
 					.debitNoteSeq(dbnSeq).debitNoteNo(debitNoteNo)
 					.purchaseId(p.getPurchaseId()).purchaseInvoiceNo(p.getPurchaseInvoiceNo())
 					.productId(p.getProductId()).venderId(p.getVenderId())
-					.quantity(java.math.BigDecimal.valueOf(rq)).reason(reason)
+					.quantity(rq).reason(reason)
 					.amount(returnedGross)
 					.organizationId(user.getOrganizationId()).userId(user.getUserId())
 					.storeId(p.getStoreId()).dated(LocalDateTime.now())
@@ -1074,8 +1073,8 @@ public class PurchaseService implements IPurchaseService{
 			throw new BusinessRuleException("This bill is already voided.");
 		// Period close: a void reverses the ORIGINAL bill in place, so its period must still be open.
 		periodLockGuard.assertOpen(p.billDay() != null ? p.billDay() : TenantClock.today());   // H6 C3b
-		float qty = p.getQuantity() != null ? p.getQuantity() : 0f;
-		if (qty <= 0f)
+		java.math.BigDecimal qty = com.myplus.business_service.util.Quantities.nz(p.getQuantity());   // NUM-1: exact
+		if (qty.signum() <= 0)
 			throw new BusinessRuleException("Nothing to void on this bill.");
 
 		// Reuse the full reversal (stock + AP + GL) for the whole remaining quantity, then stamp VOID.
@@ -1099,7 +1098,7 @@ public class PurchaseService implements IPurchaseService{
 	 * Best-effort: a failure (catalog/inventory down) never fails the purchase (recorded locally; reconcile later).
 	 */
 	void pushPurchaseToInventory(Purchase obj, PurchaseDTO dto, AuthenticatedUser user) {
-		if (!tradeSagaProperties.isEnabled() || dto.getQuantity() == null || dto.getQuantity() <= 0) {
+		if (!tradeSagaProperties.isEnabled() || dto.getQuantity() == null || dto.getQuantity().signum() <= 0) {
 			return;
 		}
 		try {
@@ -1121,12 +1120,11 @@ public class PurchaseService implements IPurchaseService{
 			 * the EFFECTIVE cost, not the headline rate — otherwise every margin downstream is overstated by
 			 * the size of the bonus.
 			 */
-			float received = obj.receivedQuantity() > 0 ? obj.receivedQuantity() : dto.getQuantity();
+			java.math.BigDecimal received = obj.receivedQuantity().signum() > 0 ? obj.receivedQuantity() : dto.getQuantity();   // NUM-1: exact
 			java.math.BigDecimal paidTotal = obj.getPaidTotal();
 			java.math.BigDecimal effectiveCost = obj.getBpurchaseRate();
-			if (paidTotal != null && received > 0) {
-				effectiveCost = paidTotal.divide(java.math.BigDecimal.valueOf(received), 6,
-						java.math.RoundingMode.HALF_UP);
+			if (paidTotal != null && received.signum() > 0) {
+				effectiveCost = paidTotal.divide(received, 6, java.math.RoundingMode.HALF_UP);
 			}
 
 			com.myplus.commerce.contracts.dto.StockImportResult booked = inventoryClient.importStock(List.of(
@@ -1164,7 +1162,7 @@ public class PurchaseService implements IPurchaseService{
 	 *
 	 * @param oldBatchNo/oldExpiry/oldRate read BEFORE the save — it merges into the instance they came from.
 	 */
-	static com.myplus.commerce.contracts.dto.StockPurchaseAdjust batchAdjustForEdit(Purchase saved, float delta,
+	static com.myplus.commerce.contracts.dto.StockPurchaseAdjust batchAdjustForEdit(Purchase saved, java.math.BigDecimal delta,
 			String oldBatchNo, java.time.LocalDate oldExpiry, java.math.BigDecimal oldRate, java.math.BigDecimal batchPrice) {
 		boolean own = saved.getStockEntryId() != null;
 		boolean reprice = own && batchPrice != null;
@@ -1172,7 +1170,7 @@ public class PurchaseService implements IPurchaseService{
 		boolean renamed = newBatchNo != null && !newBatchNo.equals(blankToNull(oldBatchNo));
 		boolean facts = own && (!java.util.Objects.equals(oldExpiry, saved.getBexpDate()) || renamed
 				|| !sameAmount(oldRate, saved.getBpurchaseRate()));
-		if (delta == 0f && !reprice && !facts) return null;
+		if ((delta == null || delta.signum() == 0) && !reprice && !facts) return null;
 		return com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
 				.productId(saved.getProductId())
 				.batchNo(oldBatchNo)
@@ -1239,7 +1237,7 @@ public class PurchaseService implements IPurchaseService{
 	 *  for add and edit: on edit the mapper leaves it null, and a bill saved without it gives its batch nothing to cost from. */
 	static void stampPaidTotal(Purchase obj) {
 		if (obj.getBpurchaseRate() != null && obj.getQuantity() != null) {
-			obj.setPaidTotal(obj.getBpurchaseRate().multiply(java.math.BigDecimal.valueOf(obj.getQuantity())));
+			obj.setPaidTotal(obj.getBpurchaseRate().multiply(obj.getQuantity()).setScale(2, java.math.RoundingMode.HALF_UP));   // NUM-1: exact; money at 2 places
 		}
 	}
 

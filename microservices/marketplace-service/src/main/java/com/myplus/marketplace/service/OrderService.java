@@ -269,7 +269,7 @@ public class OrderService {
                 if (item.getProductId() == null || item.getQuantity() == null || item.getQuantity() <= 0) continue;
                 lines.add(com.myplus.commerce.contracts.dto.SaleRecordRequest.Line.builder()
                         .productId(item.getProductId())
-                        .quantity(item.getQuantity().floatValue())
+                        .quantity(java.math.BigDecimal.valueOf(item.getQuantity()))
                         .unitPrice(item.getPrice())
                         .discount(item.getDiscount())
                         .build());
@@ -949,7 +949,7 @@ public class OrderService {
         for (MarketplaceSaleLine l : sale.lines()) {
             lines.add(SaleRecordRequest.Line.builder()
                     .productId(l.productId())
-                    .quantity((float) l.quantity())
+                    .quantity(java.math.BigDecimal.valueOf(l.quantity()))
                     .unitPrice(l.unitPrice())                             // the marketplace price (the sale honours a sell rate)
                     .description(l.productName())
                     .serials(l.serials() == null || l.serials().isEmpty() ? null : String.join(",", l.serials()))
@@ -1157,7 +1157,7 @@ public class OrderService {
                 if (l.getProductId() == null || l.getQuantity() == null || l.getQuantity() <= 0) continue;
                 lines.add(SaleRecordRequest.Line.builder()
                         .productId(l.getProductId())
-                        .quantity(l.getQuantity().floatValue())
+                        .quantity(java.math.BigDecimal.valueOf(l.getQuantity()))
                         .unitPrice(l.getPrice())
                         .build());
             }
@@ -1561,7 +1561,7 @@ public class OrderService {
                 com.myplus.commerce.contracts.dto.SaleReturnRequest.builder()
                         .invoiceNo(o.getInvoiceNo()).reason(reason).quarantine(quarantine)
                         .lines(List.of(com.myplus.commerce.contracts.dto.SaleReturnLine.builder()
-                                .productId(productId).quantity((float) quantity).build()))
+                                .productId(productId).quantity(java.math.BigDecimal.valueOf(quantity)).build()))
                         .build()));
         int sold = o.getItems().stream().filter(i -> productId.equals(i.getProductId()))
                 .mapToInt(i -> i.getQuantity() == null ? 0 : i.getQuantity().intValue()).sum();
@@ -1643,7 +1643,7 @@ public class OrderService {
         List<StockReturnLine> lines = new ArrayList<>();
         for (OrderItem it : o.getItems()) {
             if (it.getProductId() == null || it.getQuantity() == null || it.getQuantity() <= 0) continue;
-            lines.add(new StockReturnLine(it.getProductId(), it.getQuantity().floatValue()));
+            lines.add(new StockReturnLine(it.getProductId(), java.math.BigDecimal.valueOf(it.getQuantity())));   // NUM-1
         }
         if (lines.isEmpty()) return;
         try {

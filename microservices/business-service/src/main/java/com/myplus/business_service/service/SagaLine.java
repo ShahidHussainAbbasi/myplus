@@ -9,7 +9,7 @@ import java.math.BigDecimal;
  */
 public record SagaLine(
         Long productId,
-        Float quantity,
+        BigDecimal quantity,     // NUM-1 / D14: exact (was Float)
         BigDecimal sellRate,
         BigDecimal discount,
         BigDecimal totalAmount,
@@ -22,7 +22,7 @@ public record SagaLine(
         String discountType,     // display type of the applied discount ("%" or "Amount"); persisted to Sell.dt
         BigDecimal costPrice,    // SF-10: unit COGS snapshot (latest purchase rate) for per-line margin
         String priceReason,      // B2B-P2 (#10): why this price applied; null when priced at catalog
-        Float bonusQuantity,     // B2B-P3g: free goods on this line ("Bon."); presentation only — see D-2
+        BigDecimal bonusQuantity,   // NUM-1: exact (was Float). B2B-P3g: free goods on this line ("Bon."); presentation only — see D-2
 
         /*
          * U2 — the broken-pack record. Design: docs/slices/u2-loose-sale-arithmetic.md §3.
@@ -34,7 +34,7 @@ public record SagaLine(
          * All four are null on an ordinary line, which is every line until a shop switches loose selling on.
          */
         String soldUnit,         // "LOOSE" or null; PACK is written only when a caller says so explicitly
-        Float soldQuantity,      // pieces
+        BigDecimal soldQuantity,    // pieces — NUM-1: exact (was Float)
         BigDecimal soldRate,     // per piece, for the receipt
         Integer packSizeSnapshot) {   // frozen — §3.2: a later pack-size edit must not re-interpret this sale
 

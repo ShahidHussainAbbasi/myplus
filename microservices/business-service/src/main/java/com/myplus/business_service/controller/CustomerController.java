@@ -75,6 +75,9 @@ public class CustomerController {
 	@Autowired
 	ICustomerService customerService;
 
+	@Autowired
+	private com.myplus.business_service.service.AddressService addressService;   // SRA-1: area ids resolved per business
+
 	/**
 	 * C3d — what this tenant is allowed to do. Guards the territory assignment below.
 	 *
@@ -263,8 +266,16 @@ public class CustomerController {
 			obj = customerMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getCustomerId())) {
-				Customer existing = customerService.findById(dto.getCustomerId()).orElse(null);
-				if(existing != null) {
+				/*
+				 * ⚠ SRA-1 (owner-approved fix) — CROSS-BUSINESS WRITE. This was a plain findById: an edit carrying
+				 * ANOTHER business's customer id found that row, and the save below stamped the caller's business on
+				 * it — the customer moved into the caller's business (the EDU-IDOR-2 shape). Resolved inside the
+				 * caller's business now; a foreign or unknown id is "not found" and nothing is written. Same rule as
+				 * findByIdScoped's other callers ("not yours" answers exactly like "not there").
+				 */
+				Customer existing = customerService.findByIdScoped(dto.getCustomerId(), orgId(), userId()).orElse(null);
+				if (existing == null) return new GenericResponse("NOT_FOUND", "Customer not found.");
+				{
 					/*
 					 * ⭐ V62 — THE VERSION THE CLIENT SAW decides whether this edit is still valid.
 					 *
@@ -295,9 +306,39 @@ public class CustomerController {
 					// B2B-P0: an edit that does not carry the channel must not silently demote a trade account
 					// back to walk-in. Only a value the caller actually sent may change it.
 					if (dto.getCustomerType() == null) obj.setCustomerType(existing.getCustomerType());
+					/*
+					 * ⚠ SRA-1 (owner-approved fix) — TWO STAMPED COLUMNS THE EDIT FORM NEVER CARRIES.
+					 *
+					 * toEntity() builds a FRESH row and the mapper ignores both, so every profile edit wrote them as
+					 * NULL. creditAccountCustomerId = NULL was then re-stamped to the customer ITSELF by
+					 * stampSelfAsCreditAccount below — a branch grouped under a company (B2B-P4a) silently fell back
+					 * onto its own credit limit. assignedRepUserId = NULL unassigned the outlet from its rep on any
+					 * edit. Both are owned by their own screens (account grouping, outlet assignment); a profile edit
+					 * must leave them exactly as they were.
+					 */
+					obj.setCreditAccountCustomerId(existing.getCreditAccountCustomerId());
+					obj.setAssignedRepUserId(existing.getAssignedRepUserId());
+					// SRA-1: an edit that does not carry the area (an older cached form, an integration) keeps it.
+					if (dto.getAreaId() == null) obj.setAreaId(existing.getAreaId());
 				}
 			}else {
 				obj.setDated(dated);
+			}
+			/*
+			 * SRA-1 — the AREA, resolved inside the caller's business (anti-IDOR: another business's area id reads as
+			 * not found, exactly like one that does not exist). 0 clears it. A picked area also WRITES the free-text
+			 * city from its city, so the printed invoice — which reads customer.city — always agrees with the area.
+			 */
+			if (dto.getAreaId() != null) {
+				if (dto.getAreaId() == 0L) {
+					obj.setAreaId(null);
+				} else {
+					com.myplus.business_service.dto.AddressOptionDTO area =
+							addressService.areaInOrg(dto.getAreaId(), orgId()).orElse(null);
+					if (area == null) return new GenericResponse("FAILED", "That area was not found. Choose it again.");
+					obj.setAreaId(area.getId());
+					if (area.getCityName() != null) obj.setCity(area.getCityName());
+				}
 			}
 			obj.setUpdated(dated);
 			obj.setUserId(user.getUserId());                  // audit: who created it

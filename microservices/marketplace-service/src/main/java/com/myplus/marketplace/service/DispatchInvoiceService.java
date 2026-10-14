@@ -96,7 +96,7 @@ public class DispatchInvoiceService {
             if (qty == null || qty <= 0 || item.getProductId() == null) continue;
             lines.add(SaleRecordRequest.Line.builder()
                     .productId(item.getProductId())
-                    .quantity(qty.floatValue())
+                    .quantity(java.math.BigDecimal.valueOf(qty))
                     // The price the order was CONFIRMED at, including any amendment the reviewer made (D-3).
                     // Sending it rather than letting the catalog re-price is the point: the shopkeeper agreed a
                     // price with the booker, and the invoice must honour it, not today's list price.

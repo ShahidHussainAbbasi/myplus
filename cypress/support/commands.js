@@ -626,6 +626,31 @@ Cypress.Commands.add('restoreTaxSetting', (snap, opts = {}) => {
 })
 
 /**
+ * One business setting (org_setting) — read for a snapshot, written through the owner's own /saveBusinessConfig.
+ *
+ * The same ORG-WIDE-state problem as tax: `pos.sale.looseMarkupPct` on demo.business is flipped by specs and people
+ * (10 on 2026-10-03 and 2026-10-13 — loose prices read 132 not 120). A spec whose figures assume a value pins it in
+ * before() and puts the snapshot back in after(). Added 2026-10-14 for U13; ten older specs still carry their own
+ * `setMarkup` copies — move each here when it is next touched.
+ *
+ * `snapshotBusinessConfig` yields the value in force now (the default when none is stored), so the restore writes
+ * back exactly what the run found. `setBusinessConfig` ASSERTS success: this route answers 200 with {success:false}
+ * on a refusal, and a silent failure would leave the downstream assertions testing nothing.
+ */
+Cypress.Commands.add('snapshotBusinessConfig', (key) =>
+  cy.request({ url: '/getBusinessConfig', failOnStatusCode: false }).then((r) => {
+    const rows = (r.body && r.body.data) || []
+    const row = rows.find((x) => x.key === key)
+    expect(row, `/getBusinessConfig lists ${key}`).to.exist
+    return row.value
+  }))
+
+Cypress.Commands.add('setBusinessConfig', (key, value) =>
+  cy.request({ method: 'POST', url: '/saveBusinessConfig', form: true, failOnStatusCode: false,
+    body: { key, value: String(value) } })
+    .then((r) => expect(r.body && r.body.success, `saveBusinessConfig ${key}=${value}: ${JSON.stringify(r.body).slice(0, 160)}`).to.eq(true)))
+
+/**
  * The tenant's audit trail — `auditLog` reads it once, `findAudit` polls until a matching row arrives.
  *
  * Moved here from audit-log.cy.js when a second spec (BLK-0, finance-ledger-write-guard) needed the same

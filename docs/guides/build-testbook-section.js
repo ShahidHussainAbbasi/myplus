@@ -102,6 +102,41 @@ const SECTIONS = {
         on <code>owner.mobile@myplus.com</code>, the shop the serial feature belongs to; V6 resets its setting on screen.`],
     ],
   },
+  teamsignin: {
+    dir: 'team-signin', anchor: 'teamsignin', number: Number(process.env.TB_NUMBER || 29), prefix: 'tsi',
+    order: ['T1', 'T2', 'T3', 'T4', 'T5', 'L1'],
+    title: 'A team member after you add them: invite, remove, reactivate, sign-in and lockout',
+    spec: 'cypress/e2e/docs/team-signin-guide-screens.cy.js',
+    notes: [
+      ['red', '⚠ What was broken (TEAM-1 / LOCK-1, fixed 13–14 Oct)', `An owner could add a member but <strong>never see who had
+        not set a password, resend the invitation, or remove anyone</strong>. A member removed by hand was told <strong>“Invalid
+        Credentials”</strong> — the real reason was lost twice on the way (an HTTP client that could not read a 401 body, then
+        string-matching on English text). And <strong>the account lock never engaged</strong>: five wrong passwords were saved and
+        rolled back by the refusal itself, so a password could be guessed without limit.`],
+      ['blue', 'What changed', `Team shows <strong>Invited / Active / Removed</strong>, with Resend, Remove (a reason is required)
+        and Reactivate. Removing is reversible and deletes nothing. Sign-in refusals now travel as codes
+        (<code>ACCESS_REMOVED</code>, <code>ACCOUNT_LOCKED</code>…) and the login page shows each in your language.`],
+      ['amber', 'Use throwaway members only', `Every case adds its own member (<code>t1.&lt;run&gt;@myplus.test</code> —
+        <code>.test</code> never delivers) on <code>owner.pharma@myplus.com</code> and removes it at the end. Never try L1 on a
+        shared demo account: it locks that account for 30 minutes.`],
+    ],
+  },
+  fixes1014: {
+    dir: 'fixes-1014', anchor: 'fixes1014', number: Number(process.env.TB_NUMBER || 30), prefix: 'f14',
+    order: ['R1', 'B1', 'N1'],
+    title: 'Walked on 14 Oct: a return in tablets, a bill keyed twice, a school notice’s record',
+    spec: 'cypress/e2e/docs/fixes-1014-guide-screens.cy.js',
+    notes: [
+      ['blue', 'What this section is', `Three fixes whose automated checks went green on 14 Oct (U13, DOC-INT, notifications Part A),
+        walked on the real screens. N1’s record has no screen yet, so its reading step is the console command shown — the run executed
+        that same command.`],
+      ['amber', 'Shared settings are pinned', `R1 and B1 run on <code>demo.business@myplus.com</code>, whose tax and loose markup are
+        changed by other tests and people. The run switches tax off and the markup to 0 for its own steps, and puts both back after.`],
+      ['red', '⚠ Found while recording', `The <strong>confirm dialog could stay invisible</strong> when the window was not in front
+        (its fade waited for an animation frame the browser pauses) — fixed 14 Oct. The <strong>System Alerts</strong> screen still
+        reports through the browser’s own message box, in English only.`],
+    ],
+  },
 }
 
 const which = process.argv[2]

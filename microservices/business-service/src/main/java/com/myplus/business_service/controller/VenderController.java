@@ -38,6 +38,9 @@ public class VenderController {
 	private MessageSource messages;
 
 	@Autowired
+	private com.myplus.business_service.service.AddressService addressService;   // SRA-1: area ids resolved per business
+
+	@Autowired
 	IVenderService venderService;
 
 	@Autowired
@@ -192,8 +195,16 @@ public class VenderController {
 			obj = venderMapper.toEntity(dto);
 			//if it is update
 			if(!appUtil.isEmptyOrNull(dto.getId())) {
-				Vender existing = venderService.findById(dto.getId()).orElse(null);
-				if(existing != null) {
+				/*
+				 * ⚠ SRA-1 (owner-approved fix) — CROSS-BUSINESS WRITE. A plain findById here let an edit carrying
+				 * ANOTHER business's supplier id take that supplier over: the save below stamps the caller's business
+				 * on it. Now the row must be the caller's (inMyTenant, the rule payVendor already applies); a foreign
+				 * or unknown id is "not found" and nothing is written.
+				 */
+				Vender existing = venderService.findById(dto.getId())
+						.filter(v -> inMyTenant(v.getOrganizationId(), v.getUserId())).orElse(null);
+				if (existing == null) return new GenericResponse("NOT_FOUND", "Vendor not found.");
+				{
 					obj.setDated(existing.getDated());
 					obj.setDueAmount(existing.getDueAmount());   // F1 (AP): a profile edit must not wipe the payable
 					// FP-4c — nor finance's stamp: this path REBUILDS the row from the form, so every stamped column
@@ -203,6 +214,8 @@ public class VenderController {
 					obj.setPayableStampVersion(existing.getPayableStampVersion());
 					// DR-1: keep the partner link (the form does not carry it); re-link only if a match key changed.
 					obj.setPartyId(existing.getPartyId());
+					// SRA-1: an edit that does not carry the area (an older cached form, an integration) keeps it.
+					if (dto.getAreaId() == null) obj.setAreaId(existing.getAreaId());
 					identityChanged = com.myplus.business_service.service.PartyBridgeService.identityChanged(
 							firstNonBlank(existing.getMobile(), existing.getPhone()), firstNonBlank(obj.getMobile(), obj.getPhone()),
 							existing.getEmail(), obj.getEmail(), existing.getCnicNtn(), obj.getCnicNtn());
@@ -217,6 +230,18 @@ public class VenderController {
 			obj.setUpdated(dated);
 			obj.setUserId(user.getUserId());                  // audit
 			obj.setOrganizationId(user.getOrganizationId());  // tenant scope
+
+			// SRA-1 — the AREA, resolved inside the caller's business (another business's id reads as not found). 0 clears it.
+			if (dto.getAreaId() != null) {
+				if (dto.getAreaId() == 0L) {
+					obj.setAreaId(null);
+				} else {
+					com.myplus.business_service.dto.AddressOptionDTO area =
+							addressService.areaInOrg(dto.getAreaId(), orgId()).orElse(null);
+					if (area == null) return new GenericResponse("FAILED", "That area was not found. Choose it again.");
+					obj.setAreaId(area.getId());
+				}
+			}
 
 			// The plural field wins; the singular one is still honoured so existing callers keep working.
 			String brandCsv = (dto.getCompanyIds() != null && !dto.getCompanyIds().isBlank())

@@ -124,7 +124,7 @@ public class ReturnDocumentDTO {
         private String soldUnit;
 
         /** PIECES returned (3 tablets). */
-        private Float soldQuantity;
+        private java.math.BigDecimal soldQuantity;
 
         /** Price per PIECE at the time of sale. */
         private BigDecimal soldRate;

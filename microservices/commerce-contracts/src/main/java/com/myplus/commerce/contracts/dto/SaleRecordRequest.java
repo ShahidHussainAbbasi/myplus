@@ -107,7 +107,7 @@ public class SaleRecordRequest {
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class Line {
         private Long productId;
-        private Float quantity;
+        private BigDecimal quantity;   // NUM-1 / D14: exact (was Float — JSON-compatible both ways)
         private BigDecimal unitPrice;
         private Long taxCodeId;
         private String description;

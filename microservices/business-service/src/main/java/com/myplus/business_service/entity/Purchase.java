@@ -111,7 +111,8 @@ public class Purchase implements Serializable {
 //	@JoinColumn(name = "item_unit_id")
 //	private ItemUnit itemUnit;
 
-	private Float quantity;
+	@Column(name = "quantity", precision = 19, scale = 4)   // D14 — NUM-1 (was FLOAT)
+	private BigDecimal quantity;
 
 	/**
 	 * #17 P2 — FREE units received on top of the billed quantity ("buy 10, get 1").
@@ -121,8 +122,8 @@ public class Purchase implements Serializable {
 	 *
 	 * <p>Null on every purchase that carried no bonus, which is most of them.
 	 */
-	@Column(name = "bonus_quantity")
-	private Float bonusQuantity;
+	@Column(name = "bonus_quantity", precision = 19, scale = 4)
+	private BigDecimal bonusQuantity;
 
 	/**
 	 * #17 P2 — what was actually PAID for this line, so cost can be allocated across the units RECEIVED.
@@ -145,8 +146,8 @@ public class Purchase implements Serializable {
 	 * Units that actually entered stock = billed + free. The single definition, so goods-in, the return
 	 * clawback and any report cannot each compute it differently.
 	 */
-	public float receivedQuantity() {
-		return (quantity != null ? quantity : 0f) + (bonusQuantity != null ? bonusQuantity : 0f);
+	public BigDecimal receivedQuantity() {   // NUM-1: exact (was float)
+		return (quantity != null ? quantity : BigDecimal.ZERO).add(bonusQuantity != null ? bonusQuantity : BigDecimal.ZERO);
 	}
 
 //	@Column(name = "purchase_rate")
@@ -199,8 +200,8 @@ public class Purchase implements Serializable {
 	@Column(name = "doc_type", nullable = false, length = 16)
 	private String docType = com.myplus.business_service.service.OpeningBalanceService.DOC_SALE;
 
-	@Column(name = "purchase_expense")
-	private Float purchaseExpense;
+	@Column(name = "purchase_expense", precision = 19, scale = 2)   // money (D14); unused — every row NULL
+	private BigDecimal purchaseExpense;
 
 	@Column(name = "purchase_expense_desc")
 	private String purchaseExpenseDesc;

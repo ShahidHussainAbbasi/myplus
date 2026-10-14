@@ -34,6 +34,7 @@
         sale: 'Sale', purchase: 'Purchase', customer: 'Customers', product: 'Products',
         supplier: 'Suppliers', stock: 'Stock', till: 'Till & shifts',
         finance: 'Finance & ledger', opening: 'Opening balances',
+        area: 'Cities & areas',   // SRA-1 (auth V31): the address list behind the customer / supplier forms
         // school (EDU-PERM-1). The matrix labels every row from this map, so an area missing here
         // renders as its raw slug — "reportcard", "behaviour" — which is the screen looking unfinished.
         student: 'Students', guardian: 'Guardians', staff: 'Staff', attendance: 'Attendance',

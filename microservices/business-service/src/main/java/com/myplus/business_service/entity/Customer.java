@@ -185,6 +185,15 @@ public class Customer implements Serializable {
 	@Column(name = "assigned_rep_user_id")
 	private Long assignedRepUserId;
 
+	/**
+	 * SRA-1 (V82) — the AREA this customer is filed under, in the business's own address list (the area carries its
+	 * city). Null = not filed yet, which is every customer that predates SRA-1. Reports group sales by the CURRENT
+	 * value (owner's decision, SRA design §3.2), so moving a customer moves their history in the report. Written only
+	 * through an id the service has resolved inside the caller's business.
+	 */
+	@Column(name = "area_id")
+	private Long areaId;
+
 	@Column(name = "user_type")
 	private String userType;
 

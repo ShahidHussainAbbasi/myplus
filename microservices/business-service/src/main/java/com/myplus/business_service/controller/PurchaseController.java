@@ -318,7 +318,7 @@ public class PurchaseController {
 			if (appUtil.isEmptyOrNull(pid) || appUtil.isEmptyOrNull(qty))
 				return new GenericResponse("FAILED", "Purchase and quantity are required.");
 			java.util.Map<String, Object> result = purchaseService.purchaseReturn(
-					Long.valueOf(pid.trim()), Float.valueOf(qty.trim()), request.getParameter("reason"));
+					Long.valueOf(pid.trim()), new java.math.BigDecimal(qty.trim()), request.getParameter("reason"));   // NUM-1: the typed figure, exactly
 			// B2B-P3c (#1): name the debit note so the operator can quote it to the supplier.
 			Object dbn = result != null ? result.get("debitNoteNo") : null;
 			return new GenericResponse("SUCCESS",

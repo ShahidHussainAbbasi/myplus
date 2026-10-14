@@ -224,7 +224,7 @@ public class InternalSalesController {
             if (line == null || line.getProductId() == null) continue;
             SellDTO s = new SellDTO();
             s.setProductId(line.getProductId());
-            s.setQuantity(line.getQuantity() == null ? 1F : line.getQuantity());
+            s.setQuantity(line.getQuantity() == null ? java.math.BigDecimal.ONE : line.getQuantity());
             // The channel's quoted unit price. addSell still prices from catalog when this is absent, and applies
             // tax/discount rules on top either way.
             s.setSellRate(line.getUnitPrice());
@@ -351,11 +351,11 @@ public class InternalSalesController {
 
         for (com.myplus.commerce.contracts.dto.SaleReturnLine line : lines) {
             if (line == null || line.getProductId() == null || line.getQuantity() == null
-                    || line.getQuantity() <= 0f) continue;
+                    || line.getQuantity().signum() <= 0) continue;
 
             com.myplus.business_service.entity.Sell match = sold.stream()
                     .filter(x -> line.getProductId().equals(x.getProductId()))
-                    .filter(x -> x.getQuantity() != null && x.getQuantity() > 0f)
+                    .filter(x -> x.getQuantity() != null && x.getQuantity().signum() > 0)
                     .findFirst().orElse(null);
             if (match == null) {
                 // Refuse rather than skip: a product that is not on the invoice means the caller and the books
@@ -363,9 +363,9 @@ public class InternalSalesController {
                 throw new ValidationException("Product " + line.getProductId()
                         + " is not on invoice " + invoiceNo + " — nothing was returned.");
             }
-            if (line.getQuantity() > match.getQuantity()) {
-                throw new ValidationException("Cannot return " + line.getQuantity() + " of product "
-                        + line.getProductId() + " — only " + match.getQuantity() + " was sold on " + invoiceNo + ".");
+            if (line.getQuantity().compareTo(match.getQuantity()) > 0) {
+                throw new ValidationException("Cannot return " + com.myplus.business_service.util.Quantities.plain(line.getQuantity()) + " of product "
+                        + line.getProductId() + " — only " + com.myplus.business_service.util.Quantities.plain(match.getQuantity()) + " was sold on " + invoiceNo + ".");
             }
 
             SellDTO dto = new SellDTO();

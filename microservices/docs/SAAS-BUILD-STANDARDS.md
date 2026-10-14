@@ -509,6 +509,34 @@ table renderers that emit ids per row are duplicates in the DOM but appear once 
 runtime check (`document.querySelectorAll('[id="foo"]').length`), not a source scan. Table cells are display-only:
 give them **no id at all** rather than one that collides with a form field.
 
+**D14. Numeric types — one table, everywhere (the user, 2026-10-14).** Money and quantities are `BigDecimal` in
+Java and `DECIMAL(p,s)` in MySQL. **Never `float`/`double`/`Float`/`Double`** for either: a float cannot hold 0.1, and
+the error is silent and compounds.
+
+| Field | Java | MySQL | Notes |
+|---|---|---|---|
+| PKR amount (totals, payments, balances, journal lines) | `BigDecimal` | `DECIMAL(19,2)` | Education fees are `Integer` **by ruling** (whole amounts) — not a defect |
+| Entered price (what a customer or supplier is charged) | `BigDecimal` | `DECIMAL(19,2)` | |
+| Derived unit cost (a pack price divided into pieces; COGS basis) | `BigDecimal` | `DECIMAL(19,6)` | 100 ÷ 3 must not round at 4 places, or COGS drifts |
+| Quantity — sold, bought, returned, stock | `BigDecimal` | `DECIMAL(19,4)` | **Always**, never `Integer`: loose units are per-tenant, the schema is shared |
+| Tax rate | `BigDecimal` | `DECIMAL(9,4)` | stored as a percent (17.5 = 17.5%) |
+| Percentage (markup, discount) | `BigDecimal` | `DECIMAL(9,4)` | a percent, never a fraction |
+| Rate stored as a FRACTION (commission 0.10) | `BigDecimal` | `DECIMAL(9,6)` | name it `*_rate`, document it is a fraction |
+| Exchange rate | `BigDecimal` | `DECIMAL(19,6)` | not used yet — PKR only |
+
+Three rules that make the table hold:
+1. **Flyway is the only schema author.** Every numeric entity field carries `@Column(precision, scale)` equal to its
+   migration, and `ddl-auto` is `validate`. A field without precision is regenerated as Hibernate's default
+   `DECIMAL(38,2)` the moment anything lets Hibernate write DDL.
+2. **One rounding rule, in one place:** `HALF_UP` for money; a loose piece price rounds `UP` (existing ruling).
+3. **Compute at a higher scale than you store** — divide at scale 6, round once, when storing.
+
+_Measured 2026-10-14 (live Docker DB):_ 11 LIVE `FLOAT` quantity/money columns in business (`sell`, `purchase`,
+`sale_return`, `sales_quote_line`, incl. `purchase.purchase_expense`) with `Float` entity fields — 33 sale rows already
+carry float noise; 9 inventory quantity columns drifted from V8's `(19,4)` to `(38,2)` because the tables were last
+generated from entities with no precision (12 services keep a local `ddl-auto: update`); tax rate stored three ways
+(19,2 / 38,2); markup percent two ways (7,2 / 9,4).
+
 ## 1c. Configuration standards
 
 **C1. A toggle that changes nothing is worse than no toggle.** Declaring a `SettingEntry` is half the work; the

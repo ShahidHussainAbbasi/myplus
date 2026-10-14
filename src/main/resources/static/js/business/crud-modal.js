@@ -242,7 +242,8 @@
 
         // A run of customers is typically one segment on the same terms in the same town.
         global.registerAddAnother('Customer', {
-            keep: ['customerType', 'paymentTermsDays', 'customerCity'],
+            // SRA-1: the city and area pickers go with the printed city — a run of customers is one town, one area.
+            keep: ['customerType', 'paymentTermsDays', 'customerCity', 'customerCityId', 'customerAreaId'],
             focus: 'customerName'
         });
 

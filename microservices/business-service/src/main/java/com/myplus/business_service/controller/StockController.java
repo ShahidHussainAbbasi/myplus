@@ -127,11 +127,11 @@ public class StockController {
 		// option and the type is never left as the ambiguous "%" that made a flat discount resolve as a percent.
 		dto.setBsellDiscountType("0");
 		dto.setBsellDiscount(java.math.BigDecimal.ZERO);
-		dto.setStock(0.0F);
+		dto.setStock(java.math.BigDecimal.ZERO);
 		if (appUtil.isEmptyOrNull(productId)) return dto;
 		try {
 			Float invStock = inventoryClient.getStockLevel(productId);
-			if (invStock != null) dto.setStock(invStock);                          // on-hand
+			if (invStock != null) dto.setStock(new java.math.BigDecimal(Float.toString(invStock)));   // NUM-1: inventory's read API is still Float (NUM-1b); its shortest decimal form is exact                          // on-hand
 			com.myplus.commerce.contracts.dto.ProductRef p = catalogClient.getProduct(productId);
 			if (p != null) {
 				if (p.getSellingPrice() != null) dto.setBsellRate(p.getSellingPrice());   // sell price
@@ -198,7 +198,7 @@ public class StockController {
 		try {
 			for (com.myplus.commerce.contracts.dto.StockBatch b : inventoryClient.getBatches(productId)) {
 				if (batchNo.equals(b.getBatchNo())) {
-					if (b.getAvailable() != null) dto.setStock(b.getAvailable().floatValue());
+					if (b.getAvailable() != null) dto.setStock(b.getAvailable());   // NUM-1: exact (was floatValue)
 					if (b.getExpiryDate() != null) dto.setBexpDate(b.getExpiryDate().toString());
 					if (b.getPurchasePrice() != null) dto.setBpurchaseRate(b.getPurchasePrice());   // last purchase rate
 					break;

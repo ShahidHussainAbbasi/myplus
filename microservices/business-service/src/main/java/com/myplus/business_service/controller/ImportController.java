@@ -151,14 +151,18 @@ public class ImportController {
 
         try {
             ImportReport report = commitTyped(spec, body.getCsv());
+            // SRA-1 — taken (and cleared) on every path, so a refused file never leaves a count for the next import.
+            String addressGrew = (spec instanceof com.myplus.business_service.service.CustomerImportSpec cs)
+                    ? cs.takeAddressSummary() : null;
             if (!report.isCommitted())
                 return new GenericResponse("FAILED", "Nothing was imported — fix the rows below and try again.",
                         report);
 
             LOG.info("I1: imported {} {} row(s) for org {}", report.getToCreate(), entity, orgId());
             return new GenericResponse("SUCCESS",
-                    report.getToCreate() + " row(s) imported.", report);
+                    report.getToCreate() + " row(s) imported." + (addressGrew == null ? "" : " " + addressGrew + "."), report);
         } catch (Exception e) {
+            if (spec instanceof com.myplus.business_service.service.CustomerImportSpec cs) cs.takeAddressSummary();
             LOG.error("I1: commit failed for {}", entity, e);
             return new GenericResponse("ERROR",
                     "The import could not be completed. Nothing further was written — check the list and retry.");

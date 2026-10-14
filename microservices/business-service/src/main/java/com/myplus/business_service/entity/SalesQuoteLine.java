@@ -50,7 +50,8 @@ public class SalesQuoteLine implements Serializable {
     @Column(name = "product_name")
     private String productName;
 
-    private Float quantity;
+    @Column(name = "quantity", precision = 19, scale = 4)   // D14 — NUM-1 (was FLOAT)
+    private BigDecimal quantity;
 
     @Column(name = "unit_price", precision = 19, scale = 2)
     private BigDecimal unitPrice;
@@ -80,8 +81,8 @@ public class SalesQuoteLine implements Serializable {
     private String soldUnit;
 
     /** Pieces quoted ("10" tablets). */
-    @Column(name = "sold_quantity")
-    private Float soldQuantity;
+    @Column(name = "sold_quantity", precision = 19, scale = 4)
+    private BigDecimal soldQuantity;
 
     /** Per-piece rate the quote was priced at — display only; the money is unitPrice × quantity. */
     @Column(name = "sold_rate", precision = 19, scale = 2)

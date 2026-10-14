@@ -23,7 +23,7 @@ public class StockPurchaseAdjust {
     private String movementType;
     private String sourceRef;
     private String batchNo;
-    private Float delta;              // newQty − oldQty (may be negative)
+    private BigDecimal delta;         // newQty − oldQty (may be negative) — NUM-1: exact, was Float
     private LocalDate expiryDate;     // optional — update the batch's expiry too
     private BigDecimal purchasePrice; // optional — update the batch's cost too
     /** PR-3b — optional: the batch (stock_entries.id) this purchase booked in, and the price it now sells at. Applied

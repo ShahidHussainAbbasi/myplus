@@ -143,7 +143,7 @@ public class SalesQuoteService {
             l.setQuote(q);
             l.setProductId(line.getProductId());
             l.setProductName(line.getProductName());
-            l.setQuantity(line.getQuantity() == null ? 1F : line.getQuantity());
+            l.setQuantity(line.getQuantity() == null ? BigDecimal.ONE : line.getQuantity());
             l.setUnitPrice(nz(line.getUnitPrice()));
             l.setPriceReason(line.getPriceReason());
             l.setDiscount(nz(line.getDiscount()));
@@ -389,12 +389,12 @@ public class SalesQuoteService {
                     return QuoteDocumentDTO.Line.builder()
                             .productId(l.getProductId())
                             .productName(l.getProductName())
-                            .quantity(l.getQuantity() == null ? null : BigDecimal.valueOf(l.getQuantity()))
+                            .quantity(l.getQuantity())
                             .unitPrice(l.getUnitPrice())
                             .discount(l.getDiscount())
                             .lineTotal(l.getLineTotal())
                             .soldUnit(loose ? "LOOSE" : null)
-                            .soldQuantity(loose && l.getSoldQuantity() != null ? BigDecimal.valueOf(l.getSoldQuantity()) : null)
+                            .soldQuantity(loose ? l.getSoldQuantity() : null)
                             .soldRate(loose ? l.getSoldRate() : null)
                             .looseUnitPlural(ref == null ? null
                                     : (ref.getLooseUnitPlural() != null ? ref.getLooseUnitPlural() : ref.getLooseUnit()))
@@ -482,7 +482,7 @@ public class SalesQuoteService {
      * <p>Snapshots the pack size and markup that produced the price, so an accepted quote converts to exactly the
      * total the customer accepted (the user's ruling, 2026-09-17) — see {@link #looseLocksFor}.
      */
-    void priceLooseLine(SalesQuoteLine l, Float pieces) {
+    void priceLooseLine(SalesQuoteLine l, BigDecimal pieces) {
         try {
             priceLooseLineOrThrow(l, pieces);
         } catch (com.myplus.common.web.exception.ValidationException refusal) {
@@ -496,7 +496,7 @@ public class SalesQuoteService {
         }
     }
 
-    private void priceLooseLineOrThrow(SalesQuoteLine l, Float pieces) {
+    private void priceLooseLineOrThrow(SalesQuoteLine l, BigDecimal pieces) {
         String name = l.getProductName() != null ? l.getProductName() : ("product " + l.getProductId());
         if (capabilityService != null) {
             capabilityService.assertEnabled(com.myplus.common.settings.Capability.LOOSE_SELLING);
@@ -516,7 +516,7 @@ public class SalesQuoteService {
         SagaSellService.LooseLine ll = SagaSellService.looseLine(probe, product, name, packRate, markup);
 
         l.setUnitPrice(packRate);
-        l.setQuantity(ll.quantity().floatValue());
+        l.setQuantity(com.myplus.business_service.util.Quantities.stored(ll.quantity()));   // NUM-1: the exact selling-unit share, stored at 4 places
         l.setSoldUnit("LOOSE");
         l.setSoldQuantity(ll.pieces());
         l.setSoldRate(ll.perPiece());
@@ -545,7 +545,7 @@ public class SalesQuoteService {
     }
 
     private static BigDecimal lineTotal(SalesQuoteLine l) {
-        BigDecimal qty = BigDecimal.valueOf(l.getQuantity() == null ? 0f : l.getQuantity());
+        BigDecimal qty = com.myplus.business_service.util.Quantities.nz(l.getQuantity());
         return nz(l.getUnitPrice()).multiply(qty).subtract(nz(l.getDiscount()))
                 .max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }

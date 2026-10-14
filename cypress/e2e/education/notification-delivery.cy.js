@@ -68,6 +68,22 @@ const waitForDelivery = (email, attempt = 0) =>
     return cy.wait(1000, { log: false }).then(() => waitForDelivery(email, attempt + 1))
   })
 
+/**
+ * Poll until the recipient's row count satisfies `want(count)` — bounded (~25s) and LOUD on timeout.
+ *
+ * Replaces fixed `cy.wait(3000)`s (2026-10-14, first headed run): the relay delivers on another thread, and on that
+ * run the first row took 13s and three attempts. A fixed 3s wait raced it both ways — case 5 read before the new
+ * notice's row existed (red, though the record was right), and case 4 asserted "no duplicate" long before a
+ * duplicate could have arrived (green, while testing nothing).
+ */
+const waitForCount = (email, want, what, attempt = 0) =>
+  deliveriesFor(email).then((r) => {
+    const n = r.status === 200 ? rows(r.body).length : -1
+    if (want(n)) return cy.wrap(n, { log: false })
+    if (attempt >= 25) throw new Error(`${what}: still ${n} rows for ${email} after ~25s (status ${r.status})`)
+    return cy.wait(1000, { log: false }).then(() => waitForCount(email, want, what, attempt + 1))
+  })
+
 const TAG = 'CyN105' + Date.now()
 /** Unique per run, so a re-run can never collide with the previous run's dedupe keys. */
 const RECIPIENT = `${TAG}@example.test`.toLowerCase()
@@ -150,11 +166,16 @@ describe('Education — notification delivery record (slice 105)', () => {
       const countBefore = before.length
 
       sendAlert(HEADING, 'School closed Friday.')
-      cy.wait(3000)   // give the relay the same chance to write a duplicate that it had to write the first
+      // Absence needs a reason to stop waiting. A DIFFERENT message sent after the duplicate is the marker: once
+      // its row exists the pipeline has caught up past the duplicate, and a short settle covers the async
+      // after-commit path, which is not strictly ordered with the relay sweep.
+      sendAlert(`${HEADING} — marker`, 'Marker after the duplicate.')
+      waitForCount(RECIPIENT, (n) => n >= countBefore + 1, 'the marker after the duplicate')
+      cy.wait(5000)
       deliveriesFor(RECIPIENT).then((after) => {
         expect(rows(after.body).length,
-          'the identical message to the same person is deduplicated, not recorded twice')
-          .to.eq(countBefore)
+          'the identical message to the same person is deduplicated: only the marker was added, not the duplicate')
+          .to.eq(countBefore + 1)
       })
     })
   })
@@ -166,11 +187,8 @@ describe('Education — notification delivery record (slice 105)', () => {
       const countBefore = rows(before.body).length
 
       sendAlert(`${HEADING} — UPDATED`, 'Correction: school reopens Monday.')
-      cy.wait(3000)
-      deliveriesFor(RECIPIENT).then((after) => {
-        expect(rows(after.body).length, 'a genuinely new notice is still recorded')
-          .to.be.greaterThan(countBefore)
-      })
+      waitForCount(RECIPIENT, (n) => n > countBefore, 'a genuinely new notice is still recorded')
+        .then((n) => expect(n, 'a genuinely new notice is still recorded').to.be.greaterThan(countBefore))
     })
   })
 

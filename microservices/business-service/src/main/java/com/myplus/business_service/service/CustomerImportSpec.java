@@ -57,6 +57,7 @@ public class CustomerImportSpec implements ImportSpec<Customer> {
     static final String EMAIL = "email";
     static final String ADDRESS = "address";
     static final String CITY = "city";
+    static final String AREA = "area";   // SRA-1: filed under this area of the city; made if new, and counted
     static final String CNIC = "cnic";
     static final String LICENSE_NO = "licenseNo";
     static final String LICENSE_EXPIRY = "licenseExpiry";
@@ -65,6 +66,33 @@ public class CustomerImportSpec implements ImportSpec<Customer> {
     static final String PAYMENT_TERMS = "paymentTermsDays";
 
     @Autowired private CustomerRepo customerRepo;
+
+    @Autowired private AddressService addressService;   // SRA-1
+
+    /**
+     * SRA-1 — what this commit CREATED in the address list ({cities, areas}) and the new areas' names, so the import's
+     * answer can say "1 area created (1st Sector)". A typo then shows up as a named new area rather than silently
+     * becoming one. Per thread: build() runs on the commit's own request thread; {@link #takeAddressSummary} reads
+     * and clears it there.
+     */
+    private static final ThreadLocal<Object[]> TALLY = ThreadLocal.withInitial(() -> new Object[] { new int[2], new ArrayList<String>() });
+
+    /** The address list this import grew, as a phrase ("1 area created (1st Sector)"), or null — and resets it. */
+    @SuppressWarnings("unchecked")
+    public String takeAddressSummary() {
+        Object[] t = TALLY.get();
+        TALLY.remove();
+        int[] n = (int[]) t[0];
+        List<String> names = (List<String>) t[1];
+        if (n[0] == 0 && n[1] == 0) return null;
+        StringBuilder sb = new StringBuilder();
+        if (n[0] > 0) sb.append(n[0]).append(n[0] == 1 ? " city" : " cities").append(" created");
+        if (n[1] > 0) {
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append(n[1]).append(n[1] == 1 ? " area" : " areas").append(" created (").append(String.join(", ", names)).append(")");
+        }
+        return sb.toString();
+    }
 
     @Autowired(required = false)
     private PartyBridgeService partyBridgeService;
@@ -89,6 +117,7 @@ public class CustomerImportSpec implements ImportSpec<Customer> {
                 ColumnSpec.text(EMAIL, false, 255, "shop@example.com"),
                 ColumnSpec.text(ADDRESS, false, 255, "Main Bazaar"),
                 ColumnSpec.text(CITY, false, 80, "Lahore"),
+                ColumnSpec.text(AREA, false, 80, "Model Town"),
                 ColumnSpec.text(CNIC, false, 20, "35202-1234567-1"),
                 ColumnSpec.text(LICENSE_NO, false, 60, "DL-12345"),
                 ColumnSpec.date(LICENSE_EXPIRY, false),
@@ -114,6 +143,13 @@ public class CustomerImportSpec implements ImportSpec<Customer> {
      * rest of the application makes, so the import is no worse than the counter — but it is a real limitation,
      * and it is why the preview lists what it will create before anything is written.
      */
+    /** SRA-1 — an area is always inside a city: an area with no city cannot be filed, so the row is refused up front. */
+    @Override
+    public String validateRow(CsvReader.Row row) {
+        if (row.get(AREA) != null && row.get(CITY) == null) return "Area '" + row.get(AREA) + "' needs its city.";
+        return null;
+    }
+
     @Override
     public String duplicateKey(CsvReader.Row row) {
         return row.get(CONTACT);   // Row.get already trims, and maps blank to null
@@ -146,6 +182,21 @@ public class CustomerImportSpec implements ImportSpec<Customer> {
         c.setEmail(row.get(EMAIL));
         c.setAddress(row.get(ADDRESS));
         c.setCity(row.get(CITY));
+        // SRA-1 — file the customer under the area, making the city/area if new (counted for the answer). build()
+        // runs only on a COMMIT, after every row has passed, so a dry run never creates an area.
+        if (row.get(AREA) != null) {
+            Object[] t = TALLY.get();
+            int[] counts = (int[]) t[0];
+            int areasBefore = counts[1];
+            addressService.resolveOrCreate(orgId, userId, row.get(CITY), row.get(AREA), counts).ifPresent(a -> {
+                c.setAreaId(a.getId());
+                c.setCity(a.getCityName());
+                if (counts[1] > areasBefore) {
+                    @SuppressWarnings("unchecked") List<String> names = (List<String>) t[1];
+                    names.add(a.getName());
+                }
+            });
+        }
         c.setCnic(row.get(CNIC));
         c.setLicenseNo(row.get(LICENSE_NO));
 
