@@ -343,26 +343,26 @@ style = """    <style>
     </style>
 """
 
-out = ['<section class="mod" id="sra">\n', style,
-       '    <h2>29 · Sales by rep and area: who sold, where, and every column a dimension (SRA-1 to SRA-4) <span class="tag amber">SRA-1 gated · SRA-2 built, gate not run · SRA-3–4 not built</span></h2>\n',
-       '    <p><strong>14 Oct: SRA-1 is built and its gate is green</strong> — <code>cypress/e2e/business/sra-areas.cy.js</code>, A1–A5 and the four fixes F1–F4, all passing; not yet walked by hand. SRA-2 to SRA-4 below are still written '
-       'from the design. Originally written <strong>from the design</strong> (<code>microservices/docs/slices/sra-sales-by-rep-and-area.md</code>) on 14 Oct 2026, '
-       'before any screen exists — the screen and button names are the designed ones. When each slice is built, its Cypress '
-       'run performs these exact steps, photographs each one, and this section is updated with the pictures and a pass/fail per case. '
-       'Distribution tenant: <strong>Shafeeq Medicine</strong>, walked as <code>owner.marketplace@</code>.</p>\n',
+# 14 Oct: SRA-1 and SRA-2 are built and RECORDED by cypress/e2e/docs/sra-guide-screens.cy.js (section 29, made by
+# docs/guides/build-testbook-section.js sra). This script now writes only what is still DESIGN: SRA-3 and SRA-4, as 29b.
+NEXT = [c for c in CASES if c[0] in ('C', 'D')]
+style = style.replace('#sra ', '#sranext ')
+out = ['<section class="mod" id="sranext">\n', style,
+       '    <h2>29b · Sales by rep and area, next: the rep on every sale and the analysis report (SRA-3, SRA-4) <span class="tag red">not built yet</span></h2>\n',
+       '    <p>Written <strong>from the design</strong> (<code>microservices/docs/slices/sra-sales-by-rep-and-area.md</code> §6–7) — the '
+       'screen and button names are the designed ones. When each slice is built its Cypress run performs these steps, photographs them, '
+       'and they move into section 29 above. Distribution tenant: <strong>Shafeeq Medicine</strong>, walked as <code>owner.marketplace@</code>; '
+       'the reps and areas they use are the ones section 29 makes.</p>\n',
        '    <div class="note amber"><span class="hd">Two people on every sale</span><p><strong>Keyed by</strong> is whoever typed it into the '
        'system (printed as “Booked By”, unchanged). <strong>Rep</strong> is who took the order from the customer — by logging in, or on paper '
        'handed to the office. Reports run on the <strong>rep</strong>. The rep is fixed on the sale when it is written; the <strong>area</strong> is the '
        'customer’s current one, so moving a customer moves their history in the report (owner’s decision).</p></div>\n',
        DATA]
-for key, title, spec, cases in CASES:
+for key, title, spec, cases in NEXT:
     out.append(f'\n    <h3 style="margin-top:28px">{title} <span class="muted">— gate: <code>cypress/e2e/business/{spec}</code></span></h3>\n')
     out.extend(case(c) for c in cases)
 out.append('\n    <div class="note blue"><span class="hd">Clean-up after the whole section</span><ol>'
            + "".join(f"<li>{x}</li>" for x in CLEANUP) + '</ol></div>\n')
-out.append('    <div class="note red"><span class="hd">Fixtures this section needs that do not exist yet</span><p><code>admin.marketplace@</code> '
-           '(an ADMIN member of owner.marketplace’s business, for the ladder) — added with SRA-2. <code>demo.marketplace@</code> is assumed to be '
-           'a different business; confirm before relying on A5/D11.</p></div>\n')
 out.append('  </section>\n\n  ')
 open(sys.argv[1], 'w', encoding='utf-8').write(''.join(out))
-print('cases:', sum(len(c[3]) for c in CASES))
+print('cases (29b):', sum(len(c[3]) for c in NEXT))

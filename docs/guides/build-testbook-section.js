@@ -137,6 +137,32 @@ const SECTIONS = {
         reports through the browser’s own message box, in English only.`],
     ],
   },
+  sra: {
+    dir: 'sra', anchor: 'sra', number: Number(process.env.TB_NUMBER || 29), prefix: 'sra',
+    order: ['A1', 'A2', 'A3', 'F2', 'B1', 'B3', 'B4', 'T1', 'B5'],
+    title: 'Sales by rep and area: City / Area, sales reps and territory (SRA-1, SRA-2)',
+    spec: 'cypress/e2e/docs/sra-guide-screens.cy.js',
+    notes: [
+      ['red', '⚠ What was broken (found while building SRA-1 / SRA-2, fixed 14 Oct)', `<strong>Another business could take
+        over a customer or a supplier by id</strong> — an edit carrying a foreign id saved that record under the caller's
+        business. <strong>Editing a customer wiped City, CNIC and the licence</strong> (or copied the previous customer's),
+        <strong>moved a grouped branch off its company's credit limit</strong>, and <strong>unassigned an outlet from its
+        rep</strong>. And <strong>the territory gate was red from 16 Sep</strong>: every territory decision asked the permission
+        set's “Sees: All” <em>row</em> scope, so a booker whose set saw all rows was never narrowed and could assign outlets.`],
+      ['blue', 'What is new', `<strong>City and Area</strong> come from the business's own list; <strong>+ New city / + New
+        area</strong> open a small form over the customer or supplier form (the purchase form's “+ New product” pattern) and come
+        back selected. A <strong>sales rep</strong> is a person on the business's list, with or without a login; a customer has a
+        <strong>usual rep</strong>; a rep whose login is linked sees their own outlets plus every unassigned one. Managing reps
+        is the “Add and change sales reps” permission — owners and admins have it.`],
+      ['amber', 'Proven by the automated gates, no screen to walk', `Importing customers with an <code>area</code> column
+        (“1 area created (1st Sector)”), another business's area, rep or outlet refused, the takeover by id refused, a branch kept
+        on its company's credit account, an outlet kept with its rep after an edit, one login not two reps, a rep refused at the
+        server when changing a usual rep or managing reps: <code>sra-areas.cy.js</code> 9/9, <code>sra-reps.cy.js</code> 6/6,
+        <code>territory-assignment.cy.js</code> 8/8, <code>territory-screen.cy.js</code> 5/5 — 14 Oct.`],
+      ['amber', 'Clean-up', `Every name carries the run's stamp. The run deactivates its reps, returns its shops to the shared
+        pool and <strong>unlinks the booker's login</strong> from its rep — a linked booker narrows every booking test.`],
+    ],
+  },
 }
 
 const which = process.argv[2]

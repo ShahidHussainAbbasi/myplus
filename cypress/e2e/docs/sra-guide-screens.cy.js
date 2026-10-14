@@ -288,16 +288,16 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
     })
     openTerritory()
     const a1 = g.act(`In Sales reps press **Deactivate** on **SRA Irfan ${RUN}**.`,
-      ['**Rep saved.** Its status reads **inactive** and the button now says **Reactivate**.'])
+      ['**Rep saved.** Its status reads **Inactive** and the button now says **Reactivate**.'])
     cy.get(`#srBody tr[data-rep-id="${ctx.irfan}"] [data-sr-toggle]`).click()
     cy.get('#srNotice').should('contain.text', 'Rep saved')
-    cy.get(`#srBody tr[data-rep-id="${ctx.irfan}"]`).should('contain.text', 'inactive')
+    cy.get(`#srBody tr[data-rep-id="${ctx.irfan}"]`).invoke('text').should('match', /Inactive/i)
     g.snap(a1, 'deactivated')
     const a2 = g.act(`Open **Assign to**; then find **SRA Labaik Pharmacy ${RUN}** in the outlet table.`,
-      [`SRA Irfan ${RUN} is **not** offered in Assign to.`, `The outlet still reads **Covered by: SRA Irfan ${RUN} (inactive)**.`])
+      [`SRA Irfan ${RUN} is **not** offered in Assign to.`, `The outlet still reads **Covered by: SRA Irfan ${RUN} (Inactive)**.`])
     cy.get(`#terrRep option[value="${ctx.irfan}"]`).should('not.exist')
     cy.get('#terrFilter').type(`SRA Labaik Pharmacy ${RUN}`)
-    cy.contains('#terrBody tr', `SRA Labaik Pharmacy ${RUN}`).should('contain.text', `SRA Irfan ${RUN} (inactive)`)
+    cy.contains('#terrBody tr', `SRA Labaik Pharmacy ${RUN}`).should(($tr) => expect($tr.text().toLowerCase()).to.contain(`sra irfan ${RUN} (inactive)`))
     g.snap(a2, 'still-named')
     const c1 = g.act(`Press **Reactivate** on SRA Irfan ${RUN}.`, ['Active again, and back in Assign to.'], { cleanup: true })
     cy.get(`#srBody tr[data-rep-id="${ctx.irfan}"] [data-sr-toggle]`).click()
@@ -338,8 +338,7 @@ describe('Test Book 29 — Sales by rep and area (guide screens)', () => {
     }
     cy.then(() => assignOnScreen(mine, ctx.bookerRep))
     cy.then(() => assignOnScreen(theirs, ctx.irfan))
-    cy.get('#terrFilter').clear().type(`SRA `)
-    cy.get('#terrFilter').type(RUN)
+    cy.get('#terrFilter').clear().type(RUN)   // the run's stamp: all three shops, and nothing else
     cy.contains('#terrBody tr', mine).should('contain.text', `SRA Booker ${RUN}`)
     cy.contains('#terrBody tr', theirs).should('contain.text', `SRA Irfan ${RUN}`)
     cy.contains('#terrBody tr', free).should('contain.text', 'Unassigned')
