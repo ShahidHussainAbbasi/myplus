@@ -63,16 +63,16 @@
 
             <div th:if="${param.twofa != null}" class="msg-bar info">
                 <span class="glyphicon glyphicon-qrcode"></span>&nbsp;
-                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Enter the verification code from your authenticator app.'">Enter the verification code from your authenticator app.</span>
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: #{auth.message.twoFactorRequired}">Enter the verification code from your authenticator app.</span>
             </div>
             <!-- Registered-but-unverified (trial pending): not an error, so use the info style. -->
             <div th:if="${param.unverified != null}" class="msg-bar info">
                 <span class="glyphicon glyphicon-envelope"></span>&nbsp;
-                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Please open the confirmation link we emailed you to activate your trial account.'">Please verify your email to activate your account.</span>
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: #{auth.message.notVerified}">Please verify your email to activate your account.</span>
             </div>
             <div th:if="${param.error != null}" class="msg-bar error">
                 <span class="glyphicon glyphicon-exclamation-sign"></span>&nbsp;
-                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: 'Invalid username or password. Please try again.'">Invalid username or password. Please try again.</span>
+                <span th:text="${session.SPRING_SECURITY_LAST_EXCEPTION} ?: #{message.badCredentials}">Invalid username or password. Please try again.</span>
             </div>
             <div th:if="${param.message != null}" class="msg-bar info"
                  th:text="${param.message[0]}"></div>

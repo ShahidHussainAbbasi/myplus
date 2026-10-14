@@ -142,6 +142,9 @@ public class ExpenseAdvanceService {
         // the server's own answer to "is this person staff here", from auth — never the screen's word
         StaffDirectory.Member who = staff.staffMember(r.userId())
                 .orElseThrow(() -> new ValidationException("That person is not staff of this business."));
+        // TEAM-1: a REMOVED member gets no new advance — but what they still hold can always be taken back
+        if (ExpenseAdvanceMovement.GIVE.equals(kind) && !who.active())
+            throw new ValidationException("This person was removed from the team. An advance is not given to them.");
 
         ExpenseAdvanceMovement row;
         try {

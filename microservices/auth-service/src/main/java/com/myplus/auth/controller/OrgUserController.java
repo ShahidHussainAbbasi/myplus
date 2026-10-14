@@ -134,7 +134,7 @@ public class OrgUserController {
         String token = bearer(auth);
         teamMembers.remove(jwtService.extractUserId(token), orgId(token), isOwner(token), userId,
                 body == null ? null : str(body.get("reason")));
-        return ResponseEntity.ok(ApiResponse.success(null, "Removed. They are signed out and cannot sign in to this business. You can reactivate them."));
+        return ResponseEntity.ok(ApiResponse.success(null, "Removed. They are signed out within 15 minutes on every device and cannot sign in to this business again. You can reactivate them."));
     }
 
     @PostMapping("/users/{userId}/reactivate")

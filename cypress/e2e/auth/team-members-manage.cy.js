@@ -6,8 +6,8 @@
  *   TM-01  a new member shows "Invited — no password yet" with Resend invitation
  *   TM-02  Resend sends a fresh e-mail and the OLDER link stops working; the new one sets the password
  *   TM-03  once the password is set the row says Active and offers no Resend
- *   TM-04  Remove asks why (empty is refused); the row says Removed; the member cannot sign in — and is NOT
- *          handed an empty business of their own
+ *   TM-04  Remove asks why (empty is refused); the row says Removed; the member cannot sign in, is told their
+ *          access was removed (not "Invalid Credentials"), and is NOT handed an empty business of their own
  *   TM-05  Reactivate: Active again, and the member signs in with their own password
  *
  * Tenant: owner.pharma@. Each run adds ONE member: tm.<run>@myplus.test (.test never delivers); it is left REMOVED at
@@ -119,6 +119,8 @@ describe('TEAM-1 — manage a team member after adding them', () => {
     // empty business of their own — so staying on /login is also the proof that none was made
     signIn(EMAIL, PW)
     cy.location('pathname', { timeout: 15000 }).should('include', '/login')
+    // … and told WHY — "Invalid Credentials" sent them to reset a password that was never the problem
+    cy.get('.msg-bar.error').should('be.visible').and('contain.text', 'access to this business was removed')
     shot('TM-04-3-removed-cannot-sign-in')
     // the owner's list still holds them, as Removed (nothing deleted)
     owner()

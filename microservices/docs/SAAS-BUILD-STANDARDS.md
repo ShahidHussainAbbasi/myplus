@@ -232,6 +232,28 @@ that cannot be shown is reported as unverified.
      none — never the default. `apiFailMessage` exists because jQuery routes non-2xx to `error`/`fail`, where
      the body sits unread in `responseJSON`: handlers were telling users *"Network error, check your
      connection"* when the connection was fine and the response said their trial had ended.
+   * **8e · Branch on CODES, show KEYS — never match or hard-code text.** (the user, 2026-10-14: *"why hard
+     code … we must not hard code"*.) Three rules, one idea:
+     1. **A refusal another service must react to carries a stable machine-readable CODE** (`ApiResponse.reason`,
+        an enum on the sending side). The receiver branches on the code — **never** on the English message
+        (`body.contains("locked")`, `msg.includes("already registered")`). The `message` stays as prose for
+        people, logs and API callers.
+     2. **Inside one app, failures are TYPES, not strings.** Throw an exception carrying an enum; the handler
+        switches on it. Never `throw new X("Access removed")` in one class and `equalsIgnoreCase("Access
+        removed")` in another — two spellings that must agree, with nothing to check them.
+     3. **What a person reads is a message-bundle KEY**, in all six locales — in Java, in templates (Thymeleaf
+        fallbacks are `#{key}`, not `'English'`) and in JS (`ui.js.*`). A literal English sentence on screen is a
+        defect: no translation reaches it.
+
+     **Guard it:** the code enums on both sides are a CONTRACT — a unit test asserts every code the sender can
+     send exists on the receiver, and every key exists in every bundle (`SignInFailureTest`).
+     _Incident 2026-10-14 (TEAM-1): auth-service refused a removed member with "Your access to this business
+     was removed"; the monolith matched auth's sentences with `contains(...)`, then matched its OWN exception
+     texts with `equalsIgnoreCase(...)`, and fell through to **"Invalid Credentials"** — so the person would
+     reset a password that was never the problem. Fixed with `SignInRefusal` (auth) → `reason` →
+     `SignInFailure` (monolith) → message key. ⚠ Still open under this rule: other proxies match prose, e.g.
+     `ClinicController` (`contains("already registered")`), `GatewayClient.unknownRefreshToken`
+     (`"Invalid refresh token"`) — convert each when its slice is next touched._
 
    ⚠ **The failure mode that makes this a standard rather than a preference: reading the wrong field never
    throws.** It silently reports "failed" for a call that worked, or "fine" for one that failed. In tests it

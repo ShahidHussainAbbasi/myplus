@@ -256,8 +256,16 @@ public class AuthService {
         String wanted = firstSetChecked(firstSet, roleChoice);
         if (email == null || email.isBlank())
             throw new ValidationException("Email is required");
-        if (userRepository.existsByEmail(email))
+        if (userRepository.existsByEmail(email)) {
+            // TEAM-1: someone REMOVED from this business comes back by Reactivate, not by being added again
+            boolean removedHere = callerOrgId != null && userRepository.findByEmail(email)
+                    .map(u -> organizationService.membershipsOf(u.getId()).stream().anyMatch(m ->
+                            callerOrgId.equals(m.getOrganizationId()) && "INACTIVE".equalsIgnoreCase(m.getStatus())))
+                    .orElse(false);
+            if (removedHere)
+                throw new DuplicateResourceException("This person was removed from your team. Reactivate them on the Team screen instead of adding them again.");
             throw new DuplicateResourceException("Email already registered");
+        }
         String rc = (roleChoice == null ? "USER" : roleChoice.trim().toUpperCase());
         if (!rc.equals("ADMIN") && !rc.equals("USER"))
             throw new ValidationException("Role must be ADMIN or USER");
@@ -673,14 +681,22 @@ public class AuthService {
         return out;
     }
 
-    @Transactional
+    /**
+     * {@code noRollbackFor}: a refused sign-in must still COMMIT what it recorded (2026-10-14). The wrong-password
+     * branch saves the failed-attempt count — and the lock at {@value #MAX_FAILED_ATTEMPTS} — and then throws; under a
+     * plain {@code @Transactional} that throw rolled the save back, so the count never left 0 and no account ever
+     * locked (proved: seven wrong passwords, then the right one got past the lock check). The other writes that now
+     * commit with a refusal are wanted too: an expired lock cleared, and the count reset after a correct password that
+     * ACCESS_REMOVED then refuses. Same idiom as the marketplace's working lockout (MKT-1e2).
+     */
+    @Transactional(noRollbackFor = com.myplus.auth.exception.SignInRefusedException.class)
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ValidationException("Invalid credentials"));
+                .orElseThrow(() -> new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.BAD_CREDENTIALS));
 
         if (!user.isAccountNonLocked()) {
             if (user.getLockTime() != null && user.getLockTime().plusMinutes(LOCK_TIME_MINUTES).isAfter(LocalDateTime.now())) {
-                throw new ValidationException("Account is locked. Try again later.");
+                throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.ACCOUNT_LOCKED);
             }
             user.setAccountNonLocked(true);
             user.setFailedLoginAttempts(0);
@@ -694,13 +710,13 @@ public class AuthService {
                 user.setLockTime(LocalDateTime.now());
             }
             userRepository.save(user);
-            throw new ValidationException("Invalid credentials");
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.BAD_CREDENTIALS);
         }
 
         // Email-verification gate (slice 32): a registered-but-unverified account cannot log in. Checked
         // after the password match so we never reveal account/verification state without the credential.
         if (!user.isEnabled()) {
-            throw new ValidationException("Account not verified. Please check your email to verify your account.");
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.NOT_VERIFIED);
         }
 
         if (user.isTwoFactorEnabled()) {
@@ -712,7 +728,7 @@ public class AuthService {
                         .build();
             }
             if (!twoFactorService.verifyCode(user.getTwoFactorSecret(), request.getTwoFactorCode())) {
-                throw new ValidationException("Invalid 2FA code");
+                throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.INVALID_2FA);
             }
         }
 
@@ -934,8 +950,7 @@ public class AuthService {
         // create them a brand-new empty business. Here (sign-in and refresh), never in getOrCreatePrimaryOrg itself,
         // which start-up seeding also calls.
         if (organizationService.accessRemoved(user.getId())) {
-            throw new org.springframework.security.authentication.DisabledException(
-                    "Your access to this business was removed. Ask the owner if this is a mistake.");
+            throw new com.myplus.auth.exception.SignInRefusedException(com.myplus.auth.exception.SignInRefusal.ACCESS_REMOVED);
         }
         // Default active tenant: the user's primary org ("tenant #1"), auto-created on first login so
         // domain data has a home (legacy safety net — new signups create the tenant at registration).

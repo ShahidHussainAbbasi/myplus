@@ -105,7 +105,7 @@ describe('U14 — loose units in a sales quote', () => {
   after(() => {
     cy.loginAsBusiness()
     setMarkup(markupBefore == null ? '0' : String(markupBefore))
-    if (taxBefore) cy.setTaxSetting(taxBefore)
+    if (taxBefore) cy.restoreTaxSetting(taxBefore)
   })
 
   beforeEach(() => cy.loginAsBusiness())

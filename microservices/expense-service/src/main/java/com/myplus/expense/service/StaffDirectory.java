@@ -66,9 +66,12 @@ public class StaffDirectory {
         return staff().stream().filter(Member::active).toList();
     }
 
-    /** This member, if they are ACTIVE staff of the caller's business (an advance is never given to someone removed). */
+    /**
+     * This member, if they are staff of the caller's business — REMOVED ones included ({@link Member#active()} says
+     * which). A departed member's unused advance must still be taken back; the caller refuses a new GIVE to them.
+     */
     public Optional<Member> staffMember(Long userId) {
         if (userId == null) return Optional.empty();
-        return activeStaff().stream().filter(m -> m.userId().equals(userId)).findFirst();
+        return staff().stream().filter(m -> m.userId().equals(userId)).findFirst();
     }
 }

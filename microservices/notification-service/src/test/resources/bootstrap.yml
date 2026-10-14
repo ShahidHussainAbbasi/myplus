@@ -1,0 +1,8 @@
+# Tests must not reach the config-server (bootstrap phase): main bootstrap.yml is fail-fast + retry, so
+# without this a @SpringBootTest would wait minutes for a config-server that is not there, then fail.
+# (@DynamicPropertySource's spring.cloud.config.enabled=false is applied after the bootstrap context.)
+spring:
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false

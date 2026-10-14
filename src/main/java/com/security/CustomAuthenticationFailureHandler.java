@@ -15,6 +15,16 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationFa
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.LocaleResolver;
 
+/**
+ * Turns a failed sign-in into the login page's message (2026-10-14).
+ *
+ * <p>Branches on the TYPED failure ({@link SignInFailure}) and shows its message-bundle key — never on exception
+ * text. The old version compared {@code exception.getMessage()} with literals ("Access removed", "locked") that
+ * the provider had to spell identically, and hardcoded two English sentences that no translation reached.
+ *
+ * <p>The return page is chosen PER REQUEST. It used to be set with {@code setDefaultFailureUrl} on this singleton,
+ * so two sign-ins failing at the same moment could send each other to the wrong page.
+ */
 @Component("authenticationFailureHandler")
 public class CustomAuthenticationFailureHandler extends SimpleUrlAuthenticationFailureHandler {
 
@@ -25,44 +35,18 @@ public class CustomAuthenticationFailureHandler extends SimpleUrlAuthenticationF
     private LocaleResolver localeResolver;
 
     @Override
-    public void onAuthenticationFailure(final HttpServletRequest request, final HttpServletResponse response, final AuthenticationException exception) throws IOException, ServletException {
+    public void onAuthenticationFailure(final HttpServletRequest request, final HttpServletResponse response,
+                                        final AuthenticationException exception) throws IOException, ServletException {
         final Locale locale = localeResolver.resolveLocale(request);
-        final String reason = exception.getMessage() == null ? "" : exception.getMessage();
+        // Anything not raised by AuthServerAuthenticationProvider (e.g. the session-limit refusal) reads as a plain
+        // refusal — as it always did.
+        final SignInFailure failure = exception instanceof SignInFailedException f ? f.failure() : SignInFailure.BAD_CREDENTIALS;
 
-        String errorMessage = messages.getMessage("message.badCredentials", null, locale);
-        // Default: ordinary credential failure.
-        String failureUrl = "/login?error=true";
-
-        if (reason.equalsIgnoreCase("Verification code required")) {
-            // 2FA is enabled but no code was supplied — prompt for it (not an error).
-            errorMessage = "Enter the verification code from your authenticator app.";
-            failureUrl = "/login?twofa=true";
-        } else if (reason.equalsIgnoreCase("Invalid 2FA code")
-                || reason.toLowerCase(locale).contains("verfication code")
-                || reason.toLowerCase(locale).contains("verification code")) {
-            errorMessage = "Invalid verification code. Please try again.";
-            failureUrl = "/login?twofa=true";
-        } else if (reason.toLowerCase(locale).contains("not verified")) {
-            // Registered-but-unverified (trial pending): show a clear, trial-aware message via an
-            // info bar instead of the red "invalid credentials" error.
-            errorMessage = messages.getMessage("auth.message.notVerified", null, locale);
-            failureUrl = "/login?unverified=true";
-        } else if (reason.toLowerCase(locale).contains("locked")) {
-            errorMessage = messages.getMessage("auth.message.locked", null, locale);
-        } else if (reason.equalsIgnoreCase("User is disabled")) {
-            errorMessage = messages.getMessage("auth.message.disabled", null, locale);
-        } else if (reason.equalsIgnoreCase("User account has expired")) {
-            errorMessage = messages.getMessage("auth.message.expired", null, locale);
-        } else if (reason.equalsIgnoreCase("blocked")) {
-            errorMessage = messages.getMessage("auth.message.blocked", null, locale);
-        }
-
-        setDefaultFailureUrl(failureUrl);
-        super.onAuthenticationFailure(request, response, exception);
-
-        // Overwrite the stored exception with a friendly message, and remember the entered username
-        // so the login page can prefill it (the user only re-enters password + code).
-        request.getSession().setAttribute(WebAttributes.AUTHENTICATION_EXCEPTION, errorMessage);
+        // The friendly, translated message replaces the exception the page reads; the entered username is kept so
+        // the login page can prefill it (the person only re-enters password + code).
+        request.getSession().setAttribute(WebAttributes.AUTHENTICATION_EXCEPTION,
+                messages.getMessage(failure.messageKey(), null, locale));
         request.getSession().setAttribute("LAST_USERNAME", request.getParameter("username"));
+        getRedirectStrategy().sendRedirect(request, response, failure.failureUrl());
     }
 }

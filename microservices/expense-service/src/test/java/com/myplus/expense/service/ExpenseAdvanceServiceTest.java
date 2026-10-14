@@ -141,4 +141,18 @@ class ExpenseAdvanceServiceTest {
         assertThat(saved.getStatus()).isEqualTo("FAILED");
         assertThat(balance.getBalance()).isEqualByComparingTo("50");
     }
+
+    @Test
+    @DisplayName("⭐ TEAM-1: a REMOVED member gets no new advance, but what they still hold is taken back")
+    void removedMember() {
+        when(staff.staffMember(3L)).thenReturn(Optional.of(new StaffDirectory.Member(3L, "User Education", "user@x", "USER", false)));
+        assertThatThrownBy(() -> service.give(new AdvanceRequest(3L, BigDecimal.TEN, "CASH", null), "k8"))
+                .hasMessageContaining("removed from the team");
+        verify(finance, never()).recordPayment(any());
+
+        when(finance.recordPayment(any())).thenReturn(pv("RCPT-000802"));
+        var v = service.takeBack(new AdvanceRequest(3L, new BigDecimal("50"), "CASH", "Left the clinic"), "k9");
+        assertThat(v.status()).isEqualTo("RECORDED");
+        assertThat(balance.getBalance()).isEqualByComparingTo("0");
+    }
 }

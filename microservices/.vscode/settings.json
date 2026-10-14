@@ -1,4 +1,22 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic",
-    "java.configuration.updateBuildConfiguration": "automatic"
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "files.watcherExclude": {
+    "**/target/**": true,
+    "**/build/**": true,
+    "**/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/dist/**": true
+  },
+  "search.exclude": {
+    "**/target/**": true,
+    "**/build/**": true,
+    "**/node_modules/**": true
+  },
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/archetype-resources/**",
+    "**/META-INF/maven/**"
+  ]
 }
