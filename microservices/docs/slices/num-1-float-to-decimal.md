@@ -32,13 +32,13 @@ reader-checked before any drop); the empty legacy `sells`/`purchases`/`customers
 
 | Layer | From | To |
 |---|---|---|
-| MySQL (Flyway **V83**) | `FLOAT` × 10 quantities, `FLOAT` `purchase_expense` | `DECIMAL(19,4)` × 10, `DECIMAL(19,2)` |
+| MySQL (Flyway **V84**) | `FLOAT` × 10 quantities, `FLOAT` `purchase_expense` | `DECIMAL(19,4)` × 10, `DECIMAL(19,2)` |
 | Entities `Sell`, `Purchase`, `SaleReturn`, `SalesQuoteLine` | `Float` (8 fields + 1 money) | `BigDecimal`, `@Column(precision = 19, scale = 4)` (`purchaseExpense` 19,2) |
 | business DTOs `SellDTO`, `PurchaseDTO`, `BusinessDTOs` (×2), `ReturnDocumentDTO` | `Float` (10 fields) | `BigDecimal` |
 | monolith twins `com.web.dto.business.SellDTO`, `PurchaseDTO` | `Float` (5 fields) | `BigDecimal` |
 | Arithmetic (compile-driven: every site fails to compile and is rewritten deliberately) | `float` math, `Float::sum`, `BigDecimal.valueOf(float)` | `BigDecimal` math, `compareTo`, scale 6 for division, one rounding at the store |
 
-**V83** — `MODIFY` is idempotent; FLOAT→DECIMAL rounds to the column's scale, which is exactly the clean-up wanted
+**V84** — `MODIFY` is idempotent; FLOAT→DECIMAL rounds to the column's scale, which is exactly the clean-up wanted
 (0.0750000030 → 0.0750). Before it runs, a pre-flight query lists any value whose rounding would change it by more than
 0.0001. **Run 2026-10-14: largest shift 0.000000024** (`sell.quantity`) and 0.000000006 (`sale_return.quantity`); every
 noisy value is a float stand-in for a clean one (0.2, 0.175, 0.3, 1.4, 0.05 → exactly those). Values fit: largest 630
@@ -69,7 +69,7 @@ Cross-service: inventory receives the quantity as JSON (already `BigDecimal` the
 ## 4. Order of work and gates
 
 1. Pre-flight SQL (read-only) + the red gate on the CURRENT build.
-2. V83 + entities + DTOs + monolith twins; the user compiles business-service and the monolith; I fix each error by
+2. V84 + entities + DTOs + monolith twins; the user compiles business-service and the monolith; I fix each error by
    the rules above until both compile and `mvn test` is green (whole module, not one class).
 3. Inventory item 2 (19,4 + `validate`) in the same release — deploy order: inventory → business → monolith.
 4. Gate `num-1-decimal-quantities.cy.js`, red on the old build first:
@@ -94,10 +94,26 @@ Cross-service: inventory receives the quantity as JSON (already `BigDecimal` the
 |---|---|
 | commerce-contracts | `StockImportLine.quantity`, `StockReturnLine.qty`, `StockPurchaseAdjust.delta`, `SaleReturnLine.quantity`, `SaleRecordRequest.Line.quantity` → `BigDecimal` (user agreed to include contracts). JSON-compatible both ways. |
 | inventory | V16 re-asserts DECIMAL(19,4) on 10 quantity columns; entities carry `precision = 19, scale = 4`; reads of the contract fields exact; `in(Float)` now via `Float.toString` (was `BigDecimal.valueOf` — not exact); false "base units / stores exact" comments corrected (stock is in SHELF units). |
-| business | V83 (10 FLOAT → DECIMAL(19,4), `purchase_expense` → (19,2)); entities `Sell`, `Purchase`, `SaleReturn`, `SalesQuoteLine`, records `SagaLine`, `LooseLine`; DTOs `SellDTO`, `PurchaseDTO`, `BusinessDTOs`, `ReturnDocumentDTO`, `StockDTO`; `Quantities` helper; every arithmetic site (sale edit delta, U13 return incl. the money-bearing refund fraction, purchase return + bonus clawback — now `floor(retained × bonus ÷ paid)`, saga reservation, costing, quotes, serial counts). `PurchaseDTO.quantity` gains `@Positive` (the `@ValidateEmpty` Float branch used to reject ≤ 0; changing the shared validator instead would have rejected `CustomerDTO.paidAmount = 0`). |
+| business | V84 (10 FLOAT → DECIMAL(19,4), `purchase_expense` → (19,2)); entities `Sell`, `Purchase`, `SaleReturn`, `SalesQuoteLine`, records `SagaLine`, `LooseLine`; DTOs `SellDTO`, `PurchaseDTO`, `BusinessDTOs`, `ReturnDocumentDTO`, `StockDTO`; `Quantities` helper; every arithmetic site (sale edit delta, U13 return incl. the money-bearing refund fraction, purchase return + bonus clawback — now `floor(retained × bonus ÷ paid)`, saga reservation, costing, quotes, serial counts). `PurchaseDTO.quantity` gains `@Positive` (the `@ValidateEmpty` Float branch used to reject ≤ 0; changing the shared validator instead would have rejected `CustomerDTO.paidAmount = 0`). |
 | marketplace | 7 builder sites pass `BigDecimal.valueOf(int)` (its quantities are whole). |
 | monolith | `SellDTO`, `PurchaseDTO` twins: quantities + money (`totalAmount`, `netAmount`, `srp`, `itemStock`) → `BigDecimal` (the money twins sit on the retired `/addSelling` path). |
 
 **Root cause of gate N1, traced:** saga `issued = BigDecimal.valueOf(Float 0.075f)` → 0.07500000298 → inventory pick column DECIMAL(38,2) stored 0.08 → confirm re-read the pick → 0.08 off the shelf (3.2 tablets per 3 sold). Both halves are fixed here.
 
 **NUM-1b (follow-up, recorded):** inventory's READ API in Float (`getStockLevel(s)`, `getStockLevelDetail`, `StockDTOs`, `out()`); `ScanResolution.quantity` (would add catalog-service); `inventory ddl-auto: validate` (blocked by Hibernate 6's float/REAL check on `Warehouse.capacity` — needs a boot test); dead FLOAT columns `sell.return_reason`, `customer.paid_amount`, `customer_history.received_amount`; 10 specs' local `setMarkup` → `cy.setBusinessConfig`.
+
+**2026-10-14 20:53 — business crash on start:** "Found more than one migration with version 83": the parallel SRA-2 session added `V83__sra2_sales_rep.sql`. NUM-1's file (unapplied, swept into commit 08a92360) renamed to **V84** with `git mv`; SRA-2 keeps V83.
+
+## 7. Deployed and gated (2026-10-14 21:45)
+
+Live: inventory V16, business V83 (SRA-2) + V84 (NUM-1) applied; 20 quantity columns exact (10 + 10, `purchase_expense` 19,2).
+Gate `num-1-decimal-quantities` **3/3** (was 0/3 on the old build). Regression **27/27**: U13 6/6, DOC-INT 8/8,
+quote-loose-units 3/3, purchase-return 1/1, purchase-edit-keeps-issued 2/2, bonus-schemes-p2 **7/7**.
+
+**bonus-schemes-p2 had been testing NOTHING since EXP-REQ:** it bought `rows[0]` (another spec's product, not
+"No expiry", on an expiry-tracking tenant) and accepted any non-ERROR status — every purchase was refused, three
+cases went red on "no stock" and the clawback / GL / tax cases went green without running (an early `return`, no
+check, an `if present`), and the GL case read `/trialBalance` (404 → "skipped"). Rewritten: its own seeded
+product, every purchase must answer SUCCESS, bills found by their unique invoice number, `/gl/trialBalance`.
+`mkt-1f-support-returns` ran 12 PENDING (its own preconditions skip it) — marketplace paths of NUM-1 are covered by
+compile only; recorded.

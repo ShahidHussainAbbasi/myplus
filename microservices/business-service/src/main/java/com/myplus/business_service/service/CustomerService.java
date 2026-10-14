@@ -236,8 +236,8 @@ return customerRepo.exists(example);
 
 	/** O7 D2d — the rep's territory: their assigned outlets plus every unassigned one. */
 	@Override
-	public List<Customer> findOutletsForRep(Long orgId, Long repUserId) {
-		return customerRepo.findOutletsForRep(orgId, repUserId);
+	public List<Customer> findOutletsForRep(Long orgId, Long repId) {   // SRA-2: a sales rep id
+		return customerRepo.findOutletsForRep(orgId, repId);
 	}
 
 	/** O7 D2d — every outlet in the org (whole-org viewers only; the controller decides who qualifies). */
@@ -260,9 +260,9 @@ return customerRepo.exists(example);
 	 */
 	@Override
 	@org.springframework.transaction.annotation.Transactional
-	public int assignOutlets(java.util.List<Long> customerIds, Long repUserId, Long orgId, Long actingUserId) {
+	public int assignOutlets(java.util.List<Long> customerIds, Long repId, Long orgId, Long actingUserId) {   // SRA-2: a sales rep id
 		if (customerIds == null || customerIds.isEmpty()) return 0;
-		return customerRepo.assignRepScoped(customerIds, repUserId, orgId, actingUserId);
+		return customerRepo.assignRepScoped(customerIds, repId, orgId, actingUserId);
 	}
 
 

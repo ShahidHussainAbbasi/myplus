@@ -113,4 +113,7 @@ public class CustomerDTO implements Serializable {
      * that does not send it), 0 = clear it, anything else = an area of THIS business (else refused).
      */
     private Long areaId;
+
+    /** SRA-2 — the customer's usual rep. On a save: null = keep, 0 = clear, else a rep of THIS business (rep.manage only). */
+    private Long defaultRepId;
 }

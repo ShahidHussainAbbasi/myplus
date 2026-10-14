@@ -104,7 +104,7 @@ class PerBatchSaleTest {
         when(settingsService.getChoice(anyString(), any(), anyString())).thenAnswer(i ->
                 PurchaseService.PRICE_MODE_KEY.equals(i.getArgument(0)) ? mode : i.getArgument(2));
         when(settingsService.getDecimal(anyString(), any())).thenAnswer(i -> i.getArgument(1));
-        when(serialUnitService.validateForSale(any(), Mockito.anyBoolean(), Mockito.anyFloat(), any(), any())).thenReturn(List.of());
+        when(serialUnitService.validateForSale(any(), Mockito.anyBoolean(), any(), any(), any())).thenReturn(List.of());
         when(catalogClient.getProduct(ABC)).thenReturn(ProductRef.builder().id(ABC).name("abc-123")
                 .sellingPrice(new BigDecimal("250.00")).build());
         when(purchaseRepo.findRecentCosts(anyLong(), anyLong(), anyLong(), any())).thenReturn(List.of(new BigDecimal("210")));
@@ -130,7 +130,7 @@ class PerBatchSaleTest {
     private static SellDTO line(float qty, String boxRate, String autoRate) {
         SellDTO s = new SellDTO();
         s.setProductId(ABC);
-        s.setQuantity(qty);
+        s.setQuantity(new BigDecimal(Float.toString(qty)));   // NUM-1
         if (boxRate != null) s.setSellRate(new BigDecimal(boxRate));
         if (autoRate != null) s.setAutoRate(new BigDecimal(autoRate));
         return s;
@@ -164,13 +164,13 @@ class PerBatchSaleTest {
 
         List<SagaLine> lines = writtenLines();
         assertThat(lines).hasSize(2);
-        assertThat(lines.get(0).quantity()).isEqualTo(7f);
+        assertThat(lines.get(0).quantity()).isEqualByComparingTo("7");
         assertThat(lines.get(0).sellRate()).isEqualByComparingTo("200");
         assertThat(lines.get(0).totalAmount()).isEqualByComparingTo("1400.00");
         assertThat(lines.get(0).costPrice()).as("judged against ITS batch's cost").isEqualByComparingTo("150");
         assertThat(lines.get(0).priceReason()).isEqualTo("Batch B-0912");
         assertThat(lines.get(0).catalogPrice()).as("the product price is still snapshotted").isEqualByComparingTo("250");
-        assertThat(lines.get(1).quantity()).isEqualTo(3f);
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("3");
         assertThat(lines.get(1).sellRate()).isEqualByComparingTo("250");
         assertThat(lines.get(1).totalAmount()).isEqualByComparingTo("750.00");
 
@@ -195,10 +195,10 @@ class PerBatchSaleTest {
 
         List<SagaLine> lines = writtenLines();
         assertThat(lines).hasSize(2);
-        assertThat(lines.get(0).quantity()).isEqualTo(9f);
+        assertThat(lines.get(0).quantity()).isEqualByComparingTo("9");
         assertThat(lines.get(0).sellRate()).isEqualByComparingTo("297.70");
         assertThat(lines.get(0).totalAmount()).isEqualByComparingTo("2679.30");
-        assertThat(lines.get(1).quantity()).isEqualTo(1f);
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("1");
         assertThat(lines.get(1).sellRate()).isEqualByComparingTo("309.15");
         assertThat(lines.get(0).totalAmount().add(lines.get(1).totalAmount())).isEqualByComparingTo("2988.45");
         assertThat(reserved()).extracting(StockReservationLine::getStockEntryId).containsExactly(OLD, NEW);
@@ -324,15 +324,15 @@ class PerBatchSaleTest {
     void bonusRidesOnTheLastPart() {
         plan(pick(OLD, "B-0912", "7", "200", "150", 0), pick(NEW, "B-1003", "4", "250", "210", 0));
         SellDTO s = line(10f, "250", "250");
-        s.setBonusQuantity(1f);
+        s.setBonusQuantity(new BigDecimal("1"));
 
         service.addSell(sale(s));
 
         List<SagaLine> lines = writtenLines();
         assertThat(lines).hasSize(2);
         assertThat(lines.get(0).bonusQuantity()).isNull();
-        assertThat(lines.get(1).bonusQuantity()).isEqualTo(1f);
-        assertThat(lines.get(1).quantity()).isEqualTo(3f);
+        assertThat(lines.get(1).bonusQuantity()).isEqualByComparingTo("1");
+        assertThat(lines.get(1).quantity()).isEqualByComparingTo("3");
         assertThat(reserved().get(1).getQuantity()).as("3 paid + 1 free from B-1003").isEqualByComparingTo("4");
     }
 

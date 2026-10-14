@@ -1,5 +1,6 @@
 package com.myplus.business_service.service;
 
+import java.math.BigDecimal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -71,7 +72,7 @@ class DuplicateBillLineTest {
     void the_message_names_the_bill_the_vendor_the_batch_the_day_and_the_quantity() {
         Purchase prior = line(7L, "B1", null);
         prior.setDated(LocalDateTime.of(2026, 9, 12, 14, 5));
-        prior.setQuantity(10f);
+        prior.setQuantity(new BigDecimal("10"));
         assertThat(DuplicateBillLine.message("4471", " ACME ", prior))
                 .isEqualTo("Bill 4471 from ACME already has this product (batch B1) — saved 12-09-2026, qty 10."
                         + " Save this line again?");
@@ -80,7 +81,7 @@ class DuplicateBillLineTest {
     @Test
     void the_message_leaves_out_what_it_does_not_know() {
         Purchase prior = line(7L, null, null);
-        prior.setQuantity(2.5f);
+        prior.setQuantity(new BigDecimal("2.5"));
         assertThat(DuplicateBillLine.message("4471", null, prior))
                 .isEqualTo("Bill 4471 already has this product, qty 2.5. Save this line again?");
     }

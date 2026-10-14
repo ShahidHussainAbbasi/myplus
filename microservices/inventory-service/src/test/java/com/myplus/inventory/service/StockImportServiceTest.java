@@ -60,7 +60,7 @@ class StockImportServiceTest {
     @Test
     void seeds_stock_level_and_opening_entry() {
         var result = service.importStock(List.of(StockImportLine.builder()
-                .productId(10L).quantity(25f).batchNo("B1").expiryDate(LocalDate.of(2026, 12, 1))
+                .productId(10L).quantity(new BigDecimal("25")).batchNo("B1").expiryDate(LocalDate.of(2026, 12, 1))
                 .purchasePrice(new BigDecimal("5.00")).costPrice(new BigDecimal("5.00"))
                 .build()), ORG, USER);
 
@@ -97,8 +97,8 @@ class StockImportServiceTest {
     @Test
     void a_batch_is_booked_with_its_own_price_and_its_id_is_returned() {
         var result = service.importStock(List.of(StockImportLine.builder()
-                .productId(10L).quantity(5f).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build(),
-                StockImportLine.builder().productId(10L).quantity(3f).purchasePrice(new BigDecimal("200.00")).build()), ORG, USER);
+                .productId(10L).quantity(new BigDecimal("5")).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build(),
+                StockImportLine.builder().productId(10L).quantity(new BigDecimal("3")).purchasePrice(new BigDecimal("200.00")).build()), ORG, USER);
 
         assertThat(result.getEntryIds()).hasSize(2);
         var priced = stockEntryRepository.findById(result.getEntryIds().get(0)).orElseThrow();
@@ -110,17 +110,17 @@ class StockImportServiceTest {
     @Test
     void an_edit_that_only_changes_the_rate_re_prices_its_batch_and_only_this_tenants() {
         var result = service.importStock(List.of(StockImportLine.builder()
-                .productId(10L).quantity(5f).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build()), ORG, USER);
+                .productId(10L).quantity(new BigDecimal("5")).purchasePrice(new BigDecimal("210.00")).sellPrice(new BigDecimal("250.00")).build()), ORG, USER);
         Long id = result.getEntryIds().get(0);
 
         as(2L);   // another tenant: not found, never written
         stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-                .productId(10L).delta(0f).stockEntryId(id).sellPrice(new BigDecimal("1.00")).build());
+                .productId(10L).delta(new BigDecimal("0")).stockEntryId(id).sellPrice(new BigDecimal("1.00")).build());
         assertThat(stockEntryRepository.findById(id).orElseThrow().getSellPrice()).isEqualByComparingTo("250.00");
 
         as(ORG);  // its own tenant, delta 0: the price still changes
         stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-                .productId(10L).delta(0f).stockEntryId(id).sellPrice(new BigDecimal("260.00")).build());
+                .productId(10L).delta(new BigDecimal("0")).stockEntryId(id).sellPrice(new BigDecimal("260.00")).build());
         var e = stockEntryRepository.findById(id).orElseThrow();
         assertThat(e.getSellPrice()).isEqualByComparingTo("260.00");
         assertThat(e.getQuantity()).as("quantity untouched by a price-only edit").isEqualByComparingTo("5");
@@ -131,20 +131,20 @@ class StockImportServiceTest {
         as(ORG);
         // Two bills, ONE batch number: by number either could match; by id only the edited bill's batch may change.
         var result = service.importStock(List.of(
-                StockImportLine.builder().productId(10L).quantity(10f).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
+                StockImportLine.builder().productId(10L).quantity(new BigDecimal("10")).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
                         .purchasePrice(new BigDecimal("260.00")).paidTotal(new BigDecimal("2600.00")).build(),
-                StockImportLine.builder().productId(10L).quantity(4f).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
+                StockImportLine.builder().productId(10L).quantity(new BigDecimal("4")).batchNo("T25791").expiryDate(LocalDate.of(2027, 10, 9))
                         .purchasePrice(new BigDecimal("300.00")).paidTotal(new BigDecimal("1200.00")).build()), ORG, USER);
         Long mine = result.getEntryIds().get(0), other = result.getEntryIds().get(1);
 
         as(2L);   // another tenant: not found, never written
         stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-                .productId(10L).batchNo("T25791").delta(0f).stockEntryId(mine).expiryDate(LocalDate.of(2000, 1, 1)).build());
+                .productId(10L).batchNo("T25791").delta(new BigDecimal("0")).stockEntryId(mine).expiryDate(LocalDate.of(2000, 1, 1)).build());
         assertThat(stockEntryRepository.findById(mine).orElseThrow().getExpiryDate()).isEqualTo(LocalDate.of(2027, 10, 9));
 
         as(ORG);  // bill 3106: expiry and cost corrected, quantity kept (delta 0)
         stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-                .productId(10L).batchNo("T25791").delta(0f).stockEntryId(mine).expiryDate(LocalDate.of(2027, 9, 9))
+                .productId(10L).batchNo("T25791").delta(new BigDecimal("0")).stockEntryId(mine).expiryDate(LocalDate.of(2027, 9, 9))
                 .purchasePrice(new BigDecimal("250.00")).build());
         var e = stockEntryRepository.findById(mine).orElseThrow();
         assertThat(e.getExpiryDate()).isEqualTo(LocalDate.of(2027, 9, 9));
@@ -154,7 +154,7 @@ class StockImportServiceTest {
 
         // quantity 10 -> 12 by id: this batch grows and its divisor with it; the other bill's batch is untouched
         stockService.reconcilePurchase(com.myplus.commerce.contracts.dto.StockPurchaseAdjust.builder()
-                .productId(10L).batchNo("T25791").delta(2f).stockEntryId(mine)
+                .productId(10L).batchNo("T25791").delta(new BigDecimal("2")).stockEntryId(mine)
                 .purchasePrice(new BigDecimal("250.00")).build());
         e = stockEntryRepository.findById(mine).orElseThrow();
         assertThat(e.getQuantity()).isEqualByComparingTo("12");

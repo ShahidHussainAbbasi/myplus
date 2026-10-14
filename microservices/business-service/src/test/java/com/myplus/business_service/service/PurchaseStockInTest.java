@@ -39,7 +39,7 @@ class PurchaseStockInTest {
 
     private PurchaseDTO dto(Float qty) {
         PurchaseDTO d = new PurchaseDTO();
-        d.setQuantity(qty);   // M4e.d: productId-native; the Purchase row carries productId (see purchase() helper)
+        d.setQuantity(qty == null ? null : new BigDecimal(Float.toString(qty)));   // NUM-1   // M4e.d: productId-native; the Purchase row carries productId (see purchase() helper)
         return d;
     }
 
@@ -63,7 +63,7 @@ class PurchaseStockInTest {
         verify(inventoryClient).importStock(sent.capture());
         StockImportLine line = sent.getValue().get(0);
         assertThat(line.getProductId()).isEqualTo(50L);
-        assertThat(line.getQuantity()).isEqualTo(10f);
+        assertThat(line.getQuantity()).isEqualByComparingTo("10");
         assertThat(line.getBatchNo()).isEqualTo("B1");
         assertThat(line.getCostPrice()).isEqualByComparingTo("5.00");
     }

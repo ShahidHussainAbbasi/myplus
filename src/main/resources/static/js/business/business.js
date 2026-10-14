@@ -2201,7 +2201,9 @@ function buildCustomerRow(obj){
 			+"<span id=customerCnic style='display:none'>"+escHtml(obj.cnic||'')+"</span>"
 			+"<span id=customerLicenseNo style='display:none'>"+escHtml(obj.licenseNo||'')+"</span>"
 			+"<span id=customerLicenseExpiry style='display:none'>"+escHtml(obj.licenseExpiry||'')+"</span>"
-			+"<span id=customerAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>",
+			+"<span id=customerAreaId style='display:none'>"+(obj.areaId!=null?obj.areaId:0)+"</span>"
+			// SRA-2: the usual rep (0 = nobody), read back by the Usual rep picker on edit.
+			+"<span id=customerDefaultRepId style='display:none'>"+(obj.defaultRepId!=null?obj.defaultRepId:0)+"</span>",
 		"<input type='checkbox' value="+ obj.customerId+ ">",
 		// DR-2: the badge sits OUTSIDE #customerName, so editing the row never copies it into the name field.
 		"<div id=customerName>"+escHtml(obj.name)+"</div>"

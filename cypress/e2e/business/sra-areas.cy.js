@@ -213,6 +213,8 @@ describe('SRA-1 — edits no longer wipe or move what the form does not carry', 
     cy.loginAsMarketplaceOwner()
     cy.then(() => ctx.assignedId && cy.request({ method: 'POST', url: '/assignOutlets', form: true,
       failOnStatusCode: false, body: { customerIds: String(ctx.assignedId) } }))
+    cy.then(() => ctx.f4RepId && cy.request({ method: 'POST', url: '/updateSalesRep', form: true,
+      failOnStatusCode: false, body: { id: ctx.f4RepId, status: 'INACTIVE' } }))
   })
 
   it('an edit on the SCREEN keeps City, CNIC and the licence (they used to be saved blank)', () => {
@@ -240,20 +242,18 @@ describe('SRA-1 — edits no longer wipe or move what the form does not carry', 
     saveCustomer({ name, contact: mobile() })
     customerNamed(name).then((c) => {
       ctx.assignedId = c.customerId
-      // Assign to any real user id — the owner's own, read from the assignments screen's member list.
-      // `/team/users` — the Team screen's own proxy; an ApiResponse ({success, data}), not a GenericResponse.
-      return cy.request('/team/users').then((u) => {
-        const owner = list(u.body).find((x) => /owner\.marketplace@/.test(x.email))
-        expect(owner, 'a member to assign to').to.exist
-        ctx.repUserId = owner.userId || owner.id
+      // SRA-2: an outlet is covered by a REP on the business's list — this case makes its own (no login).
+      return cy.request({ method: 'POST', url: '/addSalesRep', form: true, body: { name: `SRA F4 Rep ${run}` } }).then((r) => {
+        expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS')
+        ctx.f4RepId = r.body.object.id
         return cy.request({ method: 'POST', url: '/assignOutlets', form: true,
-          body: { repUserId: ctx.repUserId, customerIds: String(c.customerId) } })
+          body: { repId: ctx.f4RepId, customerIds: String(c.customerId) } })
       }).then(() => saveCustomer({ customerId: c.customerId, name, contact: c.contact, version: c.version, address: 'edited' }))
     }).then((r) => expect(r.body.status, JSON.stringify(r.body)).to.eq('SUCCESS'))
     cy.request('/outletAssignments').then((r) => {
       const row = list(r.body).find((x) => x.id === ctx.assignedId)   // OutletAssignmentDTO names it `id`
       expect(row, 'listed').to.exist
-      expect(row.assignedRepUserId, 'still assigned after the edit').to.eq(ctx.repUserId)
+      expect(row.repId, 'still covered by the same rep after the edit').to.eq(ctx.f4RepId)
     })
   })
 

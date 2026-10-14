@@ -51,13 +51,13 @@ public interface ICustomerService extends org.springframework.data.jpa.repositor
      * <p>Deliberately not {@link #findOwnScoped}, which keys on the audit field {@code userId} ("who created
      * this row") and therefore returns nothing to a rep, since the company creates the outlets.
      */
-    List<Customer> findOutletsForRep(Long orgId, Long repUserId);
+    List<Customer> findOutletsForRep(Long orgId, Long repId);   // SRA-2: a sales rep id
 
     /** Every outlet in the org — for a whole-org viewer (owner/admin). */
     List<Customer> findOutletsForOrg(Long orgId);
 
 	/** O7 D6a — set (or clear, with a null rep) the rep covering these outlets. Returns how many were ours. */
-	public int assignOutlets(java.util.List<Long> customerIds, Long repUserId, Long orgId, Long actingUserId);
+	public int assignOutlets(java.util.List<Long> customerIds, Long repId, Long orgId, Long actingUserId);
 
 
 }

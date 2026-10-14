@@ -194,6 +194,15 @@ public class Customer implements Serializable {
 	@Column(name = "area_id")
 	private Long areaId;
 
+	/**
+	 * SRA-2 (V83) — the sales rep who usually covers this customer: the territory rule (a rep sees their own outlets
+	 * plus every unassigned one) and, from SRA-3, the default rep on an order or sale. REPLACES assignedRepUserId, which
+	 * pointed at a login — a rep with no login could never cover an outlet. Null = unassigned (the shared pool).
+	 * Changed only by a holder of rep.manage.
+	 */
+	@Column(name = "default_rep_id")
+	private Long defaultRepId;
+
 	@Column(name = "user_type")
 	private String userType;
 

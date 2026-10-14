@@ -6,6 +6,7 @@ OWNER = "owner.marketplace@myplus.com"
 ADMIN = "admin.marketplace@myplus.com <span class=\"muted\">(new fixture, SRA-2)</span>"
 BOOKER = "booker.marketplace@myplus.com"
 GATED = 'gated'
+BUILT = 'built'
 OTHER = "demo.marketplace@myplus.com <span class=\"muted\">(a DIFFERENT business — confirm it is its own org before relying on it)</span>"
 
 # ---- the scripted month every report figure is computed from -------------------------------------------
@@ -107,39 +108,87 @@ CASES = [
    clean="The run unassigns it at the end."),
  ]),
  # ------------------------------------------------------------------ SRA-2 reps
- ("B", "SRA-2 · Sales reps", "sra-reps.cy.js", [
-  dict(id="B1", t="Add a rep who never logs in, and one who does",
-   why="Shafeeq's reps book on paper as well as by login. A rep is a person on a list; a login is optional.",
-   acc=OWNER, before=["Signed in as the owner."], data=["<strong>SRA Irfan</strong>, phone 0305-3939495, no login", "<strong>SRA Booker</strong>, linked to booker.marketplace@"],
-   steps=[("Team → Sales reps → New. Name <strong>SRA Irfan</strong>, phone, leave <strong>Login</strong> empty. Save.", ["Irfan is listed, Active, Login: —."]),
-          ("New again: <strong>SRA Booker</strong>, Login = booker.marketplace@. Save.", ["Listed with the login shown."])],
-   clean="Kept. Deactivated at the end — never deleted, so history keeps the names."),
-  dict(id="B2", t="One login cannot be two reps",
-   why="Otherwise a rep's login could book as either row and the report would split them.",
-   acc=OWNER, before=["B1 done."], data=["None new"],
-   steps=[("New rep <strong>SRA Booker Two</strong>, Login = booker.marketplace@. Save.", ["Refused: “This login is already linked to SRA Booker.” Nothing saved."])],
-   clean="Cancel."),
-  dict(id="B3", t="A customer's usual rep narrows the booker's outlet list", warn=True,
-   why="This is the territory rule whose gate has been red since 16 Sep (D6a). A positive control stops an empty list from passing.",
-   acc=OWNER + "<br>" + BOOKER, before=["A1–A4 and B1 done.", "As the booker, open New Order → Outlet: <strong>Sarwar, Labaik and Model Chemist are all listed</strong> (no assignments yet)."],
-   data=["Sarwar → usual rep Irfan · Labaik → usual rep Booker · Model Chemist → none"],
-   steps=[("As the owner, open each customer and set <strong>Usual rep</strong> as above. Save.", ["Each customer shows its usual rep."]),
-          ("Sign in as the booker. New Order → Outlet.", ["<strong>My outlets:</strong> Labaik. <strong>Other outlets:</strong> Model Chemist (nobody's).", "<strong>Sarwar is gone</strong> — it is Irfan's."])],
-   clean="Kept for SRA-3; the final clean-up clears the usual reps."),
-  dict(id="B4", t="A deactivated rep leaves the pickers but keeps the history",
-   why="People leave; their sales must still say who made them.",
-   acc=OWNER, before=["SRA-3 C1 done (Irfan has a sale)."], data=["None new"],
-   steps=[("Team → Sales reps → SRA Irfan → Deactivate.", ["Irfan shows Inactive."]),
-          ("Open New Sale → Rep.", ["Irfan is not offered."]),
-          ("Open invoice SRA-S1.", ["Still says <strong>Rep: SRA Irfan</strong>."]),
-          ("Reactivate Irfan.", ["Back in the pickers."])],
-   clean="Irfan reactivated (step 4)."),
-  dict(id="B5", t="A rep cannot manage the rep list",
-   why="The list decides who gets credit — a rep must not edit it. Checked on screen AND at the server.",
-   acc=BOOKER, before=["Signed in as the booker."], data=["None"],
-   steps=[("Open the Team menu.", ["No <strong>Sales reps</strong> entry."]),
-          ("(Automated) POST a new rep as the booker.", ["403. The list is unchanged."])],
+ ("B", "SRA-2 · Sales reps and the usual rep", "sra-reps.cy.js", [
+  dict(id="B1", tag=BUILT, t="Add a rep who never logs in, and one who does",
+   why="Shafeeq's reps book on paper as well as by login. A rep is a PERSON on the business's list; a login is optional and only links the person to their sign-in.",
+   acc=OWNER, before=["Signed in as the owner.", "Settings → Team lists <strong>booker.marketplace@</strong>."],
+   data=["<strong>SRA Irfan</strong>, phone 0305-3939495, no login", "<strong>SRA Booker</strong>, login booker.marketplace@"],
+   steps=[("Open the menu → <strong>Territory</strong>.",
+           ["Two panels: <strong>Sales reps</strong> (Name · Phone · Login · Add rep, and the list) and the outlet assignment table under it."]),
+          ("In Sales reps type Name <strong>SRA Irfan</strong>, Phone <strong>0305-3939495</strong>, leave Login on <strong>— No login —</strong>; click <strong>Add rep</strong>.",
+           ["A green line: <strong>Rep added.</strong>", "SRA Irfan is in the list: Login “— No login —”, Status <strong>Active</strong>."]),
+          ("Name <strong>SRA Booker</strong>, Login <strong>booker.marketplace@</strong>; <strong>Add rep</strong>.",
+           ["Listed with the booker's login selected in its row."]),
+          ("Change SRA Irfan's phone in its row and press <strong>Save</strong>.", ["<strong>Rep saved.</strong> — the new phone stays after a reload."])],
+   clean="Kept for the cases below; the final clean-up deactivates both and UNLINKS the booker's login."),
+  dict(id="B2", tag=BUILT, t="One login cannot be two reps, and a name cannot be used twice",
+   why="Otherwise one person's bookings split across two names, and the pickers show two “Irfan”s.",
+   acc=OWNER, before=["B1 done."], data=["New rep <strong>SRA Booker Two</strong> with the booker's login", "New rep <strong>sra irfan</strong> (lower case)"],
+   steps=[("Add rep SRA Booker Two with Login booker.marketplace@.", ["Refused: <strong>“This login is already linked to SRA Booker.”</strong> Nothing added."]),
+          ("Add rep <strong>sra irfan</strong>.", ["Refused: <strong>“A rep named SRA Irfan already exists.”</strong>"])],
+   clean="Nothing to undo."),
+  dict(id="B3", tag=BUILT, t="A customer's usual rep is set on the customer form — and a rep cannot change it",
+   why="Who usually covers a shop decides what each rep sees and (SRA-3) who is credited by default. A rep must never hand outlets to themselves.",
+   acc=OWNER + "<br>" + BOOKER, before=["B1 done."], data=["Customer <strong>SRA Sarwar Pharmacy</strong>, usual rep SRA Irfan"],
+   steps=[("Register → Customer → New. Name and contact; <strong>Usual rep</strong> = SRA Irfan; Save.",
+           ["Saved. (The <strong>Usual rep</strong> picker is there only for members allowed to manage reps.)"]),
+          ("<strong>Edit</strong> on its row.", ["Usual rep shows <strong>SRA Irfan</strong> — the name, not a number."]),
+          ("Sign in as the booker; open Register → Customer → New.", ["There is <strong>no Usual rep</strong> picker."]),
+          ("(Automated) as the booker, save SRA Sarwar with a different usual rep.", ["Refused: <strong>“You are not allowed to change who covers a customer.”</strong>",
+            "Positive control: the booker's edit of the address alone still saves; the usual rep stays SRA Irfan."])],
+   clean="Kept; the final clean-up returns the outlet to the shared pool."),
+  dict(id="B4", tag=BUILT, t="A deactivated rep leaves the pickers but still names what they hold",
+   why="People leave; the outlets and (SRA-3) the sales they made must still say who.",
+   acc=OWNER, before=["B3 done: SRA Sarwar's usual rep is SRA Irfan."], data=["None new"],
+   steps=[("Territory → Sales reps → SRA Irfan → <strong>Deactivate</strong>.", ["Status reads <strong>inactive</strong>; the button now says <strong>Reactivate</strong>."]),
+          ("Open <strong>Assign to</strong> above the outlets.", ["SRA Irfan is not offered; SRA Booker is (positive control)."]),
+          ("Find SRA Sarwar in the outlet table.", ["<strong>Covered by: SRA Irfan (inactive)</strong> — still named."]),
+          ("(Automated) assign another outlet to SRA Irfan.", ["Refused: <strong>“SRA Irfan is no longer active.”</strong>"]),
+          ("<strong>Reactivate</strong> SRA Irfan.", ["Active again, back in Assign to."])],
+   clean="Reactivated in step 5."),
+  dict(id="B5", tag=BUILT, t="A rep cannot manage the list — on screen or at the server", warn=True,
+   why="The rep list decides who gets credit. Until SRA-2 the territory endpoints checked the permission set's “Sees: All” ROW scope — a booker whose set saw all rows could assign territories (the likely cause of the territory gate being red since 16 Sep).",
+   acc=BOOKER, before=["Signed in as the booker (a plain member — no Sales reps permission)."], data=["None"],
+   steps=[("Open the menu.", ["There is <strong>no Territory</strong> entry."]),
+          ("(Automated) add a rep, and rename SRA Irfan, as the booker.", ["Both refused (403 / “You are not allowed to manage sales reps.”); the list is unchanged."]),
+          ("(Automated) read the rep list as the booker.", ["Allowed — the pickers need it (positive control)."])],
    clean="Sign out."),
+  dict(id="B6", tag=BUILT, t="Another business sees none of our reps and cannot rename one by id",
+   why="Anti-IDOR: a rep id from a request is resolved inside the caller's business.",
+   acc="owner.business@myplus.com (a different business)", before=["B1 done."], data=["None"],
+   steps=[("(Automated) as owner.business@, read the rep list.", ["SRA Irfan is not in it."]),
+          ("(Automated) rename SRA Irfan by its id.", ["Refused: <strong>“Rep not found.”</strong> Back as owner.marketplace@, the name is unchanged."])],
+   clean="Sign out."),
+ ]),
+ # ------------------------------------------------------------------ SRA-2 territory (rebuilt on reps)
+ ("T", "SRA-2 · Territory: what a rep sees", "territory-assignment.cy.js · territory-screen.cy.js", [
+  dict(id="T1", tag=BUILT, t="Assigning narrows a rep to their outlets; unassigned outlets stay shared",
+   why="The territory rule: a rep (a login linked to a rep) sees their own outlets plus every unassigned one. The positive control stops an empty list from passing.",
+   acc=OWNER + "<br>" + BOOKER, before=["SRA Booker linked to booker.marketplace@ (B1)", "Another rep <strong>SRA Other</strong> with no login.",
+     "Three outlets: <strong>Mine</strong>, <strong>Theirs</strong>, <strong>Free</strong>, all unassigned."], data=["None new"],
+   steps=[("As the booker: Orders → New Order → <strong>Shop</strong>.", ["Mine, Theirs and Free are all offered (nothing assigned yet)."]),
+          ("As the owner: Territory → tick <strong>Mine</strong> → Assign to SRA Booker → <strong>Apply</strong>. Then tick <strong>Theirs</strong> → SRA Other → Apply.",
+           ["“Outlets assigned.” <strong>Covered by</strong> shows SRA Booker and SRA Other by name."]),
+          ("As the booker: New Order → Shop.", ["<strong>Mine</strong> and <strong>Free</strong> are offered; <strong>Theirs is gone</strong>."]),
+          ("As the owner: tick Theirs → <strong>Unassign</strong>. As the booker: New Order → Shop.", ["Theirs is back — “Unassigned — visible to all”."])],
+   clean="Unassign all three; unlink the booker's login from SRA Booker; deactivate both reps."),
+  dict(id="T2", tag=BUILT, t="A rep can neither assign nor read the assignments", warn=True,
+   why="The D6a rule — a rep never hands themselves outlets — now on the permission, not the row scope.",
+   acc=BOOKER, before=["T1's outlets and reps."], data=["None"],
+   steps=[("(Automated) as the booker, assign Free to SRA Booker.", ["Refused; as the owner, Free is still unassigned."]),
+          ("(Automated) as the booker, read the outlet assignments.", ["Refused."])],
+   clean="Nothing to undo."),
+  dict(id="T3", tag=BUILT, t="Another business's outlet or rep cannot be used",
+   why="Every id in an assignment comes from the browser.",
+   acc=OWNER, before=["T1's outlets."], data=["An outlet id and a rep id of owner.business@"],
+   steps=[("(Automated) assign Mine + the foreign outlet to SRA Booker.", ["“Assigned 1 of 2 outlets.” — only ours moved (positive control: Mine is now SRA Booker's)."]),
+          ("(Automated) assign Free to the foreign rep.", ["Refused: <strong>“That rep was not found.”</strong> Free is unchanged."])],
+   clean="Unassign Mine."),
+  dict(id="T4", tag=BUILT, t="DAY ONE — with nothing assigned, a rep still sees every outlet",
+   why="A distributor who configures no territories must work exactly as before; an empty picker here would explain itself to nobody.",
+   acc=BOOKER, before=["All three outlets unassigned."], data=["None"],
+   steps=[("As the booker: New Order → Shop.", ["All three outlets are offered."])],
+   clean="Nothing to undo."),
  ]),
  # ------------------------------------------------------------------ SRA-3 rep + source on every sale
  ("C", "SRA-3 · The rep and the source on every order and sale", "sra-rep-on-sale.cy.js", [
@@ -272,7 +321,9 @@ def case(c):
         f"<ul>{''.join(f'<li>{e}</li>' for e in exp)}</ul></div></li>"
         for i, (do, exp) in enumerate(c["steps"], 1))
     tag = c.get('tag')
-    tag_html = '<span class="tag amber">gated — passed 14 Oct</span>' if tag == 'gated' else '<span class="tag red">not built yet</span>'
+    tag_html = ('<span class="tag amber">gated — passed 14 Oct</span>' if tag == 'gated'
+                else '<span class="tag red">built 14 Oct — gate not run yet</span>' if tag == 'built'
+                else '<span class="tag red">not built yet</span>')
     return (f"\n    <h3 id=\"sra-{c['id'].lower()}\">{c['id']} · {c['t']}{warn} {tag_html}</h3>\n"
             f"    <div class=\"tscroll\"><table><tbody>{t}</tbody></table></div>\n"
             f"    <ol class=\"steps\">{steps}</ol>\n")
@@ -293,7 +344,7 @@ style = """    <style>
 """
 
 out = ['<section class="mod" id="sra">\n', style,
-       '    <h2>29 · Sales by rep and area: who sold, where, and every column a dimension (SRA-1 to SRA-4) <span class="tag amber">SRA-1 gated · SRA-2–4 not built</span></h2>\n',
+       '    <h2>29 · Sales by rep and area: who sold, where, and every column a dimension (SRA-1 to SRA-4) <span class="tag amber">SRA-1 gated · SRA-2 built, gate not run · SRA-3–4 not built</span></h2>\n',
        '    <p><strong>14 Oct: SRA-1 is built and its gate is green</strong> — <code>cypress/e2e/business/sra-areas.cy.js</code>, A1–A5 and the four fixes F1–F4, all passing; not yet walked by hand. SRA-2 to SRA-4 below are still written '
        'from the design. Originally written <strong>from the design</strong> (<code>microservices/docs/slices/sra-sales-by-rep-and-area.md</code>) on 14 Oct 2026, '
        'before any screen exists — the screen and button names are the designed ones. When each slice is built, its Cypress '

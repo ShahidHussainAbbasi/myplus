@@ -1,6 +1,6 @@
 # SRA — Sales by rep and area: who sold, where, and every column a dimension
 
-**Status:** SRA-1 BUILT 2026-10-14 (not built/deployed by the owner yet, gate not run) — see §4.1. SRA-2..4: design.
+**Status:** SRA-1 GREEN 2026-10-14 (§4.1). SRA-2 BUILT 2026-10-14, awaiting deploy + gate (§5.1). SRA-3..4: design.
 **Client:** Shafeeq Medicine (Mr. Javed) — the distributor O7 (pre-sales) and O8 (round documents) were built for.
 **Prompt:** a sample invoice from the distributor's current software (Eman Medicine & Surgical) printing
 *"Salesman: IRFAN (DAVIS)"* and *"City: KHANPUR(1ST)"*, and the ask: *"report by salesman/booker … sales by area …
@@ -132,6 +132,23 @@ no area shows "Typed before: …" under the City picker until it is filed.
 
 **Gate:** rep without login · rep linked to a login · a login linked twice refused · territory narrows
 (D6a's 7 cases go green) · deactivated rep leaves the pickers but keeps history.
+
+### 5.1 SRA-2 as built (2026-10-14)
+
+| Where | What |
+|---|---|
+| business-service V83 | `sales_rep` (UNIQUE name and login per business, @Version), `customer.default_rep_id`; existing `assigned_rep_user_id` copied across as reps named "Member #<id>" (the owner renames them). The old column is no longer read; drop it later |
+| business-service | `SalesRep` + repo + `SalesRepService`; `SalesRepController` `/getSalesReps` (open — pickers) `/addSalesRep` `/updateSalesRep` (rep.manage, checked HERE too); `RequestUtil.holds(code)`; territory rule rebuilt: rep.manage → all outlets, a login linked to a rep → own + unassigned, else all; `/outletAssignments` + `/assignOutlets` need rep.manage (were `seesAllOrg()`), take/return `repId`, refuse another business's or an inactive rep; customer `defaultRepId` (kept on edit; a CHANGE needs rep.manage; must be this business's rep) |
+| auth-service V33 | `rep.view` + `rep.manage` (Administrator set), endpoint rules, ui_menu `territory` and `action.rep.assign` |
+| monolith | `SalesRepController` proxy; Territory screen gains a Sales reps panel (add, rename, phone, link/unlink a login, deactivate); assign picker lists reps; customer form "Usual rep" picker (rep.manage only); menu + screen gated by `@perm.menu('territory')` instead of role names; matrix label "Sales reps" |
+| specs | NEW `sra-reps.cy.js` (B1–B5 + cross-business); `territory-assignment.cy.js` and `territory-screen.cy.js` rebuilt on reps; `sra-areas.cy.js` F4 and `capability-enforcement.cy.js` moved to `repId` |
+
+**The D6a red gate — likely cause, not confirmed:** every territory decision asked `seesAllOrg()` = the permission set's
+"Sees: All" ROW scope. A booker whose set had scope ALL was never narrowed and could assign. SRA-2 asks rep.manage to
+manage and "is this login a rep" to narrow. Not confirmed because the booker's set was never read in the database.
+
+**Found while building:** `editRecord()` RENAMES the selected option of a searchable picker to the row cell's text —
+an id for both new pickers. Both scripts repaint from their list after the edit overlay opens.
 
 ## 6. SRA-3 — The rep and source on every order and sale
 

@@ -55,7 +55,7 @@ class PolicyCheckTest {
 
     /** qty 1, so netAmount and costPrice read directly as the line's money. */
     private static SagaLine line(double net, Double cost) {
-        return new SagaLine(1L, 1f,
+        return new SagaLine(1L, BigDecimal.ONE,
                 BigDecimal.valueOf(net), BigDecimal.ZERO,
                 BigDecimal.valueOf(net), BigDecimal.valueOf(net),
                 null, null, null, null, null, null,

@@ -25,7 +25,7 @@ class PurchaseEditBatchTest {
     private static Purchase saved(Long stockEntryId) {
         Purchase p = new Purchase();
         p.setProductId(11064L);
-        p.setQuantity(10f);
+        p.setQuantity(new BigDecimal("10"));
         p.setBatchNo("T25791");
         p.setBexpDate(EXP);
         p.setBpurchaseRate(RATE);
@@ -37,13 +37,13 @@ class PurchaseEditBatchTest {
     @Test
     @DisplayName("nothing about the batch changed, quantity kept: nothing is sent (no remote call for a vendor-only edit)")
     void unchanged_sends_nothing() {
-        assertThat(PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", EXP, RATE, null)).isNull();
+        assertThat(PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T25791", EXP, RATE, null)).isNull();
     }
 
     @Test
     @DisplayName("bill 3106: ONLY the expiry corrected — the batch is told, by its id, with the new expiry")
     void expiry_only_reaches_the_batch() {
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", LocalDate.of(2027, 9, 9), RATE, null);
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T25791", LocalDate.of(2027, 9, 9), RATE, null);
         assertThat(a).isNotNull();
         assertThat(a.getStockEntryId()).isEqualTo(9963L);
         assertThat(a.getExpiryDate()).isEqualTo(EXP);
@@ -55,7 +55,7 @@ class PurchaseEditBatchTest {
     @Test
     @DisplayName("only the cost corrected (250 → 260): the batch gets the new cost; its paid total is re-derived by inventory, not sent")
     void cost_only_reaches_the_batch_with_paid_total() {
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", EXP, new BigDecimal("250.00"), null);
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T25791", EXP, new BigDecimal("250.00"), null);
         assertThat(a).isNotNull();
         assertThat(a.getPurchasePrice()).isEqualByComparingTo("260.00");
         assertThat(a.getPaidTotal()).as("TP-5: a bill-side figure is wrong after a return").isNull();
@@ -64,13 +64,13 @@ class PurchaseEditBatchTest {
     @Test
     @DisplayName("same cost written differently (260 vs 260.00) is NOT a change")
     void scale_is_not_a_change() {
-        assertThat(PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", EXP, new BigDecimal("260"), null)).isNull();
+        assertThat(PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T25791", EXP, new BigDecimal("260"), null)).isNull();
     }
 
     @Test
     @DisplayName("batch number corrected: newBatchNo carries it; the old number is still sent for the search fallback")
     void rename_reaches_the_batch() {
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T2579", EXP, RATE, null);
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T2579", EXP, RATE, null);
         assertThat(a.getNewBatchNo()).isEqualTo("T25791");
         assertThat(a.getBatchNo()).isEqualTo("T2579");
     }
@@ -80,20 +80,20 @@ class PurchaseEditBatchTest {
     void blank_is_not_a_rename() {
         Purchase p = saved(9963L);
         p.setBatchNo("  ");
-        assertThat(PurchaseService.batchAdjustForEdit(p, 0f, null, EXP, RATE, null)).isNull();
+        assertThat(PurchaseService.batchAdjustForEdit(p, new BigDecimal("0"), null, EXP, RATE, null)).isNull();
     }
 
     @Test
     @DisplayName("an OLDER bill (no stockEntryId): an expiry-only edit sends nothing — by number the batch could be another bill's")
     void older_bill_unchanged_behaviour() {
-        assertThat(PurchaseService.batchAdjustForEdit(saved(null), 0f, "T25791", LocalDate.of(2027, 9, 9), RATE, null)).isNull();
+        assertThat(PurchaseService.batchAdjustForEdit(saved(null), new BigDecimal("0"), "T25791", LocalDate.of(2027, 9, 9), RATE, null)).isNull();
     }
 
     @Test
     @DisplayName("an OLDER bill with a quantity change sends exactly what it always sent: no id, no paid total, no rename")
     void older_bill_quantity_change_as_before() {
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(null), 2f, "T25791", EXP, RATE, null);
-        assertThat(a.getDelta()).isEqualTo(2f);
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(null), new BigDecimal("2"), "T25791", EXP, RATE, null);
+        assertThat(a.getDelta()).isEqualByComparingTo("2");
         assertThat(a.getStockEntryId()).isNull();
         assertThat(a.getPaidTotal()).isNull();
         assertThat(a.getNewBatchNo()).isNull();
@@ -103,9 +103,9 @@ class PurchaseEditBatchTest {
     @DisplayName("a bill that knows its batch, quantity changed: its id goes with the delta (inventory re-derives the cost)")
     void own_bill_quantity_change_restamps_cost() {
         Purchase p = saved(9963L);
-        p.setQuantity(12f);
+        p.setQuantity(new BigDecimal("12"));
         PurchaseService.stampPaidTotal(p);
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(p, 2f, "T25791", EXP, RATE, null);
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(p, new BigDecimal("2"), "T25791", EXP, RATE, null);
         assertThat(a.getStockEntryId()).isEqualTo(9963L);
         assertThat(a.getPaidTotal()).isNull();
     }
@@ -113,7 +113,7 @@ class PurchaseEditBatchTest {
     @Test
     @DisplayName("Per batch re-price with nothing else changed still goes (PR-3b unchanged)")
     void per_batch_reprice_still_sent() {
-        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), 0f, "T25791", EXP, RATE, new BigDecimal("300.00"));
+        StockPurchaseAdjust a = PurchaseService.batchAdjustForEdit(saved(9963L), new BigDecimal("0"), "T25791", EXP, RATE, new BigDecimal("300.00"));
         assertThat(a.getSellPrice()).isEqualByComparingTo("300.00");
     }
 
@@ -121,7 +121,7 @@ class PurchaseEditBatchTest {
     @DisplayName("stampPaidTotal: rate × billed quantity; nothing without a rate")
     void paid_total_rule() {
         Purchase p = new Purchase();
-        p.setQuantity(10f);
+        p.setQuantity(new BigDecimal("10"));
         PurchaseService.stampPaidTotal(p);
         assertThat(p.getPaidTotal()).isNull();
         p.setBpurchaseRate(new BigDecimal("270.00"));

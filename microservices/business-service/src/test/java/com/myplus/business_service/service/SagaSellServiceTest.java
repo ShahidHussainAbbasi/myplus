@@ -150,7 +150,7 @@ class SagaSellServiceTest {
     private CustomerHistoryDTO dtoWithOneLine() {
         SellDTO s = new SellDTO();
         s.setProductId(50L);   // M4e.d: productId-native (Item/ItemCatalogMap bridge retired)
-        s.setQuantity(2f);
+        s.setQuantity(new BigDecimal("2"));
         s.setTotalAmount(new BigDecimal("20.00"));
         s.setNetAmount(new BigDecimal("20.00"));
         CustomerHistoryDTO dto = new CustomerHistoryDTO();
@@ -207,12 +207,12 @@ class SagaSellServiceTest {
     private CustomerHistoryDTO dtoWithTwoLines() {
         SellDTO a = new SellDTO();
         a.setProductId(50L);
-        a.setQuantity(2f);
+        a.setQuantity(new BigDecimal("2"));
         a.setTotalAmount(new BigDecimal("20.00"));
         a.setNetAmount(new BigDecimal("20.00"));
         SellDTO b = new SellDTO();
         b.setProductId(51L);
-        b.setQuantity(1f);
+        b.setQuantity(new BigDecimal("1"));
         b.setTotalAmount(new BigDecimal("30.00"));
         b.setNetAmount(new BigDecimal("30.00"));
         CustomerHistoryDTO dto = new CustomerHistoryDTO();

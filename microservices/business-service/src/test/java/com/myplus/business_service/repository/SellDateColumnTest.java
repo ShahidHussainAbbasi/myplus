@@ -83,7 +83,7 @@ class SellDateColumnTest {
         Sell s = new Sell();
         s.setOrganizationId(ORG);
         s.setUserId(USER);
-        s.setQuantity(1f);
+        s.setQuantity(new BigDecimal("1"));
         s.setNetAmount(BigDecimal.valueOf(100));
         s.setTotalAmount(BigDecimal.valueOf(100));
         s.setDated(JAN);
@@ -130,7 +130,7 @@ class SellDateColumnTest {
         Sell s = new Sell();
         s.setOrganizationId(ORG);
         s.setUserId(USER);
-        s.setQuantity(1f);
+        s.setQuantity(new BigDecimal("1"));
         s.setNetAmount(BigDecimal.valueOf(50));
         s.setTotalAmount(BigDecimal.valueOf(50));
         s.setDated(JAN);

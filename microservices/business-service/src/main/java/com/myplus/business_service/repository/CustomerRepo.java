@@ -112,9 +112,9 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
     * <p>Ordered by name because this drives a picker a person reads, not a report.
     */
    @Query("select c from Customer c where c.organizationId = :orgId "
-        + "and (c.assignedRepUserId = :repId or c.assignedRepUserId is null) "
+        + "and (c.defaultRepId = :repId or c.defaultRepId is null) "
         + "order by c.name asc")
-   List<Customer> findOutletsForRep(@Param("orgId") Long orgId, @Param("repId") Long repId);
+   List<Customer> findOutletsForRep(@Param("orgId") Long orgId, @Param("repId") Long repId);   // SRA-2: a SALES REP id, not a login
 
    /** Every outlet in the org, for a whole-org viewer (owner/admin). Same ordering, same projection use. */
    @Query("select c from Customer c where c.organizationId = :orgId order by c.name asc")
@@ -161,7 +161,7 @@ public interface CustomerRepo extends JpaRepository<Customer, Long>,QueryByExamp
     * @return how many rows were actually updated — i.e. how many of the ids were the caller's
     */
    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true)
-   @Query("update Customer c set c.assignedRepUserId = :repId where c.customerId in :ids "
+   @Query("update Customer c set c.defaultRepId = :repId where c.customerId in :ids "
         + "and (c.organizationId = :orgId or (c.organizationId is null and c.userId = :userId))")
    int assignRepScoped(@Param("ids") java.util.List<Long> ids,
                        @Param("repId") Long repId,

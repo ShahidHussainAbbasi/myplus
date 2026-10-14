@@ -97,7 +97,7 @@ class StockLedgerTest {
     }
 
     private void purchase(float qty, String bill) {
-        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(qty).batchNo("B-" + bill)
+        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(new BigDecimal(Float.toString(qty))).batchNo("B-" + bill)
                 .purchasePrice(new BigDecimal("50")).movementType(StockMovementType.PURCHASE).sourceRef(bill).build()), ORG, USER);
     }
 
@@ -127,7 +127,7 @@ class StockLedgerTest {
 
     @Test
     void an_import_from_an_older_caller_is_a_RECEIPT() {
-        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(2f).build()), ORG, USER);
+        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(new BigDecimal("2")).build()), ORG, USER);
         assertThat(rows(StockMovementType.RECEIPT)).hasSize(1);
     }
 
@@ -146,9 +146,9 @@ class StockLedgerTest {
     @Test
     void a_purchase_return_is_PURCHASE_RETURN_and_an_edit_without_a_type_is_PURCHASE_EDIT() {
         purchase(10f, "PUR-3");
-        stockService.reconcilePurchase(StockPurchaseAdjust.builder().productId(P).batchNo("B-PUR-3").delta(-3f)
+        stockService.reconcilePurchase(StockPurchaseAdjust.builder().productId(P).batchNo("B-PUR-3").delta(new BigDecimal("-3"))
                 .movementType(StockMovementType.PURCHASE_RETURN).sourceRef("PUR-3").build());
-        stockService.reconcilePurchase(StockPurchaseAdjust.builder().productId(P).batchNo("B-PUR-3").delta(2f).build());
+        stockService.reconcilePurchase(StockPurchaseAdjust.builder().productId(P).batchNo("B-PUR-3").delta(new BigDecimal("2")).build());
         assertThat(rows(StockMovementType.PURCHASE_RETURN)).singleElement()
                 .satisfies(m -> assertThat(m.getQuantity()).isEqualByComparingTo("-3"));
         assertThat(rows(StockMovementType.PURCHASE_EDIT)).singleElement()
@@ -172,7 +172,7 @@ class StockLedgerTest {
         purchase(10f, "PUR-5");
         String resv = reserved(new BigDecimal("4"));
         reservationService.confirm(resv, ORG, USER);
-        reservationService.returnPicks(resv, List.of(new StockReturnLine(P, 1f)), true, ORG, USER, null, null);
+        reservationService.returnPicks(resv, List.of(new StockReturnLine(P, new BigDecimal("1"))), true, ORG, USER, null, null);
         assertThat(rows(StockMovementType.SALE_RETURN)).singleElement()
                 .satisfies(m -> assertThat(m.getQuantity()).isEqualByComparingTo("1"));
         assertThat(rows(StockMovementType.QUARANTINE)).singleElement()
@@ -184,14 +184,14 @@ class StockLedgerTest {
     @Test
     void after_a_mixed_sequence_the_ledger_adds_up_to_on_hand() {
         purchase(10f, "PUR-6");                                                           // +10
-        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(3f)
+        importService.importStock(List.of(StockImportLine.builder().productId(P).quantity(new BigDecimal("3"))
                 .movementType(StockMovementType.SALE_VOID).build()), ORG, USER);           // +3
         stockService.recordAdjustment(StockAdjustmentDTO.builder().productId(P)
                 .adjustmentType(StockAdjustment.AdjustmentType.DECREASE).build(),
                 new BigDecimal("2"), "count", null, ORG, USER);                            // −2
         String resv = reserved(new BigDecimal("4"));
         reservationService.confirm(resv, ORG, USER);                                      // −4
-        reservationService.returnPicks(resv, List.of(new StockReturnLine(P, 2f)), false, ORG, USER,
+        reservationService.returnPicks(resv, List.of(new StockReturnLine(P, new BigDecimal("2"))), false, ORG, USER,
                 StockMovementType.SALE_EDIT, "INV-9");                                     // +2
 
         assertThat(onHand()).isEqualByComparingTo("9");

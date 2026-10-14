@@ -22,8 +22,8 @@ import lombok.NoArgsConstructor;
  * because an issued order outlives its staff and a document must not change after the fact. An assignment is
  * the opposite kind of fact — it is current state, and if a rep is renamed the assignment should say so.
  *
- * <p>{@code assignedRepUserId} is null for an outlet nobody covers, which under the D2d rule means every rep
- * can see it. Absent is not the same as hidden.
+ * <p>{@code repId} (SRA-2: a SALES REP, no longer a login) is null for an outlet nobody covers, which under the D2d
+ * rule means every rep can see it. Absent is not the same as hidden.
  */
 @Data
 @NoArgsConstructor
@@ -33,5 +33,5 @@ public class OutletAssignmentDTO {
     private Long id;
     private String name;
     private String contact;
-    private Long assignedRepUserId;
+    private Long repId;
 }

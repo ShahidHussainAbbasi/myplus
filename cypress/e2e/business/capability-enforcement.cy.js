@@ -54,7 +54,7 @@ const assignOutlets = (customerId) =>
     url: '/assignOutlets',
     form: true,
     failOnStatusCode: false,
-    body: { customerIds: customerId },   // repUserId omitted = unassign, which is still a territory write
+    body: { customerIds: customerId },   // repId omitted = unassign, which is still a territory write (SRA-2: a rep id)
   })
 
 describe('C3d — the remaining capabilities refuse', () => {

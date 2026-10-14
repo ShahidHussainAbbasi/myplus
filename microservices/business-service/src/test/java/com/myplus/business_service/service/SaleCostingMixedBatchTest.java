@@ -45,7 +45,7 @@ class SaleCostingMixedBatchTest {
 
     /** A sale line carrying SF-10's latest-purchase-rate snapshot — the fallback cost. */
     private static SagaLine line(long productId, float qty, String costPrice) {
-        return new SagaLine(productId, qty, new BigDecimal("300"), BigDecimal.ZERO,
+        return new SagaLine(productId, new BigDecimal(Float.toString(qty)), new BigDecimal("300"), BigDecimal.ZERO,
                 new BigDecimal("300"), new BigDecimal("300"), null,
                 BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("300"), new BigDecimal("300"), null,
                 costPrice == null ? null : new BigDecimal(costPrice), null, null,

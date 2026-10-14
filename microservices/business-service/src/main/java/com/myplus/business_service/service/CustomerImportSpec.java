@@ -43,7 +43,7 @@ import com.myplus.common.imports.ImportSpec;
  *       the balances went in.</li>
  *   <li><b>An account group.</b> Like any newly registered customer it is its own credit account (P4a) and
  *       falls back to its own limit, never to "no limit". A chain's hierarchy is set after the import.</li>
- *   <li><b>A territory.</b> {@code assignedRepUserId} stays null, which under D2d reads as "visible to every
+ *   <li><b>A territory.</b> {@code defaultRepId} (SRA-2) stays null, which under D2d reads as "visible to every
  *       rep" — the same as any manually created outlet, not a special case.</li>
  * </ul>
  */

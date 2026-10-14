@@ -259,7 +259,7 @@ tr.row-voided .js-edit-row{display:none !important}
 									     out with the van, that one closes the money when it comes back. Same gate,
 									     for the same reason — it states who owes how much. -->
 									<li data-capability="fieldSales,collections" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showRoundSheet();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-list-alt"></span> <span th:text="#{ui.roundSheet}">Round sheet</span></a></li>
-									<li data-capability="fieldSales,journeyPlanning" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showTerritory();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-map-marker"></span> <span th:text="#{ui.territory}">Territory</span></a></li>
+									<li data-capability="fieldSales,journeyPlanning" th:if="${@perm.menu('territory')}"><a onclick="showTerritory();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-map-marker"></span> <span th:text="#{ui.territory}">Territory</span></a></li>
 									<li data-capability="collections" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')"><a onclick="showDriverSettlement();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-usd"></span> <span th:text="#{ui.driverSettlement}">Driver settlement</span></a></li>
 									<!-- OMS O3: per-org delivery fees / free-delivery threshold / cash-on-delivery. -->
 									<li sec:authorize="hasAuthority('ROLE_OWNER')"><a onclick="showOrderConfig();document.getElementById('snavStore').classList.remove('snav-open');"><span class="glyphicon glyphicon-cog"></span> <span th:text="#{ui.orderSettings}">Order settings</span></a></li>
@@ -1868,6 +1868,15 @@ tr.row-voided .js-edit-row{display:none !important}
 							</button>
 						</div>
 					</div>
+					<!-- SRA-2: the rep who usually covers this customer (territory, and from SRA-3 the order's default rep).
+					     Only for rep.manage holders (ui_menu action.rep.assign, auth V33): a rep must not hand themselves
+					     outlets, and the server refuses a change from anyone else. 0 = nobody (the shared pool). -->
+					<div class="form-group" th:if="${@perm.menu('action.rep.assign')}">
+						<label class="control-label col-sm-2" for="customerDefaultRepId" th:text="#{ui.usualRep}">Usual rep</label>
+						<div class="col-sm-4">
+							<select class="form-control" id="customerDefaultRepId" name="defaultRepId" data-sales-rep-picker></select>
+						</div>
+					</div>
 					<div class="form-group">
 						<label class="control-label col-sm-2" for="customerCnic" th:text="#{ui.docCnic}">CNIC No</label>
 						<div class="col-sm-4">
@@ -3180,9 +3189,38 @@ tr.row-voided .js-edit-row{display:none !important}
 				Single-column on purpose: every control is full-width and stacks, so it works at 360px without a
 				separate mobile layout. .booking-grid widens it on a desk (responsive.css owns the breakpoints).
 			-->
-			<!-- OMS O7 D6a — territory assignment. Owner/admin only; business-service refuses it to a rep,
-			     and this markup is hidden from one, so the two agree rather than relying on the screen alone. -->
-			<div id="TerritoryDiv" data-capability="fieldSales,journeyPlanning" class="formDiv" style="display:none" sec:authorize="hasAnyAuthority('ROLE_OWNER','ADMIN_PRIVILEGE','SUPER_PRIVILEGE')">
+			<!-- OMS O7 D6a + SRA-2 — the sales reps and who covers each outlet. Gated on the rep.manage permission (ui_menu
+			     'territory', auth V33) — data, not role names; business-service refuses the same to anyone without it. -->
+			<div id="TerritoryDiv" data-capability="fieldSales,journeyPlanning" class="formDiv" style="display:none" th:if="${@perm.menu('territory')}">
+				<!-- SRA-2: the rep LIST. A rep is a person, with or without a login; deactivating keeps their history. -->
+				<div class="panel panel-default" id="salesRepPanel">
+					<div class="panel-heading">
+						<h4 class="panel-title" th:text="#{ui.salesReps}">Sales reps</h4>
+						<p class="help-block" style="margin:6px 0 0" th:text="#{ui.salesRepsHelp}">Everyone who books orders or sells for you. Link a login only for a rep who signs in.</p>
+					</div>
+					<div class="panel-body">
+						<div class="row" style="margin-bottom:10px">
+							<div class="col-sm-4 col-xs-12"><label for="srNewName" th:text="#{ui.name}">Name</label>
+								<input type="text" class="form-control" id="srNewName" maxlength="120" data-no-search="true"></div>
+							<div class="col-sm-3 col-xs-12"><label for="srNewPhone" th:text="#{ui.phone}">Phone</label>
+								<input type="text" class="form-control" id="srNewPhone" maxlength="40"></div>
+							<div class="col-sm-3 col-xs-12"><label for="srNewLogin" th:text="#{ui.salesRepLogin}">Login</label>
+								<select class="form-control" id="srNewLogin" data-no-search></select></div>
+							<div class="col-sm-2 col-xs-12" style="margin-top:24px">
+								<button type="button" class="btn btn-primary" id="srAdd" th:text="#{ui.salesRepAdd}">Add rep</button></div>
+						</div>
+						<div id="srNotice" class="alert alert-info" style="display:none"></div>
+						<div class="table-responsive">
+							<table class="table table-striped" id="srTable">
+								<thead><tr>
+									<th th:text="#{ui.name}">Name</th><th th:text="#{ui.phone}">Phone</th>
+									<th th:text="#{ui.salesRepLogin}">Login</th><th th:text="#{ui.status}">Status</th><th></th>
+								</tr></thead>
+								<tbody id="srBody"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
 				<div class="panel panel-default">
 					<div class="panel-heading">
 						<h4 class="panel-title" th:text="#{ui.territory}">Territory</h4>

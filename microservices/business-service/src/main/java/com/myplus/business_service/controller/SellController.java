@@ -1066,7 +1066,7 @@ public class SellController {
 						if (!(o instanceof com.myplus.business_service.dto.SaleReportGroup)) continue;
 						com.myplus.business_service.dto.SaleReportGroup g =
 								(com.myplus.business_service.dto.SaleReportGroup) o;
-						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), g.getQuantity(),
+						grouped.add(java.util.Arrays.asList(g.getLabel(), g.getInvoices(), com.myplus.business_service.util.Quantities.plain(g.getQuantity()),   // NUM-1: 2, not 2.0000
 								g.getTotal(), g.getTax(), g.getGross()));
 					}
 				}
@@ -1088,7 +1088,7 @@ public class SellController {
 					rows.add(java.util.Arrays.asList(
 							r.getDated(), r.getInvoiceNo(), r.getCn(), r.getCustomerType(),
 							r.getItemCode(), r.getItemName(), r.getCategory(),
-							r.getQuantity(), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));
+							com.myplus.business_service.util.Quantities.plain(r.getQuantity()), r.getSellRate(), r.getTotalAmount(), r.getTaxAmount()));   // NUM-1: Qty reads 2, money keeps 2 places
 				}
 			}
 			String csv = com.myplus.common.imports.CsvWriter.write(

@@ -108,7 +108,7 @@ class SharedPoolCreditTest {
 
     private static List<SagaLine> lineOf(double net) {
         return List.of(new SagaLine(
-                1L, 1f, BigDecimal.valueOf(net), BigDecimal.ZERO, BigDecimal.valueOf(net),
+                1L, BigDecimal.ONE, BigDecimal.valueOf(net), BigDecimal.ZERO, BigDecimal.valueOf(net),
                 BigDecimal.valueOf(net), null, null, null, null, null, null, null, null, null,
                 null, null, null, null));   // U2: soldUnit/soldQuantity/soldRate/packSizeSnapshot
     }
